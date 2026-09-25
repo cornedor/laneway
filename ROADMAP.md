@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Next
+- Rename for GitHub (jiratui taken): shortlist laneway / tixel / lanekeeper — awaiting pick
 - Configurable (user ask, 2026-09-25) — `ui:` section, one step per iteration:
   - warn when two actions in one scope share a key
   - theme: issue type icon colours; named presets (`theme: tokyonight`)
