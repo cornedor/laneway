@@ -39,8 +39,22 @@ func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, starte
 	return nil
 }
 
+// DeleteWorklog removes worklog id from key.
+func (c *Client) DeleteWorklog(ctx context.Context, key, id string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/worklog/" + url.PathEscape(id)
+	if err := c.do(ctx, http.MethodDelete, path, key, nil, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // Worklog is one entry of your own.
 type Worklog struct {
+	ID           string
 	Key, Summary string
 	Seconds      int
 	Started      time.Time
@@ -77,6 +91,7 @@ func (c *Client) MyWorklogs(ctx context.Context, day time.Time) ([]Worklog, erro
 			_ = json.Unmarshal(is.Fields["summary"], &summary)
 			var resp struct {
 				Worklogs []struct {
+					ID               string          `json:"id"`
 					Author           user            `json:"author"`
 					Started          string          `json:"started"`
 					TimeSpentSeconds int             `json:"timeSpentSeconds"`
@@ -93,7 +108,7 @@ func (c *Client) MyWorklogs(ctx context.Context, day time.Time) ([]Worklog, erro
 				if w.Author.AccountID != me.AccountID || started.Before(from) || !started.Before(to) {
 					continue
 				}
-				wl := Worklog{Key: is.Key, Summary: summary, Seconds: w.TimeSpentSeconds, Started: started}
+				wl := Worklog{ID: w.ID, Key: is.Key, Summary: summary, Seconds: w.TimeSpentSeconds, Started: started}
 				if len(w.Comment) > 0 && string(w.Comment) != "null" {
 					wl.Comment = strings.TrimSpace(adfToMarkdown(w.Comment))
 				}

@@ -119,6 +119,10 @@ type jiraPickerState struct {
 	all         []jiraPickerItem // a locally filtered picker's full list
 	bulk        []string         // the marked keys a pick applies to, none for one issue
 	text        string           // the standup's text (standup.go)
+	// day is the timesheet's day; pendingDelete the entry a first d picked
+	// (worklog.go).
+	day           time.Time
+	pendingDelete string
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -450,6 +454,11 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraPickerMove(1)
 		return m, nil
 	}
+	if m.jiraPicker.kind == jiraPickTimesheet {
+		if cmd, ok := m.timesheetKey(msg.String()); ok {
+			return m, cmd
+		}
+	}
 	// Digit accelerators 1..9 over the (short) fixed list.
 	if s := msg.String(); len(s) == 1 && s[0] >= '1' && s[0] <= '9' {
 		idx := int(s[0] - '1')
@@ -574,10 +583,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
 		m.closeJiraPicker()
-		if it.id == "" {
+		key, _, _ := strings.Cut(it.id, "/") // a worklog row is key/id
+		if key == "" {
 			return m, nil
 		}
-		return m.openJiraKey(it.id)
+		return m.openJiraKey(key)
 	}
 	if kind == jiraPickBulk {
 		m.closeJiraPicker()

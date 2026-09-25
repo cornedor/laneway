@@ -17,8 +17,11 @@ import (
 func worklogJira(t *testing.T, m *Model, bodies *[]map[string]any) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var b map[string]any
+		b := map[string]any{}
 		_ = json.NewDecoder(r.Body).Decode(&b)
+		if r.Method == http.MethodGet {
+			return // the reload after a delete
+		}
 		b["path"] = r.URL.Path
 		*bodies = append(*bodies, b)
 		w.WriteHeader(http.StatusCreated)
@@ -108,5 +111,34 @@ func TestTimesheet(t *testing.T) {
 	out, _ = m.applyJiraPick()
 	if m = out.(Model); !m.refOpen || m.refs[m.refIdx].jiraKey != "ABC-2" {
 		t.Error("enter should open the issue")
+	}
+}
+
+// TestTimesheetDays: [ ] step the day; d twice deletes the entry.
+func TestTimesheetDays(t *testing.T) {
+	var bodies []map[string]any
+	m := jiraTabModel(t)
+	worklogJira(t, &m, &bodies)
+	out, _ := m.handleJiraKey(keyMsg(t, "W"))
+	m = out.(Model)
+	today := m.jiraPicker.day
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "["))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.day.Format(time.DateOnly) != today.AddDate(0, 0, -1).Format(time.DateOnly) || m.jiraPicker.title != "Yesterday" {
+		t.Fatalf("day %v, title %q", m.jiraPicker.day, m.jiraPicker.title)
+	}
+	m.setJiraPickerItems([]jiraPickerItem{{id: "ABC-2/10101", label: "09:00  1h  ABC-2"}})
+	out, cmd := m.handleJiraPickerKey(keyMsg(t, "d"))
+	m = out.(Model)
+	if cmd != nil || !strings.Contains(m.status, "d again") {
+		t.Fatalf("first d: status %q", m.status)
+	}
+	_, cmd = m.handleJiraPickerKey(keyMsg(t, "d"))
+	if cmd == nil {
+		t.Fatal("second d should delete")
+	}
+	cmd()
+	if len(bodies) == 0 || bodies[0]["path"] != "/rest/api/3/issue/ABC-2/worklog/10101" {
+		t.Errorf("requests = %v", bodies)
 	}
 }

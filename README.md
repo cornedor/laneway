@@ -213,7 +213,8 @@ Copy as text, puts it on the clipboard grouped per issue, ready to paste.
 `2d` of 8h), ending now. `T` starts a timer on the card or panel issue,
 shown in the header and kept across restarts; `T` again stops it into the
 same input, filled with the time and started when the timer did. `W` lists
-what you logged today; `enter` opens the issue.
+what you logged today with the day's total; `[` `]` step a day, `d` twice
+deletes an entry, `enter` opens the issue.
 
 ## Planning
 

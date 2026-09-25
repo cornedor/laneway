@@ -11,8 +11,7 @@
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 3: start / complete a sprint from here (unfinished issues to the next)
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
-- Worklogs step 2: timesheet by week (`[` `]` days), edit/delete an entry,
-  `S` start work also starts the timer (`ui.timer_on_start`)
+- Worklogs step 3: edit an entry, `S` start work also starts the timer (`ui.timer_on_start`)
 - Description step 2: keep unknown nodes as placeholders (`<!-- adf:1 -->`)
   so tables and mentions survive an edit; escape markdown-like text; `E` for
   comments too
@@ -27,6 +26,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Timesheet: `[` `]` step a day with its total, `d` twice deletes an entry
 - Burndown counts scope added mid-sprint (from the Sprint field's changelog), shows +Np added
 - Planning: `ui.capacity` per person (red when over), marked cards move together
 - `X` marks the lane or every shown row (toggle)
