@@ -142,3 +142,17 @@ func TestTimesheetDays(t *testing.T) {
 		t.Errorf("requests = %v", bodies)
 	}
 }
+
+// TestTimerOnStart: with ui.timer_on_start, S's success starts the timer.
+func TestTimerOnStart(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraWork(jiraWorkMsg{key: "ABC-1", path: "/w"})
+	if m = out.(Model); m.timer.key != "" {
+		t.Fatal("off by default")
+	}
+	m.opts.timerOnStart = true
+	out, cmd := m.handleJiraWork(jiraWorkMsg{key: "ABC-1", path: "/w"})
+	if m = out.(Model); m.timer.key != "ABC-1" || cmd == nil || !strings.Contains(m.status, "timer started") {
+		t.Errorf("timer %+v, status %q", m.timer, m.status)
+	}
+}

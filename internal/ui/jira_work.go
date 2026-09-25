@@ -108,6 +108,12 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	default:
 		m.status = msg.key + ": claude started in " + msg.path
 	}
+	if m.opts.timerOnStart && m.timer.key == "" {
+		status := m.status
+		cmd := m.toggleTimer(msg.key)
+		m.status = status + " · timer started"
+		return m, cmd
+	}
 	return m, nil
 }
 

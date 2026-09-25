@@ -64,6 +64,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// TimerOnStart is "on" to start the timer when S starts work on an
+	// issue (and none runs), "off" by default.
+	TimerOnStart string `yaml:"timer_on_start"`
 	// Capacity is story points per person a sprint holds, by display name;
 	// "default" for everyone not named. Planning shows who is over.
 	Capacity map[string]float64 `yaml:"capacity"`

@@ -58,6 +58,7 @@ ui:
   views:                        # extra views of every board, after its own ([ ])
     - {name: Mine, jql: "assignee = currentUser()"}
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
+  timer_on_start: on            # S (start work) also starts the timer (off)
   saved_filters: on             # your starred Jira filters as views too (off)
   keys:              # rebind any action: one key or a list
     search: f

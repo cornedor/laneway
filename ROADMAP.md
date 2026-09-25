@@ -7,7 +7,7 @@
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 4: create a sprint, edit its name / goal / dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
-- Worklogs step 3: edit an entry, `S` start work also starts the timer (`ui.timer_on_start`)
+- Worklogs step 4: edit an entry (time, comment)
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
 - Inbox step 3: notify (OSC 777) on a new mention
 - Links step 3: move a subtask to another parent
@@ -18,6 +18,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `ui.timer_on_start: on`: S (start work) also starts the timer
 - JQL: past searches on an empty input, `ctrl+s` stars a query as a view of every board
 - Planning: `S` starts a sprint, `C C` completes the active one (unfinished to the next sprint or backlog)
 - Panel fields: date-time (`fri 14:00`), parent by key, sprint picked from the board

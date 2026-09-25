@@ -24,6 +24,7 @@ type options struct {
 	views        []jiraView         // config JQL views
 	savedFilters bool               // starred Jira filters as views
 	capacity     map[string]float64 // sprint points per person, "default" for the rest
+	timerOnStart bool               // S also starts the timer
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -68,6 +69,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.capacity = map[string]float64{}
 		}
 		o.capacity[name] = pts
+	}
+	switch strings.ToLower(strings.TrimSpace(c.TimerOnStart)) {
+	case "", "off":
+	case "on":
+		o.timerOnStart = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.timer_on_start: %q is not on or off", c.TimerOnStart))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.SavedFilters)) {
 	case "", "on":
