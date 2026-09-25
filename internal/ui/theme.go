@@ -32,10 +32,15 @@ func defaultTheme() theme {
 		"priority_high":    "9",
 		"priority_low":     "4",
 		"priority_lowest":  "8",
+		"type_bug":         "1", // issue type icons
+		"type_story":       "2",
+		"type_epic":        "5",
+		"type_subtask":     "8",
+		"type_other":       "4", // task and the rest
 	}
 }
 
-// curTheme is the theme applyTheme last set, for the priority marks.
+// curTheme is the theme applyTheme last set, for the priority marks and type icons.
 var curTheme theme
 
 func init() { applyTheme(defaultTheme()) }

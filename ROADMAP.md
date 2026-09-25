@@ -2,7 +2,7 @@
 
 ## Next
 - Configurable (user ask, 2026-09-25) — `ui:` section, one step per iteration:
-  - theme: issue type icon colours; named presets (`theme: tokyonight`)
+  - theme: named presets (`theme: tokyonight`)
   - `views:` extra JQL-backed views next to sprint/backlog
   - `card_limit` (now fixed CardLimit)
 - `rules:` client-side rules like matterbox (docs/rules.md there), user ask 2026-09-25.
@@ -19,6 +19,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `ui.theme`: issue type icon colours (type_bug … type_other)
 - `ui.keys`: warn when a key does two things on the board or in the panel
 - Renamed to laneway (module github.com/cornedor/laneway); jiratui config/state migrate
 - `ui.quick_filters`: JQL presets before the board's own

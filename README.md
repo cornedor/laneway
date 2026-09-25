@@ -71,7 +71,7 @@ linked_issue back.
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
-priority_lowest.
+priority_lowest type_bug type_story type_epic type_subtask type_other.
 
 State (last project, board, view, filters, cached boards) lives in
 `~/.config/laneway/state.json`. An existing `~/.config/jiratui` or matterbox

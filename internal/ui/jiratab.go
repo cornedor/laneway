@@ -1083,15 +1083,15 @@ func jiraTypeIcon(t string) string {
 	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
 	switch strings.ToLower(t) {
 	case "bug":
-		return st("1").Render("")
+		return st(curTheme["type_bug"]).Render("")
 	case "story":
-		return st("2").Render("")
+		return st(curTheme["type_story"]).Render("")
 	case "epic":
-		return st("5").Render("")
+		return st(curTheme["type_epic"]).Render("")
 	case "sub-task", "subtask":
-		return st("8").Render("")
+		return st(curTheme["type_subtask"]).Render("")
 	}
-	return st("4").Render("")
+	return st(curTheme["type_other"]).Render("")
 }
 
 // jiraPriorityMark marks a card's priority, "" for medium or none: the
