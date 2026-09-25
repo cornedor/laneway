@@ -40,7 +40,7 @@ type keyMap struct {
 	OpenAttach, Refresh               key.Binding
 	JiraStatus, JiraPriority          key.Binding
 	JiraPoints, JiraAssignee          key.Binding
-	JiraSummary                       key.Binding
+	JiraSummary, JiraLabels           key.Binding
 	JiraComment, JiraReply, JiraStart key.Binding
 	JiraLinks, Back, Image            key.Binding
 
@@ -79,6 +79,7 @@ func defaultKeys() keyMap {
 		JiraPriority: bind("change priority", "p"),
 		JiraPoints:   bind("set story points", "P"),
 		JiraSummary:  bind("edit summary", "e"),
+		JiraLabels:   bind("edit labels", "l"),
 		JiraAssignee: bind("change assignee", "a"),
 		JiraComment:  bind("add comment", "c"),
 		JiraReply:    bind("reply to comment", "R"),
@@ -177,9 +178,9 @@ type Model struct {
 	jiraCreateInput  textinput.Model
 
 	jiraPicker jiraPickerState
-	// The one-line field input: story points or the summary.
+	// The one-line field input: story points, the summary or labels.
 	jiraFieldActive bool
-	jiraFieldName   string // "points" or "summary"
+	jiraFieldName   string // "points", "summary" or "labels"
 	jiraFieldKey    string
 	jiraFieldInput  textinput.Model
 

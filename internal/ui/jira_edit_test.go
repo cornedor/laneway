@@ -401,3 +401,41 @@ func TestJiraEditSummary(t *testing.T) {
 		t.Errorf("body = %q", gotBody)
 	}
 }
+
+// TestJiraEditLabels: l opens the labels space separated; enter writes the
+// set, unchanged closes without a write, and empty clears.
+func TestJiraEditLabels(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(b))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraIssue.Labels = []string{"backend", "urgent"}
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleRefKey(keyStr("l"))
+	m = out.(Model)
+	if m.jiraFieldName != "labels" || m.jiraFieldInput.Value() != "backend urgent" {
+		t.Fatalf("input: field %q, value %q", m.jiraFieldName, m.jiraFieldInput.Value())
+	}
+	m.jiraFieldInput.SetValue(" backend   urgent ")
+	if _, cmd := m.applyJiraField(); cmd != nil {
+		t.Error("unchanged labels should not write")
+	}
+	for _, v := range []string{"backend ui", ""} {
+		m.openJiraLabelsInput()
+		m.jiraFieldInput.SetValue(v)
+		_, cmd := m.applyJiraField()
+		if cmd == nil {
+			t.Fatalf("%q: no write", v)
+		}
+		if msg := cmd().(jiraMutatedMsg); msg.err != nil {
+			t.Fatal(msg.err)
+		}
+	}
+	if len(bodies) != 2 || bodies[0] != `{"fields":{"labels":["backend","ui"]}}` || bodies[1] != `{"fields":{"labels":[]}}` {
+		t.Errorf("bodies = %q", bodies)
+	}
+}

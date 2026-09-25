@@ -17,7 +17,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"up": &k.Up, "down": &k.Down, "left": &k.Left, "right": &k.Right,
 		"top": &k.Home, "bottom": &k.End, "page_up": &k.PageUp, "page_down": &k.PageDown,
 		"open": &k.OpenChannel, "toggle_panel": &k.OpenRef, "browser": &k.OpenAttach, "refresh": &k.Refresh,
-		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints, "summary": &k.JiraSummary,
+		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints, "summary": &k.JiraSummary, "labels": &k.JiraLabels,
 		"assign": &k.JiraAssignee, "comment": &k.JiraComment, "reply": &k.JiraReply,
 		"start_work": &k.JiraStart, "linked_issue": &k.JiraLinks, "back": &k.Back, "image": &k.Image,
 		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "goto": &k.Goto, "create": &k.Create,
@@ -63,7 +63,7 @@ var keyScopes = []struct {
 		"next_view", "prev_view", "toggle_mode", "sort", "assignee_filter", "mine", "clear_filters",
 	}},
 	{"panel", []string{
-		"status", "priority", "points", "assign", "comment", "reply", "start_work",
+		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "help", "refresh", "toggle_panel",
 	}},
 }

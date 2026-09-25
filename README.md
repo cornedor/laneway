@@ -2,7 +2,7 @@
 
 A terminal board for Jira. One board of one project as swim lanes or a list,
 the selected issue in a panel on the right. Move cards, change status,
-priority, points, assignee and summary, comment and reply, all without leaving the
+priority, points, assignee, summary and labels, comment and reply, all without leaving the
 terminal.
 
 - Swim lanes or a sortable list, with drag and drop between lanes
@@ -70,7 +70,7 @@ bound to two actions on the board or in the panel.
 Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right
 create project board next_view prev_view toggle_mode sort assignee_filter mine
-clear_filters · panel: status priority points summary assign comment reply start_work
+clear_filters · panel: status priority points summary labels assign comment reply start_work
 linked_issue back image.
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
@@ -145,7 +145,7 @@ Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort li
 `y`/`Y` copy key/URL · `r` refresh · `tab` panel · `q` quit. Cards drag
 between lanes with the mouse.
 
-Panel: `s` status · `p` priority · `P` points · `e` summary · `a` assignee · `c` comment ·
+Panel: `s` status · `p` priority · `P` points · `e` summary · `l` labels · `a` assignee · `c` comment ·
 `R` reply · `L` linked issue · `i` images full size (← →) · `backspace` previous
 issue · `S` start work ·
 `o` browser · `y`/`Y` copy · `r` refresh · `esc` close.

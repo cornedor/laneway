@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -282,16 +283,28 @@ func (m *Model) openJiraPointsInput() {
 
 // openJiraSummaryInput shows the summary input seeded with the current one.
 func (m *Model) openJiraSummaryInput() {
+	m.openJiraTextInput("summary", m.jiraIssue.Summary, "", 255) // Jira's summary limit
+}
+
+// openJiraLabelsInput shows the labels, space separated: a label has no
+// spaces.
+func (m *Model) openJiraLabelsInput() {
+	m.openJiraTextInput("labels", strings.Join(m.jiraIssue.Labels, " "), "space separated (empty clears)", 0)
+}
+
+// openJiraTextInput opens the wide field input for field, seeded with value.
+func (m *Model) openJiraTextInput(field, value, placeholder string, limit int) {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.CharLimit = 255 // Jira's summary limit
+	ti.Placeholder = placeholder
+	ti.CharLimit = limit
 	ti.SetWidth(max(min(m.width-16, 72), 16))
-	ti.SetValue(m.jiraIssue.Summary)
+	ti.SetValue(value)
 	ti.CursorEnd()
 	ti.Focus()
 	m.jiraFieldInput = ti
 	m.jiraFieldActive = true
-	m.jiraFieldName = "summary"
+	m.jiraFieldName = field
 	m.jiraFieldKey = m.jiraIssue.Key
 }
 
@@ -556,6 +569,14 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
 	}
+	if field == "labels" {
+		labels := strings.Fields(raw)
+		if m.jiraIssue != nil && m.jiraIssue.Key == key && slices.Equal(labels, m.jiraIssue.Labels) {
+			m.closeJiraField()
+			return m, nil
+		}
+		run = func() error { return client.SetLabels(ctx, key, labels) }
+	}
 	m.closeJiraField()
 	m.status = fmt.Sprintf("updating %s %s…", key, field)
 	return m, jiraMutateCmd(key, field, run)
@@ -699,8 +720,11 @@ func (m *Model) renderJiraFieldInput() string {
 		return ""
 	}
 	title, hint, outerW := "Set story points", "↵ save · empty clears · esc cancel", 40
-	if m.jiraFieldName == "summary" {
+	switch m.jiraFieldName {
+	case "summary":
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+	case "labels":
+		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
 	}
 	if outerW > m.width-4 {
 		outerW = m.width - 4

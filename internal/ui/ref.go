@@ -174,6 +174,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.JiraSummary):
 			m.openJiraSummaryInput()
 			return m, nil
+		case key.Matches(msg, m.keys.JiraLabels):
+			m.openJiraLabelsInput()
+			return m, nil
 		case key.Matches(msg, m.keys.JiraAssignee):
 			return m, m.openJiraAssigneePicker()
 		case key.Matches(msg, m.keys.JiraComment):
