@@ -62,4 +62,16 @@ rules:
 	if rulesCmd([]string{"bogus"}, &out, &errOut) != 2 {
 		t.Error("bad subcommand exit")
 	}
+	out.Reset()
+	p3 := filepath.Join(t.TempDir(), "j.yaml")
+	_ = os.WriteFile(p3, []byte("rules:\n  - {name: close, actions: [{type: transition, to: Done}]}\n"), 0o600)
+	rulesCmd([]string{"test", "-config", p3}, &out, &errOut)
+	if !strings.Contains(out.String(), "only on others' changes") {
+		t.Errorf("jira action note:\n%s", out.String())
+	}
+	out.Reset()
+	rulesCmd([]string{"test", "-config", p3, "-by-me", "false"}, &out, &errOut)
+	if !strings.Contains(out.String(), "✓ close  transition  → Done") {
+		t.Errorf("jira action:\n%s", out.String())
+	}
 }

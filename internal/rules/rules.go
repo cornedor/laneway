@@ -63,17 +63,23 @@ type Match struct {
 
 // Action is what a firing rule does.
 type Action struct {
-	Type    string   `yaml:"type"`    // log, notify or exec
+	Type    string   `yaml:"type"`    // log, notify, exec, highlight, transition or comment
 	Text    string   `yaml:"text"`    // log line or notification body; "" says what changed
 	Title   string   `yaml:"title"`   // notify: the title, "" for laneway
 	Command []string `yaml:"command"` // exec: argv
 	Color   string   `yaml:"color"`   // highlight: ANSI 0–255 or #rrggbb, "" for the theme's
+	To      string   `yaml:"to"`      // transition: the status to move to
 }
 
 // Every text is a template over Vars: {{.Key}} {{.Summary}} {{.OldStatus}} …
 
 // actionTypes are the actions a rule can take.
-var actionTypes = []string{"log", "notify", "exec", "highlight"}
+var actionTypes = []string{"log", "notify", "exec", "highlight", "transition", "comment"}
+
+// JiraAction reports whether an action type writes to Jira. Those fire only
+// on a change someone else made: a rule's own write, seen on the next
+// refresh, is yours, so it never feeds itself.
+func JiraAction(typ string) bool { return typ == "transition" || typ == "comment" }
 
 // StrList is one string or a list of them.
 type StrList []string
@@ -207,6 +213,12 @@ func compile(r Rule) (compiled, error) {
 		if a.Type == "exec" && len(a.Command) == 0 {
 			return c, fmt.Errorf("exec needs a command")
 		}
+		if a.Type == "transition" && strings.TrimSpace(a.To) == "" {
+			return c, fmt.Errorf("transition needs to: (a status name)")
+		}
+		if a.Type == "comment" && strings.TrimSpace(a.Text) == "" {
+			return c, fmt.Errorf("comment needs text")
+		}
 		if n, err := strconv.Atoi(a.Color); a.Color != "" && !(hexColor.MatchString(a.Color) || err == nil && n >= 0 && n <= 255) {
 			return c, fmt.Errorf("color %q is not 0–255 or #rrggbb", a.Color)
 		}
@@ -263,13 +275,17 @@ func (s *Set) Rules() []Rule {
 	return out
 }
 
-// UsesByMe reports whether any rule reads by_me, so events need an author.
+// UsesByMe reports whether any rule reads by_me or writes to Jira, so
+// events need an author.
 func (s *Set) UsesByMe() bool {
 	for _, r := range s.rules {
 		for m := &r.Match; m != nil; m = m.Not {
 			if m.ByMe != nil {
 				return true
 			}
+		}
+		if slices.ContainsFunc(r.Actions, func(a Action) bool { return JiraAction(a.Type) }) {
+			return true
 		}
 	}
 	return false
@@ -309,6 +325,7 @@ type Firing struct {
 	Title  string   // notify
 	Argv   []string // exec
 	Color  string   // highlight
+	To     string   // transition
 	Vars   map[string]string
 }
 
@@ -321,8 +338,11 @@ func (s *Set) Fire(ev Event) []Firing {
 		}
 		vars := Vars(ev)
 		for i, a := range r.Actions {
+			if JiraAction(a.Type) && (ev.ByMe == nil || *ev.ByMe) {
+				continue
+			}
 			ca := r.acts[i]
-			f := Firing{Rule: r.Name, Action: a.Type, Vars: vars, Text: render(ca.text, vars), Color: a.Color}
+			f := Firing{Rule: r.Name, Action: a.Type, Vars: vars, Text: render(ca.text, vars), Color: a.Color, To: a.To}
 			if f.Text == "" {
 				f.Text = Describe(ev)
 			}

@@ -128,6 +128,10 @@ func (w *watcher) fire(ctx context.Context, jql string, prev, cur []jira.Card) {
 				if err := rules.Exec(ctx, f); err != nil {
 					line = err.Error() + "\n"
 				}
+			case "transition", "comment":
+				if err := rules.JiraAct(ctx, w.c, f); err != nil {
+					line = err.Error() + "\n"
+				}
 			case "highlight":
 				continue
 			}

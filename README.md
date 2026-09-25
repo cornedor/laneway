@@ -79,7 +79,7 @@ linked_issue back image.
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
 priority_lowest type_bug type_story type_epic type_subtask type_other
-highlight.
+highlight roadmap_done roadmap_todo.
 
 ### Rules
 
@@ -106,7 +106,17 @@ rules:
         command: [notify-send, "{{.Key}}", "{{.Summary}}"]   # env; 30s timeout
       - type: highlight         # a ● on the card until you open it
         color: "#e0af68"        # optional, else the theme's highlight
+      - type: transition        # move the issue along its workflow
+        to: Closed
+      - type: comment           # post a comment
+        text: "Closed after {{.OldStatus}}"
 ```
+
+`transition` and `comment` write to Jira, so they fire only on a change the
+issue's changelog shows someone else made: never on yours, and never on
+their own writes coming back on the next refresh. A transition to the
+status the issue has does nothing; one its workflow doesn't offer is logged.
+`laneway rules test -by-me=false` shows them firing.
 
 A rule with `watch:` fires on the changes of its own JQL search instead,
 polled every `every:` (default 5m, at least 1m) while laneway runs, whichever

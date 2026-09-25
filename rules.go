@@ -93,7 +93,8 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 		ev.Old = jira.Card{}
 	}
 	fired := set.Fire(ev)
-	for _, x := range set.Explain(ev) {
+	all := set.Rules()
+	for i, x := range set.Explain(ev) {
 		if x.Text != "" {
 			fmt.Fprintf(tw, "  ✗ %s\t%s\n", name(x.Rule), x.Text)
 			continue
@@ -102,6 +103,13 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 			f := fired[0]
 			fired = fired[1:]
 			fmt.Fprintf(tw, "  ✓ %s\t%s\t%s\n", name(f.Rule), f.Action, describe(f))
+		}
+		if ev.ByMe == nil || *ev.ByMe {
+			for _, a := range all[i].Actions {
+				if rules.JiraAction(a.Type) {
+					fmt.Fprintf(tw, "  · %s\t%s\tonly on others' changes (-by-me=false)\n", name(x.Rule), a.Type)
+				}
+			}
 		}
 	}
 	return 0
@@ -121,6 +129,8 @@ func describe(f rules.Firing) string {
 		return f.Title + ": " + f.Text
 	case "exec":
 		return strings.Join(f.Argv, " ")
+	case "transition":
+		return "→ " + f.To
 	case "highlight":
 		if f.Color != "" {
 			return f.Color

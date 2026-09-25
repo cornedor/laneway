@@ -140,6 +140,8 @@ func (m *Model) fireRules(events []rules.Event) tea.Cmd {
 				cmds = append(cmds, tea.Raw(rules.NotifySeq(f.Title, f.Text)))
 			case "exec":
 				cmds = append(cmds, m.ruleExec(f))
+			case "transition", "comment":
+				cmds = append(cmds, m.ruleJira(f))
 			case "highlight":
 				if t.highlights == nil {
 					t.highlights = map[string]string{}
@@ -158,6 +160,17 @@ func (m *Model) fireRules(events []rules.Event) tea.Cmd {
 		m.renderJira()
 	}
 	return tea.Batch(cmds...)
+}
+
+// ruleJira runs a transition or comment action, logging a failure.
+func (m *Model) ruleJira(f rules.Firing) tea.Cmd {
+	ctx, c := m.ctx, m.jiraClient
+	return func() tea.Msg {
+		if err := rules.JiraAct(ctx, c, f); err != nil {
+			return rulesLoggedMsg{err}
+		}
+		return nil
+	}
 }
 
 // ruleExec runs an exec action.

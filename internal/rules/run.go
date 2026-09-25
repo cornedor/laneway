@@ -60,6 +60,38 @@ func Exec(ctx context.Context, f Firing) error {
 	return nil
 }
 
+// JiraAct runs a transition or comment action on the event's issue. A
+// transition to the status the issue already has does nothing.
+func JiraAct(ctx context.Context, c *jira.Client, f Firing) error {
+	ctx, cancel := context.WithTimeout(ctx, ExecTimeout)
+	defer cancel()
+	key := f.Vars["Key"]
+	switch f.Action {
+	case "transition":
+		if strings.EqualFold(f.Vars["Status"], f.To) {
+			return nil
+		}
+		opts, err := c.Transitions(ctx, key)
+		if err != nil {
+			return fmt.Errorf("%s: %s: %v", orUnnamed(f.Rule), key, err)
+		}
+		for _, o := range opts {
+			if strings.EqualFold(o.Name, f.To) {
+				if err := c.DoTransition(ctx, key, o.ID); err != nil {
+					return fmt.Errorf("%s: %s → %s: %v", orUnnamed(f.Rule), key, f.To, err)
+				}
+				return nil
+			}
+		}
+		return fmt.Errorf("%s: %s has no move to %s", orUnnamed(f.Rule), key, f.To)
+	case "comment":
+		if err := c.AddComment(ctx, key, f.Text, nil); err != nil {
+			return fmt.Errorf("%s: %s comment: %v", orUnnamed(f.Rule), key, err)
+		}
+	}
+	return nil
+}
+
 // envName turns OldStatus into OLD_STATUS.
 func envName(k string) string {
 	var b strings.Builder
