@@ -66,6 +66,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.LogWork, k.Timer), "log work / timer"},
 			row(k.Timesheet, "today's worklogs"),
 			row(k.Inbox, "inbox"),
+			row(k.IssueActions, "subtask / child, link, clone, watch"),
 			row(k.JiraStart, "start work"),
 			row(k.OpenAttach, "open in browser"),
 			{join(k.CopyKey, k.CopyURL), "copy key / URL"},

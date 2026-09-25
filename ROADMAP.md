@@ -23,7 +23,8 @@
   comments too
 - Inbox step 2: an unread count in the header, polled with the idle
   refresh; notify (OSC 777) on a new mention
-- Subtasks and links: create a subtask, link two issues, clone, watch/vote
+- Links step 2: remove a link from the Links section, vote, move a subtask
+  to another parent
 - Jira saved filters as views; multiple sites with a switcher
 - Prefetch the panel for the cards around the cursor; parallel page fetch
 - `rules:` Jira actions (user OK 2026-09-25): `transition` (to a status name)
@@ -32,6 +33,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel `A`: new subtask (epic: child issue), link to an issue (either direction), clone, watch
 - `I` inbox: others' changes, comments and mentions on your issues since last read
 - `E` description in `$EDITOR`: markdown ⇄ ADF, offered only when the round trip is exact
 - Worklogs: `w` logs (1h 30m …), `T` timer kept across restarts, `W` today's timesheet

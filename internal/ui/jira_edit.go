@@ -71,6 +71,10 @@ const (
 	jiraPickTimesheet
 	// jiraPickInbox lists what others did on your issues (inbox.go).
 	jiraPickInbox
+	// jiraPickIssueActions and jiraPickLinkType are the panel's A menu and
+	// its link types (issue_actions.go).
+	jiraPickIssueActions
+	jiraPickLinkType
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -518,6 +522,17 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.applyBulkPick(kind, bulk, it)
 	}
+	if kind == jiraPickIssueActions {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		return m, m.applyIssueAction(key, it.id)
+	}
+	if kind == jiraPickLinkType {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		m.openLinkTarget(key, it)
+		return m, nil
+	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox {
 		m.closeJiraPicker()
 		if it.id == "" {
@@ -613,6 +628,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	if field == "link" {
+		return m.applyLink(raw)
 	}
 	if field == "worklog" {
 		return m.applyWorklog(raw)
@@ -779,6 +797,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "link":
+		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↵ link · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":
 		title, hint, outerW = "Log work", "↵ log · esc cancel", m.jiraFieldInput.Width()+12
 	case "bulk-labels":

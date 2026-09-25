@@ -54,6 +54,7 @@ type keyMap struct {
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
 	JiraDescription, Inbox             key.Binding
+	IssueActions                       key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -121,6 +122,7 @@ func defaultKeys() keyMap {
 		Timer:           bind("start / stop the timer", "T"),
 		Timesheet:       bind("today's worklogs", "W"),
 		Inbox:           bind("inbox", "I"),
+		IssueActions:    bind("subtask, link, clone, watch", "A"),
 	}
 }
 
@@ -190,7 +192,12 @@ type Model struct {
 
 	jiraCreateActive bool
 	jiraCreateType   string
-	jiraCreateInput  textinput.Model
+	// jiraCreateParent is the issue a new subtask or epic child goes under,
+	// in jiraCreateProject; "" for a plain new issue.
+	jiraCreateParent, jiraCreateProject string
+	// jiraLinkChoice is the link type and direction picked for "link".
+	jiraLinkChoice  jiraPickerItem
+	jiraCreateInput textinput.Model
 
 	jiraPicker jiraPickerState
 	// fieldCursor is the panel's selected field (panel_fields.go), -1 for
@@ -342,6 +349,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case jiraWatchMsg:
+		return m.handleJiraWatch(msg)
 	case descLoadedMsg:
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:

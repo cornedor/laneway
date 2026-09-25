@@ -151,6 +151,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openTimesheet()
 	case key.Matches(msg, m.keys.Inbox):
 		return m, m.openInbox()
+	case key.Matches(msg, m.keys.IssueActions):
+		m.openIssueActions()
+		return m, nil
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 		return m, nil

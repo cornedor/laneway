@@ -2,6 +2,7 @@ package jira
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -27,6 +28,11 @@ type NewIssue struct {
 	Summary     string
 	Description string
 	Labels      []string
+	// Parent is the epic or, for a subtask, the issue it sits under.
+	Parent string
+	// DescriptionADF replaces Description with a ready document (a clone's).
+	DescriptionADF json.RawMessage
+	Priority       string // a priority id, "" for the default
 }
 
 // Projects lists the projects the user can create issues in, up to 100.
@@ -53,6 +59,15 @@ func (c *Client) Projects(ctx context.Context) ([]Project, error) {
 
 // IssueTypes lists the non-subtask issue types creatable in project.
 func (c *Client) IssueTypes(ctx context.Context, project string) ([]Option, error) {
+	return c.issueTypes(ctx, project, false)
+}
+
+// SubtaskTypes lists the project's subtask issue types.
+func (c *Client) SubtaskTypes(ctx context.Context, project string) ([]Option, error) {
+	return c.issueTypes(ctx, project, true)
+}
+
+func (c *Client) issueTypes(ctx context.Context, project string, subtask bool) ([]Option, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
@@ -71,7 +86,7 @@ func (c *Client) IssueTypes(ctx context.Context, project string) ([]Option, erro
 	}
 	var out []Option
 	for _, t := range append(resp.IssueTypes, resp.Values...) {
-		if !t.Subtask {
+		if t.Subtask == subtask {
 			out = append(out, Option{ID: t.ID, Name: t.Name})
 		}
 	}
@@ -136,8 +151,17 @@ func (c *Client) CreateIssue(ctx context.Context, in NewIssue) (string, error) {
 	if strings.TrimSpace(in.Description) != "" {
 		fields["description"] = textToADF(in.Description, nil)
 	}
+	if len(in.DescriptionADF) > 0 && string(in.DescriptionADF) != "null" {
+		fields["description"] = in.DescriptionADF
+	}
 	if len(in.Labels) > 0 {
 		fields["labels"] = in.Labels
+	}
+	if in.Parent != "" {
+		fields["parent"] = map[string]string{"key": in.Parent}
+	}
+	if in.Priority != "" {
+		fields["priority"] = map[string]string{"id": in.Priority}
 	}
 	var resp struct {
 		Key string `json:"key"`

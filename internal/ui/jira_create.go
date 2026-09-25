@@ -27,6 +27,7 @@ func (m *Model) openJiraCreate() tea.Cmd {
 		return nil
 	}
 	gen := m.startJiraPicker(jiraPickCreateType, "New issue in "+project, false)
+	m.jiraCreateParent, m.jiraCreateProject = "", ""
 	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
 	return func() tea.Msg {
 		types, err := c.IssueTypes(ctx, project)
@@ -59,13 +60,17 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraCreateActive = false
 		return m, nil
 	case "enter":
-		in := jira.NewIssue{Project: m.jiraTab.project, Type: m.jiraCreateType, Summary: m.jiraCreateInput.Value()}
+		in := jira.NewIssue{Project: m.jiraTab.project, Type: m.jiraCreateType, Summary: m.jiraCreateInput.Value(),
+			Parent: m.jiraCreateParent}
+		if m.jiraCreateParent != "" {
+			in.Project = m.jiraCreateProject
+		}
 		if in.Summary == "" {
 			return m, nil
 		}
 		m.jiraCreateActive = false
 		sprint := 0
-		if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint {
+		if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && in.Parent == "" {
 			sprint = v.sprint
 		}
 		m.status = "creating " + in.Type + " in " + in.Project + "…"
@@ -111,8 +116,16 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 func (m *Model) renderJiraCreate() string {
 	inner := 62
 	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).
-		Render("New " + m.jiraCreateType + " in " + m.jiraTab.project)
+		Render(m.jiraCreateTitle())
 	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render("↵ create · esc cancel")
 	body := lipgloss.JoinVertical(lipgloss.Left, header, "", m.jiraCreateInput.View(), "", hint)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
+}
+
+// jiraCreateTitle is "New Bug in ABC", or "New Sub-task of ABC-1".
+func (m *Model) jiraCreateTitle() string {
+	if m.jiraCreateParent != "" {
+		return "New " + m.jiraCreateType + " of " + m.jiraCreateParent
+	}
+	return "New " + m.jiraCreateType + " in " + m.jiraTab.project
 }
