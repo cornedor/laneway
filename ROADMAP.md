@@ -14,8 +14,7 @@
 - Worklogs step 3: edit an entry, `S` start work also starts the timer (`ui.timer_on_start`)
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
 - Inbox step 3: notify (OSC 777) on a new mention
-- Links step 2: remove a link from the Links section, vote, move a subtask
-  to another parent
+- Links step 3: move a subtask to another parent
 - Dev info step 2: an open PR marked on its board card (summary counts,
   fetched with the prefetch), commits
 - Attachments step 2: path completion in the upload input; paste an image from the clipboard
@@ -23,6 +22,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel `A`: remove a link, vote / take back the vote
 - Description edit keeps tables, media, mentions as `<!-- keep:N -->` lines, restored untouched on save
 - Header `✉ N`: issues of yours others changed since the inbox was read, polled every 5m
 - Timesheet: `[` `]` step a day with its total, `d` twice deletes an entry

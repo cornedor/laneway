@@ -155,3 +155,19 @@ func TestDownloadAction(t *testing.T) {
 		t.Errorf("content %q", b)
 	}
 }
+
+// TestUnlinkAction: A → remove a link lists the issue links, not the
+// parent; the pick deletes that link.
+func TestUnlinkAction(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	m.jiraIssue.Links = []jira.Link{{Rel: "parent", Key: "ABC-5"}, {Rel: "blocks", Key: "ABC-7", Summary: "Seven", LinkID: "10200"}}
+	m, _ = pickAction(t, m, "unlink")
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickUnlink || len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].label != "blocks ABC-7 Seven" {
+		t.Fatalf("picker = %+v", m.jiraPicker.items)
+	}
+	_, cmd := m.applyJiraPick()
+	cmd()
+	if w := writes(); len(w) != 1 || !strings.HasPrefix(w[0], "DELETE /rest/api/3/issueLink/10200") {
+		t.Errorf("writes = %q", w)
+	}
+}

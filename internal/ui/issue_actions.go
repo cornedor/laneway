@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // A in the panel: what else can be done with the issue — a subtask (or, on
@@ -34,8 +37,12 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "link", label: "Link to another issue"},
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
+		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
 		jiraPickerItem{id: "upload", label: "Upload a file"},
 	)
+	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
+		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
+	}
 	if len(iss.Attachments) > 0 {
 		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"})
 	}
@@ -98,6 +105,24 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			items = append(items, jiraPickerItem{id: a.ID + "/" + a.Filename, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size))})
 		}
 		m.setJiraPickerItems(items)
+	case "unlink":
+		if m.jiraIssue == nil || m.jiraIssue.Key != key {
+			return nil
+		}
+		m.startJiraPicker(jiraPickUnlink, "Remove a link from "+key, true)
+		m.jiraPicker.issueKey = key
+		var items []jiraPickerItem
+		for _, l := range m.jiraIssue.Links {
+			if l.LinkID != "" {
+				items = append(items, jiraPickerItem{id: l.LinkID, label: l.Rel + " " + l.Key + " " + l.Summary})
+			}
+		}
+		m.setJiraPickerItems(items)
+	case "vote":
+		return func() tea.Msg {
+			on, err := c.ToggleVote(ctx, key)
+			return jiraVoteMsg{key: key, on: on, err: err}
+		}
 	case "watch":
 		return func() tea.Msg {
 			on, err := c.ToggleWatch(ctx, key)
@@ -131,6 +156,32 @@ func (m Model) applyLink(raw string) (tea.Model, tea.Cmd) {
 	c, ctx := m.jiraClient, m.ctx
 	m.status = "linking " + key + " and " + target + "…"
 	return m, jiraMutateCmd(key, "links", func() error { return c.LinkIssues(ctx, typ, out, in) })
+}
+
+// jiraVoteMsg is a vote toggled.
+type jiraVoteMsg struct {
+	key string
+	on  bool
+	err error
+}
+
+func (m Model) handleJiraVote(msg jiraVoteMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case msg.err != nil:
+		m.status = msg.key + " vote: " + msg.err.Error()
+	case msg.on:
+		m.status = "voted for " + msg.key
+	default:
+		m.status = "took back the vote on " + msg.key
+	}
+	return m, nil
+}
+
+// unlinkJira removes the picked link from key.
+func (m *Model) unlinkJira(key string, it jiraPickerItem) tea.Cmd {
+	c, ctx, id := m.jiraClient, m.ctx, it.id
+	m.status = "removing link " + it.label + "…"
+	return jiraMutateCmd(key, "links", func() error { return c.DeleteLink(ctx, key, id) })
 }
 
 func (m Model) handleJiraWatch(msg jiraWatchMsg) (tea.Model, tea.Cmd) {

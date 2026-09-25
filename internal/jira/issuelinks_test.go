@@ -90,3 +90,18 @@ func TestClone(t *testing.T) {
 		t.Errorf("link = %s", w[1])
 	}
 }
+
+func TestDeleteLinkAndVote(t *testing.T) {
+	c, writes := fakeJira(t, map[string]string{"/rest/api/3/issue/ABC-1/votes": `{"hasVoted":false}`})
+	if err := c.DeleteLink(context.Background(), "ABC-1", "10200"); err != nil {
+		t.Fatal(err)
+	}
+	on, err := c.ToggleVote(context.Background(), "ABC-1")
+	if err != nil || !on {
+		t.Fatalf("vote %v %v", on, err)
+	}
+	w := writes()
+	if len(w) != 2 || !strings.HasPrefix(w[0], "DELETE /rest/api/3/issueLink/10200") || !strings.HasPrefix(w[1], "POST /rest/api/3/issue/ABC-1/votes") {
+		t.Errorf("writes = %q", w)
+	}
+}

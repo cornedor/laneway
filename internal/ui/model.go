@@ -370,6 +370,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraLoaded(msg)
 	case jiraDownloadedMsg:
 		return m.handleJiraDownloaded(msg)
+	case jiraVoteMsg:
+		return m.handleJiraVote(msg)
 	case jiraWatchMsg:
 		return m.handleJiraWatch(msg)
 	case descLoadedMsg:

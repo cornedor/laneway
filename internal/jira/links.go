@@ -8,6 +8,7 @@ type Link struct {
 	Key     string
 	Summary string
 	Status  string
+	LinkID  string // an issue link's id, for DeleteLink; "" for parent and subtasks
 }
 
 type apiLinked struct {
@@ -19,6 +20,7 @@ type apiLinked struct {
 }
 
 type apiIssueLink struct {
+	ID   string `json:"id"`
 	Type struct {
 		Inward  string `json:"inward"`
 		Outward string `json:"outward"`
@@ -44,9 +46,13 @@ func issueLinks(parent *apiLinked, links []apiIssueLink, subtasks []apiLinked) [
 	for _, l := range links {
 		switch {
 		case l.OutwardIssue != nil:
-			out = append(out, l.OutwardIssue.link(l.Type.Outward))
+			lk := l.OutwardIssue.link(l.Type.Outward)
+			lk.LinkID = l.ID
+			out = append(out, lk)
 		case l.InwardIssue != nil:
-			out = append(out, l.InwardIssue.link(l.Type.Inward))
+			lk := l.InwardIssue.link(l.Type.Inward)
+			lk.LinkID = l.ID
+			out = append(out, lk)
 		}
 	}
 	for i := range subtasks {

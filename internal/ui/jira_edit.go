@@ -85,6 +85,8 @@ const (
 	jiraPickDev
 	// jiraPickAttachment picks an attachment to download (issue_actions.go).
 	jiraPickAttachment
+	// jiraPickUnlink picks an issue link to remove (issue_actions.go).
+	jiraPickUnlink
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -432,7 +434,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -564,6 +566,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		m.status = "standup copied"
 		return m, tea.SetClipboard(text)
+	}
+	if kind == jiraPickUnlink {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		return m, m.unlinkJira(key, it)
 	}
 	if kind == jiraPickAttachment {
 		m.closeJiraPicker()

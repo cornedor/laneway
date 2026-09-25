@@ -57,6 +57,41 @@ func (c *Client) LinkIssues(ctx context.Context, typ, outward, inward string) er
 	return nil
 }
 
+// DeleteLink removes issue link id; key is the issue shown, to refetch.
+func (c *Client) DeleteLink(ctx context.Context, key, id string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	if err := c.do(ctx, http.MethodDelete, "/rest/api/3/issueLink/"+url.PathEscape(id), key, nil, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
+// ToggleVote adds or takes back your vote on key and reports whether you
+// now vote for it.
+func (c *Client) ToggleVote(ctx context.Context, key string) (bool, error) {
+	if !c.Enabled() {
+		return false, errNotConfigured
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/votes"
+	var resp struct {
+		HasVoted bool `json:"hasVoted"`
+	}
+	if err := c.do(ctx, http.MethodGet, path, key, nil, &resp); err != nil {
+		return false, err
+	}
+	method := http.MethodPost
+	if resp.HasVoted {
+		method = http.MethodDelete
+	}
+	if err := c.do(ctx, method, path, key, nil, nil); err != nil {
+		return resp.HasVoted, err
+	}
+	return !resp.HasVoted, nil
+}
+
 // ToggleWatch starts or stops you watching key and reports whether you now
 // do.
 func (c *Client) ToggleWatch(ctx context.Context, key string) (bool, error) {
