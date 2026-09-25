@@ -4,6 +4,29 @@
 - Panel field cursor step 2: every editable field from
   `GET /issue/{key}/editmeta` shown and editable, via the transition form's
   per-kind editors (jira_transition.go). Step 3: dates, sprint/epic.
+- Roadmap view (user ask 2026-09-25): epics (and plan-level parents) as bars
+  on a week/month timeline from start/due dates, falling back to their
+  children's sprints; children fold out below, progress by done points.
+  Zoom `+`/`-`, `H`/`L` shift a bar, `<`/`>` resize it (writes dates). Step 1:
+  read-only timeline of the project's epics.
+- Local issue cache with incremental sync (`updated >= last` JQL): boards open
+  instantly from disk, refresh fetches only changes, `/` searches every cached
+  issue, not just the loaded board
+- Command palette `:`: fuzzy over every action, view, board, filter and issue
+  key; JQL editor with field/value autocomplete (`/jql/autocompletedata`)
+- Bulk edit: `v` marks cards, then status / assignee / labels / sprint / priority
+  on all marked at once (one request per issue, progress in status bar)
+- Sprint planning view: backlog and next sprint side by side, points per
+  assignee against a capacity, drag or `M` between them, rank with `K`/`J`
+- Sprint charts: burndown / burnup, velocity of the last sprints, cumulative
+  flow; braille plots in a full-screen view
+- Worklogs: `w` logs time, a timer runs on the started issue, `W` today's
+  timesheet across issues
+- Description in `$EDITOR`: ADF ⇄ markdown round trip, keep unknown nodes
+- Inbox: mentions and changes on watched issues since last seen, `g i`
+- Subtasks and links: create a subtask, link two issues, clone, watch/vote
+- Jira saved filters as views; multiple sites with a switcher
+- Prefetch the panel for the cards around the cursor; parallel page fetch
 - `rules:` Jira actions (user OK 2026-09-25): `transition` (to a status name)
   and `comment` (templated text). Guard: never on your own change loop
   (a rule's write shows as a change on the next refresh; skip by_me echoes).
