@@ -275,7 +275,7 @@ func (m *Model) editJiraFormField() tea.Cmd {
 	f := m.jiraForm
 	ff := &f.fields[f.idx]
 	switch ff.Kind {
-	case jira.KindText, jira.KindNumber, jira.KindDoc, jira.KindComment:
+	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindDoc, jira.KindComment:
 		ti := textinput.New()
 		ti.Prompt = ""
 		ti.Placeholder = strings.ToLower(ff.Name) + "…"

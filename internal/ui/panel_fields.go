@@ -146,12 +146,16 @@ func (m *Model) editPanelField() tea.Cmd {
 	ff := m.extraFields()[i-len(panelFields)]
 	m.panelEditID = ff.ID
 	switch ff.Kind {
-	case jira.KindText, jira.KindNumber, jira.KindDoc:
+	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindDoc:
 		if strings.Contains(strings.TrimSpace(ff.val.Text), "\n") {
 			m.status = ff.Name + " has several lines — edit it in Jira (o)"
 			return nil
 		}
-		m.openJiraTextInput("field", ff.val.Text, "", 0)
+		hint := ""
+		if ff.Kind == jira.KindDate {
+			hint = "2006-01-02, today, +3d, fri"
+		}
+		m.openJiraTextInput("field", ff.val.Text, hint, 0)
 		return nil
 	}
 	return m.openFieldPicker(ff, m.jiraIssue.Key)

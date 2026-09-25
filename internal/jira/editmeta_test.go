@@ -22,6 +22,7 @@ func TestEditMeta(t *testing.T) {
 		  "customfield_2":{"name":"Reviewer","schema":{"type":"user"}},
 		  "customfield_3":{"name":"Team","schema":{"type":"option"},"allowedValues":[{"id":"7","value":"Core"}]},
 		  "customfield_4":{"name":"Due","schema":{"type":"date"}},
+		  "customfield_6":{"name":"Seen","schema":{"type":"datetime"}},
 		  "environment":{"name":"Environment","schema":{"type":"string","system":"environment"}}
 		}}}`)
 	}))
@@ -35,7 +36,7 @@ func TestEditMeta(t *testing.T) {
 	for _, f := range fields {
 		got = append(got, f.Name+":"+f.Kind)
 	}
-	want := []string{"Environment:doc", "Reviewer:user", "Team:option"}
+	want := []string{"Due:date", "Environment:doc", "Reviewer:user", "Team:option"}
 	if len(got) != len(want) {
 		t.Fatalf("fields = %v", got)
 	}
@@ -47,8 +48,8 @@ func TestEditMeta(t *testing.T) {
 	if v := DecodeValue(KindUser, values["customfield_2"]); len(v.Users) != 1 || v.Users[0].DisplayName != "Ada" {
 		t.Errorf("reviewer value = %+v", v)
 	}
-	if fields[2].Options[0].Name != "Core" {
-		t.Errorf("options = %+v", fields[2].Options)
+	if fields[3].Options[0].Name != "Core" {
+		t.Errorf("options = %+v", fields[3].Options)
 	}
 }
 

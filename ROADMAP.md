@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Next
-- Panel field cursor step 3: dates (date/datetime), sprint, parent/epic,
-  multi-line text fields in `$EDITOR`
+- Panel field cursor step 3: sprint, parent/epic, datetime, multi-line text
+  fields in `$EDITOR`
 - Roadmap view (user ask 2026-09-25): epics (and plan-level parents) as bars
   on a week/month timeline from start/due dates, falling back to their
   children's sprints; children fold out below, progress by done points.
@@ -32,6 +32,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Date fields (panel and transition form): 2026-10-01, today, +3d, -1w, fri
 - Panel shows every other editable field (editmeta); the cursor edits them: text, number, people, options
 - Panel field cursor: tab / shift-tab walk summary…labels, enter edits, esc drops
 - Images checked by the user in real terminals (2026-09-25)

@@ -167,3 +167,28 @@ func TestPanelExtraText(t *testing.T) {
 		t.Errorf("requests = %q", bodies)
 	}
 }
+
+// TestPanelExtraDate: a date field takes a typed day; a bad one keeps the
+// input with the reason.
+func TestPanelExtraDate(t *testing.T) {
+	var bodies []string
+	m := withExtra(t, &bodies)
+	m.panelExtra = append(m.panelExtra, jiraFormField{FieldMeta: jira.FieldMeta{ID: "duedate", Name: "Due date", Kind: jira.KindDate}})
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+2, "ABC-1"
+	out, _ := m.handleRefKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	m.jiraFieldInput.SetValue("soon")
+	out, cmd := m.applyJiraField()
+	if cmd != nil || !out.(Model).jiraFieldActive || !strings.Contains(out.(Model).status, "not a date") {
+		t.Fatalf("bad date: cmd %v, status %q", cmd != nil, out.(Model).status)
+	}
+	m.jiraFieldInput.SetValue("2026-10-01")
+	_, cmd = m.applyJiraField()
+	if cmd == nil {
+		t.Fatal("expected a write")
+	}
+	cmd()
+	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], `{"fields":{"duedate":"2026-10-01"}}`) {
+		t.Errorf("requests = %q", bodies)
+	}
+}

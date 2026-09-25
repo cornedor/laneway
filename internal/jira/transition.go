@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Moving an issue with the fields its workflow asks for. Jira's transition
@@ -29,6 +30,7 @@ const (
 	KindUsers   = "users"   // several people: [{"accountId": …}]
 	KindNumber  = "number"  // a float
 	KindText    = "text"    // a one-line string
+	KindDate    = "date"    // a day, "2006-01-02"
 	KindDoc     = "doc"     // prose, written as an ADF document
 	KindOption  = "option"  // one of AllowedValues: {"id": …}
 	KindOptions = "options" // several of AllowedValues: [{"id": …}]
@@ -148,6 +150,8 @@ func (f rawFieldMeta) meta(id string) FieldMeta {
 		fm.Kind = KindOption
 	case s.Type == "number":
 		fm.Kind = KindNumber
+	case s.Type == "date":
+		fm.Kind = KindDate
 	case s.Type == "string" && (strings.HasSuffix(s.Custom, ":textarea") || s.System == "description" || s.System == "environment"):
 		fm.Kind = KindDoc
 	case s.Type == "string":
@@ -215,7 +219,7 @@ func DecodeValue(kind string, raw json.RawMessage) Value {
 		if json.Unmarshal(raw, &f) == nil {
 			v.Text = strconv.FormatFloat(f, 'f', -1, 64)
 		}
-	case KindText:
+	case KindText, KindDate:
 		_ = json.Unmarshal(raw, &v.Text)
 	case KindDoc:
 		if json.Unmarshal(raw, &v.Text) != nil {
@@ -278,6 +282,15 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 		return f, true, nil
 	case KindText:
 		return v.Text, true, nil
+	case KindDate:
+		if strings.TrimSpace(v.Text) == "" {
+			return nil, true, nil
+		}
+		d, err := ParseDate(v.Text, time.Now())
+		if err != nil {
+			return nil, true, err
+		}
+		return d.Format(time.DateOnly), true, nil
 	case KindDoc:
 		if strings.TrimSpace(v.Text) == "" {
 			return nil, true, nil
