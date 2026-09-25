@@ -54,7 +54,7 @@ type keyMap struct {
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
 	JiraDescription, Inbox             key.Binding
-	IssueActions                       key.Binding
+	IssueActions, Site                 key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -123,6 +123,7 @@ func defaultKeys() keyMap {
 		Timesheet:       bind("today's worklogs", "W"),
 		Inbox:           bind("inbox", "I"),
 		IssueActions:    bind("subtask, link, clone, watch", "A"),
+		Site:            bind("switch Jira site", "@"),
 	}
 }
 
@@ -211,6 +212,11 @@ type Model struct {
 	// being logged began, zero for "back from now".
 	timer        workTimer
 	worklogStart time.Time
+	// sites are the configured Jira sites ("" is jira:), site the shown
+	// one; nextSite is set when the app ends to switch (sites.go).
+	sites    []string
+	site     string
+	nextSite *string
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField

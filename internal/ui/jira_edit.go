@@ -75,6 +75,8 @@ const (
 	// its link types (issue_actions.go).
 	jiraPickIssueActions
 	jiraPickLinkType
+	// jiraPickSite switches the Jira site (sites.go).
+	jiraPickSite
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -521,6 +523,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if bulk := m.jiraPicker.bulk; len(bulk) > 0 {
 		m.closeJiraPicker()
 		return m, m.applyBulkPick(kind, bulk, it)
+	}
+	if kind == jiraPickSite {
+		m.closeJiraPicker()
+		return m.pickSite(it.id)
 	}
 	if kind == jiraPickIssueActions {
 		key := m.jiraPicker.issueKey

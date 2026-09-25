@@ -52,6 +52,7 @@ func (m *Model) helpSections() []struct {
 			{"1-9 / " + helpKey(k.ClearFilters), "quick filter / clear"},
 			row(k.Refresh, "refresh"),
 			row(k.Tab, "to panel"),
+			row(k.Site, "switch Jira site"),
 			row(k.Quit, "quit"),
 		}},
 		{"Panel", []helpRow{

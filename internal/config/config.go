@@ -5,8 +5,10 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
@@ -26,7 +28,10 @@ type JiraConfig struct {
 
 type Config struct {
 	Jira JiraConfig `yaml:"jira"`
-	UI   UIConfig   `yaml:"ui"`
+	// Sites are more Jira instances by name, picked with -site or @ in the
+	// app; jira: is the default.
+	Sites map[string]JiraConfig `yaml:"sites"`
+	UI    UIConfig              `yaml:"ui"`
 	// Rules fire on the changes a board refresh shows; see internal/rules.
 	Rules []rules.Rule `yaml:"rules"`
 }
@@ -155,6 +160,34 @@ func Load(path string) (Config, string, error) {
 
 // StatePath is where the app keeps its state. A state file left by the old
 // jiratui name is copied over on first run.
+// Site is the Jira config for site: jira: for "", else sites[site].
+func (c Config) Site(site string) (JiraConfig, error) {
+	if site == "" {
+		return c.Jira, nil
+	}
+	j, ok := c.Sites[site]
+	if !ok {
+		return JiraConfig{}, fmt.Errorf("no site %q in sites:", site)
+	}
+	return j, nil
+}
+
+// SiteNames are the sites to switch between, "" (jira:) first, then by name.
+func (c Config) SiteNames() []string {
+	names := slices.Sorted(maps.Keys(c.Sites))
+	return append([]string{""}, names...)
+}
+
+// SiteStatePath is StatePath for site: its own file, as boards, views and
+// caches are per instance.
+func SiteStatePath(site string) (string, error) {
+	p, err := StatePath()
+	if err != nil || site == "" {
+		return p, err
+	}
+	return filepath.Join(filepath.Dir(p), "state-"+site+".json"), nil
+}
+
 func StatePath() (string, error) {
 	d, err := os.UserConfigDir()
 	if err != nil {

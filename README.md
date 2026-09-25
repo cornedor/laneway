@@ -32,6 +32,8 @@ jira:
   api_token: ...          # or JIRA_API_TOKEN
   projects: [ABC]         # listed first in the project picker
   repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree)
+sites:                    # more Jira instances: laneway -site club, or @ in the app
+  club: {base_url: https://club.atlassian.net, email: you@example.com, api_token: ...}
 ```
 
 Create a token at <https://id.atlassian.com/manage-profile/security/api-tokens>.
@@ -145,7 +147,7 @@ loaded issues, filtered by every word you type.
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
 `R` roadmap · `P` planning · `C` charts · `T` timer · `W` today's worklogs · `I` inbox · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
-`n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
+`@` switch site · `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
 Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (dates take `2026-10-01`, `today`, `+3d`, `fri`) · `s` status · `p` priority · `P` points · `e` summary · `E` description in `$EDITOR` · `l` labels ·

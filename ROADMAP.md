@@ -25,7 +25,6 @@
   refresh; notify (OSC 777) on a new mention
 - Links step 2: remove a link from the Links section, vote, move a subtask
   to another parent
-- Multiple Jira sites (`jira.sites:`) with a switcher; state per site
 - Prefetch the panel for the cards around the cursor; parallel page fetch
 - `rules:` Jira actions (user OK 2026-09-25): `transition` (to a status name)
   and `comment` (templated text). Guard: never on your own change loop
@@ -33,6 +32,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `sites:` more Jira instances: `-site name` or `@`, each with its own state file
 - Starred Jira filters as views (their own search, ORDER BY kept); `ui.saved_filters: off`
 - Panel `A`: new subtask (epic: child issue), link to an issue (either direction), clone, watch
 - `I` inbox: others' changes, comments and mentions on your issues since last read
