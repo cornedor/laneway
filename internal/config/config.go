@@ -51,12 +51,15 @@ type UIConfig struct {
 	CardFields []string `yaml:"card_fields"`
 	// QuickFilters are JQL presets shown before every board's own.
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
+	// Views are JQL-narrowed views of every board, after its own.
+	Views []QuickFilter `yaml:"views"`
 	// Theme is a preset name (theme: tokyonight) or colours by name, over
 	// an optional preset: {preset: nord, accent: "#7aa2f7"}.
 	Theme Theme `yaml:"theme"`
 }
 
-// QuickFilter is a named JQL clause, ANDed with the board's query when on.
+// QuickFilter is a named JQL clause, ANDed with the board's query: a quick
+// filter when on, a view always.
 type QuickFilter struct {
 	Name string `yaml:"name"`
 	JQL  string `yaml:"jql"`

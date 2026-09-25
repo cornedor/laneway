@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
@@ -88,5 +91,29 @@ func TestLocalQuickFilters(t *testing.T) {
 	}
 	if jql := jiraFilterJQL(jiraAssignee{}, got, map[int]bool{-1: true}); jql != "(type = Bug)" {
 		t.Errorf("jql = %q", jql)
+	}
+}
+
+func TestLocalViews(t *testing.T) {
+	o, warn := optionsFrom(config.UIConfig{Views: []config.QuickFilter{{Name: "Mine", JQL: "assignee = currentUser()"}, {JQL: "x"}}})
+	if len(o.views) != 1 || o.views[0].kind != jiraViewJQL || !o.views[0].lanes || len(warn) != 1 {
+		t.Fatalf("views = %+v, warn %v", o.views, warn)
+	}
+	var gotPath, gotJQL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotJQL = r.URL.Path, r.URL.Query().Get("jql")
+		_, _ = w.Write([]byte(`{"total":0,"issues":[]}`))
+	}))
+	defer srv.Close()
+	c := jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if _, _, err := fetchJiraView(context.Background(), c, 7, &jira.BoardConfig{}, o.views[0], "type = Bug"); err != nil {
+		t.Fatal(err)
+	}
+	if gotPath != "/rest/agile/1.0/board/7/issue" || gotJQL != "(assignee = currentUser()) AND (type = Bug)" {
+		t.Errorf("request = %s jql %q", gotPath, gotJQL)
+	}
+	back := cacheOf(jiraBoardMsg{views: o.views}, "").boardMsg(0).views
+	if len(back) != 1 || back[0] != o.views[0] {
+		t.Errorf("cache round trip = %+v", back)
 	}
 }

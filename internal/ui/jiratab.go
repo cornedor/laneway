@@ -43,15 +43,17 @@ const (
 	jiraViewBoard jiraViewKind = iota // a kanban board
 	jiraViewSprint
 	jiraViewBacklog
+	jiraViewJQL // a ui.views entry: the board's issues narrowed by jql
 )
 
-// jiraView is one issue list of a board: a sprint, the kanban board, or the
-// backlog. lanes is whether it may show as swim lanes; planning lists
+// jiraView is one issue list of a board: a sprint, the kanban board, the
+// backlog, or a configured JQL view. lanes is whether it may show as swim lanes; planning lists
 // (backlog, future sprints) are list-only.
 type jiraView struct {
 	kind   jiraViewKind
 	name   string
 	sprint int
+	jql    string
 	lanes  bool
 }
 
@@ -279,7 +281,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	seq, ctx, st, c := t.seq, m.ctx, m.store, m.jiraClient
 	configured := m.jiraProjects
 	readMode := !t.modeRead
-	assignee, quickOn, quickBoard, local := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick
+	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, m.opts.views
 	var cached tea.Cmd
 	if fromCache {
 		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode)
@@ -360,6 +362,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 				msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: "Backlog"})
 			}
 		}
+		msg.views = append(msg.views, localViews...)
 		if view == "" {
 			view, _, _ = st.GetMeta(jiraViewKey(board.ID))
 		}
@@ -410,6 +413,8 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 		return c.SprintIssues(ctx, board, v.sprint, filter, cfg.PointsField)
 	case jiraViewBacklog:
 		return c.BacklogIssues(ctx, board, filter, cfg.PointsField)
+	case jiraViewJQL:
+		return c.BoardIssues(ctx, board, andJQL(v.jql, filter), cfg.PointsField)
 	}
 	cards, total, err := c.BoardIssues(ctx, board, andJQL(jiraKanbanJQL, filter), cfg.PointsField)
 	if i := kanbanBacklog(cfg); i >= 0 && err == nil {

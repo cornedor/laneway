@@ -36,6 +36,7 @@ type jiraCacheView struct {
 	Kind   jiraViewKind
 	Name   string
 	Sprint int
+	JQL    string `json:",omitempty"`
 	Lanes  bool
 }
 
@@ -54,7 +55,7 @@ func cacheOf(msg jiraBoardMsg, filter string) jiraCache {
 		Quick: msg.quick, QuickOn: msg.quickOn, Assignee: [2]string{msg.assignee.id, msg.assignee.label},
 		StatusNames: msg.statusNames, Filter: filter, Cards: msg.cards, Total: msg.total}
 	for _, v := range msg.views {
-		c.Views = append(c.Views, jiraCacheView{Kind: v.kind, Name: v.name, Sprint: v.sprint, Lanes: v.lanes})
+		c.Views = append(c.Views, jiraCacheView{Kind: v.kind, Name: v.name, Sprint: v.sprint, JQL: v.jql, Lanes: v.lanes})
 	}
 	return c
 }
@@ -65,7 +66,7 @@ func (c jiraCache) boardMsg(seq int) jiraBoardMsg {
 		viewIdx: c.ViewIdx, quick: c.Quick, quickOn: c.QuickOn, assignee: jiraAssignee{id: c.Assignee[0], label: c.Assignee[1]},
 		statusNames: c.StatusNames, cards: c.Cards, total: c.Total}
 	for _, v := range c.Views {
-		msg.views = append(msg.views, jiraView{kind: v.Kind, name: v.Name, sprint: v.Sprint, lanes: v.Lanes})
+		msg.views = append(msg.views, jiraView{kind: v.Kind, name: v.Name, sprint: v.Sprint, jql: v.JQL, lanes: v.Lanes})
 	}
 	return msg
 }

@@ -20,6 +20,7 @@ type options struct {
 	dateFormat   string
 	fields       cardFields
 	quick        []jira.QuickFilter // config presets, ids -1, -2, …
+	views        []jiraView         // config JQL views
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -92,6 +93,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			continue
 		}
 		o.quick = append(o.quick, jira.QuickFilter{ID: -1 - len(o.quick), Name: q.Name, JQL: q.JQL})
+	}
+	for i, v := range c.Views {
+		if strings.TrimSpace(v.Name) == "" || strings.TrimSpace(v.JQL) == "" {
+			warn = append(warn, fmt.Sprintf("ui.views[%d]: needs name and jql", i))
+			continue
+		}
+		o.views = append(o.views, jiraView{kind: jiraViewJQL, name: v.Name, jql: v.JQL, lanes: true})
 	}
 	if c.CardFields != nil {
 		var f cardFields

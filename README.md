@@ -52,6 +52,8 @@ ui:
   card_fields: [type, priority, status, points, assignee, parent]
   quick_filters:                # JQL presets before the board's own (1-9)
     - {name: Bugs, jql: "type = Bug"}
+  views:                        # extra views of every board, after its own ([ ])
+    - {name: Mine, jql: "assignee = currentUser()"}
   keys:              # rebind any action: one key or a list
     search: f
     mine: [m, M]
