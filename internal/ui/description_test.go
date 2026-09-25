@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -76,5 +77,26 @@ func TestEditorCommand(t *testing.T) {
 	t.Setenv("EDITOR", "")
 	if got := editorCommand("/tmp/x.md").Args; got[0] != "vi" {
 		t.Errorf("args = %v", got)
+	}
+}
+
+// TestEditDescriptionKept: a placeholder line saves as the block it kept.
+func TestEditDescriptionKept(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	path := filepath.Join(t.TempDir(), "d.md")
+	os.WriteFile(path, []byte("changed\n\n<!-- keep:1 table: move or delete this line -->\n"), 0o600)
+	table := json.RawMessage(`{"type":"table","content":[]}`)
+	_, cmd := m.handleDescEdited(descEditedMsg{key: "ABC-1", path: path, before: "old", kept: []json.RawMessage{table}})
+	cmd()
+	if !strings.Contains(body, `{"type":"table","content":[]}`) || !strings.Contains(body, `"text":"changed"`) {
+		t.Errorf("body = %s", body)
 	}
 }

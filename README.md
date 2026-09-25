@@ -188,11 +188,12 @@ in the status bar. `esc` clears the marks.
 ## Descriptions
 
 `E` in the panel opens the description as markdown in `$VISUAL` or
-`$EDITOR` (else `vi`); saving a changed file writes it back. Only a
-description markdown keeps intact is offered — paragraphs, headings,
-lists, code, quotes, rules, bold / italic / code / strike / links. One with
-a table, mention, image, colour or text markdown would reinterpret (a
-stray `*`) says so and stays for Jira.
+`$EDITOR` (else `vi`); saving a changed file writes it back. Paragraphs,
+headings, lists, code, quotes, rules and bold / italic / code / strike /
+links are text to edit. A block markdown can't keep as it is — a table, an
+image, a paragraph with a mention or a stray `*` — stands as a
+`<!-- keep:1 table … -->` line: move it and the block moves, delete it and
+the block goes, anything else and it comes back untouched.
 
 ## Inbox
 

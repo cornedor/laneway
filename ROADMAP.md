@@ -12,9 +12,7 @@
 - Planning step 3: start / complete a sprint from here (unfinished issues to the next)
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
 - Worklogs step 3: edit an entry, `S` start work also starts the timer (`ui.timer_on_start`)
-- Description step 2: keep unknown nodes as placeholders (`<!-- adf:1 -->`)
-  so tables and mentions survive an edit; escape markdown-like text; `E` for
-  comments too
+- Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
 - Inbox step 3: notify (OSC 777) on a new mention
 - Links step 2: remove a link from the Links section, vote, move a subtask
   to another parent
@@ -25,6 +23,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Description edit keeps tables, media, mentions as `<!-- keep:N -->` lines, restored untouched on save
 - Header `✉ N`: issues of yours others changed since the inbox was read, polled every 5m
 - Timesheet: `[` `]` step a day with its total, `d` twice deletes an entry
 - Burndown counts scope added mid-sprint (from the Sprint field's changelog), shows +Np added

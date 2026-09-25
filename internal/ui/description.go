@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"strings"
@@ -18,12 +19,15 @@ import (
 type descLoadedMsg struct {
 	key string
 	md  string
-	err error
+	// kept are the blocks the markdown holds as placeholder lines.
+	kept []json.RawMessage
+	err  error
 }
 
 // descEditedMsg is the editor closed on path.
 type descEditedMsg struct {
 	key, path, before string
+	kept              []json.RawMessage
 	err               error
 }
 
@@ -39,8 +43,8 @@ func (m *Model) editDescription() tea.Cmd {
 		if err != nil {
 			return descLoadedMsg{key: key, err: err}
 		}
-		md, err := jira.EditableDescription(raw)
-		return descLoadedMsg{key: key, md: md, err: err}
+		ed, err := jira.EditableDescription(raw)
+		return descLoadedMsg{key: key, md: ed.Markdown, kept: ed.Kept, err: err}
 	}
 }
 
@@ -60,9 +64,9 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.status = "editing " + msg.key + " description…"
-	key, path, before := msg.key, f.Name(), msg.md
+	key, path, before, kept := msg.key, f.Name(), msg.md, msg.kept
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
-		return descEditedMsg{key: key, path: path, before: before, err: err}
+		return descEditedMsg{key: key, path: path, before: before, kept: kept, err: err}
 	})
 }
 
@@ -97,7 +101,7 @@ func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 		m.status = msg.key + " description unchanged"
 		return m, nil
 	}
-	c, ctx, key := m.jiraClient, m.ctx, msg.key
+	c, ctx, key, kept := m.jiraClient, m.ctx, msg.key, msg.kept
 	m.status = "saving " + key + " description…"
-	return m, jiraMutateCmd(key, "description", func() error { return c.SetDescription(ctx, key, after) })
+	return m, jiraMutateCmd(key, "description", func() error { return c.SetDescription(ctx, key, after, kept) })
 }

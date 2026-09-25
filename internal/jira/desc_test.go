@@ -26,32 +26,48 @@ var editableDocs = []string{
 
 func TestEditableDescription(t *testing.T) {
 	for i, doc := range editableDocs {
-		md, err := EditableDescription(json.RawMessage(doc))
-		if err != nil {
-			t.Errorf("doc %d: %v", i, err)
+		ed, err := EditableDescription(json.RawMessage(doc))
+		if err != nil || len(ed.Kept) != 0 {
+			t.Errorf("doc %d: %v, kept %d", i, err, len(ed.Kept))
 			continue
 		}
+		md := ed.Markdown
 		back, _ := json.Marshal(MarkdownToADF(md))
 		if got := adfToMarkdown(back); got != md {
 			t.Errorf("doc %d markdown changed:\n%s\n---\n%s", i, md, got)
 		}
 	}
-	if md, err := EditableDescription(nil); err != nil || md != "" {
-		t.Errorf("empty = %q, %v", md, err)
+	if ed, err := EditableDescription(nil); err != nil || ed.Markdown != "" {
+		t.Errorf("empty = %q, %v", ed.Markdown, err)
 	}
 }
 
-func TestEditableDescriptionRefuses(t *testing.T) {
-	for want, doc := range map[string]string{
-		"a table":        `{"type":"doc","content":[{"type":"table","content":[]}]}`,
-		"a mention":      `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"id":"x"}}]}]}`,
-		"underline text": `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"u","marks":[{"type":"underline"}]}]}]}`,
-		"not starting":   `{"type":"doc","content":[{"type":"orderedList","attrs":{"order":3},"content":[]}]}`,
-		"would change":   `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"5 * 3 * 2"}]}]}`,
-	} {
-		if _, err := EditableDescription(json.RawMessage(doc)); err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("%s: err = %v", want, err)
-		}
+// TestEditableDescriptionKeeps: blocks markdown can't keep become
+// placeholder lines, and saving puts them back untouched, wherever the
+// line was moved; a deleted line drops its block.
+func TestEditableDescriptionKeeps(t *testing.T) {
+	table := `{"type":"table","attrs":{"layout":"default"},"content":[{"type":"tableRow","content":[]}]}`
+	mention := `{"type":"paragraph","content":[{"type":"text","text":"ping "},{"type":"mention","attrs":{"id":"x","text":"@Ann"}}]}`
+	stars := `{"type":"paragraph","content":[{"type":"text","text":"5 * 3 * 2"}]}`
+	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"intro"}]},` + table + `,` + mention + `,` + stars + `]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "intro\n\n<!-- keep:1 table: move or delete this line -->\n\n" +
+		"<!-- keep:2 paragraph with a mention: move or delete this line -->\n\n" +
+		"<!-- keep:3 paragraph: move or delete this line -->"
+	if ed.Markdown != want || len(ed.Kept) != 3 {
+		t.Fatalf("markdown:\n%s\nkept %d", ed.Markdown, len(ed.Kept))
+	}
+	edited := "<!-- keep:2 moved up -->\n\nnew intro\n\n<!-- keep:1 table -->"
+	out, _ := json.Marshal(MarkdownToADFKept(edited, ed.Kept))
+	var got struct {
+		Content []json.RawMessage `json:"content"`
+	}
+	_ = json.Unmarshal(out, &got)
+	if len(got.Content) != 3 || string(got.Content[0]) != mention || string(got.Content[2]) != table {
+		t.Errorf("saved = %s", out)
 	}
 }
 
@@ -74,13 +90,13 @@ func TestSetDescription(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	if err := c.SetDescription(context.Background(), "ABC-1", " "); err != nil {
+	if err := c.SetDescription(context.Background(), "ABC-1", " ", nil); err != nil {
 		t.Fatal(err)
 	}
 	if body != `{"fields":{"description":null}}` {
 		t.Errorf("blank body = %s", body)
 	}
-	_ = c.SetDescription(context.Background(), "ABC-1", "hi")
+	_ = c.SetDescription(context.Background(), "ABC-1", "hi", nil)
 	if !strings.Contains(body, `"type":"doc"`) || !strings.Contains(body, `"text":"hi"`) {
 		t.Errorf("body = %s", body)
 	}

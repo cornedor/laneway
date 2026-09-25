@@ -42,14 +42,15 @@ func (c *Client) Description(ctx context.Context, key string) (json.RawMessage, 
 	return resp.Fields.Description, nil
 }
 
-// SetDescription writes markdown as the issue's description; blank clears it.
-func (c *Client) SetDescription(ctx context.Context, key, md string) error {
+// SetDescription writes markdown as the issue's description, placeholder
+// lines put back from kept; blank clears it.
+func (c *Client) SetDescription(ctx context.Context, key, md string, kept []json.RawMessage) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
 	var doc any
 	if strings.TrimSpace(md) != "" {
-		doc = MarkdownToADF(md)
+		doc = MarkdownToADFKept(md, kept)
 	}
 	body := map[string]any{"fields": map[string]any{"description": doc}}
 	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
@@ -59,26 +60,70 @@ func (c *Client) SetDescription(ctx context.Context, key, md string) error {
 	return nil
 }
 
+// Editable is a description as markdown to edit. Blocks markdown can't keep
+// (a table, a paragraph with a mention) stand in it as placeholder lines,
+// <!-- keep:N … -->, and are put back from Kept[N-1] untouched on save.
+type Editable struct {
+	Markdown string
+	Kept     []json.RawMessage
+}
+
+// keepLine matches a placeholder line; its number picks the kept block.
+var keepLine = regexp.MustCompile(`^<!-- keep:(\d+)\b.*-->$`)
+
 // EditableDescription is raw as markdown to edit, or why it can't be.
-func EditableDescription(raw json.RawMessage) (string, error) {
+func EditableDescription(raw json.RawMessage) (Editable, error) {
 	if len(raw) == 0 || string(raw) == "null" {
-		return "", nil
+		return Editable{}, nil
 	}
 	var doc adfNode
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return "", fmt.Errorf("unreadable description")
+	var blocks struct {
+		Content []json.RawMessage `json:"content"`
 	}
-	if what := unsupported(doc); what != "" {
-		return "", fmt.Errorf("the description has %s, which markdown can't keep", what)
+	if json.Unmarshal(raw, &doc) != nil || json.Unmarshal(raw, &blocks) != nil || len(blocks.Content) != len(doc.Content) {
+		return Editable{}, fmt.Errorf("unreadable description")
 	}
-	md := adfToMarkdown(raw)
-	back, _ := json.Marshal(MarkdownToADF(md))
+	var ed Editable
+	var b strings.Builder
+	for i, n := range doc.Content {
+		if editableBlock(n) {
+			writeBlock(&b, n, "")
+			continue
+		}
+		ed.Kept = append(ed.Kept, blocks.Content[i])
+		fmt.Fprintf(&b, "<!-- keep:%d %s: move or delete this line -->\n\n", len(ed.Kept), blockName(n))
+	}
+	ed.Markdown = strings.TrimSpace(b.String())
+	// The whole must come back as it was, placeholders and all.
+	back, _ := json.Marshal(MarkdownToADFKept(ed.Markdown, ed.Kept))
 	var again adfNode
 	_ = json.Unmarshal(back, &again)
 	if canon(doc) != canon(again) {
-		return "", fmt.Errorf("the description has text markdown would change (like * or `)")
+		return Editable{}, fmt.Errorf("the description has text markdown would change (like * or `)")
 	}
-	return md, nil
+	return ed, nil
+}
+
+// editableBlock reports whether a top-level block survives markdown and
+// back unchanged.
+func editableBlock(n adfNode) bool {
+	if unsupported(n) != "" {
+		return false
+	}
+	var b strings.Builder
+	writeBlock(&b, n, "")
+	back, _ := json.Marshal(MarkdownToADF(b.String()))
+	var again adfNode
+	_ = json.Unmarshal(back, &again)
+	return canon(adfNode{Type: "doc", Content: []adfNode{n}}) == canon(again)
+}
+
+// blockName says what a kept block is: "table", "paragraph with a mention".
+func blockName(n adfNode) string {
+	if what := unsupported(adfNode{Type: "doc", Content: n.Content}); what != "" && slices.Contains(editableBlocks, n.Type) {
+		return n.Type + " with " + what
+	}
+	return n.Type
 }
 
 // unsupported names the first node or mark outside the editable set.
@@ -154,9 +199,13 @@ func canon(n adfNode) string {
 
 // MarkdownToADF parses the markdown adfToMarkdown writes back into a
 // document: the inverse over the editable set.
-func MarkdownToADF(md string) map[string]any {
+func MarkdownToADF(md string) map[string]any { return MarkdownToADFKept(md, nil) }
+
+// MarkdownToADFKept is MarkdownToADF with placeholder lines replaced by the
+// kept blocks they number; one numbering none is dropped.
+func MarkdownToADFKept(md string, kept []json.RawMessage) map[string]any {
 	lines := strings.Split(strings.ReplaceAll(md, "\r\n", "\n"), "\n")
-	blocks := parseMDBlocks(lines)
+	blocks := parseMDBlocks(lines, kept)
 	if len(blocks) == 0 {
 		blocks = []any{map[string]any{"type": "paragraph", "content": []any{}}}
 	}
@@ -170,12 +219,18 @@ var (
 )
 
 // parseMDBlocks turns lines into block nodes.
-func parseMDBlocks(lines []string) []any {
+func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 	var blocks []any
 	for i := 0; i < len(lines); {
 		ln := lines[i]
 		switch {
 		case strings.TrimSpace(ln) == "":
+			i++
+		case keepLine.MatchString(strings.TrimSpace(ln)):
+			n, _ := strconv.Atoi(keepLine.FindStringSubmatch(strings.TrimSpace(ln))[1])
+			if n >= 1 && n <= len(kept) {
+				blocks = append(blocks, kept[n-1])
+			}
 			i++
 		case strings.HasPrefix(ln, "```"):
 			lang := strings.TrimSpace(strings.TrimPrefix(ln, "```"))
@@ -208,7 +263,7 @@ func parseMDBlocks(lines []string) []any {
 				inner = append(inner, strings.TrimPrefix(strings.TrimPrefix(lines[i], ">"), " "))
 				i++
 			}
-			blocks = append(blocks, map[string]any{"type": "blockquote", "content": parseMDBlocks(inner)})
+			blocks = append(blocks, map[string]any{"type": "blockquote", "content": parseMDBlocks(inner, kept)})
 		case mdBullet.MatchString(ln) || mdOrdered.MatchString(ln):
 			var node any
 			node, i = parseMDList(lines, i, 0)
@@ -227,7 +282,7 @@ func parseMDBlocks(lines []string) []any {
 
 // startsBlock reports whether ln opens a block other than a paragraph.
 func startsBlock(ln string) bool {
-	return strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
+	return keepLine.MatchString(strings.TrimSpace(ln)) || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
 		strings.TrimSpace(ln) == "---" || mdBullet.MatchString(ln) || mdOrdered.MatchString(ln)
 }
 
