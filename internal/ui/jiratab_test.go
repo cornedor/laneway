@@ -295,3 +295,45 @@ func TestJiraTabAssigneeFilter(t *testing.T) {
 		t.Fatalf("assignee = %+v, want Ada and a refetch", m.jiraTab.assignee)
 	}
 }
+
+// TestJiraTabSearch: / narrows the board locally, enter keeps the query, esc
+// clears it.
+func TestJiraTabSearch(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "/"))
+	m = out.(Model)
+	for _, k := range []string{"t", "h", "i"} {
+		out, _ = m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	if len(m.jiraTab.order) != 1 || m.jiraTab.cards[m.jiraTab.order[0]].Key != "ABC-3" {
+		t.Fatalf("order = %v, want only ABC-3", m.jiraTab.order)
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-3" {
+		t.Errorf("selected %q, want ABC-3", c.Key)
+	}
+	out, _ = m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if m.jiraTab.searching || m.jiraTab.jiraSearchQuery() != "thi" {
+		t.Fatalf("after enter searching=%v query=%q", m.jiraTab.searching, m.jiraTab.jiraSearchQuery())
+	}
+	if !strings.Contains(m.View().Content, "/thi") {
+		t.Error("board lacks the query chip")
+	}
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	m = out.(Model)
+	if m.jiraTab.jiraSearchQuery() != "" || len(m.jiraTab.order) != 4 {
+		t.Errorf("after esc query=%q order=%v, want all cards", m.jiraTab.jiraSearchQuery(), m.jiraTab.order)
+	}
+}
+
+func TestJiraTabSearchNoMatch(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "/"))
+	m = out.(Model)
+	out, _ = m.handleKey(keyMsg(t, "z"))
+	m = out.(Model)
+	if !strings.Contains(m.View().Content, "no issues match /z") {
+		t.Error("empty search lacks its message")
+	}
+}

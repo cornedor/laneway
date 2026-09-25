@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -150,6 +151,10 @@ type jiraTabState struct {
 	firstLane int   // the first lane on screen
 	laneW     int   // a lane's width in the last render
 	lanesOut  string
+
+	// search narrows the cards locally; searching while it has the keyboard.
+	search    textinput.Model
+	searching bool
 
 	drag    jiraDrag
 	loading bool
@@ -523,6 +528,7 @@ func (m *Model) buildJiraLanes() {
 	if v.kind == jiraViewBoard {
 		skip = kanbanBacklog(t.cfg)
 	}
+	q := t.jiraSearchQuery()
 	col := map[string]int{}
 	for i, c := range t.cfg.Columns {
 		if i == skip {
@@ -534,6 +540,9 @@ func (m *Model) buildJiraLanes() {
 		t.lanes = append(t.lanes, jiraLane{name: c.Name, statusIDs: c.StatusIDs})
 	}
 	for i, cd := range t.cards {
+		if !jiraCardMatches(cd, q) {
+			continue
+		}
 		if l, ok := col[cd.StatusID]; ok {
 			t.lanes[l].cards = append(t.lanes[l].cards, i)
 		}
@@ -543,8 +552,10 @@ func (m *Model) buildJiraLanes() {
 			t.order = append(t.order, l.cards...)
 		}
 	} else {
-		for i := range t.cards {
-			t.order = append(t.order, i) // a planning list shows every card
+		for i, cd := range t.cards {
+			if jiraCardMatches(cd, q) {
+				t.order = append(t.order, i) // a planning list shows every card
+			}
 		}
 	}
 	if len(t.laneTop) != len(t.lanes) {
@@ -657,6 +668,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openJiraAssigneeFilter()
 	case msg.String() == "0":
 		return m, m.clearJiraFilters()
+	case msg.String() == "/":
+		m.startJiraSearch()
+	case msg.String() == "esc" && t.jiraSearchQuery() != "":
+		m.clearJiraSearch()
 	case len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9":
 		return m, m.toggleJiraQuick(int(msg.String()[0] - '1'))
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
@@ -1035,9 +1050,11 @@ func (m *Model) renderJira() {
 		msg = refErrStyle.Render(t.err)
 	case t.cfg == nil:
 		msg = refDimStyle.Render("loading…")
+	case len(t.order) == 0 && t.jiraSearchQuery() != "":
+		msg = refDimStyle.Render("no issues match /" + t.search.Value() + " (esc clears)")
 	case len(t.cards) == 0 && t.jiraFiltered():
 		msg = refDimStyle.Render("no issues match the filters (0 clears them)")
-	case len(t.cards) == 0:
+	case len(t.order) == 0:
 		msg = refDimStyle.Render("no issues")
 	}
 	if msg != "" {
@@ -1327,7 +1344,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 	filterLine := ansi.Truncate(m.jiraFilterLine(), max(boxW-2, 1), "…")
 
 	body := t.view.View()
-	if m.jiraShowsLanes() || t.cfg == nil || len(t.cards) == 0 {
+	if m.jiraShowsLanes() || t.cfg == nil || len(t.order) == 0 {
 		body = t.lanesOut
 	}
 	rows := []string{head, rule, viewLine, filterLine, body}
@@ -1374,6 +1391,14 @@ func (m *Model) jiraFilterLine() string {
 	}
 	if t.jiraFiltered() {
 		line += jiraDimStyle.Render("  ·  0 clears")
+	}
+	switch {
+	case t.searching:
+		line = t.search.View() + "  " + line
+	case t.jiraSearchQuery() != "":
+		line = chip(true, "/"+t.search.Value()) + jiraDimStyle.Render(" esc") + "  " + line
+	default:
+		line += jiraDimStyle.Render("  ·  / search")
 	}
 	return line
 }

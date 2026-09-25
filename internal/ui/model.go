@@ -259,6 +259,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleJiraFormKey(msg)
 	case m.focus == focusRef && m.refOpen:
 		return m.handleRefKey(msg)
+	case m.jiraTab.searching:
+		return m.handleJiraSearchKey(msg)
 	}
 	return m.handleJiraKey(msg)
 }
