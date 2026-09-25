@@ -106,6 +106,7 @@ func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	m.jiraFieldName = "worklog"
 	m.jiraFieldKey = key
 	m.worklogStart = started
+	m.worklogEdit = "" // a new entry, unless the caller says otherwise
 }
 
 // applyWorklog logs the input's time and comment.
@@ -116,6 +117,20 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	key, started := m.jiraFieldKey, m.worklogStart
+	if id := m.worklogEdit; id != "" {
+		day := m.worklogEditDay
+		m.worklogEdit = ""
+		m.closeJiraField()
+		c, ctx := m.jiraClient, m.ctx
+		reload := m.openTimesheetDay(day)
+		m.status = "updating the worklog on " + key + "…"
+		return m, func() tea.Msg {
+			if err := c.UpdateWorklog(ctx, key, id, secs, comment); err != nil {
+				return jiraMutatedMsg{key: key, field: "worklog", err: err}
+			}
+			return reload()
+		}
+	}
 	if started.IsZero() {
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
@@ -147,13 +162,13 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 			if w.Comment != "" {
 				label += " — " + strings.ReplaceAll(w.Comment, "\n", " ")
 			}
-			items[i] = jiraPickerItem{id: w.Key + "/" + w.ID, label: label}
+			items[i] = jiraPickerItem{id: w.Key + "/" + w.ID, label: label, value: jira.FormatDuration(w.Seconds) + " " + w.Comment}
 		}
 		if err == nil && len(items) == 0 {
 			items = []jiraPickerItem{{label: "nothing logged"}}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickTimesheet, items: items, err: err,
-			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + "  ·  [ ] day · d d delete"}
+			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + "  ·  [ ] day · e edit · d d delete"}
 	}
 }
 
@@ -165,6 +180,17 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		return m.openTimesheetDay(p.day.AddDate(0, 0, -1)), true
 	case k == helpKey(m.keys.NextView):
 		return m.openTimesheetDay(p.day.AddDate(0, 0, 1)), true
+	case k == "e":
+		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
+			return nil, true
+		}
+		it := p.items[p.idx]
+		key, id, _ := strings.Cut(it.id, "/")
+		day := p.day
+		m.closeJiraPicker()
+		m.openWorklogInput(key, strings.TrimSpace(it.value), time.Time{})
+		m.worklogEdit, m.worklogEditDay = id, day
+		return nil, true
 	case k == "d" || k == "delete":
 		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
 			return nil, true

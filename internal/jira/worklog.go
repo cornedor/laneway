@@ -39,6 +39,26 @@ func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, starte
 	return nil
 }
 
+// UpdateWorklog sets worklog id's time and comment.
+func (c *Client) UpdateWorklog(ctx context.Context, key, id string, seconds int, comment string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	if seconds < 60 {
+		return fmt.Errorf("jira: log at least a minute")
+	}
+	body := map[string]any{"timeSpentSeconds": seconds}
+	if strings.TrimSpace(comment) != "" {
+		body["comment"] = textToADF(comment, nil)
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/worklog/" + url.PathEscape(id)
+	if err := c.do(ctx, http.MethodPut, path, key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // DeleteWorklog removes worklog id from key.
 func (c *Client) DeleteWorklog(ctx context.Context, key, id string) error {
 	if !c.Enabled() {

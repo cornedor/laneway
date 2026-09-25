@@ -156,3 +156,28 @@ func TestTimerOnStart(t *testing.T) {
 		t.Errorf("timer %+v, status %q", m.timer, m.status)
 	}
 }
+
+// TestTimesheetEdit: e opens the entry's time and comment; enter updates it.
+func TestTimesheetEdit(t *testing.T) {
+	var bodies []map[string]any
+	m := jiraTabModel(t)
+	worklogJira(t, &m, &bodies)
+	out, _ := m.handleJiraKey(keyMsg(t, "W"))
+	m = out.(Model)
+	m.setJiraPickerItems([]jiraPickerItem{{id: "ABC-2/10101", label: "09:00  1h  ABC-2", value: "1h review"}})
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "e"))
+	m = out.(Model)
+	if !m.jiraFieldActive || m.jiraFieldInput.Value() != "1h review" || m.worklogEdit != "10101" {
+		t.Fatalf("input %q edit %q", m.jiraFieldInput.Value(), m.worklogEdit)
+	}
+	m.jiraFieldInput.SetValue("1h 30m review")
+	_, cmd := m.applyJiraField()
+	cmd()
+	if len(bodies) == 0 || bodies[0]["path"] != "/rest/api/3/issue/ABC-2/worklog/10101" || bodies[0]["timeSpentSeconds"] != 5400.0 {
+		t.Errorf("requests = %v", bodies)
+	}
+	m.openWorklogInput("ABC-1", "", time.Time{})
+	if m.worklogEdit != "" {
+		t.Error("a new log must not update the edited entry")
+	}
+}

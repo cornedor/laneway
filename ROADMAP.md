@@ -6,16 +6,15 @@
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 4: create a sprint, edit its name / goal / dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
-- Worklogs step 4: edit an entry (time, comment)
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
 - Inbox step 3: notify (OSC 777) on a new mention
-- Links step 3: move a subtask to another parent
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Timesheet `e`: edit an entry's time and comment (a subtask's parent: the panel's Parent field)
 - Cards show `PR` (open) or `✓PR` (merged) from the Development field; `card_fields: pr`
 - `?` help runs on into more columns on a short screen instead of off the bottom
 - `:` palette also searches all of Jira from 3 characters (text ~, debounced), hits marked ⌕

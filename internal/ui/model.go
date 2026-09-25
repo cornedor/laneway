@@ -222,6 +222,10 @@ type Model struct {
 	// being logged began, zero for "back from now".
 	timer        workTimer
 	worklogStart time.Time
+	// worklogEdit is the worklog the input edits (id, on worklogEditDay's
+	// timesheet), "" for a new one.
+	worklogEdit    string
+	worklogEditDay time.Time
 	// sites are the configured Jira sites ("" is jira:), site the shown
 	// one; nextSite is set when the app ends to switch (sites.go).
 	sites    []string

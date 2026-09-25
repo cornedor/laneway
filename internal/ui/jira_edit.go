@@ -96,6 +96,7 @@ type jiraPickerItem struct {
 	id      string
 	label   string
 	current bool
+	value   string // what an edit of the row starts from (a worklog's "1h fix")
 }
 
 // jiraPickerState is the modal list picker reused for the three list-style
