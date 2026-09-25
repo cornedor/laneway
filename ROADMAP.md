@@ -17,6 +17,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `?` help runs on into more columns on a short screen instead of off the bottom
 - `:` palette also searches all of Jira from 3 characters (text ~, debounced), hits marked ⌕
 - Upload input: `tab` completes the path (common prefix, candidates in the status line)
 - `ui.timer_on_start: on`: S (start work) also starts the timer

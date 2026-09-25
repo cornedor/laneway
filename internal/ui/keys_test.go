@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"charm.land/lipgloss/v2"
 	"regexp"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ func TestReboundKeyDrivesBoard(t *testing.T) {
 		t.Fatal("new key does not search")
 	}
 	m.helpOpen = true
-	if !regexp.MustCompile(`(?m)\bf +search \(esc`).MatchString(ansi.Strip(m.renderHelp())) {
+	if !regexp.MustCompile(`(?m)\bf +search \(esc`).MatchString(ansi.Strip(m.renderHelp(40))) {
 		t.Error("help lacks the rebound key")
 	}
 }
@@ -90,5 +91,19 @@ func TestThemeConfigYAML(t *testing.T) {
 	c = config.UIConfig{}
 	if err := yaml.Unmarshal([]byte("theme:\n  preset: nord\n  accent: \"1\"\n"), &c); err != nil || c.Theme["accent"] != "1" || c.Theme["preset"] != "nord" {
 		t.Errorf("map = %v %v", c.Theme, err)
+	}
+}
+
+// TestHelpFitsHeight: on a short screen the help runs on into more columns
+// instead of past the bottom.
+func TestHelpFitsHeight(t *testing.T) {
+	m := jiraTabModel(t)
+	for _, h := range []int{24, 40} {
+		if got := lipgloss.Height(m.renderHelp(h)); got > h {
+			t.Errorf("height %d: help is %d rows", h, got)
+		}
+	}
+	if !strings.Contains(ansi.Strip(m.renderHelp(24)), "Board (more)") {
+		t.Error("a short screen should split the board keys")
 	}
 }

@@ -88,22 +88,34 @@ func (m *Model) helpSections() []struct {
 	}
 }
 
-func (m *Model) renderHelp() string {
+// renderHelp lays the sections out side by side, a section running on into
+// another column when it is taller than height allows.
+func (m *Model) renderHelp(height int) string {
 	keyStyle := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
+	perCol := max(height-10, 6) // border, padding, title and hint
 	var cols []string
 	for _, s := range m.helpSections() {
 		keyW := 0
 		for _, r := range s.rows {
 			keyW = max(keyW, lipgloss.Width(r.keys))
 		}
-		lines := []string{titleStyle.Render(s.title), ""}
-		for _, r := range s.rows {
-			pad := strings.Repeat(" ", keyW-lipgloss.Width(r.keys))
-			lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+r.desc)
+		for start := 0; start < len(s.rows); start += perCol {
+			title := s.title
+			if start > 0 {
+				title += " (more)"
+			}
+			lines := []string{titleStyle.Render(title), ""}
+			for _, r := range s.rows[start:min(start+perCol, len(s.rows))] {
+				pad := strings.Repeat(" ", keyW-lipgloss.Width(r.keys))
+				lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+r.desc)
+			}
+			if len(cols) > 0 {
+				cols = append(cols, "   ")
+			}
+			cols = append(cols, strings.Join(lines, "\n"))
 		}
-		cols = append(cols, strings.Join(lines, "\n"))
 	}
-	body := lipgloss.JoinHorizontal(lipgloss.Top, cols[0], "     ", cols[1])
+	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
 	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render("any key closes · rebind in ui.keys")
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).
 		Padding(1, 3).Render(lipgloss.JoinVertical(lipgloss.Left, body, "", hint))

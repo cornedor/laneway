@@ -576,7 +576,7 @@ func (m Model) View() tea.View {
 func (m *Model) renderOverlay(bodyH int) string {
 	switch {
 	case m.helpOpen:
-		return m.renderHelp()
+		return m.renderHelp(bodyH)
 	case m.jql != nil:
 		return m.renderJQL()
 	case m.jiraGotoActive:
