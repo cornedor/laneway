@@ -155,16 +155,26 @@ config is picked up as a fallback.
 of the focused pane, the board's views, quick filters and boards, and the
 loaded issues, filtered by every word you type.
 
-Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
-`a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`Q` JQL search · `R` roadmap · `P` planning · `C` charts · `T` timer · `W` today's worklogs · `I` inbox · `U` standup · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
-`@` switch site · `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
-`q` quit. Cards drag between lanes with the mouse.
+Board:
+- move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search
+- board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
+  `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
+- cards: `H`/`L` move a lane · `M` to sprint/backlog · `n` new issue · `x`/`X`
+  mark · `B` edit marked · `o` browser · `y`/`Y` copy key/URL · drag with the mouse
+- views: `Q` JQL search · `R` roadmap · `P` planning · `C` charts
+- you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
+- `q` quit
 
-Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (dates take `2026-10-01`, `today`, `+3d`, `fri`) · `s` status · `p` priority · `P` points · `e` summary · `E` description in `$EDITOR` · `l` labels ·
-`a` assignee · `w` log work · `T` timer · `c` comment · `R` reply · `L` linked issue · `A` subtask / link / clone / watch / upload / download · `H` history · `D` pull requests / branches · `i` images full
-size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
-`y`/`Y` copy · `r` refresh · `esc` drop field, close.
+Panel:
+- fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
+  dates take `2026-10-01`, `today`, `+3d`, `fri`
+- edit: `s` status · `p` priority · `P` points · `e` summary · `E` description in
+  `$EDITOR` · `l` labels · `a` assignee
+- talk: `c` comment · `R` reply · `w` log work · `T` timer
+- more: `A` subtask / link / clone / watch / upload / download · `H` history ·
+  `D` pull requests / branches · `L` linked issue · `i` images full size (← →)
+- `backspace` previous issue · `S` start work · `o` browser · `y`/`Y` copy ·
+  `r` refresh · `esc` drop field, close
 
 ## Bulk edit
 
