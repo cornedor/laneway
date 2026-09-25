@@ -171,3 +171,23 @@ func TestUnlinkAction(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+func TestCompletePath(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "report-a.txt"), nil, 0o600)
+	os.WriteFile(filepath.Join(dir, "report-b.txt"), nil, 0o600)
+	os.Mkdir(filepath.Join(dir, "shots"), 0o700)
+	os.WriteFile(filepath.Join(dir, ".hidden"), nil, 0o600)
+	if got, names := completePath(dir + "/rep"); got != dir+"/report-" || len(names) != 2 {
+		t.Errorf("rep → %q %v", got, names)
+	}
+	if got, _ := completePath(dir + "/sh"); got != dir+"/shots/" {
+		t.Errorf("sh → %q", got)
+	}
+	if _, names := completePath(dir + "/"); len(names) != 3 {
+		t.Errorf("hidden files should be left out: %v", names)
+	}
+	if got, names := completePath(dir + "/zzz"); got != dir+"/zzz" || names != nil {
+		t.Errorf("no match → %q %v", got, names)
+	}
+}

@@ -256,3 +256,41 @@ func issueProject(key string) string {
 	}
 	return key
 }
+
+// completePath extends in to the longest prefix every match shares (a
+// lone directory gets its /) and returns the matches' names.
+func completePath(in string) (string, []string) {
+	dir, base := filepath.Split(in)
+	read := dir
+	if rest, ok := strings.CutPrefix(dir, "~/"); ok {
+		home, _ := os.UserHomeDir()
+		read = filepath.Join(home, rest)
+	}
+	if read == "" {
+		read = "."
+	}
+	entries, err := os.ReadDir(read)
+	if err != nil {
+		return in, nil
+	}
+	var names []string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), base) && (strings.HasPrefix(base, ".") || !strings.HasPrefix(e.Name(), ".")) {
+			n := e.Name()
+			if e.IsDir() {
+				n += "/"
+			}
+			names = append(names, n)
+		}
+	}
+	if len(names) == 0 {
+		return in, nil
+	}
+	common := names[0]
+	for _, n := range names[1:] {
+		for !strings.HasPrefix(n, common) {
+			common = common[:len(common)-1]
+		}
+	}
+	return dir + common, names
+}

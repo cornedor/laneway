@@ -13,11 +13,12 @@
 - Links step 3: move a subtask to another parent
 - Dev info step 2: an open PR marked on its board card (summary counts,
   fetched with the prefetch), commits
-- Attachments step 2: path completion in the upload input; paste an image from the clipboard
+- Attachments step 3: paste an image from the clipboard
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Upload input: `tab` completes the path (common prefix, candidates in the status line)
 - `ui.timer_on_start: on`: S (start work) also starts the timer
 - JQL: past searches on an empty input, `ctrl+s` stars a query as a view of every board
 - Planning: `S` starts a sprint, `C C` completes the active one (unfinished to the next sprint or backlog)

@@ -510,6 +510,16 @@ func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		return m.applyJiraField()
+	case "tab":
+		if m.jiraFieldName == "upload" {
+			done, names := completePath(m.jiraFieldInput.Value())
+			m.jiraFieldInput.SetValue(done)
+			m.jiraFieldInput.CursorEnd()
+			if len(names) > 1 {
+				m.status = strings.Join(names[:min(len(names), 8)], "  ")
+			}
+			return m, nil
+		}
 	}
 	var cmd tea.Cmd
 	m.jiraFieldInput, cmd = m.jiraFieldInput.Update(msg)
@@ -862,7 +872,7 @@ func (m *Model) renderJiraFieldInput() string {
 	case "plan-start":
 		title, hint, outerW = "Start "+m.jiraFieldKey+" today", "↵ start · esc cancel", m.jiraFieldInput.Width()+12
 	case "upload":
-		title, hint, outerW = "Upload a file", "↵ upload · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = "Upload a file", "tab complete · ↵ upload · esc cancel", m.jiraFieldInput.Width()+12
 	case "link":
 		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↵ link · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":
