@@ -170,3 +170,21 @@ func TestCardLimit(t *testing.T) {
 		t.Error("zero limit is not the default")
 	}
 }
+
+// TestSprints: active sprints come first, with their dates and goal.
+func TestSprints(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"values": [{"id": 2, "name": "S2", "state": "future"},
+			{"id": 1, "name": "S1", "state": "active", "startDate": "2026-09-21T08:00:00.000Z",
+			 "endDate": "2026-10-03T16:00:00.000Z", "goal": " Ship it "}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	ss, err := c.Sprints(context.Background(), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ss) != 2 || ss[0].ID != 1 || ss[0].Goal != "Ship it" || ss[0].End.Day() != 3 || !ss[1].Start.IsZero() {
+		t.Errorf("sprints = %+v", ss)
+	}
+}

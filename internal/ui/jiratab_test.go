@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -753,5 +754,32 @@ func TestJiraMoveToSprint(t *testing.T) {
 	}
 	if want := `POST /rest/agile/1.0/backlog/issue {"issues":["` + c.Key + `"]}`; got != want {
 		t.Errorf("request = %q, want %q", got, want)
+	}
+}
+
+// TestJiraSprintLine: a sprint view shows days left or when it starts or
+// ended, then its goal on one line; other views show nothing.
+func TestJiraSprintLine(t *testing.T) {
+	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.Local)
+	day := 24 * time.Hour
+	for _, tc := range []struct {
+		v    jiraView
+		want string
+	}{
+		{jiraView{kind: jiraViewSprint, start: now.Add(-day), end: now.Add(4*day + time.Hour), goal: "Ship\nit"}, "5d left · Ship it"},
+		{jiraView{kind: jiraViewSprint, start: now.Add(3 * day)}, "starts Sep 28"},
+		{jiraView{kind: jiraViewSprint, end: now.Add(-day)}, "ended Sep 24"},
+		{jiraView{kind: jiraViewSprint, goal: "Goal only"}, "Goal only"},
+		{jiraView{kind: jiraViewBacklog, goal: "x"}, ""},
+	} {
+		if got := jiraSprintLine(tc.v, now); got != tc.want {
+			t.Errorf("%+v: %q, want %q", tc.v, got, tc.want)
+		}
+	}
+	m := jiraTabModel(t)
+	m.jiraTab.views[0].end = time.Now().Add(2*day + time.Hour)
+	m.jiraTab.views[0].goal = "Launch"
+	if !strings.Contains(m.View().Content, "3d left · Launch") {
+		t.Error("header lacks the sprint line")
 	}
 }

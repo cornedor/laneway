@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Boards, sprints and board issues, for the Jira tab (internal/ui/jiratab.go).
@@ -96,9 +97,11 @@ type BoardConfig struct {
 
 // Sprint is an active or future sprint.
 type Sprint struct {
-	ID    int
-	Name  string
-	State string
+	ID         int
+	Name       string
+	State      string
+	Start, End time.Time // zero until planned
+	Goal       string
 }
 
 // Card is an issue as a board shows it.
@@ -259,9 +262,12 @@ func (c *Client) Sprints(ctx context.Context, board int) ([]Sprint, error) {
 	}
 	var resp struct {
 		Values []struct {
-			ID    int    `json:"id"`
-			Name  string `json:"name"`
-			State string `json:"state"`
+			ID        int       `json:"id"`
+			Name      string    `json:"name"`
+			State     string    `json:"state"`
+			StartDate time.Time `json:"startDate"`
+			EndDate   time.Time `json:"endDate"`
+			Goal      string    `json:"goal"`
 		} `json:"values"`
 	}
 	path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/sprint?state=active,future&maxResults=50"
@@ -270,7 +276,7 @@ func (c *Client) Sprints(ctx context.Context, board int) ([]Sprint, error) {
 	}
 	var active, future []Sprint
 	for _, s := range resp.Values {
-		sp := Sprint{ID: s.ID, Name: s.Name, State: s.State}
+		sp := Sprint{ID: s.ID, Name: s.Name, State: s.State, Start: s.StartDate, End: s.EndDate, Goal: strings.TrimSpace(s.Goal)}
 		if s.State == "active" {
 			active = append(active, sp)
 		} else {

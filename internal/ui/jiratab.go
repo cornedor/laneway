@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/safeterm"
 	"github.com/cornedor/laneway/internal/viewport"
 )
 
@@ -55,6 +57,9 @@ type jiraView struct {
 	sprint int
 	jql    string
 	lanes  bool
+	// A sprint's dates (zero until planned) and goal.
+	start, end time.Time
+	goal       string
 }
 
 // jiraLane is a board column and the cards (indexes into cards) in it.
@@ -357,7 +362,8 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 		msg.cfg = cfg
 		if board.Type == "scrum" {
 			for _, s := range sprints {
-				msg.views = append(msg.views, jiraView{kind: jiraViewSprint, name: s.Name, sprint: s.ID, lanes: s.State == "active"})
+				msg.views = append(msg.views, jiraView{kind: jiraViewSprint, name: s.Name, sprint: s.ID, lanes: s.State == "active",
+					start: s.Start, end: s.End, goal: s.Goal})
 			}
 			msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: "Backlog"})
 		} else {
@@ -1505,6 +1511,11 @@ func (m *Model) renderJiraPane(height, width int) string {
 		}
 	}
 	viewLine := strings.Join(views, jiraDimStyle.Render("  │  "))
+	if v, ok := m.jiraCurrentView(); ok {
+		if s := jiraSprintLine(v, time.Now()); s != "" {
+			viewLine += jiraDimStyle.Render("    " + s)
+		}
+	}
 	if n := len(t.lanes); m.jiraShowsLanes() && n > 0 {
 		if vis, _ := jiraLaneLayout(t.view.Width(), n); vis < n {
 			viewLine += jiraDimStyle.Render(fmt.Sprintf("    lanes %d–%d of %d", t.firstLane+1, t.firstLane+vis, n))
@@ -1537,6 +1548,27 @@ func (m *Model) renderJiraPane(height, width int) string {
 		lines[i] = ansi.Truncate(l, listW, "")
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(lines, "\n"), m.renderRefPane(height, refW))
+}
+
+// jiraSprintLine is a sprint view's time and goal: "5d left · Ship it".
+func jiraSprintLine(v jiraView, now time.Time) string {
+	if v.kind != jiraViewSprint {
+		return ""
+	}
+	var parts []string
+	days := func(t time.Time) int { return int(math.Ceil(t.Sub(now).Hours() / 24)) }
+	switch {
+	case !v.start.IsZero() && v.start.After(now):
+		parts = append(parts, "starts "+v.start.Local().Format("Jan 2"))
+	case !v.end.IsZero() && days(v.end) > 0:
+		parts = append(parts, strconv.Itoa(days(v.end))+"d left")
+	case !v.end.IsZero():
+		parts = append(parts, "ended "+v.end.Local().Format("Jan 2"))
+	}
+	if g := safeterm.Line(strings.Join(strings.Fields(v.goal), " ")); g != "" {
+		parts = append(parts, g)
+	}
+	return strings.Join(parts, " · ")
 }
 
 // jiraFilterLine shows the filters and their keys, the ones that are on lit.

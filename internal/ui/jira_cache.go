@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"strconv"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -38,6 +39,9 @@ type jiraCacheView struct {
 	Sprint int
 	JQL    string `json:",omitempty"`
 	Lanes  bool
+	Start  time.Time `json:",omitzero"`
+	End    time.Time `json:",omitzero"`
+	Goal   string    `json:",omitempty"`
 }
 
 func jiraCacheKey(board int, view string) string {
@@ -55,7 +59,8 @@ func cacheOf(msg jiraBoardMsg, filter string) jiraCache {
 		Quick: msg.quick, QuickOn: msg.quickOn, Assignee: [2]string{msg.assignee.id, msg.assignee.label},
 		StatusNames: msg.statusNames, Filter: filter, Cards: msg.cards, Total: msg.total}
 	for _, v := range msg.views {
-		c.Views = append(c.Views, jiraCacheView{Kind: v.kind, Name: v.name, Sprint: v.sprint, JQL: v.jql, Lanes: v.lanes})
+		c.Views = append(c.Views, jiraCacheView{Kind: v.kind, Name: v.name, Sprint: v.sprint, JQL: v.jql, Lanes: v.lanes,
+			Start: v.start, End: v.end, Goal: v.goal})
 	}
 	return c
 }
@@ -66,7 +71,8 @@ func (c jiraCache) boardMsg(seq int) jiraBoardMsg {
 		viewIdx: c.ViewIdx, quick: c.Quick, quickOn: c.QuickOn, assignee: jiraAssignee{id: c.Assignee[0], label: c.Assignee[1]},
 		statusNames: c.StatusNames, cards: c.Cards, total: c.Total}
 	for _, v := range c.Views {
-		msg.views = append(msg.views, jiraView{kind: v.Kind, name: v.Name, sprint: v.Sprint, jql: v.JQL, lanes: v.Lanes})
+		msg.views = append(msg.views, jiraView{kind: v.Kind, name: v.Name, sprint: v.Sprint, jql: v.JQL, lanes: v.Lanes,
+			start: v.Start, end: v.End, goal: v.Goal})
 	}
 	return msg
 }
