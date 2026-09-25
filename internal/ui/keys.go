@@ -20,7 +20,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints,
 		"assign": &k.JiraAssignee, "comment": &k.JiraComment, "reply": &k.JiraReply,
 		"start_work": &k.JiraStart, "linked_issue": &k.JiraLinks, "back": &k.Back,
-		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "goto": &k.Goto,
+		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "goto": &k.Goto, "create": &k.Create,
 		"copy_key": &k.CopyKey, "copy_url": &k.CopyURL,
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
@@ -58,7 +58,7 @@ var keyScopes = []struct {
 }{
 	{"board", []string{
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down",
-		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto",
+		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto", "create",
 		"copy_key", "copy_url", "move_left", "move_right", "project", "board",
 		"next_view", "prev_view", "toggle_mode", "sort", "assignee_filter", "mine", "clear_filters",
 	}},

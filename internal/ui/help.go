@@ -31,6 +31,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.Up, k.Down) + "  " + join(k.Left, k.Right), "move"},
 			row(k.OpenChannel, "open issue"),
 			row(k.Goto, "go to issue by key"),
+			row(k.Create, "new issue"),
 			row(k.OpenAttach, "open in browser"),
 			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
 			{join(k.Project, k.Board), "project / board"},

@@ -7,12 +7,12 @@
 - Images follow-ups: verify in real kitty/ghostty;
   query real cell pixel size (CSI 16 t); tmux passthrough;
   `enter` on an image for a full-size view
-- `n` create issue from board (`jira.CreateIssue` exists, unused in UI)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `n` new issue: type, summary; lands in the shown sprint, opens in the panel
 - `rules:` `by_me` condition: change author from the changelog, creator for new; `rules test -by-me`
 - `laneway rules list` / `rules test`; matterbox config's chat `rules:` no longer read as ours
 - `rules:` `highlight` action: ● on the card until opened (theme `highlight`)

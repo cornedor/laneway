@@ -69,7 +69,7 @@ bound to two actions on the board or in the panel.
 
 Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right
-project board next_view prev_view toggle_mode sort assignee_filter mine
+create project board next_view prev_view toggle_mode sort assignee_filter mine
 clear_filters · panel: status priority points assign comment reply start_work
 linked_issue back.
 
@@ -123,7 +123,7 @@ config is picked up as a fallback.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`H`/`L` move card · `enter` open · `#` go to key · `o` browser ·
+`H`/`L` move card · `enter` open · `#` go to key · `n` new issue · `o` browser ·
 `y`/`Y` copy key/URL · `r` refresh · `tab` panel · `q` quit. Cards drag
 between lanes with the mouse.
 

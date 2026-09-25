@@ -56,6 +56,9 @@ const (
 	// jiraPickLink lists the issue's parent, links and subtasks; picking one
 	// shows it in the panel.
 	jiraPickLink
+	// jiraPickCreateType picks a new issue's type, then asks its summary
+	// (jira_create.go).
+	jiraPickCreateType
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -463,6 +466,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickProject || kind == jiraPickBoard {
 		m.closeJiraPicker()
 		return m, m.pickJiraBoard(kind, it.id)
+	}
+	if kind == jiraPickCreateType {
+		m.closeJiraPicker()
+		m.openJiraCreateSummary(it.id)
+		return m, nil
 	}
 	if kind == jiraPickBoardAssignee {
 		m.closeJiraPicker()

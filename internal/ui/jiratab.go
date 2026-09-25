@@ -727,6 +727,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.status = "sorted by " + t.sort.String()
 	case key.Matches(msg, m.keys.Goto):
 		m.openJiraGoto()
+	case key.Matches(msg, m.keys.Create):
+		return m, m.openJiraCreate()
 	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
 		return m, m.copyJira(m.selectedJiraKey(), key.Matches(msg, m.keys.CopyURL))
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":

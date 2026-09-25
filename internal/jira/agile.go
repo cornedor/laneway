@@ -408,3 +408,12 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	}
 	return card
 }
+
+// MoveToSprint puts issues in a sprint.
+func (c *Client) MoveToSprint(ctx context.Context, sprint int, keys ...string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	path := "/rest/agile/1.0/sprint/" + strconv.Itoa(sprint) + "/issue"
+	return c.do(ctx, http.MethodPost, path, "sprint", map[string]any{"issues": keys}, nil)
+}

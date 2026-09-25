@@ -43,7 +43,7 @@ type keyMap struct {
 	JiraLinks, Back                   key.Binding
 
 	// The board's own keys.
-	Quit, Help, Search, Goto           key.Binding
+	Quit, Help, Search, Goto, Create   key.Binding
 	CopyKey, CopyURL                   key.Binding
 	MoveCardLeft, MoveCardRight        key.Binding
 	Project, Board, NextView, PrevView key.Binding
@@ -87,6 +87,7 @@ func defaultKeys() keyMap {
 		Help:          bind("help", "?"),
 		Search:        bind("search", "/"),
 		Goto:          bind("go to issue by key", "#"),
+		Create:        bind("new issue", "n"),
 		CopyKey:       bind("copy key", "y"),
 		CopyURL:       bind("copy URL", "Y"),
 		MoveCardLeft:  bind("move card left", "H", "shift+left"),
@@ -162,6 +163,10 @@ type Model struct {
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
+
+	jiraCreateActive bool
+	jiraCreateType   string
+	jiraCreateInput  textinput.Model
 
 	jiraPicker       jiraPickerState
 	jiraPointsActive bool
@@ -308,6 +313,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:
 		return m.handleJiraAutoRefresh()
+	case jiraCreatedMsg:
+		return m.handleJiraCreated(msg)
 	case rulesEventsMsg:
 		return m.handleRulesEvents(msg)
 	case rulesLoggedMsg:
@@ -336,6 +343,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case m.jiraGotoActive:
 		return m.handleJiraGotoKey(msg)
+	case m.jiraCreateActive:
+		return m.handleJiraCreateKey(msg)
 	case m.jiraPicker.active:
 		return m.handleJiraPickerKey(msg)
 	case m.jiraPointsActive:
@@ -353,7 +362,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.helpOpen || m.jiraGotoActive || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.helpOpen || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -431,6 +440,8 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderHelp()
 	case m.jiraGotoActive:
 		return m.renderJiraGoto()
+	case m.jiraCreateActive:
+		return m.renderJiraCreate()
 	case m.jiraCommentActive:
 		return m.renderJiraCommentInput()
 	case m.jiraPointsActive:
