@@ -83,6 +83,8 @@ type Board struct {
 type Column struct {
 	Name      string
 	StatusIDs []string
+	// Max is the column's work-in-progress limit, 0 when it has none.
+	Max int
 }
 
 // BoardConfig is a board's columns, left to right, and its estimation field
@@ -221,6 +223,7 @@ func (c *Client) fetchBoardConfiguration(ctx context.Context, board int) (*Board
 		ColumnConfig struct {
 			Columns []struct {
 				Name     string `json:"name"`
+				Max      int    `json:"max"`
 				Statuses []struct {
 					ID string `json:"id"`
 				} `json:"statuses"`
@@ -238,7 +241,7 @@ func (c *Client) fetchBoardConfiguration(ctx context.Context, board int) (*Board
 	}
 	cfg := &BoardConfig{PointsField: resp.Estimation.Field.FieldID}
 	for _, col := range resp.ColumnConfig.Columns {
-		column := Column{Name: col.Name}
+		column := Column{Name: col.Name, Max: col.Max}
 		for _, s := range col.Statuses {
 			column.StatusIDs = append(column.StatusIDs, s.ID)
 		}

@@ -8,10 +8,10 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 - Cards: show parent / epic (panel done)
-- Board: WIP limit per column (board config has min/max), mark over-limit lanes
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- Lane heads show `n/max` WIP limit, red when over (unfiltered board only)
 - Panel Links section (parent, issue links, subtasks), `L` picks one to open
 - Panel lists attachments not embedded in the body (linked, with size)
 - Panel `backspace`: back to the previous issue

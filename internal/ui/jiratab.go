@@ -63,6 +63,7 @@ type jiraLane struct {
 	name      string
 	statusIDs []string
 	cards     []int
+	max       int // the column's WIP limit, 0 for none
 }
 
 // jiraAssignee is the board's assignee filter: id "" for everyone, "me",
@@ -544,7 +545,7 @@ func (m *Model) buildJiraLanes() {
 		for _, id := range c.StatusIDs {
 			col[id] = len(t.lanes)
 		}
-		t.lanes = append(t.lanes, jiraLane{name: c.Name, statusIDs: c.StatusIDs})
+		t.lanes = append(t.lanes, jiraLane{name: c.Name, statusIDs: c.StatusIDs, max: c.Max})
 	}
 	for i, cd := range t.cards {
 		if !jiraCardMatches(cd, q) {
@@ -1065,6 +1066,7 @@ var (
 	jiraKeyStyle   = lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 	jiraDimStyle   = lipgloss.NewStyle().Foreground(dimColor)
 	jiraLaneStyle  = lipgloss.NewStyle().Bold(true)
+	jiraOverStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")) // a lane past its WIP limit
 	jiraDropStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(focusedColor)
 	jiraViewActive = lipgloss.NewStyle().Bold(true).Foreground(focusedColor)
 	jiraGhostStyle = lipgloss.NewStyle().Foreground(dimColor).Faint(true).Italic(true)
@@ -1293,8 +1295,16 @@ func (m *Model) renderJiraLanes(width, height int) string {
 	for l := t.firstLane; l < t.firstLane+visible && l < len(t.lanes); l++ {
 		inner := laneW - 1
 		lane := t.lanes[l]
-		head := ansi.Truncate(fmt.Sprintf("%s %d", lane.name, len(lane.cards)), inner, "…")
+		count := strconv.Itoa(len(lane.cards))
+		if lane.max > 0 {
+			count += "/" + strconv.Itoa(lane.max)
+		}
+		head := ansi.Truncate(lane.name+" "+count, inner, "…")
+		// Filtered counts undercount the column, so only a full board judges it.
+		over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
 		switch {
+		case over && !(t.drag.active && l == t.drag.over):
+			head = jiraOverStyle.Underline(l == t.lane).Render(head)
 		case t.drag.active && l == t.drag.over:
 			head = jiraDropStyle.Render(head + strings.Repeat(" ", max(inner-lipgloss.Width(head), 0)))
 		case l == t.lane:

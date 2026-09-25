@@ -534,3 +534,16 @@ func TestPanelLinks(t *testing.T) {
 		t.Errorf("after pick: showing %v, history %v", m.currentRef(), m.refBack)
 	}
 }
+
+func TestJiraLaneWIPLimit(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cfg.Columns[0].Max = 1
+	m.buildJiraLanes()
+	m.renderJira()
+	if !strings.Contains(ansi.Strip(m.View().Content), "To do 2/1") {
+		t.Fatal("lane head lacks its limit")
+	}
+	if !strings.Contains(m.jiraTab.lanesOut, jiraOverStyle.Underline(true).Render("To do 2/1")) {
+		t.Error("over-limit lane not marked")
+	}
+}
