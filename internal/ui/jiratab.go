@@ -156,6 +156,8 @@ type jiraTabState struct {
 	laneW     int   // a lane's width in the last render
 	lanesOut  string
 
+	sort jiraSort // the list's order; lanes keep the board's rank
+
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
@@ -563,6 +565,7 @@ func (m *Model) buildJiraLanes() {
 			}
 		}
 	}
+	t.sort.apply(t.order, t.cards)
 	if len(t.laneTop) != len(t.lanes) {
 		t.laneTop = make([]int, len(t.lanes))
 	}
@@ -677,6 +680,17 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.startJiraSearch()
 	case msg.String() == "?":
 		m.helpOpen = true
+	case msg.String() == "s":
+		if lanes {
+			m.status = "sort applies to the list (t)"
+			break
+		}
+		keep := m.selectedJiraKey()
+		t.sort = (t.sort + 1) % jiraSortCount
+		m.buildJiraLanes()
+		m.selectJiraKey(keep)
+		m.renderJira()
+		m.status = "sorted by " + t.sort.String()
 	case msg.String() == "#":
 		m.openJiraGoto()
 	case msg.String() == "y", msg.String() == "Y":
@@ -1440,6 +1454,9 @@ func (m *Model) jiraFilterLine() string {
 	}
 	if t.jiraFiltered() {
 		line += jiraDimStyle.Render("  ·  0 clears")
+	}
+	if t.sort != jiraSortRank && !m.jiraShowsLanes() {
+		line += jiraDimStyle.Render("  ·  s sort: ") + chip(true, t.sort.String())
 	}
 	switch {
 	case t.searching:

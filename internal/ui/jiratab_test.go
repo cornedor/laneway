@@ -429,3 +429,48 @@ func TestJiraPriorityMark(t *testing.T) {
 		t.Error("lane card lacks its priority mark")
 	}
 }
+
+func TestJiraListSort(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.wantLanes = false
+	m.jiraTab.cards[1].Priority = "Highest"
+	m.jiraTab.cards[3].Priority = "Low"
+	m.buildJiraLanes()
+	keys := func() string {
+		var ks []string
+		for _, ci := range m.jiraTab.order {
+			ks = append(ks, m.jiraTab.cards[ci].Key)
+		}
+		return strings.Join(ks, " ")
+	}
+	rank := keys()
+	out, _ := m.handleJiraKey(keyMsg(t, "s"))
+	m = out.(Model)
+	if got := keys(); m.jiraTab.sort != jiraSortPriority || got != "ABC-2 ABC-1 ABC-3 ABC-4" {
+		t.Errorf("priority order = %q", got)
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "s sort: priority") {
+		t.Error("list lacks the sort chip")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "s"))
+	m = out.(Model)
+	if got := keys(); !strings.HasPrefix(got, "ABC-3 ") {
+		t.Errorf("points order = %q, want ABC-3 (5 pts) first", got)
+	}
+	for range jiraSortCount - 2 {
+		out, _ = m.handleJiraKey(keyMsg(t, "s"))
+		m = out.(Model)
+	}
+	if m.jiraTab.sort != jiraSortRank || keys() != rank {
+		t.Errorf("full cycle: sort=%v order=%q, want rank %q", m.jiraTab.sort, keys(), rank)
+	}
+}
+
+func TestJiraKeySortNumeric(t *testing.T) {
+	cards := []jira.Card{{Key: "ABC-10"}, {Key: "ABC-9"}, {Key: "AB-100"}}
+	order := []int{0, 1, 2}
+	jiraSortKey.apply(order, cards)
+	if order[0] != 2 || order[1] != 1 || order[2] != 0 {
+		t.Errorf("order = %v, want AB-100 ABC-9 ABC-10", order)
+	}
+}

@@ -21,6 +21,7 @@ var helpSections = []struct {
 		{"p / b", "project / board"},
 		{"[ ]", "previous / next view"},
 		{"t", "lanes / list"},
+		{"s", "sort the list"},
 		{"H L", "move card a lane"},
 		{"/", "search (esc clears)"},
 		{"a", "assignee filter"},
