@@ -144,6 +144,10 @@ type jiraTabState struct {
 	total int
 	lanes []jiraLane
 	order []int // the list mode's row order, indexes into cards
+	// rows caches the list mode's unselected rows, per order, for rowsFor;
+	// buildJiraLanes drops it.
+	rows    []string
+	rowsFor [3]int // width, key and status column widths
 
 	idx       int   // list cursor, into order
 	lane, row int   // lane cursor
@@ -520,6 +524,7 @@ func (m *Model) buildJiraLanes() {
 	t := m.jiraTab
 	t.lanes = nil
 	t.order = t.order[:0]
+	t.rows = nil
 	v, ok := m.jiraCurrentView()
 	if t.cfg == nil || !ok {
 		return
@@ -1083,11 +1088,19 @@ func (m *Model) renderJira() {
 		stW = max(stW, lipgloss.Width(t.cards[ci].Status))
 	}
 	stW = min(stW, 20)
-	lines := make([]string, len(t.order))
-	for i, ci := range t.order {
-		lines[i] = m.jiraListRow(t.cards[ci], i == t.idx, w, keyW, stW)
+	if t.rowsFor != [3]int{w, keyW, stW} || len(t.rows) != len(t.order) {
+		t.rows = make([]string, len(t.order))
+		for i, ci := range t.order {
+			t.rows[i] = m.jiraListRow(t.cards[ci], false, w, keyW, stW)
+		}
+		t.rowsFor = [3]int{w, keyW, stW}
 	}
-	t.view.SetContent(strings.Join(lines, "\n"))
+	lines := t.rows
+	if t.idx < len(t.order) {
+		lines = slices.Clone(t.rows)
+		lines[t.idx] = m.jiraListRow(t.cards[t.order[t.idx]], true, w, keyW, stW)
+	}
+	t.view.SetContentLinesWidth(lines, w)
 	top := t.view.YOffset()
 	switch r := t.idx; {
 	case r < top:

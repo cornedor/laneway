@@ -238,6 +238,20 @@ func (m *Model) SetContent(s string) {
 	m.SetContentLines(strings.Split(s, "\n"))
 }
 
+// SetContentLinesWidth sets lines free of newlines that are at most width
+// wide, skipping the per-line measuring [Model.SetContentLines] does.
+func (m *Model) SetContentLinesWidth(lines []string, width int) {
+	m.lines = lines
+	if len(lines) == 0 {
+		m.lines = nil
+	}
+	m.longestLineWidth = width
+	m.ClearHighlights()
+	if m.YOffset() > m.maxYOffset() {
+		m.GotoBottom()
+	}
+}
+
 // SetContentLines allows to set the lines to be shown instead of the content.
 // If a given line has a \n in it, it will still be split into multiple lines
 // similar to that of [Model.SetContent]. See also [Model.SetContent].
