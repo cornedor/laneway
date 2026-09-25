@@ -116,6 +116,11 @@ what fires; `highlight` is skipped there and `notify` needs a terminal:
     every: 2m
     on: status
     actions: [{type: notify}]
+  - name: stuck-in-review       # a time trigger: an issue enters the search
+    watch: status = "In review" AND NOT status CHANGED AFTER -3d
+    every: 1h
+    on: new                     # issues already in it at start are the baseline
+    actions: [{type: log, text: "{{.Key}} in review 3 days"}]
 ```
 
 Template fields: Kind Key Summary Type Status Assignee Priority Points Parent
@@ -123,8 +128,8 @@ OldStatus OldAssignee OldPriority OldPoints Describe.
 
 A bad rule is skipped and reported on the status line. `laneway rules list`
 shows what loaded; `laneway rules test -on status -type Bug -status Done
--from-status "In review"` (`-watch JQL` for a watch rule) says which rules that change fires and what stopped
-the rest, without running anything. A matterbox config's `rules:` are ignored.
+-from-status "In review"` (`-watch JQL` for a watch rule) says which rules
+that change fires and what stopped the rest, without running anything. A matterbox config's `rules:` are ignored.
 
 State (last project, board, view, filters, cached boards) lives in
 `~/.config/laneway/state.json`. An existing `~/.config/jiratui` or matterbox

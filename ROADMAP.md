@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- `rules:` next steps: time triggers (issue in a status > N days). Open: may rules write to Jira
-  (transition, comment)? Ask first.
+- `rules:` Jira actions (transition, comment)? Ask first: rules would write to Jira.
 - Images: verify in real kitty/ghostty, and in tmux (cell size query, full view, passthrough)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `rules:` time triggers: a watch JQL (`NOT status CHANGED AFTER -3d`) + `on: new`, documented
 - `laneway rules watch`: watches without the TUI (log, notify, exec)
 - `rules:` `watch:` JQL + `every:`: rules fire on a polled search, any board open
 - Images inside tmux: passthrough DCS per APC when allow-passthrough is on
