@@ -35,7 +35,7 @@ func TestRoadmap(t *testing.T) {
 				return
 			}
 			io.WriteString(w, `{"issues":[
-			  {"key":"ABC-3","fields":{"parent":{"key":"ABC-1"},"status":{"statusCategory":{"key":"done"}},"customfield_10":3}},
+			  {"key":"ABC-3","fields":{"summary":"Pay","issuetype":{"name":"Story"},"duedate":"2026-09-20","parent":{"key":"ABC-1"},"status":{"statusCategory":{"key":"done"}},"customfield_10":3}},
 			  {"key":"ABC-4","fields":{"parent":{"key":"ABC-1"},"status":{"statusCategory":{"key":"new"}},"customfield_10":5}},
 			  {"key":"ABC-5","fields":{"parent":{"key":"ABC-2"},"status":{"statusCategory":{"key":"new"}},
 			   "customfield_30":[{"startDate":"2026-10-05T08:00:00.000Z","endDate":"2026-10-19T08:00:00.000Z"},
@@ -50,7 +50,7 @@ func TestRoadmap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(epics) != 2 || len(jqls) != 2 || jqls[1] != "parent in (ABC-1,ABC-2)" {
+	if len(epics) != 2 || len(jqls) != 2 || jqls[1] != "parent in (ABC-1,ABC-2) ORDER BY rank" {
 		t.Fatalf("epics %+v, jql %q", epics, jqls)
 	}
 	e := epics[0]
@@ -61,8 +61,38 @@ func TestRoadmap(t *testing.T) {
 	if e.Children != 2 || e.DoneChildren != 1 || e.Points != 8 || e.DonePoints != 3 {
 		t.Errorf("ABC-1 progress = %+v", e)
 	}
+	if k := e.Kids; len(k) != 2 || k[0].Summary != "Pay" || k[0].Type != "Story" || !k[0].Done ||
+		k[0].End.Format(time.DateOnly) != "2026-09-20" || k[1].Key != "ABC-4" {
+		t.Errorf("ABC-1 kids = %+v", k)
+	}
 	e = epics[1]
+	if k := e.Kids; len(k) != 1 || !k[0].DatesFromSprints || k[0].Start.Format(time.DateOnly) != "2026-09-21" {
+		t.Errorf("ABC-2 kids = %+v", k)
+	}
 	if !e.DatesFromSprints || e.Start.Format(time.DateOnly) != "2026-09-21" || e.End.Format(time.DateOnly) != "2026-10-19" {
 		t.Errorf("ABC-2 dates = %v – %v (%v)", e.Start, e.End, e.DatesFromSprints)
+	}
+}
+
+// TestSetDates: start into the instance's start field, end into the due date.
+func TestSetDates(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			io.WriteString(w, `[{"id":"customfield_20","name":"Start date"}]`)
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		body = r.Method + " " + r.URL.Path + " " + string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
+	if err := c.SetDates(context.Background(), "ABC-1", start, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if body != `PUT /rest/api/3/issue/ABC-1 {"fields":{"customfield_20":"2026-10-01","duedate":null}}` {
+		t.Errorf("request = %s", body)
 	}
 }

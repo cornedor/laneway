@@ -325,6 +325,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraLoaded(msg)
 	case roadmapMsg:
 		return m.handleRoadmap(msg)
+	case roadmapSaveMsg:
+		return m.handleRoadmapSave(msg)
+	case roadmapSavedMsg:
+		return m.handleRoadmapSaved(msg)
 	case panelExtraMsg:
 		return m.handlePanelExtra(msg)
 	case jiraPickerLoadedMsg:

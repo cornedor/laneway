@@ -1,10 +1,14 @@
 package ui
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -24,7 +28,8 @@ func roadmapModel(t *testing.T) Model {
 		return time.Date(today.Year(), today.Month(), today.Day()+d, 0, 0, 0, 0, time.Local)
 	}
 	out, _ = m.handleRoadmap(roadmapMsg{project: "ABC", epics: []jira.Epic{
-		{Key: "ABC-10", Summary: "Checkout", Start: day(-4), End: day(10), Points: 10, DonePoints: 5},
+		{Key: "ABC-10", Summary: "Checkout", Start: day(-4), End: day(10), Points: 10, DonePoints: 5,
+			Kids: []jira.EpicChild{{Key: "ABC-12", Summary: "Pay", Type: "Story", Done: true, End: day(2)}}},
 		{Key: "ABC-11", Summary: "Search"},
 	}})
 	return out.(Model)
@@ -101,5 +106,97 @@ func TestRoadmapHeader(t *testing.T) {
 	}
 	if got := ansi.Strip(roadmapHeader(from, 20, 1)); got != "▏S▏Oct              " {
 		t.Errorf("header = %q", got)
+	}
+}
+
+// fakeRoadmapJira serves the field list (with a start field when withStart)
+// and records date writes.
+func fakeRoadmapJira(t *testing.T, m *Model, withStart bool, writes *[]string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			if withStart {
+				io.WriteString(w, `[{"id":"customfield_20","name":"Start date"}]`)
+			} else {
+				io.WriteString(w, `[]`)
+			}
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		*writes = append(*writes, r.URL.Path+" "+string(b))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(srv.Close)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+}
+
+// TestRoadmapFold: space opens an epic's children under it, and on a child
+// folds back to the epic.
+func TestRoadmapFold(t *testing.T) {
+	m := roadmapModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "space"))
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "▾ ABC-10") || !strings.Contains(view, "ABC-12 Pay") {
+		t.Fatal("children not shown")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "j"))
+	m = out.(Model)
+	if m.roadmapKey() != "ABC-12" {
+		t.Fatalf("j onto child: %q", m.roadmapKey())
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "space"))
+	m = out.(Model)
+	if m.roadmapKey() != "ABC-10" || strings.Contains(m.View().Content, "ABC-12") {
+		t.Error("space on a child should fold to its epic")
+	}
+}
+
+// TestRoadmapMove: L shifts the bar, > stretches the end; one write after
+// the keys pause, with both dates.
+func TestRoadmapMove(t *testing.T) {
+	m := roadmapModel(t)
+	var writes []string
+	fakeRoadmapJira(t, &m, true, &writes)
+	e := &m.jiraTab.roadmap.epics[0]
+	start, end := e.Start, e.End
+	var ticks []tea.Cmd
+	for _, k := range []string{"L", "L", ">"} {
+		out, cmd := m.handleJiraKey(keyMsg(t, k))
+		m, ticks = out.(Model), append(ticks, cmd)
+	}
+	zoom := roadmapZooms[m.jiraTab.roadmap.zoom]
+	if !e.Start.Equal(start.AddDate(0, 0, 2*zoom)) || !e.End.Equal(end.AddDate(0, 0, 3*zoom)) {
+		t.Fatalf("dates %v – %v", e.Start, e.End)
+	}
+	// Only the last tick saves.
+	if out, cmd := m.handleRoadmapSave(ticks[0]().(roadmapSaveMsg)); cmd != nil {
+		t.Fatal("a stale tick should not save")
+	} else {
+		m = out.(Model)
+	}
+	_, cmd := m.handleRoadmapSave(ticks[2]().(roadmapSaveMsg))
+	if cmd == nil {
+		t.Fatal("expected a save")
+	}
+	if msg := cmd().(roadmapSavedMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	want := `/rest/api/3/issue/ABC-10 {"fields":{"customfield_20":"` + e.Start.Format(time.DateOnly) + `","duedate":"` + e.End.Format(time.DateOnly) + `"}}`
+	if len(writes) != 1 || writes[0] != want {
+		t.Errorf("writes = %q, want %q", writes, want)
+	}
+}
+
+// TestRoadmapNoStartField: without a start field only the end moves.
+func TestRoadmapNoStartField(t *testing.T) {
+	m := roadmapModel(t)
+	var writes []string
+	fakeRoadmapJira(t, &m, false, &writes)
+	out, cmd := m.handleJiraKey(keyMsg(t, "L"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "no start date field") {
+		t.Fatalf("L: status %q", m.status)
+	}
+	if _, cmd = m.handleJiraKey(keyMsg(t, ">")); cmd == nil {
+		t.Error("> should still move the end")
 	}
 }

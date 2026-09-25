@@ -157,8 +157,10 @@ those done in the last 90 days, in rank order. A bar runs from the epic's
 Start date (or Plans' Target start) to its Due date (or Target end); an
 epic without them spans its children's sprints, drawn fainter. The bar
 fills by points done, else by children done. `← →` scroll, `+ -` zoom
-(day to 2 weeks per column), `.` back to today, `enter` opens the epic,
-`esc` back to the board.
+(day to 2 weeks per column), `.` back to today, `space` folds out the
+epic's issues, `enter` opens the row's issue, `esc` back to the board.
+`H`/`L` move an epic's bar a column, `<`/`>` move its end; the dates are
+written to Jira once you pause.
 
 ## Images
 

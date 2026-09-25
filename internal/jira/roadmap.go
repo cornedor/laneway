@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,6 +25,16 @@ type Epic struct {
 	DatesFromSprints       bool
 	Children, DoneChildren int
 	Points, DonePoints     float64
+	Kids                   []EpicChild // in rank order
+}
+
+// EpicChild is an issue under an epic, dated by its own fields or its
+// sprints.
+type EpicChild struct {
+	Key, Summary, Status, Type string
+	Done                       bool
+	Start, End                 time.Time
+	DatesFromSprints           bool
 }
 
 // roadmapFieldIDs are the instance's custom fields a roadmap reads.
@@ -125,10 +136,13 @@ func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
 // addChildren counts each epic's children and points, and fills missing
 // dates from the sprints they sit in.
 func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string]int, sprintField string) error {
+	ids, _ := c.resolveRoadmapFields(ctx)
 	sp := c.resolveStoryPointFields(ctx)
-	fields := append([]string{"status", "parent"}, sp...)
-	if sprintField != "" {
-		fields = append(fields, sprintField)
+	fields := append([]string{"summary", "status", "parent", "issuetype", "duedate"}, sp...)
+	for _, id := range []string{sprintField, ids.start, ids.end} {
+		if id != "" {
+			fields = append(fields, id)
+		}
 	}
 	type span struct{ start, end time.Time }
 	spans := make([]span, len(epics))
@@ -137,7 +151,7 @@ func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string
 		keys[i] = e.Key
 	}
 	for chunk := range slices.Chunk(keys, 100) {
-		raw, err := c.search(ctx, "parent in ("+strings.Join(chunk, ",")+")", fields)
+		raw, err := c.search(ctx, "parent in ("+strings.Join(chunk, ",")+") ORDER BY rank", fields)
 		if err != nil {
 			return err
 		}
@@ -151,7 +165,19 @@ func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string
 				continue
 			}
 			e := &epics[i]
-			_, done := statusOf(is.Fields["status"])
+			kid := EpicChild{Key: is.Key}
+			_ = json.Unmarshal(is.Fields["summary"], &kid.Summary)
+			kid.Status, kid.Done = statusOf(is.Fields["status"])
+			var typ struct {
+				Name string `json:"name"`
+			}
+			_ = json.Unmarshal(is.Fields["issuetype"], &typ)
+			kid.Type = typ.Name
+			kid.Start = dateField(is.Fields[ids.start])
+			if kid.End = dateField(is.Fields["duedate"]); kid.End.IsZero() {
+				kid.End = dateField(is.Fields[ids.end])
+			}
+			done := kid.Done
 			pts := 0.0
 			for _, id := range sp {
 				if v, err := strconv.ParseFloat(string(is.Fields[id]), 64); err == nil {
@@ -170,7 +196,14 @@ func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string
 				EndDate   time.Time `json:"endDate"`
 			}
 			_ = json.Unmarshal(is.Fields[sprintField], &sprints)
+			var own span
 			for _, s := range sprints {
+				if !s.StartDate.IsZero() && (own.start.IsZero() || s.StartDate.Before(own.start)) {
+					own.start = s.StartDate
+				}
+				if s.EndDate.After(own.end) {
+					own.end = s.EndDate
+				}
 				if !s.StartDate.IsZero() && (spans[i].start.IsZero() || s.StartDate.Before(spans[i].start)) {
 					spans[i].start = s.StartDate
 				}
@@ -178,6 +211,10 @@ func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string
 					spans[i].end = s.EndDate
 				}
 			}
+			if kid.Start.IsZero() && kid.End.IsZero() && !own.start.IsZero() {
+				kid.Start, kid.End, kid.DatesFromSprints = day(own.start), day(own.end), true
+			}
+			e.Kids = append(e.Kids, kid)
 		}
 	}
 	for i := range epics {
@@ -218,4 +255,37 @@ func dateField(raw json.RawMessage) time.Time {
 func day(t time.Time) time.Time {
 	t = t.Local()
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+}
+
+// SetDates writes an issue's start (when the instance has a start field)
+// and due date; a zero time clears it.
+func (c *Client) SetDates(ctx context.Context, key string, start, end time.Time) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	ids, err := c.resolveRoadmapFields(ctx)
+	if err != nil {
+		return err
+	}
+	val := func(t time.Time) any {
+		if t.IsZero() {
+			return nil
+		}
+		return t.Format(time.DateOnly)
+	}
+	fields := map[string]any{"duedate": val(end)}
+	if ids.start != "" {
+		fields[ids.start] = val(start)
+	}
+	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, map[string]any{"fields": fields}, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
+// CanSetStart reports whether the instance has a start date field to write.
+func (c *Client) CanSetStart(ctx context.Context) bool {
+	ids, err := c.resolveRoadmapFields(ctx)
+	return err == nil && ids.start != ""
 }

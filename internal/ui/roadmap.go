@@ -31,11 +31,19 @@ type roadmapState struct {
 	loading bool
 	err     string
 	fetched time.Time
-	idx     int // the selected epic
+	idx     int // the selected row
 	top     int // the first shown row
 	zoom    int // index into roadmapZooms
 	from    time.Time
+	open    map[string]bool // epics folded out
+	// pending holds epics whose dates changed and aren't written yet;
+	// saveSeq debounces the write to the last key press.
+	pending map[string]bool
+	saveSeq int
 }
+
+// roadmapRow is one line: an epic (kid -1) or one of its children.
+type roadmapRow struct{ epic, kid int }
 
 type roadmapMsg struct {
 	project string
@@ -43,13 +51,24 @@ type roadmapMsg struct {
 	err     error
 }
 
+// roadmapSaveMsg fires a pause after the last date change.
+type roadmapSaveMsg struct{ seq int }
+
+// roadmapSavedMsg is the date writes answered.
+type roadmapSavedMsg struct {
+	keys []string
+	err  error
+}
+
+const roadmapSaveDelay = 800 * time.Millisecond
+
 // openRoadmap swaps the board for the project's roadmap.
 func (m *Model) openRoadmap() tea.Cmd {
 	t := m.jiraTab
 	if t.project == "" {
 		return nil
 	}
-	r := &roadmapState{project: t.project, zoom: roadmapDefaultZoom}
+	r := &roadmapState{project: t.project, zoom: roadmapDefaultZoom, open: map[string]bool{}, pending: map[string]bool{}}
 	r.from = roadmapStart(time.Now(), roadmapZooms[r.zoom])
 	t.roadmap = r
 	return m.loadRoadmap()
@@ -75,9 +94,55 @@ func (m Model) handleRoadmap(msg roadmapMsg) (tea.Model, tea.Cmd) {
 		r.err = msg.err.Error()
 		return m, nil
 	}
+	// Keep the selection on the same issue across a reload.
+	keep := m.roadmapKey()
 	r.err, r.epics, r.fetched = "", msg.epics, time.Now()
-	r.idx = min(r.idx, max(len(r.epics)-1, 0))
+	r.idx = 0
+	for i, row := range r.rows() {
+		if r.rowKey(row) == keep {
+			r.idx = i
+		}
+	}
 	return m, nil
+}
+
+// rows are the shown lines: every epic, and the children of those open.
+func (r *roadmapState) rows() []roadmapRow {
+	var out []roadmapRow
+	for i, e := range r.epics {
+		out = append(out, roadmapRow{i, -1})
+		if r.open[e.Key] {
+			for k := range e.Kids {
+				out = append(out, roadmapRow{i, k})
+			}
+		}
+	}
+	return out
+}
+
+func (r *roadmapState) rowKey(row roadmapRow) string {
+	if row.kid < 0 {
+		return r.epics[row.epic].Key
+	}
+	return r.epics[row.epic].Kids[row.kid].Key
+}
+
+// selected is the row under the cursor.
+func (r *roadmapState) selected() (roadmapRow, bool) {
+	rows := r.rows()
+	if r.idx < 0 || r.idx >= len(rows) {
+		return roadmapRow{}, false
+	}
+	return rows[r.idx], true
+}
+
+// roadmapKey is the selected issue's key, "" for none.
+func (m *Model) roadmapKey() string {
+	r := m.jiraTab.roadmap
+	if row, ok := r.selected(); ok {
+		return r.rowKey(row)
+	}
+	return ""
 }
 
 // roadmapStart is the first column's day: a little before today, on a
@@ -94,24 +159,37 @@ func roadmapStart(now time.Time, zoom int) time.Time {
 func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	r := m.jiraTab.roadmap
 	zoom := roadmapZooms[r.zoom]
+	last := max(len(r.rows())-1, 0)
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
 	case msg.String() == "esc", key.Matches(msg, m.keys.Roadmap):
+		save := m.saveRoadmap()
 		m.jiraTab.roadmap = nil
 		m.renderJira()
+		return m, save
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
 		r.idx = max(r.idx-1, 0)
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown):
-		r.idx = min(r.idx+1, max(len(r.epics)-1, 0))
+		r.idx = min(r.idx+1, last)
 	case key.Matches(msg, m.keys.Home):
 		r.idx = 0
 	case key.Matches(msg, m.keys.End):
-		r.idx = max(len(r.epics)-1, 0)
+		r.idx = last
+	case msg.String() == "space":
+		m.foldRoadmap()
 	case key.Matches(msg, m.keys.Left):
 		r.from = r.from.AddDate(0, 0, -8*zoom)
 	case key.Matches(msg, m.keys.Right):
 		r.from = r.from.AddDate(0, 0, 8*zoom)
+	case key.Matches(msg, m.keys.MoveCardLeft):
+		return m, m.shiftRoadmap(-zoom, -zoom)
+	case key.Matches(msg, m.keys.MoveCardRight):
+		return m, m.shiftRoadmap(zoom, zoom)
+	case msg.String() == "<":
+		return m, m.shiftRoadmap(0, -zoom)
+	case msg.String() == ">":
+		return m, m.shiftRoadmap(0, zoom)
 	case msg.String() == "+", msg.String() == "=":
 		m.zoomRoadmap(-1)
 	case msg.String() == "-":
@@ -119,16 +197,16 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == ".":
 		r.from = roadmapStart(time.Now(), zoom)
 	case key.Matches(msg, m.keys.Refresh):
-		return m, m.loadRoadmap()
+		return m, tea.Batch(m.saveRoadmap(), m.loadRoadmap())
 	case key.Matches(msg, m.keys.OpenAttach):
-		if r.idx < len(r.epics) {
-			url := m.jiraClient.BrowseURL(r.epics[r.idx].Key)
+		if k := m.roadmapKey(); k != "" {
+			url := m.jiraClient.BrowseURL(k)
 			m.status = "opening " + url + "…"
-			return m, m.openOpenable(openable{name: r.epics[r.idx].Key, url: url})
+			return m, m.openOpenable(openable{name: k, url: url})
 		}
 	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
-		if r.idx < len(r.epics) {
-			return m.openJiraKey(r.epics[r.idx].Key)
+		if k := m.roadmapKey(); k != "" {
+			return m.openJiraKey(k)
 		}
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
@@ -136,7 +214,124 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// zoomRoadmap steps the zoom, keeping the selected epic's start (or today)
+// foldRoadmap opens or closes the selected epic; on a child it closes the
+// child's epic and selects it.
+func (m *Model) foldRoadmap() {
+	r := m.jiraTab.roadmap
+	row, ok := r.selected()
+	if !ok {
+		return
+	}
+	e := r.epics[row.epic]
+	if len(e.Kids) == 0 {
+		m.status = e.Key + " has no child issues"
+		return
+	}
+	r.open[e.Key] = !r.open[e.Key]
+	for i, rw := range r.rows() {
+		if rw == (roadmapRow{row.epic, -1}) {
+			r.idx = i
+		}
+	}
+}
+
+// shiftRoadmap moves the selected epic's start by ds days and its end by de,
+// then writes both once the keys pause. An epic without dates gets them from
+// today.
+func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
+	r := m.jiraTab.roadmap
+	row, ok := r.selected()
+	if !ok || row.kid >= 0 {
+		m.status = "only an epic's dates move here; open a child with " + helpKey(m.keys.OpenChannel)
+		return nil
+	}
+	if ds != 0 && !m.jiraClient.CanSetStart(m.ctx) {
+		m.status = "no start date field in Jira: < > move the end"
+		return nil
+	}
+	e := &r.epics[row.epic]
+	if e.Start.IsZero() && e.End.IsZero() {
+		now := time.Now()
+		e.Start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	}
+	if !e.Start.IsZero() {
+		e.Start = e.Start.AddDate(0, 0, ds)
+	}
+	end := e.End
+	if end.IsZero() {
+		end = e.Start
+	}
+	if end = end.AddDate(0, 0, de); !e.Start.IsZero() && end.Before(e.Start) {
+		end = e.Start
+	}
+	e.End, e.DatesFromSprints = end, false
+	r.pending[e.Key] = true
+	r.saveSeq++
+	m.status = fmt.Sprintf("%s %s – %s", e.Key, roadmapDate(e.Start), roadmapDate(e.End))
+	seq := r.saveSeq
+	return tea.Tick(roadmapSaveDelay, func(time.Time) tea.Msg { return roadmapSaveMsg{seq} })
+}
+
+func roadmapDate(t time.Time) string {
+	if t.IsZero() {
+		return "?"
+	}
+	return t.Format("Mon 2 Jan")
+}
+
+func (m Model) handleRoadmapSave(msg roadmapSaveMsg) (tea.Model, tea.Cmd) {
+	if r := m.jiraTab.roadmap; r == nil || msg.seq != r.saveSeq {
+		return m, nil
+	}
+	return m, m.saveRoadmap()
+}
+
+// saveRoadmap writes every pending epic's dates.
+func (m *Model) saveRoadmap() tea.Cmd {
+	r := m.jiraTab.roadmap
+	if r == nil || len(r.pending) == 0 {
+		return nil
+	}
+	type dates struct {
+		key        string
+		start, end time.Time
+	}
+	var todo []dates
+	var keys []string
+	for _, e := range r.epics {
+		if r.pending[e.Key] {
+			todo = append(todo, dates{e.Key, e.Start, e.End})
+			keys = append(keys, e.Key)
+		}
+	}
+	r.pending = map[string]bool{}
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "saving " + strings.Join(keys, ", ") + "…"
+	return func() tea.Msg {
+		for _, d := range todo {
+			if err := c.SetDates(ctx, d.key, d.start, d.end); err != nil {
+				return roadmapSavedMsg{keys: keys, err: fmt.Errorf("%s: %w", d.key, err)}
+			}
+		}
+		return roadmapSavedMsg{keys: keys}
+	}
+}
+
+// handleRoadmapSaved reports the write; a failure reloads to show Jira's
+// dates again.
+func (m Model) handleRoadmapSaved(msg roadmapSavedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.status = "dates not saved: " + msg.err.Error()
+		if m.jiraTab.roadmap != nil {
+			return m, m.loadRoadmap()
+		}
+		return m, nil
+	}
+	m.status = strings.Join(msg.keys, ", ") + " dates saved"
+	return m, nil
+}
+
+// zoomRoadmap steps the zoom, keeping the selected row's start (or today)
 // in the same column.
 func (m *Model) zoomRoadmap(d int) {
 	r := m.jiraTab.roadmap
@@ -145,12 +340,29 @@ func (m *Model) zoomRoadmap(d int) {
 		return
 	}
 	anchor := time.Now()
-	if r.idx < len(r.epics) && !r.epics[r.idx].Start.IsZero() {
-		anchor = r.epics[r.idx].Start
+	if row, ok := r.selected(); ok {
+		if s := r.rowEpic(row).Start; !s.IsZero() {
+			anchor = s
+		}
 	}
 	col := int(anchor.Sub(r.from).Hours()/24) / roadmapZooms[r.zoom]
 	r.zoom = z
 	r.from = time.Date(anchor.Year(), anchor.Month(), anchor.Day()-col*roadmapZooms[z], 0, 0, 0, 0, time.Local)
+}
+
+// rowEpic is the row as a bar draws it: a child is one epic-like span, all
+// done or not.
+func (r *roadmapState) rowEpic(row roadmapRow) jira.Epic {
+	if row.kid < 0 {
+		return r.epics[row.epic]
+	}
+	k := r.epics[row.epic].Kids[row.kid]
+	e := jira.Epic{Key: k.Key, Summary: k.Summary, Done: k.Done, Start: k.Start, End: k.End,
+		DatesFromSprints: k.DatesFromSprints, Children: 1}
+	if k.Done {
+		e.DoneChildren = 1
+	}
+	return e
 }
 
 // roadmapLine is the view line while the roadmap shows.
@@ -163,7 +375,9 @@ func (m *Model) roadmapLine() string {
 	case !r.fetched.IsZero():
 		s += jiraDimStyle.Render("  ·  updated " + age(r.fetched))
 	}
-	return s + jiraDimStyle.Render("  ·  ← → scroll  + - zoom  . today  "+helpKey(m.keys.OpenChannel)+" open  esc board")
+	k := m.keys
+	return s + jiraDimStyle.Render("  ·  ← → scroll  + - zoom  . today  space children  "+
+		helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  "+helpKey(k.OpenChannel)+" open  esc board")
 }
 
 func roadmapZoomName(days int) string {
@@ -199,28 +413,43 @@ func (m *Model) renderRoadmap(width, height int) string {
 	}
 
 	lines := []string{strings.Repeat(" ", labelW+1) + roadmapHeader(r.from, cols, zoom)}
-	rows := max(height-1, 1)
-	r.top = min(max(r.top, r.idx-rows+1), r.idx)
-	for i := r.top; i < len(r.epics) && i < r.top+rows; i++ {
-		e := r.epics[i]
-		label := roadmapLabel(e, labelW)
+	shown := max(height-1, 1)
+	rows := r.rows()
+	r.top = min(max(r.top, r.idx-shown+1), r.idx)
+	for i := r.top; i < len(rows) && i < r.top+shown; i++ {
+		row := rows[i]
+		e := r.rowEpic(row)
+		label := m.roadmapLabel(r, row, labelW)
 		if i == r.idx {
-			label = selectedRow.Render(label)
+			label = selectedRow.Render(ansi.Strip(label))
 		} else if e.Done {
-			label = jiraDimStyle.Render(label)
+			label = jiraDimStyle.Render(ansi.Strip(label))
 		}
 		lines = append(lines, label+" "+roadmapBar(e, r.from, cols, zoom, today))
 	}
 	return strings.Join(lines, "\n")
 }
 
-// roadmapLabel is an epic's left column: key, summary, share done.
-func roadmapLabel(e jira.Epic, w int) string {
+// roadmapLabel is a row's left column: fold mark, key, summary and share
+// done for an epic; type icon, key and summary for a child.
+func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
+	e := r.rowEpic(row)
+	lead := "  "
 	pct := ""
-	if f, ok := roadmapDone(e); ok {
-		pct = fmt.Sprintf(" %3.0f%%", f*100)
+	if row.kid >= 0 {
+		lead = "   " + jiraTypeIcon(r.epics[row.epic].Kids[row.kid].Type) + " "
+	} else {
+		if len(e.Kids) > 0 {
+			lead = "▸ "
+			if r.open[e.Key] {
+				lead = "▾ "
+			}
+		}
+		if f, ok := roadmapDone(e); ok {
+			pct = fmt.Sprintf(" %3.0f%%", f*100)
+		}
 	}
-	name := ansi.Truncate(e.Key+" "+e.Summary, max(w-len(pct), 1), "…")
+	name := ansi.Truncate(lead+e.Key+" "+e.Summary, max(w-len(pct), 1), "…")
 	return name + strings.Repeat(" ", max(w-lipgloss.Width(name)-len(pct), 0)) + pct
 }
 
