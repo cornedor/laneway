@@ -161,7 +161,7 @@ Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort li
 `q` quit. Cards drag between lanes with the mouse.
 
 Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (dates take `2026-10-01`, `today`, `+3d`, `fri`) · `s` status · `p` priority · `P` points · `e` summary · `E` description in `$EDITOR` · `l` labels ·
-`a` assignee · `w` log work · `T` timer · `c` comment · `R` reply · `L` linked issue · `A` subtask / link / clone / watch · `H` history · `D` pull requests / branches · `i` images full
+`a` assignee · `w` log work · `T` timer · `c` comment · `R` reply · `L` linked issue · `A` subtask / link / clone / watch / upload / download · `H` history · `D` pull requests / branches · `i` images full
 size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
 `y`/`Y` copy · `r` refresh · `esc` drop field, close.
 

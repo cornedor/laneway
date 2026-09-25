@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -105,5 +107,51 @@ func TestLinkAction(t *testing.T) {
 	w := writes()
 	if len(w) != 1 || !strings.Contains(w[0], `"outwardIssue":{"key":"ABC-7"}`) || !strings.Contains(w[0], `"inwardIssue":{"key":"ABC-1"}`) {
 		t.Errorf("writes = %q", w)
+	}
+}
+
+// TestUploadAction: A → upload asks a path; a missing file is refused, a
+// real one is posted to the issue.
+func TestUploadAction(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	m, _ = pickAction(t, m, "upload")
+	if !m.jiraFieldActive || m.jiraFieldName != "upload" || m.jiraFieldKey != "ABC-1" {
+		t.Fatalf("input: %q %q", m.jiraFieldName, m.jiraFieldKey)
+	}
+	m.jiraFieldInput.SetValue("/no/such/file")
+	out, cmd := m.applyJiraField()
+	if cmd != nil || !strings.Contains(out.(Model).status, "no such file") {
+		t.Error("a missing file should be refused")
+	}
+	path := filepath.Join(t.TempDir(), "notes.txt")
+	os.WriteFile(path, []byte("x"), 0o600)
+	m.jiraFieldInput.SetValue(path)
+	_, cmd = m.applyJiraField()
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	if w := writes(); len(w) != 1 || !strings.HasPrefix(w[0], "POST /rest/api/3/issue/ABC-1/attachments") || !strings.Contains(w[0], "notes.txt") {
+		t.Errorf("writes = %q", w)
+	}
+}
+
+// TestDownloadAction: with attachments, A offers download; the pick lands
+// in the download dir.
+func TestDownloadAction(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_DOWNLOAD_DIR", dir)
+	m, _ := actionsModel(t, map[string]string{"/rest/api/3/attachment/content/7": "DATA"})
+	m.jiraIssue.Attachments = []jira.Attachment{{ID: "7", Filename: "trace.log", Size: 4}}
+	m, _ = pickAction(t, m, "download")
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickAttachment || len(m.jiraPicker.items) != 1 {
+		t.Fatalf("picker = %+v", m.jiraPicker)
+	}
+	_, cmd := m.applyJiraPick()
+	msg := cmd().(jiraDownloadedMsg)
+	if msg.err != nil || msg.path != filepath.Join(dir, "trace.log") {
+		t.Fatalf("%+v", msg)
+	}
+	if b, _ := os.ReadFile(msg.path); string(b) != "DATA" {
+		t.Errorf("content %q", b)
 	}
 }

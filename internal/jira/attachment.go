@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -94,4 +97,106 @@ func (c *Client) AttachmentURL(id string) string {
 		return ""
 	}
 	return c.baseURL + "/rest/api/3/attachment/content/" + url.PathEscape(id)
+}
+
+// UploadAttachment attaches the file at path to key, streamed from disk.
+func (c *Client) UploadAttachment(ctx context.Context, key, path string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	go func() {
+		part, err := mw.CreateFormFile("file", filepath.Base(path))
+		if err == nil {
+			_, err = io.Copy(part, f)
+		}
+		if err == nil {
+			err = mw.Close()
+		}
+		pw.CloseWithError(err)
+	}()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/rest/api/3/issue/"+url.PathEscape(key)+"/attachments", pr)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Authorization", c.auth)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("X-Atlassian-Token", "no-check") // Jira's CSRF guard for uploads
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("call jira: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return statusError(resp.StatusCode, "upload to "+key, body)
+	}
+	c.Invalidate(key)
+	return nil
+}
+
+// DownloadAttachment saves attachment id as name in dir, never over an
+// existing file ("a (1).png"), and returns the path written.
+func (c *Client) DownloadAttachment(ctx context.Context, id, name, dir string) (string, error) {
+	if !c.Enabled() {
+		return "", errNotConfigured
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.AttachmentURL(id), nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Authorization", c.auth)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("call jira: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", statusError(resp.StatusCode, "attachment "+id, body)
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	f, path, err := createFree(dir, filepath.Base(name))
+	if err != nil {
+		return "", err
+	}
+	if _, err = io.Copy(f, resp.Body); err == nil {
+		err = f.Close()
+	} else {
+		f.Close()
+	}
+	if err != nil {
+		os.Remove(path)
+		return "", err
+	}
+	return path, nil
+}
+
+// createFree creates name in dir, or "name (n).ext" when taken.
+func createFree(dir, name string) (*os.File, string, error) {
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	for n := 0; n < 1000; n++ {
+		try := name
+		if n > 0 {
+			try = fmt.Sprintf("%s (%d)%s", stem, n, ext)
+		}
+		path := filepath.Join(dir, try)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		if err == nil {
+			return f, path, nil
+		}
+		if !os.IsExist(err) {
+			return nil, "", err
+		}
+	}
+	return nil, "", fmt.Errorf("no free name for %s in %s", name, dir)
 }

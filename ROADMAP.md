@@ -27,12 +27,12 @@
   to another parent
 - Dev info step 2: an open PR marked on its board card (summary counts,
   fetched with the prefetch), commits
-- Attachments: upload a file (path input with completion), download one to
-  ~/Downloads
+- Attachments step 2: path completion in the upload input; paste an image from the clipboard
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel `A`: upload a file, download an attachment to ~/Downloads (never overwrites)
 - Panel `D`: pull requests (open first) and branches from the dev-status API, enter opens
 - Panel `H` history: every change and comment, newest first, filterable
 - `U` standup: your moves, edits, comments and worklogs since the previous workday, copy as text

@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -31,7 +34,11 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "link", label: "Link to another issue"},
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
+		jiraPickerItem{id: "upload", label: "Upload a file"},
 	)
+	if len(iss.Attachments) > 0 {
+		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"})
+	}
 	m.setJiraPickerItems(items)
 }
 
@@ -78,6 +85,19 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			nk, err := c.Clone(ctx, key)
 			return jiraCreatedMsg{key: nk, err: err}
 		}
+	case "upload":
+		m.openBulkInput("upload", "file path (~ works)")
+		m.jiraFieldKey = key
+	case "download":
+		if m.jiraIssue == nil || m.jiraIssue.Key != key {
+			return nil
+		}
+		m.startJiraPicker(jiraPickAttachment, "Download to "+downloadDir(), true)
+		var items []jiraPickerItem
+		for _, a := range m.jiraIssue.Attachments {
+			items = append(items, jiraPickerItem{id: a.ID + "/" + a.Filename, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size))})
+		}
+		m.setJiraPickerItems(items)
 	case "watch":
 		return func() tea.Msg {
 			on, err := c.ToggleWatch(ctx, key)
@@ -123,6 +143,59 @@ func (m Model) handleJiraWatch(msg jiraWatchMsg) (tea.Model, tea.Cmd) {
 		m.status = "stopped watching " + msg.key
 	}
 	return m, nil
+}
+
+// jiraDownloadedMsg is an attachment saved, or why not.
+type jiraDownloadedMsg struct {
+	path string
+	err  error
+}
+
+// downloadDir is where attachments are saved: $XDG_DOWNLOAD_DIR, else
+// ~/Downloads.
+func downloadDir() string {
+	if d := os.Getenv("XDG_DOWNLOAD_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Downloads")
+}
+
+// downloadAttachment saves the picked "id/name" to the download dir.
+func (m *Model) downloadAttachment(pick string) tea.Cmd {
+	id, name, _ := strings.Cut(pick, "/")
+	c, ctx, dir := m.jiraClient, m.ctx, downloadDir()
+	m.status = "downloading " + name + "…"
+	return func() tea.Msg {
+		path, err := c.DownloadAttachment(ctx, id, name, dir)
+		return jiraDownloadedMsg{path: path, err: err}
+	}
+}
+
+func (m Model) handleJiraDownloaded(msg jiraDownloadedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.status = "download: " + msg.err.Error()
+	} else {
+		m.status = "saved " + msg.path
+	}
+	return m, nil
+}
+
+// applyUpload attaches the typed file to the panel issue.
+func (m Model) applyUpload(raw string) (tea.Model, tea.Cmd) {
+	path := strings.TrimSpace(raw)
+	if rest, ok := strings.CutPrefix(path, "~/"); ok {
+		home, _ := os.UserHomeDir()
+		path = filepath.Join(home, rest)
+	}
+	if fi, err := os.Stat(path); err != nil || fi.IsDir() {
+		m.status = "no such file: " + raw
+		return m, nil
+	}
+	key, c, ctx := m.jiraFieldKey, m.jiraClient, m.ctx
+	m.closeJiraField()
+	m.status = "uploading " + filepath.Base(path) + " to " + key + "…"
+	return m, jiraMutateCmd(key, "attachments", func() error { return c.UploadAttachment(ctx, key, path) })
 }
 
 // issueProject is the project part of an issue key.

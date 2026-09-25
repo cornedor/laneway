@@ -83,6 +83,8 @@ const (
 	jiraPickHistory
 	// jiraPickDev lists the issue's pull requests and branches (devinfo.go).
 	jiraPickDev
+	// jiraPickAttachment picks an attachment to download (issue_actions.go).
+	jiraPickAttachment
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -426,7 +428,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -554,6 +556,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.status = "standup copied"
 		return m, tea.SetClipboard(text)
 	}
+	if kind == jiraPickAttachment {
+		m.closeJiraPicker()
+		return m, m.downloadAttachment(it.id)
+	}
 	if kind == jiraPickDev {
 		m.closeJiraPicker()
 		if it.id == "" {
@@ -661,6 +667,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	if field == "upload" {
+		return m.applyUpload(raw)
 	}
 	if field == "link" {
 		return m.applyLink(raw)
@@ -830,6 +839,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "upload":
+		title, hint, outerW = "Upload a file", "↵ upload · esc cancel", m.jiraFieldInput.Width()+12
 	case "link":
 		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↵ link · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":
