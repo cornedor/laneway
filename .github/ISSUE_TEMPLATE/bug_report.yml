@@ -1,0 +1,33 @@
+name: Bug report
+description: Something doesn't work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open board …\n2. Press …"
+  - type: input
+    id: version
+    attributes:
+      label: laneway version
+      placeholder: v0.1.0 or commit
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and OS
+      placeholder: kitty 0.36 on Fedora 44
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshot or output
+      description: Remove your API token and anything private first.

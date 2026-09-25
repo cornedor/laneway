@@ -15,9 +15,17 @@ import (
 	"github.com/cornedor/laneway/internal/ui"
 )
 
+// version is set by the release build.
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println("laneway", version)
+		return
+	}
 	if err := run(*cfgPath); err != nil {
 		fmt.Fprintln(os.Stderr, "laneway:", err)
 		os.Exit(1)
