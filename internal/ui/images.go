@@ -10,6 +10,7 @@ import (
 	_ "image/png"  // attachment formats and the kitty transmit format
 	"math/rand/v2"
 	"os"
+	"os/exec"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -60,20 +61,58 @@ type panelImages struct {
 	byAtt   map[string]*panelImage
 	// pending is placement changes a render queued, flushed after Update.
 	pending strings.Builder
+	// tmux wraps every graphics sequence for tmux's passthrough.
+	tmux bool
 }
 
 func newPanelImages(on bool, maxRows int) *panelImages {
-	return &panelImages{on: on && kittyGraphics(), maxRows: maxRows, cell: defaultCell, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
+	ok, tmux := kittyGraphics()
+	return &panelImages{on: on && ok, tmux: tmux, maxRows: maxRows, cell: defaultCell, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
 }
 
-// kittyGraphics reports a terminal that draws Unicode placeholders. tmux
-// would need passthrough, so it stays off there.
-func kittyGraphics() bool {
-	if os.Getenv("LANEWAY_IMAGES") == "0" || os.Getenv("TMUX") != "" {
-		return false
+// kittyGraphics reports a terminal that draws Unicode placeholders, and
+// whether it is behind tmux. There the outer terminal shows through the
+// environment tmux inherited, and tmux must pass graphics through
+// (set -g allow-passthrough on).
+func kittyGraphics() (ok, tmux bool) {
+	if os.Getenv("LANEWAY_IMAGES") == "0" {
+		return false, false
+	}
+	kittyLike := os.Getenv("KITTY_WINDOW_ID") != "" || os.Getenv("GHOSTTY_RESOURCES_DIR") != ""
+	if os.Getenv("TMUX") != "" {
+		return kittyLike && tmuxPassthrough(), true
 	}
 	term, prog := os.Getenv("TERM"), os.Getenv("TERM_PROGRAM")
-	return os.Getenv("KITTY_WINDOW_ID") != "" || term == "xterm-kitty" || term == "xterm-ghostty" || strings.EqualFold(prog, "ghostty")
+	return kittyLike || term == "xterm-kitty" || term == "xterm-ghostty" || strings.EqualFold(prog, "ghostty"), false
+}
+
+// tmuxPassthrough reports whether tmux passes escape sequences through.
+func tmuxPassthrough() bool {
+	out, err := exec.Command("tmux", "show", "-gv", "allow-passthrough").Output()
+	v := strings.TrimSpace(string(out))
+	return err == nil && (v == "on" || v == "all")
+}
+
+// wrap readies graphics sequences for the terminal: as they are, or each
+// APC in tmux's passthrough DCS with its escapes doubled.
+func (ii *panelImages) wrap(seq string) string {
+	if !ii.tmux {
+		return seq
+	}
+	var b strings.Builder
+	for seq != "" {
+		i := strings.Index(seq, "\x1b_G")
+		j := strings.Index(seq[max(i, 0):], "\x1b\\")
+		if i < 0 || j < 0 {
+			b.WriteString(seq)
+			break
+		}
+		j += i + 2
+		b.WriteString(seq[:i])
+		b.WriteString("\x1bPtmux;" + strings.ReplaceAll(seq[i:j], "\x1b", "\x1b\x1b") + "\x1b\\")
+		seq = seq[j:]
+	}
+	return b.String()
 }
 
 // imageLoadedMsg carries one fetched image, encoded for transmit.
@@ -142,7 +181,7 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 	}
 	e.state, e.pxW, e.pxH, e.cols, e.rows = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows
 	m.renderRef()
-	return m, tea.Raw(msg.seq)
+	return m, tea.Raw(m.images.wrap(msg.seq))
 }
 
 // encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
@@ -206,7 +245,7 @@ func (m *Model) flushImages() tea.Cmd {
 	if m.images == nil || m.images.pending.Len() == 0 {
 		return nil
 	}
-	seq := m.images.pending.String()
+	seq := m.images.wrap(m.images.pending.String())
 	m.images.pending.Reset()
 	return tea.Raw(seq)
 }
@@ -340,5 +379,5 @@ func (m Model) ReleaseImages() string {
 			fmt.Fprintf(&sb, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", e.id)
 		}
 	}
-	return sb.String()
+	return m.images.wrap(sb.String())
 }

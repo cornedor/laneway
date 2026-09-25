@@ -135,8 +135,9 @@ issue · `S` start work ·
 ## Images
 
 In kitty or Ghostty, images embedded in an issue's description and comments
-are drawn inline in the panel. Elsewhere (and inside tmux) they show as a
-caption. `ui.images: off` or `LANEWAY_IMAGES=0` turns them off.
+are drawn inline in the panel; `i` shows them full size. Inside tmux they
+need `set -g allow-passthrough on`. Elsewhere they show as a caption.
+`ui.images: off` or `LANEWAY_IMAGES=0` turns them off.
 
 ## Build
 

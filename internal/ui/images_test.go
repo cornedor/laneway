@@ -214,3 +214,36 @@ func TestImageView(t *testing.T) {
 		t.Errorf("after close: view %v, %d×%d, want %d×%d", m.imageView, e.cols, e.rows, panel.cols, panel.rows)
 	}
 }
+
+// TestTmuxWrap: behind tmux each graphics APC rides its own passthrough
+// DCS with escapes doubled; other text is left alone.
+func TestTmuxWrap(t *testing.T) {
+	seq := "\x1b_Ga=p,i=1\x1b\\" + "text" + "\x1b_Gm=0;AA\x1b\\"
+	if got := (&panelImages{}).wrap(seq); got != seq {
+		t.Errorf("no tmux: %q", got)
+	}
+	want := "\x1bPtmux;\x1b\x1b_Ga=p,i=1\x1b\x1b\\\x1b\\" + "text" + "\x1bPtmux;\x1b\x1b_Gm=0;AA\x1b\x1b\\\x1b\\"
+	if got := (&panelImages{tmux: true}).wrap(seq); got != want {
+		t.Errorf("tmux:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestKittyGraphicsDetect(t *testing.T) {
+	for _, c := range []struct {
+		env      map[string]string
+		ok, tmux bool
+	}{
+		{map[string]string{"TERM": "xterm-kitty"}, true, false},
+		{map[string]string{"TERM_PROGRAM": "ghostty"}, true, false},
+		{map[string]string{"TERM": "xterm-256color"}, false, false},
+		{map[string]string{"TERM": "xterm-kitty", "LANEWAY_IMAGES": "0"}, false, false},
+		{map[string]string{"TERM": "tmux-256color", "TMUX": "/tmp/x"}, false, true}, // no kitty outside
+	} {
+		for _, k := range []string{"TERM", "TERM_PROGRAM", "TMUX", "KITTY_WINDOW_ID", "GHOSTTY_RESOURCES_DIR", "LANEWAY_IMAGES"} {
+			t.Setenv(k, c.env[k])
+		}
+		if ok, tmux := kittyGraphics(); ok != c.ok || tmux != c.tmux {
+			t.Errorf("%v: ok %v tmux %v, want %v %v", c.env, ok, tmux, c.ok, c.tmux)
+		}
+	}
+}
