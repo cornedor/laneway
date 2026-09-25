@@ -65,6 +65,8 @@ const (
 	jiraPickSprint
 	// jiraPickPalette is the command palette (palette.go).
 	jiraPickPalette
+	// jiraPickBulk asks what to change on the marked cards (bulk.go).
+	jiraPickBulk
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -97,6 +99,7 @@ type jiraPickerState struct {
 	fetchSeq    int              // discards a search response from a superseded query
 	curAssignee string           // accountId of the issue's assignee, to mark ✓ across re-queries
 	all         []jiraPickerItem // a locally filtered picker's full list
+	bulk        []string         // the marked keys a pick applies to, none for one issue
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -503,6 +506,14 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.pickJiraBoard(kind, it.id)
 	}
+	if bulk := m.jiraPicker.bulk; len(bulk) > 0 {
+		m.closeJiraPicker()
+		return m, m.applyBulkPick(kind, bulk, it)
+	}
+	if kind == jiraPickBulk {
+		m.closeJiraPicker()
+		return m, m.applyBulkMenu(it.id)
+	}
 	if kind == jiraPickPalette {
 		m.closeJiraPicker()
 		return m.applyPalette(it.id)
@@ -538,7 +549,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickSprint {
 		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
-		return m, m.moveJiraToSprint(key, it)
+		return m, m.moveJiraToSprint([]string{key}, it)
 	}
 	if kind == jiraPickStatus {
 		key := m.jiraPicker.issueKey
@@ -587,6 +598,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	if strings.HasPrefix(field, "bulk-") {
+		return m.applyBulkField(field, raw)
 	}
 	if field == "field" {
 		return m.applyPanelExtraText(raw)
@@ -747,6 +761,10 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "bulk-labels":
+		title, hint, outerW = "Edit labels", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+	case "bulk-points":
+		title = "Set story points"
 	case "field":
 		title, hint, outerW = "Edit "+m.panelEditField().Name, "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
 	}

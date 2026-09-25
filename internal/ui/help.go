@@ -42,6 +42,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Sort, "sort the list"),
 			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
 			row(k.MoveSprint, "move to sprint / backlog"),
+			{join(k.Mark, k.Bulk), "mark card / edit marked (esc clears)"},
 			row(k.Search, "search (esc clears)"),
 			{join(k.Assignee, k.Mine), "assignee filter / mine"},
 			{"1-9 / " + helpKey(k.ClearFilters), "quick filter / clear"},

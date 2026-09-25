@@ -70,3 +70,21 @@ func TestSetField(t *testing.T) {
 		t.Errorf("body = %s", body)
 	}
 }
+
+// TestEditLabels: add and remove through update verbs.
+func TestEditLabels(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if err := c.EditLabels(context.Background(), "ABC-1", []string{"ui"}, []string{"old"}); err != nil {
+		t.Fatal(err)
+	}
+	if body != `{"update":{"labels":[{"add":"ui"},{"remove":"old"}]}}` {
+		t.Errorf("body = %s", body)
+	}
+}

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strconv"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -36,17 +37,18 @@ func (m *Model) openJiraSprintPicker() {
 	m.setJiraPickerItems(items)
 }
 
-// moveJiraToSprint puts key in the picked sprint or the backlog.
-func (m *Model) moveJiraToSprint(key string, it jiraPickerItem) tea.Cmd {
+// moveJiraToSprint puts keys in the picked sprint or the backlog.
+func (m *Model) moveJiraToSprint(keys []string, it jiraPickerItem) tea.Cmd {
 	if it.current {
 		return nil
 	}
 	client, ctx := m.jiraClient, m.ctx
-	run := func() error { return client.MoveToBacklog(ctx, key) }
+	run := func() error { return client.MoveToBacklog(ctx, keys...) }
 	if it.id != jiraBacklogID {
 		sprint, _ := strconv.Atoi(it.id)
-		run = func() error { return client.MoveToSprint(ctx, sprint, key) }
+		run = func() error { return client.MoveToSprint(ctx, sprint, keys...) }
 	}
+	key := strings.Join(keys, ", ")
 	m.status = "moving " + key + " to " + it.label + "…"
 	return jiraMutateCmd(key, "sprint", run)
 }

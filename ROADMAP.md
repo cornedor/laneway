@@ -10,8 +10,8 @@
 - Palette step 2: JQL editor with field/value autocomplete
   (`/jql/autocompletedata`), saved as a `ui.views` entry; projects and
   roadmap epics as rows; recent picks first
-- Bulk edit: `v` marks cards, then status / assignee / labels / sprint / priority
-  on all marked at once (one request per issue, progress in status bar)
+- Bulk step 2: mark a lane or every search hit at once (`X`), required
+  transition fields asked once for all
 - Sprint planning view: backlog and next sprint side by side, points per
   assignee against a capacity, drag or `M` between them, rank with `K`/`J`
 - Sprint charts: burndown / burnup, velocity of the last sprints, cumulative
@@ -29,6 +29,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Bulk edit: `x` marks, `B` sets status / priority / assignee / labels / points / sprint on all, 4 at a time
 - `:` command palette: pane actions, views, quick filters, boards, loaded issues; pickers match every word
 - Roadmap: `space` folds out an epic's issues, `H`/`L` move a bar, `<`/`>` its end, written after a pause
 - `R` roadmap: epics on a timeline (own dates, else children's sprints), filled by points done, zoom and scroll

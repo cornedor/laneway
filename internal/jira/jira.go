@@ -729,6 +729,27 @@ func (c *Client) SetLabels(ctx context.Context, key string, labels []string) err
 	return nil
 }
 
+// EditLabels adds and removes labels, leaving the issue's others as they
+// are.
+func (c *Client) EditLabels(ctx context.Context, key string, add, remove []string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	var ops []map[string]string
+	for _, l := range add {
+		ops = append(ops, map[string]string{"add": l})
+	}
+	for _, l := range remove {
+		ops = append(ops, map[string]string{"remove": l})
+	}
+	body := map[string]any{"update": map[string]any{"labels": ops}}
+	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // AddComment posts text as a new comment on the issue, then invalidates the
 // cache so the next Get includes it. text is plain (blank lines separate
 // paragraphs, "> " lines become a blockquote — see textToADF); when mention is

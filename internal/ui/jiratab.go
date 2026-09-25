@@ -144,6 +144,8 @@ type jiraTabState struct {
 	rulesSeen map[string][]jira.Card
 	// highlights are cards a rule marked, by key: the colour, until opened.
 	highlights map[string]string
+	// marked are the cards a bulk edit applies to (bulk.go), by key.
+	marked map[string]bool
 	viewIdx    int
 	wantLanes  bool // the user's mode; a list-only view overrides it
 	modeRead   bool // wantLanes and the assignee were restored from the store
@@ -717,6 +719,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.toggleJiraMode()
 	case key.Matches(msg, m.keys.Roadmap):
 		return m, m.openRoadmap()
+	case key.Matches(msg, m.keys.Mark):
+		m.toggleJiraMark()
+	case key.Matches(msg, m.keys.Bulk):
+		m.openBulkMenu()
 	case key.Matches(msg, m.keys.Assignee):
 		m.openJiraAssigneeFilter()
 	case key.Matches(msg, m.keys.Mine):
@@ -752,6 +758,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.copyJira(m.selectedJiraKey(), key.Matches(msg, m.keys.CopyURL))
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":
 		m.clearJiraSearch()
+	case msg.String() == "esc" && len(t.marked) > 0:
+		m.clearJiraMarks()
+		m.status = "marks cleared"
 	case len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9":
 		return m, m.toggleJiraQuick(int(msg.String()[0] - '1'))
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
@@ -1246,6 +1255,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 
 // jiraHighlight is the mark of a card a rule highlighted, "" for none.
 func (m *Model) jiraHighlight(key string) string {
+	if mk := m.jiraMark(key); mk != "" {
+		return mk
+	}
 	c, ok := m.jiraTab.highlights[key]
 	if !ok {
 		return ""

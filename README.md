@@ -143,7 +143,7 @@ loaded issues, filtered by every word you type.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`R` roadmap · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
+`R` roadmap · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
@@ -151,6 +151,14 @@ Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (d
 `a` assignee · `c` comment · `R` reply · `L` linked issue · `i` images full
 size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
 `y`/`Y` copy · `r` refresh · `esc` drop field, close.
+
+## Bulk edit
+
+`x` marks the card under the cursor (marks survive switching views), `B`
+changes every marked card: status (each along its own workflow move, no
+transition form), priority, assignee, labels (`ui -old` adds ui, removes
+old), story points, or sprint. Cards that fail stay marked with the reason
+in the status bar. `esc` clears the marks.
 
 ## Roadmap
 
