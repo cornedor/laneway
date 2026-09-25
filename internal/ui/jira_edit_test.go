@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-
 	"jiratui/internal/jira"
 )
 

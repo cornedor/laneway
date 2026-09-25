@@ -28,15 +28,15 @@ const (
 )
 
 type keyMap struct {
-	Tab, ShiftTab                   key.Binding
-	Up, Down, Left, Right           key.Binding
-	Home, End                       key.Binding
-	InputUp, InputDown              key.Binding
-	PageUp, PageDown                key.Binding
-	OpenChannel, OpenRef            key.Binding
-	OpenAttach, Refresh             key.Binding
-	JiraStatus, JiraPriority        key.Binding
-	JiraPoints, JiraAssignee        key.Binding
+	Tab, ShiftTab                     key.Binding
+	Up, Down, Left, Right             key.Binding
+	Home, End                         key.Binding
+	InputUp, InputDown                key.Binding
+	PageUp, PageDown                  key.Binding
+	OpenChannel, OpenRef              key.Binding
+	OpenAttach, Refresh               key.Binding
+	JiraStatus, JiraPriority          key.Binding
+	JiraPoints, JiraAssignee          key.Binding
 	JiraComment, JiraReply, JiraStart key.Binding
 }
 
@@ -121,6 +121,7 @@ type Model struct {
 	panelHint  string
 
 	helpOpen bool
+	images   *panelImages
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
@@ -164,6 +165,7 @@ func New(ctx context.Context, cfg config.JiraConfig, st *store.Store) Model {
 		jiraRepos:       cfg.Repos,
 		jiraStartPrompt: prompt,
 		jiraTab:         newJiraTabState(),
+		images:          newPanelImages(),
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
 	}
@@ -241,6 +243,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraFormDone(msg)
 	case jiraWorkMsg:
 		return m.handleJiraWork(msg)
+	case imageLoadedMsg:
+		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:
 		return m.handleJiraAutoRefresh()
 	case openedMsg:

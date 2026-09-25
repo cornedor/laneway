@@ -32,3 +32,9 @@ Panel: `s` status · `p` priority · `P` points · `a` assignee · `c` comment �
 ## Build
 
 `make` · `make test` · `make install`
+
+## Images
+
+In kitty or Ghostty, images embedded in an issue's description and comments are
+drawn inline in the panel. Elsewhere (and inside tmux) they show as a caption.
+`JIRATUI_IMAGES=0` turns them off.

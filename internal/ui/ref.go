@@ -195,7 +195,7 @@ func (m *Model) renderRef() {
 		}
 		m.refView.SetContent(refDimStyle.Render("loading " + label + "…"))
 	case m.jiraIssue != nil:
-		m.refView.SetContent(expandTables(m.renderJiraIssue(m.jiraIssue, m.refView.Width()), m.refView.Width()))
+		m.refView.SetContent(m.placeImages(expandTables(m.renderJiraIssue(m.jiraIssue, m.refView.Width()), m.refView.Width())))
 	default:
 		m.refView.SetContent(refDimStyle.Render("loading…"))
 	}

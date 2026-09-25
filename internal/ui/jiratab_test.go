@@ -263,7 +263,7 @@ func TestJiraFilterJQL(t *testing.T) {
 // TestJiraTabQuickFilter: a digit toggles its quick filter and refetches.
 func TestJiraTabQuickFilter(t *testing.T) {
 	m := jiraTabModel(t)
-		out, cmd := m.handleJiraKey(keyMsg(t, "2"))
+	out, cmd := m.handleJiraKey(keyMsg(t, "2"))
 	m = out.(Model)
 	if cmd == nil || !m.jiraTab.quickOn[8] || m.jiraTab.quickOn[7] {
 		t.Fatalf("quickOn = %v, want BE on and a refetch", m.jiraTab.quickOn)
@@ -282,7 +282,7 @@ func TestJiraTabQuickFilter(t *testing.T) {
 // pick filters by them.
 func TestJiraTabAssigneeFilter(t *testing.T) {
 	m := jiraTabModel(t)
-		out, _ := m.handleJiraKey(keyMsg(t, "a"))
+	out, _ := m.handleJiraKey(keyMsg(t, "a"))
 	m = out.(Model)
 	items := m.jiraPicker.items
 	if len(items) != 4 || items[3].id != "a1" || !items[0].current {

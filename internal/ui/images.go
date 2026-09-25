@@ -1,0 +1,267 @@
+package ui
+
+import (
+	"bytes"
+	"fmt"
+	"image"
+	"image/draw"
+	_ "image/gif"  // attachment formats
+	_ "image/jpeg" // attachment formats
+	_ "image/png"  // attachment formats and the kitty transmit format
+	"math/rand/v2"
+	"os"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi/kitty"
+
+	"jiratui/internal/jira"
+)
+
+// Attachment images in the panel, drawn with the kitty graphics protocol's
+// Unicode placeholders: each image is transmitted once (tea.Raw) with a
+// virtual placement, then shown by placeholder cells whose foreground carries
+// its id. The cells are ordinary text, so the image scrolls with the panel.
+// Kitty and Ghostty support it; elsewhere the caption stays text.
+
+const (
+	imgMaxRows = 16   // tallest an image is drawn, in cells
+	imgMaxPx   = 1600 // longer sides are downscaled before transmitting
+	// A cell's pixel size, for the aspect: the common 1:2 of a terminal font.
+	imgCellW, imgCellH = 10, 20
+)
+
+type imgState int
+
+const (
+	imgLoading imgState = iota
+	imgReady
+	imgFailed
+)
+
+type panelImage struct {
+	state      imgState
+	id         uint32 // kitty image id, 24-bit
+	cols, rows int
+}
+
+// panelImages holds the panel's images by attachment id, for the session.
+type panelImages struct {
+	on     bool
+	nextID uint32
+	byAtt  map[string]*panelImage
+}
+
+func newPanelImages() *panelImages {
+	return &panelImages{on: kittyGraphics(), nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
+}
+
+// kittyGraphics reports a terminal that draws Unicode placeholders. tmux
+// would need passthrough, so it stays off there.
+func kittyGraphics() bool {
+	if os.Getenv("JIRATUI_IMAGES") == "0" || os.Getenv("TMUX") != "" {
+		return false
+	}
+	term, prog := os.Getenv("TERM"), os.Getenv("TERM_PROGRAM")
+	return os.Getenv("KITTY_WINDOW_ID") != "" || term == "xterm-kitty" || term == "xterm-ghostty" || strings.EqualFold(prog, "ghostty")
+}
+
+// imageLoadedMsg carries one fetched image, encoded for transmit.
+type imageLoadedMsg struct {
+	att        string
+	id         uint32
+	cols, rows int
+	seq        string
+	err        error
+}
+
+// fetchIssueImages starts downloads for the issue's image attachments not
+// fetched yet, sized to the panel width.
+func (m *Model) fetchIssueImages(iss *jira.Issue) tea.Cmd {
+	ii := m.images
+	if ii == nil || !ii.on || iss == nil {
+		return nil
+	}
+	box := max(m.refView.Width()-4, 8)
+	var cmds []tea.Cmd
+	for _, a := range iss.Attachments {
+		if !a.IsImage() || ii.byAtt[a.ID] != nil || !issueShowsAttachment(iss, a.ID) {
+			continue
+		}
+		id := ii.nextID & 0xFFFFFF
+		ii.nextID++
+		ii.byAtt[a.ID] = &panelImage{state: imgLoading, id: id}
+		ctx, c, att := m.ctx, m.jiraClient, a.ID
+		cmds = append(cmds, func() tea.Msg {
+			b, err := c.AttachmentContent(ctx, att)
+			if err != nil {
+				return imageLoadedMsg{att: att, err: err}
+			}
+			seq, cols, rows, err := encodeKittyImage(id, b, box)
+			return imageLoadedMsg{att: att, id: id, cols: cols, rows: rows, seq: seq, err: err}
+		})
+	}
+	return tea.Batch(cmds...)
+}
+
+// issueShowsAttachment reports whether the description or a comment embeds
+// attachment att, so files only listed on the issue aren't downloaded.
+func issueShowsAttachment(iss *jira.Issue, att string) bool {
+	ref := "](" + jira.AttachmentScheme + att + ")"
+	if strings.Contains(iss.Description, ref) {
+		return true
+	}
+	for _, c := range iss.Comments {
+		if strings.Contains(c.Body, ref) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
+	e := m.images.byAtt[msg.att]
+	if e == nil {
+		return m, nil
+	}
+	if msg.err != nil {
+		e.state = imgFailed
+		return m, nil
+	}
+	e.state, e.cols, e.rows = imgReady, msg.cols, msg.rows
+	m.renderRef()
+	return m, tea.Raw(msg.seq)
+}
+
+// encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
+// box columns and imgMaxRows rows, and builds the transmit sequence.
+func encodeKittyImage(id uint32, b []byte, box int) (seq string, cols, rows int, err error) {
+	img, _, err := image.Decode(bytes.NewReader(b))
+	if err != nil {
+		return "", 0, 0, fmt.Errorf("decode image: %w", err)
+	}
+	img = shrinkImage(img, imgMaxPx)
+	cols, rows = fitCells(img.Bounds().Dx(), img.Bounds().Dy(), box, imgMaxRows)
+	var sb strings.Builder
+	err = kitty.EncodeGraphics(&sb, img, &kitty.Options{
+		Action:           kitty.TransmitAndPut,
+		VirtualPlacement: true,
+		ID:               int(id),
+		Rows:             rows,
+		Columns:          cols,
+		Format:           kitty.PNG,
+		Transmission:     kitty.Direct,
+		Quite:            2,
+		Chunk:            true,
+	})
+	return sb.String(), cols, rows, err
+}
+
+// fitCells sizes a w×h pixel image in cells: aspect kept, no upscaling, at
+// most box columns and maxRows rows.
+func fitCells(w, h, box, maxRows int) (cols, rows int) {
+	if w <= 0 || h <= 0 {
+		return 1, 1
+	}
+	cols = min(box, (w+imgCellW-1)/imgCellW)
+	rows = (cols*imgCellW*h/w + imgCellH - 1) / imgCellH
+	if rows > maxRows {
+		rows = maxRows
+		cols = rows * imgCellH * w / (h * imgCellW)
+	}
+	return max(cols, 1), max(rows, 1)
+}
+
+// shrinkImage scales img down by an integer box filter until its longer side
+// is at most maxPx.
+func shrinkImage(img image.Image, maxPx int) image.Image {
+	b := img.Bounds()
+	f := (max(b.Dx(), b.Dy()) + maxPx - 1) / maxPx
+	if f <= 1 {
+		return img
+	}
+	src := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(src, src.Bounds(), img, b.Min, draw.Src)
+	dst := image.NewRGBA(image.Rect(0, 0, b.Dx()/f, b.Dy()/f))
+	n := uint32(f * f)
+	for y := 0; y < dst.Rect.Dy(); y++ {
+		for x := 0; x < dst.Rect.Dx(); x++ {
+			var r, g, bl, a uint32
+			for dy := 0; dy < f; dy++ {
+				o := src.PixOffset(x*f, y*f+dy)
+				for dx := 0; dx < f; dx++ {
+					p := src.Pix[o+dx*4 : o+dx*4+4]
+					r, g, bl, a = r+uint32(p[0]), g+uint32(p[1]), bl+uint32(p[2]), a+uint32(p[3])
+				}
+			}
+			o := dst.PixOffset(x, y)
+			dst.Pix[o], dst.Pix[o+1], dst.Pix[o+2], dst.Pix[o+3] = uint8(r/n), uint8(g/n), uint8(bl/n), uint8(a/n)
+		}
+	}
+	return dst
+}
+
+// kittyPlaceholder is the text that shows image id over rows×cols cells. The
+// id foreground is reopened on every row, since the pane's layout resets
+// styles at line ends.
+func kittyPlaceholder(id uint32, rows, cols int) []string {
+	fg := fmt.Sprintf("\x1b[38;2;%d;%d;%dm", byte(id>>16), byte(id>>8), byte(id))
+	lines := make([]string, rows)
+	for r := range rows {
+		var sb strings.Builder
+		sb.WriteString(fg)
+		for c := range cols {
+			sb.WriteRune(kitty.Placeholder)
+			sb.WriteRune(kitty.Diacritic(r))
+			sb.WriteRune(kitty.Diacritic(c))
+		}
+		sb.WriteString("\x1b[39m")
+		lines[r] = sb.String()
+	}
+	return lines
+}
+
+// placeImages strips the image marks from rendered panel content and puts a
+// ready image's placeholder rows under its caption.
+func (m *Model) placeImages(s string) string {
+	if !strings.Contains(s, imgMarkPrefix) {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		var atts []string
+		for {
+			i := strings.Index(l, imgMarkPrefix)
+			if i < 0 {
+				break
+			}
+			j := strings.Index(l[i:], imgMarkEnd)
+			if j < 0 {
+				break
+			}
+			atts = append(atts, l[i+len(imgMarkPrefix):i+j])
+			l = l[:i] + l[i+j+len(imgMarkEnd):]
+		}
+		out = append(out, l)
+		indent := strings.Repeat(" ", len(l)-len(strings.TrimLeft(l, " ")))
+		for _, a := range atts {
+			if e := m.images.ready(a); e != nil {
+				for _, row := range kittyPlaceholder(e.id, e.rows, min(e.cols, max(m.refView.Width()-len(indent), 1))) {
+					out = append(out, indent+row)
+				}
+			}
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func (ii *panelImages) ready(att string) *panelImage {
+	if ii == nil {
+		return nil
+	}
+	if e := ii.byAtt[att]; e != nil && e.state == imgReady {
+		return e
+	}
+	return nil
+}

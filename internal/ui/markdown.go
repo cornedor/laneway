@@ -8,6 +8,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"jiratui/internal/jira"
 	"jiratui/internal/safeterm"
 )
 
@@ -75,29 +76,22 @@ var (
 const (
 	mdCodeSentinel = "\x00MDCODE"
 	mdLinkSentinel = "\x00MDLINK"
-
-	// imgIndicatorMark is planted immediately before whatever a body image renders
-	// as — the "🖼️ alt" of a markdown image, the link text of an image URL — i.e.
-	// before the *indicator* the reader sees for an image the transcript draws a
-	// thumbnail of, further down the post. The transcript swaps it for that post's
-	// collapse chevron (Model.imgChevrons); every other consumer of a rendered body
-	// strips it (stripImgMarks), since a chevron would promise a thumbnail nobody is
-	// drawing there.
-	//
-	// It exists so the chevron doesn't have to key the markdown cache: a body is
-	// memoized once per message version, width- and state-independent (see
-	// markdownBodyRaw), and pressing z re-runs a string replace over it rather than
-	// the whole markdown pass. Zero-width and inert like every sentinel here, so a
-	// consumer that forgets to strip it prints nothing rather than corrupting a line.
-	imgIndicatorMark = "\x00MDIMG\x00"
 )
 
-// stripImgMarks removes the body-image markers from a rendered body. For anything
-// that shows a post's text *without* drawing its thumbnails: the SQL tab, the
-// message-info pane, a /me emote.
-func stripImgMarks(s string) string {
-	return strings.ReplaceAll(s, imgIndicatorMark, "")
+// imgMark carries an attachment image's id to the panel (placeImages) as an
+// OSC no terminal acts on, so width math reads it as zero-width. Other
+// targets get none: only a bare id is safe from the later inline passes.
+func imgMark(url string) string {
+	id, ok := strings.CutPrefix(url, jira.AttachmentScheme)
+	if !ok || id == "" || strings.Trim(id, "0123456789") != "" {
+		return ""
+	}
+	return imgMarkPrefix + id + imgMarkEnd
 }
+
+const imgMarkEnd = "\x1b\\"
+
+const imgMarkPrefix = "\x1b]5379;img="
 
 // imgLinkMark marks a link matterbox draws a thumbnail for. Nothing here draws
 // thumbnails, so no link is marked.
@@ -428,7 +422,7 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 		if alt == "" {
 			alt = "image"
 		}
-		return attachmentStyle.Render(imgIndicatorMark + "🖼️ " + alt)
+		return attachmentStyle.Render(imgMark(sub[2]) + "🖼️ " + alt)
 	})
 
 	// Stash links (markdown [text](url) first, then bare URLs) so their

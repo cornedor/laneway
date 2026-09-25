@@ -50,7 +50,7 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 		m.jiraIssue = msg.issue
 	}
 	m.renderRef()
-	return m, nil
+	return m, m.fetchIssueImages(m.jiraIssue)
 }
 
 // renderJiraIssue formats one issue for the viewport: a key + type header, the
