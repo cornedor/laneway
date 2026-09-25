@@ -27,7 +27,7 @@ Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort li
 `r` refresh · `tab` panel · `?` help · `q` quit. Cards drag between lanes with the mouse.
 
 Panel: `s` status · `p` priority · `P` points · `a` assignee · `m` mine · `c` comment ·
-`R` reply · `backspace` previous issue · `S` start work · `o` browser · `y`/`Y` copy · `r` refresh · `esc` close.
+`R` reply · `backspace` previous issue · `L` linked issue · `S` start work · `o` browser · `y`/`Y` copy · `r` refresh · `esc` close.
 
 ## Build
 

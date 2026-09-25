@@ -512,3 +512,25 @@ func TestPanelBackHistory(t *testing.T) {
 		t.Error("closing kept the history")
 	}
 }
+
+func TestPanelLinks(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	iss := &jira.Issue{Key: "ABC-1", Links: []jira.Link{{Rel: "blocks", Key: "ABC-3", Summary: "Third", Status: "New"}}}
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: iss})
+	m = out.(Model)
+	if !strings.Contains(ansi.Strip(m.refView.View()), "blocks ABC-3 Third · New") {
+		t.Errorf("links section missing:\n%s", ansi.Strip(m.refView.View()))
+	}
+	out, _ = m.handleKey(keyMsg(t, "L"))
+	m = out.(Model)
+	if !m.jiraPicker.active || len(m.jiraPicker.items) != 1 {
+		t.Fatalf("picker = %+v", m.jiraPicker)
+	}
+	out, cmd := m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if cmd == nil || m.currentRef().jiraKey != "ABC-3" || len(m.refBack) != 1 {
+		t.Errorf("after pick: showing %v, history %v", m.currentRef(), m.refBack)
+	}
+}

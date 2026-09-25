@@ -53,6 +53,9 @@ const (
 	// jiraPickLaneStatus picks which of a lane's statuses a keyboard move
 	// lands on (jiratab.go).
 	jiraPickLaneStatus
+	// jiraPickLink lists the issue's parent, links and subtasks; picking one
+	// shows it in the panel.
+	jiraPickLink
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -473,6 +476,12 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickLaneStatus {
 		m.closeJiraPicker()
 		return m, m.pickJiraLaneStatus(it.id)
+	}
+	if kind == jiraPickLink {
+		m.closeJiraPicker()
+		m.selectJiraKey(it.id)
+		m.renderJira()
+		return m.openJiraKey(it.id)
 	}
 	if kind == jiraPickStatus {
 		key := m.jiraPicker.issueKey

@@ -7,12 +7,12 @@
 - `n` create issue from board (`jira.CreateIssue` exists, unused in UI)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
-- Cards/panel: show parent / epic
-- Panel: linked issues section, `enter` to follow
+- Cards: show parent / epic (panel done)
 - Board: WIP limit per column (board config has min/max), mark over-limit lanes
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- Panel Links section (parent, issue links, subtasks), `L` picks one to open
 - Panel lists attachments not embedded in the body (linked, with size)
 - Panel `backspace`: back to the previous issue
 - `m` toggles assignee = me

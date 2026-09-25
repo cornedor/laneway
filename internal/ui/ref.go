@@ -129,6 +129,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.helpOpen = true
 		return m, nil
+	case "L":
+		m.openJiraLinkPicker()
+		return m, nil
 	case "backspace":
 		if n := len(m.refBack); n > 0 {
 			key := m.refBack[n-1]

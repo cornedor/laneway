@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"jiratui/internal/jira"
 )
@@ -95,9 +96,41 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
 	}
 
+	m.renderJiraLinks(&b, iss, width)
 	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraComments(&b, iss, width)
 	return b.String()
+}
+
+// renderJiraLinks lists the parent, linked issues and subtasks; L picks one
+// to open.
+func (m *Model) renderJiraLinks(b *strings.Builder, iss *jira.Issue, width int) {
+	if len(iss.Links) == 0 {
+		return
+	}
+	b.WriteString("\n" + refDimStyle.Render(strings.Repeat("─", max(width, 1))) + "\n")
+	b.WriteString(refLabelStyle.Render(fmt.Sprintf("Links (%d)", len(iss.Links))) + refDimStyle.Render("  L open") + "\n")
+	for _, l := range iss.Links {
+		line := refDimStyle.Render(l.Rel+" ") + jiraKeyStyle.Render(l.Key) + " " + l.Summary
+		if l.Status != "" {
+			line += refDimStyle.Render(" · " + l.Status)
+		}
+		b.WriteString(ansi.Truncate(line, max(width, 1), "…") + "\n")
+	}
+}
+
+// openJiraLinkPicker lists the shown issue's links to jump to.
+func (m *Model) openJiraLinkPicker() {
+	if m.jiraIssue == nil || len(m.jiraIssue.Links) == 0 {
+		m.status = "no linked issues"
+		return
+	}
+	m.startJiraPicker(jiraPickLink, "Go to linked issue", false)
+	items := make([]jiraPickerItem, len(m.jiraIssue.Links))
+	for i, l := range m.jiraIssue.Links {
+		items[i] = jiraPickerItem{id: l.Key, label: l.Rel + " " + l.Key + " " + l.Summary}
+	}
+	m.setJiraPickerItems(items)
 }
 
 // renderJiraAttachments lists the files the description and comments don't
