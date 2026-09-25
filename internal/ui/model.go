@@ -210,6 +210,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *sto
 		refView:         viewport.New(),
 	}
 	m.refView.SoftWrap = true
+	m.jiraTab.wantLanes = opts.lanes
 	return m
 }
 

@@ -1157,19 +1157,32 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	status := ansi.Truncate(c.Status, stW, "…")
 	status += strings.Repeat(" ", max(stW-lipgloss.Width(status), 0))
 	pts := fmt.Sprintf("%3s", c.Points)
+	f := m.opts.fields
 	title := c.Summary
-	if c.Assignee != "" {
+	if f.assignee && c.Assignee != "" {
 		title += jiraDimStyle.Render(" · " + c.Assignee)
 	}
-	if c.ParentSummary != "" {
+	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
 	}
-	pm := jiraPriorityMark(c.Priority)
-	if pm == "" {
-		pm = " "
+	row := "  " + jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  "
+	if f.typ {
+		row += jiraTypeIcon(c.Type) + " "
 	}
-	row := "  " + jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  " + jiraTypeIcon(c.Type) + " " + pm + " " +
-		jiraDimStyle.Render(status) + "  " + jiraDimStyle.Render(pts) + "  " + title
+	if f.priority {
+		pm := jiraPriorityMark(c.Priority)
+		if pm == "" {
+			pm = " "
+		}
+		row += pm + " "
+	}
+	if f.status {
+		row += jiraDimStyle.Render(status) + "  "
+	}
+	if f.points {
+		row += jiraDimStyle.Render(pts) + "  "
+	}
+	row += title
 	row = ansi.Truncate(row, width-1, "…")
 	return m.jiraSelect(row, selected, width)
 }
@@ -1201,22 +1214,31 @@ func jiraLaneLayout(width, n int) (visible, laneW int) {
 
 // jiraCardLines is a card's three lines: key, type and points; summary;
 // assignee. styled false leaves them plain, for the drag ghost.
-func jiraCardLines(c jira.Card, styled bool) []string {
-	key, pts, who := c.Key, "", c.Assignee
-	if c.Points != "" {
+func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
+	key, pts, who := c.Key, "", ""
+	if f.points && c.Points != "" {
 		pts = " " + c.Points
 	}
-	if who == "" {
-		who = "unassigned"
+	if f.assignee {
+		who = c.Assignee
+		if who == "" {
+			who = "unassigned"
+		}
 	}
-	if c.ParentSummary != "" {
-		who += " · ⌃ " + c.ParentSummary
+	if f.parent && c.ParentSummary != "" {
+		if who != "" {
+			who += " · "
+		}
+		who += "⌃ " + c.ParentSummary
 	}
 	if !styled {
 		return []string{key + pts, c.Summary, who}
 	}
-	head := jiraKeyStyle.Render(key) + " " + jiraTypeIcon(c.Type)
-	if pm := jiraPriorityMark(c.Priority); pm != "" {
+	head := jiraKeyStyle.Render(key)
+	if f.typ {
+		head += " " + jiraTypeIcon(c.Type)
+	}
+	if pm := jiraPriorityMark(c.Priority); f.priority && pm != "" {
 		head += " " + pm
 	}
 	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
@@ -1346,14 +1368,14 @@ func (m *Model) renderJiraLanes(width, height int) string {
 			c := t.cards[slots[r].ci]
 			if slots[r].ghost || (slots[r].ci == ghost && l == t.drag.from && t.drag.over != l) {
 				// The ghost, and the card it left behind: plain text, faint.
-				for _, line := range jiraCardLines(c, false) {
+				for _, line := range jiraCardLines(c, false, m.opts.fields) {
 					col = append(col, jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…")))
 				}
 				col = append(col, "")
 				continue
 			}
 			sel := l == t.lane && t.row < len(lane.cards) && lane.cards[t.row] == slots[r].ci
-			for _, line := range jiraCardLines(c, true) {
+			for _, line := range jiraCardLines(c, true, m.opts.fields) {
 				col = append(col, m.jiraSelect(ansi.Truncate(line, inner, "…"), sel, inner))
 			}
 			col = append(col, "")

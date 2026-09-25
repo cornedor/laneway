@@ -42,6 +42,13 @@ type UIConfig struct {
 	PanelWidth int `yaml:"panel_width"`
 	// Keys rebinds actions by name: search: "/" or mine: [m, M].
 	Keys map[string]KeyList `yaml:"keys"`
+	// DefaultMode is the board's mode before one is remembered: lanes or list.
+	DefaultMode string `yaml:"default_mode"`
+	// DateFormat is a Go time layout for the panel's dates.
+	DateFormat string `yaml:"date_format"`
+	// CardFields picks what cards and list rows show, in any order:
+	// type, priority, status, points, assignee, parent.
+	CardFields []string `yaml:"card_fields"`
 	// Theme overrides colours by name: accent: "#7aa2f7".
 	Theme map[string]string `yaml:"theme"`
 }

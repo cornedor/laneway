@@ -15,10 +15,21 @@ type options struct {
 	images       bool
 	imageMaxRows int
 	panelPct     int
+	lanes        bool // default mode
+	dateFormat   string
+	fields       cardFields
 }
 
+// cardFields is what a card or list row shows besides key and summary.
+type cardFields struct {
+	typ, priority, status, points, assignee, parent bool
+}
+
+var allCardFields = cardFields{true, true, true, true, true, true}
+
 func defaultOptions() options {
-	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50}
+	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields}
 }
 
 // optionsFrom resolves c over the defaults. A bad value is reported and
@@ -62,6 +73,38 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		warn = append(warn, fmt.Sprintf("ui.panel_width: %d is not 20–80", n))
 	default:
 		o.panelPct = n
+	}
+	switch strings.ToLower(strings.TrimSpace(c.DefaultMode)) {
+	case "", "lanes":
+	case "list":
+		o.lanes = false
+	default:
+		warn = append(warn, fmt.Sprintf("ui.default_mode: %q is not lanes or list", c.DefaultMode))
+	}
+	if f := strings.TrimSpace(c.DateFormat); f != "" {
+		o.dateFormat = f
+	}
+	if c.CardFields != nil {
+		var f cardFields
+		for _, name := range c.CardFields {
+			switch strings.ToLower(strings.TrimSpace(name)) {
+			case "type":
+				f.typ = true
+			case "priority":
+				f.priority = true
+			case "status":
+				f.status = true
+			case "points":
+				f.points = true
+			case "assignee":
+				f.assignee = true
+			case "parent":
+				f.parent = true
+			default:
+				warn = append(warn, fmt.Sprintf("ui.card_fields: unknown field %q", name))
+			}
+		}
+		o.fields = f
 	}
 	return o, warn
 }

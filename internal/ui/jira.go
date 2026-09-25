@@ -80,7 +80,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		refMeta(&b, "Labels", strings.Join(iss.Labels, ", "), 10)
 	}
 	if !iss.Updated.IsZero() {
-		refMeta(&b, "Updated", iss.Updated.Format("2006-01-02 15:04"), 10)
+		refMeta(&b, "Updated", iss.Updated.Format(m.opts.dateFormat), 10)
 	}
 
 	// Edit affordances: the four changeable fields (jira_edit.go) plus comments
@@ -197,7 +197,7 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 		}
 		when := ""
 		if !c.Created.IsZero() {
-			when = " · " + c.Created.Format("2006-01-02 15:04")
+			when = " · " + c.Created.Format(m.opts.dateFormat)
 		}
 		b.WriteString(refDimStyle.Render(author+when) + "\n")
 		if body := strings.TrimSpace(c.Body); body != "" {
