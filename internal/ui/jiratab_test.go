@@ -337,3 +337,17 @@ func TestJiraTabSearchNoMatch(t *testing.T) {
 		t.Error("empty search lacks its message")
 	}
 }
+
+func TestHelpOverlay(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "?"))
+	m = out.(Model)
+	if !m.helpOpen || !strings.Contains(m.View().Content, "story points") {
+		t.Fatal("? did not show help")
+	}
+	out, _ = m.handleKey(keyMsg(t, "j"))
+	m = out.(Model)
+	if m.helpOpen || m.jiraTab.row != 0 {
+		t.Errorf("key after help: open=%v row=%d, want closed and swallowed", m.helpOpen, m.jiraTab.row)
+	}
+}

@@ -120,6 +120,8 @@ type Model struct {
 	jiraIssue  *jira.Issue
 	panelHint  string
 
+	helpOpen bool
+
 	jiraPicker       jiraPickerState
 	jiraPointsActive bool
 	jiraPointsKey    string
@@ -249,6 +251,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // focused pane.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
+	case m.helpOpen:
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		m.helpOpen = false
+		return m, nil
 	case m.jiraPicker.active:
 		return m.handleJiraPickerKey(msg)
 	case m.jiraPointsActive:
@@ -266,7 +274,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.helpOpen || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -340,6 +348,8 @@ func (m Model) View() tea.View {
 // renderOverlay draws the open modal, last one winning as in matterbox.
 func (m *Model) renderOverlay(bodyH int) string {
 	switch {
+	case m.helpOpen:
+		return m.renderHelp()
 	case m.jiraCommentActive:
 		return m.renderJiraCommentInput()
 	case m.jiraPointsActive:

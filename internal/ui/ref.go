@@ -125,6 +125,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.closeRef()
 		return m, nil
+	case "?":
+		m.helpOpen = true
+		return m, nil
 	}
 	switch {
 	case key.Matches(msg, m.keys.OpenRef): // same key that opened it closes it

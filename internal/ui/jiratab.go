@@ -670,6 +670,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.clearJiraFilters()
 	case msg.String() == "/":
 		m.startJiraSearch()
+	case msg.String() == "?":
+		m.helpOpen = true
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":
 		m.clearJiraSearch()
 	case len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9":
@@ -1319,7 +1321,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 			meta += fmt.Sprintf("  ·  first %d of %d", len(t.cards), t.total)
 		}
 	}
-	meta += "  ·  p project  b board  [ ] view  t lanes/list  enter open  o browser  r refresh"
+	meta += "  ·  ? help  p project  b board  [ ] view  t lanes/list  enter open  o browser  r refresh"
 	if m.jiraShowsLanes() {
 		meta += "  H/L move"
 	}
