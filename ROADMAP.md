@@ -1,6 +1,9 @@
 # Roadmap
 
 ## Next
+- Panel `e`: edit the summary (one-line composer, PUT fields.summary)
+- Panel `l`: labels (pick from RecentLabels, add/remove)
+- Board `v`: move the card to a sprint or the backlog (MoveToSprint exists)
 - `rules:` Jira actions (transition, comment)? Ask first: rules would write to Jira.
 - Images: verify in real kitty/ghostty, and in tmux (cell size query, full view, passthrough)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
