@@ -82,7 +82,7 @@ highlight.
 
 Top-level `rules:` fire on what a board refresh shows changed since the last
 refresh of the same view and filters: a new issue, or a status, assignee,
-priority, points or summary change (your own edits too).
+priority, points or summary change, yours included unless `by_me: false`.
 
 ```yaml
 rules:
@@ -92,6 +92,7 @@ rules:
       type: Bug
       status: [Done, "Won*"]
       from_status: "In *"
+      by_me: false              # skip your own edits (reads the issue's changelog)
       # key, assignee ("none" = unassigned), priority, summary (regexp), not: {…}
     actions:
       - type: log               # appends to ~/.config/laneway/rules.log

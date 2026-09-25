@@ -2,7 +2,7 @@
 
 ## Next
 - `rules:` next steps (user ask 2026-09-25, like matterbox's docs/rules.md):
-  skip own edits (changelog author) → triggers beyond refresh.
+  triggers beyond refresh (a schedule; boards not open).
   Open: may rules write to Jira (transition, comment)? Ask first.
 - Images follow-ups: verify in real kitty/ghostty;
   query real cell pixel size (CSI 16 t); tmux passthrough;
@@ -13,6 +13,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `rules:` `by_me` condition: change author from the changelog, creator for new; `rules test -by-me`
 - `laneway rules list` / `rules test`; matterbox config's chat `rules:` no longer read as ours
 - `rules:` `highlight` action: ● on the card until opened (theme `highlight`)
 - `rules:` `notify` (OSC 777) and `exec` (argv templates, JSON stdin, LANEWAY_* env) actions

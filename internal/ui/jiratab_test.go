@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -645,5 +648,43 @@ func TestRuleHighlight(t *testing.T) {
 	m.renderJira()
 	if marked.MatchString(ansi.Strip(m.View().Content)) {
 		t.Error("opening kept the mark")
+	}
+}
+
+// TestRuleByMe: with by_me: false, a change you made fires nothing, one a
+// teammate made does.
+func TestRuleByMe(t *testing.T) {
+	author := "me-1"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/myself":
+			_, _ = w.Write([]byte(`{"accountId":"me-1"}`))
+		case "/rest/api/3/issue/ABC-2/changelog":
+			fmt.Fprintf(w, `{"total":1,"values":[{"author":{"accountId":%q},"items":[{"fieldId":"status"}]}]}`, author)
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	}))
+	defer srv.Close()
+	for _, c := range []struct {
+		author string
+		marked bool
+	}{{"me-1", false}, {"bob", true}} {
+		author = c.author
+		m := jiraTabModel(t)
+		m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+		no := false
+		m.rules, _ = rules.Compile([]rules.Rule{{Match: rules.Match{ByMe: &no}, Actions: []rules.Action{{Type: "highlight"}}}})
+		cards := append([]jira.Card(nil), m.jiraTab.cards...)
+		m.runRules(cards)
+		cards[1].StatusID, cards[1].Status = "5", "Done"
+		msg := m.runRules(cards)().(rulesEventsMsg)
+		if msg.err != nil {
+			t.Fatal(msg.err)
+		}
+		out, _ := m.handleRulesEvents(msg)
+		if _, got := out.(Model).jiraTab.highlights["ABC-2"]; got != c.marked {
+			t.Errorf("author %s: marked = %v, want %v", c.author, got, c.marked)
+		}
 	}
 }

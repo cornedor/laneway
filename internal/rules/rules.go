@@ -49,6 +49,7 @@ type Match struct {
 	Assignee   StrList `yaml:"assignee"`    // display name; "none" for unassigned
 	Priority   StrList `yaml:"priority"`
 	Summary    string  `yaml:"summary"` // RE2 regexp
+	ByMe       *bool   `yaml:"by_me"`   // made (or created) by you; needs a changelog read
 	Not        *Match  `yaml:"not"`
 }
 
@@ -88,6 +89,9 @@ type Event struct {
 	Kind string
 	Card jira.Card
 	Old  jira.Card
+	// ByMe is whether you made the change, nil when not looked up: a by_me
+	// condition then does not hold.
+	ByMe *bool
 }
 
 // Diff lists the changes from old to cur, in cur's order. Issues that left
@@ -235,6 +239,18 @@ func (s *Set) Rules() []Rule {
 	return out
 }
 
+// UsesByMe reports whether any rule reads by_me, so events need an author.
+func (s *Set) UsesByMe() bool {
+	for _, r := range s.rules {
+		for m := &r.Match; m != nil; m = m.Not {
+			if m.ByMe != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Len is how many rules compiled.
 func (s *Set) Len() int { return len(s.rules) }
 
@@ -322,6 +338,12 @@ func (m *cmatch) why(ev Event) string {
 	}
 	if m.summary != nil && !m.summary.MatchString(c.Summary) {
 		return "summary: no match"
+	}
+	if m.ByMe != nil && (ev.ByMe == nil || *ev.ByMe != *m.ByMe) {
+		if ev.ByMe == nil {
+			return "by_me: author unknown"
+		}
+		return fmt.Sprintf("by_me: %t", *ev.ByMe)
 	}
 	if m.not != nil && m.not.why(ev) == "" {
 		return "not: matched"

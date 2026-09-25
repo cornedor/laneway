@@ -308,6 +308,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:
 		return m.handleJiraAutoRefresh()
+	case rulesEventsMsg:
+		return m.handleRulesEvents(msg)
 	case rulesLoggedMsg:
 		if msg.err != nil {
 			m.status = "rule: " + msg.err.Error()

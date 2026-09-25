@@ -14,7 +14,7 @@ import (
 
 const rulesUsage = `usage: laneway rules list [-config path]
        laneway rules test [-config path] [-on kind] [-key K] [-summary S] [-type T]
-                          [-status S] [-from-status S] [-assignee A] [-priority P] [-points N]`
+                          [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B]`
 
 // rulesCmd lists the config's rules, or says which a described change
 // would fire and what stopped the rest. Nothing runs.
@@ -37,6 +37,7 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	fs.StringVar(&c.Assignee, "assignee", "", "assignee display name, empty for unassigned")
 	fs.StringVar(&c.Priority, "priority", "Medium", "priority")
 	fs.StringVar(&c.Points, "points", "", "story points")
+	byMe := fs.String("by-me", "", "true or false: you made the change; unset leaves by_me unknown")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -71,6 +72,10 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	}
 	ev := rules.Event{Kind: *on, Card: c, Old: c}
 	ev.Old.Status = fromStatus
+	if *byMe != "" {
+		b := *byMe == "true"
+		ev.ByMe = &b
+	}
 	if *on == rules.New {
 		ev.Old = jira.Card{}
 	}

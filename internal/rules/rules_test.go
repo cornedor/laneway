@@ -106,3 +106,27 @@ func TestCompileWarns(t *testing.T) {
 		t.Errorf("len %d, warn %q", s.Len(), warn)
 	}
 }
+
+func TestByMe(t *testing.T) {
+	s, _ := compileYAML(t, `
+- match: {by_me: false}
+  actions: [{type: log}]
+`)
+	if !s.UsesByMe() {
+		t.Fatal("UsesByMe = false")
+	}
+	yes, no := true, false
+	ev := Event{Kind: New, Card: card("A-1", "To do", "")}
+	for _, c := range []struct {
+		by   *bool
+		want int
+	}{{nil, 0}, {&yes, 0}, {&no, 1}} {
+		ev.ByMe = c.by
+		if got := len(s.Fire(ev)); got != c.want {
+			t.Errorf("by_me %v fired %d, want %d", c.by, got, c.want)
+		}
+	}
+	if plain, _ := compileYAML(t, "- actions: [{type: log}]\n"); plain.UsesByMe() {
+		t.Error("UsesByMe without by_me")
+	}
+}

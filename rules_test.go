@@ -42,6 +42,13 @@ rules:
 	if !strings.Contains(out.String(), "✗ done-bugs  on: not new") {
 		t.Errorf("test new:\n%s", out.String())
 	}
+	out.Reset()
+	p2 := filepath.Join(t.TempDir(), "c.yaml")
+	_ = os.WriteFile(p2, []byte("rules:\n  - {name: others, match: {by_me: false}, actions: [{type: log}]}\n"), 0o600)
+	rulesCmd([]string{"test", "-config", p2, "-by-me", "true"}, &out, &errOut)
+	if !strings.Contains(out.String(), "✗ others  by_me: true") {
+		t.Errorf("by-me:\n%s", out.String())
+	}
 	if rulesCmd([]string{"bogus"}, &out, &errOut) != 2 {
 		t.Error("bad subcommand exit")
 	}
