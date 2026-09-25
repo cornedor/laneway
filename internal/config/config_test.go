@@ -39,3 +39,18 @@ func TestLoadFallsBackToJiratui(t *testing.T) {
 		t.Errorf("Load = %+v %q %v", c.Jira, got, err)
 	}
 }
+
+// TestMatterboxRulesIgnored: matterbox's rules: are chat rules, not ours.
+func TestMatterboxRulesIgnored(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
+	d, _ := os.UserConfigDir()
+	p := filepath.Join(d, "matterbox", "config.yaml")
+	_ = os.MkdirAll(filepath.Dir(p), 0o700)
+	_ = os.WriteFile(p, []byte("jira:\n  base_url: https://x.test\nrules:\n  - match: {channel: Ops, frequency: {count: 3}}\n    actions: [{type: send, text: hi}]\n"), 0o600)
+	c, _, err := Load("")
+	if err != nil || c.Jira.BaseURL != "https://x.test" || c.Rules != nil {
+		t.Errorf("Load = %+v rules %v, %v", c.Jira, c.Rules, err)
+	}
+}

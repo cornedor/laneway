@@ -20,6 +20,9 @@ import (
 var version = "dev"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "rules" {
+		os.Exit(rulesCmd(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
 	flag.Parse()

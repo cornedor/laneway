@@ -128,7 +128,18 @@ func Load(path string) (Config, string, error) {
 			return Config{}, p, err
 		}
 		var c Config
-		if err := yaml.Unmarshal(raw, &c); err != nil {
+		if filepath.Base(filepath.Dir(p)) == "matterbox" {
+			// Its rules: are chat rules; only jira: and ui: carry over.
+			var mb struct {
+				Jira JiraConfig `yaml:"jira"`
+				UI   UIConfig   `yaml:"ui"`
+			}
+			err = yaml.Unmarshal(raw, &mb)
+			c.Jira, c.UI = mb.Jira, mb.UI
+		} else {
+			err = yaml.Unmarshal(raw, &c)
+		}
+		if err != nil {
 			return Config{}, p, fmt.Errorf("%s: %w", p, err)
 		}
 		if env := os.Getenv("JIRA_API_TOKEN"); env != "" {

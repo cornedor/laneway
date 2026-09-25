@@ -226,6 +226,15 @@ func compileMatch(m *Match) (*cmatch, error) {
 	return c, err
 }
 
+// Rules are the compiled rules, as configured.
+func (s *Set) Rules() []Rule {
+	out := make([]Rule, len(s.rules))
+	for i, r := range s.rules {
+		out[i] = r.Rule
+	}
+	return out
+}
+
 // Len is how many rules compiled.
 func (s *Set) Len() int { return len(s.rules) }
 

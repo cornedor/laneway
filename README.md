@@ -107,7 +107,10 @@ rules:
 Template fields: Kind Key Summary Type Status Assignee Priority Points Parent
 OldStatus OldAssignee OldPriority OldPoints Describe.
 
-A bad rule is skipped and reported on the status line.
+A bad rule is skipped and reported on the status line. `laneway rules list`
+shows what loaded; `laneway rules test -on status -type Bug -status Done
+-from-status "In review"` says which rules that change fires and what stopped
+the rest, without running anything. A matterbox config's `rules:` are ignored.
 
 State (last project, board, view, filters, cached boards) lives in
 `~/.config/laneway/state.json`. An existing `~/.config/jiratui` or matterbox
