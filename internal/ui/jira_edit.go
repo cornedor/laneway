@@ -81,6 +81,8 @@ const (
 	jiraPickStandup
 	// jiraPickHistory is the panel issue's history (history.go).
 	jiraPickHistory
+	// jiraPickDev lists the issue's pull requests and branches (devinfo.go).
+	jiraPickDev
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -424,7 +426,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -551,6 +553,14 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		m.status = "standup copied"
 		return m, tea.SetClipboard(text)
+	}
+	if kind == jiraPickDev {
+		m.closeJiraPicker()
+		if it.id == "" {
+			return m, nil
+		}
+		m.status = "opening " + it.id + "…"
+		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}
 	if kind == jiraPickHistory {
 		m.closeJiraPicker()

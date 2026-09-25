@@ -50,3 +50,20 @@ func TestHistoryKey(t *testing.T) {
 		t.Fatalf("picker = %+v", m.jiraPicker)
 	}
 }
+
+// TestDevInfoKey: D lists the issue's development items; enter opens one.
+func TestDevInfoKey(t *testing.T) {
+	m := loadedJiraModel(t)
+	out, cmd := m.handleRefKey(keyMsg(t, "D"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickDev || cmd == nil {
+		t.Fatalf("picker = %+v", m.jiraPicker)
+	}
+	out, _ = m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: m.jiraPicker.gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickDev,
+		items: []jiraPickerItem{{id: "https://g/2", label: "OPEN     Fix login"}}})
+	m = out.(Model)
+	out, cmd = m.applyJiraPick()
+	if m = out.(Model); cmd == nil || !strings.Contains(m.status, "opening https://g/2") {
+		t.Errorf("status %q", m.status)
+	}
+}

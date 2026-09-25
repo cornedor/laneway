@@ -25,7 +25,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
-		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "timer": &k.Timer, "timesheet": &k.Timesheet,
+		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "timer": &k.Timer, "timesheet": &k.Timesheet,
 	}
 }
 
@@ -65,7 +65,7 @@ var keyScopes = []struct {
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "help", "refresh", "toggle_panel", "palette",
-		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history",
+		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development",
 	}},
 }
 

@@ -25,14 +25,15 @@
   refresh; notify (OSC 777) on a new mention
 - Links step 2: remove a link from the Links section, vote, move a subtask
   to another parent
-- Dev info: branches, commits and PRs linked to the issue (dev-status API),
-  `enter` opens one; the board card shows an open PR
+- Dev info step 2: an open PR marked on its board card (summary counts,
+  fetched with the prefetch), commits
 - Attachments: upload a file (path input with completion), download one to
   ~/Downloads
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel `D`: pull requests (open first) and branches from the dev-status API, enter opens
 - Panel `H` history: every change and comment, newest first, filterable
 - `U` standup: your moves, edits, comments and worklogs since the previous workday, copy as text
 - Cursor prefetch: the card and 2 either side load once it rests; issue cache lives 2m
