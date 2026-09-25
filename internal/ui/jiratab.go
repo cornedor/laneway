@@ -145,10 +145,10 @@ type jiraTabState struct {
 	// highlights are cards a rule marked, by key: the colour, until opened.
 	highlights map[string]string
 	// marked are the cards a bulk edit applies to (bulk.go), by key.
-	marked map[string]bool
-	viewIdx    int
-	wantLanes  bool // the user's mode; a list-only view overrides it
-	modeRead   bool // wantLanes and the assignee were restored from the store
+	marked    map[string]bool
+	viewIdx   int
+	wantLanes bool // the user's mode; a list-only view overrides it
+	modeRead  bool // wantLanes and the assignee were restored from the store
 
 	assignee jiraAssignee
 	quick    []jira.QuickFilter
