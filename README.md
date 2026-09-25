@@ -199,7 +199,8 @@ stray `*`) says so and stays for Jira.
 `I` lists what others did since you last opened it (a day, the first
 time) on the issues you watch, are assigned or reported: field changes and
 comments, those mentioning you first and marked `@`. Filter by typing;
-`enter` opens the issue.
+`enter` opens the issue. The header shows `✉ 3` when issues of yours were
+changed by others since (checked every 5 minutes).
 
 ## Standup
 

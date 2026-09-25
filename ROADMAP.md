@@ -15,8 +15,7 @@
 - Description step 2: keep unknown nodes as placeholders (`<!-- adf:1 -->`)
   so tables and mentions survive an edit; escape markdown-like text; `E` for
   comments too
-- Inbox step 2: an unread count in the header, polled with the idle
-  refresh; notify (OSC 777) on a new mention
+- Inbox step 3: notify (OSC 777) on a new mention
 - Links step 2: remove a link from the Links section, vote, move a subtask
   to another parent
 - Dev info step 2: an open PR marked on its board card (summary counts,
@@ -26,6 +25,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Header `✉ N`: issues of yours others changed since the inbox was read, polled every 5m
 - Timesheet: `[` `]` step a day with its total, `d` twice deletes an entry
 - Burndown counts scope added mid-sprint (from the Sprint field's changelog), shows +Np added
 - Planning: `ui.capacity` per person (red when over), marked cards move together

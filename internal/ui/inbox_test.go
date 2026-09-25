@@ -55,3 +55,17 @@ func TestInbox(t *testing.T) {
 		t.Error("enter should open the issue")
 	}
 }
+
+// TestInboxBadge: the count shows in the header until the inbox opens.
+func TestInboxBadge(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.Update(inboxCountMsg{3})
+	m = out.(Model)
+	if !strings.Contains(ansi.Strip(m.View().Content), "✉ 3 I") {
+		t.Fatal("badge not in the header")
+	}
+	m.openInbox()
+	if m.inboxBadge() != "" {
+		t.Error("opening the inbox should clear the badge")
+	}
+}

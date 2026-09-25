@@ -75,3 +75,21 @@ func TestHistory(t *testing.T) {
 		t.Errorf("%+v, %v", got, err)
 	}
 }
+
+func TestInboxCount(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			JQL string `json:"jql"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if !strings.Contains(body.JQL, "watcher = currentUser()") || !strings.Contains(body.JQL, `issue not in updatedBy(currentUser(), "-`) {
+			t.Errorf("jql = %s", body.JQL)
+		}
+		io.WriteString(w, `{"issues":[{"key":"A-1"},{"key":"A-2"}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if n, err := c.InboxCount(context.Background(), time.Now().Add(-time.Hour)); err != nil || n != 2 {
+		t.Errorf("n %d, %v", n, err)
+	}
+}

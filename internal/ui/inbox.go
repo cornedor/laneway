@@ -30,6 +30,7 @@ func (m *Model) inboxSince(now time.Time) time.Time {
 func (m *Model) openInbox() tea.Cmd {
 	now := time.Now()
 	since := m.inboxSince(now)
+	m.inboxUnread = 0
 	gen := m.startJiraPicker(jiraPickInbox, "Inbox", true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, st := m.jiraClient, m.ctx, m.store
@@ -63,4 +64,42 @@ func inboxWhen(t, now time.Time) string {
 		return t.Format("15:04")
 	}
 	return t.Format("Mon 15:04")
+}
+
+// inboxEvery is how often the header's unread count is refreshed.
+const inboxEvery = 5 * time.Minute
+
+type inboxTickMsg struct{}
+
+type inboxCountMsg struct{ n int }
+
+func inboxTick() tea.Cmd {
+	return tea.Tick(inboxEvery, func(time.Time) tea.Msg { return inboxTickMsg{} })
+}
+
+// countInbox asks how many issues the inbox would show, for the header.
+func (m *Model) countInbox() tea.Cmd {
+	if !m.jiraClient.Enabled() {
+		return nil
+	}
+	c, ctx, since := m.jiraClient, m.ctx, m.inboxSince(time.Now())
+	return func() tea.Msg {
+		n, err := c.InboxCount(ctx, since)
+		if err != nil {
+			return nil // a badge is not worth an error line
+		}
+		return inboxCountMsg{n}
+	}
+}
+
+func (m Model) handleInboxTick() (tea.Model, tea.Cmd) {
+	return m, tea.Batch(m.countInbox(), inboxTick())
+}
+
+// inboxBadge is the header's "✉ 3", "" with nothing new.
+func (m *Model) inboxBadge() string {
+	if m.inboxUnread == 0 {
+		return ""
+	}
+	return fmt.Sprintf("✉ %d", m.inboxUnread)
 }

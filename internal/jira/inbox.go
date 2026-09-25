@@ -39,10 +39,7 @@ func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, erro
 	if err != nil {
 		return nil, err
 	}
-	// Relative minutes sidestep the profile time zone JQL dates are read in.
-	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
-	jql := fmt.Sprintf("(watcher = currentUser() OR assignee = currentUser() OR reporter = currentUser()) AND updated >= -%dm ORDER BY updated DESC", mins)
-	issues, err := c.search(ctx, jql, []string{"summary"})
+	issues, err := c.search(ctx, inboxJQL(since)+" ORDER BY updated DESC", []string{"summary"})
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +77,26 @@ func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, erro
 		return b.When.Compare(a.When)
 	})
 	return out, nil
+}
+
+// inboxJQL finds your issues updated since since. Relative minutes sidestep
+// the profile time zone JQL dates are read in.
+func inboxJQL(since time.Time) string {
+	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
+	return fmt.Sprintf("(watcher = currentUser() OR assignee = currentUser() OR reporter = currentUser()) AND updated >= -%dm", mins)
+}
+
+// InboxCount is how many of your issues others updated since since and you
+// did not touch after: one search, for a badge. An issue you and someone
+// else both changed is left out.
+func (c *Client) InboxCount(ctx context.Context, since time.Time) (int, error) {
+	if !c.Enabled() {
+		return 0, errNotConfigured
+	}
+	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
+	jql := fmt.Sprintf(`%s AND issue not in updatedBy(currentUser(), "-%dm")`, inboxJQL(since), mins)
+	issues, err := c.search(ctx, jql, []string{"summary"})
+	return len(issues), err
 }
 
 func firstError(errs []error) error {

@@ -1609,6 +1609,9 @@ func (m *Model) renderJiraPane(height, width int) string {
 	if tl := m.timerLabel(); tl != "" {
 		meta += "  ·  " + tl
 	}
+	if b := m.inboxBadge(); b != "" {
+		meta += "  ·  " + b + " " + helpKey(m.keys.Inbox)
+	}
 	k := m.keys
 	meta += "  ·  " + helpKey(k.Help) + " help  " + helpKey(k.Project) + " project  " + helpKey(k.Board) + " board  " +
 		helpKey(k.PrevView) + " " + helpKey(k.NextView) + " view  " + helpKey(k.ToggleMode) + " lanes/list  " +
