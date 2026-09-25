@@ -6,7 +6,6 @@
   - warn when two actions in one scope share a key
   - theme: issue type icon colours; named presets (`theme: tokyonight`)
   - `views:` extra JQL-backed views next to sprint/backlog
-  - `quick_filters:` local JQL presets alongside the board's
   - `card_limit` (now fixed CardLimit)
 - Images follow-ups: verify in real kitty/ghostty;
   query real cell pixel size (CSI 16 t); tmux passthrough;
@@ -17,6 +16,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `ui.quick_filters`: JQL presets before the board's own
 - `ui.default_mode`, `ui.date_format`, `ui.card_fields`
 - `ui.theme`: 16 named colours (ANSI or hex), validated
 - `ui.keys`: rebind any of 39 actions; help overlay, header and filter hints follow

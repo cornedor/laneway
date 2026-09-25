@@ -49,8 +49,16 @@ type UIConfig struct {
 	// CardFields picks what cards and list rows show, in any order:
 	// type, priority, status, points, assignee, parent.
 	CardFields []string `yaml:"card_fields"`
+	// QuickFilters are JQL presets shown before every board's own.
+	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Theme overrides colours by name: accent: "#7aa2f7".
 	Theme map[string]string `yaml:"theme"`
+}
+
+// QuickFilter is a named JQL clause, ANDed with the board's query when on.
+type QuickFilter struct {
+	Name string `yaml:"name"`
+	JQL  string `yaml:"jql"`
 }
 
 // KeyList is one key or a list of them.

@@ -31,6 +31,9 @@ ui:
   date_format: 2006-01-02 15:04 # Go time layout
   card_fields: [type, priority, status, points, assignee, parent]
 
+  quick_filters:                # JQL presets before the board's own (1-9)
+    - {name: Bugs, jql: "type = Bug"}
+
   keys:              # rebind any action: one key or a list
     search: f
     mine: [m, M]

@@ -91,6 +91,18 @@ func jiraFilterJQL(a jiraAssignee, quick []jira.QuickFilter, on map[int]bool) st
 	return strings.Join(parts, " AND ")
 }
 
+// withLocalQuick puts the config's presets (negative ids) before the
+// board's quick filters, replacing any already there.
+func withLocalQuick(board, local []jira.QuickFilter) []jira.QuickFilter {
+	out := append([]jira.QuickFilter(nil), local...)
+	for _, q := range board {
+		if q.ID >= 0 {
+			out = append(out, q)
+		}
+	}
+	return out
+}
+
 // andJQL joins two JQL clauses, either of which may be empty.
 func andJQL(a, b string) string {
 	switch {
@@ -267,7 +279,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	seq, ctx, st, c := t.seq, m.ctx, m.store, m.jiraClient
 	configured := m.jiraProjects
 	readMode := !t.modeRead
-	assignee, quickOn, quickBoard := t.assignee, t.quickOn, m.jiraBoardID()
+	assignee, quickOn, quickBoard, local := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick
 	var cached tea.Cmd
 	if fromCache {
 		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode)
@@ -367,6 +379,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 			}
 		}
 		msg.assignee, msg.quickOn = assignee, quickOn
+		msg.quick = withLocalQuick(msg.quick, local)
 		filter := jiraFilterJQL(assignee, msg.quick, quickOn)
 		msg.cards, msg.total, msg.err = fetchJiraView(ctx, c, board.ID, cfg, msg.views[msg.viewIdx], filter)
 		_ = st.SetMeta(jiraMetaPrefix+"project", project)
@@ -473,7 +486,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	}
 	keep := m.selectedJiraKey()
 	t.boards, t.board, t.cfg, t.views, t.viewIdx = msg.boards, msg.board, msg.cfg, msg.views, msg.viewIdx
-	t.quick, t.quickOn, t.assignee = msg.quick, msg.quickOn, msg.assignee
+	t.quick, t.quickOn, t.assignee = withLocalQuick(msg.quick, m.opts.quick), msg.quickOn, msg.assignee
 	if msg.statusNames != nil {
 		t.statusNames = msg.statusNames
 	}

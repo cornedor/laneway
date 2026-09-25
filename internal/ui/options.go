@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"jiratui/internal/config"
+	"jiratui/internal/jira"
 )
 
 // options are the config's ui: section with defaults filled in.
@@ -18,6 +19,7 @@ type options struct {
 	lanes        bool // default mode
 	dateFormat   string
 	fields       cardFields
+	quick        []jira.QuickFilter // config presets, ids -1, -2, …
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -83,6 +85,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	if f := strings.TrimSpace(c.DateFormat); f != "" {
 		o.dateFormat = f
+	}
+	for i, q := range c.QuickFilters {
+		if strings.TrimSpace(q.Name) == "" || strings.TrimSpace(q.JQL) == "" {
+			warn = append(warn, fmt.Sprintf("ui.quick_filters[%d]: needs name and jql", i))
+			continue
+		}
+		o.quick = append(o.quick, jira.QuickFilter{ID: -1 - len(o.quick), Name: q.Name, JQL: q.JQL})
 	}
 	if c.CardFields != nil {
 		var f cardFields
