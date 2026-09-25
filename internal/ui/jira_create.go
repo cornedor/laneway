@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/textinput"
@@ -70,7 +71,7 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		m.jiraCreateActive = false
 		sprint := 0
-		if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && in.Parent == "" {
+		if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && in.Parent == "" && !strings.EqualFold(in.Type, "epic") {
 			sprint = v.sprint
 		}
 		m.status = "creating " + in.Type + " in " + in.Project + "…"
@@ -104,6 +105,10 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	refresh := m.refreshJiraAfterEdit()
+	if m.jiraCreateReload && m.jiraTab.roadmap != nil {
+		m.jiraCreateReload = false
+		refresh = tea.Batch(refresh, m.loadRoadmap())
+	}
 	out, cmd := m.openJiraKey(msg.key)
 	om := out.(Model)
 	om.status = "created " + msg.key

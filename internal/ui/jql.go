@@ -189,13 +189,22 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // runJQLView shows q's results as a view of their own, replacing an
 // earlier search's.
 func (m *Model) runJQLView(q string) tea.Cmd {
+	return m.runNamedJQLView("JQL: "+ansi.Truncate(q, 30, "…"), q)
+}
+
+// runNamedJQLView shows q's results as a view named name, replacing an
+// earlier one of the same kind (the part of name before ": ").
+func (m *Model) runNamedJQLView(name, q string) tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil {
 		m.status = "open a board first"
 		return nil
 	}
-	v := jiraView{kind: jiraViewFilter, name: "JQL: " + ansi.Truncate(q, 30, "…"), jql: q}
-	i := slices.IndexFunc(t.views, func(v jiraView) bool { return v.kind == jiraViewFilter && strings.HasPrefix(v.name, "JQL: ") })
+	v := jiraView{kind: jiraViewFilter, name: name, jql: q}
+	prefix, _, _ := strings.Cut(name, ": ")
+	i := slices.IndexFunc(t.views, func(v jiraView) bool {
+		return v.kind == jiraViewFilter && strings.HasPrefix(v.name, prefix+": ")
+	})
 	if i < 0 {
 		t.views = append(t.views, v)
 		i = len(t.views) - 1

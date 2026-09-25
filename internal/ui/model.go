@@ -203,6 +203,9 @@ type Model struct {
 	// jiraCreateParent is the issue a new subtask or epic child goes under,
 	// in jiraCreateProject; "" for a plain new issue.
 	jiraCreateParent, jiraCreateProject string
+	// jiraCreateReload reloads the roadmap once the new issue (an epic
+	// made from it) exists.
+	jiraCreateReload bool
 	// jiraLinkChoice is the link type and direction picked for "link".
 	jiraLinkChoice  jiraPickerItem
 	jiraCreateInput textinput.Model

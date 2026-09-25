@@ -3,8 +3,7 @@
 ## Next
 - Panel field cursor step 3: sprint, parent/epic, datetime, multi-line text
   fields in `$EDITOR`
-- Roadmap step 3: plan-level parents above epics (hierarchy > 1), `n` new
-  epic, a board filter for "cards in this epic", child bars movable too
+- Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
 - `/` over every stored issue of the project, not just the loaded view
 - JQL step 2: save a search as a `ui.views` entry (writes the config), a
   history of past searches (↑ in an empty input)
@@ -22,6 +21,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Roadmap: child bars move too, `f` epic's issues as a view, `n` new epic
 - Panel `A`: remove a link, vote / take back the vote
 - Description edit keeps tables, media, mentions as `<!-- keep:N -->` lines, restored untouched on save
 - Header `✉ N`: issues of yours others changed since the inbox was read, polled every 5m

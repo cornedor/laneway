@@ -200,3 +200,36 @@ func TestRoadmapNoStartField(t *testing.T) {
 		t.Error("> should still move the end")
 	}
 }
+
+// TestRoadmapChildMove: a child's bar moves and saves like an epic's.
+func TestRoadmapChildMove(t *testing.T) {
+	m := roadmapModel(t)
+	var writes []string
+	fakeRoadmapJira(t, &m, true, &writes)
+	for _, k := range []string{"space", "j", ">"} {
+		out, _ := m.handleJiraKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	cmd := m.saveRoadmap()
+	cmd()
+	if len(writes) != 1 || !strings.HasPrefix(writes[0], "/rest/api/3/issue/ABC-12 ") {
+		t.Errorf("writes = %q", writes)
+	}
+}
+
+// TestRoadmapFilterAndNew: f shows the epic's issues as a view; n asks for
+// a new epic.
+func TestRoadmapFilterAndNew(t *testing.T) {
+	m := roadmapModel(t)
+	out, cmd := m.handleJiraKey(keyMsg(t, "f"))
+	m = out.(Model)
+	v := m.jiraTab.views[len(m.jiraTab.views)-1]
+	if m.jiraTab.roadmap != nil || cmd == nil || v.name != "Epic: ABC-10" || v.jql != "parent = ABC-10 ORDER BY rank" {
+		t.Fatalf("view = %+v", v)
+	}
+	m = roadmapModel(t)
+	out, _ = m.handleJiraKey(keyMsg(t, "n"))
+	if m = out.(Model); !m.jiraCreateActive || m.jiraCreateType != "Epic" || !m.jiraCreateReload {
+		t.Errorf("create: active %v type %q", m.jiraCreateActive, m.jiraCreateType)
+	}
+}

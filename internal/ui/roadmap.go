@@ -198,6 +198,19 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		r.from = roadmapStart(time.Now(), zoom)
 	case key.Matches(msg, m.keys.Refresh):
 		return m, tea.Batch(m.saveRoadmap(), m.loadRoadmap())
+	case msg.String() == "f":
+		row, ok := r.selected()
+		if !ok {
+			break
+		}
+		e := r.epics[row.epic]
+		save := m.saveRoadmap()
+		m.jiraTab.roadmap = nil
+		return m, tea.Batch(save, m.runNamedJQLView("Epic: "+e.Key, "parent = "+e.Key+" ORDER BY rank"))
+	case key.Matches(msg, m.keys.Create):
+		m.jiraCreateParent, m.jiraCreateProject = "", ""
+		m.openJiraCreateSummary("Epic")
+		m.jiraCreateReload = true
 	case key.Matches(msg, m.keys.OpenAttach):
 		if k := m.roadmapKey(); k != "" {
 			url := m.jiraClient.BrowseURL(k)
@@ -241,33 +254,32 @@ func (m *Model) foldRoadmap() {
 func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
 	r := m.jiraTab.roadmap
 	row, ok := r.selected()
-	if !ok || row.kid >= 0 {
-		m.status = "only an epic's dates move here; open a child with " + helpKey(m.keys.OpenChannel)
+	if !ok {
 		return nil
 	}
 	if ds != 0 && !m.jiraClient.CanSetStart(m.ctx) {
 		m.status = "no start date field in Jira: < > move the end"
 		return nil
 	}
-	e := &r.epics[row.epic]
-	if e.Start.IsZero() && e.End.IsZero() {
+	key, start, end, fromSprints := r.rowDates(row)
+	if start.IsZero() && end.IsZero() {
 		now := time.Now()
-		e.Start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+		*start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 	}
-	if !e.Start.IsZero() {
-		e.Start = e.Start.AddDate(0, 0, ds)
+	if !start.IsZero() {
+		*start = start.AddDate(0, 0, ds)
 	}
-	end := e.End
-	if end.IsZero() {
-		end = e.Start
+	e := *end
+	if e.IsZero() {
+		e = *start
 	}
-	if end = end.AddDate(0, 0, de); !e.Start.IsZero() && end.Before(e.Start) {
-		end = e.Start
+	if e = e.AddDate(0, 0, de); !start.IsZero() && e.Before(*start) {
+		e = *start
 	}
-	e.End, e.DatesFromSprints = end, false
-	r.pending[e.Key] = true
+	*end, *fromSprints = e, false
+	r.pending[key] = true
 	r.saveSeq++
-	m.status = fmt.Sprintf("%s %s – %s", e.Key, roadmapDate(e.Start), roadmapDate(e.End))
+	m.status = fmt.Sprintf("%s %s – %s", key, roadmapDate(*start), roadmapDate(*end))
 	seq := r.saveSeq
 	return tea.Tick(roadmapSaveDelay, func(time.Time) tea.Msg { return roadmapSaveMsg{seq} })
 }
@@ -298,10 +310,16 @@ func (m *Model) saveRoadmap() tea.Cmd {
 	}
 	var todo []dates
 	var keys []string
+	add := func(key string, start, end time.Time) {
+		if r.pending[key] {
+			todo = append(todo, dates{key, start, end})
+			keys = append(keys, key)
+		}
+	}
 	for _, e := range r.epics {
-		if r.pending[e.Key] {
-			todo = append(todo, dates{e.Key, e.Start, e.End})
-			keys = append(keys, e.Key)
+		add(e.Key, e.Start, e.End)
+		for _, k := range e.Kids {
+			add(k.Key, k.Start, k.End)
 		}
 	}
 	r.pending = map[string]bool{}
@@ -348,6 +366,16 @@ func (m *Model) zoomRoadmap(d int) {
 	col := int(anchor.Sub(r.from).Hours()/24) / roadmapZooms[r.zoom]
 	r.zoom = z
 	r.from = time.Date(anchor.Year(), anchor.Month(), anchor.Day()-col*roadmapZooms[z], 0, 0, 0, 0, time.Local)
+}
+
+// rowDates points at a row's key and dates, an epic's or a child's.
+func (r *roadmapState) rowDates(row roadmapRow) (key string, start, end *time.Time, fromSprints *bool) {
+	e := &r.epics[row.epic]
+	if row.kid < 0 {
+		return e.Key, &e.Start, &e.End, &e.DatesFromSprints
+	}
+	k := &e.Kids[row.kid]
+	return k.Key, &k.Start, &k.End, &k.DatesFromSprints
 }
 
 // rowEpic is the row as a bar draws it: a child is one epic-like span, all
