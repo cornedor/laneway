@@ -57,6 +57,7 @@ ui:
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
     - {name: Mine, jql: "assignee = currentUser()"}
+  capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
   saved_filters: on             # your starred Jira filters as views too (off)
   keys:              # rebind any action: one key or a list
     search: f
@@ -208,7 +209,8 @@ what you logged today; `enter` opens the issue.
 
 `P` on a scrum board shows the backlog beside a sprint (the first future
 one; `[` `]` pick another), each with its card count and points, the sprint
-also per assignee. `← →` switch side, `M` or `space` moves a card across,
+also per assignee, against `ui.capacity` (red when over). `← →` switch side,
+`x` marks cards, `M` or `space` moves the marked (or the selected) across,
 `K`/`J` rank it up or down. Changes show at once and are written behind;
 a failed write reloads both sides.
 

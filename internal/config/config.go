@@ -64,6 +64,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// Capacity is story points per person a sprint holds, by display name;
+	// "default" for everyone not named. Planning shows who is over.
+	Capacity map[string]float64 `yaml:"capacity"`
 	// SavedFilters is "on" (your starred Jira filters as views, after
 	// Views) or "off".
 	SavedFilters string `yaml:"saved_filters"`

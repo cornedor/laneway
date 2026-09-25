@@ -23,6 +23,7 @@ type options struct {
 	quick        []jira.QuickFilter // config presets, ids -1, -2, …
 	views        []jiraView         // config JQL views
 	savedFilters bool               // starred Jira filters as views
+	capacity     map[string]float64 // sprint points per person, "default" for the rest
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -58,6 +59,16 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	dur("auto_refresh", c.AutoRefresh, &o.autoRefresh, true)
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
+	for name, pts := range c.Capacity {
+		if pts < 0 {
+			warn = append(warn, fmt.Sprintf("ui.capacity.%s: %v is below 0", name, pts))
+			continue
+		}
+		if o.capacity == nil {
+			o.capacity = map[string]float64{}
+		}
+		o.capacity[name] = pts
+	}
 	switch strings.ToLower(strings.TrimSpace(c.SavedFilters)) {
 	case "", "on":
 	case "off":

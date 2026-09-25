@@ -96,3 +96,36 @@ func TestPlanRank(t *testing.T) {
 		t.Error("J on the last card should do nothing")
 	}
 }
+
+func TestPlanCapacity(t *testing.T) {
+	cards := []jira.Card{{Assignee: "Ada", Points: "8"}, {Assignee: "Bob", Points: "3"}, {Points: "2"}}
+	got := planByAssignee(cards, map[string]float64{"Ada": 5, "default": 10})
+	if plain := ansi.Strip(got); plain != "Ada 8/5 · Bob 3/10 · — 2" {
+		t.Errorf("plain = %q", plain)
+	}
+	if !strings.Contains(got, jiraOverStyle.Render("Ada 8/5")) {
+		t.Error("over capacity should be marked")
+	}
+}
+
+// TestPlanMoveMarked: x marks cards on a side; space moves them together.
+func TestPlanMoveMarked(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	for range 2 {
+		out, _ := m.handleJiraKey(keyMsg(t, "x"))
+		m = out.(Model)
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "✓ABC-7") {
+		t.Error("marks not drawn")
+	}
+	_, cmd := m.handleJiraKey(keyMsg(t, "space"))
+	cmd()
+	p := m.jiraTab.plan
+	if len(p.sides[0]) != 0 || len(p.sides[1]) != 4 || len(m.jiraTab.marked) != 0 {
+		t.Fatalf("sides %v / %v, marked %v", p.sides[0], p.sides[1], m.jiraTab.marked)
+	}
+	if len(writes) != 1 || !strings.Contains(writes[0], `{"issues":["ABC-7","ABC-8"]}`) {
+		t.Errorf("writes = %q", writes)
+	}
+}

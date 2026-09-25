@@ -164,6 +164,18 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			p.sides[1], p.idx[1], p.top[1] = nil, 0, 0
 			return m, m.loadPlan()
 		}
+	case key.Matches(msg, m.keys.Mark):
+		if c, ok := p.planCard(); ok {
+			if t.marked == nil {
+				t.marked = map[string]bool{}
+			}
+			if t.marked[c.Key] {
+				delete(t.marked, c.Key)
+			} else {
+				t.marked[c.Key] = true
+			}
+			p.idx[p.side] = min(p.idx[p.side]+1, max(n-1, 0))
+		}
 	case key.Matches(msg, m.keys.MoveSprint), msg.String() == "space":
 		return m, m.planMove()
 	case msg.String() == "K":
@@ -188,27 +200,44 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// planMove takes the selected card across: into the sprint at its end, or
-// back to the top of the backlog, as Jira places it.
+// planMove takes the marked cards of the side (else the selected one)
+// across: into the sprint at its end, or back to the top of the backlog, as
+// Jira places them.
 func (m *Model) planMove() tea.Cmd {
-	p := m.jiraTab.plan
-	c, ok := p.planCard()
-	if !ok {
-		return nil
-	}
+	t, p := m.jiraTab, m.jiraTab.plan
 	from, to := p.side, 1-p.side
-	i := p.idx[from]
-	p.sides[from] = slices.Delete(slices.Clone(p.sides[from]), i, i+1)
-	p.idx[from] = min(i, max(len(p.sides[from])-1, 0))
+	var moving, staying []jira.Card
+	for _, c := range p.sides[from] {
+		if t.marked[c.Key] {
+			moving = append(moving, c)
+		} else {
+			staying = append(staying, c)
+		}
+	}
+	if len(moving) == 0 {
+		c, ok := p.planCard()
+		if !ok {
+			return nil
+		}
+		moving, staying = []jira.Card{c}, slices.DeleteFunc(slices.Clone(p.sides[from]), func(x jira.Card) bool { return x.Key == c.Key })
+	}
+	keys := make([]string, len(moving))
+	for i, c := range moving {
+		keys[i] = c.Key
+		delete(t.marked, c.Key)
+	}
+	p.sides[from] = staying
+	p.idx[from] = min(p.idx[from], max(len(staying)-1, 0))
+	what := strings.Join(keys, ", ")
 	client, ctx, sprint := m.jiraClient, m.ctx, p.sprints[p.target]
 	if to == 1 {
-		p.sides[1] = append(p.sides[1], c)
-		m.status = "moving " + c.Key + " to " + sprint.name + "…"
-		return planWrite(c.Key+" → "+sprint.name, func() error { return client.MoveToSprint(ctx, sprint.sprint, c.Key) })
+		p.sides[1] = append(p.sides[1], moving...)
+		m.status = "moving " + what + " to " + sprint.name + "…"
+		return planWrite(what+" → "+sprint.name, func() error { return client.MoveToSprint(ctx, sprint.sprint, keys...) })
 	}
-	p.sides[0] = append([]jira.Card{c}, p.sides[0]...)
-	m.status = "moving " + c.Key + " to the backlog…"
-	return planWrite(c.Key+" → backlog", func() error { return client.MoveToBacklog(ctx, c.Key) })
+	p.sides[0] = append(slices.Clone(moving), p.sides[0]...)
+	m.status = "moving " + what + " to the backlog…"
+	return planWrite(what+" → backlog", func() error { return client.MoveToBacklog(ctx, keys...) })
 }
 
 // planRank swaps the selected card with its neighbour d away and ranks it
@@ -275,7 +304,7 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	}
 	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %d cards · %sp", name, len(cards), pts), width, "…"))}
 	if side == 1 {
-		lines = append(lines, jiraDimStyle.Render(ansi.Truncate(planByAssignee(cards), width, "…")))
+		lines = append(lines, ansi.Truncate(planByAssignee(cards, m.opts.capacity), width, "…"))
 	} else {
 		lines = append(lines, "")
 	}
@@ -289,7 +318,11 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	for r := p.top[side]; r < len(cards) && r < p.top[side]+shown; r++ {
 		c := cards[r]
 		ptsCol := fmt.Sprintf("%4s", c.Points)
-		row := fmt.Sprintf("%-*s ", keyW, c.Key) + jiraTypeIcon(c.Type) + " "
+		mark := " "
+		if mk := m.jiraMark(c.Key); mk != "" {
+			mark = mk
+		}
+		row := mark + fmt.Sprintf("%-*s ", keyW, c.Key) + jiraTypeIcon(c.Type) + " "
 		row += ansi.Truncate(c.Summary, max(width-lipgloss.Width(row)-len(ptsCol)-1, 1), "…")
 		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-len(ptsCol), 0)) + ptsCol
 		switch {
@@ -318,8 +351,9 @@ func planPoints(cards []jira.Card) (string, float64) {
 	return strconv.FormatFloat(sum, 'f', -1, 64), sum
 }
 
-// planByAssignee is the points per assignee, most first: "Ada 13 · — 5".
-func planByAssignee(cards []jira.Card) string {
+// planByAssignee is the points per assignee, most first: "Ada 13 · — 5",
+// against their capacity when one is set ("Ada 13/10", red when over).
+func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
 	by := map[string][]jira.Card{}
 	for _, c := range cards {
 		name := c.Assignee
@@ -349,7 +383,18 @@ func planByAssignee(cards []jira.Card) string {
 	})
 	parts := make([]string, len(shares))
 	for i, s := range shares {
-		parts[i] = s.name + " " + s.s
+		cp, ok := capacity[s.name]
+		if !ok && s.name != "—" {
+			cp, ok = capacity["default"]
+		}
+		switch {
+		case !ok:
+			parts[i] = jiraDimStyle.Render(s.name + " " + s.s)
+		case s.pts > cp:
+			parts[i] = jiraOverStyle.Render(fmt.Sprintf("%s %s/%s", s.name, s.s, chartNum(cp)))
+		default:
+			parts[i] = jiraDimStyle.Render(fmt.Sprintf("%s %s/%s", s.name, s.s, chartNum(cp)))
+		}
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, jiraDimStyle.Render(" · "))
 }
