@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi/kitty"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -26,9 +27,14 @@ import (
 
 const (
 	imgMaxPx = 1600 // longer sides are downscaled before transmitting
-	// A cell's pixel size, for the aspect: the common 1:2 of a terminal font.
-	imgCellW, imgCellH = 10, 20
 )
+
+// cellPx is a terminal cell's size in pixels.
+type cellPx struct{ w, h int }
+
+// defaultCell is the common 1:2 of a terminal font, until the terminal
+// answers CSI 16 t.
+var defaultCell = cellPx{10, 20}
 
 type imgState int
 
@@ -48,7 +54,8 @@ type panelImage struct {
 // panelImages holds the panel's images by attachment id, for the session.
 type panelImages struct {
 	on      bool
-	maxRows int // tallest an image is drawn, in cells
+	maxRows int    // tallest an image is drawn, in cells
+	cell    cellPx // the terminal's cell size, for the aspect
 	nextID  uint32
 	byAtt   map[string]*panelImage
 	// pending is placement changes a render queued, flushed after Update.
@@ -56,7 +63,7 @@ type panelImages struct {
 }
 
 func newPanelImages(on bool, maxRows int) *panelImages {
-	return &panelImages{on: on && kittyGraphics(), maxRows: maxRows, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
+	return &panelImages{on: on && kittyGraphics(), maxRows: maxRows, cell: defaultCell, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
 }
 
 // kittyGraphics reports a terminal that draws Unicode placeholders. tmux
@@ -95,14 +102,14 @@ func (m *Model) fetchIssueImages(iss *jira.Issue) tea.Cmd {
 		id := ii.nextID & 0xFFFFFF
 		ii.nextID++
 		ii.byAtt[a.ID] = &panelImage{state: imgLoading, id: id}
-		ctx, c, att, maxRows := m.ctx, m.jiraClient, a.ID, ii.maxRows
+		ctx, c, att, maxRows, cell := m.ctx, m.jiraClient, a.ID, ii.maxRows, ii.cell
 		cmds = append(cmds, func() tea.Msg {
 			b, err := c.AttachmentContent(ctx, att)
 			if err != nil {
 				return imageLoadedMsg{att: att, err: err}
 			}
-			seq, w, h, err := encodeKittyImage(id, b, box, maxRows)
-			cols, rows := fitCells(w, h, box, maxRows)
+			seq, w, h, err := encodeKittyImage(id, b, box, maxRows, cell)
+			cols, rows := fitCells(w, h, box, maxRows, cell)
 			return imageLoadedMsg{att: att, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, err: err}
 		})
 	}
@@ -141,14 +148,14 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 // encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
 // box columns and imgMaxRows rows, and builds the transmit sequence. w×h is
 // the transmitted pixel size.
-func encodeKittyImage(id uint32, b []byte, box, maxRows int) (seq string, w, h int, err error) {
+func encodeKittyImage(id uint32, b []byte, box, maxRows int, cell cellPx) (seq string, w, h int, err error) {
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("decode image: %w", err)
 	}
 	img = shrinkImage(img, imgMaxPx)
 	w, h = img.Bounds().Dx(), img.Bounds().Dy()
-	cols, rows := fitCells(w, h, box, maxRows)
+	cols, rows := fitCells(w, h, box, maxRows, cell)
 	var sb strings.Builder
 	err = kitty.EncodeGraphics(&sb, img, &kitty.Options{
 		Action:           kitty.TransmitAndPut,
@@ -162,6 +169,25 @@ func encodeKittyImage(id uint32, b []byte, box, maxRows int) (seq string, w, h i
 		Chunk:            true,
 	})
 	return sb.String(), w, h, err
+}
+
+// queryCellSize asks the terminal its cell size in pixels (CSI 16 t); the
+// answer arrives as a uv.CellSizeEvent.
+func (m *Model) queryCellSize() tea.Cmd {
+	if m.images == nil || !m.images.on {
+		return nil
+	}
+	return tea.Raw("\x1b[16t")
+}
+
+// handleCellSize re-fits the images to the terminal's real cell size.
+func (m Model) handleCellSize(msg uv.CellSizeEvent) (tea.Model, tea.Cmd) {
+	if m.images == nil || msg.Width <= 0 || msg.Height <= 0 {
+		return m, nil
+	}
+	m.images.cell = cellPx{msg.Width, msg.Height}
+	m.renderRef()
+	return m, m.flushImages()
 }
 
 // refit moves e's virtual placement to rows×cols, keeping the image data.
@@ -185,15 +211,18 @@ func (m *Model) flushImages() tea.Cmd {
 
 // fitCells sizes a w×h pixel image in cells: aspect kept, no upscaling, at
 // most box columns and maxRows rows.
-func fitCells(w, h, box, maxRows int) (cols, rows int) {
+func fitCells(w, h, box, maxRows int, cell cellPx) (cols, rows int) {
 	if w <= 0 || h <= 0 {
 		return 1, 1
 	}
-	cols = min(box, (w+imgCellW-1)/imgCellW)
-	rows = (cols*imgCellW*h/w + imgCellH - 1) / imgCellH
+	if cell.w <= 0 || cell.h <= 0 {
+		cell = defaultCell
+	}
+	cols = min(box, (w+cell.w-1)/cell.w)
+	rows = (cols*cell.w*h/w + cell.h - 1) / cell.h
 	if rows > maxRows {
 		rows = maxRows
-		cols = rows * imgCellH * w / (h * imgCellW)
+		cols = rows * cell.h * w / (h * cell.w)
 	}
 	return max(cols, 1), max(rows, 1)
 }
@@ -273,7 +302,7 @@ func (m *Model) placeImages(s string) string {
 		indent := strings.Repeat(" ", len(l)-len(strings.TrimLeft(l, " ")))
 		for _, a := range atts {
 			if e := m.images.ready(a); e != nil {
-				cols, rows := fitCells(e.pxW, e.pxH, max(m.refView.Width()-len(indent), 1), m.images.maxRows)
+				cols, rows := fitCells(e.pxW, e.pxH, max(m.refView.Width()-len(indent), 1), m.images.maxRows, m.images.cell)
 				m.images.refit(e, cols, rows)
 				for _, row := range kittyPlaceholder(e.id, e.rows, e.cols) {
 					out = append(out, indent+row)

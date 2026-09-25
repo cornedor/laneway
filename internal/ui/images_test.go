@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -23,7 +24,7 @@ func TestFitCells(t *testing.T) {
 		{400, 4000, 80, 3, 16},   // tall
 		{0, 5, 80, 1, 1},
 	} {
-		cols, rows := fitCells(c.w, c.h, c.box, 16)
+		cols, rows := fitCells(c.w, c.h, c.box, 16, defaultCell)
 		if cols != c.cols || rows != c.rows {
 			t.Errorf("fitCells(%d,%d,%d) = %d×%d, want %d×%d", c.w, c.h, c.box, cols, rows, c.cols, c.rows)
 		}
@@ -65,7 +66,7 @@ func TestKittyPlaceholderWidth(t *testing.T) {
 func TestEncodeKittyImage(t *testing.T) {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 50, 40)))
-	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), 80, 16)
+	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), 80, 16, defaultCell)
 	if err != nil || w != 50 || h != 40 {
 		t.Fatalf("encode: %d×%d %v", w, h, err)
 	}
@@ -75,7 +76,7 @@ func TestEncodeKittyImage(t *testing.T) {
 	if !strings.HasPrefix(seq, "\x1b_G") || !strings.Contains(seq, "i=7") || !strings.Contains(seq, "U=1") {
 		t.Errorf("seq = %.60q", seq)
 	}
-	if _, _, _, err := encodeKittyImage(7, []byte("nope"), 80, 16); err == nil {
+	if _, _, _, err := encodeKittyImage(7, []byte("nope"), 80, 16, defaultCell); err == nil {
 		t.Error("garbage decoded")
 	}
 }
@@ -118,6 +119,13 @@ func TestPanelPlacesImage(t *testing.T) {
 	}
 	if !strings.Contains(view, "shot.png") || !strings.Contains(view, "web") {
 		t.Error("captions missing")
+	}
+	// A square-celled terminal answers CSI 16 t: the 40×40 image re-fits
+	// to 2×2 cells, the placement moved without resending the data.
+	out, raw = m.handleCellSize(uv.CellSizeEvent{Width: 20, Height: 20})
+	m = out.(Model)
+	if n := strings.Count(m.refView.View(), string(rune(0x10EEEE))); n != 4 || raw == nil {
+		t.Errorf("after cell size: placeholder cells = %d, flush %v", n, raw != nil)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
@@ -230,7 +231,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick())
+	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize())
 }
 
 // bodyH is the rows above the status line.
@@ -313,6 +314,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:
 		return m.handleJiraAutoRefresh()
+	case uv.CellSizeEvent:
+		return m.handleCellSize(msg)
 	case jiraCreatedMsg:
 		return m.handleJiraCreated(msg)
 	case rulesEventsMsg:
