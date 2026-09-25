@@ -125,6 +125,8 @@ type jiraPickerState struct {
 	// (worklog.go).
 	day           time.Time
 	pendingDelete string
+	// found are the palette's Jira search hits, shown after its own rows.
+	found []jiraPickerItem
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -387,6 +389,7 @@ func (m *Model) filterJiraPicker() {
 			m.jiraPicker.items = append(m.jiraPicker.items, it)
 		}
 	}
+	m.jiraPicker.items = append(m.jiraPicker.items, m.jiraPicker.found...)
 	m.jiraPicker.idx = 0
 }
 
@@ -435,7 +438,11 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink {
+			m.jiraPicker.found = nil
 			m.filterJiraPicker()
+			if k == jiraPickPalette {
+				return m, tea.Batch(cmd, m.schedulePaletteSearch())
+			}
 			return m, cmd
 		}
 		// Query changed: schedule a debounced server search. fetchSeq drops any

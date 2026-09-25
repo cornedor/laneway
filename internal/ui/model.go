@@ -390,6 +390,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case inboxCountMsg:
 		m.inboxUnread = msg.n
 		return m, nil
+	case paletteSearchMsg:
+		return m.handlePaletteSearch(msg)
+	case paletteFoundMsg:
+		return m.handlePaletteFound(msg)
 	case prefetchMsg:
 		return m.handlePrefetch(msg)
 	case timerTickMsg:

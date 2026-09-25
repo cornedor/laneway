@@ -84,3 +84,38 @@ func (c *Client) searchExpand(ctx context.Context, jql string, fields []string, 
 	}
 	return out, nil
 }
+
+// FindIssues is a text search over every issue you can see: summary,
+// description and comments, words as typed prefixes; one page of n,
+// recently updated first.
+func (c *Client) FindIssues(ctx context.Context, text string, n int) ([]Card, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	clean := strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' {
+			return ' '
+		}
+		return r
+	}, strings.TrimSpace(text))
+	if clean == "" {
+		return nil, nil
+	}
+	var words []string
+	for _, w := range strings.Fields(clean) {
+		words = append(words, w+"*")
+	}
+	body := map[string]any{"jql": `text ~ "` + strings.Join(words, " ") + `" ORDER BY updated DESC`,
+		"fields": strings.Split(cardFields, ","), "maxResults": n}
+	var resp struct {
+		Issues []rawIssue `json:"issues"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/rest/api/3/search/jql", "search", body, &resp); err != nil {
+		return nil, err
+	}
+	out := make([]Card, len(resp.Issues))
+	for i, is := range resp.Issues {
+		out[i] = toCard(is.Key, is.Fields, "")
+	}
+	return out, nil
+}

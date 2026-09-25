@@ -697,3 +697,24 @@ func TestTextToADF(t *testing.T) {
 		}
 	})
 }
+
+func TestFindIssues(t *testing.T) {
+	var jql string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			JQL string `json:"jql"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		jql = body.JQL
+		io.WriteString(w, `{"issues":[{"key":"X-9","fields":{"summary":"Login broken"}}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.FindIssues(context.Background(), `log "in`, 20)
+	if err != nil || len(got) != 1 || got[0].Summary != "Login broken" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if jql != `text ~ "log* in*" ORDER BY updated DESC` {
+		t.Errorf("jql = %q", jql)
+	}
+}

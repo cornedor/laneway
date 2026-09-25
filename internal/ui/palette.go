@@ -1,11 +1,15 @@
 package ui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // The command palette: one filterable list of everything reachable from
@@ -123,4 +127,61 @@ func keyPress(s string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: r[0], Mod: mod}
 	}
 	return tea.KeyPressMsg{Code: r[0], Text: s}
+}
+
+// The palette also searches all of Jira once three characters are typed:
+// the hits come after its own rows, marked ⌕.
+const (
+	paletteSearchMin   = 3
+	paletteSearchDelay = 300 * time.Millisecond
+	paletteSearchHits  = 20
+)
+
+type paletteSearchMsg struct{ seq int }
+
+type paletteFoundMsg struct {
+	seq   int
+	cards []jira.Card
+}
+
+// schedulePaletteSearch arms a search for the filter once typing pauses.
+func (m *Model) schedulePaletteSearch() tea.Cmd {
+	m.jiraPicker.fetchSeq++
+	if len([]rune(strings.TrimSpace(m.jiraPicker.filter.Value()))) < paletteSearchMin {
+		return nil
+	}
+	seq := m.jiraPicker.fetchSeq
+	return tea.Tick(paletteSearchDelay, func(time.Time) tea.Msg { return paletteSearchMsg{seq} })
+}
+
+func (m Model) handlePaletteSearch(msg paletteSearchMsg) (tea.Model, tea.Cmd) {
+	p := m.jiraPicker
+	if !p.active || p.kind != jiraPickPalette || msg.seq != p.fetchSeq {
+		return m, nil
+	}
+	c, ctx, q := m.jiraClient, m.ctx, p.filter.Value()
+	return m, func() tea.Msg {
+		cards, _ := c.FindIssues(ctx, q, paletteSearchHits)
+		return paletteFoundMsg{msg.seq, cards}
+	}
+}
+
+// handlePaletteFound adds the hits not already listed.
+func (m Model) handlePaletteFound(msg paletteFoundMsg) (tea.Model, tea.Cmd) {
+	p := &m.jiraPicker
+	if !p.active || p.kind != jiraPickPalette || msg.seq != p.fetchSeq {
+		return m, nil
+	}
+	p.found = nil
+	for _, c := range msg.cards {
+		id := "i:" + c.Key
+		if slices.ContainsFunc(p.all, func(it jiraPickerItem) bool { return it.id == id }) {
+			continue
+		}
+		p.found = append(p.found, jiraPickerItem{id: id, label: "⌕ " + c.Key + "  " + ansi.Strip(c.Summary)})
+	}
+	idx := p.idx
+	m.filterJiraPicker()
+	p.idx = min(idx, max(len(p.items)-1, 0))
+	return m, nil
 }

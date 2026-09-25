@@ -1,8 +1,13 @@
 package ui
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // typePalette opens the palette and types q into its filter.
@@ -86,5 +91,29 @@ func TestKeyPress(t *testing.T) {
 		if got := keyPress(s).String(); got != s {
 			t.Errorf("keyPress(%q) = %q", s, got)
 		}
+	}
+}
+
+// TestPaletteJiraSearch: after three characters the palette asks Jira, and
+// hits not already listed come after its own rows.
+func TestPaletteJiraSearch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"issues":[{"key":"ABC-3","fields":{"summary":"Third"}},{"key":"OPS-7","fields":{"summary":"Third party outage"}}]}`)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m = typePalette(t, m, "thi")
+	seq := m.jiraPicker.fetchSeq
+	out, cmd := m.handlePaletteSearch(paletteSearchMsg{seq})
+	m = out.(Model)
+	out, _ = m.handlePaletteFound(cmd().(paletteFoundMsg))
+	m = out.(Model)
+	got := paletteLabels(m)
+	if len(got) != 2 || got[0] != "ABC-3  Third" || got[1] != "⌕ OPS-7  Third party outage" {
+		t.Errorf("rows = %q", got)
+	}
+	if _, cmd := m.handlePaletteSearch(paletteSearchMsg{seq - 1}); cmd != nil {
+		t.Error("a stale search should not run")
 	}
 }
