@@ -132,6 +132,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	switch {
+	case key.Matches(msg, m.keys.Palette):
+		m.openPalette()
+		return m, nil
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 		return m, nil

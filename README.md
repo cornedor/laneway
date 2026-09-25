@@ -137,7 +137,9 @@ config is picked up as a fallback.
 
 ## Keys
 
-`?` shows every key as bound.
+`?` shows every key as bound. `:` opens the command palette: every action
+of the focused pane, the board's views, quick filters and boards, and the
+loaded issues, filtered by every word you type.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·

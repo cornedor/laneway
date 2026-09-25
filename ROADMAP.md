@@ -5,11 +5,11 @@
   fields in `$EDITOR`
 - Roadmap step 3: plan-level parents above epics (hierarchy > 1), `n` new
   epic, a board filter for "cards in this epic", child bars movable too
-- Local issue cache with incremental sync (`updated >= last` JQL): boards open
-  instantly from disk, refresh fetches only changes, `/` searches every cached
-  issue, not just the loaded board
-- Command palette `:`: fuzzy over every action, view, board, filter and issue
-  key; JQL editor with field/value autocomplete (`/jql/autocompletedata`)
+- Incremental refresh: `updated >= last` JQL merged into the stored board,
+  a full refetch every few to catch removals; `/` over every stored issue
+- Palette step 2: JQL editor with field/value autocomplete
+  (`/jql/autocompletedata`), saved as a `ui.views` entry; projects and
+  roadmap epics as rows; recent picks first
 - Bulk edit: `v` marks cards, then status / assignee / labels / sprint / priority
   on all marked at once (one request per issue, progress in status bar)
 - Sprint planning view: backlog and next sprint side by side, points per
@@ -29,6 +29,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `:` command palette: pane actions, views, quick filters, boards, loaded issues; pickers match every word
 - Roadmap: `space` folds out an epic's issues, `H`/`L` move a bar, `<`/`>` its end, written after a pause
 - `R` roadmap: epics on a timeline (own dates, else children's sprints), filled by points done, zoom and scroll
 - Date fields (panel and transition form): 2026-10-01, today, +3d, -1w, fri

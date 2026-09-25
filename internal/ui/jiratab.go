@@ -659,6 +659,10 @@ func (m *Model) selectJiraKey(key string) {
 
 func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
+	if key.Matches(msg, m.keys.Palette) {
+		m.openPalette()
+		return m, nil
+	}
 	if t.roadmap != nil {
 		return m.handleRoadmapKey(msg)
 	}

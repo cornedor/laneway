@@ -63,6 +63,8 @@ const (
 	// jiraPickSprint moves the selected card to a sprint or the backlog
 	// (jira_sprint.go).
 	jiraPickSprint
+	// jiraPickPalette is the command palette (palette.go).
+	jiraPickPalette
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -340,13 +342,14 @@ func (m *Model) setJiraPickerItems(items []jiraPickerItem) {
 	}
 }
 
-// filterJiraPicker narrows a locally filtered picker to rows containing the
-// filter.
+// filterJiraPicker narrows a locally filtered picker to rows containing
+// every word of the filter.
 func (m *Model) filterJiraPicker() {
-	q := strings.ToLower(strings.TrimSpace(m.jiraPicker.filter.Value()))
+	terms := strings.Fields(strings.ToLower(m.jiraPicker.filter.Value()))
 	m.jiraPicker.items = nil
 	for _, it := range m.jiraPicker.all {
-		if strings.Contains(strings.ToLower(it.label), q) {
+		label := strings.ToLower(it.label)
+		if !slices.ContainsFunc(terms, func(t string) bool { return !strings.Contains(label, t) }) {
 			m.jiraPicker.items = append(m.jiraPicker.items, it)
 		}
 	}
@@ -397,7 +400,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -499,6 +502,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickProject || kind == jiraPickBoard {
 		m.closeJiraPicker()
 		return m, m.pickJiraBoard(kind, it.id)
+	}
+	if kind == jiraPickPalette {
+		m.closeJiraPicker()
+		return m.applyPalette(it.id)
 	}
 	if kind == jiraPickCreateType {
 		m.closeJiraPicker()

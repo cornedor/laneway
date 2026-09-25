@@ -51,7 +51,7 @@ type keyMap struct {
 	Project, Board, NextView, PrevView key.Binding
 	ToggleMode, Sort, MoveSprint       key.Binding
 	Assignee, Mine, ClearFilters       key.Binding
-	Roadmap                            key.Binding
+	Roadmap, Palette                   key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -109,6 +109,7 @@ func defaultKeys() keyMap {
 		Mine:          bind("only mine", "m"),
 		ClearFilters:  bind("clear filters", "0"),
 		Roadmap:       bind("roadmap", "R"),
+		Palette:       bind("command palette", ":"),
 	}
 }
 
@@ -185,6 +186,9 @@ type Model struct {
 	// none; it holds only while fieldCursorKey is the shown issue.
 	fieldCursor    int
 	fieldCursorKey string
+	// paletteFocus is the pane the palette was opened from; its actions
+	// run there.
+	paletteFocus focus
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
