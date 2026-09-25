@@ -45,6 +45,37 @@ func (m *Model) toggleJiraMark() {
 	m.status = fmt.Sprintf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
 }
 
+// toggleJiraMarkAll marks every card the cursor's lane shows (the list's
+// rows in list mode, a search narrowing them), or unmarks them when all
+// already are.
+func (m *Model) toggleJiraMarkAll() {
+	t := m.jiraTab
+	idx := t.order
+	if m.jiraShowsLanes() {
+		if t.lane >= len(t.lanes) {
+			return
+		}
+		idx = t.lanes[t.lane].cards
+	}
+	if len(idx) == 0 {
+		return
+	}
+	if t.marked == nil {
+		t.marked = map[string]bool{}
+	}
+	all := !slices.ContainsFunc(idx, func(i int) bool { return !t.marked[t.cards[i].Key] })
+	for _, i := range idx {
+		if all {
+			delete(t.marked, t.cards[i].Key)
+		} else {
+			t.marked[t.cards[i].Key] = true
+		}
+	}
+	t.rows = nil
+	m.renderJira()
+	m.status = fmt.Sprintf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
+}
+
 // markedKeys are the marked cards, sorted.
 func (m *Model) markedKeys() []string {
 	keys := make([]string, 0, len(m.jiraTab.marked))

@@ -52,6 +52,7 @@ type keyMap struct {
 	ToggleMode, Sort, MoveSprint       key.Binding
 	Assignee, Mine, ClearFilters       key.Binding
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
+	MarkAll                            key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
 	JiraDescription, Inbox             key.Binding
 	IssueActions, Site, Standup        key.Binding
@@ -115,6 +116,7 @@ func defaultKeys() keyMap {
 		Roadmap:         bind("roadmap", "R"),
 		Palette:         bind("command palette", ":"),
 		Mark:            bind("mark card", "x"),
+		MarkAll:         bind("mark the lane / every row", "X"),
 		Bulk:            bind("edit marked cards", "B"),
 		Plan:            bind("sprint planning", "P"),
 		Charts:          bind("sprint charts", "C"),

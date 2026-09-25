@@ -167,7 +167,8 @@ size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
 
 ## Bulk edit
 
-`x` marks the card under the cursor (marks survive switching views), `B`
+`x` marks the card under the cursor (marks survive switching views), `X`
+the whole lane or every shown row (`/` narrows it), `B`
 changes every marked card: status (each along its own workflow move, no
 transition form), priority, assignee, labels (`ui -old` adds ui, removes
 old), story points, or sprint. Cards that fail stay marked with the reason

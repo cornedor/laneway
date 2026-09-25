@@ -795,6 +795,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openSitePicker()
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
+	case key.Matches(msg, m.keys.MarkAll):
+		m.toggleJiraMarkAll()
 	case key.Matches(msg, m.keys.Bulk):
 		m.openBulkMenu()
 	case key.Matches(msg, m.keys.Assignee):

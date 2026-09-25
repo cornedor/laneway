@@ -161,3 +161,17 @@ func TestBulkSprint(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+// TestMarkAll: X marks the lane's cards, X again unmarks them.
+func TestMarkAll(t *testing.T) {
+	m := jiraTabModel(t) // To do lane: ABC-1, ABC-3
+	out, _ := m.handleJiraKey(keyMsg(t, "X"))
+	m = out.(Model)
+	if got := m.markedKeys(); !slices.Equal(got, []string{"ABC-1", "ABC-3"}) {
+		t.Fatalf("marked = %v", got)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "X"))
+	if m = out.(Model); len(m.markedKeys()) != 0 {
+		t.Errorf("second X should unmark, got %v", m.markedKeys())
+	}
+}

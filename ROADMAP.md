@@ -8,8 +8,7 @@
 - `/` over every stored issue of the project, not just the loaded view
 - JQL step 2: save a search as a `ui.views` entry (writes the config), a
   history of past searches (↑ in an empty input)
-- Bulk step 2: mark a lane or every search hit at once (`X`), required
-  transition fields asked once for all
+- Bulk step 3: required transition fields asked once for all marked
 - Planning step 2: `ui.capacity` points per person, red when over; marks
   (`x`) move together; start / complete a sprint from here
 - Charts step 2: scope changes from the changelog (added/removed mid
@@ -30,6 +29,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `X` marks the lane or every shown row (toggle)
 - `Q` JQL search: field / keyword / value completion from Jira, results as a view
 - Idle refresh fetches only issues updated since the last fetch (merged by key); whole again every 10m or on a filter change
 - Panel `A`: upload a file, download an attachment to ~/Downloads (never overwrites)
