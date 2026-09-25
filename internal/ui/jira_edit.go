@@ -274,9 +274,25 @@ func (m *Model) openJiraPointsInput() {
 	ti.SetValue(m.jiraIssue.StoryPoints)
 	ti.CursorEnd()
 	ti.Focus()
-	m.jiraPointsInput = ti
-	m.jiraPointsActive = true
-	m.jiraPointsKey = m.jiraIssue.Key
+	m.jiraFieldInput = ti
+	m.jiraFieldActive = true
+	m.jiraFieldName = "points"
+	m.jiraFieldKey = m.jiraIssue.Key
+}
+
+// openJiraSummaryInput shows the summary input seeded with the current one.
+func (m *Model) openJiraSummaryInput() {
+	ti := textinput.New()
+	ti.Prompt = "❯ "
+	ti.CharLimit = 255 // Jira's summary limit
+	ti.SetWidth(max(min(m.width-16, 72), 16))
+	ti.SetValue(m.jiraIssue.Summary)
+	ti.CursorEnd()
+	ti.Focus()
+	m.jiraFieldInput = ti
+	m.jiraFieldActive = true
+	m.jiraFieldName = "summary"
+	m.jiraFieldKey = m.jiraIssue.Key
 }
 
 // handleJiraPickerLoaded installs a finished option fetch and parks the cursor
@@ -327,11 +343,12 @@ func (m *Model) closeJiraPicker() {
 	m.jiraPicker = jiraPickerState{gen: m.jiraPicker.gen}
 }
 
-// closeJiraPoints tears the points input down.
-func (m *Model) closeJiraPoints() {
-	m.jiraPointsActive = false
-	m.jiraPointsKey = ""
-	m.jiraPointsInput = textinput.Model{}
+// closeJiraField tears the field input down.
+func (m *Model) closeJiraField() {
+	m.jiraFieldActive = false
+	m.jiraFieldName = ""
+	m.jiraFieldKey = ""
+	m.jiraFieldInput = textinput.Model{}
 }
 
 // handleJiraPickerKey owns every keystroke while the list picker is open.
@@ -425,19 +442,19 @@ func (m *Model) jiraPickerMove(delta int) {
 	m.jiraPicker.idx = idx
 }
 
-// handleJiraPointsKey owns every keystroke while the points input is open.
-func (m Model) handleJiraPointsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+// handleJiraFieldKey owns every keystroke while the field input is open.
+func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "esc":
-		m.closeJiraPoints()
+		m.closeJiraField()
 		return m, nil
 	case "enter":
-		return m.applyJiraPoints()
+		return m.applyJiraField()
 	}
 	var cmd tea.Cmd
-	m.jiraPointsInput, cmd = m.jiraPointsInput.Update(msg)
+	m.jiraFieldInput, cmd = m.jiraFieldInput.Update(msg)
 	return m, cmd
 }
 
@@ -520,14 +537,28 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	return m, jiraMutateCmd(key, field, run)
 }
 
-// applyJiraPoints closes the input and fires the story-points write.
-func (m Model) applyJiraPoints() (tea.Model, tea.Cmd) {
-	key := m.jiraPointsKey
-	raw := m.jiraPointsInput.Value()
-	m.closeJiraPoints()
+// applyJiraField closes the input and fires the field's write. An empty
+// summary is refused: Jira requires one.
+func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
+	key, field := m.jiraFieldKey, m.jiraFieldName
+	raw := m.jiraFieldInput.Value()
 	client, ctx := m.jiraClient, m.ctx
-	m.status = fmt.Sprintf("updating %s points…", key)
-	return m, jiraMutateCmd(key, "points", func() error { return client.SetStoryPoints(ctx, key, raw) })
+	run := func() error { return client.SetStoryPoints(ctx, key, raw) }
+	if field == "summary" {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			m.status = "a summary can't be empty"
+			return m, nil
+		}
+		if m.jiraIssue != nil && m.jiraIssue.Key == key && raw == m.jiraIssue.Summary {
+			m.closeJiraField()
+			return m, nil
+		}
+		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	m.closeJiraField()
+	m.status = fmt.Sprintf("updating %s %s…", key, field)
+	return m, jiraMutateCmd(key, field, run)
 }
 
 // jiraMutateCmd runs a field write in the background and reports the result.
@@ -662,12 +693,15 @@ func (m *Model) renderJiraPicker(maxH int) string {
 		Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
-// renderJiraPointsInput draws the numeric story-points modal.
-func (m *Model) renderJiraPointsInput() string {
-	if !m.jiraPointsActive {
+// renderJiraFieldInput draws the story points or summary modal.
+func (m *Model) renderJiraFieldInput() string {
+	if !m.jiraFieldActive {
 		return ""
 	}
-	outerW := 40
+	title, hint, outerW := "Set story points", "↵ save · empty clears · esc cancel", 40
+	if m.jiraFieldName == "summary" {
+		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+	}
 	if outerW > m.width-4 {
 		outerW = m.width - 4
 	}
@@ -678,8 +712,8 @@ func (m *Model) renderJiraPointsInput() string {
 	if inner < 1 {
 		inner = 1
 	}
-	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render("Set story points — " + m.jiraPointsKey)
-	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render("↵ save · empty clears · esc cancel")
-	body := lipgloss.JoinVertical(lipgloss.Left, header, "", m.jiraPointsInput.View(), "", hint)
+	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(title + " — " + m.jiraFieldKey)
+	hint = lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hint)
+	body := lipgloss.JoinVertical(lipgloss.Left, header, "", m.jiraFieldInput.View(), "", hint)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
 }

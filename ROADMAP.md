@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Panel `e`: edit the summary (one-line composer, PUT fields.summary)
 - Panel `l`: labels (pick from RecentLabels, add/remove)
 - Board `v`: move the card to a sprint or the backlog (MoveToSprint exists)
 - `rules:` Jira actions (transition, comment)? Ask first: rules would write to Jira.
@@ -9,6 +8,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel `e`: edit the summary
 - `rules:` time triggers: a watch JQL (`NOT status CHANGED AFTER -3d`) + `on: new`, documented
 - `laneway rules watch`: watches without the TUI (log, notify, exec)
 - `rules:` `watch:` JQL + `every:`: rules fire on a polled search, any board open

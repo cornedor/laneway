@@ -82,7 +82,7 @@ func (m *Model) closeRef() {
 	m.refGen++
 	// Tear down any open editor so it can't outlive the panel.
 	m.closeJiraPicker()
-	m.closeJiraPoints()
+	m.closeJiraField()
 	m.closeJiraComment()
 	m.clearPanelHint()
 	if m.focus == focusRef {
@@ -170,6 +170,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, m.openJiraPriorityPicker()
 		case key.Matches(msg, m.keys.JiraPoints):
 			m.openJiraPointsInput()
+			return m, nil
+		case key.Matches(msg, m.keys.JiraSummary):
+			m.openJiraSummaryInput()
 			return m, nil
 		case key.Matches(msg, m.keys.JiraAssignee):
 			return m, m.openJiraAssigneePicker()

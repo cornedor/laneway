@@ -17,7 +17,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"up": &k.Up, "down": &k.Down, "left": &k.Left, "right": &k.Right,
 		"top": &k.Home, "bottom": &k.End, "page_up": &k.PageUp, "page_down": &k.PageDown,
 		"open": &k.OpenChannel, "toggle_panel": &k.OpenRef, "browser": &k.OpenAttach, "refresh": &k.Refresh,
-		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints,
+		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints, "summary": &k.JiraSummary,
 		"assign": &k.JiraAssignee, "comment": &k.JiraComment, "reply": &k.JiraReply,
 		"start_work": &k.JiraStart, "linked_issue": &k.JiraLinks, "back": &k.Back, "image": &k.Image,
 		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "goto": &k.Goto, "create": &k.Create,

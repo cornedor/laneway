@@ -50,6 +50,7 @@ func (m *Model) helpSections() []struct {
 			row(k.JiraStatus, "status"),
 			row(k.JiraPriority, "priority"),
 			row(k.JiraPoints, "story points"),
+			row(k.JiraSummary, "edit summary"),
 			row(k.JiraAssignee, "assignee"),
 			{join(k.JiraComment, k.JiraReply), "comment / reply"},
 			row(k.JiraStart, "start work"),

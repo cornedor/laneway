@@ -698,6 +698,19 @@ func (c *Client) SetStoryPoints(ctx context.Context, key, raw string) error {
 	return nil
 }
 
+// SetSummary replaces the issue's summary.
+func (c *Client) SetSummary(ctx context.Context, key, summary string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"fields": map[string]any{"summary": summary}}
+	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // AddComment posts text as a new comment on the issue, then invalidates the
 // cache so the next Get includes it. text is plain (blank lines separate
 // paragraphs, "> " lines become a blockquote — see textToADF); when mention is

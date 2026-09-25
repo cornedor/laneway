@@ -65,14 +65,14 @@ func TestJiraHotkeyOpensPointsInput(t *testing.T) {
 	m := loadedJiraModel(t)
 	updated, _ := m.handleRefKey(keyStr("P"))
 	got := updated.(Model)
-	if !got.jiraPointsActive {
+	if !got.jiraFieldActive {
 		t.Fatal("points input not active")
 	}
-	if got.jiraPointsInput.Value() != "5" {
-		t.Errorf("points input seeded %q, want 5", got.jiraPointsInput.Value())
+	if got.jiraFieldInput.Value() != "5" {
+		t.Errorf("points input seeded %q, want 5", got.jiraFieldInput.Value())
 	}
-	if got.jiraPointsKey != "ABC-1" {
-		t.Errorf("points key = %q", got.jiraPointsKey)
+	if got.jiraFieldKey != "ABC-1" {
+		t.Errorf("points key = %q", got.jiraFieldKey)
 	}
 }
 
@@ -270,10 +270,10 @@ func TestApplyJiraPointsClears(t *testing.T) {
 	m := loadedJiraModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	m.openJiraPointsInput()
-	m.jiraPointsInput.SetValue("") // clear the seeded value
+	m.jiraFieldInput.SetValue("") // clear the seeded value
 
-	updated, cmd := m.applyJiraPoints()
-	if updated.(Model).jiraPointsActive {
+	updated, cmd := m.applyJiraField()
+	if updated.(Model).jiraFieldActive {
 		t.Error("points input should close on apply")
 	}
 	if cmd == nil {
@@ -354,5 +354,50 @@ func TestJiraPickerKeyEscCloses(t *testing.T) {
 	updated, _ := m.handleJiraPickerKey(keyStr("esc"))
 	if updated.(Model).jiraPicker.active {
 		t.Error("esc should close the picker")
+	}
+}
+
+// TestJiraEditSummary: e opens the input seeded with the summary; enter
+// writes the trimmed text, an unchanged one closes without a write and an
+// empty one is refused.
+func TestJiraEditSummary(t *testing.T) {
+	var gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/rest/api/3/issue/ABC-1" {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleRefKey(keyStr("e"))
+	m = out.(Model)
+	if !m.jiraFieldActive || m.jiraFieldName != "summary" || m.jiraFieldInput.Value() != "Fix the widget" {
+		t.Fatalf("input: active %v, field %q, value %q", m.jiraFieldActive, m.jiraFieldName, m.jiraFieldInput.Value())
+	}
+	if !strings.Contains(m.View().Content, "Edit summary — ABC-1") {
+		t.Error("modal not drawn")
+	}
+	if out, cmd := m.applyJiraField(); cmd != nil || out.(Model).jiraFieldActive {
+		t.Error("unchanged summary should close without a write")
+	}
+	m.jiraFieldInput.SetValue("  ")
+	out, cmd := m.applyJiraField()
+	if cmd != nil || !out.(Model).jiraFieldActive || !strings.Contains(out.(Model).status, "empty") {
+		t.Error("empty summary should be refused and keep the input")
+	}
+	m.jiraFieldInput.SetValue(" Fix the gadget ")
+	out, cmd = m.applyJiraField()
+	if cmd == nil || out.(Model).jiraFieldActive {
+		t.Fatal("expected a write and a closed input")
+	}
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil || msg.field != "summary" {
+		t.Fatalf("mutation: %+v", msg)
+	}
+	if gotBody != `{"fields":{"summary":"Fix the gadget"}}` {
+		t.Errorf("body = %q", gotBody)
 	}
 }

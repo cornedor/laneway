@@ -40,6 +40,7 @@ type keyMap struct {
 	OpenAttach, Refresh               key.Binding
 	JiraStatus, JiraPriority          key.Binding
 	JiraPoints, JiraAssignee          key.Binding
+	JiraSummary                       key.Binding
 	JiraComment, JiraReply, JiraStart key.Binding
 	JiraLinks, Back, Image            key.Binding
 
@@ -77,6 +78,7 @@ func defaultKeys() keyMap {
 		JiraStatus:   bind("change status", "s"),
 		JiraPriority: bind("change priority", "p"),
 		JiraPoints:   bind("set story points", "P"),
+		JiraSummary:  bind("edit summary", "e"),
 		JiraAssignee: bind("change assignee", "a"),
 		JiraComment:  bind("add comment", "c"),
 		JiraReply:    bind("reply to comment", "R"),
@@ -174,10 +176,12 @@ type Model struct {
 	jiraCreateType   string
 	jiraCreateInput  textinput.Model
 
-	jiraPicker       jiraPickerState
-	jiraPointsActive bool
-	jiraPointsKey    string
-	jiraPointsInput  textinput.Model
+	jiraPicker jiraPickerState
+	// The one-line field input: story points or the summary.
+	jiraFieldActive bool
+	jiraFieldName   string // "points" or "summary"
+	jiraFieldKey    string
+	jiraFieldInput  textinput.Model
 
 	jiraCommentActive  bool
 	jiraCommentKey     string
@@ -362,8 +366,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleJiraCreateKey(msg)
 	case m.jiraPicker.active:
 		return m.handleJiraPickerKey(msg)
-	case m.jiraPointsActive:
-		return m.handleJiraPointsKey(msg)
+	case m.jiraFieldActive:
+		return m.handleJiraFieldKey(msg)
 	case m.jiraCommentActive:
 		return m.handleJiraCommentKey(msg)
 	case m.jiraForm != nil:
@@ -377,7 +381,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.helpOpen || m.imageView || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.helpOpen || m.imageView || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -462,8 +466,8 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderJiraCreate()
 	case m.jiraCommentActive:
 		return m.renderJiraCommentInput()
-	case m.jiraPointsActive:
-		return m.renderJiraPointsInput()
+	case m.jiraFieldActive:
+		return m.renderJiraFieldInput()
 	case m.jiraPicker.active:
 		return m.renderJiraPicker(bodyH)
 	case m.jiraForm != nil:
