@@ -22,6 +22,7 @@ type options struct {
 	fields       cardFields
 	quick        []jira.QuickFilter // config presets, ids -1, -2, …
 	views        []jiraView         // config JQL views
+	savedFilters bool               // starred Jira filters as views
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -33,7 +34,7 @@ var allCardFields = cardFields{true, true, true, true, true, true}
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true}
 }
 
 // optionsFrom resolves c over the defaults. A bad value is reported and
@@ -57,6 +58,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	dur("auto_refresh", c.AutoRefresh, &o.autoRefresh, true)
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
+	switch strings.ToLower(strings.TrimSpace(c.SavedFilters)) {
+	case "", "on":
+	case "off":
+		o.savedFilters = false
+	default:
+		warn = append(warn, fmt.Sprintf("ui.saved_filters: %q is not on or off", c.SavedFilters))
+	}
 	switch strings.ToLower(strings.TrimSpace(c.Images)) {
 	case "", "auto":
 	case "off":

@@ -55,6 +55,7 @@ ui:
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
     - {name: Mine, jql: "assignee = currentUser()"}
+  saved_filters: on             # your starred Jira filters as views too (off)
   keys:              # rebind any action: one key or a list
     search: f
     mine: [m, M]

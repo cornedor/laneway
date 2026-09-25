@@ -59,6 +59,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// SavedFilters is "on" (your starred Jira filters as views, after
+	// Views) or "off".
+	SavedFilters string `yaml:"saved_filters"`
 	// Theme is a preset name (theme: tokyonight) or colours by name, over
 	// an optional preset: {preset: nord, accent: "#7aa2f7"}.
 	Theme Theme `yaml:"theme"`

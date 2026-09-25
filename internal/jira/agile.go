@@ -30,6 +30,7 @@ type boardMetaCache struct {
 	cfg    map[int]*BoardConfig
 	quick  map[int][]QuickFilter
 	status map[string]map[string]string // "" → status id → name
+	saved  map[string][]QuickFilter     // "" → your favourite filters
 }
 
 // StatusNames maps every status id to its name, cached for the session. A
@@ -154,6 +155,31 @@ func (c *Client) fetchQuickFilters(ctx context.Context, board int) ([]QuickFilte
 		out = append(out, QuickFilter{ID: q.ID, Name: q.Name, JQL: q.JQL})
 	}
 	return out, nil
+}
+
+// FavouriteFilters lists the saved filters you starred, cached for the
+// session.
+func (c *Client) FavouriteFilters(ctx context.Context) ([]QuickFilter, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	bm := &c.boardMeta
+	return cached(&bm.mu, &bm.saved, "", func() ([]QuickFilter, error) {
+		var resp []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+			JQL  string `json:"jql"`
+		}
+		if err := c.do(ctx, http.MethodGet, "/rest/api/3/filter/favourite", "saved filters", nil, &resp); err != nil {
+			return nil, err
+		}
+		out := make([]QuickFilter, 0, len(resp))
+		for _, f := range resp {
+			id, _ := strconv.Atoi(f.ID)
+			out = append(out, QuickFilter{ID: id, Name: f.Name, JQL: f.JQL})
+		}
+		return out, nil
+	})
 }
 
 // ListProjects returns every project the user can browse, by name.

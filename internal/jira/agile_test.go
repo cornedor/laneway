@@ -206,3 +206,22 @@ func TestRank(t *testing.T) {
 		t.Errorf("request = %s", got)
 	}
 }
+
+func TestFavouriteFilters(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		io.WriteString(w, `[{"id":"10100","name":"My bugs","jql":"type = Bug ORDER BY created DESC"}]`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	for range 2 {
+		got, err := c.FavouriteFilters(context.Background())
+		if err != nil || len(got) != 1 || got[0].ID != 10100 || got[0].Name != "My bugs" {
+			t.Fatalf("%+v, %v", got, err)
+		}
+	}
+	if calls != 1 {
+		t.Errorf("%d calls, want 1 (cached)", calls)
+	}
+}

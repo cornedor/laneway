@@ -46,6 +46,8 @@ const (
 	jiraViewSprint
 	jiraViewBacklog
 	jiraViewJQL // a ui.views entry: the board's issues narrowed by jql
+	// jiraViewFilter is a starred Jira filter: its own search, any board.
+	jiraViewFilter
 )
 
 // jiraView is one issue list of a board: a sprint, the kanban board, the
@@ -111,6 +113,19 @@ func withLocalQuick(board, local []jira.QuickFilter) []jira.QuickFilter {
 }
 
 // andJQL joins two JQL clauses, either of which may be empty.
+// andOrderedJQL is andJQL for a query that may end in ORDER BY, which
+// stays last.
+func andOrderedJQL(q, b string) string {
+	where, order := q, ""
+	if i := strings.LastIndex(strings.ToUpper(q), "ORDER BY"); i >= 0 {
+		where, order = strings.TrimSpace(q[:i]), " "+q[i:]
+	}
+	if where == "" {
+		return strings.TrimSpace(b + order)
+	}
+	return andJQL(where, b) + order
+}
+
 func andJQL(a, b string) string {
 	switch {
 	case a == "":
@@ -298,6 +313,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	configured := m.jiraProjects
 	readMode := !t.modeRead
 	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, m.opts.views
+	withSaved := m.opts.savedFilters
 	var cached tea.Cmd
 	if fromCache {
 		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode)
@@ -351,7 +367,14 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 			cfgErr, sprintsErr error
 			wg                 sync.WaitGroup
 		)
-		wg.Add(4)
+		var saved []jira.QuickFilter
+		wg.Add(5)
+		go func() {
+			defer wg.Done()
+			if withSaved {
+				saved, _ = c.FavouriteFilters(ctx) // views are extras: a failure just leaves them out
+			}
+		}()
 		go func() { defer wg.Done(); cfg, cfgErr = c.BoardConfiguration(ctx, board.ID) }()
 		go func() {
 			defer wg.Done()
@@ -380,6 +403,9 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 			}
 		}
 		msg.views = append(msg.views, localViews...)
+		for _, f := range saved {
+			msg.views = append(msg.views, jiraView{kind: jiraViewFilter, name: f.Name, jql: f.JQL})
+		}
 		if view == "" {
 			view, _, _ = st.GetMeta(jiraViewKey(board.ID))
 		}
@@ -432,6 +458,9 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 		return c.BacklogIssues(ctx, board, filter, cfg.PointsField)
 	case jiraViewJQL:
 		return c.BoardIssues(ctx, board, andJQL(v.jql, filter), cfg.PointsField)
+	case jiraViewFilter:
+		cards, err := c.SearchCards(ctx, andOrderedJQL(v.jql, filter))
+		return cards, len(cards), err
 	}
 	cards, total, err := c.BoardIssues(ctx, board, andJQL(jiraKanbanJQL, filter), cfg.PointsField)
 	if i := kanbanBacklog(cfg); i >= 0 && err == nil {
