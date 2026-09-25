@@ -229,8 +229,8 @@ a failed write reloads both sides.
 `C` on a scrum board: the active sprint's burndown (points left per day by
 resolution date, against the dotted ideal) and, on `tab`, the velocity of
 the last 8 closed sprints (points done by the sprint's end over points in
-it). Both count an issue's points in the sprint it sits in now; scope
-changes during a sprint don't show.
+it). The burndown counts an issue from the day it joined the sprint and
+says how much was added after the start; issues taken out of it don't show.
 
 ## Roadmap
 

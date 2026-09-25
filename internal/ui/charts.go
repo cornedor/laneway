@@ -157,30 +157,34 @@ func (m *Model) renderCharts(width, height int) string {
 	return renderVelocity(ch.vel, width)
 }
 
-// burnSeries is the sprint's total points and, per day from its start up to
-// today (or its end), the points still open at that day's end.
-func burnSeries(issues []jira.BurnIssue, start, end, now time.Time) (float64, []float64) {
-	total := 0.0
+// burnSeries is the sprint's points now, the points added after it started,
+// and, per day from its start up to today (or its end), the points in it
+// then and still open at that day's end.
+func burnSeries(issues []jira.BurnIssue, start, end, now time.Time) (total, added float64, left []float64) {
 	for _, is := range issues {
 		total += is.Points
+		if is.Added.After(start) {
+			added += is.Points
+		}
 	}
 	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
 	last := end
 	if now.Before(last) {
 		last = now
 	}
-	var left []float64
 	for d := day; !d.After(last); d = d.AddDate(0, 0, 1) {
 		eod := d.AddDate(0, 0, 1)
-		open := total
+		open := 0.0
 		for _, is := range issues {
-			if !is.Resolved.IsZero() && is.Resolved.Before(eod) {
-				open -= is.Points
+			inScope := is.Added.IsZero() || is.Added.Before(eod)
+			done := !is.Resolved.IsZero() && is.Resolved.Before(eod)
+			if inScope && !done {
+				open += is.Points
 			}
 		}
 		left = append(left, open)
 	}
-	return total, left
+	return total, added, left
 }
 
 // renderBurndown plots points left per day against the ideal line.
@@ -188,12 +192,16 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, now time.Time, width, h
 	if v.start.IsZero() || v.end.IsZero() {
 		return refDimStyle.Render(v.name + " has no dates")
 	}
-	total, left := burnSeries(issues, v.start, v.end, now)
+	total, added, left := burnSeries(issues, v.start, v.end, now)
 	cur := total
 	if len(left) > 0 {
 		cur = left[len(left)-1]
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %sp left · by resolution date", chartNum(cur), chartNum(total)))
+	scope := ""
+	if added > 0 {
+		scope = fmt.Sprintf(" · +%sp added since the start", chartNum(added))
+	}
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %sp left%s · by resolution date", chartNum(cur), chartNum(total), scope))
 	if total == 0 {
 		return title + "\n\n" + refDimStyle.Render("no points in this sprint")
 	}

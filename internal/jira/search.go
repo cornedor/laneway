@@ -35,17 +35,35 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 
 // rawIssue is a search hit with its fields undecoded.
 type rawIssue struct {
-	Key    string                     `json:"key"`
-	Fields map[string]json.RawMessage `json:"fields"`
+	Key       string                     `json:"key"`
+	Fields    map[string]json.RawMessage `json:"fields"`
+	Changelog struct {
+		Histories []struct {
+			Created string `json:"created"`
+			Items   []struct {
+				Field string `json:"field"`
+				From  string `json:"from"`
+				To    string `json:"to"`
+			} `json:"items"`
+		} `json:"histories"`
+	} `json:"changelog"` // with expand "changelog" only
 }
 
 // search runs jql up to the card limit, paging by the enhanced search's
 // nextPageToken.
 func (c *Client) search(ctx context.Context, jql string, fields []string) ([]rawIssue, error) {
+	return c.searchExpand(ctx, jql, fields, "")
+}
+
+// searchExpand is search with expand ("changelog"), "" for none.
+func (c *Client) searchExpand(ctx context.Context, jql string, fields []string, expand string) ([]rawIssue, error) {
 	var out []rawIssue
 	token := ""
 	for len(out) < c.cardLimit {
 		body := map[string]any{"jql": jql, "fields": fields, "maxResults": cardPage}
+		if expand != "" {
+			body["expand"] = expand
+		}
 		if token != "" {
 			body["nextPageToken"] = token
 		}

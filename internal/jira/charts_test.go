@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // TestVelocity: the last n closed sprints across pages; done counts only
@@ -49,5 +50,30 @@ func TestVelocity(t *testing.T) {
 	}
 	if v[1].Committed != 10 || v[1].Done != 5 {
 		t.Errorf("S3 = %+v", v[1])
+	}
+}
+
+// TestSprintBurnAdded: when the Sprint field last gained the sprint.
+func TestSprintBurnAdded(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["expand"] != "changelog" {
+			t.Errorf("expand = %v", body["expand"])
+		}
+		io.WriteString(w, `{"issues":[
+		  {"key":"A-1","fields":{"customfield_1":3},"changelog":{"histories":[
+		    {"created":"2026-09-22T10:00:00.000+0000","items":[{"field":"Sprint","from":"","to":"41"}]},
+		    {"created":"2026-09-23T10:00:00.000+0000","items":[{"field":"Sprint","from":"41","to":"41, 42"}]}]}},
+		  {"key":"A-2","fields":{"customfield_1":1},"changelog":{"histories":[]}}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.SprintBurn(context.Background(), 42, "customfield_1")
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got[0].Added.Format(time.DateOnly) != "2026-09-23" || !got[1].Added.IsZero() {
+		t.Errorf("added %v, %v", got[0].Added, got[1].Added)
 	}
 }

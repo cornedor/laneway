@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,11 +19,21 @@ type BurnIssue struct {
 	Key      string
 	Points   float64
 	Resolved time.Time // zero while open
+	// Added is when it joined the sprint, zero when it was in it from the
+	// start (or before its history); SprintBurn only.
+	Added time.Time
 }
 
-// SprintBurn lists a sprint's issues with points and resolution time.
-// pointsField is the board's estimate field, "" for the detected ones.
+// SprintBurn lists a sprint's issues with points, resolution time and when
+// they joined it. pointsField is the board's estimate field, "" for the
+// detected ones.
 func (c *Client) SprintBurn(ctx context.Context, sprint int, pointsField string) ([]BurnIssue, error) {
+	return c.sprintIssues(ctx, sprint, pointsField, true)
+}
+
+// sprintIssues reads a sprint's issues, with when they joined it when
+// changes is set (it costs each issue's changelog).
+func (c *Client) sprintIssues(ctx context.Context, sprint int, pointsField string, changes bool) ([]BurnIssue, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
@@ -30,7 +41,11 @@ func (c *Client) SprintBurn(ctx context.Context, sprint int, pointsField string)
 	if pointsField == "" {
 		pf = c.resolveStoryPointFields(ctx)
 	}
-	raw, err := c.search(ctx, "sprint = "+strconv.Itoa(sprint), append([]string{"resolutiondate"}, pf...))
+	expand := ""
+	if changes {
+		expand = "changelog"
+	}
+	raw, err := c.searchExpand(ctx, "sprint = "+strconv.Itoa(sprint), append([]string{"resolutiondate"}, pf...), expand)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +62,7 @@ func (c *Client) SprintBurn(ctx context.Context, sprint int, pointsField string)
 		if json.Unmarshal(is.Fields["resolutiondate"], &res) == nil {
 			b.Resolved, _ = time.Parse("2006-01-02T15:04:05.000-0700", res)
 		}
+		b.Added = sprintJoined(is, sprint)
 		out[i] = b
 	}
 	return out, nil
@@ -100,7 +116,7 @@ func (c *Client) Velocity(ctx context.Context, board, n int, pointsField string)
 				end = s.EndDate
 			}
 			v := SprintVelocity{Name: s.Name, End: end}
-			issues, err := c.SprintBurn(ctx, s.ID, pointsField)
+			issues, err := c.sprintIssues(ctx, s.ID, pointsField, false)
 			for _, is := range issues {
 				v.Committed += is.Points
 				if !is.Resolved.IsZero() && !is.Resolved.After(end) {
@@ -117,4 +133,29 @@ func (c *Client) Velocity(ctx context.Context, board, n int, pointsField string)
 		}
 	}
 	return out, nil
+}
+
+// sprintJoined is the last time the issue's Sprint field gained sprint,
+// zero when its history never shows that.
+func sprintJoined(is rawIssue, sprint int) time.Time {
+	id := strconv.Itoa(sprint)
+	has := func(list string) bool {
+		for _, f := range strings.Split(list, ",") {
+			if strings.TrimSpace(f) == id {
+				return true
+			}
+		}
+		return false
+	}
+	var at time.Time
+	for _, h := range is.Changelog.Histories {
+		for _, it := range h.Items {
+			if it.Field == "Sprint" && has(it.To) && !has(it.From) {
+				if t, err := time.Parse(jiraTime, h.Created); err == nil && t.After(at) {
+					at = t
+				}
+			}
+		}
+	}
+	return at
 }

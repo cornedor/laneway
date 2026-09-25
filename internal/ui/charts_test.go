@@ -20,9 +20,15 @@ func TestBurnSeries(t *testing.T) {
 		{Points: 3, Resolved: start.AddDate(0, 0, 2)},
 		{Points: 2},
 	}
-	total, left := burnSeries(issues, start, end, now)
-	if total != 10 || !slices.Equal(left, []float64{5, 5, 2}) {
-		t.Errorf("total %v, left %v", total, left)
+	total, added, left := burnSeries(issues, start, end, now)
+	if total != 10 || added != 0 || !slices.Equal(left, []float64{5, 5, 2}) {
+		t.Errorf("total %v, added %v, left %v", total, added, left)
+	}
+	// An issue added on day 2 counts from then.
+	issues = append(issues, jira.BurnIssue{Points: 4, Added: start.AddDate(0, 0, 1).Add(time.Hour)})
+	total, added, left = burnSeries(issues, start, end, now)
+	if total != 14 || added != 4 || !slices.Equal(left, []float64{5, 9, 6}) {
+		t.Errorf("with scope: total %v, added %v, left %v", total, added, left)
 	}
 }
 

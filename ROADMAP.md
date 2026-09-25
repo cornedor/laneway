@@ -10,8 +10,7 @@
   history of past searches (↑ in an empty input)
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 3: start / complete a sprint from here (unfinished issues to the next)
-- Charts step 2: scope changes from the changelog (added/removed mid
-  sprint), cumulative flow by status, burnup; `ui.charts.sprints`
+- Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
 - Worklogs step 2: timesheet by week (`[` `]` days), edit/delete an entry,
   `S` start work also starts the timer (`ui.timer_on_start`)
 - Description step 2: keep unknown nodes as placeholders (`<!-- adf:1 -->`)
@@ -28,6 +27,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Burndown counts scope added mid-sprint (from the Sprint field's changelog), shows +Np added
 - Planning: `ui.capacity` per person (red when over), marked cards move together
 - `X` marks the lane or every shown row (toggle)
 - `Q` JQL search: field / keyword / value completion from Jira, results as a view
