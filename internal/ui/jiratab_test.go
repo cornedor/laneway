@@ -1,0 +1,297 @@
+package ui
+
+import (
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+
+	"jiratui/internal/jira"
+)
+
+// jiraTabModel sits on the Jira tab with a loaded scrum board: an active
+// sprint with three lanes, then the backlog.
+func jiraTabModel(t *testing.T) Model {
+	t.Helper()
+	m := configuredJiraModel(t, "ABC")
+	m.width, m.height = 160, 40
+	m.resize()
+	out, _ := m.handleJiraBoard(jiraBoardMsg{
+		seq: m.jiraTab.seq, project: "ABC",
+		boards: []jira.Board{{ID: 1, Name: "ABC board", Type: "scrum"}},
+		cfg: &jira.BoardConfig{Columns: []jira.Column{
+			{Name: "To do", StatusIDs: []string{"1"}},
+			{Name: "In progress", StatusIDs: []string{"3"}},
+			{Name: "Done", StatusIDs: []string{"5", "6"}},
+		}},
+		views: []jiraView{
+			{kind: jiraViewSprint, name: "Sprint 1", sprint: 9, lanes: true},
+			{kind: jiraViewBacklog, name: "Backlog"},
+		},
+		quick: []jira.QuickFilter{{ID: 7, Name: "FE", JQL: "labels = frontend"}, {ID: 8, Name: "BE", JQL: "labels = backend"}},
+		cards: []jira.Card{
+			{Key: "ABC-1", Summary: "First", StatusID: "1", Status: "New", Assignee: "Ada", AssigneeID: "a1"},
+			{Key: "ABC-2", Summary: "Second", StatusID: "3", Status: "In progress"},
+			{Key: "ABC-3", Summary: "Third", StatusID: "1", Status: "New", Points: "5"},
+			{Key: "ABC-4", Summary: "Fourth", StatusID: "6", Status: "Closed"},
+		},
+		total: 4,
+	})
+	return out.(Model)
+}
+
+func TestJiraTabLanes(t *testing.T) {
+	m := jiraTabModel(t)
+	if !m.jiraShowsLanes() {
+		t.Fatal("active sprint should show as lanes")
+	}
+	var got []int
+	for _, l := range m.jiraTab.lanes {
+		got = append(got, len(l.cards))
+	}
+	if len(got) != 3 || got[0] != 2 || got[1] != 1 || got[2] != 1 {
+		t.Fatalf("lane sizes = %v, want [2 1 1]", got)
+	}
+	view := m.View().Content
+	for _, want := range []string{"To do 2", "In progress 1", "ABC-3", "Sprint 1", "Backlog"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("board lacks %q", want)
+		}
+	}
+}
+
+// TestJiraTabBacklogIsList: a planning view shows as a list whatever the mode.
+func TestJiraTabBacklogIsList(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, viewIdx: 1, cards: []jira.Card{
+		{Key: "ABC-9", Summary: "Later", StatusID: "1", Status: "New"},
+	}, total: 1})
+	m = out.(Model)
+	if m.jiraShowsLanes() {
+		t.Fatal("backlog shows as lanes")
+	}
+	if m.toggleJiraMode(); !m.jiraTab.wantLanes {
+		t.Error("toggle on a list-only view changed the mode")
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-9" {
+		t.Errorf("selected %q, want ABC-9", c.Key)
+	}
+}
+
+func TestJiraTabToggleKeepsSelection(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "right"))
+	m = out.(Model)
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-2" {
+		t.Fatalf("selected %q, want ABC-2", c.Key)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "t"))
+	m = out.(Model)
+	if m.jiraShowsLanes() {
+		t.Fatal("t did not switch to the list")
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-2" {
+		t.Errorf("list selected %q, want ABC-2", c.Key)
+	}
+}
+
+// TestJiraTabMoveCard: L moves the card a lane right at once, the cursor
+// follows it, and a transition is requested.
+func TestJiraTabMoveCard(t *testing.T) {
+	m := jiraTabModel(t)
+	out, cmd := m.handleJiraKey(keyMsg(t, "L"))
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("no transition requested")
+	}
+	if len(m.jiraTab.lanes[1].cards) != 2 {
+		t.Fatalf("In progress has %d cards, want 2", len(m.jiraTab.lanes[1].cards))
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || m.jiraTab.lane != 1 {
+		t.Errorf("cursor on %q lane %d, want ABC-1 in lane 1", c.Key, m.jiraTab.lane)
+	}
+}
+
+// TestJiraTabDragDrop: dragging a card onto another lane moves it there.
+func TestJiraTabDragDrop(t *testing.T) {
+	m := jiraTabModel(t)
+	laneW := m.jiraTab.laneW
+	y := jiraBodyTop + 1 // the first card's key line
+	out, _ := m.Update(tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.jiraTab.drag.active || m.jiraTab.drag.key != "ABC-1" {
+		t.Fatalf("drag = %+v, want ABC-1 armed, not active", m.jiraTab.drag)
+	}
+	out, _ = m.Update(tea.MouseMotionMsg{X: 3, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.jiraTab.drag.active {
+		t.Fatal("a one-column wiggle started the drag")
+	}
+	out, _ = m.Update(tea.MouseMotionMsg{X: laneW + 3, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.jiraTab.drag.over != 1 {
+		t.Fatalf("over lane %d, want 1", m.jiraTab.drag.over)
+	}
+	// The ghost shows in In progress, above ABC-2 (ranked after ABC-1), and the
+	// card it left stays faint in To do: ABC-1 is drawn twice.
+	lanes := m.jiraTab.lanesOut
+	if strings.Count(lanes, "┊ ABC-1") != 2 {
+		t.Errorf("want the ghost and the left-behind card, got:\n%s", lanes)
+	}
+	if g, c := strings.Index(lanes, "┊ First"), strings.Index(lanes, "Second"); g < 0 || c < 0 || g > c {
+		t.Errorf("ghost not above ABC-2:\n%s", lanes)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: laneW + 3, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd == nil || m.jiraTab.drag.active {
+		t.Fatal("drop did not move the card")
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || m.jiraTab.lane != 1 {
+		t.Errorf("cursor on %q lane %d, want ABC-1 in In progress", c.Key, m.jiraTab.lane)
+	}
+}
+
+// TestJiraTabDropZones: a lane of several statuses splits into a zone per
+// status while dragged over, and the drop lands on the zone's status.
+func TestJiraTabDropZones(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.statusNames = map[string]string{"5": "Done", "6": "Closed"}
+	laneW := m.jiraTab.laneW
+	out, _ := m.Update(tea.MouseClickMsg{X: 2, Y: jiraBodyTop + 1, Button: tea.MouseLeft})
+	m = out.(Model)
+	zh := jiraZoneH(m.jiraTab.view.Height(), 2)
+	y := jiraBodyTop + 1 + zh // inside the second zone
+	out, _ = m.Update(tea.MouseMotionMsg{X: 2*laneW + 3, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.jiraTab.drag.over != 2 || m.jiraTab.drag.zone != 1 {
+		t.Fatalf("drag = %+v, want lane 2 zone 1", m.jiraTab.drag)
+	}
+	for _, want := range []string{"Done", "Closed"} {
+		if !strings.Contains(m.jiraTab.lanesOut, want) {
+			t.Errorf("zones lack %q", want)
+		}
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: 2*laneW + 3, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("drop did not move the card")
+	}
+	if c, _ := m.selectedJiraCard(); c.StatusID != "6" || c.Status != "Closed" {
+		t.Errorf("card = %+v, want it in Closed", c)
+	}
+}
+
+// TestJiraTabKeyMoveAsksStatus: a keyboard move into a lane of several
+// statuses asks which one.
+func TestJiraTabKeyMoveAsksStatus(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.lane = 1
+	m.clampJiraCursor()
+	out, _ := m.handleJiraKey(keyMsg(t, "L"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickLaneStatus || len(m.jiraPicker.items) != 2 {
+		t.Fatalf("picker = %+v, want the two Done statuses", m.jiraPicker)
+	}
+	m.jiraPicker.idx = 1
+	out, cmd := m.applyJiraPick()
+	m = out.(Model)
+	if c, _ := m.selectedJiraCard(); cmd == nil || c.Key != "ABC-2" || c.StatusID != "6" {
+		t.Errorf("card = %+v, want ABC-2 moving to status 6", c)
+	}
+}
+
+func TestJiraTabOpensIssueInPanel(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if !m.refOpen || m.focus != focusRef {
+		t.Fatalf("refOpen=%v focus=%v, want the panel focused", m.refOpen, m.focus)
+	}
+	if r := m.refs[0]; r.kind != refJira || r.jiraKey != "ABC-1" {
+		t.Fatalf("ref = %+v, want ABC-1", r)
+	}
+	if !strings.Contains(m.View().Content, "Jira") {
+		t.Error("tab body missing")
+	}
+	m.closeRef()
+	if m.focus != focusJira {
+		t.Fatalf("after close focus=%v, want back on the board", m.focus)
+	}
+}
+
+func TestJiraTabProjectPickerFilters(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.projects = []jira.Project{{Key: "XYZ", Name: "Other"}, {Key: "ABC", Name: "Alpha"}}
+	out, _ := m.handleJiraKey(keyMsg(t, "p"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.items[0].id != "ABC" {
+		t.Fatalf("picker = %+v, want configured ABC first", m.jiraPicker.items)
+	}
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "x"))
+	m = out.(Model)
+	if len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].id != "XYZ" {
+		t.Fatalf("filtered = %+v, want XYZ", m.jiraPicker.items)
+	}
+	out, cmd := m.handleJiraPickerKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if cmd == nil || m.jiraTab.project != "XYZ" || m.jiraPicker.active {
+		t.Errorf("project=%q picker=%v, want XYZ loading", m.jiraTab.project, m.jiraPicker.active)
+	}
+}
+
+func TestJiraFilterJQL(t *testing.T) {
+	quick := []jira.QuickFilter{{ID: 7, JQL: "labels = a OR labels = b"}, {ID: 8, JQL: "x = 1"}}
+	for _, c := range []struct {
+		a    jiraAssignee
+		on   map[int]bool
+		want string
+	}{
+		{jiraAssignee{}, nil, ""},
+		{jiraAssignee{id: "me"}, nil, "assignee = currentUser()"},
+		{jiraAssignee{id: "none"}, map[int]bool{8: true}, "assignee is EMPTY AND (x = 1)"},
+		{jiraAssignee{id: "a1"}, map[int]bool{7: true}, `assignee = "a1" AND (labels = a OR labels = b)`},
+	} {
+		if got := jiraFilterJQL(c.a, quick, c.on); got != c.want {
+			t.Errorf("jiraFilterJQL(%+v, %v) = %q, want %q", c.a, c.on, got, c.want)
+		}
+	}
+	if got := andJQL("a OR b", "c"); got != "(a OR b) AND (c)" {
+		t.Errorf("andJQL = %q", got)
+	}
+}
+
+// TestJiraTabQuickFilter: a digit toggles its quick filter and refetches.
+func TestJiraTabQuickFilter(t *testing.T) {
+	m := jiraTabModel(t)
+		out, cmd := m.handleJiraKey(keyMsg(t, "2"))
+	m = out.(Model)
+	if cmd == nil || !m.jiraTab.quickOn[8] || m.jiraTab.quickOn[7] {
+		t.Fatalf("quickOn = %v, want BE on and a refetch", m.jiraTab.quickOn)
+	}
+	if !strings.Contains(m.View().Content, "2 BE") {
+		t.Error("filter line lacks the quick filter")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "0"))
+	m = out.(Model)
+	if m.jiraTab.jiraFiltered() {
+		t.Error("0 left a filter on")
+	}
+}
+
+// TestJiraTabAssigneeFilter: the picker offers the people on the board, and a
+// pick filters by them.
+func TestJiraTabAssigneeFilter(t *testing.T) {
+	m := jiraTabModel(t)
+		out, _ := m.handleJiraKey(keyMsg(t, "a"))
+	m = out.(Model)
+	items := m.jiraPicker.items
+	if len(items) != 4 || items[3].id != "a1" || !items[0].current {
+		t.Fatalf("items = %+v, want everyone, me, unassigned, Ada", items)
+	}
+	m.jiraPicker.idx = 3
+	out, cmd := m.applyJiraPick()
+	m = out.(Model)
+	if cmd == nil || m.jiraTab.assignee.id != "a1" || m.jiraTab.assignee.label != "Ada" {
+		t.Fatalf("assignee = %+v, want Ada and a refetch", m.jiraTab.assignee)
+	}
+}
