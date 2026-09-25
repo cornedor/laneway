@@ -5,6 +5,11 @@
   - theme: issue type icon colours; named presets (`theme: tokyonight`)
   - `views:` extra JQL-backed views next to sprint/backlog
   - `card_limit` (now fixed CardLimit)
+- `rules:` client-side rules like matterbox (docs/rules.md there), user ask 2026-09-25.
+  Match on issue changes seen at refresh (new, status/assignee/field change,
+  mention) by project, type, status, JQL-ish fields, regex; actions: log,
+  notify, command, webhook, highlight card. `laneway rules test`. Split:
+  engine + log → notify/command → highlight → triggers beyond refresh
 - Images follow-ups: verify in real kitty/ghostty;
   query real cell pixel size (CSI 16 t); tmux passthrough;
   `enter` on an image for a full-size view
