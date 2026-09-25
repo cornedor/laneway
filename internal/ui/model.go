@@ -172,7 +172,7 @@ func New(ctx context.Context, cfg config.JiraConfig, st *store.Store) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return m.enterJiraTab()
+	return tea.Batch(m.enterJiraTab(), jiraAutoRefreshTick())
 }
 
 // bodyH is the rows above the status line.
@@ -241,6 +241,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraFormDone(msg)
 	case jiraWorkMsg:
 		return m.handleJiraWork(msg)
+	case jiraAutoRefreshMsg:
+		return m.handleJiraAutoRefresh()
 	case openedMsg:
 		if msg.err != nil {
 			m.status = "open " + msg.name + ": " + msg.err.Error()

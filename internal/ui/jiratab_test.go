@@ -394,3 +394,22 @@ func TestJiraGotoOpensPanel(t *testing.T) {
 		t.Errorf("board cursor on %q, want ABC-3", c.Key)
 	}
 }
+
+func TestJiraAutoRefresh(t *testing.T) {
+	m := jiraTabModel(t)
+	seq := m.jiraTab.seq
+	out, cmd := m.handleJiraAutoRefresh()
+	m = out.(Model)
+	if cmd == nil || m.jiraTab.seq != seq {
+		t.Fatalf("fresh board: seq %d→%d, want untouched and re-armed", seq, m.jiraTab.seq)
+	}
+	m.jiraTab.fetched = m.jiraTab.fetched.Add(-jiraStale)
+	m.helpOpen = true
+	if out, _ = m.handleJiraAutoRefresh(); out.(Model).jiraTab.seq != seq {
+		t.Error("refreshed under a modal")
+	}
+	m.helpOpen = false
+	if out, _ = m.handleJiraAutoRefresh(); out.(Model).jiraTab.seq == seq {
+		t.Error("stale idle board did not refresh")
+	}
+}

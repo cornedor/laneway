@@ -1561,3 +1561,23 @@ func jiraZoneH(height, n int) int {
 func (m *Model) jiraDragging() bool {
 	return m.jiraTab.drag.key != ""
 }
+
+// jiraAutoRefresh is how often an idle board refetches its view.
+const jiraAutoRefresh = 2 * time.Minute
+
+// jiraAutoRefreshMsg is the auto-refresh tick.
+type jiraAutoRefreshMsg struct{}
+
+func jiraAutoRefreshTick() tea.Cmd {
+	return tea.Tick(jiraAutoRefresh, func(time.Time) tea.Msg { return jiraAutoRefreshMsg{} })
+}
+
+// handleJiraAutoRefresh refetches the view unless the user is mid-action or
+// the board is fresh; the next tick is always armed.
+func (m Model) handleJiraAutoRefresh() (tea.Model, tea.Cmd) {
+	t := m.jiraTab
+	if m.modalOpen() || t.loading || t.searching || m.jiraDragging() || t.cfg == nil || time.Since(t.fetched) < jiraStale {
+		return m, jiraAutoRefreshTick()
+	}
+	return m, tea.Batch(m.loadJiraCards(t.viewIdx, false), jiraAutoRefreshTick())
+}
