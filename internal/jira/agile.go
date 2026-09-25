@@ -409,6 +409,14 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	return card
 }
 
+// MoveToBacklog takes issues out of their sprint.
+func (c *Client) MoveToBacklog(ctx context.Context, keys ...string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/backlog/issue", "backlog", map[string]any{"issues": keys}, nil)
+}
+
 // MoveToSprint puts issues in a sprint.
 func (c *Client) MoveToSprint(ctx context.Context, sprint int, keys ...string) error {
 	if !c.Enabled() {

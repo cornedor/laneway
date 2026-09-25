@@ -692,6 +692,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openJiraProjectPicker()
 	case key.Matches(msg, m.keys.Board):
 		m.openJiraBoardPicker()
+	case key.Matches(msg, m.keys.MoveSprint):
+		m.openJiraSprintPicker()
 	case key.Matches(msg, m.keys.NextView):
 		return m, m.cycleJiraView(1)
 	case key.Matches(msg, m.keys.PrevView):

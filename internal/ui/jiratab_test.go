@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -713,5 +714,44 @@ func TestRuleWatch(t *testing.T) {
 	out, cmd = m.handleRuleWatched(ruleWatchedMsg{jql: "assignee = currentUser()", err: errors.New("down")})
 	if m = out.(Model); cmd == nil || !strings.Contains(m.status, "down") {
 		t.Errorf("failed poll: cmd %v, status %q", cmd, m.status)
+	}
+}
+
+// TestJiraMoveToSprint: M offers the sprints and the backlog, the current
+// one marked; the current is a no-op, the backlog posts the card there.
+func TestJiraMoveToSprint(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = r.Method + " " + r.URL.Path + " " + string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	c, _ := m.selectedJiraCard()
+	out, _ := m.handleJiraKey(keyMsg(t, "M"))
+	m = out.(Model)
+	p := m.jiraPicker
+	if !p.active || p.kind != jiraPickSprint || p.issueKey != c.Key || len(p.items) != 2 ||
+		!p.items[0].current || p.items[1].id != jiraBacklogID {
+		t.Fatalf("picker = %+v", p)
+	}
+	if !strings.Contains(m.View().Content, "Move "+c.Key+" to") {
+		t.Error("picker not drawn")
+	}
+	if _, cmd := m.applyJiraPick(); cmd != nil {
+		t.Error("the current sprint should be a no-op")
+	}
+	m.jiraPicker.idx = 1
+	out, cmd := m.applyJiraPick()
+	if cmd == nil || out.(Model).jiraPicker.active {
+		t.Fatal("expected a move")
+	}
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	if want := `POST /rest/agile/1.0/backlog/issue {"issues":["` + c.Key + `"]}`; got != want {
+		t.Errorf("request = %q, want %q", got, want)
 	}
 }

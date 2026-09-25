@@ -60,6 +60,9 @@ const (
 	// jiraPickCreateType picks a new issue's type, then asks its summary
 	// (jira_create.go).
 	jiraPickCreateType
+	// jiraPickSprint moves the selected card to a sprint or the backlog
+	// (jira_sprint.go).
+	jiraPickSprint
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -520,6 +523,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.selectJiraKey(it.id)
 		m.renderJira()
 		return m.openJiraKey(it.id)
+	}
+	if kind == jiraPickSprint {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		return m, m.moveJiraToSprint(key, it)
 	}
 	if kind == jiraPickStatus {
 		key := m.jiraPicker.issueKey

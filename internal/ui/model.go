@@ -49,7 +49,7 @@ type keyMap struct {
 	CopyKey, CopyURL                   key.Binding
 	MoveCardLeft, MoveCardRight        key.Binding
 	Project, Board, NextView, PrevView key.Binding
-	ToggleMode, Sort                   key.Binding
+	ToggleMode, Sort, MoveSprint       key.Binding
 	Assignee, Mine, ClearFilters       key.Binding
 }
 
@@ -102,6 +102,7 @@ func defaultKeys() keyMap {
 		NextView:      bind("next view", "]"),
 		PrevView:      bind("previous view", "["),
 		ToggleMode:    bind("lanes / list", "t"),
+		MoveSprint:    bind("move to sprint / backlog", "M"),
 		Sort:          bind("sort the list", "s"),
 		Assignee:      bind("assignee filter", "a"),
 		Mine:          bind("only mine", "m"),
