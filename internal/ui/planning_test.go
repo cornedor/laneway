@@ -186,3 +186,25 @@ func TestPlanStartSprint(t *testing.T) {
 		t.Errorf("writes = %q", writes)
 	}
 }
+
+// TestPlanNewSprint: N asks the name, numbered on from the last sprint,
+// and creates it on the board.
+func TestPlanNewSprint(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	out, _ := m.handleJiraKey(keyMsg(t, "N"))
+	m = out.(Model)
+	if !m.jiraFieldActive || m.jiraFieldName != "plan-new" || m.jiraFieldInput.Value() != "Sprint 2" {
+		t.Fatalf("input %q %q", m.jiraFieldName, m.jiraFieldInput.Value())
+	}
+	_, cmd := m.applyJiraField()
+	if msg := cmd().(planSprintMsg); msg.err != nil || msg.what != "Sprint 2 created" {
+		t.Fatalf("%+v", msg)
+	}
+	if len(writes) != 1 || writes[0] != `POST /rest/agile/1.0/sprint {"name":"Sprint 2","originBoardId":1}` {
+		t.Errorf("writes = %q", writes)
+	}
+	if got := nextSprintName([]jiraView{{name: "Planning"}}); got != "" {
+		t.Errorf("no number: %q", got)
+	}
+}

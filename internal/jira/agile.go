@@ -530,3 +530,12 @@ func prState(raw json.RawMessage) string {
 	}
 	return ""
 }
+
+// CreateSprint adds a future sprint named name to board.
+func (c *Client) CreateSprint(ctx context.Context, board int, name string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"name": name, "originBoardId": board}
+	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint", "sprint", body, nil)
+}

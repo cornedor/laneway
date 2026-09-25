@@ -183,6 +183,11 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.planMove()
 	case msg.String() == "S":
 		return m, m.planStart()
+	case msg.String() == "N":
+		m.openBulkInput("plan-new", "sprint name")
+		m.jiraFieldInput.SetValue(nextSprintName(p.sprints))
+		m.jiraFieldInput.CursorEnd()
+		return m, nil
 	case msg.String() == "C":
 		return m, m.planClose()
 	case msg.String() == "K":
@@ -282,6 +287,39 @@ func (m Model) applyPlanStart(raw string) (tea.Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		err := c.StartSprint(ctx, v.sprint, now, end)
 		return planSprintMsg{what: v.name + " started, ends " + end.Format("Mon 2 Jan"), err: err}
+	}
+}
+
+// nextSprintName numbers on from the last sprint: "ABC Sprint 12" gives
+// "ABC Sprint 13"; without a number, "" to type one.
+func nextSprintName(sprints []jiraView) string {
+	if len(sprints) == 0 {
+		return ""
+	}
+	last := sprints[len(sprints)-1].name
+	i := len(last)
+	for i > 0 && last[i-1] >= '0' && last[i-1] <= '9' {
+		i--
+	}
+	n, err := strconv.Atoi(last[i:])
+	if err != nil {
+		return ""
+	}
+	return last[:i] + strconv.Itoa(n+1)
+}
+
+// applyPlanNew creates a sprint named raw on the board.
+func (m Model) applyPlanNew(raw string) (tea.Model, tea.Cmd) {
+	name := strings.TrimSpace(raw)
+	if name == "" {
+		m.status = "a sprint needs a name"
+		return m, nil
+	}
+	m.closeJiraField()
+	c, ctx, board := m.jiraClient, m.ctx, m.jiraBoardID()
+	m.status = "creating " + name + "…"
+	return m, func() tea.Msg {
+		return planSprintMsg{what: name + " created", err: c.CreateSprint(ctx, board, name)}
 	}
 }
 
@@ -399,7 +437,7 @@ func (m *Model) planLine() string {
 	}
 	k := m.keys
 	return s + jiraDimStyle.Render("  ·  ← → side  "+helpKey(k.PrevView)+" "+helpKey(k.NextView)+" sprint  "+
-		helpKey(k.MoveSprint)+"/space move across  K J rank  S start  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
+		helpKey(k.MoveSprint)+"/space move across  K J rank  N new  S start  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
 }
 
 // renderPlan draws the two sides into width × height.

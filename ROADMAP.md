@@ -4,7 +4,7 @@
 - Panel field cursor step 4: multi-line text fields in `$EDITOR` (the description's flow)
 - Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
 - Bulk step 3: required transition fields asked once for all marked
-- Planning step 4: create a sprint, edit its name / goal / dates
+- Planning step 5: edit a sprint's name / goal / dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
 - Inbox step 3: notify (OSC 777) on a new mention
@@ -14,6 +14,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Planning `N`: create a sprint, named on from the last one
 - Timesheet `e`: edit an entry's time and comment (a subtask's parent: the panel's Parent field)
 - Cards show `PR` (open) or `✓PR` (merged) from the Development field; `card_fields: pr`
 - `?` help runs on into more columns on a short screen instead of off the bottom
