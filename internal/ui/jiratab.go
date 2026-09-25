@@ -1261,6 +1261,18 @@ func (m *Model) jiraSelect(row string, selected bool, width int) string {
 	return diffTreeSelStyle.Render(row)
 }
 
+// jiraLanePoints sums the story points of a lane's cards; false when none
+// is estimated.
+func jiraLanePoints(cards []jira.Card, lane []int) (string, bool) {
+	sum, any := 0.0, false
+	for _, ci := range lane {
+		if f, err := strconv.ParseFloat(cards[ci].Points, 64); err == nil {
+			sum, any = sum+f, true
+		}
+	}
+	return strconv.FormatFloat(math.Round(sum*100)/100, 'f', -1, 64), any
+}
+
 // jiraLaneLayout is how many lanes fit in width, and how wide each is.
 func jiraLaneLayout(width, n int) (visible, laneW int) {
 	if n == 0 {
@@ -1377,6 +1389,9 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		count := strconv.Itoa(len(lane.cards))
 		if lane.max > 0 {
 			count += "/" + strconv.Itoa(lane.max)
+		}
+		if pts, ok := jiraLanePoints(t.cards, lane.cards); ok && m.opts.fields.points {
+			count += " · " + pts + "p"
 		}
 		head := ansi.Truncate(lane.name+" "+count, inner, "…")
 		// Filtered counts undercount the column, so only a full board judges it.

@@ -783,3 +783,24 @@ func TestJiraSprintLine(t *testing.T) {
 		t.Error("header lacks the sprint line")
 	}
 }
+
+// TestJiraLanePoints: a lane head sums its estimated cards, and shows no
+// sum when none is estimated or points are hidden.
+func TestJiraLanePoints(t *testing.T) {
+	cards := []jira.Card{{Points: "3"}, {Points: ""}, {Points: "0.1"}, {Points: "0.2"}}
+	if got, ok := jiraLanePoints(cards, []int{0, 1, 2, 3}); !ok || got != "3.3" {
+		t.Errorf("sum = %q %v", got, ok)
+	}
+	if _, ok := jiraLanePoints(cards, []int{1}); ok {
+		t.Error("an unestimated lane has no sum")
+	}
+	m := jiraTabModel(t)
+	if !strings.Contains(m.View().Content, "· 5p") {
+		t.Error("lane head lacks its points")
+	}
+	m.opts.fields.points = false
+	m.renderJira()
+	if strings.Contains(m.View().Content, "· 5p") {
+		t.Error("hidden points still summed")
+	}
+}

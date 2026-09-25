@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- Lane heads: story point sum next to the count
 - `rules:` Jira actions (transition, comment)? Ask first: rules would write to Jira.
 - Images: verify in real kitty/ghostty, and in tmux (cell size query, full view, passthrough)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Lane heads sum their story points (`· 8p`), hidden with points
 - Sprint views show days left (or start/end date) and the goal
 - Board `M`: move the card to a sprint or the backlog
 - Panel `l`: edit labels, space separated
