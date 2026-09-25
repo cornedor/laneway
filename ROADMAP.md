@@ -18,7 +18,9 @@
   sprint), cumulative flow by status, burnup; `ui.charts.sprints`
 - Worklogs step 2: timesheet by week (`[` `]` days), edit/delete an entry,
   `S` start work also starts the timer (`ui.timer_on_start`)
-- Description in `$EDITOR`: ADF ⇄ markdown round trip, keep unknown nodes
+- Description step 2: keep unknown nodes as placeholders (`<!-- adf:1 -->`)
+  so tables and mentions survive an edit; escape markdown-like text; `E` for
+  comments too
 - Inbox: mentions and changes on watched issues since last seen, `g i`
 - Subtasks and links: create a subtask, link two issues, clone, watch/vote
 - Jira saved filters as views; multiple sites with a switcher
@@ -29,6 +31,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `E` description in `$EDITOR`: markdown ⇄ ADF, offered only when the round trip is exact
 - Worklogs: `w` logs (1h 30m …), `T` timer kept across restarts, `W` today's timesheet
 - `C` charts: burndown (braille, ideal line) and velocity of the last 8 sprints
 - `P` sprint planning: backlog beside a sprint, points per assignee, move across, `K`/`J` rank

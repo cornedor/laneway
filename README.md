@@ -147,7 +147,7 @@ Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort li
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
-Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (dates take `2026-10-01`, `today`, `+3d`, `fri`) · `s` status · `p` priority · `P` points · `e` summary · `l` labels ·
+Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (dates take `2026-10-01`, `today`, `+3d`, `fri`) · `s` status · `p` priority · `P` points · `e` summary · `E` description in `$EDITOR` · `l` labels ·
 `a` assignee · `w` log work · `T` timer · `c` comment · `R` reply · `L` linked issue · `i` images full
 size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
 `y`/`Y` copy · `r` refresh · `esc` drop field, close.
@@ -159,6 +159,15 @@ changes every marked card: status (each along its own workflow move, no
 transition form), priority, assignee, labels (`ui -old` adds ui, removes
 old), story points, or sprint. Cards that fail stay marked with the reason
 in the status bar. `esc` clears the marks.
+
+## Descriptions
+
+`E` in the panel opens the description as markdown in `$VISUAL` or
+`$EDITOR` (else `vi`); saving a changed file writes it back. Only a
+description markdown keeps intact is offered — paragraphs, headings,
+lists, code, quotes, rules, bold / italic / code / strike / links. One with
+a table, mention, image, colour or text markdown would reinterpret (a
+stray `*`) says so and stays for Jira.
 
 ## Time tracking
 

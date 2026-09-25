@@ -136,6 +136,8 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Palette):
 		m.openPalette()
 		return m, nil
+	case key.Matches(msg, m.keys.JiraDescription):
+		return m, m.editDescription()
 	case key.Matches(msg, m.keys.LogWork) && m.jiraIssue != nil:
 		m.openWorklogInput(m.jiraIssue.Key, "", time.Time{})
 		return m, nil

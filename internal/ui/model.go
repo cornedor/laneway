@@ -53,6 +53,7 @@ type keyMap struct {
 	Assignee, Mine, ClearFilters       key.Binding
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
+	JiraDescription                    key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -90,34 +91,35 @@ func defaultKeys() keyMap {
 		Back:         bind("previous issue", "backspace"),
 		Image:        bind("view images", "i"),
 
-		Quit:          bind("quit", "q"),
-		Help:          bind("help", "?"),
-		Search:        bind("search", "/"),
-		Goto:          bind("go to issue by key", "#"),
-		Create:        bind("new issue", "n"),
-		CopyKey:       bind("copy key", "y"),
-		CopyURL:       bind("copy URL", "Y"),
-		MoveCardLeft:  bind("move card left", "H", "shift+left"),
-		MoveCardRight: bind("move card right", "L", "shift+right"),
-		Project:       bind("project", "p"),
-		Board:         bind("board", "b"),
-		NextView:      bind("next view", "]"),
-		PrevView:      bind("previous view", "["),
-		ToggleMode:    bind("lanes / list", "t"),
-		MoveSprint:    bind("move to sprint / backlog", "M"),
-		Sort:          bind("sort the list", "s"),
-		Assignee:      bind("assignee filter", "a"),
-		Mine:          bind("only mine", "m"),
-		ClearFilters:  bind("clear filters", "0"),
-		Roadmap:       bind("roadmap", "R"),
-		Palette:       bind("command palette", ":"),
-		Mark:          bind("mark card", "x"),
-		Bulk:          bind("edit marked cards", "B"),
-		Plan:          bind("sprint planning", "P"),
-		Charts:        bind("sprint charts", "C"),
-		LogWork:       bind("log work", "w"),
-		Timer:         bind("start / stop the timer", "T"),
-		Timesheet:     bind("today's worklogs", "W"),
+		Quit:            bind("quit", "q"),
+		Help:            bind("help", "?"),
+		Search:          bind("search", "/"),
+		Goto:            bind("go to issue by key", "#"),
+		Create:          bind("new issue", "n"),
+		CopyKey:         bind("copy key", "y"),
+		CopyURL:         bind("copy URL", "Y"),
+		MoveCardLeft:    bind("move card left", "H", "shift+left"),
+		MoveCardRight:   bind("move card right", "L", "shift+right"),
+		Project:         bind("project", "p"),
+		Board:           bind("board", "b"),
+		NextView:        bind("next view", "]"),
+		PrevView:        bind("previous view", "["),
+		ToggleMode:      bind("lanes / list", "t"),
+		MoveSprint:      bind("move to sprint / backlog", "M"),
+		Sort:            bind("sort the list", "s"),
+		Assignee:        bind("assignee filter", "a"),
+		Mine:            bind("only mine", "m"),
+		ClearFilters:    bind("clear filters", "0"),
+		Roadmap:         bind("roadmap", "R"),
+		Palette:         bind("command palette", ":"),
+		Mark:            bind("mark card", "x"),
+		Bulk:            bind("edit marked cards", "B"),
+		Plan:            bind("sprint planning", "P"),
+		Charts:          bind("sprint charts", "C"),
+		LogWork:         bind("log work", "w"),
+		JiraDescription: bind("edit description in $EDITOR", "E"),
+		Timer:           bind("start / stop the timer", "T"),
+		Timesheet:       bind("today's worklogs", "W"),
 	}
 }
 
@@ -339,6 +341,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case descLoadedMsg:
+		return m.handleDescLoaded(msg)
+	case descEditedMsg:
+		return m.handleDescEdited(msg)
 	case timerTickMsg:
 		return m.handleTimerTick()
 	case chartsMsg:
