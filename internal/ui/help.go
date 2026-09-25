@@ -38,6 +38,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.PrevView, k.NextView), "previous / next view"},
 			row(k.ToggleMode, "lanes / list"),
 			row(k.Palette, "command palette"),
+			row(k.Charts, "sprint charts: burndown, velocity"),
 			row(k.Plan, "sprint planning: backlog beside a sprint (K J rank)"),
 			row(k.Roadmap, "roadmap: epics on a timeline (space children, H L < > dates)"),
 			row(k.Sort, "sort the list"),

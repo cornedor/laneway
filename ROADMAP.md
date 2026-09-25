@@ -14,8 +14,8 @@
   transition fields asked once for all
 - Planning step 2: `ui.capacity` points per person, red when over; marks
   (`x`) move together; start / complete a sprint from here
-- Sprint charts: burndown / burnup, velocity of the last sprints, cumulative
-  flow; braille plots in a full-screen view
+- Charts step 2: scope changes from the changelog (added/removed mid
+  sprint), cumulative flow by status, burnup; `ui.charts.sprints`
 - Worklogs: `w` logs time, a timer runs on the started issue, `W` today's
   timesheet across issues
 - Description in `$EDITOR`: ADF ⇄ markdown round trip, keep unknown nodes
@@ -29,6 +29,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `C` charts: burndown (braille, ideal line) and velocity of the last 8 sprints
 - `P` sprint planning: backlog beside a sprint, points per assignee, move across, `K`/`J` rank
 - Bulk edit: `x` marks, `B` sets status / priority / assignee / labels / points / sprint on all, 4 at a time
 - `:` command palette: pane actions, views, quick filters, boards, loaded issues; pickers match every word

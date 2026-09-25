@@ -143,7 +143,7 @@ loaded issues, filtered by every word you type.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`R` roadmap · `P` planning · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
+`R` roadmap · `P` planning · `C` charts · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
@@ -167,6 +167,14 @@ one; `[` `]` pick another), each with its card count and points, the sprint
 also per assignee. `← →` switch side, `M` or `space` moves a card across,
 `K`/`J` rank it up or down. Changes show at once and are written behind;
 a failed write reloads both sides.
+
+## Charts
+
+`C` on a scrum board: the active sprint's burndown (points left per day by
+resolution date, against the dotted ideal) and, on `tab`, the velocity of
+the last 8 closed sprints (points done by the sprint's end over points in
+it). Both count an issue's points in the sprint it sits in now; scope
+changes during a sprint don't show.
 
 ## Roadmap
 

@@ -25,7 +25,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
-		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "bulk": &k.Bulk, "plan": &k.Plan,
+		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts,
 	}
 }
 
@@ -60,7 +60,7 @@ var keyScopes = []struct {
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down",
 		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto", "create",
 		"copy_key", "copy_url", "move_left", "move_right", "project", "board",
-		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "bulk", "plan",
+		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "bulk", "plan", "charts",
 	}},
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",

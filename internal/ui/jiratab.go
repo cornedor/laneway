@@ -188,6 +188,7 @@ type jiraTabState struct {
 	// (roadmap.go, planning.go).
 	roadmap *roadmapState
 	plan    *planState
+	charts  *chartsState // charts.go
 
 	drag    jiraDrag
 	loading bool
@@ -673,6 +674,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if t.plan != nil {
 		return m.handlePlanKey(msg)
 	}
+	if t.charts != nil {
+		return m.handleChartsKey(msg)
+	}
 	lanes := m.jiraShowsLanes()
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
@@ -726,6 +730,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openRoadmap()
 	case key.Matches(msg, m.keys.Plan):
 		return m, m.openPlanning()
+	case key.Matches(msg, m.keys.Charts):
+		return m, m.openCharts()
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
 	case key.Matches(msg, m.keys.Bulk):
@@ -1575,6 +1581,10 @@ func (m *Model) renderJiraPane(height, width int) string {
 		viewLine = ansi.Truncate(m.roadmapLine(), max(boxW-2, 1), "…")
 		filterLine = ""
 		body = m.renderRoadmap(t.view.Width(), t.view.Height())
+	case t.charts != nil:
+		viewLine = ansi.Truncate(m.chartsLine(), max(boxW-2, 1), "…")
+		filterLine = ""
+		body = m.renderCharts(t.view.Width(), t.view.Height())
 	case t.plan != nil:
 		viewLine = ansi.Truncate(m.planLine(), max(boxW-2, 1), "…")
 		filterLine = ""
