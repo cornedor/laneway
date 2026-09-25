@@ -285,37 +285,50 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		f.input = ti
 		f.editing = true
 		return f.input.Focus()
-	case jira.KindUser, jira.KindUsers:
-		gen := m.startJiraPicker(jiraPickFormUser, ff.Name+" — "+f.key, true)
-		m.jiraPicker.issueKey = f.key
-		if len(ff.val.Users) > 0 {
-			m.jiraPicker.curAssignee = ff.val.Users[0].AccountID
-		}
-		return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, f.key, "")
-	case jira.KindOption, jira.KindOptions:
-		m.startJiraPicker(jiraPickFormOption, ff.Name+" — "+f.key, true)
-		items := make([]jiraPickerItem, len(ff.Options))
-		for i, o := range ff.Options {
-			items[i] = jiraPickerItem{id: o.ID, label: o.Name,
-				current: slices.ContainsFunc(ff.val.Options, func(v jira.Option) bool { return v.ID == o.ID })}
-		}
-		m.setJiraPickerItems(items)
+	case jira.KindUser, jira.KindUsers, jira.KindOption, jira.KindOptions:
+		return m.openFieldPicker(*ff, f.key)
 	default:
 		f.err = ff.Name + " can't be set here — set it in Jira (esc, then o)"
 	}
 	return nil
 }
 
-// pickJiraFormValue stores a person or option picked for the selected row. A
-// multi-value field toggles the pick in or out; "" clears a person field.
+// openFieldPicker opens the person or option picker for a field of key: the
+// transition form's row, or the panel's (panel_fields.go).
+func (m *Model) openFieldPicker(ff jiraFormField, key string) tea.Cmd {
+	if ff.Kind == jira.KindUser || ff.Kind == jira.KindUsers {
+		gen := m.startJiraPicker(jiraPickFormUser, ff.Name+" — "+key, true)
+		m.jiraPicker.issueKey = key
+		if len(ff.val.Users) > 0 {
+			m.jiraPicker.curAssignee = ff.val.Users[0].AccountID
+		}
+		return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, key, "")
+	}
+	m.startJiraPicker(jiraPickFormOption, ff.Name+" — "+key, true)
+	m.jiraPicker.issueKey = key
+	items := make([]jiraPickerItem, len(ff.Options))
+	for i, o := range ff.Options {
+		items[i] = jiraPickerItem{id: o.ID, label: o.Name,
+			current: slices.ContainsFunc(ff.val.Options, func(v jira.Option) bool { return v.ID == o.ID })}
+	}
+	m.setJiraPickerItems(items)
+	return nil
+}
+
+// pickJiraFormValue stores a person or option picked for the selected row.
 func (m *Model) pickJiraFormValue(kind jiraPickerKind, it jiraPickerItem) {
 	f := m.jiraForm
 	if f == nil || f.idx >= len(f.fields) {
 		return
 	}
-	ff := &f.fields[f.idx]
-	ff.changed = true
 	f.err = ""
+	pickFieldValue(&f.fields[f.idx], kind, it)
+}
+
+// pickFieldValue applies a pick to ff. A multi-value field toggles the pick in
+// or out; "" clears a person field.
+func pickFieldValue(ff *jiraFormField, kind jiraPickerKind, it jiraPickerItem) {
+	ff.changed = true
 	if kind == jiraPickFormUser {
 		label := strings.TrimSuffix(strings.TrimPrefix(it.label, "Assign to me ("), ")")
 		u := jira.User{AccountID: it.id, DisplayName: label}

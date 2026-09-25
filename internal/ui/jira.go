@@ -51,7 +51,7 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 		m.jiraIssue = msg.issue
 	}
 	m.renderRef()
-	return m, m.fetchIssueImages(m.jiraIssue)
+	return m, tea.Batch(m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra())
 }
 
 // renderJiraIssue formats one issue for the viewport: a key + type header, the
@@ -66,23 +66,33 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		header += "  " + refDimStyle.Render(iss.Type)
 	}
 	b.WriteString(header + "\n")
-	sel := m.panelFieldSel()
+	sel := m.panelFieldIs
 	switch {
-	case sel == "Summary":
+	case sel("Summary"):
 		b.WriteString(selectedRow.Render(orDash(iss.Summary)) + "\n")
 	case iss.Summary != "":
 		b.WriteString(titleStyle.Render(iss.Summary) + "\n")
 	}
 	b.WriteString("\n")
 
-	refField(&b, "Status", iss.Status, 10, sel == "Status")
-	refField(&b, "Priority", iss.Priority, 10, sel == "Priority")
-	refField(&b, "Points", iss.StoryPoints, 10, sel == "Points")
-	refField(&b, "Assignee", iss.Assignee, 10, sel == "Assignee")
+	refField(&b, "Status", iss.Status, 10, sel("Status"))
+	refField(&b, "Priority", iss.Priority, 10, sel("Priority"))
+	refField(&b, "Points", iss.StoryPoints, 10, sel("Points"))
+	refField(&b, "Assignee", iss.Assignee, 10, sel("Assignee"))
 	refMeta(&b, "Reporter", iss.Reporter, 10)
-	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel == "Labels")
+	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel("Labels"))
 	if !iss.Updated.IsZero() {
 		refMeta(&b, "Updated", iss.Updated.Format(m.opts.dateFormat), 10)
+	}
+	if extra := m.extraFields(); len(extra) > 0 {
+		w := 10
+		for _, ff := range extra {
+			w = max(w, len(ff.Name)+2)
+		}
+		b.WriteString("\n")
+		for i, ff := range extra {
+			refField(&b, ff.Name, jiraValueText(ff.val), w, m.panelFieldIdx() == len(panelFields)+i)
+		}
 	}
 
 	// Edit affordances: the field cursor (panel_fields.go), comments

@@ -510,7 +510,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, m.setJiraAssignee(it.id, it.label)
 	}
 	if kind == jiraPickFormUser || kind == jiraPickFormOption {
+		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
+		if m.jiraForm == nil {
+			return m, m.pickPanelExtra(key, kind, it)
+		}
 		m.pickJiraFormValue(kind, it)
 		return m, nil
 	}
@@ -576,6 +580,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	if field == "field" {
+		return m.applyPanelExtraText(raw)
 	}
 	if field == "labels" {
 		labels := strings.Fields(raw)
@@ -733,6 +740,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "field":
+		title, hint, outerW = "Edit "+m.panelEditField().Name, "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
 	}
 	if outerW > m.width-4 {
 		outerW = m.width - 4

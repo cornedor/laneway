@@ -80,24 +80,11 @@ func (c *Client) TransitionsMeta(ctx context.Context, key string) ([]TransitionM
 	}
 	var resp struct {
 		Transitions []struct {
-			ID        string `json:"id"`
-			Name      string `json:"name"`
-			HasScreen bool   `json:"hasScreen"`
-			To        named  `json:"to"`
-			Fields    map[string]struct {
-				Name   string `json:"name"`
-				Schema struct {
-					Type   string `json:"type"`
-					Items  string `json:"items"`
-					Custom string `json:"custom"`
-					System string `json:"system"`
-				} `json:"schema"`
-				AllowedValues []struct {
-					ID    string `json:"id"`
-					Name  string `json:"name"`
-					Value string `json:"value"`
-				} `json:"allowedValues"`
-			} `json:"fields"`
+			ID        string                  `json:"id"`
+			Name      string                  `json:"name"`
+			HasScreen bool                    `json:"hasScreen"`
+			To        named                   `json:"to"`
+			Fields    map[string]rawFieldMeta `json:"fields"`
 		} `json:"transitions"`
 	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/transitions?expand=transitions.fields"
@@ -111,42 +98,64 @@ func (c *Client) TransitionsMeta(ctx context.Context, key string) ([]TransitionM
 			tm.ToName = t.Name
 		}
 		for id, f := range t.Fields {
-			fm := FieldMeta{ID: id, Name: f.Name}
-			for _, av := range f.AllowedValues {
-				label := av.Name
-				if label == "" {
-					label = av.Value
-				}
-				fm.Options = append(fm.Options, Option{ID: av.ID, Name: label})
-			}
-			s := f.Schema
-			switch {
-			case id == CommentField:
-				fm.Kind = KindComment
-			case s.Type == "user":
-				fm.Kind = KindUser
-			case s.Type == "array" && s.Items == "user":
-				fm.Kind = KindUsers
-			case len(fm.Options) > 0 && s.Type == "array":
-				fm.Kind = KindOptions
-			case len(fm.Options) > 0:
-				fm.Kind = KindOption
-			case s.Type == "number":
-				fm.Kind = KindNumber
-			case s.Type == "string" && (strings.HasSuffix(s.Custom, ":textarea") || s.System == "description" || s.System == "environment"):
-				fm.Kind = KindDoc
-			case s.Type == "string":
-				fm.Kind = KindText
-			default:
-				fm.Kind = KindOther
-			}
-			tm.Fields = append(tm.Fields, fm)
+			tm.Fields = append(tm.Fields, f.meta(id))
 		}
 		// Map order is random; keep the form stable.
 		sort.Slice(tm.Fields, func(i, j int) bool { return tm.Fields[i].Name < tm.Fields[j].Name })
 		out = append(out, tm)
 	}
 	return out, nil
+}
+
+// rawFieldMeta is a field's description as a transition screen or editmeta
+// sends it.
+type rawFieldMeta struct {
+	Name   string `json:"name"`
+	Schema struct {
+		Type   string `json:"type"`
+		Items  string `json:"items"`
+		Custom string `json:"custom"`
+		System string `json:"system"`
+	} `json:"schema"`
+	AllowedValues []struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"allowedValues"`
+}
+
+// meta is the field as a form fills it: its kind and options.
+func (f rawFieldMeta) meta(id string) FieldMeta {
+	fm := FieldMeta{ID: id, Name: f.Name}
+	for _, av := range f.AllowedValues {
+		label := av.Name
+		if label == "" {
+			label = av.Value
+		}
+		fm.Options = append(fm.Options, Option{ID: av.ID, Name: label})
+	}
+	s := f.Schema
+	switch {
+	case id == CommentField:
+		fm.Kind = KindComment
+	case s.Type == "user":
+		fm.Kind = KindUser
+	case s.Type == "array" && s.Items == "user":
+		fm.Kind = KindUsers
+	case len(fm.Options) > 0 && s.Type == "array":
+		fm.Kind = KindOptions
+	case len(fm.Options) > 0:
+		fm.Kind = KindOption
+	case s.Type == "number":
+		fm.Kind = KindNumber
+	case s.Type == "string" && (strings.HasSuffix(s.Custom, ":textarea") || s.System == "description" || s.System == "environment"):
+		fm.Kind = KindDoc
+	case s.Type == "string":
+		fm.Kind = KindText
+	default:
+		fm.Kind = KindOther
+	}
+	return fm
 }
 
 // IssueContext is what deciding a move needs from the issue itself: which

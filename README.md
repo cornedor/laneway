@@ -145,7 +145,7 @@ Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort li
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
-Panel: `tab`/`shift+tab` walk the fields, `enter` edits one · `s` status · `p` priority · `P` points · `e` summary · `l` labels ·
+Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one · `s` status · `p` priority · `P` points · `e` summary · `l` labels ·
 `a` assignee · `c` comment · `R` reply · `L` linked issue · `i` images full
 size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
 `y`/`Y` copy · `r` refresh · `esc` drop field, close.

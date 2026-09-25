@@ -183,10 +183,15 @@ type Model struct {
 	// none; it holds only while fieldCursorKey is the shown issue.
 	fieldCursor    int
 	fieldCursorKey string
+	// panelExtra is panelExtraKey's other editable fields (editmeta);
+	// panelEditID is the one being edited.
+	panelExtra    []jiraFormField
+	panelExtraKey string
+	panelEditID   string
 
 	// The one-line field input: story points, the summary or labels.
 	jiraFieldActive bool
-	jiraFieldName   string // "points", "summary" or "labels"
+	jiraFieldName   string // "points", "summary", "labels" or "field" (panelEditID)
 	jiraFieldKey    string
 	jiraFieldInput  textinput.Model
 
@@ -316,6 +321,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case panelExtraMsg:
+		return m.handlePanelExtra(msg)
 	case jiraPickerLoadedMsg:
 		return m.handleJiraPickerLoaded(msg)
 	case jiraAssigneeDebounceMsg:
