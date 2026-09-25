@@ -42,6 +42,8 @@ type UIConfig struct {
 	PanelWidth int `yaml:"panel_width"`
 	// Keys rebinds actions by name: search: "/" or mine: [m, M].
 	Keys map[string]KeyList `yaml:"keys"`
+	// Theme overrides colours by name: accent: "#7aa2f7".
+	Theme map[string]string `yaml:"theme"`
 }
 
 // KeyList is one key or a list of them.

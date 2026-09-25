@@ -1059,15 +1059,11 @@ func (m *Model) sizeJiraView(width, height int) {
 	m.jiraTab.view.SetHeight(max(height-4, 1)) // title row, rule, views, filters
 }
 
-var (
-	jiraKeyStyle   = lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
-	jiraDimStyle   = lipgloss.NewStyle().Foreground(dimColor)
-	jiraLaneStyle  = lipgloss.NewStyle().Bold(true)
-	jiraOverStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")) // a lane past its WIP limit
-	jiraDropStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(focusedColor)
-	jiraViewActive = lipgloss.NewStyle().Bold(true).Foreground(focusedColor)
-	jiraGhostStyle = lipgloss.NewStyle().Foreground(dimColor).Faint(true).Italic(true)
-)
+var jiraLaneStyle = lipgloss.NewStyle().Bold(true)
+
+// Themed board styles, set by applyTheme. jiraOverStyle marks a lane past
+// its WIP limit.
+var jiraKeyStyle, jiraDimStyle, jiraOverStyle, jiraDropStyle, jiraViewActive, jiraGhostStyle lipgloss.Style
 
 // jiraTypeIcon is a nerd-font glyph per issue type, like the GitLab tab's.
 func jiraTypeIcon(t string) string {
@@ -1091,13 +1087,13 @@ func jiraPriorityMark(p string) string {
 	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
 	switch strings.ToLower(p) {
 	case "highest", "blocker", "critical":
-		return st("1").Render("⇈")
+		return st(curTheme["priority_highest"]).Render("⇈")
 	case "high", "major":
-		return st("9").Render("↑")
+		return st(curTheme["priority_high"]).Render("↑")
 	case "low", "minor":
-		return st("4").Render("↓")
+		return st(curTheme["priority_low"]).Render("↓")
 	case "lowest", "trivial":
-		return st("8").Render("⇊")
+		return st(curTheme["priority_lowest"]).Render("⇊")
 	}
 	return ""
 }

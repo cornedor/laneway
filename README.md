@@ -30,7 +30,14 @@ ui:
   keys:              # rebind any action: one key or a list
     search: f
     mine: [m, M]
+  theme:             # colours: ANSI 0–255 or #rrggbb
+    accent: "#7aa2f7"
+    dim: "244"
 ```
+
+Colours: accent dim selection_fg selection_bg selection_idle error mention link
+code attachment over_limit drop_fg priority_highest priority_high priority_low
+priority_lowest.
 
 Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right

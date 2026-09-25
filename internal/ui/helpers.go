@@ -28,18 +28,17 @@ const (
 )
 
 var (
-	border       = lipgloss.NormalBorder()
-	focusedColor = lipgloss.Color("12")  // bright blue
-	dimColor     = lipgloss.Color("241") // grey
+	border          = lipgloss.NormalBorder()
+	titleStyle      = lipgloss.NewStyle().Bold(true)
+	gitlabWarnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+)
 
-	titleStyle          = lipgloss.NewStyle().Bold(true)
-	selectedRow         = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color("8"))
-	diffTreeSelStyle    = lipgloss.NewStyle().Background(lipgloss.Color("238"))
-	scrollbarThumbStyle = lipgloss.NewStyle().Foreground(focusedColor)
-	gitlabWarnStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
-	mentionStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	attachmentStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
-	statusStyle         = lipgloss.NewStyle().Foreground(dimColor)
+// Themed colours and styles, set by applyTheme (theme.go).
+var (
+	focusedColor, dimColor color.Color
+
+	selectedRow, diffTreeSelStyle, scrollbarThumbStyle lipgloss.Style
+	mentionStyle, attachmentStyle, statusStyle         lipgloss.Style
 )
 
 // emojiImages resolves custom server emoji in matterbox; Jira has none, so

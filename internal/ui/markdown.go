@@ -28,20 +28,18 @@ func selfMentionRe(self string) *regexp.Regexp {
 	return re
 }
 
+// Themed markdown styles, set by applyTheme. mdCodeOpen is the ANSI lead
+// sequence mdCodeStyle emits before content, so inline code can be closed with
+// a foreground-only reset that does not wipe enclosing character styles.
 var (
-	mdBoldStyle      = lipgloss.NewStyle().Bold(true)
-	mdItalicStyle    = lipgloss.NewStyle().Italic(true)
-	mdStrikeStyle    = lipgloss.NewStyle().Strikethrough(true)
-	mdCodeStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	mdCodeBlockStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-	// mdCodeOpen is the ANSI lead sequence mdCodeStyle emits before content.
-	// Extracted once so inline code can be closed with a foreground-only reset
-	// that does not wipe enclosing character styles (italic, bold, strike).
-	mdCodeOpen      = ansiOpenSeq(mdCodeStyle)
-	mdFenceStyle    = lipgloss.NewStyle().Foreground(dimColor)
-	mdQuoteBarStyle = lipgloss.NewStyle().Foreground(dimColor)
+	mdCodeStyle, mdCodeBlockStyle, mdFenceStyle, mdQuoteBarStyle, mdLinkStyle lipgloss.Style
+	mdCodeOpen                                                                string
+)
 
-	mdLinkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12")).Underline(true)
+var (
+	mdBoldStyle   = lipgloss.NewStyle().Bold(true)
+	mdItalicStyle = lipgloss.NewStyle().Italic(true)
+	mdStrikeStyle = lipgloss.NewStyle().Strikethrough(true)
 
 	mdCodeSpanRe = regexp.MustCompile("`([^`\n]+)`")
 	mdBoldRe     = regexp.MustCompile(`\*\*([^*]+?)\*\*`)

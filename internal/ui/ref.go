@@ -26,12 +26,8 @@ type reference struct {
 
 func (r reference) label() string { return r.jiraKey }
 
-var (
-	refKeyStyle   = lipgloss.NewStyle().Bold(true).Foreground(focusedColor)
-	refLabelStyle = lipgloss.NewStyle().Foreground(dimColor)
-	refDimStyle   = lipgloss.NewStyle().Foreground(dimColor)
-	refErrStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-)
+// Themed panel styles, set by applyTheme.
+var refKeyStyle, refLabelStyle, refDimStyle, refErrStyle lipgloss.Style
 
 // currentRef returns the reference currently shown, or nil when the panel is
 // closed or the index is somehow out of range.

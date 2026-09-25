@@ -181,6 +181,9 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *sto
 	opts, warn := optionsFrom(ui)
 	keys := defaultKeys()
 	warn = append(warn, keys.applyKeys(ui.Keys)...)
+	th, thWarn := themeFrom(ui.Theme)
+	applyTheme(th)
+	warn = append(warn, thWarn...)
 	prompt := defaultJiraStartPrompt
 	if cfg.StartPrompt != "" {
 		prompt = cfg.StartPrompt
