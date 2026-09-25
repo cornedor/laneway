@@ -53,9 +53,16 @@ type Match struct {
 
 // Action is what a firing rule does.
 type Action struct {
-	Type string `yaml:"type"` // log
-	Text string `yaml:"text"` // a template over the issue: {{.Key}} {{.Summary}} …
+	Type    string   `yaml:"type"`    // log, notify or exec
+	Text    string   `yaml:"text"`    // log line or notification body; "" says what changed
+	Title   string   `yaml:"title"`   // notify: the title, "" for laneway
+	Command []string `yaml:"command"` // exec: argv
 }
+
+// Every text is a template over Vars: {{.Key}} {{.Summary}} {{.OldStatus}} …
+
+// actionTypes are the actions a rule can take.
+var actionTypes = []string{"log", "notify", "exec"}
 
 // StrList is one string or a list of them.
 type StrList []string
@@ -117,7 +124,13 @@ type Set struct {
 type compiled struct {
 	Rule
 	match *cmatch
-	texts []*template.Template
+	acts  []cact
+}
+
+// cact is an Action with its templates parsed.
+type cact struct {
+	text, title *template.Template
+	argv        []*template.Template
 }
 
 // cmatch is a Match with its regexp compiled, and its Not.
@@ -158,14 +171,29 @@ func compile(r Rule) (compiled, error) {
 		return c, fmt.Errorf("no actions")
 	}
 	for _, a := range r.Actions {
-		if a.Type != "log" {
+		if !slices.Contains(actionTypes, a.Type) {
 			return c, fmt.Errorf("unknown action type %q", a.Type)
 		}
-		t, err := template.New("").Option("missingkey=error").Parse(a.Text)
-		if err != nil {
-			return c, fmt.Errorf("bad text template: %v", err)
+		if a.Type == "exec" && len(a.Command) == 0 {
+			return c, fmt.Errorf("exec needs a command")
 		}
-		c.texts = append(c.texts, t)
+		var ca cact
+		var err error
+		parse := func(what, src string) *template.Template {
+			t, e := template.New("").Option("missingkey=error").Parse(src)
+			if e != nil && err == nil {
+				err = fmt.Errorf("bad %s template: %v", what, e)
+			}
+			return t
+		}
+		ca.text, ca.title = parse("text", a.Text), parse("title", a.Title)
+		for _, arg := range a.Command {
+			ca.argv = append(ca.argv, parse("command", arg))
+		}
+		if err != nil {
+			return c, err
+		}
+		c.acts = append(c.acts, ca)
 	}
 	return c, nil
 }
@@ -196,11 +224,14 @@ func compileMatch(m *Match) (*cmatch, error) {
 // Len is how many rules compiled.
 func (s *Set) Len() int { return len(s.rules) }
 
-// Firing is one action a rule takes on an event.
+// Firing is one action a rule takes on an event, its templates filled.
 type Firing struct {
 	Rule   string
 	Action string
-	Text   string
+	Text   string   // log line, notification body; for Explain, why it did not fire
+	Title  string   // notify
+	Argv   []string // exec
+	Vars   map[string]string
 }
 
 // Fire runs the matching rules' actions over ev, in rule order.
@@ -210,8 +241,20 @@ func (s *Set) Fire(ev Event) []Firing {
 		if r.why(ev) != "" {
 			continue
 		}
+		vars := Vars(ev)
 		for i, a := range r.Actions {
-			out = append(out, Firing{Rule: r.Name, Action: a.Type, Text: render(r.texts[i], ev)})
+			ca := r.acts[i]
+			f := Firing{Rule: r.Name, Action: a.Type, Vars: vars, Text: render(ca.text, vars)}
+			if f.Text == "" {
+				f.Text = Describe(ev)
+			}
+			if f.Title = render(ca.title, vars); f.Title == "" {
+				f.Title = "laneway"
+			}
+			for _, t := range ca.argv {
+				f.Argv = append(f.Argv, render(t, vars))
+			}
+			out = append(out, f)
 		}
 	}
 	return out
@@ -281,21 +324,23 @@ func anyGlob(globs []string, v string) bool {
 	return false
 }
 
-// render fills a log text; an empty template says what happened.
-func render(t *template.Template, ev Event) string {
+// Vars are what templates, exec's environment and its stdin see.
+func Vars(ev Event) map[string]string {
+	c, o := ev.Card, ev.Old
+	return map[string]string{
+		"Kind": ev.Kind, "Key": c.Key, "Summary": c.Summary, "Type": c.Type,
+		"Status": c.Status, "Assignee": c.Assignee, "Priority": c.Priority,
+		"Points": c.Points, "Parent": c.ParentKey,
+		"OldStatus": o.Status, "OldAssignee": o.Assignee,
+		"OldPriority": o.Priority, "OldPoints": o.Points,
+		"Describe": Describe(ev),
+	}
+}
+
+func render(t *template.Template, vars map[string]string) string {
 	var b bytes.Buffer
-	data := map[string]any{
-		"Kind": ev.Kind, "Key": ev.Card.Key, "Summary": ev.Card.Summary, "Type": ev.Card.Type,
-		"Status": ev.Card.Status, "Assignee": ev.Card.Assignee, "Priority": ev.Card.Priority,
-		"Points": ev.Card.Points, "Parent": ev.Card.ParentKey,
-		"OldStatus": ev.Old.Status, "OldAssignee": ev.Old.Assignee,
-		"OldPriority": ev.Old.Priority, "OldPoints": ev.Old.Points,
-	}
-	if err := t.Execute(&b, data); err != nil {
+	if err := t.Execute(&b, vars); err != nil {
 		return "template: " + err.Error()
-	}
-	if b.Len() == 0 {
-		return Describe(ev)
 	}
 	return b.String()
 }

@@ -95,7 +95,14 @@ rules:
     actions:
       - type: log               # appends to ~/.config/laneway/rules.log
         text: "{{.Key}} {{.OldStatus}} → {{.Status}}"   # empty: a default line
+      - type: notify            # desktop notification via the terminal (OSC 777:
+        title: "{{.Key}} done"  # kitty, Ghostty, WezTerm, foot)
+      - type: exec              # argv; the issue as JSON on stdin and LANEWAY_*
+        command: [notify-send, "{{.Key}}", "{{.Summary}}"]   # env; 30s timeout
 ```
+
+Template fields: Kind Key Summary Type Status Assignee Priority Points Parent
+OldStatus OldAssignee OldPriority OldPoints Describe.
 
 A bad rule is skipped and reported on the status line.
 

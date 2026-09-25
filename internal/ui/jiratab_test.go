@@ -593,3 +593,29 @@ func TestRulesLogBoardChanges(t *testing.T) {
 		t.Errorf("log = %q", b)
 	}
 }
+
+// TestRuleNotifyAndExec: notify is an OSC 777 without the body's controls;
+// exec gets templated args, env and the issue on stdin.
+func TestRuleNotifyAndExec(t *testing.T) {
+	if got := notifySeq("laneway", "ABC-2; done\x1b[31m"); got != "\x1b]777;notify;laneway;ABC-2, done[31m\x1b\\" {
+		t.Errorf("notify = %q", got)
+	}
+	m := jiraTabModel(t)
+	out := filepath.Join(t.TempDir(), "out")
+	m.rules, _ = rules.Compile([]rules.Rule{{Actions: []rules.Action{{Type: "exec",
+		Command: []string{"sh", "-c", `printf '%s %s ' "$1" "$LANEWAY_OLD_STATUS" > "$2"; cat >> "$2"`, "_", "{{.Key}}", out}}}}})
+	cards := append([]jira.Card(nil), m.jiraTab.cards...)
+	m.runRules(cards)
+	cards[1].StatusID, cards[1].Status = "5", "Done"
+	if msg := m.ruleExec(m.rules.Fire(rules.Diff(m.jiraTab.cards, cards)[0])[0])(); msg != nil {
+		t.Fatal(msg)
+	}
+	b, _ := os.ReadFile(out)
+	if !strings.HasPrefix(string(b), `ABC-2 In progress {`) || !strings.Contains(string(b), `"Status":"Done"`) {
+		t.Errorf("exec saw %q", b)
+	}
+	m.rules, _ = rules.Compile([]rules.Rule{{Name: "x", Actions: []rules.Action{{Type: "exec", Command: []string{"false"}}}}})
+	if msg, _ := m.ruleExec(m.rules.Fire(rules.Event{Kind: "new", Card: cards[0]})[0])().(rulesLoggedMsg); msg.err == nil {
+		t.Error("a failing command reported nothing")
+	}
+}

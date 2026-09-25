@@ -310,7 +310,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraAutoRefresh()
 	case rulesLoggedMsg:
 		if msg.err != nil {
-			m.status = "rules log: " + msg.err.Error()
+			m.status = "rule: " + msg.err.Error()
 		}
 		return m, nil
 	case openedMsg:
