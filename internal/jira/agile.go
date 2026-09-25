@@ -18,7 +18,7 @@ import (
 const CardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
-const cardFields = "summary,status,assignee,issuetype,priority"
+const cardFields = "summary,status,assignee,issuetype,priority,parent"
 
 // boardMetaCache keeps what a board is made of — a project's boards, a
 // board's columns and quick filters — for the session: they change about as
@@ -114,6 +114,8 @@ type Card struct {
 	// AssigneeID is the assignee's accountId, "" when unassigned.
 	AssigneeID string
 	Points     string
+	// Parent is the parent issue (an epic, or a subtask's story), "" for none.
+	ParentKey, ParentSummary string
 }
 
 // QuickFilter is a board's saved filter: a name and the JQL behind it.
@@ -394,6 +396,10 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	card.TypeID, card.Type = obj("issuetype")
 	_, card.Priority = obj("priority")
 	card.AssigneeID, card.Assignee = obj("assignee")
+	var parent apiLinked
+	if json.Unmarshal(f["parent"], &parent) == nil {
+		card.ParentKey, card.ParentSummary = parent.Key, parent.Fields.Summary
+	}
 	if raw, ok := f[pointsField]; ok && pointsField != "" {
 		var v float64
 		if json.Unmarshal(raw, &v) == nil && strings.TrimSpace(string(raw)) != "null" {

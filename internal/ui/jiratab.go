@@ -1168,6 +1168,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if c.Assignee != "" {
 		title += jiraDimStyle.Render(" · " + c.Assignee)
 	}
+	if c.ParentSummary != "" {
+		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
+	}
 	pm := jiraPriorityMark(c.Priority)
 	if pm == "" {
 		pm = " "
@@ -1212,6 +1215,9 @@ func jiraCardLines(c jira.Card, styled bool) []string {
 	}
 	if who == "" {
 		who = "unassigned"
+	}
+	if c.ParentSummary != "" {
+		who += " · ⌃ " + c.ParentSummary
 	}
 	if !styled {
 		return []string{key + pts, c.Summary, who}

@@ -547,3 +547,18 @@ func TestJiraLaneWIPLimit(t *testing.T) {
 		t.Error("over-limit lane not marked")
 	}
 }
+
+func TestJiraCardShowsParent(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[0].ParentKey, m.jiraTab.cards[0].ParentSummary = "ABC-100", "Checkout epic"
+	m.buildJiraLanes()
+	m.renderJira()
+	if !strings.Contains(ansi.Strip(m.View().Content), "⌃ Checkout") {
+		t.Error("card lacks its parent")
+	}
+	m.jiraTab.search.SetValue("checkout")
+	m.applyJiraSearch()
+	if len(m.jiraTab.order) != 1 {
+		t.Errorf("search by parent matched %d cards, want 1", len(m.jiraTab.order))
+	}
+}

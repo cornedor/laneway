@@ -10,8 +10,8 @@ import (
 	"jiratui/internal/jira"
 )
 
-// The board's search: / narrows the loaded cards to those whose key, summary
-// or assignee contain the query. It filters locally, without a refetch.
+// The board's search: / narrows the loaded cards to those whose key, summary,
+// assignee or parent contain the query. It filters locally, without a refetch.
 
 // startJiraSearch focuses the search box, keeping any query already there.
 func (m *Model) startJiraSearch() {
@@ -40,7 +40,7 @@ func jiraCardMatches(c jira.Card, q string) bool {
 	if q == "" {
 		return true
 	}
-	for _, s := range []string{c.Key, c.Summary, c.Assignee} {
+	for _, s := range []string{c.Key, c.Summary, c.Assignee, c.ParentKey, c.ParentSummary} {
 		if strings.Contains(strings.ToLower(s), q) {
 			return true
 		}
