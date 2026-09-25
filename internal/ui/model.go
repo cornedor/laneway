@@ -53,7 +53,7 @@ type keyMap struct {
 	Assignee, Mine, ClearFilters       key.Binding
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
-	JiraDescription                    key.Binding
+	JiraDescription, Inbox             key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -120,6 +120,7 @@ func defaultKeys() keyMap {
 		JiraDescription: bind("edit description in $EDITOR", "E"),
 		Timer:           bind("start / stop the timer", "T"),
 		Timesheet:       bind("today's worklogs", "W"),
+		Inbox:           bind("inbox", "I"),
 	}
 }
 

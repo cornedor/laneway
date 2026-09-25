@@ -69,6 +69,8 @@ const (
 	jiraPickBulk
 	// jiraPickTimesheet lists today's worklogs (worklog.go).
 	jiraPickTimesheet
+	// jiraPickInbox lists what others did on your issues (inbox.go).
+	jiraPickInbox
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -409,7 +411,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -516,7 +518,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.applyBulkPick(kind, bulk, it)
 	}
-	if kind == jiraPickTimesheet {
+	if kind == jiraPickTimesheet || kind == jiraPickInbox {
 		m.closeJiraPicker()
 		if it.id == "" {
 			return m, nil

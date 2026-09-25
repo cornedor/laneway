@@ -149,6 +149,8 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.toggleTimer(k)
 	case key.Matches(msg, m.keys.Timesheet):
 		return m, m.openTimesheet()
+	case key.Matches(msg, m.keys.Inbox):
+		return m, m.openInbox()
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 		return m, nil

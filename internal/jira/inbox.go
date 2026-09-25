@@ -1,0 +1,183 @@
+package jira
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"math"
+	"net/http"
+	"net/url"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+// The inbox: what others did since you last looked, on the issues you watch,
+// are assigned or reported — field changes, comments, and comments that
+// mention you.
+
+// inboxIssues caps how many recently updated issues the inbox reads.
+const inboxIssues = 30
+
+// InboxEntry is one thing that happened on an issue.
+type InboxEntry struct {
+	Key, Summary string
+	When         time.Time
+	Who          string
+	What         string // "Status: To Do → Done", "commented: …"
+	Mention      bool   // a comment that mentions you
+}
+
+// Inbox lists what others did since since, mentions first, then newest.
+func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	me, err := c.Myself(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Relative minutes sidestep the profile time zone JQL dates are read in.
+	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
+	jql := fmt.Sprintf("(watcher = currentUser() OR assignee = currentUser() OR reporter = currentUser()) AND updated >= -%dm ORDER BY updated DESC", mins)
+	issues, err := c.search(ctx, jql, []string{"summary"})
+	if err != nil {
+		return nil, err
+	}
+	issues = issues[:min(len(issues), inboxIssues)]
+	var (
+		out  []InboxEntry
+		mu   sync.Mutex
+		wg   sync.WaitGroup
+		errs = make([]error, len(issues))
+	)
+	for i, is := range issues {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var summary string
+			_ = json.Unmarshal(is.Fields["summary"], &summary)
+			entries, err := c.issueInbox(ctx, is.Key, summary, me.AccountID, since)
+			mu.Lock()
+			out = append(out, entries...)
+			mu.Unlock()
+			errs[i] = err
+		}()
+	}
+	wg.Wait()
+	if err := firstError(errs); err != nil {
+		return nil, err
+	}
+	slices.SortFunc(out, func(a, b InboxEntry) int {
+		if a.Mention != b.Mention {
+			if a.Mention {
+				return -1
+			}
+			return 1
+		}
+		return b.When.Compare(a.When)
+	})
+	return out, nil
+}
+
+func firstError(errs []error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// issueInbox is one issue's changes and comments by others since since.
+func (c *Client) issueInbox(ctx context.Context, key, summary, me string, since time.Time) ([]InboxEntry, error) {
+	base := "/rest/api/3/issue/" + url.PathEscape(key)
+	var log struct {
+		Total  int `json:"total"`
+		Values []struct {
+			Author  user   `json:"author"`
+			Created string `json:"created"`
+			Items   []struct {
+				Field      string `json:"field"`
+				FromString string `json:"fromString"`
+				ToString   string `json:"toString"`
+			} `json:"items"`
+		} `json:"values"`
+	}
+	getLog := func(start int) error {
+		q := url.Values{"startAt": {strconv.Itoa(start)}, "maxResults": {strconv.Itoa(changelogTail)}}
+		return c.do(ctx, http.MethodGet, base+"/changelog?"+q.Encode(), "changelog", nil, &log)
+	}
+	// Oldest first: jump to the tail once the total is known.
+	if err := getLog(0); err != nil {
+		return nil, err
+	}
+	if log.Total > changelogTail {
+		if err := getLog(log.Total - changelogTail); err != nil {
+			return nil, err
+		}
+	}
+	var comments struct {
+		Comments []struct {
+			Author  user            `json:"author"`
+			Created string          `json:"created"`
+			Body    json.RawMessage `json:"body"`
+		} `json:"comments"`
+	}
+	if err := c.do(ctx, http.MethodGet, base+"/comment?orderBy=-created&maxResults=20", "comments", nil, &comments); err != nil {
+		return nil, err
+	}
+	var out []InboxEntry
+	for _, h := range log.Values {
+		when, _ := time.Parse(jiraTime, h.Created)
+		if h.Author.AccountID == me || !when.After(since) {
+			continue
+		}
+		var parts []string
+		for _, it := range h.Items {
+			parts = append(parts, fmt.Sprintf("%s: %s → %s", it.Field, orDash(it.FromString), orDash(it.ToString)))
+		}
+		if len(parts) > 0 {
+			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: strings.Join(parts, " · ")})
+		}
+	}
+	for _, cm := range comments.Comments {
+		when, _ := time.Parse(jiraTime, cm.Created)
+		if cm.Author.AccountID == me || !when.After(since) {
+			continue
+		}
+		text := strings.Join(strings.Fields(adfToMarkdown(cm.Body)), " ")
+		mention := mentions(cm.Body, me)
+		what := "commented: " + text
+		if mention {
+			what = "mentioned you: " + text
+		}
+		out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: cm.Author.DisplayName, What: what, Mention: mention})
+	}
+	return out, nil
+}
+
+// mentions reports whether an ADF body mentions accountID.
+func mentions(raw json.RawMessage, accountID string) bool {
+	var doc adfNode
+	if json.Unmarshal(raw, &doc) != nil {
+		return false
+	}
+	var walk func(n adfNode) bool
+	walk = func(n adfNode) bool {
+		if id, _ := n.Attrs["id"].(string); n.Type == "mention" && id == accountID {
+			return true
+		}
+		return slices.ContainsFunc(n.Content, walk)
+	}
+	return walk(doc)
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}

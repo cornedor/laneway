@@ -21,7 +21,8 @@
 - Description step 2: keep unknown nodes as placeholders (`<!-- adf:1 -->`)
   so tables and mentions survive an edit; escape markdown-like text; `E` for
   comments too
-- Inbox: mentions and changes on watched issues since last seen, `g i`
+- Inbox step 2: an unread count in the header, polled with the idle
+  refresh; notify (OSC 777) on a new mention
 - Subtasks and links: create a subtask, link two issues, clone, watch/vote
 - Jira saved filters as views; multiple sites with a switcher
 - Prefetch the panel for the cards around the cursor; parallel page fetch
@@ -31,6 +32,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `I` inbox: others' changes, comments and mentions on your issues since last read
 - `E` description in `$EDITOR`: markdown ⇄ ADF, offered only when the round trip is exact
 - Worklogs: `w` logs (1h 30m …), `T` timer kept across restarts, `W` today's timesheet
 - `C` charts: burndown (braille, ideal line) and velocity of the last 8 sprints

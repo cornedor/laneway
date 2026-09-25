@@ -1,0 +1,57 @@
+package ui
+
+import (
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/jira"
+)
+
+// TestInbox: I lists the entries, marks them read, and enter opens one.
+func TestInbox(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me"}`)
+		case "/rest/api/3/search/jql":
+			io.WriteString(w, `{"issues":[{"key":"ABC-2","fields":{"summary":"Second"}}]}`)
+		case "/rest/api/3/issue/ABC-2/changelog":
+			io.WriteString(w, `{"total":1,"values":[{"author":{"accountId":"bob","displayName":"Bob"},
+			  "created":"`+time.Now().Add(-time.Minute).Format("2006-01-02T15:04:05.000-0700")+`","items":[{"field":"status","fromString":"To Do","toString":"Done"}]}]}`)
+		default:
+			io.WriteString(w, `{"comments":[]}`)
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, cmd := m.handleJiraKey(keyMsg(t, "I"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickInbox {
+		t.Fatal("I should open the inbox")
+	}
+	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Inbox — 1 since") || !strings.Contains(view, "Bob  ABC-2 Second — status: To Do → Done") {
+		t.Errorf("inbox not drawn:\n%s", view)
+	}
+	v, _, _ := m.store.GetMeta(inboxMeta)
+	if sec, _ := strconv.ParseInt(v, 10, 64); time.Since(time.Unix(sec, 0)) > time.Minute {
+		t.Errorf("seen = %q, want now", v)
+	}
+	if since := m.inboxSince(time.Now()); time.Since(since) > time.Minute {
+		t.Errorf("next since = %v", since)
+	}
+	out, _ = m.applyJiraPick()
+	if m = out.(Model); !m.refOpen || m.refs[m.refIdx].jiraKey != "ABC-2" {
+		t.Error("enter should open the issue")
+	}
+}

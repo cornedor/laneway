@@ -143,7 +143,7 @@ loaded issues, filtered by every word you type.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`R` roadmap · `P` planning · `C` charts · `T` timer · `W` today's worklogs · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
+`R` roadmap · `P` planning · `C` charts · `T` timer · `W` today's worklogs · `I` inbox · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
@@ -168,6 +168,13 @@ description markdown keeps intact is offered — paragraphs, headings,
 lists, code, quotes, rules, bold / italic / code / strike / links. One with
 a table, mention, image, colour or text markdown would reinterpret (a
 stray `*`) says so and stays for Jira.
+
+## Inbox
+
+`I` lists what others did since you last opened it (a day, the first
+time) on the issues you watch, are assigned or reported: field changes and
+comments, those mentioning you first and marked `@`. Filter by typing;
+`enter` opens the issue.
 
 ## Time tracking
 

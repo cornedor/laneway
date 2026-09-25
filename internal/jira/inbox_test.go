@@ -1,0 +1,60 @@
+package jira
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+// TestInbox: others' changes and comments after since, yours and older ones
+// left out, mentions first.
+func TestInbox(t *testing.T) {
+	since := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me"}`)
+		case "/rest/api/3/search/jql":
+			var body struct {
+				JQL string `json:"jql"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if !strings.Contains(body.JQL, "watcher = currentUser()") || !strings.Contains(body.JQL, "updated >= -") {
+				t.Errorf("jql = %s", body.JQL)
+			}
+			io.WriteString(w, `{"issues":[{"key":"A-1","fields":{"summary":"One"}}]}`)
+		case "/rest/api/3/issue/A-1/changelog":
+			io.WriteString(w, `{"total":3,"values":[
+			  {"author":{"accountId":"bob","displayName":"Bob"},"created":"2026-09-25T09:00:00.000+0000","items":[{"field":"status","fromString":"New","toString":"Old"}]},
+			  {"author":{"accountId":"me"},"created":"2026-09-25T11:00:00.000+0000","items":[{"field":"labels","toString":"x"}]},
+			  {"author":{"accountId":"bob","displayName":"Bob"},"created":"2026-09-25T12:00:00.000+0000","items":[{"field":"status","fromString":"To Do","toString":"Done"}]}]}`)
+		case "/rest/api/3/issue/A-1/comment":
+			io.WriteString(w, `{"comments":[
+			  {"author":{"accountId":"ann","displayName":"Ann"},"created":"2026-09-25T11:30:00.000+0000",
+			   "body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"id":"me","text":"@Me"}},{"type":"text","text":" look"}]}]}},
+			  {"author":{"accountId":"me"},"created":"2026-09-25T13:00:00.000+0000","body":{"type":"doc","content":[]}}]}`)
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.Inbox(context.Background(), since)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("entries = %+v", got)
+	}
+	if !got[0].Mention || got[0].Who != "Ann" || got[0].What != "mentioned you: Me look" {
+		t.Errorf("first = %+v", got[0])
+	}
+	if got[1].What != "status: To Do → Done" || got[1].Summary != "One" {
+		t.Errorf("second = %+v", got[1])
+	}
+}
