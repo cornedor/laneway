@@ -129,3 +129,60 @@ func TestPlanMoveMarked(t *testing.T) {
 		t.Errorf("writes = %q", writes)
 	}
 }
+
+// TestPlanCloseSprint: C twice moves the unfinished issues on, then closes;
+// a done one stays.
+func TestPlanCloseSprint(t *testing.T) {
+	var writes []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			io.WriteString(w, `{"total":2,"issues":[{"key":"ABC-1","fields":{"status":{"id":"1"}}},{"key":"ABC-4","fields":{"status":{"id":"6"}}}]}`)
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		writes = append(writes, r.Method+" "+r.URL.Path+" "+string(b))
+		io.WriteString(w, `{}`)
+	}))
+	defer srv.Close()
+	var ignored []string
+	m := planModel(t, &ignored)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, cmd := m.handleJiraKey(keyMsg(t, "S"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "already active") {
+		t.Errorf("S on the active sprint: %q", m.status)
+	}
+	out, cmd = m.handleJiraKey(keyMsg(t, "C"))
+	m = out.(Model)
+	if cmd != nil || !strings.Contains(m.status, "C again completes Sprint 1, unfinished issues to the backlog") {
+		t.Fatalf("first C: %q", m.status)
+	}
+	_, cmd = m.handleJiraKey(keyMsg(t, "C"))
+	msg := cmd().(planSprintMsg)
+	if msg.err != nil || !strings.Contains(msg.what, "1 unfinished") {
+		t.Fatalf("%+v", msg)
+	}
+	if len(writes) != 2 || writes[0] != `POST /rest/agile/1.0/backlog/issue {"issues":["ABC-1"]}` || writes[1] != `POST /rest/agile/1.0/sprint/9 {"state":"closed"}` {
+		t.Errorf("writes = %q", writes)
+	}
+}
+
+// TestPlanStartSprint: S on a future sprint asks the end, then starts it.
+func TestPlanStartSprint(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	p := m.jiraTab.plan
+	p.sprints = append(p.sprints, jiraView{kind: jiraViewSprint, name: "Sprint 2", sprint: 10})
+	p.target = 1
+	out, _ := m.handleJiraKey(keyMsg(t, "S"))
+	m = out.(Model)
+	if !m.jiraFieldActive || m.jiraFieldName != "plan-start" || m.jiraFieldInput.Value() != "+2w" {
+		t.Fatalf("input %q %q", m.jiraFieldName, m.jiraFieldInput.Value())
+	}
+	_, cmd := m.applyJiraField()
+	if msg := cmd().(planSprintMsg); !strings.Contains(msg.what, "Sprint 2 started") {
+		t.Errorf("%+v", msg)
+	}
+	if len(writes) != 1 || !strings.Contains(writes[0], "/rest/agile/1.0/sprint/10") || !strings.Contains(writes[0], `"state":"active"`) {
+		t.Errorf("writes = %q", writes)
+	}
+}

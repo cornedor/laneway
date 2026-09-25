@@ -7,7 +7,7 @@
 - JQL step 2: save a search as a `ui.views` entry (writes the config), a
   history of past searches (↑ in an empty input)
 - Bulk step 3: required transition fields asked once for all marked
-- Planning step 3: start / complete a sprint from here (unfinished issues to the next)
+- Planning step 4: create a sprint, edit its name / goal / dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
 - Worklogs step 3: edit an entry, `S` start work also starts the timer (`ui.timer_on_start`)
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
@@ -20,6 +20,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Planning: `S` starts a sprint, `C C` completes the active one (unfinished to the next sprint or backlog)
 - Panel fields: date-time (`fri 14:00`), parent by key, sprint picked from the board
 - Roadmap: child bars move too, `f` epic's issues as a view, `n` new epic
 - Panel `A`: remove a link, vote / take back the vote

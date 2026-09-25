@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // TestCardsPagesAndDecodes: the board issue list is paged until the total, and
@@ -223,5 +224,28 @@ func TestFavouriteFilters(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Errorf("%d calls, want 1 (cached)", calls)
+	}
+}
+
+func TestStartAndCloseSprint(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = append(got, r.Method+" "+r.URL.Path+" "+string(b))
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, `{}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	start := time.Date(2026, 9, 28, 9, 0, 0, 0, time.UTC)
+	if err := c.StartSprint(context.Background(), 12, start, start.AddDate(0, 0, 14)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.CloseSprint(context.Background(), 11); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0] != `POST /rest/agile/1.0/sprint/12 {"endDate":"2026-10-12T09:00:00Z","startDate":"2026-09-28T09:00:00Z","state":"active"}` ||
+		got[1] != `POST /rest/agile/1.0/sprint/11 {"state":"closed"}` {
+		t.Errorf("requests = %q", got)
 	}
 }

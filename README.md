@@ -225,7 +225,10 @@ deletes an entry, `enter` opens the issue.
 one; `[` `]` pick another), each with its card count and points, the sprint
 also per assignee, against `ui.capacity` (red when over). `← →` switch side,
 `x` marks cards, `M` or `space` moves the marked (or the selected) across,
-`K`/`J` rank it up or down. Changes show at once and are written behind;
+`K`/`J` rank it up or down. `S` starts the sprint on the right (today until
+the day you type, `+2w` by default); `C` twice completes the active one,
+moving its unfinished issues (not in the board's last column) to the next
+planned sprint, else the backlog. Changes show at once and are written behind;
 a failed write reloads both sides.
 
 ## Charts

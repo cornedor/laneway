@@ -398,6 +398,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleCharts(msg)
 	case planMsg:
 		return m.handlePlan(msg)
+	case planSprintMsg:
+		return m.handlePlanSprint(msg)
 	case planWroteMsg:
 		return m.handlePlanWrote(msg)
 	case bulkDoneMsg:

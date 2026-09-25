@@ -472,3 +472,21 @@ func (c *Client) Rank(ctx context.Context, key, other string, after bool) error 
 	}
 	return c.do(ctx, http.MethodPut, "/rest/agile/1.0/issue/rank", key, body, nil)
 }
+
+// StartSprint makes a future sprint active from start to end.
+func (c *Client) StartSprint(ctx context.Context, sprint int, start, end time.Time) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"state": "active", "startDate": start.Format(time.RFC3339), "endDate": end.Format(time.RFC3339)}
+	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", body, nil)
+}
+
+// CloseSprint completes an active sprint. Move its unfinished issues first:
+// what Jira does with them on its own differs between instances.
+func (c *Client) CloseSprint(ctx context.Context, sprint int) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", map[string]any{"state": "closed"}, nil)
+}

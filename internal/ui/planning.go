@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -31,6 +32,8 @@ type planState struct {
 	loading bool
 	seq     int
 	err     string
+	// closing is set by a first C: a second completes the active sprint.
+	closing bool
 }
 
 type planMsg struct {
@@ -178,6 +181,10 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.MoveSprint), msg.String() == "space":
 		return m, m.planMove()
+	case msg.String() == "S":
+		return m, m.planStart()
+	case msg.String() == "C":
+		return m, m.planClose()
 	case msg.String() == "K":
 		return m, m.planRank(-1)
 	case msg.String() == "J":
@@ -240,6 +247,128 @@ func (m *Model) planMove() tea.Cmd {
 	return planWrite(what+" → backlog", func() error { return client.MoveToBacklog(ctx, keys...) })
 }
 
+// planStart asks when the target sprint ends, to start it now.
+func (m *Model) planStart() tea.Cmd {
+	p := m.jiraTab.plan
+	v := p.sprints[p.target]
+	if v.lanes {
+		m.status = v.name + " is already active"
+		return nil
+	}
+	m.openBulkInput("plan-start", "end: 2026-10-10, +2w, fri")
+	m.jiraFieldInput.SetValue("+2w")
+	m.jiraFieldInput.CursorEnd()
+	m.jiraFieldKey = v.name
+	return nil
+}
+
+// applyPlanStart starts the target sprint today, ending on the typed day.
+func (m Model) applyPlanStart(raw string) (tea.Model, tea.Cmd) {
+	p := m.jiraTab.plan
+	if p == nil {
+		m.closeJiraField()
+		return m, nil
+	}
+	now := time.Now()
+	end, err := jira.ParseDate(raw, now)
+	if err != nil || !end.After(now) {
+		m.status = "not a day after today: " + raw
+		return m, nil
+	}
+	m.closeJiraField()
+	v, c, ctx := p.sprints[p.target], m.jiraClient, m.ctx
+	end = time.Date(end.Year(), end.Month(), end.Day(), 17, 0, 0, 0, end.Location())
+	m.status = "starting " + v.name + "…"
+	return m, func() tea.Msg {
+		err := c.StartSprint(ctx, v.sprint, now, end)
+		return planSprintMsg{what: v.name + " started, ends " + end.Format("Mon 2 Jan"), err: err}
+	}
+}
+
+// planClose completes the active sprint on a second C: its unfinished
+// issues (not in the board's last column) go to the next planned sprint,
+// else the backlog, then it closes.
+func (m *Model) planClose() tea.Cmd {
+	t, p := m.jiraTab, m.jiraTab.plan
+	ai := slices.IndexFunc(p.sprints, func(v jiraView) bool { return v.lanes })
+	if ai < 0 {
+		m.status = "no active sprint"
+		return nil
+	}
+	active := p.sprints[ai]
+	next := -1
+	for i := ai + 1; i < len(p.sprints); i++ {
+		if !p.sprints[i].lanes {
+			next = i
+			break
+		}
+	}
+	dest := "the backlog"
+	if next >= 0 {
+		dest = p.sprints[next].name
+	}
+	if !p.closing {
+		p.closing = true
+		m.status = "C again completes " + active.name + ", unfinished issues to " + dest
+		return nil
+	}
+	p.closing = false
+	var done []string
+	if cols := t.cfg.Columns; len(cols) > 0 {
+		done = cols[len(cols)-1].StatusIDs
+	}
+	c, ctx, board, cfg := m.jiraClient, m.ctx, m.jiraBoardID(), t.cfg
+	nextID := 0
+	if next >= 0 {
+		nextID = p.sprints[next].sprint
+	}
+	m.status = "completing " + active.name + "…"
+	return func() tea.Msg {
+		cards, _, err := fetchJiraView(ctx, c, board, cfg, active, "")
+		if err != nil {
+			return planSprintMsg{err: err}
+		}
+		var open []string
+		for _, cd := range cards {
+			if !slices.Contains(done, cd.StatusID) {
+				open = append(open, cd.Key)
+			}
+		}
+		if len(open) > 0 {
+			if nextID != 0 {
+				err = c.MoveToSprint(ctx, nextID, open...)
+			} else {
+				err = c.MoveToBacklog(ctx, open...)
+			}
+			if err != nil {
+				return planSprintMsg{err: fmt.Errorf("moving unfinished issues: %w", err)}
+			}
+		}
+		if err := c.CloseSprint(ctx, active.sprint); err != nil {
+			return planSprintMsg{err: err}
+		}
+		return planSprintMsg{what: fmt.Sprintf("%s completed, %d unfinished to %s", active.name, len(open), dest)}
+	}
+}
+
+// planSprintMsg is a sprint started or completed; the board reloads, its
+// sprints having changed.
+type planSprintMsg struct {
+	what string
+	err  error
+}
+
+func (m Model) handlePlanSprint(msg planSprintMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.status = "sprint: " + msg.err.Error()
+		return m, nil
+	}
+	m.status = msg.what
+	t := m.jiraTab
+	t.plan = nil
+	return m, m.loadJiraBoard(t.project, m.jiraBoardID(), "", false)
+}
+
 // planRank swaps the selected card with its neighbour d away and ranks it
 // before (up) or after (down) that neighbour.
 func (m *Model) planRank(d int) tea.Cmd {
@@ -270,7 +399,7 @@ func (m *Model) planLine() string {
 	}
 	k := m.keys
 	return s + jiraDimStyle.Render("  ·  ← → side  "+helpKey(k.PrevView)+" "+helpKey(k.NextView)+" sprint  "+
-		helpKey(k.MoveSprint)+"/space move across  K J rank  "+helpKey(k.OpenChannel)+" open  esc board")
+		helpKey(k.MoveSprint)+"/space move across  K J rank  S start  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
 }
 
 // renderPlan draws the two sides into width × height.
