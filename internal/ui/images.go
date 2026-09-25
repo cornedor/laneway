@@ -42,7 +42,8 @@ const (
 type panelImage struct {
 	state      imgState
 	id         uint32 // kitty image id, 24-bit
-	cols, rows int
+	pxW, pxH   int    // the transmitted pixels, for re-fitting
+	cols, rows int    // the current placement
 }
 
 // panelImages holds the panel's images by attachment id, for the session.
@@ -50,6 +51,8 @@ type panelImages struct {
 	on     bool
 	nextID uint32
 	byAtt  map[string]*panelImage
+	// pending is placement changes a render queued, flushed after Update.
+	pending strings.Builder
 }
 
 func newPanelImages() *panelImages {
@@ -70,6 +73,7 @@ func kittyGraphics() bool {
 type imageLoadedMsg struct {
 	att        string
 	id         uint32
+	pxW, pxH   int
 	cols, rows int
 	seq        string
 	err        error
@@ -97,8 +101,9 @@ func (m *Model) fetchIssueImages(iss *jira.Issue) tea.Cmd {
 			if err != nil {
 				return imageLoadedMsg{att: att, err: err}
 			}
-			seq, cols, rows, err := encodeKittyImage(id, b, box)
-			return imageLoadedMsg{att: att, id: id, cols: cols, rows: rows, seq: seq, err: err}
+			seq, w, h, err := encodeKittyImage(id, b, box)
+			cols, rows := fitCells(w, h, box, imgMaxRows)
+			return imageLoadedMsg{att: att, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, err: err}
 		})
 	}
 	return tea.Batch(cmds...)
@@ -128,20 +133,22 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 		e.state = imgFailed
 		return m, nil
 	}
-	e.state, e.cols, e.rows = imgReady, msg.cols, msg.rows
+	e.state, e.pxW, e.pxH, e.cols, e.rows = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows
 	m.renderRef()
 	return m, tea.Raw(msg.seq)
 }
 
 // encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
-// box columns and imgMaxRows rows, and builds the transmit sequence.
-func encodeKittyImage(id uint32, b []byte, box int) (seq string, cols, rows int, err error) {
+// box columns and imgMaxRows rows, and builds the transmit sequence. w×h is
+// the transmitted pixel size.
+func encodeKittyImage(id uint32, b []byte, box int) (seq string, w, h int, err error) {
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("decode image: %w", err)
 	}
 	img = shrinkImage(img, imgMaxPx)
-	cols, rows = fitCells(img.Bounds().Dx(), img.Bounds().Dy(), box, imgMaxRows)
+	w, h = img.Bounds().Dx(), img.Bounds().Dy()
+	cols, rows := fitCells(w, h, box, imgMaxRows)
 	var sb strings.Builder
 	err = kitty.EncodeGraphics(&sb, img, &kitty.Options{
 		Action:           kitty.TransmitAndPut,
@@ -154,7 +161,26 @@ func encodeKittyImage(id uint32, b []byte, box int) (seq string, cols, rows int,
 		Quite:            2,
 		Chunk:            true,
 	})
-	return sb.String(), cols, rows, err
+	return sb.String(), w, h, err
+}
+
+// refit moves e's virtual placement to rows×cols, keeping the image data.
+func (ii *panelImages) refit(e *panelImage, cols, rows int) {
+	if e.cols == cols && e.rows == rows {
+		return
+	}
+	e.cols, e.rows = cols, rows
+	fmt.Fprintf(&ii.pending, "\x1b_Ga=d,d=i,i=%d,q=2\x1b\\\x1b_Ga=p,U=1,i=%d,c=%d,r=%d,q=2\x1b\\", e.id, e.id, cols, rows)
+}
+
+// flushImages sends the placement changes renders queued.
+func (m *Model) flushImages() tea.Cmd {
+	if m.images == nil || m.images.pending.Len() == 0 {
+		return nil
+	}
+	seq := m.images.pending.String()
+	m.images.pending.Reset()
+	return tea.Raw(seq)
 }
 
 // fitCells sizes a w×h pixel image in cells: aspect kept, no upscaling, at
@@ -247,7 +273,9 @@ func (m *Model) placeImages(s string) string {
 		indent := strings.Repeat(" ", len(l)-len(strings.TrimLeft(l, " ")))
 		for _, a := range atts {
 			if e := m.images.ready(a); e != nil {
-				for _, row := range kittyPlaceholder(e.id, e.rows, min(e.cols, max(m.refView.Width()-len(indent), 1))) {
+				cols, rows := fitCells(e.pxW, e.pxH, max(m.refView.Width()-len(indent), 1), imgMaxRows)
+				m.images.refit(e, cols, rows)
+				for _, row := range kittyPlaceholder(e.id, e.rows, e.cols) {
 					out = append(out, indent+row)
 				}
 			}

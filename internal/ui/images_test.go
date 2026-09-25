@@ -63,9 +63,12 @@ func TestKittyPlaceholderWidth(t *testing.T) {
 func TestEncodeKittyImage(t *testing.T) {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 50, 40)))
-	seq, cols, rows, err := encodeKittyImage(7, buf.Bytes(), 80)
-	if err != nil || cols != 5 || rows != 2 {
-		t.Fatalf("encode: %d×%d %v", cols, rows, err)
+	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), 80)
+	if err != nil || w != 50 || h != 40 {
+		t.Fatalf("encode: %d×%d %v", w, h, err)
+	}
+	if !strings.Contains(seq, "c=5") || !strings.Contains(seq, "r=2") {
+		t.Errorf("placement not 5×2: %.80q", seq)
 	}
 	if !strings.HasPrefix(seq, "\x1b_G") || !strings.Contains(seq, "i=7") || !strings.Contains(seq, "U=1") {
 		t.Errorf("seq = %.60q", seq)
@@ -92,7 +95,7 @@ func TestPanelPlacesImage(t *testing.T) {
 		t.Fatalf("fetch: cmd=%v queued=%v", cmd != nil, m.images.byAtt)
 	}
 	id := m.images.byAtt["10"].id
-	out, raw := m.handleImageLoaded(imageLoadedMsg{att: "10", id: id, cols: 4, rows: 2, seq: "SEQ"})
+	out, raw := m.handleImageLoaded(imageLoadedMsg{att: "10", id: id, pxW: 40, pxH: 40, cols: 4, rows: 2, seq: "SEQ"})
 	m = out.(Model)
 	if raw == nil {
 		t.Error("no transmit")
@@ -125,5 +128,27 @@ func TestReleaseImages(t *testing.T) {
 	}
 	if (Model{}).ReleaseImages() != "" {
 		t.Error("no images should release nothing")
+	}
+}
+
+// TestImageRefitsToNarrowPanel: a panel too narrow for the placement moves it
+// to a smaller one, sent after the update.
+func TestImageRefitsToNarrowPanel(t *testing.T) {
+	m := jiraTabModel(t)
+	m.images = &panelImages{on: true, byAtt: map[string]*panelImage{"10": {state: imgReady, id: 9, pxW: 800, pxH: 100, cols: 80, rows: 5}}}
+	m.refView.SetWidth(42)
+	got := m.placeImages("  " + imgMark("attachment:10") + "shot")
+	if e := m.images.byAtt["10"]; e.cols != 40 || e.rows != 3 {
+		t.Fatalf("placement = %d×%d, want 40×3", e.cols, e.rows)
+	}
+	if n := strings.Count(got, string(rune(0x10EEEE))); n != 120 {
+		t.Errorf("cells = %d, want 120", n)
+	}
+	if m.flushImages() == nil || m.images.pending.Len() != 0 {
+		t.Error("refit not flushed")
+	}
+	m.placeImages("  " + imgMark("attachment:10") + "shot")
+	if m.flushImages() != nil {
+		t.Error("unchanged width re-placed the image")
 	}
 }
