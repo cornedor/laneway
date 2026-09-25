@@ -38,6 +38,8 @@ type UIConfig struct {
 	Images string `yaml:"images"`
 	// ImageMaxRows caps an inline image's height in rows.
 	ImageMaxRows int `yaml:"image_max_rows"`
+	// CardLimit caps the cards one view fetches.
+	CardLimit int `yaml:"card_limit"`
 	// PanelWidth is the issue panel's share of the width, in percent.
 	PanelWidth int `yaml:"panel_width"`
 	// Keys rebinds actions by name: search: "/" or mine: [m, M].

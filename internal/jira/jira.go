@@ -48,6 +48,7 @@ type Config struct {
 	APIToken         string
 	Projects         []string
 	StoryPointsField string
+	CardLimit        int // 0: DefaultCardLimit
 }
 
 // Client fetches and caches issues for one instance. The zero value is not
@@ -56,6 +57,7 @@ type Client struct {
 	baseURL    string // trimmed of any trailing slash
 	auth       string // pre-encoded "Basic …" header value, empty when unconfigured
 	spOverride string // configured story-points custom-field id, "" to auto-detect
+	cardLimit  int    // most cards one board fetch returns
 	http       *http.Client
 
 	mu    sync.Mutex
@@ -84,8 +86,12 @@ func New(cfg Config) *Client {
 	c := &Client{
 		baseURL:    strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/"),
 		spOverride: strings.TrimSpace(cfg.StoryPointsField),
+		cardLimit:  cfg.CardLimit,
 		http:       &http.Client{Timeout: requestTimeout},
 		cache:      map[string]*Issue{},
+	}
+	if c.cardLimit <= 0 {
+		c.cardLimit = DefaultCardLimit
 	}
 	if cfg.Email != "" && cfg.APIToken != "" {
 		raw := cfg.Email + ":" + cfg.APIToken

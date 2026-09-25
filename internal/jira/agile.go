@@ -14,8 +14,8 @@ import (
 // These come from the Agile API (/rest/agile/1.0), which returns issues in
 // rank order.
 
-// CardLimit caps one board fetch; a backlog can run to thousands.
-const CardLimit = 500
+// DefaultCardLimit caps one board fetch; a backlog can run to thousands.
+const DefaultCardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
 const cardFields = "summary,status,assignee,issuetype,priority,parent"
@@ -300,7 +300,7 @@ func (c *Client) BoardIssues(ctx context.Context, board int, jql, pointsField st
 // cardPage is how many issues one request asks for; the Agile API caps it.
 const cardPage = 100
 
-// cards pages through an Agile issue list up to CardLimit, returning the cards
+// cards pages through an Agile issue list up to the card limit, returning the cards
 // and the server's total. The first page says how many there are; the rest
 // are fetched at once.
 func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Card, int, error) {
@@ -345,7 +345,7 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		return out, total, nil
 	}
 	var starts []int
-	for s := step; s < min(total, CardLimit); s += step {
+	for s := step; s < min(total, c.cardLimit); s += step {
 		starts = append(starts, s)
 	}
 	pages := make([][]Card, len(starts))
@@ -365,8 +365,8 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		}
 		out = append(out, pages[i]...)
 	}
-	if len(out) > CardLimit {
-		out = out[:CardLimit]
+	if len(out) > c.cardLimit {
+		out = out[:c.cardLimit]
 	}
 	return out, total, nil
 }

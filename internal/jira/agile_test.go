@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -138,5 +140,33 @@ func TestDecodeValue(t *testing.T) {
 	}
 	if !DecodeValue(KindUser, json.RawMessage(`null`)).Empty() {
 		t.Error("null not empty")
+	}
+}
+
+// TestCardLimit: paging stops at the configured limit, the total stays the
+// server's.
+func TestCardLimit(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		start, _ := strconv.Atoi(r.URL.Query().Get("startAt"))
+		var issues []string
+		for i := start; i < start+10; i++ {
+			issues = append(issues, fmt.Sprintf(`{"key": "ABC-%d", "fields": {}}`, i))
+		}
+		fmt.Fprintf(w, `{"total": 1000, "issues": [%s]}`, strings.Join(issues, ","))
+	}))
+	defer srv.Close()
+
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CardLimit: 25})
+	cards, total, err := c.BoardIssues(context.Background(), 7, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cards) != 25 || total != 1000 || requests.Load() != 3 {
+		t.Errorf("cards=%d total=%d requests=%d", len(cards), total, requests.Load())
+	}
+	if New(Config{}).cardLimit != DefaultCardLimit {
+		t.Error("zero limit is not the default")
 	}
 }

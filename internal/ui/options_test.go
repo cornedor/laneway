@@ -117,3 +117,12 @@ func TestLocalViews(t *testing.T) {
 		t.Errorf("cache round trip = %+v", back)
 	}
 }
+
+func TestCardLimitOption(t *testing.T) {
+	if o, warn := optionsFrom(config.UIConfig{CardLimit: 1500}); o.cardLimit != 1500 || len(warn) != 0 {
+		t.Errorf("1500 = %d %v", o.cardLimit, warn)
+	}
+	if o, warn := optionsFrom(config.UIConfig{CardLimit: 10}); o.cardLimit != 0 || len(warn) != 1 {
+		t.Errorf("10 = %d %v", o.cardLimit, warn)
+	}
+}

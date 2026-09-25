@@ -16,6 +16,7 @@ type options struct {
 	images       bool
 	imageMaxRows int
 	panelPct     int
+	cardLimit    int  // 0: the client's default
 	lanes        bool // default mode
 	dateFormat   string
 	fields       cardFields
@@ -76,6 +77,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		warn = append(warn, fmt.Sprintf("ui.panel_width: %d is not 20–80", n))
 	default:
 		o.panelPct = n
+	}
+	switch n := c.CardLimit; {
+	case n == 0:
+	case n < 50 || n > 5000:
+		warn = append(warn, fmt.Sprintf("ui.card_limit: %d is not 50–5000", n))
+	default:
+		o.cardLimit = n
 	}
 	switch strings.ToLower(strings.TrimSpace(c.DefaultMode)) {
 	case "", "lanes":

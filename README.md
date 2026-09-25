@@ -47,6 +47,7 @@ ui:
   images: auto       # kitty/Ghostty inline images; "off"
   image_max_rows: 16
   panel_width: 50    # issue panel, percent of the width
+  card_limit: 500    # most cards one view fetches (50–5000)
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout
   card_fields: [type, priority, status, points, assignee, parent]
