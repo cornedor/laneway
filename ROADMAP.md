@@ -7,9 +7,8 @@
 - Images follow-ups: verify in real kitty/ghostty (cell size query, full view); tmux passthrough
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
-- Startup: show the cached board instantly even before config loads (measure cold start)
-
 ## Done
+- Cold start measured: process 10ms, cached board to first frame 1.6ms (137k state); nothing to do
 - `i` in the panel: images full size across the body, ← → between them
 - Images fit the terminal's real cell size (CSI 16 t), 10×20 until it answers
 - `n` new issue: type, summary; lands in the shown sprint, opens in the panel
