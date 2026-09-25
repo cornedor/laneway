@@ -217,6 +217,8 @@ type Model struct {
 	sites    []string
 	site     string
 	nextSite *string
+	// prefetchSeq debounces the cursor's prefetch (prefetch.go).
+	prefetchSeq int
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -361,6 +363,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case prefetchMsg:
+		return m.handlePrefetch(msg)
 	case timerTickMsg:
 		return m.handleTimerTick()
 	case chartsMsg:
@@ -448,7 +452,14 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case m.jiraTab.searching:
 		return m.handleJiraSearchKey(msg)
 	}
-	return m.handleJiraKey(msg)
+	before := m.selectedJiraKey()
+	out, cmd := m.handleJiraKey(msg)
+	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil {
+		if after := om.selectedJiraKey(); after != "" && after != before {
+			return om, tea.Batch(cmd, om.schedulePrefetch())
+		}
+	}
+	return out, cmd
 }
 
 func (m *Model) modalOpen() bool {

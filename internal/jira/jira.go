@@ -61,7 +61,7 @@ type Client struct {
 	http       *http.Client
 
 	mu    sync.Mutex
-	cache map[string]*Issue
+	cache map[string]cachedIssue
 	// spFields are the resolved story-points custom-field ids (a configured
 	// override, or every field named "story point…" from the field metadata).
 	// spResolved guards the one-time resolution; both are behind mu.
@@ -90,7 +90,7 @@ func New(cfg Config) *Client {
 		spOverride: strings.TrimSpace(cfg.StoryPointsField),
 		cardLimit:  cfg.CardLimit,
 		http:       &http.Client{Timeout: requestTimeout},
-		cache:      map[string]*Issue{},
+		cache:      map[string]cachedIssue{},
 	}
 	if c.cardLimit <= 0 {
 		c.cardLimit = DefaultCardLimit
@@ -239,27 +239,70 @@ type apiComment struct {
 	Created string          `json:"created"`
 }
 
-// Get returns the issue for key, serving a cached copy when present. Use
-// Invalidate (then Get) to force a refetch.
+// issueTTL is how long a fetched issue is served from the cache: the
+// board's own refresh pace, so a prefetched issue is about as fresh as its
+// card.
+const issueTTL = 2 * time.Minute
+
+// cachedIssue is an issue and when it was fetched.
+type cachedIssue struct {
+	iss *Issue
+	at  time.Time
+}
+
+// cachedFresh is key's cached issue while it is younger than issueTTL.
+func (c *Client) cachedFresh(key string) (*Issue, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	hit, ok := c.cache[key]
+	if !ok || time.Since(hit.at) >= issueTTL {
+		return nil, false
+	}
+	return hit.iss, true
+}
+
+// Get returns the issue for key, serving a cached copy younger than
+// issueTTL. Use Invalidate (then Get) to force a refetch.
 func (c *Client) Get(ctx context.Context, key string) (*Issue, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
-	c.mu.Lock()
-	if hit, ok := c.cache[key]; ok {
-		c.mu.Unlock()
-		return hit, nil
+	if iss, ok := c.cachedFresh(key); ok {
+		return iss, nil
 	}
-	c.mu.Unlock()
-
 	issue, err := c.fetch(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 	c.mu.Lock()
-	c.cache[key] = issue
+	c.cache[key] = cachedIssue{issue, time.Now()}
 	c.mu.Unlock()
 	return issue, nil
+}
+
+// prefetchWorkers is how many issues Prefetch loads at once.
+const prefetchWorkers = 3
+
+// Prefetch loads the keys not freshly cached into the cache, a few at a
+// time; failures are left for Get to report.
+func (c *Client) Prefetch(ctx context.Context, keys []string) {
+	if !c.Enabled() {
+		return
+	}
+	sem := make(chan struct{}, prefetchWorkers)
+	var wg sync.WaitGroup
+	for _, k := range keys {
+		if _, ok := c.cachedFresh(k); ok {
+			continue
+		}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			_, _ = c.Get(ctx, k)
+		}()
+	}
+	wg.Wait()
 }
 
 // Invalidate drops any cached copy of key so the next Get refetches.
