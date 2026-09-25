@@ -474,3 +474,16 @@ func TestJiraKeySortNumeric(t *testing.T) {
 		t.Errorf("order = %v, want AB-100 ABC-9 ABC-10", order)
 	}
 }
+
+func TestJiraMineToggle(t *testing.T) {
+	m := jiraTabModel(t)
+	out, cmd := m.handleJiraKey(keyMsg(t, "m"))
+	m = out.(Model)
+	if cmd == nil || m.jiraTab.assignee.id != "me" {
+		t.Fatalf("m: assignee = %+v", m.jiraTab.assignee)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "m"))
+	if a := out.(Model).jiraTab.assignee; a.id != "" {
+		t.Errorf("second m: assignee = %+v, want everyone", a)
+	}
+}

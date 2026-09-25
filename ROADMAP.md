@@ -7,7 +7,15 @@
 - `n` create issue from board (`jira.CreateIssue` exists, unused in UI)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
+- Panel: `backspace` back to the previous issue (history stack)
+- Cards/panel: show parent / epic
+- Panel: list attachments not embedded in the body (names, `o` to open)
+- Panel: linked issues section, `enter` to follow
+- Board: WIP limit per column (board config has min/max), mark over-limit lanes
+- Startup: show the cached board instantly even before config loads (measure cold start)
+
 ## Done
+- `m` toggles assignee = me
 - `s` cycles list sort: rank, priority, points, assignee, key (stable)
 - Images re-fit to panel width (re-place without re-sending data)
 - Free this session's kitty images on exit (by id)

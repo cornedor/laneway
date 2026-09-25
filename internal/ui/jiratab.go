@@ -674,6 +674,14 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.toggleJiraMode()
 	case msg.String() == "a":
 		m.openJiraAssigneeFilter()
+	case msg.String() == "m":
+		if t.cfg == nil {
+			break
+		}
+		if t.assignee.id == "me" {
+			return m, m.setJiraAssignee("", "")
+		}
+		return m, m.setJiraAssignee("me", "Me")
 	case msg.String() == "0":
 		return m, m.clearJiraFilters()
 	case msg.String() == "/":
@@ -1445,7 +1453,7 @@ func (m *Model) jiraFilterLine() string {
 	if t.assignee.id != "" {
 		who = t.assignee.label
 	}
-	line := jiraDimStyle.Render("a assignee: ") + chip(t.assignee.id != "", who)
+	line := jiraDimStyle.Render("a assignee (m me): ") + chip(t.assignee.id != "", who)
 	for i, q := range t.quick {
 		if i == 9 {
 			break
