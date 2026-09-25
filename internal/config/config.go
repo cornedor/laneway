@@ -24,6 +24,22 @@ type JiraConfig struct {
 
 type Config struct {
 	Jira JiraConfig `yaml:"jira"`
+	UI   UIConfig   `yaml:"ui"`
+}
+
+// UIConfig tunes the app; every field is optional and "" / 0 keeps the
+// default (see ui.optionsFrom).
+type UIConfig struct {
+	// AutoRefresh is how often an idle board refetches ("2m"); "off" stops it.
+	AutoRefresh string `yaml:"auto_refresh"`
+	// StaleAfter is how old a board may be before focus or a tick refetches it.
+	StaleAfter string `yaml:"stale_after"`
+	// Images is "auto" (kitty/Ghostty) or "off".
+	Images string `yaml:"images"`
+	// ImageMaxRows caps an inline image's height in rows.
+	ImageMaxRows int `yaml:"image_max_rows"`
+	// PanelWidth is the issue panel's share of the width, in percent.
+	PanelWidth int `yaml:"panel_width"`
 }
 
 // Dir is where the config and state live.

@@ -23,7 +23,7 @@ func configuredJiraModel(t *testing.T, projects ...string) Model {
 		Email:    "me@x.test",
 		APIToken: "tok",
 		Projects: projects,
-	}, st)
+	}, config.UIConfig{}, st)
 	m.herdr = nil
 	m.width, m.height = 120, 40
 	m.resize()

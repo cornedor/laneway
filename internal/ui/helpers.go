@@ -161,8 +161,8 @@ func joinRuleRows(block string, rows ...int) string {
 
 // splitRightPane is the issue panel's width in a body width wide: half,
 // clamped so neither side drops below refPaneMinWidth.
-func splitRightPane(width int) int {
-	return min(max(width/2, refPaneMinWidth), max(width-refPaneMinWidth, refPaneMinWidth))
+func splitRightPane(width, pct int) int {
+	return min(max(width*pct/100, refPaneMinWidth), max(width-refPaneMinWidth, refPaneMinWidth))
 }
 
 // age is a compact "how long ago": 5m, 3h, 2d, 6w.

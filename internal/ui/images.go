@@ -25,8 +25,7 @@ import (
 // Kitty and Ghostty support it; elsewhere the caption stays text.
 
 const (
-	imgMaxRows = 16   // tallest an image is drawn, in cells
-	imgMaxPx   = 1600 // longer sides are downscaled before transmitting
+	imgMaxPx = 1600 // longer sides are downscaled before transmitting
 	// A cell's pixel size, for the aspect: the common 1:2 of a terminal font.
 	imgCellW, imgCellH = 10, 20
 )
@@ -48,15 +47,16 @@ type panelImage struct {
 
 // panelImages holds the panel's images by attachment id, for the session.
 type panelImages struct {
-	on     bool
-	nextID uint32
-	byAtt  map[string]*panelImage
+	on      bool
+	maxRows int // tallest an image is drawn, in cells
+	nextID  uint32
+	byAtt   map[string]*panelImage
 	// pending is placement changes a render queued, flushed after Update.
 	pending strings.Builder
 }
 
-func newPanelImages() *panelImages {
-	return &panelImages{on: kittyGraphics(), nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
+func newPanelImages(on bool, maxRows int) *panelImages {
+	return &panelImages{on: on && kittyGraphics(), maxRows: maxRows, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
 }
 
 // kittyGraphics reports a terminal that draws Unicode placeholders. tmux
@@ -95,14 +95,14 @@ func (m *Model) fetchIssueImages(iss *jira.Issue) tea.Cmd {
 		id := ii.nextID & 0xFFFFFF
 		ii.nextID++
 		ii.byAtt[a.ID] = &panelImage{state: imgLoading, id: id}
-		ctx, c, att := m.ctx, m.jiraClient, a.ID
+		ctx, c, att, maxRows := m.ctx, m.jiraClient, a.ID, ii.maxRows
 		cmds = append(cmds, func() tea.Msg {
 			b, err := c.AttachmentContent(ctx, att)
 			if err != nil {
 				return imageLoadedMsg{att: att, err: err}
 			}
-			seq, w, h, err := encodeKittyImage(id, b, box)
-			cols, rows := fitCells(w, h, box, imgMaxRows)
+			seq, w, h, err := encodeKittyImage(id, b, box, maxRows)
+			cols, rows := fitCells(w, h, box, maxRows)
 			return imageLoadedMsg{att: att, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, err: err}
 		})
 	}
@@ -141,14 +141,14 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 // encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
 // box columns and imgMaxRows rows, and builds the transmit sequence. w×h is
 // the transmitted pixel size.
-func encodeKittyImage(id uint32, b []byte, box int) (seq string, w, h int, err error) {
+func encodeKittyImage(id uint32, b []byte, box, maxRows int) (seq string, w, h int, err error) {
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("decode image: %w", err)
 	}
 	img = shrinkImage(img, imgMaxPx)
 	w, h = img.Bounds().Dx(), img.Bounds().Dy()
-	cols, rows := fitCells(w, h, box, imgMaxRows)
+	cols, rows := fitCells(w, h, box, maxRows)
 	var sb strings.Builder
 	err = kitty.EncodeGraphics(&sb, img, &kitty.Options{
 		Action:           kitty.TransmitAndPut,
@@ -273,7 +273,7 @@ func (m *Model) placeImages(s string) string {
 		indent := strings.Repeat(" ", len(l)-len(strings.TrimLeft(l, " ")))
 		for _, a := range atts {
 			if e := m.images.ready(a); e != nil {
-				cols, rows := fitCells(e.pxW, e.pxH, max(m.refView.Width()-len(indent), 1), imgMaxRows)
+				cols, rows := fitCells(e.pxW, e.pxH, max(m.refView.Width()-len(indent), 1), m.images.maxRows)
 				m.images.refit(e, cols, rows)
 				for _, row := range kittyPlaceholder(e.id, e.rows, e.cols) {
 					out = append(out, indent+row)

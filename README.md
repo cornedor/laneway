@@ -17,6 +17,19 @@ jira:
   repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree)
 ```
 
+Optional `ui:` section (defaults shown):
+
+```yaml
+ui:
+  auto_refresh: 2m   # idle board refetch; "off" disables
+  stale_after: 1m    # older boards refetch on focus/tick
+  images: auto       # kitty/Ghostty inline images; "off"
+  image_max_rows: 16
+  panel_width: 50    # issue panel, percent of the width
+```
+
+A bad value keeps its default and is reported on the status line.
+
 State (last project/board/view, filters, cached boards) lives in
 `~/.config/jiratui/state.json`.
 

@@ -1,6 +1,13 @@
 # Roadmap
 
 ## Next
+- Configurable (user ask, 2026-09-25) — `ui:` section, one step per iteration:
+  - `keys:` rebind any action (`search: "/"`, `mine: [m, M]`), help overlay reads them
+  - `theme:` colours (accent, dim, selection, lane head, over-limit, priority marks)
+  - `default_mode: lanes|list`, date format, card fields shown (points/assignee/parent)
+  - `views:` extra JQL-backed views next to sprint/backlog
+  - `quick_filters:` local JQL presets alongside the board's
+  - `card_limit` (now fixed CardLimit)
 - Images follow-ups: verify in real kitty/ghostty;
   query real cell pixel size (CSI 16 t); tmux passthrough;
   `enter` on an image for a full-size view
@@ -10,6 +17,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `ui:` config: auto_refresh, stale_after, images, image_max_rows, panel_width (validated, warns)
 - Cards show parent/epic (`⌃ Epic`), searchable
 - Lane heads show `n/max` WIP limit, red when over (unfiltered board only)
 - Panel Links section (parent, issue links, subtasks), `L` picks one to open

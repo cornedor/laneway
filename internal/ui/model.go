@@ -4,6 +4,7 @@ package ui
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -123,6 +124,7 @@ type Model struct {
 
 	helpOpen bool
 	images   *panelImages
+	opts     options
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
@@ -146,7 +148,8 @@ type Model struct {
 }
 
 // New builds the app from the jira: config.
-func New(ctx context.Context, cfg config.JiraConfig, st *store.Store) Model {
+func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *store.Store) Model {
+	opts, warn := optionsFrom(ui)
 	prompt := defaultJiraStartPrompt
 	if cfg.StartPrompt != "" {
 		prompt = cfg.StartPrompt
@@ -166,7 +169,9 @@ func New(ctx context.Context, cfg config.JiraConfig, st *store.Store) Model {
 		jiraRepos:       cfg.Repos,
 		jiraStartPrompt: prompt,
 		jiraTab:         newJiraTabState(),
-		images:          newPanelImages(),
+		images:          newPanelImages(opts.images, opts.imageMaxRows),
+		opts:            opts,
+		status:          strings.Join(warn, " · "),
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
 	}
@@ -175,7 +180,7 @@ func New(ctx context.Context, cfg config.JiraConfig, st *store.Store) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.enterJiraTab(), jiraAutoRefreshTick())
+	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick())
 }
 
 // bodyH is the rows above the status line.

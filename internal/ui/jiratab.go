@@ -22,9 +22,6 @@ import (
 // The board: one board of one project, as swim lanes or a list, with the
 // selected issue opening in the reference panel on the right.
 
-// jiraStale is how old a board may be before entering the tab refetches.
-const jiraStale = time.Minute
-
 // jiraMetaPrefix keys the tab's remembered choices in the store's meta table:
 // project, board:<project>, mode, assignee and quick:<board>.
 const jiraMetaPrefix = "jira_tab:"
@@ -216,11 +213,11 @@ type jiraMovedMsg struct {
 }
 
 // enterJiraTab focuses the board and refetches when it is missing or older
-// than jiraStale.
+// than the stale_after option.
 func (m *Model) enterJiraTab() tea.Cmd {
 	m.focus = focusJira
 	t := m.jiraTab
-	if t.loading || (t.cfg != nil && time.Since(t.fetched) < jiraStale) {
+	if t.loading || (t.cfg != nil && time.Since(t.fetched) < m.opts.staleAfter) {
 		return nil
 	}
 	// Nothing on screen yet: show the stored copy while the fresh one loads.
@@ -1052,7 +1049,7 @@ func (m *Model) jiraListWidth(width int) (list, ref int) {
 	if !m.refOpen {
 		return width, 0
 	}
-	ref = splitRightPane(width)
+	ref = splitRightPane(width, m.opts.panelPct)
 	return width - ref, ref
 }
 
@@ -1637,22 +1634,23 @@ func (m *Model) jiraDragging() bool {
 	return m.jiraTab.drag.key != ""
 }
 
-// jiraAutoRefresh is how often an idle board refetches its view.
-const jiraAutoRefresh = 2 * time.Minute
-
 // jiraAutoRefreshMsg is the auto-refresh tick.
 type jiraAutoRefreshMsg struct{}
 
-func jiraAutoRefreshTick() tea.Cmd {
-	return tea.Tick(jiraAutoRefresh, func(time.Time) tea.Msg { return jiraAutoRefreshMsg{} })
+// jiraAutoRefreshTick arms the next auto-refresh, none when it is off.
+func (m *Model) jiraAutoRefreshTick() tea.Cmd {
+	if m.opts.autoRefresh <= 0 {
+		return nil
+	}
+	return tea.Tick(m.opts.autoRefresh, func(time.Time) tea.Msg { return jiraAutoRefreshMsg{} })
 }
 
 // handleJiraAutoRefresh refetches the view unless the user is mid-action or
 // the board is fresh; the next tick is always armed.
 func (m Model) handleJiraAutoRefresh() (tea.Model, tea.Cmd) {
 	t := m.jiraTab
-	if m.modalOpen() || t.loading || t.searching || m.jiraDragging() || t.cfg == nil || time.Since(t.fetched) < jiraStale {
-		return m, jiraAutoRefreshTick()
+	if m.modalOpen() || t.loading || t.searching || m.jiraDragging() || t.cfg == nil || time.Since(t.fetched) < m.opts.staleAfter {
+		return m, m.jiraAutoRefreshTick()
 	}
-	return m, tea.Batch(m.loadJiraCards(t.viewIdx, false), jiraAutoRefreshTick())
+	return m, tea.Batch(m.loadJiraCards(t.viewIdx, false), m.jiraAutoRefreshTick())
 }

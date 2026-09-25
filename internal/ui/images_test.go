@@ -23,7 +23,7 @@ func TestFitCells(t *testing.T) {
 		{400, 4000, 80, 3, 16},   // tall
 		{0, 5, 80, 1, 1},
 	} {
-		cols, rows := fitCells(c.w, c.h, c.box, imgMaxRows)
+		cols, rows := fitCells(c.w, c.h, c.box, 16)
 		if cols != c.cols || rows != c.rows {
 			t.Errorf("fitCells(%d,%d,%d) = %d×%d, want %d×%d", c.w, c.h, c.box, cols, rows, c.cols, c.rows)
 		}
@@ -65,7 +65,7 @@ func TestKittyPlaceholderWidth(t *testing.T) {
 func TestEncodeKittyImage(t *testing.T) {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 50, 40)))
-	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), 80)
+	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), 80, 16)
 	if err != nil || w != 50 || h != 40 {
 		t.Fatalf("encode: %d×%d %v", w, h, err)
 	}
@@ -75,7 +75,7 @@ func TestEncodeKittyImage(t *testing.T) {
 	if !strings.HasPrefix(seq, "\x1b_G") || !strings.Contains(seq, "i=7") || !strings.Contains(seq, "U=1") {
 		t.Errorf("seq = %.60q", seq)
 	}
-	if _, _, _, err := encodeKittyImage(7, []byte("nope"), 80); err == nil {
+	if _, _, _, err := encodeKittyImage(7, []byte("nope"), 80, 16); err == nil {
 		t.Error("garbage decoded")
 	}
 }
@@ -85,7 +85,7 @@ func TestEncodeKittyImage(t *testing.T) {
 // no mark at all.
 func TestPanelPlacesImage(t *testing.T) {
 	m := jiraTabModel(t)
-	m.images = &panelImages{on: true, byAtt: map[string]*panelImage{}}
+	m.images = &panelImages{on: true, maxRows: 16, byAtt: map[string]*panelImage{}}
 	iss := &jira.Issue{Key: "ABC-1", Summary: "s",
 		Description: "![shot.png](attachment:10)\n\n![web](https://x.test/a.png)",
 		Attachments: []jira.Attachment{{ID: "10", Filename: "shot.png", MimeType: "image/png"}, {ID: "11", MimeType: "image/png"}}}
@@ -137,7 +137,7 @@ func TestReleaseImages(t *testing.T) {
 // to a smaller one, sent after the update.
 func TestImageRefitsToNarrowPanel(t *testing.T) {
 	m := jiraTabModel(t)
-	m.images = &panelImages{on: true, byAtt: map[string]*panelImage{"10": {state: imgReady, id: 9, pxW: 800, pxH: 100, cols: 80, rows: 5}}}
+	m.images = &panelImages{on: true, maxRows: 16, byAtt: map[string]*panelImage{"10": {state: imgReady, id: 9, pxW: 800, pxH: 100, cols: 80, rows: 5}}}
 	m.refView.SetWidth(42)
 	got := m.placeImages("  " + imgMark("attachment:10") + "shot")
 	if e := m.images.byAtt["10"]; e.cols != 40 || e.rows != 3 {

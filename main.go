@@ -43,7 +43,7 @@ func run(cfgPath string) error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	final, err := tea.NewProgram(ui.New(ctx, cfg.Jira, st)).Run()
+	final, err := tea.NewProgram(ui.New(ctx, cfg.Jira, cfg.UI, st)).Run()
 	if m, ok := final.(ui.Model); ok {
 		fmt.Fprint(os.Stdout, m.ReleaseImages())
 	}

@@ -404,7 +404,7 @@ func TestJiraAutoRefresh(t *testing.T) {
 	if cmd == nil || m.jiraTab.seq != seq {
 		t.Fatalf("fresh board: seq %d→%d, want untouched and re-armed", seq, m.jiraTab.seq)
 	}
-	m.jiraTab.fetched = m.jiraTab.fetched.Add(-jiraStale)
+	m.jiraTab.fetched = m.jiraTab.fetched.Add(-m.opts.staleAfter)
 	m.helpOpen = true
 	if out, _ = m.handleJiraAutoRefresh(); out.(Model).jiraTab.seq != seq {
 		t.Error("refreshed under a modal")
