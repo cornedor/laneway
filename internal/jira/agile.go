@@ -539,3 +539,11 @@ func (c *Client) CreateSprint(ctx context.Context, board int, name string) error
 	body := map[string]any{"name": name, "originBoardId": board}
 	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint", "sprint", body, nil)
 }
+
+// SetSprintGoal replaces a sprint's goal; "" clears it.
+func (c *Client) SetSprintGoal(ctx context.Context, sprint int, goal string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", map[string]any{"goal": goal}, nil)
+}

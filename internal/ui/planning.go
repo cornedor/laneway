@@ -183,6 +183,13 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.planMove()
 	case msg.String() == "S":
 		return m, m.planStart()
+	case msg.String() == "E":
+		v := p.sprints[p.target]
+		m.openBulkInput("plan-goal", "the sprint's goal (empty clears)")
+		m.jiraFieldInput.SetValue(v.goal)
+		m.jiraFieldInput.CursorEnd()
+		m.jiraFieldKey = v.name
+		return m, nil
 	case msg.String() == "N":
 		m.openBulkInput("plan-new", "sprint name")
 		m.jiraFieldInput.SetValue(nextSprintName(p.sprints))
@@ -306,6 +313,20 @@ func nextSprintName(sprints []jiraView) string {
 		return ""
 	}
 	return last[:i] + strconv.Itoa(n+1)
+}
+
+// applyPlanGoal sets the target sprint's goal.
+func (m Model) applyPlanGoal(raw string) (tea.Model, tea.Cmd) {
+	p := m.jiraTab.plan
+	m.closeJiraField()
+	if p == nil {
+		return m, nil
+	}
+	v, goal, c, ctx := p.sprints[p.target], strings.TrimSpace(raw), m.jiraClient, m.ctx
+	m.status = "setting the goal of " + v.name + "…"
+	return m, func() tea.Msg {
+		return planSprintMsg{what: v.name + " goal set", err: c.SetSprintGoal(ctx, v.sprint, goal)}
+	}
 }
 
 // applyPlanNew creates a sprint named raw on the board.
@@ -437,7 +458,7 @@ func (m *Model) planLine() string {
 	}
 	k := m.keys
 	return s + jiraDimStyle.Render("  ·  ← → side  "+helpKey(k.PrevView)+" "+helpKey(k.NextView)+" sprint  "+
-		helpKey(k.MoveSprint)+"/space move across  K J rank  N new  S start  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
+		helpKey(k.MoveSprint)+"/space move across  K J rank  E goal  N new  S start  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
 }
 
 // renderPlan draws the two sides into width × height.

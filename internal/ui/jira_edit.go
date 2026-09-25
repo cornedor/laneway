@@ -703,6 +703,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
 	}
+	if field == "plan-goal" {
+		return m.applyPlanGoal(raw)
+	}
 	if field == "plan-new" {
 		return m.applyPlanNew(raw)
 	}
@@ -880,6 +883,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "plan-goal":
+		title, hint, outerW = "Goal of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-new":
 		title, hint, outerW = "New sprint", "↵ create · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-start":

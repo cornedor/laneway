@@ -208,3 +208,21 @@ func TestPlanNewSprint(t *testing.T) {
 		t.Errorf("no number: %q", got)
 	}
 }
+
+// TestPlanGoal: E edits the target sprint's goal.
+func TestPlanGoal(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	m.jiraTab.plan.sprints[0].goal = "Ship login"
+	out, _ := m.handleJiraKey(keyMsg(t, "E"))
+	m = out.(Model)
+	if m.jiraFieldName != "plan-goal" || m.jiraFieldInput.Value() != "Ship login" {
+		t.Fatalf("input %q %q", m.jiraFieldName, m.jiraFieldInput.Value())
+	}
+	m.jiraFieldInput.SetValue("Ship login and search")
+	_, cmd := m.applyJiraField()
+	cmd()
+	if len(writes) != 1 || writes[0] != `POST /rest/agile/1.0/sprint/9 {"goal":"Ship login and search"}` {
+		t.Errorf("writes = %q", writes)
+	}
+}
