@@ -8,12 +8,12 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 - Cards/panel: show parent / epic
-- Panel: list attachments not embedded in the body (names, `o` to open)
 - Panel: linked issues section, `enter` to follow
 - Board: WIP limit per column (board config has min/max), mark over-limit lanes
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- Panel lists attachments not embedded in the body (linked, with size)
 - Panel `backspace`: back to the previous issue
 - `m` toggles assignee = me
 - `s` cycles list sort: rank, priority, points, assignee, key (stable)

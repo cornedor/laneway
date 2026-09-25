@@ -87,3 +87,11 @@ func (c *Client) AttachmentContent(ctx context.Context, id string) ([]byte, erro
 	}
 	return body, nil
 }
+
+// AttachmentURL is where a browser signed in to Jira downloads attachment id.
+func (c *Client) AttachmentURL(id string) string {
+	if c == nil || c.baseURL == "" {
+		return ""
+	}
+	return c.baseURL + "/rest/api/3/attachment/content/" + url.PathEscape(id)
+}

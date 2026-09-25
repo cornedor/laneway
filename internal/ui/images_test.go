@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"jiratui/internal/jira"
 	"jiratui/internal/textwidth"
 )
@@ -150,5 +152,23 @@ func TestImageRefitsToNarrowPanel(t *testing.T) {
 	m.placeImages("  " + imgMark("attachment:10") + "shot")
 	if m.flushImages() != nil {
 		t.Error("unchanged width re-placed the image")
+	}
+}
+
+func TestPanelListsLooseAttachments(t *testing.T) {
+	m := jiraTabModel(t)
+	iss := &jira.Issue{Key: "ABC-1", Description: "![a.png](attachment:1)",
+		Attachments: []jira.Attachment{{ID: "1", Filename: "a.png", MimeType: "image/png"}, {ID: "2", Filename: "spec.pdf", Size: 3 << 20}}}
+	out := ansi.Strip(m.renderJiraIssue(iss, 60))
+	if !strings.Contains(out, "Attachments (1)") || !strings.Contains(out, "spec.pdf  3.0 MB") {
+		t.Errorf("attachments section missing:\n%s", out)
+	}
+	if strings.Count(out, "a.png") != 1 {
+		t.Error("embedded image listed again")
+	}
+	for n, want := range map[int64]string{500: "500 B", 2048: "2.0 KB", 50 << 20: "50 MB"} {
+		if got := byteSize(n); got != want {
+			t.Errorf("byteSize(%d) = %q, want %q", n, got, want)
+		}
 	}
 }

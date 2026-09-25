@@ -95,8 +95,45 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
 	}
 
+	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraComments(&b, iss, width)
 	return b.String()
+}
+
+// renderJiraAttachments lists the files the description and comments don't
+// already show, each a link that downloads it.
+func (m *Model) renderJiraAttachments(b *strings.Builder, iss *jira.Issue, width int) {
+	var rest []jira.Attachment
+	for _, a := range iss.Attachments {
+		if !issueShowsAttachment(iss, a.ID) {
+			rest = append(rest, a)
+		}
+	}
+	if len(rest) == 0 {
+		return
+	}
+	b.WriteString("\n" + refDimStyle.Render(strings.Repeat("─", max(width, 1))) + "\n")
+	b.WriteString(refLabelStyle.Render(fmt.Sprintf("Attachments (%d)", len(rest))) + "\n")
+	for _, a := range rest {
+		name := attachmentStyle.Render("📎 " + a.Filename)
+		if u := m.jiraClient.AttachmentURL(a.ID); u != "" {
+			name = osc8Link(u, name)
+		}
+		b.WriteString(name + refDimStyle.Render("  "+byteSize(a.Size)) + "\n")
+	}
+}
+
+// byteSize is n bytes for people: 512 B, 3.4 KB, 12 MB.
+func byteSize(n int64) string {
+	switch {
+	case n < 1<<10:
+		return fmt.Sprintf("%d B", n)
+	case n < 1<<20:
+		return fmt.Sprintf("%.1f KB", float64(n)/(1<<10))
+	case n < 10<<20:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+	}
+	return fmt.Sprintf("%d MB", n>>20)
 }
 
 // renderJiraComments appends the issue's comment thread under the description: a
