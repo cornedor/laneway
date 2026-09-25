@@ -35,7 +35,7 @@ const requestTimeout = 20 * time.Second
 // issueFields is the field list requested from the API. Keeping it explicit
 // (rather than the default "*all") keeps the response small and the JSON we
 // have to decode predictable.
-const issueFields = "summary,status,assignee,reporter,issuetype,priority,labels,updated,description,comment"
+const issueFields = "summary,status,assignee,reporter,issuetype,priority,labels,updated,description,comment,attachment"
 
 // Config is the subset of the user config this package needs. BaseURL is the
 // instance root (https://your-instance.atlassian.net); Email + APIToken are the
@@ -135,6 +135,10 @@ type Issue struct {
 	Description string
 	StoryPoints string // formatted estimate (e.g. "5", "2.5"), "" when unset
 
+	// Attachments are the issue's files. Media in Description and comment
+	// bodies shows as ![name](attachment:<id>) when its name matches one.
+	Attachments []Attachment
+
 	// Comments is the issue's comment thread (oldest first, the order the API
 	// returns), flattened for display. CommentTotal is the server's total — it
 	// can exceed len(Comments) when the inline field paged, so the panel can
@@ -196,6 +200,7 @@ type apiIssue struct {
 		IssueType   *named          `json:"issuetype"`
 		Assignee    *user           `json:"assignee"`
 		Reporter    *user           `json:"reporter"`
+		Attachment  []apiAttachment `json:"attachment"`
 		Comment     *struct {
 			Comments []apiComment `json:"comments"`
 			Total    int          `json:"total"`
@@ -367,6 +372,10 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 		Description: adfToMarkdown(a.Fields.Description),
 		Assignee:    "Unassigned",
 	}
+	for _, at := range a.Fields.Attachment {
+		iss.Attachments = append(iss.Attachments, Attachment{ID: at.ID, Filename: at.Filename, MimeType: at.MimeType, Size: at.Size})
+	}
+	iss.Description = resolveMedia(iss.Description, iss.Attachments)
 	if a.Fields.Status != nil {
 		iss.Status = a.Fields.Status.Name
 	}
@@ -391,7 +400,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	if a.Fields.Comment != nil {
 		iss.CommentTotal = a.Fields.Comment.Total
 		for _, ac := range a.Fields.Comment.Comments {
-			cm := Comment{Body: adfToMarkdown(ac.Body)}
+			cm := Comment{Body: resolveMedia(adfToMarkdown(ac.Body), iss.Attachments)}
 			if ac.Author != nil {
 				cm.Author = ac.Author.DisplayName
 				cm.AuthorID = ac.Author.AccountID

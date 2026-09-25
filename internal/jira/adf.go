@@ -76,7 +76,18 @@ func writeBlock(b *strings.Builder, n adfNode, indent string) {
 	case "rule":
 		b.WriteString("---\n\n")
 	case "mediaGroup", "mediaSingle":
-		b.WriteString(indent + "_[attachment]_\n\n")
+		// Each media names its file in alt; toIssue resolves the name to an
+		// attachment id (see resolveMedia).
+		wrote := false
+		for _, c := range n.Content {
+			if alt, _ := c.Attrs["alt"].(string); c.Type == "media" && alt != "" {
+				b.WriteString(indent + "![" + escapeMediaAlt(alt) + "](" + mediaRef + ")\n\n")
+				wrote = true
+			}
+		}
+		if !wrote {
+			b.WriteString(indent + "_[attachment]_\n\n")
+		}
 	default:
 		// Unknown block: recurse so nested text isn't lost.
 		if len(n.Content) > 0 {
