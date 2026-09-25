@@ -12,8 +12,8 @@
   roadmap epics as rows; recent picks first
 - Bulk step 2: mark a lane or every search hit at once (`X`), required
   transition fields asked once for all
-- Sprint planning view: backlog and next sprint side by side, points per
-  assignee against a capacity, drag or `M` between them, rank with `K`/`J`
+- Planning step 2: `ui.capacity` points per person, red when over; marks
+  (`x`) move together; start / complete a sprint from here
 - Sprint charts: burndown / burnup, velocity of the last sprints, cumulative
   flow; braille plots in a full-screen view
 - Worklogs: `w` logs time, a timer runs on the started issue, `W` today's
@@ -29,6 +29,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `P` sprint planning: backlog beside a sprint, points per assignee, move across, `K`/`J` rank
 - Bulk edit: `x` marks, `B` sets status / priority / assignee / labels / points / sprint on all, 4 at a time
 - `:` command palette: pane actions, views, quick filters, boards, loaded issues; pickers match every word
 - Roadmap: `space` folds out an epic's issues, `H`/`L` move a bar, `<`/`>` its end, written after a pause

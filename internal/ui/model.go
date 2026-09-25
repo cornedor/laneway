@@ -51,7 +51,7 @@ type keyMap struct {
 	Project, Board, NextView, PrevView key.Binding
 	ToggleMode, Sort, MoveSprint       key.Binding
 	Assignee, Mine, ClearFilters       key.Binding
-	Roadmap, Palette, Mark, Bulk       key.Binding
+	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -112,6 +112,7 @@ func defaultKeys() keyMap {
 		Palette:       bind("command palette", ":"),
 		Mark:          bind("mark card", "x"),
 		Bulk:          bind("edit marked cards", "B"),
+		Plan:          bind("sprint planning", "P"),
 	}
 }
 
@@ -329,6 +330,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case planMsg:
+		return m.handlePlan(msg)
+	case planWroteMsg:
+		return m.handlePlanWrote(msg)
 	case bulkDoneMsg:
 		return m.handleBulkDone(msg)
 	case roadmapMsg:

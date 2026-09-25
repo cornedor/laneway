@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -186,5 +187,22 @@ func TestSprints(t *testing.T) {
 	}
 	if len(ss) != 2 || ss[0].ID != 1 || ss[0].Goal != "Ship it" || ss[0].End.Day() != 3 || !ss[1].Start.IsZero() {
 		t.Errorf("sprints = %+v", ss)
+	}
+}
+
+func TestRank(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = r.Method + " " + r.URL.Path + " " + string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if err := c.Rank(context.Background(), "ABC-2", "ABC-1", false); err != nil {
+		t.Fatal(err)
+	}
+	if got != `PUT /rest/agile/1.0/issue/rank {"issues":["ABC-2"],"rankBeforeIssue":"ABC-1"}` {
+		t.Errorf("request = %s", got)
 	}
 }

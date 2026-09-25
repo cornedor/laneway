@@ -431,3 +431,17 @@ func (c *Client) MoveToSprint(ctx context.Context, sprint int, keys ...string) e
 	path := "/rest/agile/1.0/sprint/" + strconv.Itoa(sprint) + "/issue"
 	return c.do(ctx, http.MethodPost, path, "sprint", map[string]any{"issues": keys}, nil)
 }
+
+// Rank puts key just before (after false) or after other in rank order.
+func (c *Client) Rank(ctx context.Context, key, other string, after bool) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"issues": []string{key}}
+	if after {
+		body["rankAfterIssue"] = other
+	} else {
+		body["rankBeforeIssue"] = other
+	}
+	return c.do(ctx, http.MethodPut, "/rest/agile/1.0/issue/rank", key, body, nil)
+}

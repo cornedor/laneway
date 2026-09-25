@@ -143,7 +143,7 @@ loaded issues, filtered by every word you type.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`R` roadmap · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
+`R` roadmap · `P` planning · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
@@ -159,6 +159,14 @@ changes every marked card: status (each along its own workflow move, no
 transition form), priority, assignee, labels (`ui -old` adds ui, removes
 old), story points, or sprint. Cards that fail stay marked with the reason
 in the status bar. `esc` clears the marks.
+
+## Planning
+
+`P` on a scrum board shows the backlog beside a sprint (the first future
+one; `[` `]` pick another), each with its card count and points, the sprint
+also per assignee. `← →` switch side, `M` or `space` moves a card across,
+`K`/`J` rank it up or down. Changes show at once and are written behind;
+a failed write reloads both sides.
 
 ## Roadmap
 
