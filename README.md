@@ -239,6 +239,14 @@ the last 8 closed sprints (points done by the sprint's end over points in
 it). The burndown counts an issue from the day it joined the sprint and
 says how much was added after the start; issues taken out of it don't show.
 
+## JQL search
+
+`Q` opens a JQL input that completes fields, functions and keywords, and a
+field's values after an operator (`tab` takes one, `↑↓` choose); `enter`
+shows the results as a view. An empty input offers your past searches.
+`ctrl+s` stars the query as a view on every board (`★ …`, kept in the
+state file); `ctrl+s` on a starred one unstars it.
+
 ## Roadmap
 
 `R` on the board shows the project's epics on a timeline: open ones and

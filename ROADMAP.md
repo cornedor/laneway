@@ -4,8 +4,6 @@
 - Panel field cursor step 4: multi-line text fields in `$EDITOR` (the description's flow)
 - Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
 - `/` over every stored issue of the project, not just the loaded view
-- JQL step 2: save a search as a `ui.views` entry (writes the config), a
-  history of past searches (↑ in an empty input)
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 4: create a sprint, edit its name / goal / dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
@@ -20,6 +18,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- JQL: past searches on an empty input, `ctrl+s` stars a query as a view of every board
 - Planning: `S` starts a sprint, `C C` completes the active one (unfinished to the next sprint or backlog)
 - Panel fields: date-time (`fri 14:00`), parent by key, sprint picked from the board
 - Roadmap: child bars move too, `f` epic's issues as a view, `n` new epic

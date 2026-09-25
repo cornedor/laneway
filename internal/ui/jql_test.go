@@ -124,3 +124,35 @@ func TestJQLSearch(t *testing.T) {
 		t.Errorf("view = %+v", v)
 	}
 }
+
+// TestJQLHistoryAndStar: a run search is offered again on an empty input;
+// ctrl+s stars it as a view, again unstars.
+func TestJQLHistoryAndStar(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{}) // no completion fetches
+	m.openJQL()
+	m.jql.input.SetValue("assignee = currentUser()")
+	out, _ := m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	m.openJQL()
+	out, _ = m.handleJQLWords(jqlWordsMsg{})
+	m = out.(Model)
+	if !slices.Equal(m.jql.sugg, []string{"assignee = currentUser()"}) {
+		t.Fatalf("history = %v", m.jql.sugg)
+	}
+	out, _ = m.handleKey(keyMsg(t, "tab"))
+	m = out.(Model)
+	if m.jql.input.Value() != "assignee = currentUser()" {
+		t.Fatalf("tab took %q", m.jql.input.Value())
+	}
+	star := tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl}
+	out, _ = m.handleKey(star)
+	m = out.(Model)
+	if v := m.savedJQLViews(); len(v) != 1 || v[0].jql != "assignee = currentUser()" || v[0].kind != jiraViewFilter {
+		t.Fatalf("saved = %+v", v)
+	}
+	out, _ = m.handleKey(star)
+	if m = out.(Model); len(m.savedJQLViews()) != 0 {
+		t.Error("ctrl+s again should unstar")
+	}
+}

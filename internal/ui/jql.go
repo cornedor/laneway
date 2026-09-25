@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 
@@ -134,6 +135,10 @@ func (m Model) handleJQLValues(msg jqlValuesMsg) (tea.Model, tea.Cmd) {
 func (m *Model) suggestJQL() tea.Cmd {
 	j := m.jql
 	j.seq++
+	if strings.TrimSpace(j.input.Value()) == "" {
+		j.sugg, j.idx = m.jqlList(jqlHistoryMeta), 0 // past searches
+		return nil
+	}
 	field, prefix, _, value := jqlContext(j.input.Value())
 	if !value {
 		all := slices.Concat(j.words.Fields, j.words.Functions, j.words.Reserved)
@@ -162,7 +167,17 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "down", "ctrl+n":
 		j.idx = min(j.idx+1, max(len(j.sugg)-1, 0))
 		return m, nil
+	case "ctrl+s":
+		if q := strings.TrimSpace(j.input.Value()); q != "" {
+			m.toggleSavedJQL(q)
+		}
+		return m, nil
 	case "tab":
+		if strings.TrimSpace(j.input.Value()) == "" && j.idx < len(j.sugg) {
+			j.input.SetValue(j.sugg[j.idx]) // a past search, whole
+			j.input.CursorEnd()
+			return m, m.suggestJQL()
+		}
 		if j.idx < len(j.sugg) {
 			j.input.SetValue(jqlComplete(j.input.Value(), j.sugg[j.idx]))
 			j.input.CursorEnd()
@@ -175,6 +190,7 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if q == "" {
 			return m, nil
 		}
+		m.rememberJQL(q)
 		return m, m.runJQLView(q)
 	}
 	before := j.input.Value()
@@ -232,8 +248,64 @@ func (m *Model) renderJQL() string {
 		lines = append(lines, refDimStyle.Render("  no completions"))
 	}
 	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).
-		Render("tab complete · ↑↓ choose · ↵ search · esc cancel")
+		Render("tab complete · ↑↓ choose · ↵ search · ctrl+s star as a view · esc cancel")
 	lines = append(lines, "", hint)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
 		Render(strings.Join(lines, "\n"))
+}
+
+// Past and starred searches live in the store: the history as completions
+// for an empty input, the starred ones as views of every board.
+const (
+	jqlHistoryMeta = jiraMetaPrefix + "jql_history"
+	jqlSavedMeta   = jiraMetaPrefix + "jql_saved"
+	jqlHistoryMax  = 20
+)
+
+func (m *Model) jqlList(meta string) []string {
+	if m.store == nil {
+		return nil
+	}
+	v, ok, _ := m.store.GetMeta(meta)
+	var out []string
+	if ok {
+		_ = json.Unmarshal([]byte(v), &out)
+	}
+	return out
+}
+
+func (m *Model) setJQLList(meta string, list []string) {
+	if m.store == nil {
+		return
+	}
+	b, _ := json.Marshal(list)
+	_ = m.store.SetMeta(meta, string(b))
+}
+
+// rememberJQL puts q first in the history.
+func (m *Model) rememberJQL(q string) {
+	h := slices.DeleteFunc(m.jqlList(jqlHistoryMeta), func(s string) bool { return s == q })
+	h = append([]string{q}, h...)
+	m.setJQLList(jqlHistoryMeta, h[:min(len(h), jqlHistoryMax)])
+}
+
+// toggleSavedJQL stars q as a view of every board, or unstars it.
+func (m *Model) toggleSavedJQL(q string) {
+	saved := m.jqlList(jqlSavedMeta)
+	if i := slices.Index(saved, q); i >= 0 {
+		m.setJQLList(jqlSavedMeta, slices.Delete(saved, i, i+1))
+		m.status = "unstarred; its view goes on the next board load"
+		return
+	}
+	m.setJQLList(jqlSavedMeta, append(saved, q))
+	m.status = "starred as a view of every board"
+}
+
+// savedJQLViews are the starred searches as views.
+func (m *Model) savedJQLViews() []jiraView {
+	var out []jiraView
+	for _, q := range m.jqlList(jqlSavedMeta) {
+		out = append(out, jiraView{kind: jiraViewFilter, name: "★ " + ansi.Truncate(q, 30, "…"), jql: q})
+	}
+	return out
 }

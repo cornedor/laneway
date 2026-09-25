@@ -318,7 +318,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	seq, ctx, st, c := t.seq, m.ctx, m.store, m.jiraClient
 	configured := m.jiraProjects
 	readMode := !t.modeRead
-	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, m.opts.views
+	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, append(slices.Clone(m.opts.views), m.savedJQLViews()...)
 	withSaved := m.opts.savedFilters
 	var cached tea.Cmd
 	if fromCache {
