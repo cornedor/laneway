@@ -38,6 +38,8 @@ func defaultTheme() theme {
 		"type_subtask":     "8",
 		"type_other":       "4",  // task and the rest
 		"highlight":        "11", // a card a rule highlighted
+		"roadmap_done":     "2",  // an epic bar's done part
+		"roadmap_todo":     "4",  // and the rest; today's line is highlight
 	}
 }
 
@@ -53,6 +55,7 @@ var themePresets = map[string]theme{
 		"priority_low": "#7aa2f7", "priority_lowest": "#565f89",
 		"type_bug": "#f7768e", "type_story": "#9ece6a", "type_epic": "#bb9af7",
 		"type_subtask": "#565f89", "type_other": "#7aa2f7", "highlight": "#e0af68",
+		"roadmap_done": "#9ece6a", "roadmap_todo": "#7aa2f7",
 	},
 	"catppuccin": { // mocha
 		"accent": "#89b4fa", "dim": "#6c7086", "selection_fg": "#cdd6f4",
@@ -63,6 +66,7 @@ var themePresets = map[string]theme{
 		"priority_low": "#89b4fa", "priority_lowest": "#6c7086",
 		"type_bug": "#f38ba8", "type_story": "#a6e3a1", "type_epic": "#cba6f7",
 		"type_subtask": "#6c7086", "type_other": "#89b4fa", "highlight": "#f9e2af",
+		"roadmap_done": "#a6e3a1", "roadmap_todo": "#89b4fa",
 	},
 	"gruvbox": { // dark
 		"accent": "#83a598", "dim": "#928374", "selection_fg": "#ebdbb2",
@@ -73,6 +77,7 @@ var themePresets = map[string]theme{
 		"priority_low": "#83a598", "priority_lowest": "#928374",
 		"type_bug": "#fb4934", "type_story": "#b8bb26", "type_epic": "#d3869b",
 		"type_subtask": "#928374", "type_other": "#83a598", "highlight": "#fabd2f",
+		"roadmap_done": "#b8bb26", "roadmap_todo": "#83a598",
 	},
 }
 
@@ -133,6 +138,7 @@ func applyTheme(th theme) {
 	jiraDropStyle = c("drop_fg").Bold(true).Background(focusedColor)
 	jiraViewActive = accent.Bold(true)
 	jiraGhostStyle = dim.Faint(true).Italic(true)
+	roadmapDoneStyle, roadmapTodoStyle, roadmapTodayStyle = c("roadmap_done"), c("roadmap_todo"), c("highlight")
 
 	refKeyStyle = accent.Bold(true)
 	refLabelStyle, refDimStyle = dim, dim

@@ -141,7 +141,7 @@ config is picked up as a fallback.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
+`R` roadmap · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
 `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 
@@ -149,6 +149,16 @@ Panel: `tab`/`shift+tab` walk the fields (custom ones too), `enter` edits one (d
 `a` assignee · `c` comment · `R` reply · `L` linked issue · `i` images full
 size (← →) · `backspace` previous issue · `S` start work · `o` browser ·
 `y`/`Y` copy · `r` refresh · `esc` drop field, close.
+
+## Roadmap
+
+`R` on the board shows the project's epics on a timeline: open ones and
+those done in the last 90 days, in rank order. A bar runs from the epic's
+Start date (or Plans' Target start) to its Due date (or Target end); an
+epic without them spans its children's sprints, drawn fainter. The bar
+fills by points done, else by children done. `← →` scroll, `+ -` zoom
+(day to 2 weeks per column), `.` back to today, `enter` opens the epic,
+`esc` back to the board.
 
 ## Images
 

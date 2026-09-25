@@ -78,6 +78,8 @@ type Client struct {
 	// API's slow-changing answers (agile.go). Both have their own locks.
 	rules     rulesCache
 	boardMeta boardMetaCache
+	// roadmapFields are the date and sprint field ids (roadmap.go), behind mu.
+	roadmapFields *roadmapFieldIDs
 }
 
 // New builds a Client from cfg. The returned client is always non-nil; call

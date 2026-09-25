@@ -182,6 +182,8 @@ type jiraTabState struct {
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
+	// roadmap shows in place of the cards while non-nil (roadmap.go).
+	roadmap *roadmapState
 
 	drag    jiraDrag
 	loading bool
@@ -657,6 +659,9 @@ func (m *Model) selectJiraKey(key string) {
 
 func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
+	if t.roadmap != nil {
+		return m.handleRoadmapKey(msg)
+	}
 	lanes := m.jiraShowsLanes()
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
@@ -706,6 +711,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.cycleJiraView(-1)
 	case key.Matches(msg, m.keys.ToggleMode):
 		return m, m.toggleJiraMode()
+	case key.Matches(msg, m.keys.Roadmap):
+		return m, m.openRoadmap()
 	case key.Matches(msg, m.keys.Assignee):
 		m.openJiraAssigneeFilter()
 	case key.Matches(msg, m.keys.Mine):
@@ -1540,7 +1547,12 @@ func (m *Model) renderJiraPane(height, width int) string {
 	filterLine := ansi.Truncate(m.jiraFilterLine(), max(boxW-2, 1), "…")
 
 	body := t.view.View()
-	if m.jiraShowsLanes() || t.cfg == nil || len(t.order) == 0 {
+	switch {
+	case t.roadmap != nil:
+		viewLine = ansi.Truncate(m.roadmapLine(), max(boxW-2, 1), "…")
+		filterLine = ""
+		body = m.renderRoadmap(t.view.Width(), t.view.Height())
+	case m.jiraShowsLanes() || t.cfg == nil || len(t.order) == 0:
 		body = t.lanesOut
 	}
 	rows := []string{head, rule, viewLine, filterLine, body}

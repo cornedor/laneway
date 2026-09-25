@@ -3,11 +3,10 @@
 ## Next
 - Panel field cursor step 3: sprint, parent/epic, datetime, multi-line text
   fields in `$EDITOR`
-- Roadmap view (user ask 2026-09-25): epics (and plan-level parents) as bars
-  on a week/month timeline from start/due dates, falling back to their
-  children's sprints; children fold out below, progress by done points.
-  Zoom `+`/`-`, `H`/`L` shift a bar, `<`/`>` resize it (writes dates). Step 1:
-  read-only timeline of the project's epics.
+- Roadmap step 2: children fold out under an epic (`space`), `H`/`L` shift a
+  bar, `<`/`>` move its end (writes the date fields), `n` new epic. Then
+  plan-level parents above epics (hierarchy > 1), and a board filter for
+  "cards in this epic" from the roadmap.
 - Local issue cache with incremental sync (`updated >= last` JQL): boards open
   instantly from disk, refresh fetches only changes, `/` searches every cached
   issue, not just the loaded board
@@ -32,6 +31,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `R` roadmap: epics on a timeline (own dates, else children's sprints), filled by points done, zoom and scroll
 - Date fields (panel and transition form): 2026-10-01, today, +3d, -1w, fri
 - Panel shows every other editable field (editmeta); the cursor edits them: text, number, people, options
 - Panel field cursor: tab / shift-tab walk summary…labels, enter edits, esc drops

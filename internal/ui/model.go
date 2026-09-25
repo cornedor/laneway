@@ -51,6 +51,7 @@ type keyMap struct {
 	Project, Board, NextView, PrevView key.Binding
 	ToggleMode, Sort, MoveSprint       key.Binding
 	Assignee, Mine, ClearFilters       key.Binding
+	Roadmap                            key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -107,6 +108,7 @@ func defaultKeys() keyMap {
 		Assignee:      bind("assignee filter", "a"),
 		Mine:          bind("only mine", "m"),
 		ClearFilters:  bind("clear filters", "0"),
+		Roadmap:       bind("roadmap", "R"),
 	}
 }
 
@@ -321,6 +323,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case roadmapMsg:
+		return m.handleRoadmap(msg)
 	case panelExtraMsg:
 		return m.handlePanelExtra(msg)
 	case jiraPickerLoadedMsg:

@@ -37,6 +37,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.Project, k.Board), "project / board"},
 			{join(k.PrevView, k.NextView), "previous / next view"},
 			row(k.ToggleMode, "lanes / list"),
+			row(k.Roadmap, "roadmap: epics on a timeline (+ - zoom, . today)"),
 			row(k.Sort, "sort the list"),
 			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
 			row(k.MoveSprint, "move to sprint / backlog"),
