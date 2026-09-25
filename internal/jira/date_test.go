@@ -30,3 +30,20 @@ func TestParseDate(t *testing.T) {
 		}
 	}
 }
+
+func TestParseDateTime(t *testing.T) {
+	now := time.Date(2026, 9, 25, 15, 4, 0, 0, time.UTC) // a Friday
+	for in, want := range map[string]string{
+		"2026-10-01 9:30": "2026-10-01 09:30",
+		"mon 14:00":       "2026-09-28 14:00",
+		"tomorrow":        "2026-09-26 09:00",
+	} {
+		got, err := ParseDateTime(in, now)
+		if err != nil || got.Format("2006-01-02 15:04") != want {
+			t.Errorf("%q = %v, %v; want %s", in, got, err, want)
+		}
+	}
+	if _, err := ParseDateTime("fri 25:99", now); err == nil {
+		t.Error("a bad clock should fail")
+	}
+}

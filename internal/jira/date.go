@@ -7,6 +7,26 @@ import (
 	"time"
 )
 
+// ParseDateTime reads a moment as typed: a day as ParseDate takes it,
+// optionally followed by a clock time ("fri 14:00", "2026-10-01 9:30");
+// without one it is 09:00.
+func ParseDateTime(s string, now time.Time) (time.Time, error) {
+	f := strings.Fields(s)
+	clock := "09:00"
+	if n := len(f); n >= 2 && strings.Contains(f[n-1], ":") {
+		clock, f = f[n-1], f[:n-1]
+	}
+	d, err := ParseDate(strings.Join(f, " "), now)
+	if err != nil {
+		return time.Time{}, err
+	}
+	c, err := time.Parse("15:04", clock)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%q is not a time (14:00)", clock)
+	}
+	return time.Date(d.Year(), d.Month(), d.Day(), c.Hour(), c.Minute(), 0, 0, d.Location()), nil
+}
+
 // ParseDate reads a day as typed: 2006-01-02, today, tomorrow, yesterday,
 // +3d / -1w / +2m (days, weeks, months from now), or a weekday name or its
 // first three letters for the next such day.

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -36,7 +37,7 @@ func TestEditMeta(t *testing.T) {
 	for _, f := range fields {
 		got = append(got, f.Name+":"+f.Kind)
 	}
-	want := []string{"Due:date", "Environment:doc", "Reviewer:user", "Team:option"}
+	want := []string{"Due:date", "Environment:doc", "Reviewer:user", "Seen:time", "Team:option"}
 	if len(got) != len(want) {
 		t.Fatalf("fields = %v", got)
 	}
@@ -48,8 +49,8 @@ func TestEditMeta(t *testing.T) {
 	if v := DecodeValue(KindUser, values["customfield_2"]); len(v.Users) != 1 || v.Users[0].DisplayName != "Ada" {
 		t.Errorf("reviewer value = %+v", v)
 	}
-	if fields[3].Options[0].Name != "Core" {
-		t.Errorf("options = %+v", fields[3].Options)
+	if fields[4].Options[0].Name != "Core" {
+		t.Errorf("options = %+v", fields[4].Options)
 	}
 }
 
@@ -86,5 +87,26 @@ func TestEditLabels(t *testing.T) {
 	}
 	if body != `{"update":{"labels":[{"add":"ui"},{"remove":"old"}]}}` {
 		t.Errorf("body = %s", body)
+	}
+}
+
+// TestNewKinds: parent, sprint and date-time fields read and write.
+func TestNewKinds(t *testing.T) {
+	sprint := DecodeValue(KindSprint, []byte(`[{"id":40,"name":"S40","state":"closed"},{"id":41,"name":"S41","state":"active"}]`))
+	if len(sprint.Options) != 1 || sprint.Options[0].Name != "S41" {
+		t.Errorf("sprint = %+v", sprint)
+	}
+	if v, _, err := EncodeValue(KindSprint, sprint); err != nil || v != 41 {
+		t.Errorf("sprint encodes %v, %v", v, err)
+	}
+	if v := DecodeValue(KindIssue, []byte(`{"key":"ABC-5","fields":{}}`)); v.Text != "ABC-5" {
+		t.Errorf("parent = %+v", v)
+	}
+	if v, _, _ := EncodeValue(KindIssue, Value{Text: "abc-6"}); v.(map[string]string)["key"] != "ABC-6" {
+		t.Errorf("parent encodes %v", v)
+	}
+	v, _, err := EncodeValue(KindTime, Value{Text: "2026-10-01 09:30"})
+	if err != nil || !strings.HasPrefix(v.(string), "2026-10-01T09:30:00.000") {
+		t.Errorf("time encodes %v, %v", v, err)
 	}
 }

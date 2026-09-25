@@ -167,7 +167,8 @@ Board:
 
 Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
-  dates take `2026-10-01`, `today`, `+3d`, `fri`
+  dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the
+  parent an issue key; the sprint a pick of the board's
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description in
   `$EDITOR` · `l` labels · `a` assignee
 - talk: `c` comment · `R` reply · `w` log work · `T` timer

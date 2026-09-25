@@ -275,7 +275,7 @@ func (m *Model) editJiraFormField() tea.Cmd {
 	f := m.jiraForm
 	ff := &f.fields[f.idx]
 	switch ff.Kind {
-	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindDoc, jira.KindComment:
+	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue, jira.KindDoc, jira.KindComment:
 		ti := textinput.New()
 		ti.Prompt = ""
 		ti.Placeholder = strings.ToLower(ff.Name) + "…"
@@ -286,6 +286,9 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		f.editing = true
 		return f.input.Focus()
 	case jira.KindUser, jira.KindUsers, jira.KindOption, jira.KindOptions:
+		return m.openFieldPicker(*ff, f.key)
+	case jira.KindSprint:
+		ff.Options = m.sprintOptions()
 		return m.openFieldPicker(*ff, f.key)
 	default:
 		f.err = ff.Name + " can't be set here — set it in Jira (esc, then o)"

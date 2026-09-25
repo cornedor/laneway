@@ -31,6 +31,9 @@ const (
 	KindNumber  = "number"  // a float
 	KindText    = "text"    // a one-line string
 	KindDate    = "date"    // a day, "2006-01-02"
+	KindTime    = "time"    // a moment: a day and a clock time
+	KindIssue   = "issue"   // another issue by key: {"key": …} (parent)
+	KindSprint  = "sprint"  // a sprint by id (the Agile sprint field)
 	KindDoc     = "doc"     // prose, written as an ADF document
 	KindOption  = "option"  // one of AllowedValues: {"id": …}
 	KindOptions = "options" // several of AllowedValues: [{"id": …}]
@@ -152,6 +155,12 @@ func (f rawFieldMeta) meta(id string) FieldMeta {
 		fm.Kind = KindNumber
 	case s.Type == "date":
 		fm.Kind = KindDate
+	case s.Type == "datetime":
+		fm.Kind = KindTime
+	case id == "parent" || s.System == "parent":
+		fm.Kind = KindIssue
+	case strings.HasSuffix(s.Custom, ":gh-sprint"):
+		fm.Kind = KindSprint
 	case s.Type == "string" && (strings.HasSuffix(s.Custom, ":textarea") || s.System == "description" || s.System == "environment"):
 		fm.Kind = KindDoc
 	case s.Type == "string":
@@ -221,6 +230,31 @@ func DecodeValue(kind string, raw json.RawMessage) Value {
 		}
 	case KindText, KindDate:
 		_ = json.Unmarshal(raw, &v.Text)
+	case KindTime:
+		var s string
+		if json.Unmarshal(raw, &s) == nil {
+			if t, err := time.Parse(jiraTime, s); err == nil {
+				v.Text = t.Local().Format("2006-01-02 15:04")
+			}
+		}
+	case KindIssue:
+		var p struct {
+			Key string `json:"key"`
+		}
+		_ = json.Unmarshal(raw, &p)
+		v.Text = p.Key
+	case KindSprint:
+		var sprints []struct {
+			ID    int    `json:"id"`
+			Name  string `json:"name"`
+			State string `json:"state"`
+		}
+		_ = json.Unmarshal(raw, &sprints)
+		for _, s := range sprints {
+			if s.State != "closed" { // the sprint it is in now
+				v.Options = []Option{{ID: strconv.Itoa(s.ID), Name: s.Name}}
+			}
+		}
 	case KindDoc:
 		if json.Unmarshal(raw, &v.Text) != nil {
 			v.Text = adfToMarkdown(raw) // v3 returns multi-line text as ADF
@@ -291,6 +325,26 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 			return nil, true, err
 		}
 		return d.Format(time.DateOnly), true, nil
+	case KindTime:
+		if strings.TrimSpace(v.Text) == "" {
+			return nil, true, nil
+		}
+		t, err := ParseDateTime(v.Text, time.Now())
+		if err != nil {
+			return nil, true, err
+		}
+		return t.Format(jiraTime), true, nil
+	case KindIssue:
+		if strings.TrimSpace(v.Text) == "" {
+			return map[string]any{"key": nil}, true, nil
+		}
+		return map[string]string{"key": strings.ToUpper(strings.TrimSpace(v.Text))}, true, nil
+	case KindSprint:
+		if len(v.Options) == 0 || v.Options[0].ID == "" {
+			return nil, true, nil
+		}
+		id, err := strconv.Atoi(v.Options[0].ID)
+		return id, true, err
 	case KindDoc:
 		if strings.TrimSpace(v.Text) == "" {
 			return nil, true, nil

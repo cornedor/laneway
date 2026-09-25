@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -146,19 +147,38 @@ func (m *Model) editPanelField() tea.Cmd {
 	ff := m.extraFields()[i-len(panelFields)]
 	m.panelEditID = ff.ID
 	switch ff.Kind {
-	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindDoc:
+	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue, jira.KindDoc:
 		if strings.Contains(strings.TrimSpace(ff.val.Text), "\n") {
 			m.status = ff.Name + " has several lines — edit it in Jira (o)"
 			return nil
 		}
 		hint := ""
-		if ff.Kind == jira.KindDate {
+		switch ff.Kind {
+		case jira.KindDate:
 			hint = "2006-01-02, today, +3d, fri"
+		case jira.KindTime:
+			hint = "fri 14:00, 2026-10-01 9:30"
+		case jira.KindIssue:
+			hint = "issue key (empty clears)"
 		}
 		m.openJiraTextInput("field", ff.val.Text, hint, 0)
 		return nil
 	}
+	if ff.Kind == jira.KindSprint {
+		ff.Options = m.sprintOptions()
+	}
 	return m.openFieldPicker(ff, m.jiraIssue.Key)
+}
+
+// sprintOptions are the board's sprints to pick, and none.
+func (m *Model) sprintOptions() []jira.Option {
+	opts := []jira.Option{{ID: "", Name: "none (backlog)"}}
+	for _, v := range m.jiraTab.views {
+		if v.kind == jiraViewSprint {
+			opts = append(opts, jira.Option{ID: strconv.Itoa(v.sprint), Name: v.name})
+		}
+	}
+	return opts
 }
 
 // panelEditField is the extra field being edited, zero when gone.

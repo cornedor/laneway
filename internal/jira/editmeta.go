@@ -16,7 +16,6 @@ import (
 var panelFieldIDs = []string{
 	"summary", "status", "priority", "assignee", "labels", "description",
 	"comment", "issuetype", "project", "reporter", "attachment", "issuelinks",
-	"parent",
 }
 
 // EditMeta lists the issue's editable fields beyond the panel's own (summary,

@@ -192,3 +192,24 @@ func TestPanelExtraDate(t *testing.T) {
 		t.Errorf("requests = %q", bodies)
 	}
 }
+
+// TestPanelExtraSprint: a sprint field picks from the board's sprints and
+// writes the id.
+func TestPanelExtraSprint(t *testing.T) {
+	var bodies []string
+	m := withExtra(t, &bodies)
+	m.jiraTab.views = []jiraView{{kind: jiraViewSprint, name: "Sprint 9", sprint: 9}, {kind: jiraViewBacklog, name: "Backlog"}}
+	m.panelExtra = append(m.panelExtra, jiraFormField{FieldMeta: jira.FieldMeta{ID: "customfield_20", Name: "Sprint", Kind: jira.KindSprint}})
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+2, "ABC-1"
+	out, _ := m.handleRefKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if !m.jiraPicker.active || len(m.jiraPicker.items) != 2 || m.jiraPicker.items[1].label != "Sprint 9" {
+		t.Fatalf("picker = %+v", m.jiraPicker.items)
+	}
+	m.jiraPicker.idx = 1
+	_, cmd := m.applyJiraPick()
+	cmd()
+	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], `{"fields":{"customfield_20":9}}`) {
+		t.Errorf("requests = %q", bodies)
+	}
+}
