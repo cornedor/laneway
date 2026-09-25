@@ -107,7 +107,8 @@ rules:
 
 A rule with `watch:` fires on the changes of its own JQL search instead,
 polled every `every:` (default 5m, at least 1m) while laneway runs, whichever
-board is open:
+board is open. `laneway rules watch` polls them without the board, printing
+what fires; `highlight` is skipped there and `notify` needs a terminal:
 
 ```yaml
   - name: mine-moved

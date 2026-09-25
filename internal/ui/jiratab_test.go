@@ -602,7 +602,7 @@ func TestRulesLogBoardChanges(t *testing.T) {
 // TestRuleNotifyAndExec: notify is an OSC 777 without the body's controls;
 // exec gets templated args, env and the issue on stdin.
 func TestRuleNotifyAndExec(t *testing.T) {
-	if got := notifySeq("laneway", "ABC-2; done\x1b[31m"); got != "\x1b]777;notify;laneway;ABC-2, done[31m\x1b\\" {
+	if got := rules.NotifySeq("laneway", "ABC-2; done\x1b[31m"); got != "\x1b]777;notify;laneway;ABC-2, done[31m\x1b\\" {
 		t.Errorf("notify = %q", got)
 	}
 	m := jiraTabModel(t)

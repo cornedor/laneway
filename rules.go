@@ -13,12 +13,16 @@ import (
 )
 
 const rulesUsage = `usage: laneway rules list [-config path]
+       laneway rules watch [-config path]
        laneway rules test [-config path] [-on kind] [-key K] [-summary S] [-type T]
                           [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B] [-watch JQL]`
 
 // rulesCmd lists the config's rules, or says which a described change
-// would fire and what stopped the rest. Nothing runs.
+// would fire and what stopped the rest; nothing runs. watch runs them.
 func rulesCmd(args []string, out, errOut io.Writer) int {
+	if len(args) > 0 && args[0] == "watch" {
+		return rulesWatch(args[1:], out, errOut)
+	}
 	if len(args) == 0 || (args[0] != "list" && args[0] != "test") {
 		fmt.Fprintln(errOut, rulesUsage)
 		return 2
