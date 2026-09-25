@@ -40,6 +40,24 @@ type UIConfig struct {
 	ImageMaxRows int `yaml:"image_max_rows"`
 	// PanelWidth is the issue panel's share of the width, in percent.
 	PanelWidth int `yaml:"panel_width"`
+	// Keys rebinds actions by name: search: "/" or mine: [m, M].
+	Keys map[string]KeyList `yaml:"keys"`
+}
+
+// KeyList is one key or a list of them.
+type KeyList []string
+
+func (k *KeyList) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		*k = KeyList{n.Value}
+		return nil
+	}
+	var l []string
+	if err := n.Decode(&l); err != nil {
+		return err
+	}
+	*k = l
+	return nil
 }
 
 // Dir is where the config and state live.

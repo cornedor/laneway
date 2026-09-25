@@ -625,7 +625,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
 	lanes := m.jiraShowsLanes()
 	switch {
-	case msg.String() == "ctrl+c", msg.String() == "q":
+	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
 		m.moveJiraCursor(-1)
@@ -635,9 +635,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.moveJiraLane(-1)
 	case lanes && key.Matches(msg, m.keys.Right):
 		m.moveJiraLane(1)
-	case lanes && (msg.String() == "shift+left" || msg.String() == "H"):
+	case lanes && key.Matches(msg, m.keys.MoveCardLeft):
 		return m, m.moveJiraCardBy(-1)
-	case lanes && (msg.String() == "shift+right" || msg.String() == "L"):
+	case lanes && key.Matches(msg, m.keys.MoveCardRight):
 		return m, m.moveJiraCardBy(1)
 	case key.Matches(msg, m.keys.Home):
 		t.idx, t.row = 0, 0
@@ -660,19 +660,19 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadJiraBoard(t.project, m.jiraBoardID(), m.jiraViewName(), false)
-	case msg.String() == "p":
+	case key.Matches(msg, m.keys.Project):
 		return m, m.openJiraProjectPicker()
-	case msg.String() == "b":
+	case key.Matches(msg, m.keys.Board):
 		m.openJiraBoardPicker()
-	case msg.String() == "]":
+	case key.Matches(msg, m.keys.NextView):
 		return m, m.cycleJiraView(1)
-	case msg.String() == "[":
+	case key.Matches(msg, m.keys.PrevView):
 		return m, m.cycleJiraView(-1)
-	case msg.String() == "t":
+	case key.Matches(msg, m.keys.ToggleMode):
 		return m, m.toggleJiraMode()
-	case msg.String() == "a":
+	case key.Matches(msg, m.keys.Assignee):
 		m.openJiraAssigneeFilter()
-	case msg.String() == "m":
+	case key.Matches(msg, m.keys.Mine):
 		if t.cfg == nil {
 			break
 		}
@@ -680,15 +680,15 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, m.setJiraAssignee("", "")
 		}
 		return m, m.setJiraAssignee("me", "Me")
-	case msg.String() == "0":
+	case key.Matches(msg, m.keys.ClearFilters):
 		return m, m.clearJiraFilters()
-	case msg.String() == "/":
+	case key.Matches(msg, m.keys.Search):
 		m.startJiraSearch()
-	case msg.String() == "?":
+	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
-	case msg.String() == "s":
+	case key.Matches(msg, m.keys.Sort):
 		if lanes {
-			m.status = "sort applies to the list (t)"
+			m.status = "sort applies to the list (" + helpKey(m.keys.ToggleMode) + ")"
 			break
 		}
 		keep := m.selectedJiraKey()
@@ -697,10 +697,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.selectJiraKey(keep)
 		m.renderJira()
 		m.status = "sorted by " + t.sort.String()
-	case msg.String() == "#":
+	case key.Matches(msg, m.keys.Goto):
 		m.openJiraGoto()
-	case msg.String() == "y", msg.String() == "Y":
-		return m, m.copyJira(m.selectedJiraKey(), msg.String() == "Y")
+	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
+		return m, m.copyJira(m.selectedJiraKey(), key.Matches(msg, m.keys.CopyURL))
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":
 		m.clearJiraSearch()
 	case len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9":
@@ -1412,9 +1412,12 @@ func (m *Model) renderJiraPane(height, width int) string {
 			meta += fmt.Sprintf("  ·  first %d of %d", len(t.cards), t.total)
 		}
 	}
-	meta += "  ·  ? help  p project  b board  [ ] view  t lanes/list  enter open  o browser  r refresh"
+	k := m.keys
+	meta += "  ·  " + helpKey(k.Help) + " help  " + helpKey(k.Project) + " project  " + helpKey(k.Board) + " board  " +
+		helpKey(k.PrevView) + " " + helpKey(k.NextView) + " view  " + helpKey(k.ToggleMode) + " lanes/list  " +
+		helpKey(k.OpenChannel) + " open  " + helpKey(k.OpenAttach) + " browser  " + helpKey(k.Refresh) + " refresh"
 	if m.jiraShowsLanes() {
-		meta += "  H/L move"
+		meta += "  " + helpKey(k.MoveCardLeft) + "/" + helpKey(k.MoveCardRight) + " move"
 	}
 	head := ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…")
 	rule := refDimStyle.Render(strings.Repeat("─", max(boxW-2, 1)))
@@ -1475,7 +1478,7 @@ func (m *Model) jiraFilterLine() string {
 	if t.assignee.id != "" {
 		who = t.assignee.label
 	}
-	line := jiraDimStyle.Render("a assignee (m me): ") + chip(t.assignee.id != "", who)
+	line := jiraDimStyle.Render(helpKey(m.keys.Assignee)+" assignee ("+helpKey(m.keys.Mine)+" me): ") + chip(t.assignee.id != "", who)
 	for i, q := range t.quick {
 		if i == 9 {
 			break
@@ -1483,10 +1486,10 @@ func (m *Model) jiraFilterLine() string {
 		line += "  " + chip(t.quickOn[q.ID], strconv.Itoa(i+1)+" "+q.Name)
 	}
 	if t.jiraFiltered() {
-		line += jiraDimStyle.Render("  ·  0 clears")
+		line += jiraDimStyle.Render("  ·  " + helpKey(m.keys.ClearFilters) + " clears")
 	}
 	if t.sort != jiraSortRank && !m.jiraShowsLanes() {
-		line += jiraDimStyle.Render("  ·  s sort: ") + chip(true, t.sort.String())
+		line += jiraDimStyle.Render("  ·  "+helpKey(m.keys.Sort)+" sort: ") + chip(true, t.sort.String())
 	}
 	switch {
 	case t.searching:
@@ -1494,7 +1497,7 @@ func (m *Model) jiraFilterLine() string {
 	case t.jiraSearchQuery() != "":
 		line = chip(true, "/"+t.search.Value()) + jiraDimStyle.Render(" esc") + "  " + line
 	default:
-		line += jiraDimStyle.Render("  ·  / search")
+		line += jiraDimStyle.Render("  ·  " + helpKey(m.keys.Search) + " search")
 	}
 	return line
 }

@@ -2,7 +2,7 @@
 
 ## Next
 - Configurable (user ask, 2026-09-25) — `ui:` section, one step per iteration:
-  - `keys:` rebind any action (`search: "/"`, `mine: [m, M]`), help overlay reads them
+  - warn when two actions in one scope share a key
   - `theme:` colours (accent, dim, selection, lane head, over-limit, priority marks)
   - `default_mode: lanes|list`, date format, card fields shown (points/assignee/parent)
   - `views:` extra JQL-backed views next to sprint/backlog
@@ -17,6 +17,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `ui.keys`: rebind any of 39 actions; help overlay, header and filter hints follow
 - `ui:` config: auto_refresh, stale_after, images, image_max_rows, panel_width (validated, warns)
 - Cards show parent/epic (`⌃ Epic`), searchable
 - Lane heads show `n/max` WIP limit, red when over (unfiltered board only)

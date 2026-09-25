@@ -39,6 +39,15 @@ type keyMap struct {
 	JiraStatus, JiraPriority          key.Binding
 	JiraPoints, JiraAssignee          key.Binding
 	JiraComment, JiraReply, JiraStart key.Binding
+	JiraLinks, Back                   key.Binding
+
+	// The board's own keys.
+	Quit, Help, Search, Goto           key.Binding
+	CopyKey, CopyURL                   key.Binding
+	MoveCardLeft, MoveCardRight        key.Binding
+	Project, Board, NextView, PrevView key.Binding
+	ToggleMode, Sort                   key.Binding
+	Assignee, Mine, ClearFilters       key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -70,6 +79,26 @@ func defaultKeys() keyMap {
 		JiraComment:  bind("add comment", "c"),
 		JiraReply:    bind("reply to comment", "R"),
 		JiraStart:    bind("start work in a herdr worktree", "S"),
+		JiraLinks:    bind("go to linked issue", "L"),
+		Back:         bind("previous issue", "backspace"),
+
+		Quit:          bind("quit", "q"),
+		Help:          bind("help", "?"),
+		Search:        bind("search", "/"),
+		Goto:          bind("go to issue by key", "#"),
+		CopyKey:       bind("copy key", "y"),
+		CopyURL:       bind("copy URL", "Y"),
+		MoveCardLeft:  bind("move card left", "H", "shift+left"),
+		MoveCardRight: bind("move card right", "L", "shift+right"),
+		Project:       bind("project", "p"),
+		Board:         bind("board", "b"),
+		NextView:      bind("next view", "]"),
+		PrevView:      bind("previous view", "["),
+		ToggleMode:    bind("lanes / list", "t"),
+		Sort:          bind("sort the list", "s"),
+		Assignee:      bind("assignee filter", "a"),
+		Mine:          bind("only mine", "m"),
+		ClearFilters:  bind("clear filters", "0"),
 	}
 }
 
@@ -150,6 +179,8 @@ type Model struct {
 // New builds the app from the jira: config.
 func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *store.Store) Model {
 	opts, warn := optionsFrom(ui)
+	keys := defaultKeys()
+	warn = append(warn, keys.applyKeys(ui.Keys)...)
 	prompt := defaultJiraStartPrompt
 	if cfg.StartPrompt != "" {
 		prompt = cfg.StartPrompt
@@ -157,7 +188,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *sto
 	m := Model{
 		ctx:   ctx,
 		store: st,
-		keys:  defaultKeys(),
+		keys:  keys,
 		jiraClient: jira.New(jira.Config{
 			BaseURL:          cfg.BaseURL,
 			Email:            cfg.Email,

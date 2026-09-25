@@ -126,13 +126,15 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.closeRef()
 		return m, nil
-	case "?":
+	}
+	switch {
+	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 		return m, nil
-	case "L":
+	case key.Matches(msg, m.keys.JiraLinks):
 		m.openJiraLinkPicker()
 		return m, nil
-	case "backspace":
+	case key.Matches(msg, m.keys.Back):
 		if n := len(m.refBack); n > 0 {
 			key := m.refBack[n-1]
 			m.refBack = m.refBack[:n-1]
@@ -141,9 +143,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.showJiraKey(key)
 		}
 		return m, nil
-	case "y", "Y":
+	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
 		if m.jiraIssue != nil {
-			return m, m.copyJira(m.jiraIssue.Key, msg.String() == "Y")
+			return m, m.copyJira(m.jiraIssue.Key, key.Matches(msg, m.keys.CopyURL))
 		}
 	}
 	switch {

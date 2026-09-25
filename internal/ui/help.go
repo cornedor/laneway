@@ -3,67 +3,83 @@ package ui
 import (
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
 )
 
-// The ? overlay: every key of the board and the panel. Any key closes it.
+// The ? overlay: every key of the board and the panel, as bound (ui.keys
+// rebinds them). Any key closes it.
 
-var helpSections = []struct {
+type helpRow struct {
+	keys string
+	desc string
+}
+
+func row(b key.Binding, desc string) helpRow { return helpRow{keysLabel(b), desc} }
+
+func (m *Model) helpSections() []struct {
 	title string
-	keys  [][2]string
-}{
-	{"Board", [][2]string{
-		{"↑↓ ←→ / hjkl", "move"},
-		{"enter", "open issue"},
-		{"#", "go to issue by key"},
-		{"o", "open in browser"},
-		{"y / Y", "copy key / URL"},
-		{"p / b", "project / board"},
-		{"[ ]", "previous / next view"},
-		{"t", "lanes / list"},
-		{"s", "sort the list"},
-		{"H L", "move card a lane"},
-		{"/", "search (esc clears)"},
-		{"a / m", "assignee filter / mine"},
-		{"1-9 / 0", "quick filter / clear"},
-		{"r", "refresh"},
-		{"tab", "to panel"},
-		{"q", "quit"},
-	}},
-	{"Panel", [][2]string{
-		{"s", "status"},
-		{"p", "priority"},
-		{"P", "story points"},
-		{"a", "assignee"},
-		{"c / R", "comment / reply"},
-		{"S", "start work"},
-		{"o", "open in browser"},
-		{"y / Y", "copy key / URL"},
-		{"r", "refresh"},
-		{"L", "go to linked issue"},
-		{"backspace", "previous issue"},
-		{"tab", "to board"},
-		{"esc", "close"},
-	}},
+	rows  []helpRow
+} {
+	k := m.keys
+	join := func(a, b key.Binding) string { return helpKey(a) + " / " + helpKey(b) }
+	return []struct {
+		title string
+		rows  []helpRow
+	}{
+		{"Board", []helpRow{
+			{join(k.Up, k.Down) + "  " + join(k.Left, k.Right), "move"},
+			row(k.OpenChannel, "open issue"),
+			row(k.Goto, "go to issue by key"),
+			row(k.OpenAttach, "open in browser"),
+			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
+			{join(k.Project, k.Board), "project / board"},
+			{join(k.PrevView, k.NextView), "previous / next view"},
+			row(k.ToggleMode, "lanes / list"),
+			row(k.Sort, "sort the list"),
+			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
+			row(k.Search, "search (esc clears)"),
+			{join(k.Assignee, k.Mine), "assignee filter / mine"},
+			{"1-9 / " + helpKey(k.ClearFilters), "quick filter / clear"},
+			row(k.Refresh, "refresh"),
+			row(k.Tab, "to panel"),
+			row(k.Quit, "quit"),
+		}},
+		{"Panel", []helpRow{
+			row(k.JiraStatus, "status"),
+			row(k.JiraPriority, "priority"),
+			row(k.JiraPoints, "story points"),
+			row(k.JiraAssignee, "assignee"),
+			{join(k.JiraComment, k.JiraReply), "comment / reply"},
+			row(k.JiraStart, "start work"),
+			row(k.OpenAttach, "open in browser"),
+			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
+			row(k.JiraLinks, "go to linked issue"),
+			row(k.Back, "previous issue"),
+			row(k.Refresh, "refresh"),
+			row(k.Tab, "to board"),
+			{"esc", "close"},
+		}},
+	}
 }
 
 func (m *Model) renderHelp() string {
 	keyStyle := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 	var cols []string
-	for _, s := range helpSections {
+	for _, s := range m.helpSections() {
 		keyW := 0
-		for _, k := range s.keys {
-			keyW = max(keyW, lipgloss.Width(k[0]))
+		for _, r := range s.rows {
+			keyW = max(keyW, lipgloss.Width(r.keys))
 		}
 		lines := []string{titleStyle.Render(s.title), ""}
-		for _, k := range s.keys {
-			pad := strings.Repeat(" ", keyW-lipgloss.Width(k[0]))
-			lines = append(lines, keyStyle.Render(k[0])+pad+"  "+k[1])
+		for _, r := range s.rows {
+			pad := strings.Repeat(" ", keyW-lipgloss.Width(r.keys))
+			lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+r.desc)
 		}
 		cols = append(cols, strings.Join(lines, "\n"))
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, cols[0], "     ", cols[1])
-	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render("any key closes")
+	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render("any key closes · rebind in ui.keys")
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).
 		Padding(1, 3).Render(lipgloss.JoinVertical(lipgloss.Left, body, "", hint))
 }

@@ -26,7 +26,17 @@ ui:
   images: auto       # kitty/Ghostty inline images; "off"
   image_max_rows: 16
   panel_width: 50    # issue panel, percent of the width
+
+  keys:              # rebind any action: one key or a list
+    search: f
+    mine: [m, M]
 ```
+
+Actions: up down left right top bottom page_up page_down open toggle_panel
+browser refresh quit help search goto copy_key copy_url move_left move_right
+project board next_view prev_view toggle_mode sort assignee_filter mine
+clear_filters · panel: status priority points assign comment reply start_work
+linked_issue back. The `?` overlay shows the live bindings.
 
 A bad value keeps its default and is reported on the status line.
 
