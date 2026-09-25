@@ -804,3 +804,22 @@ func TestJiraLanePoints(t *testing.T) {
 		t.Error("hidden points still summed")
 	}
 }
+
+// TestPRMark: a card with an open pull request says so; card_fields can
+// leave it out.
+func TestPRMark(t *testing.T) {
+	c := jira.Card{Key: "ABC-9", Summary: "S", PR: "OPEN"}
+	lines := jiraCardLines(c, true, allCardFields)
+	if !strings.Contains(ansi.Strip(lines[0]), "ABC-9") || !strings.Contains(ansi.Strip(lines[0]), "PR") {
+		t.Errorf("head = %q", ansi.Strip(lines[0]))
+	}
+	c.PR = "MERGED"
+	if got := ansi.Strip(jiraCardLines(c, true, allCardFields)[0]); !strings.Contains(got, "✓PR") {
+		t.Errorf("merged head = %q", got)
+	}
+	f := allCardFields
+	f.pr = false
+	if got := ansi.Strip(jiraCardLines(c, true, f)[0]); strings.Contains(got, "PR") {
+		t.Errorf("pr off: %q", got)
+	}
+}

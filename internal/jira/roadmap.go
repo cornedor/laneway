@@ -40,6 +40,7 @@ type EpicChild struct {
 // roadmapFieldIDs are the instance's custom fields a roadmap reads.
 type roadmapFieldIDs struct {
 	start, end, sprint string
+	dev                string // the Development summary (PRs, branches)
 }
 
 // roadmapFieldsOf picks the fields out of the field metadata: "Start date"
@@ -60,6 +61,8 @@ func roadmapFieldsOf(fields []apiField) roadmapFieldIDs {
 			ids.end = f.ID
 		case f.Schema.Custom == "com.pyxis.greenhopper.jira:gh-sprint":
 			ids.sprint = f.ID
+		case strings.HasSuffix(f.Schema.Custom, ":devsummarycf"):
+			ids.dev = f.ID
 		}
 	}
 	return ids

@@ -10,13 +10,13 @@
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
 - Inbox step 3: notify (OSC 777) on a new mention
 - Links step 3: move a subtask to another parent
-- Dev info step 2: an open PR marked on its board card (summary counts,
-  fetched with the prefetch), commits
+- Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Cards show `PR` (open) or `✓PR` (merged) from the Development field; `card_fields: pr`
 - `?` help runs on into more columns on a short screen instead of off the bottom
 - `:` palette also searches all of Jira from 3 characters (text ~, debounced), hits marked ⌕
 - Upload input: `tab` completes the path (common prefix, candidates in the status line)

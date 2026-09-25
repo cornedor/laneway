@@ -1221,6 +1221,18 @@ func jiraTypeIcon(t string) string {
 
 // jiraPriorityMark marks a card's priority, "" for medium or none: the
 // default needs no ink.
+// jiraPRMark is a card's pull request sign: PR while one is open, a dim
+// ✓PR once merged, nothing otherwise.
+func jiraPRMark(state string) string {
+	switch state {
+	case "OPEN":
+		return jiraViewActive.Render("PR")
+	case "MERGED":
+		return jiraDimStyle.Render("✓PR")
+	}
+	return ""
+}
+
 func jiraPriorityMark(p string) string {
 	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
 	switch strings.ToLower(p) {
@@ -1302,6 +1314,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	}
 	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
+	}
+	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
+		title = pr + " " + title
 	}
 	row := "  "
 	if hl := m.jiraHighlight(c.Key); hl != "" {
@@ -1409,6 +1424,9 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 	}
 	if pm := jiraPriorityMark(c.Priority); f.priority && pm != "" {
 		head += " " + pm
+	}
+	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
+		head += " " + pr
 	}
 	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
 }

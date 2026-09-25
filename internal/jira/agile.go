@@ -121,6 +121,9 @@ type Card struct {
 	Points     string
 	// Parent is the parent issue (an epic, or a subtask's story), "" for none.
 	ParentKey, ParentSummary string
+	// PR is the state of its pull requests, from the Development field:
+	// OPEN, MERGED or DECLINED; "" for none (or no such field).
+	PR string
 }
 
 // QuickFilter is a board's saved filter: a name and the JQL behind it.
@@ -344,6 +347,10 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 	if pointsField != "" {
 		fields += "," + pointsField
 	}
+	dev := c.devField(ctx)
+	if dev != "" {
+		fields += "," + dev
+	}
 	page := func(start int) ([]Card, int, error) {
 		q := url.Values{}
 		q.Set("fields", fields)
@@ -364,7 +371,9 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		}
 		out := make([]Card, 0, len(resp.Issues))
 		for _, is := range resp.Issues {
-			out = append(out, toCard(is.Key, is.Fields, pointsField))
+			card := toCard(is.Key, is.Fields, pointsField)
+			card.PR = prState(is.Fields[dev])
+			out = append(out, card)
 		}
 		return out, resp.Total, nil
 	}
@@ -489,4 +498,35 @@ func (c *Client) CloseSprint(ctx context.Context, sprint int) error {
 		return errNotConfigured
 	}
 	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", map[string]any{"state": "closed"}, nil)
+}
+
+// devField is the Development field's id, "" when the instance has none or
+// the field list can't be read.
+func (c *Client) devField(ctx context.Context) string {
+	ids, err := c.resolveRoadmapFields(ctx)
+	if err != nil {
+		return ""
+	}
+	return ids.dev
+}
+
+// prState reads the Development field's summary for its pull requests'
+// state. The field is a string like
+// "{pullrequest={dataType=pullrequest, state=OPEN, stateCount=1}, …}".
+func prState(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) != nil {
+		return ""
+	}
+	_, pr, ok := strings.Cut(s, "pullrequest={")
+	if !ok {
+		return ""
+	}
+	pr, _, _ = strings.Cut(pr, "}")
+	for _, kv := range strings.Split(pr, ",") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(kv), "state="); ok {
+			return v
+		}
+	}
+	return ""
 }

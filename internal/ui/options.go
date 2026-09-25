@@ -29,10 +29,10 @@ type options struct {
 
 // cardFields is what a card or list row shows besides key and summary.
 type cardFields struct {
-	typ, priority, status, points, assignee, parent bool
+	typ, priority, status, points, assignee, parent, pr bool
 }
 
-var allCardFields = cardFields{true, true, true, true, true, true}
+var allCardFields = cardFields{true, true, true, true, true, true, true}
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
@@ -152,6 +152,8 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 				f.assignee = true
 			case "parent":
 				f.parent = true
+			case "pr":
+				f.pr = true
 			default:
 				warn = append(warn, fmt.Sprintf("ui.card_fields: unknown field %q", name))
 			}

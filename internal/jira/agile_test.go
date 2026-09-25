@@ -19,6 +19,10 @@ import (
 func TestCardsPagesAndDecodes(t *testing.T) {
 	var jqls []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			io.WriteString(w, `[{"id":"customfield_99","name":"Development","schema":{"custom":"com.atlassian.jira.plugins.jira-development-integration-plugin:devsummarycf"}}]`)
+			return
+		}
 		if r.URL.Path != "/rest/agile/1.0/board/7/issue" {
 			t.Errorf("path = %q", r.URL.Path)
 		}
@@ -28,7 +32,8 @@ func TestCardsPagesAndDecodes(t *testing.T) {
 		fmt.Fprintf(w, `{"total": 2, "issues": [{"key": "ABC-%d", "fields": {
 			"summary": "Card %d", "status": {"id": "3", "name": "In progress"},
 			"issuetype": {"name": "Bug"}, "assignee": {"accountId": "a1", "displayName": "Ada"},
-			"customfield_1": 2.5}}]}`, start+1, start+1)
+			"customfield_1": 2.5,
+			"customfield_99": "{pullrequest={dataType=pullrequest, state=OPEN, stateCount=1}, json={}}"}}]}`, start+1, start+1)
 	}))
 	defer srv.Close()
 
@@ -40,7 +45,7 @@ func TestCardsPagesAndDecodes(t *testing.T) {
 	if total != 2 || len(cards) != 2 || cards[1].Key != "ABC-2" {
 		t.Fatalf("total=%d cards=%+v", total, cards)
 	}
-	want := Card{Key: "ABC-1", Summary: "Card 1", Type: "Bug", Status: "In progress", StatusID: "3", Assignee: "Ada", AssigneeID: "a1", Points: "2.5"}
+	want := Card{Key: "ABC-1", Summary: "Card 1", Type: "Bug", Status: "In progress", StatusID: "3", Assignee: "Ada", AssigneeID: "a1", Points: "2.5", PR: "OPEN"}
 	if cards[0] != want {
 		t.Errorf("card = %+v, want %+v", cards[0], want)
 	}
@@ -150,6 +155,10 @@ func TestDecodeValue(t *testing.T) {
 func TestCardLimit(t *testing.T) {
 	var requests atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			io.WriteString(w, `[]`)
+			return
+		}
 		requests.Add(1)
 		start, _ := strconv.Atoi(r.URL.Query().Get("startAt"))
 		var issues []string
@@ -247,5 +256,17 @@ func TestStartAndCloseSprint(t *testing.T) {
 	if len(got) != 2 || got[0] != `POST /rest/agile/1.0/sprint/12 {"endDate":"2026-10-12T09:00:00Z","startDate":"2026-09-28T09:00:00Z","state":"active"}` ||
 		got[1] != `POST /rest/agile/1.0/sprint/11 {"state":"closed"}` {
 		t.Errorf("requests = %q", got)
+	}
+}
+
+func TestPRState(t *testing.T) {
+	for in, want := range map[string]string{
+		`"{pullrequest={dataType=pullrequest, state=MERGED, stateCount=2}, build={}}"`: "MERGED",
+		`"{branch={count=1}}"`: "",
+		`null`:                 "",
+	} {
+		if got := prState(json.RawMessage(in)); got != want {
+			t.Errorf("%s: %q, want %q", in, got, want)
+		}
 	}
 }
