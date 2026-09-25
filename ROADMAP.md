@@ -1,7 +1,15 @@
 # Roadmap
 
 ## Next
-- `rules:` Jira actions (transition, comment)? Ask first: rules would write to Jira.
+- Panel `E`: edit every field (user ask 2026-09-25). A modal form over
+  `GET /issue/{key}/editmeta`, reusing the transition form (jira_transition.go):
+  tab / shift-tab / j k between fields, enter edits one, save writes the
+  changed ones in one PUT. Step 1: the form for the kinds it already knows.
+  Step 2: labels (string arrays), dates (duedate), sprint/epic pickers.
+  `e` `l` `P` `s` `p` `a` stay as shortcuts.
+- `rules:` Jira actions (user OK 2026-09-25): `transition` (to a status name)
+  and `comment` (templated text). Guard: never on your own change loop
+  (a rule's write shows as a change on the next refresh; skip by_me echoes).
 - Images: verify in real kitty/ghostty, and in tmux (cell size query, full view, passthrough)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
