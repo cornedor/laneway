@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Images follow-ups: verify in real kitty/ghostty; free images on quit (`a=d`);
+- Images follow-ups: verify in real kitty/ghostty;
   re-fit on panel resize; query real cell pixel size (CSI 16 t); tmux passthrough;
   `enter` on an image for a full-size view
 - `n` create issue from board (`jira.CreateIssue` exists, unused in UI)
@@ -9,6 +9,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Free this session's kitty images on exit (by id)
 - Priority marks (⇈ ↑ ↓ ⇊, medium silent) on lane cards and list rows
 - Images step B: attachment images drawn inline in the panel (kitty Unicode placeholders, kitty/ghostty auto-detected, `JIRATUI_IMAGES=0` off)
 - Images step A: issue attachments, ADF media → `![name](attachment:<id>)`, `AttachmentContent` download

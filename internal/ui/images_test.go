@@ -115,3 +115,15 @@ func TestPanelPlacesImage(t *testing.T) {
 		t.Error("captions missing")
 	}
 }
+
+func TestReleaseImages(t *testing.T) {
+	m := Model{images: &panelImages{byAtt: map[string]*panelImage{
+		"1": {state: imgReady, id: 42}, "2": {state: imgLoading, id: 43},
+	}}}
+	if got := m.ReleaseImages(); got != "\x1b_Ga=d,d=I,i=42,q=2\x1b\\" {
+		t.Errorf("release = %q", got)
+	}
+	if (Model{}).ReleaseImages() != "" {
+		t.Error("no images should release nothing")
+	}
+}

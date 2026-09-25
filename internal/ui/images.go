@@ -265,3 +265,19 @@ func (ii *panelImages) ready(att string) *panelImage {
 	}
 	return nil
 }
+
+// ReleaseImages is the sequence that frees every image this session sent,
+// by id so other programs' images stay; "" when none were sent. Write it to
+// the terminal after the program exits.
+func (m Model) ReleaseImages() string {
+	if m.images == nil {
+		return ""
+	}
+	var sb strings.Builder
+	for _, e := range m.images.byAtt {
+		if e.state == imgReady {
+			fmt.Fprintf(&sb, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", e.id)
+		}
+	}
+	return sb.String()
+}
