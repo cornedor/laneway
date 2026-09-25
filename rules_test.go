@@ -49,6 +49,16 @@ rules:
 	if !strings.Contains(out.String(), "✗ others  by_me: true") {
 		t.Errorf("by-me:\n%s", out.String())
 	}
+	out.Reset()
+	_ = os.WriteFile(p2, []byte("rules:\n  - {name: mine, watch: assignee = currentUser(), actions: [{type: log}]}\n"), 0o600)
+	rulesCmd([]string{"list", "-config", p2}, &out, &errOut)
+	rulesCmd([]string{"test", "-config", p2}, &out, &errOut)
+	rulesCmd([]string{"test", "-config", p2, "-watch", "assignee = currentUser()"}, &out, &errOut)
+	for _, want := range []string{"on any change of assignee = currentUser() every 5m", "✗ mine  watch: not from", "✓ mine  log"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("watch lacks %q:\n%s", want, out.String())
+		}
+	}
 	if rulesCmd([]string{"bogus"}, &out, &errOut) != 2 {
 		t.Error("bad subcommand exit")
 	}

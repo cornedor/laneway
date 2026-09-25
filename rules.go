@@ -14,7 +14,7 @@ import (
 
 const rulesUsage = `usage: laneway rules list [-config path]
        laneway rules test [-config path] [-on kind] [-key K] [-summary S] [-type T]
-                          [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B]`
+                          [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B] [-watch JQL]`
 
 // rulesCmd lists the config's rules, or says which a described change
 // would fire and what stopped the rest. Nothing runs.
@@ -37,6 +37,7 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	fs.StringVar(&c.Assignee, "assignee", "", "assignee display name, empty for unassigned")
 	fs.StringVar(&c.Priority, "priority", "Medium", "priority")
 	fs.StringVar(&c.Points, "points", "", "story points")
+	watch := fs.String("watch", "", "the rule watch's JQL that saw the change; empty for a board")
 	byMe := fs.String("by-me", "", "true or false: you made the change; unset leaves by_me unknown")
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
@@ -59,6 +60,13 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 			if len(r.On) > 0 {
 				on = strings.Join(r.On, ", ")
 			}
+			if r.Watch != "" {
+				every := r.Every
+				if every == "" {
+					every = strings.TrimSuffix(rules.DefaultEvery.String(), "0s")
+				}
+				on += " of " + r.Watch + " every " + every
+			}
 			var acts []string
 			for _, a := range r.Actions {
 				acts = append(acts, a.Type)
@@ -72,6 +80,7 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	}
 	ev := rules.Event{Kind: *on, Card: c, Old: c}
 	ev.Old.Status = fromStatus
+	ev.Watch = *watch
 	if *byMe != "" {
 		b := *byMe == "true"
 		ev.ByMe = &b

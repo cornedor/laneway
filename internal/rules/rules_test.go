@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -128,5 +129,46 @@ func TestByMe(t *testing.T) {
 	}
 	if plain, _ := compileYAML(t, "- actions: [{type: log}]\n"); plain.UsesByMe() {
 		t.Error("UsesByMe without by_me")
+	}
+}
+
+// TestWatch: a watch rule fires only on its own search's changes, a board
+// rule only on a board's; watches merge by JQL at the shortest every.
+func TestWatch(t *testing.T) {
+	s, warn := compileYAML(t, `
+- name: board
+  actions: [{type: log}]
+- name: mine
+  watch: assignee = currentUser()
+  every: 10m
+  actions: [{type: log}]
+- name: mine-fast
+  watch: assignee = currentUser()
+  every: 2m
+  actions: [{type: log}]
+- name: other
+  watch: project = X
+  actions: [{type: log}]
+- {name: fast, watch: a = b, every: 30s, actions: [{type: log}]}
+- {name: lonely, every: 5m, actions: [{type: log}]}
+`)
+	if len(warn) != 2 || !strings.Contains(warn[0], "under 1m") || !strings.Contains(warn[1], "needs a watch") {
+		t.Errorf("warn = %q", warn)
+	}
+	fired := func(watch string) (names []string) {
+		for _, f := range s.Fire(Event{Kind: New, Card: card("A-1", "To do", ""), Watch: watch}) {
+			names = append(names, f.Rule)
+		}
+		return names
+	}
+	if got := fired(""); strings.Join(got, ",") != "board" {
+		t.Errorf("board fired %q", got)
+	}
+	if got := fired("assignee = currentUser()"); strings.Join(got, ",") != "mine,mine-fast" {
+		t.Errorf("watch fired %q", got)
+	}
+	ws := s.Watches()
+	if len(ws) != 2 || ws[0].Every != 2*time.Minute || ws[1].JQL != "project = X" || ws[1].Every != DefaultEvery {
+		t.Errorf("watches = %+v", ws)
 	}
 }

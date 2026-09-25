@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -37,7 +38,14 @@ type Rule struct {
 	On      StrList  `yaml:"on"`
 	Match   Match    `yaml:"match"`
 	Actions []Action `yaml:"actions"`
+	// Watch is a JQL search polled every Every (default 5m) whether or not
+	// a board is open; the rule then fires on its changes only.
+	Watch string `yaml:"watch"`
+	Every string `yaml:"every"`
 }
+
+// DefaultEvery is how often a watch polls when every: is unset.
+const DefaultEvery = 5 * time.Minute
 
 // Match is what an issue must be for a rule to fire; every set field must
 // hold. Globs (*, ?) are case-insensitive and a list matches any entry.
@@ -92,6 +100,8 @@ type Event struct {
 	// ByMe is whether you made the change, nil when not looked up: a by_me
 	// condition then does not hold.
 	ByMe *bool
+	// Watch is the JQL of the watch that saw the change, "" for a board.
+	Watch string
 }
 
 // Diff lists the changes from old to cur, in cur's order. Issues that left
@@ -131,6 +141,7 @@ type compiled struct {
 	Rule
 	match *cmatch
 	acts  []cact
+	every time.Duration
 }
 
 // cact is an Action with its templates parsed.
@@ -168,6 +179,19 @@ func compile(r Rule) (compiled, error) {
 		if !slices.Contains(kinds, k) {
 			return c, fmt.Errorf("on: %q is not one of %s", k, strings.Join(kinds, ", "))
 		}
+	}
+	c.every = DefaultEvery
+	if r.Every != "" {
+		d, err := time.ParseDuration(r.Every)
+		switch {
+		case r.Watch == "":
+			return c, fmt.Errorf("every: needs a watch")
+		case err != nil:
+			return c, fmt.Errorf("every: %v", err)
+		case d < time.Minute:
+			return c, fmt.Errorf("every: %s is under 1m", r.Every)
+		}
+		c.every = d
 	}
 	var err error
 	if c.match, err = compileMatch(&r.Match); err != nil {
@@ -251,6 +275,29 @@ func (s *Set) UsesByMe() bool {
 	return false
 }
 
+// Watch is one JQL search to poll, as often as its most eager rule asks.
+type Watch struct {
+	JQL   string
+	Every time.Duration
+}
+
+// Watches are the rules' distinct watches, in config order.
+func (s *Set) Watches() []Watch {
+	var out []Watch
+	for _, r := range s.rules {
+		if r.Watch == "" {
+			continue
+		}
+		i := slices.IndexFunc(out, func(w Watch) bool { return w.JQL == r.Watch })
+		if i < 0 {
+			out = append(out, Watch{r.Watch, r.every})
+		} else {
+			out[i].Every = min(out[i].Every, r.every)
+		}
+	}
+	return out
+}
+
 // Len is how many rules compiled.
 func (s *Set) Len() int { return len(s.rules) }
 
@@ -302,6 +349,12 @@ func (s *Set) Explain(ev Event) []Firing {
 
 // why is the first condition ev fails, "" when the rule fires.
 func (r compiled) why(ev Event) string {
+	if r.Watch != ev.Watch {
+		if r.Watch == "" {
+			return "watch: not a board change"
+		}
+		return "watch: not from " + r.Watch
+	}
 	if len(r.On) > 0 && !slices.Contains(r.On, ev.Kind) {
 		return "on: not " + ev.Kind
 	}

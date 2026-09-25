@@ -236,7 +236,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize())
+	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches())
 }
 
 // bodyH is the rows above the status line.
@@ -324,6 +324,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleCellSize(msg)
 	case jiraCreatedMsg:
 		return m.handleJiraCreated(msg)
+	case ruleWatchMsg:
+		return m, m.pollRuleWatch(msg.jql)
+	case ruleWatchedMsg:
+		return m.handleRuleWatched(msg)
 	case rulesEventsMsg:
 		return m.handleRulesEvents(msg)
 	case rulesLoggedMsg:

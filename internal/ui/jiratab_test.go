@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -686,5 +687,31 @@ func TestRuleByMe(t *testing.T) {
 		if _, got := out.(Model).jiraTab.highlights["ABC-2"]; got != c.marked {
 			t.Errorf("author %s: marked = %v, want %v", c.author, got, c.marked)
 		}
+	}
+}
+
+// TestRuleWatch: a watch's first search is a baseline, the next fires its
+// rules and not the board's, and every poll arms the next.
+func TestRuleWatch(t *testing.T) {
+	m := jiraTabModel(t)
+	m.rules, _ = rules.Compile([]rules.Rule{
+		{Name: "board", Actions: []rules.Action{{Type: "highlight", Color: "1"}}},
+		{Name: "mine", Watch: "assignee = currentUser()", Actions: []rules.Action{{Type: "highlight", Color: "2"}}},
+	})
+	cards := []jira.Card{{Key: "XYZ-1", StatusID: "1", Status: "To do"}}
+	out, cmd := m.handleRuleWatched(ruleWatchedMsg{jql: "assignee = currentUser()", cards: cards})
+	m = out.(Model)
+	if cmd == nil || len(m.jiraTab.highlights) != 0 {
+		t.Fatalf("baseline: cmd %v, highlights %v", cmd, m.jiraTab.highlights)
+	}
+	cards = []jira.Card{{Key: "XYZ-1", StatusID: "2", Status: "Done"}}
+	out, _ = m.handleRuleWatched(ruleWatchedMsg{jql: "assignee = currentUser()", cards: cards})
+	m = out.(Model)
+	if got := m.jiraTab.highlights; len(got) != 1 || got["XYZ-1"] != "2" {
+		t.Errorf("highlights = %v", got)
+	}
+	out, cmd = m.handleRuleWatched(ruleWatchedMsg{jql: "assignee = currentUser()", err: errors.New("down")})
+	if m = out.(Model); cmd == nil || !strings.Contains(m.status, "down") {
+		t.Errorf("failed poll: cmd %v, status %q", cmd, m.status)
 	}
 }
