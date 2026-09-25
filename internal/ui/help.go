@@ -40,6 +40,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Palette, "command palette"),
 			{join(k.Timer, k.Timesheet), "timer / today's worklogs"},
 			row(k.Inbox, "inbox: others' changes, comments, mentions"),
+			row(k.Standup, "standup: what you did since the last workday"),
 			row(k.Charts, "sprint charts: burndown, velocity"),
 			row(k.Plan, "sprint planning: backlog beside a sprint (K J rank)"),
 			row(k.Roadmap, "roadmap: epics on a timeline (space children, H L < > dates)"),

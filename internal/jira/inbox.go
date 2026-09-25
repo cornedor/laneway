@@ -59,7 +59,7 @@ func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, erro
 			defer wg.Done()
 			var summary string
 			_ = json.Unmarshal(is.Fields["summary"], &summary)
-			entries, err := c.issueInbox(ctx, is.Key, summary, me.AccountID, since)
+			entries, err := c.issueActivity(ctx, is.Key, summary, since, func(who string) bool { return who != me.AccountID }, me.AccountID)
 			mu.Lock()
 			out = append(out, entries...)
 			mu.Unlock()
@@ -91,8 +91,9 @@ func firstError(errs []error) error {
 	return nil
 }
 
-// issueInbox is one issue's changes and comments by others since since.
-func (c *Client) issueInbox(ctx context.Context, key, summary, me string, since time.Time) ([]InboxEntry, error) {
+// issueActivity is one issue's changes and comments since since by the
+// authors keep accepts; me marks comments mentioning you.
+func (c *Client) issueActivity(ctx context.Context, key, summary string, since time.Time, keep func(accountID string) bool, me string) ([]InboxEntry, error) {
 	base := "/rest/api/3/issue/" + url.PathEscape(key)
 	var log struct {
 		Total  int `json:"total"`
@@ -132,7 +133,7 @@ func (c *Client) issueInbox(ctx context.Context, key, summary, me string, since 
 	var out []InboxEntry
 	for _, h := range log.Values {
 		when, _ := time.Parse(jiraTime, h.Created)
-		if h.Author.AccountID == me || !when.After(since) {
+		if !keep(h.Author.AccountID) || !when.After(since) {
 			continue
 		}
 		var parts []string
@@ -145,7 +146,7 @@ func (c *Client) issueInbox(ctx context.Context, key, summary, me string, since 
 	}
 	for _, cm := range comments.Comments {
 		when, _ := time.Parse(jiraTime, cm.Created)
-		if cm.Author.AccountID == me || !when.After(since) {
+		if !keep(cm.Author.AccountID) || !when.After(since) {
 			continue
 		}
 		text := strings.Join(strings.Fields(adfToMarkdown(cm.Body)), " ")

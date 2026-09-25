@@ -77,6 +77,8 @@ const (
 	jiraPickLinkType
 	// jiraPickSite switches the Jira site (sites.go).
 	jiraPickSite
+	// jiraPickStandup lists your own activity (standup.go).
+	jiraPickStandup
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -110,6 +112,7 @@ type jiraPickerState struct {
 	curAssignee string           // accountId of the issue's assignee, to mark ✓ across re-queries
 	all         []jiraPickerItem // a locally filtered picker's full list
 	bulk        []string         // the marked keys a pick applies to, none for one issue
+	text        string           // the standup's text (standup.go)
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -123,6 +126,7 @@ type jiraPickerLoadedMsg struct {
 	// projects is the project picker's fetch, kept for the next opening.
 	projects []jira.Project
 	title    string // replaces the picker's title when set
+	text     string // the standup as text, for its copy row
 }
 
 // jiraAssigneeDebounceMsg fires after the debounce window to run the pending
@@ -340,6 +344,7 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 	if msg.title != "" {
 		m.jiraPicker.title = msg.title
 	}
+	m.jiraPicker.text = msg.text
 	m.setJiraPickerItems(msg.items)
 	return m, nil
 }
@@ -417,7 +422,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -539,7 +544,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.openLinkTarget(key, it)
 		return m, nil
 	}
-	if kind == jiraPickTimesheet || kind == jiraPickInbox {
+	if kind == jiraPickStandup && it.id == "copy" {
+		text := m.jiraPicker.text
+		m.closeJiraPicker()
+		m.status = "standup copied"
+		return m, tea.SetClipboard(text)
+	}
+	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
 		m.closeJiraPicker()
 		if it.id == "" {
 			return m, nil

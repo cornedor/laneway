@@ -54,7 +54,7 @@ type keyMap struct {
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
 	JiraDescription, Inbox             key.Binding
-	IssueActions, Site                 key.Binding
+	IssueActions, Site, Standup        key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -124,6 +124,7 @@ func defaultKeys() keyMap {
 		Inbox:           bind("inbox", "I"),
 		IssueActions:    bind("subtask, link, clone, watch", "A"),
 		Site:            bind("switch Jira site", "@"),
+		Standup:         bind("standup: what you did", "U"),
 	}
 }
 
