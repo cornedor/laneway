@@ -1,19 +1,21 @@
 # Roadmap
 
 ## Next
-- Panel `E`: edit every field (user ask 2026-09-25). A modal form over
-  `GET /issue/{key}/editmeta`, reusing the transition form (jira_transition.go):
-  tab / shift-tab / j k between fields, enter edits one, save writes the
-  changed ones in one PUT. Step 1: the form for the kinds it already knows.
-  Step 2: labels (string arrays), dates (duedate), sprint/epic pickers.
-  `e` `l` `P` `s` `p` `a` stay as shortcuts.
+- Panel field cursor (user ask 2026-09-25: edit every field, select them in
+  the panel, then a key). tab / shift-tab walk the fields of the panel's meta
+  block, highlighted; past the last, tab goes to the board as now. enter
+  edits the selected field with its editor (pickers, inputs). esc drops the
+  cursor first. Step 1: cursor over the rows shown today, reusing the s p P a
+  e l editors. Step 2: every editable field from `GET /issue/{key}/editmeta`
+  shown and editable, via the transition form's per-kind editors
+  (jira_transition.go). Step 3: labels, dates, sprint/epic.
 - `rules:` Jira actions (user OK 2026-09-25): `transition` (to a status name)
   and `comment` (templated text). Guard: never on your own change loop
   (a rule's write shows as a change on the next refresh; skip by_me echoes).
-- Images: verify in real kitty/ghostty, and in tmux (cell size query, full view, passthrough)
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Images checked by the user in real terminals (2026-09-25)
 - Lane heads sum their story points (`· 8p`), hidden with points
 - Sprint views show days left (or start/end date) and the goal
 - Board `M`: move the card to a sprint or the backlog
