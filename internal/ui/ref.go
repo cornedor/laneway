@@ -128,6 +128,10 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.helpOpen = true
 		return m, nil
+	case "y", "Y":
+		if m.jiraIssue != nil {
+			return m, m.copyJira(m.jiraIssue.Key, msg.String() == "Y")
+		}
 	}
 	switch {
 	case key.Matches(msg, m.keys.OpenRef): // same key that opened it closes it

@@ -351,3 +351,17 @@ func TestHelpOverlay(t *testing.T) {
 		t.Errorf("key after help: open=%v row=%d, want closed and swallowed", m.helpOpen, m.jiraTab.row)
 	}
 }
+
+func TestJiraTabCopyKey(t *testing.T) {
+	m := jiraTabModel(t)
+	out, cmd := m.handleKey(keyMsg(t, "y"))
+	m = out.(Model)
+	if cmd == nil || m.status != "copied ABC-1" {
+		t.Errorf("y: cmd=%v status=%q, want copied ABC-1", cmd != nil, m.status)
+	}
+	out, _ = m.handleKey(keyMsg(t, "Y"))
+	m = out.(Model)
+	if !strings.HasPrefix(m.status, "copied http") || !strings.HasSuffix(m.status, "/browse/ABC-1") {
+		t.Errorf("Y: status=%q, want the browse URL", m.status)
+	}
+}

@@ -23,11 +23,11 @@ State (last project/board/view, filters, cached boards) lives in
 ## Keys
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `a` assignee ·
-`1-9` quick filters · `0` clear · `/` search (esc clears) · `H`/`L` move card · `enter` open · `o` browser ·
+`1-9` quick filters · `0` clear · `/` search (esc clears) · `H`/`L` move card · `enter` open · `o` browser · `y`/`Y` copy key/URL ·
 `r` refresh · `tab` panel · `?` help · `q` quit. Cards drag between lanes with the mouse.
 
 Panel: `s` status · `p` priority · `P` points · `a` assignee · `c` comment ·
-`R` reply · `S` start work · `o` browser · `r` refresh · `esc` close.
+`R` reply · `S` start work · `o` browser · `y`/`Y` copy · `r` refresh · `esc` close.
 
 ## Build
 

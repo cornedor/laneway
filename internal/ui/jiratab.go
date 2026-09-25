@@ -672,6 +672,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.startJiraSearch()
 	case msg.String() == "?":
 		m.helpOpen = true
+	case msg.String() == "y", msg.String() == "Y":
+		return m, m.copyJira(m.selectedJiraKey(), msg.String() == "Y")
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":
 		m.clearJiraSearch()
 	case len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9":
