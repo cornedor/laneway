@@ -40,3 +40,13 @@ func TestStandupCopy(t *testing.T) {
 		t.Errorf("copy: cmd %v, status %q", cmd != nil, m.status)
 	}
 }
+
+// TestHistoryKey: H in the panel opens the issue's history.
+func TestHistoryKey(t *testing.T) {
+	m := loadedJiraModel(t)
+	out, cmd := m.handleRefKey(keyMsg(t, "H"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickHistory || cmd == nil || !strings.Contains(m.jiraPicker.title, "ABC-1") {
+		t.Fatalf("picker = %+v", m.jiraPicker)
+	}
+}

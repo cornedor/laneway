@@ -58,3 +58,20 @@ func TestInbox(t *testing.T) {
 		t.Errorf("second = %+v", got[1])
 	}
 }
+
+func TestHistory(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issue/A-1/changelog":
+			io.WriteString(w, `{"total":1,"values":[{"author":{"displayName":"Bob"},"created":"2026-09-25T09:00:00.000+0000","items":[{"field":"status","fromString":"To Do","toString":"Done"}]}]}`)
+		case "/rest/api/3/issue/A-1/comment":
+			io.WriteString(w, `{"comments":[{"author":{"displayName":"Ann"},"created":"2026-09-25T10:00:00.000+0000","body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"ok"}]}]}}]}`)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.History(context.Background(), "A-1")
+	if err != nil || len(got) != 2 || got[0].Who != "Ann" || got[1].What != "status: To Do → Done" {
+		t.Errorf("%+v, %v", got, err)
+	}
+}

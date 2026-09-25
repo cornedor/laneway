@@ -182,3 +182,17 @@ func orDash(s string) string {
 	}
 	return s
 }
+
+// History is key's changes and comments by anyone, newest first: its
+// latest changelogTail changes and 20 comments.
+func (c *Client) History(ctx context.Context, key string) ([]InboxEntry, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	out, err := c.issueActivity(ctx, key, "", time.Time{}, func(string) bool { return true }, "")
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(out, func(a, b InboxEntry) int { return b.When.Compare(a.When) })
+	return out, nil
+}

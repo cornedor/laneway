@@ -25,8 +25,6 @@
   refresh; notify (OSC 777) on a new mention
 - Links step 2: remove a link from the Links section, vote, move a subtask
   to another parent
-- Panel history: `h` shows the issue's changelog as a timeline (who, when,
-  from → to), comments interleaved
 - Dev info: branches, commits and PRs linked to the issue (dev-status API),
   `enter` opens one; the board card shows an open PR
 - Attachments: upload a file (path input with completion), download one to
@@ -35,6 +33,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel `H` history: every change and comment, newest first, filterable
 - `U` standup: your moves, edits, comments and worklogs since the previous workday, copy as text
 - Cursor prefetch: the card and 2 either side load once it rests; issue cache lives 2m
 - `rules:` Jira actions `transition` (to:) and `comment`, only on others' changes (no loops)

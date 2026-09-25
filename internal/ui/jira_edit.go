@@ -79,6 +79,8 @@ const (
 	jiraPickSite
 	// jiraPickStandup lists your own activity (standup.go).
 	jiraPickStandup
+	// jiraPickHistory is the panel issue's history (history.go).
+	jiraPickHistory
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -422,7 +424,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory {
 			m.filterJiraPicker()
 			return m, cmd
 		}
@@ -549,6 +551,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		m.status = "standup copied"
 		return m, tea.SetClipboard(text)
+	}
+	if kind == jiraPickHistory {
+		m.closeJiraPicker()
+		return m, nil
 	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
 		m.closeJiraPicker()
