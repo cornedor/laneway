@@ -41,7 +41,7 @@ type keyMap struct {
 	JiraStatus, JiraPriority          key.Binding
 	JiraPoints, JiraAssignee          key.Binding
 	JiraComment, JiraReply, JiraStart key.Binding
-	JiraLinks, Back                   key.Binding
+	JiraLinks, Back, Image            key.Binding
 
 	// The board's own keys.
 	Quit, Help, Search, Goto, Create   key.Binding
@@ -83,6 +83,7 @@ func defaultKeys() keyMap {
 		JiraStart:    bind("start work in a herdr worktree", "S"),
 		JiraLinks:    bind("go to linked issue", "L"),
 		Back:         bind("previous issue", "backspace"),
+		Image:        bind("view images", "i"),
 
 		Quit:          bind("quit", "q"),
 		Help:          bind("help", "?"),
@@ -164,6 +165,10 @@ type Model struct {
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
+
+	// imageView shows the panel's images full size (image_view.go).
+	imageView    bool
+	imageViewIdx int
 
 	jiraCreateActive bool
 	jiraCreateType   string
@@ -248,6 +253,7 @@ func (m *Model) resize() {
 	m.refView.SetHeight(max(bodyH-2, 1))
 	m.renderJira()
 	m.renderRef()
+	m.fitImageView()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -344,6 +350,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		m.helpOpen = false
 		return m, nil
+	case m.imageView:
+		return m.handleImageViewKey(msg)
 	case m.jiraGotoActive:
 		return m.handleJiraGotoKey(msg)
 	case m.jiraCreateActive:
@@ -365,7 +373,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.helpOpen || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.helpOpen || m.imageView || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -419,6 +427,9 @@ func (m Model) View() tea.View {
 	}
 	bodyH := m.bodyH()
 	body := m.renderJiraPane(bodyH, m.width)
+	if m.imageView {
+		body = m.renderImageView(m.width, bodyH)
+	}
 	if ov := m.renderOverlay(bodyH); ov != "" {
 		body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, ov)
 	}

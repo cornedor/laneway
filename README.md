@@ -71,7 +71,7 @@ Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right
 create project board next_view prev_view toggle_mode sort assignee_filter mine
 clear_filters · panel: status priority points assign comment reply start_work
-linked_issue back.
+linked_issue back image.
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -128,7 +128,8 @@ Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort li
 between lanes with the mouse.
 
 Panel: `s` status · `p` priority · `P` points · `a` assignee · `c` comment ·
-`R` reply · `L` linked issue · `backspace` previous issue · `S` start work ·
+`R` reply · `L` linked issue · `i` images full size (← →) · `backspace` previous
+issue · `S` start work ·
 `o` browser · `y`/`Y` copy · `r` refresh · `esc` close.
 
 ## Images

@@ -4,14 +4,13 @@
 - `rules:` next steps (user ask 2026-09-25, like matterbox's docs/rules.md):
   triggers beyond refresh (a schedule; boards not open).
   Open: may rules write to Jira (transition, comment)? Ask first.
-- Images follow-ups: verify in real kitty/ghostty;
-  tmux passthrough;
-  `enter` on an image for a full-size view
+- Images follow-ups: verify in real kitty/ghostty (cell size query, full view); tmux passthrough
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `i` in the panel: images full size across the body, ← → between them
 - Images fit the terminal's real cell size (CSI 16 t), 10×20 until it answers
 - `n` new issue: type, summary; lands in the shown sprint, opens in the panel
 - `rules:` `by_me` condition: change author from the changelog, creator for new; `rules test -by-me`

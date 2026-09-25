@@ -180,14 +180,16 @@ func (m *Model) queryCellSize() tea.Cmd {
 	return tea.Raw("\x1b[16t")
 }
 
-// handleCellSize re-fits the images to the terminal's real cell size.
+// handleCellSize re-fits the images to the terminal's real cell size; Update
+// flushes the moved placements.
 func (m Model) handleCellSize(msg uv.CellSizeEvent) (tea.Model, tea.Cmd) {
 	if m.images == nil || msg.Width <= 0 || msg.Height <= 0 {
 		return m, nil
 	}
 	m.images.cell = cellPx{msg.Width, msg.Height}
 	m.renderRef()
-	return m, m.flushImages()
+	m.fitImageView()
+	return m, nil
 }
 
 // refit moves e's virtual placement to rows×cols, keeping the image data.
@@ -303,7 +305,9 @@ func (m *Model) placeImages(s string) string {
 		for _, a := range atts {
 			if e := m.images.ready(a); e != nil {
 				cols, rows := fitCells(e.pxW, e.pxH, max(m.refView.Width()-len(indent), 1), m.images.maxRows, m.images.cell)
-				m.images.refit(e, cols, rows)
+				if !m.imageView { // it holds the shown image's placement
+					m.images.refit(e, cols, rows)
+				}
 				for _, row := range kittyPlaceholder(e.id, e.rows, e.cols) {
 					out = append(out, indent+row)
 				}

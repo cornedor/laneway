@@ -19,7 +19,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"open": &k.OpenChannel, "toggle_panel": &k.OpenRef, "browser": &k.OpenAttach, "refresh": &k.Refresh,
 		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints,
 		"assign": &k.JiraAssignee, "comment": &k.JiraComment, "reply": &k.JiraReply,
-		"start_work": &k.JiraStart, "linked_issue": &k.JiraLinks, "back": &k.Back,
+		"start_work": &k.JiraStart, "linked_issue": &k.JiraLinks, "back": &k.Back, "image": &k.Image,
 		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "goto": &k.Goto, "create": &k.Create,
 		"copy_key": &k.CopyKey, "copy_url": &k.CopyURL,
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
@@ -64,7 +64,7 @@ var keyScopes = []struct {
 	}},
 	{"panel", []string{
 		"status", "priority", "points", "assign", "comment", "reply", "start_work",
-		"linked_issue", "back", "browser", "copy_key", "copy_url", "help", "refresh", "toggle_panel",
+		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "help", "refresh", "toggle_panel",
 	}},
 }
 

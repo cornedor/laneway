@@ -122,10 +122,10 @@ func TestPanelPlacesImage(t *testing.T) {
 	}
 	// A square-celled terminal answers CSI 16 t: the 40×40 image re-fits
 	// to 2×2 cells, the placement moved without resending the data.
-	out, raw = m.handleCellSize(uv.CellSizeEvent{Width: 20, Height: 20})
+	out, _ = m.handleCellSize(uv.CellSizeEvent{Width: 20, Height: 20})
 	m = out.(Model)
-	if n := strings.Count(m.refView.View(), string(rune(0x10EEEE))); n != 4 || raw == nil {
-		t.Errorf("after cell size: placeholder cells = %d, flush %v", n, raw != nil)
+	if n := strings.Count(m.refView.View(), string(rune(0x10EEEE))); n != 4 || m.flushImages() == nil {
+		t.Errorf("after cell size: placeholder cells = %d, want 4 and a flush", n)
 	}
 }
 
@@ -178,5 +178,39 @@ func TestPanelListsLooseAttachments(t *testing.T) {
 		if got := byteSize(n); got != want {
 			t.Errorf("byteSize(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+// TestImageView: i shows the panel's image across the body, larger than in
+// the panel; any key goes back to the panel's size.
+func TestImageView(t *testing.T) {
+	m := jiraTabModel(t)
+	m.images = &panelImages{on: true, maxRows: 16, cell: defaultCell, byAtt: map[string]*panelImage{}}
+	iss := &jira.Issue{Key: "ABC-1", Summary: "s", Description: "![shot.png](attachment:10)",
+		Attachments: []jira.Attachment{{ID: "10", Filename: "shot.png", MimeType: "image/png"}}}
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: iss})
+	m = out.(Model)
+	id := m.images.byAtt["10"].id
+	out, _ = m.handleImageLoaded(imageLoadedMsg{att: "10", id: id, pxW: 800, pxH: 400, cols: 4, rows: 2, seq: "SEQ"})
+	m = out.(Model)
+	panel := *m.images.byAtt["10"]
+	m.flushImages()
+
+	out, _ = m.handleKey(keyStr("i"))
+	m = out.(Model)
+	e := m.images.byAtt["10"]
+	if !m.imageView || e.cols <= panel.cols || m.flushImages() == nil {
+		t.Fatalf("view %v: %d×%d, panel %d×%d", m.imageView, e.cols, e.rows, panel.cols, panel.rows)
+	}
+	view := m.View().Content
+	if n := strings.Count(view, string(rune(0x10EEEE))); n != e.cols*e.rows || !strings.Contains(view, "shot.png  1/1") {
+		t.Errorf("placeholder cells = %d, want %d; caption shown %v", n, e.cols*e.rows, strings.Contains(view, "shot.png  1/1"))
+	}
+	out, _ = m.handleKey(keyStr("x"))
+	m = out.(Model)
+	if m.imageView || e.cols != panel.cols || e.rows != panel.rows {
+		t.Errorf("after close: view %v, %d×%d, want %d×%d", m.imageView, e.cols, e.rows, panel.cols, panel.rows)
 	}
 }
