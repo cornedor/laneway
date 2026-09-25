@@ -52,7 +52,7 @@ type keyMap struct {
 	ToggleMode, Sort, MoveSprint       key.Binding
 	Assignee, Mine, ClearFilters       key.Binding
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
-	Charts                             key.Binding
+	Charts, LogWork, Timer, Timesheet  key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -115,6 +115,9 @@ func defaultKeys() keyMap {
 		Bulk:          bind("edit marked cards", "B"),
 		Plan:          bind("sprint planning", "P"),
 		Charts:        bind("sprint charts", "C"),
+		LogWork:       bind("log work", "w"),
+		Timer:         bind("start / stop the timer", "T"),
+		Timesheet:     bind("today's worklogs", "W"),
 	}
 }
 
@@ -194,6 +197,10 @@ type Model struct {
 	// paletteFocus is the pane the palette was opened from; its actions
 	// run there.
 	paletteFocus focus
+	// timer runs on an issue (worklog.go); worklogStart is when the work
+	// being logged began, zero for "back from now".
+	timer        workTimer
+	worklogStart time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -264,7 +271,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches())
+	return tea.Batch(m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer())
 }
 
 // bodyH is the rows above the status line.
@@ -332,6 +339,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case timerTickMsg:
+		return m.handleTimerTick()
 	case chartsMsg:
 		return m.handleCharts(msg)
 	case planMsg:

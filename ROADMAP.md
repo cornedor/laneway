@@ -16,8 +16,8 @@
   (`x`) move together; start / complete a sprint from here
 - Charts step 2: scope changes from the changelog (added/removed mid
   sprint), cumulative flow by status, burnup; `ui.charts.sprints`
-- Worklogs: `w` logs time, a timer runs on the started issue, `W` today's
-  timesheet across issues
+- Worklogs step 2: timesheet by week (`[` `]` days), edit/delete an entry,
+  `S` start work also starts the timer (`ui.timer_on_start`)
 - Description in `$EDITOR`: ADF ⇄ markdown round trip, keep unknown nodes
 - Inbox: mentions and changes on watched issues since last seen, `g i`
 - Subtasks and links: create a subtask, link two issues, clone, watch/vote
@@ -29,6 +29,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Worklogs: `w` logs (1h 30m …), `T` timer kept across restarts, `W` today's timesheet
 - `C` charts: burndown (braille, ideal line) and velocity of the last 8 sprints
 - `P` sprint planning: backlog beside a sprint, points per assignee, move across, `K`/`J` rank
 - Bulk edit: `x` marks, `B` sets status / priority / assignee / labels / points / sprint on all, 4 at a time

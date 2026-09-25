@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -135,6 +136,17 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Palette):
 		m.openPalette()
 		return m, nil
+	case key.Matches(msg, m.keys.LogWork) && m.jiraIssue != nil:
+		m.openWorklogInput(m.jiraIssue.Key, "", time.Time{})
+		return m, nil
+	case key.Matches(msg, m.keys.Timer):
+		k := ""
+		if m.jiraIssue != nil {
+			k = m.jiraIssue.Key
+		}
+		return m, m.toggleTimer(k)
+	case key.Matches(msg, m.keys.Timesheet):
+		return m, m.openTimesheet()
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 		return m, nil

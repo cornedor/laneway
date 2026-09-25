@@ -67,6 +67,8 @@ const (
 	jiraPickPalette
 	// jiraPickBulk asks what to change on the marked cards (bulk.go).
 	jiraPickBulk
+	// jiraPickTimesheet lists today's worklogs (worklog.go).
+	jiraPickTimesheet
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -112,6 +114,7 @@ type jiraPickerLoadedMsg struct {
 	err   error
 	// projects is the project picker's fetch, kept for the next opening.
 	projects []jira.Project
+	title    string // replaces the picker's title when set
 }
 
 // jiraAssigneeDebounceMsg fires after the debounce window to run the pending
@@ -326,6 +329,9 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 		m.jiraTab.projects = msg.projects
 	}
 	m.jiraPicker.err = msg.err
+	if msg.title != "" {
+		m.jiraPicker.title = msg.title
+	}
 	m.setJiraPickerItems(msg.items)
 	return m, nil
 }
@@ -510,6 +516,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.applyBulkPick(kind, bulk, it)
 	}
+	if kind == jiraPickTimesheet {
+		m.closeJiraPicker()
+		if it.id == "" {
+			return m, nil
+		}
+		return m.openJiraKey(it.id)
+	}
 	if kind == jiraPickBulk {
 		m.closeJiraPicker()
 		return m, m.applyBulkMenu(it.id)
@@ -598,6 +611,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	if field == "worklog" {
+		return m.applyWorklog(raw)
 	}
 	if strings.HasPrefix(field, "bulk-") {
 		return m.applyBulkField(field, raw)
@@ -761,6 +777,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "worklog":
+		title, hint, outerW = "Log work", "↵ log · esc cancel", m.jiraFieldInput.Width()+12
 	case "bulk-labels":
 		title, hint, outerW = "Edit labels", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "bulk-points":

@@ -732,6 +732,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openPlanning()
 	case key.Matches(msg, m.keys.Charts):
 		return m, m.openCharts()
+	case key.Matches(msg, m.keys.Timer):
+		return m, m.toggleTimer(m.selectedJiraKey())
+	case key.Matches(msg, m.keys.Timesheet):
+		return m, m.openTimesheet()
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
 	case key.Matches(msg, m.keys.Bulk):
@@ -1542,6 +1546,9 @@ func (m *Model) renderJiraPane(height, width int) string {
 		if t.total > len(t.cards) {
 			meta += fmt.Sprintf("  ·  first %d of %d", len(t.cards), t.total)
 		}
+	}
+	if tl := m.timerLabel(); tl != "" {
+		meta += "  ·  " + tl
 	}
 	k := m.keys
 	meta += "  ·  " + helpKey(k.Help) + " help  " + helpKey(k.Project) + " project  " + helpKey(k.Board) + " board  " +
