@@ -75,7 +75,8 @@ linked_issue back.
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
-priority_lowest type_bug type_story type_epic type_subtask type_other.
+priority_lowest type_bug type_story type_epic type_subtask type_other
+highlight.
 
 ### Rules
 
@@ -99,6 +100,8 @@ rules:
         title: "{{.Key}} done"  # kitty, Ghostty, WezTerm, foot)
       - type: exec              # argv; the issue as JSON on stdin and LANEWAY_*
         command: [notify-send, "{{.Key}}", "{{.Summary}}"]   # env; 30s timeout
+      - type: highlight         # a ● on the card until you open it
+        color: "#e0af68"        # optional, else the theme's highlight
 ```
 
 Template fields: Kind Key Summary Type Status Assignee Priority Points Parent

@@ -99,9 +99,10 @@ func TestCompileWarns(t *testing.T) {
 - {name: d, actions: [{type: exec}]}
 - {name: e}
 - {name: f, actions: [{type: log, text: "{{"}]}
-- {name: ok, actions: [{type: log}]}
+- {name: g, actions: [{type: highlight, color: red}]}
+- {name: ok, actions: [{type: log}, {type: highlight, color: "#f00"}]}
 `)
-	if s.Len() != 1 || len(warn) != 6 {
+	if s.Len() != 1 || len(warn) != 7 {
 		t.Errorf("len %d, warn %q", s.Len(), warn)
 	}
 }

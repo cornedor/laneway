@@ -3,6 +3,7 @@ package ui
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -617,5 +618,32 @@ func TestRuleNotifyAndExec(t *testing.T) {
 	m.rules, _ = rules.Compile([]rules.Rule{{Name: "x", Actions: []rules.Action{{Type: "exec", Command: []string{"false"}}}}})
 	if msg, _ := m.ruleExec(m.rules.Fire(rules.Event{Kind: "new", Card: cards[0]})[0])().(rulesLoggedMsg); msg.err == nil {
 		t.Error("a failing command reported nothing")
+	}
+}
+
+// TestRuleHighlight: a highlight rule marks the changed card in lanes and
+// list until the card is opened.
+func TestRuleHighlight(t *testing.T) {
+	m := jiraTabModel(t)
+	m.rules, _ = rules.Compile([]rules.Rule{{On: rules.StrList{"status"}, Actions: []rules.Action{{Type: "highlight"}}}})
+	cards := append([]jira.Card(nil), m.jiraTab.cards...)
+	m.runRules(cards)
+	cards[1].StatusID, cards[1].Status = "5", "Done"
+	out, _ := m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, cards: cards})
+	m = out.(Model)
+	marked := regexp.MustCompile(`● ABC-2`)
+	if !marked.MatchString(ansi.Strip(m.View().Content)) {
+		t.Fatal("lanes lack the mark")
+	}
+	m.jiraTab.wantLanes = false
+	m.renderJira()
+	if !marked.MatchString(ansi.Strip(m.View().Content)) || strings.Contains(ansi.Strip(m.View().Content), "● ABC-1") {
+		t.Fatal("list lacks the mark, or marks another card")
+	}
+	out, _ = m.showJiraKey("ABC-2")
+	m = out.(Model)
+	m.renderJira()
+	if marked.MatchString(ansi.Strip(m.View().Content)) {
+		t.Error("opening kept the mark")
 	}
 }

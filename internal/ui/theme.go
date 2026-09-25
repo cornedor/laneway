@@ -36,7 +36,8 @@ func defaultTheme() theme {
 		"type_story":       "2",
 		"type_epic":        "5",
 		"type_subtask":     "8",
-		"type_other":       "4", // task and the rest
+		"type_other":       "4",  // task and the rest
+		"highlight":        "11", // a card a rule highlighted
 	}
 }
 
@@ -51,7 +52,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#db4b4b", "priority_high": "#ff9e64",
 		"priority_low": "#7aa2f7", "priority_lowest": "#565f89",
 		"type_bug": "#f7768e", "type_story": "#9ece6a", "type_epic": "#bb9af7",
-		"type_subtask": "#565f89", "type_other": "#7aa2f7",
+		"type_subtask": "#565f89", "type_other": "#7aa2f7", "highlight": "#e0af68",
 	},
 	"catppuccin": { // mocha
 		"accent": "#89b4fa", "dim": "#6c7086", "selection_fg": "#cdd6f4",
@@ -61,7 +62,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#f38ba8", "priority_high": "#fab387",
 		"priority_low": "#89b4fa", "priority_lowest": "#6c7086",
 		"type_bug": "#f38ba8", "type_story": "#a6e3a1", "type_epic": "#cba6f7",
-		"type_subtask": "#6c7086", "type_other": "#89b4fa",
+		"type_subtask": "#6c7086", "type_other": "#89b4fa", "highlight": "#f9e2af",
 	},
 	"gruvbox": { // dark
 		"accent": "#83a598", "dim": "#928374", "selection_fg": "#ebdbb2",
@@ -71,7 +72,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#cc241d", "priority_high": "#fe8019",
 		"priority_low": "#83a598", "priority_lowest": "#928374",
 		"type_bug": "#fb4934", "type_story": "#b8bb26", "type_epic": "#d3869b",
-		"type_subtask": "#928374", "type_other": "#83a598",
+		"type_subtask": "#928374", "type_other": "#83a598", "highlight": "#fabd2f",
 	},
 }
 

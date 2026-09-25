@@ -137,9 +137,11 @@ type jiraTabState struct {
 	views    []jiraView
 	// rulesSeen is each board, view and filter's last fresh cards, for rules.
 	rulesSeen map[string][]jira.Card
-	viewIdx   int
-	wantLanes bool // the user's mode; a list-only view overrides it
-	modeRead  bool // wantLanes and the assignee were restored from the store
+	// highlights are cards a rule marked, by key: the colour, until opened.
+	highlights map[string]string
+	viewIdx    int
+	wantLanes  bool // the user's mode; a list-only view overrides it
+	modeRead   bool // wantLanes and the assignee were restored from the store
 
 	assignee jiraAssignee
 	quick    []jira.QuickFilter
@@ -813,6 +815,10 @@ func (m Model) openJiraKey(key string) (tea.Model, tea.Cmd) {
 
 // showJiraKey shows key in the panel without touching the history.
 func (m Model) showJiraKey(key string) (tea.Model, tea.Cmd) {
+	if _, ok := m.jiraTab.highlights[key]; ok {
+		delete(m.jiraTab.highlights, key)
+		m.jiraTab.rows = nil
+	}
 	refs := []reference{{kind: refJira, jiraKey: key}}
 	m.refOpen = true
 	m.refs = refs
@@ -1191,7 +1197,11 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
 	}
-	row := "  " + jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  "
+	row := "  "
+	if hl := m.jiraHighlight(c.Key); hl != "" {
+		row = hl + " "
+	}
+	row += jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  "
 	if f.typ {
 		row += jiraTypeIcon(c.Type) + " "
 	}
@@ -1211,6 +1221,18 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	row += title
 	row = ansi.Truncate(row, width-1, "…")
 	return m.jiraSelect(row, selected, width)
+}
+
+// jiraHighlight is the mark of a card a rule highlighted, "" for none.
+func (m *Model) jiraHighlight(key string) string {
+	c, ok := m.jiraTab.highlights[key]
+	if !ok {
+		return ""
+	}
+	if c == "" {
+		c = curTheme["highlight"]
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(c)).Render("●")
 }
 
 // jiraSelect paints a selected row across width: bright while the board has
@@ -1401,7 +1423,11 @@ func (m *Model) renderJiraLanes(width, height int) string {
 				continue
 			}
 			sel := l == t.lane && t.row < len(lane.cards) && lane.cards[t.row] == slots[r].ci
-			for _, line := range jiraCardLines(c, true, m.opts.fields) {
+			lines := jiraCardLines(c, true, m.opts.fields)
+			if hl := m.jiraHighlight(c.Key); hl != "" {
+				lines[0] = hl + " " + lines[0]
+			}
+			for _, line := range lines {
 				col = append(col, m.jiraSelect(ansi.Truncate(line, inner, "…"), sel, inner))
 			}
 			col = append(col, "")

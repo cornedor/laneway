@@ -2,7 +2,7 @@
 
 ## Next
 - `rules:` next steps (user ask 2026-09-25, like matterbox's docs/rules.md):
-  highlight card → `laneway rules test` →
+  `laneway rules test` →
   skip own edits (changelog author) → triggers beyond refresh.
   Open: may rules write to Jira (transition, comment)? Ask first.
 - Images follow-ups: verify in real kitty/ghostty;
@@ -14,6 +14,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `rules:` `highlight` action: ● on the card until opened (theme `highlight`)
 - `rules:` `notify` (OSC 777) and `exec` (argv templates, JSON stdin, LANEWAY_* env) actions
 - `rules:` engine: diff on refresh (new/status/assignee/priority/points/summary), globs + regexp + not, `log` action
 - `ui.card_limit`: cards per view fetch (default 500)

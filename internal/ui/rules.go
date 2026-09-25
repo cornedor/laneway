@@ -45,6 +45,7 @@ func (m *Model) runRules(cards []jira.Card) tea.Cmd {
 	}
 	var lines []string
 	var cmds []tea.Cmd
+	marked := false
 	now := time.Now().Format("2006-01-02 15:04:05")
 	for _, ev := range rules.Diff(prev, cards) {
 		for _, f := range m.rules.Fire(ev) {
@@ -55,6 +56,12 @@ func (m *Model) runRules(cards []jira.Card) tea.Cmd {
 				cmds = append(cmds, tea.Raw(notifySeq(f.Title, f.Text)))
 			case "exec":
 				cmds = append(cmds, m.ruleExec(f))
+			case "highlight":
+				if t.highlights == nil {
+					t.highlights = map[string]string{}
+				}
+				t.highlights[f.Vars["Key"]] = f.Color
+				marked = true
 			}
 		}
 	}
@@ -68,6 +75,10 @@ func (m *Model) runRules(cards []jira.Card) tea.Cmd {
 			}
 			return rulesLoggedMsg{err}
 		})
+	}
+	if marked {
+		t.rows = nil
+		m.renderJira()
 	}
 	return tea.Batch(cmds...)
 }

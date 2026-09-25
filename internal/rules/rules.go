@@ -9,6 +9,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -57,12 +58,13 @@ type Action struct {
 	Text    string   `yaml:"text"`    // log line or notification body; "" says what changed
 	Title   string   `yaml:"title"`   // notify: the title, "" for laneway
 	Command []string `yaml:"command"` // exec: argv
+	Color   string   `yaml:"color"`   // highlight: ANSI 0–255 or #rrggbb, "" for the theme's
 }
 
 // Every text is a template over Vars: {{.Key}} {{.Summary}} {{.OldStatus}} …
 
 // actionTypes are the actions a rule can take.
-var actionTypes = []string{"log", "notify", "exec"}
+var actionTypes = []string{"log", "notify", "exec", "highlight"}
 
 // StrList is one string or a list of them.
 type StrList []string
@@ -177,6 +179,9 @@ func compile(r Rule) (compiled, error) {
 		if a.Type == "exec" && len(a.Command) == 0 {
 			return c, fmt.Errorf("exec needs a command")
 		}
+		if n, err := strconv.Atoi(a.Color); a.Color != "" && !(hexColor.MatchString(a.Color) || err == nil && n >= 0 && n <= 255) {
+			return c, fmt.Errorf("color %q is not 0–255 or #rrggbb", a.Color)
+		}
 		var ca cact
 		var err error
 		parse := func(what, src string) *template.Template {
@@ -231,6 +236,7 @@ type Firing struct {
 	Text   string   // log line, notification body; for Explain, why it did not fire
 	Title  string   // notify
 	Argv   []string // exec
+	Color  string   // highlight
 	Vars   map[string]string
 }
 
@@ -244,7 +250,7 @@ func (s *Set) Fire(ev Event) []Firing {
 		vars := Vars(ev)
 		for i, a := range r.Actions {
 			ca := r.acts[i]
-			f := Firing{Rule: r.Name, Action: a.Type, Vars: vars, Text: render(ca.text, vars)}
+			f := Firing{Rule: r.Name, Action: a.Type, Vars: vars, Text: render(ca.text, vars), Color: a.Color}
 			if f.Text == "" {
 				f.Text = Describe(ev)
 			}
@@ -323,6 +329,8 @@ func anyGlob(globs []string, v string) bool {
 	}
 	return false
 }
+
+var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 
 // Vars are what templates, exec's environment and its stdin see.
 func Vars(ev Event) map[string]string {
