@@ -40,6 +40,7 @@ var helpSections = []struct {
 		{"o", "open in browser"},
 		{"y / Y", "copy key / URL"},
 		{"r", "refresh"},
+		{"backspace", "previous issue"},
 		{"tab", "to board"},
 		{"esc", "close"},
 	}},

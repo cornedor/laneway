@@ -113,6 +113,7 @@ type Model struct {
 	refOpen    bool
 	refs       []reference
 	refIdx     int
+	refBack    []string // issues the panel showed before, newest last
 	refGen     int
 	refLoading bool
 	refErr     error

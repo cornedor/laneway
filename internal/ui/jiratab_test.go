@@ -487,3 +487,28 @@ func TestJiraMineToggle(t *testing.T) {
 		t.Errorf("second m: assignee = %+v, want everyone", a)
 	}
 }
+
+func TestPanelBackHistory(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.openJiraKey("ABC-1")
+	m = out.(Model)
+	out, _ = m.openJiraKey("ABC-3")
+	m = out.(Model)
+	out, _ = m.openJiraKey("ABC-3") // reopening the same issue adds nothing
+	m = out.(Model)
+	if len(m.refBack) != 1 {
+		t.Fatalf("history = %v, want [ABC-1]", m.refBack)
+	}
+	out, cmd := m.handleKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	m = out.(Model)
+	if cmd == nil || m.currentRef().jiraKey != "ABC-1" || len(m.refBack) != 0 {
+		t.Fatalf("back: showing %v, history %v", m.currentRef(), m.refBack)
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" {
+		t.Errorf("board cursor on %q, want ABC-1", c.Key)
+	}
+	m.closeRef()
+	if m.refBack != nil {
+		t.Error("closing kept the history")
+	}
+}

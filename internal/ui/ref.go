@@ -78,6 +78,7 @@ func (m *Model) closeRef() {
 	}
 	m.refOpen = false
 	m.refs = nil
+	m.refBack = nil
 	m.refIdx = 0
 	m.jiraIssue = nil
 	m.refErr = nil
@@ -127,6 +128,15 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "?":
 		m.helpOpen = true
+		return m, nil
+	case "backspace":
+		if n := len(m.refBack); n > 0 {
+			key := m.refBack[n-1]
+			m.refBack = m.refBack[:n-1]
+			m.selectJiraKey(key)
+			m.renderJira()
+			return m.showJiraKey(key)
+		}
 		return m, nil
 	case "y", "Y":
 		if m.jiraIssue != nil {

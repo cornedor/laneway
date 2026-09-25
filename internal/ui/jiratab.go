@@ -778,8 +778,17 @@ func (m Model) openJiraCard() (tea.Model, tea.Cmd) {
 	return m.openJiraKey(c.Key)
 }
 
-// openJiraKey shows the issue key in the reference panel.
+// openJiraKey shows the issue key in the reference panel, remembering the
+// issue it replaces for backspace.
 func (m Model) openJiraKey(key string) (tea.Model, tea.Cmd) {
+	if r := m.currentRef(); r != nil && r.jiraKey != key {
+		m.refBack = append(m.refBack, r.jiraKey)
+	}
+	return m.showJiraKey(key)
+}
+
+// showJiraKey shows key in the panel without touching the history.
+func (m Model) showJiraKey(key string) (tea.Model, tea.Cmd) {
 	refs := []reference{{kind: refJira, jiraKey: key}}
 	m.refOpen = true
 	m.refs = refs
