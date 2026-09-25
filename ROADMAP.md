@@ -7,13 +7,13 @@
 - Planning step 5: edit a sprint's name / goal / dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
 - Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
-- Inbox step 3: notify (OSC 777) on a new mention
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- New mentions raise a desktop notification (read when the inbox count rises)
 - Planning `N`: create a sprint, named on from the last one
 - Timesheet `e`: edit an entry's time and comment (a subtask's parent: the panel's Parent field)
 - Cards show `PR` (open) or `✓PR` (merged) from the Development field; `card_fields: pr`

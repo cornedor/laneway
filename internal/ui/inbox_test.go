@@ -69,3 +69,24 @@ func TestInboxBadge(t *testing.T) {
 		t.Error("opening the inbox should clear the badge")
 	}
 }
+
+// TestMentionNotify: a mention after the app started notifies once; older
+// ones and repeats stay quiet.
+func TestMentionNotify(t *testing.T) {
+	m := jiraTabModel(t)
+	m.started = time.Now().Add(-time.Hour)
+	old := jira.InboxEntry{Key: "ABC-1", Who: "Ann", Mention: true, When: m.started.Add(-time.Minute)}
+	fresh := jira.InboxEntry{Key: "ABC-2", Who: "Bob", Mention: true, When: time.Now()}
+	comment := jira.InboxEntry{Key: "ABC-3", When: time.Now()}
+	out, cmd := m.handleInboxMentions(inboxMentionsMsg{[]jira.InboxEntry{old, fresh, comment}})
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("a fresh mention should notify")
+	}
+	if _, cmd = m.handleInboxMentions(inboxMentionsMsg{[]jira.InboxEntry{old, fresh}}); cmd != nil {
+		t.Error("the same mention should not notify twice")
+	}
+	if _, cmd := m.handleInboxCount(inboxCountMsg{0}); cmd != nil {
+		t.Error("a count that did not rise should not read the inbox")
+	}
+}

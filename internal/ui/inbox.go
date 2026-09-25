@@ -6,6 +6,9 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/rules"
 )
 
 // I opens the inbox: what others did on your issues since you last opened
@@ -102,4 +105,46 @@ func (m *Model) inboxBadge() string {
 		return ""
 	}
 	return fmt.Sprintf("✉ %d", m.inboxUnread)
+}
+
+// inboxMentionsMsg are the inbox's mentions, read when the count rose.
+type inboxMentionsMsg struct{ entries []jira.InboxEntry }
+
+// handleInboxCount shows the count; when it rose, reads the inbox for
+// mentions to notify.
+func (m Model) handleInboxCount(msg inboxCountMsg) (tea.Model, tea.Cmd) {
+	rose := msg.n > m.inboxUnread
+	m.inboxUnread = msg.n
+	if !rose {
+		return m, nil
+	}
+	c, ctx, since := m.jiraClient, m.ctx, m.inboxSince(time.Now())
+	return m, func() tea.Msg {
+		entries, err := c.Inbox(ctx, since)
+		if err != nil {
+			return nil
+		}
+		return inboxMentionsMsg{entries}
+	}
+}
+
+// handleInboxMentions notifies each mention newer than the last notified;
+// mentions from before the app started stay quiet.
+func (m Model) handleInboxMentions(msg inboxMentionsMsg) (tea.Model, tea.Cmd) {
+	if m.mentionsSeen.IsZero() {
+		m.mentionsSeen = m.started
+	}
+	var cmds []tea.Cmd
+	newest := m.mentionsSeen
+	for _, e := range msg.entries {
+		if !e.Mention || !e.When.After(m.mentionsSeen) {
+			continue
+		}
+		if e.When.After(newest) {
+			newest = e.When
+		}
+		cmds = append(cmds, tea.Raw(rules.NotifySeq(e.Who+" mentioned you on "+e.Key, e.Summary)))
+	}
+	m.mentionsSeen = newest
+	return m, tea.Batch(cmds...)
 }

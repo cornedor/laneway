@@ -235,8 +235,11 @@ type Model struct {
 	prefetchSeq int
 	// jql is the open JQL search input (jql.go).
 	jql *jqlState
-	// inboxUnread is the header's count of issues with news (inbox.go).
-	inboxUnread int
+	// inboxUnread is the header's count of issues with news (inbox.go);
+	// mentionsSeen the newest mention notified, started when the app began.
+	inboxUnread  int
+	mentionsSeen time.Time
+	started      time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -300,6 +303,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
 		fieldCursor:     -1,
+		started:         time.Now(),
 	}
 	m.refView.SoftWrap = true
 	m.jiraTab.wantLanes = opts.lanes
@@ -392,8 +396,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case inboxTickMsg:
 		return m.handleInboxTick()
 	case inboxCountMsg:
-		m.inboxUnread = msg.n
-		return m, nil
+		return m.handleInboxCount(msg)
+	case inboxMentionsMsg:
+		return m.handleInboxMentions(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:

@@ -205,7 +205,8 @@ the block goes, anything else and it comes back untouched.
 time) on the issues you watch, are assigned or reported: field changes and
 comments, those mentioning you first and marked `@`. Filter by typing;
 `enter` opens the issue. The header shows `✉ 3` when issues of yours were
-changed by others since (checked every 5 minutes).
+changed by others since (checked every 5 minutes); a new mention of you
+also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 
 ## Standup
 
