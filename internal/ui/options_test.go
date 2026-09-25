@@ -73,7 +73,7 @@ func TestDefaultModeList(t *testing.T) {
 		t.Fatal("default should be lanes")
 	}
 	opts, _ := optionsFrom(config.UIConfig{DefaultMode: "list"})
-	m2 := New(m.ctx, config.JiraConfig{}, config.UIConfig{DefaultMode: "list"}, m.store)
+	m2 := New(m.ctx, config.JiraConfig{}, config.UIConfig{DefaultMode: "list"}, nil, "", m.store)
 	if m2.jiraTab.wantLanes || opts.lanes {
 		t.Error("default_mode list ignored")
 	}

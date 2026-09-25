@@ -17,6 +17,7 @@ import (
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/viewport"
 )
@@ -128,6 +129,10 @@ type Model struct {
 	focus  focus
 	status string
 
+	// rules fire on board changes, logged to rulesLog.
+	rules    *rules.Set
+	rulesLog string
+
 	jiraClient      *jira.Client
 	jiraProjects    []string
 	jiraRepos       map[string]string
@@ -177,13 +182,15 @@ type Model struct {
 }
 
 // New builds the app from the jira: config.
-func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *store.Store) Model {
+func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []rules.Rule, rulesLog string, st *store.Store) Model {
 	opts, warn := optionsFrom(ui)
 	keys := defaultKeys()
 	warn = append(warn, keys.applyKeys(ui.Keys)...)
 	th, thWarn := themeFrom(ui.Theme)
 	applyTheme(th)
 	warn = append(warn, thWarn...)
+	ruleSet, ruleWarn := rules.Compile(rs)
+	warn = append(warn, ruleWarn...)
 	prompt := defaultJiraStartPrompt
 	if cfg.StartPrompt != "" {
 		prompt = cfg.StartPrompt
@@ -206,6 +213,8 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, st *sto
 		jiraTab:         newJiraTabState(),
 		images:          newPanelImages(opts.images, opts.imageMaxRows),
 		opts:            opts,
+		rules:           ruleSet,
+		rulesLog:        rulesLog,
 		status:          strings.Join(warn, " · "),
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
@@ -299,6 +308,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:
 		return m.handleJiraAutoRefresh()
+	case rulesLoggedMsg:
+		if msg.err != nil {
+			m.status = "rules log: " + msg.err.Error()
+		}
+		return m, nil
 	case openedMsg:
 		if msg.err != nil {
 			m.status = "open " + msg.name + ": " + msg.err.Error()

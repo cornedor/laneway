@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/cornedor/laneway/internal/rules"
 )
 
 // JiraConfig is matterbox's jira: section.
@@ -25,6 +27,8 @@ type JiraConfig struct {
 type Config struct {
 	Jira JiraConfig `yaml:"jira"`
 	UI   UIConfig   `yaml:"ui"`
+	// Rules fire on the changes a board refresh shows; see internal/rules.
+	Rules []rules.Rule `yaml:"rules"`
 }
 
 // UIConfig tunes the app; every field is optional and "" / 0 keeps the

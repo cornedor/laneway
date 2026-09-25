@@ -128,13 +128,15 @@ type jiraDrag struct {
 }
 
 type jiraTabState struct {
-	view      viewport.Model // the list mode's rows
-	project   string
-	projects  []jira.Project // the picker's list, fetched once
-	boards    []jira.Board
-	board     int // index into boards
-	cfg       *jira.BoardConfig
-	views     []jiraView
+	view     viewport.Model // the list mode's rows
+	project  string
+	projects []jira.Project // the picker's list, fetched once
+	boards   []jira.Board
+	board    int // index into boards
+	cfg      *jira.BoardConfig
+	views    []jiraView
+	// rulesSeen is each board, view and filter's last fresh cards, for rules.
+	rulesSeen map[string][]jira.Card
 	viewIdx   int
 	wantLanes bool // the user's mode; a list-only view overrides it
 	modeRead  bool // wantLanes and the assignee were restored from the store
@@ -496,7 +498,10 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 		t.statusNames = msg.statusNames
 	}
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
-	return m, nil
+	if msg.cached || msg.err != nil {
+		return m, nil
+	}
+	return m, m.runRules(msg.cards)
 }
 
 func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
@@ -510,7 +515,10 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 	keep := m.selectedJiraKey()
 	t.viewIdx = msg.viewIdx
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
-	return m, nil
+	if msg.cached || msg.err != nil {
+		return m, nil
+	}
+	return m, m.runRules(msg.cards)
 }
 
 // installJiraCards shows a fetched card list, keeping the selection on the

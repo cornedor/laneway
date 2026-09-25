@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -8,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/rules"
 )
 
 // jiraTabModel sits on the Jira tab with a loaded scrum board: an active
@@ -560,5 +563,33 @@ func TestJiraCardShowsParent(t *testing.T) {
 	m.applyJiraSearch()
 	if len(m.jiraTab.order) != 1 {
 		t.Errorf("search by parent matched %d cards, want 1", len(m.jiraTab.order))
+	}
+}
+
+// TestRulesLogBoardChanges: the first fresh load is a baseline; a refresh
+// logs what the rules match, a cached copy logs nothing.
+func TestRulesLogBoardChanges(t *testing.T) {
+	m := jiraTabModel(t)
+	m.rulesLog = filepath.Join(t.TempDir(), "rules.log")
+	m.rules, _ = rules.Compile([]rules.Rule{{Name: "moved", On: rules.StrList{"status"}, Actions: []rules.Action{{Type: "log"}}}})
+	cards := append([]jira.Card(nil), m.jiraTab.cards...)
+	if cmd := m.runRules(cards); cmd != nil {
+		t.Fatal("baseline fired")
+	}
+	cards[1].StatusID, cards[1].Status = "5", "Done"
+	cached := jiraCardsMsg{seq: m.jiraTab.seq, cached: true, cards: cards}
+	if _, cmd := m.handleJiraCards(cached); cmd != nil {
+		t.Error("cached cards fired")
+	}
+	_, cmd := m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, cards: cards})
+	if cmd == nil {
+		t.Fatal("refresh did not fire")
+	}
+	if msg := cmd().(rulesLoggedMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	b, _ := os.ReadFile(m.rulesLog)
+	if !strings.HasSuffix(string(b), " moved: ABC-2 status In progress → Done\n") {
+		t.Errorf("log = %q", b)
 	}
 }

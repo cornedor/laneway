@@ -1,11 +1,10 @@
 # Roadmap
 
 ## Next
-- `rules:` client-side rules like matterbox (docs/rules.md there), user ask 2026-09-25.
-  Match on issue changes seen at refresh (new, status/assignee/field change,
-  mention) by project, type, status, JQL-ish fields, regex; actions: log,
-  notify, command, webhook, highlight card. `laneway rules test`. Split:
-  engine + log → notify/command → highlight → triggers beyond refresh
+- `rules:` next steps (user ask 2026-09-25, like matterbox's docs/rules.md):
+  notify/command actions → highlight card → `laneway rules test` →
+  skip own edits (changelog author) → triggers beyond refresh.
+  Open: may rules write to Jira (transition, comment)? Ask first.
 - Images follow-ups: verify in real kitty/ghostty;
   query real cell pixel size (CSI 16 t); tmux passthrough;
   `enter` on an image for a full-size view
@@ -15,6 +14,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `rules:` engine: diff on refresh (new/status/assignee/priority/points/summary), globs + regexp + not, `log` action
 - `ui.card_limit`: cards per view fetch (default 500)
 - `ui.views`: JQL views of every board after sprint/backlog, lanes or list
 - `ui.theme` presets: tokyonight, catppuccin, gruvbox (`theme: name` or `preset:` + overrides)

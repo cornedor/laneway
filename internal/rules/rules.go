@@ -1,0 +1,326 @@
+// Package rules runs the config's rules: over the changes a board refresh
+// shows (a new issue, a status or assignee change, …), like matterbox's
+// listen rules over chat events.
+package rules
+
+import (
+	"bytes"
+	"fmt"
+	"path"
+	"regexp"
+	"slices"
+	"strings"
+	"text/template"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/cornedor/laneway/internal/jira"
+)
+
+// The change kinds a rule can fire on (on:). A rule with no on: fires on
+// all of them.
+const (
+	New      = "new"
+	Status   = "status"
+	Assignee = "assignee"
+	Priority = "priority"
+	Points   = "points"
+	Summary  = "summary"
+)
+
+var kinds = []string{New, Status, Assignee, Priority, Points, Summary}
+
+// Rule is one entry of the config's rules: list.
+type Rule struct {
+	Name    string   `yaml:"name"`
+	On      StrList  `yaml:"on"`
+	Match   Match    `yaml:"match"`
+	Actions []Action `yaml:"actions"`
+}
+
+// Match is what an issue must be for a rule to fire; every set field must
+// hold. Globs (*, ?) are case-insensitive and a list matches any entry.
+type Match struct {
+	Key        StrList `yaml:"key"`
+	Type       StrList `yaml:"type"`
+	Status     StrList `yaml:"status"`
+	FromStatus StrList `yaml:"from_status"` // the status before a status change
+	Assignee   StrList `yaml:"assignee"`    // display name; "none" for unassigned
+	Priority   StrList `yaml:"priority"`
+	Summary    string  `yaml:"summary"` // RE2 regexp
+	Not        *Match  `yaml:"not"`
+}
+
+// Action is what a firing rule does.
+type Action struct {
+	Type string `yaml:"type"` // log
+	Text string `yaml:"text"` // a template over the issue: {{.Key}} {{.Summary}} …
+}
+
+// StrList is one string or a list of them.
+type StrList []string
+
+func (l *StrList) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		*l = StrList{n.Value}
+		return nil
+	}
+	var s []string
+	if err := n.Decode(&s); err != nil {
+		return err
+	}
+	*l = s
+	return nil
+}
+
+// Event is one change a refresh showed: Card as it is now, Old as it was
+// (zero for a new issue).
+type Event struct {
+	Kind string
+	Card jira.Card
+	Old  jira.Card
+}
+
+// Diff lists the changes from old to cur, in cur's order. Issues that left
+// the list are not events.
+func Diff(old, cur []jira.Card) []Event {
+	prev := make(map[string]jira.Card, len(old))
+	for _, c := range old {
+		prev[c.Key] = c
+	}
+	var out []Event
+	for _, c := range cur {
+		o, ok := prev[c.Key]
+		if !ok {
+			out = append(out, Event{Kind: New, Card: c})
+			continue
+		}
+		add := func(kind string, changed bool) {
+			if changed {
+				out = append(out, Event{Kind: kind, Card: c, Old: o})
+			}
+		}
+		add(Status, o.StatusID != c.StatusID)
+		add(Assignee, o.AssigneeID != c.AssigneeID)
+		add(Priority, o.Priority != c.Priority)
+		add(Points, o.Points != c.Points)
+		add(Summary, o.Summary != c.Summary)
+	}
+	return out
+}
+
+// Set is the compiled rules.
+type Set struct {
+	rules []compiled
+}
+
+type compiled struct {
+	Rule
+	match *cmatch
+	texts []*template.Template
+}
+
+// cmatch is a Match with its regexp compiled, and its Not.
+type cmatch struct {
+	*Match
+	summary *regexp.Regexp
+	not     *cmatch
+}
+
+// Compile checks every rule, keeping the good ones and reporting the rest,
+// so one typo never disarms the others.
+func Compile(rs []Rule) (*Set, []string) {
+	s := &Set{}
+	var warn []string
+	for i, r := range rs {
+		c, err := compile(r)
+		if err != nil {
+			warn = append(warn, fmt.Sprintf("rules[%d] %s: %v", i, r.Name, err))
+			continue
+		}
+		s.rules = append(s.rules, c)
+	}
+	return s, warn
+}
+
+func compile(r Rule) (compiled, error) {
+	c := compiled{Rule: r}
+	for _, k := range r.On {
+		if !slices.Contains(kinds, k) {
+			return c, fmt.Errorf("on: %q is not one of %s", k, strings.Join(kinds, ", "))
+		}
+	}
+	var err error
+	if c.match, err = compileMatch(&r.Match); err != nil {
+		return c, err
+	}
+	if len(r.Actions) == 0 {
+		return c, fmt.Errorf("no actions")
+	}
+	for _, a := range r.Actions {
+		if a.Type != "log" {
+			return c, fmt.Errorf("unknown action type %q", a.Type)
+		}
+		t, err := template.New("").Option("missingkey=error").Parse(a.Text)
+		if err != nil {
+			return c, fmt.Errorf("bad text template: %v", err)
+		}
+		c.texts = append(c.texts, t)
+	}
+	return c, nil
+}
+
+func compileMatch(m *Match) (*cmatch, error) {
+	if m == nil {
+		return nil, nil
+	}
+	c := &cmatch{Match: m}
+	if m.Summary != "" {
+		var err error
+		if c.summary, err = regexp.Compile(m.Summary); err != nil {
+			return nil, fmt.Errorf("bad summary regexp %q: %v", m.Summary, err)
+		}
+	}
+	for _, globs := range [][]string{m.Key, m.Type, m.Status, m.FromStatus, m.Assignee, m.Priority} {
+		for _, g := range globs {
+			if _, err := path.Match(strings.ToLower(g), ""); err != nil {
+				return nil, fmt.Errorf("bad glob %q", g)
+			}
+		}
+	}
+	var err error
+	c.not, err = compileMatch(m.Not)
+	return c, err
+}
+
+// Len is how many rules compiled.
+func (s *Set) Len() int { return len(s.rules) }
+
+// Firing is one action a rule takes on an event.
+type Firing struct {
+	Rule   string
+	Action string
+	Text   string
+}
+
+// Fire runs the matching rules' actions over ev, in rule order.
+func (s *Set) Fire(ev Event) []Firing {
+	var out []Firing
+	for _, r := range s.rules {
+		if r.why(ev) != "" {
+			continue
+		}
+		for i, a := range r.Actions {
+			out = append(out, Firing{Rule: r.Name, Action: a.Type, Text: render(r.texts[i], ev)})
+		}
+	}
+	return out
+}
+
+// Explain says, per rule, why ev would not fire it ("" when it would).
+func (s *Set) Explain(ev Event) []Firing {
+	out := make([]Firing, 0, len(s.rules))
+	for _, r := range s.rules {
+		out = append(out, Firing{Rule: r.Name, Text: r.why(ev)})
+	}
+	return out
+}
+
+// why is the first condition ev fails, "" when the rule fires.
+func (r compiled) why(ev Event) string {
+	if len(r.On) > 0 && !slices.Contains(r.On, ev.Kind) {
+		return "on: not " + ev.Kind
+	}
+	return r.match.why(ev)
+}
+
+// why is the first condition of m that ev fails, "" when all hold and its
+// not does not.
+func (m *cmatch) why(ev Event) string {
+	c := ev.Card
+	assignee := c.Assignee
+	if c.AssigneeID == "" {
+		assignee = "none"
+	}
+	checks := []struct {
+		name  string
+		globs []string
+		v     string
+	}{
+		{"key", m.Key, c.Key},
+		{"type", m.Type, c.Type},
+		{"status", m.Status, c.Status},
+		{"from_status", m.FromStatus, ev.Old.Status},
+		{"assignee", m.Assignee, assignee},
+		{"priority", m.Priority, c.Priority},
+	}
+	for _, ch := range checks {
+		if len(ch.globs) > 0 && !anyGlob(ch.globs, ch.v) {
+			return fmt.Sprintf("%s: %q", ch.name, ch.v)
+		}
+	}
+	if len(m.FromStatus) > 0 && ev.Kind != Status {
+		return "from_status: not a status change"
+	}
+	if m.summary != nil && !m.summary.MatchString(c.Summary) {
+		return "summary: no match"
+	}
+	if m.not != nil && m.not.why(ev) == "" {
+		return "not: matched"
+	}
+	return ""
+}
+
+func anyGlob(globs []string, v string) bool {
+	v = strings.ToLower(v)
+	for _, g := range globs {
+		if ok, _ := path.Match(strings.ToLower(g), v); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// render fills a log text; an empty template says what happened.
+func render(t *template.Template, ev Event) string {
+	var b bytes.Buffer
+	data := map[string]any{
+		"Kind": ev.Kind, "Key": ev.Card.Key, "Summary": ev.Card.Summary, "Type": ev.Card.Type,
+		"Status": ev.Card.Status, "Assignee": ev.Card.Assignee, "Priority": ev.Card.Priority,
+		"Points": ev.Card.Points, "Parent": ev.Card.ParentKey,
+		"OldStatus": ev.Old.Status, "OldAssignee": ev.Old.Assignee,
+		"OldPriority": ev.Old.Priority, "OldPoints": ev.Old.Points,
+	}
+	if err := t.Execute(&b, data); err != nil {
+		return "template: " + err.Error()
+	}
+	if b.Len() == 0 {
+		return Describe(ev)
+	}
+	return b.String()
+}
+
+// Describe is a one-line account of ev: "ABC-1 status To do → Done".
+func Describe(ev Event) string {
+	c, o := ev.Card, ev.Old
+	switch ev.Kind {
+	case New:
+		return fmt.Sprintf("%s new: %s", c.Key, c.Summary)
+	case Status:
+		return fmt.Sprintf("%s status %s → %s", c.Key, o.Status, c.Status)
+	case Assignee:
+		return fmt.Sprintf("%s assignee %s → %s", c.Key, orNone(o.Assignee), orNone(c.Assignee))
+	case Priority:
+		return fmt.Sprintf("%s priority %s → %s", c.Key, o.Priority, c.Priority)
+	case Points:
+		return fmt.Sprintf("%s points %s → %s", c.Key, orNone(o.Points), orNone(c.Points))
+	}
+	return fmt.Sprintf("%s summary: %s", c.Key, c.Summary)
+}
+
+func orNone(s string) string {
+	if s == "" {
+		return "none"
+	}
+	return s
+}

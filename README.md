@@ -77,6 +77,28 @@ Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
 priority_lowest type_bug type_story type_epic type_subtask type_other.
 
+### Rules
+
+Top-level `rules:` fire on what a board refresh shows changed since the last
+refresh of the same view and filters: a new issue, or a status, assignee,
+priority, points or summary change (your own edits too).
+
+```yaml
+rules:
+  - name: done-bugs
+    on: status                  # new status assignee priority points summary; default all
+    match:                      # all must hold; globs, case-insensitive, one or a list
+      type: Bug
+      status: [Done, "Won*"]
+      from_status: "In *"
+      # key, assignee ("none" = unassigned), priority, summary (regexp), not: {…}
+    actions:
+      - type: log               # appends to ~/.config/laneway/rules.log
+        text: "{{.Key}} {{.OldStatus}} → {{.Status}}"   # empty: a default line
+```
+
+A bad rule is skipped and reported on the status line.
+
 State (last project, board, view, filters, cached boards) lives in
 `~/.config/laneway/state.json`. An existing `~/.config/jiratui` or matterbox
 config is picked up as a fallback.

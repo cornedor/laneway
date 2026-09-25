@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -50,7 +51,8 @@ func run(cfgPath string) error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	final, err := tea.NewProgram(ui.New(ctx, cfg.Jira, cfg.UI, st)).Run()
+	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
+	final, err := tea.NewProgram(ui.New(ctx, cfg.Jira, cfg.UI, cfg.Rules, rulesLog, st)).Run()
 	if m, ok := final.(ui.Model); ok {
 		fmt.Fprint(os.Stdout, m.ReleaseImages())
 	}
