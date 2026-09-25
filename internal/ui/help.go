@@ -15,6 +15,7 @@ var helpSections = []struct {
 	{"Board", [][2]string{
 		{"↑↓ ←→ / hjkl", "move"},
 		{"enter", "open issue"},
+		{"#", "go to issue by key"},
 		{"o", "open in browser"},
 		{"y / Y", "copy key / URL"},
 		{"p / b", "project / board"},

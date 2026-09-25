@@ -122,6 +122,9 @@ type Model struct {
 
 	helpOpen bool
 
+	jiraGotoActive bool
+	jiraGotoInput  textinput.Model
+
 	jiraPicker       jiraPickerState
 	jiraPointsActive bool
 	jiraPointsKey    string
@@ -257,6 +260,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		m.helpOpen = false
 		return m, nil
+	case m.jiraGotoActive:
+		return m.handleJiraGotoKey(msg)
 	case m.jiraPicker.active:
 		return m.handleJiraPickerKey(msg)
 	case m.jiraPointsActive:
@@ -274,7 +279,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.helpOpen || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.helpOpen || m.jiraGotoActive || m.jiraPicker.active || m.jiraPointsActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -350,6 +355,8 @@ func (m *Model) renderOverlay(bodyH int) string {
 	switch {
 	case m.helpOpen:
 		return m.renderHelp()
+	case m.jiraGotoActive:
+		return m.renderJiraGoto()
 	case m.jiraCommentActive:
 		return m.renderJiraCommentInput()
 	case m.jiraPointsActive:

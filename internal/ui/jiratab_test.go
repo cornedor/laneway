@@ -365,3 +365,32 @@ func TestJiraTabCopyKey(t *testing.T) {
 		t.Errorf("Y: status=%q, want the browse URL", m.status)
 	}
 }
+
+func TestJiraGotoKey(t *testing.T) {
+	for in, want := range map[string]string{
+		"abc-12": "ABC-12", " 42 ": "ABC-42", "XYZ-1": "XYZ-1", "abc": "", "-1": "", "": "",
+	} {
+		if got := jiraGotoKey(in, "ABC"); got != want {
+			t.Errorf("jiraGotoKey(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestJiraGotoOpensPanel(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "#"))
+	m = out.(Model)
+	if !m.jiraGotoActive {
+		t.Fatal("# did not open the prompt")
+	}
+	out, _ = m.handleKey(keyMsg(t, "3"))
+	m = out.(Model)
+	out, cmd := m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if m.jiraGotoActive || !m.refOpen || m.refs[0].jiraKey != "ABC-3" || cmd == nil {
+		t.Fatalf("after enter: active=%v open=%v refs=%v", m.jiraGotoActive, m.refOpen, m.refs)
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-3" {
+		t.Errorf("board cursor on %q, want ABC-3", c.Key)
+	}
+}

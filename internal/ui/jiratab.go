@@ -672,6 +672,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.startJiraSearch()
 	case msg.String() == "?":
 		m.helpOpen = true
+	case msg.String() == "#":
+		m.openJiraGoto()
 	case msg.String() == "y", msg.String() == "Y":
 		return m, m.copyJira(m.selectedJiraKey(), msg.String() == "Y")
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":
@@ -746,7 +748,12 @@ func (m Model) openJiraCard() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	refs := []reference{{kind: refJira, jiraKey: c.Key}}
+	return m.openJiraKey(c.Key)
+}
+
+// openJiraKey shows the issue key in the reference panel.
+func (m Model) openJiraKey(key string) (tea.Model, tea.Cmd) {
+	refs := []reference{{kind: refJira, jiraKey: key}}
 	m.refOpen = true
 	m.refs = refs
 	m.refIdx = 0
