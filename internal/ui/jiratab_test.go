@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"jiratui/internal/jira"
 )
@@ -411,5 +412,20 @@ func TestJiraAutoRefresh(t *testing.T) {
 	m.helpOpen = false
 	if out, _ = m.handleJiraAutoRefresh(); out.(Model).jiraTab.seq == seq {
 		t.Error("stale idle board did not refresh")
+	}
+}
+
+func TestJiraPriorityMark(t *testing.T) {
+	for p, want := range map[string]string{"Highest": "⇈", "High": "↑", "Medium": "", "": "", "Low": "↓", "Lowest": "⇊"} {
+		if got := ansi.Strip(jiraPriorityMark(p)); got != want {
+			t.Errorf("jiraPriorityMark(%q) = %q, want %q", p, got, want)
+		}
+	}
+	m := jiraTabModel(t)
+	m.jiraTab.cards[0].Priority = "Highest"
+	m.buildJiraLanes()
+	m.renderJira()
+	if !strings.Contains(m.View().Content, "⇈") {
+		t.Error("lane card lacks its priority mark")
 	}
 }

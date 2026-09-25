@@ -1055,6 +1055,23 @@ func jiraTypeIcon(t string) string {
 	return st("4").Render("")
 }
 
+// jiraPriorityMark marks a card's priority, "" for medium or none: the
+// default needs no ink.
+func jiraPriorityMark(p string) string {
+	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
+	switch strings.ToLower(p) {
+	case "highest", "blocker", "critical":
+		return st("1").Render("⇈")
+	case "high", "major":
+		return st("9").Render("↑")
+	case "low", "minor":
+		return st("4").Render("↓")
+	case "lowest", "trivial":
+		return st("8").Render("⇊")
+	}
+	return ""
+}
+
 // renderJira rebuilds the body: the list viewport's content, or the cached
 // lane render, with the cursor scrolled into view.
 func (m *Model) renderJira() {
@@ -1118,7 +1135,11 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if c.Assignee != "" {
 		title += jiraDimStyle.Render(" · " + c.Assignee)
 	}
-	row := "  " + jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  " + jiraTypeIcon(c.Type) + "  " +
+	pm := jiraPriorityMark(c.Priority)
+	if pm == "" {
+		pm = " "
+	}
+	row := "  " + jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  " + jiraTypeIcon(c.Type) + " " + pm + " " +
 		jiraDimStyle.Render(status) + "  " + jiraDimStyle.Render(pts) + "  " + title
 	row = ansi.Truncate(row, width-1, "…")
 	return m.jiraSelect(row, selected, width)
@@ -1162,7 +1183,11 @@ func jiraCardLines(c jira.Card, styled bool) []string {
 	if !styled {
 		return []string{key + pts, c.Summary, who}
 	}
-	return []string{jiraKeyStyle.Render(key) + " " + jiraTypeIcon(c.Type) + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
+	head := jiraKeyStyle.Render(key) + " " + jiraTypeIcon(c.Type)
+	if pm := jiraPriorityMark(c.Priority); pm != "" {
+		head += " " + pm
+	}
+	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
 }
 
 // jiraDropZones splits a lane body into one drop zone per status while a
