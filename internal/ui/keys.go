@@ -47,6 +47,43 @@ func (k *keyMap) applyKeys(over map[string]config.KeyList) []string {
 		}
 		*b = key.NewBinding(key.WithKeys(keys...), key.WithHelp(keys[0], b.Help().Desc))
 	}
+	return append(warn, k.clashes()...)
+}
+
+// keyScopes lists the actions live at once, by the ui.keys name. Within
+// one scope a key must do one thing.
+var keyScopes = []struct {
+	name    string
+	actions []string
+}{
+	{"board", []string{
+		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down",
+		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto",
+		"copy_key", "copy_url", "move_left", "move_right", "project", "board",
+		"next_view", "prev_view", "toggle_mode", "sort", "assignee_filter", "mine", "clear_filters",
+	}},
+	{"panel", []string{
+		"status", "priority", "points", "assign", "comment", "reply", "start_work",
+		"linked_issue", "back", "browser", "copy_key", "copy_url", "help", "refresh", "toggle_panel",
+	}},
+}
+
+// clashes reports keys bound to two actions in one scope.
+func (k *keyMap) clashes() []string {
+	names := k.keyNames()
+	var warn []string
+	for _, s := range keyScopes {
+		owner := map[string]string{}
+		for _, name := range s.actions {
+			for _, kk := range names[name].Keys() {
+				if prev, ok := owner[kk]; ok {
+					warn = append(warn, fmt.Sprintf("ui.keys: %q is both %s and %s on the %s", kk, prev, name, s.name))
+					continue
+				}
+				owner[kk] = name
+			}
+		}
+	}
 	return warn
 }
 

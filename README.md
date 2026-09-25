@@ -60,7 +60,8 @@ ui:
     dim: "244"
 ```
 
-A bad value keeps its default and is reported on the status line.
+A bad value keeps its default and is reported on the status line, as is a key
+bound to two actions on the board or in the panel.
 
 Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right

@@ -2,7 +2,6 @@
 
 ## Next
 - Configurable (user ask, 2026-09-25) — `ui:` section, one step per iteration:
-  - warn when two actions in one scope share a key
   - theme: issue type icon colours; named presets (`theme: tokyonight`)
   - `views:` extra JQL-backed views next to sprint/backlog
   - `card_limit` (now fixed CardLimit)
@@ -15,6 +14,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- `ui.keys`: warn when a key does two things on the board or in the panel
 - Renamed to laneway (module github.com/cornedor/laneway); jiratui config/state migrate
 - `ui.quick_filters`: JQL presets before the board's own
 - `ui.default_mode`, `ui.date_format`, `ui.card_fields`

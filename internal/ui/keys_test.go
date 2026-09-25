@@ -56,3 +56,28 @@ func TestReboundKeyDrivesBoard(t *testing.T) {
 		t.Error("help lacks the rebound key")
 	}
 }
+
+func TestKeyClashes(t *testing.T) {
+	k := defaultKeys()
+	if warn := k.clashes(); len(warn) != 0 {
+		t.Fatalf("defaults clash: %v", warn)
+	}
+	warn := k.applyKeys(map[string]config.KeyList{"search": {"m"}, "status": {"c"}})
+	if len(warn) != 2 ||
+		warn[0] != `ui.keys: "m" is both search and mine on the board` ||
+		warn[1] != `ui.keys: "c" is both status and comment on the panel` {
+		t.Errorf("warnings = %v", warn)
+	}
+}
+
+func TestKeyScopesNameActions(t *testing.T) {
+	k := defaultKeys()
+	names := k.keyNames()
+	for _, s := range keyScopes {
+		for _, a := range s.actions {
+			if names[a] == nil {
+				t.Errorf("%s scope: unknown action %q", s.name, a)
+			}
+		}
+	}
+}
