@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // TestJiraCacheRoundTrip: a stored board comes back as the load it was.

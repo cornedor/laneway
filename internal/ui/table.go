@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 // GFM pipe tables are parsed (width-independently) in renderMarkdown and laid

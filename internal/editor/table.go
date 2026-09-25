@@ -3,7 +3,7 @@ package editor
 import (
 	"strings"
 
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 // A markdown pipe table is edited as its source text — the bars stay on screen,

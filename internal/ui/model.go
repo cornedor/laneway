@@ -13,12 +13,12 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/config"
-	"jiratui/internal/editor"
-	"jiratui/internal/herdr"
-	"jiratui/internal/jira"
-	"jiratui/internal/store"
-	"jiratui/internal/viewport"
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/viewport"
 )
 
 type focus int

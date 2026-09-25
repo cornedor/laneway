@@ -9,7 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"jiratui/internal/herdr"
+	"github.com/cornedor/laneway/internal/herdr"
 )
 
 // Start work (S in the Jira panel): open the issue's worktree as a herdr

@@ -3,7 +3,7 @@ package editor
 import (
 	"unicode"
 
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 // characterLeft moves one rune left, crossing to the end of the previous

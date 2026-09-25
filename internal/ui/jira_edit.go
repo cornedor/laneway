@@ -11,7 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // jiraAssigneeDebounce delays the assignable-user search after a keystroke so

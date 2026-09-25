@@ -20,7 +20,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 const (

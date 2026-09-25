@@ -4,7 +4,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
 
-	"jiratui/internal/editor"
+	"github.com/cornedor/laneway/internal/editor"
 )
 
 // The centred multi-line composer box: a modal that asks for a paragraph of

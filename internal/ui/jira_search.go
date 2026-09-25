@@ -7,7 +7,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // The board's search: / narrows the loaded cards to those whose key, summary,

@@ -8,8 +8,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"jiratui/internal/jira"
-	"jiratui/internal/safeterm"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // selfMentionReCache memoises the @self mention regex per username. The

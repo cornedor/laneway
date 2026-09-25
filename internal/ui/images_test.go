@@ -11,8 +11,8 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/jira"
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 func TestFitCells(t *testing.T) {

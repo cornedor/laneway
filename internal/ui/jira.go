@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Jira-specific half of the reference panel: fetching an issue and rendering it.

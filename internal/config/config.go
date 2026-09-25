@@ -1,6 +1,6 @@
 // Package config loads the Jira connection from
-// ~/.config/jiratui/config.yaml, falling back to the jira: section of
-// matterbox's config so an existing setup just works.
+// ~/.config/laneway/config.yaml, falling back to the old jiratui name and
+// then the jira: section of matterbox's config so an existing setup just works.
 package config
 
 import (
@@ -77,15 +77,6 @@ func (k *KeyList) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-// Dir is where the config and state live.
-func Dir() (string, error) {
-	d, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(d, "jiratui"), nil
-}
-
 // Load reads the first config that exists; path "" uses the defaults.
 func Load(path string) (Config, string, error) {
 	var candidates []string
@@ -97,6 +88,7 @@ func Load(path string) (Config, string, error) {
 			return Config{}, "", err
 		}
 		candidates = []string{
+			filepath.Join(d, "laneway", "config.yaml"),
 			filepath.Join(d, "jiratui", "config.yaml"),
 			filepath.Join(d, "matterbox", "config.yaml"),
 		}
@@ -119,4 +111,22 @@ func Load(path string) (Config, string, error) {
 		return c, p, nil
 	}
 	return Config{}, "", fmt.Errorf("no config found; create %s with a jira: section", candidates[0])
+}
+
+// StatePath is where the app keeps its state. A state file left by the old
+// jiratui name is copied over on first run.
+func StatePath() (string, error) {
+	d, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	p := filepath.Join(d, "laneway", "state.json")
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		if old, err := os.ReadFile(filepath.Join(d, "jiratui", "state.json")); err == nil {
+			if err := os.MkdirAll(filepath.Dir(p), 0o700); err == nil {
+				_ = os.WriteFile(p, old, 0o600)
+			}
+		}
+	}
+	return p, nil
 }

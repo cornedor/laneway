@@ -8,7 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 
-	"jiratui/internal/config"
+	"github.com/cornedor/laneway/internal/config"
 )
 
 // keyNames names every rebindable action for the ui.keys config.

@@ -5,7 +5,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 // View renders the visible scroll window: prompt gutter, wrapped text, inline

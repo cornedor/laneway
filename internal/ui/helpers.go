@@ -12,9 +12,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"jiratui/internal/emoji"
-	"jiratui/internal/opener"
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/emoji"
+	"github.com/cornedor/laneway/internal/opener"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 // Helpers and styles lifted from matterbox's view/model code.

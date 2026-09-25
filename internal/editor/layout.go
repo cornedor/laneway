@@ -1,6 +1,6 @@
 package editor
 
-import "jiratui/internal/textwidth"
+import "github.com/cornedor/laneway/internal/textwidth"
 
 // visRow is one rendered visual line: the logical line it came from and the
 // half-open rune range [a, b) of that logical line it shows. first marks the

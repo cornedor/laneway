@@ -14,7 +14,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Moving an issue the way Jira's own board does: when the workflow insists on

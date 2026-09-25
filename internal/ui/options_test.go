@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"jiratui/internal/config"
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 func TestOptionsFrom(t *testing.T) {

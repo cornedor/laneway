@@ -1,4 +1,4 @@
-module jiratui
+module github.com/cornedor/laneway
 
 go 1.26.3
 

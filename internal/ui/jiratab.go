@@ -15,8 +15,8 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"jiratui/internal/jira"
-	"jiratui/internal/viewport"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/viewport"
 )
 
 // The board: one board of one project, as swim lanes or a list, with the

@@ -1,13 +1,13 @@
 .PHONY: build test run install
 
 build:
-	go build -o jiratui .
+	go build -o laneway .
 
 test:
 	go test ./...
 
 run: build
-	./jiratui
+	./laneway
 
 install:
 	go install .

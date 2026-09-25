@@ -7,8 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"jiratui/internal/config"
-	"jiratui/internal/store"
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/store"
 )
 
 // configuredJiraModel is a sized app on a throwaway store.

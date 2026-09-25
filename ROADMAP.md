@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Rename for GitHub (jiratui taken): shortlist laneway / tixel / lanekeeper — awaiting pick
 - Configurable (user ask, 2026-09-25) — `ui:` section, one step per iteration:
   - warn when two actions in one scope share a key
   - theme: issue type icon colours; named presets (`theme: tokyonight`)
@@ -16,6 +15,7 @@
 - Startup: show the cached board instantly even before config loads (measure cold start)
 
 ## Done
+- Renamed to laneway (module github.com/cornedor/laneway); jiratui config/state migrate
 - `ui.quick_filters`: JQL presets before the board's own
 - `ui.default_mode`, `ui.date_format`, `ui.card_fields`
 - `ui.theme`: 16 named colours (ANSI or hex), validated
@@ -31,7 +31,7 @@
 - Images re-fit to panel width (re-place without re-sending data)
 - Free this session's kitty images on exit (by id)
 - Priority marks (⇈ ↑ ↓ ⇊, medium silent) on lane cards and list rows
-- Images step B: attachment images drawn inline in the panel (kitty Unicode placeholders, kitty/ghostty auto-detected, `JIRATUI_IMAGES=0` off)
+- Images step B: attachment images drawn inline in the panel (kitty Unicode placeholders, kitty/ghostty auto-detected, `LANEWAY_IMAGES=0` off)
 - Images step A: issue attachments, ADF media → `![name](attachment:<id>)`, `AttachmentContent` download
 - Idle auto-refresh every 2m (skips modals, search, drag, loading)
 - List mode cursor move 17ms → 0.24ms at 600 cards (row cache, no re-measure)

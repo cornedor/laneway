@@ -1,4 +1,4 @@
-// jiratui is matterbox's Jira tab as its own app: a project's board as swim
+// laneway is a terminal board for Jira: a project's board as swim
 // lanes or a list, with the selected issue in a panel on the right.
 package main
 
@@ -7,20 +7,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
 
-	"jiratui/internal/config"
-	"jiratui/internal/store"
-	"jiratui/internal/ui"
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/ui"
 )
 
 func main() {
-	cfgPath := flag.String("config", "", "config file (default ~/.config/jiratui/config.yaml, then matterbox's)")
+	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
 	flag.Parse()
 	if err := run(*cfgPath); err != nil {
-		fmt.Fprintln(os.Stderr, "jiratui:", err)
+		fmt.Fprintln(os.Stderr, "laneway:", err)
 		os.Exit(1)
 	}
 }
@@ -33,11 +32,11 @@ func run(cfgPath string) error {
 	if cfg.Jira.BaseURL == "" || cfg.Jira.Email == "" || cfg.Jira.APIToken == "" {
 		return fmt.Errorf("jira.base_url, jira.email and jira.api_token (or JIRA_API_TOKEN) must be set")
 	}
-	dir, err := config.Dir()
+	path, err := config.StatePath()
 	if err != nil {
 		return err
 	}
-	st, err := store.Open(filepath.Join(dir, "state.json"))
+	st, err := store.Open(path)
 	if err != nil {
 		return err
 	}

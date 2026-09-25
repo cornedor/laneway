@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 func codeReviewForm(t *testing.T) Model {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // bigJiraModel is jiraTabModel with n cards spread over the lanes.

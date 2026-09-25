@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"jiratui/internal/config"
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // options are the config's ui: section with defaults filled in.

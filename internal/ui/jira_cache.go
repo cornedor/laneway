@@ -6,8 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"jiratui/internal/jira"
-	"jiratui/internal/store"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/store"
 )
 
 // The Jira tab's board as last seen, kept in the store's meta table per board

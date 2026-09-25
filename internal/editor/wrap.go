@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"jiratui/internal/textwidth"
+	"github.com/cornedor/laneway/internal/textwidth"
 )
 
 // wrapLine soft-wraps one logical line into visual sub-lines at the given cell

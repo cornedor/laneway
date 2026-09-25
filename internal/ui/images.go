@@ -15,7 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi/kitty"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Attachment images in the panel, drawn with the kitty graphics protocol's
@@ -62,7 +62,7 @@ func newPanelImages(on bool, maxRows int) *panelImages {
 // kittyGraphics reports a terminal that draws Unicode placeholders. tmux
 // would need passthrough, so it stays off there.
 func kittyGraphics() bool {
-	if os.Getenv("JIRATUI_IMAGES") == "0" || os.Getenv("TMUX") != "" {
+	if os.Getenv("LANEWAY_IMAGES") == "0" || os.Getenv("TMUX") != "" {
 		return false
 	}
 	term, prog := os.Getenv("TERM"), os.Getenv("TERM_PROGRAM")

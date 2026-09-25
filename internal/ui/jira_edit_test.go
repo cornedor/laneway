@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // loadedJiraModel returns a model with the panel open and an issue already

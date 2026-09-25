@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"gopkg.in/yaml.v3"
 
-	"jiratui/internal/config"
+	"github.com/cornedor/laneway/internal/config"
 )
 
 func TestKeysConfigYAML(t *testing.T) {

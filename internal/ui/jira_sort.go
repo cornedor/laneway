@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // jiraSort orders the list view; s cycles it.

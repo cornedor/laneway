@@ -7,8 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"jiratui/internal/editor"
-	"jiratui/internal/jira"
+	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // The Jira comment composer: a modal multi-line input for adding a comment to
