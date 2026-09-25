@@ -120,8 +120,16 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "esc":
+		if m.panelFieldSel() != "" {
+			m.clearPanelField()
+			return m, nil
+		}
 		m.closeRef()
 		return m, nil
+	case "enter":
+		if m.panelFieldSel() != "" {
+			return m, m.editPanelField()
+		}
 	}
 	switch {
 	case key.Matches(msg, m.keys.Help):
@@ -152,8 +160,16 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.closeRef()
 		return m, nil
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
-		m.focus = focusJira
-		m.renderJira()
+		if m.currentRef() == nil || m.jiraIssue == nil {
+			m.focus = focusJira
+			m.renderJira()
+			return m, nil
+		}
+		d := 1
+		if key.Matches(msg, m.keys.ShiftTab) {
+			d = -1
+		}
+		m.movePanelField(d)
 		return m, nil
 	case key.Matches(msg, m.keys.Refresh):
 		return m.refreshRef()
@@ -227,12 +243,33 @@ func refMeta(b *strings.Builder, label, value string, width int) {
 	if value == "" {
 		return
 	}
-	lbl := label + ":"
-	pad := width - len(lbl)
-	if pad < 1 {
-		pad = 1
+	b.WriteString(refLabelStyle.Render(refMetaLabel(label, width)) + value + "\n")
+}
+
+// refField writes an editable field's row, "—" when empty, lit when the
+// field cursor is on it.
+func refField(b *strings.Builder, label, value string, width int, sel bool) {
+	lbl := refMetaLabel(label, width)
+	if sel {
+		b.WriteString(selectedRow.Render(lbl+orDash(value)) + "\n")
+		return
 	}
-	b.WriteString(refLabelStyle.Render(lbl) + strings.Repeat(" ", pad) + value + "\n")
+	if value == "" {
+		value = refDimStyle.Render("—")
+	}
+	b.WriteString(refLabelStyle.Render(lbl) + value + "\n")
+}
+
+func refMetaLabel(label string, width int) string {
+	lbl := label + ":"
+	return lbl + strings.Repeat(" ", max(width-len(lbl), 1))
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 // renderRefPane draws the bordered side pane: a title row + the scrollable

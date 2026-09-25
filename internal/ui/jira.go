@@ -66,26 +66,28 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		header += "  " + refDimStyle.Render(iss.Type)
 	}
 	b.WriteString(header + "\n")
-	if iss.Summary != "" {
+	sel := m.panelFieldSel()
+	switch {
+	case sel == "Summary":
+		b.WriteString(selectedRow.Render(orDash(iss.Summary)) + "\n")
+	case iss.Summary != "":
 		b.WriteString(titleStyle.Render(iss.Summary) + "\n")
 	}
 	b.WriteString("\n")
 
-	refMeta(&b, "Status", iss.Status, 10)
-	refMeta(&b, "Priority", iss.Priority, 10)
-	refMeta(&b, "Points", iss.StoryPoints, 10)
-	refMeta(&b, "Assignee", iss.Assignee, 10)
+	refField(&b, "Status", iss.Status, 10, sel == "Status")
+	refField(&b, "Priority", iss.Priority, 10, sel == "Priority")
+	refField(&b, "Points", iss.StoryPoints, 10, sel == "Points")
+	refField(&b, "Assignee", iss.Assignee, 10, sel == "Assignee")
 	refMeta(&b, "Reporter", iss.Reporter, 10)
-	if len(iss.Labels) > 0 {
-		refMeta(&b, "Labels", strings.Join(iss.Labels, ", "), 10)
-	}
+	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel == "Labels")
 	if !iss.Updated.IsZero() {
 		refMeta(&b, "Updated", iss.Updated.Format(m.opts.dateFormat), 10)
 	}
 
-	// Edit affordances: the four changeable fields (jira_edit.go) plus comments
+	// Edit affordances: the field cursor (panel_fields.go), comments
 	// (jira_comment.go).
-	b.WriteString("\n" + refDimStyle.Render("s status · p priority · P points · a assignee · c comment · R reply · S start work") + "\n")
+	b.WriteString("\n" + refDimStyle.Render("tab fields · ↵ edit · c comment · R reply · S start work · ? keys") + "\n")
 
 	if desc := strings.TrimSpace(iss.Description); desc != "" {
 		divW := width

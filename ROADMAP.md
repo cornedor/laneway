@@ -1,20 +1,16 @@
 # Roadmap
 
 ## Next
-- Panel field cursor (user ask 2026-09-25: edit every field, select them in
-  the panel, then a key). tab / shift-tab walk the fields of the panel's meta
-  block, highlighted; past the last, tab goes to the board as now. enter
-  edits the selected field with its editor (pickers, inputs). esc drops the
-  cursor first. Step 1: cursor over the rows shown today, reusing the s p P a
-  e l editors. Step 2: every editable field from `GET /issue/{key}/editmeta`
-  shown and editable, via the transition form's per-kind editors
-  (jira_transition.go). Step 3: labels, dates, sprint/epic.
+- Panel field cursor step 2: every editable field from
+  `GET /issue/{key}/editmeta` shown and editable, via the transition form's
+  per-kind editors (jira_transition.go). Step 3: dates, sprint/epic.
 - `rules:` Jira actions (user OK 2026-09-25): `transition` (to a status name)
   and `comment` (templated text). Guard: never on your own change loop
   (a rule's write shows as a change on the next refresh; skip by_me echoes).
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Panel field cursor: tab / shift-tab walk summary…labels, enter edits, esc drops
 - Images checked by the user in real terminals (2026-09-25)
 - Lane heads sum their story points (`· 8p`), hidden with points
 - Sprint views show days left (or start/end date) and the goal

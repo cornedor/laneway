@@ -179,6 +179,11 @@ type Model struct {
 	jiraCreateInput  textinput.Model
 
 	jiraPicker jiraPickerState
+	// fieldCursor is the panel's selected field (panel_fields.go), -1 for
+	// none; it holds only while fieldCursorKey is the shown issue.
+	fieldCursor    int
+	fieldCursorKey string
+
 	// The one-line field input: story points, the summary or labels.
 	jiraFieldActive bool
 	jiraFieldName   string // "points", "summary" or "labels"
@@ -235,6 +240,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		status:          strings.Join(warn, " · "),
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
+		fieldCursor:     -1,
 	}
 	m.refView.SoftWrap = true
 	m.jiraTab.wantLanes = opts.lanes

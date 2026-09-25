@@ -62,8 +62,9 @@ func (m *Model) helpSections() []struct {
 			row(k.Image, "view images full size"),
 			row(k.Back, "previous issue"),
 			row(k.Refresh, "refresh"),
-			row(k.Tab, "to board"),
-			{"esc", "close"},
+			{join(k.Tab, k.ShiftTab), "walk fields, then to board"},
+			{"enter", "edit selected field"},
+			{"esc", "drop field, close"},
 		}},
 	}
 }
