@@ -81,3 +81,14 @@ func TestKeyScopesNameActions(t *testing.T) {
 		}
 	}
 }
+
+func TestThemeConfigYAML(t *testing.T) {
+	var c config.UIConfig
+	if err := yaml.Unmarshal([]byte("theme: tokyonight\n"), &c); err != nil || c.Theme["preset"] != "tokyonight" {
+		t.Errorf("scalar = %v %v", c.Theme, err)
+	}
+	c = config.UIConfig{}
+	if err := yaml.Unmarshal([]byte("theme:\n  preset: nord\n  accent: \"1\"\n"), &c); err != nil || c.Theme["accent"] != "1" || c.Theme["preset"] != "nord" {
+		t.Errorf("map = %v %v", c.Theme, err)
+	}
+}

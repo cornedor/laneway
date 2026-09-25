@@ -56,6 +56,7 @@ ui:
     search: f
     mine: [m, M]
   theme:             # colours: ANSI 0–255 or #rrggbb
+    preset: tokyonight  # or catppuccin, gruvbox; `theme: gruvbox` alone works too
     accent: "#7aa2f7"
     dim: "244"
 ```

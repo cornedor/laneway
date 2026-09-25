@@ -32,3 +32,31 @@ func TestApplyThemeRecolours(t *testing.T) {
 		t.Errorf("bug icon = %q, want blue", got)
 	}
 }
+
+func TestThemePresets(t *testing.T) {
+	def := defaultTheme()
+	for name, p := range themePresets {
+		if len(p) != len(def) {
+			t.Errorf("%s: %d colours, want %d", name, len(p), len(def))
+		}
+		th, warn := themeFrom(map[string]string{"preset": name})
+		if len(warn) != 0 {
+			t.Errorf("%s: warnings %v", name, warn)
+		}
+		for k := range p {
+			if _, ok := def[k]; !ok {
+				t.Errorf("%s: unknown colour %q", name, k)
+			}
+			if th[k] != p[k] {
+				t.Errorf("%s: %s = %q, want %q", name, k, th[k], p[k])
+			}
+		}
+	}
+	th, _ := themeFrom(map[string]string{"preset": "gruvbox", "accent": "3"})
+	if th["accent"] != "3" || th["dim"] != "#928374" {
+		t.Errorf("override over preset = %v", th)
+	}
+	if _, warn := themeFrom(map[string]string{"preset": "nope"}); len(warn) != 1 {
+		t.Errorf("unknown preset warnings = %v", warn)
+	}
+}

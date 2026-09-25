@@ -51,8 +51,9 @@ type UIConfig struct {
 	CardFields []string `yaml:"card_fields"`
 	// QuickFilters are JQL presets shown before every board's own.
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
-	// Theme overrides colours by name: accent: "#7aa2f7".
-	Theme map[string]string `yaml:"theme"`
+	// Theme is a preset name (theme: tokyonight) or colours by name, over
+	// an optional preset: {preset: nord, accent: "#7aa2f7"}.
+	Theme Theme `yaml:"theme"`
 }
 
 // QuickFilter is a named JQL clause, ANDed with the board's query when on.
@@ -74,6 +75,22 @@ func (k *KeyList) UnmarshalYAML(n *yaml.Node) error {
 		return err
 	}
 	*k = l
+	return nil
+}
+
+// Theme is colours by name; a lone scalar is {preset: <name>}.
+type Theme map[string]string
+
+func (t *Theme) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind == yaml.ScalarNode {
+		*t = Theme{"preset": n.Value}
+		return nil
+	}
+	var m map[string]string
+	if err := n.Decode(&m); err != nil {
+		return err
+	}
+	*t = m
 	return nil
 }
 
