@@ -6,9 +6,8 @@
 - Roadmap step 3: plan-level parents above epics (hierarchy > 1), `n` new
   epic, a board filter for "cards in this epic", child bars movable too
 - `/` over every stored issue of the project, not just the loaded view
-- Palette step 2: JQL editor with field/value autocomplete
-  (`/jql/autocompletedata`), saved as a `ui.views` entry; projects and
-  roadmap epics as rows; recent picks first
+- JQL step 2: save a search as a `ui.views` entry (writes the config), a
+  history of past searches (↑ in an empty input)
 - Bulk step 2: mark a lane or every search hit at once (`X`), required
   transition fields asked once for all
 - Planning step 2: `ui.capacity` points per person, red when over; marks
@@ -31,6 +30,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `Q` JQL search: field / keyword / value completion from Jira, results as a view
 - Idle refresh fetches only issues updated since the last fetch (merged by key); whole again every 10m or on a filter change
 - Panel `A`: upload a file, download an attachment to ~/Downloads (never overwrites)
 - Panel `D`: pull requests (open first) and branches from the dev-status API, enter opens

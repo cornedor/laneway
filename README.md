@@ -156,7 +156,7 @@ loaded issues, filtered by every word you type.
 
 Board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list ·
 `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `/` search ·
-`R` roadmap · `P` planning · `C` charts · `T` timer · `W` today's worklogs · `I` inbox · `U` standup · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
+`Q` JQL search · `R` roadmap · `P` planning · `C` charts · `T` timer · `W` today's worklogs · `I` inbox · `U` standup · `x` mark · `B` edit marked · `H`/`L` move card · `M` to sprint/backlog · `enter` open · `#` go to key ·
 `@` switch site · `n` new issue · `o` browser · `y`/`Y` copy key/URL · `r` refresh · `tab` panel ·
 `q` quit. Cards drag between lanes with the mouse.
 

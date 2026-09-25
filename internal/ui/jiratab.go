@@ -789,6 +789,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openInbox()
 	case key.Matches(msg, m.keys.Standup):
 		return m, m.openStandup()
+	case key.Matches(msg, m.keys.JQL):
+		return m, m.openJQL()
 	case key.Matches(msg, m.keys.Site):
 		m.openSitePicker()
 	case key.Matches(msg, m.keys.Mark):

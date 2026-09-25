@@ -38,6 +38,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.PrevView, k.NextView), "previous / next view"},
 			row(k.ToggleMode, "lanes / list"),
 			row(k.Palette, "command palette"),
+			row(k.JQL, "JQL search with completion, as a view"),
 			{join(k.Timer, k.Timesheet), "timer / today's worklogs"},
 			row(k.Inbox, "inbox: others' changes, comments, mentions"),
 			row(k.Standup, "standup: what you did since the last workday"),

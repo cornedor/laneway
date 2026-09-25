@@ -31,6 +31,7 @@ type boardMetaCache struct {
 	quick  map[int][]QuickFilter
 	status map[string]map[string]string // "" → status id → name
 	saved  map[string][]QuickFilter     // "" → your favourite filters
+	jql    map[string][]JQLWords        // "" → the JQL autocomplete data
 }
 
 // StatusNames maps every status id to its name, cached for the session. A

@@ -55,7 +55,7 @@ type keyMap struct {
 	Charts, LogWork, Timer, Timesheet  key.Binding
 	JiraDescription, Inbox             key.Binding
 	IssueActions, Site, Standup        key.Binding
-	History, DevInfo                   key.Binding
+	History, DevInfo, JQL              key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -128,6 +128,7 @@ func defaultKeys() keyMap {
 		Standup:         bind("standup: what you did", "U"),
 		History:         bind("issue history", "H"),
 		DevInfo:         bind("pull requests and branches", "D"),
+		JQL:             bind("JQL search", "Q"),
 	}
 }
 
@@ -223,6 +224,8 @@ type Model struct {
 	nextSite *string
 	// prefetchSeq debounces the cursor's prefetch (prefetch.go).
 	prefetchSeq int
+	// jql is the open JQL search input (jql.go).
+	jql *jqlState
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -369,6 +372,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case jqlWordsMsg:
+		return m.handleJQLWords(msg)
+	case jqlValuesMsg:
+		return m.handleJQLValues(msg)
 	case prefetchMsg:
 		return m.handlePrefetch(msg)
 	case timerTickMsg:
@@ -441,6 +448,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case m.imageView:
 		return m.handleImageViewKey(msg)
+	case m.jql != nil:
+		return m.handleJQLKey(msg)
 	case m.jiraGotoActive:
 		return m.handleJiraGotoKey(msg)
 	case m.jiraCreateActive:
@@ -469,7 +478,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.helpOpen || m.imageView || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -548,6 +557,8 @@ func (m *Model) renderOverlay(bodyH int) string {
 	switch {
 	case m.helpOpen:
 		return m.renderHelp()
+	case m.jql != nil:
+		return m.renderJQL()
 	case m.jiraGotoActive:
 		return m.renderJiraGoto()
 	case m.jiraCreateActive:
