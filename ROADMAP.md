@@ -5,8 +5,7 @@
   fields in `$EDITOR`
 - Roadmap step 3: plan-level parents above epics (hierarchy > 1), `n` new
   epic, a board filter for "cards in this epic", child bars movable too
-- Incremental refresh: `updated >= last` JQL merged into the stored board,
-  a full refetch every few to catch removals; `/` over every stored issue
+- `/` over every stored issue of the project, not just the loaded view
 - Palette step 2: JQL editor with field/value autocomplete
   (`/jql/autocompletedata`), saved as a `ui.views` entry; projects and
   roadmap epics as rows; recent picks first
@@ -32,6 +31,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Idle refresh fetches only issues updated since the last fetch (merged by key); whole again every 10m or on a filter change
 - Panel `A`: upload a file, download an attachment to ~/Downloads (never overwrites)
 - Panel `D`: pull requests (open first) and branches from the dev-status API, enter opens
 - Panel `H` history: every change and comment, newest first, filterable

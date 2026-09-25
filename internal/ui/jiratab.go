@@ -199,6 +199,11 @@ type jiraTabState struct {
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
+	// fullAt and fullKey are when and for which view and filters the cards
+	// were last fetched whole; an idle refresh within fullEvery of it
+	// fetches only what changed (loadJiraDelta).
+	fullAt  time.Time
+	fullKey string
 	// roadmap and plan show in place of the cards while non-nil
 	// (roadmap.go, planning.go).
 	roadmap *roadmapState
@@ -244,6 +249,7 @@ type jiraBoardMsg struct {
 type jiraCardsMsg struct {
 	seq     int
 	cached  bool
+	delta   bool // only the cards updated since the last fetch
 	viewIdx int
 	cards   []jira.Card
 	total   int
@@ -545,6 +551,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	if msg.cached || msg.err != nil {
 		return m, nil
 	}
+	t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(t.viewIdx)
 	return m, m.runRules(msg.cards)
 }
 
@@ -557,6 +564,19 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 		t.loading, t.fresh = false, msg.seq
 	}
 	keep := m.selectedJiraKey()
+	if msg.delta {
+		if msg.err != nil {
+			m.status = "refresh: " + msg.err.Error()
+			return m, nil
+		}
+		prev := t.cards
+		merged, added := mergeCards(prev, msg.cards)
+		m.installJiraCards(merged, t.total+added, nil, keep)
+		return m, m.runRules(merged)
+	}
+	if !msg.cached && msg.err == nil {
+		t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(msg.viewIdx)
+	}
 	t.viewIdx = msg.viewIdx
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
 	if msg.cached || msg.err != nil {
@@ -1867,5 +1887,58 @@ func (m Model) handleJiraAutoRefresh() (tea.Model, tea.Cmd) {
 	if m.modalOpen() || t.loading || t.searching || m.jiraDragging() || t.cfg == nil || time.Since(t.fetched) < m.opts.staleAfter {
 		return m, m.jiraAutoRefreshTick()
 	}
-	return m, tea.Batch(m.loadJiraCards(t.viewIdx, false), m.jiraAutoRefreshTick())
+	return m, tea.Batch(m.loadJiraDelta(), m.jiraAutoRefreshTick())
+}
+
+// fullEvery is how long idle refreshes fetch only changes before a whole
+// fetch, which also drops issues that left the view and takes new ranks.
+const fullEvery = 10 * time.Minute
+
+// jiraFetchKey names a view and the current filters, which a delta must share
+// with the last whole fetch.
+func (m *Model) jiraFetchKey(idx int) string {
+	t := m.jiraTab
+	return strconv.Itoa(idx) + "|" + jiraFilterJQL(t.assignee, t.quick, t.quickOn)
+}
+
+// loadJiraDelta fetches the current view's cards updated since the last
+// fetch, when a whole fetch of the same view is recent; else all of them.
+func (m *Model) loadJiraDelta() tea.Cmd {
+	t := m.jiraTab
+	idx := t.viewIdx
+	if len(t.cards) == 0 || t.fullKey != m.jiraFetchKey(idx) || time.Since(t.fullAt) >= fullEvery || idx >= len(t.views) {
+		return m.loadJiraCards(idx, false)
+	}
+	t.seq++
+	t.loading = true
+	// A couple of minutes' overlap covers clock skew and in-flight edits.
+	mins := int(time.Since(t.fetched).Minutes()) + 2
+	filter := andJQL(jiraFilterJQL(t.assignee, t.quick, t.quickOn), fmt.Sprintf("updated >= -%dm", mins))
+	seq, ctx, c, board, cfg, v := t.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, t.views[idx]
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		cards, _, err := fetchJiraView(ctx, c, board, cfg, v, filter)
+		return jiraCardsMsg{seq: seq, delta: true, viewIdx: idx, cards: cards, err: err}
+	}
+}
+
+// mergeCards replaces cards by key with their changed copies and adds the
+// ones new to the view at the end; it returns how many were added.
+func mergeCards(cards, changed []jira.Card) ([]jira.Card, int) {
+	at := make(map[string]int, len(cards))
+	for i, c := range cards {
+		at[c.Key] = i
+	}
+	out := slices.Clone(cards)
+	added := 0
+	for _, c := range changed {
+		if i, ok := at[c.Key]; ok {
+			out[i] = c
+			continue
+		}
+		out = append(out, c)
+		added++
+	}
+	return out, added
 }
