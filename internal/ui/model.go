@@ -578,7 +578,8 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if msg.Button != tea.MouseLeft || m.modalOpen() || msg.Y >= m.bodyH() {
+	form := m.formOnTop()
+	if msg.Button != tea.MouseLeft || (m.modalOpen() && !form) || msg.Y >= m.bodyH() {
 		return m, nil
 	}
 	count := 1
@@ -588,6 +589,9 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	m.lastClick.at, m.lastClick.x, m.lastClick.y = time.Now(), msg.X, msg.Y
 	if count == 2 {
 		m.lastClick.at = time.Time{}
+	}
+	if form {
+		return m.clickJiraForm(msg.X, msg.Y, count)
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
 		m.focus = focusRef
@@ -702,6 +706,12 @@ func (m Model) View() tea.View {
 func (m *Model) pickerOnTop() bool {
 	return m.jiraPicker.active && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
 		!m.jiraCommentActive && !m.jiraFieldActive
+}
+
+// formOnTop is whether the transition form is the modal drawn.
+func (m *Model) formOnTop() bool {
+	return m.jiraForm != nil && !m.jiraPicker.active && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
+		!m.jiraCreateActive && !m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // renderOverlay draws the open modal, last one winning as in matterbox.

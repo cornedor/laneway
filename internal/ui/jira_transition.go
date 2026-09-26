@@ -59,6 +59,9 @@ type jiraFormState struct {
 	busy         bool
 	err          string
 	bulk         []string // marked cards the move goes to, with these fields (bulk.go)
+	// firstRow is the first field's line inside the box, as last drawn; the
+	// button sits a blank line after the last field (clickJiraForm).
+	firstRow int
 }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
@@ -428,6 +431,47 @@ func jiraValueText(v jira.Value) string {
 	return strings.ReplaceAll(strings.TrimSpace(v.Text), "\n", " ")
 }
 
+// clickJiraForm acts on a click in the form: a row is selected by one
+// click and edited by a second (or a double-click); the button moves. A
+// value being typed is kept when the click goes elsewhere.
+func (m Model) clickJiraForm(x, y, count int) (tea.Model, tea.Cmd) {
+	f := m.jiraForm
+	if f.busy {
+		return m, nil
+	}
+	bodyH := m.bodyH()
+	box := m.renderJiraForm()
+	w, h := lipgloss.Width(box), lipgloss.Height(box)
+	top, left := (bodyH-h)/2, (m.width-w)/2
+	if x < left || x >= left+w {
+		return m, nil
+	}
+	row := y - top - f.firstRow
+	i := -1
+	switch {
+	case row >= 0 && row < len(f.fields):
+		i = row
+	case row == len(f.fields)+1:
+		i = len(f.fields)
+	}
+	if i < 0 || (f.editing && i == f.idx) {
+		return m, nil
+	}
+	if f.editing {
+		ff := &f.fields[f.idx]
+		ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
+	}
+	again := i == f.idx || count == 2
+	f.idx = i
+	switch {
+	case i == len(f.fields):
+		return m, m.submitJiraForm()
+	case again:
+		return m, m.editJiraFormField()
+	}
+	return m, nil
+}
+
 // renderJiraForm draws the transition form as a modal, like the pickers.
 func (m *Model) renderJiraForm() string {
 	f := m.jiraForm
@@ -447,6 +491,10 @@ func (m *Model) renderJiraForm() string {
 	}
 	cursor := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 	parts = append(parts, "")
+	f.firstRow = 2 // the border and the padding
+	for _, p := range parts {
+		f.firstRow += lipgloss.Height(p)
+	}
 	for i, ff := range f.fields {
 		name := ff.Name
 		if ff.required {

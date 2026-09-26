@@ -5,6 +5,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -84,5 +88,44 @@ func TestJiraFormErrorKeepsForm(t *testing.T) {
 	m = out.(Model)
 	if m.jiraForm != nil || cmd == nil {
 		t.Error("esc did not close the form and refetch the board")
+	}
+}
+
+// TestJiraFormClick: a click selects a row, a second edits it; a click
+// elsewhere keeps what was typed; the button moves.
+func TestJiraFormClick(t *testing.T) {
+	m := codeReviewForm(t)
+	at := func(text string) (int, int) {
+		for y, l := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+			if x := strings.Index(l, text); x >= 0 {
+				return ansi.StringWidth(l[:x]), y
+			}
+		}
+		t.Fatalf("%q not on screen", text)
+		return 0, 0
+	}
+	click := func(text string) tea.Cmd {
+		x, y := at(text)
+		out, cmd := m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+		m = out.(Model)
+		m.lastClick.at = time.Time{} // no double-clicks between steps
+		return cmd
+	}
+	click("Comment *")
+	if f := m.jiraForm; f.idx != 1 || f.editing {
+		t.Fatalf("idx %d editing %v", f.idx, f.editing)
+	}
+	click("Comment *")
+	if !m.jiraForm.editing {
+		t.Fatal("a second click should edit")
+	}
+	m.jiraForm.input.SetValue("please review")
+	click("Story Points")
+	if f := m.jiraForm; f.idx != 2 || f.editing || f.fields[1].val.Text != "please review" {
+		t.Fatalf("idx %d editing %v comment %q", f.idx, f.editing, f.fields[1].val.Text)
+	}
+	click("Move to Code review")
+	if f := m.jiraForm; f.idx != len(f.fields) || !strings.Contains(f.err, "Code Reviewer") {
+		t.Errorf("button: idx %d err %q", f.idx, f.err)
 	}
 }
