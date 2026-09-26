@@ -1146,3 +1146,17 @@ func TestJiraSwimlaneFold(t *testing.T) {
 		t.Error("Z should unfold")
 	}
 }
+
+// TestPanelDeployed: the panel names the environment the board's card was
+// deployed to.
+func TestPanelDeployed(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[0].Deploy = "production"
+	out, _ := m.openJiraCard()
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Summary: "First"}})
+	m = out.(Model)
+	if got := m.renderJiraIssue(m.jiraIssue, 60); !strings.Contains(ansi.Strip(got), "production") {
+		t.Errorf("panel lacks the deployment:\n%s", ansi.Strip(got))
+	}
+}

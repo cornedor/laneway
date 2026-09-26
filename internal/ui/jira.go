@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -84,6 +85,10 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel("Labels"))
 	if !iss.Updated.IsZero() {
 		refMeta(&b, "Updated", iss.Updated.Format(m.opts.dateFormat), 10)
+	}
+	// The deployment rides on the board's card (its Development field).
+	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 && m.jiraTab.cards[i].Deploy != "" {
+		refMeta(&b, "Deployed", m.jiraTab.cards[i].Deploy, 10)
 	}
 	if extra := m.extraFields(); len(extra) > 0 {
 		w := 10
