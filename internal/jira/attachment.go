@@ -83,7 +83,7 @@ func (c *Client) AttachmentContent(ctx context.Context, id string) ([]byte, erro
 		return nil, fmt.Errorf("read attachment: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, statusError(resp.StatusCode, "attachment "+id, body)
+		return nil, statusError(resp.StatusCode, "attachment "+id, body, resp.Header.Get("Retry-After"))
 	}
 	if len(body) > maxAttachmentBytes {
 		return nil, fmt.Errorf("attachment %s is over %d MB", id, maxAttachmentBytes>>20)
@@ -143,7 +143,7 @@ func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f i
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return statusError(resp.StatusCode, "upload to "+key, body)
+		return statusError(resp.StatusCode, "upload to "+key, body, resp.Header.Get("Retry-After"))
 	}
 	c.Invalidate(key)
 	return nil
@@ -167,7 +167,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, id, name, dir string) (
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return "", statusError(resp.StatusCode, "attachment "+id, body)
+		return "", statusError(resp.StatusCode, "attachment "+id, body, resp.Header.Get("Retry-After"))
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err

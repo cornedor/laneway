@@ -728,3 +728,41 @@ func TestScaledTimeout(t *testing.T) {
 		t.Errorf("doubled = %v", d)
 	}
 }
+
+// TestStatusError: Jira's error body reads as its messages, and each
+// status a user can act on says what to do.
+func TestStatusError(t *testing.T) {
+	for _, c := range []struct {
+		code       int
+		body, want string
+		retry      string
+	}{
+		{400, `{"errorMessages":["Bad JQL"],"errors":{"summary":"required","priority":"invalid"}}`, "jira server 400: Bad JQL; priority: invalid; summary: required", ""},
+		{400, `not json`, "jira server 400: not json", ""},
+		{401, ``, "not authorized for ABC-1 · check email and api_token", ""},
+		{403, `{"errorMessages":["You cannot move this issue"]}`, "no permission for ABC-1: You cannot move this issue", ""},
+		{403, ``, "no permission for ABC-1 · ask a Jira admin", ""},
+		{429, ``, "rate-limited on ABC-1 · retry in 30s", "30"},
+		{502, ``, "jira server 502: Bad Gateway", ""},
+	} {
+		if got := statusError(c.code, "ABC-1", []byte(c.body), c.retry).Error(); !strings.Contains(got, c.want) {
+			t.Errorf("%d %s: %q, want %q", c.code, c.body, got, c.want)
+		}
+	}
+}
+
+// TestTimeoutError: a request past jira.timeout says to raise it.
+func TestTimeoutError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(time.Second):
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", Timeout: 20 * time.Millisecond})
+	_, err := c.Get(context.Background(), "ABC-1")
+	if err == nil || !strings.Contains(err.Error(), "raise jira.timeout") {
+		t.Errorf("got %v", err)
+	}
+}

@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Jira errors that say what to do: decode `errorMessages`/`errors`, 401 → check credentials, 403 → no permission, timeout → raise `jira.timeout`, 429 → retry after (`jira.go` statusError)
 - Comment composer: esc asks once when there is text (like the description editor); a failed post reopens it with the text; `ctrl+s` posts too
 - Quit guard: `ctrl+c`/`q` with unsaved editor text or writes in flight asks once ("2 writes pending · q again quits")
 - Status line: errors in the theme's error colour; a log of the last messages (palette `messages`, full text)
@@ -17,6 +16,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Jira errors say what to do: Jira's `errorMessages` and field `errors` read as text (not raw JSON cut at 200), 401 checks the credentials, 403 is no permission (with Jira's reason), 429 says when to retry, a request past `jira.timeout` says to raise it
 - Fix: settings and `?` help overflowed an 80-column screen; settings' value columns share the width left, help rows cut at the edge
 - Fix: `?` help ignored the screen's width, so on a 120-column terminal the panel's keys fell off the edge; it pages now (`←` `→`, page n/m in its hint), opens at the panel's keys from the panel, and lists the mouse (unless `ui.mouse: off`)
 - Panel scrollbar: a click on the panel's right border jumps there, dragging it scrolls, `esc` puts it back

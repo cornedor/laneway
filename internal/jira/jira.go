@@ -15,10 +15,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -413,6 +417,9 @@ func (c *Client) doRaw(ctx context.Context, method, path, what string, body any)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
+		if ctx.Err() == nil && isTimeout(err) {
+			return nil, fmt.Errorf("jira: %s timed out after %s · raise jira.timeout for a slow instance: %w", what, c.timeout, err)
+		}
 		return nil, fmt.Errorf("call jira: %w", err)
 	}
 	defer resp.Body.Close()
@@ -422,7 +429,7 @@ func (c *Client) doRaw(ctx context.Context, method, path, what string, body any)
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, statusError(resp.StatusCode, what, respBody)
+		return nil, statusError(resp.StatusCode, what, respBody, resp.Header.Get("Retry-After"))
 	}
 	return respBody, nil
 }
@@ -443,24 +450,61 @@ func (c *Client) do(ctx context.Context, method, path, what string, body, out an
 	return nil
 }
 
-// statusError turns a non-2xx into a message the panel can show, special-casing
-// the auth/visibility cases that a user can actually act on. what labels the
-// request (an issue key, or e.g. "priorities").
-func statusError(code int, what string, body []byte) error {
+// statusError turns a non-2xx into a message the panel can show, saying
+// what to do where a user can: sign in, ask for permission, wait, raise a
+// limit. what labels the request (an issue key, or e.g. "priorities");
+// retryAfter is a 429's Retry-After.
+func statusError(code int, what string, body []byte, retryAfter string) error {
+	msg := jiraMessages(body)
 	switch code {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Errorf("jira: not authorized for %s — check email / api_token", what)
+	case http.StatusUnauthorized:
+		return fmt.Errorf("jira: not authorized for %s · check email and api_token in the config", what)
+	case http.StatusForbidden:
+		if msg != "" {
+			return fmt.Errorf("jira: no permission for %s: %s", what, msg)
+		}
+		return fmt.Errorf("jira: no permission for %s · ask a Jira admin, or check the api_token", what)
 	case http.StatusNotFound:
 		return fmt.Errorf("jira: %s not found (or no access)", what)
+	case http.StatusTooManyRequests:
+		if retryAfter != "" {
+			return fmt.Errorf("jira: rate-limited on %s · retry in %ss", what, retryAfter)
+		}
+		return fmt.Errorf("jira: rate-limited on %s · retry in a minute", what)
 	}
-	msg := strings.TrimSpace(string(body))
-	if len(msg) > 200 {
-		msg = msg[:200] + "…"
+	if msg == "" {
+		msg = strings.TrimSpace(string(body))
+		if len(msg) > 200 {
+			msg = msg[:200] + "…"
+		}
 	}
 	if msg == "" {
 		msg = http.StatusText(code)
 	}
 	return fmt.Errorf("jira server %d: %s", code, msg)
+}
+
+// jiraMessages reads Jira's error body, {"errorMessages": [...], "errors":
+// {field: message}}, as "message; field: message", "" for another body.
+func jiraMessages(body []byte) string {
+	var e struct {
+		ErrorMessages []string          `json:"errorMessages"`
+		Errors        map[string]string `json:"errors"`
+	}
+	if json.Unmarshal(body, &e) != nil {
+		return ""
+	}
+	parts := slices.Clone(e.ErrorMessages)
+	for _, f := range slices.Sorted(maps.Keys(e.Errors)) {
+		parts = append(parts, f+": "+e.Errors[f])
+	}
+	return strings.Join(parts, "; ")
+}
+
+// isTimeout is whether err is a request running out of time.
+func isTimeout(err error) bool {
+	var ne net.Error
+	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &ne) && ne.Timeout()
 }
 
 func (c *Client) toIssue(a apiIssue) *Issue {
