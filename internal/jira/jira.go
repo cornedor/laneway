@@ -130,18 +130,21 @@ func (c *Client) BrowseURL(key string) string {
 // Issue is the flattened, render-ready form of a Jira issue. Description is
 // markdown (converted from ADF); the rest are plain strings ready to label.
 type Issue struct {
-	Key         string
-	Summary     string
-	Type        string
-	Status      string
-	Priority    string
-	Assignee    string
-	Reporter    string
-	Labels      []string
-	Updated     time.Time
-	URL         string
-	Description string
-	StoryPoints string // formatted estimate (e.g. "5", "2.5"), "" when unset
+	Key     string
+	Summary string
+	Type    string
+	Status  string
+	// StatusCategory is Jira's for the status: "new", "indeterminate" or
+	// "done".
+	StatusCategory string
+	Priority       string
+	Assignee       string
+	Reporter       string
+	Labels         []string
+	Updated        time.Time
+	URL            string
+	Description    string
+	StoryPoints    string // formatted estimate (e.g. "5", "2.5"), "" when unset
 
 	// Attachments are the issue's files. Media in Description and comment
 	// bodies shows as ![name](attachment:<id>) when its name matches one.
@@ -210,7 +213,7 @@ type apiIssue struct {
 		Description json.RawMessage `json:"description"`
 		Labels      []string        `json:"labels"`
 		Updated     string          `json:"updated"`
-		Status      *named          `json:"status"`
+		Status      *apiStatus      `json:"status"`
 		Priority    *named          `json:"priority"`
 		IssueType   *named          `json:"issuetype"`
 		Assignee    *user           `json:"assignee"`
@@ -224,6 +227,13 @@ type apiIssue struct {
 			Total    int          `json:"total"`
 		} `json:"comment"`
 	} `json:"fields"`
+}
+
+type apiStatus struct {
+	Name     string `json:"name"`
+	Category struct {
+		Key string `json:"key"`
+	} `json:"statusCategory"`
 }
 
 type named struct {
@@ -454,7 +464,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	iss.Description = resolveMedia(iss.Description, iss.Attachments)
 	iss.Links = issueLinks(a.Fields.Parent, a.Fields.IssueLinks, a.Fields.Subtasks)
 	if a.Fields.Status != nil {
-		iss.Status = a.Fields.Status.Name
+		iss.Status, iss.StatusCategory = a.Fields.Status.Name, a.Fields.Status.Category.Key
 	}
 	if a.Fields.Priority != nil {
 		iss.Priority = a.Fields.Priority.Name

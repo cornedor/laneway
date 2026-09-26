@@ -86,7 +86,7 @@ func TestGetParsesIssue(t *testing.T) {
 			"description": {"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"do it"}]}]},
 			"labels": ["backend","urgent"],
 			"updated": "2026-06-15T09:41:00.000+0200",
-			"status": {"name": "In Progress"},
+			"status": {"name": "In Progress", "statusCategory": {"key": "indeterminate"}},
 			"priority": {"name": "High"},
 			"issuetype": {"name": "Bug"},
 			"assignee": {"displayName": "Ada Lovelace"},
@@ -121,7 +121,7 @@ func TestGetParsesIssue(t *testing.T) {
 	if iss.Summary != "Fix the thing" {
 		t.Errorf("summary = %q", iss.Summary)
 	}
-	if iss.Status != "In Progress" || iss.Priority != "High" || iss.Type != "Bug" {
+	if iss.Status != "In Progress" || iss.StatusCategory != "indeterminate" || iss.Priority != "High" || iss.Type != "Bug" {
 		t.Errorf("meta = %+v", iss)
 	}
 	if iss.Assignee != "Ada Lovelace" || iss.Reporter != "Alan Turing" {

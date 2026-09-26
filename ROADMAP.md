@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- Panel header: the status as a lozenge coloured by its category (to do grey, in progress blue, done green), as on Jira
 - Cards: assignee as initials in a stable per-person colour (`card_fields: avatar`), the name line then optional
 - Help overlay: section titles as shaded bars like the panel's, so the columns read as groups
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Panel status as a lozenge coloured by its category (to do grey, in progress blue, done green), plain while the field cursor is on it
 - Move form mouse: a click selects a field, a second edits it (a typed value is kept when the click goes elsewhere), the button moves. The create form is a picker plus one line: nothing to add
 - Planning mouse: drag a card onto the other side (a marked one takes the marked along); faint while held, the target side says ◂ drop
 - Roadmap mouse: drag a bar to move its dates, drag an end (bars 3+ columns wide) to stretch it; written after a pause like the keys

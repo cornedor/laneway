@@ -115,3 +115,24 @@ func TestCommentBylineClick(t *testing.T) {
 		t.Errorf("composer %v, reply to %q", m.jiraCommentActive, m.jiraCommentReplyTo)
 	}
 }
+
+// TestStatusLozenge: the panel's status is a lozenge when Jira says its
+// category, plain text without one or while the field cursor is on it.
+func TestStatusLozenge(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1",
+		issue: &jira.Issue{Key: "ABC-1", Status: "In Progress", StatusCategory: "indeterminate"}})
+	m = out.(Model)
+	if c := ansi.Strip(m.refView.GetContent()); !strings.Contains(c, "Status:    IN PROGRESS ") {
+		t.Fatalf("no lozenge:\n%s", c)
+	}
+	out, _ = m.handleRefKey(keyMsg(t, "tab")) // Summary
+	m = out.(Model)
+	out, _ = m.handleRefKey(keyMsg(t, "tab")) // Status
+	m = out.(Model)
+	if c := ansi.Strip(m.refView.GetContent()); !strings.Contains(c, "Status:   In Progress") {
+		t.Errorf("selected status should read plain:\n%s", c)
+	}
+}

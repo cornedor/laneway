@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -83,7 +84,11 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	b.WriteString("\n")
 
 	line()
-	refField(&b, "Status", iss.Status, 10, sel("Status"))
+	if st, ok := statusLozenge[iss.StatusCategory]; ok && iss.Status != "" && !sel("Status") {
+		b.WriteString(refLabelStyle.Render(refMetaLabel("Status", 10)) + st.Render(" "+strings.ToUpper(iss.Status)+" ") + "\n")
+	} else {
+		refField(&b, "Status", iss.Status, 10, sel("Status"))
+	}
 	line()
 	refField(&b, "Priority", iss.Priority, 10, sel("Priority"))
 	line()
@@ -130,6 +135,10 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	m.renderJiraActivity(&b, iss, width)
 	return b.String()
 }
+
+// statusLozenge colours a status by its category, as Jira's lozenges do:
+// grey to do, blue in progress, green done. Set by applyTheme.
+var statusLozenge map[string]lipgloss.Style
 
 // sectionHead opens a panel section: a shaded bar with its label and hint,
 // or without shading a rule above the label.

@@ -40,8 +40,8 @@ func defaultTheme() theme {
 		"type_subtask":     "8",
 		"type_other":       "4",    // task and the rest
 		"highlight":        "11",   // a card a rule highlighted
-		"roadmap_done":     "2",    // an epic bar's done part
-		"roadmap_todo":     "4",    // and the rest; today's line is highlight
+		"roadmap_done":     "2",    // an epic bar's done part, the done status lozenge
+		"roadmap_todo":     "4",    // and the rest (and in progress); today's line is highlight
 		"shade":            "auto", // cards' faint background: auto (a step off the terminal's), off, or a colour
 	}
 }
@@ -210,6 +210,14 @@ func applyTheme(th theme) {
 
 	refKeyStyle = accent.Bold(true)
 	refLabelStyle, refDimStyle = dim, dim
+	onColour := func(bg string) lipgloss.Style {
+		return c("drop_fg").Background(lipgloss.Color(th[bg])).Bold(true)
+	}
+	statusLozenge = map[string]lipgloss.Style{
+		"new":           c("selection_fg").Background(lipgloss.Color(th["selection_bg"])).Bold(true),
+		"indeterminate": onColour("roadmap_todo"),
+		"done":          onColour("roadmap_done"),
+	}
 	refErrStyle = c("error")
 
 	mdCodeStyle, mdCodeBlockStyle = c("code"), c("code")
