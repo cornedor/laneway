@@ -60,6 +60,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Refresh, "refresh"),
 			row(k.Tab, "to panel"),
 			row(k.Site, "switch Jira site"),
+			row(k.Settings, "settings: every ui: option"),
 			row(k.Quit, "quit"),
 		}},
 		{"Panel", []helpRow{

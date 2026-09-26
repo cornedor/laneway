@@ -57,7 +57,7 @@ type keyMap struct {
 	JiraDescription, Inbox             key.Binding
 	IssueActions, Site, Standup        key.Binding
 	History, DevInfo, JQL, Pin         key.Binding
-	Fold, UnfoldAll                    key.Binding
+	Fold, UnfoldAll, Settings          key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -137,6 +137,7 @@ func defaultKeys() keyMap {
 		Fold:            bind("fold the swimlane", "z"),
 		UnfoldAll:       bind("unfold every swimlane", "Z"),
 		JQL:             bind("JQL search", "Q"),
+		Settings:        bind("settings", ","),
 	}
 }
 
@@ -195,9 +196,12 @@ type Model struct {
 	jiraIssue  *jira.Issue
 	panelHint  string
 
-	helpOpen bool
-	images   *panelImages
-	opts     options
+	helpOpen   bool
+	settings   *settingsView   // the , overlay (settings.go)
+	uiConfig   config.UIConfig // as the file gives it, for settings
+	configPath string
+	images     *panelImages
+	opts       options
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
@@ -327,6 +331,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		jiraTab:         newJiraTabState(),
 		images:          newPanelImages(opts.images, opts.imageMaxRows),
 		opts:            opts,
+		uiConfig:        ui,
 		rules:           ruleSet,
 		rulesLog:        rulesLog,
 		status:          strings.Join(warn, " · "),
@@ -538,6 +543,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // focused pane.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
+	case m.settings != nil:
+		return m.handleSettingsKey(msg)
 	case m.helpOpen:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -576,7 +583,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.settings != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -721,19 +728,21 @@ func (m Model) View() tea.View {
 
 // pickerOnTop is whether the picker is the modal drawn (renderOverlay).
 func (m *Model) pickerOnTop() bool {
-	return m.jiraPicker.active && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
+	return m.jiraPicker.active && m.settings == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
 		!m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // formOnTop is whether the transition form is the modal drawn.
 func (m *Model) formOnTop() bool {
-	return m.jiraForm != nil && !m.jiraPicker.active && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
+	return m.jiraForm != nil && !m.jiraPicker.active && m.settings == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
 		!m.jiraCreateActive && !m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // renderOverlay draws the open modal, last one winning as in matterbox.
 func (m *Model) renderOverlay(bodyH int) string {
 	switch {
+	case m.settings != nil:
+		return m.renderSettings(bodyH)
 	case m.helpOpen:
 		return m.renderHelp(bodyH)
 	case m.jql != nil:

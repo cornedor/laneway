@@ -175,6 +175,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 		return m, nil
+	case key.Matches(msg, m.keys.Settings):
+		m.openSettings()
+		return m, nil
 	case key.Matches(msg, m.keys.JiraLinks):
 		m.openJiraLinkPicker()
 		return m, nil

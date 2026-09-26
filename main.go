@@ -38,13 +38,13 @@ func main() {
 }
 
 func run(cfgPath, site string) error {
-	cfg, _, err := config.Load(cfgPath)
+	cfg, cfgPath, err := config.Load(cfgPath)
 	if err != nil {
 		return err
 	}
 	// @ in the app ends it with another site picked; start again there.
 	for {
-		next, switched, err := runSite(cfg, site)
+		next, switched, err := runSite(cfg, cfgPath, site)
 		if err != nil || !switched {
 			return err
 		}
@@ -53,7 +53,7 @@ func run(cfgPath, site string) error {
 }
 
 // runSite runs the app on site, and says which site it was left for.
-func runSite(cfg config.Config, site string) (string, bool, error) {
+func runSite(cfg config.Config, cfgPath, site string) (string, bool, error) {
 	jc, err := cfg.Site(site)
 	if err != nil {
 		return "", false, err
@@ -72,7 +72,7 @@ func runSite(cfg config.Config, site string) (string, bool, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site)
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath)
 	final, err := tea.NewProgram(m).Run()
 	fm, ok := final.(ui.Model)
 	if ok {

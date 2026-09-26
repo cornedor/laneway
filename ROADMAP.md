@@ -1,8 +1,9 @@
 # Roadmap
 
 ## Next
+- Fix: list mode, the selected row's status, story points and `[PR]` are barely readable, their colours a hair off the selection background
 - Fix: the board list from `[`/`]` doesn't scroll to the active board when the boards overflow the screen, so it can't be read
-- Config screen: every `ui:` option with its value and default, editable in place, written back to the config file (comments kept)
+- Config screen, step B: edit the scalar options in place from `,` (validated by `optionsFrom`), written back to the config file with yaml.v3 nodes (comments kept), applied live
 - Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
 - Filter terms, more: `is:mine`, `due<7d` / `overdue`, `age>3d` (in progress), `updated<1d`, `sprint:`, `pr:open,merged`, `deploy:production`, custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
 - Panel: rich-text (ADF) custom fields rendered as markdown like the description (e.g. a test information field), not flattened to one line; editable through `$EDITOR` where the round trip is exact
@@ -25,6 +26,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `,` settings overlay: every `ui:` option with the file's value and the default (step A of the config screen)
 - `ctrl+y` (board, panel, palette) copies a branch name from `ui.branch_template` (`{key}-{summary}`; also `{type}`, `{project}`)
 - `/` search takes field terms: `status:review,test`, `points>2`, `prio>=high`, `assignee:ada,bob`, `epic:` (empty), `is:flagged`, `-label:ui`, quoted phrases; words AND. Cards carry their labels
 - Panel resizes by dragging its left border (20–80%), the width remembered over `ui.panel_width`; within 3% of it the drag snaps back and forgets
