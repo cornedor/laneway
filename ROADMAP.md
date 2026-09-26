@@ -8,7 +8,6 @@
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
-- Sprint progress in the header: a thin done/total bar beside the days left
 - Empty states: friendlier placeholders for an empty lane, backlog, or no search hits
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
 - Lane heads: a thin rule in the category colour (to do / in progress / done)
@@ -22,6 +21,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Sprint views: a thin progress bar in the header (`▰▰▰▱▱ 3/10p`), done points of all, or issues when none are pointed
 - `<` / `>` widen and narrow the panel a step (5%), stopping at `ui.panel_width` on the way past; remembered like a drag
 - `F` builder on one screen: field, compare and value columns side by side, the term shown live; typing narrows the cursor's column, enter adds and stays, ctrl+x drops the last term
 - `/` term `updated<1d` / `updated>7d`; cards carry their updated time

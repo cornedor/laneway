@@ -2319,6 +2319,9 @@ func (m *Model) renderJiraPane(height, width int) string {
 	}
 	viewLine := strings.Join(views, jiraDimStyle.Render(jiraViewSep))
 	if v, ok := m.jiraCurrentView(); ok {
+		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && bar != "" {
+			viewLine += "    " + bar
+		}
 		if s := jiraSprintLine(v, time.Now()); s != "" {
 			viewLine += jiraDimStyle.Render("    " + s)
 		}
@@ -2368,6 +2371,34 @@ func (m *Model) renderJiraPane(height, width int) string {
 		lines[i] = ansi.Truncate(l, listW, "")
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(lines, "\n"), m.renderRefPane(height, refW))
+}
+
+// jiraSprintBar is the sprint's progress as a thin bar and a count: done
+// points of all when any card has points, else done issues; "" with none.
+func jiraSprintBar(cards []jira.Card) string {
+	var done, total float64
+	pointed := slices.ContainsFunc(cards, func(c jira.Card) bool { return c.Points != "" })
+	for _, c := range cards {
+		n := 1.0
+		if pointed {
+			n, _ = strconv.ParseFloat(c.Points, 64)
+		}
+		total += n
+		if c.Done {
+			done += n
+		}
+	}
+	if total == 0 {
+		return ""
+	}
+	const cells = 10
+	full := int(math.Round(done / total * cells))
+	unit := ""
+	if pointed {
+		unit = "p"
+	}
+	num := func(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+	return roadmapDoneStyle.Render(strings.Repeat("▰", full)) + jiraDimStyle.Render(strings.Repeat("▱", cells-full)+" "+num(done)+"/"+num(total)+unit)
 }
 
 // jiraSprintLine is a sprint view's time and goal: "5d left · Ship it".

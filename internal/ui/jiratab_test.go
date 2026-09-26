@@ -1296,3 +1296,21 @@ func TestJiraListSelectedPlain(t *testing.T) {
 		t.Errorf("selected row = %q", plain)
 	}
 }
+
+func TestJiraSprintBar(t *testing.T) {
+	cards := []jira.Card{{Done: true}, {}, {}, {Done: true}}
+	if got := ansi.Strip(jiraSprintBar(cards)); got != "▰▰▰▰▰▱▱▱▱▱ 2/4" {
+		t.Errorf("issues = %q", got)
+	}
+	cards = []jira.Card{{Done: true, Points: "3"}, {Points: "5"}, {Points: "2"}}
+	if got := ansi.Strip(jiraSprintBar(cards)); got != "▰▰▰▱▱▱▱▱▱▱ 3/10p" {
+		t.Errorf("points = %q", got)
+	}
+	if jiraSprintBar(nil) != "" {
+		t.Error("bar without cards")
+	}
+	m := jiraTabModel(t) // a sprint view, ABC-4 done
+	if !strings.Contains(ansi.Strip(m.View().Content), "▱ 0/5p") {
+		t.Errorf("header lacks the bar:\n%s", strings.Split(ansi.Strip(m.View().Content), "\n")[jiraBodyTop-2])
+	}
+}
