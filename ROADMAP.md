@@ -1,11 +1,22 @@
 # Roadmap
 
 ## Next
+- Filters on the loaded cards, lanes and list alike, in the `/` search: `status:review`, `points>2`, `prio>=high`, `assignee:ada,bob`, `epic:` (empty), `-label:ui`, bare words still match text; a status picker (multi-select, counts) for the common case
+- Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
 - Panel width by key (widen / narrow), matching the border drag
 - Sprint progress in the header: a thin done/total bar beside the days left
 - Empty states: friendlier placeholders for an empty lane, backlog, or no search hits
+- Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
+- Lane heads: a thin rule in the category colour (to do / in progress / done)
+- Light-theme pass over the chips, lozenges and selection colours
+- Relative dates in comments, history and worklogs (`2d ago`), the full date when selected
+- Inline quick edit from the board: priority, assignee, points without opening the panel
+- My work: everything assigned to you across boards and projects, grouped by status
+- History: description changes as a small diff instead of from → to
+- Roadmap: keyboard grips (pick a bar's end, then h/l), matching the mouse
+- Offline: a clear "offline, showing cached board" banner instead of scattered errors
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
