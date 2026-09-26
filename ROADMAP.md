@@ -5,6 +5,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- README: `jira.story_points_field` and `jira.start_prompt` documented (every config key now is)
 - Slow loads count up after 2s (`refreshing… 7s`; the first load says `loading ABC… 7s` centred), so a slow instance doesn't look frozen; `#` go-to takes a pasted issue URL (`…/browse/ABC-1`, `?selectedIssue=ABC-1`)
 - `Q`: enter on an empty input runs the highlighted past search; the create box says "type a summary first" for a blank one (spaces no longer reach Jira) and its title names the sprint a new issue joins (`New Task in ABC → Sprint 12`)
 - Lanes off-screen: the outer lane heads say how many lie past them (`‹2 To do`, `Review 3›`)
