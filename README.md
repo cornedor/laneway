@@ -59,7 +59,7 @@ ui:
   stale_after: 1m    # older boards refetch on focus/tick
   images: auto       # kitty/Ghostty inline images; "off"
   image_max_rows: 16
-  panel_width: 50    # issue panel, percent of the width
+  panel_width: 50    # issue panel, percent of the width; drag its left border to resize, remembered
   card_limit: 500    # most cards one view fetches (50–5000)
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout
@@ -198,7 +198,7 @@ Panel:
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →)
-- mouse: a click selects a field, a second edits it; a click opens a linked issue or a link, or an activity tab; a click on a comment's byline replies to it. In pickers a click picks, outside cancels; in the move form a click selects a field, a second edits it, the button moves
+- mouse: drag the panel's left border to resize it; a click selects a field, a second edits it; a click opens a linked issue or a link, or an activity tab; a click on a comment's byline replies to it. In pickers a click picks, outside cancels; in the move form a click selects a field, a second edits it, the button moves
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 

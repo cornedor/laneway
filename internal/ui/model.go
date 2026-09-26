@@ -284,6 +284,9 @@ type Model struct {
 	jiraCommentMention *jira.Mention
 	jiraCommentReplyTo string
 
+	// panelResizing is set while the panel's left border is dragged
+	// (panel_resize.go).
+	panelResizing bool
 	// lastClick detects a double-click.
 	lastClick struct {
 		at   time.Time
@@ -334,6 +337,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	m.refView.SoftWrap = true
 	m.jiraTab.wantLanes = opts.lanes
 	m.loadPins()
+	m.loadPanelWidth()
 	return m
 }
 
@@ -386,6 +390,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseClickMsg:
 		return m.handleClick(msg)
 	case tea.MouseMotionMsg:
+		if m.panelResizing {
+			return m.resizePanel(msg.X)
+		}
 		if r := m.jiraTab.roadmap; r != nil && r.drag.on && msg.Button == tea.MouseLeft {
 			return m.dragRoadmap(msg.X)
 		}
@@ -397,6 +404,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tea.MouseReleaseMsg:
+		if m.panelResizing {
+			m.panelResizing = false
+			m.savePanelWidth()
+			return m, nil
+		}
 		if r := m.jiraTab.roadmap; r != nil {
 			r.drag = roadmapDrag{}
 		}
@@ -592,6 +604,10 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	}
 	if form {
 		return m.clickJiraForm(msg.X, msg.Y, count)
+	}
+	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X == listW {
+		m.panelResizing = true // the panel's left border: drag to resize
+		return m, nil
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
 		m.focus = focusRef

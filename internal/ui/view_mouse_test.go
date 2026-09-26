@@ -164,3 +164,37 @@ func TestPanelLinkClick(t *testing.T) {
 		t.Errorf("click: status %q", m.status)
 	}
 }
+
+// TestPanelResize: dragging the panel's left border resizes it, within
+// bounds; the width is remembered for the next start.
+func TestPanelResize(t *testing.T) {
+	m := loadedJiraModel(t)
+	listW, _ := m.jiraListWidth(m.width)
+	y := jiraBodyTop + 2
+	row := []rune(ansi.Strip(strings.Split(m.View().Content, "\n")[y]))
+	if listW >= len(row) || !strings.ContainsRune("│┃▏", row[listW]) {
+		t.Fatalf("no border at column %d: %q", listW, string(row))
+	}
+	out, _ := m.Update(tea.MouseClickMsg{X: listW, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	out, _ = m.Update(tea.MouseMotionMsg{X: m.width / 4, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.opts.panelPct != 75 {
+		t.Fatalf("pct %d after a drag to a quarter, want 75", m.opts.panelPct)
+	}
+	out, _ = m.Update(tea.MouseMotionMsg{X: 0, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	out, _ = m.Update(tea.MouseReleaseMsg{X: 0, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.opts.panelPct != 80 || m.panelResizing {
+		t.Fatalf("pct %d, resizing %v: want clamped to 80 and let go", m.opts.panelPct, m.panelResizing)
+	}
+	if nl, _ := m.jiraListWidth(m.width); nl >= listW {
+		t.Errorf("board %d wide, was %d: the panel should have grown", nl, listW)
+	}
+	m.opts.panelPct = 50
+	m.loadPanelWidth()
+	if m.opts.panelPct != 80 {
+		t.Errorf("remembered %d, want 80", m.opts.panelPct)
+	}
+}
