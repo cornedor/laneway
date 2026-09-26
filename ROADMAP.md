@@ -9,12 +9,12 @@
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
 - Light-theme pass over the chips, lozenges and selection colours
-- Inline quick edit from the board: priority, assignee, points without opening the panel
 - My work: everything assigned to you across boards and projects, grouped by status
 - Roadmap: keyboard grips (pick a bar's end, then h/l), matching the mouse
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `e` on the board: quick edit the selected card (status, priority, assignee, labels, points, sprint) with the bulk editors, marks untouched
 - History: a multi-line field (the description) shows as the lines it changed, `- old` red and `+ new` green, 12 at most
 - Offline: a failed fetch keeps the cached board and says `offline · showing the cached board · r retries` in the header (the error on the status line) until one succeeds; it used to blank the board
 - Code blocks were already highlighted with chroma (`highlight.go` via the markdown renderer); `ui.code_theme` picks the style

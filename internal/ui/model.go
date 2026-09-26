@@ -59,7 +59,7 @@ type keyMap struct {
 	History, DevInfo, JQL, Pin         key.Binding
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
-	PanelNarrower                      key.Binding
+	PanelNarrower, QuickEdit           key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -143,6 +143,7 @@ func defaultKeys() keyMap {
 		FilterBuilder:   bind("filter builder", "F"),
 		PanelWider:      bind("widen the panel", "<"),
 		PanelNarrower:   bind("narrow the panel", ">"),
+		QuickEdit:       bind("quick edit the card", "e"),
 	}
 }
 
@@ -204,6 +205,7 @@ type Model struct {
 	helpOpen      bool
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
+	quickKey      string          // the card a quick edit (e) changes, "" for the marks (bulk.go)
 	uiConfig      config.UIConfig // as the file gives it, for settings
 	configPath    string
 	images        *panelImages

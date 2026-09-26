@@ -78,8 +78,12 @@ func (m *Model) toggleJiraMarkAll() {
 	m.status = fmt.Sprintf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
 }
 
-// markedKeys are the marked cards, sorted.
+// markedKeys are the marked cards, sorted; a quick edit's one card instead
+// while it runs.
 func (m *Model) markedKeys() []string {
+	if m.quickKey != "" {
+		return []string{m.quickKey}
+	}
 	keys := make([]string, 0, len(m.jiraTab.marked))
 	for k := range m.jiraTab.marked {
 		keys = append(keys, k)
@@ -102,23 +106,38 @@ func (m *Model) jiraMark(key string) string {
 	return lipgloss.NewStyle().Foreground(focusedColor).Bold(true).Render("✓")
 }
 
+// bulkFields are what a bulk or quick edit changes.
+var bulkFields = []jiraPickerItem{
+	{id: "status", label: "Status"},
+	{id: "priority", label: "Priority"},
+	{id: "assignee", label: "Assignee"},
+	{id: "labels", label: "Labels (+add -remove)"},
+	{id: "points", label: "Story points"},
+	{id: "sprint", label: "Sprint / backlog"},
+}
+
 // openBulkMenu asks what to change on the marked cards.
 func (m *Model) openBulkMenu() {
+	m.quickKey = ""
 	keys := m.markedKeys()
 	if len(keys) == 0 {
 		m.status = "mark cards with " + helpKey(m.keys.Mark) + " first"
 		return
 	}
 	m.startJiraPicker(jiraPickBulk, fmt.Sprintf("Edit %d marked", len(keys)), false)
-	m.setJiraPickerItems([]jiraPickerItem{
-		{id: "status", label: "Status"},
-		{id: "priority", label: "Priority"},
-		{id: "assignee", label: "Assignee"},
-		{id: "labels", label: "Labels (+add -remove)"},
-		{id: "points", label: "Story points"},
-		{id: "sprint", label: "Sprint / backlog"},
-		{id: "clear", label: "Clear marks"},
-	})
+	m.setJiraPickerItems(append(slices.Clone(bulkFields), jiraPickerItem{id: "clear", label: "Clear marks"}))
+}
+
+// openQuickEdit edits the selected card from the board with the bulk
+// editors, without opening the panel.
+func (m *Model) openQuickEdit() {
+	c, ok := m.selectedJiraCard()
+	if !ok {
+		return
+	}
+	m.quickKey = c.Key
+	m.startJiraPicker(jiraPickBulk, "Edit "+c.Key, false)
+	m.setJiraPickerItems(slices.Clone(bulkFields))
 }
 
 // applyBulkMenu opens the picked field's editor for the marked cards.
@@ -340,6 +359,21 @@ func (m *Model) runBulk(what string, keys []string, write func(ctx context.Conte
 // refetches the board (and the panel's issue when it was one of them).
 func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
+	if m.quickKey != "" {
+		// A quick edit leaves the marks alone.
+		m.quickKey = ""
+		m.status = msg.what + " set on " + strings.Join(msg.keys, ", ")
+		for k, err := range msg.failed {
+			m.status = k + ": " + msg.what + ": " + err.Error()
+		}
+		t.rows = nil
+		m.renderJira()
+		cmds := []tea.Cmd{m.refreshJiraAfterEdit()}
+		if r := m.currentRef(); r != nil && slices.Contains(msg.keys, r.jiraKey) {
+			cmds = append(cmds, m.loadCurrentRef())
+		}
+		return m, tea.Batch(cmds...)
+	}
 	t.marked = nil
 	for k := range msg.failed {
 		if t.marked == nil {

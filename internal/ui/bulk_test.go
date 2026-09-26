@@ -207,3 +207,29 @@ func TestBulkStatusForm(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+// TestQuickEdit: e edits the selected card alone with the bulk editors,
+// leaving the marks as they were.
+func TestQuickEdit(t *testing.T) {
+	m, writes := bulkModel(t) // ABC-1 and ABC-3 marked
+	m.selectJiraKey("ABC-2")
+	out, _ := m.handleJiraKey(keyMsg(t, "e"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.title != "Edit ABC-2" || slices.ContainsFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "clear" }) {
+		t.Fatalf("picker %q %+v", m.jiraPicker.title, m.jiraPicker.items)
+	}
+	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "labels" })
+	out, _ = m.applyJiraPick()
+	m = out.(Model)
+	m.jiraFieldInput.SetValue("ui")
+	out, cmd := m.applyJiraField()
+	m = out.(Model)
+	out, _ = m.handleBulkDone(cmd().(bulkDoneMsg))
+	m = out.(Model)
+	if w := writes(); len(w) != 1 || !strings.HasPrefix(w[0], "PUT /rest/api/3/issue/ABC-2 ") {
+		t.Errorf("writes = %q", w)
+	}
+	if len(m.jiraTab.marked) != 2 || m.quickKey != "" {
+		t.Errorf("marks %v, quick %q", m.jiraTab.marked, m.quickKey)
+	}
+}
