@@ -203,7 +203,10 @@ func (m *Model) openBulkInput(field, placeholder string) {
 	m.jiraFieldInput = ti
 	m.jiraFieldActive = true
 	m.jiraFieldName = field
-	m.jiraFieldKey = fmt.Sprintf("%d issues", len(m.jiraTab.marked))
+	m.jiraFieldKey = fmt.Sprintf("%d issues", len(m.markedKeys()))
+	if keys := m.markedKeys(); len(keys) == 1 {
+		m.jiraFieldKey = keys[0] // a quick edit, or one marked
+	}
 }
 
 // applyBulkPick writes a picked status, priority, assignee or sprint to
@@ -385,11 +388,16 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 	ok := len(msg.keys) - len(msg.failed)
 	m.status = fmt.Sprintf("%s set on %d", msg.what, ok)
 	if len(msg.failed) > 0 {
-		var fails []string
 		for _, k := range slices.Sorted(maps.Keys(msg.failed)) {
-			fails = append(fails, k+": "+msg.failed[k].Error())
+			m.logError(k + ": " + msg.what + ": " + msg.failed[k].Error()) // each reason, in messages
 		}
-		m.status += fmt.Sprintf(" · %d failed (still marked): %s", len(fails), strings.Join(fails, "; "))
+		if len(msg.failed) == 1 {
+			for k, err := range msg.failed {
+				m.fail(m.status + fmt.Sprintf(" · %s failed (still marked): %v", k, err))
+			}
+		} else {
+			m.fail(m.status + fmt.Sprintf(" · %d failed (still marked) · %s messages says why", len(msg.failed), helpKey(m.keys.Palette)))
+		}
 	}
 	cmds := []tea.Cmd{m.refreshJiraAfterEdit()}
 	if r := m.currentRef(); r != nil && slices.Contains(msg.keys, r.jiraKey) {

@@ -27,6 +27,12 @@ func (m *Model) fail(s string) {
 	m.status, m.statusErr = s, s
 }
 
+// logError keeps an error in the log without showing it on the status
+// line (one of several a bulk edit met).
+func (m *Model) logError(s string) {
+	m.statusLog = append(m.statusLog, statusEntry{time.Now(), s, true})
+}
+
 // statusIsErr is whether the status line shows an error.
 func (m *Model) statusIsErr() bool { return m.status != "" && m.status == m.statusErr }
 

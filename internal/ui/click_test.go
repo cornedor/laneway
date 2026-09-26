@@ -1126,3 +1126,13 @@ func TestRuleActed(t *testing.T) {
 		t.Errorf("failed: %q", m.status)
 	}
 }
+
+// TestQuickEditTitle: a quick edit's input names its issue.
+func TestQuickEditTitle(t *testing.T) {
+	m := jiraTabModel(t)
+	m.quickKey = "ABC-1"
+	m.openBulkInput("labels", "labels")
+	if m.jiraFieldKey != "ABC-1" {
+		t.Errorf("title key %q", m.jiraFieldKey)
+	}
+}
