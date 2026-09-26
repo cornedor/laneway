@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Next
+- Fix: the board list from `[`/`]` doesn't scroll to the active board when the boards overflow the screen, so it can't be read
 - Config screen: every `ui:` option with its value and default, editable in place, written back to the config file (comments kept)
 - Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
 - Filter terms, more: `is:mine`, `due<7d` / `overdue`, `age>3d` (in progress), `updated<1d`, `sprint:`, `pr:open,merged`, `deploy:production`, custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
