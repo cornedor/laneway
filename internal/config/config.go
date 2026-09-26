@@ -158,6 +158,9 @@ type UIConfig struct {
 	// Mouse is "on" (default): clicks, drags and the wheel; "off" leaves
 	// the mouse to the terminal (selecting text, its own links).
 	Mouse string `yaml:"mouse"`
+	// DoubleClick is how quickly a second click makes a double-click
+	// ("400ms"), 100ms to 2s.
+	DoubleClick string `yaml:"double_click"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
 	CustomFields []string `yaml:"custom_fields"`

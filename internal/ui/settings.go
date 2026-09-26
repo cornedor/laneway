@@ -60,6 +60,7 @@ var settingDefaults = map[string]string{
 	"filters":              "none",
 	"card_colors":          "ribbon",
 	"mouse":                "on",
+	"double_click":         "400ms",
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",

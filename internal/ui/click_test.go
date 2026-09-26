@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -698,5 +699,15 @@ func TestOpenDownload(t *testing.T) {
 	}
 	if _, cmd := m.applyPalette("d:"); cmd == nil {
 		t.Error("the row opens nothing")
+	}
+}
+
+// TestDoubleClickOption: ui.double_click sets the window; out of range warns.
+func TestDoubleClickOption(t *testing.T) {
+	if o, warn := optionsFrom(config.UIConfig{DoubleClick: "800ms"}); o.doubleClick != 800*time.Millisecond || len(warn) != 0 {
+		t.Errorf("800ms: %v %v", o.doubleClick, warn)
+	}
+	if o, warn := optionsFrom(config.UIConfig{DoubleClick: "5s"}); o.doubleClick != 400*time.Millisecond || len(warn) == 0 {
+		t.Errorf("5s: %v %v", o.doubleClick, warn)
 	}
 }

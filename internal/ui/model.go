@@ -746,7 +746,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	count := 1
-	if time.Since(m.lastClick.at) < 400*time.Millisecond && m.lastClick.x == msg.X && m.lastClick.y == msg.Y {
+	if time.Since(m.lastClick.at) < m.opts.doubleClick && m.lastClick.x == msg.X && m.lastClick.y == msg.Y {
 		count = 2
 	}
 	m.lastClick.at, m.lastClick.x, m.lastClick.y = time.Now(), msg.X, msg.Y
