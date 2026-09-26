@@ -230,6 +230,19 @@ func (m *Model) runNamedJQLView(name, q string) tea.Cmd {
 	return m.loadJiraCards(i, false)
 }
 
+// myWorkJQL is everything assigned to you anywhere, open or done this week.
+const myWorkJQL = "assignee = currentUser() AND (statusCategory != Done OR resolved >= -7d) ORDER BY updated DESC"
+
+// openMyWork shows your issues across boards and projects as a view,
+// grouped by status.
+func (m *Model) openMyWork() tea.Cmd {
+	cmd := m.runNamedJQLView("Mine: my work", myWorkJQL)
+	if cmd != nil {
+		m.jiraTab.sort = jiraSortStatus
+	}
+	return cmd
+}
+
 // renderJQL draws the input and its completions as a modal.
 func (m *Model) renderJQL() string {
 	j := m.jql

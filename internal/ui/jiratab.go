@@ -889,6 +889,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openFilterBuilder()
 	case key.Matches(msg, m.keys.QuickEdit):
 		m.openQuickEdit()
+	case key.Matches(msg, m.keys.MyWork):
+		return m, m.openMyWork()
 	case key.Matches(msg, m.keys.PanelWider):
 		m.stepPanel(1)
 	case key.Matches(msg, m.keys.PanelNarrower):
@@ -1645,6 +1647,8 @@ func jiraGroupOf(s jiraSort, c jira.Card) (string, bool) {
 			return "No epic", true
 		}
 		return c.ParentSummary, true
+	case jiraSortStatus:
+		return c.Status, true
 	}
 	return "", false
 }

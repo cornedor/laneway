@@ -40,6 +40,7 @@ func (m *Model) helpSections() []struct {
 			row(k.ToggleMode, "lanes / list"),
 			row(k.Palette, "command palette"),
 			row(k.JQL, "JQL search with completion, as a view"),
+			row(k.MyWork, "my work: yours in every project, by status"),
 			{join(k.Timer, k.Timesheet), "timer / today's worklogs"},
 			row(k.Inbox, "inbox: others' changes, comments, mentions"),
 			row(k.Standup, "standup: what you did since the last workday"),

@@ -59,7 +59,7 @@ type keyMap struct {
 	History, DevInfo, JQL, Pin         key.Binding
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
-	PanelNarrower, QuickEdit           key.Binding
+	PanelNarrower, QuickEdit, MyWork   key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -144,6 +144,7 @@ func defaultKeys() keyMap {
 		PanelWider:      bind("widen the panel", "<"),
 		PanelNarrower:   bind("narrow the panel", ">"),
 		QuickEdit:       bind("quick edit the card", "e"),
+		MyWork:          bind("my work, every project", "O"),
 	}
 }
 

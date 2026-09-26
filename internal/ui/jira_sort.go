@@ -18,11 +18,12 @@ const (
 	jiraSortAssignee
 	jiraSortEpic
 	jiraSortKey
+	jiraSortStatus // appended: a stored sort keeps its meaning
 	jiraSortCount
 )
 
 func (s jiraSort) String() string {
-	return [...]string{"rank", "priority", "points", "assignee", "epic", "key"}[s]
+	return [...]string{"rank", "priority", "points", "assignee", "epic", "key", "status"}[s]
 }
 
 // jiraPriorityRank orders priorities highest first; unknown ones sit with
@@ -39,6 +40,18 @@ func jiraPriorityRank(p string) int {
 		return 4
 	}
 	return 2
+}
+
+// jiraCategoryRank orders status categories as work flows: to do, in
+// progress, done.
+func jiraCategoryRank(c jira.Card) int {
+	switch {
+	case c.Done:
+		return 2
+	case c.InProgress:
+		return 1
+	}
+	return 0
 }
 
 // jiraKeyNum is a key's number, for ABC-9 before ABC-10.
@@ -100,6 +113,13 @@ func (s jiraSort) cmp() func(a, b jira.Card) int {
 				return -1
 			}
 			return strings.Compare(a.ParentSummary, b.ParentSummary)
+		}
+	case jiraSortStatus:
+		cmp = func(a, b jira.Card) int {
+			if c := jiraCategoryRank(a) - jiraCategoryRank(b); c != 0 {
+				return c
+			}
+			return strings.Compare(a.Status, b.Status)
 		}
 	case jiraSortKey:
 		cmp = func(a, b jira.Card) int {

@@ -156,3 +156,24 @@ func TestJQLHistoryAndStar(t *testing.T) {
 		t.Error("ctrl+s again should unstar")
 	}
 }
+
+// TestMyWork: O adds a view of your issues in every project, sorted and
+// grouped by status (to do, in progress, done).
+func TestMyWork(t *testing.T) {
+	m := jiraTabModel(t)
+	out, cmd := m.handleJiraKey(keyMsg(t, "O"))
+	m = out.(Model)
+	v := m.jiraTab.views[len(m.jiraTab.views)-1]
+	if cmd == nil || v.name != "Mine: my work" || v.jql != myWorkJQL || m.jiraTab.sort != jiraSortStatus {
+		t.Fatalf("view %+v, sort %v", v, m.jiraTab.sort)
+	}
+	cards := []jira.Card{{Key: "A-1", Status: "Done", Done: true}, {Key: "A-2", Status: "To Do"}, {Key: "A-3", Status: "Review", InProgress: true}}
+	order := []int{0, 1, 2}
+	jiraSortStatus.apply(order, cards)
+	if order[0] != 1 || order[1] != 2 || order[2] != 0 {
+		t.Errorf("order = %v", order)
+	}
+	if g, ok := jiraGroupOf(jiraSortStatus, cards[2]); !ok || g != "Review" {
+		t.Errorf("group = %q", g)
+	}
+}

@@ -9,10 +9,10 @@
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
 - Light-theme pass over the chips, lozenges and selection colours
-- My work: everything assigned to you across boards and projects, grouped by status
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `O` my work: yours in every project (open, or done this week) as a view, grouped by status; the list sort gains `status` (to do, in progress, done)
 - Roadmap: `e` grips a bar's start, again its end, again lets go; `h`/`l` move the gripped end (the start stops at the end), matching the mouse
 - `ui.filters`: named `/` queries, recalled from the `:` palette (`search  Stale review`)
 - `e` on the board: quick edit the selected card (status, priority, assignee, labels, points, sprint) with the bulk editors, marks untouched
