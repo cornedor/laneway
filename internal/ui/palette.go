@@ -35,7 +35,11 @@ func (m *Model) openPalette() {
 	names := m.keys.keyNames()
 	var items []jiraPickerItem
 	for _, p := range m.pinnedIssues() {
-		items = append(items, jiraPickerItem{id: "i:" + p[0], label: "pinned  " + p[0] + "  " + ansi.Strip(p[1])})
+		label := "pinned  " + p[0] + "  " + ansi.Strip(p[1])
+		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == p[0] }); i >= 0 {
+			label += "  · " + m.jiraTab.cards[i].Status // on the board: its status now
+		}
+		items = append(items, jiraPickerItem{id: "i:" + p[0], label: label})
 	}
 	for _, s := range keyScopes {
 		if s.name != scope {

@@ -1003,6 +1003,11 @@ func TestJiraTabPin(t *testing.T) {
 	if !strings.Contains(m.View().Content, "★") {
 		t.Error("list: no ★")
 	}
+	m.openPalette()
+	if got := m.jiraPicker.all[0].label; got != "pinned  ABC-1  First  · New" {
+		t.Errorf("palette's first row %q", got)
+	}
+	m.closeJiraPicker()
 	out, _ = m.handleKey(keyMsg(t, "*"))
 	m = out.(Model)
 	if m.pins["ABC-1"] || strings.Contains(m.View().Content, "★") {

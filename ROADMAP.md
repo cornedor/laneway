@@ -1,10 +1,10 @@
 # Roadmap
 
 ## Next
-- Palette: pinned rows show the issue's status when it's on the board
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Palette: pinned rows show the issue's status when it's on the board
 - Panel shows `Deployed` (the board card's top environment)
 - Swimlane headers sum their story points (`▾ Ada · 5 · 13p`), hidden with points
 - Swimlanes: `z` folds the cursor's band to its header (cursor skips it), `Z` unfolds all
