@@ -69,6 +69,7 @@ ui:
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
     - {name: Mine, jql: "assignee = currentUser()"}
+  card_colors: ribbon           # the board's own card colours as a bar on cards and rows; off
   custom_fields: [Test type, Team]   # Jira fields by name on cards and rows, searchable
   filters:                      # named / queries, recalled from the : palette
     - {name: Stale review, query: "status:review age>3d"}

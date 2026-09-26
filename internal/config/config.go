@@ -133,6 +133,9 @@ type UIConfig struct {
 	// FullRefresh is how long idle refreshes fetch only changes before a
 	// whole refetch ("10m").
 	FullRefresh string `yaml:"full_refresh"`
+	// CardColors is how cards show the board's own card colours:
+	// "ribbon" (default) or "off".
+	CardColors string `yaml:"card_colors"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
 	CustomFields []string `yaml:"custom_fields"`

@@ -56,6 +56,7 @@ var settingDefaults = map[string]string{
 	"open":                 "xdg-open, open or rundll32",
 	"full_refresh":         "10m",
 	"filters":              "none",
+	"card_colors":          "ribbon",
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",

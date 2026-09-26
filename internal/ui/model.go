@@ -461,13 +461,15 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case jiraBoardMsg:
 		out, cmd := m.handleJiraBoard(msg)
 		mm := out.(Model)
-		return mm, tea.Batch(cmd, mm.fetchAvatars())
+		return mm, tea.Batch(cmd, mm.fetchAvatars(), mm.fetchCardColors())
 	case jiraCardsMsg:
 		out, cmd := m.handleJiraCards(msg)
 		mm := out.(Model)
 		return mm, tea.Batch(cmd, mm.fetchAvatars())
 	case avatarLoadedMsg:
 		return m.handleAvatarLoaded(msg)
+	case cardColorsMsg:
+		return m.handleCardColors(msg)
 	case jiraMovedMsg:
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:

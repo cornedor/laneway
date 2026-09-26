@@ -1409,3 +1409,27 @@ func TestCompactCards(t *testing.T) {
 		t.Error("c again should switch back")
 	}
 }
+
+// TestCardColors: the board's colours draw as a ribbon on cards and rows,
+// by type here; off leaves them out.
+func TestCardColors(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[0].Type = "Bug"
+	out, _ := m.handleCardColors(cardColorsMsg{board: m.jiraBoardID(), colors: jira.CardColors{By: "issuetype", Colors: []jira.CardColor{{Value: "bug", Color: "#ff5630"}}}})
+	m = out.(Model)
+	if m.cardColor(m.jiraTab.cards[0]) != "#ff5630" || m.cardColor(m.jiraTab.cards[1]) != "" {
+		t.Fatal("colour by type")
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "▌ABC-1") {
+		t.Errorf("no ribbon on the card:\n%s", ansi.Strip(m.View().Content))
+	}
+	m.opts.cardColors = "off"
+	if m.cardRibbon(m.jiraTab.cards[0]) != "" {
+		t.Error("off still draws")
+	}
+	m.opts.cardColors = "ribbon"
+	out, _ = m.handleCardColors(cardColorsMsg{board: m.jiraBoardID(), colors: jira.CardColors{By: "custom"}, keys: map[string]string{"ABC-2": "#00ff00"}})
+	if m = out.(Model); m.cardColor(m.jiraTab.cards[1]) != "#00ff00" {
+		t.Error("custom colour by key")
+	}
+}

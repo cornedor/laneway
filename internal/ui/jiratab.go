@@ -279,6 +279,11 @@ type jiraTabState struct {
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
+	// colors are the board's card colours (colorsBoard's), colorKeys the
+	// issues a custom colour's JQL took.
+	colors      jira.CardColors
+	colorKeys   map[string]string
+	colorsBoard int
 	// compact draws lane cards on one line (c), remembered.
 	compact bool
 	// offline is why the last fetch failed while cached cards stay shown,
@@ -1775,6 +1780,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 		title += " " + a
 	}
 	row := "  "
+	if r := m.cardRibbon(c); r != "" && !selected {
+		row = r + " "
+	}
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		row = hl + " "
 	}
@@ -2179,16 +2187,104 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		lines[0] = hl + " " + lines[0]
 	}
+	ribbon := m.cardRibbon(c)
+	if ribbon != "" {
+		inner--
+	}
 	for i, line := range lines {
 		line = ansi.Truncate(line, inner, "…")
 		switch {
 		case sel: // plain: dim marks vanish on the selection colour
-			lines[i] = m.jiraSelect(stripKeepImages(line), true, inner)
+			lines[i] = ribbon + m.jiraSelect(stripKeepImages(line), true, inner)
 		default: // full width, on the terminal's own background
-			lines[i] = line + strings.Repeat(" ", max(inner-lipgloss.Width(line), 0))
+			lines[i] = ribbon + line + strings.Repeat(" ", max(inner-lipgloss.Width(line), 0))
 		}
 	}
 	return lines
+}
+
+// cardRibbon is the card's colour from the board's settings as a thin bar,
+// "" with ui.card_colors off or no colour for it.
+func (m *Model) cardRibbon(c jira.Card) string {
+	col := m.cardColor(c)
+	if col == "" || m.opts.cardColors != "ribbon" {
+		return ""
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(col)).Render("▌")
+}
+
+// cardColor is the colour the board gives card c, "" for none.
+func (m *Model) cardColor(c jira.Card) string {
+	t := m.jiraTab
+	if t.colorsBoard != m.jiraBoardID() {
+		return ""
+	}
+	if t.colors.By == "custom" {
+		return t.colorKeys[c.Key]
+	}
+	var have []string
+	switch t.colors.By {
+	case "priority":
+		have = []string{c.Priority}
+	case "issuetype":
+		have = []string{c.Type}
+	case "assignee":
+		have = []string{c.Assignee, c.AssigneeID}
+	}
+	for _, col := range t.colors.Colors {
+		for _, h := range have {
+			if h != "" && strings.EqualFold(h, col.Value) {
+				return col.Color
+			}
+		}
+	}
+	return ""
+}
+
+// cardColorsMsg is a board's card colours read, with the keys a custom
+// colour's JQL takes.
+type cardColorsMsg struct {
+	board  int
+	colors jira.CardColors
+	keys   map[string]string
+	err    error
+}
+
+// fetchCardColors reads the current board's card colours once a session
+// (custom ones again with each load, their JQL judging the issues).
+func (m *Model) fetchCardColors() tea.Cmd {
+	t := m.jiraTab
+	board := m.jiraBoardID()
+	if m.opts.cardColors == "off" || board == 0 || t.cfg == nil || (t.colorsBoard == board && t.colors.By != "custom") {
+		return nil
+	}
+	c, ctx, project := m.jiraClient, m.ctx, t.project
+	return func() tea.Msg {
+		cc, err := c.CardColors(ctx, board)
+		if err != nil || cc.By != "custom" {
+			return cardColorsMsg{board: board, colors: cc, err: err}
+		}
+		scope := ""
+		if project != "" {
+			scope = fmt.Sprintf("project = %q", project)
+		}
+		keys, err := c.CardColorKeys(ctx, cc, scope)
+		return cardColorsMsg{board: board, colors: cc, keys: keys, err: err}
+	}
+}
+
+func (m Model) handleCardColors(msg cardColorsMsg) (tea.Model, tea.Cmd) {
+	t := m.jiraTab
+	if msg.board != m.jiraBoardID() {
+		return m, nil
+	}
+	t.colorsBoard, t.colors, t.colorKeys = msg.board, msg.colors, msg.keys
+	if msg.err != nil { // an instance without the edit model: no colours
+		t.colors = jira.CardColors{}
+	}
+	t.rows = nil
+	m.renderJira()
+	return m, nil
 }
 
 // renderJiraSwimlanes draws the lanes cut into swimlanes: a band per
