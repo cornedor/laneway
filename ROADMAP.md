@@ -8,6 +8,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The selected card draws in plain selection colours: its dim marks and assignee line had vanished into it
 - Shading, second tone for the bars: the header (title, views, filters) is one band apart from the board; the panel's title and trail strips, its section headings (Description, Links, Attachments, Comments) and the status line too. Unshaded, a rule parts the trail from the issue
 - Cards get a faint background (theme `shade`: auto from the terminal's reported background, off, or a colour)
 - Fix: standup and the inbox badge sent `updatedBy(currentUser(), …)`, which Jira rejects (no nested functions); they pass your accountId

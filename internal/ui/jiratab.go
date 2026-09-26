@@ -1928,8 +1928,8 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 	}
 	for i, line := range lines {
 		line = ansi.Truncate(line, inner, "…")
-		if sel {
-			lines[i] = m.jiraSelect(line, true, inner)
+		if sel { // plain: dim marks vanish on the selection colour
+			lines[i] = m.jiraSelect(ansi.Strip(line), true, inner)
 		} else {
 			lines[i] = shade(line, inner)
 		}
