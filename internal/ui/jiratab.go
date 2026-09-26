@@ -1969,9 +1969,9 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		head  string // the band's name on its header line
 		count int
 		pts   string // its points, "" when none are estimated
-		at    []int // the row's card row per shown lane, -1 for none
-		y     int   // the card line, -1 for a header or gap
-		start int   // the row's first line
+		at    []int  // the row's card row per shown lane, -1 for none
+		y     int    // the card line, -1 for a header or gap
+		start int    // the row's first line
 	}
 	var body []swimLine
 	t.swimAt, t.swimBand = t.swimAt[:0], t.swimBand[:0]
