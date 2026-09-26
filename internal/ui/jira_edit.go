@@ -657,6 +657,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, m.editComment(i)
 	}
 	if kind == jiraPickUnlink {
+		if m.jiraPicker.pendingDelete != it.id { // a removal is confirmed by a second enter on it
+			m.jiraPicker.pendingDelete = it.id
+			m.status = "enter again removes the link " + it.label
+			return m, nil
+		}
 		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
 		return m, m.unlinkJira(key, it)

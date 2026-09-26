@@ -280,7 +280,7 @@ func TestClickRoadmapFold(t *testing.T) {
 
 // TestClickPlanSprint: planning's sprint name steps to the next sprint.
 func TestClickPlanSprint(t *testing.T) {
-	m := planModel(t, nil)
+	m := planModel(t, &[]string{})
 	p := m.jiraTab.plan
 	p.sprints = append(p.sprints, p.sprints[0])
 	p.sprints[len(p.sprints)-1].name = "Sprint 9"
@@ -314,7 +314,7 @@ func TestPickerWrappedTitle(t *testing.T) {
 
 // TestClickPlanHead: a click on a side's head focuses that side.
 func TestClickPlanHead(t *testing.T) {
-	m := planModel(t, nil)
+	m := planModel(t, &[]string{})
 	m.jiraTab.plan.side = 0
 	if m = click(m, m.width-10, jiraBodyTop); m.jiraTab.plan.side != 1 {
 		t.Error("the sprint's head did not take the focus")
@@ -606,7 +606,7 @@ func TestMessages(t *testing.T) {
 // TestQClosesScreens: q on the roadmap, planning or charts closes it as
 // esc does, rather than quitting.
 func TestQClosesScreens(t *testing.T) {
-	for name, m := range map[string]Model{"roadmap": roadmapModel(t), "planning": planModel(t, nil), "charts": chartsModel(t)} {
+	for name, m := range map[string]Model{"roadmap": roadmapModel(t), "planning": planModel(t, &[]string{}), "charts": chartsModel(t)} {
 		out, cmd := m.handleJiraKey(keyMsg(t, "q"))
 		m = out.(Model)
 		if cmd != nil {
@@ -651,7 +651,7 @@ func TestDownloadDir(t *testing.T) {
 // TestHelpPerScreen: ? on the roadmap, planning or charts opens help at
 // that screen's keys.
 func TestHelpPerScreen(t *testing.T) {
-	for title, m := range map[string]Model{"Roadmap": roadmapModel(t), "Planning": planModel(t, nil), "Charts": chartsModel(t)} {
+	for title, m := range map[string]Model{"Roadmap": roadmapModel(t), "Planning": planModel(t, &[]string{}), "Charts": chartsModel(t)} {
 		out, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 		out, _ = out.(Model).handleJiraKey(keyMsg(t, "?"))
 		m = out.(Model)

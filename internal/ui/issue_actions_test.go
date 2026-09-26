@@ -190,7 +190,11 @@ func TestUnlinkAction(t *testing.T) {
 	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickUnlink || len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].label != "blocks ABC-7 Seven" {
 		t.Fatalf("picker = %+v", m.jiraPicker.items)
 	}
-	_, cmd := m.applyJiraPick()
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || !m.jiraPicker.active || !strings.Contains(m.status, "enter again removes") {
+		t.Fatalf("first enter: %q", m.status)
+	}
+	_, cmd = m.applyJiraPick()
 	cmd()
 	if w := writes(); len(w) != 1 || !strings.HasPrefix(w[0], "DELETE /rest/api/3/issueLink/10200") {
 		t.Errorf("writes = %q", w)
