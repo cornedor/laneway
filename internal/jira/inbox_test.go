@@ -78,11 +78,16 @@ func TestHistory(t *testing.T) {
 
 func TestInboxCount(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/myself" {
+			io.WriteString(w, `{"accountId":"me"}`)
+			return
+		}
 		var body struct {
 			JQL string `json:"jql"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		if !strings.Contains(body.JQL, "watcher = currentUser()") || !strings.Contains(body.JQL, `issue not in updatedBy(currentUser(), "-`) {
+		// JQL rejects a function inside updatedBy(): the accountId goes in.
+		if !strings.Contains(body.JQL, "watcher = currentUser()") || !strings.Contains(body.JQL, `issue not in updatedBy("me", "-`) {
 			t.Errorf("jql = %s", body.JQL)
 		}
 		io.WriteString(w, `{"issues":[{"key":"A-1"},{"key":"A-2"}]}`)

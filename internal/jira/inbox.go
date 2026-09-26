@@ -93,8 +93,13 @@ func (c *Client) InboxCount(ctx context.Context, since time.Time) (int, error) {
 	if !c.Enabled() {
 		return 0, errNotConfigured
 	}
+	// updatedBy takes a user, not currentUser(): JQL won't nest functions.
+	me, err := c.Myself(ctx)
+	if err != nil {
+		return 0, err
+	}
 	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
-	jql := fmt.Sprintf(`%s AND issue not in updatedBy(currentUser(), "-%dm")`, inboxJQL(since), mins)
+	jql := fmt.Sprintf(`%s AND issue not in updatedBy("%s", "-%dm")`, inboxJQL(since), me.AccountID, mins)
 	issues, err := c.search(ctx, jql, []string{"summary"})
 	return len(issues), err
 }

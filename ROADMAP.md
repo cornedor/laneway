@@ -7,6 +7,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Fix: standup and the inbox badge sent `updatedBy(currentUser(), …)`, which Jira rejects (no nested functions); they pass your accountId
 - Panel: a click on a link (description, comments, attachments) opens it; mouse capture had kept the terminal from doing so
 - Comments thread by Jira's undocumented `parentId` (string or number): replies under their parent behind a bar; missing parents and loops fall back to the flat list
 - Header mouse: a click on a view switches to it, on a quick filter toggles it, on the assignee chip opens its picker

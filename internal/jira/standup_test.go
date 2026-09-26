@@ -38,7 +38,7 @@ func TestStandup(t *testing.T) {
 				JQL string `json:"jql"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if strings.HasPrefix(body.JQL, "issue in updatedBy(currentUser()") {
+			if strings.HasPrefix(body.JQL, `issue in updatedBy("me", "-`) {
 				io.WriteString(w, `{"issues":[{"key":"A-1","fields":{"summary":"One"}}]}`)
 			} else {
 				io.WriteString(w, `{"issues":[]}`) // worklogDate searches

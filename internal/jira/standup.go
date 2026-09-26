@@ -21,7 +21,8 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 		return nil, err
 	}
 	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
-	jql := fmt.Sprintf(`issue in updatedBy(currentUser(), "-%dm") ORDER BY updated DESC`, mins)
+	// updatedBy takes a user, not currentUser(): JQL won't nest functions.
+	jql := fmt.Sprintf(`issue in updatedBy("%s", "-%dm") ORDER BY updated DESC`, me.AccountID, mins)
 	issues, err := c.search(ctx, jql, []string{"summary"})
 	if err != nil {
 		return nil, err
