@@ -843,7 +843,7 @@ func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 // chrome is the title + blank + two scroll markers + blank + hint (6) plus
 // the border + padding (4), plus the filter input when present.
 func (m *Model) pickerWin(maxH int) int {
-	win := maxH - 10
+	win := maxH - 9 - lipgloss.Height(m.pickerTitle())
 	if m.jiraPicker.filterable {
 		win--
 	}
@@ -873,7 +873,7 @@ func (m *Model) pickerRowAt(x, y int) (idx int, outside bool) {
 		return -1, false
 	}
 	start, end := m.pickerWindow(m.pickerWin(bodyH))
-	first := top + 2 + 1 + 1 // border, padding, title, blank
+	first := top + 2 + lipgloss.Height(m.pickerTitle()) + 1 // border, padding, title, blank
 	if p.filterable {
 		first++
 	}
@@ -978,18 +978,24 @@ func (m Model) clickInlinePicker(x, y int) (tea.Model, tea.Cmd) {
 	return m.handleJiraPickerKey(keyPress("esc"))
 }
 
+// pickerInner is the picker's text width: one whatever the rows, so async
+// results don't resize the box.
+func (m *Model) pickerInner() int {
+	outerW := max(min(pickerMaxWidth, m.width-4), 32)
+	return max(outerW-8, 1)
+}
+
+// pickerTitle is the picker's title, wrapped to its width.
+func (m *Model) pickerTitle() string {
+	return lipgloss.NewStyle().Width(m.pickerInner()).Align(lipgloss.Center).Bold(true).Render(m.jiraPicker.title)
+}
+
 func (m *Model) renderJiraPicker(maxH int) string {
 	if !m.jiraPicker.active {
 		return ""
 	}
-	// One width whatever the rows, so async results don't resize the box.
-	outerW := max(min(pickerMaxWidth, m.width-4), 32)
-	inner := outerW - 8
-	if inner < 1 {
-		inner = 1
-	}
-
-	parts := []string{lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(m.jiraPicker.title)}
+	inner := m.pickerInner()
+	parts := []string{m.pickerTitle()}
 	if m.jiraPicker.filterable {
 		parts = append(parts, m.jiraPicker.filter.View())
 	}
@@ -1065,7 +1071,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	}
 	parts = append(parts, "", lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hintTxt))
 
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Width(outerW).
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Width(inner + 8).
 		Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 

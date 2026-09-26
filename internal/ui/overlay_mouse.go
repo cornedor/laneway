@@ -15,7 +15,7 @@ import (
 func (m *Model) overlayAt(box string, x, y int) (top, left int, inside bool) {
 	bodyH := m.bodyH()
 	w, h := lipgloss.Width(box), lipgloss.Height(box)
-	top, left = (bodyH-h)/2, (m.width-w)/2
+	top, left = max((bodyH-h)/2, 0), max((m.width-w)/2, 0) // as the view clamps a box too big
 	return top, left, y >= top && y < top+h && x >= left && x < left+w
 }
 

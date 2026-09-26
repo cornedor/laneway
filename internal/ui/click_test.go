@@ -281,3 +281,33 @@ func TestClickPlanSprint(t *testing.T) {
 		t.Error("the name did not step")
 	}
 }
+
+// TestPickerWrappedTitle: a title wrapped over lines on a narrow terminal
+// still maps a click to the row under it.
+func TestPickerWrappedTitle(t *testing.T) {
+	m := jiraTabModel(t)
+	m.openPalette()
+	m.jiraPicker.title = strings.Repeat("a long title ", 8)
+	m.width = 60
+	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+	want := m.jiraPicker.items[2].label
+	y := -1
+	for i, l := range lines {
+		if strings.Contains(l, want) {
+			y = i
+			break
+		}
+	}
+	if i, _ := m.pickerRowAt(30, y); i != 2 {
+		t.Errorf("row at y %d = %d, want 2", y, i)
+	}
+}
+
+// TestClickPlanHead: a click on a side's head focuses that side.
+func TestClickPlanHead(t *testing.T) {
+	m := planModel(t, nil)
+	m.jiraTab.plan.side = 0
+	if m = click(m, m.width-10, jiraBodyTop); m.jiraTab.plan.side != 1 {
+		t.Error("the sprint's head did not take the focus")
+	}
+}

@@ -166,7 +166,11 @@ func (m Model) clickPlan(x, y, count int) (tea.Model, tea.Cmd) {
 	side := m.planSideAt(x)
 	line := y - jiraBodyTop // the side's head and its per-assignee line first
 	i := p.top[side] + line - 2
-	if line < 2 || i >= len(p.sides[side]) {
+	switch {
+	case line >= 0 && line < 2: // its head focuses the side
+		p.side = side
+		return m, nil
+	case line < 2 || i >= len(p.sides[side]):
 		return m, nil
 	}
 	p.side, p.idx[side] = side, i
