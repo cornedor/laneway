@@ -69,6 +69,7 @@ func jiraCardMatches(c jira.Card, terms []jiraTerm, env jiraQueryEnv) bool {
 //	points>2 prio>=high comparisons: numbers, priorities by rank
 //	is:flagged         flagged, done, pr, unassigned, mine, overdue
 //	due<7d age>3d      due within / after, in progress longer / shorter (h d w)
+//	updated<1d         changed within a day (updated>7d: not for a week)
 //	pr:open deploy:prod the Development field
 //	-label:ui          any term negated
 
@@ -85,7 +86,7 @@ var jiraQueryFields = map[string]string{
 	"status": "status", "assignee": "assignee", "who": "assignee", "type": "type",
 	"prio": "priority", "priority": "priority", "epic": "parent", "parent": "parent",
 	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is",
-	"due": "due", "age": "age", "pr": "pr", "deploy": "deploy",
+	"due": "due", "age": "age", "updated": "updated", "pr": "pr", "deploy": "deploy",
 }
 
 // jiraParseQuery splits q into terms. A word that doesn't parse as a field
@@ -175,7 +176,7 @@ func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 			}
 		}
 		return false
-	case "due", "age":
+	case "due", "age", "updated":
 		return jiraMatchSpan(t, c, env.now)
 	}
 	var have string
@@ -260,6 +261,8 @@ func jiraMatchSpan(t jiraTerm, c jira.Card, now time.Time) bool {
 		have = c.Due.Sub(now)
 	case t.field == "age" && c.InProgress && !c.Since.IsZero():
 		have = now.Sub(c.Since)
+	case t.field == "updated" && !c.Updated.IsZero():
+		have = now.Sub(c.Updated)
 	default:
 		return false
 	}

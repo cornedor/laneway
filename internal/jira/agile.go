@@ -21,7 +21,7 @@ import (
 const DefaultCardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
-const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate,statuscategorychangedate,labels"
+const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate,statuscategorychangedate,labels,updated"
 
 // boardMetaCache keeps what a board is made of — a project's boards, a
 // board's columns and quick filters — for the session: they change about as
@@ -141,6 +141,8 @@ type Card struct {
 	// Since when its status category last changed (zero when unknown).
 	InProgress bool
 	Since      time.Time
+	// Updated is when it last changed, zero when unknown.
+	Updated time.Time
 	// Labels are its labels, space separated (Jira's have no spaces), so
 	// a Card stays comparable.
 	Labels string
@@ -474,6 +476,9 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	var since string
 	if json.Unmarshal(f["statuscategorychangedate"], &since) == nil {
 		card.Since, _ = time.Parse(jiraTime, since)
+	}
+	if updated := str("updated"); updated != "" {
+		card.Updated, _ = time.Parse(jiraTime, updated)
 	}
 	card.TypeID, card.Type = obj("issuetype")
 	_, card.Priority = obj("priority")

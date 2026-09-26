@@ -3,7 +3,7 @@
 ## Next
 - Extra fields: custom fields by name on cards (`card_fields`) and in the panel; today the fetched field lists are fixed
 - `laneway rules` create defaults (type `Task`, status `To Do`) from config or the project
-- Filter terms, more: `updated<1d` and `sprint:` (cards need both fields fetched), custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
+- Filter terms, more: `sprint:` (cards need the instance's sprint field fetched), custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
 - `F` builder on one screen: field, compare and value columns side by side, the next steps visible before choosing, the term being built shown live; type to narrow a column, tab/arrows move between them. Today's wizard hides what comes next, so each step is re-read and some filters are guesswork
 - Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
@@ -24,6 +24,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `/` term `updated<1d` / `updated>7d`; cards carry their updated time
 - `jira.timeout` (20s): one request's limit, the longer actions stretched with it; `ui.full_refresh` (10m) behind the delta refreshes
 - `ui.clipboard_image` and `ui.open`: commands over the clipboard-image and opener probes (WSL, remote)
 - `ui.timer_round` (e.g. 15m): the timer's logged time rounded up to the step, at least one; default to the minute

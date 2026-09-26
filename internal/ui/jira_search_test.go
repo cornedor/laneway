@@ -48,8 +48,8 @@ func TestJiraQueryDates(t *testing.T) {
 	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
 	day := 24 * time.Hour
 	env := jiraQueryEnv{me: "a1", now: now}
-	soon := jira.Card{Key: "ABC-1", AssigneeID: "a1", Due: now.Add(2 * day), InProgress: true, Since: now.Add(-5 * day), PR: "OPEN", Deploy: "production"}
-	late := jira.Card{Key: "ABC-2", Due: now.Add(-day), InProgress: true, Since: now.Add(-time.Hour), PR: "MERGED"}
+	soon := jira.Card{Key: "ABC-1", AssigneeID: "a1", Updated: now.Add(-time.Hour), Due: now.Add(2 * day), InProgress: true, Since: now.Add(-5 * day), PR: "OPEN", Deploy: "production"}
+	late := jira.Card{Key: "ABC-2", Updated: now.Add(-10 * day), Due: now.Add(-day), InProgress: true, Since: now.Add(-time.Hour), PR: "MERGED"}
 	done := jira.Card{Key: "ABC-3", Due: now.Add(-day), Done: true}
 	for q, want := range map[string][3]bool{
 		"is:mine":         {true, false, false},

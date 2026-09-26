@@ -346,3 +346,10 @@ func TestSetFlaggedValue(t *testing.T) {
 		}
 	}
 }
+
+func TestToCardUpdated(t *testing.T) {
+	c := toCard("ABC-1", map[string]json.RawMessage{"updated": json.RawMessage(`"2026-09-25T10:00:00.000+0000"`)}, "")
+	if c.Updated.UTC().Format(time.RFC3339) != "2026-09-25T10:00:00Z" {
+		t.Errorf("updated = %v", c.Updated)
+	}
+}

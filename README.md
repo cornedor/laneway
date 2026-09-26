@@ -237,11 +237,12 @@ epic:                a field that is empty (label:, assignee:, …)
 points>2 prio>=high  numbers and priorities compare (<, <=, >, >=, =)
 is:flagged           also done, pr, unassigned, mine, overdue
 due<7d age>3d        due within a week, in progress over 3 days (h, d, w)
+updated<1d           changed within a day (updated>7d: quiet a week)
 pr:open deploy:prod  pull request state, deployed environment
 -label:ui            any term negated
 ```
 
-Fields: status, assignee, type, prio, epic, label, key, points, due, age, pr, deploy.
+Fields: status, assignee, type, prio, epic, label, key, points, due, age, updated, pr, deploy.
 
 ## Bulk edit
 
