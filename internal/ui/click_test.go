@@ -394,3 +394,36 @@ func TestMouseOff(t *testing.T) {
 		t.Error("a bad value should warn and keep the mouse")
 	}
 }
+
+// TestClickEmptyState: an empty board's hint runs its key.
+func TestClickEmptyState(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.search.SetValue("zzz")
+	m.applyJiraSearch()
+	if m = clickText(t, m, "builds a filter"); m.filterBuilder == nil {
+		t.Fatal("the hint did not open the builder")
+	}
+	m.filterBuilder = nil
+	if m = clickText(t, m, "esc clears the search"); m.jiraTab.jiraSearchQuery() != "" {
+		t.Error("the hint did not clear the search")
+	}
+}
+
+// TestClickListGroupHeader: a click on a list group's header selects its
+// first card.
+func TestClickListGroupHeader(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "t"))
+	m = out.(Model)
+	for m.jiraTab.sort != jiraSortAssignee {
+		out, _ = m.handleJiraKey(keyMsg(t, "s"))
+		m = out.(Model)
+	}
+	y := viewLineOf(m, "Ada · 1")
+	if y < 0 {
+		t.Fatalf("no Ada group:\n%s", ansi.Strip(m.View().Content))
+	}
+	if m = click(m, 5, y); m.jiraTab.cards[m.jiraTab.order[m.jiraTab.idx]].Key != "ABC-1" {
+		t.Errorf("selected %s", m.jiraTab.cards[m.jiraTab.order[m.jiraTab.idx]].Key)
+	}
+}

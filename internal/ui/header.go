@@ -203,20 +203,16 @@ func (m *Model) headerHit(x, y int) headSeg {
 		}
 		segs = m.jiraFilterSegs()
 	}
-	at := 1 // the box's left border
-	for _, s := range segs {
-		w := ansi.StringWidth(s.s)
-		if x >= at && x < at+w {
-			return s
-		}
-		at += w
-	}
-	return headSeg{}
+	return segAt(segs, x, 1) // after the box's left border
 }
 
 // clickHeader acts on a header hit; ok false when x, y is none.
 func (m Model) clickHeader(x, y int) (tea.Model, tea.Cmd, bool) {
-	h := m.headerHit(x, y)
+	return m.runSeg(m.headerHit(x, y))
+}
+
+// runSeg does what a click on segment h does; ok false when nothing.
+func (m Model) runSeg(h headSeg) (tea.Model, tea.Cmd, bool) {
 	switch h.kind {
 	case "view":
 		return m, m.cycleJiraView(h.i - m.jiraTab.viewIdx), true
@@ -242,6 +238,18 @@ func (m Model) clickHeader(x, y int) (tea.Model, tea.Cmd, bool) {
 	}
 	out, cmd := m.handleJiraKey(keyPress(h.press))
 	return out, cmd, true
+}
+
+// segAt is the segment of segs at column x, the row starting at column at.
+func segAt(segs []headSeg, x, at int) headSeg {
+	for _, s := range segs {
+		w := ansi.StringWidth(s.s)
+		if x >= at && x < at+w {
+			return s
+		}
+		at += w
+	}
+	return headSeg{}
 }
 
 // hint is a key shown as label that a click presses; a pair has two keys

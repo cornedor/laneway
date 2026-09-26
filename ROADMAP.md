@@ -2,10 +2,10 @@
 
 ## Next
 - Panel scrollbar: a click on the right border pages, dragging it scrolls
-- Empty states: a click on the hint runs its key; list group headers select their first card
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Mouse: an empty board's hint runs its key (refresh, new issue, plan, clear filters, the builder, clearing the search); a list group's header selects its first card
 - `ui.mouse: off` leaves the mouse to the terminal (text selection, its own links); on by default, live from `,`
 - Mouse in the panel: an inline image opens full size, the hint line's keys press, `Links (n)` opens the link list, a double-click on `Description` edits it, `…and N more` opens the browser; the wheel scrolls the panel while an editor is open in it (the board stays put)
 - Fix: a picker title wrapped over lines (timesheet, standup on a narrow terminal) put clicks rows off and let the box outgrow the screen; planning: a click on a side's head focuses it

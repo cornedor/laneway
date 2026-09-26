@@ -748,6 +748,10 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m.clickPlan(msg.X, msg.Y, count)
 	case t.charts != nil:
 		return m, nil
+	case t.empty.row >= 0 && msg.Y == jiraBodyTop+t.empty.row:
+		if out, cmd, ok := m.runSeg(segAt(t.empty.segs, msg.X, 1+t.empty.left)); ok {
+			return out, cmd
+		}
 	}
 	return m.clickJira(m.hitJira(msg.X, msg.Y), msg.X, msg.Y, count)
 }

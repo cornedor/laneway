@@ -952,8 +952,8 @@ func TestListGroups(t *testing.T) {
 	if h := m.hitJira(5, jiraBodyTop+3); h.line != 1 {
 		t.Errorf("click on line 3 = card %d, want 1", h.line)
 	}
-	if h := m.hitJira(5, jiraBodyTop+2); h.line != -1 {
-		t.Errorf("click on a header = card %d, want none", h.line)
+	if h := m.hitJira(5, jiraBodyTop+2); h.line != 1 {
+		t.Errorf("click on a header = card %d, want its first, 1", h.line)
 	}
 }
 

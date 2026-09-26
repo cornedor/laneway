@@ -263,6 +263,8 @@ type jiraTabState struct {
 	firstLane int   // the first lane on screen
 	laneW     int   // a lane's width in the last render
 	lanesOut  string
+	// empty is an empty board's hint line, for the mouse; row -1 for none.
+	empty emptyHint
 
 	sort jiraSort // the list's order; lanes keep the board's rank
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
@@ -1630,26 +1632,30 @@ func (m *Model) renderJira() {
 	t := m.jiraTab
 	w, h := t.view.Width(), t.view.Height()
 	var msg string
+	t.empty = emptyHint{row: -1}
+	dim := refDimStyle.Render
 	switch {
 	case t.err != "":
 		msg = refErrStyle.Render(t.err)
 	case t.cfg == nil:
 		msg = refDimStyle.Render("loading…")
 	case len(t.order) == 0 && t.jiraSearchQuery() != "":
-		msg = jiraEmptyState("No card matches /"+t.search.Value(), "esc clears the search · "+helpKey(m.keys.FilterBuilder)+" builds a filter", w, h)
+		msg, t.empty = jiraEmptyState("No card matches /"+t.search.Value(), w, h,
+			headSeg{s: dim("esc clears the search"), kind: "esc"}, plainSeg(dim(" · ")), keySeg(dim(helpKey(m.keys.FilterBuilder)+" builds a filter"), m.keys.FilterBuilder))
 	case len(t.cards) == 0 && t.jiraFiltered():
-		msg = jiraEmptyState("No card matches the filters", helpKey(m.keys.ClearFilters)+" clears them", w, h)
+		msg, t.empty = jiraEmptyState("No card matches the filters", w, h, keySeg(dim(helpKey(m.keys.ClearFilters)+" clears them"), m.keys.ClearFilters))
 	case len(t.order) == 0:
-		title, hint := "No issues here", helpKey(m.keys.Refresh)+" refreshes · "+helpKey(m.keys.Create)+" adds one"
+		title := "No issues here"
+		hint := []headSeg{keySeg(dim(helpKey(m.keys.Refresh)+" refreshes"), m.keys.Refresh), plainSeg(dim(" · ")), keySeg(dim(helpKey(m.keys.Create)+" adds one"), m.keys.Create)}
 		if v, ok := m.jiraCurrentView(); ok {
 			switch v.kind {
 			case jiraViewBacklog:
-				title, hint = "The backlog is empty", helpKey(m.keys.Create)+" adds an issue"
+				title, hint = "The backlog is empty", []headSeg{keySeg(dim(helpKey(m.keys.Create)+" adds an issue"), m.keys.Create)}
 			case jiraViewSprint:
-				title, hint = "Nothing in this sprint yet", helpKey(m.keys.Plan)+" plans it from the backlog"
+				title, hint = "Nothing in this sprint yet", []headSeg{keySeg(dim(helpKey(m.keys.Plan)+" plans it from the backlog"), m.keys.Plan)}
 			}
 		}
-		msg = jiraEmptyState(title, hint, w, h)
+		msg, t.empty = jiraEmptyState(title, w, h, hint...)
 	}
 	if msg != "" {
 		t.view.SetContent(msg)
@@ -2172,15 +2178,22 @@ func (m *Model) renderJiraLanes(width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
+// emptyHint is where an empty board's hint line is: its body row, its
+// first column and its segments (each a click on its key).
+type emptyHint struct {
+	row, left int
+	segs      []headSeg
+}
+
 // jiraEmptyState is what an empty board shows: a title and what to do
 // about it, centred a third of the way down.
-func jiraEmptyState(title, hint string, w, h int) string {
-	center := func(s string) string {
-		s = ansi.Truncate(s, max(w, 1), "…")
-		return strings.Repeat(" ", max((w-lipgloss.Width(s))/2, 0)) + s
-	}
-	pad := strings.Repeat("\n", max(h/3, 0))
-	return pad + center(titleStyle.Render(title)) + "\n" + center(refDimStyle.Render(hint))
+func jiraEmptyState(title string, w, h int, hint ...headSeg) (string, emptyHint) {
+	pad := func(s string) int { return max((w-lipgloss.Width(s))/2, 0) }
+	t := ansi.Truncate(titleStyle.Render(title), max(w, 1), "…")
+	s := ansi.Truncate(joinSegs(hint), max(w, 1), "…")
+	top := max(h/3, 0)
+	return strings.Repeat("\n", top) + strings.Repeat(" ", pad(t)) + t + "\n" + strings.Repeat(" ", pad(s)) + s,
+		emptyHint{row: top + 1, left: pad(s), segs: hint}
 }
 
 // canvasCell is a lane cell w wide: a card's line (full width already) on
@@ -2706,6 +2719,9 @@ func (m *Model) hitJira(x, y int) hit {
 	if !m.jiraShowsLanes() {
 		if line >= 0 && line < t.view.Height() {
 			if i := slices.Index(t.lineOf, t.view.YOffset()+line); i >= 0 {
+				return hit{zone: hitJira, idx: -1, line: i}
+			}
+			if i := slices.Index(t.lineOf, t.view.YOffset()+line+1); i >= 0 { // a group's header: its first card
 				return hit{zone: hitJira, idx: -1, line: i}
 			}
 		}
