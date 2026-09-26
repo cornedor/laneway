@@ -34,6 +34,7 @@ func newModalComposer(placeholder string) editor.Model {
 	ta.Styles.Placeholder = lipgloss.NewStyle().Foreground(dimColor)
 	ta.ContinueLists = true
 	ta.ContinueTables = true
+	ta.MarkdownHighlight = true // bold, italic, strike and code styled, markers kept
 	ta.KeyMap.InsertNewline = key.NewBinding(
 		key.WithKeys("alt+enter", "shift+enter"),
 		key.WithHelp("alt+↵/shift+↵", "newline"),

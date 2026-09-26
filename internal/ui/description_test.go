@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -274,5 +275,21 @@ func TestEditCommentInPlace(t *testing.T) {
 	}
 	if v.Cursor == nil {
 		t.Error("the terminal cursor should sit in the editor")
+	}
+}
+
+// TestEditorHighlightsMarkdown: the editor styles bold text and keeps its
+// markers.
+func TestEditorHighlightsMarkdown(t *testing.T) {
+	m := loadedJiraModel(t)
+	out, _ := m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "a **bold** b"})
+	m = out.(Model)
+	v := m.descEdit.input.View()
+	if !strings.Contains(ansi.Strip(v), "a **bold** b") || !strings.Contains(v, lipgloss.NewStyle().Bold(true).Inline(true).Render("bold")) {
+		t.Fatalf("bold not highlighted: %q", v)
+	}
+	m.openJiraCommentInput()
+	if !m.jiraCommentInput.MarkdownHighlight {
+		t.Error("the comment composer should highlight too")
 	}
 }
