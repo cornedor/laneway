@@ -82,6 +82,9 @@ type UIConfig struct {
 	// SavedFilters is "on" (your starred Jira filters as views, after
 	// Views) or "off".
 	SavedFilters string `yaml:"saved_filters"`
+	// BranchTemplate is the branch name copy_branch puts on the clipboard:
+	// {key}, {summary} (slugged), {type}, {project}; "{key}-{summary}".
+	BranchTemplate string `yaml:"branch_template"`
 	// Theme is a preset name (theme: tokyonight) or colours by name, over
 	// an optional preset: {preset: nord, accent: "#7aa2f7"}.
 	Theme Theme `yaml:"theme"`

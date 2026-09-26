@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Copy branch name (key and palette action): Jira's REST API has no suggested branch (its "create branch" dialog builds one client-side), so `ui.branch_template`, e.g. `{type}/{key}-{summary}` (summary slugged, length capped), default `{key}-{summary}`
 - Config screen: every `ui:` option with its value and default, editable in place, written back to the config file (comments kept)
 - Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
 - Filter terms, more: `is:mine`, `due<7d` / `overdue`, `age>3d` (in progress), `updated<1d`, `sprint:`, `pr:open,merged`, `deploy:production`, custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
@@ -25,6 +24,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ctrl+y` (board, panel, palette) copies a branch name from `ui.branch_template` (`{key}-{summary}`; also `{type}`, `{project}`)
 - `/` search takes field terms: `status:review,test`, `points>2`, `prio>=high`, `assignee:ada,bob`, `epic:` (empty), `is:flagged`, `-label:ui`, quoted phrases; words AND. Cards carry their labels
 - Panel resizes by dragging its left border (20–80%), the width remembered over `ui.panel_width`; within 3% of it the drag snaps back and forgets
 - Fix: tab out of the panel onto the roadmap was a dead end; tab there goes back to the panel, and the roadmap's selection dims while the panel has the keys

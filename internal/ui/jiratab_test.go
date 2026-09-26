@@ -380,6 +380,16 @@ func TestJiraTabCopyKey(t *testing.T) {
 	}
 }
 
+func TestJiraTabCopyBranch(t *testing.T) {
+	m := jiraTabModel(t)
+	c, _ := m.selectedJiraCard()
+	out, cmd := m.handleKey(keyMsg(t, "ctrl+y"))
+	m = out.(Model)
+	if want := "copied ABC-1-" + slugify(c.Summary); cmd == nil || m.status != want {
+		t.Errorf("ctrl+y: cmd=%v status=%q, want %q", cmd != nil, m.status, want)
+	}
+}
+
 func TestJiraGotoKey(t *testing.T) {
 	for in, want := range map[string]string{
 		"abc-12": "ABC-12", " 42 ": "ABC-42", "XYZ-1": "XYZ-1", "abc": "", "-1": "", "": "",

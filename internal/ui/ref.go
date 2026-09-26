@@ -190,6 +190,10 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraIssue != nil {
 			return m, m.copyJira(m.jiraIssue.Key, key.Matches(msg, m.keys.CopyURL))
 		}
+	case key.Matches(msg, m.keys.CopyBranch):
+		if iss := m.jiraIssue; iss != nil {
+			return m, m.copyBranch(iss.Key, iss.Type, iss.Summary)
+		}
 	}
 	switch {
 	case key.Matches(msg, m.keys.OpenRef): // same key that opened it closes it

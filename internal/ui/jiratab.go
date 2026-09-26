@@ -897,6 +897,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.copyJiraTable()
 	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
 		return m, m.copyJira(m.selectedJiraKey(), key.Matches(msg, m.keys.CopyURL))
+	case key.Matches(msg, m.keys.CopyBranch):
+		if c, ok := m.selectedJiraCard(); ok {
+			return m, m.copyBranch(c.Key, c.Type, c.Summary)
+		}
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":
 		m.clearJiraSearch()
 	case msg.String() == "esc" && len(t.marked) > 0:

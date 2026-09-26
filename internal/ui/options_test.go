@@ -137,3 +137,24 @@ func TestCardLimitOption(t *testing.T) {
 		t.Errorf("10 = %d %v", o.cardLimit, warn)
 	}
 }
+
+func TestBranchName(t *testing.T) {
+	for _, tc := range []struct{ tmpl, typ, want string }{
+		{defaultBranchTemplate, "Bug", "ABC-12-fix-checkout-on-ios"},
+		{"{type}/{key}-{summary}", "Sub-task", "sub-task/ABC-12-fix-checkout-on-ios"},
+		{"{project}/{key}", "", "ABC/ABC-12"},
+		{"{type}{key}", "", "ABC-12"},
+	} {
+		if got := branchName(tc.tmpl, "ABC-12", tc.typ, "Fix checkout on iOS"); got != tc.want {
+			t.Errorf("branchName(%q, %q) = %q, want %q", tc.tmpl, tc.typ, got, tc.want)
+		}
+	}
+	o, warn := optionsFrom(config.UIConfig{BranchTemplate: "{type}/{key}"})
+	if o.branchTemplate != "{type}/{key}" || len(warn) != 0 {
+		t.Errorf("template = %q %v", o.branchTemplate, warn)
+	}
+	o, warn = optionsFrom(config.UIConfig{BranchTemplate: "{kind}/{key}"})
+	if o.branchTemplate != defaultBranchTemplate || len(warn) != 1 {
+		t.Errorf("bad template = %q %v, want default and a warning", o.branchTemplate, warn)
+	}
+}

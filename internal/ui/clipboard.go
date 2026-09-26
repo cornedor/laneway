@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -18,6 +20,50 @@ func (m *Model) copyJira(issueKey string, url bool) tea.Cmd {
 	if url {
 		s = m.jiraClient.BrowseURL(issueKey)
 	}
+	m.status = "copied " + s
+	return tea.SetClipboard(s)
+}
+
+// Jira's REST API has no suggested branch name (its "create branch" dialog
+// builds one in the browser), so ui.branch_template makes one.
+const defaultBranchTemplate = "{key}-{summary}"
+
+var branchPlaceholder = regexp.MustCompile(`\{[^}]*\}`)
+
+// badBranchPlaceholder is the template's first unknown {…}, "" when none.
+func badBranchPlaceholder(tmpl string) string {
+	for _, p := range branchPlaceholder.FindAllString(tmpl, -1) {
+		switch p {
+		case "{key}", "{summary}", "{type}", "{project}":
+		default:
+			return p
+		}
+	}
+	return ""
+}
+
+// branchName fills tmpl for an issue: the summary slugged and capped, the
+// type slugged (Sub-task → sub-task).
+func branchName(tmpl, issueKey, typ, summary string) string {
+	project, _, _ := strings.Cut(issueKey, "-")
+	if typ != "" {
+		typ = slugify(typ)
+	}
+	return strings.NewReplacer(
+		"{key}", issueKey,
+		"{summary}", slugify(summary),
+		"{type}", typ,
+		"{project}", project,
+	).Replace(tmpl)
+}
+
+// copyBranch puts the issue's branch name (ui.branch_template) on the
+// clipboard.
+func (m *Model) copyBranch(issueKey, typ, summary string) tea.Cmd {
+	if issueKey == "" {
+		return nil
+	}
+	s := branchName(m.opts.branchTemplate, issueKey, typ, summary)
 	m.status = "copied " + s
 	return tea.SetClipboard(s)
 }

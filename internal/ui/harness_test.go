@@ -75,6 +75,8 @@ func keyMsg(t *testing.T, name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyDown}
 	case "backspace":
 		return tea.KeyPressMsg{Code: tea.KeyBackspace}
+	case "ctrl+y":
+		return tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}
 	}
 	if r := []rune(name); len(r) == 1 {
 		return tea.KeyPressMsg{Code: r[0], Text: name}

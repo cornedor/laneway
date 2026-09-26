@@ -46,7 +46,7 @@ type keyMap struct {
 
 	// The board's own keys.
 	Quit, Help, Search, Goto, Create   key.Binding
-	CopyKey, CopyURL                   key.Binding
+	CopyKey, CopyURL, CopyBranch       key.Binding
 	MoveCardLeft, MoveCardRight        key.Binding
 	Project, Board, NextView, PrevView key.Binding
 	ToggleMode, Sort, MoveSprint       key.Binding
@@ -102,6 +102,7 @@ func defaultKeys() keyMap {
 		Create:          bind("new issue", "n"),
 		CopyKey:         bind("copy key", "y"),
 		CopyURL:         bind("copy URL", "Y"),
+		CopyBranch:      bind("copy branch name", "ctrl+y"),
 		MoveCardLeft:    bind("move card left", "H", "shift+left"),
 		MoveCardRight:   bind("move card right", "L", "shift+right"),
 		Project:         bind("project", "p"),
