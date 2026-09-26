@@ -797,20 +797,20 @@ func TestJiraSprintLine(t *testing.T) {
 		v    jiraView
 		want string
 	}{
-		{jiraView{kind: jiraViewSprint, start: now.Add(-day), end: now.Add(4*day + time.Hour), goal: "Ship\nit"}, "5d left · Ship it"},
+		{jiraView{kind: jiraViewSprint, start: now.Add(-day), end: now.Add(4*day + time.Hour), goal: "Ship\nit"}, "5d left · 2 workdays · Ship it"},
 		{jiraView{kind: jiraViewSprint, start: now.Add(3 * day)}, "starts Sep 28"},
 		{jiraView{kind: jiraViewSprint, end: now.Add(-day)}, "ended Sep 24"},
 		{jiraView{kind: jiraViewSprint, goal: "Goal only"}, "Goal only"},
 		{jiraView{kind: jiraViewBacklog, goal: "x"}, ""},
 	} {
-		if got := jiraSprintLine(tc.v, now); got != tc.want {
+		if got := jiraSprintLine(tc.v, now, nil); got != tc.want {
 			t.Errorf("%+v: %q, want %q", tc.v, got, tc.want)
 		}
 	}
 	m := jiraTabModel(t)
 	m.jiraTab.views[0].end = time.Now().Add(2*day + time.Hour)
 	m.jiraTab.views[0].goal = "Launch"
-	if !strings.Contains(m.View().Content, "3d left · Launch") {
+	if !strings.Contains(m.View().Content, "3d left · ") || !strings.Contains(m.View().Content, "Launch") {
 		t.Error("header lacks the sprint line")
 	}
 }
@@ -1330,5 +1330,17 @@ func TestJiraSprintBar(t *testing.T) {
 	m := jiraTabModel(t) // a sprint view, ABC-4 done
 	if !strings.Contains(ansi.Strip(m.View().Content), "▱ 0/5p") {
 		t.Errorf("header lacks the bar:\n%s", strings.Split(ansi.Strip(m.View().Content), "\n")[jiraBodyTop-2])
+	}
+}
+
+func TestWorkdaysLeft(t *testing.T) {
+	fri := time.Date(2026, 9, 25, 15, 0, 0, 0, time.UTC)
+	wed := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	if n := workdaysLeft(fri, wed, nil); n != 3 { // fri, mon, tue
+		t.Errorf("mon–fri = %d", n)
+	}
+	sunThu := []time.Weekday{time.Sunday, time.Monday, time.Tuesday, time.Wednesday, time.Thursday}
+	if n := workdaysLeft(fri, wed, sunThu); n != 3 { // sun, mon, tue
+		t.Errorf("sun–thu = %d", n)
 	}
 }

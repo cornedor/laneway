@@ -20,6 +20,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Sprint header: workdays left beside the calendar days (`5d left · 2 workdays`), by `ui.workdays`, up to the end day
 - Empty states: an empty board, backlog, sprint or search says so centred, with the key that helps; an empty lane says nothing here
 - Sprint views: a thin progress bar in the header (`▰▰▰▱▱ 3/10p`), done points of all, or issues when none are pointed
 - `<` / `>` widen and narrow the panel a step (5%), stopping at `ui.panel_width` on the way past; remembered like a drag

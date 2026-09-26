@@ -2345,7 +2345,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && bar != "" {
 			viewLine += "    " + bar
 		}
-		if s := jiraSprintLine(v, time.Now()); s != "" {
+		if s := jiraSprintLine(v, time.Now(), m.opts.workdays); s != "" {
 			viewLine += jiraDimStyle.Render("    " + s)
 		}
 	}
@@ -2424,8 +2424,26 @@ func jiraSprintBar(cards []jira.Card) string {
 	return roadmapDoneStyle.Render(strings.Repeat("▰", full)) + jiraDimStyle.Render(strings.Repeat("▱", cells-full)+" "+num(done)+"/"+num(total)+unit)
 }
 
-// jiraSprintLine is a sprint view's time and goal: "5d left · Ship it".
-func jiraSprintLine(v jiraView, now time.Time) string {
+// workdaysLeft counts the workdays from now's day up to, not including,
+// end's day (ui.workdays, Monday to Friday by default).
+func workdaysLeft(now, end time.Time, workdays []time.Weekday) int {
+	if len(workdays) == 0 {
+		workdays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	}
+	end = end.In(now.Location())
+	last := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, now.Location())
+	n := 0
+	for d := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()); d.Before(last); d = d.AddDate(0, 0, 1) {
+		if slices.Contains(workdays, d.Weekday()) {
+			n++
+		}
+	}
+	return n
+}
+
+// jiraSprintLine is a sprint view's time and goal: "5d left · 3 workdays ·
+// Ship it".
+func jiraSprintLine(v jiraView, now time.Time, workdays []time.Weekday) string {
 	if v.kind != jiraViewSprint {
 		return ""
 	}
@@ -2435,7 +2453,13 @@ func jiraSprintLine(v jiraView, now time.Time) string {
 	case !v.start.IsZero() && v.start.After(now):
 		parts = append(parts, "starts "+v.start.Local().Format("Jan 2"))
 	case !v.end.IsZero() && days(v.end) > 0:
-		parts = append(parts, strconv.Itoa(days(v.end))+"d left")
+		left := strconv.Itoa(days(v.end)) + "d left"
+		if n := workdaysLeft(now, v.end, workdays); n != 1 {
+			left += " · " + strconv.Itoa(n) + " workdays"
+		} else {
+			left += " · 1 workday"
+		}
+		parts = append(parts, left)
 	case !v.end.IsZero():
 		parts = append(parts, "ended "+v.end.Local().Format("Jan 2"))
 	}
