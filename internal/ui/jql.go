@@ -183,6 +183,9 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		q := strings.TrimSpace(j.input.Value())
+		if q == "" && j.idx < len(j.sugg) {
+			q = j.sugg[j.idx] // a past search, as highlighted
+		}
 		m.jql = nil
 		if q == "" {
 			return m, nil

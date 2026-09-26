@@ -828,3 +828,40 @@ func TestLanesOffScreen(t *testing.T) {
 		t.Errorf("no count of the lanes to the left:\n%s", ansi.Strip(m.View().Content))
 	}
 }
+
+// TestJQLEnterPast: enter on an empty JQL box runs the highlighted past
+// search.
+func TestJQLEnterPast(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "Q"))
+	m = out.(Model)
+	m.jql.input.SetValue("")
+	m.jql.sugg, m.jql.idx = []string{"project = A", "project = B"}, 1
+	out, cmd := m.handleJQLKey(keyPress("enter"))
+	m = out.(Model)
+	if v := m.jiraTab.views[len(m.jiraTab.views)-1]; cmd == nil || v.jql != "project = B" {
+		t.Errorf("ran %q", v.jql)
+	}
+}
+
+// TestCreateSummary: a blank summary keeps the box and says so; in a
+// sprint view the title names the sprint.
+func TestCreateSummary(t *testing.T) {
+	m := jiraTabModel(t)
+	m.openJiraCreateSummary("Task")
+	m.jiraCreateInput.SetValue("   ")
+	out, cmd := m.handleJiraCreateKey(keyPress("enter"))
+	if m = out.(Model); cmd != nil || !m.jiraCreateActive || m.status != "type a summary first" {
+		t.Errorf("blank: active %v, %q", m.jiraCreateActive, m.status)
+	}
+	for i, v := range m.jiraTab.views {
+		if v.kind == jiraViewSprint {
+			m.jiraTab.viewIdx = i
+			if !strings.Contains(m.jiraCreateTitle(), "→ "+v.name) {
+				t.Errorf("title %q", m.jiraCreateTitle())
+			}
+			return
+		}
+	}
+	t.Skip("no sprint view")
+}

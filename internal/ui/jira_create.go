@@ -61,19 +61,17 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraCreateActive = false
 		return m, nil
 	case "enter":
-		in := jira.NewIssue{Project: m.jiraTab.project, Type: m.jiraCreateType, Summary: m.jiraCreateInput.Value(),
+		in := jira.NewIssue{Project: m.jiraTab.project, Type: m.jiraCreateType, Summary: strings.TrimSpace(m.jiraCreateInput.Value()),
 			Parent: m.jiraCreateParent, Description: m.opts.templates[strings.ToLower(m.jiraCreateType)]}
 		if m.jiraCreateParent != "" {
 			in.Project = m.jiraCreateProject
 		}
 		if in.Summary == "" {
+			m.status = "type a summary first"
 			return m, nil
 		}
 		m.jiraCreateActive = false
-		sprint := 0
-		if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && in.Parent == "" && !strings.EqualFold(in.Type, "epic") {
-			sprint = v.sprint
-		}
+		sprint, _ := m.createSprint()
 		m.status = "creating " + in.Type + " in " + in.Project + "…"
 		c, ctx := m.jiraClient, m.ctx
 		return m, func() tea.Msg {
@@ -128,10 +126,23 @@ func (m *Model) renderJiraCreate() string {
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
 }
 
-// jiraCreateTitle is "New Bug in ABC", or "New Sub-task of ABC-1".
+// createSprint is the sprint a new issue joins: the shown sprint view's,
+// for an issue without a parent that is no epic; 0 for none.
+func (m *Model) createSprint() (int, string) {
+	if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && m.jiraCreateParent == "" && !strings.EqualFold(m.jiraCreateType, "epic") {
+		return v.sprint, v.name
+	}
+	return 0, ""
+}
+
+// jiraCreateTitle is "New Bug in ABC", "New Bug in ABC → Sprint 12" (it
+// joins the sprint shown), or "New Sub-task of ABC-1".
 func (m *Model) jiraCreateTitle() string {
 	if m.jiraCreateParent != "" {
 		return "New " + m.jiraCreateType + " of " + m.jiraCreateParent
+	}
+	if id, name := m.createSprint(); id != 0 {
+		return "New " + m.jiraCreateType + " in " + m.jiraTab.project + " → " + name
 	}
 	return "New " + m.jiraCreateType + " in " + m.jiraTab.project
 }

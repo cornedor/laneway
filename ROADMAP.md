@@ -1,13 +1,12 @@
 # Roadmap
 
 ## Next
-- JQL box: enter on an empty input runs the highlighted past search
-- Create box: an empty or blank summary says so; the title says "→ Sprint 12" when it will join the sprint
 - Slow loads: elapsed time after 2s on "refreshing…"/"loading…"; go-to takes a pasted browse URL
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `Q`: enter on an empty input runs the highlighted past search; the create box says "type a summary first" for a blank one (spaces no longer reach Jira) and its title names the sprint a new issue joins (`New Task in ABC → Sprint 12`)
 - Lanes off-screen: the outer lane heads say how many lie past them (`‹2 To do`, `Review 3›`)
 - Narrow terminals: the create box, the `F` builder (its value column gives way), settings' edit input, pickers' search box and `/` size to the screen; the move form's field being typed fits its cell, so the cursor stays in view
 - Lists move alike everywhere (pickers, the palette, settings, the `F` builder, `Q` completions): up/down and ctrl+p/ctrl+n, page up/down a window, top/bottom; while a filter box has the keys, only keys that type nothing move
