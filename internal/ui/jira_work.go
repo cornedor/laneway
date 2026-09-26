@@ -257,7 +257,7 @@ func (m *Model) startWrites(key string) tea.Cmd {
 	if m.jiraIssue != nil && m.jiraIssue.Key == key {
 		cur = m.jiraIssue.Status
 	}
-	c, ctx := m.jiraClient, m.ctx
+	c, ctx, moveKey := m.jiraClient, m.ctx, helpKey(m.keys.JiraStatus)
 	return func() tea.Msg {
 		var did []string
 		if assign {
@@ -280,7 +280,7 @@ func (m *Model) startWrites(key string) tea.Cmd {
 			case i < 0:
 				return startWritesMsg{key: key, did: did, err: fmt.Errorf("no move to %s from here", status)}
 			case ts[i].HasScreen:
-				return startWritesMsg{key: key, did: did, err: fmt.Errorf("the move to %s asks for fields: s moves it", status)}
+				return startWritesMsg{key: key, did: did, err: fmt.Errorf("the move to %s asks for fields: %s moves it", status, moveKey)}
 			}
 			if err := c.DoTransition(ctx, key, ts[i].ID); err != nil {
 				return startWritesMsg{key: key, did: did, err: err}
