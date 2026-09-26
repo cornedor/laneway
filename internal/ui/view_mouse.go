@@ -3,12 +3,9 @@ package ui
 import (
 	"time"
 
-	"strconv"
-
 	"github.com/cornedor/laneway/internal/jira"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // Clicks and the wheel in the views that take the board's place: the
@@ -207,94 +204,4 @@ func (m *Model) wheelView(x, d int) {
 		p.side = side
 		p.idx[side] = min(max(p.idx[side]+d, 0), max(len(p.sides[side])-1, 0))
 	}
-}
-
-// Header clicks: the view line's names switch view, the filter line's
-// assignee chip opens its picker and a quick filter's chip toggles it.
-
-// headerHit is what the header cell x, y does: kind "view", "quick" or
-// "term" (a search term's chip) with its index, "assignee", or "" for
-// nothing.
-func (m *Model) headerHit(x, y int) (kind string, i int) {
-	t := m.jiraTab
-	if t.roadmap != nil || t.plan != nil || t.charts != nil {
-		return "", 0
-	}
-	at := 1 // the box's left border
-	span := func(s string) bool {
-		w := ansi.StringWidth(s)
-		hit := x >= at && x < at+w
-		at += w
-		return hit
-	}
-	switch y {
-	case jiraBodyTop - 2: // the views
-		if t.offline != "" {
-			span("offline · showing the cached board · " + helpKey(m.keys.Refresh) + " retries    ")
-		}
-		first := min(t.viewsFirst, len(t.views))
-		if first > 0 {
-			span("‹" + jiraViewSep)
-		}
-		for i, v := range t.views[first:] {
-			if i > 0 {
-				span(jiraViewSep)
-			}
-			if span(v.name) {
-				return "view", first + i
-			}
-		}
-	case jiraBodyTop - 1: // the filters
-		switch {
-		case t.searching:
-			return "", 0
-		case t.jiraSearchQuery() != "":
-			span("/")
-			for i, w := range jiraQueryWords(t.search.Value()) {
-				if i > 0 {
-					span(" ")
-				}
-				if span(w + " ×") {
-					return "term", i
-				}
-			}
-			span(" esc  ")
-		}
-		who := "everyone"
-		if t.assignee.id != "" {
-			who = t.assignee.label
-		}
-		span(helpKey(m.keys.Assignee) + " assignee (" + helpKey(m.keys.Mine) + " me): ")
-		if span(who) {
-			return "assignee", 0
-		}
-		for i, q := range t.quick {
-			if i == 9 {
-				break
-			}
-			span("  ")
-			if span(strconv.Itoa(i+1) + " " + q.Name) {
-				return "quick", i
-			}
-		}
-	}
-	return "", 0
-}
-
-// clickHeader acts on a header hit; ok false when x, y is none.
-func (m Model) clickHeader(x, y int) (tea.Model, tea.Cmd, bool) {
-	kind, i := m.headerHit(x, y)
-	switch kind {
-	case "view":
-		return m, m.cycleJiraView(i - m.jiraTab.viewIdx), true
-	case "quick":
-		return m, m.toggleJiraQuick(i), true
-	case "term":
-		m.removeSearchTerm(i)
-		return m, nil, true
-	case "assignee":
-		out, cmd := m.handleJiraKey(keyPress(helpKey(m.keys.Assignee)))
-		return out, cmd, true
-	}
-	return m, nil, false
 }

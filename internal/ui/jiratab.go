@@ -2571,68 +2571,11 @@ func (m *Model) renderJiraPane(height, width int) string {
 		boxW++ // its right border is cut below; the panel's left border divides
 	}
 
-	title := titleStyle.Render("Jira")
-	if t.project != "" {
-		title += " " + titleStyle.Render(t.project)
-	}
-	if t.board < len(t.boards) {
-		title += refDimStyle.Render("  " + t.boards[t.board].Name)
-	}
-	meta := ""
-	switch {
-	case t.loading:
-		meta = "  refreshing…"
-	case !t.fetched.IsZero():
-		meta = "  updated " + age(t.fetched)
-		if t.total > len(t.cards) {
-			meta += fmt.Sprintf("  ·  first %d of %d", len(t.cards), t.total)
-		}
-	}
-	if tl := m.timerLabel(); tl != "" {
-		meta += "  ·  " + tl
-	}
-	if b := m.inboxBadge(); b != "" {
-		meta += "  ·  " + b + " " + helpKey(m.keys.Inbox)
-	}
-	k := m.keys
-	meta += "  ·  " + helpKey(k.Help) + " help  " + helpKey(k.Project) + " project  " + helpKey(k.Board) + " board  " +
-		helpKey(k.PrevView) + " " + helpKey(k.NextView) + " view  " + helpKey(k.ToggleMode) + " lanes/list  " +
-		helpKey(k.OpenChannel) + " open  " + helpKey(k.OpenAttach) + " browser  " + helpKey(k.Refresh) + " refresh"
-	if m.jiraShowsLanes() {
-		meta += "  " + helpKey(k.MoveCardLeft) + "/" + helpKey(k.MoveCardRight) + " move"
-	}
-	head := ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…")
+	head := ansi.Truncate(joinSegs(m.jiraTitleSegs()), max(boxW-2, 1), "…")
 	rule := refDimStyle.Render(strings.Repeat("─", max(boxW-2, 1)))
 
 	t.viewsFirst = jiraViewsFirst(t.views, t.viewIdx, max(boxW-3, 1)) // a cell for the truncation's …
-	var views []string
-	if t.viewsFirst > 0 {
-		views = append(views, jiraDimStyle.Render("‹"))
-	}
-	for i, v := range t.views[t.viewsFirst:] {
-		if i += t.viewsFirst; i == t.viewIdx {
-			views = append(views, jiraViewActive.Render(v.name))
-		} else {
-			views = append(views, jiraDimStyle.Render(v.name))
-		}
-	}
-	viewLine := strings.Join(views, jiraDimStyle.Render(jiraViewSep))
-	if t.offline != "" {
-		viewLine = jiraOverStyle.Render("offline · showing the cached board · "+helpKey(m.keys.Refresh)+" retries") + "    " + viewLine
-	}
-	if v, ok := m.jiraCurrentView(); ok {
-		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && bar != "" {
-			viewLine += "    " + bar
-		}
-		if s := jiraSprintLine(v, time.Now(), m.opts.workdays); s != "" {
-			viewLine += jiraDimStyle.Render("    " + s)
-		}
-	}
-	if n := len(t.lanes); m.jiraShowsLanes() && n > 0 {
-		if vis, _ := jiraLaneLayout(t.view.Width(), n); vis < n {
-			viewLine += jiraDimStyle.Render(fmt.Sprintf("    lanes %d–%d of %d", t.firstLane+1, t.firstLane+vis, n))
-		}
-	}
+	viewLine := joinSegs(m.jiraViewSegs())
 	viewLine = ansi.Truncate(viewLine, max(boxW-2, 1), "…")
 	filterLine := ansi.Truncate(m.jiraFilterLine(), max(boxW-2, 1), "…")
 
@@ -2749,45 +2692,7 @@ func jiraSprintLine(v jiraView, now time.Time, workdays []time.Weekday) string {
 }
 
 // jiraFilterLine shows the filters and their keys, the ones that are on lit.
-func (m *Model) jiraFilterLine() string {
-	t := m.jiraTab
-	chip := func(on bool, s string) string {
-		if on {
-			return jiraViewActive.Render(s)
-		}
-		return jiraDimStyle.Render(s)
-	}
-	who := "everyone"
-	if t.assignee.id != "" {
-		who = t.assignee.label
-	}
-	line := jiraDimStyle.Render(helpKey(m.keys.Assignee)+" assignee ("+helpKey(m.keys.Mine)+" me): ") + chip(t.assignee.id != "", who)
-	for i, q := range t.quick {
-		if i == 9 {
-			break
-		}
-		line += "  " + chip(t.quickOn[q.ID], strconv.Itoa(i+1)+" "+q.Name)
-	}
-	if t.jiraFiltered() {
-		line += jiraDimStyle.Render("  ·  " + helpKey(m.keys.ClearFilters) + " clears")
-	}
-	if t.sort != jiraSortRank && !m.jiraShowsLanes() {
-		line += jiraDimStyle.Render("  ·  "+helpKey(m.keys.Sort)+" sort: ") + chip(true, t.sort.String())
-	}
-	switch {
-	case t.searching:
-		line = t.search.View() + "  " + line
-	case t.jiraSearchQuery() != "":
-		terms := jiraQueryWords(t.search.Value())
-		for i, w := range terms {
-			terms[i] = chip(true, w+" ×")
-		}
-		line = jiraDimStyle.Render("/") + strings.Join(terms, " ") + jiraDimStyle.Render(" esc") + "  " + line
-	default:
-		line += jiraDimStyle.Render("  ·  " + helpKey(m.keys.Search) + " search")
-	}
-	return line
-}
+func (m *Model) jiraFilterLine() string { return joinSegs(m.jiraFilterSegs()) }
 
 // hitJira maps a screen cell on the board to a card: idx is the lane (-1 in
 // list mode and above the board) and line the card's row in it, -1 over no

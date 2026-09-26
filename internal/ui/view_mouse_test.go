@@ -229,9 +229,9 @@ func TestHeaderViewsScroll(t *testing.T) {
 		t.Fatalf("views row = %q", row)
 	}
 	x := strings.Index(row, "View 22")
-	x = ansi.StringWidth(row[:x])                                              // cells, not bytes
-	if kind, i := m.headerHit(x+1, jiraBodyTop-2); kind != "view" || i != 24 { // two built-in views come first
-		t.Errorf("click hits %s %d", kind, i)
+	x = ansi.StringWidth(row[:x])                                            // cells, not bytes
+	if h := m.headerHit(x+1, jiraBodyTop-2); h.kind != "view" || h.i != 24 { // two built-in views come first
+		t.Errorf("click hits %s %d", h.kind, h.i)
 	}
 }
 

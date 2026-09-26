@@ -205,3 +205,43 @@ func TestClickOutsideInputs(t *testing.T) {
 		t.Error("outside should cancel create")
 	}
 }
+
+// TestClickHeaderKeys: the header's key hints, names and chips run their
+// key.
+func TestClickHeaderKeys(t *testing.T) {
+	m := jiraTabModel(t)
+	if m = clickText(t, m, "? help"); !m.helpOpen {
+		t.Fatal("help chip")
+	}
+	m.helpOpen = false
+	lanes := m.jiraShowsLanes()
+	if m = clickText(t, m, "lanes/list"); m.jiraShowsLanes() == lanes {
+		t.Error("lanes/list chip did not switch")
+	}
+	if m = clickText(t, m, "/ search"); !m.jiraTab.searching {
+		t.Fatal("search chip")
+	}
+	out, _ := m.handleKey(keyMsg(t, "f"))
+	out, _ = out.(Model).handleKey(keyMsg(t, "enter"))
+	if m = clickText(t, out.(Model), "esc"); m.jiraTab.jiraSearchQuery() != "" {
+		t.Error("esc chip left the query")
+	}
+	m.jiraTab.offline = "down"
+	m.renderJira()
+	if m = clickText(t, m, "offline"); !m.jiraTab.loading {
+		t.Error("offline notice did not retry")
+	}
+}
+
+// TestClickHeaderTimer: the running timer's label stops it into the log
+// input.
+func TestClickHeaderTimer(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "T"))
+	if m = out.(Model); m.timerLabel() == "" {
+		t.Fatal("T started no timer")
+	}
+	if m = clickText(t, m, "⏱"); !m.worklogFromTimer {
+		t.Error("a click on the timer should open its log")
+	}
+}
