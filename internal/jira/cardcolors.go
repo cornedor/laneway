@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -27,25 +28,33 @@ func (c *Client) CardColors(ctx context.Context, board int) (CardColors, error) 
 	if !c.Enabled() {
 		return CardColors{}, errNotConfigured
 	}
-	var resp struct {
+	var model struct {
 		CardColorConfig struct {
 			Strategy string `json:"cardColorStrategy"`
-			Colors   []struct {
-				Value        string `json:"value"`
-				DisplayValue string `json:"displayValue"`
-				Color        string `json:"color"`
-			} `json:"cardColors"`
 		} `json:"cardColorConfig"`
 	}
 	path := "/rest/greenhopper/1.0/rapidviewconfig/editmodel.json?rapidViewId=" + strconv.Itoa(board)
+	if err := c.do(ctx, http.MethodGet, path, "card colours", nil, &model); err != nil {
+		return CardColors{}, err
+	}
+	strategy := model.CardColorConfig.Strategy
+	cc := CardColors{By: strings.ToLower(strategy)}
+	if cc.By == "" || cc.By == "none" {
+		return CardColors{}, nil
+	}
+	// The edit model names the strategy only; its colours come apart.
+	var resp struct {
+		Colors []struct {
+			Value        string `json:"value"`
+			DisplayValue string `json:"displayValue"`
+			Color        string `json:"color"`
+		} `json:"cardColors"`
+	}
+	path = "/rest/greenhopper/1.0/cardcolors/" + strconv.Itoa(board) + "/strategy/" + url.PathEscape(strategy)
 	if err := c.do(ctx, http.MethodGet, path, "card colours", nil, &resp); err != nil {
 		return CardColors{}, err
 	}
-	cc := CardColors{By: strings.ToLower(resp.CardColorConfig.Strategy)}
-	if cc.By == "none" {
-		cc.By = ""
-	}
-	for _, col := range resp.CardColorConfig.Colors {
+	for _, col := range resp.Colors {
 		if col.Color == "" {
 			continue
 		}
