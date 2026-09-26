@@ -1383,9 +1383,13 @@ func (m *Model) renderJira() {
 	if t.idx < len(t.lineOf) {
 		r = t.lineOf[t.idx]
 	}
+	head := r // a group's first card brings its header into view
+	if t.idx < len(t.lineOf) && r > 0 && (t.idx == 0 || t.lineOf[t.idx-1] != r-1) {
+		head = r - 1
+	}
 	switch {
-	case r < top:
-		t.view.SetYOffset(r)
+	case head < top:
+		t.view.SetYOffset(head)
 	case r >= top+h:
 		t.view.SetYOffset(r - h + 1)
 	}

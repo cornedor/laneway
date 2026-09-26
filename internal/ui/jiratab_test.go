@@ -913,3 +913,22 @@ func TestListGroups(t *testing.T) {
 		t.Errorf("click on a header = card %d, want none", h.line)
 	}
 }
+
+// TestListGroupScroll: moving up onto a group's first card shows its header.
+func TestListGroupScroll(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "t"))
+	m = out.(Model)
+	for m.jiraTab.sort != jiraSortAssignee {
+		out, _ = m.handleJiraKey(keyMsg(t, "s"))
+		m = out.(Model)
+	}
+	m.jiraTab.view.SetHeight(2)
+	m.renderJira()
+	m.jiraTab.view.SetYOffset(3)
+	m.jiraTab.idx = 1 // first Unassigned card, header on line 2
+	m.renderJira()
+	if got := m.jiraTab.view.YOffset(); got != 2 {
+		t.Errorf("offset = %d, want the header's line 2", got)
+	}
+}
