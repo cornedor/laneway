@@ -946,3 +946,23 @@ func TestPlainIcons(t *testing.T) {
 		t.Error("a bad value should warn")
 	}
 }
+
+// TestPanelFacts: the panel shows when the issue was made and resolved,
+// who watches and votes, and its time tracking.
+func TestPanelFacts(t *testing.T) {
+	m := panelModel(t)
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", facts: jira.Facts{
+		Created: time.Now().Add(-3 * 24 * time.Hour), Resolution: "Done", Watchers: 4, Watching: true,
+		Spent: 3 * 3600, Estimate: 8 * 3600, Left: 5 * 3600,
+	}})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Created", "3d ago", "Resolved", "Done", "Watchers", "4 (you)", "3h logged · 5h left of 8h"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("panel lacks %q", want)
+		}
+	}
+	if strings.Contains(view, "Votes") {
+		t.Error("no votes should show no row")
+	}
+}

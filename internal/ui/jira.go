@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -106,6 +107,9 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	m.refFieldEdit(&b, "Labels", strings.Join(iss.Labels, ", "), 10, width)
 	if !iss.Updated.IsZero() {
 		refMeta(&b, "Updated", m.when(iss.Updated), 10)
+	}
+	if m.panelExtraKey == iss.Key {
+		m.writeFacts(&b, m.panelFacts)
 	}
 	// The deployment rides on the board's card (its Development field).
 	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 && m.jiraTab.cards[i].Deploy != "" {
@@ -392,5 +396,45 @@ func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
 	b.WriteString(refDimStyle.Render(m.commentByline(c)) + "\n")
 	if body := strings.TrimSpace(c.Body); body != "" {
 		b.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
+	}
+}
+
+// writeFacts writes the issue's read-only details: created, resolved,
+// watchers and votes (you among them), time tracking.
+func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
+	if !f.Created.IsZero() {
+		refMeta(b, "Created", m.when(f.Created), 10)
+	}
+	if f.Resolution != "" {
+		res := f.Resolution
+		if !f.Resolved.IsZero() {
+			res += " · " + m.when(f.Resolved)
+		}
+		refMeta(b, "Resolved", res, 10)
+	}
+	count := func(n int, you bool) string {
+		if n == 0 {
+			return ""
+		}
+		s := strconv.Itoa(n)
+		if you {
+			s += " (you)"
+		}
+		return s
+	}
+	refMeta(b, "Watchers", count(f.Watchers, f.Watching), 10)
+	refMeta(b, "Votes", count(f.Votes, f.Voted), 10)
+	if f.Spent > 0 || f.Estimate > 0 || f.Left > 0 {
+		t := "nothing logged"
+		if f.Spent > 0 {
+			t = jira.FormatDuration(f.Spent) + " logged"
+		}
+		if f.Left > 0 || f.Estimate > 0 {
+			t += " · " + jira.FormatDuration(f.Left) + " left"
+		}
+		if f.Estimate > 0 {
+			t += " of " + jira.FormatDuration(f.Estimate)
+		}
+		refMeta(b, "Time", t, 10)
 	}
 }

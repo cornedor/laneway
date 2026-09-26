@@ -314,6 +314,7 @@ type Model struct {
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
 	panelExtraKey string
+	panelFacts    jira.Facts // panelExtraKey's read-only details (created, watchers, time)
 	// panelHits are the panel's clickable lines by content line: a field's
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.

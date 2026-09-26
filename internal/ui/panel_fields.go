@@ -40,6 +40,7 @@ func init() {
 type panelExtraMsg struct {
 	key    string
 	fields []jiraFormField
+	facts  jira.Facts
 	err    error
 }
 
@@ -55,7 +56,7 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 		for i, fm := range metas {
 			fields[i] = jiraFormField{FieldMeta: fm, val: jira.DecodeValue(fm.Kind, values[fm.ID]), raw: values[fm.ID]}
 		}
-		return panelExtraMsg{key: key, fields: fields, err: err}
+		return panelExtraMsg{key: key, fields: fields, facts: jira.IssueFacts(values), err: err}
 	}
 }
 
@@ -65,7 +66,7 @@ func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil || m.jiraIssue == nil || m.jiraIssue.Key != msg.key {
 		return m, nil
 	}
-	m.panelExtra, m.panelExtraKey = msg.fields, msg.key
+	m.panelExtra, m.panelExtraKey, m.panelFacts = msg.fields, msg.key, msg.facts
 	m.renderRef()
 	return m, nil
 }
