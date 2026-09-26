@@ -139,3 +139,34 @@ func TestPaletteRecent(t *testing.T) {
 		t.Errorf("recent rows = %q", got)
 	}
 }
+
+// TestPalettePinned: * in the panel pins its issue, listed first in the
+// palette and only once; * again unpins it.
+func TestPalettePinned(t *testing.T) {
+	m := loadedJiraModel(t) // opened ABC-1
+	m.focus = focusRef
+	out, _ := m.handleKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if p := m.pinnedIssues(); len(p) != 1 || p[0][0] != "ABC-1" || !strings.HasPrefix(m.status, "pinned ABC-1") {
+		t.Fatalf("pinned = %v, status %q", p, m.status)
+	}
+	m.rememberRecent("ABC-1", "Fix the widget")
+	m.focus = focusJira
+	m.openPalette()
+	n := 0
+	for _, it := range m.jiraPicker.all {
+		if it.id == "i:ABC-1" {
+			n++
+		}
+	}
+	if m.jiraPicker.all[0].label != "pinned  ABC-1  "+m.jiraIssue.Summary || n != 1 {
+		t.Errorf("first row %q, ABC-1 rows %d", m.jiraPicker.all[0].label, n)
+	}
+	m.closeJiraPicker()
+	m.focus = focusRef
+	out, _ = m.handleKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if p := m.pinnedIssues(); len(p) != 0 || m.status != "unpinned ABC-1" {
+		t.Errorf("after unpin = %v, status %q", p, m.status)
+	}
+}

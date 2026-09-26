@@ -34,6 +34,9 @@ func (m *Model) openPalette() {
 	}
 	names := m.keys.keyNames()
 	var items []jiraPickerItem
+	for _, p := range m.pinnedIssues() {
+		items = append(items, jiraPickerItem{id: "i:" + p[0], label: "pinned  " + p[0] + "  " + ansi.Strip(p[1])})
+	}
 	for _, s := range keyScopes {
 		if s.name != scope {
 			continue
@@ -59,7 +62,9 @@ func (m *Model) openPalette() {
 		}
 	}
 	for _, c := range t.cards {
-		items = append(items, jiraPickerItem{id: "i:" + c.Key, label: c.Key + "  " + ansi.Strip(c.Summary)})
+		if id := "i:" + c.Key; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
+			items = append(items, jiraPickerItem{id: id, label: c.Key + "  " + ansi.Strip(c.Summary)})
+		}
 	}
 	for _, r := range m.recentIssues() {
 		if id := "i:" + r[0]; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
@@ -220,4 +225,39 @@ func (m *Model) rememberRecent(key, summary string) {
 	r = append([][2]string{{key, summary}}, r...)
 	b, _ := json.Marshal(r[:min(len(r), recentMax)])
 	_ = m.store.SetMeta(recentMeta, string(b))
+}
+
+// pinnedMeta holds the issues pinned with * in the panel, oldest first; the
+// palette lists them before anything else.
+const pinnedMeta = jiraMetaPrefix + "pinned"
+
+// pinnedIssues are the pinned issues as [key, summary].
+func (m *Model) pinnedIssues() [][2]string {
+	if m.store == nil {
+		return nil
+	}
+	v, ok, _ := m.store.GetMeta(pinnedMeta)
+	var out [][2]string
+	if ok {
+		_ = json.Unmarshal([]byte(v), &out)
+	}
+	return out
+}
+
+// togglePin pins the panel's issue, or unpins it.
+func (m *Model) togglePin() {
+	if m.store == nil || m.jiraIssue == nil {
+		return
+	}
+	key := m.jiraIssue.Key
+	p := m.pinnedIssues()
+	if kept := slices.DeleteFunc(slices.Clone(p), func(e [2]string) bool { return e[0] == key }); len(kept) < len(p) {
+		p = kept
+		m.status = "unpinned " + key
+	} else {
+		p = append(p, [2]string{key, m.jiraIssue.Summary})
+		m.status = "pinned " + key + " · first in the palette"
+	}
+	b, _ := json.Marshal(p)
+	_ = m.store.SetMeta(pinnedMeta, string(b))
 }

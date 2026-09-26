@@ -157,6 +157,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openHistory()
 	case key.Matches(msg, m.keys.DevInfo):
 		return m, m.openDevInfo()
+	case key.Matches(msg, m.keys.Pin):
+		m.togglePin()
+		return m, nil
 	case key.Matches(msg, m.keys.IssueActions):
 		m.openIssueActions()
 		return m, nil

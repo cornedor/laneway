@@ -91,7 +91,7 @@ Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right
 create project board next_view prev_view toggle_mode sort move_sprint assignee_filter mine
 clear_filters · panel: status priority points summary labels assign comment reply start_work
-linked_issue back image.
+linked_issue back image development pin.
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -193,7 +193,7 @@ Panel:
   `$EDITOR` · `l` labels · `a` assignee
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
-  `D` pull requests / builds / deployments / branches / commits · `L` linked issue · `i` images full size (← →)
+  `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →)
 - `backspace` previous issue · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 
