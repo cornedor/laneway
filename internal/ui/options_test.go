@@ -158,3 +158,20 @@ func TestBranchName(t *testing.T) {
 		t.Errorf("bad template = %q %v, want default and a warning", o.branchTemplate, warn)
 	}
 }
+
+func TestCodeThemeOption(t *testing.T) {
+	for _, tc := range []struct {
+		c    config.UIConfig
+		want string
+		warn int
+	}{
+		{config.UIConfig{}, "monokai", 0},
+		{config.UIConfig{Theme: config.Theme{"preset": "gruvbox"}}, "gruvbox", 0},
+		{config.UIConfig{Theme: config.Theme{"preset": "tokyonight"}, CodeTheme: "dracula"}, "dracula", 0},
+		{config.UIConfig{CodeTheme: "nope"}, "monokai", 1},
+	} {
+		if o, warn := optionsFrom(tc.c); o.codeTheme != tc.want || len(warn) != tc.warn {
+			t.Errorf("%+v: %q %v, want %q", tc.c, o.codeTheme, warn, tc.want)
+		}
+	}
+}

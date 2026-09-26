@@ -76,6 +76,7 @@ ui:
     Bug: "## Steps\n\n1. \n\n## Expected\n\n## Actual"
   saved_filters: on             # your starred Jira filters as views too (off)
   branch_template: "{key}-{summary}"  # ctrl+y's branch name: {key} {summary} {type} {project}
+  code_theme: monokai           # chroma style for code blocks; default follows theme's preset
   keys:              # rebind any action: one key or a list
     search: f
     mine: [m, M]

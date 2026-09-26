@@ -43,6 +43,7 @@ var settingDefaults = map[string]string{
 	"capacity":         "none",
 	"saved_filters":    "on",
 	"branch_template":  defaultBranchTemplate,
+	"code_theme":       "the preset's, else monokai",
 	"theme":            "terminal colours",
 }
 
@@ -232,9 +233,13 @@ func (m *Model) saveSetting(name, text string) string {
 		opts.panelPct = m.opts.panelPct
 	}
 	m.uiConfig, m.opts = next, opts
+	setCodeTheme(opts.codeTheme)
 	m.settings.rows = settingRows(next)
 	m.jiraTab.rows = nil
 	m.renderJira()
+	if m.refOpen {
+		m.renderRef() // code blocks, dates
+	}
 	m.status = "saved ui." + name
 	if settingsRestart[name] {
 		m.status += " · takes effect on restart"

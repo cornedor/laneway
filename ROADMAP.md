@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Fix: code blocks always use monokai; `setCodeTheme` is never called and there's no `ui.code_theme`. Add it, defaulting per theme preset
 - Fix: start work (`S`) names new branches `issue/{key}-{summary}`, ignoring `ui.branch_template`; use it (or `ui.work_branch_template`)
 - `ui.work_agent`: the herdr agent start work launches (`claude` today)
 - `ui.kanban_done_days`: how long done work stays on kanban boards (14 today)
@@ -36,6 +35,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.code_theme`: code blocks' chroma style, by default the theme preset's (tokyonight-night, catppuccin-mocha, gruvbox), else monokai; editable from `,`
 - Fix: the header's views start late enough (behind ‹) to show the active one when they overflow; clicks follow
 - Fix: list mode's selected row draws plain in the selection colours, as the selected card does; dim status, points and PR had sunk into it
 - Panel: filled rich-text fields (e.g. test information) render as markdown sections after the description, their row says ↓ below; enter still edits them in `$EDITOR`

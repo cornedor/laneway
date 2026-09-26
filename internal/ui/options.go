@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/v2/styles"
+
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -30,6 +32,7 @@ type options struct {
 	velocitySprints int                // closed sprints in the velocity chart
 	staleDays       int                // in progress longer than this shows red
 	branchTemplate  string             // copy_branch's name
+	codeTheme       string             // chroma style for code blocks
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -42,7 +45,12 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, codeTheme: fallbackCodeTheme}
+}
+
+// presetCodeTheme is the chroma style matching each theme preset.
+var presetCodeTheme = map[string]string{
+	"tokyonight": "tokyonight-night", "catppuccin": "catppuccin-mocha", "gruvbox": "gruvbox",
 }
 
 // optionsFrom resolves c over the defaults. A bad value is reported and
@@ -95,6 +103,16 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.templates = map[string]string{}
 		}
 		o.templates[strings.ToLower(typ)] = md
+	}
+	switch name := strings.TrimSpace(c.CodeTheme); {
+	case name == "":
+		if t, ok := presetCodeTheme[c.Theme["preset"]]; ok {
+			o.codeTheme = t
+		}
+	case styles.Registry[name] == nil:
+		warn = append(warn, fmt.Sprintf("ui.code_theme: unknown style %q", name))
+	default:
+		o.codeTheme = name
 	}
 	if tmpl := strings.TrimSpace(c.BranchTemplate); tmpl != "" {
 		if bad := badBranchPlaceholder(tmpl); bad != "" {

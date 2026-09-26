@@ -85,6 +85,9 @@ type UIConfig struct {
 	// BranchTemplate is the branch name copy_branch puts on the clipboard:
 	// {key}, {summary} (slugged), {type}, {project}; "{key}-{summary}".
 	BranchTemplate string `yaml:"branch_template"`
+	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);
+	// by default the one matching the theme preset.
+	CodeTheme string `yaml:"code_theme"`
 	// Theme is a preset name (theme: tokyonight) or colours by name, over
 	// an optional preset: {preset: nord, accent: "#7aa2f7"}.
 	Theme Theme `yaml:"theme"`
