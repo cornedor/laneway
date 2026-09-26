@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Dev info step 4: builds in `D`
+- Dev info step 5: deployments (environment, state) in `D`
 - Attachments step 3: paste an image from the clipboard
 - Copy the list (or the marked cards) as a markdown table (`y` in list mode
   with marks)
@@ -9,6 +9,7 @@
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Panel `D` lists builds (state, number, branch), after pull requests
 - Description edit: mentions, emoji, dates inside text stay inline as `⟦N @name⟧`, the paragraph editable
 - Roadmap: epics grouped under their plan-level parent, whose bar spans them
 - Comment composer: `@` + a name suggests users, `tab` inserts a real mention

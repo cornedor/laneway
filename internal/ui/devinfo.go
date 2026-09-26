@@ -6,8 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// D in the panel: the pull requests (open first) and branches linked to the
-// issue; enter opens one in the browser.
+// D in the panel: the pull requests (open first), builds, branches and
+// commits linked to the issue; enter opens one in the browser.
 
 func (m *Model) openDevInfo() tea.Cmd {
 	if m.jiraIssue == nil {
@@ -25,6 +25,11 @@ func (m *Model) openDevInfo() tea.Cmd {
 			switch d.Kind {
 			case "pr":
 				label = fmt.Sprintf("%-8s %s  (%s)", d.Status, d.Name, d.Branch)
+			case "build":
+				label = fmt.Sprintf("%-8s build %s", d.Status, d.Name)
+				if d.Branch != "" {
+					label += "  (" + d.Branch + ")"
+				}
 			case "commit":
 				label = fmt.Sprintf("commit  %s  — %s", d.Name, d.Status)
 			}
@@ -34,7 +39,7 @@ func (m *Model) openDevInfo() tea.Cmd {
 			rows[i] = jiraPickerItem{id: d.URL, label: label}
 		}
 		if err == nil && len(rows) == 0 {
-			rows = []jiraPickerItem{{label: "no branches or pull requests linked"}}
+			rows = []jiraPickerItem{{label: "no development work linked"}}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickDev, items: rows, err: err}
 	}
