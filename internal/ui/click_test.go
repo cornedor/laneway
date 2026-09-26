@@ -311,3 +311,68 @@ func TestClickPlanHead(t *testing.T) {
 		t.Error("the sprint's head did not take the focus")
 	}
 }
+
+// panelModel is the board with ABC-1 loaded in the panel: a link, an image
+// ready to draw.
+func panelModel(t *testing.T) Model {
+	t.Helper()
+	m := jiraTabModel(t)
+	m.images = &panelImages{on: true, maxRows: 16, byAtt: map[string]*panelImage{}}
+	iss := &jira.Issue{Key: "ABC-1", Summary: "s", Description: "Words\n\n![shot.png](attachment:10)",
+		Attachments: []jira.Attachment{{ID: "10", Filename: "shot.png", MimeType: "image/png"}},
+		Links:       []jira.Link{{Rel: "blocks", Key: "ABC-2", Summary: "Second"}}}
+	out, _ := openRefFor(m, "ABC-1")
+	out, _ = out.(Model).handleJiraLoaded(jiraLoadedMsg{gen: out.(Model).refGen, key: "ABC-1", issue: iss})
+	m = out.(Model)
+	e := m.images.byAtt["10"]
+	out, _ = m.handleImageLoaded(imageLoadedMsg{att: "10", id: e.id, pxW: 40, pxH: 40, cols: 4, rows: 2, seq: "SEQ"})
+	return out.(Model)
+}
+
+// TestClickPanelExtras: the hint line's keys, the Links head, a double-click
+// on the Description head and an inline image each do theirs.
+func TestClickPanelExtras(t *testing.T) {
+	m := panelModel(t)
+	if m = clickText(t, m, "c comment"); !m.jiraCommentActive {
+		t.Fatal("hint did not open the composer")
+	}
+	m.jiraCommentActive = false
+	if m = clickText(t, m, "Links (1)"); !m.jiraPicker.active {
+		t.Fatal("Links head did not open the link picker")
+	}
+	m.jiraPicker.active = false
+	m.renderRef()
+	if m = clickText(t, m, "Description"); strings.Contains(m.status, "description") {
+		t.Fatal("one click should not edit")
+	}
+	if m = clickText(t, m, "Description"); !strings.Contains(m.status, "loading ABC-1 description") {
+		t.Fatalf("a double-click should edit the description: %q", m.status)
+	}
+	if m = clickText(t, m, "\U0010EEEE"); !m.imageView {
+		t.Error("a click on the image should show it full size")
+	}
+}
+
+// TestWheelPanelWhileEditing: with a comment composed in the panel the
+// wheel scrolls the panel and leaves the board alone.
+func TestWheelPanelWhileEditing(t *testing.T) {
+	m := panelModel(t)
+	m.jiraIssue.Description = strings.Repeat("line\n\n", 60)
+	m.renderRef()
+	m.focus = focusRef
+	out, _ := m.Update(keyMsg(t, "c"))
+	if m = out.(Model); !m.jiraCommentActive || !m.commentInline() {
+		t.Fatal("c did not compose in the panel")
+	}
+	listW, _ := m.jiraListWidth(m.width)
+	top := m.refView.YOffset()
+	out, _ = m.Update(tea.MouseWheelMsg{X: listW + 5, Y: 5, Button: tea.MouseWheelUp})
+	if m = out.(Model); top == 0 || m.refView.YOffset() != top-3 {
+		t.Errorf("the panel did not scroll: %d → %d", top, m.refView.YOffset())
+	}
+	row := m.jiraTab.row
+	out, _ = m.Update(tea.MouseWheelMsg{X: 3, Y: 6, Button: tea.MouseWheelDown})
+	if m = out.(Model); m.jiraTab.row != row || !m.jiraCommentActive {
+		t.Error("the board moved under the edit")
+	}
+}

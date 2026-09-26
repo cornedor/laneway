@@ -1,11 +1,12 @@
 # Roadmap
 
 ## Next
-- Mouse in the panel: inline images open the viewer, section heads (Links, Attachments, Description double-click), hint chips, `…and N more`, scrollbar drag; the wheel while an inline editor is open
+- Panel scrollbar: a click on the right border pages, dragging it scrolls
 - Empty states: a click on the hint runs its key; list group headers select their first card
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Mouse in the panel: an inline image opens full size, the hint line's keys press, `Links (n)` opens the link list, a double-click on `Description` edits it, `…and N more` opens the browser; the wheel scrolls the panel while an editor is open in it (the board stays put)
 - Fix: a picker title wrapped over lines (timesheet, standup on a narrow terminal) put clicks rows off and let the box outgrow the screen; planning: a click on a side's head focuses it
 - Mouse: a click on a roadmap row's ▾/▸ folds its parent or epic; the roadmap, charts and planning view lines are segments too, so their key hints press their keys, planning's sprint name steps to the next
 - Mouse in the header: its rows are segments that draw and hit-test alike; a click on a key hint runs the key, the project and board names open their pickers, `updated` refreshes, the timer stops into its log, `✉` opens the inbox, the offline notice retries, `‹` steps to the view before, the sprint bar opens charts, `X clears` / `sort:` / `/ search` / a query's `esc` do theirs

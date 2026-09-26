@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -12,14 +14,27 @@ import (
 // a second (or a double-click); a linked issue opens.
 
 // panelHit is what a panel line does when clicked: url opens in the
-// browser, reply answers comment field, field >= 0 selects that field, else
-// key opens that issue.
+// browser, reply answers comment field, image shows that attachment full
+// size, press presses a key (on a double-click when double), hints presses
+// the hint under col, field >= 0 selects that field, else key opens that
+// issue.
 type panelHit struct {
-	field int
-	key   string
-	url   string // a link's target (panelLinkAt)
-	reply bool
+	field  int
+	key    string
+	url    string // a link's target (panelLinkAt)
+	reply  bool
+	image  string
+	press  string
+	double bool
+	hints  bool
+	col    int
 }
+
+// panelHintLine is the panel's line of edit keys; a click on one presses it.
+const panelHintLine = "tab fields · ↵ edit · c comment · R reply · S start work · ? keys"
+
+// imageFG finds an image placeholder's id, written as its foreground.
+var imageFG = regexp.MustCompile("\x1b\\[38;2;(\\d+);(\\d+);(\\d+)m\U0010EEEE")
 
 // indexPanelHits finds the clickable lines of the panel's content: the
 // fields where the render wrote them, the links under their heading.
@@ -37,8 +52,18 @@ func (m *Model) indexPanelHits(content string) {
 	tabs := strings.Join(labels[:], "  ") + "   [ ]"
 	lines := strings.Split(content, "\n")
 	for i, l := range lines {
-		if strings.TrimSpace(ansi.Strip(l)) == tabs {
+		switch text := strings.TrimSpace(ansi.Strip(l)); {
+		case text == tabs:
 			m.activityLine = i
+		case text == panelHintLine:
+			m.panelHits[i] = panelHit{field: -1, hints: true}
+		case text == "Description" && m.descEdit == nil:
+			m.panelHits[i] = panelHit{field: -1, press: "E", double: true}
+		case strings.HasPrefix(text, "…and ") && strings.HasSuffix(text, "o opens in browser"):
+			m.panelHits[i] = panelHit{field: -1, press: "o"}
+		}
+		if att := m.imageOn(l); att != "" {
+			m.panelHits[i] = panelHit{field: -1, image: att}
 		}
 	}
 	// The bylines in drawing order, each found after the one before.
@@ -59,6 +84,7 @@ func (m *Model) indexPanelHits(content string) {
 		if strings.TrimSpace(ansi.Strip(l)) != head {
 			continue
 		}
+		m.panelHits[i] = panelHit{field: -1, press: "L"}
 		for j, lk := range iss.Links {
 			if i+1+j < len(lines) {
 				m.panelHits[i+1+j] = panelHit{field: -1, key: lk.Key}
@@ -146,6 +172,20 @@ func linkAt(line string, col int) string {
 
 // clickPanel acts on a clicked panel line.
 func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
+	if h.hints {
+		h.press = panelHintAt(h.col)
+	}
+	switch {
+	case h.image != "":
+		m.openImageViewAt(h.image)
+		return m, nil
+	case h.double && count < 2:
+		return m, nil
+	case h.press != "":
+		return m.handleRefKey(keyPress(h.press))
+	case h.hints:
+		return m, nil
+	}
 	if h.url != "" {
 		m.status = "opening " + h.url + "…"
 		return m, m.openOpenable(openable{name: h.url, url: h.url})
@@ -166,4 +206,47 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 	m.fieldCursor, m.fieldCursorKey = h.field, m.jiraIssue.Key
 	m.renderRef()
 	return m, nil
+}
+
+// imageOn is the attachment whose placeholder line l shows, "" for none.
+func (m *Model) imageOn(l string) string {
+	sm := imageFG.FindStringSubmatch(l)
+	if sm == nil || m.images == nil {
+		return ""
+	}
+	var id uint32
+	for _, v := range sm[1:] {
+		n, _ := strconv.Atoi(v)
+		id = id<<8 | uint32(n)
+	}
+	for att, e := range m.images.byAtt {
+		if e.id == id {
+			return att
+		}
+	}
+	return ""
+}
+
+// panelIndent is how many cells of leading space line has.
+func panelIndent(line string) int {
+	s := ansi.Strip(line)
+	return len(s) - len(strings.TrimLeft(s, " "))
+}
+
+// panelHintAt is the key of the hint at column col of panelHintLine, ""
+// between them.
+func panelHintAt(col int) string {
+	at := 0
+	for _, h := range strings.Split(panelHintLine, " · ") {
+		w := ansi.StringWidth(h)
+		if col >= at && col < at+w {
+			k, _, _ := strings.Cut(h, " ")
+			if k == "↵" {
+				return "enter"
+			}
+			return k
+		}
+		at += w + 3
+	}
+	return ""
 }

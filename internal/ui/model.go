@@ -409,8 +409,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The inline picker is drawn in the panel: redraw it as it changes.
 		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline() || m.panelComposing() || om.panelComposing()) {
 			om.renderRef()
-			om.showInlinePicker()
-			om.showInlineEditor()
+			if _, wheel := msg.(tea.MouseWheelMsg); !wheel { // the wheel scrolls away from the cursor
+				om.showInlinePicker()
+				om.showInlineEditor()
+			}
 			out = om
 		}
 		if f := om.flushImages(); f != nil {
@@ -653,6 +655,15 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return out, cmd
 }
 
+// inlineEditorOnly is whether the one thing open is an editor drawn inside
+// the panel, which leaves the panel's wheel free.
+func (m *Model) inlineEditorOnly() bool {
+	inline := m.jiraCommentActive && m.commentInline() || m.jiraFieldActive && m.fieldInline() || m.descEdit != nil && m.descEditInline()
+	return inline && m.settings == nil && m.filterBuilder == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
+		!m.jiraCreateActive && !m.jiraPicker.active && m.jiraForm == nil &&
+		(m.descEdit == nil || m.descEditInline()) && (!m.jiraCommentActive || m.commentInline()) && (!m.jiraFieldActive || m.fieldInline())
+}
+
 func (m *Model) modalOpen() bool {
 	return m.settings != nil || m.filterBuilder != nil || m.descEdit != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
@@ -716,8 +727,11 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 				return m, m.switchActivity(t)
 			}
 		}
-		if h, ok := m.panelHits[m.panelLineAt(msg.Y)]; ok {
-			return m.clickPanel(h, count)
+		if i, wrap := m.panelCellAt(msg.Y); i >= 0 {
+			if h, ok := m.panelHits[i]; ok {
+				h.col = msg.X - listW - 1 + wrap*m.refView.Width() - panelIndent(strings.Split(m.refView.GetContent(), "\n")[i])
+				return m.clickPanel(h, count)
+			}
 		}
 		m.renderJira()
 		return m, nil
@@ -753,7 +767,7 @@ func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			return out, cmd
 		}
 	}
-	if m.modalOpen() {
+	if m.modalOpen() && !m.inlineEditorOnly() {
 		return m, nil
 	}
 	delta := 3
@@ -765,6 +779,9 @@ func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
 		m.refView.SetYOffset(m.refView.YOffset() + delta)
 		return m, nil
+	}
+	if m.inlineEditorOnly() {
+		return m, nil // the board stays put under an edit
 	}
 	if t := m.jiraTab; t.roadmap != nil || t.plan != nil {
 		m.wheelView(msg.X, delta/3)

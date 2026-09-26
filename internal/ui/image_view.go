@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,6 +35,15 @@ func (m *Model) openImageView() {
 	}
 	m.imageView, m.imageViewIdx = true, 0
 	m.fitImageView()
+}
+
+// openImageViewAt shows attachment att full size, the others a step away.
+func (m *Model) openImageViewAt(att string) {
+	m.openImageView()
+	if i := slices.Index(m.readyImages(), att); i >= 0 && m.imageView {
+		m.imageViewIdx = i
+		m.fitImageView()
+	}
 }
 
 // fitImageView sizes the shown image to the body; the placement change is
