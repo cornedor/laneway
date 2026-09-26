@@ -31,7 +31,9 @@ func TestRoadmap(t *testing.T) {
 				io.WriteString(w, `{"issues":[
 				  {"key":"ABC-1","fields":{"summary":"Checkout","status":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},
 				   "customfield_20":"2026-09-01","duedate":"2026-10-15"}},
-				  {"key":"ABC-2","fields":{"summary":"Search","status":{"name":"To Do","statusCategory":{"key":"new"}}}}]}`)
+				  {"key":"ABC-2","fields":{"summary":"Search","status":{"name":"To Do","statusCategory":{"key":"new"}},
+				   "issuelinks":[{"type":{"inward":"is blocked by","outward":"blocks"},"inwardIssue":{"key":"ABC-1"}},
+				                 {"type":{"inward":"relates to","outward":"relates to"},"inwardIssue":{"key":"ABC-9"}}]}}]}`)
 				return
 			}
 			io.WriteString(w, `{"issues":[
@@ -64,6 +66,9 @@ func TestRoadmap(t *testing.T) {
 	if k := e.Kids; len(k) != 2 || k[0].Summary != "Pay" || k[0].Type != "Story" || !k[0].Done ||
 		k[0].End.Format(time.DateOnly) != "2026-09-20" || k[1].Key != "ABC-4" {
 		t.Errorf("ABC-1 kids = %+v", k)
+	}
+	if b := epics[1].BlockedBy; len(b) != 1 || b[0] != "ABC-1" {
+		t.Errorf("ABC-2 blocked by %v", b)
 	}
 	e = epics[1]
 	if k := e.Kids; len(k) != 1 || !k[0].DatesFromSprints || k[0].Start.Format(time.DateOnly) != "2026-09-21" {

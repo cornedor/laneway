@@ -233,3 +233,21 @@ func TestRoadmapFilterAndNew(t *testing.T) {
 		t.Errorf("create: active %v type %q", m.jiraCreateActive, m.jiraCreateType)
 	}
 }
+
+// TestRoadmapBlocked: an open blocker ending after the epic starts is a
+// conflict; one ending before is fine; a done one does not count.
+func TestRoadmapBlocked(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.Local) }
+	r := &roadmapState{epics: []jira.Epic{
+		{Key: "E-1", End: day(10)},
+		{Key: "E-2", Start: day(5), BlockedBy: []string{"E-1"}},
+		{Key: "E-3", Start: day(12), BlockedBy: []string{"E-1"}},
+		{Key: "E-4", Done: true, End: day(20)},
+		{Key: "E-5", Start: day(1), BlockedBy: []string{"E-4"}},
+	}}
+	for i, want := range map[int]int{1: blockConflict, 2: blockOK, 4: blockNone} {
+		if got := roadmapBlock(r, r.epics[i]); got != want {
+			t.Errorf("%s: %d, want %d", r.epics[i].Key, got, want)
+		}
+	}
+}

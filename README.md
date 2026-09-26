@@ -272,7 +272,8 @@ fills by points done, else by children done. `← →` scroll, `+ -` zoom
 epic's issues, `enter` opens the row's issue, `esc` back to the board.
 `H`/`L` move a bar (an epic's or a child's) a column, `<`/`>` move its end;
 the dates are written to Jira once you pause. `f` shows the epic's issues as
-a board view, `n` makes a new epic.
+a board view, `n` makes a new epic. An epic an open epic blocks shows `⛓`, red `⛔` when
+that blocker ends after it starts.
 
 ## Images
 

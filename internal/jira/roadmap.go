@@ -26,6 +26,8 @@ type Epic struct {
 	Children, DoneChildren int
 	Points, DonePoints     float64
 	Kids                   []EpicChild // in rank order
+	// BlockedBy are the issues blocking it (its "is blocked by" links).
+	BlockedBy []string
 }
 
 // EpicChild is an issue under an epic, dated by its own fields or its
@@ -109,7 +111,7 @@ func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
 	if err != nil {
 		return nil, err
 	}
-	fields := []string{"summary", "status", "duedate"}
+	fields := []string{"summary", "status", "duedate", "issuelinks"}
 	for _, id := range []string{ids.start, ids.end} {
 		if id != "" {
 			fields = append(fields, id)
@@ -126,6 +128,13 @@ func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
 		e := Epic{Key: is.Key}
 		_ = json.Unmarshal(is.Fields["summary"], &e.Summary)
 		e.Status, e.Done = statusOf(is.Fields["status"])
+		var links []apiIssueLink
+		_ = json.Unmarshal(is.Fields["issuelinks"], &links)
+		for _, l := range links {
+			if l.InwardIssue != nil && strings.EqualFold(l.Type.Inward, "is blocked by") {
+				e.BlockedBy = append(e.BlockedBy, l.InwardIssue.Key)
+			}
+		}
 		e.Start = dateField(is.Fields[ids.start])
 		if e.End = dateField(is.Fields["duedate"]); e.End.IsZero() {
 			e.End = dateField(is.Fields[ids.end])

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -170,8 +171,10 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, save
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
 		r.idx = max(r.idx-1, 0)
+		m.roadmapSayBlockers()
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown):
 		r.idx = min(r.idx+1, last)
+		m.roadmapSayBlockers()
 	case key.Matches(msg, m.keys.Home):
 		r.idx = 0
 	case key.Matches(msg, m.keys.End):
@@ -349,6 +352,18 @@ func (m Model) handleRoadmapSaved(msg roadmapSavedMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// roadmapSayBlockers names the selected epic's blockers in the status line.
+func (m *Model) roadmapSayBlockers() {
+	r := m.jiraTab.roadmap
+	row, ok := r.selected()
+	if !ok || row.kid >= 0 {
+		return
+	}
+	if e := r.epics[row.epic]; len(e.BlockedBy) > 0 {
+		m.status = e.Key + " is blocked by " + strings.Join(e.BlockedBy, ", ")
+	}
+}
+
 // zoomRoadmap steps the zoom, keeping the selected row's start (or today)
 // in the same column.
 func (m *Model) zoomRoadmap(d int) {
@@ -458,6 +473,30 @@ func (m *Model) renderRoadmap(width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
+// Blocking states of an epic on the roadmap.
+const (
+	blockNone     = iota
+	blockOK       // an open blocker that ends before it starts
+	blockConflict // an open blocker that ends after it starts
+)
+
+// roadmapBlock is how the roadmap's open epics that block e stand to it.
+func roadmapBlock(r *roadmapState, e jira.Epic) int {
+	state := blockNone
+	for _, k := range e.BlockedBy {
+		i := slices.IndexFunc(r.epics, func(o jira.Epic) bool { return o.Key == k })
+		if i < 0 || r.epics[i].Done {
+			continue
+		}
+		b := r.epics[i]
+		if !b.End.IsZero() && !e.Start.IsZero() && b.End.After(e.Start) {
+			return blockConflict
+		}
+		state = blockOK
+	}
+	return state
+}
+
 // roadmapLabel is a row's left column: fold mark, key, summary and share
 // done for an epic; type icon, key and summary for a child.
 func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
@@ -475,6 +514,14 @@ func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
 		}
 		if f, ok := roadmapDone(e); ok {
 			pct = fmt.Sprintf(" %3.0f%%", f*100)
+		}
+	}
+	if row.kid < 0 {
+		switch roadmapBlock(r, e) {
+		case blockConflict:
+			lead = jiraOverStyle.Render("⛔") + " "
+		case blockOK:
+			lead = jiraDimStyle.Render("⛓") + " "
 		}
 	}
 	name := ansi.Truncate(lead+e.Key+" "+e.Summary, max(w-len(pct), 1), "…")

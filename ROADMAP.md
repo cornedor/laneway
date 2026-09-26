@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
+- Roadmap step 5: plan-level parents above epics (hierarchy > 1)
 - Bulk step 3: required transition fields asked once for all marked
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 4: builds in `D`
@@ -9,6 +9,7 @@
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Roadmap: blocked epics show ⛓, a red ⛔ when the blocker ends after they start
 - Panel `D` also lists commits (id, first line, author)
 - `C` Flow tab: cumulative flow, issues per board column per day (status replayed from the changelog)
 - Planning: `R` renames a sprint, `S` on the active one moves its end
