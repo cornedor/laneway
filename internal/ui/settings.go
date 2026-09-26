@@ -278,7 +278,7 @@ func (m *Model) renderSettings(height int) string {
 		nameW = max(nameW, lipgloss.Width(r.name))
 		valW = max(valW, lipgloss.Width(r.value), lipgloss.Width(r.def))
 	}
-	valW = min(valW, 40)
+	valW = min(valW, 40, max((m.width-8-nameW-4)/2, 8)) // the two value columns share what the screen leaves
 	top, visible := s.window(height)
 	width := nameW + 2 + valW + 2 + valW
 	pad := func(v string, w int) string {
@@ -313,7 +313,7 @@ func (m *Model) renderSettings(height int) string {
 	if s.input != nil {
 		hintText = "↵ save · empty for the default · esc cancel"
 	}
-	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(hintText)
+	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate(hintText, max(m.width-8, width)))
 	foot := []string{strings.Join(lines, "\n"), "", hint}
 	if s.err != "" {
 		foot = append(foot, refErrStyle.Render(truncate(s.err, width)))

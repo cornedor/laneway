@@ -1,9 +1,23 @@
 # Roadmap
 
 ## Next
+- Jira errors that say what to do: decode `errorMessages`/`errors`, 401 → check credentials, 403 → no permission, timeout → raise `jira.timeout`, 429 → retry after (`jira.go` statusError)
+- Comment composer: esc asks once when there is text (like the description editor); a failed post reopens it with the text; `ctrl+s` posts too
+- Quit guard: `ctrl+c`/`q` with unsaved editor text or writes in flight asks once ("2 writes pending · q again quits")
+- Status line: errors in the theme's error colour; a log of the last messages (palette `messages`, full text)
+- Config: warn about unknown keys (`ui.panel_widht: unknown option, did you mean panel_width?`)
+- Startup warnings: "3 config warnings · … lists them" instead of one truncated line
+- Rebindable keys on planning, roadmap and timesheet (their letters are hard-coded; add scopes so clashes are checked)
+- `?` on planning, roadmap, charts and the timesheet: their own section first
+- `q` on a sub-screen (roadmap, planning, charts) closes it like esc rather than quitting the app
+- Theme keys `status_todo`, `status_progress`, `status_done` (lanes and lozenges borrow the roadmap's)
+- `ui.my_work_jql` for `O`
+- Action feedback: per-field verbs ("commented on ABC-1", not "comment updated"); `ui.download_dir`; after a download "saved X · o opens"
+- Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12), double-click window (400ms)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Fix: settings and `?` help overflowed an 80-column screen; settings' value columns share the width left, help rows cut at the edge
 - Fix: `?` help ignored the screen's width, so on a 120-column terminal the panel's keys fell off the edge; it pages now (`←` `→`, page n/m in its hint), opens at the panel's keys from the panel, and lists the mouse (unless `ui.mouse: off`)
 - Panel scrollbar: a click on the panel's right border jumps there, dragging it scrolls, `esc` puts it back
 - Mouse: an empty board's hint runs its key (refresh, new issue, plan, clear filters, the builder, clearing the search); a list group's header selects its first card

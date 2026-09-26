@@ -149,14 +149,15 @@ func (m *Model) helpPages(height int) [][]string {
 				title += " (more)"
 			}
 			rows := s.rows[start:min(start+perCol, len(s.rows))]
+			descW := max(m.width-8-keyW-2, 10) // a description past the screen's edge is cut
 			colW := lipgloss.Width(title) + 2
 			for _, r := range rows {
-				colW = max(colW, keyW+2+lipgloss.Width(r.desc))
+				colW = max(colW, keyW+2+min(lipgloss.Width(r.desc), descW))
 			}
 			lines := []string{helpTitle(title, colW)}
 			for _, r := range rows {
 				pad := strings.Repeat(" ", keyW-lipgloss.Width(r.keys))
-				lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+r.desc)
+				lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+truncate(r.desc, descW))
 			}
 			cols = append(cols, strings.Join(lines, "\n"))
 		}

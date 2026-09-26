@@ -487,3 +487,22 @@ func TestHelpFromPanel(t *testing.T) {
 		t.Errorf("help from the panel opened on page %d", m.helpPage)
 	}
 }
+
+// TestOverlaysFitWidth: on an 80-column screen no overlay is wider than it.
+func TestOverlaysFitWidth(t *testing.T) {
+	for _, open := range []string{",", "F", "?", ":", "#"} {
+		m := jiraTabModel(t).WithConfigPath("/home/someone/.config/laneway/a-rather-long-config-name.yaml")
+		out, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+		out, _ = out.(Model).handleKey(keyMsg(t, open))
+		m = out.(Model)
+		for page := range 4 {
+			m.helpPage = page // the help's every page
+			for _, l := range strings.Split(m.renderOverlay(m.bodyH()), "\n") {
+				if w := ansi.StringWidth(l); w > 80 {
+					t.Errorf("%s page %d: a line %d wide", open, page, w)
+					break
+				}
+			}
+		}
+	}
+}
