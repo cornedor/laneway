@@ -251,3 +251,45 @@ func TestRoadmapBlocked(t *testing.T) {
 		}
 	}
 }
+
+// TestRoadmapParents: epics sit under their parent, whose bar spans them;
+// space folds the parent, and its dates don't move.
+func TestRoadmapParents(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "R"))
+	m = out.(Model)
+	d := func(n int) time.Time { return time.Now().Truncate(24*time.Hour).AddDate(0, 0, n) }
+	out, _ = m.handleRoadmap(roadmapMsg{project: "ABC", epics: []jira.Epic{
+		{Key: "ABC-10", Summary: "Checkout", Parent: "ABC-1", ParentSummary: "Grow", Start: d(0), End: d(5), Children: 2, DoneChildren: 1},
+		{Key: "ABC-11", Summary: "Search"},
+		{Key: "ABC-12", Summary: "Pay", Parent: "ABC-1", ParentSummary: "Grow", Start: d(3), End: d(9), Children: 2, DoneChildren: 2},
+	}})
+	m = out.(Model)
+	r := m.jiraTab.roadmap
+	var keys []string
+	for _, row := range r.rows() {
+		keys = append(keys, r.rowKey(row))
+	}
+	if got := strings.Join(keys, " "); got != "ABC-11 ABC-1 ABC-10 ABC-12" {
+		t.Fatalf("rows = %s", got)
+	}
+	g := r.groupEpic(r.groups[0])
+	if !g.Start.Equal(d(0)) || !g.End.Equal(d(9)) || g.DoneChildren != 3 || g.Done {
+		t.Errorf("parent bar = %+v", g)
+	}
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"1 parents", "▾ ABC-1 Grow", " 75%", "    ABC-10 Checkout"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view lacks %q", want)
+		}
+	}
+	r.idx = 1
+	out, cmd := m.handleJiraKey(keyMsg(t, "L"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "parent spans its epics") {
+		t.Errorf("moving a parent: %q", m.status)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "space"))
+	if m = out.(Model); len(m.jiraTab.roadmap.rows()) != 2 {
+		t.Error("space should fold the parent in")
+	}
+}

@@ -28,6 +28,8 @@ type Epic struct {
 	Kids                   []EpicChild // in rank order
 	// BlockedBy are the issues blocking it (its "is blocked by" links).
 	BlockedBy []string
+	// Parent is the plan-level issue above it (an initiative), "" for none.
+	Parent, ParentSummary string
 }
 
 // EpicChild is an issue under an epic, dated by its own fields or its
@@ -111,7 +113,7 @@ func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
 	if err != nil {
 		return nil, err
 	}
-	fields := []string{"summary", "status", "duedate", "issuelinks"}
+	fields := []string{"summary", "status", "duedate", "issuelinks", "parent"}
 	for _, id := range []string{ids.start, ids.end} {
 		if id != "" {
 			fields = append(fields, id)
@@ -128,6 +130,14 @@ func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
 		e := Epic{Key: is.Key}
 		_ = json.Unmarshal(is.Fields["summary"], &e.Summary)
 		e.Status, e.Done = statusOf(is.Fields["status"])
+		var parent struct {
+			Key    string `json:"key"`
+			Fields struct {
+				Summary string `json:"summary"`
+			} `json:"fields"`
+		}
+		_ = json.Unmarshal(is.Fields["parent"], &parent)
+		e.Parent, e.ParentSummary = parent.Key, parent.Fields.Summary
 		var links []apiIssueLink
 		_ = json.Unmarshal(is.Fields["issuelinks"], &links)
 		for _, l := range links {

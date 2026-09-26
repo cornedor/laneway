@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Roadmap step 5: plan-level parents above epics (hierarchy > 1)
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 4: builds in `D`
 - Attachments step 3: paste an image from the clipboard
@@ -11,6 +10,7 @@
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Roadmap: epics grouped under their plan-level parent, whose bar spans them
 - Comment composer: `@` + a name suggests users, `tab` inserts a real mention
 - `:` palette lists the issues you opened lately (last 20)
 - Bulk status: a move that needs fields asks them once, for every marked card

@@ -30,7 +30,7 @@ func TestRoadmap(t *testing.T) {
 			if strings.HasPrefix(body.JQL, "project") {
 				io.WriteString(w, `{"issues":[
 				  {"key":"ABC-1","fields":{"summary":"Checkout","status":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},
-				   "customfield_20":"2026-09-01","duedate":"2026-10-15"}},
+				   "customfield_20":"2026-09-01","duedate":"2026-10-15","parent":{"key":"ABC-100","fields":{"summary":"Grow"}}}},
 				  {"key":"ABC-2","fields":{"summary":"Search","status":{"name":"To Do","statusCategory":{"key":"new"}},
 				   "issuelinks":[{"type":{"inward":"is blocked by","outward":"blocks"},"inwardIssue":{"key":"ABC-1"}},
 				                 {"type":{"inward":"relates to","outward":"relates to"},"inwardIssue":{"key":"ABC-9"}}]}}]}`)
@@ -59,6 +59,9 @@ func TestRoadmap(t *testing.T) {
 	if e.Summary != "Checkout" || e.Status != "In Progress" || e.Done || e.DatesFromSprints ||
 		e.Start.Format(time.DateOnly) != "2026-09-01" || e.End.Format(time.DateOnly) != "2026-10-15" {
 		t.Errorf("ABC-1 = %+v", e)
+	}
+	if e.Parent != "ABC-100" || e.ParentSummary != "Grow" || epics[1].Parent != "" {
+		t.Errorf("parents = %q %q, %q", e.Parent, e.ParentSummary, epics[1].Parent)
 	}
 	if e.Children != 2 || e.DoneChildren != 1 || e.Points != 8 || e.DonePoints != 3 {
 		t.Errorf("ABC-1 progress = %+v", e)

@@ -37,14 +37,42 @@ type roadmapState struct {
 	zoom    int // index into roadmapZooms
 	from    time.Time
 	open    map[string]bool // epics folded out
+	shut    map[string]bool // parents folded in
+	groups  []roadmapGroup  // plan-level parents, in the order first met
 	// pending holds epics whose dates changed and aren't written yet;
 	// saveSeq debounces the write to the last key press.
 	pending map[string]bool
 	saveSeq int
 }
 
-// roadmapRow is one line: an epic (kid -1) or one of its children.
-type roadmapRow struct{ epic, kid int }
+// roadmapRow is one line: an epic (kid -1), one of its children, or a
+// parent (epic -1, group its index).
+type roadmapRow struct{ epic, kid, group int }
+
+// roadmapGroup is a plan-level parent and the epics under it.
+type roadmapGroup struct {
+	key, summary string
+	epics        []int
+}
+
+// roadmapGroups gathers the epics under their parents.
+func roadmapGroups(epics []jira.Epic) []roadmapGroup {
+	var out []roadmapGroup
+	at := map[string]int{}
+	for i, e := range epics {
+		if e.Parent == "" {
+			continue
+		}
+		g, ok := at[e.Parent]
+		if !ok {
+			g = len(out)
+			at[e.Parent] = g
+			out = append(out, roadmapGroup{key: e.Parent, summary: e.ParentSummary})
+		}
+		out[g].epics = append(out[g].epics, i)
+	}
+	return out
+}
 
 type roadmapMsg struct {
 	project string
@@ -69,7 +97,7 @@ func (m *Model) openRoadmap() tea.Cmd {
 	if t.project == "" {
 		return nil
 	}
-	r := &roadmapState{project: t.project, zoom: roadmapDefaultZoom, open: map[string]bool{}, pending: map[string]bool{}}
+	r := &roadmapState{project: t.project, zoom: roadmapDefaultZoom, open: map[string]bool{}, shut: map[string]bool{}, pending: map[string]bool{}}
 	r.from = roadmapStart(time.Now(), roadmapZooms[r.zoom])
 	t.roadmap = r
 	return m.loadRoadmap()
@@ -98,6 +126,7 @@ func (m Model) handleRoadmap(msg roadmapMsg) (tea.Model, tea.Cmd) {
 	// Keep the selection on the same issue across a reload.
 	keep := m.roadmapKey()
 	r.err, r.epics, r.fetched = "", msg.epics, time.Now()
+	r.groups = roadmapGroups(r.epics)
 	r.idx = 0
 	for i, row := range r.rows() {
 		if r.rowKey(row) == keep {
@@ -107,14 +136,28 @@ func (m Model) handleRoadmap(msg roadmapMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// rows are the shown lines: every epic, and the children of those open.
+// rows are the shown lines: epics without a parent, then each parent with
+// its epics unless folded in; under an open epic its children.
 func (r *roadmapState) rows() []roadmapRow {
 	var out []roadmapRow
-	for i, e := range r.epics {
-		out = append(out, roadmapRow{i, -1})
-		if r.open[e.Key] {
+	epic := func(i int) {
+		out = append(out, roadmapRow{epic: i, kid: -1})
+		if e := r.epics[i]; r.open[e.Key] {
 			for k := range e.Kids {
-				out = append(out, roadmapRow{i, k})
+				out = append(out, roadmapRow{epic: i, kid: k})
+			}
+		}
+	}
+	for i, e := range r.epics {
+		if e.Parent == "" {
+			epic(i)
+		}
+	}
+	for g, gr := range r.groups {
+		out = append(out, roadmapRow{epic: -1, kid: -1, group: g})
+		if !r.shut[gr.key] {
+			for _, i := range gr.epics {
+				epic(i)
 			}
 		}
 	}
@@ -122,6 +165,9 @@ func (r *roadmapState) rows() []roadmapRow {
 }
 
 func (r *roadmapState) rowKey(row roadmapRow) string {
+	if row.epic < 0 {
+		return r.groups[row.group].key
+	}
 	if row.kid < 0 {
 		return r.epics[row.epic].Key
 	}
@@ -206,10 +252,13 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			break
 		}
-		e := r.epics[row.epic]
+		name, k := "Parent: ", r.rowKey(row)
+		if row.epic >= 0 {
+			name, k = "Epic: ", r.epics[row.epic].Key
+		}
 		save := m.saveRoadmap()
 		m.jiraTab.roadmap = nil
-		return m, tea.Batch(save, m.runNamedJQLView("Epic: "+e.Key, "parent = "+e.Key+" ORDER BY rank"))
+		return m, tea.Batch(save, m.runNamedJQLView(name+k, "parent = "+k+" ORDER BY rank"))
 	case key.Matches(msg, m.keys.Create):
 		m.jiraCreateParent, m.jiraCreateProject = "", ""
 		m.openJiraCreateSummary("Epic")
@@ -238,6 +287,11 @@ func (m *Model) foldRoadmap() {
 	if !ok {
 		return
 	}
+	if row.epic < 0 {
+		k := r.groups[row.group].key
+		r.shut[k] = !r.shut[k]
+		return
+	}
 	e := r.epics[row.epic]
 	if len(e.Kids) == 0 {
 		m.status = e.Key + " has no child issues"
@@ -245,7 +299,7 @@ func (m *Model) foldRoadmap() {
 	}
 	r.open[e.Key] = !r.open[e.Key]
 	for i, rw := range r.rows() {
-		if rw == (roadmapRow{row.epic, -1}) {
+		if rw == (roadmapRow{epic: row.epic, kid: -1}) {
 			r.idx = i
 		}
 	}
@@ -258,6 +312,10 @@ func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
 	r := m.jiraTab.roadmap
 	row, ok := r.selected()
 	if !ok {
+		return nil
+	}
+	if row.epic < 0 {
+		m.status = "a parent spans its epics: move those"
 		return nil
 	}
 	if ds != 0 && !m.jiraClient.CanSetStart(m.ctx) {
@@ -356,7 +414,7 @@ func (m Model) handleRoadmapSaved(msg roadmapSavedMsg) (tea.Model, tea.Cmd) {
 func (m *Model) roadmapSayBlockers() {
 	r := m.jiraTab.roadmap
 	row, ok := r.selected()
-	if !ok || row.kid >= 0 {
+	if !ok || row.epic < 0 || row.kid >= 0 {
 		return
 	}
 	if e := r.epics[row.epic]; len(e.BlockedBy) > 0 {
@@ -396,6 +454,9 @@ func (r *roadmapState) rowDates(row roadmapRow) (key string, start, end *time.Ti
 // rowEpic is the row as a bar draws it: a child is one epic-like span, all
 // done or not.
 func (r *roadmapState) rowEpic(row roadmapRow) jira.Epic {
+	if row.epic < 0 {
+		return r.groupEpic(r.groups[row.group])
+	}
 	if row.kid < 0 {
 		return r.epics[row.epic]
 	}
@@ -408,10 +469,37 @@ func (r *roadmapState) rowEpic(row roadmapRow) jira.Epic {
 	return e
 }
 
+// groupEpic is a parent as one bar: from its first epic's start to its
+// last's end, with their progress summed. Its dates are derived, so dim.
+func (r *roadmapState) groupEpic(g roadmapGroup) jira.Epic {
+	e := jira.Epic{Key: g.key, Summary: g.summary, Done: true, DatesFromSprints: true}
+	for _, i := range g.epics {
+		c := r.epics[i]
+		e.Done = e.Done && c.Done
+		e.Children, e.DoneChildren = e.Children+c.Children, e.DoneChildren+c.DoneChildren
+		e.Points, e.DonePoints = e.Points+c.Points, e.DonePoints+c.DonePoints
+		for _, t := range []time.Time{c.Start, c.End} {
+			if t.IsZero() {
+				continue
+			}
+			if e.Start.IsZero() || t.Before(e.Start) {
+				e.Start = t
+			}
+			if t.After(e.End) {
+				e.End = t
+			}
+		}
+	}
+	return e
+}
+
 // roadmapLine is the view line while the roadmap shows.
 func (m *Model) roadmapLine() string {
 	r := m.jiraTab.roadmap
 	s := jiraViewActive.Render("Roadmap") + jiraDimStyle.Render(fmt.Sprintf("  %d epics · %s per column", len(r.epics), roadmapZoomName(roadmapZooms[r.zoom])))
+	if n := len(r.groups); n > 0 {
+		s += jiraDimStyle.Render(fmt.Sprintf(" · %d parents", n))
+	}
 	switch {
 	case r.loading:
 		s += jiraDimStyle.Render("  ·  loading…")
@@ -503,9 +591,22 @@ func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
 	e := r.rowEpic(row)
 	lead := "  "
 	pct := ""
-	if row.kid >= 0 {
+	indent := ""
+	if row.epic >= 0 && r.epics[row.epic].Parent != "" {
+		indent = "  "
+	}
+	switch {
+	case row.epic < 0:
+		lead = "▾ "
+		if r.shut[e.Key] {
+			lead = "▸ "
+		}
+		if f, ok := roadmapDone(e); ok {
+			pct = fmt.Sprintf(" %3.0f%%", f*100)
+		}
+	case row.kid >= 0:
 		lead = "   " + jiraTypeIcon(r.epics[row.epic].Kids[row.kid].Type) + " "
-	} else {
+	default:
 		if len(e.Kids) > 0 {
 			lead = "▸ "
 			if r.open[e.Key] {
@@ -516,7 +617,7 @@ func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
 			pct = fmt.Sprintf(" %3.0f%%", f*100)
 		}
 	}
-	if row.kid < 0 {
+	if row.epic >= 0 && row.kid < 0 {
 		switch roadmapBlock(r, e) {
 		case blockConflict:
 			lead = jiraOverStyle.Render("⛔") + " "
@@ -524,7 +625,7 @@ func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
 			lead = jiraDimStyle.Render("⛓") + " "
 		}
 	}
-	name := ansi.Truncate(lead+e.Key+" "+e.Summary, max(w-len(pct), 1), "…")
+	name := ansi.Truncate(indent+lead+e.Key+" "+e.Summary, max(w-len(pct), 1), "…")
 	return name + strings.Repeat(" ", max(w-lipgloss.Width(name)-len(pct), 0)) + pct
 }
 
