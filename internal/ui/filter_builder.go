@@ -21,7 +21,8 @@ import (
 // filterFields are the builder's fields: the query name and a label.
 var filterFields = []struct{ name, label string }{
 	{"status", "Status"}, {"assignee", "Assignee"}, {"type", "Type"}, {"prio", "Priority"},
-	{"points", "Story points"}, {"label", "Label"}, {"epic", "Epic"}, {"is", "Flagged, done, PR, unassigned"},
+	{"points", "Story points"}, {"label", "Label"}, {"epic", "Epic"}, {"pr", "Pull request"}, {"deploy", "Deployed to"},
+	{"is", "Mine, overdue, flagged, done, PR, unassigned"},
 }
 
 // filterBuild is the builder's choices so far.
@@ -70,7 +71,7 @@ func (m *Model) pickFilterOp(op string) {
 		return
 	}
 	b.op = op
-	counts, labels := filterValues(m.jiraTab.cards, b.field)
+	counts, labels := filterValues(m.jiraTab.cards, b.field, m.jiraQueryEnv())
 	values := slices.Collect(maps.Keys(counts))
 	slices.SortFunc(values, func(x, y string) int {
 		if b.field == "prio" {
@@ -91,7 +92,7 @@ func (m *Model) pickFilterOp(op string) {
 
 // filterValues counts each value of field over cards; labels is what a row
 // shows for it (an epic's key with its summary).
-func filterValues(cards []jira.Card, field string) (counts map[string]int, labels map[string]string) {
+func filterValues(cards []jira.Card, field string, env jiraQueryEnv) (counts map[string]int, labels map[string]string) {
 	counts, labels = map[string]int{}, map[string]string{}
 	add := func(v, label string) {
 		if v != "" {
@@ -115,11 +116,15 @@ func filterValues(cards []jira.Card, field string) (counts map[string]int, label
 			for _, l := range strings.Fields(c.Labels) {
 				add(l, l)
 			}
+		case "pr":
+			add(strings.ToLower(c.PR), strings.ToLower(c.PR))
+		case "deploy":
+			add(c.Deploy, c.Deploy)
 		case "epic":
 			add(c.ParentKey, strings.TrimSpace(c.ParentKey+" "+c.ParentSummary))
 		case "is":
-			for _, v := range []string{"flagged", "done", "pr", "unassigned"} {
-				if jiraCardIs(c, v) {
+			for _, v := range []string{"mine", "overdue", "flagged", "done", "pr", "unassigned"} {
+				if jiraCardIs(c, v, env) {
 					add(v, v)
 				}
 			}

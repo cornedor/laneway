@@ -2,6 +2,7 @@ package ui
 
 import (
 	"testing"
+	"time"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -37,7 +38,37 @@ func TestJiraQuery(t *testing.T) {
 		"status:review points>2": {true, false},
 	} {
 		terms := jiraParseQuery(q)
-		if got := [2]bool{jiraCardMatches(a, terms), jiraCardMatches(b, terms)}; got != want {
+		if got := [2]bool{jiraCardMatches(a, terms, jiraQueryEnv{}), jiraCardMatches(b, terms, jiraQueryEnv{})}; got != want {
+			t.Errorf("%q: %v, want %v", q, got, want)
+		}
+	}
+}
+
+func TestJiraQueryDates(t *testing.T) {
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
+	day := 24 * time.Hour
+	env := jiraQueryEnv{me: "a1", now: now}
+	soon := jira.Card{Key: "ABC-1", AssigneeID: "a1", Due: now.Add(2 * day), InProgress: true, Since: now.Add(-5 * day), PR: "OPEN", Deploy: "production"}
+	late := jira.Card{Key: "ABC-2", Due: now.Add(-day), InProgress: true, Since: now.Add(-time.Hour), PR: "MERGED"}
+	done := jira.Card{Key: "ABC-3", Due: now.Add(-day), Done: true}
+	for q, want := range map[string][3]bool{
+		"is:mine":         {true, false, false},
+		"is:overdue":      {false, true, false},
+		"due<7d":          {true, true, false},
+		"due>1d":          {true, false, false},
+		"age>3d":          {true, false, false},
+		"age<1d":          {false, true, false},
+		"age<12h":         {false, true, false},
+		"age>x":           {false, false, false},
+		"pr:open":         {true, false, false},
+		"pr:open,merged":  {true, true, false},
+		"deploy:prod":     {true, false, false},
+		"-deploy:":        {true, false, false},
+		"is:mine,overdue": {true, true, false},
+	} {
+		terms := jiraParseQuery(q)
+		got := [3]bool{jiraCardMatches(soon, terms, env), jiraCardMatches(late, terms, env), jiraCardMatches(done, terms, env)}
+		if got != want {
 			t.Errorf("%q: %v, want %v", q, got, want)
 		}
 	}

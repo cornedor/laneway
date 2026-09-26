@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -37,10 +38,22 @@ func (t *jiraTabState) jiraSearchQuery() string {
 	return strings.ToLower(strings.TrimSpace(t.search.Value()))
 }
 
+// jiraQueryEnv is what a query compares against besides the card: you
+// (is:mine) and the time (due, age).
+type jiraQueryEnv struct {
+	me  string // your accountId, "" until known
+	now time.Time
+}
+
+// jiraQueryEnv is the model's: its accountId once the client knows it.
+func (m *Model) jiraQueryEnv() jiraQueryEnv {
+	return jiraQueryEnv{me: m.jiraClient.KnownMyself(), now: time.Now()}
+}
+
 // jiraCardMatches reports whether c has every term of a parsed query.
-func jiraCardMatches(c jira.Card, terms []jiraTerm) bool {
+func jiraCardMatches(c jira.Card, terms []jiraTerm, env jiraQueryEnv) bool {
 	for _, t := range terms {
-		if t.match(c) == t.not {
+		if t.match(c, env) == t.not {
 			return false
 		}
 	}
@@ -54,7 +67,9 @@ func jiraCardMatches(c jira.Card, terms []jiraTerm) bool {
 //	status:review,test a field containing any of the values
 //	epic:              a field that is empty
 //	points>2 prio>=high comparisons: numbers, priorities by rank
-//	is:flagged         flagged, done, pr, unassigned
+//	is:flagged         flagged, done, pr, unassigned, mine, overdue
+//	due<7d age>3d      due within / after, in progress longer / shorter (h d w)
+//	pr:open deploy:prod the Development field
 //	-label:ui          any term negated
 
 // jiraTerm is one term of a query.
@@ -70,6 +85,7 @@ var jiraQueryFields = map[string]string{
 	"status": "status", "assignee": "assignee", "who": "assignee", "type": "type",
 	"prio": "priority", "priority": "priority", "epic": "parent", "parent": "parent",
 	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is",
+	"due": "due", "age": "age", "pr": "pr", "deploy": "deploy",
 }
 
 // jiraParseQuery splits q into terms. A word that doesn't parse as a field
@@ -141,7 +157,7 @@ func jiraSplitTerm(w string) (field, op, value string, ok bool) {
 }
 
 // match reports whether c has the term (before not).
-func (t jiraTerm) match(c jira.Card) bool {
+func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 	if t.field == "" {
 		q := t.values[0]
 		for _, s := range []string{c.Key, c.Summary, c.Assignee, c.ParentKey, c.ParentSummary} {
@@ -151,13 +167,16 @@ func (t jiraTerm) match(c jira.Card) bool {
 		}
 		return false
 	}
-	if t.field == "is" {
+	switch t.field {
+	case "is":
 		for _, v := range t.values {
-			if jiraCardIs(c, v) {
+			if jiraCardIs(c, v, env) {
 				return true
 			}
 		}
 		return false
+	case "due", "age":
+		return jiraMatchSpan(t, c, env.now)
 	}
 	var have string
 	switch t.field {
@@ -177,6 +196,10 @@ func (t jiraTerm) match(c jira.Card) bool {
 		have = c.Key
 	case "points":
 		have = c.Points
+	case "pr":
+		have = c.PR
+	case "deploy":
+		have = c.Deploy
 	}
 	have = strings.ToLower(strings.TrimSpace(have))
 	if len(t.values) == 0 {
@@ -211,7 +234,7 @@ func jiraCompare(field, op, have, want string) bool {
 }
 
 // jiraOrder is a op b.
-func jiraOrder[T int | float64](op string, a, b T) bool {
+func jiraOrder[T int | float64 | time.Duration](op string, a, b T) bool {
 	switch op {
 	case ">":
 		return a > b
@@ -225,9 +248,45 @@ func jiraOrder[T int | float64](op string, a, b T) bool {
 	return a == b
 }
 
-// jiraCardIs answers is:flagged, done, pr and unassigned.
-func jiraCardIs(c jira.Card, what string) bool {
+// jiraMatchSpan compares a due date (from now) or an in-progress age with
+// a span: due<7d is due within a week, age>3d in progress over three days.
+// A card without the date, or done for due, never matches.
+func jiraMatchSpan(t jiraTerm, c jira.Card, now time.Time) bool {
+	var have time.Duration
+	switch {
+	case len(t.values) == 0 || t.op == ":":
+		return false
+	case t.field == "due" && !c.Due.IsZero() && !c.Done:
+		have = c.Due.Sub(now)
+	case t.field == "age" && c.InProgress && !c.Since.IsZero():
+		have = now.Sub(c.Since)
+	default:
+		return false
+	}
+	want, ok := jiraSpan(t.values[0])
+	return ok && jiraOrder(t.op, have, want)
+}
+
+// jiraSpan reads "3d", "2w" or "12h".
+func jiraSpan(s string) (time.Duration, bool) {
+	if len(s) < 2 {
+		return 0, false
+	}
+	unit := map[byte]time.Duration{'h': time.Hour, 'd': 24 * time.Hour, 'w': 7 * 24 * time.Hour}[s[len(s)-1]]
+	n, err := strconv.Atoi(s[:len(s)-1])
+	if unit == 0 || err != nil || n < 0 {
+		return 0, false
+	}
+	return time.Duration(n) * unit, true
+}
+
+// jiraCardIs answers is:flagged, done, pr, unassigned, mine and overdue.
+func jiraCardIs(c jira.Card, what string, env jiraQueryEnv) bool {
 	switch what {
+	case "mine":
+		return env.me != "" && c.AssigneeID == env.me
+	case "overdue":
+		return !c.Due.IsZero() && !c.Done && c.Due.Before(env.now)
 	case "flagged":
 		return c.Flagged
 	case "done":

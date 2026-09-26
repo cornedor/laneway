@@ -653,7 +653,7 @@ func (m *Model) buildJiraLanes() {
 	if v.kind == jiraViewBoard {
 		skip = kanbanBacklog(t.cfg)
 	}
-	q := jiraParseQuery(t.jiraSearchQuery())
+	q, env := jiraParseQuery(t.jiraSearchQuery()), m.jiraQueryEnv()
 	col := map[string]int{}
 	for i, c := range t.cfg.Columns {
 		if i == skip {
@@ -665,7 +665,7 @@ func (m *Model) buildJiraLanes() {
 		t.lanes = append(t.lanes, jiraLane{name: c.Name, statusIDs: c.StatusIDs, max: c.Max})
 	}
 	for i, cd := range t.cards {
-		if !jiraCardMatches(cd, q) {
+		if !jiraCardMatches(cd, q, env) {
 			continue
 		}
 		if l, ok := col[cd.StatusID]; ok {
@@ -679,7 +679,7 @@ func (m *Model) buildJiraLanes() {
 		}
 	} else {
 		for i, cd := range t.cards {
-			if jiraCardMatches(cd, q) {
+			if jiraCardMatches(cd, q, env) {
 				t.order = append(t.order, i) // a planning list shows every card
 			}
 		}

@@ -700,6 +700,16 @@ func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User
 	return out, nil
 }
 
+// KnownMyself is your accountId once Myself has fetched it, else "".
+func (c *Client) KnownMyself() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.myself == nil {
+		return ""
+	}
+	return c.myself.AccountID
+}
+
 // Myself returns the authenticated account (for "Assign to me"), cached.
 func (c *Client) Myself(ctx context.Context) (User, error) {
 	if !c.Enabled() {
