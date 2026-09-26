@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"strconv"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -39,7 +41,8 @@ func (m Model) clickRoadmap(x, y, count int) (tea.Model, tea.Cmd) {
 			case t-s >= 2 && col == t:
 				grip = roadmapGripEnd
 			}
-			r.drag = roadmapDrag{on: true, col: col, grip: grip}
+			key, start, end, fromSprints := r.rowDates(row)
+			r.drag = roadmapDrag{on: true, col: col, grip: grip, from: roadmapDates{*start, *end, *fromSprints, r.pending[key]}}
 		}
 	}
 	return m, nil
@@ -57,6 +60,14 @@ const (
 type roadmapDrag struct {
 	on        bool
 	col, grip int
+	// from is the held row's dates as they were, for esc to put back.
+	from roadmapDates
+}
+
+// roadmapDates is a row's dates and whether they were pending a write.
+type roadmapDates struct {
+	start, end           time.Time
+	fromSprints, pending bool
 }
 
 // dragRoadmap moves the held bar (or its end) a column's worth of days per
@@ -76,6 +87,47 @@ func (m Model) dragRoadmap(x int) (tea.Model, tea.Cmd) {
 		return m, m.shiftRoadmap(0, d)
 	}
 	return m, m.shiftRoadmap(d, d)
+}
+
+// dragging is whether a mouse drag is in progress.
+func (m *Model) dragging() bool {
+	r, p := m.jiraTab.roadmap, m.jiraTab.plan
+	return m.panelResizing || m.jiraDragging() || r != nil && r.drag.on || p != nil && p.drag.held
+}
+
+// cancelDrag drops the drag in progress (esc): nothing is written and the
+// dragged thing is back where it was.
+func (m Model) cancelDrag() (tea.Model, tea.Cmd) {
+	m.status = "drag cancelled"
+	switch r, p := m.jiraTab.roadmap, m.jiraTab.plan; {
+	case m.panelResizing:
+		m.panelResizing = false
+		m.opts.panelPct = m.panelResizeFrom
+		m.resize()
+	case r != nil && r.drag.on:
+		from := r.drag.from
+		r.drag = roadmapDrag{}
+		row, ok := r.selected()
+		if !ok || row.epic < 0 {
+			return m, nil
+		}
+		key, start, end, fromSprints := r.rowDates(row)
+		*start, *end, *fromSprints = from.start, from.end, from.fromSprints
+		if !from.pending {
+			delete(r.pending, key)
+		}
+		r.saveSeq++ // the drag's write is off; others pending get theirs
+		if len(r.pending) > 0 {
+			seq := r.saveSeq
+			return m, tea.Tick(roadmapSaveDelay, func(time.Time) tea.Msg { return roadmapSaveMsg{seq} })
+		}
+	case p != nil && p.drag.held:
+		p.drag = planDrag{}
+	case m.jiraDragging():
+		m.jiraTab.drag = jiraDrag{}
+		m.renderJira()
+	}
+	return m, nil
 }
 
 // roadmapColAt is the timeline column under screen column x.

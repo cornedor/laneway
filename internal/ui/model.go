@@ -312,6 +312,8 @@ type Model struct {
 	// panelResizing is set while the panel's left border is dragged
 	// (panel_resize.go).
 	panelResizing bool
+	// panelResizeFrom is the width the drag started at, for esc.
+	panelResizeFrom int
 	// lastClick detects a double-click.
 	lastClick struct {
 		at   time.Time
@@ -603,6 +605,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleKey routes a key to the modal that owns the keyboard, else the
 // focused pane.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.dragging() && msg.String() == "esc" {
+		return m.cancelDrag()
+	}
 	switch {
 	case m.settings != nil:
 		return m.handleSettingsKey(msg)
@@ -682,7 +687,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m.clickJiraForm(msg.X, msg.Y, count)
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X == listW {
-		m.panelResizing = true // the panel's left border: drag to resize
+		m.panelResizing, m.panelResizeFrom = true, m.opts.panelPct // the panel's left border: drag to resize
 		return m, nil
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
