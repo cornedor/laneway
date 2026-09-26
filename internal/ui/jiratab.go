@@ -188,6 +188,9 @@ type jiraTabState struct {
 	// buildJiraLanes drops it.
 	rows    []string
 	rowsFor [3]int // width, key and status column widths
+	// lineOf is each order entry's line in the list, which group headers
+	// (sorted by assignee or priority) push down.
+	lineOf []int
 
 	idx       int   // list cursor, into order
 	lane, row int   // lane cursor
@@ -1359,19 +1362,72 @@ func (m *Model) renderJira() {
 		}
 		t.rowsFor = [3]int{w, keyW, stW}
 	}
-	lines := t.rows
-	if t.idx < len(t.order) {
-		lines = slices.Clone(t.rows)
-		lines[t.idx] = m.jiraListRow(t.cards[t.order[t.idx]], true, w, keyW, stW)
+	var lines []string
+	t.lineOf = t.lineOf[:0]
+	group := ""
+	for i, ci := range t.order {
+		if g, ok := jiraGroupOf(t.sort, t.cards[ci]); ok && (i == 0 || g != group) {
+			group = g
+			lines = append(lines, m.jiraGroupHeader(g, i))
+		}
+		t.lineOf = append(t.lineOf, len(lines))
+		row := t.rows[i]
+		if i == t.idx {
+			row = m.jiraListRow(t.cards[ci], true, w, keyW, stW)
+		}
+		lines = append(lines, row)
 	}
 	t.view.SetContentLinesWidth(lines, w)
 	top := t.view.YOffset()
-	switch r := t.idx; {
+	r := 0
+	if t.idx < len(t.lineOf) {
+		r = t.lineOf[t.idx]
+	}
+	switch {
 	case r < top:
 		t.view.SetYOffset(r)
 	case r >= top+h:
 		t.view.SetYOffset(r - h + 1)
 	}
+}
+
+// jiraGroupOf is the group a card heads under in list mode: its assignee or
+// priority when the list is sorted by that; ok false for other sorts.
+func jiraGroupOf(s jiraSort, c jira.Card) (string, bool) {
+	switch s {
+	case jiraSortAssignee:
+		if c.Assignee == "" {
+			return "Unassigned", true
+		}
+		return c.Assignee, true
+	case jiraSortPriority:
+		if c.Priority == "" {
+			return "No priority", true
+		}
+		return c.Priority, true
+	}
+	return "", false
+}
+
+// jiraGroupHeader is the header line of the group starting at order index
+// from: its name, card count and points.
+func (m *Model) jiraGroupHeader(g string, from int) string {
+	t := m.jiraTab
+	n, pts := 0, 0.0
+	for _, ci := range t.order[from:] {
+		if cg, _ := jiraGroupOf(t.sort, t.cards[ci]); cg != g {
+			break
+		}
+		n++
+		if f, err := strconv.ParseFloat(t.cards[ci].Points, 64); err == nil {
+			pts += f
+		}
+	}
+	s := fmt.Sprintf("── %s · %d", g, n)
+	if pts > 0 {
+		s += " · " + strconv.FormatFloat(pts, 'f', -1, 64) + "p"
+	}
+	return jiraViewActive.Render(s)
 }
 
 func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) string {
@@ -1861,8 +1917,8 @@ func (m *Model) hitJira(x, y int) hit {
 	line := y - jiraBodyTop
 	if !m.jiraShowsLanes() {
 		if line >= 0 && line < t.view.Height() {
-			if r := t.view.YOffset() + line; r < len(t.order) {
-				return hit{zone: hitJira, idx: -1, line: r}
+			if i := slices.Index(t.lineOf, t.view.YOffset()+line); i >= 0 {
+				return hit{zone: hitJira, idx: -1, line: i}
 			}
 		}
 		return hit{zone: hitJira, idx: -1, line: -1}

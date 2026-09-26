@@ -887,3 +887,29 @@ func TestUndoMove(t *testing.T) {
 		t.Errorf("after redo: %s", status())
 	}
 }
+
+// TestListGroups: sorted by assignee, the list heads each assignee's run
+// with a count; a click still lands on the card under it.
+func TestListGroups(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "t")) // list
+	m = out.(Model)
+	for m.jiraTab.sort != jiraSortAssignee {
+		out, _ = m.handleJiraKey(keyMsg(t, "s"))
+		m = out.(Model)
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "── Ada · 1") || !strings.Contains(view, "── Unassigned · 3 · 5p") {
+		t.Fatalf("headers missing:\n%s", view)
+	}
+	tt := m.jiraTab
+	if tt.lineOf[0] != 1 || tt.lineOf[1] != 3 {
+		t.Errorf("lineOf = %v", tt.lineOf)
+	}
+	if h := m.hitJira(5, jiraBodyTop+3); h.line != 1 {
+		t.Errorf("click on line 3 = card %d, want 1", h.line)
+	}
+	if h := m.hitJira(5, jiraBodyTop+2); h.line != -1 {
+		t.Errorf("click on a header = card %d, want none", h.line)
+	}
+}
