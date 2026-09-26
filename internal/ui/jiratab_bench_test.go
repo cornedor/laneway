@@ -47,3 +47,17 @@ func BenchmarkJiraView(b *testing.B) {
 		_ = m.View()
 	}
 }
+
+func BenchmarkRenderJiraSwimlanes(b *testing.B) {
+	m := bigJiraModel(b, 600)
+	for i := range m.jiraTab.cards {
+		m.jiraTab.cards[i].Assignee = fmt.Sprintf("Person %d", i%8)
+		m.jiraTab.cards[i].AssigneeID = fmt.Sprintf("p%d", i%8)
+	}
+	m.jiraTab.swim = jiraSortAssignee
+	m.buildJiraLanes()
+	b.ResetTimer()
+	for b.Loop() {
+		m.moveJiraCursor(1)
+	}
+}

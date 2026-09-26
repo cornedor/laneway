@@ -1899,7 +1899,17 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 	}
 	cmp := t.swim.cmp()
 	slices.SortStableFunc(groups, func(a, b string) int { return cmp(rep[a], rep[b]) })
-	var body []string
+	// Lay the body out first, then draw only the lines on screen: each line
+	// is a band's header, a card row's line y (its first line at start), or
+	// a gap.
+	type swimLine struct {
+		head  string // the band's name on its header line
+		count int
+		at    []int // the row's card row per shown lane, -1 for none
+		y     int   // the card line, -1 for a header or gap
+		start int   // the row's first line
+	}
+	var body []swimLine
 	t.swimAt, t.swimBand = t.swimAt[:0], t.swimBand[:0]
 	blank := make([]int, len(shown))
 	for i := range blank {
@@ -1923,40 +1933,25 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		if cards == 0 {
 			continue
 		}
-		body = append(body, jiraViewActive.Render("▾ "+g)+jiraDimStyle.Render(fmt.Sprintf(" · %d", cards)))
+		body = append(body, swimLine{head: g, count: cards, y: -1})
 		t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
 		for r := range n {
-			cells := make([][]string, len(shown))
 			at := make([]int, len(shown))
 			for i := range shown {
 				at[i] = -1
 				if r < len(runs[i]) {
-					ri := runs[i][r]
-					at[i] = ri
-					sel := t.firstLane+i == t.lane && ri == t.row
-					if sel {
+					at[i] = runs[i][r]
+					if t.firstLane+i == t.lane && at[i] == t.row {
 						selLine = len(body)
 					}
-					c := t.cards[shown[i].cards[ri]]
-					cells[i] = m.jiraLaneCard(c, sel, inner)
-					if t.drag.active && c.Key == t.drag.key { // being dragged: faint where it was
-						for y, line := range jiraCardLines(c, false, m.opts.fields) {
-							cells[i][y] = jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…"))
-						}
-					}
 				}
 			}
+			start := len(body)
 			for y := range jiraCardH {
-				line := make([]string, len(shown))
-				for i := range shown {
-					if cells[i] != nil {
-						line[i] = cells[i][y]
-					}
-				}
-				body = append(body, row(line))
+				body = append(body, swimLine{at: at, y: y, start: start})
 				t.swimAt, t.swimBand = append(t.swimAt, at), append(t.swimBand, rep[g])
 			}
-			body = append(body, row(make([]string, len(shown))))
+			body = append(body, swimLine{y: -1})
 			t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
 		}
 	}
@@ -1968,9 +1963,42 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		t.swimTop = selLine + jiraCardH - h
 	}
 	t.swimTop = min(t.swimTop, max(len(body)-h, 0))
+	cells := map[int][][]string{} // a row's drawn cards, by its first line
 	lines := []string{row(heads)}
 	for y := t.swimTop; y < len(body) && len(lines) < height; y++ {
-		lines = append(lines, body[y])
+		bl := body[y]
+		switch {
+		case bl.head != "":
+			lines = append(lines, jiraViewActive.Render("▾ "+bl.head)+jiraDimStyle.Render(fmt.Sprintf(" · %d", bl.count)))
+			continue
+		case bl.y < 0:
+			lines = append(lines, row(make([]string, len(shown))))
+			continue
+		}
+		cs, ok := cells[bl.start]
+		if !ok {
+			cs = make([][]string, len(shown))
+			for i, ri := range bl.at {
+				if ri < 0 {
+					continue
+				}
+				c := t.cards[shown[i].cards[ri]]
+				cs[i] = m.jiraLaneCard(c, t.firstLane+i == t.lane && ri == t.row, inner)
+				if t.drag.active && c.Key == t.drag.key { // being dragged: faint where it was
+					for y, line := range jiraCardLines(c, false, m.opts.fields) {
+						cs[i][y] = jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…"))
+					}
+				}
+			}
+			cells[bl.start] = cs
+		}
+		line := make([]string, len(shown))
+		for i := range shown {
+			if cs[i] != nil {
+				line[i] = cs[i][bl.y]
+			}
+		}
+		lines = append(lines, row(line))
 	}
 	for len(lines) < height {
 		lines = append(lines, row(make([]string, len(shown))))
