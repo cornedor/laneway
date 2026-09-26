@@ -72,6 +72,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	}
 	b.WriteString(header + "\n")
 	m.panelFieldLine = m.panelFieldLine[:0]
+	m.pickerLine = -1
 	line := func() { m.panelFieldLine = append(m.panelFieldLine, strings.Count(b.String(), "\n")) }
 	line() // Summary
 	sel := m.panelFieldIs
@@ -91,12 +92,15 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	} else {
 		refField(&b, "Status", iss.Status, 10, sel("Status"))
 	}
+	m.inlinePickerUnder(&b, "Status", 10, width)
 	line()
 	refField(&b, "Priority", iss.Priority, 10, sel("Priority"))
+	m.inlinePickerUnder(&b, "Priority", 10, width)
 	line()
 	m.refFieldEdit(&b, "Points", iss.StoryPoints, 10, width)
 	line()
 	refField(&b, "Assignee", iss.Assignee, 10, sel("Assignee"))
+	m.inlinePickerUnder(&b, "Assignee", 10, width)
 	refMeta(&b, "Reporter", iss.Reporter, 10)
 	line()
 	m.refFieldEdit(&b, "Labels", strings.Join(iss.Labels, ", "), 10, width)
@@ -124,6 +128,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 				continue
 			}
 			refField(&b, ff.Name, val, w, m.panelFieldIdx() == len(panelFields)+i)
+			m.inlinePickerUnder(&b, ff.ID, w, width)
 		}
 	}
 
@@ -161,6 +166,14 @@ func (m *Model) refFieldEdit(b *strings.Builder, name, value string, labelW, wid
 		return
 	}
 	refField(b, name, value, labelW, m.panelFieldIs(name))
+}
+
+// inlinePickerUnder drops the inline picker under row name when it is open
+// there.
+func (m *Model) inlinePickerUnder(b *strings.Builder, name string, indent, width int) {
+	if m.pickerInlineOn(name) {
+		m.renderInlinePicker(b, indent, width)
+	}
 }
 
 // fieldInlineView is the field input fitted to the row after a label

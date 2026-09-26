@@ -280,6 +280,9 @@ type Model struct {
 	// field's line as the last render wrote it.
 	panelHits      map[int]panelHit
 	panelFieldLine []int
+	// pickerLine is the content line of the inline picker's first shown row
+	// (pickerStart), -1 when none (jira_edit.go).
+	pickerLine, pickerStart int
 	// activityTab is the Activity section's open tab, activityLine its tab
 	// row's content line (-1 when not drawn); activity the history and
 	// worklogs it shows; commentHeads the comments' bylines (activity.go).
@@ -395,6 +398,12 @@ func (m *Model) resize() {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
+		// The inline picker is drawn in the panel: redraw it as it changes.
+		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline()) {
+			om.renderRef()
+			om.showInlinePicker()
+			out = om
+		}
 		if f := om.flushImages(); f != nil {
 			return om, tea.Batch(cmd, f)
 		}
@@ -636,6 +645,9 @@ func (m *Model) modalOpen() bool {
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	if msg.Button == tea.MouseLeft && m.pickerInline() {
+		return m.clickInlinePicker(msg.X, msg.Y)
+	}
 	if msg.Button == tea.MouseLeft && m.pickerOnTop() {
 		// A click picks the row (as enter would); outside the box, cancels.
 		switch i, outside := m.pickerRowAt(msg.X, msg.Y); {
@@ -813,7 +825,7 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderJiraCommentInput()
 	case m.jiraFieldActive && !m.fieldInline():
 		return m.renderJiraFieldInput()
-	case m.jiraPicker.active:
+	case m.jiraPicker.active && !m.pickerInline():
 		return m.renderJiraPicker(bodyH)
 	case m.jiraForm != nil:
 		return m.renderJiraForm()

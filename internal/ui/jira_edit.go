@@ -131,6 +131,9 @@ type jiraPickerState struct {
 	pendingDelete string
 	// found are the palette's Jira search hits, shown after its own rows.
 	found []jiraPickerItem
+	// inline is the panel row the list drops under (a panel field name or
+	// an extra field's id), "" for the modal.
+	inline string
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -193,6 +196,7 @@ func (m *Model) startJiraPicker(kind jiraPickerKind, title string, filterable bo
 // changes Jira accepts) into the picker.
 func (m *Model) openJiraStatusPicker() tea.Cmd {
 	gen := m.startJiraPicker(jiraPickStatus, "Set status — "+m.jiraIssue.Key, false)
+	m.jiraPicker.inline = "Status"
 	seq := m.jiraPicker.fetchSeq
 	key, cur := m.jiraIssue.Key, m.jiraIssue.Status
 	client, ctx := m.jiraClient, m.ctx
@@ -212,6 +216,7 @@ func (m *Model) openJiraStatusPicker() tea.Cmd {
 // openJiraPriorityPicker loads the instance priority list into the picker.
 func (m *Model) openJiraPriorityPicker() tea.Cmd {
 	gen := m.startJiraPicker(jiraPickPriority, "Set priority — "+m.jiraIssue.Key, false)
+	m.jiraPicker.inline = "Priority"
 	seq := m.jiraPicker.fetchSeq
 	curID := m.jiraIssue.PriorityID
 	client, ctx := m.jiraClient, m.ctx
@@ -234,6 +239,7 @@ func (m *Model) openJiraPriorityPicker() tea.Cmd {
 func (m *Model) openJiraAssigneePicker() tea.Cmd {
 	gen := m.startJiraPicker(jiraPickAssignee, "Set assignee — "+m.jiraIssue.Key, true)
 	m.jiraPicker.curAssignee = m.jiraIssue.AssigneeAccountID
+	m.jiraPicker.inline = "Assignee"
 	return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
 }
 
@@ -880,6 +886,98 @@ func (m *Model) pickerRowAt(x, y int) (idx int, outside bool) {
 		return i, false
 	}
 	return -1, false
+}
+
+// pickerInline is whether the picker drops under its panel row rather than
+// drawing as a modal.
+func (m *Model) pickerInline() bool {
+	p := &m.jiraPicker
+	return p.inline != "" && m.refOpen && m.jiraIssue != nil && p.issueKey == m.jiraIssue.Key && m.pickerOnTop()
+}
+
+// pickerInlineOn is whether the inline list drops under the row name.
+func (m *Model) pickerInlineOn(name string) bool {
+	return m.pickerInline() && m.jiraPicker.inline == name
+}
+
+// inlinePickerRows is how many of its rows the inline list shows.
+const inlinePickerRows = 8
+
+// renderInlinePicker writes the list under its row, indented to the values'
+// column; pickerLine records where its first row lands, for clicks.
+func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
+	p := &m.jiraPicker
+	pad := strings.Repeat(" ", indent)
+	inner := max(width-indent, 8)
+	if p.filterable {
+		p.filter.SetWidth(max(inner-lipgloss.Width(p.filter.Prompt)-1, 4))
+		b.WriteString(pad + p.filter.View() + "\n")
+	}
+	switch {
+	case p.loading:
+		b.WriteString(pad + refDimStyle.Render("loading…") + "\n")
+	case p.err != nil:
+		b.WriteString(pad + refErrStyle.Render(ansi.Truncate(p.err.Error(), inner, "…")) + "\n")
+	case len(p.items) == 0:
+		b.WriteString(pad + refDimStyle.Render("no matches") + "\n")
+	default:
+		start, end := m.pickerWindow(inlinePickerRows)
+		if start > 0 {
+			b.WriteString(pad + refDimStyle.Render(fmt.Sprintf("  ↑ %d more", start)) + "\n")
+		}
+		m.pickerLine, m.pickerStart = strings.Count(b.String(), "\n"), start
+		cursorStyle := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
+		for i := start; i < end; i++ {
+			it := p.items[i]
+			marker := " "
+			if it.current {
+				marker = "✓"
+			}
+			text := ansi.Truncate(marker+" "+it.label, inner-2, "…")
+			if i == p.idx {
+				b.WriteString(pad + cursorStyle.Render("▸ "+text) + "\n")
+			} else {
+				b.WriteString(pad + "  " + text + "\n")
+			}
+		}
+		if end < len(p.items) {
+			b.WriteString(pad + refDimStyle.Render(fmt.Sprintf("  ↓ %d more", len(p.items)-end)) + "\n")
+		}
+	}
+	hint := "↵ apply · esc cancel"
+	if p.filterable {
+		hint = "type to filter · " + hint
+	}
+	b.WriteString(pad + refDimStyle.Render(ansi.Truncate(hint, inner, "…")) + "\n")
+}
+
+// showInlinePicker scrolls the panel so the inline list's rows and hint are
+// in view, its field row too when there is room.
+func (m *Model) showInlinePicker() {
+	if !m.pickerInline() || m.pickerLine < 0 {
+		return
+	}
+	start, end := m.pickerWindow(inlinePickerRows)
+	last := m.pickerLine + end - start // the hint, below a ↓ line or the last row
+	if end < len(m.jiraPicker.items) {
+		last++
+	}
+	top, h := m.refView.YOffset(), m.refView.Height()
+	if last >= top+h {
+		m.refView.SetYOffset(min(last-h+1, max(m.pickerLine-2, 0)))
+	}
+}
+
+// clickInlinePicker picks the row clicked; a click anywhere else cancels.
+func (m Model) clickInlinePicker(x, y int) (tea.Model, tea.Cmd) {
+	if listW, _ := m.jiraListWidth(m.width); x > listW && m.pickerLine >= 0 {
+		start, end := m.pickerWindow(inlinePickerRows)
+		if i := m.pickerStart + m.panelLineAt(y) - m.pickerLine; m.pickerStart == start && i >= start && i < end {
+			m.jiraPicker.idx = i
+			return m.handleJiraPickerKey(keyPress("enter"))
+		}
+	}
+	return m.handleJiraPickerKey(keyPress("esc"))
 }
 
 func (m *Model) renderJiraPicker(maxH int) string {

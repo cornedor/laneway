@@ -5,9 +5,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -477,5 +479,38 @@ func TestCommentRepliesIndented(t *testing.T) {
 	q, a, u := strings.Index(got, "Question?"), strings.Index(got, "│ Cy"), strings.Index(got, "Unrelated")
 	if q < 0 || a < q || u < a || !strings.Contains(got, "│   Answer.") {
 		t.Errorf("thread not drawn:\n%s", got)
+	}
+}
+
+// TestInlineStatusPicker: s drops the transitions under the Status row, not
+// in a modal; a click on a row applies it, and the list goes.
+func TestInlineStatusPicker(t *testing.T) {
+	m := loadedJiraModel(t)
+	out, _ := m.Update(keyStr("s"))
+	m = out.(Model)
+	out, _ = m.Update(jiraPickerLoadedMsg{gen: m.jiraPicker.gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickStatus,
+		items: []jiraPickerItem{{id: "11", label: "To Do", current: true}, {id: "21", label: "In Review"}}})
+	m = out.(Model)
+	v := ansi.Strip(m.View().Content)
+	if strings.Contains(v, "Set status") {
+		t.Fatal("status picker drawn as a modal")
+	}
+	if !regexp.MustCompile(`Status: .*\n.*│ +▸ ✓ To Do .*\n.*│ +In Review`).MatchString(v) {
+		t.Fatalf("list not under the Status row:\n%s", v)
+	}
+	y := -1
+	for i, l := range strings.Split(v, "\n") {
+		if strings.Contains(l, "In Review") {
+			y = i
+		}
+	}
+	listW, _ := m.jiraListWidth(m.width)
+	out, cmd := m.Update(tea.MouseClickMsg{X: listW + 12, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.jiraPicker.active || cmd == nil {
+		t.Fatalf("click should apply In Review: active %v", m.jiraPicker.active)
+	}
+	if strings.Contains(ansi.Strip(m.View().Content), "▸ ✓ To Do") {
+		t.Error("list still drawn after the pick")
 	}
 }

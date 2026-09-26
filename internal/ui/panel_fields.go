@@ -181,7 +181,9 @@ func (m *Model) editPanelField() tea.Cmd {
 	if ff.Kind == jira.KindSprint {
 		ff.Options = m.sprintOptions()
 	}
-	return m.openFieldPicker(ff, m.jiraIssue.Key)
+	cmd := m.openFieldPicker(ff, m.jiraIssue.Key)
+	m.jiraPicker.inline = ff.ID
+	return cmd
 }
 
 // sprintOptions are the board's sprints to pick, and none.
