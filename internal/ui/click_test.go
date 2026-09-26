@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // viewLineOf is the screen row of the first line containing s, -1 for none.
@@ -154,5 +156,52 @@ func TestWheelOverlay(t *testing.T) {
 	out, _ = out.(Model).Update(tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelDown})
 	if m = out.(Model); m.settings.idx != 1 || m.jiraTab.row != 0 {
 		t.Errorf("idx %d, board row %d", m.settings.idx, m.jiraTab.row)
+	}
+}
+
+// TestClickImageView: the right half steps on, the left back, the wheel
+// too; a click below the image leaves the viewer.
+func TestClickImageView(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraIssue = &jira.Issue{Key: "ABC-1", Attachments: []jira.Attachment{{ID: "10"}, {ID: "11"}}}
+	m.images = &panelImages{on: true, maxRows: 16, byAtt: map[string]*panelImage{
+		"10": {state: imgReady, id: 1, pxW: 100, pxH: 100},
+		"11": {state: imgReady, id: 2, pxW: 100, pxH: 100},
+	}}
+	m.openImageView()
+	mid := m.bodyH() / 2
+	if m = click(m, m.width-5, mid); m.imageViewIdx != 1 {
+		t.Fatalf("right half: image %d", m.imageViewIdx)
+	}
+	if m = click(m, 5, mid+1); m.imageViewIdx != 0 {
+		t.Fatalf("left half: image %d", m.imageViewIdx)
+	}
+	out, _ := m.Update(tea.MouseWheelMsg{X: 5, Y: mid, Button: tea.MouseWheelDown})
+	if m = out.(Model); m.imageViewIdx != 1 {
+		t.Fatalf("wheel: image %d", m.imageViewIdx)
+	}
+	if m = click(m, 5, m.bodyH()-1); m.imageView {
+		t.Error("a click below the image should go back")
+	}
+}
+
+// TestClickOutsideInputs: outside the go-to and create boxes a click
+// cancels them; inside it keeps them.
+func TestClickOutsideInputs(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "#"))
+	m = out.(Model)
+	if !m.jiraGotoActive {
+		t.Fatal("# did not open go-to")
+	}
+	if m = clickText(t, m, "Go to issue"); !m.jiraGotoActive {
+		t.Fatal("a click inside closed it")
+	}
+	if m = click(m, 0, 0); m.jiraGotoActive {
+		t.Error("outside should cancel go-to")
+	}
+	m.openJiraCreateSummary("Task")
+	if m = click(m, 0, 0); m.jiraCreateActive {
+		t.Error("outside should cancel create")
 	}
 }
