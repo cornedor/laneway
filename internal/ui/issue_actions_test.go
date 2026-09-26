@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"github.com/charmbracelet/x/ansi"
 	"io"
 	"net/http"
@@ -134,6 +135,27 @@ func TestUploadAction(t *testing.T) {
 	}
 	if w := writes(); len(w) != 1 || !strings.HasPrefix(w[0], "POST /rest/api/3/issue/ABC-1/attachments") || !strings.Contains(w[0], "notes.txt") {
 		t.Errorf("writes = %q", w)
+	}
+}
+
+// TestPasteAction: A → paste uploads the clipboard's PNG; no image says so.
+func TestPasteAction(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	orig := clipboardImage
+	t.Cleanup(func() { clipboardImage = orig })
+	clipboardImage = func() ([]byte, error) { return []byte("\x89PNG-data"), nil }
+	_, cmd := pickAction(t, m, "paste")
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	if w := writes(); len(w) != 1 || !strings.HasPrefix(w[0], "POST /rest/api/3/issue/ABC-1/attachments") ||
+		!strings.Contains(w[0], `filename="pasted-`) || !strings.Contains(w[0], "PNG-data") {
+		t.Errorf("writes = %q", w)
+	}
+	clipboardImage = func() ([]byte, error) { return nil, errors.New("no image on the clipboard") }
+	_, cmd = pickAction(t, m, "paste")
+	if msg := cmd().(jiraMutatedMsg); msg.err == nil || len(writes()) != 1 {
+		t.Error("no image should upload nothing")
 	}
 }
 

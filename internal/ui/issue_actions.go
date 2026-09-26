@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -40,6 +42,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
 		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
 		jiraPickerItem{id: "upload", label: "Upload a file"},
+		jiraPickerItem{id: "paste", label: "Upload the image on the clipboard"},
 	)
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
@@ -99,6 +102,16 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	case "upload":
 		m.openBulkInput("upload", "file path (~ works)")
 		m.jiraFieldKey = key
+	case "paste":
+		m.status = "uploading the clipboard image to " + key + "…"
+		name := time.Now().Format("pasted-20060102-150405.png")
+		return jiraMutateCmd(key, "attachments", func() error {
+			img, err := clipboardImage()
+			if err != nil {
+				return err
+			}
+			return c.UploadAttachmentFrom(ctx, key, name, bytes.NewReader(img))
+		})
 	case "download":
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil

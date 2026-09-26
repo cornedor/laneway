@@ -192,7 +192,7 @@ Panel:
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description in
   `$EDITOR` · `l` labels · `a` assignee
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
-- more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / download · `H` history ·
+- more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
   `D` pull requests / builds / branches / commits · `L` linked issue · `i` images full size (← →)
 - `backspace` previous issue · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close

@@ -109,10 +109,18 @@ func (c *Client) UploadAttachment(ctx context.Context, key, path string) error {
 		return err
 	}
 	defer f.Close()
+	return c.UploadAttachmentFrom(ctx, key, filepath.Base(path), f)
+}
+
+// UploadAttachmentFrom attaches what f holds to key as name.
+func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f io.Reader) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
-		part, err := mw.CreateFormFile("file", filepath.Base(path))
+		part, err := mw.CreateFormFile("file", name)
 		if err == nil {
 			_, err = io.Copy(part, f)
 		}
