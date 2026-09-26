@@ -684,3 +684,19 @@ func TestFailStatus(t *testing.T) {
 		t.Errorf("log = %+v", m.jiraPicker.items)
 	}
 }
+
+// TestOpenDownload: a saved attachment gets a palette row that opens it.
+func TestOpenDownload(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraDownloaded(jiraDownloadedMsg{path: "/tmp/shot.png"})
+	if m = out.(Model); !strings.Contains(m.status, "open download") {
+		t.Fatalf("status %q", m.status)
+	}
+	m.openPalette()
+	if !slices.ContainsFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.label == "open download  shot.png" }) {
+		t.Error("no open download row")
+	}
+	if _, cmd := m.applyPalette("d:"); cmd == nil {
+		t.Error("the row opens nothing")
+	}
+}

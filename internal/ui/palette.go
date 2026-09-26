@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -70,6 +71,9 @@ func (m *Model) openPalette() {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
 	}
+	if m.lastDownload != "" {
+		items = append(items, jiraPickerItem{id: "d:", label: "open download  " + filepath.Base(m.lastDownload)})
+	}
 	items = append(items, jiraPickerItem{id: "m:", label: fmt.Sprintf("messages  the status line's last %d", len(m.statusLog))})
 	for _, c := range t.cards {
 		if id := "i:" + c.Key; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
@@ -111,6 +115,9 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "m":
 		m.openMessages()
 		return m, nil
+	case "d":
+		m.status = "opening " + m.lastDownload + "…"
+		return m, m.openOpenable(openable{name: filepath.Base(m.lastDownload), url: m.lastDownload})
 	case "i":
 		m.selectJiraKey(arg)
 		m.renderJira()

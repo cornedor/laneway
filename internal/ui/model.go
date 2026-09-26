@@ -243,6 +243,7 @@ type Model struct {
 	statusLog     []statusEntry
 	statusLogged  string
 	statusErr     string          // the status line's text when it is an error (fail)
+	lastDownload  string          // the attachment saved last, for the palette to open
 	warnings      []string        // the startup warnings
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)

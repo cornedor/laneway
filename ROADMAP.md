@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Next
-- After a download, a way to open the file (a key or palette row "open the last download")
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12), double-click window (400ms)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- After a download the status says so and the palette gains `open download  <name>`, which opens the file with `ui.open`
 - Errors on the status line (failed writes, offline, downloads, config warnings) draw in the theme's `error` colour until the next message, and are marked ✗ in `messages`
 - `?` help has Planning, Roadmap, Charts and Timesheet sections (as bound), and opens at the screen you are on
 - Planning's, the roadmap's and the timesheet's keys are rebindable in `ui.keys` (plan_start … rank_down, roadmap_grip … roadmap_issues, edit_entry, delete_entry), checked for clashes per screen; their hints show the bound keys
