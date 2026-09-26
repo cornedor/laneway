@@ -177,6 +177,9 @@ func (m *Model) headerHit(x, y int) (kind string, i int) {
 	}
 	switch y {
 	case jiraBodyTop - 2: // the views
+		if t.offline != "" {
+			span("offline · showing the cached board · " + helpKey(m.keys.Refresh) + " retries    ")
+		}
 		first := min(t.viewsFirst, len(t.views))
 		if first > 0 {
 			span("‹" + jiraViewSep)

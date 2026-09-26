@@ -1365,3 +1365,19 @@ func TestLaneCategory(t *testing.T) {
 		t.Error("lane head lacks its mark")
 	}
 }
+
+// TestOfflineKeepsBoard: a failed fetch leaves the cards shown and says so
+// in the header until a fetch succeeds.
+func TestOfflineKeepsBoard(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, err: errors.New("dial tcp: no route to host")})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if len(m.jiraTab.cards) != 4 || !strings.Contains(view, "offline · showing the cached board") || !strings.Contains(view, "First") {
+		t.Fatalf("cards %d:\n%s", len(m.jiraTab.cards), view)
+	}
+	out, _ = m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, cards: m.jiraTab.cards, total: 4})
+	if m = out.(Model); m.jiraTab.offline != "" {
+		t.Error("a good fetch left the banner")
+	}
+}

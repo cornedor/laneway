@@ -225,6 +225,9 @@ type jiraTabState struct {
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
+	// offline is why the last fetch failed while cached cards stay shown,
+	// "" once one succeeds.
+	offline string
 	// viewsFirst is the first view the header shows (render sets it, for
 	// clicks).
 	viewsFirst int
@@ -571,6 +574,12 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	if msg.project != "" {
 		t.project = msg.project
 	}
+	if msg.err != nil && msg.cfg == nil && t.cfg != nil && len(t.cards) > 0 && t.project == msg.project {
+		// Offline, or Jira down: keep the cached board, say so.
+		t.offline, m.status = msg.err.Error(), "offline: "+msg.err.Error()
+		m.renderJira()
+		return m, nil
+	}
 	if msg.err != nil && msg.cfg == nil {
 		t.err = msg.err.Error()
 		t.boards, t.cfg, t.views, t.cards = msg.boards, nil, nil, nil
@@ -604,9 +613,10 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 	keep := m.selectedJiraKey()
 	if msg.delta {
 		if msg.err != nil {
-			m.status = "refresh: " + msg.err.Error()
+			t.offline = msg.err.Error()
 			return m, nil
 		}
+		t.offline = ""
 		prev := t.cards
 		merged, added := mergeCards(prev, msg.cards)
 		if len(msg.gone) > 0 {
@@ -631,8 +641,16 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 // card with key keep when it is still there.
 func (m *Model) installJiraCards(cards []jira.Card, total int, err error, keep string) {
 	t := m.jiraTab
-	if err != nil {
+	switch {
+	case err != nil && len(cards) == 0 && len(t.cards) > 0:
+		// Offline, or Jira down: the cards already shown stay.
+		t.offline, m.status = err.Error(), "offline: "+err.Error()
+		m.renderJira()
+		return
+	case err != nil:
 		t.err = err.Error()
+	default:
+		t.offline = ""
 	}
 	t.cards, t.total = cards, total
 	t.fetched = time.Now()
@@ -2373,6 +2391,9 @@ func (m *Model) renderJiraPane(height, width int) string {
 		}
 	}
 	viewLine := strings.Join(views, jiraDimStyle.Render(jiraViewSep))
+	if t.offline != "" {
+		viewLine = jiraOverStyle.Render("offline · showing the cached board · "+helpKey(m.keys.Refresh)+" retries") + "    " + viewLine
+	}
 	if v, ok := m.jiraCurrentView(); ok {
 		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && bar != "" {
 			viewLine += "    " + bar
