@@ -2,6 +2,7 @@ package jira
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 )
 
@@ -324,4 +325,56 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(digits)
+}
+
+// inlineMentions turns each "@Name" in the document's text into a mention of
+// that person, longest names first so "@Ada Lovelace" wins over "@Ada".
+func inlineMentions(node map[string]any, ms []Mention) {
+	if len(ms) == 0 {
+		return
+	}
+	ms = slices.Clone(ms)
+	slices.SortFunc(ms, func(a, b Mention) int { return len(b.DisplayName) - len(a.DisplayName) })
+	var walk func(n map[string]any)
+	walk = func(n map[string]any) {
+		content, ok := n["content"].([]any)
+		if !ok {
+			return
+		}
+		var out []any
+		for _, c := range content {
+			cm, ok := c.(map[string]any)
+			if !ok {
+				out = append(out, c)
+				continue
+			}
+			if cm["type"] == "text" && cm["marks"] == nil {
+				out = append(out, splitMentions(cm["text"].(string), ms)...)
+				continue
+			}
+			walk(cm)
+			out = append(out, cm)
+		}
+		n["content"] = out
+	}
+	walk(node)
+}
+
+// splitMentions cuts text into text and mention nodes.
+func splitMentions(text string, ms []Mention) []any {
+	for _, m := range ms {
+		at := "@" + m.DisplayName
+		if i := strings.Index(text, at); i >= 0 {
+			var out []any
+			if i > 0 {
+				out = append(out, splitMentions(text[:i], ms)...)
+			}
+			out = append(out, map[string]any{"type": "mention", "attrs": map[string]any{"id": m.AccountID, "text": at}})
+			if rest := text[i+len(at):]; rest != "" {
+				out = append(out, splitMentions(rest, ms)...)
+			}
+			return out
+		}
+	}
+	return []any{map[string]any{"type": "text", "text": text}}
 }

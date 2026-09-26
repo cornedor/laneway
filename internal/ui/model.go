@@ -239,6 +239,10 @@ type Model struct {
 	prefetchSeq int
 	// jql is the open JQL search input (jql.go).
 	jql *jqlState
+	// jiraCommentMentions are the people @-completed in the composer, and
+	// jiraMention its open completion (mention.go).
+	jiraCommentMentions []jira.Mention
+	jiraMention         mentionState
 	// inboxUnread is the header's count of issues with news (inbox.go);
 	// mentionsSeen the newest mention notified, started when the app began.
 	inboxUnread  int
@@ -393,6 +397,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case mentionSearchMsg:
+		return m.handleMentionSearch(msg)
+	case mentionFoundMsg:
+		return m.handleMentionFound(msg)
 	case jqlWordsMsg:
 		return m.handleJQLWords(msg)
 	case jqlValuesMsg:

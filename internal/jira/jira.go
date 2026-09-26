@@ -802,13 +802,21 @@ func (c *Client) EditLabels(ctx context.Context, key string, add, remove []strin
 // non-nil the comment opens with a real @mention of that user, which is what a
 // reply uses to actually notify them.
 func (c *Client) AddComment(ctx context.Context, key, text string, mention *Mention) error {
+	return c.AddCommentMentions(ctx, key, text, mention, nil)
+}
+
+// AddCommentMentions is AddComment where each "@Name" of inline in text
+// becomes a real mention of that person too.
+func (c *Client) AddCommentMentions(ctx context.Context, key, text string, mention *Mention, inline []Mention) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
 	if strings.TrimSpace(text) == "" && mention == nil {
 		return fmt.Errorf("jira: empty comment")
 	}
-	body := map[string]any{"body": textToADF(text, mention)}
+	doc := textToADF(text, mention)
+	inlineMentions(doc, inline)
+	body := map[string]any{"body": doc}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
 	if err := c.do(ctx, http.MethodPost, path, key, body, nil); err != nil {
 		return err

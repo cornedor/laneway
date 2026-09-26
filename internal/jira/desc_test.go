@@ -101,3 +101,15 @@ func TestSetDescription(t *testing.T) {
 		t.Errorf("body = %s", body)
 	}
 }
+
+func TestInlineMentions(t *testing.T) {
+	doc := textToADF("thanks @Ada Lovelace and @Bob, see @Ada", nil)
+	inlineMentions(doc, []Mention{{AccountID: "a1", DisplayName: "Ada Lovelace"}, {AccountID: "b1", DisplayName: "Bob"}})
+	b, _ := json.Marshal(doc)
+	got := string(b)
+	for _, want := range []string{`"id":"a1","text":"@Ada Lovelace"`, `"id":"b1","text":"@Bob"`, `"text":", see @Ada"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("doc lacks %s: %s", want, got)
+		}
+	}
+}

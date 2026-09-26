@@ -88,6 +88,8 @@ func (m *Model) closeJiraComment() {
 	m.jiraCommentMention = nil
 	m.jiraCommentReplyTo = ""
 	m.jiraCommentInput = editor.Model{}
+	m.jiraCommentMentions = nil
+	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 }
 
 // handleJiraCommentKey owns every keystroke while the composer is open: esc
@@ -103,9 +105,12 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		return m.applyJiraComment()
 	}
+	if m.mentionKey(msg.String()) {
+		return m, nil
+	}
 	var cmd tea.Cmd
 	m.jiraCommentInput, cmd = m.jiraCommentInput.Update(msg)
-	return m, cmd
+	return m, tea.Batch(cmd, m.scheduleMention())
 }
 
 // applyJiraComment closes the composer and posts the comment (or reply). An
@@ -113,7 +118,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	key := m.jiraCommentKey
 	text := strings.TrimSpace(m.jiraCommentInput.Value())
-	mention := m.jiraCommentMention
+	mention, inline := m.jiraCommentMention, m.jiraCommentMentions
 	m.closeJiraComment()
 	if text == "" && mention == nil {
 		return m, nil
@@ -125,7 +130,7 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	}
 	m.status = fmt.Sprintf("posting %s %s…", verb, key)
 	return m, jiraMutateCmd(key, "comment", func() error {
-		return client.AddComment(ctx, key, text, mention)
+		return client.AddCommentMentions(ctx, key, text, mention, inline)
 	})
 }
 
@@ -143,5 +148,9 @@ func (m *Model) renderJiraCommentInput() string {
 		above = append(above, lipgloss.NewStyle().Foreground(dimColor).Italic(true).
 			Render("↩ replying to "+m.jiraCommentReplyTo))
 	}
-	return m.renderModalComposer(titleTxt, above, "↵ post · alt+↵ newline · esc cancel", &m.jiraCommentInput)
+	box := m.renderModalComposer(titleTxt, above, "↵ post · alt+↵ newline · @ mention · esc cancel", &m.jiraCommentInput)
+	if list := m.renderMentions(); list != "" {
+		box = lipgloss.JoinVertical(lipgloss.Left, box, list)
+	}
+	return box
 }

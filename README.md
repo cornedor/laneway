@@ -204,6 +204,9 @@ image, a paragraph with a mention or a stray `*` — stands as a
 the block goes, anything else and it comes back untouched. Your own
 comments edit the same way from `A` → Edit a comment.
 
+In the `c` composer, `@` and a few letters list matching users;
+`ctrl+n`/`ctrl+p` pick, `tab` inserts a mention that notifies them.
+
 ## Inbox
 
 `I` lists what others did since you last opened it (a day, the first
