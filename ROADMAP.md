@@ -2,11 +2,11 @@
 
 ## Next
 - `laneway rules` create defaults (type `Task`, status `To Do`) from config or the project
-- Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
 - Light-theme pass over the chips, lozenges and selection colours
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Inline rich-text editing: the description, rich-text fields and your comments open in the in-app editor (enter newline, ctrl+s save, esc asks once, ctrl+e hands off to `$EDITOR`); the same markdown round trip decides what is editable, a failed save keeps the text in a file
 - Card colours from the board's settings (greenhopper edit model: by priority, type, assignee, or JQL with one search per colour) as a ▌ ribbon on cards and list rows; `ui.card_colors: ribbon | off`. A tinted background is left out: it would fight the shading and selection
 - `c` one-line cards (key and marks, avatar, summary), no gaps, in lanes and swimlanes; remembered
 - `ui.custom_fields`: Jira fields by name on cards and list rows (values only, options and people as text), searched with `"test type":e2e`; `/` also takes `sprint:` (cards carry their current sprint). The panel already lists every editable field

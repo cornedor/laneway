@@ -74,7 +74,7 @@ func (m *Model) helpSections() []struct {
 			row(k.JiraPoints, "story points"),
 			row(k.JiraSummary, "edit summary"),
 			row(k.JiraLabels, "edit labels"),
-			row(k.JiraDescription, "edit description in $EDITOR"),
+			row(k.JiraDescription, "edit description (ctrl+e: $EDITOR)"),
 			row(k.JiraAssignee, "assignee"),
 			{join(k.JiraComment, k.JiraReply), "comment / reply"},
 			{join(k.LogWork, k.Timer), "log work / timer"},

@@ -218,8 +218,7 @@ Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
   dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the
   parent an issue key; the sprint a pick of the board's
-- edit: `s` status · `p` priority · `P` points · `e` summary · `E` description in
-  `$EDITOR` · `l` labels · `a` assignee
+- edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels · `a` assignee
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
@@ -261,8 +260,11 @@ in the status bar. `esc` clears the marks.
 
 ## Descriptions
 
-`E` in the panel opens the description as markdown in `$VISUAL` or
-`$EDITOR` (else `vi`); saving a changed file writes it back. Paragraphs,
+`E` in the panel opens the description as markdown in the in-app editor:
+`enter` is a newline, `ctrl+s` saves a change, `esc` cancels (asking once
+when there are changes), `ctrl+e` hands the text to `$VISUAL` or `$EDITOR`
+(else `vi`), where saving a changed file writes it back. A failed save keeps
+your text in a file and says where. Paragraphs,
 headings, lists, code, quotes, rules and bold / italic / code / strike /
 links are text to edit. A mention, emoji, date or status inside text
 stands as `⟦2 @Ada⟧`: edit around it, delete it to drop it. A block

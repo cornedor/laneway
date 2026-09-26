@@ -48,7 +48,7 @@ func (m *Model) openIssueActions() {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
 	}
 	if len(iss.Comments) > 0 {
-		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours (in $EDITOR)"})
+		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours"})
 	}
 	if len(iss.Attachments) > 0 {
 		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"})

@@ -127,7 +127,7 @@ func defaultKeys() keyMap {
 		Plan:            bind("sprint planning", "P"),
 		Charts:          bind("sprint charts", "C"),
 		LogWork:         bind("log work", "w"),
-		JiraDescription: bind("edit description in $EDITOR", "E"),
+		JiraDescription: bind("edit description", "E"),
 		Timer:           bind("start / stop the timer", "T"),
 		Timesheet:       bind("today's worklogs", "W"),
 		Inbox:           bind("inbox", "I"),
@@ -208,6 +208,7 @@ type Model struct {
 	helpOpen      bool
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
+	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
 	quickKey      string          // the card a quick edit (e) changes, "" for the marks (bulk.go)
 	uiConfig      config.UIConfig // as the file gives it, for settings
 	configPath    string
@@ -451,6 +452,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.PasteMsg:
+		if m.descEdit != nil {
+			var cmd tea.Cmd
+			m.descEdit.input, cmd = m.descEdit.input.Update(msg)
+			return m, cmd
+		}
 		if m.jiraCommentActive {
 			var cmd tea.Cmd
 			m.jiraCommentInput, cmd = m.jiraCommentInput.Update(msg)
@@ -578,6 +584,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleSettingsKey(msg)
 	case m.filterBuilder != nil:
 		return m.handleFilterBuilderKey(msg)
+	case m.descEdit != nil:
+		return m.handleDescEditKey(msg)
 	case m.helpOpen:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -616,7 +624,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.settings != nil || m.filterBuilder != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.settings != nil || m.filterBuilder != nil || m.descEdit != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -747,6 +755,11 @@ func (m Model) View() tea.View {
 	}
 	status := statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…"))
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
+	if m.descEdit != nil {
+		if cx, cy, ok := m.modalComposerCursor(0, &m.descEdit.input); ok {
+			v.Cursor = tea.NewCursor(cx, cy)
+		}
+	}
 	if m.jiraCommentActive {
 		above := 0
 		if m.jiraCommentReplyTo != "" {
@@ -761,13 +774,13 @@ func (m Model) View() tea.View {
 
 // pickerOnTop is whether the picker is the modal drawn (renderOverlay).
 func (m *Model) pickerOnTop() bool {
-	return m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
+	return m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
 		!m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // formOnTop is whether the transition form is the modal drawn.
 func (m *Model) formOnTop() bool {
-	return m.jiraForm != nil && !m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
+	return m.jiraForm != nil && !m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
 		!m.jiraCreateActive && !m.jiraCommentActive && !m.jiraFieldActive
 }
 
@@ -778,6 +791,8 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderSettings(bodyH)
 	case m.filterBuilder != nil:
 		return m.renderFilterBuilder(bodyH)
+	case m.descEdit != nil:
+		return m.renderDescEdit()
 	case m.helpOpen:
 		return m.renderHelp(bodyH)
 	case m.jql != nil:

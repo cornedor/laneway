@@ -10,17 +10,25 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// TestEditDescriptionFile: the markdown lands in a temp file for the
-// editor; a refused description says why instead.
-func TestEditDescriptionFile(t *testing.T) {
+// TestEditDescriptionInline: the markdown opens in the in-app editor;
+// ctrl+e hands it to $EDITOR through a temp file; a refused description
+// says why instead.
+func TestEditDescriptionInline(t *testing.T) {
 	t.Setenv("TMPDIR", t.TempDir())
 	m := loadedJiraModel(t)
-	_, cmd := m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "# Plan\n\n- one"})
-	if cmd == nil {
-		t.Fatal("expected the editor to run")
+	out, _ := m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "# Plan\n\n- one"})
+	m = out.(Model)
+	if m.descEdit == nil || m.descEdit.input.Value() != "# Plan\n\n- one" || !strings.Contains(ansi.Strip(m.View().Content), "Description — ABC-1") {
+		t.Fatal("the editor should open on the markdown")
+	}
+	out, cmd := m.handleKey(keyMsg(t, "ctrl+e"))
+	if m = out.(Model); cmd == nil || m.descEdit != nil {
+		t.Fatal("ctrl+e should run $EDITOR")
 	}
 	files, _ := filepath.Glob(filepath.Join(os.TempDir(), "laneway-ABC-1-*.md"))
 	if len(files) != 1 {
@@ -29,9 +37,49 @@ func TestEditDescriptionFile(t *testing.T) {
 	if b, _ := os.ReadFile(files[0]); string(b) != "# Plan\n\n- one\n" {
 		t.Errorf("file = %q", b)
 	}
-	out, cmd := m.handleDescLoaded(descLoadedMsg{key: "ABC-1", err: os.ErrInvalid})
+	out, cmd = m.handleDescLoaded(descLoadedMsg{key: "ABC-1", err: os.ErrInvalid})
 	if cmd != nil || !strings.Contains(out.(Model).status, "edit it in Jira") {
 		t.Errorf("refusal status = %q", out.(Model).status)
+	}
+}
+
+// TestEditDescriptionInlineSave: enter is a newline, ctrl+s saves; esc on
+// changed text asks once before discarding.
+func TestEditDescriptionInlineSave(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, string(b))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "old"})
+	m = out.(Model)
+	for _, k := range []string{"enter", "n", "e", "w"} {
+		out, _ = m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	if v := m.descEdit.input.Value(); v != "old\nnew" {
+		t.Fatalf("value = %q", v)
+	}
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	if m = out.(Model); m.descEdit == nil {
+		t.Fatal("a first esc on changed text should ask")
+	}
+	out, cmd := m.handleKey(keyMsg(t, "ctrl+s"))
+	if m = out.(Model); cmd == nil || m.descEdit != nil {
+		t.Fatal("ctrl+s should save")
+	}
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil || len(bodies) != 1 || !strings.Contains(bodies[0], `"text":"new"`) {
+		t.Errorf("err %v bodies %q", msg.err, bodies)
+	}
+	out, _ = m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "same"})
+	m = out.(Model)
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	if m = out.(Model); m.descEdit != nil {
+		t.Error("esc on unchanged text should close at once")
 	}
 }
 

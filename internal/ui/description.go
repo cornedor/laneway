@@ -8,14 +8,26 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// E in the panel edits the description in $VISUAL / $EDITOR as markdown.
-// Only a description markdown can carry both ways is offered (see
-// jira.EditableDescription); saving an unchanged file writes nothing.
+// E in the panel edits the description as markdown in the in-app editor
+// (ctrl+s saves, ctrl+e hands it to $VISUAL / $EDITOR). Only a description
+// markdown can carry both ways is offered (see jira.EditableDescription);
+// saving it unchanged writes nothing. Rich-text fields and your comments
+// edit the same way.
+
+// descEdit is the in-app editor open on a description, field or comment.
+type descEdit struct {
+	key, comment, field, before string
+	kept                        []json.RawMessage
+	input                       editor.Model
+	discard                     bool // a first esc on changed text asked to confirm
+}
 
 // descLoadedMsg is the description fetched for editing.
 type descLoadedMsg struct {
@@ -52,12 +64,66 @@ func (m *Model) editDescription() tea.Cmd {
 	}
 }
 
-// handleDescLoaded writes the markdown to a file and opens the editor on it.
+// handleDescLoaded opens the in-app editor on the markdown.
 func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.status = msg.key + ": " + msg.err.Error() + " — edit it in Jira (o)"
 		return m, nil
 	}
+	ed := newModalComposer("")
+	ed.MaxHeight = max(m.bodyH()-12, 6)
+	ed.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("enter", "alt+enter", "shift+enter"))
+	ed.SetValue(msg.md)
+	m.descEdit = &descEdit{key: msg.key, comment: msg.comment, field: msg.field, before: msg.md, kept: msg.kept, input: ed}
+	m.status = ""
+	return m, nil
+}
+
+// descEditTitle names what the editor is on.
+func (d *descEdit) title() string {
+	switch {
+	case d.comment != "":
+		return "Comment — " + d.key
+	case d.field != "":
+		return "Field — " + d.key
+	}
+	return "Description — " + d.key
+}
+
+func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	d := m.descEdit
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "esc":
+		if d.input.Value() != d.before && !d.discard {
+			d.discard = true
+			m.status = "esc again discards your changes · ctrl+s saves"
+			return m, nil
+		}
+		m.descEdit, m.status = nil, ""
+		return m, nil
+	case "ctrl+s":
+		m.descEdit = nil
+		return m.saveDesc(descEditedMsg{key: d.key, comment: d.comment, field: d.field, before: d.before, kept: d.kept}, d.input.Value())
+	case "ctrl+e":
+		m.descEdit = nil
+		return m.openExternalEditor(descLoadedMsg{key: d.key, comment: d.comment, field: d.field, md: d.input.Value(), kept: d.kept}, d.before)
+	}
+	d.discard = false
+	var cmd tea.Cmd
+	d.input, cmd = d.input.Update(msg)
+	return m, cmd
+}
+
+func (m *Model) renderDescEdit() string {
+	d := m.descEdit
+	return m.renderModalComposer(d.title(), nil, "ctrl+s save · ctrl+e $EDITOR · esc cancel", &d.input)
+}
+
+// openExternalEditor writes md to a file and opens $VISUAL / $EDITOR on it;
+// before is the text as Jira has it, to tell a change.
+func (m Model) openExternalEditor(msg descLoadedMsg, before string) (tea.Model, tea.Cmd) {
 	f, err := os.CreateTemp("", "laneway-"+msg.key+"-*.md")
 	if err == nil {
 		_, err = f.WriteString(msg.md + "\n")
@@ -68,7 +134,7 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.status = "editing " + msg.key + " description…"
-	key, comment, field, path, before, kept := msg.key, msg.comment, msg.field, f.Name(), msg.md, msg.kept
+	key, comment, field, path, kept := msg.key, msg.comment, msg.field, f.Name(), msg.kept
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
 		return descEditedMsg{key: key, comment: comment, field: field, path: path, before: before, kept: kept, err: err}
 	})
@@ -100,19 +166,37 @@ func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 		m.status = "description: " + err.Error()
 		return m, nil
 	}
-	after := strings.TrimSpace(string(b))
+	return m.saveDesc(msg, string(b))
+}
+
+// saveDesc writes text back when it changed. With msg.path the text came
+// from that file, which goes only once Jira has it; from the in-app editor
+// a failed save puts the text in a file to keep it.
+func (m Model) saveDesc(msg descEditedMsg, text string) (tea.Model, tea.Cmd) {
+	after := strings.TrimSpace(text)
 	if after == strings.TrimSpace(msg.before) {
-		os.Remove(msg.path)
-		m.status = msg.key + " description unchanged"
+		if msg.path != "" {
+			os.Remove(msg.path)
+		}
+		m.status = msg.key + " unchanged"
 		return m, nil
 	}
 	c, ctx, key, kept, comment, path := m.jiraClient, m.ctx, msg.key, msg.kept, msg.comment, msg.path
-	// The file goes only once Jira has the text; a failed save keeps it.
 	keep := func(err error) error {
-		if err != nil {
+		switch {
+		case err != nil && path == "":
+			f, ferr := os.CreateTemp("", "laneway-"+key+"-*.md")
+			if ferr != nil {
+				return err
+			}
+			_, _ = f.WriteString(after + "\n")
+			f.Close()
+			return fmt.Errorf("%w — your text is kept in %s", err, f.Name())
+		case err != nil:
 			return fmt.Errorf("%w — your text is kept in %s", err, path)
+		case path != "":
+			os.Remove(path)
 		}
-		os.Remove(path)
 		return nil
 	}
 	if field := msg.field; field != "" {
