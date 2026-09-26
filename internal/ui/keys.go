@@ -25,7 +25,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
-		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings,
+		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings, "filter_builder": &k.FilterBuilder,
 	}
 }
 
@@ -60,7 +60,7 @@ var keyScopes = []struct {
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down",
 		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto", "create",
 		"copy_key", "copy_url", "copy_branch", "move_left", "move_right", "project", "board",
-		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings",
+		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings", "filter_builder",
 	}},
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",

@@ -58,6 +58,7 @@ type keyMap struct {
 	IssueActions, Site, Standup        key.Binding
 	History, DevInfo, JQL, Pin         key.Binding
 	Fold, UnfoldAll, Settings          key.Binding
+	FilterBuilder                      key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -138,6 +139,7 @@ func defaultKeys() keyMap {
 		UnfoldAll:       bind("unfold every swimlane", "Z"),
 		JQL:             bind("JQL search", "Q"),
 		Settings:        bind("settings", ","),
+		FilterBuilder:   bind("filter builder", "F"),
 	}
 }
 
@@ -196,12 +198,13 @@ type Model struct {
 	jiraIssue  *jira.Issue
 	panelHint  string
 
-	helpOpen   bool
-	settings   *settingsView   // the , overlay (settings.go)
-	uiConfig   config.UIConfig // as the file gives it, for settings
-	configPath string
-	images     *panelImages
-	opts       options
+	helpOpen    bool
+	settings    *settingsView   // the , overlay (settings.go)
+	filterBuild filterBuild     // the F builder's choices (filter_builder.go)
+	uiConfig    config.UIConfig // as the file gives it, for settings
+	configPath  string
+	images      *panelImages
+	opts        options
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model

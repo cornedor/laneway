@@ -855,6 +855,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.clearJiraFilters()
 	case key.Matches(msg, m.keys.Search):
 		m.startJiraSearch()
+	case key.Matches(msg, m.keys.FilterBuilder):
+		m.openFilterBuilder()
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 	case key.Matches(msg, m.keys.Settings):
