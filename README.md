@@ -97,8 +97,8 @@ Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
 priority_lowest type_bug type_story type_epic type_subtask type_other
 highlight roadmap_done roadmap_todo, and shade: `auto` (steps off the terminal's own background: faint for
-cards, stronger for the header band, the panel's trail and section bars, the
-status line), `off`, or one colour for all.
+the canvas around the cards and list zebra rows, stronger for the panel's trail
+and section bars), `off`, or one colour for all.
 
 ### Rules
 

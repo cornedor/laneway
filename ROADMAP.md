@@ -7,6 +7,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Shading inverted: cards and the header on the terminal's own background, the canvas around the cards (gaps, empty lanes, lane heads, dividers) shaded; the panel keeps its shaded trail and section bars
 - List mode: zebra rows (every other row faintly shaded)
 - The selected card draws in plain selection colours: its dim marks and assignee line had vanished into it
 - Shading, second tone for the bars: the header (title, views, filters) is one band apart from the board; the panel's title and trail strips, its section headings (Description, Links, Attachments, Comments) and the status line too. Unshaded, a rule parts the trail from the issue

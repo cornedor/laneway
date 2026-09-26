@@ -656,7 +656,7 @@ func (m Model) View() tea.View {
 	if ov := m.renderOverlay(bodyH); ov != "" {
 		body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, ov)
 	}
-	status := bar(statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…")), m.width)
+	status := statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…"))
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
 	if m.jiraCommentActive {
 		above := 0

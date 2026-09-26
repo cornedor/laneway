@@ -1900,7 +1900,7 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		}
 		cols = append(cols, col)
 	}
-	sep := jiraDimStyle.Render("│")
+	sep := shade(jiraDimStyle.Render("│"), 1)
 	lines := make([]string, height)
 	for y := range lines {
 		var b strings.Builder
@@ -1909,8 +1909,7 @@ func (m *Model) renderJiraLanes(width, height int) string {
 			if y < len(col) {
 				cell = col[y]
 			}
-			b.WriteString(cell)
-			b.WriteString(strings.Repeat(" ", max(laneW-1-lipgloss.Width(cell), 0)))
+			b.WriteString(canvasCell(cell, laneW-1))
 			if i < len(cols)-1 {
 				b.WriteString(sep)
 			}
@@ -1918,6 +1917,20 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		lines[y] = b.String()
 	}
 	return strings.Join(lines, "\n")
+}
+
+// canvasCell is a lane cell w wide: a card's line (full width already) on
+// the terminal's background, anything else on the shaded canvas around
+// the cards.
+func canvasCell(cell string, w int) string {
+	pad := w - lipgloss.Width(cell)
+	switch {
+	case pad <= 0:
+		return cell
+	case shadeOn:
+		return shade(cell, w)
+	}
+	return cell + strings.Repeat(" ", pad)
 }
 
 // jiraLaneCard is a card's lines in a lane, inner wide.
@@ -1931,10 +1944,11 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 	}
 	for i, line := range lines {
 		line = ansi.Truncate(line, inner, "…")
-		if sel { // plain: dim marks vanish on the selection colour
+		switch {
+		case sel: // plain: dim marks vanish on the selection colour
 			lines[i] = m.jiraSelect(ansi.Strip(line), true, inner)
-		} else {
-			lines[i] = shade(line, inner)
+		default: // full width, on the terminal's own background
+			lines[i] = line + strings.Repeat(" ", max(inner-lipgloss.Width(line), 0))
 		}
 	}
 	return lines
@@ -1946,19 +1960,19 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 	t := m.jiraTab
 	inner := laneW - 1
-	sep := jiraDimStyle.Render("│")
+	sep := shade(jiraDimStyle.Render("│"), 1)
 	shown := t.lanes[t.firstLane:min(t.firstLane+visible, len(t.lanes))]
 	row := func(cells []string) string {
 		var b strings.Builder
 		for i, cell := range cells {
-			b.WriteString(cell)
-			b.WriteString(strings.Repeat(" ", max(inner-lipgloss.Width(cell), 0)))
+			b.WriteString(canvasCell(cell, inner))
 			if i < len(cells)-1 {
 				b.WriteString(sep)
 			}
 		}
 		return b.String()
 	}
+	totalW := len(shown)*laneW - 1
 	heads := make([]string, len(shown))
 	for i := range shown {
 		heads[i] = m.jiraLaneHead(t.firstLane+i, inner)
@@ -2069,7 +2083,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 			if bl.pts != "" {
 				n += " · " + bl.pts + "p"
 			}
-			lines = append(lines, jiraViewActive.Render(sign+bl.head)+jiraDimStyle.Render(n))
+			lines = append(lines, shade(jiraViewActive.Render(sign+bl.head)+jiraDimStyle.Render(n), totalW))
 			continue
 		case bl.y < 0:
 			lines = append(lines, row(make([]string, len(shown))))
@@ -2175,7 +2189,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 	if m.jiraShowsLanes() {
 		meta += "  " + helpKey(k.MoveCardLeft) + "/" + helpKey(k.MoveCardRight) + " move"
 	}
-	head := bar(ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…"), max(boxW-2, 1))
+	head := ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…")
 	rule := refDimStyle.Render(strings.Repeat("─", max(boxW-2, 1)))
 
 	var views []string
@@ -2217,10 +2231,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 	case m.jiraShowsLanes() || t.cfg == nil || len(t.order) == 0:
 		body = t.lanesOut
 	}
-	// The header is one shaded band down to the board, so the views and
-	// filters read apart from the cards.
-	bw := max(boxW-2, 1)
-	rows := []string{head, bar(rule, bw), bar(viewLine, bw), bar(filterLine, bw), body}
+	rows := []string{head, rule, viewLine, filterLine, body}
 	borderColor := dimColor
 	if m.focus == focusJira {
 		borderColor = focusedColor

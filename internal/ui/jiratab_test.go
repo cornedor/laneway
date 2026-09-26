@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"charm.land/lipgloss/v2"
 	"errors"
 	"fmt"
+	"image/color"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1231,5 +1233,35 @@ func TestPanelClicks(t *testing.T) {
 	click(rowOf("blocks ABC-9"))
 	if m.currentRef().jiraKey != "ABC-9" || len(m.refBack) != 1 {
 		t.Errorf("link click: showing %s, trail %v", m.currentRef().jiraKey, m.refBack)
+	}
+}
+
+// TestLaneCardWidth: a card's lines are exactly the lane's width, however
+// long the summary: longer is cut, shorter padded.
+func TestLaneCardWidth(t *testing.T) {
+	m := jiraTabModel(t)
+	for _, sum := range []string{"x", strings.Repeat("a long summary 🚀 ", 20)} {
+		c := jira.Card{Key: "ABC-9", Summary: sum, Assignee: "Ada", ParentSummary: strings.Repeat("Epic ", 30)}
+		for _, sel := range []bool{false, true} {
+			for i, l := range m.jiraLaneCard(c, sel, 30) {
+				if w := lipgloss.Width(l); w != 30 {
+					t.Errorf("summary %d runes, sel %v: line %d is %d wide", len(sum), sel, i, w)
+				}
+			}
+		}
+	}
+	t.Cleanup(func() { applyTheme(defaultTheme()) })
+	for _, shaded := range []bool{false, true} {
+		if shaded {
+			out, _ := m.Update(tea.BackgroundColorMsg{Color: color.RGBA{0x20, 0x20, 0x28, 0xff}})
+			m = out.(Model)
+		}
+		rows := strings.Split(m.jiraTab.lanesOut, "\n")
+		want := lipgloss.Width(rows[0]) // the lanes' widths, what integer division leaves
+		for _, l := range rows {
+			if w := lipgloss.Width(l); w != want || w > m.jiraTab.view.Width() {
+				t.Errorf("shaded %v: lanes row %d wide, want %d: %q", shaded, w, want, ansi.Strip(l))
+			}
+		}
 	}
 }

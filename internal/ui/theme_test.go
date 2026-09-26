@@ -64,9 +64,9 @@ func TestThemePresets(t *testing.T) {
 	}
 }
 
-// TestShade: with shade auto, cards get a background a step off the
-// terminal's once it reports one (darker on light, lighter on dark), the
-// bars two steps; off is kept.
+// TestShade: with shade auto, the canvas around the cards gets a background
+// a step off the terminal's once it reports one (darker on light, lighter
+// on dark) while cards keep the terminal's; the bars two steps; off is kept.
 func TestShade(t *testing.T) {
 	t.Cleanup(func() { applyTheme(defaultTheme()) })
 	m := jiraTabModel(t)
@@ -76,10 +76,15 @@ func TestShade(t *testing.T) {
 	out, _ := m.Update(tea.BackgroundColorMsg{Color: color.RGBA{0xfa, 0xfa, 0xfa, 0xff}})
 	m = out.(Model)
 	if !strings.Contains(m.View().Content, "48;2;235;235;235") {
-		t.Error("light terminal: no darker shade on the cards")
+		t.Error("light terminal: no shaded canvas around the cards")
 	}
-	if !strings.Contains(m.View().Content, "48;2;220;220;220") {
-		t.Error("light terminal: no bar on the heads and status line")
+	for _, l := range m.jiraLaneCard(m.jiraTab.cards[2], false, 30) {
+		if strings.Contains(l, "48;") {
+			t.Errorf("a card is shaded, it should sit on the terminal's background: %q", l)
+		}
+	}
+	if !strings.Contains(bar("x", 3), "48;2;220;220;220") {
+		t.Error("light terminal: no bar tone")
 	}
 	autoShade(color.RGBA{0x10, 0x10, 0x10, 0xff})
 	if got := shade("x", 3); !strings.Contains(got, "48;2;30;30;30") {
