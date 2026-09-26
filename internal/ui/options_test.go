@@ -19,7 +19,7 @@ func TestOptionsFrom(t *testing.T) {
 	}
 	o, warn = optionsFrom(config.UIConfig{AutoRefresh: "off", StaleAfter: "30s", Images: "off", ImageMaxRows: 8, PanelWidth: 40})
 	want := defaultOptions()
-	want.autoRefresh, want.staleAfter, want.images, want.imageMaxRows, want.panelPct = 0, 30*time.Second, false, 8, 40
+	want.autoRefresh, want.staleAfter, want.images, want.imageMaxRows, want.panelPct, want.panelDefault = 0, 30*time.Second, false, 8, 40, 40
 	if !reflect.DeepEqual(o, want) || len(warn) != 0 {
 		t.Errorf("set = %+v %v, want %+v", o, warn, want)
 	}

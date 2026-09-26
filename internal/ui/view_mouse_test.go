@@ -197,4 +197,19 @@ func TestPanelResize(t *testing.T) {
 	if m.opts.panelPct != 80 {
 		t.Errorf("remembered %d, want 80", m.opts.panelPct)
 	}
+
+	// Near ui.panel_width it snaps there, and letting go forgets the drag.
+	listW, _ = m.jiraListWidth(m.width)
+	out, _ = m.Update(tea.MouseClickMsg{X: listW, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	out, _ = m.Update(tea.MouseMotionMsg{X: m.width * 48 / 100, Y: y, Button: tea.MouseLeft}) // 52%
+	m = out.(Model)
+	out, _ = m.Update(tea.MouseReleaseMsg{Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.opts.panelPct != m.opts.panelDefault {
+		t.Fatalf("pct %d near %d, want snapped", m.opts.panelPct, m.opts.panelDefault)
+	}
+	if _, ok, _ := m.store.GetMeta(panelWidthMeta); ok {
+		t.Error("back at ui.panel_width the dragged width should be forgotten")
+	}
 }

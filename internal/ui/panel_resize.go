@@ -7,9 +7,13 @@ import (
 )
 
 // Dragging the panel's left border resizes it, within ui.panel_width's
-// bounds; the width is remembered once the button lets go.
+// bounds; the width is remembered once the button lets go. Near
+// ui.panel_width it snaps to it, and letting go there forgets the drag.
 
 const panelWidthMeta = jiraMetaPrefix + "panel_width"
+
+// panelSnap is how many percent from ui.panel_width a drag snaps to it.
+const panelSnap = 3
 
 // resizePanel puts the panel's left border at screen column x.
 func (m Model) resizePanel(x int) (tea.Model, tea.Cmd) {
@@ -17,11 +21,18 @@ func (m Model) resizePanel(x int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	pct := min(max((m.width-x)*100/m.width, 20), 80)
+	def := m.opts.panelDefault
+	if pct-def <= panelSnap && def-pct <= panelSnap {
+		pct = def
+	}
 	if pct == m.opts.panelPct {
 		return m, nil
 	}
 	m.opts.panelPct = pct
 	m.status = "panel " + strconv.Itoa(pct) + "%"
+	if pct == def {
+		m.status += " (ui.panel_width)"
+	}
 	m.resize()
 	return m, nil
 }
@@ -38,8 +49,14 @@ func (m *Model) loadPanelWidth() {
 	}
 }
 
+// savePanelWidth remembers a dragged width, or forgets it back at
+// ui.panel_width.
 func (m *Model) savePanelWidth() {
-	if m.store != nil {
+	switch {
+	case m.store == nil:
+	case m.opts.panelPct == m.opts.panelDefault:
+		_ = m.store.DeleteMeta(panelWidthMeta)
+	default:
 		_ = m.store.SetMeta(panelWidthMeta, strconv.Itoa(m.opts.panelPct))
 	}
 }

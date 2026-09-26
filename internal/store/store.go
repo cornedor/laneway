@@ -47,6 +47,22 @@ func (s *Store) SetMeta(key, value string) error {
 		return nil
 	}
 	s.meta[key] = value
+	return s.write()
+}
+
+// DeleteMeta forgets key.
+func (s *Store) DeleteMeta(key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.meta[key]; !ok {
+		return nil
+	}
+	delete(s.meta, key)
+	return s.write()
+}
+
+// write persists the map; the caller holds mu.
+func (s *Store) write() error {
 	raw, err := json.Marshal(s.meta)
 	if err != nil {
 		return err

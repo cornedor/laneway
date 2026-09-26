@@ -4,7 +4,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
-- Panel resizes by dragging its left border (20–80%), the width remembered over `ui.panel_width`
+- Panel resizes by dragging its left border (20–80%), the width remembered over `ui.panel_width`; within 3% of it the drag snaps back and forgets
 - Fix: tab out of the panel onto the roadmap was a dead end; tab there goes back to the panel, and the roadmap's selection dims while the panel has the keys
 - Roadmap: the selected row's highlight runs on across the timeline, in the quieter selection colour
 - Fix: an avatar chip's background ran on to the row's end on shaded and selected rows; resets inside a painted row now reopen the row's style

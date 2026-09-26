@@ -16,6 +16,7 @@ type options struct {
 	images          bool
 	imageMaxRows    int
 	panelPct        int
+	panelDefault    int  // ui.panel_width, which a drag near it snaps back to
 	cardLimit       int  // 0: the client's default
 	lanes           bool // default mode
 	dateFormat      string
@@ -39,7 +40,7 @@ type cardFields struct {
 var allCardFields = cardFields{true, true, true, true, true, true, true, true, true, true, true, true, true, 5}
 
 func defaultOptions() options {
-	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
+	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
 		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5}
 }
 
@@ -197,5 +198,6 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.fields = f
 	}
 	o.fields.stale = o.staleDays
+	o.panelDefault = o.panelPct
 	return o, warn
 }
