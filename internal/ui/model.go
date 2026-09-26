@@ -329,6 +329,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 			StoryPointsField: cfg.StoryPointsField,
 			CardLimit:        opts.cardLimit,
 			FlagValue:        ui.FlagValue,
+			InboxIssues:      opts.inboxIssues,
 		}),
 		jiraProjects:    append([]string(nil), cfg.Projects...),
 		jiraRepos:       cfg.Repos,
@@ -353,7 +354,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), inboxTick())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick())
 }
 
 // bodyH is the rows above the status line.

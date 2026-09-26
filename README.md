@@ -81,6 +81,9 @@ ui:
   roadmap_epic_type: Epic       # the issue type R shows and n creates (Initiative, …)
   roadmap_done_days: 90         # resolved epics older than this leave the roadmap
   workdays: [mon, tue, wed, thu, fri]  # standup (U) looks back to the previous one
+  inbox_every: 5m               # header ✉ count refresh; "off"
+  inbox_lookback: 24h           # how far back the first inbox read looks
+  inbox_issues: 30              # recently updated issues the inbox and standup read
   flag_value: Impediment        # the Flagged option A → flag sets
   work_agent: claude            # the herdr agent S starts in the worktree
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
@@ -96,7 +99,7 @@ ui:
 `,` lists every `ui:` option with its value and default; `enter` edits a one-line
 one (empty for the default), checked, written back to the file (comments kept)
 and applied at once (`images`, `image_max_rows`, `card_limit`, `default_mode`,
-`flag_value` after a restart).
+`flag_value`, `inbox_issues` after a restart).
 
 A bad value keeps its default and is reported on the status line, as is a key
 bound to two actions on the board or in the panel.

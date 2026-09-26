@@ -27,7 +27,7 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 	if err != nil {
 		return nil, err
 	}
-	issues = issues[:min(len(issues), inboxIssues)]
+	issues = issues[:min(len(issues), c.inboxCap)]
 	var (
 		out  []InboxEntry
 		mu   sync.Mutex

@@ -16,7 +16,8 @@ import (
 
 const inboxMeta = jiraMetaPrefix + "inbox_seen"
 
-// inboxSince is when the inbox was last read, a day ago the first time.
+// inboxSince is when the inbox was last read, ui.inbox_lookback (a day)
+// ago the first time.
 func (m *Model) inboxSince(now time.Time) time.Time {
 	if m.store != nil {
 		if v, ok, _ := m.store.GetMeta(inboxMeta); ok {
@@ -25,7 +26,7 @@ func (m *Model) inboxSince(now time.Time) time.Time {
 			}
 		}
 	}
-	return now.Add(-24 * time.Hour)
+	return now.Add(-m.opts.inboxLookback)
 }
 
 // openInbox loads the entries since the last read into a picker, and marks
@@ -69,15 +70,17 @@ func inboxWhen(t, now time.Time) string {
 	return t.Format("Mon 15:04")
 }
 
-// inboxEvery is how often the header's unread count is refreshed.
-const inboxEvery = 5 * time.Minute
-
 type inboxTickMsg struct{}
 
 type inboxCountMsg struct{ n int }
 
-func inboxTick() tea.Cmd {
-	return tea.Tick(inboxEvery, func(time.Time) tea.Msg { return inboxTickMsg{} })
+// inboxTick refreshes the header's unread count every ui.inbox_every;
+// none when that is off.
+func (m *Model) inboxTick() tea.Cmd {
+	if m.opts.inboxEvery <= 0 {
+		return nil
+	}
+	return tea.Tick(m.opts.inboxEvery, func(time.Time) tea.Msg { return inboxTickMsg{} })
 }
 
 // countInbox asks how many issues the inbox would show, for the header.
@@ -96,7 +99,7 @@ func (m *Model) countInbox() tea.Cmd {
 }
 
 func (m Model) handleInboxTick() (tea.Model, tea.Cmd) {
-	return m, tea.Batch(m.countInbox(), inboxTick())
+	return m, tea.Batch(m.countInbox(), m.inboxTick())
 }
 
 // inboxBadge is the header's "✉ 3", "" with nothing new.

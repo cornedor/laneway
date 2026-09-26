@@ -99,6 +99,12 @@ type UIConfig struct {
 	// Workdays are the days you work, for standup's previous workday:
 	// [mon, tue, wed, thu, fri] by default.
 	Workdays []string `yaml:"workdays"`
+	// InboxEvery is how often the header's inbox count refreshes ("5m",
+	// "off"); InboxLookback how far back a first read looks ("24h");
+	// InboxIssues how many recently updated issues it reads (30).
+	InboxEvery    string `yaml:"inbox_every"`
+	InboxLookback string `yaml:"inbox_lookback"`
+	InboxIssues   int    `yaml:"inbox_issues"`
 	// FlagValue is the Flagged field's option flagging sets ("Impediment").
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").

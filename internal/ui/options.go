@@ -37,6 +37,9 @@ type options struct {
 	kanbanDoneDays  int                // done work older than this leaves kanban boards
 	epicType        string             // the roadmap's issue type
 	workdays        []time.Weekday     // nil: Monday to Friday
+	inboxEvery      time.Duration      // 0: the count never refreshes
+	inboxLookback   time.Duration      // a first inbox read looks this far back
+	inboxIssues     int                // 0: the client's default
 	roadmapDoneDays int                // resolved epics older than this leave the roadmap
 	codeTheme       string             // chroma style for code blocks
 }
@@ -51,7 +54,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", roadmapDoneDays: 90, codeTheme: fallbackCodeTheme}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", inboxEvery: 5 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme}
 }
 
 // weekdays reads a day by its first three letters.
@@ -86,6 +89,15 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	dur("auto_refresh", c.AutoRefresh, &o.autoRefresh, true)
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
+	dur("inbox_every", c.InboxEvery, &o.inboxEvery, true)
+	dur("inbox_lookback", c.InboxLookback, &o.inboxLookback, false)
+	switch n := c.InboxIssues; {
+	case n == 0:
+	case n < 1 || n > 200:
+		warn = append(warn, fmt.Sprintf("ui.inbox_issues: %d is not 1–200", n))
+	default:
+		o.inboxIssues = n
+	}
 	for name, pts := range c.Capacity {
 		if pts < 0 {
 			warn = append(warn, fmt.Sprintf("ui.capacity.%s: %v is below 0", name, pts))

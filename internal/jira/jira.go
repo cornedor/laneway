@@ -51,6 +51,7 @@ type Config struct {
 	StoryPointsField string
 	CardLimit        int    // 0: DefaultCardLimit
 	FlagValue        string // the Flagged option flagging sets; "": Impediment
+	InboxIssues      int    // recently updated issues the inbox and standup read; 0: 30
 }
 
 // Client fetches and caches issues for one instance. The zero value is not
@@ -61,6 +62,7 @@ type Client struct {
 	spOverride string // configured story-points custom-field id, "" to auto-detect
 	cardLimit  int    // most cards one board fetch returns
 	flagValue  string // the Flagged option SetFlagged sets
+	inboxCap   int    // issues the inbox and standup read
 	http       *http.Client
 
 	mu    sync.Mutex
@@ -93,6 +95,7 @@ func New(cfg Config) *Client {
 		spOverride: strings.TrimSpace(cfg.StoryPointsField),
 		cardLimit:  cfg.CardLimit,
 		flagValue:  cmp.Or(strings.TrimSpace(cfg.FlagValue), "Impediment"),
+		inboxCap:   cmp.Or(max(cfg.InboxIssues, 0), inboxIssues),
 		http:       &http.Client{Timeout: requestTimeout},
 		cache:      map[string]cachedIssue{},
 	}

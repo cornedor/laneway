@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -88,5 +89,25 @@ func TestMentionNotify(t *testing.T) {
 	}
 	if _, cmd := m.handleInboxCount(inboxCountMsg{0}); cmd != nil {
 		t.Error("a count that did not rise should not read the inbox")
+	}
+}
+
+func TestInboxOptions(t *testing.T) {
+	o, warn := optionsFrom(config.UIConfig{InboxEvery: "off", InboxLookback: "72h", InboxIssues: 50})
+	if o.inboxEvery != 0 || o.inboxLookback != 72*time.Hour || o.inboxIssues != 50 || len(warn) != 0 {
+		t.Fatalf("options %v %v %d %v", o.inboxEvery, o.inboxLookback, o.inboxIssues, warn)
+	}
+	m := jiraTabModel(t)
+	m.store = nil
+	m.opts = o
+	now := time.Now()
+	if got := m.inboxSince(now); !got.Equal(now.Add(-72 * time.Hour)) {
+		t.Errorf("since = %v", got)
+	}
+	if m.inboxTick() != nil {
+		t.Error("ticks with inbox_every off")
+	}
+	if _, warn = optionsFrom(config.UIConfig{InboxIssues: 999}); len(warn) != 1 {
+		t.Errorf("cap unchecked: %v", warn)
 	}
 }

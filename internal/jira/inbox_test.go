@@ -115,3 +115,11 @@ func TestChangelog(t *testing.T) {
 		t.Errorf("%+v, %v", got, err)
 	}
 }
+
+func TestInboxCap(t *testing.T) {
+	for in, want := range map[int]int{0: 30, -3: 30, 50: 50} {
+		if c := New(Config{InboxIssues: in}); c.inboxCap != want {
+			t.Errorf("InboxIssues %d: cap %d, want %d", in, c.inboxCap, want)
+		}
+	}
+}

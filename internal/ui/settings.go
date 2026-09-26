@@ -20,7 +20,7 @@ import (
 // its YAML tree (comments kept) and applied at once.
 
 // settingsRestart are options read once at startup.
-var settingsRestart = map[string]bool{"images": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true}
+var settingsRestart = map[string]bool{"images": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true}
 
 // settingDefaults is each ui: option's default as the README shows it.
 var settingDefaults = map[string]string{
@@ -48,6 +48,9 @@ var settingDefaults = map[string]string{
 	"roadmap_epic_type":    "Epic",
 	"roadmap_done_days":    "90",
 	"workdays":             "mon–fri",
+	"inbox_every":          "5m",
+	"inbox_lookback":       "24h",
+	"inbox_issues":         "30",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",

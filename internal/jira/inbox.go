@@ -18,7 +18,8 @@ import (
 // are assigned or reported — field changes, comments, and comments that
 // mention you.
 
-// inboxIssues caps how many recently updated issues the inbox reads.
+// inboxIssues caps how many recently updated issues the inbox reads, unless
+// Config.InboxIssues says otherwise.
 const inboxIssues = 30
 
 // InboxEntry is one thing that happened on an issue.
@@ -43,7 +44,7 @@ func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, erro
 	if err != nil {
 		return nil, err
 	}
-	issues = issues[:min(len(issues), inboxIssues)]
+	issues = issues[:min(len(issues), c.inboxCap)]
 	var (
 		out  []InboxEntry
 		mu   sync.Mutex
