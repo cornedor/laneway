@@ -40,6 +40,8 @@ var settingDefaults = map[string]string{
 	"velocity_sprints":     "8",
 	"templates":            "none",
 	"timer_on_start":       "off",
+	"start_assigns":        "off",
+	"start_status":         "none",
 	"capacity":             "none",
 	"saved_filters":        "on",
 	"branch_template":      defaultBranchTemplate,

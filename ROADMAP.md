@@ -2,11 +2,11 @@
 
 ## Next
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
-- Start work moves to In Progress and assigns you (option)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Start work can assign you (`ui.start_assigns: on`) and move the issue (`ui.start_status: In Progress`); a move with a screen of its own is left to `s`
 - `ui.empty_fields: hide` folds the panel's empty fields behind a "N empty fields" row; a click on it, or the palette's `show empty fields`, shows them
 - `w` logs work on another day: `yesterday 2h`, `fri 1h` (the last Friday), `2026-09-21 3h`, `-2d 1h`, from 9:00
 - List sorts by updated and created (newest first) and due (soonest first, none last)

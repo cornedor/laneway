@@ -106,6 +106,11 @@ type UIConfig struct {
 	// TimerOnStart is "on" to start the timer when S starts work on an
 	// issue (and none runs), "off" by default.
 	TimerOnStart string `yaml:"timer_on_start"`
+	// StartAssigns is "on" to assign the issue to you when S starts work
+	// on it; StartStatus the status S moves it to ("In Progress"), "" for
+	// none. Both off by default.
+	StartAssigns string `yaml:"start_assigns"`
+	StartStatus  string `yaml:"start_status"`
 	// Capacity is story points per person a sprint holds, by display name;
 	// "default" for everyone not named. Planning shows who is over.
 	Capacity map[string]float64 `yaml:"capacity"`

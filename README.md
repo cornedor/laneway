@@ -81,6 +81,8 @@ ui:
     - {name: Stale review, query: "status:review age>3d"}
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
   timer_on_start: on            # S (start work) also starts the timer (off)
+  start_assigns: on             # S also assigns the issue to you (off)
+  start_status: In Progress     # and moves it there, unless the move has a screen (none)
   velocity_sprints: 8           # closed sprints in C's velocity chart
   stale_days: 5                 # an in-progress card's age turns red past this
   templates:                    # a new issue's description by type (markdown)

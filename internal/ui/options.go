@@ -28,6 +28,8 @@ type options struct {
 	savedFilters    bool                // starred Jira filters as views
 	capacity        map[string]float64  // sprint points per person, "default" for the rest
 	timerOnStart    bool                // S also starts the timer
+	startAssigns    bool                // S also assigns the issue to you
+	startStatus     string              // and moves it there, "" for none
 	templates       map[string]string   // new issue descriptions by type, lower-cased
 	velocitySprints int                 // closed sprints in the velocity chart
 	staleDays       int                 // in progress longer than this shows red
@@ -247,6 +249,14 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.workBranch = tmpl
 		}
 	}
+	switch strings.ToLower(strings.TrimSpace(c.StartAssigns)) {
+	case "", "off":
+	case "on":
+		o.startAssigns = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.start_assigns: %q is not on or off", c.StartAssigns))
+	}
+	o.startStatus = strings.TrimSpace(c.StartStatus)
 	switch strings.ToLower(strings.TrimSpace(c.TimerOnStart)) {
 	case "", "off":
 	case "on":

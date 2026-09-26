@@ -2,8 +2,10 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Start work (S in the Jira panel): open the issue's worktree as a herdr
@@ -113,13 +116,14 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	default:
 		m.status = msg.key + ": " + msg.agent + " started in " + msg.path
 	}
+	writes := m.startWrites(msg.key)
 	if m.opts.timerOnStart && m.timer.key == "" {
 		status := m.status
 		cmd := m.toggleTimer(msg.key)
 		m.status = status + " · timer started"
-		return m, cmd
+		return m, tea.Batch(cmd, writes)
 	}
-	return m, nil
+	return m, writes
 }
 
 // startAgent starts the agent kind in pane with args. A fresh pane's shell
@@ -231,4 +235,73 @@ func slugify(s string) string {
 		return "work"
 	}
 	return slug
+}
+
+// startWritesMsg is what start work changed on the issue: did, in words,
+// or why it stopped.
+type startWritesMsg struct {
+	key string
+	did []string
+	err error
+}
+
+// startWrites assigns the started issue to you (ui.start_assigns) and
+// moves it to ui.start_status, when it isn't so already. A move with a
+// screen of its own is left to the move form. nil with neither set.
+func (m *Model) startWrites(key string) tea.Cmd {
+	assign, status := m.opts.startAssigns, m.opts.startStatus
+	if !assign && status == "" {
+		return nil
+	}
+	cur := ""
+	if m.jiraIssue != nil && m.jiraIssue.Key == key {
+		cur = m.jiraIssue.Status
+	}
+	c, ctx := m.jiraClient, m.ctx
+	return func() tea.Msg {
+		var did []string
+		if assign {
+			me, err := c.Myself(ctx)
+			if err == nil {
+				err = c.SetAssignee(ctx, key, me.AccountID)
+			}
+			if err != nil {
+				return startWritesMsg{key: key, did: did, err: err}
+			}
+			did = append(did, "assigned to you")
+		}
+		if status != "" && !strings.EqualFold(cur, status) {
+			ts, err := c.TransitionsMeta(ctx, key)
+			if err != nil {
+				return startWritesMsg{key: key, did: did, err: err}
+			}
+			i := slices.IndexFunc(ts, func(t jira.TransitionMeta) bool { return strings.EqualFold(t.ToName, status) })
+			switch {
+			case i < 0:
+				return startWritesMsg{key: key, did: did, err: fmt.Errorf("no move to %s from here", status)}
+			case ts[i].HasScreen:
+				return startWritesMsg{key: key, did: did, err: fmt.Errorf("the move to %s asks for fields: s moves it", status)}
+			}
+			if err := c.DoTransition(ctx, key, ts[i].ID); err != nil {
+				return startWritesMsg{key: key, did: did, err: err}
+			}
+			did = append(did, "moved to "+ts[i].ToName)
+		}
+		return startWritesMsg{key: key, did: did}
+	}
+}
+
+// handleStartWrites says what start work changed and reloads the issue.
+func (m Model) handleStartWrites(msg startWritesMsg) (tea.Model, tea.Cmd) {
+	if len(msg.did) > 0 {
+		m.status = msg.key + " " + strings.Join(msg.did, ", ")
+	}
+	if msg.err != nil {
+		m.fail(msg.key + ": " + msg.err.Error())
+	}
+	board := m.refreshJiraAfterEdit()
+	if r := m.currentRef(); r != nil && r.jiraKey == msg.key {
+		return m, tea.Batch(m.loadCurrentRef(), board)
+	}
+	return m, board
 }

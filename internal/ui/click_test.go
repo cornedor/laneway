@@ -2,6 +2,9 @@ package ui
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1042,5 +1045,45 @@ func TestHideEmptyFields(t *testing.T) {
 	}
 	if m = clickText(t, m, "1 empty fields"); !strings.Contains(ansi.Strip(m.View().Content), "Sprint goal note") {
 		t.Error("the click did not show them")
+	}
+}
+
+// TestStartWrites: with ui.start_assigns and ui.start_status, start work
+// assigns you and moves the issue; a move with a screen is left to s.
+func TestStartWrites(t *testing.T) {
+	var writes []string
+	screen := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me-1","displayName":"Me"}`)
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/transitions"):
+			fmt.Fprintf(w, `{"transitions":[{"id":"21","name":"Start","hasScreen":%v,"to":{"id":"3","name":"In Progress"}}]}`, screen)
+		default:
+			b, _ := io.ReadAll(r.Body)
+			writes = append(writes, r.Method+" "+r.URL.Path+" "+string(b))
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.opts.startAssigns, m.opts.startStatus = true, "in progress"
+	msg := m.startWrites("ABC-1")().(startWritesMsg)
+	if msg.err != nil || len(writes) != 2 || !strings.Contains(writes[0], "assignee") || !strings.Contains(writes[1], `"id":"21"`) {
+		t.Fatalf("writes %q, err %v", writes, msg.err)
+	}
+	out, _ := m.handleStartWrites(msg)
+	if m = out.(Model); m.status != "ABC-1 assigned to you, moved to In Progress" {
+		t.Errorf("status %q", m.status)
+	}
+	writes, screen = nil, true
+	m.opts.startAssigns = false
+	if msg = m.startWrites("ABC-1")().(startWritesMsg); msg.err == nil || len(writes) != 0 {
+		t.Errorf("a screen: writes %q, err %v", writes, msg.err)
+	}
+	m.opts.startStatus = ""
+	if m.startWrites("ABC-1") != nil {
+		t.Error("with neither set it writes")
 	}
 }

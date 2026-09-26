@@ -660,6 +660,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case loadingTickMsg:
 		return m.handleLoadingTick()
+	case startWritesMsg:
+		return m.handleStartWrites(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())
