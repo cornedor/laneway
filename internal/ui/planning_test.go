@@ -159,9 +159,10 @@ func TestPlanCloseSprint(t *testing.T) {
 	m := planModel(t, &ignored)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	out, cmd := m.handleJiraKey(keyMsg(t, "S"))
-	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "already active") {
-		t.Errorf("S on the active sprint: %q", m.status)
+	if m = out.(Model); cmd != nil || m.jiraFieldName != "plan-end" {
+		t.Errorf("S on the active sprint should ask its new end, got %q", m.jiraFieldName)
 	}
+	m.closeJiraField()
 	out, cmd = m.handleJiraKey(keyMsg(t, "C"))
 	m = out.(Model)
 	if cmd != nil || !strings.Contains(m.status, "C again completes Sprint 1, unfinished issues to the backlog") {
@@ -248,5 +249,28 @@ func TestPlanCloseConfirmResets(t *testing.T) {
 	m = out.(Model)
 	if _, cmd := m.handleJiraKey(keyMsg(t, "C")); cmd != nil {
 		t.Error("C after another key should ask again, not complete")
+	}
+}
+
+// TestPlanRenameAndEnd: R renames the sprint, S on the active one moves its
+// end.
+func TestPlanRenameAndEnd(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	out, _ := m.handleJiraKey(keyMsg(t, "R"))
+	m = out.(Model)
+	if m.jiraFieldName != "plan-rename" || m.jiraFieldInput.Value() != "Sprint 1" {
+		t.Fatalf("rename input %q %q", m.jiraFieldName, m.jiraFieldInput.Value())
+	}
+	m.jiraFieldInput.SetValue("Sprint 1: login")
+	_, cmd := m.applyJiraField()
+	cmd()
+	out, _ = m.handleJiraKey(keyMsg(t, "S"))
+	m = out.(Model)
+	m.jiraFieldInput.SetValue("2026-10-09")
+	_, cmd = m.applyJiraField()
+	cmd()
+	if len(writes) != 2 || writes[0] != `POST /rest/agile/1.0/sprint/9 {"name":"Sprint 1: login"}` || !strings.Contains(writes[1], `"endDate":"2026-10-09T17:00:00`) {
+		t.Errorf("writes = %q", writes)
 	}
 }

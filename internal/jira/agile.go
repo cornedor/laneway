@@ -634,3 +634,18 @@ func (c *Client) SetFlagged(ctx context.Context, key string, on bool) error {
 	}
 	return c.SetField(ctx, key, id, v)
 }
+
+// UpdateSprint changes a sprint's name and end date; "" and zero leave them.
+func (c *Client) UpdateSprint(ctx context.Context, sprint int, name string, end time.Time) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	if !end.IsZero() {
+		body["endDate"] = end.Format(time.RFC3339)
+	}
+	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", body, nil)
+}

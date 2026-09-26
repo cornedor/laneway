@@ -3,7 +3,6 @@
 ## Next
 - Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
 - Bulk step 3: required transition fields asked once for all marked
-- Planning step 6: rename a sprint, move its dates
 - Charts step 4: cumulative flow by status
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 3: commits and builds in `D`
@@ -11,6 +10,7 @@
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Planning: `R` renames a sprint, `S` on the active one moves its end
 - List sorted by assignee, priority or epic shows a header per group (count, points)
 - `u` undoes the last card move (again redoes it)
 - In-progress cards show their age (`4d`), red past `ui.stale_days`; `card_fields: age`

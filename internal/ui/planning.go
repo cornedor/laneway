@@ -193,6 +193,11 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraFieldInput.CursorEnd()
 		m.jiraFieldKey = v.name
 		return m, nil
+	case msg.String() == "R":
+		m.openBulkInput("plan-rename", "sprint name")
+		m.jiraFieldInput.SetValue(p.sprints[p.target].name)
+		m.jiraFieldInput.CursorEnd()
+		return m, nil
 	case msg.String() == "N":
 		m.openBulkInput("plan-new", "sprint name")
 		m.jiraFieldInput.SetValue(nextSprintName(p.sprints))
@@ -266,8 +271,9 @@ func (m *Model) planMove() tea.Cmd {
 func (m *Model) planStart() tea.Cmd {
 	p := m.jiraTab.plan
 	v := p.sprints[p.target]
-	if v.lanes {
-		m.status = v.name + " is already active"
+	if v.lanes { // active: move its end instead
+		m.openBulkInput("plan-end", "new end: 2026-10-10, +3d, fri")
+		m.jiraFieldKey = v.name
 		return nil
 	}
 	m.openBulkInput("plan-start", "end: 2026-10-10, +2w, fri")
@@ -316,6 +322,36 @@ func nextSprintName(sprints []jiraView) string {
 		return ""
 	}
 	return last[:i] + strconv.Itoa(n+1)
+}
+
+// applyPlanSprint renames the target sprint or moves its end, as field says.
+func (m Model) applyPlanSprint(field, raw string) (tea.Model, tea.Cmd) {
+	p := m.jiraTab.plan
+	if p == nil {
+		m.closeJiraField()
+		return m, nil
+	}
+	v, c, ctx := p.sprints[p.target], m.jiraClient, m.ctx
+	name, end, what := "", time.Time{}, ""
+	if field == "plan-rename" {
+		if name = strings.TrimSpace(raw); name == "" {
+			m.status = "a sprint needs a name"
+			return m, nil
+		}
+		what = v.name + " renamed to " + name
+	} else {
+		d, err := jira.ParseDate(raw, time.Now())
+		if err != nil {
+			m.status = err.Error()
+			return m, nil
+		}
+		end = time.Date(d.Year(), d.Month(), d.Day(), 17, 0, 0, 0, d.Location())
+		what = v.name + " now ends " + end.Format("Mon 2 Jan")
+	}
+	m.closeJiraField()
+	return m, func() tea.Msg {
+		return planSprintMsg{what: what, err: c.UpdateSprint(ctx, v.sprint, name, end)}
+	}
 }
 
 // applyPlanGoal sets the target sprint's goal.
@@ -472,7 +508,7 @@ func (m *Model) planLine() string {
 	}
 	k := m.keys
 	return s + jiraDimStyle.Render("  ·  ← → side  "+helpKey(k.PrevView)+" "+helpKey(k.NextView)+" sprint  "+
-		helpKey(k.MoveSprint)+"/space move across  K J rank  E goal  N new  S start  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
+		helpKey(k.MoveSprint)+"/space move across  K J rank  E goal  R rename  N new  S start/end  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
 }
 
 // renderPlan draws the two sides into width × height.
