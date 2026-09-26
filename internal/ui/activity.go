@@ -133,6 +133,15 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 	}
 	b.WriteString(sectionHead(strings.Join(tabs, "  "), "   [ ]", width) + "\n")
 
+	// The composer goes under the comment it replies to, else at the end.
+	defer func() {
+		if m.commentInline() && !strings.Contains(b.String(), commentMark) {
+			if !strings.HasSuffix(b.String(), "\n") {
+				b.WriteString("\n")
+			}
+			b.WriteString("\n" + m.commentMarkLine(0))
+		}
+	}()
 	if m.activityTab == activityComments {
 		m.renderJiraComments(b, iss)
 		return

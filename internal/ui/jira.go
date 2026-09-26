@@ -353,6 +353,12 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 		m.commentHeads = append(m.commentHeads, commentHead{i: tc.i,
 			text: strings.Repeat("│ ", min(tc.depth, replyDepthMax)) + m.commentByline(iss.Comments[tc.i])})
 		b.WriteString(indentReply(cb.String(), tc.depth))
+		if c := iss.Comments[tc.i]; m.commentInline() && c.ID != "" && c.ID == m.jiraCommentReplyID {
+			if !strings.HasSuffix(b.String(), "\n") {
+				b.WriteString("\n")
+			}
+			b.WriteString(m.commentMarkLine(min(tc.depth+1, replyDepthMax)))
+		}
 		if n < len(thread)-1 {
 			b.WriteString("\n")
 		}

@@ -80,7 +80,7 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	if m.descEditInline() {
 		m.descEdit.input.MaxHeight = max(m.refView.Height()-4, 6)
 		m.renderRef()
-		m.showDescEdit()
+		m.showInlineEditor()
 	}
 	return m, nil
 }
@@ -104,57 +104,93 @@ func (m *Model) descEditOn(field string) bool {
 	return m.descEditInline() && m.descEdit.field == field
 }
 
-// placeDescEdit swaps the mark for the editor, recording its line.
-func (m *Model) placeDescEdit(content string, width int) string {
-	m.descEditLine = -1
-	if !m.descEditInline() {
+// commentMark stands in the same way for the comment composer; its line
+// may carry the reply's indent after it.
+const commentMark = "\x00comment\x00"
+
+// inlineEditor is the editor drawn in the panel's body, nil for none, and
+// how many reply bars indent it.
+func (m *Model) inlineEditor() (ed *editor.Model, indent int) {
+	switch {
+	case m.descEditInline():
+		return &m.descEdit.input, 0
+	case m.commentInline():
+		return &m.jiraCommentInput, m.commentIndent
+	}
+	return nil, 0
+}
+
+// placeInlineEditor swaps the mark for the inline editor, recording its
+// line; a comment's composer brings its mention list and keys.
+func (m *Model) placeInlineEditor(content string, width int) string {
+	m.inlineLine = -1
+	ed, indent := m.inlineEditor()
+	if ed == nil {
 		return content
 	}
+	mark := descEditMark
+	if ed == &m.jiraCommentInput {
+		mark = commentMark
+	}
 	lines := strings.Split(content, "\n")
-	i := slices.Index(lines, descEditMark)
+	i := slices.Index(lines, mark)
 	if i < 0 {
 		return content
 	}
-	m.descEditLine = i
-	m.descEdit.input.SetWidth(max(width, 8))
-	return strings.Join(slices.Concat(lines[:i], []string{m.descEdit.input.View()}, lines[i+1:]), "\n")
+	m.inlineLine = i
+	ed.SetWidth(max(width-2*indent, 8))
+	view := strings.Split(ed.View(), "\n")
+	if mark == commentMark {
+		if list := m.renderMentions(); list != "" {
+			view = append(view, strings.Split(list, "\n")...)
+		}
+		view = append(view, refDimStyle.Render("↵ post · alt+↵ newline · @ mention · esc cancel"))
+	}
+	bars := refDimStyle.Render(strings.Repeat("│ ", indent))
+	for j := range view {
+		view[j] = bars + view[j]
+	}
+	return strings.Join(slices.Concat(lines[:i], view, lines[i+1:]), "\n")
 }
 
-// descEditCursor is the editor's cursor on screen, when it is in view.
-func (m *Model) descEditCursor() (x, y int, ok bool) {
-	if !m.descEditInline() || m.descEditLine < 0 {
+// inlineEditorCursor is the inline editor's cursor on screen, when it is in
+// view.
+func (m *Model) inlineEditorCursor() (x, y int, ok bool) {
+	ed, indent := m.inlineEditor()
+	if ed == nil || m.inlineLine < 0 {
 		return 0, 0, false
 	}
-	cx, cy, ok := m.descEdit.input.CursorViewPos()
+	cx, cy, ok := ed.CursorViewPos()
 	if !ok {
 		return 0, 0, false
 	}
-	row := m.descEditRow() + cy - m.refView.YOffset()
+	row := m.inlineEditorRow() + cy - m.refView.YOffset()
 	if row < 0 || row >= m.refView.Height() {
 		return 0, 0, false
 	}
 	listW, _ := m.jiraListWidth(m.width)
-	return listW + 1 + cx, 1 + m.crumbRows() + row, true
+	return listW + 1 + 2*indent + cx, 1 + m.crumbRows() + row, true
 }
 
-// descEditRow is the editor's first row in the panel's wrapped content.
-func (m *Model) descEditRow() int {
-	return visualRowsBefore(strings.Split(m.refView.GetContent(), "\n"), m.descEditLine, m.refView.Width())
+// inlineEditorRow is the editor's first row in the panel's wrapped content.
+func (m *Model) inlineEditorRow() int {
+	return visualRowsBefore(strings.Split(m.refView.GetContent(), "\n"), m.inlineLine, m.refView.Width())
 }
 
-// showDescEdit scrolls the panel to keep the editor's cursor in view, its
-// section head too when the cursor allows.
-func (m *Model) showDescEdit() {
-	if !m.descEditInline() || m.descEditLine < 0 {
+// showInlineEditor scrolls the panel to keep the inline editor's cursor in
+// view, a line or two above it too when the cursor allows.
+func (m *Model) showInlineEditor() {
+	ed, _ := m.inlineEditor()
+	if ed == nil || m.inlineLine < 0 {
 		return
 	}
-	_, cy, _ := m.descEdit.input.CursorViewPos()
-	row, top, h := m.descEditRow()+cy, m.refView.YOffset(), m.refView.Height()
+	_, cy, _ := ed.CursorViewPos()
+	row, top, h := m.inlineEditorRow()+cy, m.refView.YOffset(), m.refView.Height()
 	switch {
 	case row < top:
 		m.refView.SetYOffset(max(row-2, 0))
 	case row >= top+h:
-		m.refView.SetYOffset(row - h + 1)
+		m.refView.SetYOffset(row - h + 3) // the keys line below it too
 	}
 }
 

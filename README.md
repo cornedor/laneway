@@ -221,7 +221,7 @@ Panel:
   dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the
   parent an issue key; the sprint a pick of the board's
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels · `a` assignee
-- talk: `c` comment · `R` reply · `w` log work · `T` timer
+- talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →)

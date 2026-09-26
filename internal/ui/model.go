@@ -283,9 +283,10 @@ type Model struct {
 	// pickerLine is the content line of the inline picker's first shown row
 	// (pickerStart), -1 when none (jira_edit.go).
 	pickerLine, pickerStart int
-	// descEditLine is the content line the inline editor starts on, -1 when
-	// none (description.go).
-	descEditLine int
+	// inlineLine is the content line the inline editor starts on, -1 when
+	// none; commentIndent the reply bars before the comment composer
+	// (description.go).
+	inlineLine, commentIndent int
 	// activityTab is the Activity section's open tab, activityLine its tab
 	// row's content line (-1 when not drawn); activity the history and
 	// worklogs it shows; commentHeads the comments' bylines (activity.go).
@@ -306,6 +307,7 @@ type Model struct {
 	jiraCommentInput   editor.Model
 	jiraCommentMention *jira.Mention
 	jiraCommentReplyTo string
+	jiraCommentReplyID string // the comment replied to, its composer drawn under it
 
 	// panelResizing is set while the panel's left border is dragged
 	// (panel_resize.go).
@@ -402,10 +404,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
 		// The inline picker is drawn in the panel: redraw it as it changes.
-		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline() || m.descEditInline() || om.descEditInline()) {
+		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline() || m.panelComposing() || om.panelComposing()) {
 			om.renderRef()
 			om.showInlinePicker()
-			om.showDescEdit()
+			om.showInlineEditor()
 			out = om
 		}
 		if f := om.flushImages(); f != nil {
@@ -779,14 +781,14 @@ func (m Model) View() tea.View {
 	}
 	status := statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…"))
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
-	if cx, cy, ok := m.descEditCursor(); ok {
+	if cx, cy, ok := m.inlineEditorCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)
 	} else if m.descEdit != nil && !m.descEditInline() {
 		if cx, cy, ok := m.modalComposerCursor(0, &m.descEdit.input); ok {
 			v.Cursor = tea.NewCursor(cx, cy)
 		}
 	}
-	if m.jiraCommentActive {
+	if m.jiraCommentActive && !m.commentInline() {
 		above := 0
 		if m.jiraCommentReplyTo != "" {
 			above = 1
@@ -827,7 +829,7 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderJiraGoto()
 	case m.jiraCreateActive:
 		return m.renderJiraCreate()
-	case m.jiraCommentActive:
+	case m.jiraCommentActive && !m.commentInline():
 		return m.renderJiraCommentInput()
 	case m.jiraFieldActive && !m.fieldInline():
 		return m.renderJiraFieldInput()

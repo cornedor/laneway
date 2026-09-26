@@ -1,12 +1,13 @@
 # Roadmap
 
 ## Next
-- Inline editing, rest: comments and replies compose under the thread. Modals stay only for multi-field forms (transition screens, bulk)
+- Inline editing, rest: editing your comment in place of it (still a box)
 - `laneway rules` create defaults (type `Task`, status `To Do`): read the project's types and statuses from Jira, a config key overrides
 - Light-theme pass over the chips, lozenges and selection colours
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Comments compose in the panel: a reply under the comment it answers (behind a reply bar), a new comment after the activity, mentions and keys below; the terminal cursor in it
 - The description and rich-text fields edit in place: the editor replaces the section body under its head (keys in the head), the terminal cursor in it, scrolled to follow; comment edits keep the box
 - Inline lists: status, priority, assignee and person or option fields drop their list under the row (filter line when searchable, 8 rows, scrolled into view); a click picks, elsewhere cancels
 - Inline row editing: summary, points, labels and text, number, date and issue fields edit in their panel row (scrolled into view); the modal stays for edits off the panel

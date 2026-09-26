@@ -514,3 +514,46 @@ func TestInlineStatusPicker(t *testing.T) {
 		t.Error("list still drawn after the pick")
 	}
 }
+
+// TestInlineCommentComposer: a reply composes under the comment it answers,
+// a new comment after the thread; neither is a modal.
+func TestInlineCommentComposer(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{
+		Key: "ABC-1", Summary: "Fix the widget", Status: "To Do",
+		Comments: []jira.Comment{{ID: "1", Author: "Ada", Body: "first"}, {ID: "2", Author: "Bob", Body: "second"}},
+	}})
+	m = out.(Model)
+	order := func(v string, words ...string) bool {
+		at := 0
+		for _, w := range words {
+			i := strings.Index(v[at:], w)
+			if i < 0 {
+				return false
+			}
+			at += i + len(w)
+		}
+		return true
+	}
+	m.openJiraReply(m.jiraIssue.Comments[0])
+	out, _ = m.Update(keyMsg(t, "x"))
+	m = out.(Model)
+	v := m.View()
+	c := ansi.Strip(v.Content)
+	if strings.Contains(c, "Reply — ABC-1") || !order(c, "first", "│ ┃", "↵ post", "Bob") {
+		t.Fatalf("reply should compose under Ada's comment:\n%s", c)
+	}
+	if v.Cursor == nil {
+		t.Error("the terminal cursor should sit in the composer")
+	}
+	out, _ = m.Update(keyMsg(t, "esc"))
+	m = out.(Model)
+	m.openJiraCommentInput()
+	out, _ = m.Update(keyMsg(t, "x"))
+	m = out.(Model)
+	if c := ansi.Strip(m.View().Content); strings.Contains(c, "Comment — ABC-1") || !order(c, "first", "second", "┃ x", "↵ post") {
+		t.Fatalf("a new comment should compose after the thread:\n%s", c)
+	}
+}

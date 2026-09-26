@@ -38,8 +38,23 @@ func (m *Model) openJiraCommentInput() {
 	m.jiraCommentActive = true
 	m.jiraCommentKey = m.jiraIssue.Key
 	m.jiraCommentMention = nil
-	m.jiraCommentReplyTo = ""
+	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
 	m.jiraCommentInput = newCommentTextarea()
+}
+
+// commentInline is whether the composer sits in the panel: under the comment
+// it replies to, else after the activity.
+func (m *Model) commentInline() bool {
+	return m.jiraCommentActive && m.refOpen && m.jiraIssue != nil && m.jiraIssue.Key == m.jiraCommentKey && m.refErr == nil && !m.refLoading
+}
+
+// panelComposing is whether an editor is open in the panel's body.
+func (m *Model) panelComposing() bool { return m.descEditInline() || m.commentInline() }
+
+// commentMarkLine is the composer's stand-in, indented by depth reply bars.
+func (m *Model) commentMarkLine(depth int) string {
+	m.commentIndent = depth
+	return commentMark + "\n"
 }
 
 // openJiraReply opens the composer prefilled with an editable quote of c and
@@ -48,7 +63,7 @@ func (m *Model) openJiraCommentInput() {
 func (m *Model) openJiraReply(c jira.Comment) {
 	m.jiraCommentActive = true
 	m.jiraCommentKey = m.jiraIssue.Key
-	m.jiraCommentReplyTo = c.Author
+	m.jiraCommentReplyTo, m.jiraCommentReplyID = c.Author, c.ID
 	if c.AuthorID != "" {
 		m.jiraCommentMention = &jira.Mention{AccountID: c.AuthorID, DisplayName: c.Author}
 	} else {
@@ -86,7 +101,7 @@ func (m *Model) closeJiraComment() {
 	m.jiraCommentActive = false
 	m.jiraCommentKey = ""
 	m.jiraCommentMention = nil
-	m.jiraCommentReplyTo = ""
+	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
 	m.jiraCommentInput = editor.Model{}
 	m.jiraCommentMentions = nil
 	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}

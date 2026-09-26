@@ -52,7 +52,7 @@ func TestMentionFlow(t *testing.T) {
 	cmd := m.scheduleMention()
 	out, cmd := m.handleMentionSearch(cmd().(mentionSearchMsg))
 	m = out.(Model)
-	out, _ = m.handleMentionFound(cmd().(mentionFoundMsg))
+	out, _ = m.Update(cmd().(mentionFoundMsg))
 	m = out.(Model)
 	if !strings.Contains(m.View().Content, "@Ada Lovelace") {
 		t.Fatal("suggestion not shown")
