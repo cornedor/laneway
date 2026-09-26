@@ -2,7 +2,7 @@
 
 ## Next
 - Panel: Created, Resolution, Watchers (you), Votes from the edit meta already fetched; time tracking (logged · left of estimate)
-- A failed create reopens the box with your summary and the error
+- A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
 - Not by colour alone: over-limit lanes, stale ages and over-capacity people get a `!`
 - Panel: long field values wrap under their value column, not the label
 - `ui.icons: nerd | plain` for terminals without a Nerd Font
@@ -11,6 +11,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- A failed create reopens the box with your summary and the error; enter retries
 - Assign to yourself in `a enter`: the assignee picker starts on "Assign to me" unless it is yours already
 - List mode: a long summary (with its parent and custom fields) gives way, so the assignee, deploy, subtasks, due and age stay on the row
 - README: `jira.story_points_field` and `jira.start_prompt` documented (every config key now is)

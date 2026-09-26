@@ -906,3 +906,17 @@ func TestListRowTail(t *testing.T) {
 		t.Errorf("row lost its tail: %q", row)
 	}
 }
+
+// TestCreateFailedKeepsSummary: a failed create reopens the box with the
+// summary typed.
+func TestCreateFailedKeepsSummary(t *testing.T) {
+	m := jiraTabModel(t)
+	m.openJiraCreateSummary("Task")
+	m.jiraCreateInput.SetValue("Fix the cart")
+	m.jiraCreateActive = false // sent
+	out, _ := m.handleJiraCreated(jiraCreatedMsg{err: fmt.Errorf("components: required")})
+	m = out.(Model)
+	if !m.jiraCreateActive || m.jiraCreateInput.Value() != "Fix the cart" || !strings.Contains(m.status, "enter retries") {
+		t.Errorf("active %v, %q, %q", m.jiraCreateActive, m.jiraCreateInput.Value(), m.status)
+	}
+}

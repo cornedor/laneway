@@ -96,10 +96,16 @@ type jiraCreateSprintErr struct{ err error }
 
 func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: " + e.err.Error() }
 
-// handleJiraCreated opens the new issue and refetches the board.
+// handleJiraCreated opens the new issue and refetches the board; a failed
+// create reopens the box with your summary.
 func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 	if msg.key == "" {
 		m.fail("create: " + msg.err.Error())
+		if !m.modalOpen() && m.jiraCreateInput.Value() != "" {
+			m.jiraCreateActive = true // your summary back, to retry
+			m.jiraCreateInput.Focus()
+			m.fail("create: " + msg.err.Error() + " · enter retries")
+		}
 		return m, nil
 	}
 	refresh := m.refreshJiraAfterEdit()
