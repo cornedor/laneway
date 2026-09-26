@@ -1017,7 +1017,7 @@ func TestJiraSwimlanes(t *testing.T) {
 	out, _ := m.handleKey(keyMsg(t, "s"))
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)
-	ada, un := strings.Index(view, "▾ Ada · 1"), strings.Index(view, "▾ Unassigned · 3")
+	ada, un := strings.Index(view, "▾ Ada · 1"), strings.Index(view, "▾ Unassigned · 3 · 5p")
 	if m.status != "swimlanes by assignee" || ada < 0 || un < ada {
 		t.Fatalf("status %q, bands at %d, %d:\n%s", m.status, ada, un, view)
 	}

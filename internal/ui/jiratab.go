@@ -1968,6 +1968,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 	type swimLine struct {
 		head  string // the band's name on its header line
 		count int
+		pts   string // its points, "" when none are estimated
 		at    []int // the row's card row per shown lane, -1 for none
 		y     int   // the card line, -1 for a header or gap
 		start int   // the row's first line
@@ -1996,7 +1997,17 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		if cards == 0 {
 			continue
 		}
-		body = append(body, swimLine{head: g, count: cards, y: -1})
+		var idx []int
+		for i, run := range runs {
+			for _, r := range run {
+				idx = append(idx, shown[i].cards[r])
+			}
+		}
+		pts, ok := jiraLanePoints(t.cards, idx)
+		if !ok || !m.opts.fields.points {
+			pts = ""
+		}
+		body = append(body, swimLine{head: g, count: cards, pts: pts, y: -1})
 		t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
 		if t.swimFold[g] {
 			continue
@@ -2039,7 +2050,11 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 			if t.swimFold[bl.head] {
 				sign = "▸ "
 			}
-			lines = append(lines, jiraViewActive.Render(sign+bl.head)+jiraDimStyle.Render(fmt.Sprintf(" · %d", bl.count)))
+			n := fmt.Sprintf(" · %d", bl.count)
+			if bl.pts != "" {
+				n += " · " + bl.pts + "p"
+			}
+			lines = append(lines, jiraViewActive.Render(sign+bl.head)+jiraDimStyle.Render(n))
 			continue
 		case bl.y < 0:
 			lines = append(lines, row(make([]string, len(shown))))
