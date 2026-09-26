@@ -101,10 +101,10 @@ func TestPlanRank(t *testing.T) {
 func TestPlanCapacity(t *testing.T) {
 	cards := []jira.Card{{Assignee: "Ada", Points: "8"}, {Assignee: "Bob", Points: "3"}, {Points: "2"}}
 	got := planByAssignee(cards, map[string]float64{"Ada": 5, "default": 10})
-	if plain := ansi.Strip(got); plain != "Ada 8/5 · Bob 3/10 · — 2" {
+	if plain := ansi.Strip(got); plain != "Ada 8/5! · Bob 3/10 · — 2" {
 		t.Errorf("plain = %q", plain)
 	}
-	if !strings.Contains(got, jiraOverStyle.Render("Ada 8/5")) {
+	if !strings.Contains(got, jiraOverStyle.Render("Ada 8/5!")) {
 		t.Error("over capacity should be marked")
 	}
 }

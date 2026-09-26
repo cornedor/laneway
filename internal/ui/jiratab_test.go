@@ -916,7 +916,7 @@ func TestAgeMark(t *testing.T) {
 	if got := ansi.Strip(jiraAgeMark(c, now, 5)); got != "4d" {
 		t.Errorf("4 days = %q", got)
 	}
-	if got := jiraAgeMark(c, now, 3); got != jiraOverStyle.Render("4d") {
+	if got := jiraAgeMark(c, now, 3); got != jiraOverStyle.Render("4d!") {
 		t.Errorf("past stale = %q", got)
 	}
 	c.InProgress = false

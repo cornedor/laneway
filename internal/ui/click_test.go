@@ -920,3 +920,13 @@ func TestCreateFailedKeepsSummary(t *testing.T) {
 		t.Errorf("active %v, %q, %q", m.jiraCreateActive, m.jiraCreateInput.Value(), m.status)
 	}
 }
+
+// TestOverLimitMark: a lane past its limit says so with ! too.
+func TestOverLimitMark(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.lanes[0].max = 1
+	m.renderJira()
+	if !strings.Contains(ansi.Strip(m.View().Content), "/1!") {
+		t.Errorf("no over-limit mark:\n%s", ansi.Strip(m.View().Content))
+	}
+}

@@ -640,7 +640,7 @@ func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
 		case !ok:
 			parts[i] = jiraDimStyle.Render(s.name + " " + s.s)
 		case s.pts > cp:
-			parts[i] = jiraOverStyle.Render(fmt.Sprintf("%s %s/%s", s.name, s.s, chartNum(cp)))
+			parts[i] = jiraOverStyle.Render(fmt.Sprintf("%s %s/%s!", s.name, s.s, chartNum(cp)))
 		default:
 			parts[i] = jiraDimStyle.Render(fmt.Sprintf("%s %s/%s", s.name, s.s, chartNum(cp)))
 		}

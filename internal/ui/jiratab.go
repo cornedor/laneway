@@ -1588,7 +1588,7 @@ func jiraAgeMark(c jira.Card, now time.Time, stale int) string {
 	case days < 1:
 		return ""
 	case stale > 0 && days > stale:
-		return jiraOverStyle.Render(fmt.Sprintf("%dd", days))
+		return jiraOverStyle.Render(fmt.Sprintf("%dd!", days)) // ! says it without colour too
 	}
 	return jiraDimStyle.Render(fmt.Sprintf("%dd", days))
 }
@@ -2557,8 +2557,13 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	t := m.jiraTab
 	lane := t.lanes[l]
 	count := strconv.Itoa(len(lane.cards))
+	// Filtered counts undercount the column, so only a full board judges it.
+	over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
 	if lane.max > 0 {
 		count += "/" + strconv.Itoa(lane.max)
+	}
+	if over {
+		count += "!" // over its limit, without colour too
 	}
 	if pts, ok := jiraLanePoints(t.cards, lane.cards); ok && m.opts.fields.points {
 		count += " · " + pts + "p"
@@ -2574,8 +2579,6 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 		}
 	}
 	head := ansi.Truncate(lane.name+" "+count, max(inner-2-lipgloss.Width(before+after), 1), "…")
-	// Filtered counts undercount the column, so only a full board judges it.
-	over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
 	switch {
 	case over && !(t.drag.active && l == t.drag.over):
 		head = jiraOverStyle.Underline(l == t.lane).Render(head)
