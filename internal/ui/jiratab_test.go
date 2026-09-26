@@ -932,3 +932,23 @@ func TestListGroupScroll(t *testing.T) {
 		t.Errorf("offset = %d, want the header's line 2", got)
 	}
 }
+
+// TestListEpicGroups: sorted by epic, cards head under their epic, those
+// without one last.
+func TestListEpicGroups(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[1].ParentSummary = "Checkout"
+	m.jiraTab.cards[2].ParentSummary = "Checkout"
+	m.installJiraCards(m.jiraTab.cards, 4, nil, "")
+	out, _ := m.handleJiraKey(keyMsg(t, "t"))
+	m = out.(Model)
+	for m.jiraTab.sort != jiraSortEpic {
+		out, _ = m.handleJiraKey(keyMsg(t, "s"))
+		m = out.(Model)
+	}
+	view := ansi.Strip(m.View().Content)
+	a, b := strings.Index(view, "── Checkout · 2"), strings.Index(view, "── No epic · 2")
+	if a < 0 || b < 0 || a > b {
+		t.Errorf("epic groups:\n%s", view)
+	}
+}

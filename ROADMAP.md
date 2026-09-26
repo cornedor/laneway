@@ -11,7 +11,7 @@
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
-- List sorted by assignee or priority shows a header per group (count, points)
+- List sorted by assignee, priority or epic shows a header per group (count, points)
 - `u` undoes the last card move (again redoes it)
 - In-progress cards show their age (`4d`), red past `ui.stale_days`; `card_fields: age`
 - Flagged (impediment) cards show ⚑; panel `A` flags / clears; `card_fields: flagged`

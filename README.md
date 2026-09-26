@@ -164,7 +164,7 @@ last, marked `⌕`.
 
 Board:
 - move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search
-- board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee or priority it groups) ·
+- board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `u` undo the last move · `M` to sprint/backlog · `n` new issue · `x`/`X`
   mark · `B` edit marked · `o` browser · `y`/`Y` copy key/URL · drag with the mouse

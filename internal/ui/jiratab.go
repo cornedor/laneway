@@ -1395,8 +1395,8 @@ func (m *Model) renderJira() {
 	}
 }
 
-// jiraGroupOf is the group a card heads under in list mode: its assignee or
-// priority when the list is sorted by that; ok false for other sorts.
+// jiraGroupOf is the group a card heads under in list mode: its assignee,
+// priority or epic when the list is sorted by that; ok false for others.
 func jiraGroupOf(s jiraSort, c jira.Card) (string, bool) {
 	switch s {
 	case jiraSortAssignee:
@@ -1409,6 +1409,11 @@ func jiraGroupOf(s jiraSort, c jira.Card) (string, bool) {
 			return "No priority", true
 		}
 		return c.Priority, true
+	case jiraSortEpic:
+		if c.ParentSummary == "" {
+			return "No epic", true
+		}
+		return c.ParentSummary, true
 	}
 	return "", false
 }
