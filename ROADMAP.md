@@ -2,12 +2,12 @@
 
 ## Next
 - Status line: errors in the theme's error colour (needs the ~155 status sites to say which are errors)
-- `?` on planning, roadmap, charts and the timesheet: their own section first
 - After a download, a way to open the file (a key or palette row "open the last download")
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12), double-click window (400ms)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `?` help has Planning, Roadmap, Charts and Timesheet sections (as bound), and opens at the screen you are on
 - Planning's, the roadmap's and the timesheet's keys are rebindable in `ui.keys` (plan_start … rank_down, roadmap_grip … roadmap_issues, edit_entry, delete_entry), checked for clashes per screen; their hints show the bound keys
 - Feedback reads as what happened: "commented on ABC-1", "logged work on ABC-1", "cleared the flag on ABC-1" (it said "ABC-1 comment updated"); `ui.download_dir` (with `~`) for attachments
 - `ui.my_work_jql`: the query `O` runs (default yours everywhere, open or done this week); editable from `,`

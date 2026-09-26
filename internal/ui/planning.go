@@ -232,7 +232,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.openJiraKey(c.Key)
 		}
 	case key.Matches(msg, m.keys.Help):
-		m.helpOpen = true
+		m.openHelp("Planning")
 	}
 	return m, nil
 }

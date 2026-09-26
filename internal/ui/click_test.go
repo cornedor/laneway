@@ -643,3 +643,22 @@ func TestDownloadDir(t *testing.T) {
 		t.Errorf("default %q", got)
 	}
 }
+
+// TestHelpPerScreen: ? on the roadmap, planning or charts opens help at
+// that screen's keys.
+func TestHelpPerScreen(t *testing.T) {
+	for title, m := range map[string]Model{"Roadmap": roadmapModel(t), "Planning": planModel(t, nil), "Charts": chartsModel(t)} {
+		out, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+		out, _ = out.(Model).handleJiraKey(keyMsg(t, "?"))
+		m = out.(Model)
+		found := false
+		for _, l := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+			if strings.Contains(l, " "+title+" ") || strings.HasSuffix(strings.TrimRight(l, " │"), title) {
+				found = true
+			}
+		}
+		if !m.helpOpen || !found {
+			t.Errorf("%s: help at page %d lacks its section", title, m.helpPage)
+		}
+	}
+}

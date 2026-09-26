@@ -378,11 +378,19 @@ func TestHelpOverlay(t *testing.T) {
 	if !m.helpOpen || !strings.Contains(m.View().Content, "story points") {
 		t.Fatal("? did not show help")
 	}
-	if !strings.Contains(m.View().Content, "double-click") {
+	hasMouse := func() bool {
+		return slices.ContainsFunc(m.helpSections(), func(s struct {
+			title string
+			rows  []helpRow
+		}) bool {
+			return s.title == "Mouse"
+		})
+	}
+	if !hasMouse() {
 		t.Error("help lacks the mouse")
 	}
 	m.opts.mouse = false
-	if strings.Contains(m.View().Content, "double-click") {
+	if hasMouse() {
 		t.Error("help shows the mouse with ui.mouse off")
 	}
 	m.opts.mouse = true

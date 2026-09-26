@@ -304,7 +304,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, tea.SetClipboard(m.roadmapTable())
 		}
 	case key.Matches(msg, m.keys.Help):
-		m.helpOpen = true
+		m.openHelp("Roadmap")
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
 		if m.refOpen {
 			m.focus = focusRef

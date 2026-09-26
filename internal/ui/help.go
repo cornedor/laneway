@@ -103,6 +103,50 @@ func (m *Model) helpSections() []struct {
 			{"esc", "drop field, close"},
 		}},
 	}
+	type section = struct {
+		title string
+		rows  []helpRow
+	}
+	sections = append(sections,
+		section{"Planning", []helpRow{
+			{join(k.Left, k.Right), "switch side"},
+			{join(k.PrevView, k.NextView), "the sprint on the right"},
+			row(k.Mark, "mark a card"),
+			{helpKey(k.MoveSprint) + " / space", "move the marked (or the card) across"},
+			{join(k.RankUp, k.RankDown), "rank up / down"},
+			row(k.PlanStart, "start the sprint / move its end"),
+			row(k.PlanGoal, "edit the sprint's goal"),
+			row(k.PlanRename, "rename the sprint"),
+			row(k.PlanNew, "new sprint"),
+			row(k.PlanComplete, "complete the active sprint (twice)"),
+			{"esc / " + helpKey(k.Quit), "back to the board"},
+		}},
+		section{"Roadmap", []helpRow{
+			{join(k.Left, k.Right), "scroll the timeline"},
+			{join(k.ZoomIn, k.ZoomOut), "zoom in / out"},
+			row(k.Today, "back to today"),
+			row(k.RoadmapFold, "fold out the epic's issues"),
+			{join(k.MoveCardLeft, k.MoveCardRight), "move the bar a column"},
+			{join(k.EndEarlier, k.EndLater), "move its end"},
+			row(k.RoadmapGrip, "grip its start, then end, then let go"),
+			row(k.RoadmapIssues, "the epic's issues as a view"),
+			row(k.Create, "new epic"),
+			row(k.CopyKey, "copy the epics as a table"),
+			{"esc / " + helpKey(k.Quit), "back to the board"},
+		}},
+		section{"Charts", []helpRow{
+			{helpKey(k.Tab) + " / " + join(k.PrevView, k.NextView), "next / previous chart"},
+			row(k.CopyKey, "copy the numbers as a table"),
+			row(k.Refresh, "refresh"),
+			{"esc / " + helpKey(k.Quit), "back to the board"},
+		}},
+		section{"Timesheet", []helpRow{
+			{join(k.PrevView, k.NextView), "previous / next day"},
+			row(k.EditEntry, "edit the entry"),
+			row(k.DeleteEntry, "delete it (twice)"),
+			row(k.CopyKey, "copy the day as a table"),
+		}},
+	)
 	if m.opts.mouse {
 		sections = append(sections, struct {
 			title string

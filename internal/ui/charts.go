@@ -134,7 +134,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.status = "copied the numbers as a markdown table"
 		return m, tea.SetClipboard(m.chartTable(time.Now()))
 	case key.Matches(msg, m.keys.Help):
-		m.helpOpen = true
+		m.openHelp("Charts")
 	}
 	return m, nil
 }
