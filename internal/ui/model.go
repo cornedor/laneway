@@ -378,6 +378,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	th, thWarn := themeFrom(ui.Theme)
 	applyTheme(th)
 	setCodeTheme(opts.codeTheme)
+	plainIcons = opts.plainIcons
 	warn = append(warn, thWarn...)
 	ruleSet, ruleWarn := rules.Compile(rs)
 	warn = append(warn, ruleWarn...)

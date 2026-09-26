@@ -161,6 +161,9 @@ type UIConfig struct {
 	// DoubleClick is how quickly a second click makes a double-click
 	// ("400ms"), 100ms to 2s.
 	DoubleClick string `yaml:"double_click"`
+	// Icons is "nerd" (default: Nerd Font glyphs for issue types) or
+	// "plain" (letters, for fonts without them).
+	Icons string `yaml:"icons"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
 	CustomFields []string `yaml:"custom_fields"`

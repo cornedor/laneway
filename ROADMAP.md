@@ -4,12 +4,12 @@
 - Panel: Created, Resolution, Watchers (you), Votes from the edit meta already fetched; time tracking (logged · left of estimate)
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
 - Panel: long field values wrap under their value column, not the label
-- `ui.icons: nerd | plain` for terminals without a Nerd Font
 - List sort by updated, due, created; `w` logs a past day (`yesterday 2h`); start work moves to In Progress and assigns you (option); empty extra fields fold
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.icons: plain` draws issue types as letters (B S E ↳ •) for fonts without Nerd Font glyphs; live from `,`
 - Not by colour alone: a lane past its WIP limit (`12/10!`), a stale age (`12d!`) and a person over capacity in planning (`Ada 13/10!`) carry a `!`
 - A failed create reopens the box with your summary and the error; enter retries
 - Assign to yourself in `a enter`: the assignee picker starts on "Assign to me" unless it is yours already

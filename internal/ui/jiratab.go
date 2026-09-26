@@ -1562,18 +1562,28 @@ var jiraKeyStyle, jiraDimStyle, jiraOverStyle, jiraDropStyle, jiraViewActive, ji
 // jiraTypeIcon is a nerd-font glyph per issue type, like the GitLab tab's.
 func jiraTypeIcon(t string) string {
 	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
+	icon := func(nerd, plain string) string {
+		if plainIcons {
+			return plain
+		}
+		return nerd
+	}
 	switch strings.ToLower(t) {
 	case "bug":
-		return st(curTheme["type_bug"]).Render("")
+		return st(curTheme["type_bug"]).Render(icon("\uf188", "B"))
 	case "story":
-		return st(curTheme["type_story"]).Render("")
+		return st(curTheme["type_story"]).Render(icon("\uf02e", "S"))
 	case "epic":
-		return st(curTheme["type_epic"]).Render("")
+		return st(curTheme["type_epic"]).Render(icon("\uf0e7", "E"))
 	case "sub-task", "subtask":
-		return st(curTheme["type_subtask"]).Render("")
+		return st(curTheme["type_subtask"]).Render(icon("\uf0da", "↳"))
 	}
-	return st(curTheme["type_other"]).Render("")
+	return st(curTheme["type_other"]).Render(icon("\uf14a", "•"))
 }
+
+// plainIcons draws issue types as letters, for terminals without a Nerd
+// Font (ui.icons: plain). Set by New.
+var plainIcons bool
 
 // jiraPriorityMark marks a card's priority, "" for medium or none: the
 // default needs no ink.

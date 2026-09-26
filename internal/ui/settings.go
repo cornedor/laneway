@@ -61,6 +61,7 @@ var settingDefaults = map[string]string{
 	"card_colors":          "ribbon",
 	"mouse":                "on",
 	"double_click":         "400ms",
+	"icons":                "nerd",
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
@@ -255,6 +256,7 @@ func (m *Model) saveSetting(name, text string) string {
 		opts.panelPct = m.opts.panelPct
 	}
 	m.uiConfig, m.opts = next, opts
+	plainIcons = opts.plainIcons
 	setCodeTheme(opts.codeTheme)
 	m.settings.rows = settingRows(next)
 	m.jiraTab.rows = nil

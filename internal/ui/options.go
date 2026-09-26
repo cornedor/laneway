@@ -49,6 +49,7 @@ type options struct {
 	cardColors      string              // "ribbon" or "off"
 	mouse           bool                // clicks, drags and the wheel
 	doubleClick     time.Duration       // a second click within this is a double-click
+	plainIcons      bool                // issue types as letters (ui.icons: plain)
 	roadmapDoneDays int                 // resolved epics older than this leave the roadmap
 	codeTheme       string              // chroma style for code blocks
 }
@@ -100,6 +101,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
 	dur("inbox_every", c.InboxEvery, &o.inboxEvery, true)
 	dur("full_refresh", c.FullRefresh, &o.fullRefresh, false)
+	switch strings.ToLower(strings.TrimSpace(c.Icons)) {
+	case "", "nerd":
+	case "plain":
+		o.plainIcons = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.icons: %q is not nerd or plain", c.Icons))
+	}
 	if v := strings.TrimSpace(c.DoubleClick); v != "" {
 		if d, err := time.ParseDuration(v); err != nil || d < 100*time.Millisecond || d > 2*time.Second {
 			warn = append(warn, fmt.Sprintf("ui.double_click: %q is not a duration from 100ms to 2s", v))

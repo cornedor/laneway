@@ -930,3 +930,19 @@ func TestOverLimitMark(t *testing.T) {
 		t.Errorf("no over-limit mark:\n%s", ansi.Strip(m.View().Content))
 	}
 }
+
+// TestPlainIcons: ui.icons plain draws issue types as letters.
+func TestPlainIcons(t *testing.T) {
+	t.Cleanup(func() { plainIcons = false })
+	o, warn := optionsFrom(config.UIConfig{Icons: "plain"})
+	if !o.plainIcons || len(warn) != 0 {
+		t.Fatalf("plain: %v %v", o.plainIcons, warn)
+	}
+	plainIcons = true
+	if got := ansi.Strip(jiraTypeIcon("Bug")); got != "B" {
+		t.Errorf("bug = %q", got)
+	}
+	if _, warn := optionsFrom(config.UIConfig{Icons: "emoji"}); len(warn) == 0 {
+		t.Error("a bad value should warn")
+	}
+}
