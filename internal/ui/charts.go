@@ -19,10 +19,16 @@ import (
 // left by resolution date, against the ideal line) and the velocity of the
 // last closed sprints.
 
-const velocitySprints = 8
+// Chart tabs, in their order.
+const (
+	chartBurndown = iota
+	chartBurnup
+	chartVelocity
+	chartTabs
+)
 
 type chartsState struct {
-	tab     int // 0 burndown, 1 velocity
+	tab     int // chartBurndown, chartBurnup or chartVelocity
 	sprint  *jiraView
 	burn    []jira.BurnIssue
 	vel     []jira.SprintVelocity
@@ -53,7 +59,7 @@ func (m *Model) openCharts() tea.Cmd {
 		}
 	}
 	if ch.sprint == nil {
-		ch.tab = 1
+		ch.tab = chartVelocity
 	}
 	t.charts = ch
 	return m.loadCharts()
@@ -63,7 +69,7 @@ func (m *Model) loadCharts() tea.Cmd {
 	t, ch := m.jiraTab, m.jiraTab.charts
 	ch.seq++
 	ch.loading = true
-	seq, ctx, c, board, pf := ch.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg.PointsField
+	seq, ctx, c, board, pf, n := ch.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg.PointsField, m.opts.velocitySprints
 	sprint := 0
 	if ch.sprint != nil {
 		sprint = ch.sprint.sprint
@@ -79,7 +85,7 @@ func (m *Model) loadCharts() tea.Cmd {
 				msg.burn, errB = c.SprintBurn(ctx, sprint, pf)
 			}
 		}()
-		go func() { defer wg.Done(); msg.vel, errV = c.Velocity(ctx, board, velocitySprints, pf) }()
+		go func() { defer wg.Done(); msg.vel, errV = c.Velocity(ctx, board, n, pf) }()
 		wg.Wait()
 		msg.err = firstErr(errB, errV)
 		return msg
@@ -111,7 +117,11 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab),
 		key.Matches(msg, m.keys.PrevView), key.Matches(msg, m.keys.NextView):
 		if ch.sprint != nil {
-			ch.tab = 1 - ch.tab
+			d := 1
+			if key.Matches(msg, m.keys.ShiftTab) || key.Matches(msg, m.keys.PrevView) {
+				d = chartTabs - 1
+			}
+			ch.tab = (ch.tab + d) % chartTabs
 		}
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadCharts()
@@ -124,13 +134,13 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // chartsLine is the view line while the charts show.
 func (m *Model) chartsLine() string {
 	ch := m.jiraTab.charts
-	tabs := []string{"Burndown", "Velocity"}
+	tabs := []string{"Burndown", "Burnup", "Velocity"}
 	var parts []string
 	for i, name := range tabs {
 		switch {
 		case i == ch.tab:
 			parts = append(parts, jiraViewActive.Render(name))
-		case i == 0 && ch.sprint == nil:
+		case i != chartVelocity && ch.sprint == nil:
 			continue
 		default:
 			parts = append(parts, jiraDimStyle.Render(name))
@@ -151,8 +161,10 @@ func (m *Model) renderCharts(width, height int) string {
 		return refErrStyle.Render(ch.err)
 	case ch.loading && ch.burn == nil && ch.vel == nil:
 		return refDimStyle.Render("loading…")
-	case ch.tab == 0:
+	case ch.tab == chartBurndown:
 		return renderBurndown(*ch.sprint, ch.burn, time.Now(), width, height)
+	case ch.tab == chartBurnup:
+		return renderBurnup(*ch.sprint, ch.burn, time.Now(), width, height)
 	}
 	return renderVelocity(ch.vel, width)
 }
@@ -265,4 +277,74 @@ func renderVelocity(vel []jira.SprintVelocity, width int) string {
 // chartNum is a point count without trailing zeros.
 func chartNum(f float64) string {
 	return strconv.FormatFloat(math.Round(f*10)/10, 'f', -1, 64)
+}
+
+// burnupSeries is, per day from the sprint's start up to today (or its end),
+// the points in it then and the points of those done by that day's end.
+func burnupSeries(issues []jira.BurnIssue, start, end, now time.Time) (scope, done []float64) {
+	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	last := end
+	if now.Before(last) {
+		last = now
+	}
+	for d := day; !d.After(last); d = d.AddDate(0, 0, 1) {
+		eod := d.AddDate(0, 0, 1)
+		s, dn := 0.0, 0.0
+		for _, is := range issues {
+			if !is.Added.IsZero() && !is.Added.Before(eod) {
+				continue // not in the sprint yet
+			}
+			s += is.Points
+			if !is.Resolved.IsZero() && is.Resolved.Before(eod) {
+				dn += is.Points
+			}
+		}
+		scope, done = append(scope, s), append(done, dn)
+	}
+	return scope, done
+}
+
+// renderBurnup plots points done against the sprint's scope (dotted).
+func renderBurnup(v jiraView, issues []jira.BurnIssue, now time.Time, width, height int) string {
+	if v.start.IsZero() || v.end.IsZero() {
+		return refDimStyle.Render(v.name + " has no dates")
+	}
+	scope, done := burnupSeries(issues, v.start, v.end, now)
+	top := 0.0
+	for _, s := range scope {
+		top = max(top, s)
+	}
+	cur, all := 0.0, 0.0
+	if n := len(done); n > 0 {
+		cur, all = done[n-1], scope[n-1]
+	}
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %sp done · scope dotted", chartNum(cur), chartNum(all)))
+	if top == 0 {
+		return title + "\n\n" + refDimStyle.Render("no points in this sprint")
+	}
+	axisW := len(chartNum(top)) + 1
+	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)
+	c := newBraille(cw, chh)
+	dw, dh := c.dots()
+	days := max(v.end.Sub(v.start).Hours()/24, 1)
+	x := func(day float64) int { return int(math.Round(day / days * float64(dw-1))) }
+	y := func(pts float64) int { return int(math.Round((1 - pts/top) * float64(dh-1))) }
+	for i := 1; i < len(scope); i++ {
+		c.line(x(float64(i-1)), y(scope[i-1]), x(float64(i)), y(scope[i]), 3)
+		c.line(x(float64(i-1)), y(done[i-1]), x(float64(i)), y(done[i]), 1)
+	}
+	lines := []string{title, ""}
+	for r, row := range c.rows() {
+		label := ""
+		switch r {
+		case 0:
+			label = chartNum(top)
+		case chh - 1:
+			label = "0"
+		}
+		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+roadmapDoneStyle.Render(row))
+	}
+	from, to := v.start.Format("Mon 2 Jan"), v.end.Format("Mon 2 Jan")
+	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))
+	return strings.Join(lines, "\n")
 }

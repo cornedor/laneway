@@ -63,6 +63,11 @@ func TestChartsView(t *testing.T) {
 	}
 	out, _ := m.handleJiraKey(keyMsg(t, "tab"))
 	m = out.(Model)
+	if view = ansi.Strip(m.View().Content); !strings.Contains(view, "8 of 13p done · scope dotted") {
+		t.Errorf("burnup lacks its title:\n%s", view)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "tab"))
+	m = out.(Model)
 	view = ansi.Strip(m.View().Content)
 	for _, want := range []string{"last 2 sprints · average 16.5p done", "Sprint 0", "15/20", "18/18", "█"} {
 		if !strings.Contains(view, want) {
@@ -72,5 +77,17 @@ func TestChartsView(t *testing.T) {
 	out, _ = m.handleJiraKey(keyMsg(t, "esc"))
 	if m = out.(Model); m.jiraTab.charts != nil {
 		t.Error("esc should bring the board back")
+	}
+}
+
+func TestBurnupSeries(t *testing.T) {
+	start := time.Date(2026, 9, 21, 9, 0, 0, 0, time.Local)
+	issues := []jira.BurnIssue{
+		{Points: 5, Resolved: start.Add(2 * time.Hour)},
+		{Points: 3, Added: start.AddDate(0, 0, 1).Add(time.Hour)},
+	}
+	scope, done := burnupSeries(issues, start, start.AddDate(0, 0, 14), start.AddDate(0, 0, 1).Add(2*time.Hour))
+	if !slices.Equal(scope, []float64{5, 8}) || !slices.Equal(done, []float64{5, 5}) {
+		t.Errorf("scope %v done %v", scope, done)
 	}
 }

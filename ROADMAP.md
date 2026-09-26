@@ -4,7 +4,7 @@
 - Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 6: rename a sprint, move its dates
-- Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
+- Charts step 4: cumulative flow by status
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
@@ -12,6 +12,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `C` burnup tab (done against scope), `ui.velocity_sprints`
 - Panel multi-line fields edit in `$EDITOR` (the description's safe round trip)
 - `A` → Edit a comment of yours in `$EDITOR` (same safe round trip as the description)
 - `ui.templates`: a new issue's description by type

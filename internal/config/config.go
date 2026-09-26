@@ -64,6 +64,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// VelocitySprints is how many closed sprints the velocity chart shows
+	// (default 8).
+	VelocitySprints int `yaml:"velocity_sprints"`
 	// Templates are the description a new issue starts with, by issue
 	// type name (markdown).
 	Templates map[string]string `yaml:"templates"`

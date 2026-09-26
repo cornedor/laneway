@@ -11,21 +11,22 @@ import (
 
 // options are the config's ui: section with defaults filled in.
 type options struct {
-	autoRefresh  time.Duration // 0: off
-	staleAfter   time.Duration
-	images       bool
-	imageMaxRows int
-	panelPct     int
-	cardLimit    int  // 0: the client's default
-	lanes        bool // default mode
-	dateFormat   string
-	fields       cardFields
-	quick        []jira.QuickFilter // config presets, ids -1, -2, …
-	views        []jiraView         // config JQL views
-	savedFilters bool               // starred Jira filters as views
-	capacity     map[string]float64 // sprint points per person, "default" for the rest
-	timerOnStart bool               // S also starts the timer
-	templates    map[string]string  // new issue descriptions by type, lower-cased
+	autoRefresh     time.Duration // 0: off
+	staleAfter      time.Duration
+	images          bool
+	imageMaxRows    int
+	panelPct        int
+	cardLimit       int  // 0: the client's default
+	lanes           bool // default mode
+	dateFormat      string
+	fields          cardFields
+	quick           []jira.QuickFilter // config presets, ids -1, -2, …
+	views           []jiraView         // config JQL views
+	savedFilters    bool               // starred Jira filters as views
+	capacity        map[string]float64 // sprint points per person, "default" for the rest
+	timerOnStart    bool               // S also starts the timer
+	templates       map[string]string  // new issue descriptions by type, lower-cased
+	velocitySprints int                // closed sprints in the velocity chart
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -37,7 +38,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true}
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8}
 }
 
 // optionsFrom resolves c over the defaults. A bad value is reported and
@@ -70,6 +71,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.capacity = map[string]float64{}
 		}
 		o.capacity[name] = pts
+	}
+	switch n := c.VelocitySprints; {
+	case n == 0:
+	case n < 1 || n > 50:
+		warn = append(warn, fmt.Sprintf("ui.velocity_sprints: %d is not 1–50", n))
+	default:
+		o.velocitySprints = n
 	}
 	for typ, md := range c.Templates {
 		if o.templates == nil {

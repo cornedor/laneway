@@ -59,6 +59,7 @@ ui:
     - {name: Mine, jql: "assignee = currentUser()"}
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
   timer_on_start: on            # S (start work) also starts the timer (off)
+  velocity_sprints: 8           # closed sprints in C's velocity chart
   templates:                    # a new issue's description by type (markdown)
     Bug: "## Steps\n\n1. \n\n## Expected\n\n## Actual"
   saved_filters: on             # your starred Jira filters as views too (off)
@@ -242,8 +243,9 @@ a failed write reloads both sides.
 ## Charts
 
 `C` on a scrum board: the active sprint's burndown (points left per day by
-resolution date, against the dotted ideal) and, on `tab`, the velocity of
-the last 8 closed sprints (points done by the sprint's end over points in
+resolution date, against the dotted ideal), its burnup (points done against
+the scope, dotted) and the velocity of the last 8 closed sprints
+(`ui.velocity_sprints`); `tab` steps through them (points done by the sprint's end over points in
 it). The burndown counts an issue from the day it joined the sprint and
 says how much was added after the start; issues taken out of it don't show.
 
