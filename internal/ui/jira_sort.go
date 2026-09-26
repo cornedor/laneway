@@ -19,11 +19,14 @@ const (
 	jiraSortEpic
 	jiraSortKey
 	jiraSortStatus // appended: a stored sort keeps its meaning
+	jiraSortUpdated
+	jiraSortDue
+	jiraSortCreated
 	jiraSortCount
 )
 
 func (s jiraSort) String() string {
-	return [...]string{"rank", "priority", "points", "assignee", "epic", "key", "status"}[s]
+	return [...]string{"rank", "priority", "points", "assignee", "epic", "key", "status", "updated", "due", "created"}[s]
 }
 
 // jiraPriorityRank orders priorities highest first; unknown ones sit with
@@ -120,6 +123,22 @@ func (s jiraSort) cmp() func(a, b jira.Card) int {
 				return c
 			}
 			return strings.Compare(a.Status, b.Status)
+		}
+	case jiraSortUpdated: // newest first
+		cmp = func(a, b jira.Card) int { return b.Updated.Compare(a.Updated) }
+	case jiraSortCreated: // newest first
+		cmp = func(a, b jira.Card) int { return b.Created.Compare(a.Created) }
+	case jiraSortDue: // soonest first, none last
+		cmp = func(a, b jira.Card) int {
+			switch {
+			case a.Due.IsZero() && b.Due.IsZero():
+				return 0
+			case a.Due.IsZero():
+				return 1
+			case b.Due.IsZero():
+				return -1
+			}
+			return a.Due.Compare(b.Due)
 		}
 	case jiraSortKey:
 		cmp = func(a, b jira.Card) int {

@@ -2,11 +2,12 @@
 
 ## Next
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
-- List sort by updated, due, created; `w` logs a past day (`yesterday 2h`); start work moves to In Progress and assigns you (option); empty extra fields fold
+- `w` logs a past day (`yesterday 2h`); start work moves to In Progress and assigns you (option); empty extra fields fold
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- List sorts by updated and created (newest first) and due (soonest first, none last)
 - Panel: a long field value (labels, people, options) wraps under its value column instead of back under the label
 - Panel: Created, Resolved (resolution and when), Watchers and Votes (with "(you)"), and Time (`3h logged · 5h left of 8h`), from the values the edit meta already fetches
 - `ui.icons: plain` draws issue types as letters (B S E ↳ •) for fonts without Nerd Font glyphs; live from `,`

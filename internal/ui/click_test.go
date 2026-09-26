@@ -988,3 +988,25 @@ func TestPanelRowWrap(t *testing.T) {
 	}
 	t.Fatal("no Labels row")
 }
+
+// TestSortByDates: the list sorts by updated and created (newest first)
+// and due (soonest first, none last).
+func TestSortByDates(t *testing.T) {
+	now := time.Now()
+	cards := []jira.Card{
+		{Key: "A-1", Updated: now.Add(-time.Hour), Created: now.Add(-48 * time.Hour)},
+		{Key: "A-2", Updated: now, Created: now.Add(-72 * time.Hour), Due: now.Add(48 * time.Hour)},
+		{Key: "A-3", Updated: now.Add(-2 * time.Hour), Created: now, Due: now.Add(24 * time.Hour)},
+	}
+	for s, want := range map[jiraSort][]string{jiraSortUpdated: {"A-2", "A-1", "A-3"}, jiraSortCreated: {"A-3", "A-1", "A-2"}, jiraSortDue: {"A-3", "A-2", "A-1"}} {
+		order := []int{0, 1, 2}
+		s.apply(order, cards)
+		var got []string
+		for _, i := range order {
+			got = append(got, cards[i].Key)
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: %v, want %v", s, got, want)
+		}
+	}
+}
