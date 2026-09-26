@@ -22,6 +22,7 @@ import (
 const (
 	maxInputHeight        = 6
 	confirmDialogMaxWidth = 60
+	pickerMaxWidth        = 100
 	refPaneMinWidth       = 24
 	// diffSoftReset clears text attributes but keeps the background.
 	diffSoftReset = "\x1b[22;23;24;39m"

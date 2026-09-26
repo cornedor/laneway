@@ -11,6 +11,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -787,13 +788,8 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	if !m.jiraPicker.active {
 		return ""
 	}
-	outerW := confirmDialogMaxWidth
-	if outerW > m.width-4 {
-		outerW = m.width - 4
-	}
-	if outerW < 32 {
-		outerW = 32
-	}
+	// One width whatever the rows, so async results don't resize the box.
+	outerW := max(min(pickerMaxWidth, m.width-4), 32)
 	inner := outerW - 8
 	if inner < 1 {
 		inner = 1
@@ -804,11 +800,20 @@ func (m *Model) renderJiraPicker(maxH int) string {
 		parts = append(parts, m.jiraPicker.filter.View())
 	}
 
+	// A picker with a search box keeps one size while results come and go:
+	// its list always takes win rows and both scroll markers' lines.
+	fixed := m.jiraPicker.filterable
+	win := maxH - 10
+	if fixed {
+		win--
+	}
+	win = max(win, 3)
+	listed := len(parts)
 	switch {
 	case m.jiraPicker.loading:
 		parts = append(parts, "", refDimStyle.Render("loading…"))
 	case m.jiraPicker.err != nil:
-		parts = append(parts, "", refErrStyle.Render(m.jiraPicker.err.Error()))
+		parts = append(parts, "", refErrStyle.Render(ansi.Truncate(m.jiraPicker.err.Error(), inner, "…")))
 	default:
 		vis := m.jiraPicker.items
 		if len(vis) == 0 {
@@ -818,14 +823,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 		// Window a long set (e.g. assignable users) around the selection so the
 		// popup stays within maxH, mirroring renderSwitcherCommands. Chrome inside
 		// the box is the title + blank + two scroll markers + blank + hint (6) plus
-		// the border + padding (4), plus the filter input when present.
-		win := maxH - 10
-		if m.jiraPicker.filterable {
-			win--
-		}
-		if win < 3 {
-			win = 3
-		}
+		// the border + padding (4), plus the filter input when present (win).
 		start := 0
 		if len(vis) > win {
 			// Keep the selected row roughly centred, clamped to the ends.
@@ -858,7 +856,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 			if it.current {
 				marker = "✓"
 			}
-			text := fmt.Sprintf("%s%s %s", prefix, marker, it.label)
+			text := ansi.Truncate(fmt.Sprintf("%s%s %s", prefix, marker, it.label), inner-2, "…")
 			if i == m.jiraPicker.idx {
 				rows = append(rows, cursorStyle.Render("▸ "+text))
 			} else {
@@ -871,10 +869,21 @@ func (m *Model) renderJiraPicker(maxH int) string {
 		parts = append(parts, "")
 		if start > 0 {
 			parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↑ %d more", start)))
+		} else if fixed {
+			parts = append(parts, "")
 		}
 		parts = append(parts, strings.Join(rows, "\n"))
 		if end < len(vis) {
 			parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↓ %d more", len(vis)-end)))
+		}
+	}
+	if fixed { // pad the list to its full height: blank, marker, win rows, marker
+		n := 0
+		for _, p := range parts[listed:] {
+			n += strings.Count(p, "\n") + 1
+		}
+		for ; n < win+3; n++ {
+			parts = append(parts, "")
 		}
 	}
 
@@ -884,7 +893,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	}
 	parts = append(parts, "", lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hintTxt))
 
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Width(outerW).
 		Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 

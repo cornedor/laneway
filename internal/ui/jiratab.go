@@ -1059,14 +1059,21 @@ func (m Model) openJiraCard() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	return m.openJiraKey(c.Key)
+	m.refBack = nil // the board is its own way back
+	m.sizeRefView()
+	return m.showJiraKey(c.Key)
 }
 
-// openJiraKey shows the issue key in the reference panel, remembering the
-// issue it replaces for backspace.
+// openJiraKey shows the issue key in the reference panel, the issue it
+// replaces joining the trail for backspace.
 func (m Model) openJiraKey(key string) (tea.Model, tea.Cmd) {
 	if r := m.currentRef(); r != nil && r.jiraKey != key {
-		m.refBack = append(m.refBack, r.jiraKey)
+		c := refCrumb{key: r.jiraKey}
+		if iss := m.jiraIssue; iss != nil && iss.Key == r.jiraKey {
+			c.summary, c.status = iss.Summary, iss.Status
+		}
+		m.refBack = append(m.refBack, c)
+		m.sizeRefView()
 	}
 	return m.showJiraKey(key)
 }

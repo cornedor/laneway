@@ -1165,3 +1165,33 @@ func TestPanelDeployed(t *testing.T) {
 		t.Errorf("panel lacks the deployment:\n%s", ansi.Strip(got))
 	}
 }
+
+// TestPanelTrail: an issue opened from the panel keeps the one before as a
+// strip above it; a click on the strip goes back. The board starts afresh.
+func TestPanelTrail(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.openJiraCard()
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Summary: "First", Status: "New"}})
+	m = out.(Model)
+	out, _ = m.openJiraKey("ABC-7") // a linked issue
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-7", issue: &jira.Issue{Key: "ABC-7", Summary: "Linked"}})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "↰ ABC-1  New  First") {
+		t.Fatalf("no trail strip:\n%s", view)
+	}
+	y := slices.IndexFunc(strings.Split(view, "\n"), func(l string) bool { return strings.Contains(l, "↰ ABC-1") })
+	listW, _ := m.jiraListWidth(m.width)
+	out, _ = m.Update(tea.MouseClickMsg{X: listW + 4, Y: y, Button: tea.MouseLeft})
+	if m = out.(Model); len(m.refBack) != 0 || m.currentRef().jiraKey != "ABC-1" {
+		t.Errorf("click on the strip: back %v, showing %s", m.refBack, m.currentRef().jiraKey)
+	}
+	out, _ = m.openJiraKey("ABC-7")
+	m = out.(Model)
+	out, _ = m.openJiraCard()
+	if m = out.(Model); len(m.refBack) != 0 {
+		t.Errorf("opening from the board kept the trail: %v", m.refBack)
+	}
+}

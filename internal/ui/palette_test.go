@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"charm.land/lipgloss/v2"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -168,5 +169,30 @@ func TestPalettePinned(t *testing.T) {
 	m = out.(Model)
 	if p := m.pinnedIssues(); len(p) != 0 || m.status != "unpinned ABC-1" {
 		t.Errorf("after unpin = %v, status %q", p, m.status)
+	}
+}
+
+// TestPickerKeepsItsSize: a searchable picker is as big with one row, none
+// or a long one as with many, so async results don't resize it.
+func TestPickerKeepsItsSize(t *testing.T) {
+	m := jiraTabModel(t)
+	m.openPalette()
+	size := func() (int, int) {
+		out := m.renderJiraPicker(m.bodyH())
+		return lipgloss.Width(out), lipgloss.Height(out)
+	}
+	w, h := size()
+	for _, items := range [][]jiraPickerItem{
+		nil,
+		{{id: "x", label: strings.Repeat("a very long label ", 20)}},
+	} {
+		m.setJiraPickerItems(items)
+		if w2, h2 := size(); w2 != w || h2 != h {
+			t.Errorf("%d rows: %d×%d, want %d×%d", len(items), w2, h2, w, h)
+		}
+	}
+	m.jiraPicker.loading = true
+	if w2, h2 := size(); w2 != w || h2 != h {
+		t.Errorf("loading: %d×%d, want %d×%d", w2, h2, w, h)
 	}
 }

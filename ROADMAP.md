@@ -1,9 +1,16 @@
 # Roadmap
 
 ## Next
+- Mouse: click panel fields (edit), links, subtasks, attachments, PRs
+- Mouse: roadmap rows and bars (select, double-click opens), planning rows
+- Mouse: header views, quick filters, assignee chip clickable
+- Mouse: click and wheel in pickers, the palette, forms
+- Mouse: wheel scrolls the lane under the pointer
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Pickers keep one size (fixed width; searchable ones a fixed list height), so async results don't resize them
+- Panel trail: issues reached by links stack as strips above the current one (↰ key, status, summary); click or backspace goes back; opening from the board starts afresh
 - Palette: pinned rows show the issue's status when it's on the board
 - Panel shows `Deployed` (the board card's top environment)
 - Swimlane headers sum their story points (`▾ Ada · 5 · 13p`), hidden with points

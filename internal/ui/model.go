@@ -186,7 +186,7 @@ type Model struct {
 	refOpen    bool
 	refs       []reference
 	refIdx     int
-	refBack    []string // issues the panel showed before, newest last
+	refBack    []refCrumb // issues the panel came from by links, newest last (ref.go)
 	refGen     int
 	refLoading bool
 	refErr     error
@@ -340,7 +340,7 @@ func (m *Model) resize() {
 	m.sizeJiraView(m.width, bodyH-1)
 	_, refW := m.jiraListWidth(m.width)
 	m.refView.SetWidth(max(refW-4, 1))
-	m.refView.SetHeight(max(bodyH-2, 1))
+	m.sizeRefView()
 	m.renderJira()
 	m.renderRef()
 	m.fitImageView()
@@ -547,6 +547,9 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
 		m.focus = focusRef
+		if i := m.crumbAt(msg.Y); i >= 0 {
+			return m.backToCrumb(i)
+		}
 		m.renderJira()
 		return m, nil
 	}

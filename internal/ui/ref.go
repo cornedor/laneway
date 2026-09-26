@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // The issue side panel: the selected card, fetched and rendered on the right
@@ -76,6 +78,7 @@ func (m *Model) closeRef() {
 	m.refOpen = false
 	m.refs = nil
 	m.refBack = nil
+	m.sizeRefView()
 	m.refIdx = 0
 	m.jiraIssue = nil
 	m.refErr = nil
@@ -176,11 +179,7 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.Back):
 		if n := len(m.refBack); n > 0 {
-			key := m.refBack[n-1]
-			m.refBack = m.refBack[:n-1]
-			m.selectJiraKey(key)
-			m.renderJira()
-			return m.showJiraKey(key)
+			return m.backToCrumb(n - 1)
 		}
 		return m, nil
 	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
@@ -315,7 +314,8 @@ func (m *Model) renderRefPane(height, width int) string {
 	pct := scrollPercentFor(total, m.refView.Height(), m.refView.YOffset())
 	showScrollbar := total > m.refView.Height() && pct < 1.0
 
-	content := lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(m.refPaneTitle()), m.refView.View())
+	parts := append([]string{titleStyle.Render(m.refPaneTitle())}, m.crumbLines(width-3)...)
+	content := lipgloss.JoinVertical(lipgloss.Left, append(parts, m.refView.View())...)
 
 	borderColor := dimColor
 	if m.focus == focusRef {
@@ -327,6 +327,61 @@ func (m *Model) renderRefPane(height, width int) string {
 
 	rightBorder := renderRightBorder(innerH, 1, m.refView.Height(), total, pct, borderColor, showScrollbar, -1)
 	return lipgloss.JoinHorizontal(lipgloss.Top, box, rightBorder)
+}
+
+// The panel's trail: the issues it came from by links, each a strip above
+// the current one; backspace or a click on a strip goes back to it.
+
+// refCrumb is an issue the panel showed before.
+type refCrumb struct{ key, summary, status string }
+
+// refCrumbsShown caps the strips; older ones fold into one line.
+const refCrumbsShown = 3
+
+// crumbLines are the trail's strips, width wide, oldest first.
+func (m *Model) crumbLines(width int) []string {
+	var out []string
+	from := max(len(m.refBack)-refCrumbsShown, 0)
+	if from > 0 {
+		out = append(out, refDimStyle.Render(fmt.Sprintf("↰ %d earlier", from)))
+	}
+	for _, c := range m.refBack[from:] {
+		line := refKeyStyle.Render("↰ "+c.key) + "  " + refDimStyle.Render(c.status) + "  " + c.summary
+		out = append(out, ansi.Truncate(line, max(width, 1), "…"))
+	}
+	return out
+}
+
+// sizeRefView fits the panel's body under its title and trail.
+func (m *Model) sizeRefView() {
+	lines := min(len(m.refBack), refCrumbsShown+1)
+	m.refView.SetHeight(max(m.bodyH()-2-lines, 1))
+}
+
+// backToCrumb shows trail entry i again, dropping it and what came after.
+func (m Model) backToCrumb(i int) (tea.Model, tea.Cmd) {
+	key := m.refBack[i].key
+	m.refBack = m.refBack[:i]
+	m.sizeRefView()
+	m.selectJiraKey(key)
+	m.renderJira()
+	return m.showJiraKey(key)
+}
+
+// crumbAt is the trail entry on screen row y of the panel, -1 for none.
+func (m *Model) crumbAt(y int) int {
+	from := max(len(m.refBack)-refCrumbsShown, 0)
+	row := y - 1 // the title's row first
+	if from > 0 {
+		if row == 0 {
+			return from - 1 // "n earlier": the newest of them
+		}
+		row--
+	}
+	if row < 0 || from+row >= len(m.refBack) {
+		return -1
+	}
+	return from + row
 }
 
 // refPaneTitle is the pane's heading.
