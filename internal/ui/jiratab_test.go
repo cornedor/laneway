@@ -1381,3 +1381,31 @@ func TestOfflineKeepsBoard(t *testing.T) {
 		t.Error("a good fetch left the banner")
 	}
 }
+
+// TestCompactCards: c draws lane cards on one line with no gap, and a click
+// maps to the card on that line.
+func TestCompactCards(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "c"))
+	m = out.(Model)
+	if !m.jiraTab.compact {
+		t.Fatal("c did not switch")
+	}
+	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+	var first, third string
+	for i, l := range lines {
+		if strings.Contains(l, "ABC-1") && strings.Contains(l, "First") {
+			first, third = l, lines[i+1]
+		}
+	}
+	if first == "" || !strings.Contains(third, "ABC-3") {
+		t.Fatalf("to do lane not one card a line:\n%s", strings.Join(lines, "\n"))
+	}
+	if h := m.hitJira(2, jiraBodyTop+2); h.idx != 0 || h.line != 1 { // the second card in To do
+		t.Errorf("hit = %+v", h)
+	}
+	out, _ = m.handleKey(keyMsg(t, "c"))
+	if m = out.(Model); m.jiraTab.compact {
+		t.Error("c again should switch back")
+	}
+}

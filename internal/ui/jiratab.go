@@ -29,12 +29,66 @@ import (
 // project, board:<project>, mode, assignee and quick:<board>.
 const jiraMetaPrefix = "jira_tab:"
 
-// Card geometry in the lane view: three lines and a gap.
+// Card geometry in the lane view: three lines and a gap, or compact (c)
+// one line and none.
 const (
 	jiraCardH    = 3
 	jiraCardSlot = jiraCardH + 1
 	jiraLaneMinW = 22
 )
+
+// cardH and cardSlot are a lane card's lines, and with its gap.
+func (m *Model) cardH() int {
+	if m.jiraTab.compact {
+		return 1
+	}
+	return jiraCardH
+}
+
+func (m *Model) cardSlot() int {
+	if m.jiraTab.compact {
+		return 1
+	}
+	return jiraCardSlot
+}
+
+// cardLines are a lane card's lines: three, or one when compact (key and
+// marks, the avatar, the summary).
+func (m *Model) cardLines(c jira.Card, styled bool) []string {
+	lines := jiraCardLines(c, styled, m.opts.fields)
+	if !m.jiraTab.compact {
+		return lines
+	}
+	chip := ""
+	if m.opts.fields.avatar && c.Assignee != "" {
+		chip = jiraInitials(c.Assignee) + " "
+		if styled {
+			chip = jiraAvatar(c.Assignee) + " "
+		}
+	}
+	return []string{lines[0] + " " + chip + c.Summary}
+}
+
+const jiraCompactMeta = jiraMetaPrefix + "compact"
+
+// toggleCompact switches lane cards between three lines and one,
+// remembered.
+func (m *Model) toggleCompact() {
+	t := m.jiraTab
+	t.compact = !t.compact
+	if m.store != nil {
+		if t.compact {
+			_ = m.store.SetMeta(jiraCompactMeta, "1")
+		} else {
+			_ = m.store.DeleteMeta(jiraCompactMeta)
+		}
+	}
+	m.status = "cards: full"
+	if t.compact {
+		m.status = "cards: one line"
+	}
+	m.renderJira()
+}
 
 // jiraBodyTop is the screen row of the first body line: the title row, its
 // rule, the view selector and the filter line.
@@ -225,6 +279,8 @@ type jiraTabState struct {
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
+	// compact draws lane cards on one line (c), remembered.
+	compact bool
 	// offline is why the last fetch failed while cached cards stay shown,
 	// "" once one succeeds.
 	offline string
@@ -891,6 +947,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openQuickEdit()
 	case key.Matches(msg, m.keys.MyWork):
 		return m, m.openMyWork()
+	case key.Matches(msg, m.keys.Compact):
+		m.toggleCompact()
 	case key.Matches(msg, m.keys.PanelWider):
 		m.stepPanel(1)
 	case key.Matches(msg, m.keys.PanelNarrower):
@@ -1994,7 +2052,7 @@ func (m *Model) renderJiraLanes(width, height int) string {
 	if t.swim != jiraSortRank {
 		return m.renderJiraSwimlanes(visible, laneW, height)
 	}
-	slots := max((height-1)/jiraCardSlot, 1)
+	slots := max((height-1)/m.cardSlot(), 1)
 	if t.lane < len(t.laneTop) {
 		top := &t.laneTop[t.lane]
 		if t.row < *top {
@@ -2040,23 +2098,28 @@ func (m *Model) renderJiraLanes(width, height int) string {
 			}
 			slots = slices.Insert(slots, at, slot{ci: g, ghost: true})
 			top = min(top, at)
-			if fit := max((height-1)/jiraCardSlot, 1); at >= top+fit {
+			if fit := max((height-1)/m.cardSlot(), 1); at >= top+fit {
 				top = at - fit + 1
 			}
 		}
-		for r := top; r < len(slots) && len(col)+jiraCardH <= height; r++ {
+		gap := m.cardSlot() > m.cardH()
+		for r := top; r < len(slots) && len(col)+m.cardH() <= height; r++ {
 			c := t.cards[slots[r].ci]
 			if slots[r].ghost || (slots[r].ci == ghost && l == t.drag.from && t.drag.over != l) {
 				// The ghost, and the card it left behind: plain text, faint.
-				for _, line := range jiraCardLines(c, false, m.opts.fields) {
+				for _, line := range m.cardLines(c, false) {
 					col = append(col, jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…")))
 				}
-				col = append(col, "")
+				if gap {
+					col = append(col, "")
+				}
 				continue
 			}
 			sel := l == t.lane && t.row < len(lane.cards) && lane.cards[t.row] == slots[r].ci
 			col = append(col, m.jiraLaneCard(c, sel, inner)...)
-			col = append(col, "")
+			if gap {
+				col = append(col, "")
+			}
 		}
 		if len(slots) == 0 {
 			col = append(col, jiraGhostStyle.Render(" nothing here"))
@@ -2109,7 +2172,7 @@ func canvasCell(cell string, w int) string {
 
 // jiraLaneCard is a card's lines in a lane, inner wide.
 func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
-	lines := jiraCardLines(c, true, m.opts.fields)
+	lines := m.cardLines(c, true)
 	if m.pins[c.Key] {
 		lines[0] = jiraPinStyle.Render("★") + " " + lines[0]
 	}
@@ -2227,20 +2290,22 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 				}
 			}
 			start := len(body)
-			for y := range jiraCardH {
+			for y := range m.cardH() {
 				body = append(body, swimLine{at: at, y: y, start: start})
 				t.swimAt, t.swimBand = append(t.swimAt, at), append(t.swimBand, rep[g])
 			}
-			body = append(body, swimLine{y: -1})
-			t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
+			if m.cardSlot() > m.cardH() {
+				body = append(body, swimLine{y: -1})
+				t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
+			}
 		}
 	}
 	h := max(height-1, 1)
 	if selLine < t.swimTop+1 {
 		t.swimTop = max(selLine-1, 0) // keep the band's header in view too
 	}
-	if selLine+jiraCardH > t.swimTop+h {
-		t.swimTop = selLine + jiraCardH - h
+	if selLine+m.cardH() > t.swimTop+h {
+		t.swimTop = selLine + m.cardH() - h
 	}
 	t.swimTop = min(t.swimTop, max(len(body)-h, 0))
 	cells := map[int][][]string{} // a row's drawn cards, by its first line
@@ -2273,7 +2338,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 				c := t.cards[shown[i].cards[ri]]
 				cs[i] = m.jiraLaneCard(c, t.firstLane+i == t.lane && ri == t.row, inner)
 				if t.drag.active && c.Key == t.drag.key { // being dragged: faint where it was
-					for y, line := range jiraCardLines(c, false, m.opts.fields) {
+					for y, line := range m.cardLines(c, false) {
 						cs[i][y] = jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…"))
 					}
 				}
@@ -2636,8 +2701,8 @@ func (m *Model) hitJira(x, y int) hit {
 		return h
 	}
 	if line >= 1 {
-		r := (line-1)/jiraCardSlot + t.laneTop[lane]
-		if (line-1)%jiraCardSlot < jiraCardH && r < len(t.lanes[lane].cards) {
+		r := (line-1)/m.cardSlot() + t.laneTop[lane]
+		if (line-1)%m.cardSlot() < m.cardH() && r < len(t.lanes[lane].cards) {
 			h.line = r
 		}
 	}

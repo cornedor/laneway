@@ -113,7 +113,7 @@ A bad value keeps its default and is reported on the status line, as is a key
 bound to two actions on the board or in the panel.
 
 Actions: up down left right top bottom page_up page_down open toggle_panel
-browser refresh quit help search goto copy_key copy_url copy_branch settings filter_builder panel_wider panel_narrower quick_edit my_work move_left move_right
+browser refresh quit help search goto copy_key copy_url copy_branch settings filter_builder panel_wider panel_narrower quick_edit my_work compact move_left move_right
 create project board next_view prev_view toggle_mode sort move_sprint assignee_filter mine
 clear_filters · panel: status priority points summary labels assign comment reply start_work
 linked_issue back image development pin; board also fold unfold_all.

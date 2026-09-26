@@ -60,6 +60,7 @@ type keyMap struct {
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
+	Compact                            key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -145,6 +146,7 @@ func defaultKeys() keyMap {
 		PanelNarrower:   bind("narrow the panel", ">"),
 		QuickEdit:       bind("quick edit the card", "e"),
 		MyWork:          bind("my work, every project", "O"),
+		Compact:         bind("one-line cards", "c"),
 	}
 }
 
@@ -362,6 +364,9 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	m.jiraTab.wantLanes = opts.lanes
 	m.loadPins()
 	m.loadPanelWidth()
+	if m.store != nil {
+		_, m.jiraTab.compact, _ = m.store.GetMeta(jiraCompactMeta)
+	}
 	return m
 }
 

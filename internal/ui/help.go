@@ -38,6 +38,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.Project, k.Board), "project / board"},
 			{join(k.PrevView, k.NextView), "previous / next view"},
 			row(k.ToggleMode, "lanes / list"),
+			row(k.Compact, "one-line cards / full"),
 			row(k.Palette, "command palette"),
 			row(k.JQL, "JQL search with completion, as a view"),
 			row(k.MyWork, "my work: yours in every project, by status"),
