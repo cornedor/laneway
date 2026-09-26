@@ -11,6 +11,7 @@ package jira
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -48,7 +49,8 @@ type Config struct {
 	APIToken         string
 	Projects         []string
 	StoryPointsField string
-	CardLimit        int // 0: DefaultCardLimit
+	CardLimit        int    // 0: DefaultCardLimit
+	FlagValue        string // the Flagged option flagging sets; "": Impediment
 }
 
 // Client fetches and caches issues for one instance. The zero value is not
@@ -58,6 +60,7 @@ type Client struct {
 	auth       string // pre-encoded "Basic …" header value, empty when unconfigured
 	spOverride string // configured story-points custom-field id, "" to auto-detect
 	cardLimit  int    // most cards one board fetch returns
+	flagValue  string // the Flagged option SetFlagged sets
 	http       *http.Client
 
 	mu    sync.Mutex
@@ -89,6 +92,7 @@ func New(cfg Config) *Client {
 		baseURL:    strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/"),
 		spOverride: strings.TrimSpace(cfg.StoryPointsField),
 		cardLimit:  cfg.CardLimit,
+		flagValue:  cmp.Or(strings.TrimSpace(cfg.FlagValue), "Impediment"),
 		http:       &http.Client{Timeout: requestTimeout},
 		cache:      map[string]cachedIssue{},
 	}

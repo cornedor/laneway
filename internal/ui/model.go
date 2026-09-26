@@ -328,6 +328,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 			Projects:         cfg.Projects,
 			StoryPointsField: cfg.StoryPointsField,
 			CardLimit:        opts.cardLimit,
+			FlagValue:        ui.FlagValue,
 		}),
 		jiraProjects:    append([]string(nil), cfg.Projects...),
 		jiraRepos:       cfg.Repos,

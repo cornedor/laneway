@@ -323,3 +323,26 @@ func TestMoveChunks(t *testing.T) {
 		t.Errorf("sizes = %v", sizes)
 	}
 }
+
+func TestSetFlaggedValue(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			_, _ = w.Write([]byte(`[{"id":"customfield_50","name":"Flagged"}]`))
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	for value, want := range map[string]string{"": "Impediment", "Blocked": "Blocked"} {
+		c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", FlagValue: value})
+		if err := c.SetFlagged(context.Background(), "ABC-1", true); err != nil {
+			t.Fatal(err)
+		}
+		if body != `{"fields":{"customfield_50":[{"value":"`+want+`"}]}}` {
+			t.Errorf("%q: body = %s", value, body)
+		}
+	}
+}

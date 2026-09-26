@@ -653,7 +653,8 @@ func flagSet(raw json.RawMessage) bool {
 	return json.Unmarshal(raw, &opts) == nil && len(opts) > 0
 }
 
-// SetFlagged flags key as an impediment, or clears the flag.
+// SetFlagged flags key (Config.FlagValue, an impediment by default), or
+// clears the flag.
 func (c *Client) SetFlagged(ctx context.Context, key string, on bool) error {
 	id := c.flagField(ctx)
 	if id == "" {
@@ -661,7 +662,7 @@ func (c *Client) SetFlagged(ctx context.Context, key string, on bool) error {
 	}
 	var v any
 	if on {
-		v = []map[string]string{{"value": "Impediment"}}
+		v = []map[string]string{{"value": c.flagValue}}
 	}
 	return c.SetField(ctx, key, id, v)
 }

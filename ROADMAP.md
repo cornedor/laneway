@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- `ui.flag_value`: the Flagged option flagging sets (`Impediment` today)
 - Inbox config: poll interval (5m), first-run look-back (24h), issue cap (30)
 - `ui.timer_round`: round the timer's logged time (`15m`); today to the minute, 1m minimum
 - `ui.clipboard_image`: command that prints a PNG off the clipboard, over the wl-paste / xclip / pngpaste probe
@@ -31,6 +30,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.flag_value` (Impediment): the Flagged option flagging sets
 - `ui.workdays` ([mon … fri]): standup's previous workday skips the rest
 - `ui.roadmap_epic_type` (Epic) for the roadmap's query and `n`, `ui.roadmap_done_days` (90) for how long resolved ones stay
 - `ui.kanban_done_days`: how long done work stays on kanban boards (14)

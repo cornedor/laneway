@@ -99,6 +99,8 @@ type UIConfig struct {
 	// Workdays are the days you work, for standup's previous workday:
 	// [mon, tue, wed, thu, fri] by default.
 	Workdays []string `yaml:"workdays"`
+	// FlagValue is the Flagged field's option flagging sets ("Impediment").
+	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
 	WorkAgent string `yaml:"work_agent"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);
