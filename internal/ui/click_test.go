@@ -735,3 +735,25 @@ func TestSilentKeys(t *testing.T) {
 		}
 	}
 }
+
+// TestErrorState: a failed load wraps its error to the board and offers
+// what to do, each a click.
+func TestErrorState(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = out.(Model)
+	m.jiraTab.err = "jira server 400: " + strings.Repeat("a long reason ", 12)
+	m.renderJira()
+	view := ansi.Strip(m.View().Content)
+	for _, l := range strings.Split(view, "\n") {
+		if ansi.StringWidth(l) > 80 {
+			t.Fatalf("a line past the screen: %q", l)
+		}
+	}
+	if !strings.Contains(view, "r retries · p picks a project") {
+		t.Fatalf("no hints:\n%s", view)
+	}
+	if m = clickText(t, m, "picks a project"); !m.jiraPicker.active {
+		t.Error("the project hint opens no picker")
+	}
+}

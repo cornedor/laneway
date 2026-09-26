@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- A failed board load: the error wrapped and centred with clickable hints (r retries · p project · Q JQL), not one cut red line
 - First run: no config prints a minimal `jira:` block and the token URL; name only the missing settings; `base_url` without https:// says so
 - Pickers, settings, builder, JQL: pgup/pgdn, home/end, ctrl+n/p alike (one list-nav helper)
 - Narrow terminals: create box, builder, settings edit input, picker search, `/` search and go-to sized from the width
@@ -14,6 +13,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- A failed board load shows its error wrapped and centred with what to do (`r retries · p picks a project · Q runs JQL`, each a click), not one red line cut at the edge
 - No silent keys on the board: card keys with no card (and nothing marked) say "no card selected"; H/L past the first or last lane say so; H/L in list mode say moving needs lanes or `e`
 - `ui.double_click` (400ms, 100ms–2s): how quickly a second click counts as a double-click
 - After a download the status says so and the palette gains `open download  <name>`, which opens the file with `ui.open`

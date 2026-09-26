@@ -1669,7 +1669,9 @@ func (m *Model) renderJira() {
 	dim := refDimStyle.Render
 	switch {
 	case t.err != "":
-		msg = refErrStyle.Render(t.err)
+		msg, t.empty = jiraErrorState(t.err, w, h, keySeg(dim(helpKey(m.keys.Refresh)+" retries"), m.keys.Refresh), plainSeg(dim(" · ")),
+			keySeg(dim(helpKey(m.keys.Project)+" picks a project"), m.keys.Project), plainSeg(dim(" · ")),
+			keySeg(dim(helpKey(m.keys.JQL)+" runs JQL"), m.keys.JQL))
 	case t.cfg == nil:
 		msg = refDimStyle.Render("loading…")
 	case len(t.order) == 0 && t.jiraSearchQuery() != "":
@@ -2209,6 +2211,23 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		lines[y] = b.String()
 	}
 	return strings.Join(lines, "\n")
+}
+
+// jiraErrorState is a failed load: the error wrapped to the width, centred
+// a third of the way down, and what to do about it.
+func jiraErrorState(err string, w, h int, hint ...headSeg) (string, emptyHint) {
+	var b strings.Builder
+	top := max(h/3, 0)
+	b.WriteString(strings.Repeat("\n", top))
+	lines := strings.Split(lipgloss.NewStyle().Width(max(min(w-4, 80), 10)).Render(err), "\n")
+	for _, l := range lines {
+		l = strings.TrimRight(l, " ")
+		b.WriteString(strings.Repeat(" ", max((w-lipgloss.Width(l))/2, 0)) + refErrStyle.Render(l) + "\n")
+	}
+	s := ansi.Truncate(joinSegs(hint), max(w, 1), "…")
+	left := max((w-lipgloss.Width(s))/2, 0)
+	b.WriteString(strings.Repeat(" ", left) + s)
+	return b.String(), emptyHint{row: top + len(lines), left: left, segs: hint}
 }
 
 // emptyHint is where an empty board's hint line is: its body row, its
