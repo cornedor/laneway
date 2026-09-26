@@ -1112,3 +1112,17 @@ func TestWorklogEditMovesDay(t *testing.T) {
 		t.Errorf("PUT body %s", body)
 	}
 }
+
+// TestRuleActed: a rule's Jira action says what it did, or why not, by
+// rule and issue.
+func TestRuleActed(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleRuleActed(ruleActedMsg{rule: "Stale review", key: "ABC-1", done: "→ Done"})
+	if m = out.(Model); m.status != `rule "Stale review": ABC-1 → Done` {
+		t.Errorf("done: %q", m.status)
+	}
+	out, _ = m.handleRuleActed(ruleActedMsg{rule: "Stale review", key: "ABC-1", err: fmt.Errorf("no move")})
+	if m = out.(Model); !m.statusIsErr() || m.status != `rule "Stale review": ABC-1: no move` {
+		t.Errorf("failed: %q", m.status)
+	}
+}

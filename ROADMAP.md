@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Rules: a writing rule's success on the status line (and messages), a failure names the rule and issue
 - Bulk: partial failures as errors (✗ in messages, each key's reason); quick edit's box title names the issue, not "0 issues"
 - Charts: burndown/burnup count issues when the sprint has no points
 - Charts, planning, roadmap errors: wrapped with hints like the board's; keep the half that loaded; the roadmap's empty state mentions `n` and `ui.roadmap_epic_type`
@@ -14,6 +13,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Rules that write say so: `rule "Stale review": ABC-1 → Done` (kept in messages, the board refreshed); a failure names the rule and issue in the error colour
 - Fix: editing a worklog with a day first (`fri 1h`) dropped the day; it moves the entry there now. `ui.workday_start` (09:00) sets when a log on another day starts
 - Removing a link asks for a second enter on it (it was gone at the first)
 - Start work can assign you (`ui.start_assigns: on`) and move the issue (`ui.start_status: In Progress`); a move with a screen of its own is left to `s`

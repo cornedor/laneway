@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"time"
@@ -14,6 +15,12 @@ import (
 
 // rulesLoggedMsg reports a failed rule action.
 type rulesLoggedMsg struct{ err error }
+
+// ruleActedMsg is a rule's Jira action done (done says what), or why not.
+type ruleActedMsg struct {
+	rule, key, done string
+	err             error
+}
 
 // rulesEventsMsg carries events whose authors were looked up, to fire.
 type rulesEventsMsg struct {
@@ -162,15 +169,28 @@ func (m *Model) fireRules(events []rules.Event) tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-// ruleJira runs a transition or comment action, logging a failure.
+// ruleJira runs a transition or comment action; the status line (and
+// messages) says what it did, or why not, by rule and issue.
 func (m *Model) ruleJira(f rules.Firing) tea.Cmd {
 	ctx, c := m.ctx, m.jiraClient
-	return func() tea.Msg {
-		if err := rules.JiraAct(ctx, c, f); err != nil {
-			return rulesLoggedMsg{err}
-		}
-		return nil
+	done := "commented"
+	if f.Action == "transition" {
+		done = "→ " + f.To
 	}
+	return func() tea.Msg {
+		return ruleActedMsg{rule: f.Rule, key: f.Vars["Key"], done: done, err: rules.JiraAct(ctx, c, f)}
+	}
+}
+
+// handleRuleActed says what a rule did to an issue.
+func (m Model) handleRuleActed(msg ruleActedMsg) (tea.Model, tea.Cmd) {
+	who := fmt.Sprintf("rule %q: %s", msg.rule, msg.key)
+	if msg.err != nil {
+		m.fail(who + ": " + msg.err.Error())
+		return m, nil
+	}
+	m.status = who + " " + msg.done
+	return m, m.refreshJiraAfterEdit()
 }
 
 // ruleExec runs an exec action.

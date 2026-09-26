@@ -653,6 +653,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleRuleWatched(msg)
 	case rulesEventsMsg:
 		return m.handleRulesEvents(msg)
+	case ruleActedMsg:
+		return m.handleRuleActed(msg)
 	case rulesLoggedMsg:
 		if msg.err != nil {
 			m.fail("rule: " + msg.err.Error())
