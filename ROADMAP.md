@@ -2,7 +2,7 @@
 
 ## Next
 - Charts: burndown/burnup count issues when the sprint has no points
-- Charts, planning, roadmap errors: wrapped with hints like the board's; keep the half that loaded; the roadmap's empty state mentions `n` and `ui.roadmap_epic_type`
+- Charts and planning: keep the half that loaded when the other half fails
 - Planning: `x` says how many are marked, empty sides hint, heads count unestimated cards, `y` copies the sprint
 - Dev info: ctrl+y copies a branch, enter on a row without a link says so, one failing tool doesn't blank the rest
 - Inbox keeps its badge when a load fails; history's enter opens the Activity → History tab
@@ -12,6 +12,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Charts, planning and roadmap errors wrap and centre with `r retries · esc back to the board`; an empty roadmap says `n` adds one and names `ui.roadmap_epic_type`
 - Bulk edits: failures show in the error colour (one inline with its reason, several as a count) and each reason is kept ✗ in messages; a quick edit's input names its issue instead of "0 issues"
 - Rules that write say so: `rule "Stale review": ABC-1 → Done` (kept in messages, the board refreshed); a failure names the rule and issue in the error colour
 - Fix: editing a worklog with a day first (`fri 1h`) dropped the day; it moves the entry there now. `ui.workday_start` (09:00) sets when a log on another day starts

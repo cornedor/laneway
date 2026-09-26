@@ -522,7 +522,8 @@ func (m *Model) renderPlan(width, height int) string {
 	p := m.jiraTab.plan
 	switch {
 	case p.err != "":
-		return refErrStyle.Render(p.err)
+		s, _ := jiraErrorState(p.err, width, height, m.screenErrHints()...)
+		return s
 	case p.loading && p.sides[0] == nil && p.sides[1] == nil:
 		return refDimStyle.Render("loading…")
 	}

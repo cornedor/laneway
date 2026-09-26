@@ -164,7 +164,8 @@ func (m *Model) renderCharts(width, height int) string {
 	ch := m.jiraTab.charts
 	switch {
 	case ch.err != "":
-		return refErrStyle.Render(ch.err)
+		s, _ := jiraErrorState(ch.err, width, height, m.screenErrHints()...)
+		return s
 	case ch.loading && ch.burn == nil && ch.vel == nil:
 		return refDimStyle.Render("loading…")
 	case ch.tab == chartBurndown:

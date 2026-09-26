@@ -583,11 +583,14 @@ func (m *Model) renderRoadmap(width, height int) string {
 	r := m.jiraTab.roadmap
 	switch {
 	case r.err != "":
-		return refErrStyle.Render(r.err)
+		s, _ := jiraErrorState(r.err, width, height, m.screenErrHints()...)
+		return s
 	case len(r.epics) == 0 && r.loading:
 		return refDimStyle.Render("loading…")
 	case len(r.epics) == 0:
-		return refDimStyle.Render("no open epics in " + r.project)
+		s, _ := jiraEmptyState(fmt.Sprintf("No open %s in %s", strings.ToLower(m.opts.epicType)+"s", r.project), width, height,
+			plainSeg(refDimStyle.Render(helpKey(m.keys.Create)+" adds one · ui.roadmap_epic_type picks the type ("+m.opts.epicType+")")))
+		return s
 	}
 	labelW, cols := roadmapLayout(width)
 	zoom := roadmapZooms[r.zoom]

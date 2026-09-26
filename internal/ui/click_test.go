@@ -1136,3 +1136,18 @@ func TestQuickEditTitle(t *testing.T) {
 		t.Errorf("title key %q", m.jiraFieldKey)
 	}
 }
+
+// TestScreenErrors: a failed roadmap load wraps its error with what to do;
+// an empty roadmap says how to add an epic and pick the type.
+func TestScreenErrors(t *testing.T) {
+	m := roadmapModel(t)
+	m.jiraTab.roadmap.err = "jira server 400: " + strings.Repeat("reason ", 40)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "r retries · esc back to the board") {
+		t.Errorf("no hints:\n%s", view)
+	}
+	m.jiraTab.roadmap.err, m.jiraTab.roadmap.epics = "", nil
+	if view = ansi.Strip(m.View().Content); !strings.Contains(view, "No open epics in ABC") || !strings.Contains(view, "ui.roadmap_epic_type") {
+		t.Errorf("empty roadmap:\n%s", view)
+	}
+}

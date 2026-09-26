@@ -2235,6 +2235,13 @@ func (m *Model) renderJiraLanes(width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
+// screenErrHints are what a screen over the board offers when its load
+// failed: retry, or back to the board.
+func (m *Model) screenErrHints() []headSeg {
+	dim := refDimStyle.Render
+	return []headSeg{plainSeg(dim(helpKey(m.keys.Refresh) + " retries · esc back to the board"))}
+}
+
 // jiraErrorState is a failed load: the error wrapped to the width, centred
 // a third of the way down, and what to do about it.
 func jiraErrorState(err string, w, h int, hint ...headSeg) (string, emptyHint) {
