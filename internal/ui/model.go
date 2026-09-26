@@ -389,6 +389,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if r := m.jiraTab.roadmap; r != nil && r.drag.on && msg.Button == tea.MouseLeft {
 			return m.dragRoadmap(msg.X)
 		}
+		if p := m.jiraTab.plan; p != nil && p.drag.held && msg.Button == tea.MouseLeft {
+			return m.dragPlan(msg.X, msg.Y)
+		}
 		if m.jiraDragging() && msg.Button == tea.MouseLeft {
 			return m.dragJira(msg.X, msg.Y)
 		}
@@ -396,6 +399,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseReleaseMsg:
 		if r := m.jiraTab.roadmap; r != nil {
 			r.drag = roadmapDrag{}
+		}
+		if p := m.jiraTab.plan; p != nil && p.drag.held {
+			return m.dropPlan()
 		}
 		if msg.Button == tea.MouseLeft && m.jiraDragging() {
 			return m.dropJira()

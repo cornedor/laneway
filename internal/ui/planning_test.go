@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -271,6 +272,40 @@ func TestPlanRenameAndEnd(t *testing.T) {
 	_, cmd = m.applyJiraField()
 	cmd()
 	if len(writes) != 2 || writes[0] != `POST /rest/agile/1.0/sprint/9 {"name":"Sprint 1: login"}` || !strings.Contains(writes[1], `"endDate":"2026-10-09T17:00:00`) {
+		t.Errorf("writes = %q", writes)
+	}
+}
+
+// TestPlanDrag: a card dragged onto the other side moves there alone when
+// it isn't marked; while held it is a ghost and the target says drop.
+func TestPlanDrag(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	m.jiraTab.marked = map[string]bool{"ABC-7": true}
+	y := jiraBodyTop + 3 // the head, the per-assignee line, then ABC-7, ABC-8
+	out, _ := m.Update(tea.MouseClickMsg{X: 5, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	p := m.jiraTab.plan
+	if p.drag.key != "ABC-8" {
+		t.Fatalf("armed on %q", p.drag.key)
+	}
+	right := m.jiraTab.view.Width() - 5
+	out, _ = m.Update(tea.MouseMotionMsg{X: right, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "◂ drop") || !strings.Contains(view, "┊ ABC-8") {
+		t.Fatalf("no drag feedback:\n%s", view)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: right, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("the drop should write")
+	}
+	cmd()
+	if len(p.sides[0]) != 1 || p.sides[1][2].Key != "ABC-8" || p.drag.key != "" {
+		t.Fatalf("sides %v / %v", p.sides[0], p.sides[1])
+	}
+	if len(writes) != 1 || writes[0] != `POST /rest/agile/1.0/sprint/9/issue {"issues":["ABC-8"]}` {
 		t.Errorf("writes = %q", writes)
 	}
 }

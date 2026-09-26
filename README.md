@@ -256,7 +256,8 @@ an entry's time and comment, `d` twice deletes it, `y` copies the day as a markd
 one; `[` `]` pick another), each with its card count and points, the sprint
 also per assignee, against `ui.capacity` (red when over). `← →` switch side,
 `x` marks cards, `M` or `space` moves the marked (or the selected) across,
-`K`/`J` rank it up or down. `S` starts the sprint on the right (today until
+`K`/`J` rank it up or down. With the mouse, drag a card onto the other side
+(a marked one takes the marked along). `S` starts the sprint on the right (today until
 the day you type, `+2w` by default), or moves an active one's end; `R`
 renames it; `C` twice completes the active one,
 moving its unfinished issues (not in the board's last column) to the next

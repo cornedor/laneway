@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Next
-- Mouse: drag a planning card across sides
 - Mouse: click fields in the transition / create forms
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Planning mouse: drag a card onto the other side (a marked one takes the marked along); faint while held, the target side says ◂ drop
 - Roadmap mouse: drag a bar to move its dates, drag an end (bars 3+ columns wide) to stretch it; written after a pause like the keys
 - Panel: a click on a comment's byline replies to it (threaded replies too, and in the All tab)
 - Panel Activity section, tabbed like Jira web: Comments · History · Work log (with total) · All; `[`/`]` or a click switches, the tab kept across issues, history and worklogs fetched when first shown

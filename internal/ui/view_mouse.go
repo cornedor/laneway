@@ -3,6 +3,8 @@ package ui
 import (
 	"strconv"
 
+	"github.com/cornedor/laneway/internal/jira"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -104,7 +106,40 @@ func (m Model) clickPlan(x, y, count int) (tea.Model, tea.Cmd) {
 	if count == 2 {
 		return m.openJiraKey(p.sides[side][i].Key)
 	}
+	p.drag = planDrag{key: p.sides[side][i].Key, x: x, y: y, side: side, over: side, held: true}
 	return m, nil
+}
+
+// dragPlan follows a held card: it lifts once the pointer leaves its cell,
+// and the side under the pointer is where it would land.
+func (m Model) dragPlan(x, y int) (tea.Model, tea.Cmd) {
+	d := &m.jiraTab.plan.drag
+	if !d.active && x-d.x < 2 && d.x-x < 2 && y == d.y {
+		return m, nil
+	}
+	d.active, d.over = true, m.planSideAt(x)
+	if d.over != d.side {
+		m.status = "drop " + d.key + " on " + []string{"the backlog", m.jiraTab.plan.sprints[m.jiraTab.plan.target].name}[d.over]
+	} else {
+		m.status = ""
+	}
+	return m, nil
+}
+
+// dropPlan lets go of a held card: over the other side it moves there,
+// taking the side's marked cards along when it is one of them.
+func (m Model) dropPlan() (tea.Model, tea.Cmd) {
+	p := m.jiraTab.plan
+	d := p.drag
+	p.drag = planDrag{}
+	if !d.active || d.over == d.side {
+		return m, nil
+	}
+	p.side = d.side
+	if m.jiraTab.marked[d.key] {
+		return m, m.planMove()
+	}
+	return m, m.planMoveOf(func(c jira.Card) bool { return c.Key == d.key })
 }
 
 // wheelView moves the roadmap's or planning's cursor by d rows.

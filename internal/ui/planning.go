@@ -34,6 +34,16 @@ type planState struct {
 	err     string
 	// closing is set by a first C: a second completes the active sprint.
 	closing bool
+	drag    planDrag
+}
+
+// planDrag is a card held by the mouse: armed on the press, active once
+// the pointer leaves the cell, over the side under it.
+type planDrag struct {
+	key          string
+	x, y         int
+	side, over   int
+	active, held bool
 }
 
 type planMsg struct {
@@ -231,11 +241,16 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // across: into the sprint at its end, or back to the top of the backlog, as
 // Jira places them.
 func (m *Model) planMove() tea.Cmd {
+	return m.planMoveOf(func(c jira.Card) bool { return m.jiraTab.marked[c.Key] })
+}
+
+// planMoveOf moves the side's cards take picks, else the selected one.
+func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 	t, p := m.jiraTab, m.jiraTab.plan
 	from, to := p.side, 1-p.side
 	var moving, staying []jira.Card
 	for _, c := range p.sides[from] {
-		if t.marked[c.Key] {
+		if take(c) {
 			moving = append(moving, c)
 		} else {
 			staying = append(staying, c)
@@ -536,11 +551,14 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	pts, _ := planPoints(cards)
 	outer := width
 	width = max(width-1, 1) // a cell of air before the divider or border
-	headStyle := jiraDimStyle
+	headStyle, drop := jiraDimStyle, ""
 	if side == p.side {
 		headStyle = jiraViewActive
 	}
-	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %d cards · %sp", name, len(cards), pts), width, "…"))}
+	if p.drag.active && p.drag.over == side && side != p.drag.side {
+		headStyle, drop = jiraViewActive, "  ◂ drop"
+	}
+	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %d cards · %sp%s", name, len(cards), pts, drop), width, "…"))}
 	if side == 1 {
 		lines = append(lines, ansi.Truncate(planByAssignee(cards, m.opts.capacity), width, "…"))
 	} else {
@@ -564,6 +582,8 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		row += ansi.Truncate(c.Summary, max(width-lipgloss.Width(row)-len(ptsCol)-1, 1), "…")
 		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-len(ptsCol), 0)) + ptsCol
 		switch {
+		case p.drag.active && c.Key == p.drag.key: // being dragged: faint where it was
+			row = jiraGhostStyle.Render(ansi.Truncate("┊ "+c.Key+" "+c.Summary, width, "…"))
 		case r == i && side == p.side:
 			row = selectedRow.Render(ansi.Strip(row))
 		case r == i:
