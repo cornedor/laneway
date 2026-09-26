@@ -49,6 +49,13 @@ func jiraKeyNum(k string) int {
 
 // apply sorts order (indexes into cards) in place, stably so ties keep rank.
 func (s jiraSort) apply(order []int, cards []jira.Card) {
+	if cmp := s.cmp(); cmp != nil {
+		slices.SortStableFunc(order, func(a, b int) int { return cmp(cards[a], cards[b]) })
+	}
+}
+
+// cmp compares two cards by s; nil for rank, which keeps the given order.
+func (s jiraSort) cmp() func(a, b jira.Card) int {
 	var cmp func(a, b jira.Card) int
 	switch s {
 	case jiraSortPriority:
@@ -101,8 +108,6 @@ func (s jiraSort) apply(order []int, cards []jira.Card) {
 			}
 			return jiraKeyNum(a.Key) - jiraKeyNum(b.Key)
 		}
-	default:
-		return
 	}
-	slices.SortStableFunc(order, func(a, b int) int { return cmp(cards[a], cards[b]) })
+	return cmp
 }

@@ -1,10 +1,11 @@
 # Roadmap
 
 ## Next
-- Lanes mode swimlanes by assignee / epic (`g` cycles), like Jira's board swimlanes; split: grouping, then render, then keys
+- Swimlanes: drag with the mouse (drop ghost in the band), remember the choice per board
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Lanes `s`: swimlanes by assignee, then epic; bands across every lane, scrolled together, `h`/`l` keep the band
 - Roadmap `y`: epics with dates and done points (parent when any) as a markdown table
 - Timesheet `y`: the day's worklogs and total as a markdown table
 - Charts: `y` copies the open chart's numbers as a markdown table

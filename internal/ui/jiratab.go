@@ -200,6 +200,12 @@ type jiraTabState struct {
 	lanesOut  string
 
 	sort jiraSort // the list's order; lanes keep the board's rank
+	// swim groups the lanes into swimlanes by assignee or epic (jiraSortRank
+	// for none); swimTop is its first line on screen, swimAt each body
+	// line's card row per lane (-1 for none), for the mouse.
+	swim    jiraSort
+	swimTop int
+	swimAt  [][]int
 
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
@@ -654,6 +660,7 @@ func (m *Model) buildJiraLanes() {
 	}
 	if v.lanes {
 		for _, l := range t.lanes {
+			t.swim.apply(l.cards, t.cards)
 			t.order = append(t.order, l.cards...)
 		}
 	} else {
@@ -833,7 +840,22 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.helpOpen = true
 	case key.Matches(msg, m.keys.Sort):
 		if lanes {
-			m.status = "sort applies to the list (" + helpKey(m.keys.ToggleMode) + ")"
+			keep := m.selectedJiraKey()
+			switch t.swim {
+			case jiraSortRank:
+				t.swim = jiraSortAssignee
+			case jiraSortAssignee:
+				t.swim = jiraSortEpic
+			default:
+				t.swim = jiraSortRank
+			}
+			m.buildJiraLanes()
+			m.selectJiraKey(keep)
+			m.renderJira()
+			m.status = "swimlanes by " + t.swim.String()
+			if t.swim == jiraSortRank {
+				m.status = "no swimlanes"
+			}
 			break
 		}
 		keep := m.selectedJiraKey()
@@ -879,10 +901,22 @@ func (m *Model) moveJiraCursor(delta int) {
 }
 
 // moveJiraLane moves the cursor to the next lane (or previous), keeping its
-// height as near as the lane allows.
+// height as near as the lane allows (its swimlane, when there are).
 func (m *Model) moveJiraLane(delta int) {
-	m.jiraTab.lane += delta
+	t := m.jiraTab
+	c, ok := m.selectedJiraCard()
+	t.lane += delta
 	m.clampJiraCursor()
+	if ok && t.swim != jiraSortRank && t.lane < len(t.lanes) {
+		// Swimlanes: stay in the card's band, on its first card there.
+		g, _ := jiraGroupOf(t.swim, c)
+		if r := slices.IndexFunc(t.lanes[t.lane].cards, func(ci int) bool {
+			cg, _ := jiraGroupOf(t.swim, t.cards[ci])
+			return cg == g
+		}); r >= 0 {
+			t.row = r
+		}
+	}
 	m.renderJira()
 }
 
@@ -1673,6 +1707,9 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		t.firstLane = t.lane - visible + 1
 	}
 	t.firstLane = min(max(t.firstLane, 0), max(len(t.lanes)-visible, 0))
+	if t.swim != jiraSortRank {
+		return m.renderJiraSwimlanes(visible, laneW, height)
+	}
 	slots := max((height-1)/jiraCardSlot, 1)
 	if t.lane < len(t.laneTop) {
 		top := &t.laneTop[t.lane]
@@ -1691,26 +1728,7 @@ func (m *Model) renderJiraLanes(width, height int) string {
 	for l := t.firstLane; l < t.firstLane+visible && l < len(t.lanes); l++ {
 		inner := laneW - 1
 		lane := t.lanes[l]
-		count := strconv.Itoa(len(lane.cards))
-		if lane.max > 0 {
-			count += "/" + strconv.Itoa(lane.max)
-		}
-		if pts, ok := jiraLanePoints(t.cards, lane.cards); ok && m.opts.fields.points {
-			count += " · " + pts + "p"
-		}
-		head := ansi.Truncate(lane.name+" "+count, inner, "…")
-		// Filtered counts undercount the column, so only a full board judges it.
-		over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
-		switch {
-		case over && !(t.drag.active && l == t.drag.over):
-			head = jiraOverStyle.Underline(l == t.lane).Render(head)
-		case t.drag.active && l == t.drag.over:
-			head = jiraDropStyle.Render(head + strings.Repeat(" ", max(inner-lipgloss.Width(head), 0)))
-		case l == t.lane:
-			head = jiraViewActive.Render(head)
-		default:
-			head = jiraLaneStyle.Render(head)
-		}
+		head := m.jiraLaneHead(l, inner)
 		col := []string{head}
 		if t.drag.active && l == t.drag.over && len(lane.statusIDs) > 1 {
 			cols = append(cols, append(col, m.jiraDropZones(lane, ghost, inner, height-1)...))
@@ -1753,16 +1771,7 @@ func (m *Model) renderJiraLanes(width, height int) string {
 				continue
 			}
 			sel := l == t.lane && t.row < len(lane.cards) && lane.cards[t.row] == slots[r].ci
-			lines := jiraCardLines(c, true, m.opts.fields)
-			if m.pins[c.Key] {
-				lines[0] = jiraPinStyle.Render("★") + " " + lines[0]
-			}
-			if hl := m.jiraHighlight(c.Key); hl != "" {
-				lines[0] = hl + " " + lines[0]
-			}
-			for _, line := range lines {
-				col = append(col, m.jiraSelect(ansi.Truncate(line, inner, "…"), sel, inner))
-			}
+			col = append(col, m.jiraLaneCard(c, sel, inner)...)
 			col = append(col, "")
 		}
 		cols = append(cols, col)
@@ -1785,6 +1794,159 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		lines[y] = b.String()
 	}
 	return strings.Join(lines, "\n")
+}
+
+// jiraLaneCard is a card's lines in a lane, inner wide.
+func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
+	lines := jiraCardLines(c, true, m.opts.fields)
+	if m.pins[c.Key] {
+		lines[0] = jiraPinStyle.Render("★") + " " + lines[0]
+	}
+	if hl := m.jiraHighlight(c.Key); hl != "" {
+		lines[0] = hl + " " + lines[0]
+	}
+	for i, line := range lines {
+		lines[i] = m.jiraSelect(ansi.Truncate(line, inner, "…"), sel, inner)
+	}
+	return lines
+}
+
+// renderJiraSwimlanes draws the lanes cut into swimlanes: a band per
+// assignee (or epic) across every lane, headed by its name, its cards side
+// by side. The bands scroll together, keeping the cursor's card in view.
+func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
+	t := m.jiraTab
+	inner := laneW - 1
+	sep := jiraDimStyle.Render("│")
+	shown := t.lanes[t.firstLane:min(t.firstLane+visible, len(t.lanes))]
+	row := func(cells []string) string {
+		var b strings.Builder
+		for i, cell := range cells {
+			b.WriteString(cell)
+			b.WriteString(strings.Repeat(" ", max(inner-lipgloss.Width(cell), 0)))
+			if i < len(cells)-1 {
+				b.WriteString(sep)
+			}
+		}
+		return b.String()
+	}
+	heads := make([]string, len(shown))
+	for i := range shown {
+		heads[i] = m.jiraLaneHead(t.firstLane+i, inner)
+	}
+	// The groups in order: each lane is sorted by group, so a group is a run
+	// in every lane; next[i] is where lane i's current run starts.
+	var groups []string
+	rep := map[string]jira.Card{} // a card of each group, to order them
+	for _, l := range t.lanes {
+		for _, ci := range l.cards {
+			if g, _ := jiraGroupOf(t.swim, t.cards[ci]); rep[g].Key == "" {
+				rep[g] = t.cards[ci]
+				groups = append(groups, g)
+			}
+		}
+	}
+	cmp := t.swim.cmp()
+	slices.SortStableFunc(groups, func(a, b string) int { return cmp(rep[a], rep[b]) })
+	var body []string
+	t.swimAt = t.swimAt[:0]
+	blank := make([]int, len(shown))
+	for i := range blank {
+		blank[i] = -1
+	}
+	next := make([]int, len(shown))
+	selLine := 0
+	for _, g := range groups {
+		runs := make([][]int, len(shown)) // per shown lane, its rows in g
+		n, cards := 0, 0
+		for i, l := range shown {
+			for next[i] < len(l.cards) {
+				if cg, _ := jiraGroupOf(t.swim, t.cards[l.cards[next[i]]]); cg != g {
+					break
+				}
+				runs[i] = append(runs[i], next[i])
+				next[i]++
+			}
+			n, cards = max(n, len(runs[i])), cards+len(runs[i])
+		}
+		if cards == 0 {
+			continue
+		}
+		body = append(body, jiraViewActive.Render("▾ "+g)+jiraDimStyle.Render(fmt.Sprintf(" · %d", cards)))
+		t.swimAt = append(t.swimAt, blank)
+		for r := range n {
+			cells := make([][]string, len(shown))
+			at := make([]int, len(shown))
+			for i := range shown {
+				at[i] = -1
+				if r < len(runs[i]) {
+					ri := runs[i][r]
+					at[i] = ri
+					sel := t.firstLane+i == t.lane && ri == t.row
+					if sel {
+						selLine = len(body)
+					}
+					cells[i] = m.jiraLaneCard(t.cards[shown[i].cards[ri]], sel, inner)
+				}
+			}
+			for y := range jiraCardH {
+				line := make([]string, len(shown))
+				for i := range shown {
+					if cells[i] != nil {
+						line[i] = cells[i][y]
+					}
+				}
+				body = append(body, row(line))
+				t.swimAt = append(t.swimAt, at)
+			}
+			body = append(body, row(make([]string, len(shown))))
+			t.swimAt = append(t.swimAt, blank)
+		}
+	}
+	h := max(height-1, 1)
+	if selLine < t.swimTop+1 {
+		t.swimTop = max(selLine-1, 0) // keep the band's header in view too
+	}
+	if selLine+jiraCardH > t.swimTop+h {
+		t.swimTop = selLine + jiraCardH - h
+	}
+	t.swimTop = min(t.swimTop, max(len(body)-h, 0))
+	lines := []string{row(heads)}
+	for y := t.swimTop; y < len(body) && len(lines) < height; y++ {
+		lines = append(lines, body[y])
+	}
+	for len(lines) < height {
+		lines = append(lines, row(make([]string, len(shown))))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// jiraLaneHead is lane l's heading: name, count (of its WIP limit) and
+// points, lit for the cursor lane, a drop target or a limit broken.
+func (m *Model) jiraLaneHead(l, inner int) string {
+	t := m.jiraTab
+	lane := t.lanes[l]
+	count := strconv.Itoa(len(lane.cards))
+	if lane.max > 0 {
+		count += "/" + strconv.Itoa(lane.max)
+	}
+	if pts, ok := jiraLanePoints(t.cards, lane.cards); ok && m.opts.fields.points {
+		count += " · " + pts + "p"
+	}
+	head := ansi.Truncate(lane.name+" "+count, inner, "…")
+	// Filtered counts undercount the column, so only a full board judges it.
+	over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
+	switch {
+	case over && !(t.drag.active && l == t.drag.over):
+		head = jiraOverStyle.Underline(l == t.lane).Render(head)
+	case t.drag.active && l == t.drag.over:
+		head = jiraDropStyle.Render(head + strings.Repeat(" ", max(inner-lipgloss.Width(head), 0)))
+	case l == t.lane:
+		head = jiraViewActive.Render(head)
+	default:
+		head = jiraLaneStyle.Render(head)
+	}
+	return head
 }
 
 // renderJiraPane draws the tab body: the board pane, plus the reference panel
@@ -1970,6 +2132,12 @@ func (m *Model) hitJira(x, y int) hit {
 	}
 	lane := t.firstLane + col
 	h := hit{zone: hitJira, idx: lane, line: -1}
+	if t.swim != jiraSortRank {
+		if y := line - 1 + t.swimTop; line >= 1 && y < len(t.swimAt) && col < len(t.swimAt[y]) {
+			h.line = t.swimAt[y][col]
+		}
+		return h
+	}
 	if line >= 1 {
 		r := (line-1)/jiraCardSlot + t.laneTop[lane]
 		if (line-1)%jiraCardSlot < jiraCardH && r < len(t.lanes[lane].cards) {
@@ -1996,7 +2164,7 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 		t.idx = h.line
 	} else {
 		t.lane, t.row = h.idx, h.line
-		if c, ok := m.selectedJiraCard(); ok && count == 1 {
+		if c, ok := m.selectedJiraCard(); ok && count == 1 && t.swim == jiraSortRank { // swimlanes: H / L move
 			t.drag = jiraDrag{key: c.Key, x: x, y: y, from: h.idx, over: h.idx}
 		}
 	}

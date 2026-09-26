@@ -1009,3 +1009,38 @@ func TestJiraTabPin(t *testing.T) {
 		t.Errorf("unpin: pins=%v", m.pins)
 	}
 }
+
+// TestJiraSwimlanes: s in lanes mode bands the lanes by assignee, then epic,
+// then none; the cursor keeps its band across lanes; a click hits a card.
+func TestJiraSwimlanes(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "s"))
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	ada, un := strings.Index(view, "▾ Ada · 1"), strings.Index(view, "▾ Unassigned · 3")
+	if m.status != "swimlanes by assignee" || ada < 0 || un < ada {
+		t.Fatalf("status %q, bands at %d, %d:\n%s", m.status, ada, un, view)
+	}
+	for _, k := range []string{"j", "l"} {
+		out, _ = m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-2" {
+		t.Errorf("j then l: on %s, want ABC-2 (Unassigned band, In progress)", c.Key)
+	}
+	// Ada's band: header on body line 1, then ABC-1's key line.
+	out, _ = m.Update(tea.MouseClickMsg{X: 2, Y: jiraBodyTop + 2, Button: tea.MouseLeft})
+	m = out.(Model)
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || m.jiraTab.drag.key != "" {
+		t.Errorf("click: on %s, drag %+v", c.Key, m.jiraTab.drag)
+	}
+	for _, want := range []string{"swimlanes by epic", "no swimlanes"} {
+		out, _ = m.handleKey(keyMsg(t, "s"))
+		if m = out.(Model); m.status != want {
+			t.Errorf("status %q, want %q", m.status, want)
+		}
+	}
+	if strings.Contains(m.View().Content, "▾") {
+		t.Error("bands left after switching off")
+	}
+}

@@ -45,7 +45,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Charts, "sprint charts (y copies the numbers)"),
 			row(k.Plan, "sprint planning: backlog beside a sprint (K J rank)"),
 			row(k.Roadmap, "roadmap: epics on a timeline (space children, H L < > dates, y copy)"),
-			row(k.Sort, "sort the list"),
+			row(k.Sort, "sort the list; lanes: swimlanes"),
 			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
 			row(k.Undo, "undo the last card move"),
 			row(k.MoveSprint, "move to sprint / backlog"),
