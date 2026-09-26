@@ -842,6 +842,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openJiraGoto()
 	case key.Matches(msg, m.keys.Create):
 		return m, m.openJiraCreate()
+	case key.Matches(msg, m.keys.CopyKey) && !lanes && len(t.marked) > 0:
+		return m, m.copyJiraTable()
 	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
 		return m, m.copyJira(m.selectedJiraKey(), key.Matches(msg, m.keys.CopyURL))
 	case msg.String() == "esc" && t.jiraSearchQuery() != "":

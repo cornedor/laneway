@@ -952,3 +952,27 @@ func TestListEpicGroups(t *testing.T) {
 		t.Errorf("epic groups:\n%s", view)
 	}
 }
+
+func TestJiraTabCopyMarkedTable(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[0].Summary = "First | pipe"
+	for _, k := range []string{"t", "x", "x"} {
+		out, _ := m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	out, cmd := m.handleKey(keyMsg(t, "y"))
+	m = out.(Model)
+	if cmd == nil || m.status != "copied 2 rows as a markdown table" {
+		t.Fatalf("y with marks: status=%q", m.status)
+	}
+	got := fmt.Sprint(cmd())
+	o := m.jiraTab.order
+	first, second, third := m.jiraTab.cards[o[0]].Key, m.jiraTab.cards[o[1]].Key, m.jiraTab.cards[o[2]].Key
+	if !strings.Contains(got, "| Key | Summary | Status | Assignee | Points |") || strings.Count(got, "\n") != 4 ||
+		strings.Index(got, "/browse/"+first+")") > strings.Index(got, "/browse/"+second+")") || strings.Contains(got, "/browse/"+third+")") {
+		t.Errorf("table = %q", got)
+	}
+	if strings.Contains(got, "ABC-1") && !strings.Contains(got, `First \| pipe`) {
+		t.Errorf("pipe not escaped: %q", got)
+	}
+}

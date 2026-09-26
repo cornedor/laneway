@@ -33,7 +33,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Goto, "go to issue by key"),
 			row(k.Create, "new issue"),
 			row(k.OpenAttach, "open in browser"),
-			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
+			{join(k.CopyKey, k.CopyURL), "copy key / URL; marked: table"},
 			{join(k.Project, k.Board), "project / board"},
 			{join(k.PrevView, k.NextView), "previous / next view"},
 			row(k.ToggleMode, "lanes / list"),
