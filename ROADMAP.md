@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Next
+- Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
