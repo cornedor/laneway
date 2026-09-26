@@ -11,6 +11,8 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Bulk edit: x marks cards (across views), B edits every marked one at once
@@ -191,18 +193,7 @@ func (m *Model) applyBulkPick(kind jiraPickerKind, keys []string, it jiraPickerI
 	client := m.jiraClient
 	switch kind {
 	case jiraPickStatus:
-		return m.runBulk("status "+it.label, keys, func(ctx context.Context, key string) error {
-			opts, err := client.Transitions(ctx, key)
-			if err != nil {
-				return err
-			}
-			for _, o := range opts {
-				if o.Name == it.id {
-					return client.DoTransition(ctx, key, o.ID)
-				}
-			}
-			return fmt.Errorf("no move to %s", it.id)
-		})
+		return m.prepareBulkMove(keys, it.id)
 	case jiraPickPriority:
 		return m.runBulk("priority "+it.label, keys, func(ctx context.Context, key string) error {
 			return client.SetPriority(ctx, key, it.id)
@@ -216,6 +207,77 @@ func (m *Model) applyBulkPick(kind jiraPickerKind, keys []string, it jiraPickerI
 		return m.moveJiraToSprint(keys, it)
 	}
 	return nil
+}
+
+// bulkMoveMsg is a bulk status change worked out on its first card: go
+// (form nil), or ask the form's fields once for all.
+type bulkMoveMsg struct {
+	keys []string
+	to   string
+	form *jiraFormState
+	err  error
+}
+
+// prepareBulkMove checks, on the first marked card, what the move to status
+// to needs; the fields asked there go with the move on every card.
+func (m *Model) prepareBulkMove(keys []string, to string) tea.Cmd {
+	want := func(t jira.TransitionMeta) bool { return strings.EqualFold(t.ToName, to) }
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "checking what " + to + " needs…"
+	return func() tea.Msg {
+		// Only look: prepareJiraMove would move a card that needs nothing.
+		metas, err := c.TransitionsMeta(ctx, keys[0])
+		if err != nil {
+			return bulkMoveMsg{keys: keys, to: to, err: err}
+		}
+		i := slices.IndexFunc(metas, want)
+		if i < 0 || !metas[i].HasScreen {
+			return bulkMoveMsg{keys: keys, to: to}
+		}
+		ic, err := c.IssueContext(ctx, keys[0])
+		if err != nil {
+			return bulkMoveMsg{keys: keys, to: to, err: err}
+		}
+		rules, _ := c.TransitionRules(ctx, ic.Project, ic.TypeID)
+		if len(rules[metas[i].ID].Required) == 0 {
+			return bulkMoveMsg{keys: keys, to: to}
+		}
+		form := buildJiraForm(keys[0], metas[i], rules[metas[i].ID], ic)
+		form.bulk = keys
+		return bulkMoveMsg{keys: keys, to: to, form: form}
+	}
+}
+
+// handleBulkMove moves the cards, or opens the form once for all of them.
+func (m Model) handleBulkMove(msg bulkMoveMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case msg.err != nil:
+		m.status = "status: " + msg.err.Error()
+		return m, nil
+	case msg.form != nil:
+		m.jiraForm = msg.form
+		m.status = fmt.Sprintf("→ %s needs a few fields, for all %d cards", msg.to, len(msg.keys))
+		return m, nil
+	}
+	return m, m.bulkTransition(msg.keys, msg.to, nil, "")
+}
+
+// bulkTransition moves every key to status to, along the transition each
+// issue's workflow offers, with fields and comment when given.
+func (m *Model) bulkTransition(keys []string, to string, fields map[string]any, comment string) tea.Cmd {
+	c := m.jiraClient
+	return m.runBulk("status "+to, keys, func(ctx context.Context, key string) error {
+		metas, err := c.TransitionsMeta(ctx, key)
+		if err != nil {
+			return err
+		}
+		for _, t := range metas {
+			if strings.EqualFold(t.ToName, to) {
+				return c.TransitionWith(ctx, key, t.ID, fields, comment)
+			}
+		}
+		return fmt.Errorf("no move to %s", to)
+	})
 }
 
 // applyBulkField writes the bulk input's labels or points.

@@ -58,6 +58,7 @@ type jiraFormState struct {
 	input        textinput.Model
 	busy         bool
 	err          string
+	bulk         []string // marked cards the move goes to, with these fields (bulk.go)
 }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
@@ -394,6 +395,10 @@ func (m *Model) submitJiraForm() tea.Cmd {
 	if len(missing) > 0 {
 		f.err = "fill in " + strings.Join(missing, ", ")
 		return nil
+	}
+	if len(f.bulk) > 0 {
+		m.jiraForm = nil
+		return m.bulkTransition(f.bulk, f.to, fields, comment)
 	}
 	f.busy = true
 	f.err = ""

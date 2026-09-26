@@ -188,8 +188,8 @@ Panel:
 
 `x` marks the card under the cursor (marks survive switching views), `X`
 the whole lane or every shown row (`/` narrows it), `B`
-changes every marked card: status (each along its own workflow move, no
-transition form), priority, assignee, labels (`ui -old` adds ui, removes
+changes every marked card: status (each along its own workflow move; when
+the move needs fields, the form asks them once for all), priority, assignee, labels (`ui -old` adds ui, removes
 old), story points, or sprint. Cards that fail stay marked with the reason
 in the status bar. `esc` clears the marks.
 

@@ -421,6 +421,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePlanSprint(msg)
 	case planWroteMsg:
 		return m.handlePlanWrote(msg)
+	case bulkMoveMsg:
+		return m.handleBulkMove(msg)
 	case bulkDoneMsg:
 		return m.handleBulkDone(msg)
 	case roadmapMsg:

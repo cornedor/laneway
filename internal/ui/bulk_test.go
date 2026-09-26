@@ -97,6 +97,12 @@ func TestBulkStatus(t *testing.T) {
 	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.label == "Done" })
 	out, cmd := m.applyJiraPick()
 	m = out.(Model)
+	check := cmd().(bulkMoveMsg) // no screen: straight on
+	if check.form != nil || check.err != nil {
+		t.Fatalf("check = %+v", check)
+	}
+	out, cmd = m.handleBulkMove(check)
+	m = out.(Model)
 	msg := cmd().(bulkDoneMsg)
 	if len(msg.failed) != 1 || msg.failed["ABC-3"] == nil {
 		t.Fatalf("failed = %v", msg.failed)
@@ -173,5 +179,31 @@ func TestMarkAll(t *testing.T) {
 	out, _ = m.handleJiraKey(keyMsg(t, "X"))
 	if m = out.(Model); len(m.markedKeys()) != 0 {
 		t.Errorf("second X should unmark, got %v", m.markedKeys())
+	}
+}
+
+// TestBulkStatusForm: when the move needs fields, the form is asked once
+// and its values go with every card's move.
+func TestBulkStatusForm(t *testing.T) {
+	m, writes := bulkModel(t)
+	form := &jiraFormState{key: "ABC-1", to: "Done", bulk: []string{"ABC-1", "ABC-3"},
+		fields: []jiraFormField{{FieldMeta: jira.FieldMeta{ID: "customfield_9", Name: "Resolution note", Kind: jira.KindText}, required: true}}}
+	out, _ := m.handleBulkMove(bulkMoveMsg{keys: form.bulk, to: "Done", form: form})
+	m = out.(Model)
+	if m.jiraForm == nil || !strings.Contains(m.status, "for all 2 cards") {
+		t.Fatalf("form not shown: %q", m.status)
+	}
+	m.jiraForm.fields[0].val.Text, m.jiraForm.fields[0].changed = "shipped", true
+	cmd := m.submitJiraForm()
+	if m.jiraForm != nil || cmd == nil {
+		t.Fatal("submit should close the form and move all")
+	}
+	msg := cmd().(bulkDoneMsg)
+	// ABC-3 has no move to Done in the fake; ABC-1 moves with the field.
+	if len(msg.failed) != 1 {
+		t.Errorf("failed = %v", msg.failed)
+	}
+	if w := writes(); len(w) != 1 || !strings.Contains(w[0], `"customfield_9":"shipped"`) {
+		t.Errorf("writes = %q", w)
 	}
 }
