@@ -151,7 +151,7 @@ func autoShade(bg color.Color) {
 func stepOff(bg color.Color, f float64) lipgloss.Style {
 	r, g, b, _ := bg.RGBA()
 	c := [3]float64{float64(r >> 8), float64(g >> 8), float64(b >> 8)}
-	dark := 0.299*c[0]+0.587*c[1]+0.114*c[2] < 128
+	dark := isDark(bg)
 	for i := range c {
 		if dark {
 			c[i] += (255 - c[i]) * f
@@ -160,6 +160,27 @@ func stepOff(bg color.Color, f float64) lipgloss.Style {
 		}
 	}
 	return lipgloss.NewStyle().Background(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", int(c[0]), int(c[1]), int(c[2]))))
+}
+
+// isDark is whether bg is a dark background.
+func isDark(bg color.Color) bool {
+	r, g, b, _ := bg.RGBA()
+	return 0.299*float64(r>>8)+0.587*float64(g>>8)+0.114*float64(b>>8) < 128
+}
+
+// lightSelectionIdle replaces the default selection_idle, a dark grey
+// behind the terminal's own text, on a light background.
+const lightSelectionIdle = "253"
+
+// adaptTheme fits the default's fixed greys to the terminal's background
+// bg; a colour the config sets is kept.
+func adaptTheme(bg color.Color) {
+	if bg == nil || isDark(bg) || curTheme["selection_idle"] != defaultTheme()["selection_idle"] {
+		return
+	}
+	th := maps.Clone(curTheme)
+	th["selection_idle"] = lightSelectionIdle
+	applyTheme(th)
 }
 
 // shade gives a line the faint background across width, keeping it through

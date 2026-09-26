@@ -1,10 +1,11 @@
 # Roadmap
 
 ## Next
-- Light-theme pass over the chips, lozenges and selection colours
+- Light terminal check by eye: chips, lozenges and selections after the adaptation (the ANSI ones follow the palette)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Light terminals: the default idle selection (a fixed dark grey behind the terminal's text) turns light grey once the terminal reports a light background, a configured one kept; avatar initials white by hex, not the palette's 15. Lozenges and the focused selection are ANSI and follow the palette
 - `laneway rules test` defaults: the project's Task (else first type) and its first to-do status read from Jira (`/project/{key}/statuses`), `rules_test:` overrides, Task / To Do without Jira
 - In-app editor highlights markdown as you type (bold, italic, strike, code, links styled, markers kept) in the description, rich-text fields and comments
 - Your comment's edit replaces it in the thread (under its byline, keys after); off the Comments tab it goes after the activity. No single-field modal is left in the panel

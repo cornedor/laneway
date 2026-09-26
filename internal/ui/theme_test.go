@@ -2,6 +2,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"image/color"
 	"strings"
@@ -135,4 +136,25 @@ func TestChipEndsOnShade(t *testing.T) {
 	}
 	after(shade(chip+" Ada", 20), ansiOpenSeq(shadeStyle))
 	after(m.jiraSelect(chip+" Ada", true, 20), ansiOpenSeq(selectedRow))
+}
+
+// TestAdaptThemeLight: on a light terminal the default's dark idle selection
+// turns light; a dark terminal and a configured colour keep theirs.
+func TestAdaptThemeLight(t *testing.T) {
+	defer applyTheme(defaultTheme())
+	applyTheme(defaultTheme())
+	adaptTheme(color.RGBA{0x10, 0x10, 0x10, 0xff})
+	if curTheme["selection_idle"] != "238" {
+		t.Errorf("dark: selection_idle = %q", curTheme["selection_idle"])
+	}
+	adaptTheme(color.White)
+	if curTheme["selection_idle"] != lightSelectionIdle || diffTreeSelStyle.GetBackground() != lipgloss.Color(lightSelectionIdle) {
+		t.Errorf("light: selection_idle = %q", curTheme["selection_idle"])
+	}
+	th, _ := themeFrom(map[string]string{"selection_idle": "#333333"})
+	applyTheme(th)
+	adaptTheme(color.White)
+	if curTheme["selection_idle"] != "#333333" {
+		t.Errorf("configured: selection_idle = %q", curTheme["selection_idle"])
+	}
 }

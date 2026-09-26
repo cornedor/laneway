@@ -125,7 +125,8 @@ priority_lowest type_bug type_story type_epic type_subtask type_other
 highlight roadmap_done roadmap_todo (also the panel's done and in-progress status
 lozenges, on drop_fg), and shade: `auto` (steps off the terminal's own background: faint for
 the canvas around the cards and list zebra rows, stronger for the panel's trail
-and section bars), `off`, or one colour for all.
+and section bars), `off`, or one colour for all. On a light terminal the
+default selection_idle turns light grey (`253`); the presets are for dark ones.
 
 ### Rules
 

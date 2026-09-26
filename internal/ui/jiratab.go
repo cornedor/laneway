@@ -1963,7 +1963,8 @@ func jiraExtraValues(c jira.Card) []string {
 	return out
 }
 
-// avatarColours are the chips' backgrounds, picked per person by name.
+// avatarColours are the chips' backgrounds, picked per person by name; the
+// initials on them are white whatever the terminal's palette.
 var avatarColours = []string{"24", "29", "95", "130", "61", "66", "131", "98"}
 
 // avatars caches jiraAvatar by name; renders run on one goroutine.
@@ -1981,7 +1982,7 @@ func jiraAvatar(name string) string {
 	h := fnv.New32a()
 	h.Write([]byte(name))
 	bg := avatarColours[h.Sum32()%uint32(len(avatarColours))]
-	a := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color(bg)).Bold(true).Render(jiraInitials(name))
+	a := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Background(lipgloss.Color(bg)).Bold(true).Render(jiraInitials(name))
 	avatars[name] = a
 	return a
 }

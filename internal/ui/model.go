@@ -420,6 +420,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.BackgroundColorMsg:
+		adaptTheme(msg.Color)
 		autoShade(msg.Color)
 		m.sizeRefView() // shaded, the trail drops its rule
 		m.renderRef()
