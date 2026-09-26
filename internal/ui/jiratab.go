@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"math"
 	"slices"
 	"strconv"
@@ -1622,7 +1623,10 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	pts := fmt.Sprintf("%3s", c.Points)
 	f := m.opts.fields
 	title := c.Summary
-	if f.assignee && c.Assignee != "" {
+	switch {
+	case f.assignee && f.avatar && c.Assignee != "":
+		title += " " + jiraAvatar(c.Assignee) + jiraDimStyle.Render(" "+c.Assignee)
+	case f.assignee && c.Assignee != "":
 		title += jiraDimStyle.Render(" · " + c.Assignee)
 	}
 	if f.parent && c.ParentSummary != "" {
@@ -1746,8 +1750,15 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 		}
 		who += "⌃ " + c.ParentSummary
 	}
+	chip := ""
+	if f.avatar && c.Assignee != "" {
+		chip = jiraInitials(c.Assignee)
+	}
 	if !styled {
-		return []string{key + pts, c.Summary, who}
+		return []string{key + pts, c.Summary, strings.TrimSpace(chip + " " + who)}
+	}
+	if chip != "" {
+		chip = jiraAvatar(c.Assignee) + " "
 	}
 	head := jiraKeyStyle.Render(key)
 	if f.flagged && c.Flagged {
@@ -1774,7 +1785,44 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 	if a := jiraAgeMark(c, time.Now(), f.stale); f.age && a != "" {
 		head += " " + a
 	}
-	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
+	return []string{head + jiraDimStyle.Render(pts), c.Summary, chip + jiraDimStyle.Render(who)}
+}
+
+// avatarColours are the chips' backgrounds, picked per person by name.
+var avatarColours = []string{"24", "29", "95", "130", "61", "66", "131", "98"}
+
+// avatars caches jiraAvatar by name; renders run on one goroutine.
+var avatars = map[string]string{}
+
+// jiraAvatar is a person's initials on a colour of their own, the same on
+// every card and every run.
+func jiraAvatar(name string) string {
+	if a, ok := avatars[name]; ok {
+		return a
+	}
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	bg := avatarColours[h.Sum32()%uint32(len(avatarColours))]
+	a := lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Background(lipgloss.Color(bg)).Bold(true).Render(jiraInitials(name))
+	avatars[name] = a
+	return a
+}
+
+// jiraInitials is two letters for a name: first and last word's initials,
+// or a single word's first two letters.
+func jiraInitials(name string) string {
+	words := strings.Fields(name)
+	if len(words) == 0 {
+		return "??"
+	}
+	first := []rune(words[0])
+	if len(words) == 1 {
+		if len(first) == 1 {
+			return strings.ToUpper(string(first)) + " "
+		}
+		return strings.ToUpper(string(first[:2]))
+	}
+	return strings.ToUpper(string(first[:1]) + string([]rune(words[len(words)-1])[:1]))
 }
 
 // jiraDropZones splits a lane body into one drop zone per status while a

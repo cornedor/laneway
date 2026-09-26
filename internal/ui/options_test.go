@@ -62,8 +62,19 @@ func TestCardFieldsHideAssignee(t *testing.T) {
 	if got[0] != "ABC-1" || got[2] != "⌃ Epic" {
 		t.Errorf("lines = %q", got)
 	}
-	if got := jiraCardLines(c, false, allCardFields); got[0] != "ABC-1 3" || got[2] != "Ada · ⌃ Epic" {
+	if got := jiraCardLines(c, false, allCardFields); got[0] != "ABC-1 3" || got[2] != "AD Ada · ⌃ Epic" {
 		t.Errorf("all fields = %q", got)
+	}
+}
+
+func TestInitials(t *testing.T) {
+	for in, want := range map[string]string{"Ada Lovelace": "AL", "Grace Brewster Hopper": "GH", "ada": "AD", "X": "X ", "": "??", "élodie durand": "ÉD"} {
+		if got := jiraInitials(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
+	}
+	if jiraAvatar("Ada Lovelace") != jiraAvatar("Ada Lovelace") {
+		t.Error("the same name should get the same chip")
 	}
 }
 
