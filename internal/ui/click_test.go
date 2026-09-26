@@ -885,3 +885,24 @@ func TestLoadingElapsed(t *testing.T) {
 		t.Error("a fresh load shows a time")
 	}
 }
+
+// TestListRowTail: a long summary gives way so the row's tail (assignee,
+// due) stays on screen.
+func TestListRowTail(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[0].Summary = strings.Repeat("very long summary ", 20)
+	m.jiraTab.cards[0].Due = time.Now().Add(-48 * time.Hour)
+	out, _ := m.handleKey(keyMsg(t, "t"))
+	m = out.(Model)
+	m.jiraTab.rows = nil
+	m.renderJira()
+	var row string
+	for _, l := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+		if strings.Contains(l, "ABC-1 ") {
+			row = l
+		}
+	}
+	if !strings.Contains(row, "Ada") || !strings.Contains(row, "…") {
+		t.Errorf("row lost its tail: %q", row)
+	}
+}

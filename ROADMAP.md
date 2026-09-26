@@ -1,10 +1,18 @@
 # Roadmap
 
 ## Next
+- Assign to me in `a enter`: the assignee picker starts on "Assign to me" when you aren't the assignee
+- Panel: Created, Resolution, Watchers (you), Votes from the edit meta already fetched; time tracking (logged · left of estimate)
+- A failed create reopens the box with your summary and the error
+- Not by colour alone: over-limit lanes, stale ages and over-capacity people get a `!`
+- Panel: long field values wrap under their value column, not the label
+- `ui.icons: nerd | plain` for terminals without a Nerd Font
+- List sort by updated, due, created; `w` logs a past day (`yesterday 2h`); start work moves to In Progress and assigns you (option); empty extra fields fold
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- List mode: a long summary (with its parent and custom fields) gives way, so the assignee, deploy, subtasks, due and age stay on the row
 - README: `jira.story_points_field` and `jira.start_prompt` documented (every config key now is)
 - Slow loads count up after 2s (`refreshing… 7s`; the first load says `loading ABC… 7s` centred), so a slow instance doesn't look frozen; `#` go-to takes a pasted issue URL (`…/browse/ABC-1`, `?selectedIssue=ABC-1`)
 - `Q`: enter on an empty input runs the highlighted past search; the create box says "type a summary first" for a blank one (spaces no longer reach Jira) and its title names the sprint a new issue joins (`New Task in ABC → Sprint 12`)

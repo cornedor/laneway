@@ -1816,13 +1816,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	status += strings.Repeat(" ", max(stW-lipgloss.Width(status), 0))
 	pts := fmt.Sprintf("%3s", c.Points)
 	f := m.opts.fields
+	// The summary, its parent and custom fields give way on a long row; the
+	// tail (assignee, deploy, subtasks, due, age) is what a row is scanned for.
 	title := c.Summary
-	switch {
-	case f.assignee && f.avatar && c.Assignee != "":
-		title += " " + jiraAvatar(c.Assignee) + jiraDimStyle.Render(" "+c.Assignee)
-	case f.assignee && c.Assignee != "":
-		title += jiraDimStyle.Render(" · " + c.Assignee)
-	}
 	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
 	}
@@ -1832,17 +1828,24 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		title = pr + " " + title
 	}
+	var tail string
+	switch {
+	case f.assignee && f.avatar && c.Assignee != "":
+		tail += " " + jiraAvatar(c.Assignee) + jiraDimStyle.Render(" "+c.Assignee)
+	case f.assignee && c.Assignee != "":
+		tail += jiraDimStyle.Render(" · " + c.Assignee)
+	}
 	if d := jiraDeployMark(c.Deploy); f.deploy && d != "" {
-		title += " " + d
+		tail += " " + d
 	}
 	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
-		title += " " + st
+		tail += " " + st
 	}
 	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
-		title += " " + d
+		tail += " " + d
 	}
 	if a := jiraAgeMark(c, time.Now(), m.opts.staleDays); f.age && a != "" {
-		title += " " + a
+		tail += " " + a
 	}
 	row := "  "
 	if r := m.cardRibbon(c); r != "" && !selected {
@@ -1874,7 +1877,10 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if f.points {
 		row += jiraDimStyle.Render(pts) + "  "
 	}
-	row += title
+	if avail := width - 1 - lipgloss.Width(row); lipgloss.Width(title)+lipgloss.Width(tail) > avail {
+		title = ansi.Truncate(title, max(avail-lipgloss.Width(tail), 12), "…")
+	}
+	row += title + tail
 	row = ansi.Truncate(row, width-1, "…")
 	if selected {
 		// Plain selection colours, as the selected card: dim status, points
