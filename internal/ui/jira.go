@@ -49,6 +49,7 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 	} else {
 		m.refErr = nil
 		m.jiraIssue = msg.issue
+		m.rememberRecent(msg.issue.Key, msg.issue.Summary)
 	}
 	m.renderRef()
 	return m, tea.Batch(m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra())

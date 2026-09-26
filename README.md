@@ -157,8 +157,8 @@ config is picked up as a fallback.
 ## Keys
 
 `?` shows every key as bound. `:` opens the command palette: every action
-of the focused pane, the board's views, quick filters and boards, and the
-loaded issues, filtered by every word you type. From three characters it
+of the focused pane, the board's views, quick filters and boards, the
+loaded issues and the ones you opened lately, filtered by every word you type. From three characters it
 also searches all of Jira (summary, description, comments); those hits come
 last, marked `⌕`.
 

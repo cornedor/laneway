@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 	"strings"
@@ -59,6 +60,11 @@ func (m *Model) openPalette() {
 	}
 	for _, c := range t.cards {
 		items = append(items, jiraPickerItem{id: "i:" + c.Key, label: c.Key + "  " + ansi.Strip(c.Summary)})
+	}
+	for _, r := range m.recentIssues() {
+		if id := "i:" + r[0]; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
+			items = append(items, jiraPickerItem{id: id, label: "recent  " + r[0] + "  " + ansi.Strip(r[1])})
+		}
 	}
 	m.setJiraPickerItems(items)
 	m.jiraPicker.idx = 0
@@ -184,4 +190,34 @@ func (m Model) handlePaletteFound(msg paletteFoundMsg) (tea.Model, tea.Cmd) {
 	m.filterJiraPicker()
 	p.idx = min(idx, max(len(p.items)-1, 0))
 	return m, nil
+}
+
+// Issues opened in the panel lately, newest first, for the palette.
+const (
+	recentMeta = jiraMetaPrefix + "recent"
+	recentMax  = 20
+)
+
+// recentIssues are the recently opened issues as [key, summary].
+func (m *Model) recentIssues() [][2]string {
+	if m.store == nil {
+		return nil
+	}
+	v, ok, _ := m.store.GetMeta(recentMeta)
+	var out [][2]string
+	if ok {
+		_ = json.Unmarshal([]byte(v), &out)
+	}
+	return out
+}
+
+// rememberRecent puts key first among the recent issues.
+func (m *Model) rememberRecent(key, summary string) {
+	if m.store == nil || key == "" {
+		return
+	}
+	r := slices.DeleteFunc(m.recentIssues(), func(e [2]string) bool { return e[0] == key })
+	r = append([][2]string{{key, summary}}, r...)
+	b, _ := json.Marshal(r[:min(len(r), recentMax)])
+	_ = m.store.SetMeta(recentMeta, string(b))
 }

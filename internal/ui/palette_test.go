@@ -117,3 +117,25 @@ func TestPaletteJiraSearch(t *testing.T) {
 		t.Error("a stale search should not run")
 	}
 }
+
+// TestPaletteRecent: an issue opened in the panel shows in the palette as
+// recent, once, newest first.
+func TestPaletteRecent(t *testing.T) {
+	m := loadedJiraModel(t) // opened ABC-1
+	m.rememberRecent("XYZ-7", "Elsewhere")
+	m.rememberRecent("ABC-1", "Fix the widget")
+	if r := m.recentIssues(); len(r) != 2 || r[0][0] != "ABC-1" {
+		t.Fatalf("recent = %v", r)
+	}
+	m.focus = focusJira
+	m.openPalette()
+	var got []string
+	for _, it := range m.jiraPicker.all {
+		if strings.HasPrefix(it.label, "recent") {
+			got = append(got, it.label)
+		}
+	}
+	if len(got) != 2 || got[1] != "recent  XYZ-7  Elsewhere" {
+		t.Errorf("recent rows = %q", got)
+	}
+}
