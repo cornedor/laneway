@@ -55,7 +55,7 @@ func (m *Model) helpSections() []struct {
 			row(k.MarkAll, "mark the lane / every row"),
 			row(k.Pin, "pin: ★, first in the palette"),
 			row(k.Search, "search (esc clears)"),
-			row(k.FilterBuilder, "filter builder: field, compare, value → search"),
+			row(k.FilterBuilder, "filter builder: field, compare, value side by side → search"),
 			{join(k.Assignee, k.Mine), "assignee filter / mine"},
 			{"1-9 / " + helpKey(k.ClearFilters), "quick filter / clear"},
 			row(k.Refresh, "refresh"),

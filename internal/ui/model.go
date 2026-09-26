@@ -198,13 +198,13 @@ type Model struct {
 	jiraIssue  *jira.Issue
 	panelHint  string
 
-	helpOpen    bool
-	settings    *settingsView   // the , overlay (settings.go)
-	filterBuild filterBuild     // the F builder's choices (filter_builder.go)
-	uiConfig    config.UIConfig // as the file gives it, for settings
-	configPath  string
-	images      *panelImages
-	opts        options
+	helpOpen      bool
+	settings      *settingsView   // the , overlay (settings.go)
+	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
+	uiConfig      config.UIConfig // as the file gives it, for settings
+	configPath    string
+	images        *panelImages
+	opts          options
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
@@ -556,6 +556,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case m.settings != nil:
 		return m.handleSettingsKey(msg)
+	case m.filterBuilder != nil:
+		return m.handleFilterBuilderKey(msg)
 	case m.helpOpen:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -594,7 +596,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) modalOpen() bool {
-	return m.settings != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.settings != nil || m.filterBuilder != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -739,13 +741,13 @@ func (m Model) View() tea.View {
 
 // pickerOnTop is whether the picker is the modal drawn (renderOverlay).
 func (m *Model) pickerOnTop() bool {
-	return m.jiraPicker.active && m.settings == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
+	return m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
 		!m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // formOnTop is whether the transition form is the modal drawn.
 func (m *Model) formOnTop() bool {
-	return m.jiraForm != nil && !m.jiraPicker.active && m.settings == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
+	return m.jiraForm != nil && !m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
 		!m.jiraCreateActive && !m.jiraCommentActive && !m.jiraFieldActive
 }
 
@@ -754,6 +756,8 @@ func (m *Model) renderOverlay(bodyH int) string {
 	switch {
 	case m.settings != nil:
 		return m.renderSettings(bodyH)
+	case m.filterBuilder != nil:
+		return m.renderFilterBuilder(bodyH)
 	case m.helpOpen:
 		return m.renderHelp(bodyH)
 	case m.jql != nil:

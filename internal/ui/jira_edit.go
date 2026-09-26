@@ -90,11 +90,6 @@ const (
 	jiraPickUnlink
 	// jiraPickEditComment picks one of your comments to edit (description.go).
 	jiraPickEditComment
-	// jiraPickFilterField, Op and Value are the filter builder's steps
-	// (filter_builder.go).
-	jiraPickFilterField
-	jiraPickFilterOp
-	jiraPickFilterValue
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -632,9 +627,6 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m.openJiraKey(key)
-	}
-	if kind == jiraPickFilterField || kind == jiraPickFilterOp || kind == jiraPickFilterValue {
-		return m.applyFilterPick(kind, it.id)
 	}
 	if kind == jiraPickBulk {
 		m.closeJiraPicker()
