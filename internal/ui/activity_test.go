@@ -23,13 +23,13 @@ func TestActivityTabs(t *testing.T) {
 	if m.activityTab != activityHistory || cmd == nil || !strings.Contains(ansi.Strip(m.refView.GetContent()), "loading…") {
 		t.Fatalf("tab %d, cmd %v", m.activityTab, cmd != nil)
 	}
-	when := time.Date(2026, 9, 25, 9, 0, 0, 0, time.Local)
+	when := time.Date(2025, 9, 25, 9, 0, 0, 0, time.Local) // over a week back: the full date
 	out, _ = m.handleActivityLoaded(activityLoadedMsg{key: "ABC-1",
 		changes: []jira.InboxEntry{{Who: "Bob", When: when, What: "status: To Do → Done · labels: — → ui"}},
 		logs:    []jira.Worklog{{Author: "Ann", Started: when.Add(time.Hour), Seconds: 5400, Comment: "review"}}})
 	m = out.(Model)
 	c := ansi.Strip(m.refView.GetContent())
-	if !strings.Contains(c, "Bob · 2026-09-25 09:00") || !strings.Contains(c, "status To Do → Done") || !strings.Contains(c, "labels — → ui") {
+	if !strings.Contains(c, "Bob · 2025-09-25 09:00") || !strings.Contains(c, "status To Do → Done") || !strings.Contains(c, "labels — → ui") {
 		t.Fatalf("history:\n%s", c)
 	}
 	out, cmd = m.handleRefKey(keyMsg(t, "]"))
@@ -92,7 +92,7 @@ func TestCommentBylineClick(t *testing.T) {
 	m := configuredJiraModel(t, "ABC")
 	out, _ := openRefFor(m, "ABC-1")
 	m = out.(Model)
-	when := time.Date(2026, 9, 25, 9, 0, 0, 0, time.Local)
+	when := time.Date(2025, 9, 25, 9, 0, 0, 0, time.Local) // over a week back: the full date
 	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Comments: []jira.Comment{
 		{ID: "1", Author: "Ann", Created: when, Body: "first"},
 		{ID: "2", Author: "Bob", Created: when.Add(time.Hour), Body: "second", ParentID: "1"},
@@ -134,5 +134,21 @@ func TestStatusLozenge(t *testing.T) {
 	m = out.(Model)
 	if c := ansi.Strip(m.refView.GetContent()); !strings.Contains(c, "Status:   In Progress") {
 		t.Errorf("selected status should read plain:\n%s", c)
+	}
+}
+
+func TestRelativeDate(t *testing.T) {
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.Local)
+	for d, want := range map[time.Duration]string{
+		10 * time.Second:   "just now",
+		5 * time.Minute:    "5m ago",
+		3 * time.Hour:      "3h ago",
+		50 * time.Hour:     "2d ago",
+		8 * 24 * time.Hour: "2026-09-18 12:00",
+		-2 * time.Hour:     "2026-09-26 14:00",
+	} {
+		if got := relativeDate(now.Add(-d), now, "2006-01-02 15:04"); got != want {
+			t.Errorf("%v ago = %q, want %q", d, got, want)
+		}
 	}
 }

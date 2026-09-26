@@ -10,7 +10,6 @@
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
 - Light-theme pass over the chips, lozenges and selection colours
-- Relative dates in comments, history and worklogs (`2d ago`), the full date when selected
 - Inline quick edit from the board: priority, assignee, points without opening the panel
 - My work: everything assigned to you across boards and projects, grouped by status
 - History: description changes as a small diff instead of from → to
@@ -19,6 +18,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Relative dates in the panel (Updated, comments, history, worklogs): `just now`, `5m ago`, `3h ago`, `2d ago` within a week, `ui.date_format` beyond (the activity has no selection to show a full date on)
 - Lane heads: a ▍ mark in the status category colour (to do grey, in progress blue, done green); a mark rather than a rule, so the lanes keep their height and click rows
 - Sprint header: workdays left beside the calendar days (`5d left · 2 workdays`), by `ui.workdays`, up to the end day
 - Empty states: an empty board, backlog, sprint or search says so centred, with the key that helps; an empty lane says nothing here

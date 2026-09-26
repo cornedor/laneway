@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 	"os"
 	"path/filepath"
@@ -257,4 +258,28 @@ func (m Model) openOpenable(o openable) tea.Cmd {
 	return func() tea.Msg {
 		return openedMsg{name: o.name, err: opener.Open(command, o.url)}
 	}
+}
+
+// when is a panel date: relative within a week ("just now", "5m ago", "3h
+// ago", "2d ago"), else in ui.date_format; zero is "".
+func (m *Model) when(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return relativeDate(t, time.Now(), m.opts.dateFormat)
+}
+
+func relativeDate(t, now time.Time, layout string) string {
+	d := now.Sub(t)
+	switch {
+	case d < 0 || d >= 7*24*time.Hour:
+		return t.Local().Format(layout)
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	}
+	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 }

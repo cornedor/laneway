@@ -99,7 +99,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	line()
 	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel("Labels"))
 	if !iss.Updated.IsZero() {
-		refMeta(&b, "Updated", iss.Updated.Format(m.opts.dateFormat), 10)
+		refMeta(&b, "Updated", m.when(iss.Updated), 10)
 	}
 	// The deployment rides on the board's card (its Development field).
 	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 && m.jiraTab.cards[i].Deploy != "" {
@@ -330,7 +330,7 @@ func (m *Model) commentByline(c jira.Comment) string {
 	if c.Created.IsZero() {
 		return author
 	}
-	return author + " · " + c.Created.Format(m.opts.dateFormat)
+	return author + " · " + m.when(c.Created)
 }
 
 // renderComment writes one comment: author and time, its body.

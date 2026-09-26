@@ -178,7 +178,7 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 
 // renderChange writes one changelog entry: who and when, a line per field.
 func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
-	b.WriteString(refDimStyle.Render(orDash(e.Who)+" · "+e.When.Format(m.opts.dateFormat)) + "\n")
+	b.WriteString(refDimStyle.Render(orDash(e.Who)+" · "+m.when(e.When)) + "\n")
 	for _, part := range strings.Split(e.What, " · ") {
 		field, change, ok := strings.Cut(part, ": ")
 		if !ok {
@@ -192,7 +192,7 @@ func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
 // renderWorklog writes one worklog: who logged how long and when, its
 // comment.
 func (m *Model) renderWorklog(b *strings.Builder, w jira.Worklog) {
-	b.WriteString(refDimStyle.Render(orDash(w.Author)+" · "+w.Started.Format(m.opts.dateFormat)) + "\n")
+	b.WriteString(refDimStyle.Render(orDash(w.Author)+" · "+m.when(w.Started)) + "\n")
 	b.WriteString("logged " + refKeyStyle.Render(jira.FormatDuration(w.Seconds)) + "\n")
 	if w.Comment != "" {
 		b.WriteString(renderMarkdown(w.Comment, m.emojiImg, nil, ""))
