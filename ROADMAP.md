@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- Timesheet `y`: the day (or week) as a markdown table
 - Roadmap `y`: epics with start, end, done points as a markdown table
 - Lanes mode swimlanes by assignee / epic (`g` cycles), like Jira's board swimlanes; split: grouping, then render, then keys
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Timesheet `y`: the day's worklogs and total as a markdown table
 - Charts: `y` copies the open chart's numbers as a markdown table
 - Cards show the top deployment environment (`▲ production`) from the Development field; `card_fields: deploy`
 - Board `*` pins the selected card; pinned cards show ★

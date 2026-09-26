@@ -244,7 +244,7 @@ Copy as text, puts it on the clipboard grouped per issue, ready to paste.
 shown in the header and kept across restarts; `T` again stops it into the
 same input, filled with the time and started when the timer did. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
-an entry's time and comment, `d` twice deletes it, `enter` opens the issue.
+an entry's time and comment, `d` twice deletes it, `y` copies the day as a markdown table, `enter` opens the issue.
 
 ## Planning
 

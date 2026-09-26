@@ -3,6 +3,8 @@ package ui
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -197,5 +199,37 @@ func TestTimesheetEdit(t *testing.T) {
 	m.openWorklogInput("ABC-1", "", time.Time{})
 	if m.worklogEdit != "" {
 		t.Error("a new log must not update the edited entry")
+	}
+}
+
+// TestTimesheetCopy: y copies the day's worklogs and total as a markdown
+// table.
+func TestTimesheetCopy(t *testing.T) {
+	now := time.Now()
+	started := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 1, 0, time.Local).Format("2006-01-02T15:04:05.000-0700")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/myself"):
+			io.WriteString(w, `{"accountId":"me"}`)
+		case strings.HasSuffix(r.URL.Path, "/search/jql"):
+			io.WriteString(w, `{"issues":[{"key":"ABC-2","fields":{"summary":"Second | part"}}]}`)
+		case strings.HasSuffix(r.URL.Path, "/worklog"):
+			io.WriteString(w, `{"worklogs":[{"id":"1","author":{"accountId":"me"},"started":"`+started+`","timeSpentSeconds":5400}]}`)
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, cmd := m.handleJiraKey(keyMsg(t, "W"))
+	m = out.(Model)
+	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	_, cmd = m.handleJiraPickerKey(keyMsg(t, "y"))
+	if cmd == nil {
+		t.Fatal("y copied nothing")
+	}
+	got := fmt.Sprint(cmd())
+	if !strings.Contains(got, "| 1h 30m | ABC-2 | Second \\| part |") || !strings.Contains(got, "| 1h 30m | total |") {
+		t.Errorf("table = %q", got)
 	}
 }

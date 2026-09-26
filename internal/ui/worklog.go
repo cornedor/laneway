@@ -169,7 +169,7 @@ func (m *Model) openTimesheet() tea.Cmd {
 }
 
 // openTimesheetDay lists day's worklogs of yours. [ ] step a day, d twice
-// deletes the entry under the cursor.
+// deletes the entry under the cursor, y copies the day as a markdown table.
 func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	gen := m.startJiraPicker(jiraPickTimesheet, standupDay(day, time.Now()), false)
 	m.jiraPicker.day = day
@@ -179,8 +179,10 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 		logs, err := c.MyWorklogs(ctx, day)
 		total := 0
 		items := make([]jiraPickerItem, len(logs))
+		rows := make([][]string, len(logs))
 		for i, w := range logs {
 			total += w.Seconds
+			rows[i] = []string{w.Started.Local().Format("15:04"), jira.FormatDuration(w.Seconds), w.Key, w.Summary, w.Comment}
 			label := fmt.Sprintf("%s  %6s  %s %s", w.Started.Local().Format("15:04"), jira.FormatDuration(w.Seconds), w.Key, w.Summary)
 			if w.Comment != "" {
 				label += " — " + strings.ReplaceAll(w.Comment, "\n", " ")
@@ -190,8 +192,10 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 		if err == nil && len(items) == 0 {
 			items = []jiraPickerItem{{label: "nothing logged"}}
 		}
+		rows = append(rows, []string{"", jira.FormatDuration(total), "total", "", ""})
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickTimesheet, items: items, err: err,
-			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + "  ·  [ ] day · e edit · d d delete"}
+			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + "  ·  [ ] day · e edit · d d delete · y copy",
+			text:  markdownTable([]string{"Started", "Time", "Issue", "Summary", "Comment"}, rows)}
 	}
 }
 
@@ -206,6 +210,12 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		return m.openTimesheetDay(p.day.AddDate(0, 0, -1)), true
 	case k == helpKey(m.keys.NextView):
 		return m.openTimesheetDay(p.day.AddDate(0, 0, 1)), true
+	case k == "y":
+		if p.loading || p.err != nil {
+			return nil, true
+		}
+		m.status = "copied the day as a markdown table"
+		return tea.SetClipboard(p.text), true
 	case k == "e":
 		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
 			return nil, true
