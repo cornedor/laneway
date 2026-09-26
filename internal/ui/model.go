@@ -677,7 +677,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	form := m.formOnTop()
-	if msg.Button != tea.MouseLeft || (m.modalOpen() && !form) || msg.Y >= m.bodyH() {
+	if msg.Button != tea.MouseLeft || msg.Y >= m.bodyH() {
 		return m, nil
 	}
 	count := 1
@@ -687,6 +687,12 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	m.lastClick.at, m.lastClick.x, m.lastClick.y = time.Now(), msg.X, msg.Y
 	if count == 2 {
 		m.lastClick.at = time.Time{}
+	}
+	if out, cmd, ok := m.clickOverlay(msg.X, msg.Y, count); ok {
+		return out, cmd
+	}
+	if m.modalOpen() && !form {
+		return m, nil
 	}
 	if form {
 		return m.clickJiraForm(msg.X, msg.Y, count)
@@ -744,6 +750,11 @@ func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			return m.handleJiraPickerKey(keyPress("down"))
 		}
 		return m, nil
+	}
+	if msg.Button == tea.MouseWheelUp || msg.Button == tea.MouseWheelDown {
+		if out, cmd, ok := m.wheelOverlay(msg.Button == tea.MouseWheelUp); ok {
+			return out, cmd
+		}
 	}
 	if m.modalOpen() {
 		return m, nil

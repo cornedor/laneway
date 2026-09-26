@@ -75,3 +75,84 @@ func TestClickChartTab(t *testing.T) {
 		t.Error("a click on the border switched")
 	}
 }
+
+// clickText clicks the first screen cell showing s, failing when none does.
+func clickText(t *testing.T, m Model, s string) Model {
+	t.Helper()
+	for y, l := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+		if i := strings.Index(l, s); i >= 0 {
+			return click(m, ansi.StringWidth(l[:i]), y)
+		}
+	}
+	t.Fatalf("no %q on screen:\n%s", s, ansi.Strip(m.View().Content))
+	return m
+}
+
+// TestClickSettings: a click selects a row, another on it edits, outside
+// cancels the edit, then closes.
+func TestClickSettings(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, ","))
+	m = out.(Model)
+	i := 3
+	name := m.settings.rows[i].name
+	for j, r := range m.settings.rows {
+		if j != i && strings.Contains(r.name, name) {
+			t.Fatalf("%s is not a unique name", name)
+		}
+	}
+	if m = clickText(t, m, name); m.settings.idx != i || m.settings.input != nil {
+		t.Fatalf("idx %d, want %d, not editing", m.settings.idx, i)
+	}
+	if m = clickText(t, m, name); m.settings.input == nil {
+		t.Fatal("a click on the selected row should edit it")
+	}
+	if m = click(m, 0, 0); m.settings == nil || m.settings.input != nil {
+		t.Fatal("outside should cancel the edit only")
+	}
+	if m = click(m, 0, 0); m.settings != nil {
+		t.Error("outside should close")
+	}
+}
+
+// TestClickFilterBuilder: a field's click moves on to compare, a value's
+// adds the term.
+func TestClickFilterBuilder(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "F"))
+	m = out.(Model)
+	if m = clickText(t, m, "Assignee"); m.builderPick(0).id != "assignee" || m.filterBuilder.col != 1 {
+		t.Fatalf("field %q col %d", m.builderPick(0).id, m.filterBuilder.col)
+	}
+	if m = clickText(t, m, "Ada · 1"); m.jiraTab.search.Value() != "assignee:Ada" {
+		t.Errorf("query %q", m.jiraTab.search.Value())
+	}
+	if m = click(m, 0, 0); m.filterBuilder != nil {
+		t.Error("outside should close")
+	}
+}
+
+// TestClickJQL: a click on a completion takes it; outside cancels.
+func TestClickJQL(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "Q"))
+	m = out.(Model)
+	m.jql.input.SetValue("")
+	m.jql.sugg = []string{"assignee = currentUser()", "status = Done"}
+	if m = clickText(t, m, "status = Done"); m.jql.input.Value() != "status = Done" {
+		t.Errorf("input %q", m.jql.input.Value())
+	}
+	if m = click(m, 0, 0); m.jql != nil {
+		t.Error("outside should cancel")
+	}
+}
+
+// TestWheelOverlay: the wheel moves the settings cursor, not the board.
+func TestWheelOverlay(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, ","))
+	out, _ = out.(Model).Update(tea.MouseWheelMsg{X: 5, Y: 5, Button: tea.MouseWheelDown})
+	if m = out.(Model); m.settings.idx != 1 || m.jiraTab.row != 0 {
+		t.Errorf("idx %d, board row %d", m.settings.idx, m.jiraTab.row)
+	}
+}

@@ -117,6 +117,12 @@ type settingsView struct {
 	err   string
 }
 
+// window is the first row shown and how many show in height.
+func (s *settingsView) window(height int) (top, visible int) {
+	visible = max(height-10, 4) // border, padding, title and hint
+	return min(max(s.idx-visible+1, 0), max(len(s.rows)-visible, 0)), visible
+}
+
 func (m *Model) openSettings() {
 	m.settings = &settingsView{rows: settingRows(m.uiConfig)}
 }
@@ -272,8 +278,7 @@ func (m *Model) renderSettings(height int) string {
 		valW = max(valW, lipgloss.Width(r.value), lipgloss.Width(r.def))
 	}
 	valW = min(valW, 40)
-	visible := max(height-10, 4) // border, padding, title and hint
-	top := min(max(s.idx-visible+1, 0), max(len(s.rows)-visible, 0))
+	top, visible := s.window(height)
 	width := nameW + 2 + valW + 2 + valW
 	pad := func(v string, w int) string {
 		v = truncate(v, w)

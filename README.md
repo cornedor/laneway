@@ -231,7 +231,7 @@ Panel:
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →)
-- mouse: drag the panel's left border to resize it; a click selects a field, a second edits it; a click opens a linked issue or a link, or an activity tab; a click on a comment's byline replies to it. In pickers a click picks, outside cancels; in the move form a click selects a field, a second edits it, the button moves
+- mouse: drag the panel's left border to resize it; a click selects a field, a second edits it; a click opens a linked issue or a link, or an activity tab; a click on a comment's byline replies to it. In pickers a click picks, outside cancels (settings: a second click edits; `F`: a field moves on, a value adds; `Q`: a completion is taken), the wheel moves; in the move form a click selects a field, a second edits it, the button moves
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 

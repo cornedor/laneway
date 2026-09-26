@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Mouse in overlays: settings (row, second click edits), `F` builder (column rows, value adds), `Q` completions, image viewer (halves step, caption back), go-to / create / composers (outside cancels), mention popup; wheel for each. They sit behind the `modalOpen` gate in `handleClick`
+- Mouse in overlays, the rest: image viewer (halves step, caption back, wheel), go-to / create / composers (outside cancels), mention popup
 - Mouse in the header: project and board names open their pickers, refresh/updated refreshes, timer stops, `✉` opens the inbox, offline notice retries, `‹` steps views, sprint bar opens charts, filter line's `X clears` / `sort:` / `/ search` chips
 - Mouse on the roadmap: ▾/▸ folds its group or epic; charts' hint chips; planning's target sprint name cycles, side heads focus
 - Mouse in the panel: inline images open the viewer, section heads (Links, Attachments, Description double-click), hint chips, `…and N more`, scrollbar drag; the wheel while an inline editor is open
@@ -10,6 +10,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Mouse in overlays: settings (a click selects, again edits, outside cancels then closes), `F` builder (a field or compare moves on, a value adds the term), `Q` completions (a click takes one); outside closes each, the wheel moves their cursor
 - Mouse: a click on a swimlane band's ▾/▸ header folds or unfolds it; a click on a chart's name switches to it; any click closes `?`; a click on the header's blank space no longer moves the cursor's lane
 - `/` terms `reporter:`, `component:` (any one of its components) and `created<7d`; cards carry them, the `F` builder offers component and reporter
 - `esc` cancels a drag in progress: cards and swimlanes, planning, roadmap bars (dates put back, their write dropped, other pending writes kept) and the panel border (width back, nothing remembered)

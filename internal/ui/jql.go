@@ -243,12 +243,17 @@ func (m *Model) openMyWork() tea.Cmd {
 	return cmd
 }
 
+// top is the first completion shown.
+func (j *jqlState) top() int {
+	return max(0, min(j.idx-jqlShown+1, len(j.sugg)-jqlShown))
+}
+
 // renderJQL draws the input and its completions as a modal.
 func (m *Model) renderJQL() string {
 	j := m.jql
 	inner := j.input.Width() + 2
 	lines := []string{lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render("JQL search"), "", j.input.View(), ""}
-	top := max(0, min(j.idx-jqlShown+1, len(j.sugg)-jqlShown))
+	top := j.top()
 	for i := top; i < len(j.sugg) && i < top+jqlShown; i++ {
 		s := ansi.Truncate(j.sugg[i], inner-2, "…")
 		if i == j.idx {

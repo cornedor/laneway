@@ -183,15 +183,23 @@ func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
+// builderWidths are the columns' widths, a gap of 2 between them.
+var builderWidths = [3]int{24, 10, 30}
+
+// window is column c's first row shown and how many show in height, of n.
+func (b *filterBuilder) window(c, n, height int) (top, visible int) {
+	visible = max(min(height-14, 12), 3)
+	return min(max(b.idx[c]-visible+1, 0), max(n-visible, 0)), visible
+}
+
 func (m *Model) renderFilterBuilder(height int) string {
 	b := m.filterBuilder
-	widths := [3]int{24, 10, 30}
+	widths := builderWidths
 	titles := [3]string{"Field", "Compare", "Value"}
-	visible := max(min(height-14, 12), 3)
 	var cols []string
 	for c := range 3 {
 		rows := m.builderRows(c)
-		top := min(max(b.idx[c]-visible+1, 0), max(len(rows)-visible, 0))
+		top, visible := b.window(c, len(rows), height)
 		head := titleStyle.Render(titles[c])
 		if c == b.col {
 			head = jiraViewActive.Render(titles[c])

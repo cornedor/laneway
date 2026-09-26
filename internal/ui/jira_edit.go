@@ -864,10 +864,8 @@ func (m *Model) pickerWindow(win int) (start, end int) {
 // is true when y, x fall outside the box.
 func (m *Model) pickerRowAt(x, y int) (idx int, outside bool) {
 	bodyH := m.bodyH()
-	box := m.renderJiraPicker(bodyH)
-	w, h := lipgloss.Width(box), lipgloss.Height(box)
-	top, left := (bodyH-h)/2, (m.width-w)/2
-	if y < top || y >= top+h || x < left || x >= left+w {
+	top, _, inside := m.overlayAt(m.renderJiraPicker(bodyH), x, y)
+	if !inside {
 		return -1, true
 	}
 	p := &m.jiraPicker
