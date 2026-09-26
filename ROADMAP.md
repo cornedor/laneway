@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Next
-- Slow loads: elapsed time after 2s on "refreshing…"/"loading…"; go-to takes a pasted browse URL
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Slow loads count up after 2s (`refreshing… 7s`; the first load says `loading ABC… 7s` centred), so a slow instance doesn't look frozen; `#` go-to takes a pasted issue URL (`…/browse/ABC-1`, `?selectedIssue=ABC-1`)
 - `Q`: enter on an empty input runs the highlighted past search; the create box says "type a summary first" for a blank one (spaces no longer reach Jira) and its title names the sprint a new issue joins (`New Task in ABC → Sprint 12`)
 - Lanes off-screen: the outer lane heads say how many lie past them (`‹2 To do`, `Review 3›`)
 - Narrow terminals: the create box, the `F` builder (its value column gives way), settings' edit input, pickers' search box and `/` size to the screen; the move form's field being typed fits its cell, so the cursor stays in view

@@ -309,10 +309,12 @@ type jiraTabState struct {
 
 	drag    jiraDrag
 	loading bool
-	err     string
-	seq     int
-	fresh   int // the last seq the network answered, which a cached copy can't undo
-	fetched time.Time
+	// loadingSince is when the load under way started, for how long it takes.
+	loadingSince time.Time
+	err          string
+	seq          int
+	fresh        int // the last seq the network answered, which a cached copy can't undo
+	fetched      time.Time
 }
 
 // newJiraTabState is held by pointer, like the GitLab tab's.
@@ -410,7 +412,7 @@ func (m *Model) jiraShowsLanes() bool {
 func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCache bool) tea.Cmd {
 	t := m.jiraTab
 	t.seq++
-	t.loading = true
+	t.loading, t.loadingSince = true, time.Now()
 	t.err = ""
 	m.renderJira()
 	seq, ctx, st, c := t.seq, m.ctx, m.store, m.jiraClient
@@ -596,7 +598,7 @@ func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 		return nil
 	}
 	t.seq++
-	t.loading = true
+	t.loading, t.loadingSince = true, time.Now()
 	t.err = ""
 	seq, ctx, c, board, cfg, v := t.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, t.views[idx]
 	filter := jiraFilterJQL(t.assignee, t.quick, t.quickOn)
@@ -1673,7 +1675,11 @@ func (m *Model) renderJira() {
 			keySeg(dim(helpKey(m.keys.Project)+" picks a project"), m.keys.Project), plainSeg(dim(" · ")),
 			keySeg(dim(helpKey(m.keys.JQL)+" runs JQL"), m.keys.JQL))
 	case t.cfg == nil:
-		msg = refDimStyle.Render("loading…")
+		what := "loading"
+		if t.project != "" {
+			what += " " + t.project
+		}
+		msg, _ = jiraEmptyState(what+"…"+loadingFor(t.loadingSince), w, h)
 	case len(t.order) == 0 && t.jiraSearchQuery() != "":
 		msg, t.empty = jiraEmptyState("No card matches /"+t.search.Value(), w, h,
 			headSeg{s: dim("esc clears the search"), kind: "esc"}, plainSeg(dim(" · ")), keySeg(dim(helpKey(m.keys.FilterBuilder)+" builds a filter"), m.keys.FilterBuilder))
@@ -3026,7 +3032,7 @@ func (m *Model) loadJiraDelta() tea.Cmd {
 		return m.loadJiraCards(idx, false)
 	}
 	t.seq++
-	t.loading = true
+	t.loading, t.loadingSince = true, time.Now()
 	// A couple of minutes' overlap covers clock skew and in-flight edits.
 	mins := int(time.Since(t.fetched).Minutes()) + 2
 	filter := andJQL(jiraFilterJQL(t.assignee, t.quick, t.quickOn), fmt.Sprintf("updated >= -%dm", mins))
@@ -3084,4 +3090,30 @@ func mergeCards(cards, changed []jira.Card) ([]jira.Card, int) {
 		added++
 	}
 	return out, added
+}
+
+// loadingTickMsg redraws a load's elapsed time.
+type loadingTickMsg struct{}
+
+func loadingTick() tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg { return loadingTickMsg{} })
+}
+
+// handleLoadingTick redraws while a load is under way, then stops.
+func (m Model) handleLoadingTick() (tea.Model, tea.Cmd) {
+	if !m.jiraTab.loading {
+		return m, nil
+	}
+	if m.jiraTab.cfg == nil {
+		m.renderJira()
+	}
+	return m, loadingTick()
+}
+
+// loadingFor is " 5s" once a load has taken 2s, else "".
+func loadingFor(since time.Time) string {
+	if d := time.Since(since); !since.IsZero() && d >= 2*time.Second {
+		return fmt.Sprintf(" %ds", int(d.Seconds()))
+	}
+	return ""
 }

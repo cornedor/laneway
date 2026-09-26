@@ -56,7 +56,7 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	}
 	switch {
 	case t.loading:
-		segs = append(segs, plainSeg(dim("  refreshing…")))
+		segs = append(segs, plainSeg(dim("  refreshing…"+loadingFor(t.loadingSince))))
 	case !t.fetched.IsZero():
 		segs = append(segs, plainSeg(dim("  ")), keySeg(dim("updated "+age(t.fetched)), k.Refresh))
 		if t.total > len(t.cards) {

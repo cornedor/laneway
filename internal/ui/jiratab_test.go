@@ -428,6 +428,8 @@ func TestJiraTabCopyBranch(t *testing.T) {
 func TestJiraGotoKey(t *testing.T) {
 	for in, want := range map[string]string{
 		"abc-12": "ABC-12", " 42 ": "ABC-42", "XYZ-1": "XYZ-1", "abc": "", "-1": "", "": "",
+		"https://x.atlassian.net/browse/XYZ-7":                                              "XYZ-7",
+		"https://x.atlassian.net/jira/software/c/projects/ABC/boards/1?selectedIssue=ABC-9": "ABC-9",
 	} {
 		if got := jiraGotoKey(in, "ABC"); got != want {
 			t.Errorf("jiraGotoKey(%q) = %q, want %q", in, got, want)

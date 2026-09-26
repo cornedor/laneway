@@ -865,3 +865,23 @@ func TestCreateSummary(t *testing.T) {
 	}
 	t.Skip("no sprint view")
 }
+
+// TestLoadingElapsed: a load past 2s shows how long it has taken, and its
+// tick stops once it is done.
+func TestLoadingElapsed(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.loading, m.jiraTab.loadingSince = true, time.Now().Add(-5*time.Second)
+	if !strings.Contains(ansi.Strip(m.View().Content), "refreshing… 5s") {
+		t.Errorf("no elapsed time:\n%s", ansi.Strip(m.View().Content))
+	}
+	if _, cmd := m.handleLoadingTick(); cmd == nil {
+		t.Error("the tick stopped while loading")
+	}
+	m.jiraTab.loading = false
+	if _, cmd := m.handleLoadingTick(); cmd != nil {
+		t.Error("the tick runs on after the load")
+	}
+	if loadingFor(time.Now()) != "" {
+		t.Error("a fresh load shows a time")
+	}
+}

@@ -17,16 +17,24 @@ var jiraKeyRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*-[0-9]+$`)
 func (m *Model) openJiraGoto() {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "ABC-123 or 123"
-	ti.CharLimit = 32
+	ti.Placeholder = "ABC-123, 123 or a URL"
+	ti.CharLimit = 300
 	ti.SetWidth(24)
 	ti.Focus()
 	m.jiraGotoInput = ti
 	m.jiraGotoActive = true
 }
 
-// jiraGotoKey turns the typed text into an issue key, "" when it is none.
+// jiraBrowseRe finds the key in a pasted issue URL: …/browse/ABC-1, or a
+// board's …?selectedIssue=ABC-1.
+var jiraBrowseRe = regexp.MustCompile(`(?:/browse/|selectedIssue=)([A-Za-z][A-Za-z0-9_]*-[0-9]+)`)
+
+// jiraGotoKey turns the typed (or pasted) text into an issue key, "" when
+// it is none.
 func jiraGotoKey(in, project string) string {
+	if sm := jiraBrowseRe.FindStringSubmatch(in); sm != nil {
+		in = sm[1]
+	}
 	k := strings.ToUpper(strings.TrimSpace(in))
 	if k != "" && strings.Trim(k, "0123456789") == "" && project != "" {
 		k = project + "-" + k

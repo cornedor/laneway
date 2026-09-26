@@ -431,7 +431,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick())
 }
 
 // bodyH is the rows above the status line.
@@ -452,9 +452,13 @@ func (m *Model) resize() {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	wasLoading := m.jiraTab != nil && m.jiraTab.loading // the tab is shared: read it before
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
 		om.logStatus()
+		if _, tick := msg.(loadingTickMsg); !tick && om.jiraTab != nil && om.jiraTab.loading && !wasLoading {
+			cmd = tea.Batch(cmd, loadingTick()) // a load began: its elapsed time ticks
+		}
 		out = om
 		// The inline picker is drawn in the panel: redraw it as it changes.
 		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline() || m.panelComposing() || om.panelComposing()) {
@@ -651,6 +655,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.fail("rule: " + msg.err.Error())
 		}
 		return m, nil
+	case loadingTickMsg:
+		return m.handleLoadingTick()
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())
