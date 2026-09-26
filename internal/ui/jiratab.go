@@ -2242,7 +2242,7 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	if pts, ok := jiraLanePoints(t.cards, lane.cards); ok && m.opts.fields.points {
 		count += " · " + pts + "p"
 	}
-	head := ansi.Truncate(lane.name+" "+count, inner, "…")
+	head := ansi.Truncate(lane.name+" "+count, inner-2, "…")
 	// Filtered counts undercount the column, so only a full board judges it.
 	over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
 	switch {
@@ -2255,7 +2255,39 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	default:
 		head = jiraLaneStyle.Render(head)
 	}
-	return head
+	return laneMark[m.laneCategory(l)].Render("▍") + " " + head
+}
+
+// laneMark colours a lane head's mark by its status category, as the
+// panel's lozenges do. Set by applyTheme.
+var laneMark map[string]lipgloss.Style
+
+// laneCategory is lane l's status category (new, indeterminate, done): its
+// statuses' as the loaded cards show them, else by place, first to do and
+// last done.
+func (m *Model) laneCategory(l int) string {
+	t := m.jiraTab
+	for _, id := range t.lanes[l].statusIDs {
+		for _, c := range t.cards {
+			if c.StatusID != id {
+				continue
+			}
+			switch {
+			case c.Done:
+				return "done"
+			case c.InProgress:
+				return "indeterminate"
+			}
+			return "new"
+		}
+	}
+	switch l {
+	case 0:
+		return "new"
+	case len(t.lanes) - 1:
+		return "done"
+	}
+	return "indeterminate"
 }
 
 // jiraViewSep parts the header's views.

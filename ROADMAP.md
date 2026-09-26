@@ -9,7 +9,6 @@
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
-- Lane heads: a thin rule in the category colour (to do / in progress / done)
 - Light-theme pass over the chips, lozenges and selection colours
 - Relative dates in comments, history and worklogs (`2d ago`), the full date when selected
 - Inline quick edit from the board: priority, assignee, points without opening the panel
@@ -20,6 +19,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Lane heads: a ▍ mark in the status category colour (to do grey, in progress blue, done green); a mark rather than a rule, so the lanes keep their height and click rows
 - Sprint header: workdays left beside the calendar days (`5d left · 2 workdays`), by `ui.workdays`, up to the end day
 - Empty states: an empty board, backlog, sprint or search says so centred, with the key that helps; an empty lane says nothing here
 - Sprint views: a thin progress bar in the header (`▰▰▰▱▱ 3/10p`), done points of all, or issues when none are pointed

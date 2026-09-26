@@ -218,6 +218,7 @@ func applyTheme(th theme) {
 	onColour := func(bg string) lipgloss.Style {
 		return c("drop_fg").Background(lipgloss.Color(th[bg])).Bold(true)
 	}
+	laneMark = map[string]lipgloss.Style{"new": dim, "indeterminate": c("roadmap_todo"), "done": c("roadmap_done")}
 	statusLozenge = map[string]lipgloss.Style{
 		"new":           c("selection_fg").Background(lipgloss.Color(th["selection_bg"])).Bold(true),
 		"indeterminate": onColour("roadmap_todo"),

@@ -1344,3 +1344,24 @@ func TestWorkdaysLeft(t *testing.T) {
 		t.Errorf("sun–thu = %d", n)
 	}
 }
+
+// TestLaneCategory: a lane's mark follows its cards' status category, else
+// its place.
+func TestLaneCategory(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[1].InProgress = true // ABC-2, In progress
+	m.jiraTab.cards[3].Done = true       // ABC-4, Closed
+	for l, want := range []string{"new", "indeterminate", "done"} {
+		if got := m.laneCategory(l); got != want {
+			t.Errorf("lane %d = %s, want %s", l, got, want)
+		}
+	}
+	m.jiraTab.cards = nil
+	if got := m.laneCategory(2); got != "done" {
+		t.Errorf("empty last lane = %s", got)
+	}
+	m = jiraTabModel(t)
+	if !strings.Contains(ansi.Strip(m.View().Content), "▍ To do") {
+		t.Error("lane head lacks its mark")
+	}
+}
