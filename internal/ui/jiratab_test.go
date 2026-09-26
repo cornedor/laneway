@@ -1031,8 +1031,18 @@ func TestJiraSwimlanes(t *testing.T) {
 	// Ada's band: header on body line 1, then ABC-1's key line.
 	out, _ = m.Update(tea.MouseClickMsg{X: 2, Y: jiraBodyTop + 2, Button: tea.MouseLeft})
 	m = out.(Model)
-	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || m.jiraTab.drag.key != "" {
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || m.jiraTab.drag.key != "ABC-1" {
 		t.Errorf("click: on %s, drag %+v", c.Key, m.jiraTab.drag)
+	}
+	// Dragged onto In progress: the lane lights up, the drop moves it there.
+	out, _ = m.Update(tea.MouseMotionMsg{X: m.jiraTab.laneW + 3, Y: jiraBodyTop + 2, Button: tea.MouseLeft})
+	m = out.(Model)
+	if !m.jiraTab.drag.active || m.jiraTab.drag.over != 1 || m.jiraTab.drag.zone != -1 {
+		t.Fatalf("drag = %+v", m.jiraTab.drag)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: m.jiraTab.laneW + 3, Y: jiraBodyTop + 2, Button: tea.MouseLeft})
+	if m = out.(Model); cmd == nil || m.jiraTab.drag.key != "" {
+		t.Errorf("drop: cmd %v, drag %+v", cmd != nil, m.jiraTab.drag)
 	}
 	for _, want := range []string{"swimlanes by epic", "no swimlanes"} {
 		out, _ = m.handleKey(keyMsg(t, "s"))
@@ -1042,5 +1052,18 @@ func TestJiraSwimlanes(t *testing.T) {
 	}
 	if strings.Contains(m.View().Content, "▾") {
 		t.Error("bands left after switching off")
+	}
+}
+
+// TestJiraSwimlanesRemembered: the board's swimlanes come back on a reload.
+func TestJiraSwimlanesRemembered(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "s"))
+	m = out.(Model)
+	m.jiraTab.swim = jiraSortRank
+	tt := m.jiraTab
+	out, _ = m.handleJiraBoard(jiraBoardMsg{seq: tt.seq, project: "ABC", boards: tt.boards, cfg: tt.cfg, views: tt.views, cards: tt.cards, total: tt.total})
+	if m = out.(Model); m.jiraTab.swim != jiraSortAssignee || !strings.Contains(m.View().Content, "▾ Ada") {
+		t.Errorf("swim after reload = %v", m.jiraTab.swim)
 	}
 }

@@ -556,6 +556,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	keep := m.selectedJiraKey()
 	t.boards, t.board, t.cfg, t.views, t.viewIdx = msg.boards, msg.board, msg.cfg, msg.views, msg.viewIdx
 	t.quick, t.quickOn, t.assignee = withLocalQuick(msg.quick, m.opts.quick), msg.quickOn, msg.assignee
+	t.swim = m.readJiraSwim()
 	if msg.statusNames != nil {
 		t.statusNames = msg.statusNames
 	}
@@ -856,6 +857,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if t.swim == jiraSortRank {
 				m.status = "no swimlanes"
 			}
+			if m.store != nil {
+				_ = m.store.SetMeta(jiraSwimKey(m.jiraBoardID()), t.swim.String())
+			}
 			break
 		}
 		keep := m.selectedJiraKey()
@@ -951,6 +955,25 @@ func (m *Model) toggleJiraMode() tea.Cmd {
 		_ = st.SetMeta(jiraMetaPrefix+"mode", mode)
 		return nil
 	}
+}
+
+// jiraSwimKey remembers a board's swimlanes (assignee, epic or rank).
+func jiraSwimKey(board int) string {
+	return jiraMetaPrefix + "swim:" + strconv.Itoa(board)
+}
+
+// readJiraSwim is the current board's remembered swimlanes, none by default.
+func (m *Model) readJiraSwim() jiraSort {
+	if m.store == nil {
+		return jiraSortRank
+	}
+	switch v, _, _ := m.store.GetMeta(jiraSwimKey(m.jiraBoardID())); v {
+	case jiraSortAssignee.String():
+		return jiraSortAssignee
+	case jiraSortEpic.String():
+		return jiraSortEpic
+	}
+	return jiraSortRank
 }
 
 // openJiraCard shows the selected issue in the reference panel.
@@ -1886,7 +1909,13 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 					if sel {
 						selLine = len(body)
 					}
-					cells[i] = m.jiraLaneCard(t.cards[shown[i].cards[ri]], sel, inner)
+					c := t.cards[shown[i].cards[ri]]
+					cells[i] = m.jiraLaneCard(c, sel, inner)
+					if t.drag.active && c.Key == t.drag.key { // being dragged: faint where it was
+						for y, line := range jiraCardLines(c, false, m.opts.fields) {
+							cells[i][y] = jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…"))
+						}
+					}
 				}
 			}
 			for y := range jiraCardH {
@@ -2164,7 +2193,7 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 		t.idx = h.line
 	} else {
 		t.lane, t.row = h.idx, h.line
-		if c, ok := m.selectedJiraCard(); ok && count == 1 && t.swim == jiraSortRank { // swimlanes: H / L move
+		if c, ok := m.selectedJiraCard(); ok && count == 1 {
 			t.drag = jiraDrag{key: c.Key, x: x, y: y, from: h.idx, over: h.idx}
 		}
 	}
@@ -2204,7 +2233,9 @@ func (m Model) dragJira(x, y int) (tea.Model, tea.Cmd) {
 		}
 	}
 	zone := 0
-	if over >= 0 && over < len(t.lanes) {
+	if t.swim != jiraSortRank {
+		zone = -1 // swimlanes draw no status zones: the lane's first status
+	} else if over >= 0 && over < len(t.lanes) {
 		if n := len(t.lanes[over].statusIDs); n > 1 {
 			zone = min(max((y-jiraBodyTop-1)/jiraZoneH(t.view.Height(), n), 0), n-1)
 		}

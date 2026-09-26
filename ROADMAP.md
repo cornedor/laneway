@@ -1,10 +1,11 @@
 # Roadmap
 
 ## Next
-- Swimlanes: drag with the mouse (drop ghost in the band), remember the choice per board
+- Swimlanes: a drop into another band sets that assignee (or epic), as Jira does
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Swimlanes kept per board; mouse drag works in them (status moves, the card faint while dragged)
 - Lanes `s`: swimlanes by assignee, then epic; bands across every lane, scrolled together, `h`/`l` keep the band
 - Roadmap `y`: epics with dates and done points (parent when any) as a markdown table
 - Timesheet `y`: the day's worklogs and total as a markdown table
