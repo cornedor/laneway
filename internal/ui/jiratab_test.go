@@ -331,7 +331,7 @@ func TestJiraTabSearch(t *testing.T) {
 	if m.jiraTab.searching || m.jiraTab.jiraSearchQuery() != "thi" {
 		t.Fatalf("after enter searching=%v query=%q", m.jiraTab.searching, m.jiraTab.jiraSearchQuery())
 	}
-	if !strings.Contains(m.View().Content, "/thi") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "/thi ×") {
 		t.Error("board lacks the query chip")
 	}
 	out, _ = m.handleKey(keyMsg(t, "esc"))
