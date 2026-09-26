@@ -221,7 +221,7 @@ func (m Model) applyPanelExtraText(raw string) (tea.Model, tea.Cmd) {
 	ff.val = jira.Value{Text: strings.TrimSpace(raw)}
 	cmd, err := m.writePanelExtra(m.jiraFieldKey, ff)
 	if err != nil {
-		m.status = ff.Name + ": " + err.Error()
+		m.fail(ff.Name + ": " + err.Error())
 		return m, nil
 	}
 	m.closeJiraField()
@@ -242,7 +242,7 @@ func (m *Model) pickPanelExtra(key string, kind jiraPickerKind, it jiraPickerIte
 	pickFieldValue(&ff, kind, it)
 	cmd, err := m.writePanelExtra(key, ff)
 	if err != nil {
-		m.status = ff.Name + ": " + err.Error()
+		m.fail(ff.Name + ": " + err.Error())
 	}
 	return cmd
 }

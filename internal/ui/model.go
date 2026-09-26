@@ -242,6 +242,7 @@ type Model struct {
 	// statusLogged is the last one kept.
 	statusLog     []statusEntry
 	statusLogged  string
+	statusErr     string          // the status line's text when it is an error (fail)
 	warnings      []string        // the startup warnings
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
@@ -646,12 +647,12 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleRulesEvents(msg)
 	case rulesLoggedMsg:
 		if msg.err != nil {
-			m.status = "rule: " + msg.err.Error()
+			m.fail("rule: " + msg.err.Error())
 		}
 		return m, nil
 	case openedMsg:
 		if msg.err != nil {
-			m.status = "open " + msg.name + ": " + msg.err.Error()
+			m.fail("open " + msg.name + ": " + msg.err.Error())
 		}
 		return m, nil
 	}
@@ -881,7 +882,11 @@ func (m Model) View() tea.View {
 	if ov := m.renderOverlay(bodyH); ov != "" {
 		body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, ov)
 	}
-	status := statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…"))
+	st := statusStyle
+	if m.statusIsErr() {
+		st = refErrStyle
+	}
+	status := st.Render(ansi.Truncate(" "+m.status, m.width, "…"))
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
 	if cx, cy, ok := m.inlineEditorCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)

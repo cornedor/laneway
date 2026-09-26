@@ -662,3 +662,25 @@ func TestHelpPerScreen(t *testing.T) {
 		}
 	}
 }
+
+// TestFailStatus: an error shows in the error colour until the next
+// message, and is marked in the log.
+func TestFailStatus(t *testing.T) {
+	m := jiraTabModel(t)
+	m.fail("download: boom")
+	if !m.statusIsErr() {
+		t.Fatal("fail is not an error")
+	}
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	m = out.(Model)
+	m.status = "saved"
+	if m.statusIsErr() {
+		t.Error("a later message is still an error")
+	}
+	out, _ = m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	m = out.(Model)
+	m.openMessages()
+	if !strings.Contains(m.jiraPicker.items[1].label, "✗ download: boom") || strings.Contains(m.jiraPicker.items[0].label, "✗") {
+		t.Errorf("log = %+v", m.jiraPicker.items)
+	}
+}

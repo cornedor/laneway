@@ -126,7 +126,7 @@ func (m Model) handlePlanWrote(msg planWroteMsg) (tea.Model, tea.Cmd) {
 		m.status = msg.what
 		return m, nil
 	}
-	m.status = "not saved: " + msg.err.Error()
+	m.fail("not saved: " + msg.err.Error())
 	if m.jiraTab.plan != nil {
 		return m, m.loadPlan()
 	}
@@ -357,7 +357,7 @@ func (m Model) applyPlanSprint(field, raw string) (tea.Model, tea.Cmd) {
 	} else {
 		d, err := jira.ParseDate(raw, time.Now())
 		if err != nil {
-			m.status = err.Error()
+			m.fail(err.Error())
 			return m, nil
 		}
 		end = time.Date(d.Year(), d.Month(), d.Day(), 17, 0, 0, 0, d.Location())
@@ -484,7 +484,7 @@ type planSprintMsg struct {
 
 func (m Model) handlePlanSprint(msg planSprintMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "sprint: " + msg.err.Error()
+		m.fail("sprint: " + msg.err.Error())
 		return m, nil
 	}
 	m.status = msg.what

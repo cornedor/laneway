@@ -68,7 +68,7 @@ func (m *Model) editDescription() tea.Cmd {
 // handleDescLoaded opens the in-app editor on the markdown.
 func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = msg.key + ": " + msg.err.Error() + " — edit it in Jira (o)"
+		m.fail(msg.key + ": " + msg.err.Error() + " — edit it in Jira (o)")
 		return m, nil
 	}
 	ed := newModalComposer("")
@@ -252,7 +252,7 @@ func (m Model) openExternalEditor(msg descLoadedMsg, before string) (tea.Model, 
 		err = firstErr(err, f.Close())
 	}
 	if err != nil {
-		m.status = "description: " + err.Error()
+		m.fail("description: " + err.Error())
 		return m, nil
 	}
 	m.status = "editing " + msg.key + " description…"
@@ -280,12 +280,12 @@ func editorCommand(path string) *exec.Cmd {
 func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		os.Remove(msg.path)
-		m.status = "editor: " + msg.err.Error()
+		m.fail("editor: " + msg.err.Error())
 		return m, nil
 	}
 	b, err := os.ReadFile(msg.path)
 	if err != nil {
-		m.status = "description: " + err.Error()
+		m.fail("description: " + err.Error())
 		return m, nil
 	}
 	return m.saveDesc(msg, string(b))

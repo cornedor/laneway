@@ -127,7 +127,7 @@ func (m *Model) openWorklogInput(key, value string, started time.Time) {
 func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	secs, comment, err := jira.ParseDuration(raw)
 	if err != nil {
-		m.status = err.Error()
+		m.fail(err.Error())
 		return m, nil
 	}
 	key, started := m.jiraFieldKey, m.worklogStart

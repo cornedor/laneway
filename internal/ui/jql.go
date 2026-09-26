@@ -116,7 +116,7 @@ func (m Model) handleJQLWords(msg jqlWordsMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.err != nil {
-		m.status = "jql completion: " + msg.err.Error()
+		m.fail("jql completion: " + msg.err.Error())
 	}
 	m.jql.words = msg.words
 	return m, m.suggestJQL()

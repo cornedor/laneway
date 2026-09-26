@@ -101,7 +101,7 @@ func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: 
 // handleJiraCreated opens the new issue and refetches the board.
 func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 	if msg.key == "" {
-		m.status = "create: " + msg.err.Error()
+		m.fail("create: " + msg.err.Error())
 		return m, nil
 	}
 	refresh := m.refreshJiraAfterEdit()

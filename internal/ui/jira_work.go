@@ -106,7 +106,7 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	delete(m.jiraStarting, msg.key)
 	switch {
 	case msg.err != nil:
-		m.status = msg.key + ": start work: " + msg.err.Error()
+		m.fail(msg.key + ": start work: " + msg.err.Error())
 		return m, nil
 	case msg.running:
 		m.status = msg.key + ": already running in " + msg.path

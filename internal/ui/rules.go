@@ -111,7 +111,7 @@ func (m Model) handleRuleWatched(msg ruleWatchedMsg) (tea.Model, tea.Cmd) {
 	}
 	next := tea.Tick(every, func(time.Time) tea.Msg { return ruleWatchMsg{msg.jql} })
 	if msg.err != nil {
-		m.status = "rules watch: " + msg.err.Error()
+		m.fail("rules watch: " + msg.err.Error())
 		return m, next
 	}
 	return m, tea.Batch(m.diffRules("watch:"+msg.jql, msg.jql, msg.cards, ""), next)
@@ -119,7 +119,7 @@ func (m Model) handleRuleWatched(msg ruleWatchedMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleRulesEvents(msg rulesEventsMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "rules by_me: " + msg.err.Error()
+		m.fail("rules by_me: " + msg.err.Error())
 	}
 	return m, m.fireRules(msg.events)
 }

@@ -18,7 +18,17 @@ const statusLogMax = 100
 type statusEntry struct {
 	at   time.Time
 	text string
+	err  bool
 }
+
+// fail puts an error on the status line: drawn in the theme's error colour
+// while it shows, marked in the log.
+func (m *Model) fail(s string) {
+	m.status, m.statusErr = s, s
+}
+
+// statusIsErr is whether the status line shows an error.
+func (m *Model) statusIsErr() bool { return m.status != "" && m.status == m.statusErr }
 
 // logStatus keeps the status line's message when it is a new one.
 func (m *Model) logStatus() {
@@ -26,7 +36,7 @@ func (m *Model) logStatus() {
 		return
 	}
 	m.statusLogged = m.status
-	m.statusLog = append(m.statusLog, statusEntry{time.Now(), m.status})
+	m.statusLog = append(m.statusLog, statusEntry{time.Now(), m.status, m.statusIsErr()})
 	if n := len(m.statusLog); n > statusLogMax {
 		m.statusLog = slices.Delete(m.statusLog, 0, n-statusLogMax)
 	}
@@ -37,7 +47,7 @@ func (m *Model) logStatus() {
 func (m *Model) startupStatus(warn []string) {
 	m.warnings, m.statusLog = warn, nil
 	for _, w := range warn {
-		m.statusLog = append(m.statusLog, statusEntry{time.Now(), w})
+		m.statusLog = append(m.statusLog, statusEntry{time.Now(), w, true})
 	}
 	switch len(warn) {
 	case 0:
@@ -46,7 +56,7 @@ func (m *Model) startupStatus(warn []string) {
 	default:
 		m.status = fmt.Sprintf("%d config warnings · %s messages lists them", len(warn), helpKey(m.keys.Palette))
 	}
-	m.statusLogged = m.status
+	m.statusLogged, m.statusErr = m.status, m.status
 }
 
 // WithWarnings adds the config file's own warnings (unknown keys) to the
@@ -63,7 +73,11 @@ func (m *Model) openMessages() {
 	items := make([]jiraPickerItem, 0, len(m.statusLog))
 	for i := len(m.statusLog) - 1; i >= 0; i-- {
 		e := m.statusLog[i]
-		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: e.at.Format("15:04:05") + "  " + e.text})
+		mark := "  "
+		if e.err {
+			mark = "✗ "
+		}
+		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: e.at.Format("15:04:05") + "  " + mark + e.text})
 	}
 	if len(items) == 0 {
 		m.jiraPicker.err = fmt.Errorf("no messages yet")

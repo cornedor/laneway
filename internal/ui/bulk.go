@@ -271,7 +271,7 @@ func (m *Model) prepareBulkMove(keys []string, to string) tea.Cmd {
 func (m Model) handleBulkMove(msg bulkMoveMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		m.status = "status: " + msg.err.Error()
+		m.fail("status: " + msg.err.Error())
 		return m, nil
 	case msg.form != nil:
 		m.jiraForm = msg.form
@@ -364,7 +364,7 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 		m.quickKey = ""
 		m.status = msg.what + " set on " + strings.Join(msg.keys, ", ")
 		for k, err := range msg.failed {
-			m.status = k + ": " + msg.what + ": " + err.Error()
+			m.fail(k + ": " + msg.what + ": " + err.Error())
 		}
 		t.rows = nil
 		m.renderJira()

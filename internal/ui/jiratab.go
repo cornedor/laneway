@@ -641,7 +641,8 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	}
 	if msg.err != nil && msg.cfg == nil && t.cfg != nil && len(t.cards) > 0 && t.project == msg.project {
 		// Offline, or Jira down: keep the cached board, say so.
-		t.offline, m.status = msg.err.Error(), "offline: "+msg.err.Error()
+		t.offline = msg.err.Error()
+		m.fail("offline: " + msg.err.Error())
 		m.renderJira()
 		return m, nil
 	}
@@ -709,7 +710,8 @@ func (m *Model) installJiraCards(cards []jira.Card, total int, err error, keep s
 	switch {
 	case err != nil && len(cards) == 0 && len(t.cards) > 0:
 		// Offline, or Jira down: the cards already shown stay.
-		t.offline, m.status = err.Error(), "offline: "+err.Error()
+		t.offline = err.Error()
+		m.fail("offline: " + err.Error())
 		m.renderJira()
 		return
 	case err != nil:
@@ -1336,7 +1338,7 @@ func (m *Model) undoJiraMove() tea.Cmd {
 
 func (m Model) handleJiraMoved(msg jiraMovedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = fmt.Sprintf("%s: move failed: %v", msg.key, msg.err)
+		m.fail(fmt.Sprintf("%s: move failed: %v", msg.key, msg.err))
 	} else {
 		m.status = fmt.Sprintf("%s → %s", msg.key, msg.lane)
 	}

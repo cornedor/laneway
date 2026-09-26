@@ -848,10 +848,10 @@ func jiraMutateCmd(key, field string, run func() error) tea.Cmd {
 // so the panel shows the authoritative (and any cascading) values.
 func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = fmt.Sprintf("%s %s update failed: %v", msg.key, msg.field, msg.err)
+		m.fail(fmt.Sprintf("%s %s update failed: %v", msg.key, msg.field, msg.err))
 		if msg.text != "" {
 			m.unsent.key, m.unsent.text = msg.key, msg.text
-			m.status = fmt.Sprintf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment))
+			m.fail(fmt.Sprintf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment)))
 		}
 		return m, nil
 	}

@@ -470,7 +470,7 @@ func (m *Model) saveRoadmap() tea.Cmd {
 // dates again.
 func (m Model) handleRoadmapSaved(msg roadmapSavedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "dates not saved: " + msg.err.Error()
+		m.fail("dates not saved: " + msg.err.Error())
 		if m.jiraTab.roadmap != nil {
 			return m, m.loadRoadmap()
 		}

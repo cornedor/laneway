@@ -198,7 +198,7 @@ type jiraVoteMsg struct {
 func (m Model) handleJiraVote(msg jiraVoteMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		m.status = msg.key + " vote: " + msg.err.Error()
+		m.fail(msg.key + " vote: " + msg.err.Error())
 	case msg.on:
 		m.status = "voted for " + msg.key
 	default:
@@ -217,7 +217,7 @@ func (m *Model) unlinkJira(key string, it jiraPickerItem) tea.Cmd {
 func (m Model) handleJiraWatch(msg jiraWatchMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		m.status = msg.key + " watch: " + msg.err.Error()
+		m.fail(msg.key + " watch: " + msg.err.Error())
 	case msg.on:
 		m.status = "watching " + msg.key
 	default:
@@ -261,7 +261,7 @@ func (m *Model) downloadAttachment(pick string) tea.Cmd {
 
 func (m Model) handleJiraDownloaded(msg jiraDownloadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "download: " + msg.err.Error()
+		m.fail("download: " + msg.err.Error())
 	} else {
 		m.status = "saved " + msg.path
 	}
