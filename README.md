@@ -271,6 +271,7 @@ day) and the velocity of the last 8 closed sprints
 (`ui.velocity_sprints`); `tab` steps through them (points done by the sprint's end over points in
 it). The burndown counts an issue from the day it joined the sprint and
 says how much was added after the start; issues taken out of it don't show.
+`y` copies the open chart's numbers as a markdown table.
 
 ## JQL search
 

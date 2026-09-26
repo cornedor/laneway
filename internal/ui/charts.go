@@ -127,6 +127,12 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadCharts()
+	case key.Matches(msg, m.keys.CopyKey):
+		if ch.loading || ch.err != "" {
+			break
+		}
+		m.status = "copied the numbers as a markdown table"
+		return m, tea.SetClipboard(m.chartTable(time.Now()))
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 	}
@@ -152,7 +158,7 @@ func (m *Model) chartsLine() string {
 	if ch.loading {
 		s += jiraDimStyle.Render("  ·  loading…")
 	}
-	return s + jiraDimStyle.Render("  ·  tab switch  "+helpKey(m.keys.Refresh)+" refresh  esc board")
+	return s + jiraDimStyle.Render("  ·  tab switch  "+helpKey(m.keys.Refresh)+" refresh  "+helpKey(m.keys.CopyKey)+" copy  esc board")
 }
 
 // renderCharts draws the open chart into width × height.
@@ -171,6 +177,65 @@ func (m *Model) renderCharts(width, height int) string {
 		return renderFlow(*ch.sprint, ch.burn, m.jiraTab.cfg.Columns, time.Now(), width, height)
 	}
 	return renderVelocity(ch.vel, width)
+}
+
+// chartTable is the open chart's numbers as a markdown table: a row per day
+// (per sprint for velocity).
+func (m *Model) chartTable(now time.Time) string {
+	ch := m.jiraTab.charts
+	var head []string
+	var rows [][]string
+	day := func(i int) string { return ch.sprint.start.AddDate(0, 0, i).Format("2006-01-02") }
+	switch ch.tab {
+	case chartBurndown:
+		head = []string{"Day", "Points left"}
+		_, _, left := burnSeries(ch.burn, ch.sprint.start, ch.sprint.end, now)
+		for i, l := range left {
+			rows = append(rows, []string{day(i), chartNum(l)})
+		}
+	case chartBurnup:
+		head = []string{"Day", "Scope", "Done"}
+		scope, done := burnupSeries(ch.burn, ch.sprint.start, ch.sprint.end, now)
+		for i := range scope {
+			rows = append(rows, []string{day(i), chartNum(scope[i]), chartNum(done[i])})
+		}
+	case chartFlow:
+		head = []string{"Day"}
+		for _, c := range m.jiraTab.cfg.Columns {
+			head = append(head, c.Name)
+		}
+		for i, counts := range flowSeries(ch.burn, m.jiraTab.cfg.Columns, ch.sprint.start, ch.sprint.end, now) {
+			row := []string{day(i)}
+			for _, n := range counts {
+				row = append(row, strconv.Itoa(n))
+			}
+			rows = append(rows, row)
+		}
+	default:
+		head = []string{"Sprint", "Committed", "Done"}
+		for _, v := range ch.vel {
+			rows = append(rows, []string{v.Name, chartNum(v.Committed), chartNum(v.Done)})
+		}
+	}
+	return markdownTable(head, rows)
+}
+
+// markdownTable renders head and rows as a markdown table, escaping pipes.
+func markdownTable(head []string, rows [][]string) string {
+	cell := strings.NewReplacer("|", `\|`, "\n", " ").Replace
+	var b strings.Builder
+	line := func(cells []string) {
+		for _, c := range cells {
+			b.WriteString("| " + cell(c) + " ")
+		}
+		b.WriteString("|\n")
+	}
+	line(head)
+	b.WriteString(strings.Repeat("|---", len(head)) + "|\n")
+	for _, r := range rows {
+		line(r)
+	}
+	return b.String()
 }
 
 // burnSeries is the sprint's points now, the points added after it started,

@@ -42,7 +42,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.Timer, k.Timesheet), "timer / today's worklogs"},
 			row(k.Inbox, "inbox: others' changes, comments, mentions"),
 			row(k.Standup, "standup: what you did since the last workday"),
-			row(k.Charts, "sprint charts: burndown, velocity"),
+			row(k.Charts, "sprint charts (y copies the numbers)"),
 			row(k.Plan, "sprint planning: backlog beside a sprint (K J rank)"),
 			row(k.Roadmap, "roadmap: epics on a timeline (space children, H L < > dates)"),
 			row(k.Sort, "sort the list"),

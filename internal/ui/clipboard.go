@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -40,13 +39,10 @@ func (m *Model) copyJiraTable() tea.Cmd {
 			cards = append(cards, c)
 		}
 	}
-	cell := strings.NewReplacer("|", `\|`, "\n", " ").Replace
-	var b strings.Builder
-	b.WriteString("| Key | Summary | Status | Assignee | Points |\n|---|---|---|---|---|\n")
-	for _, c := range cards {
-		fmt.Fprintf(&b, "| [%s](%s) | %s | %s | %s | %s |\n", c.Key, m.jiraClient.BrowseURL(c.Key),
-			cell(c.Summary), cell(c.Status), cell(c.Assignee), c.Points)
+	rows := make([][]string, len(cards))
+	for i, c := range cards {
+		rows[i] = []string{"[" + c.Key + "](" + m.jiraClient.BrowseURL(c.Key) + ")", c.Summary, c.Status, c.Assignee, c.Points}
 	}
 	m.status = fmt.Sprintf("copied %d rows as a markdown table", len(cards))
-	return tea.SetClipboard(b.String())
+	return tea.SetClipboard(markdownTable([]string{"Key", "Summary", "Status", "Assignee", "Points"}, rows))
 }

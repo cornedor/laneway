@@ -1,10 +1,13 @@
 # Roadmap
 
 ## Next
-- `y` in the charts / flow tabs copies the numbers as a markdown table
+- Timesheet `y`: the day (or week) as a markdown table
+- Roadmap `y`: epics with start, end, done points as a markdown table
+- Lanes mode swimlanes by assignee / epic (`g` cycles), like Jira's board swimlanes; split: grouping, then render, then keys
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Charts: `y` copies the open chart's numbers as a markdown table
 - Cards show the top deployment environment (`▲ production`) from the Development field; `card_fields: deploy`
 - Board `*` pins the selected card; pinned cards show ★
 - Panel `*` pins the issue (per site); pinned ones head the `:` palette

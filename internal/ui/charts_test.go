@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -107,5 +108,25 @@ func TestFlowSeries(t *testing.T) {
 	got := flowSeries(issues, cols, start, start.AddDate(0, 0, 14), start.AddDate(0, 0, 1).Add(2*time.Hour))
 	if len(got) != 2 || !slices.Equal(got[0], []int{1, 1, 0}) || !slices.Equal(got[1], []int{1, 0, 1}) {
 		t.Errorf("flow = %v", got)
+	}
+}
+
+// TestChartsCopy: y copies the open chart's numbers as a markdown table.
+func TestChartsCopy(t *testing.T) {
+	m := chartsModel(t)
+	out, cmd := m.handleKey(keyMsg(t, "y"))
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("y copied nothing")
+	}
+	// Burndown: header, rule and a row per day since the start (4 days).
+	got := fmt.Sprint(cmd())
+	if !strings.HasPrefix(got, "| Day | Points left |\n|---|---|\n") || strings.Count(got, "\n") != 6 || !strings.Contains(got, "| 5 |") {
+		t.Errorf("burndown table = %q", got)
+	}
+	m.jiraTab.charts.tab = chartVelocity
+	_, cmd = m.handleKey(keyMsg(t, "y"))
+	if got := fmt.Sprint(cmd()); !strings.Contains(got, "| Sprint 0 | 20 | 15 |") {
+		t.Errorf("velocity table = %q", got)
 	}
 }
