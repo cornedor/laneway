@@ -20,6 +20,7 @@ import (
 type descLoadedMsg struct {
 	key     string
 	comment string // the comment being edited, "" for the description
+	field   string // or the multi-line field being edited
 	md      string
 	// kept are the blocks the markdown holds as placeholder lines.
 	kept []json.RawMessage
@@ -28,9 +29,9 @@ type descLoadedMsg struct {
 
 // descEditedMsg is the editor closed on path.
 type descEditedMsg struct {
-	key, comment, path, before string
-	kept                       []json.RawMessage
-	err                        error
+	key, comment, field, path, before string
+	kept                              []json.RawMessage
+	err                               error
 }
 
 // editDescription fetches the panel issue's description for the editor.
@@ -66,9 +67,9 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.status = "editing " + msg.key + " description…"
-	key, comment, path, before, kept := msg.key, msg.comment, f.Name(), msg.md, msg.kept
+	key, comment, field, path, before, kept := msg.key, msg.comment, msg.field, f.Name(), msg.md, msg.kept
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
-		return descEditedMsg{key: key, comment: comment, path: path, before: before, kept: kept, err: err}
+		return descEditedMsg{key: key, comment: comment, field: field, path: path, before: before, kept: kept, err: err}
 	})
 }
 
@@ -104,6 +105,14 @@ func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	c, ctx, key, kept, comment := m.jiraClient, m.ctx, msg.key, msg.kept, msg.comment
+	if field := msg.field; field != "" {
+		var doc any // blank clears
+		if after != "" {
+			doc = jira.MarkdownToADFKept(after, kept)
+		}
+		m.status = "saving " + key + " " + field + "…"
+		return m, jiraMutateCmd(key, field, func() error { return c.SetField(ctx, key, field, doc) })
+	}
 	if comment != "" {
 		m.status = "saving the comment on " + key + "…"
 		return m, jiraMutateCmd(key, "comment", func() error { return c.SetComment(ctx, key, comment, after, kept) })

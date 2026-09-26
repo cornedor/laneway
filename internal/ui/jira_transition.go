@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -40,6 +41,7 @@ type jiraFormField struct {
 	required bool
 	val      jira.Value
 	changed  bool
+	raw      json.RawMessage // the value as Jira sent it (a doc field's ADF)
 }
 
 // jiraFormState is the open transition form. idx == len(fields) is the move

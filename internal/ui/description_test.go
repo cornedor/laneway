@@ -140,3 +140,35 @@ func TestEditComment(t *testing.T) {
 		t.Errorf("PUT %s %s", path, body)
 	}
 }
+
+// TestEditDocField: a multi-line field opens in the editor and saves as a
+// document to that field.
+func TestEditDocField(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	raw := json.RawMessage(`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"old notes"}]}]}`)
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", fields: []jiraFormField{
+		{FieldMeta: jira.FieldMeta{ID: "customfield_7", Name: "Notes", Kind: jira.KindDoc}, raw: raw},
+	}})
+	m = out.(Model)
+	m.fieldCursor, m.fieldCursorKey = len(panelFields), "ABC-1"
+	_, cmd := m.handleRefKey(keyMsg(t, "enter"))
+	loaded := cmd().(descLoadedMsg)
+	if loaded.field != "customfield_7" || loaded.md != "old notes" {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+	file := filepath.Join(t.TempDir(), "n.md")
+	os.WriteFile(file, []byte("- new\n- notes\n"), 0o600)
+	_, cmd = m.handleDescEdited(descEditedMsg{key: "ABC-1", field: "customfield_7", path: file, before: "old notes"})
+	cmd()
+	if !strings.Contains(body, `"customfield_7":`) || !strings.Contains(body, `"bulletList"`) {
+		t.Errorf("body = %s", body)
+	}
+}

@@ -47,7 +47,7 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 		metas, values, err := c.EditMeta(ctx, key)
 		fields := make([]jiraFormField, len(metas))
 		for i, fm := range metas {
-			fields[i] = jiraFormField{FieldMeta: fm, val: jira.DecodeValue(fm.Kind, values[fm.ID])}
+			fields[i] = jiraFormField{FieldMeta: fm, val: jira.DecodeValue(fm.Kind, values[fm.ID]), raw: values[fm.ID]}
 		}
 		return panelExtraMsg{key: key, fields: fields, err: err}
 	}
@@ -147,11 +147,13 @@ func (m *Model) editPanelField() tea.Cmd {
 	ff := m.extraFields()[i-len(panelFields)]
 	m.panelEditID = ff.ID
 	switch ff.Kind {
-	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue, jira.KindDoc:
-		if strings.Contains(strings.TrimSpace(ff.val.Text), "\n") {
-			m.status = ff.Name + " has several lines — edit it in Jira (o)"
-			return nil
+	case jira.KindDoc:
+		key := m.jiraIssue.Key
+		return func() tea.Msg {
+			ed, err := jira.EditableDescription(ff.raw)
+			return descLoadedMsg{key: key, field: ff.ID, md: ed.Markdown, kept: ed.Kept, err: err}
 		}
+	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue:
 		hint := ""
 		switch ff.Kind {
 		case jira.KindDate:
