@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -504,5 +505,39 @@ func TestOverlaysFitWidth(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// TestCommentKeepsText: esc asks once when you wrote something; a failed
+// post keeps the text for c to bring back.
+func TestCommentKeepsText(t *testing.T) {
+	m := panelModel(t)
+	press := func(keys ...string) {
+		t.Helper()
+		for _, k := range keys {
+			out, _ := m.handleKey(keyMsg(t, k))
+			m = out.(Model)
+		}
+	}
+	m.focus = focusRef
+	press("c", "h", "i", "esc")
+	if !m.jiraCommentActive || !strings.Contains(m.status, "esc again discards") {
+		t.Fatalf("esc with text: active %v, %q", m.jiraCommentActive, m.status)
+	}
+	press("esc")
+	if m.jiraCommentActive {
+		t.Fatal("esc again should discard")
+	}
+	press("c", "esc")
+	if m.jiraCommentActive {
+		t.Fatal("esc on an empty comment should close at once")
+	}
+	out, _ := m.handleJiraMutated(jiraMutatedMsg{key: "ABC-1", field: "comment", err: fmt.Errorf("boom"), text: "my words"})
+	if m = out.(Model); !strings.Contains(m.status, "c brings it back") {
+		t.Fatalf("status %q", m.status)
+	}
+	press("c")
+	if m.jiraCommentInput.Value() != "my words" {
+		t.Errorf("composer holds %q", m.jiraCommentInput.Value())
 	}
 }

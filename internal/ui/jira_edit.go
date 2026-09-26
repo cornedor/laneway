@@ -160,6 +160,7 @@ type jiraMutatedMsg struct {
 	key   string
 	field string
 	err   error
+	text  string // a comment's text, kept when its post fails
 }
 
 // startJiraPicker resets the picker to a fresh loading state for the current
@@ -824,6 +825,10 @@ func jiraMutateCmd(key, field string, run func() error) tea.Cmd {
 func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.status = fmt.Sprintf("%s %s update failed: %v", msg.key, msg.field, msg.err)
+		if msg.text != "" {
+			m.unsent.key, m.unsent.text = msg.key, msg.text
+			m.status = fmt.Sprintf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment))
+		}
 		return m, nil
 	}
 	m.status = fmt.Sprintf("%s %s updated", msg.key, msg.field)

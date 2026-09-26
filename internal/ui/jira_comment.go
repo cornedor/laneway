@@ -40,6 +40,13 @@ func (m *Model) openJiraCommentInput() {
 	m.jiraCommentMention = nil
 	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
 	m.jiraCommentInput = newCommentTextarea()
+	m.jiraCommentBefore, m.jiraCommentDiscard = "", false
+	if m.unsent.key == m.jiraCommentKey && m.unsent.text != "" {
+		m.jiraCommentInput.SetValue(m.unsent.text)
+		m.jiraCommentInput.CursorEnd()
+		m.unsent = struct{ key, text string }{}
+		m.status = "your unsent comment is back"
+	}
 }
 
 // commentInline is whether the composer sits in the panel: under the comment
@@ -74,6 +81,7 @@ func (m *Model) openJiraReply(c jira.Comment) {
 	ta.SetValue(replyQuote(c))
 	ta.CursorEnd()
 	m.jiraCommentInput = ta
+	m.jiraCommentBefore, m.jiraCommentDiscard = ta.Value(), false
 }
 
 // replyQuote builds the editable reply seed: a markdown blockquote of c's
@@ -104,23 +112,32 @@ func (m *Model) closeJiraComment() {
 	m.jiraCommentMention = nil
 	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
 	m.jiraCommentInput = editor.Model{}
+	m.jiraCommentBefore, m.jiraCommentDiscard = "", false
 	m.jiraCommentMentions = nil
 	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 }
 
 // handleJiraCommentKey owns every keystroke while the composer is open: esc
-// cancels, Enter posts, alt/shift+enter insert a newline (bound on the
-// textarea), everything else edits the text.
+// cancels (asking once when you wrote something), Enter or ctrl+s posts,
+// alt/shift+enter insert a newline (bound on the textarea), everything else
+// edits the text.
 func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "esc":
+		if strings.TrimSpace(m.jiraCommentInput.Value()) != strings.TrimSpace(m.jiraCommentBefore) && !m.jiraCommentDiscard {
+			m.jiraCommentDiscard = true
+			m.status = "esc again discards your comment · enter posts it"
+			return m, nil
+		}
 		m.closeJiraComment()
+		m.status = ""
 		return m, nil
-	case "enter":
+	case "enter", "ctrl+s":
 		return m.applyJiraComment()
 	}
+	m.jiraCommentDiscard = false
 	if m.mentionKey(msg.String()) {
 		return m, nil
 	}
@@ -145,9 +162,10 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 		verb = "reply to"
 	}
 	m.status = fmt.Sprintf("posting %s %s…", verb, key)
-	return m, jiraMutateCmd(key, "comment", func() error {
-		return client.AddCommentMentions(ctx, key, text, mention, inline)
-	})
+	return m, func() tea.Msg {
+		err := client.AddCommentMentions(ctx, key, text, mention, inline)
+		return jiraMutatedMsg{key: key, field: "comment", err: err, text: text}
+	}
 }
 
 // renderJiraCommentInput draws the modal composer, with a "replying to" line in

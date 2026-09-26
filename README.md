@@ -287,7 +287,7 @@ a `<!-- keep:1 table … -->` line: move it and the block moves, delete it
 and the block goes, anything else and it comes back untouched. Your own
 comments edit the same way from `A` → Edit a comment.
 
-In the `c` composer, `@` and a few letters list matching users;
+In the `c` composer (`enter` or `ctrl+s` posts; `esc` asks once before dropping what you wrote; a post that fails keeps the text for the next `c`), `@` and a few letters list matching users;
 `ctrl+n`/`ctrl+p` pick, `tab` inserts a mention that notifies them.
 
 ## Inbox

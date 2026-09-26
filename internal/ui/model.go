@@ -310,6 +310,12 @@ type Model struct {
 	jiraCommentMention *jira.Mention
 	jiraCommentReplyTo string
 	jiraCommentReplyID string // the comment replied to, its composer drawn under it
+	// jiraCommentBefore is the text it opened with (a reply's quote), so esc
+	// asks once only for text you wrote; jiraCommentDiscard is that ask.
+	jiraCommentBefore  string
+	jiraCommentDiscard bool
+	// unsent is a comment whose post failed, by issue: c brings it back.
+	unsent struct{ key, text string }
 
 	// panelResizing is set while the panel's left border is dragged
 	// (panel_resize.go).
