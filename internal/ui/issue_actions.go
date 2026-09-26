@@ -104,9 +104,9 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		m.jiraFieldKey = key
 	case "paste":
 		m.status = "uploading the clipboard image to " + key + "…"
-		name := time.Now().Format("pasted-20060102-150405.png")
+		name, command := time.Now().Format("pasted-20060102-150405.png"), m.opts.clipboardImage
 		return jiraMutateCmd(key, "attachments", func() error {
-			img, err := clipboardImage()
+			img, err := clipboardImage(command)
 			if err != nil {
 				return err
 			}

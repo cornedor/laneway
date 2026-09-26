@@ -7,11 +7,14 @@ import (
 	"runtime"
 )
 
-// Open hands target (a URL or a local file path) to the OS default
-// handler. The launcher forks and returns immediately; we don't wait for
-// the viewer/browser process to exit. On every platform the chosen
-// command accepts both URLs and filesystem paths.
-func Open(target string) error {
+// Open hands target (a URL or a local file path) to command (ui.open) when
+// given, else the OS default handler. The launcher forks and returns
+// immediately; we don't wait for the viewer/browser process to exit. On
+// every platform the chosen command accepts both URLs and filesystem paths.
+func Open(command []string, target string) error {
+	if len(command) > 0 {
+		return exec.Command(command[0], append(command[1:], target)...).Start()
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":

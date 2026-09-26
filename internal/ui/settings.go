@@ -52,6 +52,8 @@ var settingDefaults = map[string]string{
 	"inbox_lookback":       "24h",
 	"inbox_issues":         "30",
 	"timer_round":          "to the minute",
+	"clipboard_image":      "wl-paste, xclip or pngpaste",
+	"open":                 "xdg-open, open or rundll32",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",

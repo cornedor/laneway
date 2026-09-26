@@ -108,6 +108,11 @@ type UIConfig struct {
 	// TimerRound rounds the timer's logged time up to a step ("15m"); by
 	// default to the minute.
 	TimerRound string `yaml:"timer_round"`
+	// ClipboardImage is a command printing the clipboard's PNG, over the
+	// wl-paste / xclip / pngpaste probe; Open one that opens URLs and files
+	// (target appended), over xdg-open / open / rundll32.
+	ClipboardImage string `yaml:"clipboard_image"`
+	Open           string `yaml:"open"`
 	// FlagValue is the Flagged field's option flagging sets ("Impediment").
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").

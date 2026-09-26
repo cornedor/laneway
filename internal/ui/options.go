@@ -41,6 +41,8 @@ type options struct {
 	inboxLookback   time.Duration      // a first inbox read looks this far back
 	inboxIssues     int                // 0: the client's default
 	timerRound      time.Duration      // 0: to the minute
+	clipboardImage  []string           // command printing the clipboard's PNG, nil: probe
+	openCmd         []string           // command opening URLs and files, nil: the OS's
 	roadmapDoneDays int                // resolved epics older than this leave the roadmap
 	codeTheme       string             // chroma style for code blocks
 }
@@ -91,6 +93,12 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	dur("auto_refresh", c.AutoRefresh, &o.autoRefresh, true)
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
 	dur("inbox_every", c.InboxEvery, &o.inboxEvery, true)
+	if f := strings.Fields(c.ClipboardImage); len(f) > 0 {
+		o.clipboardImage = f
+	}
+	if f := strings.Fields(c.Open); len(f) > 0 {
+		o.openCmd = f
+	}
 	switch v := strings.TrimSpace(c.TimerRound); {
 	case v == "" || v == "off":
 	default:

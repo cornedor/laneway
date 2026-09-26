@@ -85,6 +85,8 @@ ui:
   inbox_lookback: 24h           # how far back the first inbox read looks
   inbox_issues: 30              # recently updated issues the inbox and standup read
   timer_round: 15m              # T's logged time rounded up to this (to the minute)
+  clipboard_image: wl-paste --type image/png  # prints the clipboard's PNG (probed by default)
+  open: wslview                 # opens URLs and attachments (xdg-open / open by default)
   flag_value: Impediment        # the Flagged option A → flag sets
   work_agent: claude            # the herdr agent S starts in the worktree
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset

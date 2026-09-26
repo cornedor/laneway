@@ -15,6 +15,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -143,7 +144,7 @@ func TestPasteAction(t *testing.T) {
 	m, writes := actionsModel(t, nil)
 	orig := clipboardImage
 	t.Cleanup(func() { clipboardImage = orig })
-	clipboardImage = func() ([]byte, error) { return []byte("\x89PNG-data"), nil }
+	clipboardImage = func([]string) ([]byte, error) { return []byte("\x89PNG-data"), nil }
 	_, cmd := pickAction(t, m, "paste")
 	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
 		t.Fatal(msg.err)
@@ -152,7 +153,7 @@ func TestPasteAction(t *testing.T) {
 		!strings.Contains(w[0], `filename="pasted-`) || !strings.Contains(w[0], "PNG-data") {
 		t.Errorf("writes = %q", w)
 	}
-	clipboardImage = func() ([]byte, error) { return nil, errors.New("no image on the clipboard") }
+	clipboardImage = func([]string) ([]byte, error) { return nil, errors.New("no image on the clipboard") }
 	_, cmd = pickAction(t, m, "paste")
 	if msg := cmd().(jiraMutatedMsg); msg.err == nil || len(writes()) != 1 {
 		t.Error("no image should upload nothing")
@@ -244,5 +245,20 @@ func TestFlagAction(t *testing.T) {
 	}
 	if w := writes(); len(w) != 1 || !strings.HasSuffix(w[0], `{"fields":{"customfield_50":null}}`) {
 		t.Errorf("writes = %q", w)
+	}
+}
+
+func TestClipboardImageCommand(t *testing.T) {
+	png := filepath.Join(t.TempDir(), "c.png")
+	os.WriteFile(png, []byte("\x89PNG-data"), 0o600)
+	if img, err := clipboardImage([]string{"cat", png}); err != nil || string(img) != "\x89PNG-data" {
+		t.Errorf("img %q err %v", img, err)
+	}
+	if _, err := clipboardImage([]string{"no-such-tool-xyz"}); err == nil || !strings.Contains(err.Error(), "ui.clipboard_image") {
+		t.Errorf("err = %v", err)
+	}
+	o, _ := optionsFrom(config.UIConfig{ClipboardImage: "cat /tmp/x.png", Open: "wslview"})
+	if len(o.clipboardImage) != 2 || len(o.openCmd) != 1 {
+		t.Errorf("commands %q %q", o.clipboardImage, o.openCmd)
 	}
 }

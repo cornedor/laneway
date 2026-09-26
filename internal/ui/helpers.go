@@ -253,7 +253,8 @@ type openedMsg struct {
 }
 
 func (m Model) openOpenable(o openable) tea.Cmd {
+	command := m.opts.openCmd
 	return func() tea.Msg {
-		return openedMsg{name: o.name, err: opener.Open(o.url)}
+		return openedMsg{name: o.name, err: opener.Open(command, o.url)}
 	}
 }

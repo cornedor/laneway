@@ -1,8 +1,6 @@
 # Roadmap
 
 ## Next
-- `ui.clipboard_image`: command that prints a PNG off the clipboard, over the wl-paste / xclip / pngpaste probe
-- `ui.open`: command that opens URLs and attachments, over xdg-open / open / rundll32 (WSL, remote)
 - Extra fields: custom fields by name on cards (`card_fields`) and in the panel; today the fetched field lists are fixed
 - `laneway rules` create defaults (type `Task`, status `To Do`) from config or the project
 - `jira.timeout`: API request timeout (20s) and the longer action timeouts (30–90s), for slow instances
@@ -28,6 +26,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.clipboard_image` and `ui.open`: commands over the clipboard-image and opener probes (WSL, remote)
 - `ui.timer_round` (e.g. 15m): the timer's logged time rounded up to the step, at least one; default to the minute
 - Inbox config: `ui.inbox_every` (5m, off), `ui.inbox_lookback` (24h), `ui.inbox_issues` (30, standup too)
 - `ui.flag_value` (Impediment): the Flagged option flagging sets
