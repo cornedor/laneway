@@ -180,7 +180,7 @@ Board:
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `u` undo the last move · `M` to sprint/backlog · `n` new issue · `x`/`X`
-  mark · `B` edit marked · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · drag with the mouse
+  mark · `B` edit marked · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · drag with the mouse
 - views: `Q` JQL search · `R` roadmap · `P` planning · `C` charts
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
 - `q` quit

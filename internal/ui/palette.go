@@ -244,20 +244,30 @@ func (m *Model) pinnedIssues() [][2]string {
 	return out
 }
 
-// togglePin pins the panel's issue, or unpins it.
-func (m *Model) togglePin() {
-	if m.store == nil || m.jiraIssue == nil {
+// togglePin pins an issue, or unpins it.
+func (m *Model) togglePin(key, summary string) {
+	if m.store == nil || key == "" {
 		return
 	}
-	key := m.jiraIssue.Key
 	p := m.pinnedIssues()
 	if kept := slices.DeleteFunc(slices.Clone(p), func(e [2]string) bool { return e[0] == key }); len(kept) < len(p) {
 		p = kept
 		m.status = "unpinned " + key
 	} else {
-		p = append(p, [2]string{key, m.jiraIssue.Summary})
+		p = append(p, [2]string{key, summary})
 		m.status = "pinned " + key + " · first in the palette"
 	}
 	b, _ := json.Marshal(p)
 	_ = m.store.SetMeta(pinnedMeta, string(b))
+	m.loadPins()
+	m.jiraTab.rows = nil
+	m.renderJira()
+}
+
+// loadPins caches the pinned keys for the cards' ★.
+func (m *Model) loadPins() {
+	m.pins = map[string]bool{}
+	for _, p := range m.pinnedIssues() {
+		m.pins[p[0]] = true
+	}
 }

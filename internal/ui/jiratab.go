@@ -805,6 +805,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openSitePicker()
 	case key.Matches(msg, m.keys.Undo):
 		return m, m.undoJiraMove()
+	case key.Matches(msg, m.keys.Pin):
+		if c, ok := m.selectedJiraCard(); ok {
+			m.togglePin(c.Key, c.Summary)
+		}
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
 	case key.Matches(msg, m.keys.MarkAll):
@@ -1233,7 +1237,7 @@ var jiraLaneStyle = lipgloss.NewStyle().Bold(true)
 
 // Themed board styles, set by applyTheme. jiraOverStyle marks a lane past
 // its WIP limit.
-var jiraKeyStyle, jiraDimStyle, jiraOverStyle, jiraDropStyle, jiraViewActive, jiraGhostStyle lipgloss.Style
+var jiraKeyStyle, jiraDimStyle, jiraOverStyle, jiraDropStyle, jiraViewActive, jiraGhostStyle, jiraPinStyle lipgloss.Style
 
 // jiraTypeIcon is a nerd-font glyph per issue type, like the GitLab tab's.
 func jiraTypeIcon(t string) string {
@@ -1477,6 +1481,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	row += jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  "
 	if f.flagged && c.Flagged {
 		title = jiraOverStyle.Render("⚑") + " " + title
+	}
+	if m.pins[c.Key] {
+		title = jiraPinStyle.Render("★") + " " + title
 	}
 	if f.typ {
 		row += jiraTypeIcon(c.Type) + " "
@@ -1733,6 +1740,9 @@ func (m *Model) renderJiraLanes(width, height int) string {
 			}
 			sel := l == t.lane && t.row < len(lane.cards) && lane.cards[t.row] == slots[r].ci
 			lines := jiraCardLines(c, true, m.opts.fields)
+			if m.pins[c.Key] {
+				lines[0] = jiraPinStyle.Render("★") + " " + lines[0]
+			}
 			if hl := m.jiraHighlight(c.Key); hl != "" {
 				lines[0] = hl + " " + lines[0]
 			}

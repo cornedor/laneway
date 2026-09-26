@@ -976,3 +976,23 @@ func TestJiraTabCopyMarkedTable(t *testing.T) {
 		t.Errorf("pipe not escaped: %q", got)
 	}
 }
+
+// TestJiraTabPin: * on the board pins the card, shown ★ in lanes and list.
+func TestJiraTabPin(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if !m.pins["ABC-1"] || !strings.Contains(ansi.Strip(m.View().Content), "★ ABC-1") {
+		t.Fatalf("lanes: pins=%v status %q", m.pins, m.status)
+	}
+	out, _ = m.handleKey(keyMsg(t, "t"))
+	m = out.(Model)
+	if !strings.Contains(m.View().Content, "★") {
+		t.Error("list: no ★")
+	}
+	out, _ = m.handleKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if m.pins["ABC-1"] || strings.Contains(m.View().Content, "★") {
+		t.Errorf("unpin: pins=%v", m.pins)
+	}
+}

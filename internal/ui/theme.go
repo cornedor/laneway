@@ -138,6 +138,7 @@ func applyTheme(th theme) {
 	jiraDropStyle = c("drop_fg").Bold(true).Background(focusedColor)
 	jiraViewActive = accent.Bold(true)
 	jiraGhostStyle = dim.Faint(true).Italic(true)
+	jiraPinStyle = c("highlight")
 	roadmapDoneStyle, roadmapTodoStyle, roadmapTodayStyle = c("roadmap_done"), c("roadmap_todo"), c("highlight")
 
 	refKeyStyle = accent.Bold(true)

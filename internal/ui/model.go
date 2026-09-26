@@ -154,8 +154,10 @@ type hit struct {
 // Model is the whole app. Held by value like matterbox's; the board state
 // sits behind a pointer.
 type Model struct {
-	ctx    context.Context
-	store  *store.Store
+	ctx   context.Context
+	store *store.Store
+	// pins are the pinned issue keys (palette.go).
+	pins   map[string]bool
 	keys   keyMap
 	width  int
 	height int
@@ -316,6 +318,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	}
 	m.refView.SoftWrap = true
 	m.jiraTab.wantLanes = opts.lanes
+	m.loadPins()
 	return m
 }
 

@@ -158,7 +158,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.DevInfo):
 		return m, m.openDevInfo()
 	case key.Matches(msg, m.keys.Pin):
-		m.togglePin()
+		if m.jiraIssue != nil {
+			m.togglePin(m.jiraIssue.Key, m.jiraIssue.Summary)
+		}
 		return m, nil
 	case key.Matches(msg, m.keys.IssueActions):
 		m.openIssueActions()
