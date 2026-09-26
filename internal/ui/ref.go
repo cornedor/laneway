@@ -280,6 +280,7 @@ func (m *Model) renderRef() {
 		}
 		m.refView.SetContent(refDimStyle.Render("loading " + label + "…"))
 	case m.jiraIssue != nil:
+		refRowWidth = m.refView.Width()
 		content := m.placeImages(expandTables(m.renderJiraIssue(m.jiraIssue, m.refView.Width()), m.refView.Width()))
 		content = m.placeInlineEditor(content, m.refView.Width())
 		m.refView.SetContent(content)
@@ -295,7 +296,23 @@ func refMeta(b *strings.Builder, label, value string, width int) {
 	if value == "" {
 		return
 	}
-	b.WriteString(refLabelStyle.Render(refMetaLabel(label, width)) + value + "\n")
+	lbl := refMetaLabel(label, width)
+	b.WriteString(refLabelStyle.Render(lbl) + refWrap(value, lipgloss.Width(lbl)) + "\n")
+}
+
+// refRowWidth is the panel body's width, for rows to wrap to; set by
+// renderRef.
+var refRowWidth int
+
+// refWrap wraps a row's value to the panel, its lines after the first
+// indented under it rather than back under the label.
+func refWrap(value string, labelW int) string {
+	w := refRowWidth - labelW
+	if refRowWidth == 0 || w < 10 || lipgloss.Width(value) <= w {
+		return value
+	}
+	lines := strings.Split(ansi.Wordwrap(value, w, ""), "\n")
+	return strings.Join(lines, "\n"+strings.Repeat(" ", labelW))
 }
 
 // refField writes an editable field's row, "—" when empty, lit when the
@@ -303,13 +320,13 @@ func refMeta(b *strings.Builder, label, value string, width int) {
 func refField(b *strings.Builder, label, value string, width int, sel bool) {
 	lbl := refMetaLabel(label, width)
 	if sel {
-		b.WriteString(selectedRow.Render(lbl+orDash(value)) + "\n")
+		b.WriteString(selectedRow.Render(lbl+refWrap(orDash(value), lipgloss.Width(lbl))) + "\n")
 		return
 	}
 	if value == "" {
 		value = refDimStyle.Render("—")
 	}
-	b.WriteString(refLabelStyle.Render(lbl) + value + "\n")
+	b.WriteString(refLabelStyle.Render(lbl) + refWrap(value, lipgloss.Width(lbl)) + "\n")
 }
 
 func refMetaLabel(label string, width int) string {

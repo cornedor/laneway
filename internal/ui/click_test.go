@@ -966,3 +966,25 @@ func TestPanelFacts(t *testing.T) {
 		t.Error("no votes should show no row")
 	}
 }
+
+// TestPanelRowWrap: a long value wraps under its value column, not the
+// label.
+func TestPanelRowWrap(t *testing.T) {
+	m := panelModel(t)
+	var labels []string
+	for i := range 30 {
+		labels = append(labels, fmt.Sprintf("label-%02d", i))
+	}
+	m.jiraIssue.Labels = labels
+	m.renderRef()
+	lines := strings.Split(ansi.Strip(m.refView.GetContent()), "\n")
+	for i, l := range lines {
+		if strings.HasPrefix(l, "Labels:") {
+			if i+1 >= len(lines) || !strings.HasPrefix(lines[i+1], strings.Repeat(" ", 10)) || lines[i+1][10] == ' ' {
+				t.Errorf("continuation %q", lines[i+1])
+			}
+			return
+		}
+	}
+	t.Fatal("no Labels row")
+}
