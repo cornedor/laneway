@@ -177,12 +177,16 @@ func (m *Model) headerHit(x, y int) (kind string, i int) {
 	}
 	switch y {
 	case jiraBodyTop - 2: // the views
-		for i, v := range t.views {
+		first := min(t.viewsFirst, len(t.views))
+		if first > 0 {
+			span("‹" + jiraViewSep)
+		}
+		for i, v := range t.views[first:] {
 			if i > 0 {
-				span("  │  ")
+				span(jiraViewSep)
 			}
 			if span(v.name) {
-				return "view", i
+				return "view", first + i
 			}
 		}
 	case jiraBodyTop - 1: // the filters

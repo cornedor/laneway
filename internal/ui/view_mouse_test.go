@@ -2,6 +2,7 @@ package ui
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -211,5 +212,25 @@ func TestPanelResize(t *testing.T) {
 	}
 	if _, ok, _ := m.store.GetMeta(panelWidthMeta); ok {
 		t.Error("back at ui.panel_width the dragged width should be forgotten")
+	}
+}
+
+// TestHeaderViewsScroll: with more views than fit, the header starts late
+// enough to show the active one, and a click still picks the view under it.
+func TestHeaderViewsScroll(t *testing.T) {
+	m := jiraTabModel(t)
+	for i := range 30 {
+		m.jiraTab.views = append(m.jiraTab.views, jiraView{kind: jiraViewBacklog, name: "View " + strconv.Itoa(i)})
+	}
+	m.jiraTab.viewIdx = 25
+	view := ansi.Strip(m.View().Content)
+	row := strings.Split(view, "\n")[jiraBodyTop-2]
+	if !strings.Contains(row, "View 23") || !strings.Contains(row, "‹") || strings.Contains(row, "Sprint 1") {
+		t.Fatalf("views row = %q", row)
+	}
+	x := strings.Index(row, "View 22")
+	x = ansi.StringWidth(row[:x])                                              // cells, not bytes
+	if kind, i := m.headerHit(x+1, jiraBodyTop-2); kind != "view" || i != 24 { // two built-in views come first
+		t.Errorf("click hits %s %d", kind, i)
 	}
 }

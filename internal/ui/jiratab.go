@@ -223,6 +223,9 @@ type jiraTabState struct {
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
 	searching bool
+	// viewsFirst is the first view the header shows (render sets it, for
+	// clicks).
+	viewsFirst int
 	// fullAt and fullKey are when and for which view and filters the cards
 	// were last fetched whole; an idle refresh within fullEvery of it
 	// fetches only what changed (loadJiraDelta).
@@ -2219,6 +2222,32 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	return head
 }
 
+// jiraViewSep parts the header's views.
+const jiraViewSep = "  │  "
+
+// jiraViewsFirst is the first view the header shows: 0 when they all fit,
+// else late enough that the active one does, behind a ‹.
+func jiraViewsFirst(views []jiraView, active, width int) int {
+	if active < 0 || active >= len(views) {
+		return 0
+	}
+	sep, w := ansi.StringWidth(jiraViewSep), 0
+	for i := active; i >= 0; i-- {
+		w += ansi.StringWidth(views[i].name)
+		if i < active {
+			w += sep
+		}
+		more := 0
+		if i > 0 {
+			more = 1 + sep // "‹" and its separator
+		}
+		if w+more > width {
+			return min(i+1, active)
+		}
+	}
+	return 0
+}
+
 // renderJiraPane draws the tab body: the board pane, plus the reference panel
 // on the right while one is open.
 func (m *Model) renderJiraPane(height, width int) string {
@@ -2263,15 +2292,19 @@ func (m *Model) renderJiraPane(height, width int) string {
 	head := ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…")
 	rule := refDimStyle.Render(strings.Repeat("─", max(boxW-2, 1)))
 
+	t.viewsFirst = jiraViewsFirst(t.views, t.viewIdx, max(boxW-3, 1)) // a cell for the truncation's …
 	var views []string
-	for i, v := range t.views {
-		if i == t.viewIdx {
+	if t.viewsFirst > 0 {
+		views = append(views, jiraDimStyle.Render("‹"))
+	}
+	for i, v := range t.views[t.viewsFirst:] {
+		if i += t.viewsFirst; i == t.viewIdx {
 			views = append(views, jiraViewActive.Render(v.name))
 		} else {
 			views = append(views, jiraDimStyle.Render(v.name))
 		}
 	}
-	viewLine := strings.Join(views, jiraDimStyle.Render("  │  "))
+	viewLine := strings.Join(views, jiraDimStyle.Render(jiraViewSep))
 	if v, ok := m.jiraCurrentView(); ok {
 		if s := jiraSprintLine(v, time.Now()); s != "" {
 			viewLine += jiraDimStyle.Render("    " + s)
