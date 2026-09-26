@@ -515,16 +515,7 @@ func planWrite(what string, run func() error) tea.Cmd {
 }
 
 // planLine is the view line while planning shows.
-func (m *Model) planLine() string {
-	p := m.jiraTab.plan
-	s := jiraViewActive.Render("Planning") + jiraDimStyle.Render("  backlog → "+p.sprints[p.target].name)
-	if p.loading {
-		s += jiraDimStyle.Render("  ·  loading…")
-	}
-	k := m.keys
-	return s + jiraDimStyle.Render("  ·  ← → side  "+helpKey(k.PrevView)+" "+helpKey(k.NextView)+" sprint  "+
-		helpKey(k.MoveSprint)+"/space move across  K J rank  E goal  R rename  N new  S start/end  C C complete  "+helpKey(k.OpenChannel)+" open  esc board")
-}
+func (m *Model) planLine() string { return joinSegs(m.planSegs()) }
 
 // renderPlan draws the two sides into width × height.
 func (m *Model) renderPlan(width, height int) string {

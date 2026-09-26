@@ -23,6 +23,10 @@ func (m Model) clickRoadmap(x, y, count int) (tea.Model, tea.Cmd) {
 	}
 	r.idx = i
 	m.roadmapSayBlockers()
+	if roadmapOnFold(r, r.rows()[i], x) {
+		m.foldRoadmap()
+		return m, nil
+	}
 	if count == 2 {
 		if k := m.roadmapKey(); k != "" {
 			return m.openJiraKey(k)
@@ -43,6 +47,20 @@ func (m Model) clickRoadmap(x, y, count int) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// roadmapOnFold is whether x is on row's ▾/▸: a parent's, or an epic's
+// with children.
+func roadmapOnFold(r *roadmapState, row roadmapRow, x int) bool {
+	at := 1 // the box's left border
+	switch {
+	case row.epic < 0:
+	case row.kid >= 0 || len(r.epics[row.epic].Kids) == 0:
+		return false
+	case r.epics[row.epic].Parent != "":
+		at += 2 // indented under its parent
+	}
+	return x >= at && x < at+2
 }
 
 // Where a roadmap bar is held: the whole bar or one of its ends.

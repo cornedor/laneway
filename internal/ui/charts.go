@@ -156,36 +156,8 @@ func (ch *chartsState) chartTabsShown() []int {
 	return out
 }
 
-// chartTabAt is the tab at x on the view line, -1 for none.
-func (ch *chartsState) chartTabAt(x int) int {
-	at := 1 // the box's left border
-	for _, i := range ch.chartTabsShown() {
-		w := ansi.StringWidth(chartTabNames[i])
-		if x >= at && x < at+w {
-			return i
-		}
-		at += w + ansi.StringWidth(chartTabSep)
-	}
-	return -1
-}
-
 // chartsLine is the view line while the charts show.
-func (m *Model) chartsLine() string {
-	ch := m.jiraTab.charts
-	var parts []string
-	for _, i := range ch.chartTabsShown() {
-		if i == ch.tab {
-			parts = append(parts, jiraViewActive.Render(chartTabNames[i]))
-		} else {
-			parts = append(parts, jiraDimStyle.Render(chartTabNames[i]))
-		}
-	}
-	s := strings.Join(parts, jiraDimStyle.Render(chartTabSep))
-	if ch.loading {
-		s += jiraDimStyle.Render("  ·  loading…")
-	}
-	return s + jiraDimStyle.Render("  ·  tab switch  "+helpKey(m.keys.Refresh)+" refresh  "+helpKey(m.keys.CopyKey)+" copy  esc board")
-}
+func (m *Model) chartsLine() string { return joinSegs(m.chartsSegs()) }
 
 // renderCharts draws the open chart into width × height.
 func (m *Model) renderCharts(width, height int) string {

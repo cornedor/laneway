@@ -359,7 +359,7 @@ those done in the last 90 days (`ui.roadmap_done_days`), in rank order. A bar ru
 Start date (or Plans' Target start) to its Due date (or Target end); an
 epic without them spans its children's sprints, drawn fainter. The bar
 fills by points done, else by children done. `← →` scroll, `+ -` zoom
-(day to 2 weeks per column), `.` back to today, `space` folds out the
+(day to 2 weeks per column), `.` back to today, `space` (or a click on its ▸) folds out the
 epic's issues, `enter` opens the row's issue, `y` copies the epics as a markdown
 table, `esc` back to the board.
 `H`/`L` move a bar (an epic's or a child's) a column, `<`/`>` move its end,

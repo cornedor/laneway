@@ -16,15 +16,23 @@ import (
 
 // headSeg is one run of a header row.
 type headSeg struct {
-	s    string // as drawn
-	kind string // a click: "view", "quick", "term", "assignee", "esc", "key", "" nothing
-	i    int    // the view, quick filter or term
-	bind key.Binding
+	s     string // as drawn
+	kind  string // a click: "view", "quick", "term", "chart", "assignee", "esc", "key", "" nothing
+	i     int    // the view, quick filter, term or chart
+	press string // the key a "key" click presses
 }
 
 func plainSeg(s string) headSeg { return headSeg{s: s} }
 
-func keySeg(s string, b key.Binding) headSeg { return headSeg{s: s, kind: "key", bind: b} }
+// keySeg presses b's first key; pressSeg presses k.
+func keySeg(s string, b key.Binding) headSeg {
+	if len(b.Keys()) == 0 {
+		return plainSeg(s)
+	}
+	return pressSeg(s, firstKey(b))
+}
+
+func pressSeg(s, k string) headSeg { return headSeg{s: s, kind: "key", press: k} }
 
 func joinSegs(segs []headSeg) string {
 	var b strings.Builder
@@ -176,16 +184,20 @@ func (m *Model) jiraFilterSegs() []headSeg {
 // headerHit is the header segment at x, y; its kind is "" for nothing.
 func (m *Model) headerHit(x, y int) headSeg {
 	t := m.jiraTab
-	if t.roadmap != nil || t.plan != nil || t.charts != nil {
-		return headSeg{}
-	}
+	other := t.roadmap != nil || t.plan != nil || t.charts != nil
 	var segs []headSeg
-	switch y {
-	case 0:
+	switch {
+	case y == 0 && !other:
 		segs = m.jiraTitleSegs()
-	case jiraBodyTop - 2:
+	case y == jiraBodyTop-2 && t.roadmap != nil:
+		segs = m.roadmapSegs()
+	case y == jiraBodyTop-2 && t.charts != nil:
+		segs = m.chartsSegs()
+	case y == jiraBodyTop-2 && t.plan != nil:
+		segs = m.planSegs()
+	case y == jiraBodyTop-2:
 		segs = m.jiraViewSegs()
-	case jiraBodyTop - 1:
+	case y == jiraBodyTop-1 && !other:
 		if t.searching {
 			return headSeg{}
 		}
@@ -213,18 +225,111 @@ func (m Model) clickHeader(x, y int) (tea.Model, tea.Cmd, bool) {
 	case "term":
 		m.removeSearchTerm(h.i)
 		return m, nil, true
+	case "chart":
+		m.jiraTab.charts.tab = h.i
+		return m, nil, true
 	case "esc":
 		m.clearJiraSearch()
 		return m, nil, true
 	case "assignee":
-		h.bind = m.keys.Assignee
+		h = keySeg("", m.keys.Assignee)
 	case "key":
 	default:
 		return m, nil, false
 	}
-	if len(h.bind.Keys()) == 0 {
+	if h.press == "" {
 		return m, nil, true
 	}
-	out, cmd := m.handleJiraKey(keyPress(h.bind.Keys()[0]))
+	out, cmd := m.handleJiraKey(keyPress(h.press))
 	return out, cmd, true
+}
+
+// hint is a key shown as label that a click presses; a pair has two keys
+// before one what ("← → scroll").
+type hint struct{ label, press, label2, press2, what string }
+
+func keyHint(b key.Binding, what string) hint {
+	return hint{label: helpKey(b), press: firstKey(b), what: what}
+}
+
+func firstKey(b key.Binding) string {
+	if len(b.Keys()) == 0 {
+		return ""
+	}
+	return b.Keys()[0]
+}
+
+// hintSegs lays hints out two cells apart, each key pressing itself.
+func hintSegs(hints ...hint) []headSeg {
+	dim := jiraDimStyle.Render
+	var segs []headSeg
+	for _, h := range hints {
+		segs = append(segs, plainSeg(dim("  ")), pressSeg(dim(h.label), h.press))
+		if h.label2 != "" {
+			segs = append(segs, plainSeg(dim(" ")), pressSeg(dim(h.label2), h.press2))
+		}
+		segs = append(segs, pressSeg(dim(" "+h.what), h.press))
+	}
+	return segs
+}
+
+// roadmapSegs is the roadmap's view line: its keys press as hints.
+func (m *Model) roadmapSegs() []headSeg {
+	r := m.jiraTab.roadmap
+	dim := jiraDimStyle.Render
+	s := jiraViewActive.Render("Roadmap") + dim(fmt.Sprintf("  %d epics · %s per column", len(r.epics), roadmapZoomName(roadmapZooms[r.zoom])))
+	if n := len(r.groups); n > 0 {
+		s += dim(fmt.Sprintf(" · %d parents", n))
+	}
+	segs := []headSeg{plainSeg(s)}
+	switch {
+	case r.loading:
+		segs = append(segs, plainSeg(dim("  ·  loading…")))
+	case !r.fetched.IsZero():
+		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim("updated "+age(r.fetched)), m.keys.Refresh))
+	}
+	k := m.keys
+	segs = append(segs, plainSeg(dim("  ·")))
+	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "scroll"}, hint{"+", "+", "-", "-", "zoom"},
+		hint{label: ".", press: ".", what: "today"}, hint{label: "space", press: "space", what: "children"})...)
+	segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  e grip an end")))
+	return append(segs, hintSegs(keyHint(k.OpenChannel, "open"), keyHint(k.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
+}
+
+// chartsSegs is the charts' view line: a chart's name shows it.
+func (m *Model) chartsSegs() []headSeg {
+	ch := m.jiraTab.charts
+	var segs []headSeg
+	for n, i := range ch.chartTabsShown() {
+		if n > 0 {
+			segs = append(segs, plainSeg(jiraDimStyle.Render(chartTabSep)))
+		}
+		style := jiraDimStyle
+		if i == ch.tab {
+			style = jiraViewActive
+		}
+		segs = append(segs, headSeg{s: style.Render(chartTabNames[i]), kind: "chart", i: i})
+	}
+	if ch.loading {
+		segs = append(segs, plainSeg(jiraDimStyle.Render("  ·  loading…")))
+	}
+	segs = append(segs, plainSeg(jiraDimStyle.Render("  ·")))
+	return append(segs, hintSegs(hint{label: "tab", press: "tab", what: "switch"}, keyHint(m.keys.Refresh, "refresh"),
+		keyHint(m.keys.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
+}
+
+// planSegs is planning's view line: the sprint's name steps to the next.
+func (m *Model) planSegs() []headSeg {
+	p := m.jiraTab.plan
+	dim := jiraDimStyle.Render
+	k := m.keys
+	segs := []headSeg{plainSeg(jiraViewActive.Render("Planning") + dim("  backlog → ")), keySeg(dim(p.sprints[p.target].name), k.NextView)}
+	if p.loading {
+		segs = append(segs, plainSeg(dim("  ·  loading…")))
+	}
+	segs = append(segs, plainSeg(dim("  ·")))
+	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "side"},
+		hint{helpKey(k.PrevView), firstKey(k.PrevView), helpKey(k.NextView), firstKey(k.NextView), "sprint"})...)
+	segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveSprint)+"/space move across  K J rank  E goal  R rename  N new  S start/end  C C complete")))
+	return append(segs, hintSegs(keyHint(k.OpenChannel, "open"), hint{label: "esc", press: "esc", what: "board"})...)
 }

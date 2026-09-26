@@ -563,22 +563,7 @@ func (r *roadmapState) groupEpic(g roadmapGroup) jira.Epic {
 }
 
 // roadmapLine is the view line while the roadmap shows.
-func (m *Model) roadmapLine() string {
-	r := m.jiraTab.roadmap
-	s := jiraViewActive.Render("Roadmap") + jiraDimStyle.Render(fmt.Sprintf("  %d epics · %s per column", len(r.epics), roadmapZoomName(roadmapZooms[r.zoom])))
-	if n := len(r.groups); n > 0 {
-		s += jiraDimStyle.Render(fmt.Sprintf(" · %d parents", n))
-	}
-	switch {
-	case r.loading:
-		s += jiraDimStyle.Render("  ·  loading…")
-	case !r.fetched.IsZero():
-		s += jiraDimStyle.Render("  ·  updated " + age(r.fetched))
-	}
-	k := m.keys
-	return s + jiraDimStyle.Render("  ·  ← → scroll  + - zoom  . today  space children  "+
-		helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  e grip an end  "+helpKey(k.OpenChannel)+" open  "+helpKey(k.CopyKey)+" copy  esc board")
-}
+func (m *Model) roadmapLine() string { return joinSegs(m.roadmapSegs()) }
 
 func roadmapZoomName(days int) string {
 	switch days {

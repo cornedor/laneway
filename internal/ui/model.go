@@ -733,9 +733,6 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		m.focus = focusJira
 		return m.clickPlan(msg.X, msg.Y, count)
 	case t.charts != nil:
-		if i := t.charts.chartTabAt(msg.X); msg.Y == jiraBodyTop-2 && i >= 0 {
-			t.charts.tab = i
-		}
 		return m, nil
 	}
 	return m.clickJira(m.hitJira(msg.X, msg.Y), msg.X, msg.Y, count)

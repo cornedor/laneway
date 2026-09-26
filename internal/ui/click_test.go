@@ -245,3 +245,39 @@ func TestClickHeaderTimer(t *testing.T) {
 		t.Error("a click on the timer should open its log")
 	}
 }
+
+// TestClickRoadmapFold: a click on an epic's ▸ folds its children out,
+// again in; a click on a view line hint presses its key.
+func TestClickRoadmapFold(t *testing.T) {
+	m := roadmapModel(t)
+	y := viewLineOf(m, "▸ ABC-10")
+	if y < 0 {
+		t.Fatalf("no fold mark:\n%s", ansi.Strip(m.View().Content))
+	}
+	if m = click(m, 1, y); viewLineOf(m, "ABC-12 Pay") < 0 {
+		t.Fatal("click did not fold out")
+	}
+	if m = click(m, 1, y); viewLineOf(m, "ABC-12 Pay") >= 0 {
+		t.Error("click again should fold in")
+	}
+	zoom := m.jiraTab.roadmap.zoom
+	if m = clickText(t, m, "+ - zoom"); m.jiraTab.roadmap.zoom == zoom {
+		t.Error("+ hint did not zoom")
+	}
+	if m = clickText(t, m, "space children"); viewLineOf(m, "ABC-12 Pay") < 0 {
+		t.Error("space hint did not fold out")
+	}
+}
+
+// TestClickPlanSprint: planning's sprint name steps to the next sprint.
+func TestClickPlanSprint(t *testing.T) {
+	m := planModel(t, nil)
+	p := m.jiraTab.plan
+	p.sprints = append(p.sprints, p.sprints[0])
+	p.sprints[len(p.sprints)-1].name = "Sprint 9"
+	m.renderJira()
+	target := p.target
+	if m = clickText(t, m, p.sprints[target].name); m.jiraTab.plan.target == target {
+		t.Error("the name did not step")
+	}
+}
