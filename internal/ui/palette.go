@@ -61,6 +61,10 @@ func (m *Model) openPalette() {
 		for i, q := range t.quick {
 			items = append(items, jiraPickerItem{id: "q:" + strconv.Itoa(i), label: "filter  " + q.Name, current: t.quickOn[q.ID]})
 		}
+		for i, f := range m.opts.filters {
+			items = append(items, jiraPickerItem{id: "s:" + strconv.Itoa(i), label: "search  " + f.Name + "  /" + f.Query,
+				current: t.search.Value() == f.Query})
+		}
 		for _, b := range t.boards {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
@@ -92,6 +96,14 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "q":
 		i, _ := strconv.Atoi(arg)
 		return m, m.toggleJiraQuick(i)
+	case "s":
+		i, _ := strconv.Atoi(arg)
+		if i < len(m.opts.filters) {
+			m.jiraTab.search.SetValue(m.opts.filters[i].Query)
+			m.applyJiraSearch()
+			m.status = "/" + m.opts.filters[i].Query + " · esc clears"
+		}
+		return m, nil
 	case "b":
 		return m, m.pickJiraBoard(jiraPickBoard, arg)
 	case "i":

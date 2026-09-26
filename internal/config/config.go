@@ -133,6 +133,8 @@ type UIConfig struct {
 	// FullRefresh is how long idle refreshes fetch only changes before a
 	// whole refetch ("10m").
 	FullRefresh string `yaml:"full_refresh"`
+	// Filters are named / queries to recall from the : palette.
+	Filters []NamedQuery `yaml:"filters"`
 	// FlagValue is the Flagged field's option flagging sets ("Impediment").
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
@@ -150,6 +152,12 @@ type UIConfig struct {
 type QuickFilter struct {
 	Name string `yaml:"name"`
 	JQL  string `yaml:"jql"`
+}
+
+// NamedQuery is a / search query with a name.
+type NamedQuery struct {
+	Name  string `yaml:"name"`
+	Query string `yaml:"query"`
 }
 
 // KeyList is one key or a list of them.

@@ -69,6 +69,8 @@ ui:
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
     - {name: Mine, jql: "assignee = currentUser()"}
+  filters:                      # named / queries, recalled from the : palette
+    - {name: Stale review, query: "status:review age>3d"}
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
   timer_on_start: on            # S (start work) also starts the timer (off)
   velocity_sprints: 8           # closed sprints in C's velocity chart

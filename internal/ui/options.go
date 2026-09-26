@@ -23,29 +23,30 @@ type options struct {
 	lanes           bool // default mode
 	dateFormat      string
 	fields          cardFields
-	quick           []jira.QuickFilter // config presets, ids -1, -2, …
-	views           []jiraView         // config JQL views
-	savedFilters    bool               // starred Jira filters as views
-	capacity        map[string]float64 // sprint points per person, "default" for the rest
-	timerOnStart    bool               // S also starts the timer
-	templates       map[string]string  // new issue descriptions by type, lower-cased
-	velocitySprints int                // closed sprints in the velocity chart
-	staleDays       int                // in progress longer than this shows red
-	branchTemplate  string             // copy_branch's name
-	workBranch      string             // start work's new branch
-	workAgent       string             // the herdr agent kind start work launches
-	kanbanDoneDays  int                // done work older than this leaves kanban boards
-	epicType        string             // the roadmap's issue type
-	workdays        []time.Weekday     // nil: Monday to Friday
-	inboxEvery      time.Duration      // 0: the count never refreshes
-	inboxLookback   time.Duration      // a first inbox read looks this far back
-	inboxIssues     int                // 0: the client's default
-	timerRound      time.Duration      // 0: to the minute
-	fullRefresh     time.Duration      // idle refreshes fetch changes only for this long
-	clipboardImage  []string           // command printing the clipboard's PNG, nil: probe
-	openCmd         []string           // command opening URLs and files, nil: the OS's
-	roadmapDoneDays int                // resolved epics older than this leave the roadmap
-	codeTheme       string             // chroma style for code blocks
+	quick           []jira.QuickFilter  // config presets, ids -1, -2, …
+	views           []jiraView          // config JQL views
+	savedFilters    bool                // starred Jira filters as views
+	capacity        map[string]float64  // sprint points per person, "default" for the rest
+	timerOnStart    bool                // S also starts the timer
+	templates       map[string]string   // new issue descriptions by type, lower-cased
+	velocitySprints int                 // closed sprints in the velocity chart
+	staleDays       int                 // in progress longer than this shows red
+	branchTemplate  string              // copy_branch's name
+	workBranch      string              // start work's new branch
+	workAgent       string              // the herdr agent kind start work launches
+	kanbanDoneDays  int                 // done work older than this leaves kanban boards
+	epicType        string              // the roadmap's issue type
+	workdays        []time.Weekday      // nil: Monday to Friday
+	inboxEvery      time.Duration       // 0: the count never refreshes
+	inboxLookback   time.Duration       // a first inbox read looks this far back
+	inboxIssues     int                 // 0: the client's default
+	timerRound      time.Duration       // 0: to the minute
+	fullRefresh     time.Duration       // idle refreshes fetch changes only for this long
+	clipboardImage  []string            // command printing the clipboard's PNG, nil: probe
+	openCmd         []string            // command opening URLs and files, nil: the OS's
+	filters         []config.NamedQuery // named / queries for the palette
+	roadmapDoneDays int                 // resolved epics older than this leave the roadmap
+	codeTheme       string              // chroma style for code blocks
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -95,6 +96,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
 	dur("inbox_every", c.InboxEvery, &o.inboxEvery, true)
 	dur("full_refresh", c.FullRefresh, &o.fullRefresh, false)
+	for i, f := range c.Filters {
+		if strings.TrimSpace(f.Name) == "" || strings.TrimSpace(f.Query) == "" {
+			warn = append(warn, fmt.Sprintf("ui.filters[%d]: needs name and query", i))
+			continue
+		}
+		o.filters = append(o.filters, f)
+	}
 	if f := strings.Fields(c.ClipboardImage); len(f) > 0 {
 		o.clipboardImage = f
 	}

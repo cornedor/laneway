@@ -5,9 +5,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -194,5 +196,26 @@ func TestPickerKeepsItsSize(t *testing.T) {
 	m.jiraPicker.loading = true
 	if w2, h2 := size(); w2 != w || h2 != h {
 		t.Errorf("loading: %d×%d, want %d×%d", w2, h2, w, h)
+	}
+}
+
+// TestPaletteNamedFilter: a ui.filters query is a palette row that sets
+// the / search.
+func TestPaletteNamedFilter(t *testing.T) {
+	m := jiraTabModel(t)
+	o, warn := optionsFrom(config.UIConfig{Filters: []config.NamedQuery{{Name: "New ones", Query: "status:new"}, {Name: "x"}}})
+	if len(o.filters) != 1 || len(warn) != 1 {
+		t.Fatalf("filters %v %v", o.filters, warn)
+	}
+	m.opts.filters = o.filters
+	m.openPalette()
+	i := slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "s:0" })
+	if i < 0 || !strings.Contains(m.jiraPicker.items[i].label, "New ones") {
+		t.Fatalf("no row: %+v", m.jiraPicker.items)
+	}
+	m.jiraPicker.idx = i
+	out, _ := m.applyJiraPick()
+	if m = out.(Model); m.jiraTab.search.Value() != "status:new" || len(m.jiraTab.order) != 2 {
+		t.Errorf("query %q, %d shown", m.jiraTab.search.Value(), len(m.jiraTab.order))
 	}
 }
