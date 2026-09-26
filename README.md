@@ -58,7 +58,7 @@ The optional `ui:` section (defaults shown):
 ui:
   auto_refresh: 2m   # idle board refetch; "off" disables
   stale_after: 1m    # older boards refetch on focus/tick
-  images: auto       # kitty/Ghostty inline images; "off"
+  images: auto       # kitty/Ghostty inline images and avatar chips (cached in ~/.cache/laneway/avatars); "off"
   image_max_rows: 16
   panel_width: 50    # issue panel, percent of the width; drag its left border or < > to resize, remembered (near this it snaps back and forgets)
   card_limit: 500    # most cards one view fetches (50–5000)

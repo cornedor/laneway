@@ -61,6 +61,7 @@ func keepBG(s, open string) string {
 		return s
 	}
 	s = strings.ReplaceAll(s, "\x1b[0m", diffSoftReset+open)
+	s = strings.ReplaceAll(s, "\x1b[39m", "\x1b[39m"+open) // after an image placeholder's id colour
 	return strings.ReplaceAll(s, "\x1b[m", diffSoftReset+open)
 }
 

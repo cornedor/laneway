@@ -1745,7 +1745,7 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if selected {
 		// Plain selection colours, as the selected card: dim status, points
 		// and marks sank into the selection background.
-		row = ansi.Strip(row)
+		row = stripKeepImages(row)
 	}
 	return m.jiraSelect(row, selected, width)
 }
@@ -1869,6 +1869,9 @@ var avatars = map[string]string{}
 // jiraAvatar is a person's initials on a colour of their own, the same on
 // every card and every run.
 func jiraAvatar(name string) string {
+	if p, ok := avatarPlace[name]; ok {
+		return p
+	}
 	if a, ok := avatars[name]; ok {
 		return a
 	}
@@ -2080,7 +2083,7 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 		line = ansi.Truncate(line, inner, "…")
 		switch {
 		case sel: // plain: dim marks vanish on the selection colour
-			lines[i] = m.jiraSelect(ansi.Strip(line), true, inner)
+			lines[i] = m.jiraSelect(stripKeepImages(line), true, inner)
 		default: // full width, on the terminal's own background
 			lines[i] = line + strings.Repeat(" ", max(inner-lipgloss.Width(line), 0))
 		}

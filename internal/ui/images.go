@@ -8,9 +8,11 @@ import (
 	_ "image/gif"  // attachment formats
 	_ "image/jpeg" // attachment formats
 	_ "image/png"  // attachment formats and the kitty transmit format
+	"maps"
 	"math/rand/v2"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -59,6 +61,7 @@ type panelImages struct {
 	cell    cellPx // the terminal's cell size, for the aspect
 	nextID  uint32
 	byAtt   map[string]*panelImage
+	avatars map[string]*panelImage // by avatar URL (avatars.go)
 	// pending is placement changes a render queued, flushed after Update.
 	pending strings.Builder
 	// tmux wraps every graphics sequence for tmux's passthrough.
@@ -67,7 +70,7 @@ type panelImages struct {
 
 func newPanelImages(on bool, maxRows int) *panelImages {
 	ok, tmux := kittyGraphics()
-	return &panelImages{on: on && ok, tmux: tmux, maxRows: maxRows, cell: defaultCell, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}}
+	return &panelImages{on: on && ok, tmux: tmux, maxRows: maxRows, cell: defaultCell, nextID: 1 + rand.Uint32N(1<<20), byAtt: map[string]*panelImage{}, avatars: map[string]*panelImage{}}
 }
 
 // kittyGraphics reports a terminal that draws Unicode placeholders, and
@@ -374,7 +377,7 @@ func (m Model) ReleaseImages() string {
 		return ""
 	}
 	var sb strings.Builder
-	for _, e := range m.images.byAtt {
+	for _, e := range append(slices.Collect(maps.Values(m.images.byAtt)), slices.Collect(maps.Values(m.images.avatars))...) {
 		if e.state == imgReady {
 			fmt.Fprintf(&sb, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", e.id)
 		}

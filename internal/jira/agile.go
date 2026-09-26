@@ -118,8 +118,10 @@ type Card struct {
 	StatusID string
 	Priority string
 	Assignee string
-	// AssigneeID is the assignee's accountId, "" when unassigned.
+	// AssigneeID is the assignee's accountId, "" when unassigned;
+	// AvatarURL their 48px avatar.
 	AssigneeID string
+	AvatarURL  string
 	Points     string
 	// Parent is the parent issue (an epic, or a subtask's story), "" for none.
 	ParentKey, ParentSummary string
@@ -483,6 +485,12 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	card.TypeID, card.Type = obj("issuetype")
 	_, card.Priority = obj("priority")
 	card.AssigneeID, card.Assignee = obj("assignee")
+	var who struct {
+		Avatars map[string]string `json:"avatarUrls"`
+	}
+	if json.Unmarshal(f["assignee"], &who) == nil {
+		card.AvatarURL = who.Avatars["48x48"]
+	}
 	var subs []struct {
 		Fields struct {
 			Status struct {

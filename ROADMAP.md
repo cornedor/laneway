@@ -6,12 +6,12 @@
 - Filter terms, more: `sprint:` (cards need the instance's sprint field fetched), custom fields by name (`"Test type":e2e`)
 - Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
-- Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
 - Light-theme pass over the chips, lozenges and selection colours
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Avatar images on the assignee chips (kitty/Ghostty): each 48px avatar fetched once (credentials only to the instance), cached on disk, sent once a session, drawn two cells wide on cards, list rows and headers, the selected card included; initials elsewhere and until loaded
 - `O` my work: yours in every project (open, or done this week) as a view, grouped by status; the list sort gains `status` (to do, in progress, done)
 - Roadmap: `e` grips a bar's start, again its end, again lets go; `h`/`l` move the gripped end (the start stops at the end), matching the mouse
 - `ui.filters`: named `/` queries, recalled from the `:` palette (`search  Stale review`)
