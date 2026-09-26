@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Light terminal check by eye: chips, lozenges and selections after the adaptation (the ANSI ones follow the palette)
+- Mouse drags: `esc` cancels the one in progress (cards, swimlanes, planning, roadmap bars, the panel border), nothing written, the item back where it was
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
