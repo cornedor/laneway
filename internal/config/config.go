@@ -145,6 +145,9 @@ type UIConfig struct {
 	// CardColors is how cards show the board's own card colours:
 	// "ribbon" (default) or "off".
 	CardColors string `yaml:"card_colors"`
+	// Mouse is "on" (default): clicks, drags and the wheel; "off" leaves
+	// the mouse to the terminal (selecting text, its own links).
+	Mouse string `yaml:"mouse"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
 	CustomFields []string `yaml:"custom_fields"`

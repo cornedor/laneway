@@ -6,6 +6,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.mouse: off` leaves the mouse to the terminal (text selection, its own links); on by default, live from `,`
 - Mouse in the panel: an inline image opens full size, the hint line's keys press, `Links (n)` opens the link list, a double-click on `Description` edits it, `…and N more` opens the browser; the wheel scrolls the panel while an editor is open in it (the board stays put)
 - Fix: a picker title wrapped over lines (timesheet, standup on a narrow terminal) put clicks rows off and let the box outgrow the screen; planning: a click on a side's head focuses it
 - Mouse: a click on a roadmap row's ▾/▸ folds its parent or epic; the roadmap, charts and planning view lines are segments too, so their key hints press their keys, planning's sprint name steps to the next

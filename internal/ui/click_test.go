@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -374,5 +375,22 @@ func TestWheelPanelWhileEditing(t *testing.T) {
 	out, _ = m.Update(tea.MouseWheelMsg{X: 3, Y: 6, Button: tea.MouseWheelDown})
 	if m = out.(Model); m.jiraTab.row != row || !m.jiraCommentActive {
 		t.Error("the board moved under the edit")
+	}
+}
+
+// TestMouseOff: ui.mouse off leaves the mouse to the terminal; a bad value
+// warns and keeps it on.
+func TestMouseOff(t *testing.T) {
+	m := jiraTabModel(t)
+	if m.View().MouseMode != tea.MouseModeAllMotion {
+		t.Fatal("the mouse is on by default")
+	}
+	o, _ := optionsFrom(config.UIConfig{Mouse: "off"})
+	m.opts = o
+	if m.View().MouseMode != tea.MouseModeNone {
+		t.Error("off still captures the mouse")
+	}
+	if o, warn := optionsFrom(config.UIConfig{Mouse: "maybe"}); !o.mouse || len(warn) == 0 {
+		t.Error("a bad value should warn and keep the mouse")
 	}
 }

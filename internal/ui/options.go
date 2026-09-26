@@ -46,6 +46,7 @@ type options struct {
 	openCmd         []string            // command opening URLs and files, nil: the OS's
 	filters         []config.NamedQuery // named / queries for the palette
 	cardColors      string              // "ribbon" or "off"
+	mouse           bool                // clicks, drags and the wheel
 	roadmapDoneDays int                 // resolved epics older than this leave the roadmap
 	codeTheme       string              // chroma style for code blocks
 }
@@ -60,7 +61,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon"}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true}
 }
 
 // weekdays reads a day by its first three letters.
@@ -224,6 +225,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.timerOnStart = true
 	default:
 		warn = append(warn, fmt.Sprintf("ui.timer_on_start: %q is not on or off", c.TimerOnStart))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Mouse)) {
+	case "", "on":
+	case "off":
+		o.mouse = false
+	default:
+		warn = append(warn, fmt.Sprintf("ui.mouse: %q is not on or off", c.Mouse))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.SavedFilters)) {
 	case "", "on":

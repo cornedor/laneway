@@ -57,6 +57,7 @@ var settingDefaults = map[string]string{
 	"full_refresh":         "10m",
 	"filters":              "none",
 	"card_colors":          "ribbon",
+	"mouse":                "on",
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",

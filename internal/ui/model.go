@@ -806,7 +806,9 @@ func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	var v tea.View
 	v.AltScreen = true
-	v.MouseMode = tea.MouseModeAllMotion
+	if m.opts.mouse {
+		v.MouseMode = tea.MouseModeAllMotion
+	}
 	if m.width == 0 {
 		return v
 	}
