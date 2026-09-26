@@ -188,7 +188,12 @@ OldStatus OldAssignee OldPriority OldPoints Describe.
 A bad rule is skipped and reported on the status line. `laneway rules list`
 shows what loaded; `laneway rules test -on status -type Bug -status Done
 -from-status "In review"` (`-watch JQL` for a watch rule) says which rules
-that change fires and what stopped the rest, without running anything. A matterbox config's `rules:` are ignored.
+that change fires and what stopped the rest, without running anything.
+Left out, `-type` and `-status` come from the project (the `-key`'s, else
+the first of `jira.projects`): its Task, else first type, and that type's
+first to-do status; `rules_test: {type: Story, status: Backlog}` overrides
+them, and without Jira they are Task and To Do. A matterbox config's
+`rules:` are ignored.
 
 State (last project, board, view, filters, cached boards) lives in
 `~/.config/laneway/state.json`. An existing `~/.config/jiratui` or matterbox

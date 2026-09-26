@@ -51,6 +51,15 @@ type Config struct {
 	UI    UIConfig              `yaml:"ui"`
 	// Rules fire on the changes a board refresh shows; see internal/rules.
 	Rules []rules.Rule `yaml:"rules"`
+	// RulesTest overrides the issue type and status `laneway rules test`
+	// assumes, else read from the project.
+	RulesTest RulesTest `yaml:"rules_test"`
+}
+
+// RulesTest is `laneway rules test`'s defaults.
+type RulesTest struct {
+	Type   string `yaml:"type"`
+	Status string `yaml:"status"`
 }
 
 // UIConfig tunes the app; every field is optional and "" / 0 keeps the

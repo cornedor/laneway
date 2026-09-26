@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,5 +75,43 @@ rules:
 	rulesCmd([]string{"test", "-config", p3, "-by-me", "false"}, &out, &errOut)
 	if !strings.Contains(out.String(), "✓ close  transition  → Done") {
 		t.Errorf("jira action:\n%s", out.String())
+	}
+}
+
+// TestRulesTestDefaults: without -type and -status a test takes the project's
+// Task (else first type) and its first to-do status from Jira; rules_test
+// overrides; the -type flag picks the type whose status is read.
+func TestRulesTestDefaults(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/rest/api/3/project/JB/statuses" {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{"name":"Sub-taak","subtask":true,"statuses":[{"name":"Open","statusCategory":{"key":"new"}}]},
+			{"name":"Taak","statuses":[{"name":"Te doen","statusCategory":{"key":"new"}}]},
+			{"name":"Bug","statuses":[{"name":"Klaar","statusCategory":{"key":"done"}},{"name":"Nieuw","statusCategory":{"key":"new"}}]}]`))
+	}))
+	defer srv.Close()
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	write := func(extra string) {
+		_ = os.WriteFile(p, []byte("jira: {base_url: "+srv.URL+", email: me@x.test, api_token: tok, projects: [JB]}\n"+extra+
+			"rules:\n  - {name: taak, match: {type: Taak, status: Te doen}, actions: [{type: log}]}\n"+
+			"  - {name: bug, match: {type: bug, status: Nieuw}, actions: [{type: log}]}\n"+
+			"  - {name: story, match: {type: Story, status: Backlog}, actions: [{type: log}]}\n"), 0o600)
+	}
+	run := func(args ...string) string {
+		var out, errOut bytes.Buffer
+		rulesCmd(append([]string{"test", "-config", p}, args...), &out, &errOut)
+		return out.String()
+	}
+	write("")
+	if got := run(); !strings.Contains(got, "✓ taak") || strings.Contains(got, "✓ bug") {
+		t.Errorf("from Jira:\n%s", got)
+	}
+	if got := run("-type", "bug"); !strings.Contains(got, "✓ bug") || strings.Contains(got, "✓ taak") {
+		t.Errorf("-type bug:\n%s", got)
+	}
+	write("rules_test: {type: Story, status: Backlog}\n")
+	if got := run(); !strings.Contains(got, "✓ story") || strings.Contains(got, "✓ taak") {
+		t.Errorf("rules_test:\n%s", got)
 	}
 }

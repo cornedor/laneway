@@ -64,6 +64,22 @@ func TestRecentLabelsMostUsedFirst(t *testing.T) {
 	}
 }
 
+func TestProjectStatuses(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/3/project/JB/statuses" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[{"name":"Taak","subtask":false,"statuses":[{"name":"Te doen","statusCategory":{"key":"new"}},{"name":"Klaar","statusCategory":{"key":"done"}}]}]`))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.ProjectStatuses(context.Background(), "JB")
+	want := []TypeStatuses{{Type: "Taak", Statuses: []ProjectStatus{{"Te doen", "new"}, {"Klaar", "done"}}}}
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("ProjectStatuses = %+v, %v", got, err)
+	}
+}
+
 func TestIssueTypesSkipsSubtasks(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/rest/api/3/issue/createmeta/JB/issuetypes" {

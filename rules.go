@@ -1,9 +1,12 @@
 package main
 
 import (
+	"cmp"
+	"context"
 	"flag"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"text/tabwriter"
 
@@ -35,8 +38,8 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	var fromStatus string
 	fs.StringVar(&c.Key, "key", "TEST-1", "issue key")
 	fs.StringVar(&c.Summary, "summary", "", "summary")
-	fs.StringVar(&c.Type, "type", "Task", "issue type")
-	fs.StringVar(&c.Status, "status", "To Do", "status")
+	fs.StringVar(&c.Type, "type", "", "issue type (default: rules_test.type, else the project's Task or first type)")
+	fs.StringVar(&c.Status, "status", "", "status (default: rules_test.status, else the type's first to-do status)")
 	fs.StringVar(&fromStatus, "from-status", "", "the status before, for -on status")
 	fs.StringVar(&c.Assignee, "assignee", "", "assignee display name, empty for unassigned")
 	fs.StringVar(&c.Priority, "priority", "Medium", "priority")
@@ -50,6 +53,12 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	if err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1
+	}
+	if c.Type == "" || c.Status == "" {
+		keySet := false
+		fs.Visit(func(f *flag.Flag) { keySet = keySet || f.Name == "key" })
+		typ, status := testDefaults(&cfg, keySet, c.Key, c.Type)
+		c.Type, c.Status = cmp.Or(c.Type, typ), cmp.Or(c.Status, status)
 	}
 	set, warn := rules.Compile(cfg.Rules)
 	for _, w := range warn {
@@ -113,6 +122,67 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 		}
 	}
 	return 0
+}
+
+// testDefaults is the issue type and status a test assumes when its flags
+// leave them out: the config's rules_test, else the project's (the -key's,
+// or the first configured) Task or first type and that type's first to-do
+// status, else Task and To Do. typ, when set, is the type to find a status
+// for.
+func testDefaults(cfg *config.Config, keySet bool, key, typ string) (string, string) {
+	t, s := cfg.RulesTest.Type, cfg.RulesTest.Status
+	if typ != "" {
+		t = typ
+	}
+	if t != "" && s != "" {
+		return t, s
+	}
+	project, _, _ := strings.Cut(key, "-")
+	if !keySet {
+		project = ""
+		if len(cfg.Jira.Projects) > 0 {
+			project = cfg.Jira.Projects[0]
+		}
+	}
+	jt, js := projectDefaults(cfg, project, t)
+	return cmp.Or(t, jt, "Task"), cmp.Or(s, js, "To Do")
+}
+
+// projectDefaults reads project's statuses: its Task or first type (typ
+// when given) and that type's first to-do status. Unreachable, it says
+// nothing.
+func projectDefaults(cfg *config.Config, project, typ string) (string, string) {
+	timeout, err := cfg.Jira.RequestTimeout()
+	if project == "" || err != nil {
+		return "", ""
+	}
+	c := jira.New(jira.Config{BaseURL: cfg.Jira.BaseURL, Email: cfg.Jira.Email, APIToken: cfg.Jira.APIToken, Timeout: timeout})
+	if !c.Enabled() {
+		return "", ""
+	}
+	types, err := c.ProjectStatuses(context.Background(), project)
+	if err != nil {
+		return "", ""
+	}
+	i := slices.IndexFunc(types, func(t jira.TypeStatuses) bool { return typ != "" && strings.EqualFold(t.Type, typ) })
+	if i < 0 && typ == "" {
+		i = slices.IndexFunc(types, func(t jira.TypeStatuses) bool { return strings.EqualFold(t.Type, "Task") })
+		if i < 0 {
+			i = slices.IndexFunc(types, func(t jira.TypeStatuses) bool { return !t.Subtask })
+		}
+	}
+	if i < 0 {
+		return "", ""
+	}
+	st := types[i].Statuses
+	j := slices.IndexFunc(st, func(s jira.ProjectStatus) bool { return s.Category == "new" })
+	switch {
+	case j >= 0:
+		return types[i].Type, st[j].Name
+	case len(st) > 0:
+		return types[i].Type, st[0].Name
+	}
+	return types[i].Type, ""
 }
 
 func name(n string) string {

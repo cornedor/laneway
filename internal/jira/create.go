@@ -93,6 +93,46 @@ func (c *Client) issueTypes(ctx context.Context, project string, subtask bool) (
 	return out, nil
 }
 
+// TypeStatuses is an issue type's statuses in a project.
+type TypeStatuses struct {
+	Type     string
+	Subtask  bool
+	Statuses []ProjectStatus
+}
+
+// ProjectStatus is a status and its category key: new, indeterminate or
+// done.
+type ProjectStatus struct{ Name, Category string }
+
+// ProjectStatuses lists project's issue types with the statuses each can
+// have.
+func (c *Client) ProjectStatuses(ctx context.Context, project string) ([]TypeStatuses, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var resp []struct {
+		Name     string `json:"name"`
+		Subtask  bool   `json:"subtask"`
+		Statuses []struct {
+			Name     string `json:"name"`
+			Category struct {
+				Key string `json:"key"`
+			} `json:"statusCategory"`
+		} `json:"statuses"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/project/"+url.PathEscape(project)+"/statuses", project, nil, &resp); err != nil {
+		return nil, err
+	}
+	out := make([]TypeStatuses, len(resp))
+	for i, t := range resp {
+		out[i] = TypeStatuses{Type: t.Name, Subtask: t.Subtask}
+		for _, s := range t.Statuses {
+			out[i].Statuses = append(out[i].Statuses, ProjectStatus{Name: s.Name, Category: s.Category.Key})
+		}
+	}
+	return out, nil
+}
+
 // RecentLabels returns the labels on the project's 50 most recent labelled
 // issues, most used first.
 func (c *Client) RecentLabels(ctx context.Context, project string) ([]string, error) {
