@@ -282,6 +282,8 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 	for n, tc := range thread {
 		var cb strings.Builder
 		m.renderComment(&cb, iss.Comments[tc.i])
+		m.commentHeads = append(m.commentHeads, commentHead{i: tc.i,
+			text: strings.Repeat("│ ", min(tc.depth, replyDepthMax)) + m.commentByline(iss.Comments[tc.i])})
 		b.WriteString(indentReply(cb.String(), tc.depth))
 		if n < len(thread)-1 {
 			b.WriteString("\n")
@@ -293,17 +295,21 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 	}
 }
 
-// renderComment writes one comment: author and time, its body.
-func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
+// commentByline is a comment's first line: its author and time.
+func (m *Model) commentByline(c jira.Comment) string {
 	author := c.Author
 	if author == "" {
 		author = "Unknown"
 	}
-	when := ""
-	if !c.Created.IsZero() {
-		when = " · " + c.Created.Format(m.opts.dateFormat)
+	if c.Created.IsZero() {
+		return author
 	}
-	b.WriteString(refDimStyle.Render(author+when) + "\n")
+	return author + " · " + c.Created.Format(m.opts.dateFormat)
+}
+
+// renderComment writes one comment: author and time, its body.
+func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
+	b.WriteString(refDimStyle.Render(m.commentByline(c)) + "\n")
 	if body := strings.TrimSpace(c.Body); body != "" {
 		b.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
 	}

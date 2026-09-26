@@ -12,11 +12,13 @@ import (
 // a second (or a double-click); a linked issue opens.
 
 // panelHit is what a panel line does when clicked: url opens in the
-// browser, field >= 0 selects that field, else key opens that issue.
+// browser, reply answers comment field, field >= 0 selects that field, else
+// key opens that issue.
 type panelHit struct {
 	field int
 	key   string
 	url   string // a link's target (panelLinkAt)
+	reply bool
 }
 
 // indexPanelHits finds the clickable lines of the panel's content: the
@@ -28,20 +30,31 @@ func (m *Model) indexPanelHits(content string) {
 	}
 	iss := m.jiraIssue
 	m.activityLine = -1
-	if iss != nil {
-		labels := activityLabels(max(iss.CommentTotal, len(iss.Comments)))
-		tabs := strings.Join(labels[:], "  ") + "   [ ]"
-		for i, l := range strings.Split(content, "\n") {
-			if strings.TrimSpace(ansi.Strip(l)) == tabs {
-				m.activityLine = i
+	if iss == nil {
+		return
+	}
+	labels := activityLabels(max(iss.CommentTotal, len(iss.Comments)))
+	tabs := strings.Join(labels[:], "  ") + "   [ ]"
+	lines := strings.Split(content, "\n")
+	for i, l := range lines {
+		if strings.TrimSpace(ansi.Strip(l)) == tabs {
+			m.activityLine = i
+		}
+	}
+	// The bylines in drawing order, each found after the one before.
+	if at := m.activityLine; at >= 0 {
+		heads := m.commentHeads
+		for i := at + 1; i < len(lines) && len(heads) > 0; i++ {
+			if strings.TrimSpace(ansi.Strip(lines[i])) == heads[0].text {
+				m.panelHits[i] = panelHit{field: heads[0].i, reply: true}
+				heads = heads[1:]
 			}
 		}
 	}
-	if iss == nil || len(iss.Links) == 0 {
+	if len(iss.Links) == 0 {
 		return
 	}
 	head := fmt.Sprintf("Links (%d)  L open", len(iss.Links))
-	lines := strings.Split(content, "\n")
 	for i, l := range lines {
 		if strings.TrimSpace(ansi.Strip(l)) != head {
 			continue
@@ -136,6 +149,12 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 	if h.url != "" {
 		m.status = "opening " + h.url + "…"
 		return m, m.openOpenable(openable{name: h.url, url: h.url})
+	}
+	if h.reply {
+		if h.field < len(m.jiraIssue.Comments) {
+			m.openJiraReply(m.jiraIssue.Comments[h.field])
+		}
+		return m, nil
 	}
 	if h.field < 0 {
 		return m.openJiraKey(h.key)

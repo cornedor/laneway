@@ -85,3 +85,33 @@ func TestActivityTabAt(t *testing.T) {
 		}
 	}
 }
+
+// TestCommentBylineClick: a click on a comment's byline replies to it, a
+// threaded reply's too.
+func TestCommentBylineClick(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	when := time.Date(2026, 9, 25, 9, 0, 0, 0, time.Local)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Comments: []jira.Comment{
+		{ID: "1", Author: "Ann", Created: when, Body: "first"},
+		{ID: "2", Author: "Bob", Created: when.Add(time.Hour), Body: "second", ParentID: "1"},
+	}}})
+	m = out.(Model)
+	lines := strings.Split(m.refView.GetContent(), "\n")
+	at := -1
+	for i, l := range lines {
+		if strings.Contains(ansi.Strip(l), "│ Bob · ") {
+			at = i
+		}
+	}
+	if at < 0 {
+		t.Fatalf("no reply byline:\n%s", ansi.Strip(m.refView.GetContent()))
+	}
+	y := 1 + m.crumbRows() + visualRowsBefore(lines, at, m.refView.Width()) - m.refView.YOffset()
+	listW, _ := m.jiraListWidth(m.width)
+	out, _ = m.Update(tea.MouseClickMsg{X: listW + 4, Y: y, Button: tea.MouseLeft})
+	if m = out.(Model); !m.jiraCommentActive || m.jiraCommentReplyTo != "Bob" {
+		t.Errorf("composer %v, reply to %q", m.jiraCommentActive, m.jiraCommentReplyTo)
+	}
+}

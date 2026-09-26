@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- Activity: `R` on the Comments tab could reply to the comment under the cursor instead of a picker
 - Mouse: drag a roadmap bar to move its dates; drag a planning card across sides
 - Mouse: click fields in the transition / create forms
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Panel: a click on a comment's byline replies to it (threaded replies too, and in the All tab)
 - Panel Activity section, tabbed like Jira web: Comments · History · Work log (with total) · All; `[`/`]` or a click switches, the tab kept across issues, history and worklogs fetched when first shown
 - Shading inverted: cards and the header on the terminal's own background, the canvas around the cards (gaps, empty lanes, lane heads, dividers) shaded; the panel keeps its shaded trail and section bars
 - List mode: zebra rows (every other row faintly shaded)

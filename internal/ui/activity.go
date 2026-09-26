@@ -34,6 +34,13 @@ type activityState struct {
 	logs    []jira.Worklog
 }
 
+// commentHead is a drawn comment's byline, in drawing order: a click on it
+// replies to comment i.
+type commentHead struct {
+	text string
+	i    int
+}
+
 type activityLoadedMsg struct {
 	key     string
 	changes []jira.InboxEntry
@@ -114,6 +121,7 @@ func activityTabAt(line string, col, comments int) int {
 // renderJiraActivity appends the Activity section: its tab row, then the
 // open tab.
 func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width int) {
+	m.commentHeads = m.commentHeads[:0]
 	count := max(iss.CommentTotal, len(iss.Comments))
 	var tabs []string
 	for t, l := range activityLabels(count) {
@@ -199,8 +207,11 @@ func (m *Model) renderActivityAll(b *strings.Builder, iss *jira.Issue) {
 		draw func()
 	}
 	var items []item
-	for _, c := range iss.Comments {
-		items = append(items, item{c.Created.UnixNano(), func() { m.renderComment(b, c) }})
+	for i, c := range iss.Comments {
+		items = append(items, item{c.Created.UnixNano(), func() {
+			m.renderComment(b, c)
+			m.commentHeads = append(m.commentHeads, commentHead{i: i, text: m.commentByline(c)})
+		}})
 	}
 	for _, e := range m.activity.changes {
 		items = append(items, item{e.When.UnixNano(), func() { m.renderChange(b, e) }})

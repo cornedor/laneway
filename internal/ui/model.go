@@ -265,10 +265,11 @@ type Model struct {
 	panelFieldLine []int
 	// activityTab is the Activity section's open tab, activityLine its tab
 	// row's content line (-1 when not drawn); activity the history and
-	// worklogs it shows (activity.go).
+	// worklogs it shows; commentHeads the comments' bylines (activity.go).
 	activityTab  int
 	activityLine int
 	activity     activityState
+	commentHeads []commentHead
 	panelEditID  string
 
 	// The one-line field input: story points, the summary or labels.
