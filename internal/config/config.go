@@ -92,6 +92,10 @@ type UIConfig struct {
 	// KanbanDoneDays is how many days done work stays on a kanban board
 	// (default 14).
 	KanbanDoneDays int `yaml:"kanban_done_days"`
+	// RoadmapEpicType is the issue type the roadmap shows and creates
+	// ("Epic"); RoadmapDoneDays how long resolved ones stay (90).
+	RoadmapEpicType string `yaml:"roadmap_epic_type"`
+	RoadmapDoneDays int    `yaml:"roadmap_done_days"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
 	WorkAgent string `yaml:"work_agent"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);

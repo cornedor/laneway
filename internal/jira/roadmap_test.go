@@ -48,11 +48,12 @@ func TestRoadmap(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	epics, err := c.Roadmap(context.Background(), "ABC")
+	epics, err := c.Roadmap(context.Background(), "ABC", "Epic", 90)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(epics) != 2 || len(jqls) != 2 || jqls[1] != "parent in (ABC-1,ABC-2) ORDER BY rank" {
+	if len(epics) != 2 || len(jqls) != 2 || jqls[1] != "parent in (ABC-1,ABC-2) ORDER BY rank" ||
+		jqls[0] != `project = "ABC" AND issuetype = "Epic" AND (statusCategory != Done OR resolved >= -90d) ORDER BY rank` {
 		t.Fatalf("epics %+v, jql %q", epics, jqls)
 	}
 	e := epics[0]

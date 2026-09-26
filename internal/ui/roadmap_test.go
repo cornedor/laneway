@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -393,5 +394,19 @@ func TestRoadmapTabToPanel(t *testing.T) {
 	out, _ = m.handleKey(keyMsg(t, "tab"))
 	if m = out.(Model); m.focus != focusRef {
 		t.Fatalf("tab on the roadmap: focus %v, want the panel", m.focus)
+	}
+}
+
+// TestRoadmapEpicType: n on the roadmap creates ui.roadmap_epic_type.
+func TestRoadmapEpicType(t *testing.T) {
+	m := roadmapModel(t)
+	m.opts.epicType = "Initiative"
+	out, _ := m.handleKey(keyMsg(t, "n"))
+	if m = out.(Model); !m.jiraCreateActive || m.jiraCreateType != "Initiative" {
+		t.Errorf("create %v type %q", m.jiraCreateActive, m.jiraCreateType)
+	}
+	o, warn := optionsFrom(config.UIConfig{RoadmapEpicType: "Initiative", RoadmapDoneDays: 30})
+	if o.epicType != "Initiative" || o.roadmapDoneDays != 30 || len(warn) != 0 {
+		t.Errorf("options %q %d %v", o.epicType, o.roadmapDoneDays, warn)
 	}
 }

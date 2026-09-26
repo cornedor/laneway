@@ -107,9 +107,9 @@ func (m *Model) openRoadmap() tea.Cmd {
 func (m *Model) loadRoadmap() tea.Cmd {
 	r := m.jiraTab.roadmap
 	r.loading = true
-	c, ctx, project := m.jiraClient, m.ctx, r.project
+	c, ctx, project, typ, days := m.jiraClient, m.ctx, r.project, m.opts.epicType, m.opts.roadmapDoneDays
 	return func() tea.Msg {
-		epics, err := c.Roadmap(ctx, project)
+		epics, err := c.Roadmap(ctx, project, typ, days)
 		return roadmapMsg{project: project, epics: epics, err: err}
 	}
 }
@@ -262,7 +262,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(save, m.runNamedJQLView(name+k, "parent = "+k+" ORDER BY rank"))
 	case key.Matches(msg, m.keys.Create):
 		m.jiraCreateParent, m.jiraCreateProject = "", ""
-		m.openJiraCreateSummary("Epic")
+		m.openJiraCreateSummary(m.opts.epicType)
 		m.jiraCreateReload = true
 	case key.Matches(msg, m.keys.OpenAttach):
 		if k := m.roadmapKey(); k != "" {

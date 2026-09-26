@@ -103,9 +103,10 @@ func (c *Client) resolveRoadmapFields(ctx context.Context) (roadmapFieldIDs, err
 	return ids, nil
 }
 
-// Roadmap lists project's epics in rank order, open ones and those done in
-// the last 90 days, with dates and their children's progress.
-func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
+// Roadmap lists project's epics (issues of epicType) in rank order, open
+// ones and those done in the last doneDays, with dates and their children's
+// progress.
+func (c *Client) Roadmap(ctx context.Context, project, epicType string, doneDays int) ([]Epic, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
@@ -119,7 +120,7 @@ func (c *Client) Roadmap(ctx context.Context, project string) ([]Epic, error) {
 			fields = append(fields, id)
 		}
 	}
-	jql := fmt.Sprintf(`project = %q AND issuetype = Epic AND (statusCategory != Done OR resolved >= -90d) ORDER BY rank`, project)
+	jql := fmt.Sprintf(`project = %q AND issuetype = %q AND (statusCategory != Done OR resolved >= -%dd) ORDER BY rank`, project, epicType, doneDays)
 	raw, err := c.search(ctx, jql, fields)
 	if err != nil {
 		return nil, err
