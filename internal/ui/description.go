@@ -93,15 +93,20 @@ const descEditMark = "\x00descedit\x00"
 const descEditHint = "ctrl+s save · ctrl+e $EDITOR · esc cancel"
 
 // descEditInline is whether the editor sits in the panel's body, in place of
-// the description or field it edits; a comment's edit stays a modal.
+// the description, field or comment it edits.
 func (m *Model) descEditInline() bool {
 	d := m.descEdit
-	return d != nil && d.comment == "" && m.refOpen && m.jiraIssue != nil && m.jiraIssue.Key == d.key && m.refErr == nil && !m.refLoading
+	return d != nil && m.refOpen && m.jiraIssue != nil && m.jiraIssue.Key == d.key && m.refErr == nil && !m.refLoading
 }
 
 // descEditOn is whether the inline editor is on field ("" the description).
 func (m *Model) descEditOn(field string) bool {
-	return m.descEditInline() && m.descEdit.field == field
+	return m.descEditInline() && m.descEdit.comment == "" && m.descEdit.field == field
+}
+
+// commentEditOn is whether the inline editor is on the comment id.
+func (m *Model) commentEditOn(id string) bool {
+	return m.descEditInline() && id != "" && m.descEdit.comment == id
 }
 
 // commentMark stands in the same way for the comment composer; its line
@@ -113,7 +118,7 @@ const commentMark = "\x00comment\x00"
 func (m *Model) inlineEditor() (ed *editor.Model, indent int) {
 	switch {
 	case m.descEditInline():
-		return &m.descEdit.input, 0
+		return &m.descEdit.input, m.commentIndent
 	case m.commentInline():
 		return &m.jiraCommentInput, m.commentIndent
 	}
@@ -145,6 +150,8 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 			view = append(view, strings.Split(list, "\n")...)
 		}
 		view = append(view, refDimStyle.Render("↵ post · alt+↵ newline · @ mention · esc cancel"))
+	} else if m.descEdit.comment != "" {
+		view = append(view, refDimStyle.Render(descEditHint))
 	}
 	bars := refDimStyle.Render(strings.Repeat("│ ", indent))
 	for j := range view {

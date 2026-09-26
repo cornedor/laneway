@@ -284,7 +284,7 @@ type Model struct {
 	// (pickerStart), -1 when none (jira_edit.go).
 	pickerLine, pickerStart int
 	// inlineLine is the content line the inline editor starts on, -1 when
-	// none; commentIndent the reply bars before the comment composer
+	// none; commentIndent the reply bars before it in the thread
 	// (description.go).
 	inlineLine, commentIndent int
 	// activityTab is the Activity section's open tab, activityLine its tab

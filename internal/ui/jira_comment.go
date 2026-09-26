@@ -51,10 +51,11 @@ func (m *Model) commentInline() bool {
 // panelComposing is whether an editor is open in the panel's body.
 func (m *Model) panelComposing() bool { return m.descEditInline() || m.commentInline() }
 
-// commentMarkLine is the composer's stand-in, indented by depth reply bars.
-func (m *Model) commentMarkLine(depth int) string {
+// commentMarkLine is an editor's stand-in in the thread (the composer's or
+// a comment edit's mark), indented by depth reply bars.
+func (m *Model) commentMarkLine(mark string, depth int) string {
 	m.commentIndent = depth
-	return commentMark + "\n"
+	return mark + "\n"
 }
 
 // openJiraReply opens the composer prefilled with an editable quote of c and

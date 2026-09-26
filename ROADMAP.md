@@ -1,12 +1,13 @@
 # Roadmap
 
 ## Next
-- Inline editing, rest: editing your comment in place of it (still a box)
+- In-app editor: turn on `MarkdownHighlight` (bold, italic, strike, code styled, markers kept) for the description, rich-text fields and comments
 - `laneway rules` create defaults (type `Task`, status `To Do`): read the project's types and statuses from Jira, a config key overrides
 - Light-theme pass over the chips, lozenges and selection colours
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Your comment's edit replaces it in the thread (under its byline, keys after); off the Comments tab it goes after the activity. No single-field modal is left in the panel
 - Comments compose in the panel: a reply under the comment it answers (behind a reply bar), a new comment after the activity, mentions and keys below; the terminal cursor in it
 - The description and rich-text fields edit in place: the editor replaces the section body under its head (keys in the head), the terminal cursor in it, scrolled to follow; comment edits keep the box
 - Inline lists: status, priority, assignee and person or option fields drop their list under the row (filter line when searchable, 8 rows, scrolled into view); a click picks, elsewhere cancels

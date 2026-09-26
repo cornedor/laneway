@@ -134,12 +134,20 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 	b.WriteString(sectionHead(strings.Join(tabs, "  "), "   [ ]", width) + "\n")
 
 	// The composer goes under the comment it replies to, else at the end.
+	// A comment's edit off the Comments tab goes there too.
 	defer func() {
-		if m.commentInline() && !strings.Contains(b.String(), commentMark) {
+		mark := commentMark
+		switch {
+		case m.descEditInline() && m.descEdit.comment != "":
+			mark = descEditMark
+		case !m.commentInline():
+			return
+		}
+		if !strings.Contains(b.String(), mark) {
 			if !strings.HasSuffix(b.String(), "\n") {
 				b.WriteString("\n")
 			}
-			b.WriteString("\n" + m.commentMarkLine(0))
+			b.WriteString("\n" + m.commentMarkLine(mark, 0))
 		}
 	}()
 	if m.activityTab == activityComments {

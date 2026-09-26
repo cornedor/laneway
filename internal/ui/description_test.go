@@ -252,3 +252,27 @@ func TestEditKeptOnFailure(t *testing.T) {
 		t.Error("the file must survive a failed save")
 	}
 }
+
+// TestEditCommentInPlace: your comment's edit replaces its body under its
+// byline, the keys after it.
+func TestEditCommentInPlace(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{
+		Key: "ABC-1", Summary: "Fix the widget",
+		Comments: []jira.Comment{{ID: "1", Author: "Ada", Body: "first"}, {ID: "2", Author: "Bob", Body: "second"}},
+	}})
+	m = out.(Model)
+	out, _ = m.handleDescLoaded(descLoadedMsg{key: "ABC-1", comment: "1", md: "first draft"})
+	m = out.(Model)
+	v := m.View()
+	c := ansi.Strip(v.Content)
+	ada, ed, keys, bob := strings.Index(c, "Ada"), strings.Index(c, "┃ first draft"), strings.Index(c, "ctrl+s save"), strings.Index(c, "Bob")
+	if strings.Contains(c, "Comment — ABC-1") || ada < 0 || ed < ada || keys < ed || bob < keys {
+		t.Fatalf("the edit should replace Ada's comment in the thread:\n%s", c)
+	}
+	if v.Cursor == nil {
+		t.Error("the terminal cursor should sit in the editor")
+	}
+}

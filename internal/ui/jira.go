@@ -72,7 +72,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	}
 	b.WriteString(header + "\n")
 	m.panelFieldLine = m.panelFieldLine[:0]
-	m.pickerLine = -1
+	m.pickerLine, m.commentIndent = -1, 0
 	line := func() { m.panelFieldLine = append(m.panelFieldLine, strings.Count(b.String(), "\n")) }
 	line() // Summary
 	sel := m.panelFieldIs
@@ -349,7 +349,13 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 	thread := commentThread(iss.Comments)
 	for n, tc := range thread {
 		var cb strings.Builder
-		m.renderComment(&cb, iss.Comments[tc.i])
+		if c := iss.Comments[tc.i]; m.commentEditOn(c.ID) {
+			// Your comment's edit replaces its body, under its byline.
+			b.WriteString(indentReply(refDimStyle.Render(m.commentByline(c))+"\n", tc.depth))
+			b.WriteString(m.commentMarkLine(descEditMark, min(tc.depth, replyDepthMax)))
+		} else {
+			m.renderComment(&cb, c)
+		}
 		m.commentHeads = append(m.commentHeads, commentHead{i: tc.i,
 			text: strings.Repeat("│ ", min(tc.depth, replyDepthMax)) + m.commentByline(iss.Comments[tc.i])})
 		b.WriteString(indentReply(cb.String(), tc.depth))
@@ -357,7 +363,7 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 			if !strings.HasSuffix(b.String(), "\n") {
 				b.WriteString("\n")
 			}
-			b.WriteString(m.commentMarkLine(min(tc.depth+1, replyDepthMax)))
+			b.WriteString(m.commentMarkLine(commentMark, min(tc.depth+1, replyDepthMax)))
 		}
 		if n < len(thread)-1 {
 			b.WriteString("\n")

@@ -263,7 +263,7 @@ in the status bar. `esc` clears the marks.
 ## Descriptions
 
 `E` in the panel opens the description as markdown in an editor in its place
-(a rich-text field's `enter` does the same; your comments edit in a box):
+(a rich-text field's `enter` does the same, as does editing your comment):
 `enter` is a newline, `ctrl+s` saves a change, `esc` cancels (asking once
 when there are changes), `ctrl+e` hands the text to `$VISUAL` or `$EDITOR`
 (else `vi`), where saving a changed file writes it back. A failed save keeps
