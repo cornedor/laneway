@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -14,7 +15,8 @@ func bigJiraModel(b *testing.B, n int) Model {
 	ids := []string{"1", "3", "5"}
 	for i := range cards {
 		cards[i] = jira.Card{Key: fmt.Sprintf("ABC-%d", i), Summary: fmt.Sprintf("Summary of issue number %d with some words", i),
-			StatusID: ids[i%3], Status: "Status", Assignee: "Ada", Points: "3", Type: "Story"}
+			StatusID: ids[i%3], Status: "Status", Assignee: "Ada", Points: "3", Type: "Story",
+			PR: "OPEN", Subtasks: 4, SubtasksDone: i % 5, Due: time.Now().AddDate(0, 0, i%9-3), Flagged: i%7 == 0}
 	}
 	m.installJiraCards(cards, n, nil, "")
 	return m

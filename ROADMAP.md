@@ -8,7 +8,7 @@
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
-- Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
+- Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
 - Flagged (impediment) cards show ⚑; panel `A` flags / clears; `card_fields: flagged`
