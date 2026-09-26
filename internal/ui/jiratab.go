@@ -1221,6 +1221,26 @@ func jiraTypeIcon(t string) string {
 
 // jiraPriorityMark marks a card's priority, "" for medium or none: the
 // default needs no ink.
+// jiraDueMark is an open card's due date against today: "due fri" within
+// a week, "due in 12d" later, "overdue 2d" (over limit colour) past it.
+func jiraDueMark(c jira.Card, now time.Time) string {
+	if c.Due.IsZero() || c.Done {
+		return ""
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	due := time.Date(c.Due.Year(), c.Due.Month(), c.Due.Day(), 0, 0, 0, 0, time.Local)
+	days := int(math.Round(due.Sub(today).Hours() / 24))
+	switch {
+	case days < 0:
+		return jiraOverStyle.Render(fmt.Sprintf("overdue %dd", -days))
+	case days == 0:
+		return jiraOverStyle.Render("due today")
+	case days < 7:
+		return jiraDimStyle.Render("due " + strings.ToLower(due.Format("Mon")))
+	}
+	return jiraDimStyle.Render(fmt.Sprintf("due in %dd", days))
+}
+
 // jiraSubtaskMark is "☑ 2/5" for a card with subtasks, "" without; all
 // done shows in the done colour.
 func jiraSubtaskMark(c jira.Card) string {
@@ -1334,6 +1354,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
 		title += " " + st
 	}
+	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
+		title += " " + d
+	}
 	row := "  "
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		row = hl + " "
@@ -1446,6 +1469,9 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 	}
 	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
 		head += " " + st
+	}
+	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
+		head += " " + d
 	}
 	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
 }

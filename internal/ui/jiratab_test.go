@@ -833,3 +833,16 @@ func TestSubtaskMark(t *testing.T) {
 		t.Error("no subtasks, no mark")
 	}
 }
+
+func TestDueMark(t *testing.T) {
+	now := time.Date(2026, 9, 25, 15, 0, 0, 0, time.Local) // a Friday
+	day := func(d int) time.Time { return time.Date(2026, 9, 25+d, 0, 0, 0, 0, time.Local) }
+	for d, want := range map[int]string{-2: "overdue 2d", 0: "due today", 3: "due mon", 12: "due in 12d"} {
+		if got := ansi.Strip(jiraDueMark(jira.Card{Due: day(d)}, now)); got != want {
+			t.Errorf("%+d days: %q, want %q", d, got, want)
+		}
+	}
+	if jiraDueMark(jira.Card{Due: day(-2), Done: true}, now) != "" {
+		t.Error("a done card is not overdue")
+	}
+}

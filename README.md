@@ -52,7 +52,7 @@ ui:
   card_limit: 500    # most cards one view fetches (50–5000)
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout
-  card_fields: [type, priority, status, points, assignee, parent, pr, subtasks]
+  card_fields: [type, priority, status, points, assignee, parent, pr, subtasks, due]
   quick_filters:                # JQL presets before the board's own (1-9)
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])

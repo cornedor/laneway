@@ -19,7 +19,7 @@ import (
 const DefaultCardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
-const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks"
+const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate"
 
 // boardMetaCache keeps what a board is made of — a project's boards, a
 // board's columns and quick filters — for the session: they change about as
@@ -126,6 +126,10 @@ type Card struct {
 	PR string
 	// Subtasks and SubtasksDone count its subtasks, all and done.
 	Subtasks, SubtasksDone int
+	// Due is its due date, zero for none; Done whether its status is in the
+	// done category.
+	Due  time.Time
+	Done bool
 }
 
 // QuickFilter is a board's saved filter: a name and the JQL behind it.
@@ -437,6 +441,14 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	}
 	card.Summary = str("summary")
 	card.StatusID, card.Status = obj("status")
+	card.Due = dateField(f["duedate"])
+	var st struct {
+		Category struct {
+			Key string `json:"key"`
+		} `json:"statusCategory"`
+	}
+	_ = json.Unmarshal(f["status"], &st)
+	card.Done = st.Category.Key == "done"
 	card.TypeID, card.Type = obj("issuetype")
 	_, card.Priority = obj("priority")
 	card.AssigneeID, card.Assignee = obj("assignee")
