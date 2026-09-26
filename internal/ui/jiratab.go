@@ -1318,6 +1318,14 @@ func jiraPRMark(state string) string {
 	return ""
 }
 
+// jiraDeployMark is a card's top deployment environment, "▲ production".
+func jiraDeployMark(env string) string {
+	if env == "" {
+		return ""
+	}
+	return jiraDimStyle.Render("▲ " + env)
+}
+
 func jiraPriorityMark(p string) string {
 	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
 	switch strings.ToLower(p) {
@@ -1465,6 +1473,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		title = pr + " " + title
 	}
+	if d := jiraDeployMark(c.Deploy); f.deploy && d != "" {
+		title += " " + d
+	}
 	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
 		title += " " + st
 	}
@@ -1592,6 +1603,9 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 	}
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		head += " " + pr
+	}
+	if d := jiraDeployMark(c.Deploy); f.deploy && d != "" {
+		head += " " + d
 	}
 	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
 		head += " " + st

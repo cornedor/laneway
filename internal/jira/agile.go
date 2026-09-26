@@ -126,6 +126,9 @@ type Card struct {
 	// PR is the state of its pull requests, from the Development field:
 	// OPEN, MERGED or DECLINED; "" for none (or no such field).
 	PR string
+	// Deploy is the top environment it was deployed to, from the same field;
+	// "" for none.
+	Deploy string
 	// Subtasks and SubtasksDone count its subtasks, all and done.
 	Subtasks, SubtasksDone int
 	// Due is its due date, zero for none; Done whether its status is in the
@@ -389,6 +392,7 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		for _, is := range resp.Issues {
 			card := toCard(is.Key, is.Fields, pointsField)
 			card.PR = prState(is.Fields[dev])
+			card.Deploy = deployEnv(is.Fields[dev])
 			card.Flagged = flagSet(is.Fields[flag])
 			out = append(out, card)
 		}
@@ -588,6 +592,27 @@ func prState(raw json.RawMessage) string {
 		}
 	}
 	return ""
+}
+
+// deployEnv reads the Development field's top deployment environment. Cloud
+// embeds the summary as JSON in the string:
+// "…, json={"cachedValue":{…"topEnvironments":[{"title":"production"}]…}}}".
+func deployEnv(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) != nil {
+		return ""
+	}
+	_, rest, ok := strings.Cut(s, `"topEnvironments":`)
+	if !ok {
+		return ""
+	}
+	var envs []struct {
+		Title string `json:"title"`
+	}
+	if json.NewDecoder(strings.NewReader(rest)).Decode(&envs) != nil || len(envs) == 0 {
+		return ""
+	}
+	return envs[0].Title
 }
 
 // CreateSprint adds a future sprint named name to board.

@@ -271,6 +271,19 @@ func TestPRState(t *testing.T) {
 	}
 }
 
+func TestDeployEnv(t *testing.T) {
+	for in, want := range map[string]string{
+		`"{pullrequest={state=OPEN}, json={\"cachedValue\":{\"summary\":{\"deployment-environment\":{\"overall\":{\"topEnvironments\":[{\"title\":\"production\"},{\"title\":\"staging\"}],\"count\":2}}}}}}"`: "production",
+		`"{json={\"cachedValue\":{\"summary\":{\"deployment-environment\":{\"overall\":{\"topEnvironments\":[]}}}}}}"`:                                                                                         "",
+		`"{pullrequest={state=OPEN}}"`: "",
+		`null`:                         "",
+	} {
+		if got := deployEnv(json.RawMessage(in)); got != want {
+			t.Errorf("%s: %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestCardSubtasks(t *testing.T) {
 	f := map[string]json.RawMessage{"subtasks": json.RawMessage(`[
 	  {"key":"A-2","fields":{"status":{"statusCategory":{"key":"done"}}}},

@@ -32,11 +32,11 @@ type options struct {
 
 // cardFields is what a card or list row shows besides key and summary.
 type cardFields struct {
-	typ, priority, status, points, assignee, parent, pr, subtasks, due, flagged, age bool
-	stale                                                                            int // ui.stale_days, for age
+	typ, priority, status, points, assignee, parent, pr, deploy, subtasks, due, flagged, age bool
+	stale                                                                                    int // ui.stale_days, for age
 }
 
-var allCardFields = cardFields{true, true, true, true, true, true, true, true, true, true, true, 5}
+var allCardFields = cardFields{true, true, true, true, true, true, true, true, true, true, true, true, 5}
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
@@ -178,6 +178,8 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 				f.parent = true
 			case "pr":
 				f.pr = true
+			case "deploy":
+				f.deploy = true
 			case "subtasks":
 				f.subtasks = true
 			case "due":

@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Next
-- Cards show the latest deployment environment (`▲ prod`); `card_fields: deploy`
 - `y` in the charts / flow tabs copies the numbers as a markdown table
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Cards show the top deployment environment (`▲ production`) from the Development field; `card_fields: deploy`
 - Board `*` pins the selected card; pinned cards show ★
 - Panel `*` pins the issue (per site); pinned ones head the `:` palette
 - List mode with marks: `y` copies the marked cards as a markdown table (key linked)

@@ -825,6 +825,19 @@ func TestPRMark(t *testing.T) {
 	}
 }
 
+// TestDeployMark: a deployed card names its environment, unless left out.
+func TestDeployMark(t *testing.T) {
+	c := jira.Card{Key: "ABC-9", Summary: "S", Deploy: "production"}
+	if got := ansi.Strip(jiraCardLines(c, true, allCardFields)[0]); !strings.Contains(got, "▲ production") {
+		t.Errorf("head = %q", got)
+	}
+	f := allCardFields
+	f.deploy = false
+	if got := ansi.Strip(jiraCardLines(c, true, f)[0]); strings.Contains(got, "▲") {
+		t.Errorf("deploy off: %q", got)
+	}
+}
+
 func TestSubtaskMark(t *testing.T) {
 	c := jira.Card{Key: "ABC-9", Subtasks: 5, SubtasksDone: 2}
 	if got := ansi.Strip(jiraCardLines(c, true, allCardFields)[0]); !strings.Contains(got, "☑ 2/5") {

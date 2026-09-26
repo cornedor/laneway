@@ -35,6 +35,7 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 			}
 		}
 		card.PR = prState(is.Fields[dev])
+		card.Deploy = deployEnv(is.Fields[dev])
 		card.Flagged = flagSet(is.Fields[flag])
 		out = append(out, card)
 	}
