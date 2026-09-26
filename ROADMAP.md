@@ -2,6 +2,10 @@
 
 ## Next
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
+- Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
+- Panel width by key (widen / narrow), matching the border drag
+- Sprint progress in the header: a thin done/total bar beside the days left
+- Empty states: friendlier placeholders for an empty lane, backlog, or no search hits
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
