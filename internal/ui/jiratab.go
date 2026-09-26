@@ -159,6 +159,8 @@ type jiraTabState struct {
 	rulesSeen map[string][]jira.Card
 	// highlights are cards a rule marked, by key: the colour, until opened.
 	highlights map[string]string
+	// lastMove is the card last moved and the status it came from, for u.
+	lastMove [2]string
 	// marked are the cards a bulk edit applies to (bulk.go), by key.
 	marked    map[string]bool
 	viewIdx   int
@@ -793,6 +795,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openJQL()
 	case key.Matches(msg, m.keys.Site):
 		m.openSitePicker()
+	case key.Matches(msg, m.keys.Undo):
+		return m, m.undoJiraMove()
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
 	case key.Matches(msg, m.keys.MarkAll):
@@ -998,6 +1002,7 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	if statusID == cur || (statusID == "" && slices.Contains(lane.statusIDs, cur)) {
 		return nil
 	}
+	t.lastMove = [2]string{key, cur}
 	target, name := lane.statusIDs[0], lane.name
 	want := func(tm jira.TransitionMeta) bool { return slices.Contains(lane.statusIDs, tm.ToID) }
 	if statusID != "" {
@@ -1011,6 +1016,23 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	m.renderJira()
 	m.status = fmt.Sprintf("moving %s → %s…", key, name)
 	return m.prepareJiraMove(key, name, jiraFromBoard, want)
+}
+
+// undoJiraMove moves the last moved card back to the status it came from;
+// undoing again redoes the move.
+func (m *Model) undoJiraMove() tea.Cmd {
+	t := m.jiraTab
+	key, from := t.lastMove[0], t.lastMove[1]
+	if key == "" {
+		m.status = "nothing to undo"
+		return nil
+	}
+	to := slices.IndexFunc(t.lanes, func(l jiraLane) bool { return slices.Contains(l.statusIDs, from) })
+	if to < 0 {
+		m.status = key + ": its old status is not on this board"
+		return nil
+	}
+	return m.moveJiraCard(key, to, from)
 }
 
 func (m Model) handleJiraMoved(msg jiraMovedMsg) (tea.Model, tea.Cmd) {

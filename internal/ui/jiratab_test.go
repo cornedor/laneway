@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -859,5 +860,30 @@ func TestAgeMark(t *testing.T) {
 	c.InProgress = false
 	if jiraAgeMark(c, now, 5) != "" {
 		t.Error("only in-progress cards age")
+	}
+}
+
+// TestUndoMove: u moves the last moved card back; again redoes it.
+func TestUndoMove(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "u"))
+	if m = out.(Model); !strings.Contains(m.status, "nothing to undo") {
+		t.Fatalf("status %q", m.status)
+	}
+	m.moveJiraCard("ABC-1", 1, "") // To do → In progress
+	status := func() string {
+		i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == "ABC-1" })
+		return m.jiraTab.cards[i].StatusID
+	}
+	if status() != "3" {
+		t.Fatalf("after move: %s", status())
+	}
+	out, cmd := m.handleJiraKey(keyMsg(t, "u"))
+	if m = out.(Model); status() != "1" || cmd == nil {
+		t.Fatalf("after undo: %s", status())
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "u"))
+	if m = out.(Model); status() != "3" {
+		t.Errorf("after redo: %s", status())
 	}
 }
