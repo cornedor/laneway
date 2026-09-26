@@ -8,6 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // clickAt clicks cell x, y, once (the double-click window cleared after).
@@ -127,5 +129,38 @@ func TestHeaderMouse(t *testing.T) {
 	m, _ = clickAt(m, xOf(jiraBodyTop-1, "everyone"), jiraBodyTop-1)
 	if !m.jiraPicker.active {
 		t.Error("click on the assignee chip should open its picker")
+	}
+}
+
+func TestLinkAt(t *testing.T) {
+	line := "see " + lipglossBold("x") + osc8Link("https://a.test/1", "\x1b[4mhere\x1b[0m") + " and " + osc8Link("https://b.test", "there")
+	for col, want := range map[int]string{0: "", 4: "", 5: "https://a.test/1", 8: "https://a.test/1", 9: "", 14: "https://b.test", 19: ""} {
+		if got := linkAt(line, col); got != want {
+			t.Errorf("col %d: %q, want %q", col, got, want)
+		}
+	}
+}
+
+func lipglossBold(s string) string { return "\x1b[1m" + s + "\x1b[0m" }
+
+// TestPanelLinkClick: a click on a link in the description opens it (the
+// terminal can't, with the mouse captured).
+func TestPanelLinkClick(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.openJiraCard()
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{
+		Key: "ABC-1", Summary: "First", Description: "Docs at [the spec](https://spec.test/page) for you.",
+	}})
+	m = out.(Model)
+	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+	y := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, "the spec") })
+	if y < 0 {
+		t.Fatal("no link drawn")
+	}
+	x := ansi.StringWidth(lines[y][:strings.Index(lines[y], "the spec")]) + 2
+	m, cmd := clickAt(m, x, y)
+	if cmd == nil || m.status != "opening https://spec.test/page…" {
+		t.Errorf("click: status %q", m.status)
 	}
 }

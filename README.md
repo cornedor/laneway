@@ -194,7 +194,7 @@ Panel:
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →)
-- mouse: a click selects a field, a second edits it; a click opens a linked issue. In pickers a click picks, outside cancels
+- mouse: a click selects a field, a second edits it; a click opens a linked issue or a link. In pickers a click picks, outside cancels
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 

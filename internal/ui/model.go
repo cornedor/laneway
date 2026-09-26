@@ -566,6 +566,9 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		if i := m.crumbAt(msg.Y); i >= 0 {
 			return m.backToCrumb(i)
 		}
+		if u := m.panelLinkAt(msg.X, msg.Y); u != "" {
+			return m.clickPanel(panelHit{field: -1, url: u}, count)
+		}
 		if h, ok := m.panelHits[m.panelLineAt(msg.Y)]; ok {
 			return m.clickPanel(h, count)
 		}
