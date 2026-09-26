@@ -105,6 +105,9 @@ type UIConfig struct {
 	InboxEvery    string `yaml:"inbox_every"`
 	InboxLookback string `yaml:"inbox_lookback"`
 	InboxIssues   int    `yaml:"inbox_issues"`
+	// TimerRound rounds the timer's logged time up to a step ("15m"); by
+	// default to the minute.
+	TimerRound string `yaml:"timer_round"`
 	// FlagValue is the Flagged field's option flagging sets ("Impediment").
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").

@@ -40,6 +40,7 @@ type options struct {
 	inboxEvery      time.Duration      // 0: the count never refreshes
 	inboxLookback   time.Duration      // a first inbox read looks this far back
 	inboxIssues     int                // 0: the client's default
+	timerRound      time.Duration      // 0: to the minute
 	roadmapDoneDays int                // resolved epics older than this leave the roadmap
 	codeTheme       string             // chroma style for code blocks
 }
@@ -90,6 +91,16 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	dur("auto_refresh", c.AutoRefresh, &o.autoRefresh, true)
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
 	dur("inbox_every", c.InboxEvery, &o.inboxEvery, true)
+	switch v := strings.TrimSpace(c.TimerRound); {
+	case v == "" || v == "off":
+	default:
+		d, err := time.ParseDuration(v)
+		if err != nil || d < time.Minute || d > 8*time.Hour {
+			warn = append(warn, fmt.Sprintf("ui.timer_round: %q is not a duration of 1m–8h", v))
+			break
+		}
+		o.timerRound = d
+	}
 	dur("inbox_lookback", c.InboxLookback, &o.inboxLookback, false)
 	switch n := c.InboxIssues; {
 	case n == 0:

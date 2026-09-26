@@ -13,6 +13,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -231,5 +232,30 @@ func TestTimesheetCopy(t *testing.T) {
 	got := fmt.Sprint(cmd())
 	if !strings.Contains(got, "| 1h 30m | ABC-2 | Second \\| part |") || !strings.Contains(got, "| 1h 30m | total |") {
 		t.Errorf("table = %q", got)
+	}
+}
+
+func TestTimerRound(t *testing.T) {
+	for _, tc := range []struct {
+		elapsed, step time.Duration
+		want          int
+	}{
+		{20 * time.Second, 0, 60},
+		{7*time.Minute + 40*time.Second, 0, 8 * 60},
+		{7 * time.Minute, 15 * time.Minute, 15 * 60},
+		{15 * time.Minute, 15 * time.Minute, 15 * 60},
+		{16 * time.Minute, 15 * time.Minute, 30 * 60},
+		{0, 15 * time.Minute, 15 * 60},
+	} {
+		if got := timerSeconds(tc.elapsed, tc.step); got != tc.want {
+			t.Errorf("%v by %v = %ds, want %ds", tc.elapsed, tc.step, got, tc.want)
+		}
+	}
+	o, warn := optionsFrom(config.UIConfig{TimerRound: "15m"})
+	if o.timerRound != 15*time.Minute || len(warn) != 0 {
+		t.Errorf("timer_round = %v %v", o.timerRound, warn)
+	}
+	if _, warn = optionsFrom(config.UIConfig{TimerRound: "10s"}); len(warn) != 1 {
+		t.Errorf("10s accepted: %v", warn)
 	}
 }

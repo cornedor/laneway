@@ -70,7 +70,7 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 	if t := m.timer; t.key != "" {
 		// The timer keeps running until the log is in: esc or a failed
 		// write leaves it, and its time, as it was.
-		secs := max(int(time.Since(t.start).Round(time.Minute).Seconds()), 60)
+		secs := timerSeconds(time.Since(t.start), m.opts.timerRound)
 		m.openWorklogInput(t.key, jira.FormatDuration(secs)+" ", t.start)
 		m.worklogFromTimer = true
 		return nil
@@ -82,6 +82,16 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 	m.saveTimer()
 	m.status = "timer started on " + key + " · " + helpKey(m.keys.Timer) + " stops it"
 	return timerTick()
+}
+
+// timerSeconds is the time a stopped timer logs: to the minute (at least
+// one), or rounded up to ui.timer_round's step (at least one step).
+func timerSeconds(elapsed, step time.Duration) int {
+	if step <= 0 {
+		return max(int(elapsed.Round(time.Minute).Seconds()), 60)
+	}
+	steps := max((elapsed+step-1)/step, 1)
+	return int((steps * step).Seconds())
 }
 
 // timerLabel is the header's "⏱ ABC-1 12m", "" without a timer.

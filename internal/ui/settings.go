@@ -51,6 +51,7 @@ var settingDefaults = map[string]string{
 	"inbox_every":          "5m",
 	"inbox_lookback":       "24h",
 	"inbox_issues":         "30",
+	"timer_round":          "to the minute",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",

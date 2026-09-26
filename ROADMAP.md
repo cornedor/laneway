@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- `ui.timer_round`: round the timer's logged time (`15m`); today to the minute, 1m minimum
 - `ui.clipboard_image`: command that prints a PNG off the clipboard, over the wl-paste / xclip / pngpaste probe
 - `ui.open`: command that opens URLs and attachments, over xdg-open / open / rundll32 (WSL, remote)
 - Extra fields: custom fields by name on cards (`card_fields`) and in the panel; today the fetched field lists are fixed
@@ -29,6 +28,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.timer_round` (e.g. 15m): the timer's logged time rounded up to the step, at least one; default to the minute
 - Inbox config: `ui.inbox_every` (5m, off), `ui.inbox_lookback` (24h), `ui.inbox_issues` (30, standup too)
 - `ui.flag_value` (Impediment): the Flagged option flagging sets
 - `ui.workdays` ([mon … fri]): standup's previous workday skips the rest
