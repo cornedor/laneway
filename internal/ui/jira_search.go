@@ -249,6 +249,22 @@ func (m *Model) applyJiraSearch() {
 	m.renderJira()
 }
 
+// removeSearchTerm drops the query's i-th term (a chip's ×, the builder).
+func (m *Model) removeSearchTerm(i int) {
+	t := m.jiraTab
+	words := jiraQueryWords(t.search.Value())
+	if i < 0 || i >= len(words) {
+		return
+	}
+	words = slices.Delete(words, i, i+1)
+	if len(words) == 0 {
+		m.clearJiraSearch()
+		return
+	}
+	t.search.SetValue(strings.Join(words, " "))
+	m.applyJiraSearch()
+}
+
 // clearJiraSearch drops the query and closes the box.
 func (m *Model) clearJiraSearch() {
 	t := m.jiraTab

@@ -2370,7 +2370,11 @@ func (m *Model) jiraFilterLine() string {
 	case t.searching:
 		line = t.search.View() + "  " + line
 	case t.jiraSearchQuery() != "":
-		line = chip(true, "/"+t.search.Value()) + jiraDimStyle.Render(" esc") + "  " + line
+		terms := jiraQueryWords(t.search.Value())
+		for i, w := range terms {
+			terms[i] = chip(true, w+" ×")
+		}
+		line = jiraDimStyle.Render("/") + strings.Join(terms, " ") + jiraDimStyle.Render(" esc") + "  " + line
 	default:
 		line += jiraDimStyle.Render("  ·  " + helpKey(m.keys.Search) + " search")
 	}

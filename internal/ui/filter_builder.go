@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,7 +15,8 @@ import (
 
 // The filter builder (F): pick a field, how to compare, then a value from
 // the loaded cards (with how many have it); the term lands in the / query,
-// joining a term on the same field as one more value.
+// joining a term on the same field as one more value. The query's terms
+// head the first step, where picking one removes it.
 
 // filterFields are the builder's fields: the query name and a label.
 var filterFields = []struct{ name, label string }{
@@ -30,9 +32,12 @@ type filterBuild struct {
 func (m *Model) openFilterBuilder() {
 	m.filterBuild = filterBuild{}
 	m.startJiraPicker(jiraPickFilterField, "Filter by", false)
-	items := make([]jiraPickerItem, len(filterFields))
-	for i, f := range filterFields {
-		items[i] = jiraPickerItem{id: f.name, label: f.label}
+	var items []jiraPickerItem
+	for i, w := range jiraQueryWords(m.jiraTab.search.Value()) {
+		items = append(items, jiraPickerItem{id: "-" + strconv.Itoa(i), label: "× " + w})
+	}
+	for _, f := range filterFields {
+		items = append(items, jiraPickerItem{id: f.name, label: f.label})
 	}
 	m.setJiraPickerItems(items)
 }
@@ -178,6 +183,11 @@ func (m Model) applyFilterPick(kind jiraPickerKind, id string) (tea.Model, tea.C
 	m.closeJiraPicker()
 	switch kind {
 	case jiraPickFilterField:
+		if n, ok := strings.CutPrefix(id, "-"); ok {
+			i, _ := strconv.Atoi(n)
+			m.removeSearchTerm(i)
+			break
+		}
 		m.pickFilterField(id)
 	case jiraPickFilterOp:
 		m.pickFilterOp(id)

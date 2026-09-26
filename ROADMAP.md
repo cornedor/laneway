@@ -18,7 +18,6 @@
 - `laneway rules` create defaults (type `Task`, status `To Do`) from config or the project
 - `jira.timeout`: API request timeout (20s) and the longer action timeouts (30–90s), for slow instances
 - `ui.full_refresh`: the full refetch interval behind the delta refreshes (10m)
-- Filter chips: the `/` query's terms as chips in the header, a click (or the builder) removes one
 - Filter terms, more: `is:mine`, `due<7d` / `overdue`, `age>3d` (in progress), `updated<1d`, `sprint:`, `pr:open,merged`, `deploy:production`, custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
 - Panel: rich-text (ADF) custom fields rendered as markdown like the description (e.g. a test information field), not flattened to one line; editable through `$EDITOR` where the round trip is exact
 - Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
@@ -40,6 +39,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The `/` query's terms as chips in the header (`status:new ×`); a click, or their row atop `F`, removes one
 - `F` filter builder: field → compare → a value from the loaded cards (with counts), written into the `/` query; the same field gains a value
 - Settings: `enter` edits a one-line `ui:` option in place, checked like at startup, written back through the YAML tree (comments, symlinks kept), applied live
 - `,` settings overlay: every `ui:` option with the file's value and the default (step A of the config screen)

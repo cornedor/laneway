@@ -185,7 +185,7 @@ also searches all of Jira (summary, description, comments); those hits come
 last, marked `⌕`.
 
 Board:
-- move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search · `F` filter builder (field, compare, value from the cards → the `/` query)
+- move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search · `F` filter builder (field, compare, value from the cards → the `/` query; its terms show as chips, a click or `F` removes one)
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue · `x`/`X`
