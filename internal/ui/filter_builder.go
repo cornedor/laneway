@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -163,11 +162,12 @@ func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 	case msg.String() == "ctrl+x":
 		m.removeSearchTerm(len(jiraQueryWords(m.jiraTab.search.Value())) - 1)
 		return m, nil
-	case key.Matches(msg, m.keys.InputUp):
-		b.idx[b.col] = max(b.idx[b.col]-1, 0)
-	case key.Matches(msg, m.keys.InputDown):
-		b.idx[b.col] = min(b.idx[b.col]+1, max(len(m.builderRows(b.col))-1, 0))
 	default:
+		rows := m.builderRows(b.col)
+		if i, ok := m.keys.listNav(msg, b.idx[b.col], len(rows), 10, true); ok {
+			b.idx[b.col] = i
+			break
+		}
 		before := b.filter.Value()
 		var cmd tea.Cmd
 		b.filter, cmd = b.filter.Update(msg)

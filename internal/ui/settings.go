@@ -143,14 +143,9 @@ func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.editSetting()
 	case msg.String() == "esc", msg.String() == "q", key.Matches(msg, m.keys.Settings):
 		m.settings = nil
-	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
-		s.idx = max(s.idx-1, 0)
-	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown):
-		s.idx = min(s.idx+1, len(s.rows)-1)
-	case key.Matches(msg, m.keys.Home):
-		s.idx = 0
-	case key.Matches(msg, m.keys.End):
-		s.idx = len(s.rows) - 1
+	default:
+		_, visible := s.window(m.bodyH())
+		s.idx, _ = m.keys.listNav(msg, s.idx, len(s.rows), visible, false)
 	}
 	return m, nil
 }

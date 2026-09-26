@@ -161,11 +161,8 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		m.jql = nil
 		return m, nil
-	case "up", "ctrl+p":
-		j.idx = max(j.idx-1, 0)
-		return m, nil
-	case "down", "ctrl+n":
-		j.idx = min(j.idx+1, max(len(j.sugg)-1, 0))
+	case "up", "ctrl+p", "down", "ctrl+n", "pgup", "pgdown":
+		j.idx, _ = m.keys.listNav(msg, j.idx, len(j.sugg), jqlShown, true)
 		return m, nil
 	case "ctrl+s":
 		if q := strings.TrimSpace(j.input.Value()); q != "" {

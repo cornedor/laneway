@@ -484,13 +484,10 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays))
 	}
 	if m.jiraPicker.filterable {
-		// Arrows + ctrl+p/ctrl+n navigate so letters stay available for typing.
-		switch {
-		case key.Matches(msg, m.keys.InputUp):
-			m.jiraPickerMove(-1)
-			return m, nil
-		case key.Matches(msg, m.keys.InputDown):
-			m.jiraPickerMove(1)
+		// Arrows, ctrl+p/ctrl+n and pgup/pgdown navigate so letters stay
+		// available for typing.
+		if i, ok := m.keys.listNav(msg, m.jiraPicker.idx, len(m.jiraPicker.items), m.pickerWin(m.bodyH()), true); ok {
+			m.jiraPicker.idx = i
 			return m, nil
 		}
 		before := m.jiraPicker.filter.Value()
@@ -517,12 +514,8 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, debounce)
 	}
 
-	switch {
-	case key.Matches(msg, m.keys.Up):
-		m.jiraPickerMove(-1)
-		return m, nil
-	case key.Matches(msg, m.keys.Down):
-		m.jiraPickerMove(1)
+	if i, ok := m.keys.listNav(msg, m.jiraPicker.idx, len(m.jiraPicker.items), m.pickerWin(m.bodyH()), false); ok {
+		m.jiraPicker.idx = i
 		return m, nil
 	}
 	if m.jiraPicker.kind == jiraPickTimesheet {

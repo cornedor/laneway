@@ -757,3 +757,28 @@ func TestErrorState(t *testing.T) {
 		t.Error("the project hint opens no picker")
 	}
 }
+
+// TestListNav: pickers, settings and the builder page and jump alike;
+// while typing only keys that type nothing move the cursor.
+func TestListNav(t *testing.T) {
+	m := jiraTabModel(t)
+	m.openPalette()
+	out, _ := m.handleJiraPickerKey(keyPress("pgdown"))
+	if m = out.(Model); m.jiraPicker.idx == 0 {
+		t.Error("pgdown in the palette did not move")
+	}
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "G"))
+	if m = out.(Model); m.jiraPicker.filter.Value() != "G" {
+		t.Error("G in a searchable picker should type")
+	}
+	m.closeJiraPicker()
+	out, _ = m.handleKey(keyMsg(t, ","))
+	out, _ = out.(Model).handleKey(keyMsg(t, "G"))
+	if m = out.(Model); m.settings.idx != len(m.settings.rows)-1 {
+		t.Errorf("G in settings: %d", m.settings.idx)
+	}
+	out, _ = m.handleKey(keyPress("pgup"))
+	if m = out.(Model); m.settings.idx == len(m.settings.rows)-1 {
+		t.Error("pgup in settings did not move")
+	}
+}

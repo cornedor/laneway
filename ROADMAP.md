@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Pickers, settings, builder, JQL: pgup/pgdn, home/end, ctrl+n/p alike (one list-nav helper)
 - Narrow terminals: create box, builder, settings edit input, picker search, `/` search and go-to sized from the width
 - Move form: the field being typed sized to its cell so the cursor stays visible
 - Lanes off-screen: `‹ n` / `n ›` on the outer lane heads
@@ -12,6 +11,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Lists move alike everywhere (pickers, the palette, settings, the `F` builder, `Q` completions): up/down and ctrl+p/ctrl+n, page up/down a window, top/bottom; while a filter box has the keys, only keys that type nothing move
 - First run: no config prints the `jira:` block to write and where a token is made; a site's config names only what it lacks (`jira: set api_token (or JIRA_API_TOKEN; a token: …)`); a `base_url` without `https://` says so instead of Go's "unsupported protocol scheme" later
 - A failed board load shows its error wrapped and centred with what to do (`r retries · p picks a project · Q runs JQL`, each a click), not one red line cut at the edge
 - No silent keys on the board: card keys with no card (and nothing marked) say "no card selected"; H/L past the first or last lane say so; H/L in list mode say moving needs lanes or `e`
