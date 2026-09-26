@@ -1067,3 +1067,39 @@ func TestJiraSwimlanesRemembered(t *testing.T) {
 		t.Errorf("swim after reload = %v", m.jiraTab.swim)
 	}
 }
+
+// TestJiraSwimlaneDropAssigns: a card dropped into another assignee's band
+// is assigned to them, and shows there at once.
+func TestJiraSwimlaneDropAssigns(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = append(got, r.Method+" "+r.URL.Path+" "+string(b))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleKey(keyMsg(t, "s"))
+	m = out.(Model)
+	// Unassigned band: header on body line 6, ABC-3's key line on 7.
+	for _, msg := range []tea.Msg{
+		tea.MouseClickMsg{X: 2, Y: jiraBodyTop + 7, Button: tea.MouseLeft},
+		tea.MouseMotionMsg{X: 2, Y: jiraBodyTop + 3, Button: tea.MouseLeft},
+	} {
+		out, _ = m.Update(msg)
+		m = out.(Model)
+	}
+	if m.jiraTab.drag.key != "ABC-3" || !m.jiraTab.drag.bandOK {
+		t.Fatalf("drag = %+v", m.jiraTab.drag)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: 2, Y: jiraBodyTop + 3, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd == nil || !strings.Contains(ansi.Strip(m.View().Content), "▾ Ada · 2") {
+		t.Fatalf("drop: cmd %v\n%s", cmd != nil, ansi.Strip(m.View().Content))
+	}
+	cmd()
+	if len(got) != 1 || got[0] != `PUT /rest/api/3/issue/ABC-3/assignee {"accountId":"a1"}` {
+		t.Errorf("requests = %q", got)
+	}
+}

@@ -145,6 +145,9 @@ type jiraDrag struct {
 	from   int
 	over   int
 	zone   int // the status zone under the pointer, in a lane of several
+	// band is a card of the swimlane under the pointer, ok when over one.
+	band   jira.Card
+	bandOK bool
 }
 
 type jiraTabState struct {
@@ -206,6 +209,8 @@ type jiraTabState struct {
 	swim    jiraSort
 	swimTop int
 	swimAt  [][]int
+	// swimBand is each body line's band, as one of its cards.
+	swimBand []jira.Card
 
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
@@ -1872,7 +1877,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 	cmp := t.swim.cmp()
 	slices.SortStableFunc(groups, func(a, b string) int { return cmp(rep[a], rep[b]) })
 	var body []string
-	t.swimAt = t.swimAt[:0]
+	t.swimAt, t.swimBand = t.swimAt[:0], t.swimBand[:0]
 	blank := make([]int, len(shown))
 	for i := range blank {
 		blank[i] = -1
@@ -1896,7 +1901,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 			continue
 		}
 		body = append(body, jiraViewActive.Render("▾ "+g)+jiraDimStyle.Render(fmt.Sprintf(" · %d", cards)))
-		t.swimAt = append(t.swimAt, blank)
+		t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
 		for r := range n {
 			cells := make([][]string, len(shown))
 			at := make([]int, len(shown))
@@ -1926,10 +1931,10 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 					}
 				}
 				body = append(body, row(line))
-				t.swimAt = append(t.swimAt, at)
+				t.swimAt, t.swimBand = append(t.swimAt, at), append(t.swimBand, rep[g])
 			}
 			body = append(body, row(make([]string, len(shown))))
-			t.swimAt = append(t.swimAt, blank)
+			t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
 		}
 	}
 	h := max(height-1, 1)
@@ -2240,6 +2245,11 @@ func (m Model) dragJira(x, y int) (tea.Model, tea.Cmd) {
 			zone = min(max((y-jiraBodyTop-1)/jiraZoneH(t.view.Height(), n), 0), n-1)
 		}
 	}
+	if t.swim != jiraSortRank {
+		if l := y - jiraBodyTop - 1 + t.swimTop; y-jiraBodyTop >= 1 && l < len(t.swimBand) {
+			t.drag.band, t.drag.bandOK = t.swimBand[l], true
+		}
+	}
 	if over != t.drag.over || zone != t.drag.zone || scrolled {
 		t.drag.over, t.drag.zone = over, zone
 		m.renderJira()
@@ -2262,16 +2272,53 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 			status = ids[d.zone]
 		}
 	}
+	band := m.jiraBandMove(d)
 	if d.over == d.from && status == "" {
 		m.renderJira()
-		return m, nil
+		return m, band
 	}
 	if cmd := m.moveJiraCard(d.key, d.over, status); cmd != nil {
-		return m, cmd
+		return m, tea.Batch(cmd, band)
+	}
+	if band != nil {
+		return m, band
 	}
 	m.selectJiraKey(d.key)
 	m.renderJira()
 	return m, nil
+}
+
+// jiraBandMove is the write a drop into another swimlane makes, as on
+// Jira's board: the band's assignee (or epic) for the card. The card moves
+// band at once; nil when it stays in its own.
+func (m *Model) jiraBandMove(d jiraDrag) tea.Cmd {
+	t := m.jiraTab
+	ci := slices.IndexFunc(t.cards, func(c jira.Card) bool { return c.Key == d.key })
+	if !d.bandOK || ci < 0 {
+		return nil
+	}
+	c, b := &t.cards[ci], d.band
+	client, ctx, key := m.jiraClient, m.ctx, d.key
+	var field string
+	var run func() error
+	switch {
+	case t.swim == jiraSortAssignee && b.AssigneeID != c.AssigneeID:
+		c.Assignee, c.AssigneeID = b.Assignee, b.AssigneeID
+		field, run = "assignee", func() error { return client.SetAssignee(ctx, key, b.AssigneeID) }
+	case t.swim == jiraSortEpic && b.ParentKey != c.ParentKey:
+		c.ParentKey, c.ParentSummary = b.ParentKey, b.ParentSummary
+		var v any // no epic: cleared
+		if b.ParentKey != "" {
+			v = map[string]string{"key": b.ParentKey}
+		}
+		field, run = "parent", func() error { return client.SetField(ctx, key, "parent", v) }
+	default:
+		return nil
+	}
+	m.buildJiraLanes()
+	m.selectJiraKey(key)
+	m.status = fmt.Sprintf("updating %s %s…", key, field)
+	return jiraMutateCmd(key, field, run)
 }
 
 // jiraZoneH is the height of one status drop zone in a lane body of height
