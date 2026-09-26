@@ -158,3 +158,19 @@ func TestAdaptThemeLight(t *testing.T) {
 		t.Errorf("configured: selection_idle = %q", curTheme["selection_idle"])
 	}
 }
+
+// TestStatusColours: unset, the status categories follow dim and the
+// roadmap's colours; set, lane marks and lozenges take their own.
+func TestStatusColours(t *testing.T) {
+	t.Cleanup(func() { applyTheme(defaultTheme()) })
+	th, warn := themeFrom(map[string]string{"roadmap_todo": "#010203"})
+	applyTheme(th)
+	if len(warn) != 0 || !strings.Contains(laneMark["indeterminate"].Render("x"), "1;2;3") {
+		t.Errorf("unset: %q %v", laneMark["indeterminate"].Render("x"), warn)
+	}
+	th, _ = themeFrom(map[string]string{"status_progress": "#040506", "status_todo": "#070809"})
+	applyTheme(th)
+	if !strings.Contains(laneMark["indeterminate"].Render("x"), "4;5;6") || !strings.Contains(statusLozenge["new"].Render("x"), "7;8;9") {
+		t.Errorf("set: %q %q", laneMark["indeterminate"].Render("x"), statusLozenge["new"].Render("x"))
+	}
+}
