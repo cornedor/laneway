@@ -149,9 +149,9 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		p.closing = false // a completion is confirmed by the very next key only
 	}
 	switch {
-	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
+	case msg.String() == "ctrl+c":
 		return m.quit()
-	case msg.String() == "esc", key.Matches(msg, m.keys.Plan):
+	case msg.String() == "esc", key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Plan): // q closes, as on every screen over the board
 		t.plan = nil
 		m.renderJira()
 		return m, m.refreshJiraAfterEdit()

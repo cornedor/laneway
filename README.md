@@ -220,7 +220,7 @@ Board:
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name · drag with the mouse (`esc` cancels a drag, here and everywhere); click a view, quick filter or the assignee chip in the header (and any key hint there, the project and board names, `updated`, the timer, `✉`, the offline notice, the sprint bar for charts, a query's `esc`), a swimlane band's header to fold it
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `R` roadmap · `P` planning · `C` charts
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
-- `q` quit (asks once while writes are still sending or you have an unsaved edit or comment)
+- `q` quit; on the roadmap, planning and charts it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
 Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;

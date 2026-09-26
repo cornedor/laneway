@@ -212,7 +212,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	zoom := roadmapZooms[r.zoom]
 	last := max(len(r.rows())-1, 0)
 	switch {
-	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
+	case msg.String() == "ctrl+c":
 		return m, tea.Sequence(m.saveRoadmap(), tea.Quit) // pending date moves first
 	case msg.String() == "esc" && r.grip != "":
 		r.grip = ""
@@ -234,7 +234,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, m.shiftRoadmap(d, 0)
 		}
 		return m, m.shiftRoadmap(0, d)
-	case msg.String() == "esc", key.Matches(msg, m.keys.Roadmap):
+	case msg.String() == "esc", key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Roadmap): // q closes, as on every screen over the board
 		save := m.saveRoadmap()
 		m.jiraTab.roadmap = nil
 		m.renderJira()

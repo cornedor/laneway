@@ -4,7 +4,6 @@
 - Status line: errors in the theme's error colour (needs the ~155 status sites to say which are errors)
 - Rebindable keys on planning, roadmap and timesheet (their letters are hard-coded; add scopes so clashes are checked)
 - `?` on planning, roadmap, charts and the timesheet: their own section first
-- `q` on a sub-screen (roadmap, planning, charts) closes it like esc rather than quitting the app
 - Theme keys `status_todo`, `status_progress`, `status_done` (lanes and lozenges borrow the roadmap's)
 - `ui.my_work_jql` for `O`
 - Action feedback: per-field verbs ("commented on ABC-1", not "comment updated"); `ui.download_dir`; after a download "saved X · o opens"
@@ -12,6 +11,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `q` on the roadmap, planning and charts closes them like `esc` (it used to quit the whole app); `ctrl+c` still quits
 - Config: a key no option reads warns at startup (`ui.panel_widht: unknown option, did you mean panel_width?`) — at the top, in `jira:`, each `sites:` entry, `ui:` and `rules_test:`
 - Messages: the status line's last 100 messages are kept; the palette's `messages` row lists them newest first with their time, enter copies one whole. Several startup warnings say "3 config warnings · : messages lists them" instead of one cut line
 - Quit guard: `q` or `ctrl+c` while writes are still sending (the client counts them), a description edit is unsaved or a comment unsent says so and asks once; the next quit leaves

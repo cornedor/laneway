@@ -596,3 +596,20 @@ func TestMessages(t *testing.T) {
 		t.Errorf("enter: %q", m.status)
 	}
 }
+
+// TestQClosesScreens: q on the roadmap, planning or charts closes it as
+// esc does, rather than quitting.
+func TestQClosesScreens(t *testing.T) {
+	for name, m := range map[string]Model{"roadmap": roadmapModel(t), "planning": planModel(t, nil), "charts": chartsModel(t)} {
+		out, cmd := m.handleJiraKey(keyMsg(t, "q"))
+		m = out.(Model)
+		if cmd != nil {
+			if _, quit := cmd().(tea.QuitMsg); quit {
+				t.Errorf("%s: q quit the app", name)
+			}
+		}
+		if tab := m.jiraTab; tab.roadmap != nil || tab.plan != nil || tab.charts != nil {
+			t.Errorf("%s: q left it open", name)
+		}
+	}
+}
