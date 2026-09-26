@@ -448,3 +448,42 @@ func TestPanelScrollbar(t *testing.T) {
 		t.Errorf("esc: offset %d, still scrolling %v", m.refView.YOffset(), m.panelScrolling)
 	}
 }
+
+// TestHelpPages: on a narrow screen help pages its columns; → shows the
+// next, another key closes.
+func TestHelpPages(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	out, _ = out.(Model).handleKey(keyMsg(t, "?"))
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "page 1/") || strings.Contains(view, "story points") {
+		t.Fatalf("first page:\n%s", view)
+	}
+	for m.helpOpen && !strings.Contains(ansi.Strip(m.View().Content), "story points") {
+		out, _ = m.handleKey(keyMsg(t, "right"))
+		m = out.(Model)
+	}
+	if !m.helpOpen {
+		t.Fatal("→ closed help before the panel's keys")
+	}
+	for _, l := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+		if ansi.StringWidth(l) > 100 {
+			t.Fatalf("a line wider than the screen: %q", l)
+		}
+	}
+	out, _ = m.handleKey(keyMsg(t, "x"))
+	if m = out.(Model); m.helpOpen || m.helpPage != 0 {
+		t.Error("another key should close and reset")
+	}
+}
+
+// TestHelpFromPanel: ? in the panel opens help at the panel's keys.
+func TestHelpFromPanel(t *testing.T) {
+	m := panelModel(t)
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	out, _ = out.(Model).handleRefKey(keyMsg(t, "?"))
+	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "story points") {
+		t.Errorf("help from the panel opened on page %d", m.helpPage)
+	}
+}

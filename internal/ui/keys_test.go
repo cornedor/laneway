@@ -52,7 +52,7 @@ func TestReboundKeyDrivesBoard(t *testing.T) {
 	if !out.(Model).jiraTab.searching {
 		t.Fatal("new key does not search")
 	}
-	m.helpOpen = true
+	m.helpOpen, m.width = true, 400 // every column on one page
 	if !regexp.MustCompile(`(?m)\bf +search \(esc`).MatchString(ansi.Strip(m.renderHelp(40))) {
 		t.Error("help lacks the rebound key")
 	}
@@ -98,6 +98,7 @@ func TestThemeConfigYAML(t *testing.T) {
 // instead of past the bottom.
 func TestHelpFitsHeight(t *testing.T) {
 	m := jiraTabModel(t)
+	m.width = 400 // every column on one page
 	for _, h := range []int{24, 40} {
 		if got := lipgloss.Height(m.renderHelp(h)); got > h {
 			t.Errorf("height %d: help is %d rows", h, got)
@@ -112,7 +113,7 @@ func TestHelpFitsHeight(t *testing.T) {
 // wide as the column.
 func TestHelpTitles(t *testing.T) {
 	m := jiraTabModel(t)
-	m.helpOpen = true
+	m.helpOpen, m.width = true, 400 // every column on one page
 	lines := strings.Split(ansi.Strip(m.renderHelp(40)), "\n")
 	for i, l := range lines {
 		if strings.Contains(l, "Panel ") || strings.HasSuffix(strings.TrimRight(l, " │"), "Panel") {

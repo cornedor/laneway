@@ -207,6 +207,7 @@ type Model struct {
 	panelHint  string
 
 	helpOpen      bool
+	helpPage      int             // the help's page when it is wider than the screen
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
@@ -628,11 +629,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case m.descEdit != nil:
 		return m.handleDescEditKey(msg)
 	case m.helpOpen:
-		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
-		m.helpOpen = false
-		return m, nil
+		return m.handleHelpKey(msg)
 	case m.imageView:
 		return m.handleImageViewKey(msg)
 	case m.jql != nil:
@@ -693,7 +690,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.helpOpen && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil {
-		m.helpOpen = false // any click closes it, as any key does
+		m.helpOpen, m.helpPage = false, 0 // any click closes it
 		return m, nil
 	}
 	form := m.formOnTop()

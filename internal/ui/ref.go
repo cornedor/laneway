@@ -173,7 +173,7 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openIssueActions()
 		return m, nil
 	case key.Matches(msg, m.keys.Help):
-		m.helpOpen = true
+		m.openHelp("Panel")
 		return m, nil
 	case key.Matches(msg, m.keys.Settings):
 		m.openSettings()

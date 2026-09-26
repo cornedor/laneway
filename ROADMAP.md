@@ -4,6 +4,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Fix: `?` help ignored the screen's width, so on a 120-column terminal the panel's keys fell off the edge; it pages now (`←` `→`, page n/m in its hint), opens at the panel's keys from the panel, and lists the mouse (unless `ui.mouse: off`)
 - Panel scrollbar: a click on the panel's right border jumps there, dragging it scrolls, `esc` puts it back
 - Mouse: an empty board's hint runs its key (refresh, new issue, plan, clear filters, the builder, clearing the search); a list group's header selects its first card
 - `ui.mouse: off` leaves the mouse to the terminal (text selection, its own links); on by default, live from `,`

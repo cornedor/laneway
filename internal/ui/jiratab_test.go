@@ -372,11 +372,20 @@ func TestEmptyStates(t *testing.T) {
 
 func TestHelpOverlay(t *testing.T) {
 	m := jiraTabModel(t)
+	m.width = 400 // every column on one page
 	out, _ := m.handleKey(keyMsg(t, "?"))
 	m = out.(Model)
 	if !m.helpOpen || !strings.Contains(m.View().Content, "story points") {
 		t.Fatal("? did not show help")
 	}
+	if !strings.Contains(m.View().Content, "double-click") {
+		t.Error("help lacks the mouse")
+	}
+	m.opts.mouse = false
+	if strings.Contains(m.View().Content, "double-click") {
+		t.Error("help shows the mouse with ui.mouse off")
+	}
+	m.opts.mouse = true
 	out, _ = m.handleKey(keyMsg(t, "j"))
 	m = out.(Model)
 	if m.helpOpen || m.jiraTab.row != 0 {

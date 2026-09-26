@@ -1,14 +1,17 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // The ? overlay: every key of the board and the panel, as bound (ui.keys
-// rebinds them). Any key closes it.
+// rebinds them), paged to the screen's width. Any other key closes it.
 
 type helpRow struct {
 	keys string
@@ -23,7 +26,7 @@ func (m *Model) helpSections() []struct {
 } {
 	k := m.keys
 	join := func(a, b key.Binding) string { return helpKey(a) + " / " + helpKey(b) }
-	return []struct {
+	sections := []struct {
 		title string
 		rows  []helpRow
 	}{
@@ -100,6 +103,23 @@ func (m *Model) helpSections() []struct {
 			{"esc", "drop field, close"},
 		}},
 	}
+	if m.opts.mouse {
+		sections = append(sections, struct {
+			title string
+			rows  []helpRow
+		}{"Mouse", []helpRow{
+			{"click", "select; a field again: edit"},
+			{"double-click", "open the issue"},
+			{"drag", "a card to a lane, band or sprint; a roadmap bar"},
+			{"header", "views, filters, chips and key hints act"},
+			{"▾ ▸", "fold a swimlane, epic or parent"},
+			{"panel edges", "left: resize · right: scroll"},
+			{"wheel", "scroll, move the cursor"},
+			{"esc", "cancel a drag"},
+			{"ui.mouse: off", "leave the mouse to the terminal"},
+		}})
+	}
+	return sections
 }
 
 // helpTitle heads a help column: a shaded bar across it, or without
@@ -111,9 +131,10 @@ func helpTitle(title string, width int) string {
 	return titleStyle.Render(title) + "\n" + refDimStyle.Render(strings.Repeat("─", width))
 }
 
-// renderHelp lays the sections out side by side, a section running on into
-// another column when it is taller than height allows.
-func (m *Model) renderHelp(height int) string {
+// helpPages lays the sections out side by side, a section running on into
+// another column when it is taller than height allows, and splits the
+// columns into pages as wide as the screen allows.
+func (m *Model) helpPages(height int) [][]string {
 	keyStyle := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 	perCol := max(height-10, 6) // border, padding, title and hint
 	var cols []string
@@ -137,14 +158,71 @@ func (m *Model) renderHelp(height int) string {
 				pad := strings.Repeat(" ", keyW-lipgloss.Width(r.keys))
 				lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+r.desc)
 			}
-			if len(cols) > 0 {
-				cols = append(cols, "   ")
-			}
 			cols = append(cols, strings.Join(lines, "\n"))
 		}
 	}
+	avail := m.width - 8 // border and padding
+	var pages [][]string
+	w := 0
+	for _, c := range cols {
+		cw := lipgloss.Width(c)
+		if len(pages) == 0 || w+3+cw > avail {
+			pages, w = append(pages, nil), -3
+		}
+		pages[len(pages)-1] = append(pages[len(pages)-1], c)
+		w += 3 + cw
+	}
+	return pages
+}
+
+// renderHelp draws the help's current page.
+func (m *Model) renderHelp(height int) string {
+	pages := m.helpPages(height)
+	page := pages[min(m.helpPage, len(pages)-1)]
+	var cols []string
+	for i, c := range page {
+		if i > 0 {
+			cols = append(cols, "   ")
+		}
+		cols = append(cols, c)
+	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, cols...)
-	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render("any key closes · rebind in ui.keys")
+	hintText := "any key closes · rebind in ui.keys"
+	if len(pages) > 1 {
+		hintText = fmt.Sprintf("page %d/%d · ← → more · any other key closes · rebind in ui.keys", min(m.helpPage, len(pages)-1)+1, len(pages))
+	}
+	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(hintText)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).
 		Padding(1, 3).Render(lipgloss.JoinVertical(lipgloss.Left, body, "", hint))
+}
+
+// openHelp shows the help at the page with title's keys (the focused
+// pane's).
+func (m *Model) openHelp(title string) {
+	m.helpOpen, m.helpPage = true, 0
+	for i, p := range m.helpPages(m.bodyH()) {
+		for _, c := range p {
+			first, _, _ := strings.Cut(ansi.Strip(c), "\n")
+			if strings.TrimSpace(first) == title {
+				m.helpPage = i
+				return
+			}
+		}
+	}
+}
+
+// handleHelpKey pages the help with ← →; any other key closes it.
+func (m Model) handleHelpKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	n := len(m.helpPages(m.bodyH()))
+	switch {
+	case msg.String() == "ctrl+c":
+		return m, tea.Quit
+	case n > 1 && (key.Matches(msg, m.keys.Right) || msg.String() == "right"):
+		m.helpPage = min(m.helpPage+1, n-1)
+	case n > 1 && (key.Matches(msg, m.keys.Left) || msg.String() == "left"):
+		m.helpPage = max(m.helpPage-1, 0)
+	default:
+		m.helpOpen, m.helpPage = false, 0
+	}
+	return m, nil
 }

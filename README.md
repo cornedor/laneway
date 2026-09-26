@@ -205,7 +205,7 @@ config is picked up as a fallback.
 
 ![The ? help overlay](docs/screenshots/help.png)
 
-`?` shows every key as bound. `:` opens the command palette: every action
+`?` shows every key as bound, and the mouse, paged to the screen's width (`←` `→`; from the panel it opens at the panel's keys). `:` opens the command palette: every action
 of the focused pane, the board's views, quick filters and boards, the
 loaded issues and the ones you opened lately, filtered by every word you type. From three characters it
 also searches all of Jira (summary, description, comments); those hits come
