@@ -63,6 +63,8 @@ type jiraView struct {
 	// A sprint's dates (zero until planned) and goal.
 	start, end time.Time
 	goal       string
+	// doneDays is how long a kanban board shows done work (0: the default).
+	doneDays int
 }
 
 // jiraLane is a board column and the cards (indexes into cards) in it.
@@ -347,7 +349,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	configured := m.jiraProjects
 	readMode := !t.modeRead
 	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, append(slices.Clone(m.opts.views), m.savedJQLViews()...)
-	withSaved := m.opts.savedFilters
+	withSaved, doneDays := m.opts.savedFilters, m.opts.kanbanDoneDays
 	var cached tea.Cmd
 	if fromCache {
 		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode)
@@ -431,7 +433,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 			}
 			msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: "Backlog"})
 		} else {
-			msg.views = append(msg.views, jiraView{kind: jiraViewBoard, name: "Board", lanes: true})
+			msg.views = append(msg.views, jiraView{kind: jiraViewBoard, name: "Board", lanes: true, doneDays: doneDays})
 			if kanbanBacklog(cfg) >= 0 {
 				msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: "Backlog"})
 			}
@@ -481,8 +483,15 @@ func kanbanBacklog(cfg *jira.BoardConfig) int {
 }
 
 // jiraKanbanJQL hides what Jira's own kanban board hides: work done more than
-// two weeks ago.
-const jiraKanbanJQL = "statusCategory != Done OR updated >= -14d"
+// days (two weeks by default) ago.
+func jiraKanbanJQL(days int) string {
+	if days <= 0 {
+		days = defaultKanbanDoneDays
+	}
+	return fmt.Sprintf("statusCategory != Done OR updated >= -%dd", days)
+}
+
+const defaultKanbanDoneDays = 14
 
 func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.BoardConfig, v jiraView, filter string) ([]jira.Card, int, error) {
 	switch v.kind {
@@ -496,7 +505,7 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 		cards, err := c.SearchCards(ctx, andOrderedJQL(v.jql, filter))
 		return cards, len(cards), err
 	}
-	cards, total, err := c.BoardIssues(ctx, board, andJQL(jiraKanbanJQL, filter), cfg.PointsField)
+	cards, total, err := c.BoardIssues(ctx, board, andJQL(jiraKanbanJQL(v.doneDays), filter), cfg.PointsField)
 	if i := kanbanBacklog(cfg); i >= 0 && err == nil {
 		kept := cards[:0]
 		for _, cd := range cards {

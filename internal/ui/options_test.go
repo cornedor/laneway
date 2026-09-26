@@ -175,3 +175,35 @@ func TestCodeThemeOption(t *testing.T) {
 		}
 	}
 }
+
+func TestKanbanDoneDays(t *testing.T) {
+	o, warn := optionsFrom(config.UIConfig{KanbanDoneDays: 30})
+	if o.kanbanDoneDays != 30 || len(warn) != 0 {
+		t.Fatalf("done days = %d %v", o.kanbanDoneDays, warn)
+	}
+	if o, warn = optionsFrom(config.UIConfig{KanbanDoneDays: -1}); o.kanbanDoneDays != 14 || len(warn) != 1 {
+		t.Errorf("bad value = %d %v", o.kanbanDoneDays, warn)
+	}
+	var gotJQL []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if q := r.URL.Query().Get("jql"); q != "" {
+			gotJQL = append(gotJQL, q)
+		}
+		_, _ = w.Write([]byte(`{"total":0,"issues":[]}`))
+	}))
+	defer srv.Close()
+	c := jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	for _, days := range []int{30, 0} {
+		v := jiraView{kind: jiraViewBoard, doneDays: days}
+		if _, _, err := fetchJiraView(context.Background(), c, 7, &jira.BoardConfig{}, v, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(gotJQL) != 2 || gotJQL[0] != "statusCategory != Done OR updated >= -30d" || gotJQL[1] != "statusCategory != Done OR updated >= -14d" {
+		t.Errorf("jql = %q", gotJQL)
+	}
+	v := jiraView{kind: jiraViewBoard, doneDays: 30}
+	if back := cacheOf(jiraBoardMsg{views: []jiraView{v}}, "").boardMsg(0).views; back[0] != v {
+		t.Errorf("cache round trip = %+v", back)
+	}
+}

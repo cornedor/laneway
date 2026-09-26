@@ -34,6 +34,7 @@ type options struct {
 	branchTemplate  string             // copy_branch's name
 	workBranch      string             // start work's new branch
 	workAgent       string             // the herdr agent kind start work launches
+	kanbanDoneDays  int                // done work older than this leaves kanban boards
 	codeTheme       string             // chroma style for code blocks
 }
 
@@ -47,7 +48,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", codeTheme: fallbackCodeTheme}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, codeTheme: fallbackCodeTheme}
 }
 
 // presetCodeTheme is the chroma style matching each theme preset.
@@ -92,6 +93,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		warn = append(warn, fmt.Sprintf("ui.stale_days: %d is below 1", n))
 	default:
 		o.staleDays = n
+	}
+	switch n := c.KanbanDoneDays; {
+	case n == 0:
+	case n < 1 || n > 365:
+		warn = append(warn, fmt.Sprintf("ui.kanban_done_days: %d is not 1–365", n))
+	default:
+		o.kanbanDoneDays = n
 	}
 	switch n := c.VelocitySprints; {
 	case n == 0:

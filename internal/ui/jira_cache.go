@@ -42,6 +42,9 @@ type jiraCacheView struct {
 	Start  time.Time `json:",omitzero"`
 	End    time.Time `json:",omitzero"`
 	Goal   string    `json:",omitempty"`
+	// DoneDays is a kanban board's done window; older caches lack it (0,
+	// the default).
+	DoneDays int `json:",omitempty"`
 }
 
 func jiraCacheKey(board int, view string) string {
@@ -60,7 +63,7 @@ func cacheOf(msg jiraBoardMsg, filter string) jiraCache {
 		StatusNames: msg.statusNames, Filter: filter, Cards: msg.cards, Total: msg.total}
 	for _, v := range msg.views {
 		c.Views = append(c.Views, jiraCacheView{Kind: v.kind, Name: v.name, Sprint: v.sprint, JQL: v.jql, Lanes: v.lanes,
-			Start: v.start, End: v.end, Goal: v.goal})
+			Start: v.start, End: v.end, Goal: v.goal, DoneDays: v.doneDays})
 	}
 	return c
 }
@@ -72,7 +75,7 @@ func (c jiraCache) boardMsg(seq int) jiraBoardMsg {
 		statusNames: c.StatusNames, cards: c.Cards, total: c.Total}
 	for _, v := range c.Views {
 		msg.views = append(msg.views, jiraView{kind: v.Kind, name: v.Name, sprint: v.Sprint, jql: v.JQL, lanes: v.Lanes,
-			start: v.Start, end: v.End, goal: v.Goal})
+			start: v.Start, end: v.End, goal: v.Goal, doneDays: v.DoneDays})
 	}
 	return msg
 }

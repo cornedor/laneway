@@ -77,6 +77,7 @@ ui:
   saved_filters: on             # your starred Jira filters as views too (off)
   branch_template: "{key}-{summary}"  # ctrl+y's branch name: {key} {summary} {type} {project}
   work_branch_template: "issue/{key}-{summary}"  # S's new branch; default branch_template when set
+  kanban_done_days: 14          # done work older than this leaves kanban boards
   work_agent: claude            # the herdr agent S starts in the worktree
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
   keys:              # rebind any action: one key or a list

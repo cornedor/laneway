@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- `ui.kanban_done_days`: how long done work stays on kanban boards (14 today)
 - Roadmap config: the epic issue type (`Epic` today; Initiative, renamed types) for the query and new epics, and how long resolved epics stay (90d)
 - `ui.workdays`: which weekdays standup's previous workday skips over (Mon–Fri today)
 - `ui.flag_value`: the Flagged option flagging sets (`Impediment` today)
@@ -33,6 +32,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.kanban_done_days`: how long done work stays on kanban boards (14)
 - `ui.work_agent`: the herdr agent kind start work launches (`claude`)
 - Start work names and finds its branch by `ui.work_branch_template` (default `branch_template` when set, else `issue/{key}-{summary}`); an existing branch fits whatever its summary was
 - `ui.code_theme`: code blocks' chroma style, by default the theme preset's (tokyonight-night, catppuccin-mocha, gruvbox), else monokai; editable from `,`

@@ -89,6 +89,9 @@ type UIConfig struct {
 	// placeholders; by default BranchTemplate when set, else
 	// "issue/{key}-{summary}".
 	WorkBranchTemplate string `yaml:"work_branch_template"`
+	// KanbanDoneDays is how many days done work stays on a kanban board
+	// (default 14).
+	KanbanDoneDays int `yaml:"kanban_done_days"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
 	WorkAgent string `yaml:"work_agent"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);
