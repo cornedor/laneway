@@ -127,7 +127,10 @@ type UIConfig struct {
 	RoadmapEpicType string `yaml:"roadmap_epic_type"`
 	// MyWorkJQL is the query O's my work view runs; "" keeps yours in every
 	// project, open or done this week.
-	MyWorkJQL       string `yaml:"my_work_jql"`
+	MyWorkJQL string `yaml:"my_work_jql"`
+	// DownloadDir is where attachments are saved ("~/Downloads/jira");
+	// "" is $XDG_DOWNLOAD_DIR, else ~/Downloads.
+	DownloadDir     string `yaml:"download_dir"`
 	RoadmapDoneDays int    `yaml:"roadmap_done_days"`
 	// Workdays are the days you work, for standup's previous workday:
 	// [mon, tue, wed, thu, fri] by default.

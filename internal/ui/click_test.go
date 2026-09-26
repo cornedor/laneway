@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -611,5 +613,33 @@ func TestQClosesScreens(t *testing.T) {
 		if tab := m.jiraTab; tab.roadmap != nil || tab.plan != nil || tab.charts != nil {
 			t.Errorf("%s: q left it open", name)
 		}
+	}
+}
+
+// TestMutatedStatus: a write's success reads as what it did.
+func TestMutatedStatus(t *testing.T) {
+	for field, want := range map[string]string{
+		"comment": "commented on ABC-1", "worklog": "logged work on ABC-1", "flagged": "flagged ABC-1",
+		"flag cleared": "cleared the flag on ABC-1", "links": "ABC-1 links changed", "priority": "ABC-1 priority updated",
+	} {
+		if got := mutatedStatus("ABC-1", field); got != want {
+			t.Errorf("%s: %q, want %q", field, got, want)
+		}
+	}
+}
+
+// TestDownloadDir: ui.download_dir wins, ~ is home, else XDG, else
+// ~/Downloads.
+func TestDownloadDir(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	t.Setenv("XDG_DOWNLOAD_DIR", "/xdg")
+	for in, want := range map[string]string{"~/jira": filepath.Join(home, "jira"), "/tmp/x": "/tmp/x", "": "/xdg"} {
+		if got := downloadDir(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
+	}
+	t.Setenv("XDG_DOWNLOAD_DIR", "")
+	if got := downloadDir(""); got != filepath.Join(home, "Downloads") {
+		t.Errorf("default %q", got)
 	}
 }

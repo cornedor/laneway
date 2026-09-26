@@ -85,6 +85,7 @@ ui:
   work_branch_template: "issue/{key}-{summary}"  # S's new branch; default branch_template when set
   kanban_done_days: 14          # done work older than this leaves kanban boards
   roadmap_epic_type: Epic       # the issue type R shows and n creates (Initiative, …)
+  download_dir: ~/Downloads/jira  # where attachments are saved ($XDG_DOWNLOAD_DIR, else ~/Downloads)
   my_work_jql: "assignee = currentUser() AND statusCategory != Done"   # O's query; default: yours everywhere, open or done this week
   roadmap_done_days: 90         # resolved epics older than this leave the roadmap
   workdays: [mon, tue, wed, thu, fri]  # standup (U) looks back to the previous one

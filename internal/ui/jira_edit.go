@@ -819,6 +819,24 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	return m, jiraMutateCmd(key, field, run)
 }
 
+// mutatedStatus says a write went through in words that fit what it
+// wrote: "commented on ABC-1", "ABC-1 priority updated".
+func mutatedStatus(key, field string) string {
+	switch field {
+	case "comment":
+		return "commented on " + key
+	case "worklog":
+		return "logged work on " + key
+	case "flagged":
+		return "flagged " + key
+	case "flag cleared":
+		return "cleared the flag on " + key
+	case "links", "attachments":
+		return key + " " + field + " changed"
+	}
+	return key + " " + field + " updated"
+}
+
 // jiraMutateCmd runs a field write in the background and reports the result.
 func jiraMutateCmd(key, field string, run func() error) tea.Cmd {
 	return func() tea.Msg {
@@ -837,7 +855,7 @@ func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	m.status = fmt.Sprintf("%s %s updated", msg.key, msg.field)
+	m.status = mutatedStatus(msg.key, msg.field)
 	board := m.refreshJiraAfterEdit()
 	if r := m.currentRef(); r != nil && r.jiraKey == msg.key {
 		return m, tea.Batch(m.loadCurrentRef(), board)

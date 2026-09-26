@@ -116,7 +116,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil
 		}
-		m.startJiraPicker(jiraPickAttachment, "Download to "+downloadDir(), true)
+		m.startJiraPicker(jiraPickAttachment, "Download to "+downloadDir(strings.TrimSpace(m.uiConfig.DownloadDir)), true)
 		var items []jiraPickerItem
 		for _, a := range m.jiraIssue.Attachments {
 			items = append(items, jiraPickerItem{id: a.ID + "/" + a.Filename, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size))})
@@ -232,20 +232,26 @@ type jiraDownloadedMsg struct {
 	err  error
 }
 
-// downloadDir is where attachments are saved: $XDG_DOWNLOAD_DIR, else
-// ~/Downloads.
-func downloadDir() string {
+// downloadDir is where attachments are saved: ui.download_dir (~ is your
+// home), else $XDG_DOWNLOAD_DIR, else ~/Downloads.
+func downloadDir(dir string) string {
+	home, _ := os.UserHomeDir()
+	if rest, ok := strings.CutPrefix(dir, "~/"); ok {
+		return filepath.Join(home, rest)
+	}
+	if dir != "" {
+		return dir
+	}
 	if d := os.Getenv("XDG_DOWNLOAD_DIR"); d != "" {
 		return d
 	}
-	home, _ := os.UserHomeDir()
 	return filepath.Join(home, "Downloads")
 }
 
 // downloadAttachment saves the picked "id/name" to the download dir.
 func (m *Model) downloadAttachment(pick string) tea.Cmd {
 	id, name, _ := strings.Cut(pick, "/")
-	c, ctx, dir := m.jiraClient, m.ctx, downloadDir()
+	c, ctx, dir := m.jiraClient, m.ctx, downloadDir(strings.TrimSpace(m.uiConfig.DownloadDir))
 	m.status = "downloading " + name + "…"
 	return func() tea.Msg {
 		path, err := c.DownloadAttachment(ctx, id, name, dir)
