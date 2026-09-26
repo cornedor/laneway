@@ -70,6 +70,9 @@ func jiraCardMatches(c jira.Card, terms []jiraTerm, env jiraQueryEnv) bool {
 //	is:flagged         flagged, done, pr, unassigned, mine, overdue
 //	due<7d age>3d      due within / after, in progress longer / shorter (h d w)
 //	updated<1d         changed within a day (updated>7d: not for a week)
+//	created<7d         made within a week
+//	reporter:ada       who reported it
+//	component:api      one of its components
 //	pr:open deploy:prod the Development field
 //	sprint:4           the sprint it is in now
 //	"test type":e2e    a ui.custom_fields field by name
@@ -89,6 +92,7 @@ var jiraQueryFields = map[string]string{
 	"prio": "priority", "priority": "priority", "epic": "parent", "parent": "parent",
 	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is",
 	"due": "due", "age": "age", "updated": "updated", "pr": "pr", "deploy": "deploy", "sprint": "sprint",
+	"created": "created", "reporter": "reporter", "component": "component", "components": "component",
 }
 
 // jiraParseQuery splits q into terms. A word that doesn't parse as a field
@@ -190,7 +194,7 @@ func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 			}
 		}
 		return false
-	case "due", "age", "updated":
+	case "due", "age", "updated", "created":
 		return jiraMatchSpan(t, c, env.now)
 	}
 	var have string
@@ -217,6 +221,10 @@ func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 		have = c.Deploy
 	case "sprint":
 		have = c.Sprint
+	case "reporter":
+		have = c.Reporter
+	case "component":
+		have = c.Components
 	default:
 		if name, ok := strings.CutPrefix(t.field, "custom:"); ok {
 			have = jiraExtra(c)[name]
@@ -239,6 +247,8 @@ func jiraCompare(field, op, have, want string) bool {
 	switch {
 	case op == ":" && field == "label":
 		return slices.ContainsFunc(strings.Fields(have), func(l string) bool { return strings.Contains(l, want) })
+	case op == ":" && field == "component":
+		return slices.ContainsFunc(strings.Split(have, jira.ExtraSep), func(c string) bool { return strings.Contains(c, want) })
 	case op == ":":
 		return strings.Contains(have, want)
 	case field == "priority": // a lower rank is a higher priority
@@ -283,6 +293,8 @@ func jiraMatchSpan(t jiraTerm, c jira.Card, now time.Time) bool {
 		have = now.Sub(c.Since)
 	case t.field == "updated" && !c.Updated.IsZero():
 		have = now.Sub(c.Updated)
+	case t.field == "created" && !c.Created.IsZero():
+		have = now.Sub(c.Created)
 	default:
 		return false
 	}

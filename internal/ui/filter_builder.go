@@ -23,6 +23,7 @@ import (
 var filterFields = []struct{ name, label string }{
 	{"status", "Status"}, {"assignee", "Assignee"}, {"type", "Type"}, {"prio", "Priority"},
 	{"points", "Story points"}, {"label", "Label"}, {"epic", "Epic"}, {"pr", "Pull request"}, {"deploy", "Deployed to"},
+	{"component", "Component"}, {"reporter", "Reporter"},
 	{"is", "Is: mine, overdue, flagged…"},
 }
 
@@ -253,6 +254,12 @@ func filterValues(cards []jira.Card, field string, env jiraQueryEnv) (counts map
 			for _, l := range strings.Fields(c.Labels) {
 				add(l, l)
 			}
+		case "component":
+			for _, n := range strings.Split(c.Components, jira.ExtraSep) {
+				add(n, n)
+			}
+		case "reporter":
+			add(c.Reporter, c.Reporter)
 		case "pr":
 			add(strings.ToLower(c.PR), strings.ToLower(c.PR))
 		case "deploy":

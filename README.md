@@ -249,13 +249,16 @@ points>2 prio>=high  numbers and priorities compare (<, <=, >, >=, =)
 is:flagged           also done, pr, unassigned, mine, overdue
 due<7d age>3d        due within a week, in progress over 3 days (h, d, w)
 updated<1d           changed within a day (updated>7d: quiet a week)
+created<7d           made within a week
+reporter:bob         who reported it
+component:api        one of its components
 pr:open deploy:prod  pull request state, deployed environment
 sprint:4             the sprint it is in now
 "test type":e2e      a ui.custom_fields field by name
 -label:ui            any term negated
 ```
 
-Fields: status, assignee, type, prio, epic, label, key, points, due, age, updated, pr, deploy, sprint, and `ui.custom_fields` quoted.
+Fields: status, assignee, type, prio, epic, label, key, points, due, age, updated, created, reporter, component, pr, deploy, sprint, and `ui.custom_fields` quoted.
 
 ## Bulk edit
 

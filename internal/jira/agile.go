@@ -22,7 +22,7 @@ import (
 const DefaultCardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
-const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate,statuscategorychangedate,labels,updated"
+const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate,statuscategorychangedate,labels,updated,created,reporter,components"
 
 // boardMetaCache keeps what a board is made of — a project's boards, a
 // board's columns and quick filters — for the session: they change about as
@@ -144,8 +144,14 @@ type Card struct {
 	// Since when its status category last changed (zero when unknown).
 	InProgress bool
 	Since      time.Time
-	// Updated is when it last changed, zero when unknown.
-	Updated time.Time
+	// Updated is when it last changed, Created when it was made; zero when
+	// unknown.
+	Updated, Created time.Time
+	// Reporter is the reporter's name, "" for none.
+	Reporter string
+	// Components are its components' names joined by ExtraSep (names hold
+	// spaces), so a Card stays comparable.
+	Components string
 	// Sprint is the sprint it is in now (open or future), "" for none.
 	Sprint string
 	// Extra are Config.CustomFields' values, "Name=value" joined by
@@ -490,6 +496,19 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	if updated := str("updated"); updated != "" {
 		card.Updated, _ = time.Parse(jiraTime, updated)
 	}
+	if created := str("created"); created != "" {
+		card.Created, _ = time.Parse(jiraTime, created)
+	}
+	_, card.Reporter = obj("reporter")
+	var comps []struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(f["components"], &comps)
+	names := make([]string, len(comps))
+	for i, c := range comps {
+		names[i] = c.Name
+	}
+	card.Components = strings.Join(names, ExtraSep)
 	card.TypeID, card.Type = obj("issuetype")
 	_, card.Priority = obj("priority")
 	card.AssigneeID, card.Assignee = obj("assignee")

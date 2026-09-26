@@ -50,3 +50,15 @@ func TestCardParent(t *testing.T) {
 		t.Errorf("no parent field gave %q", c.ParentKey)
 	}
 }
+
+func TestCardReporterComponents(t *testing.T) {
+	f := map[string]json.RawMessage{
+		"created":    json.RawMessage(`"2026-09-01T10:00:00.000+0200"`),
+		"reporter":   json.RawMessage(`{"accountId":"b1","displayName":"Bob"}`),
+		"components": json.RawMessage(`[{"id":"1","name":"Web shop"},{"id":"2","name":"API"}]`),
+	}
+	c := toCard("ABC-2", f, "")
+	if c.Reporter != "Bob" || c.Components != "Web shop"+ExtraSep+"API" || c.Created.IsZero() {
+		t.Errorf("card = %q %q %v", c.Reporter, c.Components, c.Created)
+	}
+}

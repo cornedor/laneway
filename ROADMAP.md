@@ -4,6 +4,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `/` terms `reporter:`, `component:` (any one of its components) and `created<7d`; cards carry them, the `F` builder offers component and reporter
 - `esc` cancels a drag in progress: cards and swimlanes, planning, roadmap bars (dates put back, their write dropped, other pending writes kept) and the panel border (width back, nothing remembered)
 - Light terminals: the default idle selection (a fixed dark grey behind the terminal's text) turns light grey once the terminal reports a light background, a configured one kept; avatar initials white by hex, not the palette's 15. Lozenges and the focused selection are ANSI and follow the palette
 - `laneway rules test` defaults: the project's Task (else first type) and its first to-do status read from Jira (`/project/{key}/statuses`), `rules_test:` overrides, Task / To Do without Jira
