@@ -379,3 +379,19 @@ func TestRoadmapSelectedRowRunsOn(t *testing.T) {
 		t.Errorf("another row is painted: %q", lines[2])
 	}
 }
+
+// TestRoadmapTabToPanel: with an issue open beside the roadmap, tab walks
+// out of the panel onto the roadmap and back again.
+func TestRoadmapTabToPanel(t *testing.T) {
+	m := roadmapModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if !m.refOpen {
+		t.Fatal("enter should open the row's issue")
+	}
+	m.focus = focusJira
+	out, _ = m.handleKey(keyMsg(t, "tab"))
+	if m = out.(Model); m.focus != focusRef {
+		t.Fatalf("tab on the roadmap: focus %v, want the panel", m.focus)
+	}
+}

@@ -281,6 +281,11 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
+	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
+		if m.refOpen {
+			m.focus = focusRef
+			m.renderJira()
+		}
 	}
 	return m, nil
 }
@@ -589,7 +594,11 @@ func (m *Model) renderRoadmap(width, height int) string {
 		e := r.rowEpic(row)
 		label := m.roadmapLabel(r, row, labelW)
 		if i == r.idx {
-			label = selectedRow.Render(ansi.Strip(label))
+			sel := selectedRow
+			if m.focus != focusJira { // the panel has the keys
+				sel = diffTreeSelStyle
+			}
+			label = sel.Render(ansi.Strip(label))
 		} else if e.Done {
 			label = jiraDimStyle.Render(ansi.Strip(label))
 		}
