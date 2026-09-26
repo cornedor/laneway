@@ -107,3 +107,20 @@ func TestHelpFitsHeight(t *testing.T) {
 		t.Error("a short screen should split the board keys")
 	}
 }
+
+// TestHelpTitles: unshaded, each help column's title sits over a rule as
+// wide as the column.
+func TestHelpTitles(t *testing.T) {
+	m := jiraTabModel(t)
+	m.helpOpen = true
+	lines := strings.Split(ansi.Strip(m.renderHelp(40)), "\n")
+	for i, l := range lines {
+		if strings.Contains(l, "Panel ") || strings.HasSuffix(strings.TrimRight(l, " │"), "Panel") {
+			if i+1 >= len(lines) || !strings.Contains(lines[i+1], "────") {
+				t.Fatalf("no rule under the Panel title:\n%s", strings.Join(lines, "\n"))
+			}
+			return
+		}
+	}
+	t.Fatalf("no Panel title:\n%s", strings.Join(lines, "\n"))
+}

@@ -93,6 +93,15 @@ func (m *Model) helpSections() []struct {
 	}
 }
 
+// helpTitle heads a help column: a shaded bar across it, or without
+// shading the title over a rule, so the columns read as groups.
+func helpTitle(title string, width int) string {
+	if shadeOn {
+		return bar(titleStyle.Render(" "+title), width) + "\n"
+	}
+	return titleStyle.Render(title) + "\n" + refDimStyle.Render(strings.Repeat("─", width))
+}
+
 // renderHelp lays the sections out side by side, a section running on into
 // another column when it is taller than height allows.
 func (m *Model) renderHelp(height int) string {
@@ -109,8 +118,13 @@ func (m *Model) renderHelp(height int) string {
 			if start > 0 {
 				title += " (more)"
 			}
-			lines := []string{titleStyle.Render(title), ""}
-			for _, r := range s.rows[start:min(start+perCol, len(s.rows))] {
+			rows := s.rows[start:min(start+perCol, len(s.rows))]
+			colW := lipgloss.Width(title) + 2
+			for _, r := range rows {
+				colW = max(colW, keyW+2+lipgloss.Width(r.desc))
+			}
+			lines := []string{helpTitle(title, colW)}
+			for _, r := range rows {
 				pad := strings.Repeat(" ", keyW-lipgloss.Width(r.keys))
 				lines = append(lines, keyStyle.Render(r.keys)+pad+"  "+r.desc)
 			}

@@ -1,10 +1,10 @@
 # Roadmap
 
 ## Next
-- Help overlay: section titles as shaded bars like the panel's, so the columns read as groups
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Help overlay: each column's title a shaded bar across it (unshaded: over a rule)
 - Swimlane band and list group headers by assignee carry the avatar chip
 - Cards and list rows: the assignee's initials on a colour of their own (`card_fields: avatar`, on by default)
 - Panel status as a lozenge coloured by its category (to do grey, in progress blue, done green), plain while the field cursor is on it
