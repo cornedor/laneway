@@ -44,6 +44,9 @@ type roadmapState struct {
 	pending map[string]bool
 	saveSeq int
 	drag    roadmapDrag
+	// grip is the bar end e picked up: "start" or "end", h/l then move
+	// it; "" scrolls.
+	grip string
 }
 
 // roadmapRow is one line: an epic (kid -1), one of its children, or a
@@ -211,6 +214,26 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m, tea.Sequence(m.saveRoadmap(), tea.Quit) // pending date moves first
+	case msg.String() == "esc" && r.grip != "":
+		r.grip = ""
+		m.status = "bar let go"
+	case msg.String() == "e":
+		r.grip = map[string]string{"": "start", "start": "end", "end": ""}[r.grip]
+		switch r.grip {
+		case "":
+			m.status = "bar let go"
+		default:
+			m.status = "holding the bar's " + r.grip + " · h/l move it · e the other end · esc let go"
+		}
+	case r.grip != "" && key.Matches(msg, m.keys.Left), r.grip != "" && key.Matches(msg, m.keys.Right):
+		d := zoom
+		if key.Matches(msg, m.keys.Left) {
+			d = -zoom
+		}
+		if r.grip == "start" {
+			return m, m.shiftRoadmap(d, 0)
+		}
+		return m, m.shiftRoadmap(0, d)
 	case msg.String() == "esc", key.Matches(msg, m.keys.Roadmap):
 		save := m.saveRoadmap()
 		m.jiraTab.roadmap = nil
@@ -372,6 +395,9 @@ func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
 	}
 	if !start.IsZero() {
 		*start = start.AddDate(0, 0, ds)
+		if de == 0 && !end.IsZero() && start.After(*end) {
+			*start = *end // a start grip stops at the end
+		}
 	}
 	e := *end
 	if e.IsZero() {
@@ -551,7 +577,7 @@ func (m *Model) roadmapLine() string {
 	}
 	k := m.keys
 	return s + jiraDimStyle.Render("  ·  ← → scroll  + - zoom  . today  space children  "+
-		helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  "+helpKey(k.OpenChannel)+" open  "+helpKey(k.CopyKey)+" copy  esc board")
+		helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  e grip an end  "+helpKey(k.OpenChannel)+" open  "+helpKey(k.CopyKey)+" copy  esc board")
 }
 
 func roadmapZoomName(days int) string {

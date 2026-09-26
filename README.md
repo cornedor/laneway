@@ -336,14 +336,15 @@ state file); `ctrl+s` on a starred one unstars it.
 ![Epics on a timeline, one expanded](docs/screenshots/roadmap.png)
 
 `R` on the board shows the project's epics on a timeline: open ones and
-those done in the last 90 days, in rank order. A bar runs from the epic's
+those done in the last 90 days (`ui.roadmap_done_days`), in rank order. A bar runs from the epic's
 Start date (or Plans' Target start) to its Due date (or Target end); an
 epic without them spans its children's sprints, drawn fainter. The bar
 fills by points done, else by children done. `← →` scroll, `+ -` zoom
 (day to 2 weeks per column), `.` back to today, `space` folds out the
 epic's issues, `enter` opens the row's issue, `y` copies the epics as a markdown
 table, `esc` back to the board.
-`H`/`L` move a bar (an epic's or a child's) a column, `<`/`>` move its end;
+`H`/`L` move a bar (an epic's or a child's) a column, `<`/`>` move its end,
+`e` picks up its start (again: its end, again: lets go) for `h`/`l` to move;
 with the mouse, drag a bar to move it, or drag either end to stretch it;
 the dates are written to Jira once you pause. `f` shows the epic's issues as
 a board view, `n` makes a new epic. An epic an open epic blocks shows `⛓`, red `⛔` when

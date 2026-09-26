@@ -10,10 +10,10 @@
 - Card density toggle: a one-line card (key, summary, avatar) to fit more per lane
 - Light-theme pass over the chips, lozenges and selection colours
 - My work: everything assigned to you across boards and projects, grouped by status
-- Roadmap: keyboard grips (pick a bar's end, then h/l), matching the mouse
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Roadmap: `e` grips a bar's start, again its end, again lets go; `h`/`l` move the gripped end (the start stops at the end), matching the mouse
 - `ui.filters`: named `/` queries, recalled from the `:` palette (`search  Stale review`)
 - `e` on the board: quick edit the selected card (status, priority, assignee, labels, points, sprint) with the bulk editors, marks untouched
 - History: a multi-line field (the description) shows as the lines it changed, `- old` red and `+ new` green, 12 at most

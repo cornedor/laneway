@@ -410,3 +410,44 @@ func TestRoadmapEpicType(t *testing.T) {
 		t.Errorf("options %q %d %v", o.epicType, o.roadmapDoneDays, warn)
 	}
 }
+
+// TestRoadmapGrip: e picks up the bar's start, then its end; h/l move the
+// one held, and the start stops at the end.
+func TestRoadmapGrip(t *testing.T) {
+	m := roadmapModel(t)
+	var writes []string
+	fakeRoadmapJira(t, &m, true, &writes)
+	e := &m.jiraTab.roadmap.epics[0]
+	start, end := e.Start, e.End
+	from := m.jiraTab.roadmap.from
+	press := func(keys ...string) {
+		for _, k := range keys {
+			out, _ := m.handleJiraKey(keyMsg(t, k))
+			m = out.(Model)
+		}
+	}
+	zoom := roadmapZooms[m.jiraTab.roadmap.zoom]
+	press("e", "l")
+	if !e.Start.Equal(start.AddDate(0, 0, zoom)) || !e.End.Equal(end) || !m.jiraTab.roadmap.from.Equal(from) {
+		t.Fatalf("start grip: %v – %v", e.Start, e.End)
+	}
+	press("e", "h")
+	if !e.End.Equal(end.AddDate(0, 0, -zoom)) {
+		t.Fatalf("end grip: %v", e.End)
+	}
+	press("e")
+	if m.jiraTab.roadmap.grip != "" {
+		t.Fatal("a third e should let go")
+	}
+	press("l") // scrolls again
+	if m.jiraTab.roadmap.from.Equal(from) {
+		t.Error("l no longer scrolls")
+	}
+	press("e")
+	for range 400 / max(zoom, 1) {
+		press("l")
+	}
+	if e.Start.After(e.End) {
+		t.Errorf("start passed the end: %v – %v", e.Start, e.End)
+	}
+}
