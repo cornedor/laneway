@@ -30,6 +30,7 @@ type options struct {
 	timerOnStart    bool                // S also starts the timer
 	startAssigns    bool                // S also assigns the issue to you
 	startStatus     string              // and moves it there, "" for none
+	workdayStart    time.Duration       // from midnight: when a log on another day starts
 	templates       map[string]string   // new issue descriptions by type, lower-cased
 	velocitySprints int                 // closed sprints in the velocity chart
 	staleDays       int                 // in progress longer than this shows red
@@ -67,7 +68,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -257,6 +258,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		warn = append(warn, fmt.Sprintf("ui.start_assigns: %q is not on or off", c.StartAssigns))
 	}
 	o.startStatus = strings.TrimSpace(c.StartStatus)
+	if v := strings.TrimSpace(c.WorkdayStart); v != "" {
+		if t, err := time.Parse("15:04", v); err != nil {
+			warn = append(warn, fmt.Sprintf("ui.workday_start: %q is not a time (09:00)", v))
+		} else {
+			o.workdayStart = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
+		}
+	}
 	switch strings.ToLower(strings.TrimSpace(c.TimerOnStart)) {
 	case "", "off":
 	case "on":

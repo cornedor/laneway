@@ -42,6 +42,7 @@ var settingDefaults = map[string]string{
 	"timer_on_start":       "off",
 	"start_assigns":        "off",
 	"start_status":         "none",
+	"workday_start":        "09:00",
 	"capacity":             "none",
 	"saved_filters":        "on",
 	"branch_template":      defaultBranchTemplate,

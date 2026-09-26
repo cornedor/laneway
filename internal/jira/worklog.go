@@ -39,8 +39,9 @@ func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, starte
 	return nil
 }
 
-// UpdateWorklog sets worklog id's time and comment.
-func (c *Client) UpdateWorklog(ctx context.Context, key, id string, seconds int, comment string) error {
+// UpdateWorklog sets worklog id's time and comment, and its start when
+// started isn't zero (moved to another day).
+func (c *Client) UpdateWorklog(ctx context.Context, key, id string, seconds int, started time.Time, comment string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
@@ -49,6 +50,9 @@ func (c *Client) UpdateWorklog(ctx context.Context, key, id string, seconds int,
 	}
 	// The comment always goes along, so emptying it clears it.
 	body := map[string]any{"timeSpentSeconds": seconds, "comment": textToADF(comment, nil)}
+	if !started.IsZero() {
+		body["started"] = started.Format(jiraTime)
+	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/worklog/" + url.PathEscape(id)
 	if err := c.do(ctx, http.MethodPut, path, key, body, nil); err != nil {
 		return err

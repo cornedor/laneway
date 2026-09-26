@@ -1,11 +1,20 @@
 # Roadmap
 
 ## Next
+- Rules: a writing rule's success on the status line (and messages), a failure names the rule and issue
+- Bulk: partial failures as errors (✗ in messages, each key's reason); quick edit's box title names the issue, not "0 issues"
+- Charts: burndown/burnup count issues when the sprint has no points
+- Charts, planning, roadmap errors: wrapped with hints like the board's; keep the half that loaded; the roadmap's empty state mentions `n` and `ui.roadmap_epic_type`
+- Planning: `x` says how many are marked, empty sides hint, heads count unestimated cards, `y` copies the sprint
+- Dev info: ctrl+y copies a branch, enter on a row without a link says so, one failing tool doesn't blank the rest
+- Inbox keeps its badge when a load fails; history's enter opens the Activity → History tab
+- The timesheet's empty state hints `w` and `[ ]`; standup can step forward again
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Fix: editing a worklog with a day first (`fri 1h`) dropped the day; it moves the entry there now. `ui.workday_start` (09:00) sets when a log on another day starts
 - Removing a link asks for a second enter on it (it was gone at the first)
 - Start work can assign you (`ui.start_assigns: on`) and move the issue (`ui.start_status: In Progress`); a move with a screen of its own is left to `s`
 - `ui.empty_fields: hide` folds the panel's empty fields behind a "N empty fields" row; a click on it, or the palette's `show empty fields`, shows them

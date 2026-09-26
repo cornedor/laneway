@@ -1087,3 +1087,28 @@ func TestStartWrites(t *testing.T) {
 		t.Error("with neither set it writes")
 	}
 }
+
+// TestWorklogEditMovesDay: editing an entry with a day first moves it
+// there, from ui.workday_start.
+func TestWorklogEditMovesDay(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			b, _ := io.ReadAll(r.Body)
+			body = string(b)
+		}
+		io.WriteString(w, `{"worklogs":[],"issues":[]}`)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.opts, _ = optionsFrom(config.UIConfig{WorkdayStart: "08:30"})
+	m.openWorklogInput("ABC-1", "", time.Time{})
+	m.worklogEdit, m.worklogEditDay = "77", time.Now()
+	_, cmd := m.applyWorklog("yesterday 1h fixed it")
+	cmd()
+	y := time.Now().AddDate(0, 0, -1)
+	if !strings.Contains(body, `"started":"`+y.Format("2006-01-02")+`T08:30`) || !strings.Contains(body, `"timeSpentSeconds":3600`) {
+		t.Errorf("PUT body %s", body)
+	}
+}

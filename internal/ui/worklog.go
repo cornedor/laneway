@@ -144,7 +144,8 @@ func worklogDay(raw string, now time.Time) (day time.Time, rest string, ok bool)
 }
 
 // applyWorklog logs the input's time and comment; a leading day
-// ("yesterday 2h") logs it then, from 9:00.
+// ("yesterday 2h") logs it then, from ui.workday_start; in an edit it moves
+// the entry there.
 func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	day, raw, onDay := worklogDay(raw, time.Now())
 	secs, comment, err := jira.ParseDuration(raw)
@@ -154,14 +155,17 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	}
 	key, started := m.jiraFieldKey, m.worklogStart
 	if id := m.worklogEdit; id != "" {
-		day := m.worklogEditDay
+		showDay, moved := m.worklogEditDay, time.Time{}
+		if onDay { // a day first moves the entry there
+			showDay, moved = day, day.Add(m.opts.workdayStart)
+		}
 		m.worklogEdit = ""
 		m.closeJiraField()
 		c, ctx := m.jiraClient, m.ctx
-		reload := m.openTimesheetDay(day)
+		reload := m.openTimesheetDay(showDay)
 		m.status = "updating the worklog on " + key + "…"
 		return m, func() tea.Msg {
-			if err := c.UpdateWorklog(ctx, key, id, secs, comment); err != nil {
+			if err := c.UpdateWorklog(ctx, key, id, secs, moved, comment); err != nil {
 				return jiraMutatedMsg{key: key, field: "worklog", err: err}
 			}
 			return reload()
@@ -169,7 +173,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	}
 	switch {
 	case onDay && started.IsZero():
-		started = day.Add(9 * time.Hour)
+		started = day.Add(m.opts.workdayStart)
 	case started.IsZero():
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
