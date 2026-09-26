@@ -1044,7 +1044,7 @@ func TestJiraSwimlanes(t *testing.T) {
 	if m = out.(Model); cmd == nil || m.jiraTab.drag.key != "" {
 		t.Errorf("drop: cmd %v, drag %+v", cmd != nil, m.jiraTab.drag)
 	}
-	for _, want := range []string{"swimlanes by epic", "no swimlanes"} {
+	for _, want := range []string{"swimlanes by epic", "swimlanes by priority", "no swimlanes"} {
 		out, _ = m.handleKey(keyMsg(t, "s"))
 		if m = out.(Model); m.status != want {
 			t.Errorf("status %q, want %q", m.status, want)

@@ -203,7 +203,7 @@ type jiraTabState struct {
 	lanesOut  string
 
 	sort jiraSort // the list's order; lanes keep the board's rank
-	// swim groups the lanes into swimlanes by assignee or epic (jiraSortRank
+	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
 	// for none); swimTop is its first line on screen, swimAt each body
 	// line's card row per lane (-1 for none), for the mouse.
 	swim    jiraSort
@@ -852,6 +852,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				t.swim = jiraSortAssignee
 			case jiraSortAssignee:
 				t.swim = jiraSortEpic
+			case jiraSortEpic:
+				t.swim = jiraSortPriority
 			default:
 				t.swim = jiraSortRank
 			}
@@ -962,7 +964,7 @@ func (m *Model) toggleJiraMode() tea.Cmd {
 	}
 }
 
-// jiraSwimKey remembers a board's swimlanes (assignee, epic or rank).
+// jiraSwimKey remembers a board's swimlanes (assignee, epic, priority or rank).
 func jiraSwimKey(board int) string {
 	return jiraMetaPrefix + "swim:" + strconv.Itoa(board)
 }
@@ -977,6 +979,8 @@ func (m *Model) readJiraSwim() jiraSort {
 		return jiraSortAssignee
 	case jiraSortEpic.String():
 		return jiraSortEpic
+	case jiraSortPriority.String():
+		return jiraSortPriority
 	}
 	return jiraSortRank
 }
@@ -1840,7 +1844,7 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 }
 
 // renderJiraSwimlanes draws the lanes cut into swimlanes: a band per
-// assignee (or epic) across every lane, headed by its name, its cards side
+// assignee (or epic, or priority) across every lane, headed by its name, its cards side
 // by side. The bands scroll together, keeping the cursor's card in view.
 func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 	t := m.jiraTab
@@ -2290,7 +2294,7 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 
 // jiraBandMove is the write a drop into another swimlane makes, as on
 // Jira's board: the band's assignee (or epic) for the card. The card moves
-// band at once; nil when it stays in its own.
+// band at once; nil when it stays in its own, or the bands are priorities.
 func (m *Model) jiraBandMove(d jiraDrag) tea.Cmd {
 	t := m.jiraTab
 	ci := slices.IndexFunc(t.cards, func(c jira.Card) bool { return c.Key == d.key })
