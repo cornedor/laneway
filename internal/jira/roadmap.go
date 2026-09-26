@@ -41,6 +41,7 @@ type EpicChild struct {
 type roadmapFieldIDs struct {
 	start, end, sprint string
 	dev                string // the Development summary (PRs, branches)
+	flagged            string // the Flagged (impediment) field
 }
 
 // roadmapFieldsOf picks the fields out of the field metadata: "Start date"
@@ -63,6 +64,8 @@ func roadmapFieldsOf(fields []apiField) roadmapFieldIDs {
 			ids.sprint = f.ID
 		case strings.HasSuffix(f.Schema.Custom, ":devsummarycf"):
 			ids.dev = f.ID
+		case name == "flagged":
+			ids.flagged = f.ID
 		}
 	}
 	return ids

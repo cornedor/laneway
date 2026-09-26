@@ -16,9 +16,11 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 	}
 	sp := c.resolveStoryPointFields(ctx)
 	fields := append(strings.Split(cardFields, ","), sp...)
-	dev := c.devField(ctx)
-	if dev != "" {
-		fields = append(fields, dev)
+	dev, flag := c.devField(ctx), c.flagField(ctx)
+	for _, id := range []string{dev, flag} {
+		if id != "" {
+			fields = append(fields, id)
+		}
 	}
 	issues, err := c.search(ctx, jql, fields)
 	if err != nil {
@@ -33,6 +35,7 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 			}
 		}
 		card.PR = prState(is.Fields[dev])
+		card.Flagged = flagSet(is.Fields[flag])
 		out = append(out, card)
 	}
 	return out, nil

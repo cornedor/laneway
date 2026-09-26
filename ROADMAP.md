@@ -11,6 +11,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Flagged (impediment) cards show ⚑; panel `A` flags / clears; `card_fields: flagged`
 - Cards show the due date: `due fri`, `due in 12d`, `overdue 2d` in red; `card_fields: due`
 - Cards show subtask progress `☑ 2/5` (done colour when all are); `card_fields: subtasks`
 - Standup: `U` again reaches a workday further back

@@ -38,6 +38,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
 		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
+		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
 		jiraPickerItem{id: "upload", label: "Upload a file"},
 	)
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
@@ -123,6 +124,17 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		m.setJiraPickerItems(items)
 	case "edit-comment":
 		return m.openCommentPicker()
+	case "flag":
+		on := true
+		if i := slices.IndexFunc(m.jiraTab.cards, func(cd jira.Card) bool { return cd.Key == key }); i >= 0 {
+			on = !m.jiraTab.cards[i].Flagged
+		}
+		what := "flagged"
+		if !on {
+			what = "flag cleared"
+		}
+		m.status = "setting the flag on " + key + "…"
+		return jiraMutateCmd(key, what, func() error { return c.SetFlagged(ctx, key, on) })
 	case "vote":
 		return func() tea.Msg {
 			on, err := c.ToggleVote(ctx, key)

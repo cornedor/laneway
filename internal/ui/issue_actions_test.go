@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/charmbracelet/x/ansi"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -202,6 +203,23 @@ func TestCreateTemplate(t *testing.T) {
 	_, cmd := m.handleJiraCreateKey(keyMsg(t, "enter"))
 	cmd()
 	if w := writes(); len(w) != 1 || !strings.Contains(w[0], `"type":"heading"`) || !strings.Contains(w[0], `"text":"Steps"`) {
+		t.Errorf("writes = %q", w)
+	}
+}
+
+// TestFlagAction: A → flag clears the flag of a flagged card, and cards
+// show the flag.
+func TestFlagAction(t *testing.T) {
+	m, writes := actionsModel(t, map[string]string{"/rest/api/3/field": `[{"id":"customfield_50","name":"Flagged"}]`})
+	m.jiraTab.cards = []jira.Card{{Key: "ABC-1", Flagged: true}}
+	if !strings.Contains(ansi.Strip(jiraCardLines(m.jiraTab.cards[0], true, allCardFields)[0]), "⚑") {
+		t.Error("flagged card lacks ⚑")
+	}
+	_, cmd := pickAction(t, m, "flag")
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil || msg.field != "flag cleared" {
+		t.Fatalf("%+v", msg)
+	}
+	if w := writes(); len(w) != 1 || !strings.HasSuffix(w[0], `{"fields":{"customfield_50":null}}`) {
 		t.Errorf("writes = %q", w)
 	}
 }

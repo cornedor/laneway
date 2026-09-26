@@ -52,7 +52,7 @@ ui:
   card_limit: 500    # most cards one view fetches (50–5000)
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout
-  card_fields: [type, priority, status, points, assignee, parent, pr, subtasks, due]
+  card_fields: [type, priority, status, points, assignee, parent, pr, subtasks, due, flagged]
   quick_filters:                # JQL presets before the board's own (1-9)
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
@@ -178,7 +178,7 @@ Panel:
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description in
   `$EDITOR` · `l` labels · `a` assignee
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
-- more: `A` subtask / link / unlink / clone / watch / vote / upload / download · `H` history ·
+- more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / download · `H` history ·
   `D` pull requests / branches · `L` linked issue · `i` images full size (← →)
 - `backspace` previous issue · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close

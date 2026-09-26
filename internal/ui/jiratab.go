@@ -1362,6 +1362,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 		row = hl + " "
 	}
 	row += jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  "
+	if f.flagged && c.Flagged {
+		title = jiraOverStyle.Render("⚑") + " " + title
+	}
 	if f.typ {
 		row += jiraTypeIcon(c.Type) + " "
 	}
@@ -1458,6 +1461,9 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 		return []string{key + pts, c.Summary, who}
 	}
 	head := jiraKeyStyle.Render(key)
+	if f.flagged && c.Flagged {
+		head = jiraOverStyle.Render("⚑") + " " + head
+	}
 	if f.typ {
 		head += " " + jiraTypeIcon(c.Type)
 	}

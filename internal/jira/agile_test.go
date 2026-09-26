@@ -279,3 +279,9 @@ func TestCardSubtasks(t *testing.T) {
 		t.Errorf("card = %+v", c)
 	}
 }
+
+func TestFlagSet(t *testing.T) {
+	if !flagSet(json.RawMessage(`[{"value":"Impediment"}]`)) || flagSet(json.RawMessage(`null`)) || flagSet(nil) {
+		t.Error("flagSet")
+	}
+}

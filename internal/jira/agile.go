@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -130,6 +131,8 @@ type Card struct {
 	// done category.
 	Due  time.Time
 	Done bool
+	// Flagged marks an impediment (the Flagged field is set).
+	Flagged bool
 }
 
 // QuickFilter is a board's saved filter: a name and the JQL behind it.
@@ -353,9 +356,11 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 	if pointsField != "" {
 		fields += "," + pointsField
 	}
-	dev := c.devField(ctx)
-	if dev != "" {
-		fields += "," + dev
+	dev, flag := c.devField(ctx), c.flagField(ctx)
+	for _, id := range []string{dev, flag} {
+		if id != "" {
+			fields += "," + id
+		}
 	}
 	page := func(start int) ([]Card, int, error) {
 		q := url.Values{}
@@ -379,6 +384,7 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		for _, is := range resp.Issues {
 			card := toCard(is.Key, is.Fields, pointsField)
 			card.PR = prState(is.Fields[dev])
+			card.Flagged = flagSet(is.Fields[flag])
 			out = append(out, card)
 		}
 		return out, resp.Total, nil
@@ -577,4 +583,32 @@ func (c *Client) SetSprintGoal(ctx context.Context, sprint int, goal string) err
 		return errNotConfigured
 	}
 	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", map[string]any{"goal": goal}, nil)
+}
+
+// flagField is the Flagged field's id, "" when none.
+func (c *Client) flagField(ctx context.Context) string {
+	ids, err := c.resolveRoadmapFields(ctx)
+	if err != nil {
+		return ""
+	}
+	return ids.flagged
+}
+
+// flagSet reads the Flagged field: a non-empty list of options.
+func flagSet(raw json.RawMessage) bool {
+	var opts []json.RawMessage
+	return json.Unmarshal(raw, &opts) == nil && len(opts) > 0
+}
+
+// SetFlagged flags key as an impediment, or clears the flag.
+func (c *Client) SetFlagged(ctx context.Context, key string, on bool) error {
+	id := c.flagField(ctx)
+	if id == "" {
+		return fmt.Errorf("jira: no Flagged field on this instance")
+	}
+	var v any
+	if on {
+		v = []map[string]string{{"value": "Impediment"}}
+	}
+	return c.SetField(ctx, key, id, v)
 }
