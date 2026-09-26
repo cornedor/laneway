@@ -44,6 +44,7 @@ var settingDefaults = map[string]string{
 	"saved_filters":        "on",
 	"branch_template":      defaultBranchTemplate,
 	"work_branch_template": "branch_template if set, else issue/{key}-{summary}",
+	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",
 	"theme":                "terminal colours",
 }

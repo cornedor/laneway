@@ -89,6 +89,8 @@ type UIConfig struct {
 	// placeholders; by default BranchTemplate when set, else
 	// "issue/{key}-{summary}".
 	WorkBranchTemplate string `yaml:"work_branch_template"`
+	// WorkAgent is the herdr agent kind start work launches ("claude").
+	WorkAgent string `yaml:"work_agent"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);
 	// by default the one matching the theme preset.
 	CodeTheme string `yaml:"code_theme"`

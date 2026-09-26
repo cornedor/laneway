@@ -16,7 +16,8 @@ import (
 // Start work (S in the Jira panel): open the issue's worktree as a herdr
 // workspace — reusing a local branch that fits ui.work_branch_template when
 // one exists, else creating one from it (issue/KEY-slug by default) — label
-// its tab with the key and start Claude in it on the start prompt.
+// its tab with the key and start the agent (ui.work_agent, Claude by
+// default) in it on the start prompt.
 
 const defaultWorkBranch = "issue/{key}-{summary}"
 
@@ -31,7 +32,8 @@ type jiraWorkMsg struct {
 	key     string
 	path    string
 	pane    string
-	running bool // Claude was already running in the worktree
+	agent   string
+	running bool // the agent was already running in the worktree
 	err     error
 }
 
@@ -58,10 +60,10 @@ func (m *Model) startJiraWork() tea.Cmd {
 	m.jiraStarting[iss.Key] = true
 	m.status = iss.Key + ": starting work…"
 	prompt := strings.ReplaceAll(m.jiraStartPrompt, "{key}", iss.Key)
-	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, iss.Key, iss.Type, iss.Summary, prompt)
+	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, m.opts.workAgent, iss.Key, iss.Type, iss.Summary, prompt)
 }
 
-func jiraWork(c *herdr.Client, repo, tmpl, key, typ, summary, prompt string) tea.Cmd {
+func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary, prompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -69,16 +71,16 @@ func jiraWork(c *herdr.Client, repo, tmpl, key, typ, summary, prompt string) tea
 		if branch == "" {
 			branch = branchName(tmpl, key, typ, summary)
 		}
-		path, pane, running, err := claudeInWorktree(ctx, c, repo, branch, defaultBase(repo), key, jiraAgentName(key, time.Now()), prompt)
-		return jiraWorkMsg{key: key, path: path, pane: pane, running: running, err: err}
+		path, pane, running, err := agentInWorktree(ctx, c, repo, branch, defaultBase(repo), key, agent, jiraAgentName(key, time.Now()), prompt)
+		return jiraWorkMsg{key: key, path: path, pane: pane, agent: agent, running: running, err: err}
 	}
 }
 
-// claudeInWorktree opens repo's worktree on branch as a herdr workspace
+// agentInWorktree opens repo's worktree on branch as a herdr workspace
 // (creating it from base when there is none), labels its tab and starts
-// Claude in it on prompt. pane is Claude's; running reports it was already
-// there.
-func claudeInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, tab, name, prompt string) (path, pane string, running bool, err error) {
+// the agent kind in it on prompt. pane is the agent's; running reports one
+// was already there.
+func agentInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, tab, kind, name, prompt string) (path, pane string, running bool, err error) {
 	wt, err := c.OpenWorktree(ctx, repo, branch)
 	if herdr.IsCode(err, "worktree_not_found") {
 		wt, err = c.CreateWorktree(ctx, repo, branch, base)
@@ -96,7 +98,7 @@ func claudeInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, 
 		}
 	}
 	_ = c.RenameTab(ctx, wt.Tab, tab)
-	err = startClaude(ctx, c, name, wt.Pane, []string{prompt})
+	err = startAgent(ctx, c, kind, name, wt.Pane, []string{prompt})
 	return wt.Path, wt.Pane, false, err
 }
 
@@ -109,7 +111,7 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	case msg.running:
 		m.status = msg.key + ": already running in " + msg.path
 	default:
-		m.status = msg.key + ": claude started in " + msg.path
+		m.status = msg.key + ": " + msg.agent + " started in " + msg.path
 	}
 	if m.opts.timerOnStart && m.timer.key == "" {
 		status := m.status
@@ -120,11 +122,12 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// startClaude starts Claude in pane with args. A fresh pane's shell isn't at
-// its prompt yet, and herdr won't start an agent in a busy pane, so it retries.
-func startClaude(ctx context.Context, c *herdr.Client, name, pane string, args []string) error {
+// startAgent starts the agent kind in pane with args. A fresh pane's shell
+// isn't at its prompt yet, and herdr won't start an agent in a busy pane, so
+// it retries.
+func startAgent(ctx context.Context, c *herdr.Client, kind, name, pane string, args []string) error {
 	for try := 0; ; try++ {
-		err := c.StartAgent(ctx, name, "claude", pane, args)
+		err := c.StartAgent(ctx, name, kind, pane, args)
 		if err == nil || try == 9 || ctx.Err() != nil {
 			return err
 		}

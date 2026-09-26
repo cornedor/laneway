@@ -1,12 +1,17 @@
 package ui
 
 import (
+	"bufio"
+	"encoding/json"
+	"net"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/herdr"
 )
 
 func TestSlugify(t *testing.T) {
@@ -80,5 +85,49 @@ func TestBranchPattern(t *testing.T) {
 	o, _ = optionsFrom(config.UIConfig{BranchTemplate: "{type}/{key}", WorkBranchTemplate: "wip/{key}"})
 	if o.workBranch != "wip/{key}" || o.branchTemplate != "{type}/{key}" {
 		t.Errorf("work branch template = %q, copy = %q", o.workBranch, o.branchTemplate)
+	}
+}
+
+// TestWorkAgent: start work launches ui.work_agent's kind in the worktree.
+func TestWorkAgent(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "h.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	kinds := make(chan string, 1)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			line, _ := bufio.NewReader(conn).ReadBytes('\n')
+			var req struct {
+				Method string         `json:"method"`
+				Params map[string]any `json:"params"`
+			}
+			_ = json.Unmarshal(line, &req)
+			switch req.Method {
+			case "worktree.open":
+				conn.Write([]byte(`{"id":"x","result":{"root_pane":{"pane_id":"w1:p1","tab_id":"w1:t1"},"workspace":{"workspace_id":"w1"},"worktree":{"path":"/wt/x"}}}` + "\n"))
+			case "agent.start":
+				kinds <- req.Params["kind"].(string)
+				fallthrough
+			default:
+				conn.Write([]byte(`{"id":"x","result":{}}` + "\n"))
+			}
+			conn.Close()
+		}
+	}()
+	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "codex", "ABC-1", "Bug", "Fix", "go")().(jiraWorkMsg)
+	if msg.err != nil || msg.agent != "codex" || <-kinds != "codex" {
+		t.Fatalf("msg = %+v", msg)
+	}
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraWork(msg)
+	if s := out.(Model).status; s != "ABC-1: codex started in /wt/x" {
+		t.Errorf("status = %q", s)
 	}
 }
