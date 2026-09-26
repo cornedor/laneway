@@ -5,6 +5,8 @@ the selected issue in a panel on the right. Move cards, change status,
 priority, points, assignee, summary and labels, comment and reply, all without leaving the
 terminal.
 
+![The board as swim lanes](docs/screenshots/board.png)
+
 - Swim lanes or a sortable list, with drag and drop between lanes
 - Sprints, backlog and kanban boards; the board's quick filters plus your own
 - Local search, "only mine", jump to any issue by key
@@ -12,6 +14,15 @@ terminal.
 - Inline images in kitty and Ghostty
 - Idle auto-refresh, cached boards for instant startup
 - Every key and colour configurable
+
+`t` swaps the lanes for a sortable list:
+
+![The same board as a list](docs/screenshots/list.png)
+
+`enter` opens the issue beside the board: fields, description, links and the
+comment thread.
+
+![An issue in the panel beside the board](docs/screenshots/panel.png)
 
 ## Install
 
@@ -156,6 +167,8 @@ config is picked up as a fallback.
 
 ## Keys
 
+![The ? help overlay](docs/screenshots/help.png)
+
 `?` shows every key as bound. `:` opens the command palette: every action
 of the focused pane, the board's views, quick filters and boards, the
 loaded issues and the ones you opened lately, filtered by every word you type. From three characters it
@@ -249,6 +262,8 @@ a failed write reloads both sides.
 
 ## Charts
 
+![The active sprint's burndown](docs/screenshots/burndown.png)
+
 `C` on a scrum board: the active sprint's burndown (points left per day by
 resolution date, against the dotted ideal), its burnup (points done against
 the scope, dotted), its cumulative flow (issues per board column, day by
@@ -266,6 +281,8 @@ shows the results as a view. An empty input offers your past searches.
 state file); `ctrl+s` on a starred one unstars it.
 
 ## Roadmap
+
+![Epics on a timeline, one expanded](docs/screenshots/roadmap.png)
 
 `R` on the board shows the project's epics on a timeline: open ones and
 those done in the last 90 days, in rank order. A bar runs from the epic's
