@@ -164,6 +164,9 @@ type UIConfig struct {
 	// Icons is "nerd" (default: Nerd Font glyphs for issue types) or
 	// "plain" (letters, for fonts without them).
 	Icons string `yaml:"icons"`
+	// EmptyFields is "show" (default: every editable field in the panel)
+	// or "hide" (empty ones fold behind a row that shows them).
+	EmptyFields string `yaml:"empty_fields"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
 	CustomFields []string `yaml:"custom_fields"`

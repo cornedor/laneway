@@ -2,11 +2,12 @@
 
 ## Next
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
-- Start work moves to In Progress and assigns you (option); empty extra fields fold
+- Start work moves to In Progress and assigns you (option)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.empty_fields: hide` folds the panel's empty fields behind a "N empty fields" row; a click on it, or the palette's `show empty fields`, shows them
 - `w` logs work on another day: `yesterday 2h`, `fri 1h` (the last Friday), `2026-09-21 3h`, `-2d 1h`, from 9:00
 - List sorts by updated and created (newest first) and due (soonest first, none last)
 - Panel: a long field value (labels, people, options) wraps under its value column instead of back under the label

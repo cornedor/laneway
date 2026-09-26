@@ -50,6 +50,7 @@ type options struct {
 	mouse           bool                // clicks, drags and the wheel
 	doubleClick     time.Duration       // a second click within this is a double-click
 	plainIcons      bool                // issue types as letters (ui.icons: plain)
+	hideEmpty       bool                // empty extra fields fold (ui.empty_fields: hide)
 	roadmapDoneDays int                 // resolved epics older than this leave the roadmap
 	codeTheme       string              // chroma style for code blocks
 }
@@ -101,6 +102,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	dur("stale_after", c.StaleAfter, &o.staleAfter, false)
 	dur("inbox_every", c.InboxEvery, &o.inboxEvery, true)
 	dur("full_refresh", c.FullRefresh, &o.fullRefresh, false)
+	switch strings.ToLower(strings.TrimSpace(c.EmptyFields)) {
+	case "", "show":
+	case "hide":
+		o.hideEmpty = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.empty_fields: %q is not show or hide", c.EmptyFields))
+	}
 	switch strings.ToLower(strings.TrimSpace(c.Icons)) {
 	case "", "nerd":
 	case "plain":

@@ -1026,3 +1026,21 @@ func TestWorklogDay(t *testing.T) {
 		t.Errorf("a plain time: %q %v", rest, ok)
 	}
 }
+
+// TestHideEmptyFields: ui.empty_fields hide folds empty fields behind a
+// row; a click on it shows them.
+func TestHideEmptyFields(t *testing.T) {
+	m := panelModel(t)
+	m.opts.hideEmpty = true
+	full := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c1", Name: "Team", Kind: jira.KindText}, val: jira.Value{Text: "Web"}}
+	empty := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c2", Name: "Sprint goal note", Kind: jira.KindText}}
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", fields: []jiraFormField{full, empty}})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Team") || strings.Contains(view, "Sprint goal note") || !strings.Contains(view, "1 empty fields") {
+		t.Fatalf("folded:\n%s", view)
+	}
+	if m = clickText(t, m, "1 empty fields"); !strings.Contains(ansi.Strip(m.View().Content), "Sprint goal note") {
+		t.Error("the click did not show them")
+	}
+}

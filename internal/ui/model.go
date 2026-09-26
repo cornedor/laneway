@@ -315,6 +315,7 @@ type Model struct {
 	panelExtra    []jiraFormField
 	panelExtraKey string
 	panelFacts    jira.Facts // panelExtraKey's read-only details (created, watchers, time)
+	showEmpty     bool       // the empty fields ui.empty_fields: hide folds, shown for the session
 	// panelHits are the panel's clickable lines by content line: a field's
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.

@@ -135,6 +135,9 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 			m.inlinePickerUnder(&b, ff.ID, w, width)
 		}
 	}
+	if n := m.hiddenFields(); n > 0 {
+		b.WriteString("\n" + refDimStyle.Render(fmt.Sprintf(emptyFieldsRow, n)) + "\n")
+	}
 
 	// Edit affordances: the field cursor (panel_fields.go), comments
 	// (jira_comment.go).
@@ -438,3 +441,7 @@ func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
 		refMeta(b, "Time", t, 10)
 	}
 }
+
+// emptyFieldsRow stands for the empty fields ui.empty_fields: hide folds;
+// a click (or the palette) shows them.
+const emptyFieldsRow = "%d empty fields · a click shows them"

@@ -62,6 +62,7 @@ var settingDefaults = map[string]string{
 	"mouse":                "on",
 	"double_click":         "400ms",
 	"icons":                "nerd",
+	"empty_fields":         "show",
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",

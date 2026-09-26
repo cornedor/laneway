@@ -76,7 +76,24 @@ func (m *Model) extraFields() []jiraFormField {
 	if m.jiraIssue == nil || m.panelExtraKey != m.jiraIssue.Key {
 		return nil
 	}
-	return m.panelExtra
+	if !m.opts.hideEmpty || m.showEmpty {
+		return m.panelExtra
+	}
+	var out []jiraFormField
+	for _, ff := range m.panelExtra {
+		if !ff.val.Empty() {
+			out = append(out, ff)
+		}
+	}
+	return out
+}
+
+// hiddenFields is how many empty fields ui.empty_fields: hide folds away.
+func (m *Model) hiddenFields() int {
+	if m.jiraIssue == nil || m.panelExtraKey != m.jiraIssue.Key {
+		return 0
+	}
+	return len(m.panelExtra) - len(m.extraFields())
 }
 
 func (m *Model) panelFieldCount() int { return len(panelFields) + len(m.extraFields()) }

@@ -28,6 +28,7 @@ type panelHit struct {
 	double bool
 	hints  bool
 	col    int
+	empty  bool // the folded empty fields' row: show them
 }
 
 // panelHintLine is the panel's line of edit keys; a click on one presses it.
@@ -59,6 +60,8 @@ func (m *Model) indexPanelHits(content string) {
 			m.panelHits[i] = panelHit{field: -1, hints: true}
 		case text == "Description" && m.descEdit == nil:
 			m.panelHits[i] = panelHit{field: -1, press: "E", double: true}
+		case text == fmt.Sprintf(emptyFieldsRow, m.hiddenFields()):
+			m.panelHits[i] = panelHit{field: -1, empty: true}
 		case strings.HasPrefix(text, "…and ") && strings.HasSuffix(text, "o opens in browser"):
 			m.panelHits[i] = panelHit{field: -1, press: "o"}
 		}
@@ -176,6 +179,10 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 		h.press = panelHintAt(h.col)
 	}
 	switch {
+	case h.empty:
+		m.showEmpty = true
+		m.renderRef()
+		return m, nil
 	case h.image != "":
 		m.openImageViewAt(h.image)
 		return m, nil

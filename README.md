@@ -75,6 +75,7 @@ ui:
   mouse: on                     # clicks, drags and the wheel; off leaves the mouse to the terminal
   double_click: 400ms           # how quickly a second click opens (100ms–2s)
   icons: nerd                   # issue type glyphs need a Nerd Font; plain draws letters (B S E ↳ •)
+  empty_fields: show            # hide folds the panel's empty fields behind a row (a click or : shows them)
   custom_fields: [Test type, Team]   # Jira fields by name on cards and rows, searchable
   filters:                      # named / queries, recalled from the : palette
     - {name: Stale review, query: "status:review age>3d"}

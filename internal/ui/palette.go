@@ -71,6 +71,9 @@ func (m *Model) openPalette() {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
 	}
+	if n := m.hiddenFields(); n > 0 {
+		items = append(items, jiraPickerItem{id: "e:", label: fmt.Sprintf("show empty fields  %d hidden", n)})
+	}
 	if m.lastDownload != "" {
 		items = append(items, jiraPickerItem{id: "d:", label: "open download  " + filepath.Base(m.lastDownload)})
 	}
@@ -114,6 +117,10 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 		return m, m.pickJiraBoard(jiraPickBoard, arg)
 	case "m":
 		m.openMessages()
+		return m, nil
+	case "e":
+		m.showEmpty = true
+		m.renderRef()
 		return m, nil
 	case "d":
 		m.status = "opening " + m.lastDownload + "…"
