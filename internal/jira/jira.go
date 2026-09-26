@@ -166,6 +166,8 @@ type Issue struct {
 // Comment is one issue comment, flattened for display. Body is markdown
 // (converted from ADF); AuthorID (accountId) is what a reply's @mention writes.
 type Comment struct {
+	ID       string
+	Raw      json.RawMessage // the body as Jira stores it, for an edit
 	Author   string
 	AuthorID string
 	Body     string
@@ -234,6 +236,7 @@ type user struct {
 // apiComment mirrors one entry of the issue's inline comment field. Body is the
 // ADF document, flattened to markdown via adfToMarkdown.
 type apiComment struct {
+	ID      string          `json:"id"`
 	Author  *user           `json:"author"`
 	Body    json.RawMessage `json:"body"`
 	Created string          `json:"created"`
@@ -457,7 +460,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	if a.Fields.Comment != nil {
 		iss.CommentTotal = a.Fields.Comment.Total
 		for _, ac := range a.Fields.Comment.Comments {
-			cm := Comment{Body: resolveMedia(adfToMarkdown(ac.Body), iss.Attachments)}
+			cm := Comment{ID: ac.ID, Raw: ac.Body, Body: resolveMedia(adfToMarkdown(ac.Body), iss.Attachments)}
 			if ac.Author != nil {
 				cm.Author = ac.Author.DisplayName
 				cm.AuthorID = ac.Author.AccountID

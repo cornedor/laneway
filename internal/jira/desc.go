@@ -71,6 +71,24 @@ type Editable struct {
 // keepLine matches a placeholder line; its number picks the kept block.
 var keepLine = regexp.MustCompile(`^<!-- keep:(\d+)\b.*-->$`)
 
+// SetComment replaces comment id's body with markdown, placeholder lines
+// put back from kept.
+func (c *Client) SetComment(ctx context.Context, key, id, md string, kept []json.RawMessage) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	if strings.TrimSpace(md) == "" {
+		return fmt.Errorf("jira: empty comment")
+	}
+	body := map[string]any{"body": MarkdownToADFKept(md, kept)}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment/" + url.PathEscape(id)
+	if err := c.do(ctx, http.MethodPut, path, key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // EditableDescription is raw as markdown to edit, or why it can't be.
 func EditableDescription(raw json.RawMessage) (Editable, error) {
 	if len(raw) == 0 || string(raw) == "null" {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -17,8 +18,9 @@ import (
 
 // descLoadedMsg is the description fetched for editing.
 type descLoadedMsg struct {
-	key string
-	md  string
+	key     string
+	comment string // the comment being edited, "" for the description
+	md      string
 	// kept are the blocks the markdown holds as placeholder lines.
 	kept []json.RawMessage
 	err  error
@@ -26,9 +28,9 @@ type descLoadedMsg struct {
 
 // descEditedMsg is the editor closed on path.
 type descEditedMsg struct {
-	key, path, before string
-	kept              []json.RawMessage
-	err               error
+	key, comment, path, before string
+	kept                       []json.RawMessage
+	err                        error
 }
 
 // editDescription fetches the panel issue's description for the editor.
@@ -64,9 +66,9 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.status = "editing " + msg.key + " description…"
-	key, path, before, kept := msg.key, f.Name(), msg.md, msg.kept
+	key, comment, path, before, kept := msg.key, msg.comment, f.Name(), msg.md, msg.kept
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
-		return descEditedMsg{key: key, path: path, before: before, kept: kept, err: err}
+		return descEditedMsg{key: key, comment: comment, path: path, before: before, kept: kept, err: err}
 	})
 }
 
@@ -101,7 +103,48 @@ func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 		m.status = msg.key + " description unchanged"
 		return m, nil
 	}
-	c, ctx, key, kept := m.jiraClient, m.ctx, msg.key, msg.kept
+	c, ctx, key, kept, comment := m.jiraClient, m.ctx, msg.key, msg.kept, msg.comment
+	if comment != "" {
+		m.status = "saving the comment on " + key + "…"
+		return m, jiraMutateCmd(key, "comment", func() error { return c.SetComment(ctx, key, comment, after, kept) })
+	}
 	m.status = "saving " + key + " description…"
 	return m, jiraMutateCmd(key, "description", func() error { return c.SetDescription(ctx, key, after, kept) })
+}
+
+// openCommentPicker lists your own comments on the panel issue to edit.
+func (m *Model) openCommentPicker() tea.Cmd {
+	if m.jiraIssue == nil {
+		return nil
+	}
+	iss := m.jiraIssue
+	gen := m.startJiraPicker(jiraPickEditComment, "Edit a comment on "+iss.Key, false)
+	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
+	comments := iss.Comments
+	return func() tea.Msg {
+		me, err := c.Myself(ctx)
+		var items []jiraPickerItem
+		for i := len(comments) - 1; i >= 0; i-- { // newest first
+			cm := comments[i]
+			if err == nil && cm.AuthorID == me.AccountID && cm.ID != "" {
+				items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: commentPickerLabel(cm)})
+			}
+		}
+		if err == nil && len(items) == 0 {
+			items = []jiraPickerItem{{id: "", label: "no comments of yours here"}}
+		}
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickEditComment, items: items, err: err}
+	}
+}
+
+// editComment opens comment i of the panel issue in the editor.
+func (m *Model) editComment(i int) tea.Cmd {
+	if m.jiraIssue == nil || i < 0 || i >= len(m.jiraIssue.Comments) {
+		return nil
+	}
+	key, cm := m.jiraIssue.Key, m.jiraIssue.Comments[i]
+	return func() tea.Msg {
+		ed, err := jira.EditableDescription(cm.Raw)
+		return descLoadedMsg{key: key, comment: cm.ID, md: ed.Markdown, kept: ed.Kept, err: err}
+	}
 }

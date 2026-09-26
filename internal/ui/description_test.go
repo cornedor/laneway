@@ -100,3 +100,43 @@ func TestEditDescriptionKept(t *testing.T) {
 		t.Errorf("body = %s", body)
 	}
 }
+
+// TestEditComment: only your comments are offered; the saved file replaces
+// that comment.
+func TestEditComment(t *testing.T) {
+	var body, path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/myself" {
+			io.WriteString(w, `{"accountId":"me"}`)
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		body, path = string(b), r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraIssue.Comments = []jira.Comment{
+		{ID: "1", AuthorID: "me", Author: "Me", Body: "mine", Raw: json.RawMessage(`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"mine"}]}]}`)},
+		{ID: "2", AuthorID: "bob", Author: "Bob", Body: "his"},
+	}
+	cmd := m.openCommentPicker()
+	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].id != "0" {
+		t.Fatalf("items = %+v", m.jiraPicker.items)
+	}
+	_, cmd = m.applyJiraPick()
+	loaded := cmd().(descLoadedMsg)
+	if loaded.comment != "1" || loaded.md != "mine" {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+	file := filepath.Join(t.TempDir(), "c.md")
+	os.WriteFile(file, []byte("mine, edited\n"), 0o600)
+	_, cmd = m.handleDescEdited(descEditedMsg{key: "ABC-1", comment: "1", path: file, before: "mine"})
+	cmd()
+	if path != "/rest/api/3/issue/ABC-1/comment/1" || !strings.Contains(body, `"text":"mine, edited"`) {
+		t.Errorf("PUT %s %s", path, body)
+	}
+}

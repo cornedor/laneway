@@ -6,13 +6,14 @@
 - Bulk step 3: required transition fields asked once for all marked
 - Planning step 6: rename a sprint, move its dates
 - Charts step 3: cumulative flow by status, burnup; `ui.charts.sprints`
-- Description step 3: `E` for comments too; inline placeholders so a mention keeps its paragraph editable
+- Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
 - Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `A` → Edit a comment of yours in `$EDITOR` (same safe round trip as the description)
 - `ui.templates`: a new issue's description by type
 - Planning `E`: edit the sprint's goal
 - New mentions raise a desktop notification (read when the inbox count rises)

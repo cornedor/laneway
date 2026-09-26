@@ -87,6 +87,8 @@ const (
 	jiraPickAttachment
 	// jiraPickUnlink picks an issue link to remove (issue_actions.go).
 	jiraPickUnlink
+	// jiraPickEditComment picks one of your comments to edit (description.go).
+	jiraPickEditComment
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -584,6 +586,14 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		m.status = "standup copied"
 		return m, tea.SetClipboard(text)
+	}
+	if kind == jiraPickEditComment {
+		m.closeJiraPicker()
+		i, err := strconv.Atoi(it.id)
+		if err != nil {
+			return m, nil
+		}
+		return m, m.editComment(i)
 	}
 	if kind == jiraPickUnlink {
 		key := m.jiraPicker.issueKey

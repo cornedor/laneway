@@ -43,6 +43,9 @@ func (m *Model) openIssueActions() {
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
 	}
+	if len(iss.Comments) > 0 {
+		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours (in $EDITOR)"})
+	}
 	if len(iss.Attachments) > 0 {
 		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"})
 	}
@@ -118,6 +121,8 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			}
 		}
 		m.setJiraPickerItems(items)
+	case "edit-comment":
+		return m.openCommentPicker()
 	case "vote":
 		return func() tea.Msg {
 			on, err := c.ToggleVote(ctx, key)
