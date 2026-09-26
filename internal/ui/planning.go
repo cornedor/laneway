@@ -386,17 +386,27 @@ func (m *Model) planClose() tea.Cmd {
 	}
 	m.status = "completing " + active.name + "…"
 	return func() tea.Msg {
-		cards, _, err := fetchJiraView(ctx, c, board, cfg, active, "")
-		if err != nil {
-			return planSprintMsg{err: err}
+		// Only the unfinished are fetched, round after round until none are
+		// left, so a sprint bigger than the card limit still empties.
+		filter := ""
+		if len(done) > 0 {
+			filter = "status not in (" + strings.Join(done, ",") + ")"
 		}
-		var open []string
-		for _, cd := range cards {
-			if !slices.Contains(done, cd.StatusID) {
-				open = append(open, cd.Key)
+		moved := 0
+		for round := 0; round < 20; round++ {
+			cards, _, err := fetchJiraView(ctx, c, board, cfg, active, filter)
+			if err != nil {
+				return planSprintMsg{err: err}
 			}
-		}
-		if len(open) > 0 {
+			var open []string
+			for _, cd := range cards {
+				if !slices.Contains(done, cd.StatusID) {
+					open = append(open, cd.Key)
+				}
+			}
+			if len(open) == 0 {
+				break
+			}
 			if nextID != 0 {
 				err = c.MoveToSprint(ctx, nextID, open...)
 			} else {
@@ -405,11 +415,12 @@ func (m *Model) planClose() tea.Cmd {
 			if err != nil {
 				return planSprintMsg{err: fmt.Errorf("moving unfinished issues: %w", err)}
 			}
+			moved += len(open)
 		}
 		if err := c.CloseSprint(ctx, active.sprint); err != nil {
 			return planSprintMsg{err: err}
 		}
-		return planSprintMsg{what: fmt.Sprintf("%s completed, %d unfinished to %s", active.name, len(open), dest)}
+		return planSprintMsg{what: fmt.Sprintf("%s completed, %d unfinished to %s", active.name, moved, dest)}
 	}
 }
 

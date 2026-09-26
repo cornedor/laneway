@@ -135,8 +135,19 @@ func TestPlanMoveMarked(t *testing.T) {
 func TestPlanCloseSprint(t *testing.T) {
 	var writes []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			io.WriteString(w, `[]`)
+			return
+		}
 		if r.Method == http.MethodGet {
-			io.WriteString(w, `{"total":2,"issues":[{"key":"ABC-1","fields":{"status":{"id":"1"}}},{"key":"ABC-4","fields":{"status":{"id":"6"}}}]}`)
+			if !strings.Contains(r.URL.Query().Get("jql"), "status not in (5,6)") {
+				t.Errorf("jql = %q, want only the unfinished", r.URL.Query().Get("jql"))
+			}
+			if len(writes) > 0 { // moved: none left
+				io.WriteString(w, `{"total":0,"issues":[]}`)
+				return
+			}
+			io.WriteString(w, `{"total":1,"issues":[{"key":"ABC-1","fields":{"status":{"id":"1"}}}]}`)
 			return
 		}
 		b, _ := io.ReadAll(r.Body)
