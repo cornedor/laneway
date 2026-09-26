@@ -85,7 +85,10 @@ ui:
     dim: "244"
 ```
 
-`,` lists every `ui:` option with its value and default.
+`,` lists every `ui:` option with its value and default; `enter` edits a one-line
+one (empty for the default), checked, written back to the file (comments kept)
+and applied at once (`images`, `image_max_rows`, `card_limit`, `default_mode`
+after a restart).
 
 A bad value keeps its default and is reported on the status line, as is a key
 bound to two actions on the board or in the panel.
