@@ -68,6 +68,11 @@ func TestChartsView(t *testing.T) {
 	}
 	out, _ = m.handleJiraKey(keyMsg(t, "tab"))
 	m = out.(Model)
+	if view = ansi.Strip(m.View().Content); !strings.Contains(view, "issues per column") || !strings.Contains(view, "█ Done") {
+		t.Errorf("flow lacks its legend:\n%s", view)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "tab"))
+	m = out.(Model)
 	view = ansi.Strip(m.View().Content)
 	for _, want := range []string{"last 2 sprints · average 16.5p done", "Sprint 0", "15/20", "18/18", "█"} {
 		if !strings.Contains(view, want) {
@@ -89,5 +94,18 @@ func TestBurnupSeries(t *testing.T) {
 	scope, done := burnupSeries(issues, start, start.AddDate(0, 0, 14), start.AddDate(0, 0, 1).Add(2*time.Hour))
 	if !slices.Equal(scope, []float64{5, 8}) || !slices.Equal(done, []float64{5, 5}) {
 		t.Errorf("scope %v done %v", scope, done)
+	}
+}
+
+func TestFlowSeries(t *testing.T) {
+	start := time.Date(2026, 9, 21, 9, 0, 0, 0, time.Local)
+	cols := []jira.Column{{Name: "To do", StatusIDs: []string{"1"}}, {Name: "Doing", StatusIDs: []string{"3"}}, {Name: "Done", StatusIDs: []string{"5"}}}
+	issues := []jira.BurnIssue{
+		{Status: "5", Moves: []jira.StatusMove{{When: start.Add(time.Hour), From: "1", To: "3"}, {When: start.AddDate(0, 0, 1), From: "3", To: "5"}}},
+		{Status: "1"},
+	}
+	got := flowSeries(issues, cols, start, start.AddDate(0, 0, 14), start.AddDate(0, 0, 1).Add(2*time.Hour))
+	if len(got) != 2 || !slices.Equal(got[0], []int{1, 1, 0}) || !slices.Equal(got[1], []int{1, 0, 1}) {
+		t.Errorf("flow = %v", got)
 	}
 }

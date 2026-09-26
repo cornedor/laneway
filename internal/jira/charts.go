@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,29 @@ type BurnIssue struct {
 	// Added is when it joined the sprint, zero when it was in it from the
 	// start (or before its history); SprintBurn only.
 	Added time.Time
+	// Status is its status id now; Moves its status changes, oldest first
+	// (SprintBurn only), to replay where it stood on a day.
+	Status string
+	Moves  []StatusMove
+}
+
+// StatusMove is a status change: at when, from one status id to another.
+type StatusMove struct {
+	When     time.Time
+	From, To string
+}
+
+// StatusAt is the issue's status id at t, replayed from its moves.
+func (b BurnIssue) StatusAt(t time.Time) string {
+	for i := len(b.Moves) - 1; i >= 0; i-- {
+		if !b.Moves[i].When.After(t) {
+			return b.Moves[i].To
+		}
+	}
+	if len(b.Moves) > 0 {
+		return b.Moves[0].From
+	}
+	return b.Status
 }
 
 // SprintBurn lists a sprint's issues with points, resolution time and when
@@ -45,7 +69,7 @@ func (c *Client) sprintIssues(ctx context.Context, sprint int, pointsField strin
 	if changes {
 		expand = "changelog"
 	}
-	raw, err := c.searchExpand(ctx, "sprint = "+strconv.Itoa(sprint), append([]string{"resolutiondate"}, pf...), expand)
+	raw, err := c.searchExpand(ctx, "sprint = "+strconv.Itoa(sprint), append([]string{"resolutiondate", "status"}, pf...), expand)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +87,23 @@ func (c *Client) sprintIssues(ctx context.Context, sprint int, pointsField strin
 			b.Resolved, _ = time.Parse("2006-01-02T15:04:05.000-0700", res)
 		}
 		b.Added = sprintJoined(is, sprint)
+		var st struct {
+			ID string `json:"id"`
+		}
+		_ = json.Unmarshal(is.Fields["status"], &st)
+		b.Status = st.ID
+		for _, h := range is.Changelog.Histories {
+			when, err := time.Parse(jiraTime, h.Created)
+			if err != nil {
+				continue
+			}
+			for _, it := range h.Items {
+				if it.Field == "status" {
+					b.Moves = append(b.Moves, StatusMove{When: when, From: it.From, To: it.To})
+				}
+			}
+		}
+		slices.SortFunc(b.Moves, func(x, y StatusMove) int { return x.When.Compare(y.When) })
 		out[i] = b
 	}
 	return out, nil

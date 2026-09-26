@@ -3,13 +3,13 @@
 ## Next
 - Roadmap step 4: plan-level parents above epics (hierarchy > 1), dependencies drawn between bars
 - Bulk step 3: required transition fields asked once for all marked
-- Charts step 4: cumulative flow by status
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `C` Flow tab: cumulative flow, issues per board column per day (status replayed from the changelog)
 - Planning: `R` renames a sprint, `S` on the active one moves its end
 - List sorted by assignee, priority or epic shows a header per group (count, points)
 - `u` undoes the last card move (again redoes it)

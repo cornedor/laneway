@@ -10,6 +10,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -23,6 +24,7 @@ import (
 const (
 	chartBurndown = iota
 	chartBurnup
+	chartFlow
 	chartVelocity
 	chartTabs
 )
@@ -134,7 +136,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // chartsLine is the view line while the charts show.
 func (m *Model) chartsLine() string {
 	ch := m.jiraTab.charts
-	tabs := []string{"Burndown", "Burnup", "Velocity"}
+	tabs := []string{"Burndown", "Burnup", "Flow", "Velocity"}
 	var parts []string
 	for i, name := range tabs {
 		switch {
@@ -165,6 +167,8 @@ func (m *Model) renderCharts(width, height int) string {
 		return renderBurndown(*ch.sprint, ch.burn, time.Now(), width, height)
 	case ch.tab == chartBurnup:
 		return renderBurnup(*ch.sprint, ch.burn, time.Now(), width, height)
+	case ch.tab == chartFlow:
+		return renderFlow(*ch.sprint, ch.burn, m.jiraTab.cfg.Columns, time.Now(), width, height)
 	}
 	return renderVelocity(ch.vel, width)
 }
@@ -343,6 +347,115 @@ func renderBurnup(v jiraView, issues []jira.BurnIssue, now time.Time, width, hei
 			label = "0"
 		}
 		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+roadmapDoneStyle.Render(row))
+	}
+	from, to := v.start.Format("Mon 2 Jan"), v.end.Format("Mon 2 Jan")
+	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))
+	return strings.Join(lines, "\n")
+}
+
+// flowSeries is, per day of the sprint up to today, how many of its issues
+// then stood in each board column (by the status each had at day's end).
+func flowSeries(issues []jira.BurnIssue, cols []jira.Column, start, end, now time.Time) [][]int {
+	colOf := map[string]int{}
+	for i, c := range cols {
+		for _, id := range c.StatusIDs {
+			colOf[id] = i
+		}
+	}
+	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	last := end
+	if now.Before(last) {
+		last = now
+	}
+	var out [][]int
+	for d := day; !d.After(last); d = d.AddDate(0, 0, 1) {
+		eod := d.AddDate(0, 0, 1)
+		counts := make([]int, len(cols))
+		for _, is := range issues {
+			if !is.Added.IsZero() && !is.Added.Before(eod) {
+				continue
+			}
+			if c, ok := colOf[is.StatusAt(eod.Add(-time.Second))]; ok {
+				counts[c]++
+			}
+		}
+		out = append(out, counts)
+	}
+	return out
+}
+
+// flowStyle is column i's band colour: to do, then alternating middles,
+// done last.
+func flowStyle(i, n int) lipgloss.Style {
+	switch {
+	case i == n-1:
+		return roadmapDoneStyle
+	case i == 0:
+		return roadmapTodoStyle
+	case i%2 == 1:
+		return roadmapTodayStyle
+	}
+	return jiraViewActive
+}
+
+// renderFlow draws the cumulative flow: a stacked band per board column,
+// done at the bottom, one slice per day.
+func renderFlow(v jiraView, issues []jira.BurnIssue, cols []jira.Column, now time.Time, width, height int) string {
+	if v.start.IsZero() || v.end.IsZero() {
+		return refDimStyle.Render(v.name + " has no dates")
+	}
+	days := flowSeries(issues, cols, v.start, v.end, now)
+	top := 0
+	for _, d := range days {
+		sum := 0
+		for _, n := range d {
+			sum += n
+		}
+		top = max(top, sum)
+	}
+	var legend []string
+	for i, c := range cols {
+		legend = append(legend, flowStyle(i, len(cols)).Render("█ "+c.Name))
+	}
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render("  issues per column, day by day   ") + strings.Join(legend, "  ")
+	if top == 0 || len(days) == 0 {
+		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
+	}
+	axisW := len(strconv.Itoa(top)) + 1
+	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)
+	total := max(int(math.Ceil(v.end.Sub(v.start).Hours()/24)), len(days))
+	lines := []string{title, ""}
+	for r := 0; r < chh; r++ {
+		level := float64(chh-r) / float64(chh) * float64(top) // this row's height
+		var b strings.Builder
+		for x := 0; x < cw; x++ {
+			d := x * total / cw
+			if d >= len(days) {
+				b.WriteByte(' ')
+				continue
+			}
+			cum, band := 0, -1
+			for k := len(cols) - 1; k >= 0; k-- {
+				cum += days[d][k]
+				if float64(cum) >= level-float64(top)/float64(chh)/2 {
+					band = k
+					break
+				}
+			}
+			if band < 0 {
+				b.WriteByte(' ')
+				continue
+			}
+			b.WriteString(flowStyle(band, len(cols)).Render("█"))
+		}
+		label := ""
+		switch r {
+		case 0:
+			label = strconv.Itoa(top)
+		case chh - 1:
+			label = "0"
+		}
+		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+b.String())
 	}
 	from, to := v.start.Format("Mon 2 Jan"), v.end.Format("Mon 2 Jan")
 	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))
