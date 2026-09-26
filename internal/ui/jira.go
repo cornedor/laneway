@@ -76,6 +76,8 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	line() // Summary
 	sel := m.panelFieldIs
 	switch {
+	case m.fieldInlineOn("Summary"):
+		b.WriteString(m.fieldInlineView(0, width) + "\n")
 	case sel("Summary"):
 		b.WriteString(selectedRow.Render(orDash(iss.Summary)) + "\n")
 	case iss.Summary != "":
@@ -92,12 +94,12 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	line()
 	refField(&b, "Priority", iss.Priority, 10, sel("Priority"))
 	line()
-	refField(&b, "Points", iss.StoryPoints, 10, sel("Points"))
+	m.refFieldEdit(&b, "Points", iss.StoryPoints, 10, width)
 	line()
 	refField(&b, "Assignee", iss.Assignee, 10, sel("Assignee"))
 	refMeta(&b, "Reporter", iss.Reporter, 10)
 	line()
-	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel("Labels"))
+	m.refFieldEdit(&b, "Labels", strings.Join(iss.Labels, ", "), 10, width)
 	if !iss.Updated.IsZero() {
 		refMeta(&b, "Updated", m.when(iss.Updated), 10)
 	}
@@ -116,6 +118,10 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 			val := jiraValueText(ff.val)
 			if richField(ff) {
 				val = "↓ below"
+			}
+			if m.fieldInlineOn(ff.ID) {
+				b.WriteString(refLabelStyle.Render(refMetaLabel(ff.Name, w)) + m.fieldInlineView(w, width) + "\n")
+				continue
 			}
 			refField(&b, ff.Name, val, w, m.panelFieldIdx() == len(panelFields)+i)
 		}
@@ -145,6 +151,23 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraActivity(&b, iss, width)
 	return b.String()
+}
+
+// refFieldEdit writes the panel's own field row: the inline input while it
+// is edited, else refField.
+func (m *Model) refFieldEdit(b *strings.Builder, name, value string, labelW, width int) {
+	if m.fieldInlineOn(name) {
+		b.WriteString(refLabelStyle.Render(refMetaLabel(name, labelW)) + m.fieldInlineView(labelW, width) + "\n")
+		return
+	}
+	refField(b, name, value, labelW, m.panelFieldIs(name))
+}
+
+// fieldInlineView is the field input fitted to the row after a label
+// labelW wide.
+func (m *Model) fieldInlineView(labelW, width int) string {
+	m.jiraFieldInput.SetWidth(max(width-labelW-lipgloss.Width(m.jiraFieldInput.Prompt)-1, 4))
+	return m.jiraFieldInput.View()
 }
 
 // richField is a filled rich-text (ADF) field, drawn as its own section

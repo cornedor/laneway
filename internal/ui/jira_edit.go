@@ -320,17 +320,20 @@ func (m *Model) openJiraPointsInput() {
 	m.jiraFieldActive = true
 	m.jiraFieldName = "points"
 	m.jiraFieldKey = m.jiraIssue.Key
+	m.startFieldInline(panelFieldRow("Points"))
 }
 
 // openJiraSummaryInput shows the summary input seeded with the current one.
 func (m *Model) openJiraSummaryInput() {
 	m.openJiraTextInput("summary", m.jiraIssue.Summary, "", 255) // Jira's summary limit
+	m.startFieldInline(panelFieldRow("Summary"))
 }
 
 // openJiraLabelsInput shows the labels, space separated: a label has no
 // spaces.
 func (m *Model) openJiraLabelsInput() {
 	m.openJiraTextInput("labels", strings.Join(m.jiraIssue.Labels, " "), "space separated (empty clears)", 0)
+	m.startFieldInline(panelFieldRow("Labels"))
 }
 
 // openJiraTextInput opens the wide field input for field, seeded with value.
@@ -409,6 +412,49 @@ func (m *Model) closeJiraField() {
 	m.jiraFieldName = ""
 	m.jiraFieldKey = ""
 	m.jiraFieldInput = textinput.Model{}
+	m.renderRef()
+}
+
+// fieldInline is whether the field input edits the shown issue's panel row
+// in place rather than as a modal.
+func (m *Model) fieldInline() bool {
+	if !m.jiraFieldActive || !m.refOpen || m.jiraIssue == nil || m.jiraFieldKey != m.jiraIssue.Key {
+		return false
+	}
+	switch m.jiraFieldName {
+	case "summary", "labels", "points":
+		return true
+	case "field":
+		return m.panelEditField().ID != ""
+	}
+	return false
+}
+
+// fieldInlineOn is whether the inline input sits on the panel's own field
+// name ("Summary", "Points", "Labels") or extra field id.
+func (m *Model) fieldInlineOn(name string) bool {
+	if !m.fieldInline() {
+		return false
+	}
+	if m.jiraFieldName == "field" {
+		return m.panelEditID == name
+	}
+	return strings.EqualFold(m.jiraFieldName, name)
+}
+
+// startFieldInline draws the just opened input in its row and scrolls the
+// row into view.
+func (m *Model) startFieldInline(row int) {
+	if !m.fieldInline() {
+		return
+	}
+	m.renderRef()
+	if row < 0 || row >= len(m.panelFieldLine) {
+		return
+	}
+	if y := m.panelFieldLine[row]; y < m.refView.YOffset() || y >= m.refView.YOffset()+m.refView.Height() {
+		m.refView.SetYOffset(max(y-1, 0))
+	}
 }
 
 // handleJiraPickerKey owns every keystroke while the list picker is open.
@@ -537,6 +583,9 @@ func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.jiraFieldInput, cmd = m.jiraFieldInput.Update(msg)
+	if m.fieldInline() {
+		m.renderRef()
+	}
 	return m, cmd
 }
 

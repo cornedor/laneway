@@ -380,9 +380,14 @@ func TestJiraEditSummary(t *testing.T) {
 	if !m.jiraFieldActive || m.jiraFieldName != "summary" || m.jiraFieldInput.Value() != "Fix the widget" {
 		t.Fatalf("input: active %v, field %q, value %q", m.jiraFieldActive, m.jiraFieldName, m.jiraFieldInput.Value())
 	}
-	if !strings.Contains(m.View().Content, "Edit summary — ABC-1") {
-		t.Error("modal not drawn")
+	if v := ansi.Strip(m.View().Content); strings.Contains(v, "Edit summary") || !strings.Contains(v, "❯ Fix the widget") {
+		t.Error("summary should edit inline in its row, not in a modal")
 	}
+	out, _ = m.handleKey(keyStr("!"))
+	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "❯ Fix the widget!") {
+		t.Error("typing should redraw the row")
+	}
+	m.jiraFieldInput.SetValue("Fix the widget")
 	if out, cmd := m.applyJiraField(); cmd != nil || out.(Model).jiraFieldActive {
 		t.Error("unchanged summary should close without a write")
 	}

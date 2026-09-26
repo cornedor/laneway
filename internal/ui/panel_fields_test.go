@@ -154,7 +154,7 @@ func TestPanelExtraText(t *testing.T) {
 	m.fieldCursor, m.fieldCursorKey = len(panelFields)+1, "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
-	if !m.jiraFieldActive || m.jiraFieldName != "field" || !strings.Contains(m.View().Content, "Edit Ticket ref — ABC-1") {
+	if !m.jiraFieldActive || m.jiraFieldName != "field" || strings.Contains(m.View().Content, "Edit Ticket ref") || !regexp.MustCompile(`Ticket ref: +❯`).MatchString(ansi.Strip(m.View().Content)) {
 		t.Fatalf("input: active %v, field %q", m.jiraFieldActive, m.jiraFieldName)
 	}
 	if _, cmd := m.applyJiraField(); cmd != nil {

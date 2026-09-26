@@ -462,6 +462,14 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.jiraCommentInput, cmd = m.jiraCommentInput.Update(msg)
 			return m, cmd
 		}
+		if m.jiraFieldActive {
+			var cmd tea.Cmd
+			m.jiraFieldInput, cmd = m.jiraFieldInput.Update(msg)
+			if m.fieldInline() {
+				m.renderRef()
+			}
+			return m, cmd
+		}
 		return m, nil
 
 	case jiraBoardMsg:
@@ -803,7 +811,7 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderJiraCreate()
 	case m.jiraCommentActive:
 		return m.renderJiraCommentInput()
-	case m.jiraFieldActive:
+	case m.jiraFieldActive && !m.fieldInline():
 		return m.renderJiraFieldInput()
 	case m.jiraPicker.active:
 		return m.renderJiraPicker(bodyH)

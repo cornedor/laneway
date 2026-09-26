@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -21,13 +22,18 @@ type panelField struct {
 	edit func(m *Model) tea.Cmd
 }
 
-var panelFields = []panelField{
-	{"Summary", func(m *Model) tea.Cmd { m.openJiraSummaryInput(); return nil }},
-	{"Status", func(m *Model) tea.Cmd { return m.openJiraStatusPicker() }},
-	{"Priority", func(m *Model) tea.Cmd { return m.openJiraPriorityPicker() }},
-	{"Points", func(m *Model) tea.Cmd { m.openJiraPointsInput(); return nil }},
-	{"Assignee", func(m *Model) tea.Cmd { return m.openJiraAssigneePicker() }},
-	{"Labels", func(m *Model) tea.Cmd { m.openJiraLabelsInput(); return nil }},
+// panelFields is set in init: its editors render the panel, which reads it.
+var panelFields []panelField
+
+func init() {
+	panelFields = []panelField{
+		{"Summary", func(m *Model) tea.Cmd { m.openJiraSummaryInput(); return nil }},
+		{"Status", func(m *Model) tea.Cmd { return m.openJiraStatusPicker() }},
+		{"Priority", func(m *Model) tea.Cmd { return m.openJiraPriorityPicker() }},
+		{"Points", func(m *Model) tea.Cmd { m.openJiraPointsInput(); return nil }},
+		{"Assignee", func(m *Model) tea.Cmd { return m.openJiraAssigneePicker() }},
+		{"Labels", func(m *Model) tea.Cmd { m.openJiraLabelsInput(); return nil }},
+	}
 }
 
 // panelExtraMsg is the shown issue's edit screen fetched.
@@ -93,6 +99,11 @@ func (m *Model) panelFieldSel() string {
 		return panelFields[i].name
 	}
 	return m.extraFields()[i-len(panelFields)].Name
+}
+
+// panelFieldRow is the index of the panel's own field name, -1 when none.
+func panelFieldRow(name string) int {
+	return slices.IndexFunc(panelFields, func(f panelField) bool { return f.name == name })
 }
 
 // panelFieldIs reports whether the cursor is on the panel's own field name.
@@ -164,6 +175,7 @@ func (m *Model) editPanelField() tea.Cmd {
 			hint = "issue key (empty clears)"
 		}
 		m.openJiraTextInput("field", ff.val.Text, hint, 0)
+		m.startFieldInline(i)
 		return nil
 	}
 	if ff.Kind == jira.KindSprint {
