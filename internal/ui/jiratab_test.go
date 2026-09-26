@@ -914,7 +914,7 @@ func TestListGroups(t *testing.T) {
 		m = out.(Model)
 	}
 	view := ansi.Strip(m.View().Content)
-	if !strings.Contains(view, "── Ada · 1") || !strings.Contains(view, "── Unassigned · 3 · 5p") {
+	if !strings.Contains(view, "── AD Ada · 1") || !strings.Contains(view, "── Unassigned · 3 · 5p") {
 		t.Fatalf("headers missing:\n%s", view)
 	}
 	tt := m.jiraTab
@@ -1024,7 +1024,7 @@ func TestJiraSwimlanes(t *testing.T) {
 	out, _ := m.handleKey(keyMsg(t, "s"))
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)
-	ada, un := strings.Index(view, "▾ Ada · 1"), strings.Index(view, "▾ Unassigned · 3 · 5p")
+	ada, un := strings.Index(view, "▾ AD Ada · 1"), strings.Index(view, "▾ Unassigned · 3 · 5p")
 	if m.status != "swimlanes by assignee" || ada < 0 || un < ada {
 		t.Fatalf("status %q, bands at %d, %d:\n%s", m.status, ada, un, view)
 	}
@@ -1070,7 +1070,7 @@ func TestJiraSwimlanesRemembered(t *testing.T) {
 	m.jiraTab.swim = jiraSortRank
 	tt := m.jiraTab
 	out, _ = m.handleJiraBoard(jiraBoardMsg{seq: tt.seq, project: "ABC", boards: tt.boards, cfg: tt.cfg, views: tt.views, cards: tt.cards, total: tt.total})
-	if m = out.(Model); m.jiraTab.swim != jiraSortAssignee || !strings.Contains(m.View().Content, "▾ Ada") {
+	if m = out.(Model); m.jiraTab.swim != jiraSortAssignee || !strings.Contains(ansi.Strip(m.View().Content), "▾ AD Ada") {
 		t.Errorf("swim after reload = %v", m.jiraTab.swim)
 	}
 }
@@ -1102,7 +1102,7 @@ func TestJiraSwimlaneDropAssigns(t *testing.T) {
 	}
 	out, cmd := m.Update(tea.MouseReleaseMsg{X: 2, Y: jiraBodyTop + 3, Button: tea.MouseLeft})
 	m = out.(Model)
-	if cmd == nil || !strings.Contains(ansi.Strip(m.View().Content), "▾ Ada · 2") {
+	if cmd == nil || !strings.Contains(ansi.Strip(m.View().Content), "▾ AD Ada · 2") {
 		t.Fatalf("drop: cmd %v\n%s", cmd != nil, ansi.Strip(m.View().Content))
 	}
 	cmd()
@@ -1120,7 +1120,7 @@ func TestJiraSwimlaneDropAssigns(t *testing.T) {
 		t.Errorf("undo requests = %q", got)
 	}
 	out, _ = m.handleKey(keyMsg(t, "u"))
-	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "▾ Ada · 2") {
+	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "▾ AD Ada · 2") {
 		t.Error("u again should redo the drop")
 	}
 }
@@ -1138,7 +1138,7 @@ func TestJiraSwimlaneFold(t *testing.T) {
 		m = out.(Model)
 	}
 	view := ansi.Strip(m.View().Content)
-	if !strings.Contains(view, "▸ Ada · 1") || strings.Contains(view, "First") {
+	if !strings.Contains(view, "▸ AD Ada · 1") || strings.Contains(view, "First") {
 		t.Fatalf("folded view:\n%s", view)
 	}
 	if c, _ := m.selectedJiraCard(); c.Key != "ABC-3" {

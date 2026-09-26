@@ -1610,11 +1610,20 @@ func (m *Model) jiraGroupHeader(g string, from int) string {
 			pts += f
 		}
 	}
-	s := fmt.Sprintf("── %s · %d", g, n)
+	s := fmt.Sprintf("%s · %d", g, n)
 	if pts > 0 {
 		s += " · " + strconv.FormatFloat(pts, 'f', -1, 64) + "p"
 	}
-	return jiraViewActive.Render(s)
+	return jiraViewActive.Render("── ") + m.jiraGroupAvatar(t.sort, g) + jiraViewActive.Render(s)
+}
+
+// jiraGroupAvatar is the chip before a group by assignee's name, "" for
+// other groupings and the unassigned.
+func (m *Model) jiraGroupAvatar(by jiraSort, g string) string {
+	if by != jiraSortAssignee || !m.opts.fields.avatar || g == "Unassigned" {
+		return ""
+	}
+	return jiraAvatar(g) + " "
 }
 
 func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) string {
@@ -2131,7 +2140,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 			if bl.pts != "" {
 				n += " · " + bl.pts + "p"
 			}
-			lines = append(lines, shade(jiraViewActive.Render(sign+bl.head)+jiraDimStyle.Render(n), totalW))
+			lines = append(lines, shade(jiraViewActive.Render(sign)+m.jiraGroupAvatar(t.swim, bl.head)+jiraViewActive.Render(bl.head)+jiraDimStyle.Render(n), totalW))
 			continue
 		case bl.y < 0:
 			lines = append(lines, row(make([]string, len(shown))))

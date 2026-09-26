@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Next
-- Swimlanes by assignee: the band header could carry the avatar chip too
 - Help overlay: section titles as shaded bars like the panel's, so the columns read as groups
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Swimlane band and list group headers by assignee carry the avatar chip
 - Cards and list rows: the assignee's initials on a colour of their own (`card_fields: avatar`, on by default)
 - Panel status as a lozenge coloured by its category (to do grey, in progress blue, done green), plain while the field cursor is on it
 - Move form mouse: a click selects a field, a second edits it (a typed value is kept when the click goes elsewhere), the button moves. The create form is a picker plus one line: nothing to add
