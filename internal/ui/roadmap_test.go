@@ -311,3 +311,54 @@ func TestRoadmapCopy(t *testing.T) {
 		t.Errorf("table = %q", got)
 	}
 }
+
+// TestRoadmapDrag: dragging a bar moves both dates a column's worth per
+// column; dragging its end stretches only the end; the release lets go.
+func TestRoadmapDrag(t *testing.T) {
+	m := roadmapModel(t)
+	var writes []string
+	fakeRoadmapJira(t, &m, true, &writes)
+	r := m.jiraTab.roadmap
+	e := &r.epics[0]
+	start, end := e.Start, e.End
+	zoom := roadmapZooms[r.zoom]
+	s, last, _ := roadmapBarCols(*e, r.from, zoom)
+	labelW, _ := roadmapLayout(m.jiraTab.view.Width())
+	x := func(col int) int { return 1 + labelW + 1 + col }
+	y := jiraBodyTop + 1
+	press := func(col int) {
+		out, _ := m.Update(tea.MouseClickMsg{X: x(col), Y: y, Button: tea.MouseLeft})
+		m = out.(Model)
+	}
+	motion := func(col int) tea.Cmd {
+		out, cmd := m.Update(tea.MouseMotionMsg{X: x(col), Y: y, Button: tea.MouseLeft})
+		m = out.(Model)
+		return cmd
+	}
+	release := func() {
+		out, _ := m.Update(tea.MouseReleaseMsg{X: 0, Y: y, Button: tea.MouseLeft})
+		m = out.(Model)
+	}
+
+	mid := (s + last) / 2
+	press(mid)
+	if motion(mid+2) == nil {
+		t.Fatal("a drag should schedule the write")
+	}
+	release()
+	if !e.Start.Equal(start.AddDate(0, 0, 2*zoom)) || !e.End.Equal(end.AddDate(0, 0, 2*zoom)) {
+		t.Fatalf("moved to %v – %v", e.Start, e.End)
+	}
+	if motion(mid+5) != nil {
+		t.Error("after the release a motion should do nothing")
+	}
+
+	start, end = e.Start, e.End
+	_, last, _ = roadmapBarCols(*e, r.from, zoom)
+	press(last)
+	motion(last + 1)
+	release()
+	if !e.Start.Equal(start) || !e.End.Equal(end.AddDate(0, 0, zoom)) {
+		t.Errorf("stretched to %v – %v", e.Start, e.End)
+	}
+}

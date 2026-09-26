@@ -43,6 +43,7 @@ type roadmapState struct {
 	// saveSeq debounces the write to the last key press.
 	pending map[string]bool
 	saveSeq int
+	drag    roadmapDrag
 }
 
 // roadmapRow is one line: an epic (kid -1), one of its children, or a
@@ -571,8 +572,7 @@ func (m *Model) renderRoadmap(width, height int) string {
 	case len(r.epics) == 0:
 		return refDimStyle.Render("no open epics in " + r.project)
 	}
-	labelW := min(max(width/3, 20), 44)
-	cols := max(width-labelW-1, 1)
+	labelW, cols := roadmapLayout(width)
 	zoom := roadmapZooms[r.zoom]
 	now := time.Now()
 	today := int(now.Sub(r.from).Hours()/24) / zoom
@@ -713,22 +713,37 @@ func roadmapHeader(from time.Time, cols, zoom int) string {
 	return jiraDimStyle.Render(string(line))
 }
 
-// roadmapBar is an epic's timeline row: the bar over its days, the done
-// share filled from the left, today's column marked.
-func roadmapBar(e jira.Epic, from time.Time, cols, zoom, today int) string {
-	colOf := func(t time.Time) int { return int(math.Floor(t.Sub(from).Hours() / 24 / float64(zoom))) }
+// roadmapLayout splits width into the label column and the timeline's.
+func roadmapLayout(width int) (labelW, cols int) {
+	labelW = min(max(width/3, 20), 44)
+	return labelW, max(width-labelW-1, 1)
+}
+
+// roadmapBarCols are the first and last columns of e's bar; ok is false
+// when it has no dates.
+func roadmapBarCols(e jira.Epic, from time.Time, zoom int) (s, t int, ok bool) {
 	start, end := e.Start, e.End
 	if start.IsZero() && end.IsZero() {
-		return jiraDimStyle.Render("no dates")
+		return 0, 0, false
 	}
-	single := start.IsZero() || end.IsZero()
 	if start.IsZero() {
 		start = end
 	}
 	if end.IsZero() {
 		end = start
 	}
-	s, t := colOf(start), colOf(end)
+	colOf := func(t time.Time) int { return int(math.Floor(t.Sub(from).Hours() / 24 / float64(zoom))) }
+	return colOf(start), colOf(end), true
+}
+
+// roadmapBar is an epic's timeline row: the bar over its days, the done
+// share filled from the left, today's column marked.
+func roadmapBar(e jira.Epic, from time.Time, cols, zoom, today int) string {
+	s, t, ok := roadmapBarCols(e, from, zoom)
+	if !ok {
+		return jiraDimStyle.Render("no dates")
+	}
+	single := e.Start.IsZero() || e.End.IsZero()
 	done, _ := roadmapDone(e)
 	fill := s + int(math.Round(done*float64(t-s+1)))
 	todo, filled := roadmapTodoStyle, roadmapDoneStyle

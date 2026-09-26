@@ -11,8 +11,9 @@ import (
 // roadmap's rows and planning's two sides. A click selects, a double-click
 // opens the issue in the panel.
 
-// clickRoadmap selects the clicked roadmap row.
-func (m Model) clickRoadmap(y, count int) (tea.Model, tea.Cmd) {
+// clickRoadmap selects the clicked roadmap row; a press on its bar starts
+// a drag (dragRoadmap).
+func (m Model) clickRoadmap(x, y, count int) (tea.Model, tea.Cmd) {
 	r := m.jiraTab.roadmap
 	line := y - jiraBodyTop // the timeline's header first
 	i := r.top + line - 1
@@ -26,7 +27,59 @@ func (m Model) clickRoadmap(y, count int) (tea.Model, tea.Cmd) {
 			return m.openJiraKey(k)
 		}
 	}
+	if row := r.rows()[i]; row.epic >= 0 {
+		col := m.roadmapColAt(x)
+		if s, t, ok := roadmapBarCols(r.rowEpic(row), r.from, roadmapZooms[r.zoom]); ok && col >= s && col <= t {
+			grip := roadmapGripMove
+			switch {
+			case t-s >= 2 && col == s:
+				grip = roadmapGripStart
+			case t-s >= 2 && col == t:
+				grip = roadmapGripEnd
+			}
+			r.drag = roadmapDrag{on: true, col: col, grip: grip}
+		}
+	}
 	return m, nil
+}
+
+// Where a roadmap bar is held: the whole bar or one of its ends.
+const (
+	roadmapGripMove = iota
+	roadmapGripStart
+	roadmapGripEnd
+)
+
+// roadmapDrag is a bar held by the mouse: grip and the column it was last
+// at.
+type roadmapDrag struct {
+	on        bool
+	col, grip int
+}
+
+// dragRoadmap moves the held bar (or its end) a column's worth of days per
+// column the mouse moved; the write waits for a pause, as with the keys.
+func (m Model) dragRoadmap(x int) (tea.Model, tea.Cmd) {
+	r := m.jiraTab.roadmap
+	col := m.roadmapColAt(x)
+	d := (col - r.drag.col) * roadmapZooms[r.zoom]
+	if d == 0 {
+		return m, nil
+	}
+	r.drag.col = col
+	switch r.drag.grip {
+	case roadmapGripStart:
+		return m, m.shiftRoadmap(d, 0)
+	case roadmapGripEnd:
+		return m, m.shiftRoadmap(0, d)
+	}
+	return m, m.shiftRoadmap(d, d)
+}
+
+// roadmapColAt is the timeline column under screen column x.
+func (m *Model) roadmapColAt(x int) int {
+	labelW, _ := roadmapLayout(m.jiraTab.view.Width())
+	return x - 1 - labelW - 1 // the box's border, the labels and a space
 }
 
 // planSideAt is the planning side under column x: 0 the backlog, 1 the

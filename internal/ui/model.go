@@ -386,11 +386,17 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseClickMsg:
 		return m.handleClick(msg)
 	case tea.MouseMotionMsg:
+		if r := m.jiraTab.roadmap; r != nil && r.drag.on && msg.Button == tea.MouseLeft {
+			return m.dragRoadmap(msg.X)
+		}
 		if m.jiraDragging() && msg.Button == tea.MouseLeft {
 			return m.dragJira(msg.X, msg.Y)
 		}
 		return m, nil
 	case tea.MouseReleaseMsg:
+		if r := m.jiraTab.roadmap; r != nil {
+			r.drag = roadmapDrag{}
+		}
 		if msg.Button == tea.MouseLeft && m.jiraDragging() {
 			return m.dropJira()
 		}
@@ -604,7 +610,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	switch t := m.jiraTab; {
 	case t.roadmap != nil:
 		m.focus = focusJira
-		return m.clickRoadmap(msg.Y, count)
+		return m.clickRoadmap(msg.X, msg.Y, count)
 	case t.plan != nil:
 		m.focus = focusJira
 		return m.clickPlan(msg.X, msg.Y, count)
