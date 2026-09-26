@@ -119,6 +119,7 @@ func (m *Model) helpSections() []struct {
 			row(k.PlanRename, "rename the sprint"),
 			row(k.PlanNew, "new sprint"),
 			row(k.PlanComplete, "complete the active sprint (twice)"),
+			row(k.CopyKey, "copy the sprint as a table"),
 			{"esc / " + helpKey(k.Quit), "back to the board"},
 		}},
 		section{"Roadmap", []helpRow{

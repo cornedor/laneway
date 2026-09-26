@@ -191,9 +191,22 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				t.marked[c.Key] = true
 			}
 			p.idx[p.side] = min(p.idx[p.side]+1, max(n-1, 0))
+			m.status = fmt.Sprintf("%d marked · %s or space moves them across", len(t.marked), helpKey(m.keys.MoveSprint))
 		}
 	case key.Matches(msg, m.keys.MoveSprint), msg.String() == "space":
+		if n == 0 {
+			m.status = "nothing on this side to move"
+			return m, nil
+		}
 		return m, m.planMove()
+	case key.Matches(msg, m.keys.CopyKey):
+		v := p.sprints[p.target]
+		var rows [][]string
+		for _, c := range p.sides[1] {
+			rows = append(rows, []string{c.Key, c.Summary, c.Assignee, c.Points})
+		}
+		m.status = fmt.Sprintf("copied %s (%d issues) as a markdown table", v.name, len(rows))
+		return m, tea.SetClipboard(markdownTable([]string{"Key", "Summary", "Assignee", "Points"}, rows))
 	case key.Matches(msg, m.keys.PlanStart):
 		return m, m.planStart()
 	case key.Matches(msg, m.keys.PlanGoal):
@@ -541,6 +554,17 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	p := m.jiraTab.plan
 	cards := p.sides[side]
 	pts, _ := planPoints(cards)
+	unpointed := 0
+	for _, c := range cards {
+		if _, err := strconv.ParseFloat(c.Points, 64); err != nil {
+			unpointed++
+		}
+	}
+	if unpointed > 0 {
+		pts += fmt.Sprintf("p · %d unestimated", unpointed)
+	} else {
+		pts += "p"
+	}
 	outer := width
 	width = max(width-1, 1) // a cell of air before the divider or border
 	headStyle, drop := jiraDimStyle, ""
@@ -550,7 +574,7 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	if p.drag.active && p.drag.over == side && side != p.drag.side {
 		headStyle, drop = jiraViewActive, "  ◂ drop"
 	}
-	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %d cards · %sp%s", name, len(cards), pts, drop), width, "…"))}
+	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %d cards · %s%s", name, len(cards), pts, drop), width, "…"))}
 	if side == 1 {
 		lines = append(lines, ansi.Truncate(planByAssignee(cards, m.opts.capacity), width, "…"))
 	} else {
@@ -582,6 +606,10 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 			row = diffTreeSelStyle.Render(ansi.Strip(row))
 		}
 		lines = append(lines, row)
+	}
+	if len(cards) == 0 && p.sides[side] != nil {
+		hint := "empty · " + helpKey(m.keys.MoveSprint) + " or space on the other side moves cards here"
+		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(hint, width, "…")))
 	}
 	for len(lines) < height {
 		lines = append(lines, "")

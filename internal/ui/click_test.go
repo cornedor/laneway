@@ -1151,3 +1151,23 @@ func TestScreenErrors(t *testing.T) {
 		t.Errorf("empty roadmap:\n%s", view)
 	}
 }
+
+// TestPlanFeedback: x says how many are marked, y copies the sprint, an
+// empty side says how to fill it.
+func TestPlanFeedback(t *testing.T) {
+	m := planModel(t, &[]string{})
+	p := m.jiraTab.plan
+	p.side = 0
+	out, _ := m.handleJiraKey(keyMsg(t, "x"))
+	if m = out.(Model); len(p.sides[0]) > 0 && !strings.Contains(m.status, "1 marked") {
+		t.Errorf("x: %q", m.status)
+	}
+	out, cmd := m.handleJiraKey(keyMsg(t, "y"))
+	if m = out.(Model); cmd == nil || !strings.Contains(m.status, "as a markdown table") {
+		t.Errorf("y: %q", m.status)
+	}
+	p.sides[1] = []jira.Card{}
+	if !strings.Contains(ansi.Strip(m.View().Content), "moves cards here") {
+		t.Errorf("empty side:\n%s", ansi.Strip(m.View().Content))
+	}
+}

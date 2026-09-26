@@ -75,7 +75,7 @@ var keyScopes = []struct {
 	{"planning", []string{
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down", "quit", "plan", "next_view", "prev_view",
 		"mark", "move_sprint", "plan_start", "plan_goal", "plan_rename", "plan_new", "plan_complete", "rank_up", "rank_down",
-		"refresh", "browser", "open", "toggle_panel", "help",
+		"refresh", "browser", "open", "toggle_panel", "help", "copy_key",
 	}},
 	{"roadmap", []string{
 		"up", "down", "left", "right", "top", "bottom", "quit", "roadmap", "roadmap_grip", "roadmap_fold",
