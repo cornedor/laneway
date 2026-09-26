@@ -431,7 +431,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.jiraPicker.kind == jiraPickStandup && key.Matches(msg, m.keys.Standup) {
-		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day))
+		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays))
 	}
 	if m.jiraPicker.filterable {
 		// Arrows + ctrl+p/ctrl+n navigate so letters stay available for typing.

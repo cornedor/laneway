@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- `ui.workdays`: which weekdays standup's previous workday skips over (Mon–Fri today)
 - `ui.flag_value`: the Flagged option flagging sets (`Impediment` today)
 - Inbox config: poll interval (5m), first-run look-back (24h), issue cap (30)
 - `ui.timer_round`: round the timer's logged time (`15m`); today to the minute, 1m minimum
@@ -12,6 +11,7 @@
 - `jira.timeout`: API request timeout (20s) and the longer action timeouts (30–90s), for slow instances
 - `ui.full_refresh`: the full refetch interval behind the delta refreshes (10m)
 - Filter terms, more: `updated<1d` and `sprint:` (cards need both fields fetched), custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
+- `F` builder on one screen: field, compare and value columns side by side, the next steps visible before choosing, the term being built shown live; type to narrow a column, tab/arrows move between them. Today's wizard hides what comes next, so each step is re-read and some filters are guesswork
 - Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
@@ -31,6 +31,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `ui.workdays` ([mon … fri]): standup's previous workday skips the rest
 - `ui.roadmap_epic_type` (Epic) for the roadmap's query and `n`, `ui.roadmap_done_days` (90) for how long resolved ones stay
 - `ui.kanban_done_days`: how long done work stays on kanban boards (14)
 - `ui.work_agent`: the herdr agent kind start work launches (`claude`)

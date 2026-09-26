@@ -18,9 +18,15 @@ func TestPreviousWorkday(t *testing.T) {
 		"2026-09-27": "2026-09-25", // Sunday → Friday
 	} {
 		n, _ := time.Parse(time.DateOnly, now)
-		if got := PreviousWorkday(n.Add(15 * time.Hour)).Format(time.DateOnly); got != want {
+		if got := PreviousWorkday(n.Add(15*time.Hour), nil).Format(time.DateOnly); got != want {
 			t.Errorf("%s: %s, want %s", now, got, want)
 		}
+	}
+	// A Sunday-to-Thursday week: Sunday looks back to Thursday.
+	sunThu := []time.Weekday{time.Sunday, time.Monday, time.Tuesday, time.Wednesday, time.Thursday}
+	n, _ := time.Parse(time.DateOnly, "2026-09-27")
+	if got := PreviousWorkday(n, sunThu).Format(time.DateOnly); got != "2026-09-24" {
+		t.Errorf("sun-thu: %s", got)
 	}
 }
 

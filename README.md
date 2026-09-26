@@ -80,6 +80,7 @@ ui:
   kanban_done_days: 14          # done work older than this leaves kanban boards
   roadmap_epic_type: Epic       # the issue type R shows and n creates (Initiative, …)
   roadmap_done_days: 90         # resolved epics older than this leave the roadmap
+  workdays: [mon, tue, wed, thu, fri]  # standup (U) looks back to the previous one
   work_agent: claude            # the herdr agent S starts in the worktree
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
   keys:              # rebind any action: one key or a list

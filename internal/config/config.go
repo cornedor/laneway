@@ -96,6 +96,9 @@ type UIConfig struct {
 	// ("Epic"); RoadmapDoneDays how long resolved ones stay (90).
 	RoadmapEpicType string `yaml:"roadmap_epic_type"`
 	RoadmapDoneDays int    `yaml:"roadmap_done_days"`
+	// Workdays are the days you work, for standup's previous workday:
+	// [mon, tue, wed, thu, fri] by default.
+	Workdays []string `yaml:"workdays"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
 	WorkAgent string `yaml:"work_agent"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);

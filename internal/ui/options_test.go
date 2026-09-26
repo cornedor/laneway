@@ -207,3 +207,11 @@ func TestKanbanDoneDays(t *testing.T) {
 		t.Errorf("cache round trip = %+v", back)
 	}
 }
+
+func TestWorkdaysOption(t *testing.T) {
+	o, warn := optionsFrom(config.UIConfig{Workdays: []string{"Sun", "monday", "tue", "x"}})
+	want := []time.Weekday{time.Sunday, time.Monday, time.Tuesday}
+	if !reflect.DeepEqual(o.workdays, want) || len(warn) != 1 {
+		t.Errorf("workdays = %v %v", o.workdays, warn)
+	}
+}

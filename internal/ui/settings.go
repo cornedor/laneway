@@ -47,6 +47,7 @@ var settingDefaults = map[string]string{
 	"kanban_done_days":     "14",
 	"roadmap_epic_type":    "Epic",
 	"roadmap_done_days":    "90",
+	"workdays":             "mon–fri",
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",
 	"theme":                "terminal colours",

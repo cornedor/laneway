@@ -76,7 +76,7 @@ func TestStandupFurther(t *testing.T) {
 	first := m.jiraPicker.day
 	out, cmd := m.handleJiraPickerKey(keyMsg(t, "U"))
 	m = out.(Model)
-	if cmd == nil || !m.jiraPicker.day.Equal(jira.PreviousWorkday(first)) || m.jiraPicker.kind != jiraPickStandup {
-		t.Errorf("since %v, want %v", m.jiraPicker.day, jira.PreviousWorkday(first))
+	if cmd == nil || !m.jiraPicker.day.Equal(jira.PreviousWorkday(first, nil)) || m.jiraPicker.kind != jiraPickStandup {
+		t.Errorf("since %v, want %v", m.jiraPicker.day, jira.PreviousWorkday(first, nil))
 	}
 }

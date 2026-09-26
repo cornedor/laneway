@@ -80,11 +80,15 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 	return out, nil
 }
 
-// PreviousWorkday is the start of the last weekday before now's day: a
-// Monday looks back to Friday.
-func PreviousWorkday(now time.Time) time.Time {
+// PreviousWorkday is the start of the last workday before now's day, the
+// workdays Monday to Friday when none are given: a Monday looks back to
+// Friday.
+func PreviousWorkday(now time.Time, workdays []time.Weekday) time.Time {
+	if len(workdays) == 0 {
+		workdays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	}
 	d := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -1)
-	for d.Weekday() == time.Saturday || d.Weekday() == time.Sunday {
+	for !slices.Contains(workdays, d.Weekday()) {
 		d = d.AddDate(0, 0, -1)
 	}
 	return d

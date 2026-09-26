@@ -15,7 +15,7 @@ import (
 
 // openStandup loads your activity into a picker.
 func (m *Model) openStandup() tea.Cmd {
-	return m.openStandupSince(jira.PreviousWorkday(time.Now()))
+	return m.openStandupSince(jira.PreviousWorkday(time.Now(), m.opts.workdays))
 }
 
 // openStandupSince loads your activity since since; U again inside it
