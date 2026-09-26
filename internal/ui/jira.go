@@ -136,7 +136,10 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	// (jira_comment.go).
 	b.WriteString("\n" + refDimStyle.Render("tab fields · ↵ edit · c comment · R reply · S start work · ? keys") + "\n")
 
-	if desc := strings.TrimSpace(iss.Description); desc != "" {
+	if m.descEditOn("") {
+		b.WriteString(sectionHead("Description", "  "+descEditHint, max(width, 1)))
+		b.WriteString(descEditMark + "\n")
+	} else if desc := strings.TrimSpace(iss.Description); desc != "" {
 		divW := width
 		if divW < 1 {
 			divW = 1
@@ -146,7 +149,10 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	}
 	// Rich-text fields read like the description, under their own heads.
 	for _, ff := range m.extraFields() {
-		if richField(ff) {
+		if m.descEditOn(ff.ID) {
+			b.WriteString(sectionHead(ff.Name, "  "+descEditHint, max(width, 1)))
+			b.WriteString(descEditMark + "\n")
+		} else if richField(ff) {
 			b.WriteString(sectionHead(ff.Name, "", max(width, 1)))
 			b.WriteString(renderMarkdown(ff.val.Text, m.emojiImg, nil, ""))
 		}

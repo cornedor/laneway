@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -76,7 +77,85 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	ed.SetValue(msg.md)
 	m.descEdit = &descEdit{key: msg.key, comment: msg.comment, field: msg.field, before: msg.md, kept: msg.kept, input: ed}
 	m.status = ""
+	if m.descEditInline() {
+		m.descEdit.input.MaxHeight = max(m.refView.Height()-4, 6)
+		m.renderRef()
+		m.showDescEdit()
+	}
 	return m, nil
+}
+
+// descEditMark stands in the panel's content for the inline editor, which
+// renderRef puts in after the tables and images are laid out.
+const descEditMark = "\x00descedit\x00"
+
+// descEditHint is the editor's keys.
+const descEditHint = "ctrl+s save · ctrl+e $EDITOR · esc cancel"
+
+// descEditInline is whether the editor sits in the panel's body, in place of
+// the description or field it edits; a comment's edit stays a modal.
+func (m *Model) descEditInline() bool {
+	d := m.descEdit
+	return d != nil && d.comment == "" && m.refOpen && m.jiraIssue != nil && m.jiraIssue.Key == d.key && m.refErr == nil && !m.refLoading
+}
+
+// descEditOn is whether the inline editor is on field ("" the description).
+func (m *Model) descEditOn(field string) bool {
+	return m.descEditInline() && m.descEdit.field == field
+}
+
+// placeDescEdit swaps the mark for the editor, recording its line.
+func (m *Model) placeDescEdit(content string, width int) string {
+	m.descEditLine = -1
+	if !m.descEditInline() {
+		return content
+	}
+	lines := strings.Split(content, "\n")
+	i := slices.Index(lines, descEditMark)
+	if i < 0 {
+		return content
+	}
+	m.descEditLine = i
+	m.descEdit.input.SetWidth(max(width, 8))
+	return strings.Join(slices.Concat(lines[:i], []string{m.descEdit.input.View()}, lines[i+1:]), "\n")
+}
+
+// descEditCursor is the editor's cursor on screen, when it is in view.
+func (m *Model) descEditCursor() (x, y int, ok bool) {
+	if !m.descEditInline() || m.descEditLine < 0 {
+		return 0, 0, false
+	}
+	cx, cy, ok := m.descEdit.input.CursorViewPos()
+	if !ok {
+		return 0, 0, false
+	}
+	row := m.descEditRow() + cy - m.refView.YOffset()
+	if row < 0 || row >= m.refView.Height() {
+		return 0, 0, false
+	}
+	listW, _ := m.jiraListWidth(m.width)
+	return listW + 1 + cx, 1 + m.crumbRows() + row, true
+}
+
+// descEditRow is the editor's first row in the panel's wrapped content.
+func (m *Model) descEditRow() int {
+	return visualRowsBefore(strings.Split(m.refView.GetContent(), "\n"), m.descEditLine, m.refView.Width())
+}
+
+// showDescEdit scrolls the panel to keep the editor's cursor in view, its
+// section head too when the cursor allows.
+func (m *Model) showDescEdit() {
+	if !m.descEditInline() || m.descEditLine < 0 {
+		return
+	}
+	_, cy, _ := m.descEdit.input.CursorViewPos()
+	row, top, h := m.descEditRow()+cy, m.refView.YOffset(), m.refView.Height()
+	switch {
+	case row < top:
+		m.refView.SetYOffset(max(row-2, 0))
+	case row >= top+h:
+		m.refView.SetYOffset(row - h + 1)
+	}
 }
 
 // descEditTitle names what the editor is on.

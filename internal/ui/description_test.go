@@ -23,9 +23,21 @@ func TestEditDescriptionInline(t *testing.T) {
 	m := loadedJiraModel(t)
 	out, _ := m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "# Plan\n\n- one"})
 	m = out.(Model)
-	if m.descEdit == nil || m.descEdit.input.Value() != "# Plan\n\n- one" || !strings.Contains(ansi.Strip(m.View().Content), "Description — ABC-1") {
+	if m.descEdit == nil || m.descEdit.input.Value() != "# Plan\n\n- one" {
 		t.Fatal("the editor should open on the markdown")
 	}
+	v := m.View()
+	if c := ansi.Strip(v.Content); strings.Contains(c, "Description — ABC-1") || !strings.Contains(c, "Description  ctrl+s save") || !strings.Contains(c, "┃ # Plan") {
+		t.Fatalf("the editor should sit in the panel under the Description head:\n%s", c)
+	}
+	if v.Cursor == nil {
+		t.Error("the terminal cursor should sit in the editor")
+	}
+	out, _ = m.Update(keyMsg(t, "!"))
+	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "- one!") {
+		t.Error("typing should redraw the editor in the panel")
+	}
+	m.descEdit.input.SetValue("# Plan\n\n- one")
 	out, cmd := m.handleKey(keyMsg(t, "ctrl+e"))
 	if m = out.(Model); cmd == nil || m.descEdit != nil {
 		t.Fatal("ctrl+e should run $EDITOR")

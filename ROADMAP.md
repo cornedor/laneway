@@ -1,12 +1,13 @@
 # Roadmap
 
 ## Next
-- Inline editing, rest: the description and rich-text fields edit in place in the panel body; comments and replies compose under the thread. Modals stay only for multi-field forms (transition screens, bulk)
+- Inline editing, rest: comments and replies compose under the thread. Modals stay only for multi-field forms (transition screens, bulk)
 - `laneway rules` create defaults (type `Task`, status `To Do`): read the project's types and statuses from Jira, a config key overrides
 - Light-theme pass over the chips, lozenges and selection colours
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The description and rich-text fields edit in place: the editor replaces the section body under its head (keys in the head), the terminal cursor in it, scrolled to follow; comment edits keep the box
 - Inline lists: status, priority, assignee and person or option fields drop their list under the row (filter line when searchable, 8 rows, scrolled into view); a click picks, elsewhere cancels
 - Inline row editing: summary, points, labels and text, number, date and issue fields edit in their panel row (scrolled into view); the modal stays for edits off the panel
 - Inline rich-text editing: the description, rich-text fields and your comments open in the in-app editor (enter newline, ctrl+s save, esc asks once, ctrl+e hands off to `$EDITOR`); the same markdown round trip decides what is editable, a failed save keeps the text in a file

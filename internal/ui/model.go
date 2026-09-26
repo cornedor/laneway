@@ -283,6 +283,9 @@ type Model struct {
 	// pickerLine is the content line of the inline picker's first shown row
 	// (pickerStart), -1 when none (jira_edit.go).
 	pickerLine, pickerStart int
+	// descEditLine is the content line the inline editor starts on, -1 when
+	// none (description.go).
+	descEditLine int
 	// activityTab is the Activity section's open tab, activityLine its tab
 	// row's content line (-1 when not drawn); activity the history and
 	// worklogs it shows; commentHeads the comments' bylines (activity.go).
@@ -399,9 +402,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
 		// The inline picker is drawn in the panel: redraw it as it changes.
-		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline()) {
+		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline() || m.descEditInline() || om.descEditInline()) {
 			om.renderRef()
 			om.showInlinePicker()
+			om.showDescEdit()
 			out = om
 		}
 		if f := om.flushImages(); f != nil {
@@ -775,7 +779,9 @@ func (m Model) View() tea.View {
 	}
 	status := statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…"))
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
-	if m.descEdit != nil {
+	if cx, cy, ok := m.descEditCursor(); ok {
+		v.Cursor = tea.NewCursor(cx, cy)
+	} else if m.descEdit != nil && !m.descEditInline() {
 		if cx, cy, ok := m.modalComposerCursor(0, &m.descEdit.input); ok {
 			v.Cursor = tea.NewCursor(cx, cy)
 		}
@@ -811,7 +817,7 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderSettings(bodyH)
 	case m.filterBuilder != nil:
 		return m.renderFilterBuilder(bodyH)
-	case m.descEdit != nil:
+	case m.descEdit != nil && !m.descEditInline():
 		return m.renderDescEdit()
 	case m.helpOpen:
 		return m.renderHelp(bodyH)
