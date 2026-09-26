@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -502,7 +503,20 @@ func (c *Client) MoveToBacklog(ctx context.Context, keys ...string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
-	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/backlog/issue", "backlog", map[string]any{"issues": keys}, nil)
+	return c.moveChunks(ctx, "/rest/agile/1.0/backlog/issue", "backlog", keys)
+}
+
+// agileMoveMax is how many issues one Agile move request takes.
+const agileMoveMax = 50
+
+// moveChunks posts keys to an Agile move endpoint, 50 at a time.
+func (c *Client) moveChunks(ctx context.Context, path, what string, keys []string) error {
+	for chunk := range slices.Chunk(keys, agileMoveMax) {
+		if err := c.do(ctx, http.MethodPost, path, what, map[string]any{"issues": chunk}, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MoveToSprint puts issues in a sprint.
@@ -510,8 +524,7 @@ func (c *Client) MoveToSprint(ctx context.Context, sprint int, keys ...string) e
 	if !c.Enabled() {
 		return errNotConfigured
 	}
-	path := "/rest/agile/1.0/sprint/" + strconv.Itoa(sprint) + "/issue"
-	return c.do(ctx, http.MethodPost, path, "sprint", map[string]any{"issues": keys}, nil)
+	return c.moveChunks(ctx, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint)+"/issue", "sprint", keys)
 }
 
 // Rank puts key just before (after false) or after other in rank order.

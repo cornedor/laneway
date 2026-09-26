@@ -162,7 +162,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	last := max(len(r.rows())-1, 0)
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
-		return m, tea.Quit
+		return m, tea.Sequence(m.saveRoadmap(), tea.Quit) // pending date moves first
 	case msg.String() == "esc", key.Matches(msg, m.keys.Roadmap):
 		save := m.saveRoadmap()
 		m.jiraTab.roadmap = nil

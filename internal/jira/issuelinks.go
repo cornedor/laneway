@@ -38,22 +38,23 @@ func (c *Client) LinkTypes(ctx context.Context) ([]LinkType, error) {
 	return out, nil
 }
 
-// LinkIssues links outward to inward with typ: outward does the type's
-// outward verb ("A blocks B" is outward A, inward B).
-func (c *Client) LinkIssues(ctx context.Context, typ, outward, inward string) error {
+// LinkIssues links from to to with typ: from does the type's outward verb
+// ("A blocks B" is from A, to B). The API names the ends the other way
+// round: the issue that blocks goes in inwardIssue.
+func (c *Client) LinkIssues(ctx context.Context, typ, from, to string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
 	body := map[string]any{
 		"type":         map[string]string{"name": typ},
-		"outwardIssue": map[string]string{"key": outward},
-		"inwardIssue":  map[string]string{"key": inward},
+		"inwardIssue":  map[string]string{"key": from},
+		"outwardIssue": map[string]string{"key": to},
 	}
-	if err := c.do(ctx, http.MethodPost, "/rest/api/3/issueLink", outward, body, nil); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/rest/api/3/issueLink", from, body, nil); err != nil {
 		return err
 	}
-	c.Invalidate(outward)
-	c.Invalidate(inward)
+	c.Invalidate(from)
+	c.Invalidate(to)
 	return nil
 }
 

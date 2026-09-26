@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -47,7 +48,7 @@ func TestLogWork(t *testing.T) {
 	}
 	m.jiraFieldInput.SetValue("1h 30m tests")
 	_, cmd = m.applyJiraField()
-	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
+	if msg := cmd().(worklogLoggedMsg); msg.err != nil || msg.fromTimer {
 		t.Fatal(msg.err)
 	}
 	b := bodies[0]
@@ -82,16 +83,33 @@ func TestTimer(t *testing.T) {
 	start := m.timer.start
 	out, _ = m.handleJiraKey(keyMsg(t, "T"))
 	m = out.(Model)
-	if m.timer.key != "" || !m.jiraFieldActive || m.jiraFieldInput.Value() != "25m " || m.jiraFieldKey != "ABC-1" {
-		t.Fatalf("stop: timer %+v, input %q", m.timer, m.jiraFieldInput.Value())
+	if !m.jiraFieldActive || m.jiraFieldInput.Value() != "25m " || m.jiraFieldKey != "ABC-1" {
+		t.Fatalf("stop: input %q", m.jiraFieldInput.Value())
 	}
-	if v, _, _ := m.store.GetMeta(timerMeta); v != "" {
-		t.Errorf("stored timer = %q after stop", v)
+	// Until the log is in, the timer runs on: esc must not lose its time.
+	if m.timer.key != "ABC-1" {
+		t.Fatal("the timer should run until the log is written")
 	}
-	_, cmd = m.applyJiraField()
-	cmd()
+	out, cmd = m.applyJiraField()
+	m = out.(Model)
+	msg := cmd().(worklogLoggedMsg)
 	if got := bodies[0]["started"]; got != start.Format("2006-01-02T15:04:05.000-0700") {
 		t.Errorf("started = %v, want the timer's start", got)
+	}
+	out, _ = m.handleWorklogLogged(msg)
+	m = out.(Model)
+	if v, _, _ := m.store.GetMeta(timerMeta); m.timer.key != "" || v != "" {
+		t.Errorf("after the log: timer %+v, stored %q", m.timer, v)
+	}
+}
+
+// TestTimerKeptOnFailure: a failed log leaves the timer running.
+func TestTimerKeptOnFailure(t *testing.T) {
+	m := jiraTabModel(t)
+	m.timer = workTimer{key: "ABC-1", start: time.Now().Add(-time.Hour)}
+	out, _ := m.handleWorklogLogged(worklogLoggedMsg{key: "ABC-1", fromTimer: true, err: errors.New("503")})
+	if m = out.(Model); m.timer.key != "ABC-1" || !strings.Contains(m.status, "keeps running") {
+		t.Errorf("timer %+v, status %q", m.timer, m.status)
 	}
 }
 

@@ -172,3 +172,23 @@ func TestEditDocField(t *testing.T) {
 		t.Errorf("body = %s", body)
 	}
 }
+
+// TestEditKeptOnFailure: a save Jira rejects keeps the file and says where.
+func TestEditKeptOnFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"errorMessages":["nope"]}`, http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	path := filepath.Join(t.TempDir(), "d.md")
+	os.WriteFile(path, []byte("hours of writing\n"), 0o600)
+	_, cmd := m.handleDescEdited(descEditedMsg{key: "ABC-1", path: path, before: "old"})
+	msg := cmd().(jiraMutatedMsg)
+	if msg.err == nil || !strings.Contains(msg.err.Error(), path) {
+		t.Fatalf("err = %v", msg.err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Error("the file must survive a failed save")
+	}
+}

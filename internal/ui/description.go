@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -89,8 +90,8 @@ func editorCommand(path string) *exec.Cmd {
 
 // handleDescEdited saves the file back when it changed.
 func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
-	defer os.Remove(msg.path)
 	if msg.err != nil {
+		os.Remove(msg.path)
 		m.status = "editor: " + msg.err.Error()
 		return m, nil
 	}
@@ -101,24 +102,33 @@ func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 	}
 	after := strings.TrimSpace(string(b))
 	if after == strings.TrimSpace(msg.before) {
+		os.Remove(msg.path)
 		m.status = msg.key + " description unchanged"
 		return m, nil
 	}
-	c, ctx, key, kept, comment := m.jiraClient, m.ctx, msg.key, msg.kept, msg.comment
+	c, ctx, key, kept, comment, path := m.jiraClient, m.ctx, msg.key, msg.kept, msg.comment, msg.path
+	// The file goes only once Jira has the text; a failed save keeps it.
+	keep := func(err error) error {
+		if err != nil {
+			return fmt.Errorf("%w — your text is kept in %s", err, path)
+		}
+		os.Remove(path)
+		return nil
+	}
 	if field := msg.field; field != "" {
 		var doc any // blank clears
 		if after != "" {
 			doc = jira.MarkdownToADFKept(after, kept)
 		}
 		m.status = "saving " + key + " " + field + "…"
-		return m, jiraMutateCmd(key, field, func() error { return c.SetField(ctx, key, field, doc) })
+		return m, jiraMutateCmd(key, field, func() error { return keep(c.SetField(ctx, key, field, doc)) })
 	}
 	if comment != "" {
 		m.status = "saving the comment on " + key + "…"
-		return m, jiraMutateCmd(key, "comment", func() error { return c.SetComment(ctx, key, comment, after, kept) })
+		return m, jiraMutateCmd(key, "comment", func() error { return keep(c.SetComment(ctx, key, comment, after, kept)) })
 	}
 	m.status = "saving " + key + " description…"
-	return m, jiraMutateCmd(key, "description", func() error { return c.SetDescription(ctx, key, after, kept) })
+	return m, jiraMutateCmd(key, "description", func() error { return keep(c.SetDescription(ctx, key, after, kept)) })
 }
 
 // openCommentPicker lists your own comments on the panel issue to edit.

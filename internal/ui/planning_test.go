@@ -226,3 +226,16 @@ func TestPlanGoal(t *testing.T) {
 		t.Errorf("writes = %q", writes)
 	}
 }
+
+// TestPlanCloseConfirmResets: any other key between the two Cs cancels.
+func TestPlanCloseConfirmResets(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	out, _ := m.handleJiraKey(keyMsg(t, "C"))
+	m = out.(Model)
+	out, _ = m.handleJiraKey(keyMsg(t, "j"))
+	m = out.(Model)
+	if _, cmd := m.handleJiraKey(keyMsg(t, "C")); cmd != nil {
+		t.Error("C after another key should ask again, not complete")
+	}
+}

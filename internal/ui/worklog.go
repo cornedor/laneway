@@ -68,10 +68,11 @@ func (m Model) handleTimerTick() (tea.Model, tea.Cmd) {
 // key.
 func (m *Model) toggleTimer(key string) tea.Cmd {
 	if t := m.timer; t.key != "" {
-		m.timer = workTimer{}
-		m.saveTimer()
+		// The timer keeps running until the log is in: esc or a failed
+		// write leaves it, and its time, as it was.
 		secs := max(int(time.Since(t.start).Round(time.Minute).Seconds()), 60)
 		m.openWorklogInput(t.key, jira.FormatDuration(secs)+" ", t.start)
+		m.worklogFromTimer = true
 		return nil
 	}
 	if key == "" {
@@ -107,6 +108,7 @@ func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	m.jiraFieldKey = key
 	m.worklogStart = started
 	m.worklogEdit = "" // a new entry, unless the caller says otherwise
+	m.worklogFromTimer = false
 }
 
 // applyWorklog logs the input's time and comment.
@@ -135,9 +137,30 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
 	m.closeJiraField()
-	c, ctx := m.jiraClient, m.ctx
+	c, ctx, fromTimer := m.jiraClient, m.ctx, m.worklogFromTimer
 	m.status = fmt.Sprintf("logging %s on %s…", jira.FormatDuration(secs), key)
-	return m, jiraMutateCmd(key, "worklog", func() error { return c.AddWorklog(ctx, key, secs, started, comment) })
+	return m, func() tea.Msg {
+		return worklogLoggedMsg{key: key, fromTimer: fromTimer, err: c.AddWorklog(ctx, key, secs, started, comment)}
+	}
+}
+
+// worklogLoggedMsg is a worklog written; one from the timer stops it only
+// now, so a failed write keeps its time.
+type worklogLoggedMsg struct {
+	key       string
+	fromTimer bool
+	err       error
+}
+
+func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
+	if msg.fromTimer && msg.err == nil && m.timer.key == msg.key {
+		m.timer = workTimer{}
+		m.saveTimer()
+	}
+	if msg.err != nil && msg.fromTimer {
+		msg.err = fmt.Errorf("%w (the timer keeps running)", msg.err)
+	}
+	return m.handleJiraMutated(jiraMutatedMsg{key: msg.key, field: "worklog", err: msg.err})
 }
 
 // openTimesheet lists today's worklogs of yours; enter opens the issue.
@@ -175,6 +198,9 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 // timesheetKey handles the timesheet's own keys; false when k is not one.
 func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 	p := &m.jiraPicker
+	if k != "d" && k != "delete" {
+		p.pendingDelete = "" // a delete is confirmed by the very next key only
+	}
 	switch {
 	case k == helpKey(m.keys.PrevView):
 		return m.openTimesheetDay(p.day.AddDate(0, 0, -1)), true

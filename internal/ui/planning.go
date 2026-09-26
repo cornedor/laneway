@@ -135,6 +135,9 @@ func (p *planState) planCard() (jira.Card, bool) {
 func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t, p := m.jiraTab, m.jiraTab.plan
 	n := len(p.sides[p.side])
+	if msg.String() != "C" {
+		p.closing = false // a completion is confirmed by the very next key only
+	}
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit

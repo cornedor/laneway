@@ -47,7 +47,8 @@ func TestLinkIssues(t *testing.T) {
 	}
 	var body map[string]map[string]string
 	_ = json.Unmarshal([]byte(strings.SplitN(writes()[0], " ", 3)[2]), &body)
-	if body["outwardIssue"]["key"] != "ABC-1" || body["inwardIssue"]["key"] != "ABC-2" || body["type"]["name"] != "Blocks" {
+	// ABC-1 blocks ABC-2: the blocker goes in inwardIssue.
+	if body["inwardIssue"]["key"] != "ABC-1" || body["outwardIssue"]["key"] != "ABC-2" || body["type"]["name"] != "Blocks" {
 		t.Errorf("body = %v", body)
 	}
 }
@@ -86,7 +87,7 @@ func TestClone(t *testing.T) {
 			t.Errorf("create lacks %s: %s", want, w[0])
 		}
 	}
-	if !strings.Contains(w[1], `"outwardIssue":{"key":"ABC-9"}`) || !strings.Contains(w[1], `"Cloners"`) {
+	if !strings.Contains(w[1], `"inwardIssue":{"key":"ABC-9"}`) || !strings.Contains(w[1], `"Cloners"`) {
 		t.Errorf("link = %s", w[1])
 	}
 }

@@ -227,6 +227,9 @@ type Model struct {
 	// timesheet), "" for a new one.
 	worklogEdit    string
 	worklogEditDay time.Time
+	// worklogFromTimer marks the input as the timer's stop: the timer ends
+	// once the log is written.
+	worklogFromTimer bool
 	// sites are the configured Jira sites ("" is jira:), site the shown
 	// one; nextSite is set when the app ends to switch (sites.go).
 	sites    []string
@@ -406,6 +409,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePaletteFound(msg)
 	case prefetchMsg:
 		return m.handlePrefetch(msg)
+	case worklogLoggedMsg:
+		return m.handleWorklogLogged(msg)
 	case timerTickMsg:
 		return m.handleTimerTick()
 	case chartsMsg:

@@ -285,3 +285,28 @@ func TestFlagSet(t *testing.T) {
 		t.Error("flagSet")
 	}
 }
+
+// TestMoveChunks: more than 50 issues go in several requests.
+func TestMoveChunks(t *testing.T) {
+	var sizes []int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Issues []string `json:"issues"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		sizes = append(sizes, len(body.Issues))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	keys := make([]string, 120)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("A-%d", i)
+	}
+	if err := c.MoveToSprint(context.Background(), 9, keys...); err != nil {
+		t.Fatal(err)
+	}
+	if len(sizes) != 3 || sizes[0] != 50 || sizes[2] != 20 {
+		t.Errorf("sizes = %v", sizes)
+	}
+}

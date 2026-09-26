@@ -106,7 +106,8 @@ func TestLinkAction(t *testing.T) {
 	_, cmd = m.applyJiraField()
 	cmd()
 	w := writes()
-	if len(w) != 1 || !strings.Contains(w[0], `"outwardIssue":{"key":"ABC-7"}`) || !strings.Contains(w[0], `"inwardIssue":{"key":"ABC-1"}`) {
+	// ABC-1 is blocked by ABC-7: ABC-7 blocks, so it goes in inwardIssue.
+	if len(w) != 1 || !strings.Contains(w[0], `"inwardIssue":{"key":"ABC-7"}`) || !strings.Contains(w[0], `"outwardIssue":{"key":"ABC-1"}`) {
 		t.Errorf("writes = %q", w)
 	}
 }
