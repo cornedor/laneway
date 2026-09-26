@@ -784,6 +784,55 @@ func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 // cursor row in focusedColor, footer hint); a long list is windowed around the
 // selection the same way renderSwitcherCommands does, so it never overflows
 // maxH (the body area height passed by view.go).
+// pickerWin is how many rows the picker lists within maxH: the box's
+// chrome is the title + blank + two scroll markers + blank + hint (6) plus
+// the border + padding (4), plus the filter input when present.
+func (m *Model) pickerWin(maxH int) int {
+	win := maxH - 10
+	if m.jiraPicker.filterable {
+		win--
+	}
+	return max(win, 3)
+}
+
+// pickerWindow is the rows [start, end) shown of win, the selection kept
+// roughly centred and clamped to the ends.
+func (m *Model) pickerWindow(win int) (start, end int) {
+	n := len(m.jiraPicker.items)
+	if n > win {
+		start = min(max(m.jiraPicker.idx-win/2, 0), n-win)
+	}
+	return start, min(start+win, n)
+}
+
+// pickerRowAt is the picker item on screen row y, -1 for none; outside
+// is true when y, x fall outside the box.
+func (m *Model) pickerRowAt(x, y int) (idx int, outside bool) {
+	bodyH := m.bodyH()
+	box := m.renderJiraPicker(bodyH)
+	w, h := lipgloss.Width(box), lipgloss.Height(box)
+	top, left := (bodyH-h)/2, (m.width-w)/2
+	if y < top || y >= top+h || x < left || x >= left+w {
+		return -1, true
+	}
+	p := &m.jiraPicker
+	if p.loading || p.err != nil || len(p.items) == 0 {
+		return -1, false
+	}
+	start, end := m.pickerWindow(m.pickerWin(bodyH))
+	first := top + 2 + 1 + 1 // border, padding, title, blank
+	if p.filterable {
+		first++
+	}
+	if start > 0 || p.filterable {
+		first++ // the ↑ marker's line
+	}
+	if i := start + y - first; y >= first && i < end {
+		return i, false
+	}
+	return -1, false
+}
+
 func (m *Model) renderJiraPicker(maxH int) string {
 	if !m.jiraPicker.active {
 		return ""
@@ -803,11 +852,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	// A picker with a search box keeps one size while results come and go:
 	// its list always takes win rows and both scroll markers' lines.
 	fixed := m.jiraPicker.filterable
-	win := maxH - 10
-	if fixed {
-		win--
-	}
-	win = max(win, 3)
+	win := m.pickerWin(maxH)
 	listed := len(parts)
 	switch {
 	case m.jiraPicker.loading:
@@ -820,25 +865,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 			parts = append(parts, "", refDimStyle.Render("no matches"))
 			break
 		}
-		// Window a long set (e.g. assignable users) around the selection so the
-		// popup stays within maxH, mirroring renderSwitcherCommands. Chrome inside
-		// the box is the title + blank + two scroll markers + blank + hint (6) plus
-		// the border + padding (4), plus the filter input when present (win).
-		start := 0
-		if len(vis) > win {
-			// Keep the selected row roughly centred, clamped to the ends.
-			start = m.jiraPicker.idx - win/2
-			if start < 0 {
-				start = 0
-			}
-			if start > len(vis)-win {
-				start = len(vis) - win
-			}
-		}
-		end := start + win
-		if end > len(vis) {
-			end = len(vis)
-		}
+		start, end := m.pickerWindow(win)
 
 		cursorStyle := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 		rows := make([]string, 0, end-start)

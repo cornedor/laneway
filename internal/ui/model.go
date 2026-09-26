@@ -258,7 +258,12 @@ type Model struct {
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
 	panelExtraKey string
-	panelEditID   string
+	// panelHits are the panel's clickable lines by content line: a field's
+	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
+	// field's line as the last render wrote it.
+	panelHits      map[int]panelHit
+	panelFieldLine []int
+	panelEditID    string
 
 	// The one-line field input: story points, the summary or labels.
 	jiraFieldActive bool
@@ -534,6 +539,17 @@ func (m *Model) modalOpen() bool {
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	if msg.Button == tea.MouseLeft && m.pickerOnTop() {
+		// A click picks the row (as enter would); outside the box, cancels.
+		switch i, outside := m.pickerRowAt(msg.X, msg.Y); {
+		case outside:
+			return m.handleJiraPickerKey(keyPress("esc"))
+		case i >= 0:
+			m.jiraPicker.idx = i
+			return m.handleJiraPickerKey(keyPress("enter"))
+		}
+		return m, nil
+	}
 	if msg.Button != tea.MouseLeft || m.modalOpen() || msg.Y >= m.bodyH() {
 		return m, nil
 	}
@@ -550,13 +566,38 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		if i := m.crumbAt(msg.Y); i >= 0 {
 			return m.backToCrumb(i)
 		}
+		if h, ok := m.panelHits[m.panelLineAt(msg.Y)]; ok {
+			return m.clickPanel(h, count)
+		}
 		m.renderJira()
+		return m, nil
+	}
+	if out, cmd, ok := m.clickHeader(msg.X, msg.Y); ok {
+		return out, cmd
+	}
+	switch t := m.jiraTab; {
+	case t.roadmap != nil:
+		m.focus = focusJira
+		return m.clickRoadmap(msg.Y, count)
+	case t.plan != nil:
+		m.focus = focusJira
+		return m.clickPlan(msg.X, msg.Y, count)
+	case t.charts != nil:
 		return m, nil
 	}
 	return m.clickJira(m.hitJira(msg.X, msg.Y), msg.X, msg.Y, count)
 }
 
 func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if m.pickerOnTop() {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			return m.handleJiraPickerKey(keyPress("up"))
+		case tea.MouseWheelDown:
+			return m.handleJiraPickerKey(keyPress("down"))
+		}
+		return m, nil
+	}
 	if m.modalOpen() {
 		return m, nil
 	}
@@ -570,7 +611,19 @@ func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		m.refView.SetYOffset(m.refView.YOffset() + delta)
 		return m, nil
 	}
+	if t := m.jiraTab; t.roadmap != nil || t.plan != nil {
+		m.wheelView(msg.X, delta/3)
+		return m, nil
+	}
 	if m.jiraShowsLanes() {
+		// Over another lane the wheel scrolls it; the cursor's lane (and
+		// swimlanes, which scroll together) moves the cursor.
+		t := m.jiraTab
+		if h := m.hitJira(msg.X, msg.Y); h.idx >= 0 && h.idx != t.lane && t.swim == jiraSortRank && h.idx < len(t.laneTop) {
+			t.laneTop[h.idx] = min(max(t.laneTop[h.idx]+delta/3, 0), max(len(t.lanes[h.idx].cards)-1, 0))
+			m.renderJira()
+			return m, nil
+		}
 		m.moveJiraCursor(delta / 3)
 		return m, nil
 	}
@@ -605,6 +658,12 @@ func (m Model) View() tea.View {
 		}
 	}
 	return v
+}
+
+// pickerOnTop is whether the picker is the modal drawn (renderOverlay).
+func (m *Model) pickerOnTop() bool {
+	return m.jiraPicker.active && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
+		!m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // renderOverlay draws the open modal, last one winning as in matterbox.

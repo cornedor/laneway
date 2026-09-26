@@ -1,14 +1,15 @@
 # Roadmap
 
 ## Next
-- Mouse: click panel fields (edit), links, subtasks, attachments, PRs
-- Mouse: roadmap rows and bars (select, double-click opens), planning rows
-- Mouse: header views, quick filters, assignee chip clickable
-- Mouse: click and wheel in pickers, the palette, forms
-- Mouse: wheel scrolls the lane under the pointer
+- Mouse: drag a roadmap bar to move its dates; drag a planning card across sides
+- Mouse: click fields in the transition / create forms
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Header mouse: a click on a view switches to it, on a quick filter toggles it, on the assignee chip opens its picker
+- Pickers and the palette: a click picks a row, outside cancels, the wheel moves; the wheel over another lane scrolls that lane
+- Roadmap and planning mouse: a click selects a row (planning: either side), a double-click opens it, the wheel moves; clicks no longer fall through to the hidden board
+- Panel mouse: a click selects a field, a second (or double-click) edits it; a click opens a linked issue or subtask (attachments already open as links)
 - Pickers keep one size (fixed width; searchable ones a fixed list height), so async results don't resize them
 - Panel trail: issues reached by links stack as strips above the current one (↰ key, status, summary); click or backspace goes back; opening from the board starts afresh
 - Palette: pinned rows show the issue's status when it's on the board

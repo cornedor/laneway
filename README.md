@@ -180,7 +180,7 @@ Board:
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue · `x`/`X`
-  mark · `B` edit marked · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · drag with the mouse
+  mark · `B` edit marked · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · drag with the mouse; click a view, quick filter or the assignee chip in the header
 - views: `Q` JQL search · `R` roadmap · `P` planning · `C` charts
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
 - `q` quit
@@ -194,6 +194,7 @@ Panel:
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / paste image / download · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →)
+- mouse: a click selects a field, a second edits it; a click opens a linked issue. In pickers a click picks, outside cancels
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 

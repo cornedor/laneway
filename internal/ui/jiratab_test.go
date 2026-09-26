@@ -1195,3 +1195,41 @@ func TestPanelTrail(t *testing.T) {
 		t.Errorf("opening from the board kept the trail: %v", m.refBack)
 	}
 }
+
+// TestPanelClicks: a click selects a field, a second edits it; a click on a
+// linked issue opens it, the first joining the trail.
+func TestPanelClicks(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.openJiraCard()
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{
+		Key: "ABC-1", Summary: "First", Status: "New", Priority: "High",
+		Description: "A description long enough to wrap in the panel, " + strings.Repeat("and then some more words ", 8),
+		Links:       []jira.Link{{Rel: "blocks", Key: "ABC-9", Summary: "Later"}},
+	}})
+	m = out.(Model)
+	rowOf := func(s string) int {
+		return slices.IndexFunc(strings.Split(ansi.Strip(m.View().Content), "\n"), func(l string) bool { return strings.Contains(l, s) })
+	}
+	listW, _ := m.jiraListWidth(m.width)
+	click := func(y int) tea.Cmd {
+		t.Helper()
+		out, cmd := m.Update(tea.MouseClickMsg{X: listW + 4, Y: y, Button: tea.MouseLeft})
+		m = out.(Model)
+		m.lastClick.at = time.Time{} // no double-click
+		return cmd
+	}
+	click(rowOf("Priority"))
+	if m.panelFieldIdx() != 2 || m.focus != focusRef {
+		t.Fatalf("click on Priority: field %d", m.panelFieldIdx())
+	}
+	click(rowOf("Priority"))
+	if !m.jiraPicker.active {
+		t.Error("a second click should edit the field")
+	}
+	m.closeJiraPicker()
+	click(rowOf("blocks ABC-9"))
+	if m.currentRef().jiraKey != "ABC-9" || len(m.refBack) != 1 {
+		t.Errorf("link click: showing %s, trail %v", m.currentRef().jiraKey, m.refBack)
+	}
+}

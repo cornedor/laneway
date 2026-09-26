@@ -68,6 +68,9 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		header += "  " + refDimStyle.Render(iss.Type)
 	}
 	b.WriteString(header + "\n")
+	m.panelFieldLine = m.panelFieldLine[:0]
+	line := func() { m.panelFieldLine = append(m.panelFieldLine, strings.Count(b.String(), "\n")) }
+	line() // Summary
 	sel := m.panelFieldIs
 	switch {
 	case sel("Summary"):
@@ -77,11 +80,16 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	}
 	b.WriteString("\n")
 
+	line()
 	refField(&b, "Status", iss.Status, 10, sel("Status"))
+	line()
 	refField(&b, "Priority", iss.Priority, 10, sel("Priority"))
+	line()
 	refField(&b, "Points", iss.StoryPoints, 10, sel("Points"))
+	line()
 	refField(&b, "Assignee", iss.Assignee, 10, sel("Assignee"))
 	refMeta(&b, "Reporter", iss.Reporter, 10)
+	line()
 	refField(&b, "Labels", strings.Join(iss.Labels, ", "), 10, sel("Labels"))
 	if !iss.Updated.IsZero() {
 		refMeta(&b, "Updated", iss.Updated.Format(m.opts.dateFormat), 10)
@@ -97,6 +105,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		}
 		b.WriteString("\n")
 		for i, ff := range extra {
+			line()
 			refField(&b, ff.Name, jiraValueText(ff.val), w, m.panelFieldIdx() == len(panelFields)+i)
 		}
 	}
