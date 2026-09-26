@@ -6,6 +6,7 @@
 - Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
 - Filter terms, more: `is:mine`, `due<7d` / `overdue`, `age>3d` (in progress), `updated<1d`, `sprint:`, `pr:open,merged`, `deploy:production`, custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
 - Panel: rich-text (ADF) custom fields rendered as markdown like the description (e.g. a test information field), not flattened to one line; editable through `$EDITOR` where the round trip is exact
+- Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
