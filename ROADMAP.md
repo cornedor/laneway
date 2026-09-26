@@ -19,7 +19,6 @@
 - `jira.timeout`: API request timeout (20s) and the longer action timeouts (30–90s), for slow instances
 - `ui.full_refresh`: the full refetch interval behind the delta refreshes (10m)
 - Filter terms, more: `updated<1d` and `sprint:` (cards need both fields fetched), custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
-- Panel: rich-text (ADF) custom fields rendered as markdown like the description (e.g. a test information field), not flattened to one line; editable through `$EDITOR` where the round trip is exact
 - Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
@@ -39,6 +38,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Panel: filled rich-text fields (e.g. test information) render as markdown sections after the description, their row says ↓ below; enter still edits them in `$EDITOR`
 - `/` terms: `is:mine`, `is:overdue`, `due<7d`, `age>3d` (h d w), `pr:open,merged`, `deploy:prod`; the builder offers pr, deploy, mine and overdue
 - The `/` query's terms as chips in the header (`status:new ×`); a click, or their row atop `F`, removes one
 - `F` filter builder: field → compare → a value from the loaded cards (with counts), written into the `/` query; the same field gains a value

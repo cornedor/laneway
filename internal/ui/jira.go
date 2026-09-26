@@ -113,7 +113,11 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		b.WriteString("\n")
 		for i, ff := range extra {
 			line()
-			refField(&b, ff.Name, jiraValueText(ff.val), w, m.panelFieldIdx() == len(panelFields)+i)
+			val := jiraValueText(ff.val)
+			if richField(ff) {
+				val = "↓ below"
+			}
+			refField(&b, ff.Name, val, w, m.panelFieldIdx() == len(panelFields)+i)
 		}
 	}
 
@@ -129,11 +133,24 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		b.WriteString(sectionHead("Description", "", divW))
 		b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
 	}
+	// Rich-text fields read like the description, under their own heads.
+	for _, ff := range m.extraFields() {
+		if richField(ff) {
+			b.WriteString(sectionHead(ff.Name, "", max(width, 1)))
+			b.WriteString(renderMarkdown(ff.val.Text, m.emojiImg, nil, ""))
+		}
+	}
 
 	m.renderJiraLinks(&b, iss, width)
 	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraActivity(&b, iss, width)
 	return b.String()
+}
+
+// richField is a filled rich-text (ADF) field, drawn as its own section
+// rather than squeezed onto its row.
+func richField(ff jiraFormField) bool {
+	return ff.Kind == jira.KindDoc && strings.TrimSpace(ff.val.Text) != ""
 }
 
 // statusLozenge colours a status by its category, as Jira's lozenges do:

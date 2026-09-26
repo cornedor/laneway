@@ -4,8 +4,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -211,5 +214,27 @@ func TestPanelExtraSprint(t *testing.T) {
 	cmd()
 	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], `{"fields":{"customfield_20":9}}`) {
 		t.Errorf("requests = %q", bodies)
+	}
+}
+
+// TestRichFieldSection: a filled rich-text field reads as its own markdown
+// section; its row points there.
+func TestRichFieldSection(t *testing.T) {
+	m := loadedJiraModel(t)
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", fields: []jiraFormField{
+		{FieldMeta: jira.FieldMeta{ID: "customfield_7", Name: "Test information", Kind: jira.KindDoc}, val: jira.Value{Text: "Steps:\n\n- open cart\n- pay"}},
+		{FieldMeta: jira.FieldMeta{ID: "customfield_8", Name: "Notes", Kind: jira.KindDoc}},
+	}})
+	m = out.(Model)
+	view := ansi.Strip(m.renderJiraIssue(m.jiraIssue, 60))
+	if !regexp.MustCompile(`Test information:\s+↓ below`).MatchString(view) {
+		t.Errorf("row lacks the pointer:\n%s", view)
+	}
+	i := strings.LastIndex(view, "Test information")
+	if i < 0 || !strings.Contains(view[i:], "open cart\n") || !strings.Contains(view[i:], "pay") {
+		t.Errorf("no section with the list:\n%s", view)
+	}
+	if strings.Count(view, "Notes") != 1 {
+		t.Error("an empty rich field got a section")
 	}
 }
