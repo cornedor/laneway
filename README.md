@@ -96,7 +96,8 @@ linked_issue back image development pin; board also fold unfold_all.
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
 priority_lowest type_bug type_story type_epic type_subtask type_other
-highlight roadmap_done roadmap_todo.
+highlight roadmap_done roadmap_todo, and shade: the cards' faint background, `auto`
+(a step off the terminal's own), `off` or a colour.
 
 ### Rules
 

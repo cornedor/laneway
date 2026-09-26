@@ -1,12 +1,14 @@
 # Roadmap
 
 ## Next
-- Shading: a faint background on cards, lane heads and panel sections (theme tokens, off by `ui.shading: off`), for separation without extra rows; must hold up on light, dark and transparent terminals
+- Shading, next: lane heads and the panel's section headings (Links, Comments …), list-mode zebra rows
+- Panel Activity section with tabs like Jira web (Comments · History · Work log · All) under the description, `[`/`]` or a click switches; `H` stays the filterable picker
 - Mouse: drag a roadmap bar to move its dates; drag a planning card across sides
 - Mouse: click fields in the transition / create forms
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Cards get a faint background (theme `shade`: auto from the terminal's reported background, off, or a colour)
 - Fix: standup and the inbox badge sent `updatedBy(currentUser(), …)`, which Jira rejects (no nested functions); they pass your accountId
 - Panel: a click on a link (description, comments, attachments) opens it; mouse capture had kept the terminal from doing so
 - Comments thread by Jira's undocumented `parentId` (string or number): replies under their parent behind a bar; missing parents and loops fall back to the flat list

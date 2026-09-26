@@ -1,6 +1,8 @@
 package ui
 
 import (
+	tea "charm.land/bubbletea/v2"
+	"image/color"
 	"strings"
 	"testing"
 )
@@ -58,5 +60,31 @@ func TestThemePresets(t *testing.T) {
 	}
 	if _, warn := themeFrom(map[string]string{"preset": "nope"}); len(warn) != 1 {
 		t.Errorf("unknown preset warnings = %v", warn)
+	}
+}
+
+// TestShade: with shade auto, cards get a background a step off the
+// terminal's once it reports one (darker on light, lighter on dark); off
+// and a fixed colour are kept.
+func TestShade(t *testing.T) {
+	t.Cleanup(func() { applyTheme(defaultTheme()) })
+	m := jiraTabModel(t)
+	if strings.Contains(m.View().Content, "48;") {
+		t.Fatal("shaded before the terminal said its background")
+	}
+	out, _ := m.Update(tea.BackgroundColorMsg{Color: color.RGBA{0xfa, 0xfa, 0xfa, 0xff}})
+	m = out.(Model)
+	if !strings.Contains(m.View().Content, "48;2;237;237;237") {
+		t.Error("light terminal: no darker shade on the cards")
+	}
+	autoShade(color.RGBA{0x10, 0x10, 0x10, 0xff})
+	if got := shade("x", 3); !strings.Contains(got, "48;2;32;32;32") {
+		t.Errorf("dark terminal: %q", got)
+	}
+	th, warn := themeFrom(map[string]string{"shade": "off"})
+	applyTheme(th)
+	autoShade(color.RGBA{0xfa, 0xfa, 0xfa, 0xff})
+	if len(warn) != 0 || shade("x", 3) != "x" {
+		t.Errorf("off: warn %v, shade %q", warn, shade("x", 3))
 	}
 }

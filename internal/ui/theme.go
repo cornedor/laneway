@@ -2,10 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"maps"
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 )
@@ -36,10 +38,11 @@ func defaultTheme() theme {
 		"type_story":       "2",
 		"type_epic":        "5",
 		"type_subtask":     "8",
-		"type_other":       "4",  // task and the rest
-		"highlight":        "11", // a card a rule highlighted
-		"roadmap_done":     "2",  // an epic bar's done part
-		"roadmap_todo":     "4",  // and the rest; today's line is highlight
+		"type_other":       "4",    // task and the rest
+		"highlight":        "11",   // a card a rule highlighted
+		"roadmap_done":     "2",    // an epic bar's done part
+		"roadmap_todo":     "4",    // and the rest; today's line is highlight
+		"shade":            "auto", // cards' faint background: auto (a step off the terminal's), off, or a colour
 	}
 }
 
@@ -55,7 +58,7 @@ var themePresets = map[string]theme{
 		"priority_low": "#7aa2f7", "priority_lowest": "#565f89",
 		"type_bug": "#f7768e", "type_story": "#9ece6a", "type_epic": "#bb9af7",
 		"type_subtask": "#565f89", "type_other": "#7aa2f7", "highlight": "#e0af68",
-		"roadmap_done": "#9ece6a", "roadmap_todo": "#7aa2f7",
+		"roadmap_done": "#9ece6a", "roadmap_todo": "#7aa2f7", "shade": "auto",
 	},
 	"catppuccin": { // mocha
 		"accent": "#89b4fa", "dim": "#6c7086", "selection_fg": "#cdd6f4",
@@ -66,7 +69,7 @@ var themePresets = map[string]theme{
 		"priority_low": "#89b4fa", "priority_lowest": "#6c7086",
 		"type_bug": "#f38ba8", "type_story": "#a6e3a1", "type_epic": "#cba6f7",
 		"type_subtask": "#6c7086", "type_other": "#89b4fa", "highlight": "#f9e2af",
-		"roadmap_done": "#a6e3a1", "roadmap_todo": "#89b4fa",
+		"roadmap_done": "#a6e3a1", "roadmap_todo": "#89b4fa", "shade": "auto",
 	},
 	"gruvbox": { // dark
 		"accent": "#83a598", "dim": "#928374", "selection_fg": "#ebdbb2",
@@ -77,7 +80,7 @@ var themePresets = map[string]theme{
 		"priority_low": "#83a598", "priority_lowest": "#928374",
 		"type_bug": "#fb4934", "type_story": "#b8bb26", "type_epic": "#d3869b",
 		"type_subtask": "#928374", "type_other": "#83a598", "highlight": "#fabd2f",
-		"roadmap_done": "#b8bb26", "roadmap_todo": "#83a598",
+		"roadmap_done": "#b8bb26", "roadmap_todo": "#83a598", "shade": "auto",
 	},
 }
 
@@ -109,6 +112,10 @@ func themeFrom(over map[string]string) (theme, []string) {
 			warn = append(warn, fmt.Sprintf("ui.theme: unknown colour %q", name))
 			continue
 		}
+		if name == "shade" && (v == "auto" || v == "off") {
+			th[name] = v
+			continue
+		}
 		if n, err := strconv.Atoi(v); !(hexColor.MatchString(v) || err == nil && n >= 0 && n <= 255) {
 			warn = append(warn, fmt.Sprintf("ui.theme.%s: %q is not 0–255 or #rrggbb", name, v))
 			continue
@@ -116,6 +123,48 @@ func themeFrom(over map[string]string) (theme, []string) {
 		th[name] = v
 	}
 	return th, warn
+}
+
+// shadeStyle is the cards' faint background, used while shadeOn: the
+// theme's shade colour, or with "auto" a step off the terminal's own
+// background once it reports it (autoShade).
+var (
+	shadeStyle lipgloss.Style
+	shadeOn    bool
+)
+
+// autoShade derives the shade from the terminal's background bg: a few
+// percent toward white on a dark one, toward black on a light one. It does
+// nothing unless the theme's shade is auto.
+func autoShade(bg color.Color) {
+	if curTheme["shade"] != "auto" || bg == nil {
+		return
+	}
+	r, g, b, _ := bg.RGBA()
+	c := [3]float64{float64(r >> 8), float64(g >> 8), float64(b >> 8)}
+	dark := 0.299*c[0]+0.587*c[1]+0.114*c[2] < 128
+	for i := range c {
+		if dark {
+			c[i] += (255 - c[i]) * 0.07
+		} else {
+			c[i] *= 0.95
+		}
+	}
+	hex := fmt.Sprintf("#%02x%02x%02x", int(c[0]), int(c[1]), int(c[2]))
+	shadeStyle, shadeOn = lipgloss.NewStyle().Background(lipgloss.Color(hex)), true
+}
+
+// shade gives a line the faint background across width, keeping it through
+// the line's own resets.
+func shade(line string, width int) string {
+	if !shadeOn {
+		return line
+	}
+	line = keepBG(line)
+	if pad := width - visualWidth(line); pad > 0 {
+		line += strings.Repeat(" ", pad)
+	}
+	return shadeStyle.Render(line)
 }
 
 // applyTheme sets every themed colour and style.
@@ -126,6 +175,10 @@ func applyTheme(th theme) {
 	accent, dim := c("accent"), c("dim")
 
 	selectedRow = c("selection_fg").Background(lipgloss.Color(th["selection_bg"]))
+	shadeOn = false
+	if v := th["shade"]; v != "auto" && v != "off" {
+		shadeStyle, shadeOn = lipgloss.NewStyle().Background(lipgloss.Color(v)), true
+	}
 	diffTreeSelStyle = lipgloss.NewStyle().Background(lipgloss.Color(th["selection_idle"]))
 	scrollbarThumbStyle = accent
 	mentionStyle = c("mention").Bold(true)

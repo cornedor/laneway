@@ -1927,7 +1927,12 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 		lines[0] = hl + " " + lines[0]
 	}
 	for i, line := range lines {
-		lines[i] = m.jiraSelect(ansi.Truncate(line, inner, "…"), sel, inner)
+		line = ansi.Truncate(line, inner, "…")
+		if sel {
+			lines[i] = m.jiraSelect(line, true, inner)
+		} else {
+			lines[i] = shade(line, inner)
+		}
 	}
 	return lines
 }
