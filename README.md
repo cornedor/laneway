@@ -180,7 +180,7 @@ Panel:
   `$EDITOR` · `l` labels · `a` assignee
 - talk: `c` comment · `R` reply · `w` log work · `T` timer
 - more: `A` subtask / link / unlink / clone / watch / vote / flag / upload / download · `H` history ·
-  `D` pull requests / branches · `L` linked issue · `i` images full size (← →)
+  `D` pull requests / branches / commits · `L` linked issue · `i` images full size (← →)
 - `backspace` previous issue · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 

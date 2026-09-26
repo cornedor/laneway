@@ -15,7 +15,9 @@ func TestDevInfo(t *testing.T) {
 		case r.URL.Path == "/rest/api/3/issue/A-1":
 			io.WriteString(w, `{"id":"10042"}`)
 		case r.URL.Path == "/rest/dev-status/latest/issue/summary" && q.Get("issueId") == "10042":
-			io.WriteString(w, `{"summary":{"pullrequest":{"byInstanceType":{"GitLab":{"count":2}}},"branch":{"byInstanceType":{"GitLab":{"count":1},"GitHub":{"count":0}}}}}`)
+			io.WriteString(w, `{"summary":{"pullrequest":{"byInstanceType":{"GitLab":{"count":2}}},"branch":{"byInstanceType":{"GitLab":{"count":1},"GitHub":{"count":0}}},"repository":{"byInstanceType":{"GitLab":{"count":1}}}}}`)
+		case r.URL.Path == "/rest/dev-status/latest/issue/detail" && q.Get("dataType") == "repository":
+			io.WriteString(w, `{"detail":[{"repositories":[{"name":"web","commits":[{"displayId":"a1b2c3d","message":"Fix login\n\nlonger text","url":"https://g/c","author":{"name":"Ada"}}]}]}]}`)
 		case r.URL.Path == "/rest/dev-status/latest/issue/detail" && q.Get("applicationType") == "GitLab" && q.Get("dataType") == "pullrequest":
 			io.WriteString(w, `{"detail":[{"pullRequests":[
 			  {"name":"Old fix","status":"MERGED","url":"https://g/1","source":{"branch":"a"},"destination":{"branch":"main"}},
@@ -32,7 +34,8 @@ func TestDevInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 3 || got[0].Name != "Fix login" || got[0].Branch != "issue/A-1 → main" || got[1].Status != "MERGED" || got[2].Kind != "branch" {
+	if len(got) != 4 || got[0].Name != "Fix login" || got[0].Branch != "issue/A-1 → main" || got[1].Status != "MERGED" || got[2].Kind != "branch" ||
+		got[3].Kind != "commit" || got[3].Name != "a1b2c3d Fix login" || got[3].Status != "Ada" {
 		t.Errorf("items = %+v", got)
 	}
 }

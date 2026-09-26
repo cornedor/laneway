@@ -22,8 +22,11 @@ func (m *Model) openDevInfo() tea.Cmd {
 		rows := make([]jiraPickerItem, len(items))
 		for i, d := range items {
 			label := fmt.Sprintf("branch  %s", d.Name)
-			if d.Kind == "pr" {
+			switch d.Kind {
+			case "pr":
 				label = fmt.Sprintf("%-8s %s  (%s)", d.Status, d.Name, d.Branch)
+			case "commit":
+				label = fmt.Sprintf("commit  %s  — %s", d.Name, d.Status)
 			}
 			if d.Repo != "" {
 				label += "  " + d.Repo

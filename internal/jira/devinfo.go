@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"slices"
 	"sort"
+	"strings"
 )
 
 // Development info: the pull requests and branches source control links to
@@ -14,7 +15,7 @@ import (
 
 // DevItem is a pull request or branch linked to an issue.
 type DevItem struct {
-	Kind   string // "pr" or "branch"
+	Kind   string // "pr", "branch" or "commit"
 	Name   string // PR title or branch name
 	Status string // OPEN, MERGED, DECLINED; "" for a branch
 	Repo   string
@@ -45,7 +46,7 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 		return nil, err
 	}
 	var out []DevItem
-	for _, dataType := range []string{"pullrequest", "branch"} {
+	for _, dataType := range []string{"pullrequest", "branch", "repository"} {
 		tools := sum.Summary[dataType].ByInstanceType
 		names := make([]string, 0, len(tools))
 		for t, v := range tools {
@@ -69,8 +70,10 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 				return 0
 			case d.Kind == "pr":
 				return 1
+			case d.Kind == "branch":
+				return 2
 			}
-			return 2
+			return 3
 		}
 		return rank(a) - rank(b)
 	})
@@ -100,6 +103,17 @@ func (c *Client) devDetail(ctx context.Context, issueID, tool, dataType string) 
 					Name string `json:"name"`
 				} `json:"repository"`
 			} `json:"branches"`
+			Repositories []struct {
+				Name    string `json:"name"`
+				Commits []struct {
+					DisplayID string `json:"displayId"`
+					Message   string `json:"message"`
+					URL       string `json:"url"`
+					Author    struct {
+						Name string `json:"name"`
+					} `json:"author"`
+				} `json:"commits"`
+			} `json:"repositories"`
 		} `json:"detail"`
 	}
 	q := url.Values{"issueId": {issueID}, "applicationType": {tool}, "dataType": {dataType}}
@@ -114,6 +128,12 @@ func (c *Client) devDetail(ctx context.Context, issueID, tool, dataType string) 
 		}
 		for _, b := range d.Branches {
 			out = append(out, DevItem{Kind: "branch", Name: b.Name, Repo: b.Repository.Name, URL: b.URL, Tool: tool})
+		}
+		for _, r := range d.Repositories {
+			for _, cm := range r.Commits {
+				msg, _, _ := strings.Cut(cm.Message, "\n")
+				out = append(out, DevItem{Kind: "commit", Name: cm.DisplayID + " " + msg, Status: cm.Author.Name, Repo: r.Name, URL: cm.URL, Tool: tool})
+			}
 		}
 	}
 	return out, nil
