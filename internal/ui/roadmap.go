@@ -593,7 +593,11 @@ func (m *Model) renderRoadmap(width, height int) string {
 		} else if e.Done {
 			label = jiraDimStyle.Render(ansi.Strip(label))
 		}
-		lines = append(lines, label+" "+roadmapBar(e, r.from, cols, zoom, today))
+		timeline := " " + roadmapBar(e, r.from, cols, zoom, today)
+		if i == r.idx { // the selection runs on across the timeline, quieter
+			timeline = paintRow(diffTreeSelStyle, timeline, cols+1)
+		}
+		lines = append(lines, label+timeline)
 	}
 	return strings.Join(lines, "\n")
 }

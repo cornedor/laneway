@@ -4,6 +4,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Roadmap: the selected row's highlight runs on across the timeline, in the quieter selection colour
 - Fix: an avatar chip's background ran on to the row's end on shaded and selected rows; resets inside a painted row now reopen the row's style
 - Help overlay: each column's title a shaded bar across it (unshaded: over a rule)
 - Swimlane band and list group headers by assignee carry the avatar chip

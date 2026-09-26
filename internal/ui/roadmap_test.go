@@ -362,3 +362,20 @@ func TestRoadmapDrag(t *testing.T) {
 		t.Errorf("stretched to %v – %v", e.Start, e.End)
 	}
 }
+
+// TestRoadmapSelectedRowRunsOn: the selected row's timeline carries the
+// quiet selection background to the row's end; other rows don't.
+func TestRoadmapSelectedRowRunsOn(t *testing.T) {
+	m := roadmapModel(t)
+	lines := strings.Split(m.renderRoadmap(m.jiraTab.view.Width(), m.jiraTab.view.Height()), "\n")
+	open := ansiOpenSeq(diffTreeSelStyle)
+	if open == "" {
+		t.Skip("no colour in this terminal profile")
+	}
+	if !strings.Contains(lines[1], open) {
+		t.Errorf("selected row's timeline lacks the selection background: %q", lines[1])
+	}
+	if strings.Contains(lines[2], open) {
+		t.Errorf("another row is painted: %q", lines[2])
+	}
+}

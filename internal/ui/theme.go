@@ -173,6 +173,11 @@ func paintBG(st lipgloss.Style, line string, width int) string {
 	if !shadeOn {
 		return line
 	}
+	return paintRow(st, line, width)
+}
+
+// paintRow gives line st's background across width, whatever the shading.
+func paintRow(st lipgloss.Style, line string, width int) string {
 	line = keepBG(line, ansiOpenSeq(st))
 	if pad := width - visualWidth(line); pad > 0 {
 		line += strings.Repeat(" ", pad)
