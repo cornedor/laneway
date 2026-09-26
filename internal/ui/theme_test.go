@@ -2,6 +2,7 @@ package ui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 	"image/color"
 	"strings"
 	"testing"
@@ -89,5 +90,25 @@ func TestShade(t *testing.T) {
 	autoShade(color.RGBA{0xfa, 0xfa, 0xfa, 0xff})
 	if len(warn) != 0 || shade("x", 3) != "x" {
 		t.Errorf("off: warn %v, shade %q", warn, shade("x", 3))
+	}
+}
+
+// TestListZebra: with shading, every other list row is shaded.
+func TestListZebra(t *testing.T) {
+	t.Cleanup(func() { applyTheme(defaultTheme()) })
+	m := jiraTabModel(t)
+	out, _ := m.Update(tea.BackgroundColorMsg{Color: color.RGBA{0xfa, 0xfa, 0xfa, 0xff}})
+	m = out.(Model)
+	out, _ = m.handleKey(keyMsg(t, "t"))
+	m = out.(Model)
+	var shaded []bool
+	for _, l := range strings.Split(m.View().Content, "\n") {
+		if strings.Contains(ansi.Strip(l), "ABC-") {
+			shaded = append(shaded, strings.Contains(l, "48;2;235"))
+		}
+	}
+	// The first row is selected; after it the rows alternate.
+	if len(shaded) < 4 || !shaded[1] || shaded[2] || !shaded[3] {
+		t.Errorf("shaded rows = %v", shaded)
 	}
 }

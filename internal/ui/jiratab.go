@@ -1533,6 +1533,9 @@ func (m *Model) renderJira() {
 		t.rows = make([]string, len(t.order))
 		for i, ci := range t.order {
 			t.rows[i] = m.jiraListRow(t.cards[ci], false, w, keyW, stW)
+			if i%2 == 1 { // zebra: every other row faintly shaded
+				t.rows[i] = shade(t.rows[i], w)
+			}
 		}
 		t.rowsFor = [3]int{w, keyW, stW}
 	}
