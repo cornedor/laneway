@@ -64,6 +64,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// StaleDays is how many days a card may sit in progress before its age
+	// shows in red (default 5).
+	StaleDays int `yaml:"stale_days"`
 	// VelocitySprints is how many closed sprints the velocity chart shows
 	// (default 8).
 	VelocitySprints int `yaml:"velocity_sprints"`

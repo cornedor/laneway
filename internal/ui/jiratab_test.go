@@ -846,3 +846,18 @@ func TestDueMark(t *testing.T) {
 		t.Error("a done card is not overdue")
 	}
 }
+
+func TestAgeMark(t *testing.T) {
+	now := time.Now()
+	c := jira.Card{InProgress: true, Since: now.Add(-4 * 24 * time.Hour)}
+	if got := ansi.Strip(jiraAgeMark(c, now, 5)); got != "4d" {
+		t.Errorf("4 days = %q", got)
+	}
+	if got := jiraAgeMark(c, now, 3); got != jiraOverStyle.Render("4d") {
+		t.Errorf("past stale = %q", got)
+	}
+	c.InProgress = false
+	if jiraAgeMark(c, now, 5) != "" {
+		t.Error("only in-progress cards age")
+	}
+}

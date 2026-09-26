@@ -27,18 +27,20 @@ type options struct {
 	timerOnStart    bool               // S also starts the timer
 	templates       map[string]string  // new issue descriptions by type, lower-cased
 	velocitySprints int                // closed sprints in the velocity chart
+	staleDays       int                // in progress longer than this shows red
 }
 
 // cardFields is what a card or list row shows besides key and summary.
 type cardFields struct {
-	typ, priority, status, points, assignee, parent, pr, subtasks, due, flagged bool
+	typ, priority, status, points, assignee, parent, pr, subtasks, due, flagged, age bool
+	stale                                                                            int // ui.stale_days, for age
 }
 
-var allCardFields = cardFields{true, true, true, true, true, true, true, true, true, true}
+var allCardFields = cardFields{true, true, true, true, true, true, true, true, true, true, true, 5}
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5}
 }
 
 // optionsFrom resolves c over the defaults. A bad value is reported and
@@ -71,6 +73,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.capacity = map[string]float64{}
 		}
 		o.capacity[name] = pts
+	}
+	switch n := c.StaleDays; {
+	case n == 0:
+	case n < 1:
+		warn = append(warn, fmt.Sprintf("ui.stale_days: %d is below 1", n))
+	default:
+		o.staleDays = n
 	}
 	switch n := c.VelocitySprints; {
 	case n == 0:
@@ -175,11 +184,14 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 				f.due = true
 			case "flagged":
 				f.flagged = true
+			case "age":
+				f.age = true
 			default:
 				warn = append(warn, fmt.Sprintf("ui.card_fields: unknown field %q", name))
 			}
 		}
 		o.fields = f
 	}
+	o.fields.stale = o.staleDays
 	return o, warn
 }

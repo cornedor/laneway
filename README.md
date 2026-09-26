@@ -52,7 +52,7 @@ ui:
   card_limit: 500    # most cards one view fetches (50–5000)
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout
-  card_fields: [type, priority, status, points, assignee, parent, pr, subtasks, due, flagged]
+  card_fields: [type, priority, status, points, assignee, parent, pr, subtasks, due, flagged, age]
   quick_filters:                # JQL presets before the board's own (1-9)
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
@@ -60,6 +60,7 @@ ui:
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
   timer_on_start: on            # S (start work) also starts the timer (off)
   velocity_sprints: 8           # closed sprints in C's velocity chart
+  stale_days: 5                 # an in-progress card's age turns red past this
   templates:                    # a new issue's description by type (markdown)
     Bug: "## Steps\n\n1. \n\n## Expected\n\n## Actual"
   saved_filters: on             # your starred Jira filters as views too (off)

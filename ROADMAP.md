@@ -11,6 +11,7 @@
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- In-progress cards show their age (`4d`), red past `ui.stale_days`; `card_fields: age`
 - Flagged (impediment) cards show ⚑; panel `A` flags / clears; `card_fields: flagged`
 - Cards show the due date: `due fri`, `due in 12d`, `overdue 2d` in red; `card_fields: due`
 - Cards show subtask progress `☑ 2/5` (done colour when all are); `card_fields: subtasks`

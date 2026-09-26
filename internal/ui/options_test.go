@@ -48,7 +48,7 @@ func TestOptionsModeDateFields(t *testing.T) {
 	if o.lanes || o.dateFormat != "02 Jan" || len(warn) != 1 {
 		t.Errorf("mode/date = %v %q, warnings %v", o.lanes, o.dateFormat, warn)
 	}
-	if o.fields != (cardFields{points: true, parent: true}) {
+	if o.fields != (cardFields{points: true, parent: true, stale: 5}) {
 		t.Errorf("fields = %+v", o.fields)
 	}
 	if _, warn := optionsFrom(config.UIConfig{DefaultMode: "grid"}); len(warn) != 1 {

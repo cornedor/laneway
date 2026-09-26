@@ -1221,6 +1221,22 @@ func jiraTypeIcon(t string) string {
 
 // jiraPriorityMark marks a card's priority, "" for medium or none: the
 // default needs no ink.
+// jiraAgeMark is how long an in-progress card has been so: "4d", in the
+// over limit colour past stale days; "" for others and under a day.
+func jiraAgeMark(c jira.Card, now time.Time, stale int) string {
+	if !c.InProgress || c.Since.IsZero() {
+		return ""
+	}
+	days := int(now.Sub(c.Since).Hours() / 24)
+	switch {
+	case days < 1:
+		return ""
+	case stale > 0 && days > stale:
+		return jiraOverStyle.Render(fmt.Sprintf("%dd", days))
+	}
+	return jiraDimStyle.Render(fmt.Sprintf("%dd", days))
+}
+
 // jiraDueMark is an open card's due date against today: "due fri" within
 // a week, "due in 12d" later, "overdue 2d" (over limit colour) past it.
 func jiraDueMark(c jira.Card, now time.Time) string {
@@ -1357,6 +1373,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
 		title += " " + d
 	}
+	if a := jiraAgeMark(c, time.Now(), m.opts.staleDays); f.age && a != "" {
+		title += " " + a
+	}
 	row := "  "
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		row = hl + " "
@@ -1478,6 +1497,9 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 	}
 	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
 		head += " " + d
+	}
+	if a := jiraAgeMark(c, time.Now(), f.stale); f.age && a != "" {
+		head += " " + a
 	}
 	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
 }
