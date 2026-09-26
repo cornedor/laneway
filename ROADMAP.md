@@ -4,6 +4,8 @@
 - Copy branch name (key and palette action): Jira's REST API has no suggested branch (its "create branch" dialog builds one client-side), so `ui.branch_template`, e.g. `{type}/{key}-{summary}` (summary slugged, length capped), default `{key}-{summary}`
 - Config screen: every `ui:` option with its value and default, editable in place, written back to the config file (comments kept)
 - Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
+- Filter terms, more: `is:mine`, `due<7d` / `overdue`, `age>3d` (in progress), `updated<1d`, `sprint:`, `pr:open,merged`, `deploy:production`, custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
+- Panel: rich-text (ADF) custom fields rendered as markdown like the description (e.g. a test information field), not flattened to one line; editable through `$EDITOR` where the round trip is exact
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
