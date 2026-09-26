@@ -35,6 +35,7 @@ func (m *Model) logStatus() {
 // startupStatus is what the status line says about the config's warnings,
 // each kept in the log: one as it is, more as a count.
 func (m *Model) startupStatus(warn []string) {
+	m.warnings, m.statusLog = warn, nil
 	for _, w := range warn {
 		m.statusLog = append(m.statusLog, statusEntry{time.Now(), w})
 	}
@@ -46,6 +47,13 @@ func (m *Model) startupStatus(warn []string) {
 		m.status = fmt.Sprintf("%d config warnings · %s messages lists them", len(warn), helpKey(m.keys.Palette))
 	}
 	m.statusLogged = m.status
+}
+
+// WithWarnings adds the config file's own warnings (unknown keys) to the
+// startup ones.
+func (m Model) WithWarnings(warn []string) Model {
+	m.startupStatus(append(slices.Clone(m.warnings), warn...))
+	return m
 }
 
 // openMessages lists the kept messages, newest first.

@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -54,6 +55,9 @@ type Config struct {
 	// RulesTest overrides the issue type and status `laneway rules test`
 	// assumes, else read from the project.
 	RulesTest RulesTest `yaml:"rules_test"`
+	// Unknown are warnings about keys the file has that no option reads
+	// (a typo), set by Load.
+	Unknown []string `yaml:"-"`
 }
 
 // RulesTest is `laneway rules test`'s defaults.
@@ -245,6 +249,7 @@ func Load(path string) (Config, string, error) {
 			c.Jira, c.UI = mb.Jira, mb.UI
 		} else {
 			err = yaml.Unmarshal(raw, &c)
+			c.Unknown = unknownKeys(raw)
 		}
 		if err != nil {
 			return Config{}, p, fmt.Errorf("%s: %w", p, err)
@@ -301,4 +306,96 @@ func StatePath() (string, error) {
 		}
 	}
 	return p, nil
+}
+
+// unknownKeys warns about each key in raw no option reads: at the top, in
+// jira:, each sites: entry, ui: and rules_test:, with the nearest known
+// key when one is close.
+func unknownKeys(raw []byte) []string {
+	var doc yaml.Node
+	if yaml.Unmarshal(raw, &doc) != nil || len(doc.Content) == 0 {
+		return nil
+	}
+	var warn []string
+	check := func(path string, n *yaml.Node, t reflect.Type) {
+		if n == nil || n.Kind != yaml.MappingNode {
+			return
+		}
+		known := yamlKeys(t)
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			k := n.Content[i].Value
+			if slices.Contains(known, k) {
+				continue
+			}
+			w := fmt.Sprintf("%s%s: unknown option", path, k)
+			if near := nearest(k, known); near != "" {
+				w += ", did you mean " + near + "?"
+			}
+			warn = append(warn, w)
+		}
+	}
+	top := doc.Content[0]
+	check("", top, reflect.TypeFor[Config]())
+	for i := 0; i+1 < len(top.Content); i += 2 {
+		v := top.Content[i+1]
+		switch top.Content[i].Value {
+		case "jira":
+			check("jira.", v, reflect.TypeFor[JiraConfig]())
+		case "ui":
+			check("ui.", v, reflect.TypeFor[UIConfig]())
+		case "rules_test":
+			check("rules_test.", v, reflect.TypeFor[RulesTest]())
+		case "sites":
+			if v.Kind == yaml.MappingNode {
+				for j := 0; j+1 < len(v.Content); j += 2 {
+					check("sites."+v.Content[j].Value+".", v.Content[j+1], reflect.TypeFor[JiraConfig]())
+				}
+			}
+		}
+	}
+	return warn
+}
+
+// yamlKeys are the keys t's fields read.
+func yamlKeys(t reflect.Type) []string {
+	var out []string
+	for i := range t.NumField() {
+		name, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ",")
+		if name != "" && name != "-" {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// nearest is the known key within two edits of k, "" for none.
+func nearest(k string, known []string) string {
+	best, bestD := "", 3
+	for _, c := range known {
+		if d := editDistance(k, c); d < bestD {
+			best, bestD = c, d
+		}
+	}
+	return best
+}
+
+// editDistance is the Levenshtein distance between a and b.
+func editDistance(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := make([]int, len(b)+1)
+		cur[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }

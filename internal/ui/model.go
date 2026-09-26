@@ -216,6 +216,7 @@ type Model struct {
 	// statusLogged is the last one kept.
 	statusLog     []statusEntry
 	statusLogged  string
+	warnings      []string        // the startup warnings
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
