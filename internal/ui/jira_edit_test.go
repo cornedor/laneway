@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -437,5 +439,38 @@ func TestJiraEditLabels(t *testing.T) {
 	}
 	if len(bodies) != 2 || bodies[0] != `{"fields":{"labels":["backend","ui"]}}` || bodies[1] != `{"fields":{"labels":[]}}` {
 		t.Errorf("bodies = %q", bodies)
+	}
+}
+
+// TestCommentThread: replies sit under their parent, a reply to a comment
+// not loaded stands alone, and a parentId loop can't hide comments.
+func TestCommentThread(t *testing.T) {
+	cs := []jira.Comment{
+		{ID: "1"}, {ID: "2"}, {ID: "3", ParentID: "1"}, {ID: "4", ParentID: "3"},
+		{ID: "5", ParentID: "99"},                          // parent not loaded
+		{ID: "6", ParentID: "7"}, {ID: "7", ParentID: "6"}, // a loop
+		{ID: "8", ParentID: "8"}, // its own parent
+	}
+	var got []string
+	for _, tc := range commentThread(cs) {
+		got = append(got, fmt.Sprintf("%s:%d", cs[tc.i].ID, tc.depth))
+	}
+	if want := "1:0 3:1 4:2 2:0 5:0 8:0 6:0 7:1"; strings.Join(got, " ") != want {
+		t.Errorf("thread = %s, want %s", strings.Join(got, " "), want)
+	}
+}
+
+// TestCommentRepliesIndented: a reply renders behind a bar under its parent.
+func TestCommentRepliesIndented(t *testing.T) {
+	m := loadedJiraModel(t)
+	iss := &jira.Issue{Key: "ABC-1", Comments: []jira.Comment{
+		{ID: "1", Author: "Ada", Body: "Question?"},
+		{ID: "2", Author: "Bob", Body: "Unrelated"},
+		{ID: "3", ParentID: "1", Author: "Cy", Body: "Answer."},
+	}}
+	got := ansi.Strip(m.renderJiraIssue(iss, 60))
+	q, a, u := strings.Index(got, "Question?"), strings.Index(got, "│ Cy"), strings.Index(got, "Unrelated")
+	if q < 0 || a < q || u < a || !strings.Contains(got, "│   Answer.") {
+		t.Errorf("thread not drawn:\n%s", got)
 	}
 }

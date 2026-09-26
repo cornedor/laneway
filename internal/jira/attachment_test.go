@@ -53,3 +53,28 @@ func TestAttachmentContent(t *testing.T) {
 		t.Errorf("path=%q auth=%q", gotPath, gotAuth)
 	}
 }
+
+// TestCommentParentID: the undocumented parentId comes through as a string
+// or a number, and is "" when absent or of another shape.
+func TestCommentParentID(t *testing.T) {
+	body := `{"key":"ABC-1","fields":{"summary":"s","comment":{"total":4,"comments":[
+		{"id":"1","body":null},
+		{"id":"2","parentId":"1","body":null},
+		{"id":"3","parentId":1,"body":null},
+		{"id":"4","parentId":{"id":"1"},"body":null}]}}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	iss, err := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"}).Get(context.Background(), "ABC-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, c := range iss.Comments {
+		got = append(got, c.ParentID)
+	}
+	if strings.Join(got, ",") != ",1,1," {
+		t.Errorf("parent ids = %q", got)
+	}
+}

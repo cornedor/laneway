@@ -1,11 +1,13 @@
 # Roadmap
 
 ## Next
+- Shading: a faint background on cards, lane heads and panel sections (theme tokens, off by `ui.shading: off`), for separation without extra rows; must hold up on light, dark and transparent terminals
 - Mouse: drag a roadmap bar to move its dates; drag a planning card across sides
 - Mouse: click fields in the transition / create forms
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Comments thread by Jira's undocumented `parentId` (string or number): replies under their parent behind a bar; missing parents and loops fall back to the flat list
 - Header mouse: a click on a view switches to it, on a quick filter toggles it, on the assignee chip opens its picker
 - Pickers and the palette: a click picks a row, outside cancels, the wheel moves; the wheel over another lane scrolls that lane
 - Roadmap and planning mouse: a click selects a row (planning: either side), a double-click opens it, the wheel moves; clicks no longer fall through to the hidden board

@@ -183,6 +183,69 @@ func (m *Model) renderJiraAttachments(b *strings.Builder, iss *jira.Issue, width
 	}
 }
 
+// threadedComment is a comment's place in the thread: its index into the
+// issue's comments and how deep a reply it is.
+type threadedComment struct{ i, depth int }
+
+// replyDepthMax caps the indent; deeper replies line up with it.
+const replyDepthMax = 3
+
+// commentThread orders comments as a thread: each top-level comment by
+// date, its replies (parentId) under it, theirs under them. parentId is
+// undocumented, so anything odd falls back to the flat list: a parent not
+// among the loaded comments (older than the page, deleted) makes a comment
+// top-level, and a loop is broken where it's found.
+func commentThread(cs []jira.Comment) []threadedComment {
+	at := map[string]int{}
+	for i, c := range cs {
+		if c.ID != "" {
+			at[c.ID] = i
+		}
+	}
+	kids := map[int][]int{}
+	var roots []int
+	for i, c := range cs {
+		if p, ok := at[c.ParentID]; ok && c.ParentID != "" && p != i {
+			kids[p] = append(kids[p], i)
+		} else {
+			roots = append(roots, i)
+		}
+	}
+	out := make([]threadedComment, 0, len(cs))
+	seen := make([]bool, len(cs))
+	var walk func(i, depth int)
+	walk = func(i, depth int) {
+		if seen[i] {
+			return
+		}
+		seen[i] = true
+		out = append(out, threadedComment{i, depth})
+		for _, k := range kids[i] {
+			walk(k, depth+1)
+		}
+	}
+	for _, r := range roots {
+		walk(r, 0)
+	}
+	for i := range cs { // in a loop, unreachable from any root: flat, in order
+		walk(i, 0)
+	}
+	return out
+}
+
+// indentReply puts a reply's lines behind a bar per level.
+func indentReply(s string, depth int) string {
+	if depth == 0 {
+		return s
+	}
+	bar := refDimStyle.Render(strings.Repeat("│ ", min(depth, replyDepthMax)))
+	lines := strings.Split(strings.TrimSuffix(s, "\n"), "\n")
+	for i, l := range lines {
+		lines[i] = bar + l
+	}
+	return strings.Join(lines, "\n") + "\n"
+}
+
 // byteSize is n bytes for people: 512 B, 3.4 KB, 12 MB.
 func byteSize(n int64) string {
 	switch {
@@ -217,7 +280,9 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 	}
 	b.WriteString(refLabelStyle.Render(fmt.Sprintf("Comments (%d)", count)) + "\n\n")
 
-	for i, c := range iss.Comments {
+	thread := commentThread(iss.Comments)
+	for n, tc := range thread {
+		c := iss.Comments[tc.i]
 		author := c.Author
 		if author == "" {
 			author = "Unknown"
@@ -226,11 +291,13 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 		if !c.Created.IsZero() {
 			when = " · " + c.Created.Format(m.opts.dateFormat)
 		}
-		b.WriteString(refDimStyle.Render(author+when) + "\n")
+		var cb strings.Builder
+		cb.WriteString(refDimStyle.Render(author+when) + "\n")
 		if body := strings.TrimSpace(c.Body); body != "" {
-			b.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
+			cb.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
 		}
-		if i < len(iss.Comments)-1 {
+		b.WriteString(indentReply(cb.String(), tc.depth))
+		if n < len(thread)-1 {
 			b.WriteString("\n")
 		}
 	}
