@@ -217,13 +217,14 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "esc" && r.grip != "":
 		r.grip = ""
 		m.status = "bar let go"
-	case msg.String() == "e":
+	case key.Matches(msg, m.keys.RoadmapGrip):
 		r.grip = map[string]string{"": "start", "start": "end", "end": ""}[r.grip]
 		switch r.grip {
 		case "":
 			m.status = "bar let go"
 		default:
-			m.status = "holding the bar's " + r.grip + " · h/l move it · e the other end · esc let go"
+			m.status = "holding the bar's " + r.grip + " · " + helpKey(m.keys.Left) + "/" + helpKey(m.keys.Right) + " move it · " +
+				helpKey(m.keys.RoadmapGrip) + " the other end · esc let go"
 		}
 	case r.grip != "" && key.Matches(msg, m.keys.Left), r.grip != "" && key.Matches(msg, m.keys.Right):
 		d := zoom
@@ -249,7 +250,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		r.idx = 0
 	case key.Matches(msg, m.keys.End):
 		r.idx = last
-	case msg.String() == "space":
+	case key.Matches(msg, m.keys.RoadmapFold):
 		m.foldRoadmap()
 	case key.Matches(msg, m.keys.Left):
 		r.from = r.from.AddDate(0, 0, -8*zoom)
@@ -259,19 +260,19 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.shiftRoadmap(-zoom, -zoom)
 	case key.Matches(msg, m.keys.MoveCardRight):
 		return m, m.shiftRoadmap(zoom, zoom)
-	case msg.String() == "<":
+	case key.Matches(msg, m.keys.EndEarlier):
 		return m, m.shiftRoadmap(0, -zoom)
-	case msg.String() == ">":
+	case key.Matches(msg, m.keys.EndLater):
 		return m, m.shiftRoadmap(0, zoom)
-	case msg.String() == "+", msg.String() == "=":
+	case key.Matches(msg, m.keys.ZoomIn):
 		m.zoomRoadmap(-1)
-	case msg.String() == "-":
+	case key.Matches(msg, m.keys.ZoomOut):
 		m.zoomRoadmap(1)
-	case msg.String() == ".":
+	case key.Matches(msg, m.keys.Today):
 		r.from = roadmapStart(time.Now(), zoom)
 	case key.Matches(msg, m.keys.Refresh):
 		return m, tea.Batch(m.saveRoadmap(), m.loadRoadmap())
-	case msg.String() == "f":
+	case key.Matches(msg, m.keys.RoadmapIssues):
 		row, ok := r.selected()
 		if !ok {
 			break

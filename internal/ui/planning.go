@@ -145,7 +145,7 @@ func (p *planState) planCard() (jira.Card, bool) {
 func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t, p := m.jiraTab, m.jiraTab.plan
 	n := len(p.sides[p.side])
-	if msg.String() != "C" {
+	if !key.Matches(msg, m.keys.PlanComplete) {
 		p.closing = false // a completion is confirmed by the very next key only
 	}
 	switch {
@@ -194,30 +194,30 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.MoveSprint), msg.String() == "space":
 		return m, m.planMove()
-	case msg.String() == "S":
+	case key.Matches(msg, m.keys.PlanStart):
 		return m, m.planStart()
-	case msg.String() == "E":
+	case key.Matches(msg, m.keys.PlanGoal):
 		v := p.sprints[p.target]
 		m.openBulkInput("plan-goal", "the sprint's goal (empty clears)")
 		m.jiraFieldInput.SetValue(v.goal)
 		m.jiraFieldInput.CursorEnd()
 		m.jiraFieldKey = v.name
 		return m, nil
-	case msg.String() == "R":
+	case key.Matches(msg, m.keys.PlanRename):
 		m.openBulkInput("plan-rename", "sprint name")
 		m.jiraFieldInput.SetValue(p.sprints[p.target].name)
 		m.jiraFieldInput.CursorEnd()
 		return m, nil
-	case msg.String() == "N":
+	case key.Matches(msg, m.keys.PlanNew):
 		m.openBulkInput("plan-new", "sprint name")
 		m.jiraFieldInput.SetValue(nextSprintName(p.sprints))
 		m.jiraFieldInput.CursorEnd()
 		return m, nil
-	case msg.String() == "C":
+	case key.Matches(msg, m.keys.PlanComplete):
 		return m, m.planClose()
-	case msg.String() == "K":
+	case key.Matches(msg, m.keys.RankUp):
 		return m, m.planRank(-1)
-	case msg.String() == "J":
+	case key.Matches(msg, m.keys.RankDown):
 		return m, m.planRank(1)
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadPlan()

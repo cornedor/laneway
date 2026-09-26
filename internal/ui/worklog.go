@@ -2,10 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
@@ -184,7 +186,9 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	gen := m.startJiraPicker(jiraPickTimesheet, standupDay(day, time.Now()), false)
 	m.jiraPicker.day = day
 	seq := m.jiraPicker.fetchSeq
-	c, ctx := m.jiraClient, m.ctx
+	c, ctx, k := m.jiraClient, m.ctx, m.keys
+	hint := fmt.Sprintf("  ·  %s %s day · %s edit · %s %s delete · %s copy", helpKey(k.PrevView), helpKey(k.NextView),
+		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.CopyKey))
 	return func() tea.Msg {
 		logs, err := c.MyWorklogs(ctx, day)
 		total := 0
@@ -204,7 +208,7 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 		}
 		rows = append(rows, []string{"", jira.FormatDuration(total), "total", "", ""})
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickTimesheet, items: items, err: err,
-			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + "  ·  [ ] day · e edit · d d delete · y copy",
+			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + hint,
 			text:  markdownTable([]string{"Started", "Time", "Issue", "Summary", "Comment"}, rows)}
 	}
 }
@@ -212,7 +216,8 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 // timesheetKey handles the timesheet's own keys; false when k is not one.
 func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 	p := &m.jiraPicker
-	if k != "d" && k != "delete" {
+	is := func(b key.Binding) bool { return slices.Contains(b.Keys(), k) }
+	if !is(m.keys.DeleteEntry) {
 		p.pendingDelete = "" // a delete is confirmed by the very next key only
 	}
 	switch {
@@ -220,13 +225,13 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		return m.openTimesheetDay(p.day.AddDate(0, 0, -1)), true
 	case k == helpKey(m.keys.NextView):
 		return m.openTimesheetDay(p.day.AddDate(0, 0, 1)), true
-	case k == "y":
+	case is(m.keys.CopyKey):
 		if p.loading || p.err != nil {
 			return nil, true
 		}
 		m.status = "copied the day as a markdown table"
 		return tea.SetClipboard(p.text), true
-	case k == "e":
+	case is(m.keys.EditEntry):
 		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
 			return nil, true
 		}
@@ -237,14 +242,14 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		m.openWorklogInput(key, strings.TrimSpace(it.value), time.Time{})
 		m.worklogEdit, m.worklogEditDay = id, day
 		return nil, true
-	case k == "d" || k == "delete":
+	case is(m.keys.DeleteEntry):
 		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
 			return nil, true
 		}
 		it := p.items[p.idx]
 		if p.pendingDelete != it.id {
 			p.pendingDelete = it.id
-			m.status = "d again deletes this worklog"
+			m.status = helpKey(m.keys.DeleteEntry) + " again deletes this worklog"
 			return nil, true
 		}
 		key, id, _ := strings.Cut(it.id, "/")

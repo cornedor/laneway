@@ -62,6 +62,15 @@ type keyMap struct {
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact                            key.Binding
+
+	// Planning's, the roadmap's and the timesheet's own keys.
+	PlanStart, PlanGoal, PlanRename     key.Binding
+	PlanNew, PlanComplete               key.Binding
+	RankUp, RankDown                    key.Binding
+	RoadmapGrip, RoadmapFold            key.Binding
+	ZoomIn, ZoomOut, Today              key.Binding
+	EndEarlier, EndLater, RoadmapIssues key.Binding
+	EditEntry, DeleteEntry              key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -148,6 +157,23 @@ func defaultKeys() keyMap {
 		QuickEdit:       bind("quick edit the card", "e"),
 		MyWork:          bind("my work, every project", "O"),
 		Compact:         bind("one-line cards", "c"),
+		PlanStart:       bind("start the sprint / move its end", "S"),
+		PlanGoal:        bind("edit the sprint's goal", "E"),
+		PlanRename:      bind("rename the sprint", "R"),
+		PlanNew:         bind("new sprint", "N"),
+		PlanComplete:    bind("complete the sprint (twice)", "C"),
+		RankUp:          bind("rank up", "K"),
+		RankDown:        bind("rank down", "J"),
+		RoadmapGrip:     bind("grip the bar's start, end, let go", "e"),
+		RoadmapFold:     bind("fold the epic's issues", "space"),
+		ZoomIn:          bind("zoom in", "+", "="),
+		ZoomOut:         bind("zoom out", "-"),
+		Today:           bind("back to today", "."),
+		EndEarlier:      bind("end a column earlier", "<"),
+		EndLater:        bind("end a column later", ">"),
+		RoadmapIssues:   bind("the epic's issues as a view", "f"),
+		EditEntry:       bind("edit the entry", "e"),
+		DeleteEntry:     bind("delete the entry (twice)", "d", "delete"),
 	}
 }
 

@@ -125,3 +125,27 @@ func TestHelpTitles(t *testing.T) {
 	}
 	t.Fatalf("no Panel title:\n%s", strings.Join(lines, "\n"))
 }
+
+// TestScreenKeys: planning's and the roadmap's keys rebind, and clash
+// within their screen.
+func TestScreenKeys(t *testing.T) {
+	m := roadmapModel(t)
+	m.keys.applyKeys(map[string]config.KeyList{"zoom_in": {"i"}})
+	zoom := m.jiraTab.roadmap.zoom
+	out, _ := m.handleJiraKey(keyMsg(t, "+"))
+	if m = out.(Model); m.jiraTab.roadmap.zoom != zoom {
+		t.Error("the old zoom key still zooms")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "i"))
+	if m = out.(Model); m.jiraTab.roadmap.zoom == zoom {
+		t.Error("the new zoom key does not zoom")
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "i - zoom") {
+		t.Error("the view line lacks the rebound key")
+	}
+	k := defaultKeys()
+	warn := k.applyKeys(map[string]config.KeyList{"plan_new": {"K"}})
+	if len(warn) != 1 || warn[0] != `ui.keys: "K" is both plan_new and rank_up on the planning` {
+		t.Errorf("warnings = %v", warn)
+	}
+}

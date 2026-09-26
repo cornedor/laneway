@@ -298,9 +298,11 @@ func (m *Model) roadmapSegs() []headSeg {
 	}
 	k := m.keys
 	segs = append(segs, plainSeg(dim("  ·")))
-	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "scroll"}, hint{"+", "+", "-", "-", "zoom"},
-		hint{label: ".", press: ".", what: "today"}, hint{label: "space", press: "space", what: "children"})...)
-	segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  e grip an end")))
+	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "scroll"},
+		hint{helpKey(k.ZoomIn), firstKey(k.ZoomIn), helpKey(k.ZoomOut), firstKey(k.ZoomOut), "zoom"},
+		keyHint(k.Today, "today"), keyHint(k.RoadmapFold, "children"))...)
+	segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  "+
+		helpKey(k.EndEarlier)+" "+helpKey(k.EndLater)+" end  "+helpKey(k.RoadmapGrip)+" grip an end")))
 	return append(segs, hintSegs(keyHint(k.OpenChannel, "open"), keyHint(k.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
 }
 
@@ -338,6 +340,8 @@ func (m *Model) planSegs() []headSeg {
 	segs = append(segs, plainSeg(dim("  ·")))
 	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "side"},
 		hint{helpKey(k.PrevView), firstKey(k.PrevView), helpKey(k.NextView), firstKey(k.NextView), "sprint"})...)
-	segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveSprint)+"/space move across  K J rank  E goal  R rename  N new  S start/end  C C complete")))
+	segs = append(segs, plainSeg(dim(fmt.Sprintf("  %s/space move across  %s %s rank  %s goal  %s rename  %s new  %s start/end  %s %s complete",
+		helpKey(k.MoveSprint), helpKey(k.RankUp), helpKey(k.RankDown), helpKey(k.PlanGoal), helpKey(k.PlanRename), helpKey(k.PlanNew),
+		helpKey(k.PlanStart), helpKey(k.PlanComplete), helpKey(k.PlanComplete)))))
 	return append(segs, hintSegs(keyHint(k.OpenChannel, "open"), hint{label: "esc", press: "esc", what: "board"})...)
 }

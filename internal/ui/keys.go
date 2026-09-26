@@ -26,6 +26,11 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
 		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings, "filter_builder": &k.FilterBuilder, "panel_wider": &k.PanelWider, "panel_narrower": &k.PanelNarrower, "quick_edit": &k.QuickEdit, "my_work": &k.MyWork, "compact": &k.Compact,
+		"plan_start": &k.PlanStart, "plan_goal": &k.PlanGoal, "plan_rename": &k.PlanRename, "plan_new": &k.PlanNew, "plan_complete": &k.PlanComplete,
+		"rank_up": &k.RankUp, "rank_down": &k.RankDown,
+		"roadmap_grip": &k.RoadmapGrip, "roadmap_fold": &k.RoadmapFold, "zoom_in": &k.ZoomIn, "zoom_out": &k.ZoomOut, "today": &k.Today,
+		"end_earlier": &k.EndEarlier, "end_later": &k.EndLater, "roadmap_issues": &k.RoadmapIssues,
+		"edit_entry": &k.EditEntry, "delete_entry": &k.DeleteEntry,
 	}
 }
 
@@ -67,6 +72,17 @@ var keyScopes = []struct {
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "copy_branch", "help", "refresh", "toggle_panel", "palette",
 		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower",
 	}},
+	{"planning", []string{
+		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down", "quit", "plan", "next_view", "prev_view",
+		"mark", "move_sprint", "plan_start", "plan_goal", "plan_rename", "plan_new", "plan_complete", "rank_up", "rank_down",
+		"refresh", "browser", "open", "toggle_panel", "help",
+	}},
+	{"roadmap", []string{
+		"up", "down", "left", "right", "top", "bottom", "quit", "roadmap", "roadmap_grip", "roadmap_fold",
+		"move_left", "move_right", "end_earlier", "end_later", "zoom_in", "zoom_out", "today", "refresh", "roadmap_issues",
+		"create", "browser", "open", "toggle_panel", "copy_key", "help",
+	}},
+	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry"}},
 }
 
 // clashes reports keys bound to two actions in one scope.
