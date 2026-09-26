@@ -653,7 +653,7 @@ func (m *Model) buildJiraLanes() {
 	if v.kind == jiraViewBoard {
 		skip = kanbanBacklog(t.cfg)
 	}
-	q := t.jiraSearchQuery()
+	q := jiraParseQuery(t.jiraSearchQuery())
 	col := map[string]int{}
 	for i, c := range t.cfg.Columns {
 		if i == skip {

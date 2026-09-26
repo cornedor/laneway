@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Filters on the loaded cards, lanes and list alike, in the `/` search: `status:review`, `points>2`, `prio>=high`, `assignee:ada,bob`, `epic:` (empty), `-label:ui`, bare words still match text; a status picker (multi-select, counts) for the common case
+- Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
 - Avatar images on the chips (kitty graphics; initials elsewhere and until loaded). Step A: fetch the 48px avatars once, cache on disk, transmit once per session. Step B: draw them on cards; keep them on the selected card (its row is plain text today)
@@ -20,6 +20,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `/` search takes field terms: `status:review,test`, `points>2`, `prio>=high`, `assignee:ada,bob`, `epic:` (empty), `is:flagged`, `-label:ui`, quoted phrases; words AND. Cards carry their labels
 - Panel resizes by dragging its left border (20–80%), the width remembered over `ui.panel_width`; within 3% of it the drag snaps back and forgets
 - Fix: tab out of the panel onto the roadmap was a dead end; tab there goes back to the panel, and the roadmap's selection dims while the panel has the keys
 - Roadmap: the selected row's highlight runs on across the timeline, in the quieter selection colour

@@ -202,6 +202,23 @@ Panel:
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 
+## Search and filters
+
+`/` narrows the loaded cards (lanes and list) as you type, without a refetch.
+Every term must hold:
+
+```
+login                text in key, summary, assignee or epic ("log in" a phrase)
+status:review,test   a field containing any of the values
+assignee:ada,bob     who: works too
+epic:                a field that is empty (label:, assignee:, …)
+points>2 prio>=high  numbers and priorities compare (<, <=, >, >=, =)
+is:flagged           also done, pr, unassigned
+-label:ui            any term negated
+```
+
+Fields: status, assignee, type, prio, epic, label, key, points.
+
 ## Bulk edit
 
 `x` marks the card under the cursor (marks survive switching views), `X`
