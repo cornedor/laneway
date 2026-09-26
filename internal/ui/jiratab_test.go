@@ -1102,4 +1102,18 @@ func TestJiraSwimlaneDropAssigns(t *testing.T) {
 	if len(got) != 1 || got[0] != `PUT /rest/api/3/issue/ABC-3/assignee {"accountId":"a1"}` {
 		t.Errorf("requests = %q", got)
 	}
+	// u gives it back to nobody; u again redoes the drop.
+	out, cmd = m.handleKey(keyMsg(t, "u"))
+	m = out.(Model)
+	if cmd == nil || !strings.Contains(ansi.Strip(m.View().Content), "▾ Unassigned · 3") {
+		t.Fatalf("undo: cmd %v status %q\n%s", cmd != nil, m.status, ansi.Strip(m.View().Content))
+	}
+	cmd()
+	if len(got) != 2 || got[1] != `PUT /rest/api/3/issue/ABC-3/assignee {"accountId":null}` {
+		t.Errorf("undo requests = %q", got)
+	}
+	out, _ = m.handleKey(keyMsg(t, "u"))
+	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "▾ Ada · 2") {
+		t.Error("u again should redo the drop")
+	}
 }

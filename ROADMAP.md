@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- `u` undoes a band drop too (the previous assignee / epic back)
 - Swimlanes: benchmark the render at 600 cards beside the lanes one
 - Swimlanes: `z` folds the cursor's band (header only), kept while the view lives
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `u` undoes a swimlane drop too (assignee / epic back, with its status move); again redoes
 - Swimlanes by priority (`s`: assignee → epic → priority → none)
 - Swimlanes: a drop into another band sets its assignee (or epic), as on Jira's board
 - Swimlanes kept per board; mouse drag works in them (status moves, the card faint while dragged)
