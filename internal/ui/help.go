@@ -62,6 +62,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Tab, "to panel"),
 			row(k.Site, "switch Jira site"),
 			row(k.Settings, "settings: every ui: option, editable"),
+			{join(k.PanelWider, k.PanelNarrower), "widen / narrow the panel"},
 			row(k.Quit, "quit"),
 		}},
 		{"Panel", []helpRow{
@@ -90,6 +91,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Back, "previous issue"),
 			row(k.Refresh, "refresh"),
 			row(k.Palette, "command palette"),
+			{join(k.PanelWider, k.PanelNarrower), "widen / narrow the panel"},
 			{join(k.Tab, k.ShiftTab), "walk fields, then to board"},
 			{"enter", "edit selected field"},
 			{"esc", "drop field, close"},

@@ -37,6 +37,29 @@ func (m Model) resizePanel(x int) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// panelStep is how many percent < and > move the panel's border.
+const panelStep = 5
+
+// stepPanel widens (d > 0) or narrows the open panel by a step, stopping at
+// ui.panel_width on the way past it, and remembers the width.
+func (m *Model) stepPanel(d int) {
+	if !m.refOpen {
+		return
+	}
+	pct, def := m.opts.panelPct, m.opts.panelDefault
+	next := min(max(pct+d*panelStep, 20), 80)
+	if (pct < def) != (next < def) && pct != def && next != def {
+		next = def
+	}
+	m.opts.panelPct = next
+	m.status = "panel " + strconv.Itoa(next) + "%"
+	if next == def {
+		m.status += " (ui.panel_width)"
+	}
+	m.savePanelWidth()
+	m.resize()
+}
+
 // loadPanelWidth takes the remembered width over ui.panel_width.
 func (m *Model) loadPanelWidth() {
 	if m.store == nil {

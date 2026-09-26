@@ -58,7 +58,8 @@ type keyMap struct {
 	IssueActions, Site, Standup        key.Binding
 	History, DevInfo, JQL, Pin         key.Binding
 	Fold, UnfoldAll, Settings          key.Binding
-	FilterBuilder                      key.Binding
+	FilterBuilder, PanelWider          key.Binding
+	PanelNarrower                      key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -140,6 +141,8 @@ func defaultKeys() keyMap {
 		JQL:             bind("JQL search", "Q"),
 		Settings:        bind("settings", ","),
 		FilterBuilder:   bind("filter builder", "F"),
+		PanelWider:      bind("widen the panel", "<"),
+		PanelNarrower:   bind("narrow the panel", ">"),
 	}
 }
 

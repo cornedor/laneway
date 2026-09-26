@@ -234,3 +234,22 @@ func TestHeaderViewsScroll(t *testing.T) {
 		t.Errorf("click hits %s %d", kind, i)
 	}
 }
+
+// TestPanelStepKeys: < and > move the panel's border a step, stopping at
+// ui.panel_width on the way past it.
+func TestPanelStepKeys(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.opts.panelPct, m.opts.panelDefault = 42, 50
+	out, _ := m.handleKey(keyMsg(t, "<"))
+	if m = out.(Model); m.opts.panelPct != 47 {
+		t.Fatalf("< = %d", m.opts.panelPct)
+	}
+	out, _ = m.handleKey(keyMsg(t, "<"))
+	if m = out.(Model); m.opts.panelPct != 50 || !strings.Contains(m.status, "ui.panel_width") {
+		t.Fatalf("past the default = %d %q", m.opts.panelPct, m.status)
+	}
+	out, _ = m.handleKey(keyMsg(t, ">"))
+	if m = out.(Model); m.opts.panelPct != 45 {
+		t.Errorf("> = %d", m.opts.panelPct)
+	}
+}

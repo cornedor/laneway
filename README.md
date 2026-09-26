@@ -60,7 +60,7 @@ ui:
   stale_after: 1m    # older boards refetch on focus/tick
   images: auto       # kitty/Ghostty inline images; "off"
   image_max_rows: 16
-  panel_width: 50    # issue panel, percent of the width; drag its left border to resize, remembered (near this it snaps back and forgets)
+  panel_width: 50    # issue panel, percent of the width; drag its left border or < > to resize, remembered (near this it snaps back and forgets)
   card_limit: 500    # most cards one view fetches (50–5000)
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout
@@ -110,7 +110,7 @@ A bad value keeps its default and is reported on the status line, as is a key
 bound to two actions on the board or in the panel.
 
 Actions: up down left right top bottom page_up page_down open toggle_panel
-browser refresh quit help search goto copy_key copy_url copy_branch settings filter_builder move_left move_right
+browser refresh quit help search goto copy_key copy_url copy_branch settings filter_builder panel_wider panel_narrower move_left move_right
 create project board next_view prev_view toggle_mode sort move_sprint assignee_filter mine
 clear_filters · panel: status priority points summary labels assign comment reply start_work
 linked_issue back image development pin; board also fold unfold_all.
