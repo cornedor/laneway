@@ -109,7 +109,7 @@ func (m *Model) timerLabel() string {
 func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "1h 30m what you did"
+	ti.Placeholder = "1h 30m what you did (yesterday 2h: another day)"
 	ti.SetWidth(max(min(m.width-16, 60), 16))
 	ti.SetValue(value)
 	ti.CursorEnd()
@@ -123,8 +123,30 @@ func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	m.worklogFromTimer = false
 }
 
-// applyWorklog logs the input's time and comment.
+// worklogDay reads a leading day off a worklog input: "yesterday 2h",
+// "fri 1h" (the last Friday, today on a Friday), "2026-09-21 3h", "-2d 1h".
+// ok is false when the input starts with the time.
+func worklogDay(raw string, now time.Time) (day time.Time, rest string, ok bool) {
+	word, rest, _ := strings.Cut(strings.TrimSpace(raw), " ")
+	w := strings.ToLower(word)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	for wd := time.Sunday; wd <= time.Saturday; wd++ {
+		if len(w) >= 3 && strings.HasPrefix(strings.ToLower(wd.String()), w) {
+			return today.AddDate(0, 0, -((int(today.Weekday()) - int(wd) + 7) % 7)), rest, true
+		}
+	}
+	if w == "today" || w == "yesterday" || strings.HasPrefix(w, "-") || strings.Count(w, "-") == 2 {
+		if d, err := jira.ParseDate(w, now); err == nil {
+			return d, rest, true
+		}
+	}
+	return time.Time{}, raw, false
+}
+
+// applyWorklog logs the input's time and comment; a leading day
+// ("yesterday 2h") logs it then, from 9:00.
 func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
+	day, raw, onDay := worklogDay(raw, time.Now())
 	secs, comment, err := jira.ParseDuration(raw)
 	if err != nil {
 		m.fail(err.Error())
@@ -145,7 +167,10 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 			return reload()
 		}
 	}
-	if started.IsZero() {
+	switch {
+	case onDay && started.IsZero():
+		started = day.Add(9 * time.Hour)
+	case started.IsZero():
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
 	m.closeJiraField()

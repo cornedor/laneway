@@ -1010,3 +1010,19 @@ func TestSortByDates(t *testing.T) {
 		}
 	}
 }
+
+// TestWorklogDay: a leading day logs work on that day; weekdays look back.
+func TestWorklogDay(t *testing.T) {
+	now := time.Date(2026, 9, 25, 15, 0, 0, 0, time.Local) // a Friday
+	for in, want := range map[string]string{
+		"yesterday 2h": "2026-09-24", "fri 1h": "2026-09-25", "mon 1h": "2026-09-21", "2026-09-10 3h": "2026-09-10", "-2d 1h": "2026-09-23",
+	} {
+		d, rest, ok := worklogDay(in, now)
+		if !ok || d.Format(time.DateOnly) != want || !strings.HasSuffix(rest, "h") {
+			t.Errorf("%q: %v %q %v, want %s", in, d, rest, ok, want)
+		}
+	}
+	if _, rest, ok := worklogDay("2h fix", now); ok || rest != "2h fix" {
+		t.Errorf("a plain time: %q %v", rest, ok)
+	}
+}

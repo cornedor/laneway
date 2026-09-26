@@ -320,7 +320,8 @@ Copy as text, puts it on the clipboard grouped per issue, ready to paste.
 ## Time tracking
 
 `w` in the panel logs work: `1h 30m what you did` (also `1.5h`, `45m`,
-`2d` of 8h), ending now. `T` starts a timer on the card or panel issue,
+`2d` of 8h), ending now; a day first logs it then, from 9:00 (`yesterday 2h`,
+`fri 1h` the last Friday, `2026-09-21 3h`, `-2d 1h`). `T` starts a timer on the card or panel issue,
 shown in the header and kept across restarts; `T` again stops it into the
 same input, filled with the time and started when the timer did. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
