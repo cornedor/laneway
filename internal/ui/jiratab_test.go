@@ -347,8 +347,26 @@ func TestJiraTabSearchNoMatch(t *testing.T) {
 	m = out.(Model)
 	out, _ = m.handleKey(keyMsg(t, "z"))
 	m = out.(Model)
-	if !strings.Contains(m.View().Content, "no issues match /z") {
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "No card matches /z") || !strings.Contains(view, "esc clears the search") {
 		t.Error("empty search lacks its message")
+	}
+}
+
+// TestEmptyStates: an empty backlog and an empty lane say so.
+func TestEmptyStates(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.viewIdx = 1 // the backlog
+	m.jiraTab.cards = nil
+	m.buildJiraLanes()
+	m.renderJira()
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "The backlog is empty") || !strings.Contains(view, "n adds an issue") {
+		t.Errorf("empty backlog:\n%s", view)
+	}
+	m = jiraTabModel(t)
+	m.jiraTab.search.SetValue("first")
+	m.applyJiraSearch()
+	if !strings.Contains(ansi.Strip(m.View().Content), "nothing here") {
+		t.Error("an empty lane lacks its placeholder")
 	}
 }
 

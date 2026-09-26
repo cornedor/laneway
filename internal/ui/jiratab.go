@@ -1533,11 +1533,20 @@ func (m *Model) renderJira() {
 	case t.cfg == nil:
 		msg = refDimStyle.Render("loading…")
 	case len(t.order) == 0 && t.jiraSearchQuery() != "":
-		msg = refDimStyle.Render("no issues match /" + t.search.Value() + " (esc clears)")
+		msg = jiraEmptyState("No card matches /"+t.search.Value(), "esc clears the search · "+helpKey(m.keys.FilterBuilder)+" builds a filter", w, h)
 	case len(t.cards) == 0 && t.jiraFiltered():
-		msg = refDimStyle.Render("no issues match the filters (0 clears them)")
+		msg = jiraEmptyState("No card matches the filters", helpKey(m.keys.ClearFilters)+" clears them", w, h)
 	case len(t.order) == 0:
-		msg = refDimStyle.Render("no issues")
+		title, hint := "No issues here", helpKey(m.keys.Refresh)+" refreshes · "+helpKey(m.keys.Create)+" adds one"
+		if v, ok := m.jiraCurrentView(); ok {
+			switch v.kind {
+			case jiraViewBacklog:
+				title, hint = "The backlog is empty", helpKey(m.keys.Create)+" adds an issue"
+			case jiraViewSprint:
+				title, hint = "Nothing in this sprint yet", helpKey(m.keys.Plan)+" plans it from the backlog"
+			}
+		}
+		msg = jiraEmptyState(title, hint, w, h)
 	}
 	if msg != "" {
 		t.view.SetContent(msg)
@@ -1985,6 +1994,9 @@ func (m *Model) renderJiraLanes(width, height int) string {
 			col = append(col, m.jiraLaneCard(c, sel, inner)...)
 			col = append(col, "")
 		}
+		if len(slots) == 0 {
+			col = append(col, jiraGhostStyle.Render(" nothing here"))
+		}
 		cols = append(cols, col)
 	}
 	sep := shade(jiraDimStyle.Render("│"), 1)
@@ -2004,6 +2016,17 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		lines[y] = b.String()
 	}
 	return strings.Join(lines, "\n")
+}
+
+// jiraEmptyState is what an empty board shows: a title and what to do
+// about it, centred a third of the way down.
+func jiraEmptyState(title, hint string, w, h int) string {
+	center := func(s string) string {
+		s = ansi.Truncate(s, max(w, 1), "…")
+		return strings.Repeat(" ", max((w-lipgloss.Width(s))/2, 0)) + s
+	}
+	pad := strings.Repeat("\n", max(h/3, 0))
+	return pad + center(titleStyle.Render(title)) + "\n" + center(refDimStyle.Render(hint))
 }
 
 // canvasCell is a lane cell w wide: a card's line (full width already) on
