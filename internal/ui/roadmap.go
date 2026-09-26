@@ -273,10 +273,47 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if k := m.roadmapKey(); k != "" {
 			return m.openJiraKey(k)
 		}
+	case key.Matches(msg, m.keys.CopyKey):
+		if len(r.epics) > 0 {
+			m.status = fmt.Sprintf("copied %d epics as a markdown table", len(r.epics))
+			return m, tea.SetClipboard(m.roadmapTable())
+		}
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 	}
 	return m, nil
+}
+
+// roadmapTable is the epics as a markdown table: dates and what's done
+// (points, else children), with their parent when any has one.
+func (m *Model) roadmapTable() string {
+	r := m.jiraTab.roadmap
+	date := func(t time.Time) string {
+		if t.IsZero() {
+			return ""
+		}
+		return t.Format(time.DateOnly)
+	}
+	head := []string{"Epic", "Summary", "Status", "Start", "End", "Done"}
+	if len(r.groups) > 0 {
+		head = append(head, "Parent")
+	}
+	var rows [][]string
+	for _, e := range r.epics {
+		done := ""
+		switch {
+		case e.Points > 0:
+			done = chartNum(e.DonePoints) + "/" + chartNum(e.Points) + "p"
+		case e.Children > 0:
+			done = fmt.Sprintf("%d/%d", e.DoneChildren, e.Children)
+		}
+		row := []string{"[" + e.Key + "](" + m.jiraClient.BrowseURL(e.Key) + ")", e.Summary, e.Status, date(e.Start), date(e.End), done}
+		if len(r.groups) > 0 {
+			row = append(row, e.Parent)
+		}
+		rows = append(rows, row)
+	}
+	return markdownTable(head, rows)
 }
 
 // foldRoadmap opens or closes the selected epic; on a child it closes the
@@ -508,7 +545,7 @@ func (m *Model) roadmapLine() string {
 	}
 	k := m.keys
 	return s + jiraDimStyle.Render("  ·  ← → scroll  + - zoom  . today  space children  "+
-		helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  "+helpKey(k.OpenChannel)+" open  esc board")
+		helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  < > end  "+helpKey(k.OpenChannel)+" open  "+helpKey(k.CopyKey)+" copy  esc board")
 }
 
 func roadmapZoomName(days int) string {

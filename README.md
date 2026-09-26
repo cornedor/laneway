@@ -291,7 +291,8 @@ Start date (or Plans' Target start) to its Due date (or Target end); an
 epic without them spans its children's sprints, drawn fainter. The bar
 fills by points done, else by children done. `← →` scroll, `+ -` zoom
 (day to 2 weeks per column), `.` back to today, `space` folds out the
-epic's issues, `enter` opens the row's issue, `esc` back to the board.
+epic's issues, `enter` opens the row's issue, `y` copies the epics as a markdown
+table, `esc` back to the board.
 `H`/`L` move a bar (an epic's or a child's) a column, `<`/`>` move its end;
 the dates are written to Jira once you pause. `f` shows the epic's issues as
 a board view, `n` makes a new epic. An epic an open epic blocks shows `⛓`, red `⛔` when

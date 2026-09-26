@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -291,5 +292,22 @@ func TestRoadmapParents(t *testing.T) {
 	out, _ = m.handleJiraKey(keyMsg(t, "space"))
 	if m = out.(Model); len(m.jiraTab.roadmap.rows()) != 2 {
 		t.Error("space should fold the parent in")
+	}
+}
+
+// TestRoadmapCopy: y copies the epics, dates and done points as a table.
+func TestRoadmapCopy(t *testing.T) {
+	m := roadmapModel(t)
+	out, cmd := m.handleKey(keyMsg(t, "y"))
+	m = out.(Model)
+	if cmd == nil || m.status != "copied 2 epics as a markdown table" {
+		t.Fatalf("status %q", m.status)
+	}
+	got := fmt.Sprint(cmd())
+	start := time.Now().AddDate(0, 0, -4).Format(time.DateOnly)
+	if !strings.HasPrefix(got, "| Epic | Summary | Status | Start | End | Done |\n") ||
+		!strings.Contains(got, "/browse/ABC-10) | Checkout |  | "+start) || !strings.Contains(got, "| 5/10p |") ||
+		!strings.Contains(got, "/browse/ABC-11) | Search |  |  |  |  |") {
+		t.Errorf("table = %q", got)
 	}
 }
