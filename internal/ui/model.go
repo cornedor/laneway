@@ -57,6 +57,7 @@ type keyMap struct {
 	JiraDescription, Inbox             key.Binding
 	IssueActions, Site, Standup        key.Binding
 	History, DevInfo, JQL, Pin         key.Binding
+	Fold, UnfoldAll                    key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -132,6 +133,8 @@ func defaultKeys() keyMap {
 		History:         bind("issue history", "H"),
 		DevInfo:         bind("pull requests and branches", "D"),
 		Pin:             bind("pin / unpin issue", "*"),
+		Fold:            bind("fold the swimlane", "z"),
+		UnfoldAll:       bind("unfold every swimlane", "Z"),
 		JQL:             bind("JQL search", "Q"),
 	}
 }

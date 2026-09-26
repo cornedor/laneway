@@ -1117,3 +1117,32 @@ func TestJiraSwimlaneDropAssigns(t *testing.T) {
 		t.Error("u again should redo the drop")
 	}
 }
+
+// TestJiraSwimlaneFold: z folds the cursor's band to its header and moves
+// the cursor on; j/k skip it; Z unfolds all.
+func TestJiraSwimlaneFold(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "z"))
+	if m = out.(Model); !strings.Contains(m.status, "fold needs swimlanes") {
+		t.Errorf("z without swimlanes: %q", m.status)
+	}
+	for _, k := range []string{"s", "z"} {
+		out, _ = m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "▸ Ada · 1") || strings.Contains(view, "First") {
+		t.Fatalf("folded view:\n%s", view)
+	}
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-3" {
+		t.Errorf("after fold on %s, want ABC-3", c.Key)
+	}
+	out, _ = m.handleKey(keyMsg(t, "k"))
+	if m = out.(Model); m.jiraTab.row != 1 {
+		t.Errorf("k went into the fold: row %d", m.jiraTab.row)
+	}
+	out, _ = m.handleKey(keyMsg(t, "Z"))
+	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "First") {
+		t.Error("Z should unfold")
+	}
+}

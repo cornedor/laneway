@@ -216,6 +216,8 @@ type jiraTabState struct {
 	swimAt  [][]int
 	// swimBand is each body line's band, as one of its cards.
 	swimBand []jira.Card
+	// swimFold are the folded bands, by name, until the swimlanes change.
+	swimFold map[string]bool
 
 	// search narrows the cards locally; searching while it has the keyboard.
 	search    textinput.Model
@@ -827,6 +829,11 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if c, ok := m.selectedJiraCard(); ok {
 			m.togglePin(c.Key, c.Summary)
 		}
+	case key.Matches(msg, m.keys.Fold):
+		m.foldJiraSwimlane()
+	case key.Matches(msg, m.keys.UnfoldAll):
+		t.swimFold = nil
+		m.renderJira()
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
 	case key.Matches(msg, m.keys.MarkAll):
@@ -862,6 +869,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			default:
 				t.swim = jiraSortRank
 			}
+			t.swimFold = nil
 			m.buildJiraLanes()
 			m.selectJiraKey(keep)
 			m.renderJira()
@@ -913,7 +921,61 @@ func (m *Model) moveJiraCursor(delta int) {
 		t.idx += delta
 	}
 	m.clampJiraCursor()
+	m.skipJiraFolded(delta)
 	m.renderJira()
+}
+
+// jiraFolded is whether the lane cursor's row r of lane l is in a folded
+// swimlane.
+func (m *Model) jiraFolded(l, r int) bool {
+	t := m.jiraTab
+	if len(t.swimFold) == 0 || t.swim == jiraSortRank || l >= len(t.lanes) || r >= len(t.lanes[l].cards) {
+		return false
+	}
+	g, _ := jiraGroupOf(t.swim, t.cards[t.lanes[l].cards[r]])
+	return t.swimFold[g]
+}
+
+// skipJiraFolded moves the lane cursor off a folded swimlane: on in the
+// direction of dir, else back the other way; it stays when every card is.
+func (m *Model) skipJiraFolded(dir int) {
+	t := m.jiraTab
+	if !m.jiraShowsLanes() || !m.jiraFolded(t.lane, t.row) {
+		return
+	}
+	step := 1
+	if dir < 0 {
+		step = -1
+	}
+	for _, s := range []int{step, -step} {
+		for r := t.row + s; r >= 0 && r < len(t.lanes[t.lane].cards); r += s {
+			if !m.jiraFolded(t.lane, r) {
+				t.row = r
+				return
+			}
+		}
+	}
+}
+
+// foldJiraSwimlane folds the cursor's swimlane to its header.
+func (m *Model) foldJiraSwimlane() {
+	t := m.jiraTab
+	c, ok := m.selectedJiraCard()
+	if t.swim == jiraSortRank || !m.jiraShowsLanes() {
+		m.status = "fold needs swimlanes (" + helpKey(m.keys.Sort) + " in lanes)"
+		return
+	}
+	if !ok {
+		return
+	}
+	g, _ := jiraGroupOf(t.swim, c)
+	if t.swimFold == nil {
+		t.swimFold = map[string]bool{}
+	}
+	t.swimFold[g] = true
+	m.skipJiraFolded(1)
+	m.renderJira()
+	m.status = "folded " + g + " · " + helpKey(m.keys.UnfoldAll) + " unfolds all"
 }
 
 // moveJiraLane moves the cursor to the next lane (or previous), keeping its
@@ -933,6 +995,7 @@ func (m *Model) moveJiraLane(delta int) {
 			t.row = r
 		}
 	}
+	m.skipJiraFolded(1)
 	m.renderJira()
 }
 
@@ -1935,6 +1998,9 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		}
 		body = append(body, swimLine{head: g, count: cards, y: -1})
 		t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
+		if t.swimFold[g] {
+			continue
+		}
 		for r := range n {
 			at := make([]int, len(shown))
 			for i := range shown {
@@ -1969,7 +2035,11 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		bl := body[y]
 		switch {
 		case bl.head != "":
-			lines = append(lines, jiraViewActive.Render("▾ "+bl.head)+jiraDimStyle.Render(fmt.Sprintf(" · %d", bl.count)))
+			sign := "▾ "
+			if t.swimFold[bl.head] {
+				sign = "▸ "
+			}
+			lines = append(lines, jiraViewActive.Render(sign+bl.head)+jiraDimStyle.Render(fmt.Sprintf(" · %d", bl.count)))
 			continue
 		case bl.y < 0:
 			lines = append(lines, row(make([]string, len(shown))))

@@ -91,7 +91,7 @@ Actions: up down left right top bottom page_up page_down open toggle_panel
 browser refresh quit help search goto copy_key copy_url move_left move_right
 create project board next_view prev_view toggle_mode sort move_sprint assignee_filter mine
 clear_filters · panel: status priority points summary labels assign comment reply start_work
-linked_issue back image development pin.
+linked_issue back image development pin; board also fold unfold_all.
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -177,7 +177,7 @@ last, marked `⌕`.
 
 Board:
 - move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search
-- board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it) ·
+- board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue · `x`/`X`
   mark · `B` edit marked · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · drag with the mouse
