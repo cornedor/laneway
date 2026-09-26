@@ -211,7 +211,11 @@ type Model struct {
 	helpPage int // the help's page when it is wider than the screen
 	// quitAsked is set once a quit was held back for unsent work; the next
 	// quit goes. Any other key clears it.
-	quitAsked     bool
+	quitAsked bool
+	// statusLog keeps the status line's messages (messages.go);
+	// statusLogged is the last one kept.
+	statusLog     []statusEntry
+	statusLogged  string
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
@@ -381,13 +385,13 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		uiConfig:        ui,
 		rules:           ruleSet,
 		rulesLog:        rulesLog,
-		status:          strings.Join(warn, " · "),
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
 		fieldCursor:     -1,
 		started:         time.Now(),
 	}
 	m.refView.SoftWrap = true
+	m.startupStatus(warn)
 	m.jiraTab.wantLanes = opts.lanes
 	m.loadPins()
 	m.loadPanelWidth()
@@ -421,6 +425,8 @@ func (m *Model) resize() {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
+		om.logStatus()
+		out = om
 		// The inline picker is drawn in the panel: redraw it as it changes.
 		if _, motion := msg.(tea.MouseMotionMsg); !motion && (m.pickerInline() || om.pickerInline() || m.panelComposing() || om.panelComposing()) {
 			om.renderRef()

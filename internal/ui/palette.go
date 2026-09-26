@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -69,6 +70,7 @@ func (m *Model) openPalette() {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
 	}
+	items = append(items, jiraPickerItem{id: "m:", label: fmt.Sprintf("messages  the status line's last %d", len(m.statusLog))})
 	for _, c := range t.cards {
 		if id := "i:" + c.Key; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
 			items = append(items, jiraPickerItem{id: id, label: c.Key + "  " + ansi.Strip(c.Summary)})
@@ -106,6 +108,9 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "b":
 		return m, m.pickJiraBoard(jiraPickBoard, arg)
+	case "m":
+		m.openMessages()
+		return m, nil
 	case "i":
 		m.selectJiraKey(arg)
 		m.renderJira()

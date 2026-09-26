@@ -66,6 +66,8 @@ const (
 	jiraPickSprint
 	// jiraPickPalette is the command palette (palette.go).
 	jiraPickPalette
+	// jiraPickMessages is the status line's kept messages (messages.go).
+	jiraPickMessages
 	// jiraPickBulk asks what to change on the marked cards (bulk.go).
 	jiraPickBulk
 	// jiraPickTimesheet lists today's worklogs (worklog.go).
@@ -497,7 +499,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
 			if k == jiraPickPalette {
@@ -691,6 +693,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickPalette {
 		m.closeJiraPicker()
 		return m.applyPalette(it.id)
+	}
+	if kind == jiraPickMessages {
+		m.closeJiraPicker()
+		return m.applyMessage(it.id)
 	}
 	if kind == jiraPickCreateType {
 		m.closeJiraPicker()

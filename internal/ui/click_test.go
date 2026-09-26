@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -563,5 +564,35 @@ func TestQuitGuard(t *testing.T) {
 	}
 	if _, cmd = jiraTabModel(t).handleKey(keyMsg(t, "q")); cmd == nil {
 		t.Error("q with nothing unsent should quit at once")
+	}
+}
+
+// TestMessages: the status line's messages are kept, newest first in the
+// palette's messages list, enter copies one; several startup warnings
+// show as a count.
+func TestMessages(t *testing.T) {
+	m := jiraTabModel(t)
+	m.startupStatus([]string{"ui.a: bad", "ui.b: worse"})
+	if !strings.Contains(m.status, "2 config warnings") {
+		t.Fatalf("status %q", m.status)
+	}
+	m.status = "a long error that the status line cuts"
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	m = out.(Model)
+	m.openPalette()
+	i := slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "m:" })
+	if i < 0 {
+		t.Fatal("no messages row in the palette")
+	}
+	m.jiraPicker.idx = i
+	out, _ = m.handleJiraPickerKey(keyPress("enter"))
+	m = out.(Model)
+	if m.jiraPicker.kind != jiraPickMessages || len(m.jiraPicker.items) != 3 ||
+		!strings.Contains(m.jiraPicker.items[0].label, "a long error") || !strings.Contains(m.jiraPicker.items[2].label, "ui.a: bad") {
+		t.Fatalf("messages = %+v", m.jiraPicker.items)
+	}
+	out, cmd := m.handleJiraPickerKey(keyPress("enter"))
+	if m = out.(Model); cmd == nil || m.status != "copied the message" {
+		t.Errorf("enter: %q", m.status)
 	}
 }
