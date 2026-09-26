@@ -271,8 +271,10 @@ type jiraTabState struct {
 	swim    jiraSort
 	swimTop int
 	swimAt  [][]int
-	// swimBand is each body line's band, as one of its cards.
+	// swimBand is each body line's band, as one of its cards; swimHead
+	// the band's name on its header line, "" elsewhere.
 	swimBand []jira.Card
+	swimHead []string
 	// swimFold are the folded bands, by name, until the swimlanes change.
 	swimFold map[string]bool
 
@@ -1065,6 +1067,22 @@ func (m *Model) skipJiraFolded(dir int) {
 			}
 		}
 	}
+}
+
+// toggleJiraSwimlane folds band g to its header, or unfolds it (a click on
+// its header).
+func (m *Model) toggleJiraSwimlane(g string) {
+	t := m.jiraTab
+	if t.swimFold == nil {
+		t.swimFold = map[string]bool{}
+	}
+	if t.swimFold[g] {
+		delete(t.swimFold, g)
+	} else {
+		t.swimFold[g] = true
+	}
+	m.skipJiraFolded(1)
+	m.renderJira()
 }
 
 // foldJiraSwimlane folds the cursor's swimlane to its header.
@@ -2337,7 +2355,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 		start int    // the row's first line
 	}
 	var body []swimLine
-	t.swimAt, t.swimBand = t.swimAt[:0], t.swimBand[:0]
+	t.swimAt, t.swimBand, t.swimHead = t.swimAt[:0], t.swimBand[:0], t.swimHead[:0]
 	blank := make([]int, len(shown))
 	for i := range blank {
 		blank[i] = -1
@@ -2371,7 +2389,7 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 			pts = ""
 		}
 		body = append(body, swimLine{head: g, count: cards, pts: pts, y: -1})
-		t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
+		t.swimAt, t.swimBand, t.swimHead = append(t.swimAt, blank), append(t.swimBand, rep[g]), append(t.swimHead, g)
 		if t.swimFold[g] {
 			continue
 		}
@@ -2389,11 +2407,11 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 			start := len(body)
 			for y := range m.cardH() {
 				body = append(body, swimLine{at: at, y: y, start: start})
-				t.swimAt, t.swimBand = append(t.swimAt, at), append(t.swimBand, rep[g])
+				t.swimAt, t.swimBand, t.swimHead = append(t.swimAt, at), append(t.swimBand, rep[g]), append(t.swimHead, "")
 			}
 			if m.cardSlot() > m.cardH() {
 				body = append(body, swimLine{y: -1})
-				t.swimAt, t.swimBand = append(t.swimAt, blank), append(t.swimBand, rep[g])
+				t.swimAt, t.swimBand, t.swimHead = append(t.swimAt, blank), append(t.swimBand, rep[g]), append(t.swimHead, "")
 			}
 		}
 	}
@@ -2772,10 +2790,14 @@ func (m *Model) jiraFilterLine() string {
 }
 
 // hitJira maps a screen cell on the board to a card: idx is the lane (-1 in
-// list mode) and line the card's row in it, -1 over no card.
+// list mode and above the board) and line the card's row in it, -1 over no
+// card; band is the swimlane whose header it is on.
 func (m *Model) hitJira(x, y int) hit {
 	t := m.jiraTab
 	line := y - jiraBodyTop
+	if line < 0 {
+		return hit{zone: hitJira, idx: -1, line: -1}
+	}
 	if !m.jiraShowsLanes() {
 		if line >= 0 && line < t.view.Height() {
 			if i := slices.Index(t.lineOf, t.view.YOffset()+line); i >= 0 {
@@ -2793,7 +2815,7 @@ func (m *Model) hitJira(x, y int) hit {
 	h := hit{zone: hitJira, idx: lane, line: -1}
 	if t.swim != jiraSortRank {
 		if y := line - 1 + t.swimTop; line >= 1 && y < len(t.swimAt) && col < len(t.swimAt[y]) {
-			h.line = t.swimAt[y][col]
+			h.line, h.band = t.swimAt[y][col], t.swimHead[y]
 		}
 		return h
 	}
@@ -2811,6 +2833,10 @@ func (m *Model) hitJira(x, y int) hit {
 func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
 	m.focus = focusJira
+	if h.band != "" {
+		m.toggleJiraSwimlane(h.band)
+		return m, nil
+	}
 	if h.line < 0 {
 		if h.idx >= 0 {
 			t.lane = h.idx

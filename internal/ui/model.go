@@ -163,6 +163,7 @@ const (
 type hit struct {
 	zone      hitZone
 	idx, line int
+	band      string
 }
 
 // Model is the whole app. Held by value like matterbox's; the board state
@@ -671,6 +672,10 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if m.helpOpen && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil {
+		m.helpOpen = false // any click closes it, as any key does
+		return m, nil
+	}
 	form := m.formOnTop()
 	if msg.Button != tea.MouseLeft || (m.modalOpen() && !form) || msg.Y >= m.bodyH() {
 		return m, nil
@@ -722,6 +727,9 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		m.focus = focusJira
 		return m.clickPlan(msg.X, msg.Y, count)
 	case t.charts != nil:
+		if i := t.charts.chartTabAt(msg.X); msg.Y == jiraBodyTop-2 && i >= 0 {
+			t.charts.tab = i
+		}
 		return m, nil
 	}
 	return m.clickJira(m.hitJira(msg.X, msg.Y), msg.X, msg.Y, count)

@@ -1,9 +1,16 @@
 # Roadmap
 
 ## Next
+- Mouse in overlays: settings (row, second click edits), `F` builder (column rows, value adds), `Q` completions, image viewer (halves step, caption back), go-to / create / composers (outside cancels), mention popup; wheel for each. They sit behind the `modalOpen` gate in `handleClick`
+- Mouse in the header: project and board names open their pickers, refresh/updated refreshes, timer stops, `✉` opens the inbox, offline notice retries, `‹` steps views, sprint bar opens charts, filter line's `X clears` / `sort:` / `/ search` chips
+- Mouse on the roadmap: ▾/▸ folds its group or epic; charts' hint chips; planning's target sprint name cycles, side heads focus
+- Mouse in the panel: inline images open the viewer, section heads (Links, Attachments, Description double-click), hint chips, `…and N more`, scrollbar drag; the wheel while an inline editor is open
+- Empty states: a click on the hint runs its key; list group headers select their first card
+- Picker hit test assumes a one-line title; a wrapped one (timesheet, standup on a narrow terminal) puts clicks rows off
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Mouse: a click on a swimlane band's ▾/▸ header folds or unfolds it; a click on a chart's name switches to it; any click closes `?`; a click on the header's blank space no longer moves the cursor's lane
 - `/` terms `reporter:`, `component:` (any one of its components) and `created<7d`; cards carry them, the `F` builder offers component and reporter
 - `esc` cancels a drag in progress: cards and swimlanes, planning, roadmap bars (dates put back, their write dropped, other pending writes kept) and the panel border (width back, nothing remembered)
 - Light terminals: the default idle selection (a fixed dark grey behind the terminal's text) turns light grey once the terminal reports a light background, a configured one kept; avatar initials white by hex, not the palette's 15. Lozenges and the focused selection are ANSI and follow the palette

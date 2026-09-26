@@ -139,22 +139,48 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// chartTabNames are the charts' tab labels, by tab.
+var chartTabNames = []string{"Burndown", "Burnup", "Flow", "Velocity"}
+
+const chartTabSep = "  │  "
+
+// chartTabsShown are the tabs the view line lists: all, or velocity alone
+// without an active sprint.
+func (ch *chartsState) chartTabsShown() []int {
+	var out []int
+	for i := range chartTabNames {
+		if i == chartVelocity || ch.sprint != nil || i == ch.tab {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+// chartTabAt is the tab at x on the view line, -1 for none.
+func (ch *chartsState) chartTabAt(x int) int {
+	at := 1 // the box's left border
+	for _, i := range ch.chartTabsShown() {
+		w := ansi.StringWidth(chartTabNames[i])
+		if x >= at && x < at+w {
+			return i
+		}
+		at += w + ansi.StringWidth(chartTabSep)
+	}
+	return -1
+}
+
 // chartsLine is the view line while the charts show.
 func (m *Model) chartsLine() string {
 	ch := m.jiraTab.charts
-	tabs := []string{"Burndown", "Burnup", "Flow", "Velocity"}
 	var parts []string
-	for i, name := range tabs {
-		switch {
-		case i == ch.tab:
-			parts = append(parts, jiraViewActive.Render(name))
-		case i != chartVelocity && ch.sprint == nil:
-			continue
-		default:
-			parts = append(parts, jiraDimStyle.Render(name))
+	for _, i := range ch.chartTabsShown() {
+		if i == ch.tab {
+			parts = append(parts, jiraViewActive.Render(chartTabNames[i]))
+		} else {
+			parts = append(parts, jiraDimStyle.Render(chartTabNames[i]))
 		}
 	}
-	s := strings.Join(parts, jiraDimStyle.Render("  │  "))
+	s := strings.Join(parts, jiraDimStyle.Render(chartTabSep))
 	if ch.loading {
 		s += jiraDimStyle.Render("  ·  loading…")
 	}

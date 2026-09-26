@@ -215,7 +215,7 @@ Board:
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (by assignee, priority or epic it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue · `x`/`X`
-  mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name · drag with the mouse (`esc` cancels a drag, here and everywhere); click a view, quick filter or the assignee chip in the header
+  mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name · drag with the mouse (`esc` cancels a drag, here and everywhere); click a view, quick filter or the assignee chip in the header, a swimlane band's header to fold it
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `R` roadmap · `P` planning · `C` charts
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
 - `q` quit
@@ -337,7 +337,7 @@ a failed write reloads both sides.
 resolution date, against the dotted ideal), its burnup (points done against
 the scope, dotted), its cumulative flow (issues per board column, day by
 day) and the velocity of the last 8 closed sprints
-(`ui.velocity_sprints`); `tab` steps through them (points done by the sprint's end over points in
+(`ui.velocity_sprints`); `tab` (or a click on a name) steps through them (points done by the sprint's end over points in
 it). The burndown counts an issue from the day it joined the sprint and
 says how much was added after the start; issues taken out of it don't show.
 `y` copies the open chart's numbers as a markdown table.
