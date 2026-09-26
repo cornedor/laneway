@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Fix: list mode, the selected row's status, story points and `[PR]` are barely readable, their colours a hair off the selection background
 - Fix: the board list from `[`/`]` doesn't scroll to the active board when the boards overflow the screen, so it can't be read
 - Fix: code blocks always use monokai; `setCodeTheme` is never called and there's no `ui.code_theme`. Add it, defaulting per theme preset
 - Fix: start work (`S`) names new branches `issue/{key}-{summary}`, ignoring `ui.branch_template`; use it (or `ui.work_branch_template`)
@@ -38,6 +37,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Fix: list mode's selected row draws plain in the selection colours, as the selected card does; dim status, points and PR had sunk into it
 - Panel: filled rich-text fields (e.g. test information) render as markdown sections after the description, their row says ↓ below; enter still edits them in `$EDITOR`
 - `/` terms: `is:mine`, `is:overdue`, `due<7d`, `age>3d` (h d w), `pr:open,merged`, `deploy:prod`; the builder offers pr, deploy, mine and overdue
 - The `/` query's terms as chips in the header (`status:new ×`); a click, or their row atop `F`, removes one

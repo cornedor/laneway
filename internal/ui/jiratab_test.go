@@ -1275,3 +1275,24 @@ func TestLaneCardWidth(t *testing.T) {
 		}
 	}
 }
+
+// TestJiraListSelectedPlain: the selected list row drops its dim and
+// accent colours for the selection's own, so status, points and PR read.
+func TestJiraListSelectedPlain(t *testing.T) {
+	m := jiraTabModel(t)
+	c := jira.Card{Key: "ABC-9", Summary: "Pay", Status: "Review", Points: "3", PR: "OPEN"}
+	dim := ansiOpenSeq(jiraDimStyle)
+	if dim == "" {
+		t.Skip("no colours in this environment")
+	}
+	if row := m.jiraListRow(c, false, 80, 6, 8); !strings.Contains(row, dim) {
+		t.Fatal("unselected row lost its dim status")
+	}
+	row := m.jiraListRow(c, true, 80, 6, 8)
+	if strings.Contains(row, dim) || strings.Contains(row, ansiOpenSeq(jiraViewActive)) {
+		t.Errorf("selected row keeps other colours: %q", row)
+	}
+	if plain := ansi.Strip(row); !strings.Contains(plain, "Review") || !strings.Contains(plain, "PR Pay") {
+		t.Errorf("selected row = %q", plain)
+	}
+}

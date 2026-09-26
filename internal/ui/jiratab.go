@@ -1693,6 +1693,11 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	}
 	row += title
 	row = ansi.Truncate(row, width-1, "…")
+	if selected {
+		// Plain selection colours, as the selected card: dim status, points
+		// and marks sank into the selection background.
+		row = ansi.Strip(row)
+	}
 	return m.jiraSelect(row, selected, width)
 }
 
