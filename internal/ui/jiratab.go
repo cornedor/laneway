@@ -1709,14 +1709,15 @@ func (m *Model) jiraSelect(row string, selected bool, width int) string {
 	if !selected {
 		return row
 	}
-	row = keepBG(row)
+	st := diffTreeSelStyle
+	if m.focus == focusJira {
+		st = selectedRow
+	}
+	row = keepBG(row, ansiOpenSeq(st))
 	if pad := width - visualWidth(row); pad > 0 {
 		row += strings.Repeat(" ", pad)
 	}
-	if m.focus == focusJira {
-		return selectedRow.Render(row)
-	}
-	return diffTreeSelStyle.Render(row)
+	return st.Render(row)
 }
 
 // jiraLanePoints sums the story points of a lane's cards; false when none

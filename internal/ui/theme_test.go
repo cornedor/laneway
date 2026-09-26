@@ -117,3 +117,22 @@ func TestListZebra(t *testing.T) {
 		t.Errorf("shaded rows = %v", shaded)
 	}
 }
+
+// TestChipEndsOnShade: a span with a background of its own (an avatar
+// chip) ends on the row's background, shaded or selected, not its own.
+func TestChipEndsOnShade(t *testing.T) {
+	m := jiraTabModel(t)
+	th, _ := themeFrom(map[string]string{"shade": "#1e1e1e"})
+	applyTheme(th)
+	t.Cleanup(func() { applyTheme(defaultTheme()) })
+	chip := jiraAvatar("Ada Lovelace")
+	after := func(row, open string) {
+		t.Helper()
+		i := strings.Index(row, "AL")
+		if i < 0 || !strings.Contains(row[i:], diffSoftReset+open) {
+			t.Errorf("no %q after the chip: %q", open, row)
+		}
+	}
+	after(shade(chip+" Ada", 20), ansiOpenSeq(shadeStyle))
+	after(m.jiraSelect(chip+" Ada", true, 20), ansiOpenSeq(selectedRow))
+}

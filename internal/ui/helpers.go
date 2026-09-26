@@ -52,14 +52,15 @@ func unicodeEmojiGlyph(name string) string { return emoji.Glyph(name) }
 
 func helpKey(b key.Binding) string { return b.Help().Key }
 
-// keepBG rewrites every full SGR reset inside s to diffSoftReset, so a row's
-// background survives a styled span.
-func keepBG(s string) string {
+// keepBG rewrites every full SGR reset inside s to diffSoftReset and the
+// row's own style (open, its SGR), so a row's background survives a styled
+// span, and one with a background of its own (an avatar chip) ends.
+func keepBG(s, open string) string {
 	if !strings.Contains(s, "\x1b[") {
 		return s
 	}
-	s = strings.ReplaceAll(s, "\x1b[0m", diffSoftReset)
-	return strings.ReplaceAll(s, "\x1b[m", diffSoftReset)
+	s = strings.ReplaceAll(s, "\x1b[0m", diffSoftReset+open)
+	return strings.ReplaceAll(s, "\x1b[m", diffSoftReset+open)
 }
 
 func visualWidth(s string) int { return textwidth.Width(s) }

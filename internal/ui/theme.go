@@ -173,7 +173,7 @@ func paintBG(st lipgloss.Style, line string, width int) string {
 	if !shadeOn {
 		return line
 	}
-	line = keepBG(line)
+	line = keepBG(line, ansiOpenSeq(st))
 	if pad := width - visualWidth(line); pad > 0 {
 		line += strings.Repeat(" ", pad)
 	}
