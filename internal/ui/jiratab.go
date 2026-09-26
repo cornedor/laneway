@@ -855,9 +855,17 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleChartsKey(msg)
 	}
 	lanes := m.jiraShowsLanes()
+	if m.needsCard(msg) {
+		if _, ok := m.selectedJiraCard(); !ok {
+			m.status = "no card selected"
+			return m, nil
+		}
+	}
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m.quit()
+	case !lanes && (key.Matches(msg, m.keys.MoveCardLeft) || key.Matches(msg, m.keys.MoveCardRight)):
+		m.status = "moving a card needs lanes (" + helpKey(m.keys.ToggleMode) + "), or " + helpKey(m.keys.QuickEdit) + " changes its status"
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
 		m.moveJiraCursor(-1)
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown):
@@ -1227,13 +1235,36 @@ func (m Model) showJiraKey(key string) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// needsCard is whether key msg acts on the selected card alone: with no
+// card selected (and none marked, a timer not running) it says so rather
+// than doing nothing.
+func (m *Model) needsCard(msg tea.KeyPressMsg) bool {
+	k := m.keys
+	if len(m.jiraTab.marked) > 0 {
+		return false
+	}
+	for _, b := range []key.Binding{k.OpenChannel, k.OpenAttach, k.Pin, k.CopyBranch, k.CopyKey, k.CopyURL, k.Mark, k.QuickEdit, k.MoveSprint, k.MoveCardLeft, k.MoveCardRight} {
+		if key.Matches(msg, b) {
+			return true
+		}
+	}
+	return key.Matches(msg, k.Timer) && m.timer.key == ""
+}
+
 // moveJiraCardBy moves the selected card delta lanes over. A lane of several
 // statuses asks which one first.
 func (m *Model) moveJiraCardBy(delta int) tea.Cmd {
 	t := m.jiraTab
 	c, ok := m.selectedJiraCard()
 	to := t.lane + delta
-	if !ok || to < 0 || to >= len(t.lanes) {
+	switch {
+	case !ok:
+		return nil
+	case to < 0:
+		m.status = c.Key + " is in the first lane already"
+		return nil
+	case to >= len(t.lanes):
+		m.status = c.Key + " is in the last lane already"
 		return nil
 	}
 	if len(t.lanes[to].statusIDs) > 1 {

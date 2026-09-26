@@ -1,10 +1,20 @@
 # Roadmap
 
 ## Next
+- A failed board load: the error wrapped and centred with clickable hints (r retries · p project · Q JQL), not one cut red line
+- First run: no config prints a minimal `jira:` block and the token URL; name only the missing settings; `base_url` without https:// says so
+- Pickers, settings, builder, JQL: pgup/pgdn, home/end, ctrl+n/p alike (one list-nav helper)
+- Narrow terminals: create box, builder, settings edit input, picker search, `/` search and go-to sized from the width
+- Move form: the field being typed sized to its cell so the cursor stays visible
+- Lanes off-screen: `‹ n` / `n ›` on the outer lane heads
+- JQL box: enter on an empty input runs the highlighted past search
+- Create box: an empty or blank summary says so; the title says "→ Sprint 12" when it will join the sprint
+- Slow loads: elapsed time after 2s on "refreshing…"/"loading…"; go-to takes a pasted browse URL
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- No silent keys on the board: card keys with no card (and nothing marked) say "no card selected"; H/L past the first or last lane say so; H/L in list mode say moving needs lanes or `e`
 - `ui.double_click` (400ms, 100ms–2s): how quickly a second click counts as a double-click
 - After a download the status says so and the palette gains `open download  <name>`, which opens the file with `ui.open`
 - Errors on the status line (failed writes, offline, downloads, config warnings) draw in the theme's `error` colour until the next message, and are marked ✗ in `messages`
