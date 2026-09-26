@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Next
+- Inline editing: edits happen where the value is, not in a modal. Summary, labels, points and text fields edit in their panel row; status, priority, assignee and option fields drop a small list under the row; the description and rich-text fields edit in place in the panel body; comments and replies compose under the thread. Modals stay only for multi-field forms (transition screens, bulk)
 - `laneway rules` create defaults (type `Task`, status `To Do`) from config or the project
 - Light-theme pass over the chips, lozenges and selection colours
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
