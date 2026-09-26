@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -82,5 +84,35 @@ func TestUnknownKeys(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)
+	}
+}
+
+// TestCheck: a site's config names what it lacks, and a base_url without
+// its scheme.
+func TestCheck(t *testing.T) {
+	for _, c := range []struct {
+		j    JiraConfig
+		site string
+		want string
+	}{
+		{JiraConfig{BaseURL: "https://x.atlassian.net", Email: "a@b", APIToken: "t"}, "jira", ""},
+		{JiraConfig{BaseURL: "https://x.atlassian.net"}, "jira", "jira: set email, api_token (or JIRA_API_TOKEN"},
+		{JiraConfig{Email: "a@b", APIToken: "t"}, "sites.club", "sites.club: set base_url"},
+		{JiraConfig{BaseURL: "x.atlassian.net", Email: "a@b", APIToken: "t"}, "jira", `jira.base_url: "x.atlassian.net" needs its scheme, e.g. https://x.atlassian.net`},
+	} {
+		err := c.j.Check(c.site)
+		if got := fmt.Sprint(err); c.want == "" && err != nil || c.want != "" && !strings.Contains(got, c.want) {
+			t.Errorf("%+v: %v, want %q", c.j, err, c.want)
+		}
+	}
+}
+
+// TestNoConfig: no config file says what to write and where a token is.
+func TestNoConfig(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	_, _, err := Load("")
+	if err == nil || !strings.Contains(err.Error(), "base_url: https://") || !strings.Contains(err.Error(), TokenURL) {
+		t.Errorf("got %v", err)
 	}
 }

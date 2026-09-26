@@ -268,7 +268,7 @@ func Load(path string) (Config, string, error) {
 		}
 		return c, p, nil
 	}
-	return Config{}, "", fmt.Errorf("no config found; create %s with a jira: section", candidates[0])
+	return Config{}, "", fmt.Errorf("no config found; create %s with:\n\n%s\nA token: %s", candidates[0], starterConfig, TokenURL)
 }
 
 // StatePath is where the app keeps its state. A state file left by the old
@@ -407,4 +407,40 @@ func editDistance(a, b string) int {
 		prev = cur
 	}
 	return prev[len(b)]
+}
+
+// TokenURL is where an Atlassian API token is made.
+const TokenURL = "https://id.atlassian.com/manage-profile/security/api-tokens"
+
+// starterConfig is the least a config needs.
+const starterConfig = `jira:
+  base_url: https://your-instance.atlassian.net
+  email: you@example.com
+  api_token: ...   # or JIRA_API_TOKEN
+`
+
+// Check says what a site's config lacks to connect: the missing settings
+// by name, a base_url without its scheme. site names it ("jira" or
+// "sites.club").
+func (j JiraConfig) Check(site string) error {
+	var missing []string
+	for _, f := range []struct{ name, v string }{{"base_url", j.BaseURL}, {"email", j.Email}, {"api_token", j.APIToken}} {
+		if strings.TrimSpace(f.v) == "" {
+			missing = append(missing, f.name)
+		}
+	}
+	if len(missing) > 0 {
+		hint := ""
+		if slices.Contains(missing, "api_token") {
+			hint = " (a token: " + TokenURL + ")"
+			if site == "jira" {
+				hint = " (or JIRA_API_TOKEN; a token: " + TokenURL + ")"
+			}
+		}
+		return fmt.Errorf("%s: set %s%s", site, strings.Join(missing, ", "), hint)
+	}
+	if u := strings.TrimSpace(j.BaseURL); !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
+		return fmt.Errorf("%s.base_url: %q needs its scheme, e.g. https://%s", site, u, u)
+	}
+	return nil
 }

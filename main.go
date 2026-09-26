@@ -58,8 +58,8 @@ func runSite(cfg config.Config, cfgPath, site string) (string, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
-	if jc.BaseURL == "" || jc.Email == "" || jc.APIToken == "" {
-		return "", false, fmt.Errorf("%s: base_url, email and api_token (or JIRA_API_TOKEN for jira:) must be set", siteName(site))
+	if err := jc.Check(siteName(site)); err != nil {
+		return "", false, err
 	}
 	path, err := config.SiteStatePath(site)
 	if err != nil {
