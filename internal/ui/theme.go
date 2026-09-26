@@ -128,9 +128,12 @@ func themeFrom(over map[string]string) (theme, []string) {
 // shadeStyle is the cards' faint background, used while shadeOn: the
 // theme's shade colour, or with "auto" a step off the terminal's own
 // background once it reports it (autoShade).
+// barStyle, a step further, marks the bars that divide the screen: the
+// board's title, lane heads, the panel's title and section headings, the
+// status line.
 var (
-	shadeStyle lipgloss.Style
-	shadeOn    bool
+	shadeStyle, barStyle lipgloss.Style
+	shadeOn              bool
 )
 
 // autoShade derives the shade from the terminal's background bg: a few
@@ -140,23 +143,33 @@ func autoShade(bg color.Color) {
 	if curTheme["shade"] != "auto" || bg == nil {
 		return
 	}
+	shadeStyle, barStyle, shadeOn = stepOff(bg, 0.06), stepOff(bg, 0.12), true
+}
+
+// stepOff is a background f of the way off bg: toward white on a dark one,
+// toward black on a light one.
+func stepOff(bg color.Color, f float64) lipgloss.Style {
 	r, g, b, _ := bg.RGBA()
 	c := [3]float64{float64(r >> 8), float64(g >> 8), float64(b >> 8)}
 	dark := 0.299*c[0]+0.587*c[1]+0.114*c[2] < 128
 	for i := range c {
 		if dark {
-			c[i] += (255 - c[i]) * 0.07
+			c[i] += (255 - c[i]) * f
 		} else {
-			c[i] *= 0.95
+			c[i] *= 1 - f
 		}
 	}
-	hex := fmt.Sprintf("#%02x%02x%02x", int(c[0]), int(c[1]), int(c[2]))
-	shadeStyle, shadeOn = lipgloss.NewStyle().Background(lipgloss.Color(hex)), true
+	return lipgloss.NewStyle().Background(lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", int(c[0]), int(c[1]), int(c[2]))))
 }
 
 // shade gives a line the faint background across width, keeping it through
 // the line's own resets.
-func shade(line string, width int) string {
+func shade(line string, width int) string { return paintBG(shadeStyle, line, width) }
+
+// bar gives a line the bars' background across width.
+func bar(line string, width int) string { return paintBG(barStyle, line, width) }
+
+func paintBG(st lipgloss.Style, line string, width int) string {
 	if !shadeOn {
 		return line
 	}
@@ -164,7 +177,7 @@ func shade(line string, width int) string {
 	if pad := width - visualWidth(line); pad > 0 {
 		line += strings.Repeat(" ", pad)
 	}
-	return shadeStyle.Render(line)
+	return st.Render(line)
 }
 
 // applyTheme sets every themed colour and style.
@@ -178,6 +191,7 @@ func applyTheme(th theme) {
 	shadeOn = false
 	if v := th["shade"]; v != "auto" && v != "off" {
 		shadeStyle, shadeOn = lipgloss.NewStyle().Background(lipgloss.Color(v)), true
+		barStyle = shadeStyle
 	}
 	diffTreeSelStyle = lipgloss.NewStyle().Background(lipgloss.Color(th["selection_idle"]))
 	scrollbarThumbStyle = accent

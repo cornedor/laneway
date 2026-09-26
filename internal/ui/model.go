@@ -365,6 +365,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.BackgroundColorMsg:
 		autoShade(msg.Color)
+		m.sizeRefView() // shaded, the trail drops its rule
+		m.renderRef()
 		m.jiraTab.rows = nil
 		m.renderJira()
 		return m, nil
@@ -654,7 +656,7 @@ func (m Model) View() tea.View {
 	if ov := m.renderOverlay(bodyH); ov != "" {
 		body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, ov)
 	}
-	status := statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…"))
+	status := bar(statusStyle.Render(ansi.Truncate(" "+m.status, m.width, "…")), m.width)
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
 	if m.jiraCommentActive {
 		above := 0

@@ -64,8 +64,8 @@ func TestThemePresets(t *testing.T) {
 }
 
 // TestShade: with shade auto, cards get a background a step off the
-// terminal's once it reports one (darker on light, lighter on dark); off
-// and a fixed colour are kept.
+// terminal's once it reports one (darker on light, lighter on dark), the
+// bars two steps; off is kept.
 func TestShade(t *testing.T) {
 	t.Cleanup(func() { applyTheme(defaultTheme()) })
 	m := jiraTabModel(t)
@@ -74,11 +74,14 @@ func TestShade(t *testing.T) {
 	}
 	out, _ := m.Update(tea.BackgroundColorMsg{Color: color.RGBA{0xfa, 0xfa, 0xfa, 0xff}})
 	m = out.(Model)
-	if !strings.Contains(m.View().Content, "48;2;237;237;237") {
+	if !strings.Contains(m.View().Content, "48;2;235;235;235") {
 		t.Error("light terminal: no darker shade on the cards")
 	}
+	if !strings.Contains(m.View().Content, "48;2;220;220;220") {
+		t.Error("light terminal: no bar on the heads and status line")
+	}
 	autoShade(color.RGBA{0x10, 0x10, 0x10, 0xff})
-	if got := shade("x", 3); !strings.Contains(got, "48;2;32;32;32") {
+	if got := shade("x", 3); !strings.Contains(got, "48;2;30;30;30") {
 		t.Errorf("dark terminal: %q", got)
 	}
 	th, warn := themeFrom(map[string]string{"shade": "off"})

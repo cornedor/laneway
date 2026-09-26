@@ -33,7 +33,7 @@ func (m *Model) indexPanelHits(content string) {
 	head := fmt.Sprintf("Links (%d)  L open", len(iss.Links))
 	lines := strings.Split(content, "\n")
 	for i, l := range lines {
-		if ansi.Strip(l) != head {
+		if strings.TrimSpace(ansi.Strip(l)) != head {
 			continue
 		}
 		for j, lk := range iss.Links {
@@ -55,7 +55,7 @@ func (m *Model) panelLineAt(y int) int {
 // panelCellAt is the content line on screen row y and which of its wrapped
 // rows that is.
 func (m *Model) panelCellAt(y int) (line, wrap int) {
-	top := 1 + min(len(m.refBack), refCrumbsShown+1) // the title, then the trail
+	top := 1 + m.crumbRows() // the title, then the trail
 	row := y - top
 	if row < 0 || row >= m.refView.Height() {
 		return -1, 0

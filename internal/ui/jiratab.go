@@ -2172,7 +2172,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 	if m.jiraShowsLanes() {
 		meta += "  " + helpKey(k.MoveCardLeft) + "/" + helpKey(k.MoveCardRight) + " move"
 	}
-	head := ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…")
+	head := bar(ansi.Truncate(title+refDimStyle.Render(meta), max(boxW-2, 1), "…"), max(boxW-2, 1))
 	rule := refDimStyle.Render(strings.Repeat("─", max(boxW-2, 1)))
 
 	var views []string
@@ -2214,7 +2214,10 @@ func (m *Model) renderJiraPane(height, width int) string {
 	case m.jiraShowsLanes() || t.cfg == nil || len(t.order) == 0:
 		body = t.lanesOut
 	}
-	rows := []string{head, rule, viewLine, filterLine, body}
+	// The header is one shaded band down to the board, so the views and
+	// filters read apart from the cards.
+	bw := max(boxW-2, 1)
+	rows := []string{head, bar(rule, bw), bar(viewLine, bw), bar(filterLine, bw), body}
 	borderColor := dimColor
 	if m.focus == focusJira {
 		borderColor = focusedColor

@@ -119,7 +119,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		if divW < 1 {
 			divW = 1
 		}
-		b.WriteString("\n" + refDimStyle.Render(strings.Repeat("─", divW)) + "\n")
+		b.WriteString(sectionHead("Description", "", divW))
 		b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
 	}
 
@@ -129,14 +129,23 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	return b.String()
 }
 
+// sectionHead opens a panel section: a shaded bar with its label and hint,
+// or without shading a rule above the label.
+func sectionHead(label, hint string, width int) string {
+	head := refLabelStyle.Render(label) + refDimStyle.Render(hint)
+	if shadeOn {
+		return "\n" + bar(" "+head, max(width, 1)) + "\n"
+	}
+	return "\n" + refDimStyle.Render(strings.Repeat("─", max(width, 1))) + "\n" + head + "\n"
+}
+
 // renderJiraLinks lists the parent, linked issues and subtasks; L picks one
 // to open.
 func (m *Model) renderJiraLinks(b *strings.Builder, iss *jira.Issue, width int) {
 	if len(iss.Links) == 0 {
 		return
 	}
-	b.WriteString("\n" + refDimStyle.Render(strings.Repeat("─", max(width, 1))) + "\n")
-	b.WriteString(refLabelStyle.Render(fmt.Sprintf("Links (%d)", len(iss.Links))) + refDimStyle.Render("  L open") + "\n")
+	b.WriteString(sectionHead(fmt.Sprintf("Links (%d)", len(iss.Links)), "  L open", width))
 	for _, l := range iss.Links {
 		line := refDimStyle.Render(l.Rel+" ") + jiraKeyStyle.Render(l.Key) + " " + l.Summary
 		if l.Status != "" {
@@ -172,8 +181,7 @@ func (m *Model) renderJiraAttachments(b *strings.Builder, iss *jira.Issue, width
 	if len(rest) == 0 {
 		return
 	}
-	b.WriteString("\n" + refDimStyle.Render(strings.Repeat("─", max(width, 1))) + "\n")
-	b.WriteString(refLabelStyle.Render(fmt.Sprintf("Attachments (%d)", len(rest))) + "\n")
+	b.WriteString(sectionHead(fmt.Sprintf("Attachments (%d)", len(rest)), "", width))
 	for _, a := range rest {
 		name := attachmentStyle.Render("📎 " + a.Filename)
 		if u := m.jiraClient.AttachmentURL(a.ID); u != "" {
@@ -272,13 +280,11 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 	if divW < 1 {
 		divW = 1
 	}
-	b.WriteString("\n" + refDimStyle.Render(strings.Repeat("─", divW)) + "\n")
-
 	count := iss.CommentTotal
 	if count < len(iss.Comments) {
 		count = len(iss.Comments)
 	}
-	b.WriteString(refLabelStyle.Render(fmt.Sprintf("Comments (%d)", count)) + "\n\n")
+	b.WriteString(sectionHead(fmt.Sprintf("Comments (%d)", count), "", divW) + "\n")
 
 	thread := commentThread(iss.Comments)
 	for n, tc := range thread {

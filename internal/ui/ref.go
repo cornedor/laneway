@@ -316,7 +316,7 @@ func (m *Model) renderRefPane(height, width int) string {
 	pct := scrollPercentFor(total, m.refView.Height(), m.refView.YOffset())
 	showScrollbar := total > m.refView.Height() && pct < 1.0
 
-	parts := append([]string{titleStyle.Render(m.refPaneTitle())}, m.crumbLines(width-3)...)
+	parts := append([]string{bar(titleStyle.Render(m.refPaneTitle()), width-3)}, m.crumbLines(width-3)...)
 	content := lipgloss.JoinVertical(lipgloss.Left, append(parts, m.refView.View())...)
 
 	borderColor := dimColor
@@ -345,19 +345,30 @@ func (m *Model) crumbLines(width int) []string {
 	var out []string
 	from := max(len(m.refBack)-refCrumbsShown, 0)
 	if from > 0 {
-		out = append(out, refDimStyle.Render(fmt.Sprintf("↰ %d earlier", from)))
+		out = append(out, bar(refDimStyle.Render(fmt.Sprintf("↰ %d earlier", from)), width))
 	}
 	for _, c := range m.refBack[from:] {
 		line := refKeyStyle.Render("↰ "+c.key) + "  " + refDimStyle.Render(c.status) + "  " + c.summary
-		out = append(out, ansi.Truncate(line, max(width, 1), "…"))
+		out = append(out, bar(ansi.Truncate(line, max(width, 1), "…"), width))
+	}
+	if len(out) > 0 && !shadeOn { // unshaded, a rule parts them from the issue
+		out = append(out, refDimStyle.Render(strings.Repeat("─", max(width, 1))))
 	}
 	return out
 }
 
+// crumbRows is how many rows the trail takes above the panel's body.
+func (m *Model) crumbRows() int {
+	n := min(len(m.refBack), refCrumbsShown+1)
+	if n > 0 && !shadeOn {
+		n++
+	}
+	return n
+}
+
 // sizeRefView fits the panel's body under its title and trail.
 func (m *Model) sizeRefView() {
-	lines := min(len(m.refBack), refCrumbsShown+1)
-	m.refView.SetHeight(max(m.bodyH()-2-lines, 1))
+	m.refView.SetHeight(max(m.bodyH()-2-m.crumbRows(), 1))
 }
 
 // backToCrumb shows trail entry i again, dropping it and what came after.
