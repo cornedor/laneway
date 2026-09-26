@@ -8,10 +8,10 @@
 - Description step 4: inline placeholders so a mention keeps its paragraph editable
 - Dev info step 3: commits and builds in `D`
 - Attachments step 3: paste an image from the clipboard
-- Standup step 2: pick the day range, `ui.standup` template for the text
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Standup: `U` again reaches a workday further back
 - `C` burnup tab (done against scope), `ui.velocity_sprints`
 - Panel multi-line fields edit in `$EDITOR` (the description's safe round trip)
 - `A` → Edit a comment of yours in `$EDITOR` (same safe round trip as the description)

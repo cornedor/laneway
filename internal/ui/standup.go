@@ -15,9 +15,15 @@ import (
 
 // openStandup loads your activity into a picker.
 func (m *Model) openStandup() tea.Cmd {
+	return m.openStandupSince(jira.PreviousWorkday(time.Now()))
+}
+
+// openStandupSince loads your activity since since; U again inside it
+// reaches a workday further back.
+func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 	now := time.Now()
-	since := jira.PreviousWorkday(now)
 	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)
+	m.jiraPicker.day = since
 	seq := m.jiraPicker.fetchSeq
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -36,7 +42,7 @@ func (m *Model) openStandup() tea.Cmd {
 			items = []jiraPickerItem{{label: "nothing since " + standupDay(since, now)}}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,
-			title: "Standup — since " + standupDay(since, now), text: text}
+			title: "Standup — since " + standupDay(since, now) + "  ·  U further back", text: text}
 	}
 }
 

@@ -67,3 +67,16 @@ func TestDevInfoKey(t *testing.T) {
 		t.Errorf("status %q", m.status)
 	}
 }
+
+// TestStandupFurther: U inside the standup reaches a workday further back.
+func TestStandupFurther(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "U"))
+	m = out.(Model)
+	first := m.jiraPicker.day
+	out, cmd := m.handleJiraPickerKey(keyMsg(t, "U"))
+	m = out.(Model)
+	if cmd == nil || !m.jiraPicker.day.Equal(jira.PreviousWorkday(first)) || m.jiraPicker.kind != jiraPickStandup {
+		t.Errorf("since %v, want %v", m.jiraPicker.day, jira.PreviousWorkday(first))
+	}
+}
