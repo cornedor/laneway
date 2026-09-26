@@ -146,6 +146,8 @@ func (m *Model) jiraFilterSegs() []headSeg {
 	var segs []headSeg
 	switch {
 	case t.searching:
+		listW, _ := m.jiraListWidth(m.width)
+		t.search.SetWidth(min(40, max(listW/3, 10)))
 		segs = append(segs, plainSeg(t.search.View()), plainSeg("  "))
 	case t.jiraSearchQuery() != "":
 		segs = append(segs, plainSeg(dim("/")))

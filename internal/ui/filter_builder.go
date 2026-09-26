@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -183,8 +184,11 @@ func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// builderWidths are the columns' widths, a gap of 2 between them.
-var builderWidths = [3]int{24, 10, 30}
+// builderWidths are the columns' widths, a gap of 2 between them; the
+// value column gives way on a narrow screen.
+func (m *Model) builderWidths() [3]int {
+	return [3]int{24, 10, min(max(m.width-8-24-10-4, 12), 30)}
+}
 
 // window is column c's first row shown and how many show in height, of n.
 func (b *filterBuilder) window(c, n, height int) (top, visible int) {
@@ -194,7 +198,7 @@ func (b *filterBuilder) window(c, n, height int) (top, visible int) {
 
 func (m *Model) renderFilterBuilder(height int) string {
 	b := m.filterBuilder
-	widths := builderWidths
+	widths := m.builderWidths()
 	titles := [3]string{"Field", "Compare", "Value"}
 	var cols []string
 	for c := range 3 {
@@ -231,7 +235,9 @@ func (m *Model) renderFilterBuilder(height int) string {
 		term = jiraKeyStyle.Render(term)
 	}
 	query := jiraDimStyle.Render("/" + m.jiraTab.search.Value())
-	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render("↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close")
+	bodyW := widths[0] + widths[1] + widths[2] + 4
+	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate("↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close", bodyW))
+	query = ansi.Truncate(query, bodyW, "…")
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
 		Render(lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render("Filter"), query, "", b.filter.View(), "", body, "", "adds  "+term, "", hint))
 }

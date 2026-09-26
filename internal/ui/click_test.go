@@ -782,3 +782,26 @@ func TestListNav(t *testing.T) {
 		t.Error("pgup in settings did not move")
 	}
 }
+
+// TestNarrowBoxes: at 60 columns the create box, the builder, settings
+// while editing and a searchable picker fit the screen.
+func TestNarrowBoxes(t *testing.T) {
+	setups := map[string]func(m *Model){
+		"create":   func(m *Model) { m.openJiraCreateSummary("Task") },
+		"builder":  func(m *Model) { m.openFilterBuilder() },
+		"settings": func(m *Model) { m.openSettings(); m.settings.idx = 3; m.editSetting() },
+		"palette":  func(m *Model) { m.openPalette() },
+	}
+	for name, setup := range setups {
+		m := jiraTabModel(t)
+		out, _ := m.Update(tea.WindowSizeMsg{Width: 60, Height: 24})
+		m = out.(Model)
+		setup(&m)
+		for _, l := range strings.Split(m.renderOverlay(m.bodyH()), "\n") {
+			if w := ansi.StringWidth(l); w > 60 {
+				t.Errorf("%s: a line %d wide", name, w)
+				break
+			}
+		}
+	}
+}

@@ -504,6 +504,7 @@ func (m *Model) renderJiraForm() string {
 		var val string
 		switch {
 		case f.editing && i == f.idx:
+			f.input.SetWidth(max(inner-2-nameW-3, 8)) // its cell, so the cursor stays in view
 			val = f.input.View()
 		case ff.val.Empty() && ff.required:
 			val = gitlabWarnStyle.Render("required")

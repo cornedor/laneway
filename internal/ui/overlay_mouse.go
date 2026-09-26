@@ -131,7 +131,7 @@ func (m Model) clickFilterBuilder(x, y int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	col, at := -1, left+overlayPadLeft
-	for c, w := range builderWidths {
+	for c, w := range m.builderWidths() {
 		if x >= at && x < at+w {
 			col = c
 		}

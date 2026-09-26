@@ -119,7 +119,8 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) renderJiraCreate() string {
-	inner := 62
+	inner := min(62, max(m.width-8, 20)) // narrower on a narrow screen
+	m.jiraCreateInput.SetWidth(inner - 6)
 	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).
 		Render(m.jiraCreateTitle())
 	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render("↵ create · esc cancel")

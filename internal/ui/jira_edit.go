@@ -1019,6 +1019,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	inner := m.pickerInner()
 	parts := []string{m.pickerTitle()}
 	if m.jiraPicker.filterable {
+		m.jiraPicker.filter.SetWidth(max(inner-4, 8))
 		parts = append(parts, m.jiraPicker.filter.View())
 	}
 

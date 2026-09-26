@@ -293,6 +293,7 @@ func (m *Model) renderSettings(height int) string {
 		line := pad(r.name, nameW) + "  " + pad(val, valW) + "  " + pad(r.def, valW)
 		switch {
 		case i == s.idx && s.input != nil:
+			s.input.SetWidth(max(2*valW, 10))
 			line = pad(r.name, nameW) + "  " + s.input.View()
 		case i == s.idx:
 			line = selectedRow.Render(line)
