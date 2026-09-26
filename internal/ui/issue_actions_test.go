@@ -191,3 +191,17 @@ func TestCompletePath(t *testing.T) {
 		t.Errorf("no match → %q %v", got, names)
 	}
 }
+
+// TestCreateTemplate: a new issue of a type with a template starts with it.
+func TestCreateTemplate(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	m.opts.templates = map[string]string{"bug": "## Steps\n\n1. "}
+	m.jiraTab.project = "ABC"
+	m.openJiraCreateSummary("Bug")
+	m.jiraCreateInput.SetValue("Cart breaks")
+	_, cmd := m.handleJiraCreateKey(keyMsg(t, "enter"))
+	cmd()
+	if w := writes(); len(w) != 1 || !strings.Contains(w[0], `"type":"heading"`) || !strings.Contains(w[0], `"text":"Steps"`) {
+		t.Errorf("writes = %q", w)
+	}
+}

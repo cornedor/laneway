@@ -64,6 +64,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// Templates are the description a new issue starts with, by issue
+	// type name (markdown).
+	Templates map[string]string `yaml:"templates"`
 	// TimerOnStart is "on" to start the timer when S starts work on an
 	// issue (and none runs), "off" by default.
 	TimerOnStart string `yaml:"timer_on_start"`

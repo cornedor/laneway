@@ -62,7 +62,7 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		in := jira.NewIssue{Project: m.jiraTab.project, Type: m.jiraCreateType, Summary: m.jiraCreateInput.Value(),
-			Parent: m.jiraCreateParent}
+			Parent: m.jiraCreateParent, Description: m.opts.templates[strings.ToLower(m.jiraCreateType)]}
 		if m.jiraCreateParent != "" {
 			in.Project = m.jiraCreateProject
 		}

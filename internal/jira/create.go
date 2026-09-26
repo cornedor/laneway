@@ -149,7 +149,7 @@ func (c *Client) CreateIssue(ctx context.Context, in NewIssue) (string, error) {
 		"summary":   in.Summary,
 	}
 	if strings.TrimSpace(in.Description) != "" {
-		fields["description"] = textToADF(in.Description, nil)
+		fields["description"] = MarkdownToADF(in.Description)
 	}
 	if len(in.DescriptionADF) > 0 && string(in.DescriptionADF) != "null" {
 		fields["description"] = in.DescriptionADF

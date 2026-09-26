@@ -25,6 +25,7 @@ type options struct {
 	savedFilters bool               // starred Jira filters as views
 	capacity     map[string]float64 // sprint points per person, "default" for the rest
 	timerOnStart bool               // S also starts the timer
+	templates    map[string]string  // new issue descriptions by type, lower-cased
 }
 
 // cardFields is what a card or list row shows besides key and summary.
@@ -69,6 +70,12 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.capacity = map[string]float64{}
 		}
 		o.capacity[name] = pts
+	}
+	for typ, md := range c.Templates {
+		if o.templates == nil {
+			o.templates = map[string]string{}
+		}
+		o.templates[strings.ToLower(typ)] = md
 	}
 	switch strings.ToLower(strings.TrimSpace(c.TimerOnStart)) {
 	case "", "off":

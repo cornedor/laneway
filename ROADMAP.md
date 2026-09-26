@@ -13,6 +13,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- `ui.templates`: a new issue's description by type
 - Planning `E`: edit the sprint's goal
 - New mentions raise a desktop notification (read when the inbox count rises)
 - Planning `N`: create a sprint, named on from the last one

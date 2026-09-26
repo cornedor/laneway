@@ -59,6 +59,8 @@ ui:
     - {name: Mine, jql: "assignee = currentUser()"}
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
   timer_on_start: on            # S (start work) also starts the timer (off)
+  templates:                    # a new issue's description by type (markdown)
+    Bug: "## Steps\n\n1. \n\n## Expected\n\n## Actual"
   saved_filters: on             # your starred Jira filters as views too (off)
   keys:              # rebind any action: one key or a list
     search: f
