@@ -27,6 +27,16 @@ func (m *Model) indexPanelHits(content string) {
 		m.panelHits[l] = panelHit{field: i}
 	}
 	iss := m.jiraIssue
+	m.activityLine = -1
+	if iss != nil {
+		labels := activityLabels(max(iss.CommentTotal, len(iss.Comments)))
+		tabs := strings.Join(labels[:], "  ") + "   [ ]"
+		for i, l := range strings.Split(content, "\n") {
+			if strings.TrimSpace(ansi.Strip(l)) == tabs {
+				m.activityLine = i
+			}
+		}
+	}
 	if iss == nil || len(iss.Links) == 0 {
 		return
 	}

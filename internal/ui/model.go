@@ -263,7 +263,13 @@ type Model struct {
 	// field's line as the last render wrote it.
 	panelHits      map[int]panelHit
 	panelFieldLine []int
-	panelEditID    string
+	// activityTab is the Activity section's open tab, activityLine its tab
+	// row's content line (-1 when not drawn); activity the history and
+	// worklogs it shows (activity.go).
+	activityTab  int
+	activityLine int
+	activity     activityState
+	panelEditID  string
 
 	// The one-line field input: story points, the summary or labels.
 	jiraFieldActive bool
@@ -406,6 +412,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case activityLoadedMsg:
+		return m.handleActivityLoaded(msg)
 	case jiraDownloadedMsg:
 		return m.handleJiraDownloaded(msg)
 	case jiraVoteMsg:
@@ -575,6 +583,13 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		}
 		if u := m.panelLinkAt(msg.X, msg.Y); u != "" {
 			return m.clickPanel(panelHit{field: -1, url: u}, count)
+		}
+		if i := m.panelLineAt(msg.Y); i >= 0 && i == m.activityLine && m.jiraIssue != nil {
+			listW, _ := m.jiraListWidth(m.width)
+			line := strings.Split(m.refView.GetContent(), "\n")[i]
+			if t := activityTabAt(line, msg.X-listW-1, max(m.jiraIssue.CommentTotal, len(m.jiraIssue.Comments))); t >= 0 {
+				return m, m.switchActivity(t)
+			}
 		}
 		if h, ok := m.panelHits[m.panelLineAt(msg.Y)]; ok {
 			return m.clickPanel(h, count)

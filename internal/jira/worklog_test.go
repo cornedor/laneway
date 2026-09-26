@@ -93,3 +93,21 @@ func TestMyWorklogs(t *testing.T) {
 		t.Errorf("logs = %+v", logs)
 	}
 }
+
+func TestIssueWorklogs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/3/issue/A-1/worklog" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		io.WriteString(w, `{"worklogs":[
+			{"id":"2","author":{"displayName":"Bob"},"started":"2026-09-25T13:00:00.000+0000","timeSpentSeconds":1800},
+			{"id":"1","author":{"displayName":"Ann"},"started":"2026-09-25T09:00:00.000+0000","timeSpentSeconds":3600,
+			 "comment":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"review"}]}]}}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.IssueWorklogs(context.Background(), "A-1")
+	if err != nil || len(got) != 2 || got[0].Author != "Ann" || got[0].Comment != "review" || got[1].Seconds != 1800 {
+		t.Errorf("%+v, %v", got, err)
+	}
+}

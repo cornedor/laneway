@@ -65,7 +65,7 @@ var keyScopes = []struct {
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "help", "refresh", "toggle_panel", "palette",
-		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin",
+		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view",
 	}},
 }
 

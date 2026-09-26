@@ -116,6 +116,49 @@ func firstError(errs []error) error {
 // issueActivity is one issue's changes and comments since since by the
 // authors keep accepts; me marks comments mentioning you.
 func (c *Client) issueActivity(ctx context.Context, key, summary string, since time.Time, keep func(accountID string) bool, me string) ([]InboxEntry, error) {
+	out, err := c.issueChanges(ctx, key, summary, since, keep)
+	if err != nil {
+		return nil, err
+	}
+	base := "/rest/api/3/issue/" + url.PathEscape(key)
+	var comments struct {
+		Comments []struct {
+			Author  user            `json:"author"`
+			Created string          `json:"created"`
+			Body    json.RawMessage `json:"body"`
+		} `json:"comments"`
+	}
+	if err := c.do(ctx, http.MethodGet, base+"/comment?orderBy=-created&maxResults=20", "comments", nil, &comments); err != nil {
+		return nil, err
+	}
+	for _, cm := range comments.Comments {
+		when, _ := time.Parse(jiraTime, cm.Created)
+		if !keep(cm.Author.AccountID) || !when.After(since) {
+			continue
+		}
+		text := strings.Join(strings.Fields(adfToMarkdown(cm.Body)), " ")
+		mention := mentions(cm.Body, me)
+		what := "commented: " + text
+		if mention {
+			what = "mentioned you: " + text
+		}
+		out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: cm.Author.DisplayName, What: what, Mention: mention})
+	}
+	return out, nil
+}
+
+// Changelog is key's field changes by anyone, oldest first: its latest
+// changelogTail.
+func (c *Client) Changelog(ctx context.Context, key string) ([]InboxEntry, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	return c.issueChanges(ctx, key, "", time.Time{}, func(string) bool { return true })
+}
+
+// issueChanges is key's latest changelogTail changes after since by the
+// authors keep accepts, oldest first.
+func (c *Client) issueChanges(ctx context.Context, key, summary string, since time.Time, keep func(accountID string) bool) ([]InboxEntry, error) {
 	base := "/rest/api/3/issue/" + url.PathEscape(key)
 	var log struct {
 		Total  int `json:"total"`
@@ -142,16 +185,6 @@ func (c *Client) issueActivity(ctx context.Context, key, summary string, since t
 			return nil, err
 		}
 	}
-	var comments struct {
-		Comments []struct {
-			Author  user            `json:"author"`
-			Created string          `json:"created"`
-			Body    json.RawMessage `json:"body"`
-		} `json:"comments"`
-	}
-	if err := c.do(ctx, http.MethodGet, base+"/comment?orderBy=-created&maxResults=20", "comments", nil, &comments); err != nil {
-		return nil, err
-	}
 	var out []InboxEntry
 	for _, h := range log.Values {
 		when, _ := time.Parse(jiraTime, h.Created)
@@ -165,19 +198,6 @@ func (c *Client) issueActivity(ctx context.Context, key, summary string, since t
 		if len(parts) > 0 {
 			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: strings.Join(parts, " · ")})
 		}
-	}
-	for _, cm := range comments.Comments {
-		when, _ := time.Parse(jiraTime, cm.Created)
-		if !keep(cm.Author.AccountID) || !when.After(since) {
-			continue
-		}
-		text := strings.Join(strings.Fields(adfToMarkdown(cm.Body)), " ")
-		mention := mentions(cm.Body, me)
-		what := "commented: " + text
-		if mention {
-			what = "mentioned you: " + text
-		}
-		out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: cm.Author.DisplayName, What: what, Mention: mention})
 	}
 	return out, nil
 }

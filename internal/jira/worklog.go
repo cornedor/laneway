@@ -70,10 +70,12 @@ func (c *Client) DeleteWorklog(ctx context.Context, key, id string) error {
 	return nil
 }
 
-// Worklog is one entry of your own.
+// Worklog is one entry: your own (MyWorklogs) or anyone's on an issue
+// (IssueWorklogs, with Author).
 type Worklog struct {
 	ID           string
 	Key, Summary string
+	Author       string
 	Seconds      int
 	Started      time.Time
 	Comment      string
@@ -143,6 +145,36 @@ func (c *Client) MyWorklogs(ctx context.Context, day time.Time) ([]Worklog, erro
 		}
 	}
 	slices.SortFunc(out, func(a, b Worklog) int { return a.Started.Compare(b.Started) })
+	return out, nil
+}
+
+// IssueWorklogs is everyone's work logged on key, oldest first.
+func (c *Client) IssueWorklogs(ctx context.Context, key string) ([]Worklog, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var resp struct {
+		Worklogs []struct {
+			ID               string          `json:"id"`
+			Author           user            `json:"author"`
+			Started          string          `json:"started"`
+			TimeSpentSeconds int             `json:"timeSpentSeconds"`
+			Comment          json.RawMessage `json:"comment"`
+		} `json:"worklogs"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/issue/"+url.PathEscape(key)+"/worklog", key, nil, &resp); err != nil {
+		return nil, err
+	}
+	out := make([]Worklog, 0, len(resp.Worklogs))
+	for _, w := range resp.Worklogs {
+		started, _ := time.Parse(jiraTime, w.Started)
+		wl := Worklog{ID: w.ID, Key: key, Author: w.Author.DisplayName, Seconds: w.TimeSpentSeconds, Started: started}
+		if len(w.Comment) > 0 && string(w.Comment) != "null" {
+			wl.Comment = strings.TrimSpace(adfToMarkdown(w.Comment))
+		}
+		out = append(out, wl)
+	}
+	slices.SortStableFunc(out, func(a, b Worklog) int { return a.Started.Compare(b.Started) })
 	return out, nil
 }
 

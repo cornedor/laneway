@@ -98,3 +98,20 @@ func TestInboxCount(t *testing.T) {
 		t.Errorf("n %d, %v", n, err)
 	}
 }
+
+func TestChangelog(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/3/issue/A-1/changelog" {
+			t.Errorf("path %s", r.URL.Path)
+		}
+		io.WriteString(w, `{"total":2,"values":[
+			{"author":{"displayName":"Bob"},"created":"2026-09-25T09:00:00.000+0000","items":[{"field":"status","fromString":"To Do","toString":"Done"}]},
+			{"author":{"displayName":"Ann"},"created":"2026-09-25T10:00:00.000+0000","items":[{"field":"labels","toString":"ui"}]}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.Changelog(context.Background(), "A-1")
+	if err != nil || len(got) != 2 || got[0].Who != "Bob" || got[1].What != "labels: — → ui" {
+		t.Errorf("%+v, %v", got, err)
+	}
+}

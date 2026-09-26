@@ -1,0 +1,221 @@
+package ui
+
+import (
+	"cmp"
+	"fmt"
+	"slices"
+	"strings"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/jira"
+)
+
+// The panel's Activity section, tabbed like Jira's: Comments · History ·
+// Work log · All. [ and ] (or a click on a tab) switch; the tab is kept
+// from issue to issue. History and work log load when first shown.
+
+const (
+	activityComments = iota
+	activityHistory
+	activityWorklog
+	activityAll
+	activityTabs
+)
+
+// activityState is the changelog and worklogs of key, for the tabs that
+// show them.
+type activityState struct {
+	key     string
+	loading bool
+	err     error
+	changes []jira.InboxEntry
+	logs    []jira.Worklog
+}
+
+type activityLoadedMsg struct {
+	key     string
+	changes []jira.InboxEntry
+	logs    []jira.Worklog
+	err     error
+}
+
+// loadActivity fetches the shown issue's history and worklogs when the tab
+// needs them and they aren't there yet.
+func (m *Model) loadActivity() tea.Cmd {
+	iss := m.jiraIssue
+	if m.activityTab == activityComments || iss == nil || m.activity.key == iss.Key {
+		return nil
+	}
+	key := iss.Key
+	m.activity = activityState{key: key, loading: true}
+	c, ctx := m.jiraClient, m.ctx
+	return func() tea.Msg {
+		changes, err := c.Changelog(ctx, key)
+		if err != nil {
+			return activityLoadedMsg{key: key, err: err}
+		}
+		logs, err := c.IssueWorklogs(ctx, key)
+		return activityLoadedMsg{key: key, changes: changes, logs: logs, err: err}
+	}
+}
+
+func (m Model) handleActivityLoaded(msg activityLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.key != m.activity.key {
+		return m, nil
+	}
+	m.activity = activityState{key: msg.key, err: msg.err, changes: msg.changes, logs: msg.logs}
+	m.renderRef()
+	return m, nil
+}
+
+// switchActivity shows tab t, scrolling the section into view.
+func (m *Model) switchActivity(t int) tea.Cmd {
+	if m.jiraIssue == nil {
+		return nil
+	}
+	m.activityTab = (t%activityTabs + activityTabs) % activityTabs
+	cmd := m.loadActivity()
+	m.renderRef()
+	if m.activityLine >= 0 {
+		lines := strings.Split(m.refView.GetContent(), "\n")
+		row := visualRowsBefore(lines, m.activityLine, m.refView.Width())
+		if top := m.refView.YOffset(); row < top || row >= top+m.refView.Height() {
+			m.refView.SetYOffset(row)
+		}
+	}
+	return cmd
+}
+
+// activityLabels are the tabs' names; comments counts them.
+func activityLabels(comments int) [activityTabs]string {
+	return [activityTabs]string{fmt.Sprintf("Comments (%d)", comments), "History", "Work log", "All"}
+}
+
+// activityTabAt is the tab under display column col of the tab row line,
+// -1 for none.
+func activityTabAt(line string, col, comments int) int {
+	plain, from := ansi.Strip(line), 0
+	for t, l := range activityLabels(comments) {
+		i := strings.Index(plain[from:], l)
+		if i < 0 {
+			return -1
+		}
+		start := ansi.StringWidth(plain[:from+i])
+		if col >= start && col < start+ansi.StringWidth(l) {
+			return t
+		}
+		from += i + len(l)
+	}
+	return -1
+}
+
+// renderJiraActivity appends the Activity section: its tab row, then the
+// open tab.
+func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width int) {
+	count := max(iss.CommentTotal, len(iss.Comments))
+	var tabs []string
+	for t, l := range activityLabels(count) {
+		st := refDimStyle
+		if t == m.activityTab {
+			st = refKeyStyle
+		}
+		tabs = append(tabs, st.Render(l))
+	}
+	b.WriteString(sectionHead(strings.Join(tabs, "  "), "   [ ]", width) + "\n")
+
+	if m.activityTab == activityComments {
+		m.renderJiraComments(b, iss)
+		return
+	}
+	a := m.activity
+	switch {
+	case a.key != iss.Key || a.loading:
+		b.WriteString(refDimStyle.Render("loading…") + "\n")
+		return
+	case a.err != nil:
+		b.WriteString(refErrStyle.Render(a.err.Error()) + "\n")
+		return
+	}
+	switch m.activityTab {
+	case activityHistory:
+		if len(a.changes) == 0 {
+			b.WriteString(refDimStyle.Render("no changes yet") + "\n")
+		}
+		for i, e := range a.changes {
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			m.renderChange(b, e)
+		}
+	case activityWorklog:
+		if len(a.logs) == 0 {
+			b.WriteString(refDimStyle.Render("no work logged") + "\n")
+			return
+		}
+		total := 0
+		for i, w := range a.logs {
+			if i > 0 {
+				b.WriteString("\n")
+			}
+			m.renderWorklog(b, w)
+			total += w.Seconds
+		}
+		b.WriteString("\n" + refDimStyle.Render(jira.FormatDuration(total)+" in all") + "\n")
+	case activityAll:
+		m.renderActivityAll(b, iss)
+	}
+}
+
+// renderChange writes one changelog entry: who and when, a line per field.
+func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
+	b.WriteString(refDimStyle.Render(orDash(e.Who)+" · "+e.When.Format(m.opts.dateFormat)) + "\n")
+	for _, part := range strings.Split(e.What, " · ") {
+		field, change, ok := strings.Cut(part, ": ")
+		if !ok {
+			b.WriteString(part + "\n")
+			continue
+		}
+		b.WriteString(refDimStyle.Render(field+" ") + change + "\n")
+	}
+}
+
+// renderWorklog writes one worklog: who logged how long and when, its
+// comment.
+func (m *Model) renderWorklog(b *strings.Builder, w jira.Worklog) {
+	b.WriteString(refDimStyle.Render(orDash(w.Author)+" · "+w.Started.Format(m.opts.dateFormat)) + "\n")
+	b.WriteString("logged " + refKeyStyle.Render(jira.FormatDuration(w.Seconds)) + "\n")
+	if w.Comment != "" {
+		b.WriteString(renderMarkdown(w.Comment, m.emojiImg, nil, ""))
+	}
+}
+
+// renderActivityAll writes comments, changes and worklogs as one list,
+// oldest first.
+func (m *Model) renderActivityAll(b *strings.Builder, iss *jira.Issue) {
+	type item struct {
+		at   int64
+		draw func()
+	}
+	var items []item
+	for _, c := range iss.Comments {
+		items = append(items, item{c.Created.UnixNano(), func() { m.renderComment(b, c) }})
+	}
+	for _, e := range m.activity.changes {
+		items = append(items, item{e.When.UnixNano(), func() { m.renderChange(b, e) }})
+	}
+	for _, w := range m.activity.logs {
+		items = append(items, item{w.Started.UnixNano(), func() { m.renderWorklog(b, w) }})
+	}
+	slices.SortStableFunc(items, func(x, y item) int { return cmp.Compare(x.at, y.at) })
+	if len(items) == 0 {
+		b.WriteString(refDimStyle.Render("nothing yet") + "\n")
+	}
+	for i, it := range items {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		it.draw()
+	}
+}

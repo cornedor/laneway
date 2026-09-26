@@ -74,6 +74,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Timesheet, "today's worklogs"),
 			row(k.Inbox, "inbox"),
 			row(k.IssueActions, "subtask / child, link, clone, watch"),
+			{join(k.PrevView, k.NextView), "activity: comments, history, work log, all"},
 			row(k.History, "history: changes and comments"),
 			row(k.DevInfo, "pull requests, builds, deploys, branches, commits"),
 			row(k.Pin, "pin: first in the palette"),

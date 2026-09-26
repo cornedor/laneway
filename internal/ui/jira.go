@@ -52,8 +52,10 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 		m.jiraIssue = msg.issue
 		m.rememberRecent(msg.issue.Key, msg.issue.Summary)
 	}
+	m.activity = activityState{} // a refetch reloads the history too
+	activity := m.loadActivity()
 	m.renderRef()
-	return m, tea.Batch(m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra())
+	return m, tea.Batch(m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra(), activity)
 }
 
 // renderJiraIssue formats one issue for the viewport: a key + type header, the
@@ -125,7 +127,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 
 	m.renderJiraLinks(&b, iss, width)
 	m.renderJiraAttachments(&b, iss, width)
-	m.renderJiraComments(&b, iss, width)
+	m.renderJiraActivity(&b, iss, width)
 	return b.String()
 }
 
@@ -267,41 +269,19 @@ func byteSize(n int64) string {
 	return fmt.Sprintf("%d MB", n>>20)
 }
 
-// renderJiraComments appends the issue's comment thread under the description: a
-// divider, a "Comments (N)" heading, then each comment (oldest first, the order
-// the API returns) as a dim author·timestamp line and its markdown body. When
-// the issue has more comments than the inline field returned, a trailing note
-// points at the browser.
-func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width int) {
+// renderJiraComments writes the Comments tab: the thread oldest first (the
+// order the API returns), each a dim author·timestamp line and its markdown
+// body. When the issue has more comments than the inline field returned, a
+// trailing note points at the browser.
+func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 	if len(iss.Comments) == 0 && iss.CommentTotal == 0 {
+		b.WriteString(refDimStyle.Render("no comments yet") + "\n")
 		return
 	}
-	divW := width
-	if divW < 1 {
-		divW = 1
-	}
-	count := iss.CommentTotal
-	if count < len(iss.Comments) {
-		count = len(iss.Comments)
-	}
-	b.WriteString(sectionHead(fmt.Sprintf("Comments (%d)", count), "", divW) + "\n")
-
 	thread := commentThread(iss.Comments)
 	for n, tc := range thread {
-		c := iss.Comments[tc.i]
-		author := c.Author
-		if author == "" {
-			author = "Unknown"
-		}
-		when := ""
-		if !c.Created.IsZero() {
-			when = " · " + c.Created.Format(m.opts.dateFormat)
-		}
 		var cb strings.Builder
-		cb.WriteString(refDimStyle.Render(author+when) + "\n")
-		if body := strings.TrimSpace(c.Body); body != "" {
-			cb.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
-		}
+		m.renderComment(&cb, iss.Comments[tc.i])
 		b.WriteString(indentReply(cb.String(), tc.depth))
 		if n < len(thread)-1 {
 			b.WriteString("\n")
@@ -310,5 +290,21 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 
 	if extra := iss.CommentTotal - len(iss.Comments); extra > 0 {
 		b.WriteString("\n" + refDimStyle.Render(fmt.Sprintf("…and %d more — o opens in browser", extra)) + "\n")
+	}
+}
+
+// renderComment writes one comment: author and time, its body.
+func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
+	author := c.Author
+	if author == "" {
+		author = "Unknown"
+	}
+	when := ""
+	if !c.Created.IsZero() {
+		when = " · " + c.Created.Format(m.opts.dateFormat)
+	}
+	b.WriteString(refDimStyle.Render(author+when) + "\n")
+	if body := strings.TrimSpace(c.Body); body != "" {
+		b.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
 	}
 }

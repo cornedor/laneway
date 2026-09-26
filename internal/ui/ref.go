@@ -158,6 +158,10 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openStandup()
 	case key.Matches(msg, m.keys.History):
 		return m, m.openHistory()
+	case key.Matches(msg, m.keys.NextView):
+		return m, m.switchActivity(m.activityTab + 1)
+	case key.Matches(msg, m.keys.PrevView):
+		return m, m.switchActivity(m.activityTab - 1)
 	case key.Matches(msg, m.keys.DevInfo):
 		return m, m.openDevInfo()
 	case key.Matches(msg, m.keys.Pin):
