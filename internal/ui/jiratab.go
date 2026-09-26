@@ -254,7 +254,8 @@ type jiraBoardMsg struct {
 type jiraCardsMsg struct {
 	seq     int
 	cached  bool
-	delta   bool // only the cards updated since the last fetch
+	delta   bool     // only the cards updated since the last fetch
+	gone    []string // with delta: loaded cards that left the view
 	viewIdx int
 	cards   []jira.Card
 	total   int
@@ -576,7 +577,11 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 		}
 		prev := t.cards
 		merged, added := mergeCards(prev, msg.cards)
-		m.installJiraCards(merged, t.total+added, nil, keep)
+		if len(msg.gone) > 0 {
+			merged = slices.DeleteFunc(merged, func(cd jira.Card) bool { return slices.Contains(msg.gone, cd.Key) })
+			added -= len(msg.gone)
+		}
+		m.installJiraCards(merged, max(t.total+added, len(merged)), nil, keep)
 		return m, m.runRules(merged)
 	}
 	if !msg.cached && msg.err == nil {
@@ -2100,13 +2105,40 @@ func (m *Model) loadJiraDelta() tea.Cmd {
 	mins := int(time.Since(t.fetched).Minutes()) + 2
 	filter := andJQL(jiraFilterJQL(t.assignee, t.quick, t.quickOn), fmt.Sprintf("updated >= -%dm", mins))
 	seq, ctx, c, board, cfg, v := t.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, t.views[idx]
+	var loaded []string
+	if len(t.cards) <= deltaGoneMax {
+		for _, cd := range t.cards {
+			loaded = append(loaded, cd.Key)
+		}
+	}
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		cards, _, err := fetchJiraView(ctx, c, board, cfg, v, filter)
-		return jiraCardsMsg{seq: seq, delta: true, viewIdx: idx, cards: cards, err: err}
+		msg := jiraCardsMsg{seq: seq, delta: true, viewIdx: idx, cards: cards, err: err}
+		if err == nil && len(loaded) > 0 {
+			// Loaded cards updated since but not in the view's answer have
+			// left it (another sprint, a filtered-out status).
+			jql := fmt.Sprintf("key in (%s) AND updated >= -%dm", strings.Join(loaded, ","), mins)
+			if changed, err := c.SearchCards(ctx, jql); err == nil {
+				in := map[string]bool{}
+				for _, cd := range cards {
+					in[cd.Key] = true
+				}
+				for _, cd := range changed {
+					if !in[cd.Key] {
+						msg.gone = append(msg.gone, cd.Key)
+					}
+				}
+			}
+		}
+		return msg
 	}
 }
+
+// deltaGoneMax caps the cards a partial refresh checks for having left the
+// view; bigger boards wait for the whole fetch.
+const deltaGoneMax = 300
 
 // mergeCards replaces cards by key with their changed copies and adds the
 // ones new to the view at the end; it returns how many were added.

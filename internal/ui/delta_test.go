@@ -24,8 +24,15 @@ func TestMergeCards(t *testing.T) {
 // what was updated and merges it; a stale one fetches the view whole.
 func TestDeltaRefresh(t *testing.T) {
 	var jql string
+	gone := `{"issues":[]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		jql = r.URL.Query().Get("jql")
+		if r.Method == http.MethodPost { // which loaded cards changed at all
+			io.WriteString(w, gone)
+			return
+		}
+		if q := r.URL.Query().Get("jql"); q != "" {
+			jql = q
+		}
 		io.WriteString(w, `{"total":1,"issues":[{"key":"ABC-2","fields":{"summary":"Second, renamed","status":{"id":"3"}}}]}`)
 	}))
 	defer srv.Close()
@@ -47,7 +54,17 @@ func TestDeltaRefresh(t *testing.T) {
 		t.Errorf("cards = %+v", m.jiraTab.cards)
 	}
 
+	// ABC-4 changed but is no longer in the view: it goes.
+	gone = `{"issues":[{"key":"ABC-2","fields":{}},{"key":"ABC-4","fields":{}}]}`
+	m.jiraTab.fullAt = time.Now()
+	out, _ = m.handleJiraCards(m.loadJiraDelta()().(jiraCardsMsg))
+	m = out.(Model)
+	if slices.ContainsFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == "ABC-4" }) || len(m.jiraTab.cards) != 3 {
+		t.Errorf("cards after ABC-4 left = %+v", m.jiraTab.cards)
+	}
+
 	// Past fullEvery the view is fetched whole again.
+	jql = ""
 	m.jiraTab.fullAt = time.Now().Add(-fullEvery)
 	if msg, ok := m.loadJiraDelta()().(jiraCardsMsg); !ok || msg.delta {
 		t.Error("a stale whole fetch should be followed by a whole one")
