@@ -1698,6 +1698,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
 	}
+	for _, v := range jiraExtraValues(c) {
+		title += jiraDimStyle.Render(" · " + v)
+	}
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		title = pr + " " + title
 	}
@@ -1822,6 +1825,12 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 		}
 		who += "⌃ " + c.ParentSummary
 	}
+	for _, v := range jiraExtraValues(c) {
+		if who != "" {
+			who += " · "
+		}
+		who += v
+	}
 	chip := ""
 	if f.avatar && c.Assignee != "" {
 		chip = jiraInitials(c.Assignee)
@@ -1858,6 +1867,34 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 		head += " " + a
 	}
 	return []string{head + jiraDimStyle.Render(pts), c.Summary, chip + jiraDimStyle.Render(who)}
+}
+
+// jiraExtra is a card's ui.custom_fields as name → value, names
+// lower-cased.
+func jiraExtra(c jira.Card) map[string]string {
+	if c.Extra == "" {
+		return nil
+	}
+	out := map[string]string{}
+	for _, kv := range strings.Split(c.Extra, jira.ExtraSep) {
+		if k, v, ok := strings.Cut(kv, "="); ok {
+			out[strings.ToLower(k)] = v
+		}
+	}
+	return out
+}
+
+// jiraExtraValues are a card's custom field values in config order.
+func jiraExtraValues(c jira.Card) []string {
+	if c.Extra == "" {
+		return nil
+	}
+	var out []string
+	for _, kv := range strings.Split(c.Extra, jira.ExtraSep) {
+		_, v, _ := strings.Cut(kv, "=")
+		out = append(out, v)
+	}
+	return out
 }
 
 // avatarColours are the chips' backgrounds, picked per person by name.

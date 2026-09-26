@@ -17,7 +17,8 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 	sp := c.resolveStoryPointFields(ctx)
 	fields := append(strings.Split(cardFields, ","), sp...)
 	dev, flag := c.devField(ctx), c.flagField(ctx)
-	for _, id := range []string{dev, flag} {
+	more := c.moreCardFields(ctx)
+	for _, id := range append([]string{dev, flag}, more.ids()...) {
 		if id != "" {
 			fields = append(fields, id)
 		}
@@ -37,6 +38,7 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 		card.PR = prState(is.Fields[dev])
 		card.Deploy = deployEnv(is.Fields[dev])
 		card.Flagged = flagSet(is.Fields[flag])
+		more.fill(&card, is.Fields)
 		out = append(out, card)
 	}
 	return out, nil

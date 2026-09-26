@@ -54,6 +54,7 @@ type Config struct {
 	FlagValue        string        // the Flagged option flagging sets; "": Impediment
 	InboxIssues      int           // recently updated issues the inbox and standup read; 0: 30
 	Timeout          time.Duration // one request's limit; 0: DefaultTimeout
+	CustomFields     []string      // fields by name cards carry in Card.Extra
 }
 
 // Client fetches and caches issues for one instance. The zero value is not
@@ -66,6 +67,7 @@ type Client struct {
 	flagValue  string        // the Flagged option SetFlagged sets
 	inboxCap   int           // issues the inbox and standup read
 	timeout    time.Duration // one request's limit
+	custom     []string      // Config.CustomFields
 	http       *http.Client
 
 	mu    sync.Mutex
@@ -100,6 +102,7 @@ func New(cfg Config) *Client {
 		flagValue:  cmp.Or(strings.TrimSpace(cfg.FlagValue), "Impediment"),
 		inboxCap:   cmp.Or(max(cfg.InboxIssues, 0), inboxIssues),
 		timeout:    cmp.Or(max(cfg.Timeout, 0), DefaultTimeout),
+		custom:     cfg.CustomFields,
 		cache:      map[string]cachedIssue{},
 	}
 	c.http = &http.Client{Timeout: c.timeout}

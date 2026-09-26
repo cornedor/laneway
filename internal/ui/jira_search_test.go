@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -71,5 +72,28 @@ func TestJiraQueryDates(t *testing.T) {
 		if got != want {
 			t.Errorf("%q: %v, want %v", q, got, want)
 		}
+	}
+}
+
+func TestJiraQueryCustom(t *testing.T) {
+	a := jira.Card{Key: "ABC-1", Sprint: "Sprint 4", Extra: "Test type=e2e" + jira.ExtraSep + "Team=Web, App"}
+	b := jira.Card{Key: "ABC-2", Sprint: ""}
+	for q, want := range map[string][2]bool{
+		"sprint:4":         {true, false},
+		"sprint:":          {false, true},
+		`"test type":e2e`:  {true, false},
+		`"Test Type":unit`: {false, false},
+		`-"test type":e2e`: {false, true},
+		`"team":app`:       {true, false},
+		`"test type":`:     {false, true},
+		`"login page"`:     {false, false}, // a phrase, not a field
+	} {
+		terms := jiraParseQuery(q)
+		if got := [2]bool{jiraCardMatches(a, terms, jiraQueryEnv{}), jiraCardMatches(b, terms, jiraQueryEnv{})}; got != want {
+			t.Errorf("%q: %v, want %v", q, got, want)
+		}
+	}
+	if lines := jiraCardLines(a, false, allCardFields); !strings.Contains(lines[2], "e2e · Web, App") {
+		t.Errorf("card line = %q", lines[2])
 	}
 }

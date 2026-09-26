@@ -20,7 +20,7 @@ import (
 // its YAML tree (comments kept) and applied at once.
 
 // settingsRestart are options read once at startup.
-var settingsRestart = map[string]bool{"images": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true}
+var settingsRestart = map[string]bool{"images": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
 
 // settingDefaults is each ui: option's default as the README shows it.
 var settingDefaults = map[string]string{
@@ -56,6 +56,7 @@ var settingDefaults = map[string]string{
 	"open":                 "xdg-open, open or rundll32",
 	"full_refresh":         "10m",
 	"filters":              "none",
+	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",

@@ -71,6 +71,8 @@ func jiraCardMatches(c jira.Card, terms []jiraTerm, env jiraQueryEnv) bool {
 //	due<7d age>3d      due within / after, in progress longer / shorter (h d w)
 //	updated<1d         changed within a day (updated>7d: not for a week)
 //	pr:open deploy:prod the Development field
+//	sprint:4           the sprint it is in now
+//	"test type":e2e    a ui.custom_fields field by name
 //	-label:ui          any term negated
 
 // jiraTerm is one term of a query.
@@ -86,7 +88,7 @@ var jiraQueryFields = map[string]string{
 	"status": "status", "assignee": "assignee", "who": "assignee", "type": "type",
 	"prio": "priority", "priority": "priority", "epic": "parent", "parent": "parent",
 	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is",
-	"due": "due", "age": "age", "updated": "updated", "pr": "pr", "deploy": "deploy",
+	"due": "due", "age": "age", "updated": "updated", "pr": "pr", "deploy": "deploy", "sprint": "sprint",
 }
 
 // jiraParseQuery splits q into terms. A word that doesn't parse as a field
@@ -140,8 +142,20 @@ func jiraQueryWords(q string) []string {
 	return out
 }
 
-// jiraSplitTerm reads "field op value" off w, the field a known one.
+// jiraSplitTerm reads "field op value" off w, the field a known one, or a
+// quoted custom field name ("test type":e2e, field "custom:test type").
 func jiraSplitTerm(w string) (field, op, value string, ok bool) {
+	if strings.HasPrefix(w, `"`) {
+		name, rest, found := strings.Cut(w[1:], `"`)
+		if !found || name == "" || rest == "" || !strings.ContainsRune(":<>=", rune(rest[0])) {
+			return "", "", "", false
+		}
+		op, rest = rest[:1], rest[1:]
+		if (op == ">" || op == "<") && strings.HasPrefix(rest, "=") {
+			op, rest = op+"=", rest[1:]
+		}
+		return "custom:" + strings.ToLower(name), op, rest, true
+	}
 	i := strings.IndexAny(w, ":<>=")
 	if i <= 0 {
 		return "", "", "", false
@@ -201,6 +215,12 @@ func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 		have = c.PR
 	case "deploy":
 		have = c.Deploy
+	case "sprint":
+		have = c.Sprint
+	default:
+		if name, ok := strings.CutPrefix(t.field, "custom:"); ok {
+			have = jiraExtra(c)[name]
+		}
 	}
 	have = strings.ToLower(strings.TrimSpace(have))
 	if len(t.values) == 0 {

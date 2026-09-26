@@ -44,17 +44,21 @@ type EpicChild struct {
 // roadmapFieldIDs are the instance's custom fields a roadmap reads.
 type roadmapFieldIDs struct {
 	start, end, sprint string
-	dev                string // the Development summary (PRs, branches)
-	flagged            string // the Flagged (impediment) field
+	dev                string            // the Development summary (PRs, branches)
+	flagged            string            // the Flagged (impediment) field
+	byName             map[string]string // every field's id by lower-cased name
 }
 
 // roadmapFieldsOf picks the fields out of the field metadata: "Start date"
 // before Plans' "Target start", Plans' "Target end" (the due date is a
 // system field), and the Agile sprint field.
 func roadmapFieldsOf(fields []apiField) roadmapFieldIDs {
-	var ids roadmapFieldIDs
+	ids := roadmapFieldIDs{byName: map[string]string{}}
 	for _, f := range fields {
 		name := strings.ToLower(f.Name)
+		if _, ok := ids.byName[name]; !ok {
+			ids.byName[name] = f.ID
+		}
 		switch {
 		case name == "start date":
 			ids.start = f.ID

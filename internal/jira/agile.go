@@ -1,6 +1,7 @@
 package jira
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -145,6 +146,11 @@ type Card struct {
 	Since      time.Time
 	// Updated is when it last changed, zero when unknown.
 	Updated time.Time
+	// Sprint is the sprint it is in now (open or future), "" for none.
+	Sprint string
+	// Extra are Config.CustomFields' values, "Name=value" joined by
+	// ExtraSep, in config order, empty ones left out.
+	Extra string
 	// Labels are its labels, space separated (Jira's have no spaces), so
 	// a Card stays comparable.
 	Labels string
@@ -372,7 +378,8 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		fields += "," + pointsField
 	}
 	dev, flag := c.devField(ctx), c.flagField(ctx)
-	for _, id := range []string{dev, flag} {
+	more := c.moreCardFields(ctx)
+	for _, id := range append([]string{dev, flag}, more.ids()...) {
 		if id != "" {
 			fields += "," + id
 		}
@@ -401,6 +408,7 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 			card.PR = prState(is.Fields[dev])
 			card.Deploy = deployEnv(is.Fields[dev])
 			card.Flagged = flagSet(is.Fields[flag])
+			more.fill(&card, is.Fields)
 			out = append(out, card)
 		}
 		return out, resp.Total, nil
@@ -693,4 +701,102 @@ func (c *Client) UpdateSprint(ctx context.Context, sprint int, name string, end 
 		body["endDate"] = end.Format(time.RFC3339)
 	}
 	return c.do(ctx, http.MethodPost, "/rest/agile/1.0/sprint/"+strconv.Itoa(sprint), "sprint", body, nil)
+}
+
+// ExtraSep parts Card.Extra's entries.
+const ExtraSep = "\x1f"
+
+// moreFields are the sprint field and Config.CustomFields' ids, resolved.
+type moreFields struct {
+	sprint string
+	custom [][2]string // name as configured, id
+}
+
+func (mf moreFields) ids() []string {
+	ids := []string{mf.sprint}
+	for _, c := range mf.custom {
+		ids = append(ids, c[1])
+	}
+	return ids
+}
+
+// fill sets card's sprint and extra fields from an issue's fields.
+func (mf moreFields) fill(card *Card, f map[string]json.RawMessage) {
+	card.Sprint = currentSprint(f[mf.sprint])
+	var extra []string
+	for _, c := range mf.custom {
+		if v := fieldText(f[c[1]]); v != "" {
+			extra = append(extra, c[0]+"="+v)
+		}
+	}
+	card.Extra = strings.Join(extra, ExtraSep)
+}
+
+// moreCardFields resolves the sprint field and the custom fields by name;
+// names the instance lacks are left out.
+func (c *Client) moreCardFields(ctx context.Context) moreFields {
+	ids, err := c.resolveRoadmapFields(ctx)
+	if err != nil {
+		return moreFields{}
+	}
+	mf := moreFields{sprint: ids.sprint}
+	for _, name := range c.custom {
+		if id, ok := ids.byName[strings.ToLower(strings.TrimSpace(name))]; ok {
+			mf.custom = append(mf.custom, [2]string{name, id})
+		}
+	}
+	return mf
+}
+
+// currentSprint is the name of the sprint an issue sits in now: its last
+// one that isn't closed.
+func currentSprint(raw json.RawMessage) string {
+	var sprints []struct {
+		Name  string `json:"name"`
+		State string `json:"state"`
+	}
+	_ = json.Unmarshal(raw, &sprints)
+	name := ""
+	for _, s := range sprints {
+		if s.State != "closed" {
+			name = s.Name
+		}
+	}
+	return name
+}
+
+// fieldText shows a custom field's value as text: a string or number, an
+// option's value, a person's name, or a list of them joined by commas.
+func fieldText(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return strings.Join(strings.Fields(s), " ")
+	}
+	var n float64
+	if json.Unmarshal(raw, &n) == nil {
+		return strconv.FormatFloat(n, 'f', -1, 64)
+	}
+	var one struct {
+		Value, Name, DisplayName string
+	}
+	if json.Unmarshal(raw, &one) == nil {
+		if v := cmp.Or(one.Value, one.DisplayName, one.Name); v != "" {
+			return v
+		}
+		return ""
+	}
+	var many []json.RawMessage
+	if json.Unmarshal(raw, &many) == nil {
+		var out []string
+		for _, r := range many {
+			if v := fieldText(r); v != "" {
+				out = append(out, v)
+			}
+		}
+		return strings.Join(out, ", ")
+	}
+	return ""
 }

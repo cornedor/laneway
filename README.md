@@ -69,6 +69,7 @@ ui:
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])
     - {name: Mine, jql: "assignee = currentUser()"}
+  custom_fields: [Test type, Team]   # Jira fields by name on cards and rows, searchable
   filters:                      # named / queries, recalled from the : palette
     - {name: Stale review, query: "status:review age>3d"}
   capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
@@ -241,10 +242,12 @@ is:flagged           also done, pr, unassigned, mine, overdue
 due<7d age>3d        due within a week, in progress over 3 days (h, d, w)
 updated<1d           changed within a day (updated>7d: quiet a week)
 pr:open deploy:prod  pull request state, deployed environment
+sprint:4             the sprint it is in now
+"test type":e2e      a ui.custom_fields field by name
 -label:ui            any term negated
 ```
 
-Fields: status, assignee, type, prio, epic, label, key, points, due, age, updated, pr, deploy.
+Fields: status, assignee, type, prio, epic, label, key, points, due, age, updated, pr, deploy, sprint, and `ui.custom_fields` quoted.
 
 ## Bulk edit
 

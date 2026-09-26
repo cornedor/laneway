@@ -341,6 +341,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 			FlagValue:        ui.FlagValue,
 			InboxIssues:      opts.inboxIssues,
 			Timeout:          timeout,
+			CustomFields:     ui.CustomFields,
 		}),
 		jiraProjects:    append([]string(nil), cfg.Projects...),
 		jiraRepos:       cfg.Repos,

@@ -353,3 +353,33 @@ func TestToCardUpdated(t *testing.T) {
 		t.Errorf("updated = %v", c.Updated)
 	}
 }
+
+// TestCardsMoreFields: cards carry their current sprint and the configured
+// custom fields by name, as text.
+func TestCardsMoreFields(t *testing.T) {
+	var fields string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/field":
+			w.Write([]byte(`[{"id":"customfield_1","name":"Sprint","schema":{"custom":"com.pyxis.greenhopper.jira:gh-sprint"}},
+				{"id":"customfield_2","name":"Test type"},{"id":"customfield_3","name":"Team"},{"id":"customfield_4","name":"Unused"}]`))
+		default:
+			fields = r.URL.Query().Get("fields")
+			w.Write([]byte(`{"total":1,"issues":[{"key":"ABC-1","fields":{"summary":"x",
+				"customfield_1":[{"name":"Sprint 3","state":"closed"},{"name":"Sprint 4","state":"active"}],
+				"customfield_2":{"value":"e2e"},"customfield_3":[{"value":"Web"},{"value":"App"}]}}]}`))
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CustomFields: []string{"Test type", "team", "Nope"}})
+	cards, _, err := c.BoardIssues(context.Background(), 1, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fields, "customfield_1") || !strings.Contains(fields, "customfield_2") || strings.Contains(fields, "customfield_4") {
+		t.Errorf("fields = %s", fields)
+	}
+	if c := cards[0]; c.Sprint != "Sprint 4" || c.Extra != "Test type=e2e"+ExtraSep+"team=Web, App" {
+		t.Errorf("card = %q %q", c.Sprint, c.Extra)
+	}
+}

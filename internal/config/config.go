@@ -133,6 +133,9 @@ type UIConfig struct {
 	// FullRefresh is how long idle refreshes fetch only changes before a
 	// whole refetch ("10m").
 	FullRefresh string `yaml:"full_refresh"`
+	// CustomFields are Jira fields by name that cards and list rows show
+	// (values only) and / searches ("test type":e2e).
+	CustomFields []string `yaml:"custom_fields"`
 	// Filters are named / queries to recall from the : palette.
 	Filters []NamedQuery `yaml:"filters"`
 	// FlagValue is the Flagged field's option flagging sets ("Impediment").
