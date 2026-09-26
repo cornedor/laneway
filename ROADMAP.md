@@ -1,13 +1,13 @@
 # Roadmap
 
 ## Next
-- Dev info step 5: deployments (environment, state) in `D`
 - Copy the list (or the marked cards) as a markdown table (`y` in list mode
   with marks)
 - Pinned issues: `*` pins the panel issue; pinned ones first in the palette
 - Lanes render ~1.4ms / View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Panel `D` lists deployments (pipeline, environment, state), after builds
 - `A` → upload the clipboard image (wl-paste, xclip or pngpaste) as `pasted-….png`
 - Panel `D` lists builds (state, number, branch), after pull requests
 - Description edit: mentions, emoji, dates inside text stay inline as `⟦N @name⟧`, the paragraph editable

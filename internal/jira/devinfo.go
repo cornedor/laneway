@@ -17,17 +17,17 @@ import (
 
 // DevItem is a pull request or branch linked to an issue.
 type DevItem struct {
-	Kind   string // "pr", "branch", "commit" or "build"
-	Name   string // PR title, branch name, build name and number
-	Status string // OPEN, MERGED, DECLINED; a build's state; "" for a branch
+	Kind   string // "pr", "branch", "commit", "build" or "deploy"
+	Name   string // PR title, branch name, build name and number, deployment
+	Status string // OPEN, MERGED, DECLINED; a build's or deployment's state; "" for a branch
 	Repo   string
-	Branch string // a PR's source → destination
+	Branch string // a PR's source → destination; a deployment's environment
 	URL    string
 	Tool   string // the instance type: GitHub, GitLab, …
 }
 
-// DevInfo lists key's pull requests (open first), branches, commits and
-// builds.
+// DevInfo lists key's pull requests (open first), builds, deployments,
+// branches and commits.
 func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
@@ -49,7 +49,7 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 		return nil, err
 	}
 	var out []DevItem
-	for _, dataType := range []string{"pullrequest", "branch", "repository", "build"} {
+	for _, dataType := range []string{"pullrequest", "branch", "repository", "build", "deployment-environment"} {
 		tools := sum.Summary[dataType].ByInstanceType
 		names := make([]string, 0, len(tools))
 		for t, v := range tools {
@@ -75,17 +75,19 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 				return 1
 			case d.Kind == "build":
 				return 2
-			case d.Kind == "branch":
+			case d.Kind == "deploy":
 				return 3
+			case d.Kind == "branch":
+				return 4
 			}
-			return 4
+			return 5
 		}
 		return rank(a) - rank(b)
 	})
 	return out, nil
 }
 
-// devDetail reads one tool's pull requests or branches.
+// devDetail reads one tool's items of one data type.
 func (c *Client) devDetail(ctx context.Context, issueID, tool, dataType string) ([]DevItem, error) {
 	var resp struct {
 		Detail []struct {
@@ -131,6 +133,18 @@ func (c *Client) devDetail(ctx context.Context, issueID, tool, dataType string) 
 					} `json:"ref"`
 				} `json:"references"`
 			} `json:"builds"`
+			Deployments []struct {
+				DisplayName string `json:"displayName"`
+				State       string `json:"state"`
+				URL         string `json:"url"`
+				Environment struct {
+					DisplayName string `json:"displayName"`
+					Type        string `json:"type"`
+				} `json:"environment"`
+				Pipeline struct {
+					DisplayName string `json:"displayName"`
+				} `json:"pipeline"`
+			} `json:"deployments"`
 		} `json:"detail"`
 	}
 	q := url.Values{"issueId": {issueID}, "applicationType": {tool}, "dataType": {dataType}}
@@ -162,6 +176,10 @@ func (c *Client) devDetail(ctx context.Context, issueID, tool, dataType string) 
 				ref = b.References[0].Ref.Name
 			}
 			out = append(out, DevItem{Kind: "build", Name: name, Status: strings.ToUpper(b.State), Branch: ref, URL: b.URL, Tool: tool})
+		}
+		for _, dp := range d.Deployments {
+			out = append(out, DevItem{Kind: "deploy", Name: cmp.Or(dp.Pipeline.DisplayName, dp.DisplayName), Status: strings.ToUpper(dp.State),
+				Branch: cmp.Or(dp.Environment.DisplayName, dp.Environment.Type), URL: dp.URL, Tool: tool})
 		}
 	}
 	return out, nil

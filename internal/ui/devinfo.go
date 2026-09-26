@@ -6,8 +6,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// D in the panel: the pull requests (open first), builds, branches and
-// commits linked to the issue; enter opens one in the browser.
+// D in the panel: the pull requests (open first), builds, deployments,
+// branches and commits linked to the issue; enter opens one in the browser.
 
 func (m *Model) openDevInfo() tea.Cmd {
 	if m.jiraIssue == nil {
@@ -30,6 +30,8 @@ func (m *Model) openDevInfo() tea.Cmd {
 				if d.Branch != "" {
 					label += "  (" + d.Branch + ")"
 				}
+			case "deploy":
+				label = fmt.Sprintf("%-8s deploy %s → %s", d.Status, d.Name, d.Branch)
 			case "commit":
 				label = fmt.Sprintf("commit  %s  — %s", d.Name, d.Status)
 			}

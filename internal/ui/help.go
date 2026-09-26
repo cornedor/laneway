@@ -73,7 +73,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Inbox, "inbox"),
 			row(k.IssueActions, "subtask / child, link, clone, watch"),
 			row(k.History, "history: changes and comments"),
-			row(k.DevInfo, "pull requests, builds, branches, commits"),
+			row(k.DevInfo, "pull requests, builds, deploys, branches, commits"),
 			row(k.JiraStart, "start work"),
 			row(k.OpenAttach, "open in browser"),
 			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
