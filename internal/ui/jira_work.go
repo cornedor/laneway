@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,9 +14,11 @@ import (
 )
 
 // Start work (S in the Jira panel): open the issue's worktree as a herdr
-// workspace — reusing an issue/KEY-* branch when one exists, else creating
-// issue/KEY-slug — label its tab with the key and start Claude in it on the
-// start prompt.
+// workspace — reusing a local branch that fits ui.work_branch_template when
+// one exists, else creating one from it (issue/KEY-slug by default) — label
+// its tab with the key and start Claude in it on the start prompt.
+
+const defaultWorkBranch = "issue/{key}-{summary}"
 
 const defaultJiraStartPrompt = "Start work on Jira ticket {key}. You are in its worktree, on its branch. " +
 	"Fetch the ticket and all its comments with the Atlassian MCP. Then judge it. " +
@@ -55,16 +58,16 @@ func (m *Model) startJiraWork() tea.Cmd {
 	m.jiraStarting[iss.Key] = true
 	m.status = iss.Key + ": starting work…"
 	prompt := strings.ReplaceAll(m.jiraStartPrompt, "{key}", iss.Key)
-	return jiraWork(c, expandUserPath(repo), iss.Key, iss.Summary, prompt)
+	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, iss.Key, iss.Type, iss.Summary, prompt)
 }
 
-func jiraWork(c *herdr.Client, repo, key, summary, prompt string) tea.Cmd {
+func jiraWork(c *herdr.Client, repo, tmpl, key, typ, summary, prompt string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
-		branch := issueBranch(repo, key)
+		branch := issueBranch(repo, tmpl, key, typ)
 		if branch == "" {
-			branch = "issue/" + key + "-" + slugify(summary)
+			branch = branchName(tmpl, key, typ, summary)
 		}
 		path, pane, running, err := claudeInWorktree(ctx, c, repo, branch, defaultBase(repo), key, jiraAgentName(key, time.Now()), prompt)
 		return jiraWorkMsg{key: key, path: path, pane: pane, running: running, err: err}
@@ -136,21 +139,49 @@ func jiraAgentName(key string, now time.Time) string {
 	return name[:min(len(name), 32)]
 }
 
-// issueBranch is the repo's local issue/KEY-* branch, "" when there is none.
-func issueBranch(repo, key string) string {
-	out, err := exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:short)",
-		"refs/heads/issue/"+key, "refs/heads/issue/"+key+"-*").Output()
+// issueBranch is the repo's local branch that fits tmpl for the issue, any
+// summary or none ("issue/ABC-1-old-title", "issue/ABC-1"), "" when there
+// is none.
+func issueBranch(repo, tmpl, key, typ string) string {
+	out, err := exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").Output()
 	if err != nil {
 		return ""
 	}
+	fits := branchPattern(tmpl, key, typ)
 	for _, b := range strings.Fields(string(out)) {
-		rest := strings.TrimPrefix(b, "issue/"+key)
-		// issue/ABC-1-* is not ABC-12's.
-		if rest == "" || rest[0] == '-' && (len(rest) == 1 || rest[1] < '0' || rest[1] > '9') {
+		if fits.MatchString(b) {
 			return b
 		}
 	}
 	return ""
+}
+
+// branchPattern matches the branch names tmpl gives the issue, whatever its
+// summary was then, or without one. Literal text stays literal, so
+// issue/ABC-1-* is not ABC-12's.
+func branchPattern(tmpl, key, typ string) *regexp.Regexp {
+	project, _, _ := strings.Cut(key, "-")
+	if typ != "" {
+		typ = slugify(typ)
+	}
+	value := map[string]string{
+		"{key}": regexp.QuoteMeta(key), "{type}": regexp.QuoteMeta(typ),
+		"{project}": regexp.QuoteMeta(project), "{summary}": `[^/]*`,
+	}
+	var re strings.Builder
+	at := 0
+	for _, loc := range branchPlaceholder.FindAllStringIndex(tmpl, -1) {
+		lit, p := tmpl[at:loc[0]], tmpl[loc[0]:loc[1]]
+		if p == "{summary}" && strings.HasSuffix(lit, "-") {
+			// "-{summary}" may be missing altogether.
+			re.WriteString(regexp.QuoteMeta(lit[:len(lit)-1]) + `(?:-[^/]*)?`)
+		} else {
+			re.WriteString(regexp.QuoteMeta(lit) + value[p])
+		}
+		at = loc[1]
+	}
+	re.WriteString(regexp.QuoteMeta(tmpl[at:]))
+	return regexp.MustCompile("^" + re.String() + "$")
 }
 
 // defaultBase is the remote's default branch (origin/main), so a new branch

@@ -32,6 +32,7 @@ type options struct {
 	velocitySprints int                // closed sprints in the velocity chart
 	staleDays       int                // in progress longer than this shows red
 	branchTemplate  string             // copy_branch's name
+	workBranch      string             // start work's new branch
 	codeTheme       string             // chroma style for code blocks
 }
 
@@ -45,7 +46,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, codeTheme: fallbackCodeTheme}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, codeTheme: fallbackCodeTheme}
 }
 
 // presetCodeTheme is the chroma style matching each theme preset.
@@ -118,7 +119,14 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		if bad := badBranchPlaceholder(tmpl); bad != "" {
 			warn = append(warn, fmt.Sprintf("ui.branch_template: unknown %s", bad))
 		} else {
-			o.branchTemplate = tmpl
+			o.branchTemplate, o.workBranch = tmpl, tmpl
+		}
+	}
+	if tmpl := strings.TrimSpace(c.WorkBranchTemplate); tmpl != "" {
+		if bad := badBranchPlaceholder(tmpl); bad != "" {
+			warn = append(warn, fmt.Sprintf("ui.work_branch_template: unknown %s", bad))
+		} else {
+			o.workBranch = tmpl
 		}
 	}
 	switch strings.ToLower(strings.TrimSpace(c.TimerOnStart)) {
