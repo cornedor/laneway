@@ -3,8 +3,6 @@
 ## Next
 - Extra fields: custom fields by name on cards (`card_fields`) and in the panel; today the fetched field lists are fixed
 - `laneway rules` create defaults (type `Task`, status `To Do`) from config or the project
-- `jira.timeout`: API request timeout (20s) and the longer action timeouts (30–90s), for slow instances
-- `ui.full_refresh`: the full refetch interval behind the delta refreshes (10m)
 - Filter terms, more: `updated<1d` and `sprint:` (cards need both fields fetched), custom fields by name (`"Test type":e2e`); `ui.filters`: named queries to recall (`:` palette and the builder)
 - `F` builder on one screen: field, compare and value columns side by side, the next steps visible before choosing, the term being built shown live; type to narrow a column, tab/arrows move between them. Today's wizard hides what comes next, so each step is re-read and some filters are guesswork
 - Inline rich-text editing: the description and rich-text fields edited in the panel with the in-app editor (`internal/editor`, matterbox's, already used by the comment composer; identical apart from import paths) instead of `$EDITOR`; the ADF ⇄ markdown round trip decides what's editable inline
@@ -26,6 +24,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `jira.timeout` (20s): one request's limit, the longer actions stretched with it; `ui.full_refresh` (10m) behind the delta refreshes
 - `ui.clipboard_image` and `ui.open`: commands over the clipboard-image and opener probes (WSL, remote)
 - `ui.timer_round` (e.g. 15m): the timer's logged time rounded up to the step, at least one; default to the minute
 - Inbox config: `ui.inbox_every` (5m, off), `ui.inbox_lookback` (24h), `ui.inbox_issues` (30, standup too)

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestStatePathMigratesOldState(t *testing.T) {
@@ -52,5 +53,18 @@ func TestMatterboxRulesIgnored(t *testing.T) {
 	c, _, err := Load("")
 	if err != nil || c.Jira.BaseURL != "https://x.test" || c.Rules != nil {
 		t.Errorf("Load = %+v rules %v, %v", c.Jira, c.Rules, err)
+	}
+}
+
+func TestRequestTimeout(t *testing.T) {
+	for in, want := range map[string]time.Duration{"": 0, "45s": 45 * time.Second, " 1m ": time.Minute} {
+		if got, err := (JiraConfig{Timeout: in}).RequestTimeout(); err != nil || got != want {
+			t.Errorf("%q = %v %v", in, got, err)
+		}
+	}
+	for _, bad := range []string{"soon", "10ms"} {
+		if _, err := (JiraConfig{Timeout: bad}).RequestTimeout(); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
 	}
 }

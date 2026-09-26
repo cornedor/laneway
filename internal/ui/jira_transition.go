@@ -87,7 +87,7 @@ type jiraFormDoneMsg struct {
 func (m *Model) prepareJiraMove(key, to string, origin jiraFormOrigin, want func(jira.TransitionMeta) bool) tea.Cmd {
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
 		defer cancel()
 		msg := jiraPreparedMsg{key: key, to: to, origin: origin}
 		var (

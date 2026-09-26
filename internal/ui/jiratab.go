@@ -229,7 +229,7 @@ type jiraTabState struct {
 	// clicks).
 	viewsFirst int
 	// fullAt and fullKey are when and for which view and filters the cards
-	// were last fetched whole; an idle refresh within fullEvery of it
+	// were last fetched whole; an idle refresh within ui.full_refresh of it
 	// fetches only what changed (loadJiraDelta).
 	fullAt  time.Time
 	fullKey string
@@ -355,7 +355,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode)
 	}
 	return tea.Batch(cached, func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(60*time.Second))
 		defer cancel()
 		msg := jiraBoardMsg{seq: seq}
 		if readMode {
@@ -545,7 +545,7 @@ func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 		}
 	}
 	return tea.Batch(cached, func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(60*time.Second))
 		defer cancel()
 		cards, total, err := fetchJiraView(ctx, c, board, cfg, v, filter)
 		if err == nil {
@@ -2658,10 +2658,6 @@ func (m Model) handleJiraAutoRefresh() (tea.Model, tea.Cmd) {
 	return m, tea.Batch(m.loadJiraDelta(), m.jiraAutoRefreshTick())
 }
 
-// fullEvery is how long idle refreshes fetch only changes before a whole
-// fetch, which also drops issues that left the view and takes new ranks.
-const fullEvery = 10 * time.Minute
-
 // jiraFetchKey names a view and the current filters, which a delta must share
 // with the last whole fetch.
 func (m *Model) jiraFetchKey(idx int) string {
@@ -2674,7 +2670,7 @@ func (m *Model) jiraFetchKey(idx int) string {
 func (m *Model) loadJiraDelta() tea.Cmd {
 	t := m.jiraTab
 	idx := t.viewIdx
-	if len(t.cards) == 0 || t.fullKey != m.jiraFetchKey(idx) || time.Since(t.fullAt) >= fullEvery || idx >= len(t.views) {
+	if len(t.cards) == 0 || t.fullKey != m.jiraFetchKey(idx) || time.Since(t.fullAt) >= m.opts.fullRefresh || idx >= len(t.views) {
 		return m.loadJiraCards(idx, false)
 	}
 	t.seq++
@@ -2690,7 +2686,7 @@ func (m *Model) loadJiraDelta() tea.Cmd {
 		}
 	}
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(60*time.Second))
 		defer cancel()
 		cards, _, err := fetchJiraView(ctx, c, board, cfg, v, filter)
 		msg := jiraCardsMsg{seq: seq, delta: true, viewIdx: idx, cards: cards, err: err}

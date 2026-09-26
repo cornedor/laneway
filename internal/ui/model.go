@@ -313,6 +313,10 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	warn = append(warn, thWarn...)
 	ruleSet, ruleWarn := rules.Compile(rs)
 	warn = append(warn, ruleWarn...)
+	timeout, err := cfg.RequestTimeout()
+	if err != nil {
+		warn = append(warn, err.Error())
+	}
 	prompt := defaultJiraStartPrompt
 	if cfg.StartPrompt != "" {
 		prompt = cfg.StartPrompt
@@ -330,6 +334,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 			CardLimit:        opts.cardLimit,
 			FlagValue:        ui.FlagValue,
 			InboxIssues:      opts.inboxIssues,
+			Timeout:          timeout,
 		}),
 		jiraProjects:    append([]string(nil), cfg.Projects...),
 		jiraRepos:       cfg.Repos,

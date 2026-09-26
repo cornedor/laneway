@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestADFToMarkdown(t *testing.T) {
@@ -716,5 +717,14 @@ func TestFindIssues(t *testing.T) {
 	}
 	if jql != `text ~ "log* in*" ORDER BY updated DESC` {
 		t.Errorf("jql = %q", jql)
+	}
+}
+
+func TestScaledTimeout(t *testing.T) {
+	if d := New(Config{}).Scaled(30 * time.Second); d != 30*time.Second {
+		t.Errorf("default = %v", d)
+	}
+	if d := New(Config{Timeout: 40 * time.Second}).Scaled(30 * time.Second); d != time.Minute {
+		t.Errorf("doubled = %v", d)
 	}
 }

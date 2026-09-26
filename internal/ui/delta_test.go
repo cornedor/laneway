@@ -63,9 +63,9 @@ func TestDeltaRefresh(t *testing.T) {
 		t.Errorf("cards after ABC-4 left = %+v", m.jiraTab.cards)
 	}
 
-	// Past fullEvery the view is fetched whole again.
+	// Past ui.full_refresh the view is fetched whole again.
 	jql = ""
-	m.jiraTab.fullAt = time.Now().Add(-fullEvery)
+	m.jiraTab.fullAt = time.Now().Add(-m.opts.fullRefresh)
 	if msg, ok := m.loadJiraDelta()().(jiraCardsMsg); !ok || msg.delta {
 		t.Error("a stale whole fetch should be followed by a whole one")
 	}

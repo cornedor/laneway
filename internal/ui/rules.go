@@ -93,7 +93,7 @@ func (m *Model) startRuleWatches() tea.Cmd {
 func (m *Model) pollRuleWatch(jql string) tea.Cmd {
 	ctx, c := m.ctx, m.jiraClient
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
 		defer cancel()
 		cards, err := c.SearchCards(ctx, jql)
 		return ruleWatchedMsg{jql, cards, err}

@@ -54,6 +54,7 @@ var settingDefaults = map[string]string{
 	"timer_round":          "to the minute",
 	"clipboard_image":      "wl-paste, xclip or pngpaste",
 	"open":                 "xdg-open, open or rundll32",
+	"full_refresh":         "10m",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",

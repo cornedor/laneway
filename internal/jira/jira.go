@@ -29,9 +29,10 @@ import (
 // or credentials (Enabled would report false).
 var errNotConfigured = fmt.Errorf("jira: not configured (need base_url, email, api_token)")
 
-// requestTimeout bounds a single issue fetch. Generous for a slow instance; a
+// DefaultTimeout bounds a single request unless Config.Timeout says
+// otherwise. Generous for a slow instance; a
 // stalled server fails the call rather than hanging the UI's fetch goroutine.
-const requestTimeout = 20 * time.Second
+const DefaultTimeout = 20 * time.Second
 
 // issueFields is the field list requested from the API. Keeping it explicit
 // (rather than the default "*all") keeps the response small and the JSON we
@@ -49,20 +50,22 @@ type Config struct {
 	APIToken         string
 	Projects         []string
 	StoryPointsField string
-	CardLimit        int    // 0: DefaultCardLimit
-	FlagValue        string // the Flagged option flagging sets; "": Impediment
-	InboxIssues      int    // recently updated issues the inbox and standup read; 0: 30
+	CardLimit        int           // 0: DefaultCardLimit
+	FlagValue        string        // the Flagged option flagging sets; "": Impediment
+	InboxIssues      int           // recently updated issues the inbox and standup read; 0: 30
+	Timeout          time.Duration // one request's limit; 0: DefaultTimeout
 }
 
 // Client fetches and caches issues for one instance. The zero value is not
 // usable; use New. Safe for concurrent use.
 type Client struct {
-	baseURL    string // trimmed of any trailing slash
-	auth       string // pre-encoded "Basic …" header value, empty when unconfigured
-	spOverride string // configured story-points custom-field id, "" to auto-detect
-	cardLimit  int    // most cards one board fetch returns
-	flagValue  string // the Flagged option SetFlagged sets
-	inboxCap   int    // issues the inbox and standup read
+	baseURL    string        // trimmed of any trailing slash
+	auth       string        // pre-encoded "Basic …" header value, empty when unconfigured
+	spOverride string        // configured story-points custom-field id, "" to auto-detect
+	cardLimit  int           // most cards one board fetch returns
+	flagValue  string        // the Flagged option SetFlagged sets
+	inboxCap   int           // issues the inbox and standup read
+	timeout    time.Duration // one request's limit
 	http       *http.Client
 
 	mu    sync.Mutex
@@ -96,9 +99,10 @@ func New(cfg Config) *Client {
 		cardLimit:  cfg.CardLimit,
 		flagValue:  cmp.Or(strings.TrimSpace(cfg.FlagValue), "Impediment"),
 		inboxCap:   cmp.Or(max(cfg.InboxIssues, 0), inboxIssues),
-		http:       &http.Client{Timeout: requestTimeout},
+		timeout:    cmp.Or(max(cfg.Timeout, 0), DefaultTimeout),
 		cache:      map[string]cachedIssue{},
 	}
+	c.http = &http.Client{Timeout: c.timeout}
 	if c.cardLimit <= 0 {
 		c.cardLimit = DefaultCardLimit
 	}
@@ -381,9 +385,9 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 // must begin with "/" and may carry a query string), sending body as JSON when
 // non-nil, and returns the raw response body. A non-2xx status becomes a
 // statusError; what labels the request in that error (an issue key, or e.g.
-// "priorities"). Each call carries its own requestTimeout.
+// "priorities"). Each call carries its own timeout.
 func (c *Client) doRaw(ctx context.Context, method, path, what string, body any) ([]byte, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
 	var rdr io.Reader
@@ -705,6 +709,12 @@ func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User
 		out = append(out, User{AccountID: u.AccountID, DisplayName: u.DisplayName})
 	}
 	return out, nil
+}
+
+// Scaled stretches an action's limit d (several requests) by how much
+// Config.Timeout stretches one request's.
+func (c *Client) Scaled(d time.Duration) time.Duration {
+	return time.Duration(float64(d) * float64(c.timeout) / float64(DefaultTimeout))
 }
 
 // KnownMyself is your accountId once Myself has fetched it, else "".

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -24,6 +26,21 @@ type JiraConfig struct {
 	StoryPointsField string            `yaml:"story_points_field"`
 	Repos            map[string]string `yaml:"repos,omitempty"`
 	StartPrompt      string            `yaml:"start_prompt,omitempty"`
+	// Timeout is one API request's limit ("20s"); the longer actions
+	// (a board load, a move) stretch with it. For slow instances.
+	Timeout string `yaml:"timeout,omitempty"`
+}
+
+// RequestTimeout is Timeout read, 0 (the client's default) when unset.
+func (j JiraConfig) RequestTimeout() (time.Duration, error) {
+	if strings.TrimSpace(j.Timeout) == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(strings.TrimSpace(j.Timeout))
+	if err != nil || d < time.Second {
+		return 0, fmt.Errorf("jira.timeout: %q is not a duration of 1s or more", j.Timeout)
+	}
+	return d, nil
 }
 
 type Config struct {
@@ -113,6 +130,9 @@ type UIConfig struct {
 	// (target appended), over xdg-open / open / rundll32.
 	ClipboardImage string `yaml:"clipboard_image"`
 	Open           string `yaml:"open"`
+	// FullRefresh is how long idle refreshes fetch only changes before a
+	// whole refetch ("10m").
+	FullRefresh string `yaml:"full_refresh"`
 	// FlagValue is the Flagged field's option flagging sets ("Impediment").
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").

@@ -66,7 +66,7 @@ func (c *Client) AttachmentContent(ctx context.Context, id string) ([]byte, erro
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, requestTimeout)
+	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, c.baseURL+"/rest/api/3/attachment/content/"+url.PathEscape(id), nil)
 	if err != nil {

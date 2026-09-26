@@ -77,7 +77,7 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.status = "creating " + in.Type + " in " + in.Project + "…"
 		c, ctx := m.jiraClient, m.ctx
 		return m, func() tea.Msg {
-			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
 			defer cancel()
 			key, err := c.CreateIssue(ctx, in)
 			if err == nil && sprint != 0 {

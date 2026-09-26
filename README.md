@@ -43,6 +43,7 @@ jira:
   api_token: ...          # or JIRA_API_TOKEN
   projects: [ABC]         # listed first in the project picker
   repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree)
+  timeout: 20s            # one request's limit; longer actions stretch with it
 sites:                    # more Jira instances: laneway -site club, or @ in the app
   club: {base_url: https://club.atlassian.net, email: you@example.com, api_token: ...}
 ```
@@ -87,6 +88,7 @@ ui:
   timer_round: 15m              # T's logged time rounded up to this (to the minute)
   clipboard_image: wl-paste --type image/png  # prints the clipboard's PNG (probed by default)
   open: wslview                 # opens URLs and attachments (xdg-open / open by default)
+  full_refresh: 10m             # idle refreshes fetch changes only, whole again after this
   flag_value: Impediment        # the Flagged option A → flag sets
   work_agent: claude            # the herdr agent S starts in the worktree
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
