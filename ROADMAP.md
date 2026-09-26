@@ -11,11 +11,11 @@
 - Light-theme pass over the chips, lozenges and selection colours
 - Inline quick edit from the board: priority, assignee, points without opening the panel
 - My work: everything assigned to you across boards and projects, grouped by status
-- History: description changes as a small diff instead of from → to
 - Roadmap: keyboard grips (pick a bar's end, then h/l), matching the mouse
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- History: a multi-line field (the description) shows as the lines it changed, `- old` red and `+ new` green, 12 at most
 - Offline: a failed fetch keeps the cached board and says `offline · showing the cached board · r retries` in the header (the error on the status line) until one succeeds; it used to blank the board
 - Code blocks were already highlighted with chroma (`highlight.go` via the markdown renderer); `ui.code_theme` picks the style
 - Relative dates in the panel (Updated, comments, history, worklogs): `just now`, `5m ago`, `3h ago`, `2d ago` within a week, `ui.date_format` beyond (the activity has no selection to show a full date on)

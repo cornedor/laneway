@@ -29,6 +29,14 @@ type InboxEntry struct {
 	Who          string
 	What         string // "Status: To Do → Done", "commented: …"
 	Mention      bool   // a comment that mentions you
+	// Changes are a changelog entry's fields one by one, for showing a
+	// long one (the description) as a diff; none for other entries.
+	Changes []Change
+}
+
+// Change is one field of a changelog entry, before and after.
+type Change struct {
+	Field, From, To string
 }
 
 // Inbox lists what others did since since, mentions first, then newest.
@@ -193,11 +201,13 @@ func (c *Client) issueChanges(ctx context.Context, key, summary string, since ti
 			continue
 		}
 		var parts []string
+		var changes []Change
 		for _, it := range h.Items {
 			parts = append(parts, fmt.Sprintf("%s: %s → %s", it.Field, orDash(it.FromString), orDash(it.ToString)))
+			changes = append(changes, Change{Field: it.Field, From: it.FromString, To: it.ToString})
 		}
 		if len(parts) > 0 {
-			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: strings.Join(parts, " · ")})
+			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: strings.Join(parts, " · "), Changes: changes})
 		}
 	}
 	return out, nil

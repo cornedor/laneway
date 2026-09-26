@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -150,5 +151,36 @@ func TestRelativeDate(t *testing.T) {
 		if got := relativeDate(now.Add(-d), now, "2006-01-02 15:04"); got != want {
 			t.Errorf("%v ago = %q, want %q", d, got, want)
 		}
+	}
+}
+
+func TestLineDiff(t *testing.T) {
+	got := lineDiff("Steps\n1. open\n2. pay\nEnd", "Steps\n1. open cart\n2. pay\nEnd\nNotes", 12)
+	want := []string{"- 1. open", "+ 1. open cart", "+ Notes"}
+	if !slices.Equal(got, want) {
+		t.Errorf("diff = %q", got)
+	}
+	if got := lineDiff("a", "b\nc\nd", 2); len(got) != 3 || got[2] != "  … 2 more" {
+		t.Errorf("capped = %q", got)
+	}
+}
+
+// TestHistoryDescriptionDiff: a description change shows as the lines it
+// changed, other fields as from → to.
+func TestHistoryDescriptionDiff(t *testing.T) {
+	m := loadedJiraModel(t)
+	var b strings.Builder
+	m.renderChange(&b, jira.InboxEntry{Who: "Bob", When: time.Now(), Changes: []jira.Change{
+		{Field: "status", From: "To Do", To: "Done"},
+		{Field: "description", From: "a\nb", To: "a\nc"},
+	}})
+	out := ansi.Strip(b.String())
+	for _, want := range []string{"status To Do → Done", "description changed", "- b", "+ c"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "- a") {
+		t.Error("an unchanged line shows")
 	}
 }

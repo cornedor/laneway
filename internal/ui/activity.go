@@ -176,9 +176,30 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 	}
 }
 
-// renderChange writes one changelog entry: who and when, a line per field.
+// renderChange writes one changelog entry: who and when, a line per field;
+// a multi-line field (the description) as the lines it changed.
 func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
 	b.WriteString(refDimStyle.Render(orDash(e.Who)+" · "+m.when(e.When)) + "\n")
+	if len(e.Changes) > 0 {
+		for _, c := range e.Changes {
+			if !strings.Contains(c.From, "\n") && !strings.Contains(c.To, "\n") {
+				b.WriteString(refDimStyle.Render(c.Field+" ") + orDash(c.From) + " → " + orDash(c.To) + "\n")
+				continue
+			}
+			b.WriteString(refDimStyle.Render(c.Field+" changed") + "\n")
+			for _, l := range lineDiff(c.From, c.To, diffMaxLines) {
+				switch l[0] {
+				case '-':
+					b.WriteString(refErrStyle.Render(l) + "\n")
+				case '+':
+					b.WriteString(roadmapDoneStyle.Render(l) + "\n")
+				default:
+					b.WriteString(refDimStyle.Render(l) + "\n")
+				}
+			}
+		}
+		return
+	}
 	for _, part := range strings.Split(e.What, " · ") {
 		field, change, ok := strings.Cut(part, ": ")
 		if !ok {
@@ -187,6 +208,48 @@ func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
 		}
 		b.WriteString(refDimStyle.Render(field+" ") + change + "\n")
 	}
+}
+
+// diffMaxLines caps the lines a changed description shows.
+const diffMaxLines = 12
+
+// lineDiff is the lines from and to differ in, "- old" and "+ new" in
+// order (a longest common subsequence apart), at most limit of them with a
+// "… n more" after.
+func lineDiff(from, to string, limit int) []string {
+	a, b := strings.Split(from, "\n"), strings.Split(to, "\n")
+	// lcs[i][j] is the common run of a[i:] and b[j:].
+	lcs := make([][]int, len(a)+1)
+	for i := range lcs {
+		lcs[i] = make([]int, len(b)+1)
+	}
+	for i := len(a) - 1; i >= 0; i-- {
+		for j := len(b) - 1; j >= 0; j-- {
+			if a[i] == b[j] {
+				lcs[i][j] = lcs[i+1][j+1] + 1
+			} else {
+				lcs[i][j] = max(lcs[i+1][j], lcs[i][j+1])
+			}
+		}
+	}
+	var out []string
+	i, j := 0, 0
+	for i < len(a) || j < len(b) {
+		switch {
+		case i < len(a) && j < len(b) && a[i] == b[j]:
+			i, j = i+1, j+1
+		case i < len(a) && (j == len(b) || lcs[i+1][j] >= lcs[i][j+1]):
+			out = append(out, "- "+a[i])
+			i++
+		default:
+			out = append(out, "+ "+b[j])
+			j++
+		}
+	}
+	if len(out) > limit {
+		out = append(out[:limit], fmt.Sprintf("  … %d more", len(out)-limit))
+	}
+	return out
 }
 
 // renderWorklog writes one worklog: who logged how long and when, its
