@@ -2551,7 +2551,17 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	if pts, ok := jiraLanePoints(t.cards, lane.cards); ok && m.opts.fields.points {
 		count += " · " + pts + "p"
 	}
-	head := ansi.Truncate(lane.name+" "+count, inner-2, "…")
+	// The outer lanes on screen say how many more lie past them.
+	before, after := "", ""
+	if vis, _ := jiraLaneLayout(t.view.Width(), len(t.lanes)); vis < len(t.lanes) {
+		if l == t.firstLane && l > 0 {
+			before = fmt.Sprintf("‹%d ", l)
+		}
+		if rest := len(t.lanes) - t.firstLane - vis; l == t.firstLane+vis-1 && rest > 0 {
+			after = fmt.Sprintf(" %d›", rest)
+		}
+	}
+	head := ansi.Truncate(lane.name+" "+count, max(inner-2-lipgloss.Width(before+after), 1), "…")
 	// Filtered counts undercount the column, so only a full board judges it.
 	over := lane.max > 0 && len(lane.cards) > lane.max && !t.jiraFiltered() && t.jiraSearchQuery() == ""
 	switch {
@@ -2564,7 +2574,7 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	default:
 		head = jiraLaneStyle.Render(head)
 	}
-	return laneMark[m.laneCategory(l)].Render("▍") + " " + head
+	return laneMark[m.laneCategory(l)].Render("▍") + " " + jiraDimStyle.Render(before) + head + jiraDimStyle.Render(after)
 }
 
 // laneMark colours a lane head's mark by its status category, as the

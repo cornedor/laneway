@@ -805,3 +805,26 @@ func TestNarrowBoxes(t *testing.T) {
 		}
 	}
 }
+
+// TestLanesOffScreen: with lanes past the screen the outer heads say how
+// many.
+func TestLanesOffScreen(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	m = out.(Model)
+	n := len(m.jiraTab.lanes)
+	vis, _ := jiraLaneLayout(m.jiraTab.view.Width(), n)
+	if vis >= n {
+		t.Skipf("all %d lanes fit", n)
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), fmt.Sprintf(" %d›", n-vis)) {
+		t.Errorf("no count of the lanes to the right:\n%s", ansi.Strip(m.View().Content))
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "l"))
+	for m = out.(Model); m.jiraTab.firstLane == 0; m = out.(Model) {
+		out, _ = m.handleJiraKey(keyMsg(t, "l"))
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), fmt.Sprintf("‹%d ", m.jiraTab.firstLane)) {
+		t.Errorf("no count of the lanes to the left:\n%s", ansi.Strip(m.View().Content))
+	}
+}
