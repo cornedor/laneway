@@ -427,3 +427,24 @@ func TestClickListGroupHeader(t *testing.T) {
 		t.Errorf("selected %s", m.jiraTab.cards[m.jiraTab.order[m.jiraTab.idx]].Key)
 	}
 }
+
+// TestPanelScrollbar: a click on the panel's right border jumps there, a
+// drag follows, esc puts it back.
+func TestPanelScrollbar(t *testing.T) {
+	m := panelModel(t)
+	m.jiraIssue.Description = strings.Repeat("line\n\n", 80)
+	m.renderRef()
+	h := m.refView.Height()
+	if m = click(m, m.width-1, h); m.refView.YOffset() == 0 || !m.panelScrolling {
+		t.Fatalf("a click at the bottom: offset %d", m.refView.YOffset())
+	}
+	bottom := m.refView.YOffset()
+	out, _ := m.Update(tea.MouseMotionMsg{X: m.width - 1, Y: 1, Button: tea.MouseLeft})
+	if m = out.(Model); m.refView.YOffset() != 0 {
+		t.Errorf("drag to the top: offset %d", m.refView.YOffset())
+	}
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	if m = out.(Model); m.panelScrolling || m.refView.YOffset() != 0 || bottom == 0 {
+		t.Errorf("esc: offset %d, still scrolling %v", m.refView.YOffset(), m.panelScrolling)
+	}
+}

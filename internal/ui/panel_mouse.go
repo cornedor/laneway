@@ -250,3 +250,25 @@ func panelHintAt(col int) string {
 	}
 	return ""
 }
+
+// The panel's right border is its scrollbar, beside the body's rows from
+// the row under the title (as renderRightBorder draws the thumb).
+
+// onPanelScrollbar is whether screen row y is on the scrollbar's track and
+// the body is taller than the panel.
+func (m *Model) onPanelScrollbar(y int) bool {
+	h := m.refView.Height()
+	return y >= 1 && y < 1+h && viewportVisualRows(m.refView.GetContent(), m.refView.Width()) > h
+}
+
+// scrollPanelTo scrolls the panel so its thumb sits at row y: the top row
+// is the start, the last the end.
+func (m *Model) scrollPanelTo(y int) {
+	h := m.refView.Height()
+	total := viewportVisualRows(m.refView.GetContent(), m.refView.Width())
+	if total <= h || h < 2 {
+		return
+	}
+	f := float64(min(max(y-1, 0), h-1)) / float64(h-1)
+	m.refView.SetYOffset(int(f*float64(total-h) + 0.5))
+}

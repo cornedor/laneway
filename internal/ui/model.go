@@ -315,6 +315,10 @@ type Model struct {
 	panelResizing bool
 	// panelResizeFrom is the width the drag started at, for esc.
 	panelResizeFrom int
+	// panelScrolling is set while the panel's scrollbar is dragged, from
+	// the offset it started at, for esc.
+	panelScrolling  bool
+	panelScrollFrom int
 	// lastClick detects a double-click.
 	lastClick struct {
 		at   time.Time
@@ -444,6 +448,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.panelResizing {
 			return m.resizePanel(msg.X)
 		}
+		if m.panelScrolling {
+			m.scrollPanelTo(msg.Y)
+			return m, nil
+		}
 		if r := m.jiraTab.roadmap; r != nil && r.drag.on && msg.Button == tea.MouseLeft {
 			return m.dragRoadmap(msg.X)
 		}
@@ -460,6 +468,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.savePanelWidth()
 			return m, nil
 		}
+		m.panelScrolling = false
 		if r := m.jiraTab.roadmap; r != nil {
 			r.drag = roadmapDrag{}
 		}
@@ -710,6 +719,11 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X == listW {
 		m.panelResizing, m.panelResizeFrom = true, m.opts.panelPct // the panel's left border: drag to resize
+		return m, nil
+	}
+	if m.refOpen && msg.X == m.width-1 && m.onPanelScrollbar(msg.Y) {
+		m.panelScrolling, m.panelScrollFrom = true, m.refView.YOffset() // the scrollbar: jump there, drag to scroll
+		m.scrollPanelTo(msg.Y)
 		return m, nil
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {

@@ -107,7 +107,7 @@ func (m Model) dragRoadmap(x int) (tea.Model, tea.Cmd) {
 // dragging is whether a mouse drag is in progress.
 func (m *Model) dragging() bool {
 	r, p := m.jiraTab.roadmap, m.jiraTab.plan
-	return m.panelResizing || m.jiraDragging() || r != nil && r.drag.on || p != nil && p.drag.held
+	return m.panelResizing || m.panelScrolling || m.jiraDragging() || r != nil && r.drag.on || p != nil && p.drag.held
 }
 
 // cancelDrag drops the drag in progress (esc): nothing is written and the
@@ -119,6 +119,9 @@ func (m Model) cancelDrag() (tea.Model, tea.Cmd) {
 		m.panelResizing = false
 		m.opts.panelPct = m.panelResizeFrom
 		m.resize()
+	case m.panelScrolling:
+		m.panelScrolling = false
+		m.refView.SetYOffset(m.panelScrollFrom)
 	case r != nil && r.drag.on:
 		from := r.drag.from
 		r.drag = roadmapDrag{}
