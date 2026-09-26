@@ -125,6 +125,9 @@ type UIConfig struct {
 	// RoadmapEpicType is the issue type the roadmap shows and creates
 	// ("Epic"); RoadmapDoneDays how long resolved ones stay (90).
 	RoadmapEpicType string `yaml:"roadmap_epic_type"`
+	// MyWorkJQL is the query O's my work view runs; "" keeps yours in every
+	// project, open or done this week.
+	MyWorkJQL       string `yaml:"my_work_jql"`
 	RoadmapDoneDays int    `yaml:"roadmap_done_days"`
 	// Workdays are the days you work, for standup's previous workday:
 	// [mon, tue, wed, thu, fri] by default.

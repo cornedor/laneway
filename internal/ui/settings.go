@@ -46,6 +46,7 @@ var settingDefaults = map[string]string{
 	"work_branch_template": "branch_template if set, else issue/{key}-{summary}",
 	"kanban_done_days":     "14",
 	"roadmap_epic_type":    "Epic",
+	"my_work_jql":          "yours everywhere, open or done this week",
 	"roadmap_done_days":    "90",
 	"workdays":             "mon–fri",
 	"inbox_every":          "5m",

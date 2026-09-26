@@ -36,6 +36,7 @@ type options struct {
 	workAgent       string              // the herdr agent kind start work launches
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
 	epicType        string              // the roadmap's issue type
+	myWorkJQL       string              // O's query
 	workdays        []time.Weekday      // nil: Monday to Friday
 	inboxEvery      time.Duration       // 0: the count never refreshes
 	inboxLookback   time.Duration       // a first inbox read looks this far back
@@ -61,7 +62,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true}
 }
 
 // weekdays reads a day by its first three letters.
@@ -168,6 +169,9 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			continue
 		}
 		o.workdays = append(o.workdays, wd)
+	}
+	if q := strings.TrimSpace(c.MyWorkJQL); q != "" {
+		o.myWorkJQL = q
 	}
 	if t := strings.TrimSpace(c.RoadmapEpicType); t != "" {
 		o.epicType = t

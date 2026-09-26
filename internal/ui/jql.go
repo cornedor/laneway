@@ -236,7 +236,7 @@ const myWorkJQL = "assignee = currentUser() AND (statusCategory != Done OR resol
 // openMyWork shows your issues across boards and projects as a view,
 // grouped by status.
 func (m *Model) openMyWork() tea.Cmd {
-	cmd := m.runNamedJQLView("Mine: my work", myWorkJQL)
+	cmd := m.runNamedJQLView("Mine: my work", m.opts.myWorkJQL)
 	if cmd != nil {
 		m.jiraTab.sort = jiraSortStatus
 	}

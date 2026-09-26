@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -175,5 +176,16 @@ func TestMyWork(t *testing.T) {
 	}
 	if g, ok := jiraGroupOf(jiraSortStatus, cards[2]); !ok || g != "Review" {
 		t.Errorf("group = %q", g)
+	}
+}
+
+// TestMyWorkJQL: ui.my_work_jql replaces O's query.
+func TestMyWorkJQL(t *testing.T) {
+	m := jiraTabModel(t)
+	m.opts, _ = optionsFrom(config.UIConfig{MyWorkJQL: "watcher = currentUser()"})
+	out, _ := m.handleJiraKey(keyMsg(t, "O"))
+	m = out.(Model)
+	if v := m.jiraTab.views[len(m.jiraTab.views)-1]; v.jql != "watcher = currentUser()" {
+		t.Errorf("jql %q", v.jql)
 	}
 }
