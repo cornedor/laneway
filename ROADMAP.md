@@ -1,6 +1,8 @@
 # Roadmap
 
 ## Next
+- Copy branch name (key and palette action): Jira's REST API has no suggested branch (its "create branch" dialog builds one client-side), so `ui.branch_template`, e.g. `{type}/{key}-{summary}` (summary slugged, length capped), default `{key}-{summary}`
+- Config screen: every `ui:` option with its value and default, editable in place, written back to the config file (comments kept)
 - Filter builder: a picker (field → operator → values, statuses with counts) that writes the `/` query; active terms as removable chips in the header
 - Card colours from the board's settings (Jira's board config: by priority, type, assignee or custom JQL; read from the undocumented greenhopper editmodel, one search per JQL colour); `ui.card_colors: ribbon | background | off`
 - Code blocks (description, comments): syntax highlighting with chroma v2, as matterbox does (`internal/ui/highlight.go`: lexer by fence language, colours from the theme)
