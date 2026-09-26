@@ -217,7 +217,7 @@ func (m Model) handleHelpKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	n := len(m.helpPages(m.bodyH()))
 	switch {
 	case msg.String() == "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case n > 1 && (key.Matches(msg, m.keys.Right) || msg.String() == "right"):
 		m.helpPage = min(m.helpPage+1, n-1)
 	case n > 1 && (key.Matches(msg, m.keys.Left) || msg.String() == "left"):

@@ -4,6 +4,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -206,8 +207,11 @@ type Model struct {
 	jiraIssue  *jira.Issue
 	panelHint  string
 
-	helpOpen      bool
-	helpPage      int             // the help's page when it is wider than the screen
+	helpOpen bool
+	helpPage int // the help's page when it is wider than the screen
+	// quitAsked is set once a quit was held back for unsent work; the next
+	// quit goes. Any other key clears it.
+	quitAsked     bool
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
@@ -624,6 +628,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleKey routes a key to the modal that owns the keyboard, else the
 // focused pane.
 func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if msg.String() != "ctrl+c" && !key.Matches(msg, m.keys.Quit) {
+		m.quitAsked = false
+	}
 	if m.dragging() && msg.String() == "esc" {
 		return m.cancelDrag()
 	}
@@ -901,4 +908,32 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderJiraForm()
 	}
 	return ""
+}
+
+// unsentWork is what quitting now would lose, "" for nothing: writes still
+// on their way, an edited description, a comment you wrote.
+func (m *Model) unsentWork() string {
+	var what []string
+	if n := m.jiraClient.Writing(); n == 1 {
+		what = append(what, "a write is still sending")
+	} else if n > 1 {
+		what = append(what, fmt.Sprintf("%d writes are still sending", n))
+	}
+	if d := m.descEdit; d != nil && d.input.Value() != d.before {
+		what = append(what, "your edit is unsaved")
+	}
+	if m.jiraCommentActive && strings.TrimSpace(m.jiraCommentInput.Value()) != strings.TrimSpace(m.jiraCommentBefore) {
+		what = append(what, "your comment is unsent")
+	}
+	return strings.Join(what, " · ")
+}
+
+// quit leaves the app, asking once first when that would lose work.
+func (m Model) quit() (tea.Model, tea.Cmd) {
+	if w := m.unsentWork(); w != "" && !m.quitAsked {
+		m.quitAsked = true
+		m.status = w + " · quit again to leave anyway"
+		return m, nil
+	}
+	return m, tea.Quit
 }

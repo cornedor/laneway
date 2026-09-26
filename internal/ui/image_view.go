@@ -62,7 +62,7 @@ func (m Model) handleImageViewKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	n := len(m.readyImages())
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "right", "l":
 		if n > 0 {
 			m.imageViewIdx = (m.imageViewIdx + 1) % n

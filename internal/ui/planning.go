@@ -150,7 +150,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
-		return m, tea.Quit
+		return m.quit()
 	case msg.String() == "esc", key.Matches(msg, m.keys.Plan):
 		t.plan = nil
 		m.renderJira()

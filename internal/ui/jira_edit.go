@@ -470,7 +470,7 @@ func (m *Model) startFieldInline(row int) {
 func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		m.closeJiraPicker()
 		return m, nil
@@ -571,7 +571,7 @@ func (m *Model) jiraPickerMove(delta int) {
 func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		m.closeJiraField()
 		return m, nil

@@ -229,7 +229,7 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	f := m.jiraForm
 	if f.busy {
 		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
+			return m.quit()
 		}
 		return m, nil
 	}
@@ -252,7 +252,7 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch {
 	case msg.String() == "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case msg.String() == "esc":
 		return m, m.cancelJiraForm()
 	case msg.String() == "ctrl+s":

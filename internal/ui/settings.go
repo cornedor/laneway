@@ -135,7 +135,7 @@ func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch {
 	case msg.String() == "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case msg.String() == "enter":
 		m.editSetting()
 	case msg.String() == "esc", msg.String() == "q", key.Matches(msg, m.keys.Settings):
@@ -194,7 +194,7 @@ func (m Model) handleSettingsInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := m.settings
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		s.input, s.err = nil, ""
 		return m, nil

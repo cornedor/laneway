@@ -855,7 +855,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	lanes := m.jiraShowsLanes()
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
-		return m, tea.Quit
+		return m.quit()
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
 		m.moveJiraCursor(-1)
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown):

@@ -56,7 +56,7 @@ func (m *Model) openJiraCreateSummary(typ string) {
 func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		m.jiraCreateActive = false
 		return m, nil

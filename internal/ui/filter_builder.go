@@ -139,7 +139,7 @@ func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 	}
 	switch {
 	case msg.String() == "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case msg.String() == "esc":
 		m.filterBuilder = nil
 		return m, nil

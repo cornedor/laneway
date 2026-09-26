@@ -541,3 +541,27 @@ func TestCommentKeepsText(t *testing.T) {
 		t.Errorf("composer holds %q", m.jiraCommentInput.Value())
 	}
 }
+
+// TestQuitGuard: ctrl+c with a comment you wrote asks once; again quits.
+func TestQuitGuard(t *testing.T) {
+	m := panelModel(t)
+	m.focus = focusRef
+	for _, k := range []string{"c", "h", "i"} {
+		out, _ := m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	out, cmd := m.handleKey(keyPress("ctrl+c"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "your comment is unsent") {
+		t.Fatalf("first ctrl+c: %q", m.status)
+	}
+	_, cmd = m.handleKey(keyPress("ctrl+c"))
+	if cmd == nil {
+		t.Fatal("second ctrl+c should quit")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Error("second ctrl+c: not a quit")
+	}
+	if _, cmd = jiraTabModel(t).handleKey(keyMsg(t, "q")); cmd == nil {
+		t.Error("q with nothing unsent should quit at once")
+	}
+}

@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -73,6 +74,7 @@ type Client struct {
 	timeout    time.Duration // one request's limit
 	custom     []string      // Config.CustomFields
 	http       *http.Client
+	writing    atomic.Int32 // writes (not GETs) on their way
 
 	mu    sync.Mutex
 	cache map[string]cachedIssue
@@ -415,6 +417,10 @@ func (c *Client) doRaw(ctx context.Context, method, path, what string, body any)
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	if method != http.MethodGet {
+		c.writing.Add(1)
+		defer c.writing.Add(-1)
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if ctx.Err() == nil && isTimeout(err) {
@@ -499,6 +505,15 @@ func jiraMessages(body []byte) string {
 		parts = append(parts, f+": "+e.Errors[f])
 	}
 	return strings.Join(parts, "; ")
+}
+
+// Writing is how many writes are on their way to Jira, for a quit to wait
+// on.
+func (c *Client) Writing() int {
+	if c == nil {
+		return 0
+	}
+	return int(c.writing.Load())
 }
 
 // isTimeout is whether err is a request running out of time.

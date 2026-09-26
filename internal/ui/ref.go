@@ -122,7 +122,7 @@ func (m Model) openCurrentRefURL() (tea.Model, tea.Cmd) {
 func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		if m.panelFieldSel() != "" {
 			m.clearPanelField()

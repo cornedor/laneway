@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Quit guard: `ctrl+c`/`q` with unsaved editor text or writes in flight asks once ("2 writes pending · q again quits")
 - Status line: errors in the theme's error colour; a log of the last messages (palette `messages`, full text)
 - Config: warn about unknown keys (`ui.panel_widht: unknown option, did you mean panel_width?`)
 - Startup warnings: "3 config warnings · … lists them" instead of one truncated line
@@ -15,6 +14,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Quit guard: `q` or `ctrl+c` while writes are still sending (the client counts them), a description edit is unsaved or a comment unsent says so and asks once; the next quit leaves
 - Comment composer keeps your text: esc asks once when you wrote something (a reply's untouched quote doesn't count), a failed post keeps the text and `c` brings it back, `ctrl+s` posts like enter (as in the description editor)
 - Jira errors say what to do: Jira's `errorMessages` and field `errors` read as text (not raw JSON cut at 200), 401 checks the credentials, 403 is no permission (with Jira's reason), 429 says when to retry, a request past `jira.timeout` says to raise it
 - Fix: settings and `?` help overflowed an 80-column screen; settings' value columns share the width left, help rows cut at the edge

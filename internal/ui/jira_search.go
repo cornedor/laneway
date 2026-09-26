@@ -374,7 +374,7 @@ func (m Model) handleJiraSearchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
 	switch {
 	case msg.String() == "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case msg.String() == "esc":
 		m.clearJiraSearch()
 		return m, nil

@@ -766,3 +766,27 @@ func TestTimeoutError(t *testing.T) {
 		t.Errorf("got %v", err)
 	}
 }
+
+// TestWriting counts writes on their way, not reads.
+func TestWriting(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	done := make(chan struct{})
+	go func() {
+		_ = c.do(context.Background(), http.MethodPut, "/rest/api/3/issue/ABC-1", "ABC-1", map[string]any{}, nil)
+		close(done)
+	}()
+	for c.Writing() == 0 {
+		time.Sleep(time.Millisecond)
+	}
+	close(release)
+	<-done
+	if n := c.Writing(); n != 0 {
+		t.Errorf("after the write: %d", n)
+	}
+}

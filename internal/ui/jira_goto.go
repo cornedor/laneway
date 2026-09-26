@@ -40,7 +40,7 @@ func jiraGotoKey(in, project string) string {
 func (m Model) handleJiraGotoKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		m.jiraGotoActive = false
 		return m, nil

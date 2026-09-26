@@ -216,7 +216,7 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	d := m.descEdit
 	switch msg.String() {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m.quit()
 	case "esc":
 		if d.input.Value() != d.before && !d.discard {
 			d.discard = true

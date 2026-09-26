@@ -40,7 +40,7 @@ func (m Model) pickSite(site string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.nextSite = &site
-	return m, tea.Quit
+	return m.quit()
 }
 
 func siteLabel(s string) string {

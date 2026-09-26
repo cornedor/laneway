@@ -136,6 +136,8 @@ func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f i
 	req.Header.Set("Authorization", c.auth)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	req.Header.Set("X-Atlassian-Token", "no-check") // Jira's CSRF guard for uploads
+	c.writing.Add(1)
+	defer c.writing.Add(-1)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("call jira: %w", err)

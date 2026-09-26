@@ -112,7 +112,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	ch := m.jiraTab.charts
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
-		return m, tea.Quit
+		return m.quit()
 	case msg.String() == "esc", key.Matches(msg, m.keys.Charts):
 		m.jiraTab.charts = nil
 		m.renderJira()
