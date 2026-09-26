@@ -19,7 +19,7 @@ import (
 const DefaultCardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
-const cardFields = "summary,status,assignee,issuetype,priority,parent"
+const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks"
 
 // boardMetaCache keeps what a board is made of — a project's boards, a
 // board's columns and quick filters — for the session: they change about as
@@ -124,6 +124,8 @@ type Card struct {
 	// PR is the state of its pull requests, from the Development field:
 	// OPEN, MERGED or DECLINED; "" for none (or no such field).
 	PR string
+	// Subtasks and SubtasksDone count its subtasks, all and done.
+	Subtasks, SubtasksDone int
 }
 
 // QuickFilter is a board's saved filter: a name and the JQL behind it.
@@ -438,6 +440,23 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	card.TypeID, card.Type = obj("issuetype")
 	_, card.Priority = obj("priority")
 	card.AssigneeID, card.Assignee = obj("assignee")
+	var subs []struct {
+		Fields struct {
+			Status struct {
+				Category struct {
+					Key string `json:"key"`
+				} `json:"statusCategory"`
+			} `json:"status"`
+		} `json:"fields"`
+	}
+	if json.Unmarshal(f["subtasks"], &subs) == nil {
+		for _, s := range subs {
+			card.Subtasks++
+			if s.Fields.Status.Category.Key == "done" {
+				card.SubtasksDone++
+			}
+		}
+	}
 	var parent apiLinked
 	if json.Unmarshal(f["parent"], &parent) == nil {
 		card.ParentKey, card.ParentSummary = parent.Key, parent.Fields.Summary

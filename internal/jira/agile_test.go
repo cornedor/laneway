@@ -270,3 +270,12 @@ func TestPRState(t *testing.T) {
 		}
 	}
 }
+
+func TestCardSubtasks(t *testing.T) {
+	f := map[string]json.RawMessage{"subtasks": json.RawMessage(`[
+	  {"key":"A-2","fields":{"status":{"statusCategory":{"key":"done"}}}},
+	  {"key":"A-3","fields":{"status":{"statusCategory":{"key":"indeterminate"}}}}]`)}
+	if c := toCard("A-1", f, ""); c.Subtasks != 2 || c.SubtasksDone != 1 {
+		t.Errorf("card = %+v", c)
+	}
+}

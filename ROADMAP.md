@@ -11,6 +11,7 @@
 - Lanes render ~0.7ms / View ~1ms at 600 cards: fine for now, revisit if boards grow
 
 ## Done
+- Cards show subtask progress `☑ 2/5` (done colour when all are); `card_fields: subtasks`
 - Standup: `U` again reaches a workday further back
 - `C` burnup tab (done against scope), `ui.velocity_sprints`
 - Panel multi-line fields edit in `$EDITOR` (the description's safe round trip)

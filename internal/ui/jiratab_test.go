@@ -823,3 +823,13 @@ func TestPRMark(t *testing.T) {
 		t.Errorf("pr off: %q", got)
 	}
 }
+
+func TestSubtaskMark(t *testing.T) {
+	c := jira.Card{Key: "ABC-9", Subtasks: 5, SubtasksDone: 2}
+	if got := ansi.Strip(jiraCardLines(c, true, allCardFields)[0]); !strings.Contains(got, "☑ 2/5") {
+		t.Errorf("head = %q", got)
+	}
+	if jiraSubtaskMark(jira.Card{}) != "" {
+		t.Error("no subtasks, no mark")
+	}
+}

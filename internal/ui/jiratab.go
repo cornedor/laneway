@@ -1221,6 +1221,19 @@ func jiraTypeIcon(t string) string {
 
 // jiraPriorityMark marks a card's priority, "" for medium or none: the
 // default needs no ink.
+// jiraSubtaskMark is "☑ 2/5" for a card with subtasks, "" without; all
+// done shows in the done colour.
+func jiraSubtaskMark(c jira.Card) string {
+	if c.Subtasks == 0 {
+		return ""
+	}
+	s := fmt.Sprintf("☑ %d/%d", c.SubtasksDone, c.Subtasks)
+	if c.SubtasksDone == c.Subtasks {
+		return roadmapDoneStyle.Render(s)
+	}
+	return jiraDimStyle.Render(s)
+}
+
 // jiraPRMark is a card's pull request sign: PR while one is open, a dim
 // ✓PR once merged, nothing otherwise.
 func jiraPRMark(state string) string {
@@ -1317,6 +1330,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	}
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		title = pr + " " + title
+	}
+	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
+		title += " " + st
 	}
 	row := "  "
 	if hl := m.jiraHighlight(c.Key); hl != "" {
@@ -1427,6 +1443,9 @@ func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
 	}
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		head += " " + pr
+	}
+	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
+		head += " " + st
 	}
 	return []string{head + jiraDimStyle.Render(pts), c.Summary, jiraDimStyle.Render(who)}
 }
