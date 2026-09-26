@@ -44,7 +44,8 @@ func TestEditableDescription(t *testing.T) {
 
 // TestEditableDescriptionKeeps: blocks markdown can't keep become
 // placeholder lines, and saving puts them back untouched, wherever the
-// line was moved; a deleted line drops its block.
+// line was moved; a deleted line drops its block. A mention stays inline
+// as ⟦N @name⟧, its paragraph editable around it.
 func TestEditableDescriptionKeeps(t *testing.T) {
 	table := `{"type":"table","attrs":{"layout":"default"},"content":[{"type":"tableRow","content":[]}]}`
 	mention := `{"type":"paragraph","content":[{"type":"text","text":"ping "},{"type":"mention","attrs":{"id":"x","text":"@Ann"}}]}`
@@ -55,18 +56,20 @@ func TestEditableDescriptionKeeps(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "intro\n\n<!-- keep:1 table: move or delete this line -->\n\n" +
-		"<!-- keep:2 paragraph with a mention: move or delete this line -->\n\n" +
+		"ping ⟦2 @Ann⟧\n\n" +
 		"<!-- keep:3 paragraph: move or delete this line -->"
 	if ed.Markdown != want || len(ed.Kept) != 3 {
 		t.Fatalf("markdown:\n%s\nkept %d", ed.Markdown, len(ed.Kept))
 	}
-	edited := "<!-- keep:2 moved up -->\n\nnew intro\n\n<!-- keep:1 table -->"
+	edited := "hey ⟦2 renamed⟧, ⟦1 not inline⟧ **ok**\n\nnew intro\n\n<!-- keep:1 table -->"
 	out, _ := json.Marshal(MarkdownToADFKept(edited, ed.Kept))
 	var got struct {
 		Content []json.RawMessage `json:"content"`
 	}
 	_ = json.Unmarshal(out, &got)
-	if len(got.Content) != 3 || string(got.Content[0]) != mention || string(got.Content[2]) != table {
+	para := `{"content":[{"text":"hey ","type":"text"},{"attrs":{"id":"x","text":"@Ann"},"type":"mention"},` +
+		`{"text":", ⟦1 not inline⟧ ","type":"text"},{"marks":[{"type":"strong"}],"text":"ok","type":"text"}],"type":"paragraph"}`
+	if len(got.Content) != 3 || string(got.Content[0]) != para || string(got.Content[2]) != table {
 		t.Errorf("saved = %s", out)
 	}
 }
@@ -110,6 +113,22 @@ func TestInlineMentions(t *testing.T) {
 	for _, want := range []string{`"id":"a1","text":"@Ada Lovelace"`, `"id":"b1","text":"@Bob"`, `"text":", see @Ada"`} {
 		if !strings.Contains(got, want) {
 			t.Errorf("doc lacks %s: %s", want, got)
+		}
+	}
+}
+
+func TestInlineLabel(t *testing.T) {
+	for _, c := range []struct {
+		n    adfNode
+		want string
+	}{
+		{adfNode{Type: "date", Attrs: map[string]any{"timestamp": "1767225600000"}}, "2026-01-01"},
+		{adfNode{Type: "emoji", Attrs: map[string]any{"shortName": ":smile:"}}, ":smile:"},
+		{adfNode{Type: "inlineCard", Attrs: map[string]any{"url": "https://x.test/a_(b)"}}, "https://x.test/a_b"},
+		{adfNode{Type: "status"}, "status"},
+	} {
+		if got := inlineLabel(c.n); got != c.want {
+			t.Errorf("%s: %q, want %q", c.n.Type, got, c.want)
 		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Editing a description as markdown. Only documents made of what markdown
@@ -71,6 +72,13 @@ type Editable struct {
 // keepLine matches a placeholder line; its number picks the kept block.
 var keepLine = regexp.MustCompile(`^<!-- keep:(\d+)\b.*-->$`)
 
+// keepInline matches an inline placeholder, ⟦3 @Ada Lovelace⟧, standing for
+// a kept mention, emoji, date and the like inside editable text.
+var keepInline = regexp.MustCompile(`⟦(\d+)[^⟦⟧\n]*⟧`)
+
+// inlineKeepTypes are the leaf inline nodes kept as inline placeholders.
+var inlineKeepTypes = []string{"mention", "emoji", "inlineCard", "date", "status", "mediaInline", "placeholder", "inlineExtension"}
+
 // SetComment replaces comment id's body with markdown, placeholder lines
 // put back from kept.
 func (c *Client) SetComment(ctx context.Context, key, id, md string, kept []json.RawMessage) error {
@@ -108,6 +116,12 @@ func EditableDescription(raw json.RawMessage) (Editable, error) {
 			writeBlock(&b, n, "")
 			continue
 		}
+		had := len(ed.Kept)
+		if sub := keepInlines(n, &ed.Kept); editableBlock(sub) {
+			writeBlock(&b, sub, "")
+			continue
+		}
+		ed.Kept = ed.Kept[:had]
 		ed.Kept = append(ed.Kept, blocks.Content[i])
 		fmt.Fprintf(&b, "<!-- keep:%d %s: move or delete this line -->\n\n", len(ed.Kept), blockName(n))
 	}
@@ -120,6 +134,83 @@ func EditableDescription(raw json.RawMessage) (Editable, error) {
 		return Editable{}, fmt.Errorf("the description has text markdown would change (like * or `)")
 	}
 	return ed, nil
+}
+
+// keepInlines is n with its unmarked leaf inline nodes (mentions, emoji,
+// dates…) as placeholder text, each appended to kept.
+func keepInlines(n adfNode, kept *[]json.RawMessage) adfNode {
+	if len(n.Content) == 0 || n.Type == "codeBlock" {
+		return n
+	}
+	out := n
+	out.Content = make([]adfNode, len(n.Content))
+	for i, c := range n.Content {
+		if !slices.Contains(inlineKeepTypes, c.Type) || len(c.Content) > 0 || len(c.Marks) > 0 {
+			out.Content[i] = keepInlines(c, kept)
+			continue
+		}
+		raw, _ := json.Marshal(map[string]any{"type": c.Type, "attrs": c.Attrs})
+		*kept = append(*kept, raw)
+		out.Content[i] = adfNode{Type: "text", Text: fmt.Sprintf("⟦%d %s⟧", len(*kept), inlineLabel(c))}
+	}
+	return out
+}
+
+// inlineLabel is what an inline placeholder shows: the mention's name, the
+// emoji, the link; stripped of markdown so the text round trips.
+func inlineLabel(n adfNode) string {
+	label := n.Type
+	for _, k := range []string{"text", "shortName", "url", "timestamp"} {
+		if v, ok := n.Attrs[k].(string); ok && v != "" {
+			label = v
+			break
+		}
+	}
+	if n.Type == "date" {
+		if ms, err := strconv.ParseInt(label, 10, 64); err == nil {
+			label = time.UnixMilli(ms).UTC().Format(time.DateOnly)
+		}
+	}
+	return strings.Map(func(r rune) rune {
+		if strings.ContainsRune("*~`[]()⟦⟧\n", r) {
+			return -1
+		}
+		return r
+	}, label)
+}
+
+// restoreInlines puts kept inline nodes back for their placeholders; one
+// numbering nothing inline stays text.
+func restoreInlines(doc map[string]any, kept []json.RawMessage) {
+	if len(kept) == 0 {
+		return
+	}
+	var split func(string) []any
+	split = func(text string) []any {
+		for _, m := range keepInline.FindAllStringSubmatchIndex(text, -1) {
+			n, _ := strconv.Atoi(text[m[2]:m[3]])
+			if n < 1 || n > len(kept) {
+				continue
+			}
+			var node struct {
+				Type string `json:"type"`
+			}
+			if json.Unmarshal(kept[n-1], &node) != nil || !slices.Contains(inlineKeepTypes, node.Type) {
+				continue
+			}
+			var out []any
+			if m[0] > 0 {
+				out = append(out, map[string]any{"type": "text", "text": text[:m[0]]})
+			}
+			out = append(out, kept[n-1])
+			if rest := text[m[1]:]; rest != "" {
+				out = append(out, split(rest)...)
+			}
+			return out
+		}
+		return []any{map[string]any{"type": "text", "text": text}}
+	}
+	splitTexts(doc, split)
 }
 
 // editableBlock reports whether a top-level block survives markdown and
@@ -227,7 +318,9 @@ func MarkdownToADFKept(md string, kept []json.RawMessage) map[string]any {
 	if len(blocks) == 0 {
 		blocks = []any{map[string]any{"type": "paragraph", "content": []any{}}}
 	}
-	return map[string]any{"type": "doc", "version": 1, "content": blocks}
+	doc := map[string]any{"type": "doc", "version": 1, "content": blocks}
+	restoreInlines(doc, kept)
+	return doc
 }
 
 var (

@@ -335,29 +335,31 @@ func inlineMentions(node map[string]any, ms []Mention) {
 	}
 	ms = slices.Clone(ms)
 	slices.SortFunc(ms, func(a, b Mention) int { return len(b.DisplayName) - len(a.DisplayName) })
-	var walk func(n map[string]any)
-	walk = func(n map[string]any) {
-		content, ok := n["content"].([]any)
-		if !ok {
-			return
-		}
-		var out []any
-		for _, c := range content {
-			cm, ok := c.(map[string]any)
-			if !ok {
-				out = append(out, c)
-				continue
-			}
-			if cm["type"] == "text" && cm["marks"] == nil {
-				out = append(out, splitMentions(cm["text"].(string), ms)...)
-				continue
-			}
-			walk(cm)
-			out = append(out, cm)
-		}
-		n["content"] = out
+	splitTexts(node, func(text string) []any { return splitMentions(text, ms) })
+}
+
+// splitTexts replaces each unmarked text node under node, outside code
+// blocks, by split's nodes.
+func splitTexts(node map[string]any, split func(string) []any) {
+	content, ok := node["content"].([]any)
+	if !ok || node["type"] == "codeBlock" {
+		return
 	}
-	walk(node)
+	var out []any
+	for _, c := range content {
+		cm, ok := c.(map[string]any)
+		if !ok {
+			out = append(out, c)
+			continue
+		}
+		if cm["type"] == "text" && cm["marks"] == nil {
+			out = append(out, split(cm["text"].(string))...)
+			continue
+		}
+		splitTexts(cm, split)
+		out = append(out, cm)
+	}
+	node["content"] = out
 }
 
 // splitMentions cuts text into text and mention nodes.

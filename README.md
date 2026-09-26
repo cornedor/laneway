@@ -198,10 +198,11 @@ in the status bar. `esc` clears the marks.
 `E` in the panel opens the description as markdown in `$VISUAL` or
 `$EDITOR` (else `vi`); saving a changed file writes it back. Paragraphs,
 headings, lists, code, quotes, rules and bold / italic / code / strike /
-links are text to edit. A block markdown can't keep as it is — a table, an
-image, a paragraph with a mention or a stray `*` — stands as a
-`<!-- keep:1 table … -->` line: move it and the block moves, delete it and
-the block goes, anything else and it comes back untouched. Your own
+links are text to edit. A mention, emoji, date or status inside text
+stands as `⟦2 @Ada⟧`: edit around it, delete it to drop it. A block
+markdown can't keep as it is — a table, an image or a stray `*` — stands as
+a `<!-- keep:1 table … -->` line: move it and the block moves, delete it
+and the block goes, anything else and it comes back untouched. Your own
 comments edit the same way from `A` → Edit a comment.
 
 In the `c` composer, `@` and a few letters list matching users;
