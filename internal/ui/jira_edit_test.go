@@ -157,6 +157,9 @@ func TestJiraAssigneeServerSearch(t *testing.T) {
 	if !pickerHasLabel(m, "Unassigned") || !pickerHasLabel(m, "Ada Lovelace") {
 		t.Errorf("default items = %+v", m.jiraPicker.items)
 	}
+	if it := m.jiraPicker.items[m.jiraPicker.idx]; it.id != "me-1" {
+		t.Errorf("cursor on %q, want Assign to me (a enter takes it)", it.label)
+	}
 
 	// Type "alan"; each change bumps fetchSeq so stale responses are dropped.
 	for _, r := range "alan" {

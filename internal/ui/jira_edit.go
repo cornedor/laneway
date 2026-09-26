@@ -102,6 +102,7 @@ type jiraPickerItem struct {
 	label   string
 	current bool
 	value   string // what an edit of the row starts from (a worklog's "1h fix")
+	focus   bool   // the cursor starts here rather than on the current row
 }
 
 // jiraPickerState is the modal list picker reused for the three list-style
@@ -269,6 +270,7 @@ func (m Model) fetchAssignees(gen, seq int, key, query string) tea.Cmd {
 					id:      me.AccountID,
 					label:   "Assign to me (" + me.DisplayName + ")",
 					current: me.AccountID == curID,
+					focus:   me.AccountID != curID, // a enter takes it
 				})
 			}
 		}
@@ -386,6 +388,10 @@ func (m *Model) setJiraPickerItems(items []jiraPickerItem) {
 	m.jiraPicker.items = items
 	m.jiraPicker.all = items
 	m.jiraPicker.idx = 0
+	if i := slices.IndexFunc(items, func(it jiraPickerItem) bool { return it.focus }); i >= 0 {
+		m.jiraPicker.idx = i
+		return
+	}
 	for i, it := range items {
 		if it.current {
 			m.jiraPicker.idx = i

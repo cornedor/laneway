@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Assign to me in `a enter`: the assignee picker starts on "Assign to me" when you aren't the assignee
 - Panel: Created, Resolution, Watchers (you), Votes from the edit meta already fetched; time tracking (logged · left of estimate)
 - A failed create reopens the box with your summary and the error
 - Not by colour alone: over-limit lanes, stale ages and over-capacity people get a `!`
@@ -12,6 +11,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Assign to yourself in `a enter`: the assignee picker starts on "Assign to me" unless it is yours already
 - List mode: a long summary (with its parent and custom fields) gives way, so the assignee, deploy, subtasks, due and age stay on the row
 - README: `jira.story_points_field` and `jira.start_prompt` documented (every config key now is)
 - Slow loads count up after 2s (`refreshing… 7s`; the first load says `loading ABC… 7s` centred), so a slow instance doesn't look frozen; `#` go-to takes a pasted issue URL (`…/browse/ABC-1`, `?selectedIssue=ABC-1`)
