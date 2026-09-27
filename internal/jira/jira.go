@@ -385,9 +385,31 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		return nil, fmt.Errorf("decode issue: %w", err)
 	}
+	if cm := decoded.Fields.Comment; cm != nil && cm.Total > len(cm.Comments) {
+		cm.Comments = append(cm.Comments, c.moreComments(ctx, key, len(cm.Comments), cm.Total)...)
+	}
 	iss := c.toIssue(decoded)
 	iss.StoryPoints = extractStoryPoints(body, spFields)
 	return iss, nil
+}
+
+// moreComments pages in key's comments from start up to total (at most
+// 1000), which the issue itself leaves out on a long thread. A failure keeps
+// what came: the panel then says how many are missing.
+func (c *Client) moreComments(ctx context.Context, key string, start, total int) []apiComment {
+	var out []apiComment
+	for start < min(total, 1000) {
+		var resp struct {
+			Comments []apiComment `json:"comments"`
+		}
+		path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment?orderBy=created&maxResults=100&startAt=" + strconv.Itoa(start)
+		if c.do(ctx, http.MethodGet, path, key, nil, &resp) != nil || len(resp.Comments) == 0 {
+			break
+		}
+		out = append(out, resp.Comments...)
+		start += len(resp.Comments)
+	}
+	return out
 }
 
 // doRaw performs an authenticated request to path (relative to baseURL, which

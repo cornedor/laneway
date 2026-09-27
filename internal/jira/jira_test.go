@@ -806,3 +806,24 @@ func TestAssignableUsersInProject(t *testing.T) {
 		t.Fatalf("AssignableUsers = %v, %v", users, err)
 	}
 }
+
+// TestGetPagesComments: a thread longer than the issue carries pages the
+// rest in, oldest first.
+func TestGetPagesComments(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue/ABC-1/comment" {
+			if r.URL.Query().Get("startAt") != "1" {
+				t.Errorf("startAt = %s", r.URL.Query().Get("startAt"))
+			}
+			_, _ = w.Write([]byte(`{"comments":[{"id":"2","body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"newest"}]}]}}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"key":"ABC-1","fields":{"summary":"s","comment":{"total":2,"comments":[{"id":"1","body":{"type":"doc","content":[]}}]}}}`))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	iss, err := c.Get(context.Background(), "ABC-1")
+	if err != nil || len(iss.Comments) != 2 || iss.Comments[1].Body != "newest" {
+		t.Fatalf("comments = %+v, %v", iss.Comments, err)
+	}
+}

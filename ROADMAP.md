@@ -1,13 +1,13 @@
 # Roadmap
 
 ## Next
-- Panel: load the rest of a long thread's comments instead of "…and N more — o opens in browser" (`/issue/{key}/comment` paged)
 - An empty status picker says "no transitions from here", not "no matches"
 - Board: `b` with no boards, `a` and `m` before the board loaded say why nothing happened
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Panel: a long thread's comments load in full (paged, up to 1000), so the newest can be read and replied to; "…and N more" stays only when that fails
 - Quick filters load past 50; a failed load says so (and that the filters left on aren't applied) instead of quietly showing the board unfiltered
 - Bulk status: when the workflow can't be read (not an admin), a move with a screen asks its fields once, as a single move does, instead of failing on every card
 - Panel: `backspace` with no trail says so, and how a trail starts (`L`)
