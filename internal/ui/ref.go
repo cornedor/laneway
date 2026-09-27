@@ -194,6 +194,7 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if n := len(m.refBack); n > 0 {
 			return m.backToCrumb(n - 1)
 		}
+		m.status = "nothing to go back to: " + helpKey(m.keys.JiraLinks) + " opens a linked issue, then " + helpKey(m.keys.Back) + " returns"
 		return m, nil
 	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
 		if m.jiraIssue != nil {

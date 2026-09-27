@@ -567,6 +567,11 @@ func TestPanelBackHistory(t *testing.T) {
 	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" {
 		t.Errorf("board cursor on %q, want ABC-1", c.Key)
 	}
+	m.focus = focusRef
+	out, _ = m.handleKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if m = out.(Model); !strings.HasPrefix(m.status, "nothing to go back to") {
+		t.Errorf("back with no trail: %q", m.status)
+	}
 	m.closeRef()
 	if m.refBack != nil {
 		t.Error("closing kept the history")
