@@ -179,20 +179,27 @@ func (c *Client) QuickFilters(ctx context.Context, board int) ([]QuickFilter, er
 }
 
 func (c *Client) fetchQuickFilters(ctx context.Context, board int) ([]QuickFilter, error) {
-	var resp struct {
-		Values []struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
-			JQL  string `json:"jql"`
-		} `json:"values"`
-	}
-	path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/quickfilter?maxResults=50"
-	if err := c.do(ctx, http.MethodGet, path, "quick filters", nil, &resp); err != nil {
-		return nil, err
-	}
-	out := make([]QuickFilter, 0, len(resp.Values))
-	for _, q := range resp.Values {
-		out = append(out, QuickFilter{ID: q.ID, Name: q.Name, JQL: q.JQL})
+	var out []QuickFilter
+	for start := 0; start < 1000; {
+		var resp struct {
+			Values []struct {
+				ID   int    `json:"id"`
+				Name string `json:"name"`
+				JQL  string `json:"jql"`
+			} `json:"values"`
+			IsLast bool `json:"isLast"`
+		}
+		path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/quickfilter?maxResults=50&startAt=" + strconv.Itoa(start)
+		if err := c.do(ctx, http.MethodGet, path, "quick filters", nil, &resp); err != nil {
+			return nil, err
+		}
+		for _, q := range resp.Values {
+			out = append(out, QuickFilter{ID: q.ID, Name: q.Name, JQL: q.JQL})
+		}
+		if resp.IsLast || len(resp.Values) < 50 { // a short page is the last
+			break
+		}
+		start += len(resp.Values)
 	}
 	return out, nil
 }

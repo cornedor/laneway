@@ -384,7 +384,7 @@ func TestCardsMoreFields(t *testing.T) {
 	}
 }
 
-// TestBoardsAndSprintsPage: past 50, the next pages are fetched too.
+// TestBoardsAndSprintsPage: boards, sprints and quick filters past 50, the next pages are fetched too.
 func TestBoardsAndSprintsPage(t *testing.T) {
 	page := func(start, n int, isLast bool) string {
 		var vals []string
@@ -407,5 +407,8 @@ func TestBoardsAndSprintsPage(t *testing.T) {
 	}
 	if ss, err := c.Sprints(context.Background(), 7); err != nil || len(ss) != 53 {
 		t.Errorf("sprints = %d, %v", len(ss), err)
+	}
+	if qs, err := c.QuickFilters(context.Background(), 7); err != nil || len(qs) != 53 {
+		t.Errorf("quick filters = %d, %v", len(qs), err)
 	}
 }

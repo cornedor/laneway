@@ -1514,3 +1514,15 @@ func TestPickersFilter(t *testing.T) {
 		t.Error("the sprint picker should filter")
 	}
 }
+
+// TestQuickFiltersFailed: quick filters that didn't load say so, and that
+// the filters left on aren't applied.
+func TestQuickFiltersFailed(t *testing.T) {
+	m := jiraTabModel(t)
+	t0 := m.jiraTab
+	out, _ := m.handleJiraBoard(jiraBoardMsg{seq: t0.seq, project: "ABC", boards: t0.boards, cfg: t0.cfg, views: t0.views,
+		quickErr: errors.New("timeout"), quickOn: map[int]bool{7: true}, cards: t0.cards, total: len(t0.cards)})
+	if m = out.(Model); !strings.HasPrefix(m.statusErr, "quick filters: timeout · the board shows unfiltered") {
+		t.Errorf("status %q", m.statusErr)
+	}
+}

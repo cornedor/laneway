@@ -335,6 +335,7 @@ type jiraBoardMsg struct {
 	viewIdx  int
 	lanes    *bool // the stored mode, on the first load
 	quick    []jira.QuickFilter
+	quickErr error // the quick filters didn't load: the board shows without them
 	quickOn  map[int]bool
 	assignee jiraAssignee
 	// statusNames names status ids, for the drop zones.
@@ -488,7 +489,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 				sprints, sprintsErr = c.Sprints(ctx, board.ID)
 			}
 		}()
-		go func() { defer wg.Done(); msg.quick, _ = c.QuickFilters(ctx, board.ID) }()
+		go func() { defer wg.Done(); msg.quick, msg.quickErr = c.QuickFilters(ctx, board.ID) }()
 		go func() { defer wg.Done(); msg.statusNames, _ = c.StatusNames(ctx) }()
 		wg.Wait()
 		if err := firstErr(cfgErr, sprintsErr); err != nil {
@@ -665,6 +666,13 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
 	if msg.cached || msg.err != nil {
 		return m, nil
+	}
+	if msg.quickErr != nil {
+		warn := "quick filters: " + msg.quickErr.Error()
+		if len(msg.quickOn) > 0 {
+			warn += " · the board shows unfiltered, " + helpKey(m.keys.Refresh) + " retries"
+		}
+		m.fail(warn)
 	}
 	t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(t.viewIdx)
 	return m, m.runRules(msg.cards)
