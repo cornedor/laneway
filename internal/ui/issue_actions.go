@@ -40,6 +40,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "link", label: "Link to another issue"},
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "type", label: "Change the issue type"},
+		jiraPickerItem{id: "move", label: "Move to another project"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
 		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
 		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
@@ -112,6 +113,20 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 				items = append(items, jiraPickerItem{id: t.ID, label: jiraTypeIcon(t.Name) + " " + t.Name, value: t.Name})
 			}
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickChangeType, items: items, err: err}
+		}
+	case "move":
+		gen := m.startJiraPicker(jiraPickMoveProject, "Move "+key+" to", true)
+		m.jiraPicker.issueKey = key
+		seq, from := m.jiraPicker.fetchSeq, issueProject(key)
+		return func() tea.Msg {
+			ps, err := c.Projects(ctx) // the ones you can create in
+			var items []jiraPickerItem
+			for _, p := range ps {
+				if p.Key != from {
+					items = append(items, jiraPickerItem{id: p.Key, label: p.Key + "  " + p.Name})
+				}
+			}
+			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickMoveProject, items: items, err: err}
 		}
 	case "clone":
 		m.status = "cloning " + key + "…"
@@ -205,6 +220,59 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+// openMoveTypes asks which of project's issue types key becomes, its own
+// first.
+func (m *Model) openMoveTypes(key, project string) tea.Cmd {
+	if m.jiraIssue == nil || m.jiraIssue.Key != key {
+		return nil
+	}
+	current := m.jiraIssue.Type
+	gen := m.startJiraPicker(jiraPickMoveType, "Move "+key+" to "+project+" as", false)
+	m.jiraPicker.issueKey = key
+	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
+	return func() tea.Msg {
+		types, err := c.MoveTypes(ctx, issueProject(key), current, project)
+		var items []jiraPickerItem
+		for _, t := range types {
+			items = append(items, jiraPickerItem{id: project + "," + t.ID, label: jiraTypeIcon(t.Name) + " " + t.Name,
+				focus: strings.EqualFold(t.Name, current)})
+		}
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickMoveType, items: items, err: err}
+	}
+}
+
+// jiraRelocatedMsg is key moved to another project, now next.
+type jiraRelocatedMsg struct {
+	key, next string
+	err       error
+}
+
+// moveIssue moves key to the picked project and type.
+func (m *Model) moveIssue(key string, it jiraPickerItem) tea.Cmd {
+	project, typeID, _ := strings.Cut(it.id, ",")
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "moving " + key + " to " + project + "…"
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(2*time.Minute))
+		defer cancel()
+		next, err := c.MoveIssue(ctx, key, project, typeID)
+		return jiraRelocatedMsg{key: key, next: next, err: err}
+	}
+}
+
+// handleJiraRelocated opens the moved issue under its new key.
+func (m Model) handleJiraRelocated(msg jiraRelocatedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail(msg.key + " not moved: " + msg.err.Error())
+		return m, nil
+	}
+	board := m.refreshJiraAfterEdit()
+	out, cmd := m.openJiraKey(msg.next)
+	m = out.(Model)
+	m.status = "moved " + msg.key + " to " + msg.next
+	return m, tea.Batch(cmd, board)
 }
 
 // openLinkTarget asks which issue the picked link goes to.

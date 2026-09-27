@@ -305,3 +305,35 @@ func TestChangeType(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+// TestMoveToProject: A → move lists the other projects, then the target's
+// types with the issue's own first; the moved issue opens under its new key.
+func TestMoveToProject(t *testing.T) {
+	m, _ := actionsModel(t, map[string]string{
+		"/rest/api/3/project/search":                  `{"values":[{"key":"ABC","name":"Alpha"},{"key":"XYZ","name":"Xylo"}]}`,
+		"/rest/api/3/issue/createmeta/ABC/issuetypes": `{"issueTypes":[{"id":"1","name":"Task"}]}`,
+		"/rest/api/3/issue/createmeta/XYZ/issuetypes": `{"issueTypes":[{"id":"7","name":"Bug"},{"id":"8","name":"Task"}]}`,
+	})
+	m.jiraIssue.Type = "Task"
+	m, cmd := pickAction(t, m, "move")
+	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].id != "XYZ" {
+		t.Fatalf("projects = %+v", m.jiraPicker.items)
+	}
+	out, cmd = m.applyJiraPick()
+	m = out.(Model)
+	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if it := m.jiraPicker.items[m.jiraPicker.idx]; it.id != "XYZ,8" {
+		t.Fatalf("cursor on %+v, want the Task type", it)
+	}
+	out, cmd = m.applyJiraPick()
+	if m = out.(Model); cmd == nil || !strings.Contains(m.status, "moving ABC-1 to XYZ") {
+		t.Fatalf("status %q", m.status)
+	}
+	out, _ = m.handleJiraRelocated(jiraRelocatedMsg{key: "ABC-1", next: "XYZ-5"})
+	if m = out.(Model); m.status != "moved ABC-1 to XYZ-5" || m.refs[m.refIdx].jiraKey != "XYZ-5" {
+		t.Errorf("status %q, panel on %q", m.status, m.refs[m.refIdx].jiraKey)
+	}
+}

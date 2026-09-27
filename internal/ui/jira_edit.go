@@ -99,6 +99,10 @@ const (
 	jiraPickDeleteComment
 	// jiraPickChangeType picks the issue's new type (issue_actions.go).
 	jiraPickChangeType
+	// jiraPickMoveProject and jiraPickMoveType pick where the issue moves
+	// to (issue_actions.go).
+	jiraPickMoveProject
+	jiraPickMoveType
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -538,7 +542,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink ||
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
 			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
@@ -721,6 +725,16 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
 		m.status = "deleting the comment…"
 		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+	}
+	if kind == jiraPickMoveProject {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		return m, m.openMoveTypes(key, it.id)
+	}
+	if kind == jiraPickMoveType {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		return m, m.moveIssue(key, it)
 	}
 	if kind == jiraPickChangeType {
 		key := m.jiraPicker.issueKey

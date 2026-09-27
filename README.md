@@ -273,7 +273,7 @@ Panel:
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels · `a` assignee
 - talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
-- more: `A` subtask / link / unlink / clone / change type / edit or delete your comment / watch / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
+- more: `A` subtask / link / unlink / clone / change type / move to another project / edit or delete your comment / watch / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →, or click either half or the wheel; a click below goes back)
 - mouse: drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
