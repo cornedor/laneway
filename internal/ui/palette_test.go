@@ -244,3 +244,11 @@ func TestPaletteScreens(t *testing.T) {
 		}
 	}
 }
+
+// TestPaletteAliases: an action is found by its aliases, which stay hidden.
+func TestPaletteAliases(t *testing.T) {
+	m := typePalette(t, jiraTabModel(t), "create issue")
+	if got := paletteLabels(m); len(got) == 0 || !strings.HasPrefix(got[0], "new issue") || strings.Contains(got[0], "create") {
+		t.Errorf("create issue = %q", got)
+	}
+}

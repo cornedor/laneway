@@ -108,6 +108,7 @@ type jiraPickerItem struct {
 	current bool
 	value   string // what an edit of the row starts from (a worklog's "1h fix")
 	focus   bool   // the cursor starts here rather than on the current row
+	search  string // more words the filter matches, never shown
 }
 
 // jiraPickerState is the modal list picker reused for the three list-style
@@ -426,7 +427,7 @@ func (m *Model) filterJiraPicker() {
 	terms := strings.Fields(strings.ToLower(m.jiraPicker.filter.Value()))
 	m.jiraPicker.items = nil
 	for _, it := range m.jiraPicker.all {
-		label := strings.ToLower(it.label)
+		label := strings.ToLower(it.label + " " + it.search)
 		if !slices.ContainsFunc(terms, func(t string) bool { return !strings.Contains(label, t) }) {
 			m.jiraPicker.items = append(m.jiraPicker.items, it)
 		}

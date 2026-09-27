@@ -25,6 +25,27 @@ var paletteSkip = map[string]bool{
 	"page_up": true, "page_down": true, "palette": true,
 }
 
+// paletteAliases are words an action is found by besides its description.
+var paletteAliases = map[string]string{
+	"create":      "create add issue",
+	"status":      "transition move",
+	"move_left":   "transition status",
+	"move_right":  "transition status",
+	"quick_edit":  "transition status assign",
+	"assign":      "owner assignee",
+	"comment":     "reply",
+	"reply":       "comment",
+	"log_work":    "time worklog",
+	"timer":       "time worklog",
+	"timesheet":   "time worklog",
+	"browser":     "web url",
+	"copy_url":    "link web",
+	"search":      "find filter",
+	"goto":        "open find",
+	"points":      "estimate",
+	"move_sprint": "backlog",
+}
+
 // paletteDesc renames actions whose board description is wrong on a
 // screen over the board.
 var paletteDesc = map[string]map[string]string{
@@ -68,7 +89,7 @@ func (m *Model) openPalette() {
 			if d, ok := paletteDesc[scope][name]; ok {
 				desc = d
 			}
-			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: desc + "  " + keysLabel(*b)})
+			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: desc + "  " + keysLabel(*b), search: paletteAliases[name]})
 		}
 	}
 	if scope == "board" {
