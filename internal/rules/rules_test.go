@@ -92,6 +92,23 @@ func TestNestedNot(t *testing.T) {
 	}
 }
 
+// TestGlobAcrossSlash: `*` matches the whole value, slashes included.
+func TestGlobAcrossSlash(t *testing.T) {
+	s, _ := compileYAML(t, `
+- match: {status: "waiting*", assignee: "*"}
+  actions: [{type: log}]
+`)
+	for c, want := range map[jira.Card]int{
+		card("A-1", "Waiting / customer", "Ada / QA"): 1,
+		card("A-2", "Waiting", "Ada"):                 1,
+		card("A-3", "In / waiting", "Ada"):            0,
+	} {
+		if got := len(s.Fire(Event{Kind: New, Card: c})); got != want {
+			t.Errorf("%s %q fired %d, want %d", c.Key, c.Status, got, want)
+		}
+	}
+}
+
 func TestCompileWarns(t *testing.T) {
 	s, warn := compileYAML(t, `
 - {name: a, on: moved, actions: [{type: log}]}

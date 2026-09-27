@@ -256,7 +256,7 @@ func compileMatch(m *Match) (*cmatch, error) {
 	}
 	for _, globs := range [][]string{m.Key, m.Type, m.Status, m.FromStatus, m.Assignee, m.Priority} {
 		for _, g := range globs {
-			if _, err := path.Match(strings.ToLower(g), ""); err != nil {
+			if _, err := globMatch(g, ""); err != nil {
 				return nil, fmt.Errorf("bad glob %q", g)
 			}
 		}
@@ -425,13 +425,19 @@ func (m *cmatch) why(ev Event) string {
 }
 
 func anyGlob(globs []string, v string) bool {
-	v = strings.ToLower(v)
 	for _, g := range globs {
-		if ok, _ := path.Match(strings.ToLower(g), v); ok {
+		if ok, _ := globMatch(g, v); ok {
 			return true
 		}
 	}
 	return false
+}
+
+// globMatch is path.Match over the whole string, case-insensitive: `*` and `?`
+// match `/` too, as in "Waiting / customer".
+func globMatch(g, v string) (bool, error) {
+	slash := strings.NewReplacer("/", "\x00")
+	return path.Match(slash.Replace(strings.ToLower(g)), slash.Replace(strings.ToLower(v)))
 }
 
 var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
