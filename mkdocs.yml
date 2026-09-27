@@ -1,0 +1,46 @@
+site_name: laneway
+site_description: A terminal board for Jira
+repo_url: https://github.com/cornedor/laneway
+repo_name: cornedor/laneway
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.footer
+    - navigation.sections
+    - search.suggest
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle: {icon: material/weather-sunny, name: Light mode}
+
+plugins:
+  - search
+  - include-markdown
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Guide:
+      - guide/README.md
+      - guide/01-first-run.md
+      - guide/02-board-and-panel.md
+      - guide/03-editing-and-moving.md
+      - guide/04-planning-and-time.md
+      - guide/05-rules-jql-keys-themes.md
+  - Reference: reference.md

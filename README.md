@@ -24,7 +24,8 @@ comment thread.
 
 ![An issue in the panel beside the board](docs/screenshots/panel.png)
 
-New here? The [guide](docs/guide/README.md) walks you through it step by step.
+New here? The [guide](https://cornedor.github.io/laneway/guide/) walks you through it step by step
+([source](docs/guide/README.md)).
 
 ## Install
 

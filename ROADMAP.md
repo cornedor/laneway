@@ -10,6 +10,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The docs are a website: MkDocs Material (`mkdocs.yml`, `docs/`), home, the guide and a reference page drawn from the README; `.github/workflows/docs.yml` builds it strictly and deploys to GitHub Pages
 - A step-by-step guide (`docs/guide/`, linked from the README): a start page with spoilers, then five chapters from first run through the board and panel, editing and moving, planning and your time, to rules, JQL, keys and themes, each with tips, try-its and a recap
 - Inbox, standup and timesheet: enter on a day heading or an empty row says there is no issue there and keeps the list open (it closed it)
 - Board: `b` with no boards, `a` and `m` before the board loaded say why nothing happened (still loading, no boards in the project, `r` retries)

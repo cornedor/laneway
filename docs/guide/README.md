@@ -37,5 +37,5 @@ By the last chapter you will:
 > **Tip:** you can't break anything by reading. laneway only writes to Jira
 > when you move a card, edit a field or comment, so poke around freely.
 
-Looking for one key or option? The [README](../../README.md) lists them all,
+Looking for one key or option? The [reference](../reference.md) lists them all,
 and `?` inside laneway shows every key as it is bound.

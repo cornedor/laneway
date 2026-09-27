@@ -134,8 +134,8 @@ Font glyphs, `ui.icons: plain` draws issue types as letters.
 You've seen it all. From here:
 
 - `?` in any screen for its keys, `:` for anything you can't find.
-- The [README](../../README.md) for every option, search term and key.
-- [ROADMAP.md](../../ROADMAP.md) for what's coming, and what just landed.
+- The [reference](../reference.md) for every option, search term and key.
+- [the roadmap](https://github.com/cornedor/laneway/blob/main/ROADMAP.md) for what's coming, and what just landed.
 
 Previous: [Planning, roadmap, charts and your time](04-planning-and-time.md) ·
 Back to the [start](README.md)
