@@ -492,6 +492,14 @@ func (c *Client) do(ctx context.Context, method, path, what string, body, out an
 	return nil
 }
 
+// ErrNotFound is a 404, for errors.Is.
+var ErrNotFound = errors.New("jira: not found")
+
+type notFound struct{ what string }
+
+func (e notFound) Error() string   { return fmt.Sprintf("jira: %s not found (or no access)", e.what) }
+func (e notFound) Is(t error) bool { return t == ErrNotFound }
+
 // statusError turns a non-2xx into a message the panel can show, saying
 // what to do where a user can: sign in, ask for permission, wait, raise a
 // limit. what labels the request (an issue key, or e.g. "priorities");
@@ -507,7 +515,7 @@ func statusError(code int, what string, body []byte, retryAfter string) error {
 		}
 		return fmt.Errorf("jira: no permission for %s · ask a Jira admin, or check the api_token", what)
 	case http.StatusNotFound:
-		return fmt.Errorf("jira: %s not found (or no access)", what)
+		return notFound{what}
 	case http.StatusTooManyRequests:
 		if retryAfter != "" {
 			return fmt.Errorf("jira: rate-limited on %s · retry in %ss", what, retryAfter)
@@ -748,6 +756,36 @@ func (c *Client) Transitions(ctx context.Context, key string) ([]Option, error) 
 		out = append(out, Option{ID: t.ID, Name: name, StatusID: t.To.ID})
 	}
 	return out, nil
+}
+
+// StartTransition is the first transition from key's status to one in
+// progress (Jira's indeterminate category); false when there is none.
+func (c *Client) StartTransition(ctx context.Context, key string) (Option, bool, error) {
+	if !c.Enabled() {
+		return Option{}, false, errNotConfigured
+	}
+	var resp struct {
+		Transitions []struct {
+			ID string `json:"id"`
+			To struct {
+				ID       string `json:"id"`
+				Name     string `json:"name"`
+				Category struct {
+					Key string `json:"key"`
+				} `json:"statusCategory"`
+			} `json:"to"`
+		} `json:"transitions"`
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/transitions"
+	if err := c.do(ctx, http.MethodGet, path, key, nil, &resp); err != nil {
+		return Option{}, false, err
+	}
+	for _, t := range resp.Transitions {
+		if t.To.Category.Key == "indeterminate" {
+			return Option{ID: t.ID, Name: t.To.Name, StatusID: t.To.ID}, true, nil
+		}
+	}
+	return Option{}, false, nil
 }
 
 // DoTransition moves the issue along the given transition, then invalidates the

@@ -26,7 +26,7 @@ type Prompt struct {
 
 // ReadPrompt fills a Prompt from st and the working directory's branch.
 func ReadPrompt(st *store.Store, now time.Time) Prompt {
-	p := Prompt{Key: branchKey(headBranch())}
+	p := Prompt{Key: BranchIssue()}
 	if v, ok, _ := st.GetMeta(timerMeta); ok {
 		key, unix, _ := strings.Cut(v, " ")
 		if sec, err := strconv.ParseInt(unix, 10, 64); key != "" && err == nil {
@@ -41,6 +41,12 @@ func ReadPrompt(st *store.Store, now time.Time) Prompt {
 		p.Status = cachedStatus(st, p.Key)
 	}
 	return p
+}
+
+// BranchIssue is the issue key the working directory's git branch names,
+// "" for none.
+func BranchIssue() string {
+	return branchKey(headBranch())
 }
 
 // headBranch is the working directory's branch read from .git/HEAD, which

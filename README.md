@@ -416,6 +416,17 @@ when = true
 set -g status-right '#(laneway prompt -format "{{.Key}} {{.Timer}}")'
 ```
 
+## Git hooks
+
+`laneway hook install` (in a repository) adds two hooks. `commit-msg`
+puts the branch's key before a message that names no issue
+(`issue/ABC-12-fix`: `fix it` → `ABC-12 fix it`) and refuses the commit
+when the branch names none either; merges, reverts and fixups pass.
+With `-strict` it also refuses keys Jira doesn't know. `post-checkout`,
+on checking out an issue's branch while it's still to do, asks
+`move ABC-12 (To Do) to In Progress? [y/N]`. A hook that isn't laneway's
+is kept unless `-force`; the hooks do nothing where laneway isn't installed.
+
 ## Planning
 
 ![The backlog beside the next sprint](docs/screenshots/planning.png)

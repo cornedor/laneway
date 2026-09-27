@@ -40,7 +40,7 @@ func main() {
 	}
 }
 
-// subcommand runs rules, setup or prompt, handing on the global -config and -site
+// subcommand runs rules, setup, prompt or hook, handing on the global -config and -site
 // given before it.
 func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int {
 	var global []string
@@ -63,8 +63,16 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 			global = append(global, "-site", site)
 		}
 		return promptCmd(append(global, args[1:]...), out, errOut)
+	case "hook":
+		if len(args) < 2 {
+			return hookCmd(nil, out, errOut)
+		}
+		if site != "" {
+			global = append(global, "-site", site)
+		}
+		return hookCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
 	}
-	fmt.Fprintf(errOut, "laneway: unknown command %q (rules, setup, prompt)\n", args[0])
+	fmt.Fprintf(errOut, "laneway: unknown command %q (rules, setup, prompt, hook)\n", args[0])
 	return 2
 }
 
