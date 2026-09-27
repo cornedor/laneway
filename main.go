@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,12 +23,6 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "rules" {
-		os.Exit(rulesCmd(os.Args[2:], os.Stdout, os.Stderr))
-	}
-	if len(os.Args) > 1 && os.Args[1] == "setup" {
-		os.Exit(setupCmd(os.Args[2:], os.Stderr))
-	}
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
 	site := flag.String("site", "", "Jira site from the config's sites: (default the one last picked with @, else jira:)")
@@ -36,10 +31,36 @@ func main() {
 		fmt.Println("laneway", version)
 		return
 	}
+	if flag.NArg() > 0 {
+		os.Exit(subcommand(flag.Args(), *cfgPath, *site, os.Stdout, os.Stderr))
+	}
 	if err := run(*cfgPath, *site); err != nil {
 		fmt.Fprintln(os.Stderr, "laneway:", err)
 		os.Exit(1)
 	}
+}
+
+// subcommand runs rules or setup, handing on the global -config and -site
+// given before it.
+func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int {
+	var global []string
+	if cfgPath != "" {
+		global = append(global, "-config", cfgPath)
+	}
+	switch args[0] {
+	case "rules":
+		if len(args) > 1 && site != "" {
+			global = append(global, "-site", site)
+		}
+		if len(args) > 1 {
+			return rulesCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
+		}
+		return rulesCmd(nil, out, errOut)
+	case "setup":
+		return setupCmd(append(global, args[1:]...), errOut)
+	}
+	fmt.Fprintf(errOut, "laneway: unknown command %q (rules, setup)\n", args[0])
+	return 2
 }
 
 func run(cfgPath, site string) error {
