@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -230,6 +231,22 @@ func TestQuickEdit(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 	if len(m.jiraTab.marked) != 2 || m.quickKey != "" {
+		t.Errorf("marks %v, quick %q", m.jiraTab.marked, m.quickKey)
+	}
+}
+
+// TestBulkDoneDuringQuickEdit: a bulk reply landing while a quick edit is
+// open is the bulk's: marks settle and the quick edit keeps its one card.
+func TestBulkDoneDuringQuickEdit(t *testing.T) {
+	m, _ := bulkModel(t) // ABC-1 and ABC-3 marked
+	m.quickKey = ""
+	cmd := m.runBulk("points", m.markedKeys(), func(context.Context, string) error { return nil })
+	m.selectJiraKey("ABC-2")
+	out, _ := m.handleJiraKey(keyMsg(t, "e"))
+	m = out.(Model)
+	out, _ = m.handleBulkDone(cmd().(bulkDoneMsg))
+	m = out.(Model)
+	if len(m.jiraTab.marked) != 0 || m.quickKey != "ABC-2" || !slices.Equal(m.markedKeys(), []string{"ABC-2"}) {
 		t.Errorf("marks %v, quick %q", m.jiraTab.marked, m.quickKey)
 	}
 }

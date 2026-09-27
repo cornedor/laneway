@@ -21,10 +21,12 @@ import (
 // their marks.
 
 // bulkDoneMsg is a bulk edit answered: what changed and which keys failed.
+// quick is a quick edit's (e), which leaves the marks alone.
 type bulkDoneMsg struct {
 	what   string
 	keys   []string
 	failed map[string]error
+	quick  bool
 }
 
 // toggleJiraMark marks or unmarks the selected card and steps down.
@@ -336,7 +338,7 @@ const bulkWorkers = 4
 // runBulk runs write for every key, a few at a time.
 func (m *Model) runBulk(what string, keys []string, write func(ctx context.Context, key string) error) tea.Cmd {
 	m.status = fmt.Sprintf("updating %s on %d issues…", what, len(keys))
-	ctx := m.ctx
+	ctx, quick := m.ctx, m.quickKey != ""
 	return func() tea.Msg {
 		failed := map[string]error{}
 		var mu sync.Mutex
@@ -355,7 +357,7 @@ func (m *Model) runBulk(what string, keys []string, write func(ctx context.Conte
 			}()
 		}
 		wg.Wait()
-		return bulkDoneMsg{what: what, keys: keys, failed: failed}
+		return bulkDoneMsg{what: what, keys: keys, failed: failed, quick: quick}
 	}
 }
 
@@ -363,9 +365,12 @@ func (m *Model) runBulk(what string, keys []string, write func(ctx context.Conte
 // refetches the board (and the panel's issue when it was one of them).
 func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
-	if m.quickKey != "" {
-		// A quick edit leaves the marks alone.
-		m.quickKey = ""
+	if msg.quick {
+		// A quick edit leaves the marks alone; one opened since on another
+		// card stays open.
+		if m.quickKey == msg.keys[0] {
+			m.quickKey = ""
+		}
 		m.status = msg.what + " set on " + strings.Join(msg.keys, ", ")
 		for k, err := range msg.failed {
 			m.fail(k + ": " + msg.what + ": " + err.Error())
