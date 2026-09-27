@@ -450,7 +450,10 @@ the day you type, `+2w` by default), or moves an active one's end; `R`
 renames it; `C` twice completes the active one,
 moving its unfinished issues (not in the board's last column) to the next
 planned sprint, else the backlog. `N` creates a sprint, named on from the
-last one; `E` edits the goal of the one on the right. Changes show at once and are written behind;
+last one; `E` edits the goal of the one on the right. `/` filters both
+sides by words in the key, summary, assignee, status or labels (`esc`
+clears it); `e` quick edits the selected card (points, status, assignee…),
+`B` the marked ones; `u` takes the last move across back. Changes show at once and are written behind;
 a failed write reloads both sides.
 
 ## Charts

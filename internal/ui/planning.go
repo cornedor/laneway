@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -37,6 +38,47 @@ type planState struct {
 	// closing is set by a first C: a second completes the active sprint.
 	closing bool
 	drag    planDrag
+	// filter narrows both sides to the cards it matches (/); find is its
+	// input while typed.
+	filter  string
+	find    textinput.Model
+	finding bool
+	// undo is the last move across, for u to take back.
+	undo *planUndo
+}
+
+// planUndo is a move across: the cards, the side they went to and the
+// sprint they went into or out of.
+type planUndo struct {
+	keys   []string
+	to     int
+	target int
+}
+
+// view is side's cards the filter lets through, all without one.
+func (p *planState) view(side int) []jira.Card {
+	if p.filter == "" {
+		return p.sides[side]
+	}
+	var out []jira.Card
+	for _, c := range p.sides[side] {
+		if planMatch(c, p.filter) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// planMatch reports whether every word of filter is in the card's key,
+// summary, assignee, status or labels.
+func planMatch(c jira.Card, filter string) bool {
+	hay := strings.ToLower(strings.Join([]string{c.Key, c.Summary, c.Assignee, c.Status, c.Labels}, " "))
+	for _, w := range strings.Fields(strings.ToLower(filter)) {
+		if !strings.Contains(hay, w) {
+			return false
+		}
+	}
+	return true
 }
 
 // planDrag is a card held by the mouse: armed on the press, active once
@@ -124,7 +166,7 @@ func (m Model) handlePlan(msg planMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	for s := range p.sides {
-		p.idx[s] = min(p.idx[s], max(len(p.sides[s])-1, 0))
+		p.idx[s] = min(p.idx[s], max(len(p.view(s))-1, 0))
 	}
 	return m, nil
 }
@@ -143,7 +185,7 @@ func (m Model) handlePlanWrote(msg planWroteMsg) (tea.Model, tea.Cmd) {
 
 // planCard is the selected card of the active side.
 func (p *planState) planCard() (jira.Card, bool) {
-	s := p.sides[p.side]
+	s := p.view(p.side)
 	if i := p.idx[p.side]; i < len(s) {
 		return s[i], true
 	}
@@ -152,13 +194,19 @@ func (p *planState) planCard() (jira.Card, bool) {
 
 func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t, p := m.jiraTab, m.jiraTab.plan
-	n := len(p.sides[p.side])
+	if p.finding {
+		return m.handlePlanFindKey(msg)
+	}
+	n := len(p.view(p.side))
 	if !key.Matches(msg, m.keys.PlanComplete) {
 		p.closing = false // a completion is confirmed by the very next key only
 	}
 	switch {
 	case msg.String() == "ctrl+c":
 		return m.quit()
+	case msg.String() == "esc" && p.filter != "":
+		p.filter, p.idx = "", [2]int{}
+		m.status = "filter cleared"
 	case msg.String() == "esc", key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Plan): // q closes, as on every screen over the board
 		t.plan = nil
 		m.renderJira()
@@ -244,6 +292,23 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.PlanComplete):
 		return m, m.planClose()
+	case key.Matches(msg, m.keys.Search):
+		p.find = textinput.New()
+		p.find.Prompt = "/"
+		p.find.Placeholder = "words in the key, summary, assignee, status or labels"
+		p.find.SetWidth(40)
+		p.find.SetValue(p.filter)
+		p.find.CursorEnd()
+		p.find.Focus()
+		p.finding = true
+	case key.Matches(msg, m.keys.QuickEdit):
+		if c, ok := p.planCard(); ok {
+			m.openQuickEditKey(c.Key)
+		}
+	case key.Matches(msg, m.keys.Bulk):
+		m.openBulkMenu()
+	case key.Matches(msg, m.keys.Undo):
+		return m, m.planUndo()
 	case key.Matches(msg, m.keys.RankUp):
 		return m, m.planRank(-1)
 	case key.Matches(msg, m.keys.RankDown):
@@ -302,7 +367,8 @@ func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 		delete(t.marked, c.Key)
 	}
 	p.sides[from] = staying
-	p.idx[from] = min(p.idx[from], max(len(staying)-1, 0))
+	p.idx[from] = min(p.idx[from], max(len(p.view(from))-1, 0))
+	p.undo = &planUndo{keys: keys, to: to, target: p.target}
 	what := strings.Join(keys, ", ")
 	client, ctx, sprint := m.jiraClient, m.ctx, p.sprints[p.target]
 	if to == 1 {
@@ -313,6 +379,45 @@ func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 	p.sides[0] = append(slices.Clone(moving), p.sides[0]...)
 	m.status = "moving " + what + " to the backlog…"
 	return planWrite(what+" → backlog", func() error { return client.MoveToBacklog(ctx, keys...) })
+}
+
+// planUndo takes the last move across back.
+func (m *Model) planUndo() tea.Cmd {
+	p := m.jiraTab.plan
+	u := p.undo
+	switch {
+	case u == nil:
+		m.status = "nothing to undo"
+		return nil
+	case u.target != p.target:
+		m.status = "the last move was on " + p.sprints[u.target].name + " · " + helpKey(m.keys.PrevView) + " " + helpKey(m.keys.NextView) + " goes back to it"
+		return nil
+	}
+	p.side = u.to
+	return m.planMoveOf(func(c jira.Card) bool { return slices.Contains(u.keys, c.Key) })
+}
+
+// handlePlanFindKey types the filter, narrowing the sides as it goes;
+// enter keeps it, esc drops it.
+func (m Model) handlePlanFindKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	p := m.jiraTab.plan
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "esc":
+		p.finding, p.filter = false, ""
+		p.idx = [2]int{}
+		return m, nil
+	case "enter":
+		p.finding = false
+		return m, nil
+	}
+	var cmd tea.Cmd
+	p.find, cmd = p.find.Update(msg)
+	if v := p.find.Value(); v != p.filter {
+		p.filter, p.idx, p.top = v, [2]int{}, [2]int{}
+	}
+	return m, cmd
 }
 
 // planStart asks when the target sprint ends, to start it now.
@@ -530,6 +635,10 @@ func (m Model) handlePlanSprint(msg planSprintMsg) (tea.Model, tea.Cmd) {
 // before (up) or after (down) that neighbour.
 func (m *Model) planRank(d int) tea.Cmd {
 	p := m.jiraTab.plan
+	if p.filter != "" {
+		m.status = "ranking needs every card: esc clears the filter"
+		return nil
+	}
 	s, i := p.sides[p.side], p.idx[p.side]
 	j := i + d
 	if i >= len(s) || j < 0 || j >= len(s) {
@@ -572,7 +681,7 @@ func (m *Model) renderPlan(width, height int) string {
 // sprint) and its rows, windowed around the cursor.
 func (m *Model) renderPlanSide(side int, name string, width, height int) string {
 	p := m.jiraTab.plan
-	cards := p.sides[side]
+	cards := p.view(side)
 	pts, _ := planPoints(cards)
 	unpointed := 0
 	for _, c := range cards {
@@ -594,7 +703,11 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	if p.drag.active && p.drag.over == side && side != p.drag.side {
 		headStyle, drop = jiraViewActive, "  ◂ drop"
 	}
-	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %d cards · %s%s", name, len(cards), pts, drop), width, "…"))}
+	count := fmt.Sprintf("%d cards", len(cards))
+	if p.filter != "" {
+		count = fmt.Sprintf("%d of %d cards", len(cards), len(p.sides[side]))
+	}
+	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %s · %s%s", name, count, pts, drop), width, "…"))}
 	if side == 1 {
 		lines = append(lines, ansi.Truncate(planByAssignee(cards, m.opts.capacity), width, "…"))
 	} else {
@@ -630,7 +743,9 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	if e := p.sideErr[side]; e != "" {
 		lines = append(lines, "", refErrStyle.Render(ansi.Truncate(e, width, "…")), refDimStyle.Render(helpKey(m.keys.Refresh)+" retries"))
 	}
-	if len(cards) == 0 && p.sides[side] != nil {
+	if len(cards) == 0 && p.filter != "" && len(p.sides[side]) > 0 {
+		lines = append(lines, "", refDimStyle.Render(ansi.Truncate("none match the filter · esc clears it", width, "…")))
+	} else if len(cards) == 0 && p.sides[side] != nil {
 		hint := "empty · " + helpKey(m.keys.MoveSprint) + " or space on the other side moves cards here"
 		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(hint, width, "…")))
 	}

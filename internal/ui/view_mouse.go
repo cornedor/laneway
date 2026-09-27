@@ -173,14 +173,14 @@ func (m Model) clickPlan(x, y, count int) (tea.Model, tea.Cmd) {
 	case line >= 0 && line < 2: // its head focuses the side
 		p.side = side
 		return m, nil
-	case line < 2 || i >= len(p.sides[side]):
+	case line < 2 || i >= len(p.view(side)):
 		return m, nil
 	}
 	p.side, p.idx[side] = side, i
 	if count == 2 {
-		return m.openJiraKey(p.sides[side][i].Key)
+		return m.openJiraKey(p.view(side)[i].Key)
 	}
-	p.drag = planDrag{key: p.sides[side][i].Key, x: x, y: y, side: side, over: side, held: true}
+	p.drag = planDrag{key: p.view(side)[i].Key, x: x, y: y, side: side, over: side, held: true}
 	return m, nil
 }
 
@@ -227,6 +227,6 @@ func (m *Model) wheelView(x, d int) {
 		p := t.plan
 		side := m.planSideAt(x)
 		p.side = side
-		p.idx[side] = min(max(p.idx[side]+d, 0), max(len(p.sides[side])-1, 0))
+		p.idx[side] = min(max(p.idx[side]+d, 0), max(len(p.view(side))-1, 0))
 	}
 }

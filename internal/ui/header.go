@@ -357,6 +357,12 @@ func (m *Model) planSegs() []headSeg {
 	dim := jiraDimStyle.Render
 	k := m.keys
 	segs := []headSeg{plainSeg(jiraViewActive.Render("Planning") + dim("  backlog → ")), keySeg(dim(p.sprints[p.target].name), k.NextView)}
+	switch {
+	case p.finding:
+		segs = append(segs, plainSeg("  "+p.find.View()))
+	case p.filter != "":
+		segs = append(segs, plainSeg(dim("  /"+p.filter+" (esc clears)")))
+	}
 	if p.loading {
 		segs = append(segs, plainSeg(dim("  ·  loading…")))
 	}

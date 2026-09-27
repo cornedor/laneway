@@ -321,3 +321,76 @@ func TestPlanCopyFailedSide(t *testing.T) {
 		t.Errorf("status %q, cmd %v", m.status, cmd != nil)
 	}
 }
+
+// TestPlanFilter: / narrows both sides as it is typed, letters and all;
+// esc clears it.
+func TestPlanFilter(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	for _, k := range []string{"/", "s", "e", "q"} { // q types, it doesn't close
+		out, _ := m.Update(keyStr(k))
+		m = out.(Model)
+	}
+	p := m.jiraTab.plan
+	if !p.finding || p.filter != "seq" {
+		t.Fatalf("finding %v, filter %q", p.finding, p.filter)
+	}
+	for _, k := range []string{"backspace", "backspace"} {
+		out, _ := m.Update(keyMsg(t, k))
+		m = out.(Model)
+	}
+	for _, k := range []string{"e", "v"} {
+		out, _ := m.Update(keyStr(k))
+		m = out.(Model)
+	}
+	out, _ := m.Update(keyMsg(t, "enter"))
+	m = out.(Model)
+	if p.finding || len(p.view(0)) != 1 || p.view(0)[0].Key != "ABC-7" || len(p.view(1)) != 0 {
+		t.Fatalf("filter %q: %v / %v", p.filter, p.view(0), p.view(1))
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Backlog  1 of 2 cards") || !strings.Contains(view, "none match the filter") {
+		t.Errorf("filtered view:\n%s", view)
+	}
+	if _, cmd := m.handleJiraKey(keyMsg(t, "K")); cmd != nil {
+		t.Error("ranking a filtered side should wait")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "esc"))
+	if m = out.(Model); m.jiraTab.plan == nil || p.filter != "" {
+		t.Error("the first esc should clear the filter, not close planning")
+	}
+}
+
+// TestPlanQuickEditUndo: e edits the selected card; u takes the last move
+// back.
+func TestPlanQuickEditUndo(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	p := m.jiraTab.plan
+	out, _ := m.handleJiraKey(keyMsg(t, "e"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickBulk || m.quickKey != "ABC-7" {
+		t.Fatalf("e: picker %v kind %v key %q", m.jiraPicker.active, m.jiraPicker.kind, m.quickKey)
+	}
+	m.closeJiraPicker()
+	m.quickKey = ""
+	if _, cmd := m.handleJiraKey(keyMsg(t, "u")); cmd != nil {
+		t.Error("nothing to undo yet")
+	}
+	out, cmd := m.handleJiraKey(keyMsg(t, "space"))
+	m = out.(Model)
+	cmd()
+	p.side = 0
+	out, cmd = m.handleJiraKey(keyMsg(t, "u"))
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("u should move it back")
+	}
+	cmd()
+	if len(p.sides[0]) != 2 || p.sides[0][0].Key != "ABC-7" || len(p.sides[1]) != 2 {
+		t.Errorf("after undo: %v / %v", p.sides[0], p.sides[1])
+	}
+	if last := writes[len(writes)-1]; !strings.Contains(last, "/backlog/issue") || !strings.Contains(last, "ABC-7") {
+		t.Errorf("undo wrote %q", last)
+	}
+}

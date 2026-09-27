@@ -24,6 +24,9 @@ cards and points; the sprint also splits them per person.
 | `R` / `E` | rename it / edit its goal |
 | `C` twice | complete the active sprint; unfinished work moves to the next one |
 | `y` | copy the sprint as a markdown table |
+| `/` | filter both sides; `esc` clears it |
+| `e` / `B` | quick edit the card (points, status, assignee…) / the marked ones |
+| `u` | undo the last move across |
 
 With the mouse, drag a card to the other side. Changes show at once and are
 written behind.

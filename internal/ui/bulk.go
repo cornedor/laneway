@@ -133,12 +133,15 @@ func (m *Model) openBulkMenu() {
 // openQuickEdit edits the selected card from the board with the bulk
 // editors, without opening the panel.
 func (m *Model) openQuickEdit() {
-	c, ok := m.selectedJiraCard()
-	if !ok {
-		return
+	if c, ok := m.selectedJiraCard(); ok {
+		m.openQuickEditKey(c.Key)
 	}
-	m.quickKey = c.Key
-	m.startJiraPicker(jiraPickBulk, "Edit "+c.Key, false)
+}
+
+// openQuickEditKey edits key with the bulk editors.
+func (m *Model) openQuickEditKey(key string) {
+	m.quickKey = key
+	m.startJiraPicker(jiraPickBulk, "Edit "+key, false)
 	m.setJiraPickerItems(slices.Clone(bulkFields))
 }
 
@@ -381,6 +384,9 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 		if r := m.currentRef(); r != nil && slices.Contains(msg.keys, r.jiraKey) {
 			cmds = append(cmds, m.loadCurrentRef())
 		}
+		if t.plan != nil {
+			cmds = append(cmds, m.loadPlan())
+		}
 		return m, tea.Batch(cmds...)
 	}
 	t.marked = nil
@@ -408,6 +414,9 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 	cmds := []tea.Cmd{m.refreshJiraAfterEdit()}
 	if r := m.currentRef(); r != nil && slices.Contains(msg.keys, r.jiraKey) {
 		cmds = append(cmds, m.loadCurrentRef())
+	}
+	if t.plan != nil {
+		cmds = append(cmds, m.loadPlan())
 	}
 	m.renderJira()
 	return m, tea.Batch(cmds...)
