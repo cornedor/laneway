@@ -1526,3 +1526,22 @@ func TestQuickFiltersFailed(t *testing.T) {
 		t.Errorf("status %q", m.statusErr)
 	}
 }
+
+// TestBoardKeysWithoutBoard: b, a and m say why nothing happened.
+func TestBoardKeysWithoutBoard(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	m.jiraTab.project, m.jiraTab.loading = "ABC", true
+	m.openJiraAssigneeFilter()
+	if m.status != "the board is still loading" {
+		t.Errorf("a while loading: %q", m.status)
+	}
+	m.jiraTab.loading = false
+	m.openJiraBoardPicker()
+	if !strings.HasPrefix(m.status, "ABC has no boards") {
+		t.Errorf("b without boards: %q", m.status)
+	}
+	out, _ := m.handleJiraKey(keyStr("m"))
+	if m = out.(Model); !strings.HasPrefix(m.status, "no board loaded") {
+		t.Errorf("m without a board: %q", m.status)
+	}
+}

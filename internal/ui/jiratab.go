@@ -964,6 +964,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openJiraAssigneeFilter()
 	case key.Matches(msg, m.keys.Mine):
 		if t.cfg == nil {
+			m.status = m.noBoardYet()
 			break
 		}
 		if t.assignee.id == "me" {
@@ -1491,10 +1492,26 @@ func jiraProjectItems(ps []jira.Project, configured []string, cur string) []jira
 	return append(first, rest...)
 }
 
+// noBoardYet says why a key that needs the board did nothing.
+func (m *Model) noBoardYet() string {
+	if m.jiraTab.loading {
+		return "the board is still loading"
+	}
+	return "no board loaded · " + helpKey(m.keys.Refresh) + " retries"
+}
+
 // openJiraBoardPicker lists the project's boards.
 func (m *Model) openJiraBoardPicker() {
 	t := m.jiraTab
 	if len(t.boards) == 0 {
+		switch {
+		case t.loading:
+			m.status = "the boards are still loading"
+		case t.project != "":
+			m.status = t.project + " has no boards · " + helpKey(m.keys.Project) + " picks another project"
+		default:
+			m.status = helpKey(m.keys.Project) + " picks a project first"
+		}
 		return
 	}
 	m.startJiraPicker(jiraPickBoard, "Board — "+t.project, true)
@@ -1533,6 +1550,7 @@ func (m *Model) pickJiraBoard(kind jiraPickerKind, id string) tea.Cmd {
 func (m *Model) openJiraAssigneeFilter() {
 	t := m.jiraTab
 	if t.cfg == nil {
+		m.status = m.noBoardYet()
 		return
 	}
 	m.startJiraPicker(jiraPickBoardAssignee, "Assignee", true)

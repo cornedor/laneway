@@ -1,11 +1,11 @@
 # Roadmap
 
 ## Next
-- Board: `b` with no boards, `a` and `m` before the board loaded say why nothing happened
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Board: `b` with no boards, `a` and `m` before the board loaded say why nothing happened (still loading, no boards in the project, `r` retries)
 - An empty picker says "no matches" only when a filter matched nothing; the status picker with no transitions says so (the workflow, or your permissions), others "nothing here"
 - Panel: a long thread's comments load in full (paged, up to 1000), so the newest can be read and replied to; "…and N more" stays only when that fails
 - Quick filters load past 50; a failed load says so (and that the filters left on aren't applied) instead of quietly showing the board unfiltered
