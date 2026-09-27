@@ -183,3 +183,26 @@ func TestChartsPlanStaleAfterReopen(t *testing.T) {
 		m = out.(Model)
 	}
 }
+
+// TestCycleChart: the cycle tab plots resolved issues with their
+// percentiles, lists the slowest, and copies the numbers.
+func TestCycleChart(t *testing.T) {
+	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.Local)
+	day := 24 * time.Hour
+	issues := []jira.CycleIssue{
+		{Key: "ABC-1", Summary: "Quick", Resolved: now.Add(-20 * day), Cycle: day, Lead: 3 * day},
+		{Key: "ABC-2", Summary: "Slow", Resolved: now.Add(-5 * day), Cycle: 9 * day, Lead: 20 * day},
+		{Key: "ABC-3", Summary: "Never started", Resolved: now.Add(-2 * day), Lead: day},
+	}
+	out := ansi.Strip(renderCycle(issues, now, 100, 30))
+	for _, want := range []string{"3 resolved in 8 weeks", "50% within 1.0 days, 85% within 9.0", "●", "85%", "slowest", "ABC-2  9.0 days  Slow"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("no %q:\n%s", want, out)
+		}
+	}
+	m := jiraTabModel(t)
+	m.jiraTab.charts = &chartsState{tab: chartCycle, cycle: issues}
+	if tbl := m.chartTable(now); !strings.Contains(tbl, "| ABC-2 |") || !strings.Contains(tbl, "| 9.0 | 20.0 |") {
+		t.Errorf("table:\n%s", tbl)
+	}
+}

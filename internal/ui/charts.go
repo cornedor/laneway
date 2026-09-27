@@ -27,6 +27,7 @@ const (
 	chartBurnup
 	chartFlow
 	chartVelocity
+	chartCycle
 	chartTabs
 )
 
@@ -35,18 +36,22 @@ type chartsState struct {
 	sprint  *jiraView
 	burn    []jira.BurnIssue
 	vel     []jira.SprintVelocity
+	cycle   []jira.CycleIssue
 	loading bool
 	seq     int
 	// burnErr and velErr are why the sprint's issues or the velocity
 	// didn't load; the other half still shows.
 	burnErr, velErr string
+	cycleErr        string
 }
 
 type chartsMsg struct {
 	seq             int
 	burn            []jira.BurnIssue
 	vel             []jira.SprintVelocity
+	cycle           []jira.CycleIssue
 	burnErr, velErr error
+	cycleErr        error
 }
 
 // openCharts swaps the board for the charts of its active sprint.
@@ -75,7 +80,7 @@ func (m *Model) loadCharts() tea.Cmd {
 	t.chartsSeq++
 	ch.seq = t.chartsSeq
 	ch.loading = true
-	seq, ctx, c, board, pf, n := ch.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg.PointsField, m.opts.velocitySprints
+	seq, ctx, c, board, pf, n, project := ch.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg.PointsField, m.opts.velocitySprints, t.project
 	sprint := 0
 	if ch.sprint != nil {
 		sprint = ch.sprint.sprint
@@ -84,7 +89,8 @@ func (m *Model) loadCharts() tea.Cmd {
 		msg := chartsMsg{seq: seq}
 		var errB, errV error
 		var wg sync.WaitGroup
-		wg.Add(2)
+		wg.Add(3)
+		go func() { defer wg.Done(); msg.cycle, msg.cycleErr = c.CycleTimes(ctx, project, cycleWeeks) }()
 		go func() {
 			defer wg.Done()
 			if sprint != 0 {
@@ -117,6 +123,10 @@ func (m Model) handleCharts(msg chartsMsg) (tea.Model, tea.Cmd) {
 	if msg.velErr == nil {
 		ch.vel = msg.vel
 	}
+	ch.cycleErr = errText(msg.cycleErr)
+	if msg.cycleErr == nil {
+		ch.cycle = msg.cycle
+	}
 	return m, nil
 }
 
@@ -142,7 +152,8 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadCharts()
 	case key.Matches(msg, m.keys.CopyKey):
-		if ch.loading || ch.tab == chartVelocity && ch.velErr != "" || ch.tab != chartVelocity && ch.burnErr != "" {
+		if ch.loading || ch.tab == chartVelocity && ch.velErr != "" || ch.tab == chartCycle && ch.cycleErr != "" ||
+			ch.tab < chartVelocity && ch.burnErr != "" {
 			break
 		}
 		m.status = "copied the numbers as a markdown table"
@@ -154,7 +165,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // chartTabNames are the charts' tab labels, by tab.
-var chartTabNames = []string{"Burndown", "Burnup", "Flow", "Velocity"}
+var chartTabNames = []string{"Burndown", "Burnup", "Flow", "Velocity", "Cycle"}
 
 const chartTabSep = "  │  "
 
@@ -163,7 +174,7 @@ const chartTabSep = "  │  "
 func (ch *chartsState) chartTabsShown() []int {
 	var out []int
 	for i := range chartTabNames {
-		if i == chartVelocity || ch.sprint != nil || i == ch.tab {
+		if i == chartVelocity || i == chartCycle || ch.sprint != nil || i == ch.tab {
 			out = append(out, i)
 		}
 	}
@@ -177,7 +188,11 @@ func (m *Model) chartsLine() string { return joinSegs(m.chartsSegs()) }
 func (m *Model) renderCharts(width, height int) string {
 	ch := m.jiraTab.charts
 	failed := ch.velErr
-	if ch.tab != chartVelocity {
+	switch ch.tab {
+	case chartVelocity:
+	case chartCycle:
+		failed = ch.cycleErr
+	default:
 		failed = ch.burnErr
 	}
 	switch {
@@ -192,6 +207,9 @@ func (m *Model) renderCharts(width, height int) string {
 		return renderBurnup(*ch.sprint, ch.burn, time.Now(), width, height)
 	case ch.tab == chartFlow:
 		return renderFlow(*ch.sprint, ch.burn, m.jiraTab.cfg.Columns, time.Now(), width, height)
+	}
+	if ch.tab == chartCycle {
+		return renderCycle(ch.cycle, time.Now(), width, height)
 	}
 	return renderVelocity(ch.vel, width)
 }
@@ -232,6 +250,11 @@ func (m *Model) chartTable(now time.Time) string {
 				row = append(row, strconv.Itoa(n))
 			}
 			rows = append(rows, row)
+		}
+	case chartCycle:
+		head = []string{"Issue", "Resolved", "Cycle days", "Lead days"}
+		for _, ci := range ch.cycle {
+			rows = append(rows, []string{ci.Key, ci.Resolved.Local().Format("2006-01-02"), cycleDays(ci.Cycle), cycleDays(ci.Lead)})
 		}
 	default:
 		head = []string{"Sprint", "Committed", "Done"}

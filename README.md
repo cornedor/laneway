@@ -534,6 +534,9 @@ day) and the velocity of the last 8 closed sprints
 (`ui.velocity_sprints`); `tab` (or a click on a name) steps through them (points done by the sprint's end over points in
 it). The burndown counts an issue from the day it joined the sprint and
 says how much was added after the start; issues taken out of it don't show.
+*Cycle* plots the project's issues resolved in the last 8 weeks by how long
+they took from first in progress to done, with the 50th and 85th percentile
+lines, the same for lead time (created to done) and the slowest listed.
 `y` copies the open chart's numbers as a markdown table.
 
 ## JQL search
