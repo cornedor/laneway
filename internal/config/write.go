@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -70,24 +71,45 @@ func editConfig(path string, create, private bool, edit func(root *yaml.Node) er
 	if err != nil {
 		return err
 	}
-	var doc yaml.Node
-	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+	// Every document is kept; the first is the config.
+	var docs []*yaml.Node
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	for {
+		var doc yaml.Node
+		if err := dec.Decode(&doc); err == io.EOF {
+			break
+		} else if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		docs = append(docs, &doc)
 	}
-	if doc.Kind == 0 {
-		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
+	var buf bytes.Buffer
+	if len(docs) == 0 {
+		// Only comments, which the YAML tree doesn't hold: keep them as text.
+		buf.Write(raw)
+		if len(raw) > 0 && raw[len(raw)-1] != '\n' {
+			buf.WriteByte('\n')
+		}
+		docs = []*yaml.Node{{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}}
 	}
-	root := doc.Content[0]
+	root := docs[0].Content[0]
+	if root.Kind == yaml.ScalarNode && root.Tag == "!!null" { // a bare "---"
+		root.Kind, root.Tag, root.Value = yaml.MappingNode, "", ""
+	}
 	if root.Kind != yaml.MappingNode {
 		return fmt.Errorf("%s: not a mapping", path)
 	}
 	if err := edit(root); err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
-	if err := enc.Encode(&doc); err != nil {
+	for _, doc := range docs {
+		if err := enc.Encode(doc); err != nil {
+			return err
+		}
+	}
+	if err := enc.Close(); err != nil {
 		return err
 	}
 	return writeFile(path, buf.Bytes(), private)

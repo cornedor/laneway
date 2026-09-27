@@ -114,3 +114,22 @@ func TestSetSiteTightensMode(t *testing.T) {
 		t.Errorf("after SetSite mode %v", fi.Mode().Perm())
 	}
 }
+
+// TestSetUIKeepsOddFiles: a comment-only file keeps its notes, later YAML
+// documents stay, and a bare "---" is an empty config.
+func TestSetUIKeepsOddFiles(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"# my notes\n# more\n", "# my notes\n# more\nui:\n  theme: light\n"},
+		{"ui:\n  theme: dark\n---\nother: 1\n", "ui:\n  theme: light\n---\nother: 1\n"},
+		{"---\n", "ui:\n  theme: light\n"},
+	} {
+		path := filepath.Join(t.TempDir(), "config.yaml")
+		os.WriteFile(path, []byte(tc.in), 0o600)
+		if err := SetUI(path, "theme", "light"); err != nil {
+			t.Fatalf("%q: %v", tc.in, err)
+		}
+		if got, _ := os.ReadFile(path); string(got) != tc.want {
+			t.Errorf("%q →\n%s", tc.in, got)
+		}
+	}
+}
