@@ -32,6 +32,8 @@ type planState struct {
 	loading bool
 	seq     int
 	err     string
+	// sideErr is why a side didn't load while the other did.
+	sideErr [2]string
 	// closing is set by a first C: a second completes the active sprint.
 	closing bool
 	drag    planDrag
@@ -49,7 +51,7 @@ type planDrag struct {
 type planMsg struct {
 	seq         int
 	left, right []jira.Card
-	err         error
+	errs        [2]error // per side
 }
 
 // planWroteMsg is a move or rank answered.
@@ -98,7 +100,7 @@ func (m *Model) loadPlan() tea.Cmd {
 		}()
 		go func() { defer wg.Done(); msg.right, _, errR = fetchJiraView(ctx, c, board, cfg, sprint, "") }()
 		wg.Wait()
-		msg.seq, msg.err = seq, firstErr(errL, errR)
+		msg.seq, msg.errs = seq, [2]error{errL, errR}
 		return msg
 	}
 }
@@ -109,12 +111,17 @@ func (m Model) handlePlan(msg planMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	p.loading = false
-	if msg.err != nil {
-		p.err = msg.err.Error()
+	if msg.errs[0] != nil && msg.errs[1] != nil {
+		p.err = msg.errs[0].Error()
 		return m, nil
 	}
-	p.err = ""
+	p.err, p.sideErr = "", [2]string{}
 	p.sides = [2][]jira.Card{msg.left, msg.right}
+	for s, err := range msg.errs {
+		if err != nil { // the other side still shows
+			p.sideErr[s], p.sides[s] = err.Error(), nil
+		}
+	}
 	for s := range p.sides {
 		p.idx[s] = min(p.idx[s], max(len(p.sides[s])-1, 0))
 	}
@@ -260,6 +267,10 @@ func (m *Model) planMove() tea.Cmd {
 // planMoveOf moves the side's cards take picks, else the selected one.
 func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 	t, p := m.jiraTab, m.jiraTab.plan
+	if p.sideErr != [2]string{} {
+		m.fail("a side didn't load · " + helpKey(m.keys.Refresh) + " retries before moving")
+		return nil
+	}
 	from, to := p.side, 1-p.side
 	var moving, staying []jira.Card
 	for _, c := range p.sides[from] {
@@ -606,6 +617,9 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 			row = diffTreeSelStyle.Render(ansi.Strip(row))
 		}
 		lines = append(lines, row)
+	}
+	if e := p.sideErr[side]; e != "" {
+		lines = append(lines, "", refErrStyle.Render(ansi.Truncate(e, width, "…")), refDimStyle.Render(helpKey(m.keys.Refresh)+" retries"))
 	}
 	if len(cards) == 0 && p.sides[side] != nil {
 		hint := "empty · " + helpKey(m.keys.MoveSprint) + " or space on the other side moves cards here"

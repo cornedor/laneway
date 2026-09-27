@@ -1255,3 +1255,22 @@ func TestChartTableIssues(t *testing.T) {
 		t.Errorf("table:\n%s", got)
 	}
 }
+
+// TestPlanHalfLoaded: a failed sprint side shows its error beside the
+// backlog, and moves wait for a retry.
+func TestPlanHalfLoaded(t *testing.T) {
+	m := planModel(t, &[]string{})
+	p := m.jiraTab.plan
+	p.seq++
+	out, _ := m.handlePlan(planMsg{seq: p.seq, left: []jira.Card{{Key: "ABC-1", Summary: "First"}}, errs: [2]error{nil, fmt.Errorf("sprint down")}})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "sprint down") || !strings.Contains(view, "ABC-1") {
+		t.Fatalf("half loaded:\n%s", view)
+	}
+	p.side = 0
+	out, cmd := m.handleJiraKey(keyMsg(t, "space"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "retries before moving") {
+		t.Errorf("move: %q", m.status)
+	}
+}
