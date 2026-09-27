@@ -109,6 +109,28 @@ func TestTimer(t *testing.T) {
 	}
 }
 
+// TestTimerOnDay: stopping the timer into "yesterday 2h" logs it yesterday,
+// from the workday start.
+func TestTimerOnDay(t *testing.T) {
+	var bodies []map[string]any
+	m := jiraTabModel(t)
+	worklogJira(t, &m, &bodies)
+	out, _ := m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	out, _ = m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	m.jiraFieldInput.SetValue("yesterday 2h")
+	_, cmd := m.applyJiraField()
+	if msg := cmd().(worklogLoggedMsg); msg.err != nil || !msg.fromTimer {
+		t.Fatalf("logged = %+v", msg)
+	}
+	now := time.Now()
+	want := time.Date(now.Year(), now.Month(), now.Day()-1, 0, 0, 0, 0, time.Local).Add(m.opts.workdayStart)
+	if got := bodies[0]["started"]; got != want.Format("2006-01-02T15:04:05.000-0700") || bodies[0]["timeSpentSeconds"] != 7200.0 {
+		t.Errorf("body = %v, want started %v", bodies[0], want)
+	}
+}
+
 // TestTimerKeptOnFailure: a failed log leaves the timer running.
 func TestTimerKeptOnFailure(t *testing.T) {
 	m := jiraTabModel(t)

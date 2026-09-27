@@ -180,7 +180,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		}
 	}
 	switch {
-	case onDay && started.IsZero():
+	case onDay: // a typed day beats the timer's start
 		started = day.Add(m.opts.workdayStart)
 	case started.IsZero():
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
