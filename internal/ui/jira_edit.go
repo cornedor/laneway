@@ -389,6 +389,18 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 	return m, nil
 }
 
+// emptyText is what an empty picker says: a filter matched nothing, or the
+// list itself is empty.
+func (p *jiraPickerState) emptyText() string {
+	switch {
+	case p.filterable && strings.TrimSpace(p.filter.Value()) != "":
+		return "no matches"
+	case p.kind == jiraPickStatus:
+		return "no transitions from here (the workflow, or your permissions)"
+	}
+	return "nothing here"
+}
+
 // setJiraPickerItems fills an open picker and parks the cursor on the current
 // value (when present).
 func (m *Model) setJiraPickerItems(items []jiraPickerItem) {
@@ -1013,7 +1025,7 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 	case p.err != nil:
 		b.WriteString(pad + refErrStyle.Render(ansi.Truncate(p.err.Error(), inner, "…")) + "\n")
 	case len(p.items) == 0:
-		b.WriteString(pad + refDimStyle.Render("no matches") + "\n")
+		b.WriteString(pad + refDimStyle.Render(ansi.Truncate(p.emptyText(), inner, "…")) + "\n")
 	default:
 		start, end := m.pickerWindow(inlinePickerRows)
 		if start > 0 {
@@ -1110,7 +1122,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	default:
 		vis := m.jiraPicker.items
 		if len(vis) == 0 {
-			parts = append(parts, "", refDimStyle.Render("no matches"))
+			parts = append(parts, "", refDimStyle.Render(ansi.Truncate(m.jiraPicker.emptyText(), inner, "…")))
 			break
 		}
 		start, end := m.pickerWindow(win)

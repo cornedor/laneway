@@ -560,3 +560,19 @@ func TestInlineCommentComposer(t *testing.T) {
 		t.Fatalf("a new comment should compose after the thread:\n%s", c)
 	}
 }
+
+// TestEmptyStatusPicker: no transitions says so, not "no matches".
+func TestEmptyStatusPicker(t *testing.T) {
+	m := loadedJiraModel(t)
+	gen := m.startJiraPicker(jiraPickStatus, "Set status — ABC-1", false)
+	out, _ := m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickStatus})
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "no transitions from here") {
+		t.Errorf("view:\n%s", view)
+	}
+	m.jiraPicker.kind, m.jiraPicker.filterable = jiraPickProject, true
+	m.jiraPicker.filter.SetValue("zz")
+	if got := m.jiraPicker.emptyText(); got != "no matches" {
+		t.Errorf("filtered: %q", got)
+	}
+}
