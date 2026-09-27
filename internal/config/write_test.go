@@ -94,3 +94,23 @@ func TestSetSiteNoToken(t *testing.T) {
 		t.Errorf("file =\n%s", got)
 	}
 }
+
+// TestSetSiteTightensMode: a token written into a world-readable config
+// makes it owner-only; a UI option leaves the mode alone.
+func TestSetSiteTightensMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte("ui:\n  theme: dark\n"), 0o644)
+	os.Chmod(path, 0o644)
+	if err := SetUI(path, "theme", "light"); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o644 {
+		t.Errorf("after SetUI mode %v", fi.Mode().Perm())
+	}
+	if err := SetSite(path, "", JiraConfig{BaseURL: "https://a.atlassian.net", Email: "me@a", APIToken: "tok"}); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+		t.Errorf("after SetSite mode %v", fi.Mode().Perm())
+	}
+}

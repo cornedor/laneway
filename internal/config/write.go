@@ -13,7 +13,7 @@ import (
 // YAML tree so comments and the other keys stay. A nil value removes the
 // option (back to its default). A list is written in flow style.
 func SetUI(path, name string, value any) error {
-	return editConfig(path, false, func(root *yaml.Node) error {
+	return editConfig(path, false, false, func(root *yaml.Node) error {
 		ui, err := section(root, "ui", value != nil)
 		if err != nil || ui == nil {
 			return err
@@ -25,9 +25,10 @@ func SetUI(path, name string, value any) error {
 // SetSite writes a Jira site into the config file at path: jira: for
 // name "", else sites.<name>. Its base_url, email and api_token replace
 // the site's (an empty token is left out, for JIRA_API_TOKEN); its other
-// keys and every comment stay. A missing file is created.
+// keys and every comment stay. A missing file is created. Writing a
+// token makes the file readable by its owner only.
 func SetSite(path, name string, j JiraConfig) error {
-	return editConfig(path, true, func(root *yaml.Node) error {
+	return editConfig(path, true, j.APIToken != "", func(root *yaml.Node) error {
 		site, err := section(root, "jira", true)
 		if name != "" {
 			var sites *yaml.Node
@@ -52,8 +53,9 @@ func SetSite(path, name string, j JiraConfig) error {
 
 // editConfig applies edit to the config file at path through its YAML
 // tree, so comments and the other keys stay. create makes a missing file
-// (and its directory), else a missing file is an error.
-func editConfig(path string, create bool, edit func(root *yaml.Node) error) error {
+// (and its directory), else a missing file is an error. private drops
+// the file's group and other permissions.
+func editConfig(path string, create, private bool, edit func(root *yaml.Node) error) error {
 	// A dotfiles symlink stays one: write where it points.
 	if real, err := filepath.EvalSymlinks(path); err == nil {
 		path = real
@@ -88,7 +90,7 @@ func editConfig(path string, create bool, edit func(root *yaml.Node) error) erro
 	if err := enc.Encode(&doc); err != nil {
 		return err
 	}
-	return writeFile(path, buf.Bytes())
+	return writeFile(path, buf.Bytes(), private)
 }
 
 // section is key's mapping in m. A missing one is added when add, else
@@ -151,11 +153,15 @@ func setMapping(m *yaml.Node, key string, value any) error {
 }
 
 // writeFile replaces path through a temporary file beside it, keeping its
-// mode, so a crash never leaves half a config.
-func writeFile(path string, data []byte) error {
+// mode (less group and other when private), so a crash never leaves
+// half a config.
+func writeFile(path string, data []byte, private bool) error {
 	mode := os.FileMode(0o600)
 	if fi, err := os.Stat(path); err == nil {
 		mode = fi.Mode().Perm()
+	}
+	if private {
+		mode &^= 0o077
 	}
 	f, err := os.CreateTemp(filepath.Dir(path), ".config-*.yaml")
 	if err != nil {
