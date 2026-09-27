@@ -61,6 +61,8 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) {
 			k.LineStart, k.LineEnd, k.InputBegin, k.InputEnd):
 			m.ClearSelection()
 			// fall through to perform the move from the caret
+		case key.Matches(msg, k.NextTableCell, k.PrevTableCell) && m.InTableRow():
+			m.ClearSelection() // a cell step is a move, not an extension
 		}
 	}
 	switch {

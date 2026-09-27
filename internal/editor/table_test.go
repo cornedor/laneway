@@ -127,6 +127,22 @@ func TestTableTabStepsCells(t *testing.T) {
 	}
 }
 
+// Tab with a selection in a cell drops it and steps on: the next keystroke
+// types into the next cell, not over both.
+func TestTableTabDropsSelection(t *testing.T) {
+	m := newTableModel(60)
+	m.SetValue("| abc | def |")
+	m.SetSelection(2, 5)
+	m = tab(m, false)
+	if m.HasSelection() {
+		t.Fatalf("selection %q survived tab", m.SelectedText())
+	}
+	m = typeString(m, "Z")
+	if got, want := m.Value(), "| abc | defZ |"; got != want {
+		t.Fatalf("Value = %q, want %q", got, want)
+	}
+}
+
 // The separator row's colons survive a re-pad, and they steer the padding: a
 // right-aligned column pads on the left.
 func TestTableKeepsAlignmentColons(t *testing.T) {
