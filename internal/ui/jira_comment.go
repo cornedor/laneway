@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -113,6 +114,7 @@ func replyQuote(c jira.Comment) string {
 // closeJiraComment tears the composer down.
 func (m *Model) closeJiraComment() {
 	m.jiraCommentActive = false
+	m.jiraCommentVis = jira.Visibility{}
 	m.jiraCommentKey = ""
 	m.jiraCommentMention = nil
 	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
@@ -144,6 +146,8 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter", "ctrl+s":
 		return m.applyJiraComment()
+	case "ctrl+o":
+		return m, m.cycleCommentVis()
 	}
 	m.jiraCommentDiscard = false
 	if m.mentionKey(msg.String()) {
@@ -159,7 +163,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	key := m.jiraCommentKey
 	text := strings.TrimSpace(m.jiraCommentInput.Value())
-	mention, inline := m.jiraCommentMention, m.jiraCommentMentions
+	mention, inline, vis := m.jiraCommentMention, m.jiraCommentMentions, m.jiraCommentVis
 	m.saveOpenDrafts() // until Jira has it
 	m.closeJiraComment()
 	if text == "" && mention == nil {
@@ -172,7 +176,7 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	}
 	m.status = fmt.Sprintf("posting %s %s…", verb, key)
 	return m, func() tea.Msg {
-		err := client.AddCommentMentions(ctx, key, text, mention, inline)
+		err := client.AddCommentMentions(ctx, key, text, mention, inline, vis)
 		return jiraMutatedMsg{key: key, field: "comment", err: err, text: text}
 	}
 }
@@ -188,12 +192,63 @@ func (m *Model) renderJiraCommentInput() string {
 	var above []string
 	if m.jiraCommentReplyTo != "" {
 		titleTxt = "Reply — " + m.jiraCommentKey
+	}
+	if v := m.jiraCommentVis; v != (jira.Visibility{}) {
+		titleTxt += " · " + v.Label()
+	}
+	if m.jiraCommentReplyTo != "" {
 		above = append(above, lipgloss.NewStyle().Foreground(dimColor).Italic(true).
 			Render("↩ replying to "+m.jiraCommentReplyTo))
 	}
-	box := m.renderModalComposer(titleTxt, above, "↵ post · alt+↵ newline · @ mention · esc cancel", &m.jiraCommentInput)
+	box := m.renderModalComposer(titleTxt, above, "↵ post · alt+↵ newline · @ mention · ctrl+o who sees it · esc cancel", &m.jiraCommentInput)
 	if list := m.renderMentions(); list != "" {
 		box = lipgloss.JoinVertical(lipgloss.Left, box, list)
 	}
 	return box
+}
+
+// commentVisMsg is who a comment in project can be limited to.
+type commentVisMsg struct {
+	project string
+	vis     []jira.Visibility
+	err     error
+}
+
+// cycleCommentVis steps who the comment is for: everyone, an internal
+// note (Service Desk), each project role. The first press asks Jira.
+func (m *Model) cycleCommentVis() tea.Cmd {
+	project := issueProject(m.jiraCommentKey)
+	opts, ok := m.commentVis[project]
+	if !ok {
+		m.status = "asking who a comment can be for…"
+		c, ctx := m.jiraClient, m.ctx
+		return func() tea.Msg {
+			vis, err := c.CommentVisibilities(ctx, project)
+			return commentVisMsg{project, vis, err}
+		}
+	}
+	all := append([]jira.Visibility{{}}, opts...)
+	i := slices.Index(all, m.jiraCommentVis)
+	m.jiraCommentVis = all[(i+1)%len(all)]
+	m.status = "the comment is for " + m.jiraCommentVis.Label()
+	return nil
+}
+
+func (m Model) handleCommentVis(msg commentVisMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail("who can see comments: " + msg.err.Error())
+		return m, nil
+	}
+	if m.commentVis == nil {
+		m.commentVis = map[string][]jira.Visibility{}
+	}
+	m.commentVis[msg.project] = msg.vis
+	if len(msg.vis) == 0 {
+		m.status = "comments in " + msg.project + " are for everyone: no roles to limit them to"
+		return m, nil
+	}
+	if m.jiraCommentActive && issueProject(m.jiraCommentKey) == msg.project {
+		return m, m.cycleCommentVis()
+	}
+	return m, nil
 }

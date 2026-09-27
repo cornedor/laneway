@@ -161,7 +161,11 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 		if list := m.renderMentions(); list != "" {
 			view = append(view, strings.Split(list, "\n")...)
 		}
-		view = append(view, refDimStyle.Render("↵ post · alt+↵ newline · @ mention · esc cancel"))
+		hint := "↵ post · alt+↵ newline · @ mention · ctrl+o who sees it · esc cancel"
+		if v := m.jiraCommentVis; v != (jira.Visibility{}) {
+			hint = "for " + v.Label() + " · " + hint
+		}
+		view = append(view, refDimStyle.Render(hint))
 	} else if m.descEdit.comment != "" {
 		view = append(view, refDimStyle.Render(descEditHint))
 	}

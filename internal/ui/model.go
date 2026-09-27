@@ -373,6 +373,10 @@ type Model struct {
 	unsent struct{ key, text string }
 	// draftPending is a draft write scheduled (drafts.go).
 	draftPending bool
+	// jiraCommentVis is who the comment being written is for; commentVis
+	// the choices by project, once asked (jira_comment.go).
+	jiraCommentVis jira.Visibility
+	commentVis     map[string][]jira.Visibility
 
 	// panelResizing is set while the panel's left border is dragged
 	// (panel_resize.go).
@@ -623,6 +627,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleReview(msg)
 	case pullRequestMsg:
 		return m.handlePullRequest(msg)
+	case commentVisMsg:
+		return m.handleCommentVis(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:

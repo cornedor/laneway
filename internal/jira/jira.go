@@ -1037,12 +1037,56 @@ func (c *Client) EditLabels(ctx context.Context, key string, add, remove []strin
 // non-nil the comment opens with a real @mention of that user, which is what a
 // reply uses to actually notify them.
 func (c *Client) AddComment(ctx context.Context, key, text string, mention *Mention) error {
-	return c.AddCommentMentions(ctx, key, text, mention, nil)
+	return c.AddCommentMentions(ctx, key, text, mention, nil, Visibility{})
+}
+
+// Visibility is who may read a comment: everyone (zero), a Service Desk
+// internal note, or the members of a project role.
+type Visibility struct {
+	Internal bool
+	Role     string
+}
+
+// Label is how the composer names it.
+func (v Visibility) Label() string {
+	switch {
+	case v.Internal:
+		return "internal note"
+	case v.Role != "":
+		return "only " + v.Role
+	}
+	return "everyone"
+}
+
+// CommentVisibilities are who a comment in project can be limited to:
+// an internal note in a Service Desk project, then each project role.
+func (c *Client) CommentVisibilities(ctx context.Context, project string) ([]Visibility, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var p struct {
+		Type string `json:"projectTypeKey"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/project/"+url.PathEscape(project), project, nil, &p); err != nil {
+		return nil, err
+	}
+	var roles map[string]string
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/project/"+url.PathEscape(project)+"/role", project+" roles", nil, &roles); err != nil {
+		return nil, err
+	}
+	var out []Visibility
+	if p.Type == "service_desk" {
+		out = append(out, Visibility{Internal: true})
+	}
+	for _, name := range slices.Sorted(maps.Keys(roles)) {
+		out = append(out, Visibility{Role: name})
+	}
+	return out, nil
 }
 
 // AddCommentMentions is AddComment where each "@Name" of inline in text
 // becomes a real mention of that person too.
-func (c *Client) AddCommentMentions(ctx context.Context, key, text string, mention *Mention, inline []Mention) error {
+func (c *Client) AddCommentMentions(ctx context.Context, key, text string, mention *Mention, inline []Mention, vis Visibility) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
@@ -1052,6 +1096,12 @@ func (c *Client) AddCommentMentions(ctx context.Context, key, text string, menti
 	doc := textToADF(text, mention)
 	inlineMentions(doc, inline)
 	body := map[string]any{"body": doc}
+	switch {
+	case vis.Internal:
+		body["properties"] = []any{map[string]any{"key": "sd.public.comment", "value": map[string]any{"internal": true}}}
+	case vis.Role != "":
+		body["visibility"] = map[string]string{"type": "role", "value": vis.Role}
+	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
 	if err := c.do(ctx, http.MethodPost, path, key, body, nil); err != nil {
 		return err

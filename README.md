@@ -360,7 +360,9 @@ and the block goes, anything else and it comes back untouched. Your own
 comments edit the same way from `A` → Edit a comment.
 
 In the `c` composer (`enter` or `ctrl+s` posts; `esc` asks once before dropping what you wrote; a post that fails keeps the text for the next `c`), `@` and a few letters list matching users;
-`ctrl+n`/`ctrl+p` pick, `tab` inserts a mention that notifies them.
+`ctrl+n`/`ctrl+p` pick, `tab` inserts a mention that notifies them. `ctrl+o` steps who
+the comment is for: everyone, an internal note (Service Desk projects) or one
+project role.
 
 What you write in the composer or the editor is kept as a draft in the state
 file (a moment after each change, and on quit), so a crash doesn't lose it:

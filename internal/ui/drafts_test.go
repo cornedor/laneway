@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -71,5 +73,29 @@ func TestDescDraft(t *testing.T) {
 	}
 	if _, _, ok := m.draft("desc:ABC-1"); ok || m.descEdit != nil {
 		t.Error("esc twice should drop the draft")
+	}
+}
+
+// TestCommentVisibilityCycle: ctrl+o asks once, then steps who the comment
+// is for, shown in the composer's title.
+func TestCommentVisibilityCycle(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraIssue = &jira.Issue{Key: "ABC-1"}
+	m.openJiraCommentInput()
+	out, cmd := m.handleJiraCommentKey(tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl})
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("the first ctrl+o should ask Jira")
+	}
+	out, _ = m.Update(commentVisMsg{project: "ABC", vis: []jira.Visibility{{Internal: true}, {Role: "Developers"}}})
+	m = out.(Model)
+	if !m.jiraCommentVis.Internal || !strings.Contains(m.renderJiraCommentInput(), "internal note") {
+		t.Fatalf("vis %+v", m.jiraCommentVis)
+	}
+	for _, want := range []string{"Developers", ""} {
+		out, _ = m.handleJiraCommentKey(tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl})
+		if m = out.(Model); m.jiraCommentVis.Role != want {
+			t.Errorf("role %q, want %q", m.jiraCommentVis.Role, want)
+		}
 	}
 }

@@ -145,3 +145,31 @@ func TestCreateIssueMentions(t *testing.T) {
 		t.Errorf("body %s", body)
 	}
 }
+
+// TestCommentVisibility: an internal note and a role reach the comment.
+func TestCommentVisibility(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/project/SD":
+			io.WriteString(w, `{"projectTypeKey":"service_desk"}`)
+		case "/rest/api/3/project/SD/role":
+			io.WriteString(w, `{"Developers":"u1","Administrators":"u2"}`)
+		default:
+			b, _ := io.ReadAll(r.Body)
+			bodies = append(bodies, string(b))
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	vis, err := c.CommentVisibilities(context.Background(), "SD")
+	if err != nil || len(vis) != 3 || !vis[0].Internal || vis[1].Role != "Administrators" {
+		t.Fatalf("visibilities %v %v", vis, err)
+	}
+	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[0])
+	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[2])
+	if !strings.Contains(bodies[0], `"sd.public.comment"`) || !strings.Contains(bodies[0], `"internal":true`) ||
+		!strings.Contains(bodies[1], `"visibility":{"type":"role","value":"Developers"}`) {
+		t.Errorf("bodies %q", bodies)
+	}
+}
