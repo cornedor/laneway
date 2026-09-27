@@ -261,7 +261,7 @@ Board:
 - move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search · `F` filter builder (field, compare and value columns side by side, typing narrows the one with the cursor, `enter` adds the term to the `/` query and stays for the next, `ctrl+x` drops the last; the terms show as header chips, a click removes one)
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (rank, priority, points, assignee, epic, key, status, updated, due, created; by assignee, priority, epic or status it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
-- cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue: type (`←` `→`, the last one you made), summary and description in one form, `enter` on the summary creates; fields the type requires (a Component) join it as the type is set, and its *more fields* row shows the rest the create screen allows (assignee, labels, dates, …) · `x`/`X`
+- cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `R` roadmap · `P` planning · `C` charts
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
@@ -277,7 +277,8 @@ Panel:
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels (existing ones suggested as you type: `↓` `tab`) · `a` assignee
 - talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
-- more: `A` subtask / link / web link / unlink / estimate / clone / change type / move to another project / delete (twice; with its subtasks) / edit or delete your comment / watch / add or remove watchers / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
+- more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue, a web page, remove one · the issue: change its type, move it to another project, set the original estimate, delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, download or delete an attachment · your comments: edit, delete
+- `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
 - mouse: drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `/` find in the issue, `n`/`N` the next / previous hit (what the panel shows: the open activity tab, `all` for everything)
@@ -308,6 +309,19 @@ sprint:4             the sprint it is in now
 ```
 
 Fields: status, assignee, type, prio, epic, label, key, points, due, age, updated, created, reporter, component, pr, deploy, sprint, and `ui.custom_fields` quoted.
+
+## New issues
+
+`n` opens one form: the type (`←` `→`; it starts on the last one you made
+in the project), the summary, where the cursor waits, and the description
+(`ui.templates` gives a type a starting one). `enter` on the summary
+creates it, `ctrl+s` from any row; in a sprint view it joins that sprint.
+Fields the type requires, like a Component, join the form as the type is
+set and the hint names what is still empty; `+ more fields` shows the rest
+its create screen allows (assignee, labels, dates, …). A refused create
+keeps the form, Jira's reasons under the fields they are about. A subtask
+or epic child and a clone (`A` in the panel) and a roadmap epic (`n` there)
+open the same form.
 
 ## Bulk edit
 
