@@ -96,5 +96,5 @@ In the panel:
 - `enter` opens an issue, `L` follows links, `backspace` comes back.
 - `#` goes to a key, `:` goes to anything.
 
-Previous: [First run](01-first-run.md) · Next: editing and moving
-*(chapter coming)*
+Previous: [First run](01-first-run.md) · Next:
+[Editing and moving](03-editing-and-moving.md)
