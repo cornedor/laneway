@@ -1199,3 +1199,17 @@ func TestDevInfoCopy(t *testing.T) {
 		t.Errorf("enter without a link: %q", m.status)
 	}
 }
+
+// TestBurnIssues: a sprint without points burns down by issue count.
+func TestBurnIssues(t *testing.T) {
+	start := time.Now().AddDate(0, 0, -3)
+	v := jiraView{name: "Sprint 1", start: start, end: start.AddDate(0, 0, 14)}
+	issues := []jira.BurnIssue{{Resolved: start.Add(time.Hour)}, {}, {}}
+	got := ansi.Strip(renderBurndown(v, issues, time.Now(), 80, 20))
+	if !strings.Contains(got, "2 of 3 issues left") {
+		t.Errorf("burndown:\n%s", got)
+	}
+	if got := ansi.Strip(renderBurnup(v, issues, time.Now(), 80, 20)); !strings.Contains(got, "1 of 3 issues done") {
+		t.Errorf("burnup:\n%s", got)
+	}
+}

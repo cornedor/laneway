@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -267,11 +268,28 @@ func burnSeries(issues []jira.BurnIssue, start, end, now time.Time) (total, adde
 	return total, added, left
 }
 
-// renderBurndown plots points left per day against the ideal line.
+// burnUnit counts the sprint's issues instead of its points when none is
+// pointed, as the header's sprint bar does: unit is "p" or " issues".
+func burnUnit(issues []jira.BurnIssue) ([]jira.BurnIssue, string) {
+	for _, is := range issues {
+		if is.Points > 0 {
+			return issues, "p"
+		}
+	}
+	counted := slices.Clone(issues)
+	for i := range counted {
+		counted[i].Points = 1
+	}
+	return counted, " issues"
+}
+
+// renderBurndown plots points (or issues) left per day against the ideal
+// line.
 func renderBurndown(v jiraView, issues []jira.BurnIssue, now time.Time, width, height int) string {
 	if v.start.IsZero() || v.end.IsZero() {
 		return refDimStyle.Render(v.name + " has no dates")
 	}
+	issues, unit := burnUnit(issues)
 	total, added, left := burnSeries(issues, v.start, v.end, now)
 	cur := total
 	if len(left) > 0 {
@@ -279,11 +297,11 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, now time.Time, width, h
 	}
 	scope := ""
 	if added > 0 {
-		scope = fmt.Sprintf(" · +%sp added since the start", chartNum(added))
+		scope = fmt.Sprintf(" · +%s%s added since the start", chartNum(added), unit)
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %sp left%s · by resolution date", chartNum(cur), chartNum(total), scope))
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %s%s left%s · by resolution date", chartNum(cur), chartNum(total), unit, scope))
 	if total == 0 {
-		return title + "\n\n" + refDimStyle.Render("no points in this sprint")
+		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
 	}
 	axisW := len(chartNum(total)) + 1
 	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)
@@ -377,6 +395,7 @@ func renderBurnup(v jiraView, issues []jira.BurnIssue, now time.Time, width, hei
 	if v.start.IsZero() || v.end.IsZero() {
 		return refDimStyle.Render(v.name + " has no dates")
 	}
+	issues, unit := burnUnit(issues)
 	scope, done := burnupSeries(issues, v.start, v.end, now)
 	top := 0.0
 	for _, s := range scope {
@@ -386,9 +405,9 @@ func renderBurnup(v jiraView, issues []jira.BurnIssue, now time.Time, width, hei
 	if n := len(done); n > 0 {
 		cur, all = done[n-1], scope[n-1]
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %sp done · scope dotted", chartNum(cur), chartNum(all)))
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %s%s done · scope dotted", chartNum(cur), chartNum(all), unit))
 	if top == 0 {
-		return title + "\n\n" + refDimStyle.Render("no points in this sprint")
+		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
 	}
 	axisW := len(chartNum(top)) + 1
 	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)
