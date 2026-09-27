@@ -24,6 +24,12 @@ func TestParseDate(t *testing.T) {
 			t.Errorf("%q = %v, %v; want %s", in, got, err, want)
 		}
 	}
+	jan31 := time.Date(2028, 1, 31, 9, 0, 0, 0, time.UTC)
+	for in, want := range map[string]string{"+1m": "2028-02-29", "-2m": "2027-11-30", "+12m": "2029-01-31"} {
+		if got, _ := ParseDate(in, jan31); got.Format(time.DateOnly) != want {
+			t.Errorf("%q from Jan 31 = %v, want %s", in, got, want)
+		}
+	}
 	for _, in := range []string{"soon", "+3x", "fr", "2026-13-01"} {
 		if _, err := ParseDate(in, now); err == nil {
 			t.Errorf("%q should fail", in)

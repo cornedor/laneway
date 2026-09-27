@@ -53,7 +53,9 @@ func ParseDate(s string, now time.Time) (time.Time, error) {
 			case 'w':
 				return today.AddDate(0, 0, 7*n), nil
 			case 'm':
-				return today.AddDate(0, n, 0), nil
+				// The same day n months on, or that month's last when it is shorter.
+				first := time.Date(today.Year(), today.Month()+time.Month(n), 1, 0, 0, 0, 0, today.Location())
+				return first.AddDate(0, 0, min(today.Day(), first.AddDate(0, 1, -1).Day())-1), nil
 			}
 		}
 	}
