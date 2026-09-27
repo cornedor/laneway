@@ -173,7 +173,7 @@ func TestCreateFormPicksPeople(t *testing.T) {
 	defer srv.Close()
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	m.jiraForm = buildCreateForm("New Bug in ABC", jira.NewIssue{Project: "ABC", Type: "Bug", Summary: "Crash"}, 0,
+	m.jiraForm = buildCreateForm("New Bug in ABC", jiraFormCreate{in: jira.NewIssue{Project: "ABC", Type: "Bug", Summary: "Crash"}},
 		[]jira.CreateField{{FieldMeta: jira.FieldMeta{ID: "customfield_1", Name: "Reviewer", Kind: jira.KindUser}, Required: true}})
 	out, cmd := m.handleKey(keyStr("enter"))
 	m = out.(Model)
@@ -184,5 +184,73 @@ func TestCreateFormPicksPeople(t *testing.T) {
 	m = out.(Model)
 	if !slices.ContainsFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.label == "Ada" }) {
 		t.Errorf("items = %+v", m.jiraPicker.items)
+	}
+}
+
+// TestCloneAsksRequired: a clone refused for a required custom field asks
+// for it; the retry keeps the copied components and links the clone.
+func TestCloneAsksRequired(t *testing.T) {
+	var created []map[string]any
+	var linked bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method + " " + r.URL.Path {
+		case "GET /rest/api/3/issue/ABC-1":
+			_, _ = w.Write([]byte(`{"fields":{"issuetype":{"name":"Bug"},"summary":"Pay","components":[{"id":"10"}]}}`))
+		case "GET /rest/api/3/issue/createmeta/ABC/issuetypes":
+			_, _ = w.Write([]byte(`{"issueTypes":[{"id":"2","name":"Bug"}]}`))
+		case "GET /rest/api/3/issue/createmeta/ABC/issuetypes/2":
+			_, _ = w.Write([]byte(`{"fields":[
+				{"fieldId":"components","name":"Components","required":true,"schema":{"type":"array","items":"component"},"allowedValues":[{"id":"10","name":"Web"}]},
+				{"fieldId":"customfield_7","name":"Team","required":true,"schema":{"type":"string"}}]}`))
+		case "POST /rest/api/3/issue":
+			var body struct{ Fields map[string]any }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			created = append(created, body.Fields)
+			if body.Fields["customfield_7"] == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"errors":{"customfield_7":"Team is required."}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"key":"ABC-9"}`))
+		case "GET /rest/api/3/issueLinkType":
+			_, _ = w.Write([]byte(`{"issueLinkTypes":[{"name":"Cloners"}]}`))
+		case "POST /rest/api/3/issueLink":
+			linked = true
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleJiraCreated(m.applyIssueAction("ABC-1", "clone")().(jiraCreatedMsg))
+	m = out.(Model)
+	f := m.jiraForm
+	if f == nil || f.key != "Clone of ABC-1" || len(f.fields) != 1 || f.fields[0].ID != "customfield_7" {
+		t.Fatalf("form = %+v", f)
+	}
+	out, _ = m.handleKey(keyStr("enter"))
+	m = out.(Model)
+	for _, r := range "Core" {
+		out, _ = m.handleKey(keyStr(string(r)))
+		m = out.(Model)
+	}
+	out, _ = m.handleKey(keyStr("enter"))
+	out, cmd := out.(Model).handleKey(keyStr("ctrl+s"))
+	out, _ = out.(Model).handleJiraCreated(cmd().(jiraCreatedMsg))
+	m = out.(Model)
+	if m.jiraForm != nil || m.status != "created ABC-9" || !linked {
+		t.Errorf("form %v, status %q, linked %v", m.jiraForm, m.status, linked)
+	}
+	if len(created) != 2 || created[1]["customfield_7"] != "Core" || created[1]["components"] == nil {
+		t.Errorf("creates = %v", created)
+	}
+
+	m.jiraForm, f.busy = f, false
+	out, _ = m.handleKey(keyStr("esc"))
+	if m = out.(Model); m.jiraCreateActive || m.status != "clone cancelled" {
+		t.Errorf("esc on a clone: box %v, %q", m.jiraCreateActive, m.status)
 	}
 }

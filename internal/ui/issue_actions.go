@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -96,8 +97,13 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	case "clone":
 		m.status = "cloning " + key + "…"
 		return func() tea.Msg {
-			nk, err := c.Clone(ctx, key)
-			return jiraCreatedMsg{key: nk, err: err}
+			ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
+			defer cancel()
+			in, err := c.CloneDraft(ctx, key)
+			if err != nil {
+				return jiraCreatedMsg{err: err}
+			}
+			return createIssue(ctx, c, jiraFormCreate{in: in, cloneOf: key}, "Clone of "+key)
 		}
 	case "upload":
 		m.openBulkInput("upload", "file path (~ works)")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -69,8 +70,9 @@ type jiraFormState struct {
 
 // jiraFormCreate is a create waiting on the form.
 type jiraFormCreate struct {
-	in     jira.NewIssue
-	sprint int
+	in      jira.NewIssue
+	sprint  int
+	cloneOf string // the issue a clone copies, linked once made
 }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
@@ -227,6 +229,10 @@ func (m Model) handleJiraFormDone(msg jiraFormDoneMsg) (tea.Model, tea.Cmd) {
 func (m *Model) cancelJiraForm() tea.Cmd {
 	f := m.jiraForm
 	m.jiraForm = nil
+	if f.create != nil && f.create.cloneOf != "" {
+		m.status = "clone cancelled"
+		return nil
+	}
 	if f.create != nil { // back to the create box, your summary kept
 		m.jiraCreateActive = true
 		m.status = "create cancelled"
@@ -418,9 +424,13 @@ func (m *Model) submitJiraForm() tea.Cmd {
 	}
 	if f.create != nil {
 		f.busy, f.err = true, ""
-		in := f.create.in
-		in.Fields = fields
-		return m.createJiraIssue(in, f.create.sprint, "")
+		cr := *f.create
+		cr.in.Fields = maps.Clone(cr.in.Fields)
+		if cr.in.Fields == nil {
+			cr.in.Fields = map[string]any{}
+		}
+		maps.Copy(cr.in.Fields, fields)
+		return m.createJiraIssue(cr, "")
 	}
 	if len(f.bulk) > 0 {
 		m.jiraForm = nil

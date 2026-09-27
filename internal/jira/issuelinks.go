@@ -118,12 +118,25 @@ func (c *Client) ToggleWatch(ctx context.Context, key string) (bool, error) {
 	return !resp.IsWatching, err
 }
 
-// Clone copies key's type, summary ("CLONE - …"), description, labels,
-// priority, parent, components and fix versions into a new issue, linked to it as a clone when the
-// instance has that link type. It returns the new key.
+// Clone copies key into a new issue (CloneDraft), linked to it as a clone
+// (LinkClone). It returns the new key.
 func (c *Client) Clone(ctx context.Context, key string) (string, error) {
+	in, err := c.CloneDraft(ctx, key)
+	if err != nil {
+		return "", err
+	}
+	nk, err := c.CreateIssue(ctx, in)
+	if err != nil {
+		return "", err
+	}
+	return nk, c.LinkClone(ctx, nk, key)
+}
+
+// CloneDraft is key's copy to create: its type, summary ("CLONE - …"),
+// description, labels, priority, parent, components and fix versions.
+func (c *Client) CloneDraft(ctx context.Context, key string) (NewIssue, error) {
 	if !c.Enabled() {
-		return "", errNotConfigured
+		return NewIssue{}, errNotConfigured
 	}
 	var resp struct {
 		Fields struct {
@@ -141,7 +154,7 @@ func (c *Client) Clone(ctx context.Context, key string) (string, error) {
 	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "?fields=issuetype,summary,description,labels,priority,parent,components,fixVersions"
 	if err := c.do(ctx, http.MethodGet, path, key, nil, &resp); err != nil {
-		return "", err
+		return NewIssue{}, err
 	}
 	f := resp.Fields
 	in := NewIssue{Project: projectOf(key), Type: f.IssueType.Name, Summary: "CLONE - " + f.Summary,
@@ -166,19 +179,21 @@ func (c *Client) Clone(ctx context.Context, key string) (string, error) {
 	if len(f.FixVersions) > 0 {
 		in.Fields["fixVersions"] = ids(f.FixVersions)
 	}
-	nk, err := c.CreateIssue(ctx, in)
-	if err != nil {
-		return "", err
-	}
+	return in, nil
+}
+
+// LinkClone links clone to key as its clone, when the instance has that
+// link type.
+func (c *Client) LinkClone(ctx context.Context, clone, key string) error {
 	types, _ := c.LinkTypes(ctx)
 	for _, t := range types {
 		if t.Name == "Cloners" {
-			if err := c.LinkIssues(ctx, t.Name, nk, key); err != nil {
-				return nk, fmt.Errorf("cloned, not linked: %w", err)
+			if err := c.LinkIssues(ctx, t.Name, clone, key); err != nil {
+				return fmt.Errorf("cloned, not linked: %w", err)
 			}
 		}
 	}
-	return nk, nil
+	return nil
 }
 
 // projectOf is the project part of an issue key.

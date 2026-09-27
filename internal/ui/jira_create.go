@@ -74,48 +74,62 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraCreateActive = false
 		sprint, _ := m.createSprint()
 		m.status = "creating " + in.Type + " in " + in.Project + "…"
-		return m, m.createJiraIssue(in, sprint, m.jiraCreateTitle())
+		return m, m.createJiraIssue(jiraFormCreate{in: in, sprint: sprint}, m.jiraCreateTitle())
 	}
 	var cmd tea.Cmd
 	m.jiraCreateInput, cmd = m.jiraCreateInput.Update(msg)
 	return m, cmd
 }
 
-// createJiraIssue creates in and adds it to sprint (0 for none). A create
-// Jira refuses is checked against the create screen: required fields it
-// lacks (a Component) come back as a form titled title; "" asks nothing.
-func (m *Model) createJiraIssue(in jira.NewIssue, sprint int, title string) tea.Cmd {
+// createJiraIssue makes cr's issue: see createIssue.
+func (m *Model) createJiraIssue(cr jiraFormCreate, title string) tea.Cmd {
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
 		defer cancel()
-		key, err := c.CreateIssue(ctx, in)
-		if err != nil && title != "" {
-			if fields, fErr := c.CreateFields(ctx, in.Project, in.Type); fErr == nil {
-				if form := buildCreateForm(title, in, sprint, fields); form != nil {
-					form.err = err.Error()
-					return jiraCreatedMsg{err: err, form: form}
-				}
-			}
-		}
-		if err == nil && sprint != 0 {
-			if err = c.MoveToSprint(ctx, sprint, key); err != nil {
-				err = &jiraCreateSprintErr{err}
-			}
-		}
-		return jiraCreatedMsg{key: key, err: err}
+		return createIssue(ctx, c, cr, title)
 	}
+}
+
+// createIssue creates cr.in, adds it to cr.sprint (0 for none) and links a
+// clone to its source. A create Jira refuses is checked against the create
+// screen: required fields it lacks (a Component) come back as a form titled
+// title; "" asks nothing.
+func createIssue(ctx context.Context, c *jira.Client, cr jiraFormCreate, title string) jiraCreatedMsg {
+	key, err := c.CreateIssue(ctx, cr.in)
+	if err != nil && title != "" {
+		if fields, fErr := c.CreateFields(ctx, cr.in.Project, cr.in.Type); fErr == nil {
+			if form := buildCreateForm(title, cr, fields); form != nil {
+				form.err = err.Error()
+				return jiraCreatedMsg{err: err, form: form}
+			}
+		}
+	}
+	switch {
+	case err != nil:
+	case cr.sprint != 0:
+		if err = c.MoveToSprint(ctx, cr.sprint, key); err != nil {
+			err = &jiraCreateSprintErr{err}
+		}
+	case cr.cloneOf != "":
+		err = c.LinkClone(ctx, key, cr.cloneOf)
+	}
+	return jiraCreatedMsg{key: key, err: err}
 }
 
 // buildCreateForm is the form for the required fields in lacks, nil when
 // it lacks none.
-func buildCreateForm(title string, in jira.NewIssue, sprint int, fields []jira.CreateField) *jiraFormState {
+func buildCreateForm(title string, cr jiraFormCreate, fields []jira.CreateField) *jiraFormState {
+	in := cr.in
 	set := map[string]bool{"project": true, "issuetype": true, "summary": true,
 		"description": in.Description != "" || len(in.DescriptionADF) > 0, "parent": in.Parent != "", "priority": in.Priority != ""}
 	if len(in.Labels) > 0 {
 		set["labels"] = true
 	}
-	f := &jiraFormState{key: title, create: &jiraFormCreate{in: in, sprint: sprint}}
+	for id := range in.Fields {
+		set[id] = true
+	}
+	f := &jiraFormState{key: title, create: &cr}
 	for _, cf := range fields {
 		if !cf.Required || set[cf.ID] {
 			continue
@@ -157,6 +171,7 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	m.jiraCreateInput.SetValue("") // made: nothing for a later failure to bring back
 	refresh := m.refreshJiraAfterEdit()
 	if m.jiraCreateReload && m.jiraTab.roadmap != nil {
 		m.jiraCreateReload = false
