@@ -1171,3 +1171,14 @@ func TestPlanFeedback(t *testing.T) {
 		t.Errorf("empty side:\n%s", ansi.Strip(m.View().Content))
 	}
 }
+
+// TestHistoryEnter: enter in H goes on to the panel's History tab.
+func TestHistoryEnter(t *testing.T) {
+	m := panelModel(t)
+	m.startJiraPicker(jiraPickHistory, "History — ABC-1", true)
+	m.setJiraPickerItems([]jiraPickerItem{{id: "0", label: "status: To Do → Done"}})
+	out, _ := m.applyJiraPick()
+	if m = out.(Model); m.jiraPicker.active || m.activityTab != activityHistory || m.focus != focusRef {
+		t.Errorf("active %v, tab %d, focus %v", m.jiraPicker.active, m.activityTab, m.focus)
+	}
+}

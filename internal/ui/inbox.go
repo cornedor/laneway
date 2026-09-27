@@ -34,7 +34,6 @@ func (m *Model) inboxSince(now time.Time) time.Time {
 func (m *Model) openInbox() tea.Cmd {
 	now := time.Now()
 	since := m.inboxSince(now)
-	m.inboxUnread = 0
 	gen := m.startJiraPicker(jiraPickInbox, "Inbox", true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, st := m.jiraClient, m.ctx, m.store

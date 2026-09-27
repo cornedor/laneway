@@ -373,6 +373,9 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 		m.jiraTab.projects = msg.projects
 	}
 	m.jiraPicker.err = msg.err
+	if msg.kind == jiraPickInbox && msg.err == nil {
+		m.inboxUnread = 0 // read now; a failed load keeps the badge
+	}
 	if msg.title != "" {
 		m.jiraPicker.title = msg.title
 	}
@@ -679,8 +682,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}
 	if kind == jiraPickHistory {
-		m.closeJiraPicker()
-		return m, nil
+		m.closeJiraPicker() // on to the panel's history, changes in full
+		m.focus = focusRef
+		return m, m.switchActivity(activityHistory)
 	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
 		m.closeJiraPicker()

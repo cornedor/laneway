@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -57,7 +58,8 @@ func TestInbox(t *testing.T) {
 	}
 }
 
-// TestInboxBadge: the count shows in the header until the inbox opens.
+// TestInboxBadge: the count shows in the header until the inbox has
+// loaded; a failed load keeps it.
 func TestInboxBadge(t *testing.T) {
 	m := jiraTabModel(t)
 	out, _ := m.Update(inboxCountMsg{3})
@@ -66,8 +68,14 @@ func TestInboxBadge(t *testing.T) {
 		t.Fatal("badge not in the header")
 	}
 	m.openInbox()
-	if m.inboxBadge() != "" {
-		t.Error("opening the inbox should clear the badge")
+	p := m.jiraPicker
+	out, _ = m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: p.gen, seq: p.fetchSeq, kind: jiraPickInbox, err: fmt.Errorf("down")})
+	if m = out.(Model); m.inboxBadge() == "" {
+		t.Error("a failed load cleared the badge")
+	}
+	out, _ = m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: p.gen, seq: p.fetchSeq, kind: jiraPickInbox})
+	if m = out.(Model); m.inboxBadge() != "" {
+		t.Error("a loaded inbox should clear the badge")
 	}
 }
 
