@@ -70,7 +70,7 @@ var keyScopes = []struct {
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work", "search",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "copy_branch", "help", "refresh", "toggle_panel", "palette",
-		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower",
+		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower", "undo",
 	}},
 	{"planning", []string{
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down", "quit", "plan", "next_view", "prev_view",

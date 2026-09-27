@@ -226,6 +226,9 @@ type jiraTabState struct {
 	lastBand jiraBandUndo
 	moveSeq  int
 	undoSeq  int
+	// lastEdit is the last field, bulk, sprint or comment change, stamped
+	// the same way (edit_undo.go).
+	lastEdit *editUndo
 	// marked are the cards a bulk edit applies to (bulk.go), by key.
 	marked    map[string]bool
 	viewIdx   int
@@ -1437,6 +1440,9 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 // undoing again redoes the move.
 func (m *Model) undoJiraMove() tea.Cmd {
 	t := m.jiraTab
+	if t.lastEditIsLatest() {
+		return m.undoEdit()
+	}
 	band, move := t.lastBand.key != "" && t.lastBand.seq >= t.moveSeq, t.lastMove[0] != "" && t.moveSeq >= t.lastBand.seq
 	if !band && !move {
 		m.status = "nothing to undo"

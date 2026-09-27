@@ -1040,6 +1040,19 @@ func (c *Client) AddComment(ctx context.Context, key, text string, mention *Ment
 	return c.AddCommentMentions(ctx, key, text, mention, nil, Visibility{})
 }
 
+// AddCommentADF posts body, a comment as Jira stores it, on key.
+func (c *Client) AddCommentADF(ctx context.Context, key string, body json.RawMessage) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
+	if err := c.do(ctx, http.MethodPost, path, key, map[string]any{"body": body}, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // Visibility is who may read a comment: everyone (zero), a Service Desk
 // internal note, or the members of a project role.
 type Visibility struct {

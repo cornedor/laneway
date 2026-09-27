@@ -166,6 +166,8 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openInbox()
 	case key.Matches(msg, m.keys.Standup):
 		return m, m.openStandup()
+	case key.Matches(msg, m.keys.Undo):
+		return m, m.undoJiraMove()
 	case key.Matches(msg, m.keys.History):
 		return m, m.openHistory()
 	case key.Matches(msg, m.keys.NextView):

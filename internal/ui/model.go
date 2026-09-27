@@ -132,7 +132,7 @@ func defaultKeys() keyMap {
 		Palette:         bind("command palette", ":"),
 		Mark:            bind("mark card", "x"),
 		MarkAll:         bind("mark the lane / every row", "X"),
-		Undo:            bind("undo the last card move", "u"),
+		Undo:            bind("undo the last change", "u"),
 		Bulk:            bind("edit marked cards", "B"),
 		Plan:            bind("sprint planning", "P"),
 		Charts:          bind("sprint charts", "C"),
@@ -631,6 +631,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleCommentVis(msg)
 	case filterSavedMsg:
 		return m.handleFilterSaved(msg)
+	case editUndoneMsg:
+		return m.handleEditUndone(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:

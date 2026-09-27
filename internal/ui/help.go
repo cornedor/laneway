@@ -57,7 +57,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.Fold, k.UnfoldAll), "fold the swimlane / unfold all"},
 			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
 			{join(k.RankUp, k.RankDown), "rank up / down in its lane"},
-			row(k.Undo, "undo the last card move or band drop"),
+			row(k.Undo, "undo the last move, band drop or edit (fields, bulk, sprint, a deleted comment)"),
 			row(k.MoveSprint, "move to sprint / backlog"),
 			row(k.QuickEdit, "quick edit: status, priority, assignee, points…"),
 			{join(k.Mark, k.Bulk), "mark card / edit marked (esc clears)"},

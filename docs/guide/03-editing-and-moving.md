@@ -11,7 +11,8 @@ left or right. It moves on screen at once; Jira catches up behind it. With
 the mouse, drag it.
 
 - A lane holding several statuses asks which one.
-- Moved the wrong card? `u` undoes the last move.
+- Moved the wrong card, or set the wrong priority? `u` takes back the last
+  change: a move, an edit, a bulk edit or a deleted comment.
 - `K` and `J` rank a card up or down within its lane.
 - `M` sends it to another sprint or the backlog.
 

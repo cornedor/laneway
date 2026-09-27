@@ -48,6 +48,7 @@ func (m *Model) moveJiraToSprint(keys []string, it jiraPickerItem) tea.Cmd {
 		sprint, _ := strconv.Atoi(it.id)
 		run = func() error { return client.MoveToSprint(ctx, sprint, keys...) }
 	}
+	m.undoSprintMove(keys)
 	key := strings.Join(keys, ", ")
 	m.status = "moving " + key + " to " + it.label + "…"
 	return jiraMutateCmd(key, "sprint", run)

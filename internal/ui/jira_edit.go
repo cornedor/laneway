@@ -781,6 +781,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		}
 		m.closeJiraPicker()
 		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
+		m.undoDeleteComment(key, m.jiraIssue.Comments[i])
 		m.status = "deleting the comment…"
 		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
 	}
@@ -964,6 +965,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+	m.undoPanelPick(kind, key)
 	m.status = fmt.Sprintf("updating %s %s…", key, field)
 	return m, jiraMutateCmd(key, field, run)
 }
@@ -1035,6 +1037,7 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 		}
 		run = func() error { return client.SetLabels(ctx, key, labels) }
 	}
+	m.undoPanelField(field, key)
 	m.closeJiraField()
 	m.status = fmt.Sprintf("updating %s %s…", key, field)
 	return m, jiraMutateCmd(key, field, run)
