@@ -62,6 +62,7 @@ type keyMap struct {
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
+	Refine                             key.Binding
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -161,6 +162,7 @@ func defaultKeys() keyMap {
 		Releases:        bind("releases: versions and their progress", "V"),
 		Review:          bind("waiting on my review (gh, glab)", "ctrl+r"),
 		Repeat:          bind("do the last change again on the selected card", "."),
+		Refine:          bind("refine: the view's issues one at a time", "ctrl+e"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -382,6 +384,8 @@ type Model struct {
 	otherSites *siteClients
 	// actions are ui.actions, the usable ones (actions.go).
 	actions []config.Action
+	// refine is the refinement queue being stepped through (refine.go).
+	refine *refineState
 	// repeat is the last change, for . to make again (repeat.go).
 	repeat *repeatAction
 	// draftPending is a draft write scheduled (drafts.go).

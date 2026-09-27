@@ -58,6 +58,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
 			{join(k.RankUp, k.RankDown), "rank up / down in its lane"},
 			row(k.Undo, "undo the last move, band drop or edit (fields, bulk, sprint, a deleted comment)"),
+			row(k.Refine, "refine: the view's issues one at a time in the panel, unestimated first (J K, esc)"),
 			row(k.Repeat, "do the last move or quick / bulk edit again on the selected card"),
 			row(k.MoveSprint, "move to sprint / backlog"),
 			row(k.QuickEdit, "quick edit: status, priority, assignee, points…"),

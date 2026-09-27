@@ -393,6 +393,7 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 			m.quickKey = ""
 		}
 		m.status = msg.what + " set on " + strings.Join(msg.keys, ", ")
+		m.noteRefine(m.status)
 		for k, err := range msg.failed {
 			m.fail(k + ": " + msg.what + ": " + err.Error())
 		}

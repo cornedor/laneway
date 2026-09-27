@@ -1102,6 +1102,7 @@ func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.status = mutatedStatus(msg.key, msg.field)
+	m.noteRefine(m.status)
 	if text, _, ok := m.draft(commentDraft(msg.key)); ok && msg.field == "comment" && strings.TrimSpace(text) == msg.text {
 		m.dropDraft(commentDraft(msg.key)) // posted
 	}

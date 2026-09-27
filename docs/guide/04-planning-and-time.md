@@ -44,6 +44,13 @@ written behind.
 > backlog items with `x` until someone hits their limit, and `M` them into
 > the sprint.
 
+### Refine the backlog: `ctrl+e`
+
+On the backlog view, `ctrl+e` shows its issues one at a time, the ones
+without points first, in a wide panel: set points (`P`), priority, labels,
+status, or split one into subtasks (`A`). `J` goes to the next, `K` back;
+`esc` ends it and copies what you changed, for the meeting notes.
+
 ## See the roadmap: `R`
 
 `R` shows the project's epics on a timeline: a bar from start to due date,

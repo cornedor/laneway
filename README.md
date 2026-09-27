@@ -289,6 +289,7 @@ Board:
 - cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last change: a move, a band drop, a field, quick or bulk edit, a sprint move or a deleted comment (also in the panel) · `.` does the last move or quick / bulk edit again on the selected card · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases
+- refine: `ctrl+e` steps through the view's issues one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
 - `q` quit; on the roadmap, planning, charts or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)

@@ -972,6 +972,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.undoJiraMove()
 	case key.Matches(msg, m.keys.Repeat):
 		return m, m.repeatOnSelected()
+	case key.Matches(msg, m.keys.Refine):
+		return m, m.startRefine()
 	case key.Matches(msg, m.keys.Pin):
 		if c, ok := m.selectedJiraCard(); ok {
 			m.togglePin(c.Key, c.Summary)
