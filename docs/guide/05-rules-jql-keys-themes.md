@@ -132,7 +132,9 @@ ui:
 ```
 
 Colours take ANSI numbers (`0`–`255`) or `#rrggbb`. On a font without Nerd
-Font glyphs, `ui.icons: plain` draws issue types as letters.
+Font glyphs, `ui.icons: plain` draws issue types as letters. `theme: mono`,
+or `NO_COLOR` in your environment, uses no colour: reverse video shows the
+cursor.
 
 ## Where to next
 

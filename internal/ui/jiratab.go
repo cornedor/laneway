@@ -2183,6 +2183,9 @@ func jiraAvatar(name string) string {
 	h.Write([]byte(name))
 	bg := avatarColours[h.Sum32()%uint32(len(avatarColours))]
 	a := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Background(lipgloss.Color(bg)).Bold(true).Render(jiraInitials(name))
+	if monoTheme {
+		a = lipgloss.NewStyle().Reverse(true).Render(jiraInitials(name))
+	}
 	avatars[name] = a
 	return a
 }

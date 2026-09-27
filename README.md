@@ -168,6 +168,8 @@ roadmap_todo and roadmap_done), and shade: `auto` (steps off the terminal's own 
 the canvas around the cards and list zebra rows, stronger for the panel's trail
 and section bars), `off`, or one colour for all. On a light terminal the
 default selection_idle turns light grey (`253`); the presets are for dark ones.
+`theme: mono` (or `NO_COLOR` set) draws no colour at all: the cursor and a
+drop in reverse, the accent bold, the dim faint.
 
 ### Rules
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"maps"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -52,6 +53,9 @@ func defaultTheme() theme {
 // themePresets are full palettes for ui.theme: <name>, all for dark
 // terminals. Missing names keep the ANSI default.
 var themePresets = map[string]theme{
+	// mono draws no colour: the cursor and selections in reverse, accents
+	// bold, the dim faint. NO_COLOR picks it too.
+	"mono": {},
 	"tokyonight": {
 		"accent": "#7aa2f7", "dim": "#565f89", "selection_fg": "#c0caf5",
 		"selection_bg": "#33467c", "selection_idle": "#283457",
@@ -102,6 +106,9 @@ var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
 func themeFrom(over map[string]string) (theme, []string) {
 	th := defaultTheme()
 	var warn []string
+	if over["preset"] == "mono" || os.Getenv("NO_COLOR") != "" {
+		th[monoKey] = "on"
+	}
 	if p, ok := over["preset"]; ok {
 		if pt, ok := themePresets[p]; ok {
 			maps.Copy(th, pt)
@@ -216,8 +223,19 @@ func paintRow(st lipgloss.Style, line string, width int) string {
 	return st.Render(line)
 }
 
+// monoKey marks a theme as mono (the preset, or NO_COLOR).
+const monoKey = "\x00mono"
+
+// monoTheme is whether the theme draws no colour.
+var monoTheme bool
+
 // applyTheme sets every themed colour and style.
 func applyTheme(th theme) {
+	if th[monoKey] != "" {
+		applyMono(th)
+		return
+	}
+	monoTheme = false
 	th = maps.Clone(th)
 	for name, from := range statusFallback {
 		if th[name] == "" {
@@ -270,4 +288,36 @@ func applyTheme(th theme) {
 	mdCodeOpen = ansiOpenSeq(mdCodeStyle)
 	mdFenceStyle, mdQuoteBarStyle = dim, dim
 	mdLinkStyle = c("link").Underline(true)
+}
+
+// applyMono sets the styles to show state without colour: reverse for
+// the cursor, a drop and a status, bold and underline for the rest.
+func applyMono(th theme) {
+	blank := theme{monoKey: "on"} // type and priority marks read by their glyphs
+	for k := range th {
+		if k != monoKey {
+			blank[k] = ""
+		}
+	}
+	curTheme, monoTheme = blank, true
+	plain := lipgloss.NewStyle()
+	bold, faint, rev := plain.Bold(true), plain.Faint(true), plain.Reverse(true)
+	focusedColor, dimColor = lipgloss.NoColor{}, lipgloss.NoColor{}
+	selectedRow = rev
+	shadeOn = false
+	diffTreeSelStyle = plain.Underline(true)
+	scrollbarThumbStyle = bold
+	mentionStyle, attachmentStyle, statusStyle = bold, plain.Underline(true), faint
+	jiraKeyStyle, jiraDimStyle, jiraOverStyle = bold, faint, bold.Underline(true)
+	jiraDropStyle, jiraViewActive = rev.Bold(true), bold.Underline(true)
+	jiraGhostStyle, jiraPinStyle = faint.Italic(true), bold
+	roadmapDoneStyle, roadmapTodoStyle, roadmapTodayStyle = faint, plain, bold
+	refKeyStyle, refLabelStyle, refDimStyle = bold, faint, faint
+	laneMark = map[string]lipgloss.Style{"new": faint, "indeterminate": bold, "done": plain}
+	statusLozenge = map[string]lipgloss.Style{"new": rev, "indeterminate": rev.Bold(true), "done": rev.Faint(true)}
+	refErrStyle = bold.Underline(true)
+	mdCodeStyle, mdCodeBlockStyle = plain, plain
+	mdCodeOpen = ansiOpenSeq(mdCodeStyle)
+	mdFenceStyle, mdQuoteBarStyle = faint, faint
+	mdLinkStyle = plain.Underline(true)
 }

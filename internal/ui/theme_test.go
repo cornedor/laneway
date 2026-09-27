@@ -40,6 +40,9 @@ func TestApplyThemeRecolours(t *testing.T) {
 func TestThemePresets(t *testing.T) {
 	def := defaultTheme()
 	for name, p := range themePresets {
+		if name == "mono" {
+			continue // no colours: TestMonoTheme
+		}
 		if len(p) != len(def) {
 			t.Errorf("%s: %d colours, want %d", name, len(p), len(def))
 		}
@@ -172,5 +175,26 @@ func TestStatusColours(t *testing.T) {
 	applyTheme(th)
 	if !strings.Contains(laneMark["indeterminate"].Render("x"), "4;5;6") || !strings.Contains(statusLozenge["new"].Render("x"), "7;8;9") {
 		t.Errorf("set: %q %q", laneMark["indeterminate"].Render("x"), statusLozenge["new"].Render("x"))
+	}
+}
+
+// TestMonoTheme: the mono preset, and NO_COLOR, draw state without colour:
+// the selected card in reverse, no colour sequences.
+func TestMonoTheme(t *testing.T) {
+	t.Cleanup(func() { applyTheme(defaultTheme()) })
+	t.Setenv("NO_COLOR", "1")
+	th, warn := themeFrom(nil)
+	if len(warn) != 0 || th[monoKey] == "" {
+		t.Fatalf("NO_COLOR: %v %v", th[monoKey], warn)
+	}
+	applyTheme(th)
+	m := jiraTabModel(t)
+	m.renderJira()
+	view := m.View().Content
+	if !strings.Contains(view, "\x1b[7m") {
+		t.Error("the selection should be in reverse")
+	}
+	if strings.Contains(view, "\x1b[38;") || strings.Contains(view, "\x1b[48;") {
+		t.Error("mono should draw no colour")
 	}
 }
