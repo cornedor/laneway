@@ -31,8 +31,25 @@ type panelHit struct {
 	empty  bool // the folded empty fields' row: show them
 }
 
+// panelHints are the panel's line of edit keys, as bound: its label and
+// the key a click on it presses.
+func (m *Model) panelHints() [][2]string {
+	k := m.keys
+	return [][2]string{
+		{helpKey(k.Tab) + " fields", firstKey(k.Tab)}, {"↵ edit", "enter"},
+		{helpKey(k.JiraComment) + " comment", firstKey(k.JiraComment)}, {helpKey(k.JiraReply) + " reply", firstKey(k.JiraReply)},
+		{helpKey(k.JiraStart) + " start work", firstKey(k.JiraStart)}, {helpKey(k.Help) + " keys", firstKey(k.Help)},
+	}
+}
+
 // panelHintLine is the panel's line of edit keys; a click on one presses it.
-const panelHintLine = "tab fields · ↵ edit · c comment · R reply · S start work · ? keys"
+func (m *Model) panelHintLine() string {
+	var labels []string
+	for _, h := range m.panelHints() {
+		labels = append(labels, h[0])
+	}
+	return strings.Join(labels, " · ")
+}
 
 // imageFG finds an image placeholder's id, written as its foreground.
 var imageFG = regexp.MustCompile("\x1b\\[38;2;(\\d+);(\\d+);(\\d+)m\U0010EEEE")
@@ -56,7 +73,7 @@ func (m *Model) indexPanelHits(content string) {
 		switch text := strings.TrimSpace(ansi.Strip(l)); {
 		case text == tabs:
 			m.activityLine = i
-		case text == panelHintLine:
+		case text == m.panelHintLine():
 			m.panelHits[i] = panelHit{field: -1, hints: true}
 		case text == "Description" && m.descEdit == nil:
 			m.panelHits[i] = panelHit{field: -1, press: "E", double: true}
@@ -176,7 +193,7 @@ func linkAt(line string, col int) string {
 // clickPanel acts on a clicked panel line.
 func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 	if h.hints {
-		h.press = panelHintAt(h.col)
+		h.press = m.panelHintAt(h.col)
 	}
 	switch {
 	case h.empty:
@@ -240,18 +257,14 @@ func panelIndent(line string) int {
 	return len(s) - len(strings.TrimLeft(s, " "))
 }
 
-// panelHintAt is the key of the hint at column col of panelHintLine, ""
+// panelHintAt is the key of the hint at column col of the hint line, ""
 // between them.
-func panelHintAt(col int) string {
+func (m *Model) panelHintAt(col int) string {
 	at := 0
-	for _, h := range strings.Split(panelHintLine, " · ") {
-		w := ansi.StringWidth(h)
+	for _, h := range m.panelHints() {
+		w := ansi.StringWidth(h[0])
 		if col >= at && col < at+w {
-			k, _, _ := strings.Cut(h, " ")
-			if k == "↵" {
-				return "enter"
-			}
-			return k
+			return h[1]
 		}
 		at += w + 3
 	}

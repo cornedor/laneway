@@ -1332,3 +1332,14 @@ func TestReviewFixes(t *testing.T) {
 		t.Error("with nothing unsent the pick should switch")
 	}
 }
+
+// TestPanelHintsRebound: the panel's hint line shows and presses the keys
+// as bound.
+func TestPanelHintsRebound(t *testing.T) {
+	m := panelModel(t)
+	m.keys.applyKeys(map[string]config.KeyList{"comment": {"K"}})
+	m.renderRef()
+	if m = clickText(t, m, "K comment"); !m.jiraCommentActive {
+		t.Error("the rebound comment hint did not open the composer")
+	}
+}

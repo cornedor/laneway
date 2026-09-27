@@ -6,6 +6,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The panel's hint line (`tab fields · ↵ edit · c comment …`) shows the keys as bound, and a click presses the bound one
 - Fixes from a review of tonight's work: a site switch held back by the quit guard no longer fires on a later quit; ctrl+c on the roadmap asks too; a paste reaches go-to, create, `Q`, `/`, pickers' and the builder's filters and settings' input (go-to's URL paste works now); `messages` copies the row picked even as the log shifts; the `F` builder keeps the field picked through its filter
 - Standup: rows step a workday further back and (once back) a workday later again, beside `U`
 - Planning keeps the side that loaded: the failed side shows its error and `r retries`; moves wait for a retry
