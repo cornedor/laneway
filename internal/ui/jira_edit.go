@@ -756,11 +756,12 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, m.switchActivity(activityHistory)
 	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
-		m.closeJiraPicker()
 		key, _, _ := strings.Cut(it.id, "/") // a worklog row is key/id
 		if key == "" {
+			m.status = "no issue on this row" // a day's heading: the list stays
 			return m, nil
 		}
+		m.closeJiraPicker()
 		return m.openJiraKey(key)
 	}
 	if kind == jiraPickBulk {

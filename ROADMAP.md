@@ -1,10 +1,16 @@
 # Roadmap
 
 ## Next
+- Timesheet: `]` stops at today, as standup stops at the last workday (it walks into empty future days)
+- Inbox: the title counts issues, as the header's `✉ 3` does (it counts entries: "11 since…")
+- Planning: `y` refuses while the sprint side is loading or failed, and says why (it copies an empty table)
+- Standup: "Copy as text" after a failed load says there is nothing to copy (it says "standup copied" and copies nothing)
+- A failed save of the running timer says so (`worklog.go` drops it; the timer is lost on restart)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Inbox, standup and timesheet: enter on a day heading or an empty row says there is no issue there and keeps the list open (it closed it)
 - Board: `b` with no boards, `a` and `m` before the board loaded say why nothing happened (still loading, no boards in the project, `r` retries)
 - An empty picker says "no matches" only when a filter matched nothing; the status picker with no transitions says so (the workflow, or your permissions), others "nothing here"
 - Panel: a long thread's comments load in full (paged, up to 1000), so the newest can be read and replied to; "…and N more" stays only when that fails
