@@ -78,3 +78,33 @@ func TestDeltaRefresh(t *testing.T) {
 		t.Error("the filter should change the fetch key")
 	}
 }
+
+// TestDeltaRefreshUnsure: a gone-check Jira refuses (a deleted key) or
+// answers with a key not loaded (moved to another project) makes the view
+// fetch whole.
+func TestDeltaRefreshUnsure(t *testing.T) {
+	for name, reply := range map[string]string{"deleted": "", "moved": `{"issues":[{"key":"XYZ-9","fields":{}}]}`} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				if reply == "" {
+					http.Error(w, `{"errorMessages":["An issue with key 'ABC-3' does not exist"]}`, http.StatusBadRequest)
+					return
+				}
+				io.WriteString(w, reply)
+				return
+			}
+			io.WriteString(w, `{"total":1,"issues":[{"key":"ABC-2","fields":{"summary":"Second","status":{"id":"3"}}}]}`)
+		}))
+		m := jiraTabModel(t)
+		m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+		m.jiraTab.fetched = time.Now().Add(-3 * time.Minute)
+		msg := m.loadJiraDelta()().(jiraCardsMsg)
+		seq := m.jiraTab.seq
+		out, cmd := m.handleJiraCards(msg)
+		m = out.(Model)
+		if !msg.full || cmd == nil || m.jiraTab.seq == seq || len(m.jiraTab.cards) != 4 {
+			t.Errorf("%s: full %v, refetch %v, cards %d", name, msg.full, cmd != nil, len(m.jiraTab.cards))
+		}
+		srv.Close()
+	}
+}

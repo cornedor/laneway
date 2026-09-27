@@ -347,10 +347,12 @@ type jiraBoardMsg struct {
 
 // jiraCardsMsg carries one view's cards, after a view switch or a move.
 type jiraCardsMsg struct {
-	seq     int
-	cached  bool
-	delta   bool     // only the cards updated since the last fetch
-	gone    []string // with delta: loaded cards that left the view
+	seq    int
+	cached bool
+	delta  bool     // only the cards updated since the last fetch
+	gone   []string // with delta: loaded cards that left the view
+	// full is a delta that couldn't tell what left: fetch the whole view.
+	full    bool
 	viewIdx int
 	cards   []jira.Card
 	total   int
@@ -696,6 +698,9 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		t.offline = ""
+		if msg.full {
+			return m, m.loadJiraCards(msg.viewIdx, false)
+		}
 		prev := t.cards
 		merged, added := mergeCards(prev, msg.cards)
 		if len(msg.gone) > 0 {
@@ -3182,16 +3187,26 @@ func (m *Model) loadJiraDelta() tea.Cmd {
 		if err == nil && len(loaded) > 0 {
 			// Loaded cards updated since but not in the view's answer have
 			// left it (another sprint, a filtered-out status).
+			// Jira refuses the search when a key was deleted, and answers a
+			// card moved to another project by its new key: either needs
+			// the whole view.
 			jql := fmt.Sprintf("key in (%s) AND updated >= -%dm", strings.Join(loaded, ","), mins)
-			if changed, err := c.SearchCards(ctx, jql); err == nil {
-				in := map[string]bool{}
-				for _, cd := range cards {
-					in[cd.Key] = true
-				}
-				for _, cd := range changed {
-					if !in[cd.Key] {
-						msg.gone = append(msg.gone, cd.Key)
-					}
+			changed, err := c.SearchCards(ctx, jql)
+			if err != nil {
+				msg.full = true
+				return msg
+			}
+			in := map[string]bool{}
+			for _, cd := range cards {
+				in[cd.Key] = true
+			}
+			for _, cd := range changed {
+				switch {
+				case !slices.Contains(loaded, cd.Key):
+					msg.full = true
+					return msg
+				case !in[cd.Key]:
+					msg.gone = append(msg.gone, cd.Key)
 				}
 			}
 		}
