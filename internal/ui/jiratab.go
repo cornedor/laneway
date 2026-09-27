@@ -1489,7 +1489,7 @@ func (m *Model) openJiraBoardPicker() {
 	if len(t.boards) == 0 {
 		return
 	}
-	m.startJiraPicker(jiraPickBoard, "Board — "+t.project, false)
+	m.startJiraPicker(jiraPickBoard, "Board — "+t.project, true)
 	items := make([]jiraPickerItem, len(t.boards))
 	for i, b := range t.boards {
 		items[i] = jiraPickerItem{id: strconv.Itoa(b.ID), label: b.Name + "  " + b.Type, current: i == t.board}

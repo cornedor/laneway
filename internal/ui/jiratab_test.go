@@ -1489,3 +1489,23 @@ func TestBoardRank(t *testing.T) {
 		t.Errorf("with swimlanes: %q", m.status)
 	}
 }
+
+// TestPickersFilter: the board and sprint pickers take a filter as the
+// project picker does.
+func TestPickersFilter(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.boards = append(m.jiraTab.boards, jira.Board{ID: 2, Name: "Ops kanban", Type: "kanban"})
+	out, _ := m.handleKey(keyStr("b"))
+	for _, r := range "ops" {
+		out, _ = out.(Model).handleKey(keyStr(string(r)))
+	}
+	m = out.(Model)
+	if len(m.jiraPicker.items) != 1 || !strings.Contains(m.jiraPicker.items[0].label, "Ops kanban") {
+		t.Errorf("board items = %+v", m.jiraPicker.items)
+	}
+	m.closeJiraPicker()
+	m.openJiraSprintPicker()
+	if !m.jiraPicker.filterable {
+		t.Error("the sprint picker should filter")
+	}
+}

@@ -519,7 +519,8 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink {
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink ||
+			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
 			if k == jiraPickPalette {

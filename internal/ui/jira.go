@@ -238,7 +238,7 @@ func (m *Model) openJiraLinkPicker() {
 		m.status = "no linked issues"
 		return
 	}
-	m.startJiraPicker(jiraPickLink, "Go to linked issue", false)
+	m.startJiraPicker(jiraPickLink, "Go to linked issue", true)
 	items := make([]jiraPickerItem, len(m.jiraIssue.Links))
 	for i, l := range m.jiraIssue.Links {
 		items[i] = jiraPickerItem{id: l.Key, label: l.Rel + " " + l.Key + " " + l.Summary}

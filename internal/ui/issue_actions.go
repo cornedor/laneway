@@ -80,7 +80,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickCreateType, items: items, err: err}
 		}
 	case "link":
-		gen := m.startJiraPicker(jiraPickLinkType, "Link "+key, false)
+		gen := m.startJiraPicker(jiraPickLinkType, "Link "+key, true)
 		m.jiraPicker.issueKey = key
 		seq := m.jiraPicker.fetchSeq
 		return func() tea.Msg {

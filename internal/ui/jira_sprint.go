@@ -32,7 +32,7 @@ func (m *Model) openJiraSprintPicker() {
 		m.status = "this board has no sprints"
 		return
 	}
-	m.startJiraPicker(jiraPickSprint, "Move "+c.Key+" to", false)
+	m.startJiraPicker(jiraPickSprint, "Move "+c.Key+" to", true)
 	m.jiraPicker.issueKey = c.Key
 	m.setJiraPickerItems(items)
 }
