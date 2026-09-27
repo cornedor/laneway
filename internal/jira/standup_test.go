@@ -50,8 +50,9 @@ func TestStandup(t *testing.T) {
 				io.WriteString(w, `{"issues":[]}`) // worklogDate searches
 			}
 		case r.URL.Path == "/rest/api/3/issue/A-1/changelog":
-			io.WriteString(w, `{"total":2,"values":[
-			  {"author":{"accountId":"me"},"created":"`+at(2*time.Hour)+`","items":[{"field":"status","fromString":"To Do","toString":"Done"}]},
+			io.WriteString(w, `{"total":3,"values":[
+			  {"author":{"accountId":"me"},"created":"`+at(2*time.Hour)+`","items":[{"field":"status","fromString":"To Do","toString":"Done"},{"field":"timespent","fromString":"3600","toString":"7200"}]},
+			  {"author":{"accountId":"me"},"created":"`+at(90*time.Minute)+`","items":[{"field":"timespent","toString":"3600"},{"field":"WorklogId","toString":"10042"}]},
 			  {"author":{"accountId":"bob"},"created":"`+at(time.Hour)+`","items":[{"field":"labels","toString":"x"}]}]}`)
 		case r.URL.Path == "/rest/api/3/issue/A-1/comment":
 			io.WriteString(w, `{"comments":[{"author":{"accountId":"me"},"created":"`+at(3*time.Hour)+`",

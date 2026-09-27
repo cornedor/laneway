@@ -200,17 +200,24 @@ func (c *Client) issueChanges(ctx context.Context, key, summary string, since ti
 		if !keep(h.Author.AccountID) || !when.After(since) {
 			continue
 		}
-		var parts []string
 		var changes []Change
 		for _, it := range h.Items {
-			parts = append(parts, fmt.Sprintf("%s: %s → %s", it.Field, orDash(it.FromString), orDash(it.ToString)))
 			changes = append(changes, Change{Field: it.Field, From: it.FromString, To: it.ToString})
 		}
-		if len(parts) > 0 {
-			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: strings.Join(parts, " · "), Changes: changes})
+		if len(changes) > 0 {
+			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: changesText(changes), Changes: changes})
 		}
 	}
 	return out, nil
+}
+
+// changesText is changes as "field: from → to", joined by " · ".
+func changesText(changes []Change) string {
+	parts := make([]string, len(changes))
+	for i, ch := range changes {
+		parts[i] = fmt.Sprintf("%s: %s → %s", ch.Field, orDash(ch.From), orDash(ch.To))
+	}
+	return strings.Join(parts, " · ")
 }
 
 // mentions reports whether an ADF body mentions accountID.

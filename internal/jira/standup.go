@@ -42,6 +42,7 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 			var summary string
 			_ = json.Unmarshal(is.Fields["summary"], &summary)
 			entries, err := c.issueActivity(ctx, is.Key, summary, since, mine, "")
+			entries = dropWorklogChanges(entries)
 			mu.Lock()
 			out = append(out, entries...)
 			mu.Unlock()
@@ -78,6 +79,33 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 	}
 	slices.SortFunc(out, func(a, b InboxEntry) int { return a.When.Compare(b.When) })
 	return out, nil
+}
+
+// worklogFields are the changelog's side of logging work, which the
+// standup lists from the worklogs themselves.
+var worklogFields = []string{"timespent", "timeestimate", "WorklogId", "WorklogTimeSpent"}
+
+// dropWorklogChanges leaves worklogFields out of entries' changes, and an
+// entry out when nothing else changed.
+func dropWorklogChanges(entries []InboxEntry) []InboxEntry {
+	var out []InboxEntry
+	for _, e := range entries {
+		if e.Changes == nil {
+			out = append(out, e)
+			continue
+		}
+		var changes []Change
+		for _, ch := range e.Changes {
+			if !slices.Contains(worklogFields, ch.Field) {
+				changes = append(changes, ch)
+			}
+		}
+		if len(changes) > 0 {
+			e.What, e.Changes = changesText(changes), changes
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // PreviousWorkday is the start of the last workday before now's day, the
