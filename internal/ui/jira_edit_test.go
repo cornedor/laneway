@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -585,5 +586,19 @@ func TestEnterOnHeadingKeepsList(t *testing.T) {
 	out, _ := m.applyJiraPick()
 	if m = out.(Model); !m.jiraPicker.active || m.status != "no issue on this row" {
 		t.Errorf("active %v, status %q", m.jiraPicker.active, m.status)
+	}
+}
+
+// TestStandupCopyFailed: Copy as text after a failed load copies nothing
+// and says so.
+func TestStandupCopyFailed(t *testing.T) {
+	m := loadedJiraModel(t)
+	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)
+	out, _ := m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickStandup,
+		items: []jiraPickerItem{{id: "copy", label: "Copy as text"}}, err: errors.New("offline")})
+	m = out.(Model)
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || !strings.HasPrefix(m.status, "nothing to copy") {
+		t.Errorf("status %q, cmd %v", m.status, cmd != nil)
 	}
 }

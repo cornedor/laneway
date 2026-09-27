@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- Standup: "Copy as text" after a failed load says there is nothing to copy (it says "standup copied" and copies nothing)
 - A failed save of the running timer says so (`worklog.go` drops it; the timer is lost on restart)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Standup: Copy as text after a failed load says there is nothing to copy (it said "standup copied" and copied nothing)
 - Inbox: an inbox opened and closed by accident isn't lost: the next one's last row, `↶ the inbox before, since …`, shows it again without moving the read marks
 - Views row: the sprint's bar, days and goal keep their room and views give way behind `‹` / `›` (they cut the sprint off); the goal is capped at 32 cells, a click shows it whole
 - Planning: `y` while the sprint side is loading or failed says so instead of copying an empty table

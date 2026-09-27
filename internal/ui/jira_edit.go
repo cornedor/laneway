@@ -688,6 +688,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickStandup && it.id == "copy" {
 		text := m.jiraPicker.text
+		if m.jiraPicker.err != nil || strings.TrimSpace(text) == "" {
+			m.status = "nothing to copy: the standup didn't load · U tries again"
+			return m, nil
+		}
 		m.closeJiraPicker()
 		m.status = "standup copied"
 		return m, tea.SetClipboard(text)
