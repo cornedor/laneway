@@ -321,3 +321,26 @@ func TestEditorHighlightsMarkdown(t *testing.T) {
 		t.Error("the comment composer should highlight too")
 	}
 }
+
+// TestDeleteAttachment: an attachment goes at the second enter on it.
+func TestDeleteAttachment(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Method + " " + r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraIssue.Attachments = []jira.Attachment{{ID: "77", Filename: "pasted 1.png", Size: 2048}}
+	m.applyIssueAction("ABC-1", "delete-attachment")
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || m.status != "enter again deletes pasted 1.png" {
+		t.Fatalf("first enter: %q", m.status)
+	}
+	out, cmd = m.applyJiraPick()
+	out, _ = out.(Model).Update(cmd())
+	if m = out.(Model); got != "DELETE /rest/api/3/attachment/77" || m.status != "ABC-1 attachments changed" {
+		t.Errorf("request %q, status %q", got, m.status)
+	}
+}

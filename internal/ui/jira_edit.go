@@ -87,8 +87,10 @@ const (
 	jiraPickHistory
 	// jiraPickDev lists the issue's pull requests and branches (devinfo.go).
 	jiraPickDev
-	// jiraPickAttachment picks an attachment to download (issue_actions.go).
+	// jiraPickAttachment picks an attachment to download (issue_actions.go),
+	// jiraPickDeleteAttachment one to delete.
 	jiraPickAttachment
+	jiraPickDeleteAttachment
 	// jiraPickUnlink picks an issue link to remove (issue_actions.go).
 	jiraPickUnlink
 	// jiraPickEditComment picks one of your comments to edit (description.go),
@@ -521,7 +523,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickUnlink ||
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink ||
 			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
@@ -710,6 +712,18 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
 		return m, m.unlinkJira(key, it)
+	}
+	if kind == jiraPickDeleteAttachment {
+		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
+			m.jiraPicker.pendingDelete = it.id
+			m.status = "enter again deletes " + it.value
+			return m, nil
+		}
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		c, ctx := m.jiraClient, m.ctx
+		m.status = "deleting the attachment…"
+		return m, jiraMutateCmd(key, "attachments", func() error { return c.DeleteAttachment(ctx, key, it.id) })
 	}
 	if kind == jiraPickAttachment {
 		m.closeJiraPicker()

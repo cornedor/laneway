@@ -53,7 +53,8 @@ func (m *Model) openIssueActions() {
 			jiraPickerItem{id: "delete-comment", label: "Delete a comment of yours"})
 	}
 	if len(iss.Attachments) > 0 {
-		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"})
+		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"},
+			jiraPickerItem{id: "delete-attachment", label: "Delete an attachment"})
 	}
 	m.setJiraPickerItems(items)
 }
@@ -127,6 +128,16 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		var items []jiraPickerItem
 		for _, a := range m.jiraIssue.Attachments {
 			items = append(items, jiraPickerItem{id: a.ID + "/" + a.Filename, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size))})
+		}
+		m.setJiraPickerItems(items)
+	case "delete-attachment":
+		if m.jiraIssue == nil || m.jiraIssue.Key != key {
+			return nil
+		}
+		m.startJiraPicker(jiraPickDeleteAttachment, "Delete an attachment from "+key, true)
+		var items []jiraPickerItem
+		for _, a := range m.jiraIssue.Attachments {
+			items = append(items, jiraPickerItem{id: a.ID, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size)), value: a.Filename})
 		}
 		m.setJiraPickerItems(items)
 	case "unlink":

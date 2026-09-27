@@ -99,6 +99,18 @@ func (c *Client) AttachmentURL(id string) string {
 	return c.baseURL + "/rest/api/3/attachment/content/" + url.PathEscape(id)
 }
 
+// DeleteAttachment deletes attachment id from key.
+func (c *Client) DeleteAttachment(ctx context.Context, key, id string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	if err := c.do(ctx, http.MethodDelete, "/rest/api/3/attachment/"+url.PathEscape(id), key, nil, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // UploadAttachment attaches the file at path to key, streamed from disk.
 func (c *Client) UploadAttachment(ctx context.Context, key, path string) error {
 	if !c.Enabled() {

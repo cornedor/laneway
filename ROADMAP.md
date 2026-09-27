@@ -1,12 +1,12 @@
 # Roadmap
 
 ## Next
-- `A` deletes an attachment (a wrong clipboard paste)
 - Panel: `backspace` with no trail says so
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `A` deletes an attachment (a wrong clipboard paste), confirmed by a second enter on it
 - `A` deletes a comment of yours (a second enter on it confirms), next to editing one
 - The palette's issue search, `@` mentions and `Q`'s value completions say when their search failed (offline, 401), not just show nothing
 - The `L` link picker, `A`'s link types, `M`'s sprints and `b`'s boards take a filter, as the project picker and "Remove a link" do
