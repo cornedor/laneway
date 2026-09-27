@@ -74,7 +74,10 @@ type Client struct {
 	timeout    time.Duration // one request's limit
 	custom     []string      // Config.CustomFields
 	http       *http.Client
-	writing    atomic.Int32 // writes (not GETs) on their way
+	// transfer is http without the whole-request limit, for attachment
+	// bodies that may take longer than timeout; stallGuard bounds them.
+	transfer *http.Client
+	writing  atomic.Int32 // writes (not GETs) on their way
 
 	mu    sync.Mutex
 	cache map[string]cachedIssue
@@ -116,6 +119,7 @@ func New(cfg Config) *Client {
 		gens:       map[string]int{},
 	}
 	c.http = &http.Client{Timeout: c.timeout}
+	c.transfer = &http.Client{}
 	if c.cardLimit <= 0 {
 		c.cardLimit = DefaultCardLimit
 	}

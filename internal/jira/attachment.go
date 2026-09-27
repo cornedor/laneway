@@ -2,6 +2,7 @@ package jira
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Attachment is one file on an issue.
@@ -66,21 +68,21 @@ func (c *Client) AttachmentContent(ctx context.Context, id string) ([]byte, erro
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
+	reqCtx, moved, stop := c.stallGuard(ctx)
+	defer stop()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, c.baseURL+"/rest/api/3/attachment/content/"+url.PathEscape(id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Authorization", c.auth)
-	resp, err := c.http.Do(req)
+	resp, err := c.transfer.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("call jira: %w", err)
+		return nil, fmt.Errorf("call jira: %w", stallCause(reqCtx, err))
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxAttachmentBytes+1))
+	body, err := io.ReadAll(io.LimitReader(progressReader{resp.Body, moved}, maxAttachmentBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("read attachment: %w", err)
+		return nil, fmt.Errorf("read attachment: %w", stallCause(reqCtx, err))
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, statusError(resp.StatusCode, "attachment "+id, body, resp.Header.Get("Retry-After"))
@@ -129,19 +131,21 @@ func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f i
 	if !c.Enabled() {
 		return errNotConfigured
 	}
+	reqCtx, moved, stop := c.stallGuard(ctx)
+	defer stop()
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
 		part, err := mw.CreateFormFile("file", name)
 		if err == nil {
-			_, err = io.Copy(part, f)
+			_, err = io.Copy(part, progressReader{f, moved})
 		}
 		if err == nil {
 			err = mw.Close()
 		}
 		pw.CloseWithError(err)
 	}()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/rest/api/3/issue/"+url.PathEscape(key)+"/attachments", pr)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, c.baseURL+"/rest/api/3/issue/"+url.PathEscape(key)+"/attachments", pr)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
@@ -150,9 +154,9 @@ func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f i
 	req.Header.Set("X-Atlassian-Token", "no-check") // Jira's CSRF guard for uploads
 	c.writing.Add(1)
 	defer c.writing.Add(-1)
-	resp, err := c.http.Do(req)
+	resp, err := c.transfer.Do(req)
 	if err != nil {
-		return fmt.Errorf("call jira: %w", err)
+		return fmt.Errorf("call jira: %w", stallCause(reqCtx, err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -169,14 +173,16 @@ func (c *Client) DownloadAttachment(ctx context.Context, id, name, dir string) (
 	if !c.Enabled() {
 		return "", errNotConfigured
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.AttachmentURL(id), nil)
+	reqCtx, moved, stop := c.stallGuard(ctx)
+	defer stop()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, c.AttachmentURL(id), nil)
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Authorization", c.auth)
-	resp, err := c.http.Do(req)
+	resp, err := c.transfer.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("call jira: %w", err)
+		return "", fmt.Errorf("call jira: %w", stallCause(reqCtx, err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -190,16 +196,50 @@ func (c *Client) DownloadAttachment(ctx context.Context, id, name, dir string) (
 	if err != nil {
 		return "", err
 	}
-	if _, err = io.Copy(f, resp.Body); err == nil {
+	if _, err = io.Copy(f, progressReader{resp.Body, moved}); err == nil {
 		err = f.Close()
 	} else {
 		f.Close()
+		err = stallCause(reqCtx, err)
 	}
 	if err != nil {
 		os.Remove(path)
 		return "", err
 	}
 	return path, nil
+}
+
+// errStalled is a transfer that moved nothing for the client's timeout.
+var errStalled = errors.New("transfer stalled")
+
+// stallGuard bounds a transfer by its progress, not its length: the context
+// ends once moved went uncalled for c.timeout. stop releases it.
+func (c *Client) stallGuard(ctx context.Context) (context.Context, func(), func()) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	t := time.AfterFunc(c.timeout, func() { cancel(fmt.Errorf("%w: nothing moved for %s", errStalled, c.timeout)) })
+	return ctx, func() { t.Reset(c.timeout) }, func() { t.Stop(); cancel(nil) }
+}
+
+// stallCause is err, or why stallGuard ended ctx.
+func stallCause(ctx context.Context, err error) error {
+	if cause := context.Cause(ctx); errors.Is(cause, errStalled) {
+		return cause
+	}
+	return err
+}
+
+// progressReader calls moved on every read that got bytes.
+type progressReader struct {
+	r     io.Reader
+	moved func()
+}
+
+func (p progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	if n > 0 {
+		p.moved()
+	}
+	return n, err
 }
 
 // createFree creates name in dir, or "name (n).ext" when taken.
