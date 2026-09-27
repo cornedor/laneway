@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -13,8 +14,9 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// TestJiraCreate: n picks a type, the summary creates the issue in the
-// board's project and the shown sprint, and the panel opens on it.
+// TestJiraCreate: n opens one form with the type (Task), summary and
+// description; → changes the type, enter on the summary creates the issue in
+// the board's project and the shown sprint, and the panel opens on it.
 func TestJiraCreate(t *testing.T) {
 	var created map[string]any
 	var sprintBody map[string][]string
@@ -38,25 +40,30 @@ func TestJiraCreate(t *testing.T) {
 
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.opts.templates = map[string]string{"bug": "## Steps"}
 	out, cmd := m.handleKey(keyMsg(t, "n"))
+	out, _ = out.(Model).handleJiraCreateTypes(cmd().(jiraCreateTypesMsg))
 	m = out.(Model)
-	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickCreateType {
-		t.Fatal("n opened no type picker")
+	f := m.jiraForm
+	if f == nil || f.create == nil || !f.create.form || f.idx != 1 || !f.editing {
+		t.Fatalf("form = %+v", f)
 	}
-	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
-	m = out.(Model)
-	if len(m.jiraPicker.items) != 2 {
-		t.Fatalf("types = %+v, want no subtask", m.jiraPicker.items)
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"New Task in ABC", "Type *", "Task", "Summary *", "Description"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("form lacks %q:\n%s", want, view)
+		}
 	}
-	out, _ = m.handleKey(keyMsg(t, "down"))
-	out, _ = out.(Model).handleKey(keyStr("enter"))
-	m = out.(Model)
-	if !m.jiraCreateActive || m.jiraCreateType != "Bug" {
-		t.Fatalf("summary prompt = %v %q", m.jiraCreateActive, m.jiraCreateType)
+	if opts := f.fields[0].Options; len(opts) != 2 {
+		t.Errorf("types = %+v, want no subtask", opts)
 	}
-	for _, r := range "Crash" {
-		out, _ = m.handleKey(keyStr(string(r)))
+	for _, k := range []string{"shift+tab", "right", "down", "enter", "C", "r", "a", "s", "h"} {
+		out, _ = m.handleKey(keyStr(k))
 		m = out.(Model)
+	}
+	if got := createFormType(m.jiraForm); got != "Bug" || !strings.HasPrefix(m.jiraForm.key, "New Bug in ABC") ||
+		m.jiraForm.fields[2].val.Text != "## Steps" {
+		t.Fatalf("type %q, title %q, description %q", got, m.jiraForm.key, m.jiraForm.fields[2].val.Text)
 	}
 	out, cmd = m.handleKey(keyStr("enter"))
 	m = out.(Model)
@@ -65,7 +72,7 @@ func TestJiraCreate(t *testing.T) {
 		t.Fatalf("created = %+v", msg)
 	}
 	if created["summary"] != "Crash" || created["issuetype"].(map[string]any)["name"] != "Bug" ||
-		created["project"].(map[string]any)["key"] != "ABC" {
+		created["project"].(map[string]any)["key"] != "ABC" || created["description"] == nil {
 		t.Errorf("fields = %v", created)
 	}
 	if len(sprintBody["issues"]) != 1 || sprintBody["issues"][0] != "ABC-9" {
@@ -73,8 +80,35 @@ func TestJiraCreate(t *testing.T) {
 	}
 	out, _ = m.handleJiraCreated(msg)
 	m = out.(Model)
-	if r := m.currentRef(); r == nil || r.jiraKey != "ABC-9" || m.status != "created ABC-9" {
-		t.Errorf("panel %+v, status %q", r, m.status)
+	if r := m.currentRef(); r == nil || r.jiraKey != "ABC-9" || m.status != "created ABC-9" || m.jiraForm != nil {
+		t.Errorf("panel %+v, status %q, form %v", r, m.status, m.jiraForm)
+	}
+	if m.lastCreateType["ABC"] != "Bug" {
+		t.Errorf("last type = %q", m.lastCreateType["ABC"])
+	}
+}
+
+// TestJiraCreateFormEsc: esc with a summary typed asks once; a failed
+// create keeps the form, grown by the fields Jira wants.
+func TestJiraCreateFormEsc(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{ID: "1", Name: "Task"}}})
+	m = out.(Model)
+	m.jiraForm.editing = false
+	m.jiraForm.fields[1].val.Text, m.jiraForm.fields[1].changed = "Crash", true
+	out, _ = m.handleKey(keyStr("esc"))
+	if m = out.(Model); m.jiraForm == nil || !strings.Contains(m.jiraForm.err, "esc again") {
+		t.Fatal("the first esc should ask")
+	}
+	f := m.jiraForm
+	out, _ = m.handleJiraCreated(jiraCreatedMsg{err: errors.New("Component/s is required."), form: &jiraFormState{fields: []jiraFormField{
+		{FieldMeta: jira.FieldMeta{ID: "components", Name: "Components"}, required: true}}}})
+	if m = out.(Model); m.jiraForm != f || len(f.fields) != 4 || f.fields[1].val.Text != "Crash" || f.err == "" {
+		t.Fatalf("form after refusal = %+v", m.jiraForm)
+	}
+	out, _ = m.handleKey(keyStr("esc"))
+	if m = out.(Model); m.jiraForm != nil {
+		t.Error("the second esc should drop the form")
 	}
 }
 

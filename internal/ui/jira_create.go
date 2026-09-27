@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"cmp"
 	"context"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -12,8 +15,10 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// n on the board: pick an issue type, type a summary, and the issue is
+// n on the board: one form with the issue's type, summary and description,
 // created in the board's project, in the sprint when a sprint is showing.
+// (A subtask, an epic child and a roadmap epic still pick a type, then
+// type a summary.)
 
 // jiraCreatedMsg reports a create.
 type jiraCreatedMsg struct {
@@ -22,23 +27,140 @@ type jiraCreatedMsg struct {
 	form *jiraFormState // the fields a failed create lacks, to fill in
 }
 
-// openJiraCreate lists the project's issue types.
+// The create form's own rows, written to the issue itself rather than as
+// fields.
+const (
+	createTypeField    = "issuetype"
+	createSummaryField = "summary"
+	createDescField    = "description"
+)
+
+// jiraCreateTypesMsg is a project's issue types, to open the create form.
+type jiraCreateTypesMsg struct {
+	project string
+	types   []jira.Option
+	err     error
+}
+
+// openJiraCreate loads the project's issue types for the create form.
 func (m *Model) openJiraCreate() tea.Cmd {
 	project := m.jiraTab.project
 	if project == "" {
 		return nil
 	}
-	gen := m.startJiraPicker(jiraPickCreateType, "New issue in "+project, false)
 	m.jiraCreateParent, m.jiraCreateProject = "", ""
-	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
+	m.status = "new issue in " + project + "…"
+	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
 		types, err := c.IssueTypes(ctx, project)
-		items := make([]jiraPickerItem, len(types))
-		for i, t := range types {
-			items[i] = jiraPickerItem{id: t.Name, label: jiraTypeIcon(t.Name) + " " + t.Name}
-		}
-		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickCreateType, items: items, err: err}
+		return jiraCreateTypesMsg{project: project, types: types, err: err}
 	}
+}
+
+// handleJiraCreateTypes opens the create form: the type you last made in
+// the project (else Task, else the first), cursor in the summary.
+func (m Model) handleJiraCreateTypes(msg jiraCreateTypesMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil || len(msg.types) == 0 {
+		m.fail("new issue: " + cmp.Or(errText(msg.err), "no issue types in "+msg.project))
+		return m, nil
+	}
+	if m.modalOpen() || msg.project != m.jiraTab.project {
+		return m, nil
+	}
+	opts := make([]jira.Option, len(msg.types))
+	for i, t := range msg.types {
+		opts[i] = jira.Option{ID: t.Name, Name: t.Name}
+	}
+	typ := opts[0].Name
+	for _, want := range []string{m.lastCreateType[msg.project], "Task"} {
+		if i := slices.IndexFunc(opts, func(o jira.Option) bool { return strings.EqualFold(o.Name, want) }); want != "" && i >= 0 {
+			typ = opts[i].Name
+			break
+		}
+	}
+	m.jiraCreateType = typ
+	f := &jiraFormState{key: m.jiraCreateTitle(), idx: 1,
+		create: &jiraFormCreate{in: jira.NewIssue{Project: msg.project}, form: true}}
+	f.fields = []jiraFormField{
+		{FieldMeta: jira.FieldMeta{ID: createTypeField, Name: "Type", Kind: jira.KindOption, Options: opts}, required: true,
+			val: jira.Value{Options: []jira.Option{{ID: typ, Name: typ}}}},
+		{FieldMeta: jira.FieldMeta{ID: createSummaryField, Name: "Summary", Kind: jira.KindText}, required: true},
+		{FieldMeta: jira.FieldMeta{ID: createDescField, Name: "Description", Kind: jira.KindDoc},
+			val: jira.Value{Text: m.opts.templates[strings.ToLower(typ)]}},
+	}
+	m.jiraForm = f
+	m.status = ""
+	return m, m.editJiraFormField()
+}
+
+func errText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+// createFormType is the create form's type.
+func createFormType(f *jiraFormState) string {
+	for _, ff := range f.fields {
+		if ff.ID == createTypeField && len(ff.val.Options) > 0 {
+			return ff.val.Options[0].Name
+		}
+	}
+	return ""
+}
+
+// syncCreateType follows a new type in the create form: the title (it may
+// no longer join the sprint) and the description, while it is still the
+// old type's template.
+func (m *Model) syncCreateType() {
+	f := m.jiraForm
+	if f == nil || f.create == nil || !f.create.form {
+		return
+	}
+	old, typ := m.jiraCreateType, createFormType(f)
+	m.jiraCreateType = typ
+	f.key = m.jiraCreateTitle()
+	for i := range f.fields {
+		if ff := &f.fields[i]; ff.ID == createDescField && ff.val.Text == m.opts.templates[strings.ToLower(old)] {
+			ff.val.Text = m.opts.templates[strings.ToLower(typ)]
+		}
+	}
+}
+
+// cycleCreateType steps the create form's type by d, as ← → do on its row.
+func (m *Model) cycleCreateType(d int) {
+	ff := &m.jiraForm.fields[m.jiraForm.idx]
+	i := slices.IndexFunc(ff.Options, func(o jira.Option) bool { return o.Name == createFormType(m.jiraForm) })
+	o := ff.Options[(i+d+len(ff.Options))%len(ff.Options)]
+	ff.val = jira.Value{Options: []jira.Option{o}}
+	m.syncCreateType()
+}
+
+// createFormIssue is the create form's issue: its own rows on the issue,
+// fields the rest; the sprint when the shown one takes it.
+func (m *Model) createFormIssue(f *jiraFormState, fields map[string]any) jiraFormCreate {
+	cr := *f.create
+	cr.in.Fields = maps.Clone(cr.in.Fields)
+	if cr.in.Fields == nil {
+		cr.in.Fields = map[string]any{}
+	}
+	maps.Copy(cr.in.Fields, fields)
+	if !cr.form {
+		return cr
+	}
+	for _, ff := range f.fields {
+		switch ff.ID {
+		case createTypeField:
+			cr.in.Type = createFormType(f)
+		case createSummaryField:
+			cr.in.Summary = strings.TrimSpace(ff.val.Text)
+		case createDescField:
+			cr.in.Description = ff.val.Text
+		}
+	}
+	cr.sprint, _ = m.createSprint()
+	return cr
 }
 
 // openJiraCreateSummary asks for the summary of a new issue of type typ.
@@ -150,6 +272,16 @@ func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: 
 // handleJiraCreated opens the new issue and refetches the board; a failed
 // create reopens the box with your summary.
 func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
+	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && msg.form != nil {
+		// The create form grows the rows Jira wants, all typed kept.
+		for _, ff := range msg.form.fields {
+			if !slices.ContainsFunc(f.fields, func(x jiraFormField) bool { return x.ID == ff.ID }) {
+				f.fields = append(f.fields, ff)
+			}
+		}
+		f.busy, f.err = false, msg.err.Error()
+		return m, nil
+	}
 	if msg.form != nil && !m.modalOpen() {
 		m.jiraForm = msg.form
 		m.status = msg.form.key + " needs a few fields"

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -76,6 +75,11 @@ type jiraFormCreate struct {
 	in      jira.NewIssue
 	sprint  int
 	cloneOf string // the issue a clone copies, linked once made
+	// form is the create form itself (jira_create.go): type, summary and
+	// description are its rows, not fields Jira asked for.
+	form bool
+	// discard is set by a first esc on a form with something typed.
+	discard bool
 }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
@@ -236,6 +240,19 @@ func (m *Model) cancelJiraForm() tea.Cmd {
 		m.status = "clone cancelled"
 		return nil
 	}
+	if f.create != nil && f.create.form {
+		typed := slices.ContainsFunc(f.fields, func(ff jiraFormField) bool {
+			return ff.ID != createTypeField && ff.changed && !ff.val.Empty()
+		})
+		if typed && !f.create.discard {
+			m.jiraForm = f // kept: a second esc drops it
+			f.create.discard = true
+			f.err = "esc again drops what you typed"
+			return nil
+		}
+		m.status = "create cancelled"
+		return nil
+	}
 	if f.create != nil { // back to the create box, your summary kept
 		m.jiraCreateActive = true
 		m.status = "create cancelled"
@@ -283,6 +300,22 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			ff.changed = true
 			f.editing = false
 			f.err = ""
+			if f.create != nil && f.create.form && ff.ID == createSummaryField {
+				return m, m.submitJiraForm() // enter on the summary creates
+			}
+			return m, nil
+		case "ctrl+s":
+			ff := &f.fields[f.idx]
+			ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
+			return m, m.submitJiraForm()
+		case "tab", "shift+tab": // keep it and move on
+			ff := &f.fields[f.idx]
+			ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
+			if msg.String() == "tab" {
+				f.idx = min(f.idx+1, len(f.fields))
+			} else {
+				f.idx = max(f.idx-1, 0)
+			}
 			return m, nil
 		case "esc":
 			f.editing = false
@@ -303,6 +336,13 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		f.idx = max(f.idx-1, 0)
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown), msg.String() == "tab":
 		f.idx = min(f.idx+1, len(f.fields))
+	case f.create != nil && f.create.form && f.idx < len(f.fields) && f.fields[f.idx].ID == createTypeField &&
+		(key.Matches(msg, m.keys.Left) || key.Matches(msg, m.keys.Right)):
+		d := 1
+		if key.Matches(msg, m.keys.Left) {
+			d = -1
+		}
+		m.cycleCreateType(d)
 	case msg.String() == "delete", msg.String() == "backspace":
 		if f.idx < len(f.fields) {
 			ff := &f.fields[f.idx]
@@ -386,6 +426,9 @@ func (m *Model) pickJiraFormValue(kind jiraPickerKind, it jiraPickerItem) {
 	}
 	f.err = ""
 	pickFieldValue(&f.fields[f.idx], kind, it)
+	if f.fields[f.idx].ID == createTypeField {
+		m.syncCreateType()
+	}
 }
 
 // pickFieldValue applies a pick to ff. A multi-value field toggles the pick in
@@ -437,6 +480,9 @@ func (m *Model) submitJiraForm() tea.Cmd {
 			comment = ff.val.Text
 			continue
 		}
+		if f.create != nil && f.create.form && (ff.ID == createTypeField || ff.ID == createSummaryField || ff.ID == createDescField) {
+			continue // the issue's own, see createFormIssue
+		}
 		if !ff.changed {
 			continue
 		}
@@ -455,13 +501,16 @@ func (m *Model) submitJiraForm() tea.Cmd {
 	}
 	if f.create != nil {
 		f.busy, f.err = true, ""
-		cr := *f.create
-		cr.in.Fields = maps.Clone(cr.in.Fields)
-		if cr.in.Fields == nil {
-			cr.in.Fields = map[string]any{}
+		cr := m.createFormIssue(f, fields)
+		title := ""
+		if cr.form {
+			if m.lastCreateType == nil {
+				m.lastCreateType = map[string]string{}
+			}
+			m.lastCreateType[cr.in.Project] = cr.in.Type
+			title = f.key // what it lacks comes back as rows
 		}
-		maps.Copy(cr.in.Fields, fields)
-		return m.createJiraIssue(cr, "")
+		return m.createJiraIssue(cr, title)
 	}
 	if len(f.bulk) > 0 {
 		m.jiraForm = nil
@@ -629,9 +678,15 @@ func (m *Model) renderJiraForm() string {
 	if f.create != nil {
 		hint = "↑/↓ field · ↵ edit · del clear · ctrl+s create · esc back"
 	}
+	onCreate := f.create != nil && f.create.form
+	if onCreate {
+		hint = "tab field · ↵ edit · ← → type · ctrl+s create · esc cancel"
+	}
 	switch {
 	case f.multiline:
 		hint = "ctrl+s keep · ↵ newline · esc undo"
+	case f.editing && onCreate && f.fields[f.idx].ID == createSummaryField:
+		hint = "↵ create · tab next · esc undo"
 	case f.editing:
 		hint = "↵ keep · esc undo"
 	}

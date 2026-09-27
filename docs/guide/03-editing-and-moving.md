@@ -91,9 +91,12 @@ your clipboard, download or delete an attachment.
 
 ## Create an issue
 
-`n` on the board picks a type and asks for a summary. The issue lands in
-the board's project, and in the sprint you are looking at. The panel opens
-on it straight away. A failed create brings your summary back to retry.
+`n` on the board opens one form: the type (`←` `→` change it; it starts on
+the type you last made), the summary, where the cursor waits, and the
+description. `enter` on the summary creates it, `ctrl+s` from anywhere. The
+issue lands in the board's project, and in the sprint you are looking at;
+the panel opens on it. A failed create keeps the form, with any field Jira
+insists on added.
 
 > **Tip:** give a type a starting description with `ui.templates` in the
 > config, such as steps, expected and actual for every new Bug.
