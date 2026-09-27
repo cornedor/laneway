@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"strings"
 	"time"
 
@@ -27,13 +28,22 @@ const (
 
 // labelInput is the labels input being typed in, nil for none.
 func (m *Model) labelInput() *textinput.Model {
+	ti, _ := m.labelField()
+	return ti
+}
+
+// labelField is the labels input being typed in and its field's JQL name
+// (labels, or a custom labels field's cf[10050]); nil for none.
+func (m *Model) labelField() (*textinput.Model, string) {
 	switch f := m.jiraForm; {
 	case m.jiraFieldActive && (m.jiraFieldName == "labels" || m.jiraFieldName == "bulk-labels"):
-		return &m.jiraFieldInput
-	case f != nil && f.editing && !f.multiline && f.idx < len(f.fields) && f.fields[f.idx].ID == "labels":
-		return &f.input
+		return &m.jiraFieldInput, "labels"
+	case m.jiraFieldActive && m.jiraFieldName == "field" && m.panelEditField().Clause != "":
+		return &m.jiraFieldInput, m.panelEditField().Clause
+	case f != nil && f.editing && !f.multiline && f.idx < len(f.fields) && (f.fields[f.idx].ID == "labels" || f.fields[f.idx].Clause != ""):
+		return &f.input, cmp.Or(f.fields[f.idx].Clause, "labels")
 	}
-	return nil
+	return nil, ""
 }
 
 // labelWord is the word before the cursor, split from a bulk edit's + or -
@@ -75,14 +85,14 @@ func (m *Model) suggestLabels() tea.Cmd {
 }
 
 func (m Model) handleLabelTick(msg labelTickMsg) (tea.Model, tea.Cmd) {
-	ti := m.labelInput()
+	ti, clause := m.labelField()
 	if ti == nil || msg.seq != m.labels.seq {
 		return m, nil
 	}
 	_, word, _ := labelWord(ti)
 	c, ctx := m.jiraClient, m.ctx
 	return m, func() tea.Msg {
-		words, _ := c.JQLValues(ctx, "labels", word) // none on a failure
+		words, _ := c.JQLValues(ctx, clause, word) // none on a failure
 		return labelsFoundMsg{seq: msg.seq, words: words}
 	}
 }

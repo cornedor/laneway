@@ -48,6 +48,9 @@ type FieldMeta struct {
 	Name    string
 	Kind    string
 	Options []Option // for KindOption / KindOptions
+	// Clause is the JQL name of a labels field (labels, cf[10050]), whose
+	// words complete from Jira's; "" for other fields.
+	Clause string
 }
 
 // TransitionMeta is one move offered on an issue, with its screen's fields.
@@ -168,6 +171,12 @@ func (f rawFieldMeta) meta(id string) FieldMeta {
 		fm.Kind = KindText
 	case s.Type == "array" && s.Items == "string":
 		fm.Kind = KindStrings
+		switch {
+		case s.System == "labels":
+			fm.Clause = "labels"
+		case strings.HasSuffix(s.Custom, ":labels") && strings.HasPrefix(id, "customfield_"):
+			fm.Clause = "cf[" + strings.TrimPrefix(id, "customfield_") + "]"
+		}
 	default:
 		fm.Kind = KindOther
 	}

@@ -724,7 +724,7 @@ func (m *Model) renderJiraForm() string {
 				}
 			}
 			continue
-		case f.editing && i == f.idx && ff.ID == "labels":
+		case f.editing && i == f.idx && (ff.ID == "labels" || ff.Clause != ""):
 			f.input.SetWidth(max(inner-2-nameW-3, 8))
 			parts = append(parts, cursor.Render("▸ "+name)+"  "+f.input.View())
 			parts = append(parts, m.labelLines(nameW+4)...)

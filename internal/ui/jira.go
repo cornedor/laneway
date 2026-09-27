@@ -137,6 +137,11 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 			}
 			if m.fieldInlineOn(ff.ID) {
 				b.WriteString(refLabelStyle.Render(refMetaLabel(ff.Name, w)) + m.fieldInlineView(w, width) + "\n")
+				if ff.Clause != "" {
+					for _, l := range m.labelLines(w) {
+						b.WriteString(l + "\n")
+					}
+				}
 				continue
 			}
 			refField(&b, ff.Name, val, w, m.panelFieldIdx() == len(panelFields)+i)

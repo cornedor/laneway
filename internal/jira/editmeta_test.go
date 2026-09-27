@@ -110,3 +110,20 @@ func TestNewKinds(t *testing.T) {
 		t.Errorf("time encodes %v, %v", v, err)
 	}
 }
+
+// TestLabelsClause: labels fields name their JQL clause for completion.
+func TestLabelsClause(t *testing.T) {
+	var f rawFieldMeta
+	f.Schema.Type, f.Schema.Items, f.Schema.Custom = "array", "string", "com.atlassian.jira.plugin.system.customfieldtypes:labels"
+	if fm := f.meta("customfield_10050"); fm.Kind != KindStrings || fm.Clause != "cf[10050]" {
+		t.Errorf("custom labels: %+v", fm)
+	}
+	f.Schema.Custom, f.Schema.System = "", "labels"
+	if fm := f.meta("labels"); fm.Clause != "labels" {
+		t.Errorf("labels: %+v", fm)
+	}
+	f.Schema.System = ""
+	if fm := f.meta("customfield_1"); fm.Clause != "" {
+		t.Errorf("a plain string list: %+v", fm)
+	}
+}

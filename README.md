@@ -274,7 +274,7 @@ Panel:
   and option fields drop a list under it;
   dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the
   parent an issue key; the sprint a pick of the board's
-- edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels (existing ones suggested as you type: `↓` `tab`) · `a` assignee
+- edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels (existing ones suggested as you type: `↓` `tab`; custom labels fields and form rows too) · `a` assignee
 - talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue, a web page, remove one · the issue: change its type, move it to another project, set the original estimate, delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, download or delete an attachment · your comments: edit, delete
