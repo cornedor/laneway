@@ -61,7 +61,7 @@ type keyMap struct {
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
-	Compact                            key.Binding
+	Compact, Releases                  key.Binding
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -157,6 +157,7 @@ func defaultKeys() keyMap {
 		QuickEdit:       bind("quick edit the card", "e"),
 		MyWork:          bind("my work, every project", "O"),
 		Compact:         bind("one-line cards", "c"),
+		Releases:        bind("releases: versions and their progress", "V"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),

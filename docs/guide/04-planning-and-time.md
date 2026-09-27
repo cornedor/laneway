@@ -70,6 +70,13 @@ them; `y` copies the open chart's numbers as a table.
 > **Tip:** no story points in your team? The burndown and burnup count
 > issues instead.
 
+## Ship a release: `V`
+
+`V` lists the project's versions with how much of each is done. `enter`
+shows one's issues as a view; the `↳ release` row under an unreleased one
+releases it today, on a second `enter`. Set an issue's fix version in the
+panel, with its other fields.
+
 ## Your day
 
 ### Log work

@@ -108,6 +108,8 @@ const (
 	// jiraPickWatchers lists the issue's watchers and finds people to add,
 	// searched server-side like the assignee (issue_actions.go).
 	jiraPickWatchers
+	// jiraPickReleases lists the project's versions (releases.go).
+	jiraPickReleases
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -572,7 +574,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
-			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard {
+			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
 			if k == jiraPickPalette {
@@ -869,6 +871,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m.openJiraKey(key)
 	}
+	if kind == jiraPickReleases {
+		return m.applyRelease(it)
+	}
 	if kind == jiraPickBulk {
 		m.closeJiraPicker()
 		return m, m.applyBulkMenu(it.id)
@@ -1033,6 +1038,8 @@ func mutatedStatus(key, field string) string {
 		return field + " on " + key
 	case "links", "attachments":
 		return key + " " + field + " changed"
+	case "release":
+		return key + " released"
 	}
 	return key + " " + field + " updated"
 }

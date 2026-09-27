@@ -49,6 +49,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Inbox, "inbox: others' changes, comments, mentions"),
 			row(k.Standup, "standup: what you did since the last workday"),
 			row(k.Charts, "sprint charts (y copies the numbers)"),
+			row(k.Releases, "releases: versions, done / total; enter lists one, ↳ releases it"),
 			row(k.Plan, "sprint planning: backlog beside a sprint (K J rank)"),
 			row(k.Roadmap, "roadmap: epics on a timeline (space children, H L < > e dates, y copy)"),
 			row(k.Sort, "sort the list; lanes: swimlanes"),
