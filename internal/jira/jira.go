@@ -646,6 +646,15 @@ func (c *Client) resolveStoryPointFields(ctx context.Context) []string {
 	return ids
 }
 
+// StoryPointsField is the story-points field id: the configured one or the
+// first detected, "" when there is none.
+func (c *Client) StoryPointsField(ctx context.Context) string {
+	if f := c.resolveStoryPointFields(ctx); len(f) > 0 {
+		return f[0]
+	}
+	return ""
+}
+
 // fetchStoryPointFieldIDs reads the instance field metadata and returns the ids
 // of every field named like story points. Order follows the API response, so
 // extractStoryPoints prefers whichever candidate the issue actually populates.

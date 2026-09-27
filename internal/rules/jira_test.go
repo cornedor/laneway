@@ -77,3 +77,29 @@ func TestJiraAct(t *testing.T) {
 		t.Errorf("writes = %q", writes)
 	}
 }
+
+// TestResolveByMePoints: with no points field given, a points change is
+// looked up under the client's story-points field.
+func TestResolveByMePoints(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me"}`)
+		case r.URL.Path == "/rest/api/3/field":
+			io.WriteString(w, `[{"id":"customfield_1","name":"Story Points"}]`)
+		case strings.HasSuffix(r.URL.Path, "/changelog"):
+			io.WriteString(w, `{"total":1,"values":[{"author":{"accountId":"me"},"items":[{"fieldId":"customfield_1"}]}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	c := jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	events := []Event{{Kind: Points, Card: jira.Card{Key: "A-1"}}}
+	if err := ResolveByMe(context.Background(), c, events, ""); err != nil {
+		t.Fatal(err)
+	}
+	if events[0].ByMe == nil || !*events[0].ByMe {
+		t.Errorf("ByMe = %v", events[0].ByMe)
+	}
+}

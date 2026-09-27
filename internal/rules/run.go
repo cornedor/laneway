@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -112,13 +113,17 @@ func orUnnamed(name string) string {
 }
 
 // ResolveByMe sets each event's ByMe from the Jira changelog, leaving it
-// nil where the lookup fails; the first failure is returned.
+// nil where the lookup fails; the first failure is returned. An empty
+// pointsField falls back to the client's story-points field.
 func ResolveByMe(ctx context.Context, c *jira.Client, events []Event, pointsField string) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	me, err := c.Myself(ctx)
 	if err != nil {
 		return err
+	}
+	if pointsField == "" && slices.ContainsFunc(events, func(ev Event) bool { return ev.Kind == Points }) {
+		pointsField = c.StoryPointsField(ctx)
 	}
 	fields := map[string]string{New: "", Status: "status", Assignee: "assignee",
 		Priority: "priority", Summary: "summary", Points: pointsField}
