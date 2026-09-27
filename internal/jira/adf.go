@@ -3,7 +3,9 @@ package jira
 import (
 	"encoding/json"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // adfNode is one node in an Atlassian Document Format tree. Block and inline
@@ -176,6 +178,14 @@ func inline(nodes []adfNode) string {
 			if href, ok := n.Attrs["url"].(string); ok {
 				b.WriteString(href)
 			}
+		case "date": // attrs.timestamp: ms since the epoch, a UTC midnight
+			if ms, ok := adfMillis(n.Attrs["timestamp"]); ok {
+				b.WriteString(time.UnixMilli(ms).UTC().Format("2006-01-02"))
+			}
+		case "status":
+			if txt, ok := n.Attrs["text"].(string); ok && txt != "" {
+				b.WriteString("[" + strings.ToUpper(txt) + "]")
+			}
 		default:
 			if len(n.Content) > 0 {
 				b.WriteString(inline(n.Content))
@@ -183,6 +193,19 @@ func inline(nodes []adfNode) string {
 		}
 	}
 	return b.String()
+}
+
+// adfMillis reads a date node's timestamp: a string by the spec, a number
+// from some clients.
+func adfMillis(v any) (int64, bool) {
+	switch t := v.(type) {
+	case string:
+		ms, err := strconv.ParseInt(t, 10, 64)
+		return ms, err == nil
+	case float64:
+		return int64(t), true
+	}
+	return 0, false
 }
 
 // applyMarks wraps text in the markdown for each of its marks. A link mark wraps

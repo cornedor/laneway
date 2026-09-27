@@ -62,6 +62,21 @@ func TestADFToMarkdown(t *testing.T) {
 			want: "```go\na := 1\n```",
 		},
 		{
+			name: "inline date and status keep their attrs",
+			adf: `{"type":"doc","content":[
+				{"type":"paragraph","content":[{"type":"text","text":"Due "},
+					{"type":"date","attrs":{"timestamp":"1790380800000"}},
+					{"type":"text","text":" is "},
+					{"type":"status","attrs":{"text":"Blocked","color":"red"}}]}
+			]}`,
+			want: "Due 2026-09-26 is [BLOCKED]",
+		},
+		{
+			name: "date with a numeric timestamp",
+			adf:  `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"date","attrs":{"timestamp":1790380800000}}]}]}`,
+			want: "2026-09-26",
+		},
+		{
 			name: "unknown block degrades to text",
 			adf: `{"type":"doc","content":[
 				{"type":"panel","content":[{"type":"paragraph","content":[{"type":"text","text":"note"}]}]}
