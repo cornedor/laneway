@@ -331,3 +331,33 @@ func TestCreateFormRequiredFields(t *testing.T) {
 		t.Errorf("Task again: cmd %v, rows %+v", cmd != nil, f.fields)
 	}
 }
+
+// TestCreateFormErrors: the hint names the empty required rows; Jira's
+// reasons land under the fields they name until the value changes, the rest
+// on top, and all typed stays.
+func TestCreateFormErrors(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}}})
+	m = out.(Model)
+	f := m.jiraForm
+	f.editing = false
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "fill in Summary to create") {
+		t.Errorf("hint should name the summary:\n%s", view)
+	}
+	f.fields[1].val, f.fields[1].changed = jira.Value{Text: "Crash"}, true
+	refused := &jira.RequestError{Messages: []string{"Workflow closed"}, Fields: map[string]string{"summary": "Too short.", "customfield_9": "Team is required."}}
+	out, _ = m.handleJiraCreated(jiraCreatedMsg{err: refused})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Too short.") || !strings.Contains(view, "Workflow closed; customfield_9: Team is required.") ||
+		strings.Index(view, "Workflow closed") > strings.Index(view, "Summary") {
+		t.Errorf("errors:\n%s", view)
+	}
+	if f.fields[1].val.Text != "Crash" || f.busy {
+		t.Error("the typed summary should stay")
+	}
+	f.fields[1].val.Text = "Crash on save"
+	if strings.Contains(ansi.Strip(m.View().Content), "Too short.") {
+		t.Error("an edited field drops Jira's message")
+	}
+}

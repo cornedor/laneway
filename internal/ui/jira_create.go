@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"context"
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -169,6 +170,30 @@ func (m *Model) setCreateRows(fields []jira.CreateField) {
 	}
 	f.fields = own
 	f.idx = min(f.idx, len(f.fields))
+}
+
+// formErrors files a refused create's reasons: those about a row under it
+// (fieldErrs), the rest as the form's error, returned.
+func formErrors(f *jiraFormState, err error) string {
+	var re *jira.RequestError
+	if !errors.As(err, &re) || len(re.Fields) == 0 {
+		return err.Error()
+	}
+	f.create.fieldErrs = map[string]fieldErr{}
+	rest := slices.Clone(re.Messages)
+	for id, msg := range re.Fields {
+		i := slices.IndexFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == id })
+		if i < 0 {
+			rest = append(rest, id+": "+msg)
+			continue
+		}
+		f.create.fieldErrs[id] = fieldErr{msg: msg, val: jiraValueText(f.fields[i].val)}
+	}
+	if len(rest) == 0 {
+		return "Jira refused it: see the fields marked"
+	}
+	slices.Sort(rest[len(re.Messages):])
+	return strings.Join(rest, "; ")
 }
 
 func errText(err error) string {
@@ -351,14 +376,17 @@ func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: 
 // handleJiraCreated opens the new issue and refetches the board; a failed
 // create reopens the box with your summary.
 func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
-	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && msg.form != nil {
-		// The create form grows the rows Jira wants, all typed kept.
-		for _, ff := range msg.form.fields {
-			if !slices.ContainsFunc(f.fields, func(x jiraFormField) bool { return x.ID == ff.ID }) {
-				f.fields = append(f.fields, ff)
+	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && msg.key == "" {
+		// Refused: the form stays with all typed, grown by the rows Jira
+		// wants, its reasons under the fields they name.
+		if msg.form != nil {
+			for _, ff := range msg.form.fields {
+				if !slices.ContainsFunc(f.fields, func(x jiraFormField) bool { return x.ID == ff.ID }) {
+					f.fields = append(f.fields, ff)
+				}
 			}
 		}
-		f.busy, f.err = false, msg.err.Error()
+		f.busy, f.err = false, formErrors(f, msg.err)
 		return m, nil
 	}
 	if msg.form != nil && !m.modalOpen() {

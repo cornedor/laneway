@@ -523,8 +523,26 @@ func statusError(code int, what string, body []byte, retryAfter string) error {
 	if msg == "" {
 		msg = http.StatusText(code)
 	}
-	return fmt.Errorf("jira server %d: %s", code, msg)
+	re := &RequestError{msg: fmt.Sprintf("jira server %d: %s", code, msg)}
+	var e struct {
+		ErrorMessages []string          `json:"errorMessages"`
+		Errors        map[string]string `json:"errors"`
+	}
+	if json.Unmarshal(body, &e) == nil {
+		re.Messages, re.Fields = e.ErrorMessages, e.Errors
+	}
+	return re
 }
+
+// RequestError is a request Jira refused, with its reasons: Messages about
+// the whole, Fields by field id (a create's "components": "… is required").
+type RequestError struct {
+	msg      string
+	Messages []string
+	Fields   map[string]string
+}
+
+func (e *RequestError) Error() string { return e.msg }
 
 // jiraMessages reads Jira's error body, {"errorMessages": [...], "errors":
 // {field: message}}, as "message; field: message", "" for another body.

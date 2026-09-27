@@ -85,7 +85,13 @@ type jiraFormCreate struct {
 	fieldsSeq int
 	loading   bool
 	kept      map[string]jira.Value
+	// fieldErrs are Jira's reasons for refusing the create, by field id,
+	// shown under the row while it holds the value refused.
+	fieldErrs map[string]fieldErr
 }
+
+// fieldErr is Jira's message about a field, and the value it was about.
+type fieldErr struct{ msg, val string }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
 // on the form.
@@ -468,6 +474,26 @@ func pickFieldValue(ff *jiraFormField, kind jiraPickerKind, it jiraPickerItem) {
 
 // submitJiraForm checks the required fields and sends the move with every
 // field the form changed.
+// missingFields names the form's required rows still empty.
+func missingFields(f *jiraFormState) []string {
+	var out []string
+	for _, ff := range f.fields {
+		if ff.required && ff.val.Empty() {
+			out = append(out, ff.Name)
+		}
+	}
+	return out
+}
+
+// errFor is Jira's message about ff, while ff still holds what it refused.
+func (c *jiraFormCreate) errFor(ff jiraFormField) (string, bool) {
+	if c == nil {
+		return "", false
+	}
+	fe, ok := c.fieldErrs[ff.ID]
+	return fe.msg, ok && fe.val == jiraValueText(ff.val)
+}
+
 func (m *Model) submitJiraForm() tea.Cmd {
 	f := m.jiraForm
 	var missing []string
@@ -611,6 +637,10 @@ func (m *Model) renderJiraForm() string {
 		title, button, busy = f.key, "[ Create ]", "creating…"
 	}
 	parts := []string{center.Bold(true).Render(title)}
+	onCreate := f.create != nil && f.create.form
+	if onCreate && f.err != "" { // about the whole create: first thing read
+		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
+	}
 	if f.message != "" {
 		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Foreground(dimColor).Italic(true).Render(f.message))
 	}
@@ -663,6 +693,9 @@ func (m *Model) renderJiraForm() string {
 		} else {
 			parts = append(parts, "  "+name+"  "+val)
 		}
+		if fe, ok := f.create.errFor(ff); ok {
+			parts = append(parts, strings.Repeat(" ", nameW+4)+refErrStyle.Render(ansi.Truncate(fe, max(inner-nameW-4, 1), "…")))
+		}
 	}
 	if f.busy {
 		button = busy
@@ -676,16 +709,18 @@ func (m *Model) renderJiraForm() string {
 		parts = append(parts, refDimStyle.Render("  "+createFormType(f)+"'s fields loading…"))
 	}
 	parts = append(parts, "", button)
-	if f.err != "" {
+	if f.err != "" && !onCreate {
 		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
 	}
 	hint := "↑/↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
 	if f.create != nil {
 		hint = "↑/↓ field · ↵ edit · del clear · ctrl+s create · esc back"
 	}
-	onCreate := f.create != nil && f.create.form
 	if onCreate {
 		hint = "tab field · ↵ edit · ← → type · ctrl+s create · esc cancel"
+		if missing := missingFields(f); len(missing) > 0 {
+			hint = "fill in " + strings.Join(missing, ", ") + " to create · tab field · esc cancel"
+		}
 	}
 	switch {
 	case f.multiline:
