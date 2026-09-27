@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -57,10 +58,27 @@ func mentionAt(text string, cursor int) (query string, start int, ok bool) {
 	return m[1], cursor - len([]rune(m[1])) - 1, true
 }
 
+// mentionEditor is the editor @ completes in and where its people are
+// searched: the comment composer on its issue, or the create form's
+// description in its project; nil for none.
+func (m *Model) mentionEditor() (*editor.Model, string) {
+	if m.jiraCommentActive {
+		return &m.jiraCommentInput, m.jiraCommentKey
+	}
+	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && f.editing && f.multiline && f.idx < len(f.fields) && f.fields[f.idx].ID == createDescField {
+		return &f.area, f.create.in.Project
+	}
+	return nil, ""
+}
+
 // scheduleMention arms a search for the name at the cursor, or drops the
 // completion when there is none.
 func (m *Model) scheduleMention() tea.Cmd {
-	q, start, ok := mentionAt(m.jiraCommentInput.Value(), m.jiraCommentInput.CursorOffset())
+	ed, _ := m.mentionEditor()
+	if ed == nil {
+		return nil
+	}
+	q, start, ok := mentionAt(ed.Value(), ed.CursorOffset())
 	if !ok {
 		m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 		return nil
@@ -72,10 +90,11 @@ func (m *Model) scheduleMention() tea.Cmd {
 }
 
 func (m Model) handleMentionSearch(msg mentionSearchMsg) (tea.Model, tea.Cmd) {
-	if !m.jiraCommentActive || msg.seq != m.jiraMention.seq {
+	ed, key := m.mentionEditor()
+	if ed == nil || msg.seq != m.jiraMention.seq {
 		return m, nil
 	}
-	c, ctx, key := m.jiraClient, m.ctx, m.jiraCommentKey
+	c, ctx := m.jiraClient, m.ctx
 	return m, func() tea.Msg {
 		users, err := c.AssignableUsers(ctx, key, msg.query)
 		return mentionFoundMsg{msg.seq, users, err}
@@ -83,7 +102,7 @@ func (m Model) handleMentionSearch(msg mentionSearchMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleMentionFound(msg mentionFoundMsg) (tea.Model, tea.Cmd) {
-	if !m.jiraCommentActive || msg.seq != m.jiraMention.seq {
+	if ed, _ := m.mentionEditor(); ed == nil || msg.seq != m.jiraMention.seq {
 		return m, nil
 	}
 	if msg.err != nil {
@@ -116,14 +135,22 @@ func (m *Model) mentionKey(k string) bool {
 // acceptMention writes "@Name " over the typed "@query" and remembers the
 // person, so posting makes it a mention.
 func (m *Model) acceptMention(u jira.User) {
-	in := &m.jiraCommentInput
+	in, _ := m.mentionEditor()
+	if in == nil {
+		return
+	}
 	r := []rune(in.Value())
 	cur := min(in.CursorOffset(), len(r))
 	start := min(m.jiraMention.start, cur)
 	name := "@" + u.DisplayName + " "
 	in.SetValue(string(r[:start]) + name + string(r[cur:]))
 	in.SetCursorOffset(start + len([]rune(name)))
-	m.jiraCommentMentions = append(m.jiraCommentMentions, jira.Mention{AccountID: u.AccountID, DisplayName: u.DisplayName})
+	who := jira.Mention{AccountID: u.AccountID, DisplayName: u.DisplayName}
+	if m.jiraCommentActive {
+		m.jiraCommentMentions = append(m.jiraCommentMentions, who)
+	} else {
+		m.jiraForm.create.mentions = append(m.jiraForm.create.mentions, who)
+	}
 	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 }
 

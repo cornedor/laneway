@@ -90,6 +90,8 @@ type jiraFormCreate struct {
 	fieldErrs map[string]fieldErr
 	// screen is the type's create screen, as last loaded.
 	screen []jira.CreateField
+	// mentions are the people @-completed in the description.
+	mentions []jira.Mention
 	// descKept are a clone's description blocks markdown can't hold, put
 	// back when its description row is edited.
 	descKept []json.RawMessage
@@ -288,16 +290,21 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			ff.changed = true
 			f.editing, f.multiline = false, false
 			f.err = ""
+			m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 			return m, nil
 		case "esc":
 			f.editing, f.multiline = false, false
+			m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 			return m, nil
 		case "ctrl+c":
 			return m.quit()
 		}
+		if m.mentionKey(msg.String()) {
+			return m, nil
+		}
 		var cmd tea.Cmd
 		f.area, cmd = f.area.Update(msg)
-		return m, cmd
+		return m, tea.Batch(cmd, m.scheduleMention())
 	}
 	if f.editing {
 		if m.labelKey(msg) { // ↑ ↓ tab through a labels row's suggestions
@@ -688,6 +695,11 @@ func (m *Model) renderJiraForm() string {
 			for _, l := range strings.Split(f.area.View(), "\n") {
 				parts = append(parts, "  "+l)
 			}
+			if list := m.renderMentions(); list != "" {
+				for _, l := range strings.Split(list, "\n") {
+					parts = append(parts, "  "+l)
+				}
+			}
 			continue
 		case f.editing && i == f.idx && ff.ID == "labels":
 			f.input.SetWidth(max(inner-2-nameW-3, 8))
@@ -748,6 +760,8 @@ func (m *Model) renderJiraForm() string {
 		}
 	}
 	switch {
+	case f.multiline && onCreate && f.fields[f.idx].ID == createDescField:
+		hint = "ctrl+s keep · ↵ newline · @ mention · esc undo"
 	case f.multiline:
 		hint = "ctrl+s keep · ↵ newline · esc undo"
 	case f.editing && onCreate && f.fields[f.idx].ID == createSummaryField:

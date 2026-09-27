@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -123,5 +124,24 @@ func TestCreateFields(t *testing.T) {
 	}
 	if _, err := c.CreateFields(context.Background(), "JB", "Epic"); err == nil {
 		t.Error("an unknown type should fail")
+	}
+}
+
+// TestCreateIssueMentions: "@Name" in the description becomes a mention.
+func TestCreateIssueMentions(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		_, _ = w.Write([]byte(`{"key":"JB-43"}`))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if _, err := c.CreateIssue(context.Background(), NewIssue{Project: "JB", Type: "Bug", Summary: "x",
+		Description: "ask @Ada first", Mentions: []Mention{{AccountID: "a1", DisplayName: "Ada"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, `"type":"mention"`) || !strings.Contains(body, `"id":"a1"`) {
+		t.Errorf("body %s", body)
 	}
 }

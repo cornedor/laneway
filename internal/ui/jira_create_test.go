@@ -472,3 +472,41 @@ func TestCreateFormSprintParent(t *testing.T) {
 		t.Error("a subtask's parent is fixed, no row")
 	}
 }
+
+// TestCreateFormMention: @ in the description completes people of the
+// project, and the create sends them as mentions.
+func TestCreateFormMention(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}}})
+	m = out.(Model)
+	f := m.jiraForm
+	f.editing = false
+	f.idx = slices.IndexFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == createDescField })
+	m.editJiraFormField()
+	var cmd tea.Cmd
+	for _, k := range []string{"h", "i", " ", "@", "a", "d"} {
+		out, cmd = m.handleJiraFormKey(keyStr(k))
+		m = out.(Model)
+	}
+	if cmd == nil {
+		t.Fatal("@ad should schedule a search")
+	}
+	if ed, key := m.mentionEditor(); ed == nil || key != "ABC" {
+		t.Fatalf("mention editor %v in %q", ed, key)
+	}
+	out, _ = m.Update(mentionFoundMsg{seq: m.jiraMention.seq, users: []jira.User{{AccountID: "a1", DisplayName: "Ada"}}})
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "▸ @Ada") || !strings.Contains(view, "@ mention") {
+		t.Fatalf("no completion:\n%s", view)
+	}
+	out, _ = m.handleJiraFormKey(keyMsg(t, "tab"))
+	m = out.(Model)
+	out, _ = m.handleJiraFormKey(keyMsg(t, "ctrl+s"))
+	m = out.(Model)
+	if v := f.fields[f.idx].val.Text; v != "hi @Ada " {
+		t.Fatalf("description %q", v)
+	}
+	if cr := m.createFormIssue(f, nil); len(cr.in.Mentions) != 1 || cr.in.Mentions[0].AccountID != "a1" {
+		t.Errorf("mentions %v", cr.in.Mentions)
+	}
+}

@@ -388,6 +388,7 @@ func (m *Model) createFormIssue(f *jiraFormState, fields map[string]any) jiraFor
 	if id, ok := createFormSprint(f); ok {
 		cr.sprint = id
 	}
+	cr.in.Mentions = cr.mentions
 	return cr
 }
 

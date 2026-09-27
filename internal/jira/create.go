@@ -34,6 +34,9 @@ type NewIssue struct {
 	// DescriptionADF replaces Description with a ready document (a clone's).
 	DescriptionADF json.RawMessage
 	Priority       string // a priority id, "" for the default
+	// Mentions are the people "@Name" in the description means, made
+	// mentions that notify them.
+	Mentions []Mention
 	// Fields are more fields to set, id → EncodeValue output (a required
 	// Component the create screen asks for).
 	Fields map[string]any
@@ -281,10 +284,18 @@ func (c *Client) CreateIssue(ctx context.Context, in NewIssue) (string, error) {
 		"summary":   in.Summary,
 	}
 	if strings.TrimSpace(in.Description) != "" {
-		fields["description"] = MarkdownToADF(in.Description)
+		doc := MarkdownToADF(in.Description)
+		inlineMentions(doc, in.Mentions)
+		fields["description"] = doc
 	}
 	if len(in.DescriptionADF) > 0 && string(in.DescriptionADF) != "null" {
-		fields["description"] = in.DescriptionADF
+		var doc map[string]any
+		if len(in.Mentions) > 0 && json.Unmarshal(in.DescriptionADF, &doc) == nil {
+			inlineMentions(doc, in.Mentions)
+			fields["description"] = doc
+		} else {
+			fields["description"] = in.DescriptionADF
+		}
 	}
 	if len(in.Labels) > 0 {
 		fields["labels"] = in.Labels
