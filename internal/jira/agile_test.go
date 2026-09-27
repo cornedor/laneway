@@ -224,6 +224,19 @@ func TestRank(t *testing.T) {
 	}
 }
 
+// TestRankRefused: a 207 with a per-issue error is a failed rank.
+func TestRankRefused(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusMultiStatus)
+		io.WriteString(w, `{"entries":[{"issueId":10002,"issueKey":"ABC-2","status":400,"errors":["Rank not possible"]}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if err := c.Rank(context.Background(), "ABC-2", "ABC-1", false); err == nil || !strings.Contains(err.Error(), "Rank not possible") {
+		t.Errorf("err = %v", err)
+	}
+}
+
 func TestFavouriteFilters(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -635,7 +635,27 @@ func (c *Client) Rank(ctx context.Context, key, other string, after bool) error 
 	} else {
 		body["rankBeforeIssue"] = other
 	}
-	return c.do(ctx, http.MethodPut, "/rest/agile/1.0/issue/rank", key, body, nil)
+	// A refused rank still answers 2xx (207), with the reason per issue.
+	var res struct {
+		Entries []struct {
+			IssueKey string   `json:"issueKey"`
+			Status   int      `json:"status"`
+			Errors   []string `json:"errors"`
+		} `json:"entries"`
+	}
+	if err := c.do(ctx, http.MethodPut, "/rest/agile/1.0/issue/rank", key, body, &res); err != nil {
+		return err
+	}
+	for _, e := range res.Entries {
+		if e.Status >= 300 || len(e.Errors) > 0 {
+			why := strings.Join(e.Errors, "; ")
+			if why == "" {
+				why = "status " + strconv.Itoa(e.Status)
+			}
+			return fmt.Errorf("jira: %s not ranked: %s", key, why)
+		}
+	}
+	return nil
 }
 
 // StartSprint makes a future sprint active from start to end.
