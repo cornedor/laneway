@@ -349,7 +349,7 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 		if strings.TrimSpace(v.Text) == "" {
 			return nil, true, nil
 		}
-		return textToADF(v.Text, nil), true, nil
+		return MarkdownToADF(v.Text), true, nil
 	case KindOption:
 		if len(v.Options) == 0 {
 			return nil, true, nil

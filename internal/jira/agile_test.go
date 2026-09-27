@@ -145,6 +145,13 @@ func TestDecodeValue(t *testing.T) {
 	if v := DecodeValue(KindDoc, json.RawMessage(doc)); v.Text != "steps" {
 		t.Errorf("doc = %q", v.Text)
 	}
+	// A doc round-trips its markdown, not flattened text.
+	enc, _, _ := EncodeValue(KindDoc, DecodeValue(KindDoc, json.RawMessage(`{"type": "doc", "version": 1, "content": [
+		{"type": "paragraph", "content": [{"type": "text", "text": "bold", "marks": [{"type": "strong"}]}]},
+		{"type": "bulletList", "content": [{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "a"}]}]}]}]}`)))
+	if b, _ := json.Marshal(enc); !strings.Contains(string(b), `"strong"`) || !strings.Contains(string(b), `"bulletList"`) || strings.Contains(string(b), "**") {
+		t.Errorf("doc encoded = %s", b)
+	}
 	if !DecodeValue(KindUser, json.RawMessage(`null`)).Empty() {
 		t.Error("null not empty")
 	}
