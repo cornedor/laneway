@@ -312,6 +312,7 @@ type jiraTabState struct {
 	loadingSince time.Time
 	err          string
 	seq          int
+	boardSeq     int // the seq of the last whole-board load
 	fresh        int // the last seq the network answered, which a cached copy can't undo
 	fetched      time.Time
 }
@@ -412,6 +413,7 @@ func (m *Model) jiraShowsLanes() bool {
 func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCache bool) tea.Cmd {
 	t := m.jiraTab
 	t.seq++
+	t.boardSeq = t.seq
 	t.loading, t.loadingSince = true, time.Now()
 	t.err = ""
 	m.renderJira()
@@ -592,9 +594,11 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 // loadJiraCards refetches the cards of view idx on the loaded board.
 // fromCache shows the stored copy first, when it was narrowed by the same
 // filters; a refetch after a change leaves it out, as it predates the change.
+// While a whole board loads it does nothing: that load brings fresh cards,
+// and superseding it would bring back the old board.
 func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 	t := m.jiraTab
-	if t.cfg == nil || idx < 0 || idx >= len(t.views) {
+	if t.cfg == nil || idx < 0 || idx >= len(t.views) || (t.loading && t.boardSeq == t.seq) {
 		return nil
 	}
 	t.seq++

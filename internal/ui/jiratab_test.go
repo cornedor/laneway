@@ -1545,3 +1545,18 @@ func TestBoardKeysWithoutBoard(t *testing.T) {
 		t.Errorf("m without a board: %q", m.status)
 	}
 }
+
+// TestCardsReloadDuringBoardLoad: a reload after an edit while another
+// board loads leaves that load current, so its reply isn't dropped.
+func TestCardsReloadDuringBoardLoad(t *testing.T) {
+	m := jiraTabModel(t)
+	if m.refreshJiraAfterEdit() == nil {
+		t.Fatal("no reload on a loaded board")
+	}
+	m.jiraTab.loading = false
+	m.loadJiraBoard("ABC", 2, "", false)
+	seq := m.jiraTab.seq
+	if m.refreshJiraAfterEdit() != nil || m.jiraTab.seq != seq {
+		t.Errorf("reload superseded the board load: seq %d → %d", seq, m.jiraTab.seq)
+	}
+}
