@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -545,5 +546,48 @@ func TestCreateAnother(t *testing.T) {
 	out, _ = m.handleJiraCreated(jiraCreatedMsg{key: "ABC-12"})
 	if m = out.(Model); m.jiraForm != nil {
 		t.Error("a plain create closes the form")
+	}
+}
+
+// TestCreateBatch: a pasted list in the summary makes one issue a line,
+// bullets dropped; typing drops the list.
+func TestCreateBatch(t *testing.T) {
+	if got := batchLines("- [ ] Login fails\n\n* Cart empty\n2. Slow search\n• Old logo"); strings.Join(got, "|") != "Login fails|Cart empty|Slow search|Old logo" {
+		t.Fatalf("lines %q", got)
+	}
+	var summaries []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/rest/api/3/issue" {
+			var body struct{ Fields struct{ Summary string } }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			summaries = append(summaries, body.Fields.Summary)
+			fmt.Fprintf(w, `{"key":"ABC-%d"}`, 10+len(summaries))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}}})
+	m = out.(Model)
+	out, _ = m.Update(tea.PasteMsg{Content: "one\ntwo"})
+	m = out.(Model)
+	out, _ = m.handleJiraFormKey(keyStr("x"))
+	m = out.(Model)
+	if m.jiraForm.create.batch != nil {
+		t.Fatal("typing should drop the list")
+	}
+	out, _ = m.Update(tea.PasteMsg{Content: "- Login fails\n- Cart empty\n- Slow search"})
+	m = out.(Model)
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "3 issues from the pasted lines") {
+		t.Fatalf("no batch message:\n%s", v)
+	}
+	out, cmd := m.handleJiraFormKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	out, _ = m.Update(cmd())
+	m = out.(Model)
+	if strings.Join(summaries, "|") != "Login fails|Cart empty|Slow search" || m.jiraForm != nil || m.status != "created 3: ABC-11, ABC-12, ABC-13" {
+		t.Errorf("summaries %q, status %q", summaries, m.status)
 	}
 }

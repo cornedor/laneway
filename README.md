@@ -326,6 +326,8 @@ creates it, `ctrl+s` from any row; in a sprint view it joins that sprint.
 `alt+enter` (or `ctrl+enter` where the terminal tells them apart) creates
 it and keeps the form for the next, its type and fields as they were, the
 summary and description cleared; the status line lists the keys made.
+A list pasted into the summary (one a line; `-`, `*`, `1.` and `[ ]` dropped)
+makes one issue a line with the form's type and fields; typing drops it.
 Fields the type requires, like a Component, join the form as the type is
 set and the hint names what is still empty; `+ more fields` shows the rest
 its create screen allows (assignee with *Assign to me* on top, priority,

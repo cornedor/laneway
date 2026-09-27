@@ -118,6 +118,7 @@ func (m Model) pasteInput(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		m.jiraGotoInput, cmd = m.jiraGotoInput.Update(msg)
 	case m.formOnTop() && m.jiraForm.multiline:
 		m.jiraForm.area, cmd = m.jiraForm.area.Update(msg)
+	case m.formOnTop() && m.pasteBatch(msg.Content):
 	case m.formOnTop() && m.jiraForm.editing:
 		m.jiraForm.input, cmd = m.jiraForm.input.Update(msg)
 	case m.jiraPicker.active && m.jiraPicker.filterable:

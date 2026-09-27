@@ -96,6 +96,9 @@ type jiraFormCreate struct {
 	// are the keys it made so far.
 	another bool
 	made    []string
+	// batch are the summaries of a pasted list, one issue each
+	// (create_batch.go).
+	batch []string
 	// descKept are a clone's description blocks markdown can't hold, put
 	// back when its description row is edited.
 	descKept []json.RawMessage
@@ -353,6 +356,7 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		f.input, cmd = f.input.Update(msg)
 		if f.input.Value() != before {
+			f.dropBatch()
 			cmd = tea.Batch(cmd, m.suggestLabels())
 		}
 		return m, cmd
@@ -568,6 +572,9 @@ func (m *Model) submitJiraForm() tea.Cmd {
 	if f.create != nil {
 		f.busy, f.err = true, ""
 		cr := m.createFormIssue(f, fields)
+		if cr.form && len(cr.batch) > 1 {
+			return m.createBatch(cr)
+		}
 		title := ""
 		if cr.form {
 			if m.lastCreateType == nil {

@@ -633,6 +633,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleFilterSaved(msg)
 	case editUndoneMsg:
 		return m.handleEditUndone(msg)
+	case batchCreatedMsg:
+		return m.handleBatchCreated(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:
