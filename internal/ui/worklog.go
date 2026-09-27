@@ -216,6 +216,7 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	m.jiraPicker.day = day
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, k := m.jiraClient, m.ctx, m.keys
+	empty := fmt.Sprintf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
 	hint := fmt.Sprintf("  ·  %s %s day · %s edit · %s %s delete · %s copy", helpKey(k.PrevView), helpKey(k.NextView),
 		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.CopyKey))
 	return func() tea.Msg {
@@ -233,7 +234,7 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 			items[i] = jiraPickerItem{id: w.Key + "/" + w.ID, label: label, value: jira.FormatDuration(w.Seconds) + " " + w.Comment}
 		}
 		if err == nil && len(items) == 0 {
-			items = []jiraPickerItem{{label: "nothing logged"}}
+			items = []jiraPickerItem{{label: empty}}
 		}
 		rows = append(rows, []string{"", jira.FormatDuration(total), "total", "", ""})
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickTimesheet, items: items, err: err,

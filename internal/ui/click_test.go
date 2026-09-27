@@ -1213,3 +1213,13 @@ func TestBurnIssues(t *testing.T) {
 		t.Errorf("burnup:\n%s", got)
 	}
 }
+
+// TestChartsNoSprint: tab with no active sprint says why nothing changes.
+func TestChartsNoSprint(t *testing.T) {
+	m := chartsModel(t)
+	m.jiraTab.charts.sprint, m.jiraTab.charts.tab = nil, chartVelocity
+	out, _ := m.handleJiraKey(keyMsg(t, "tab"))
+	if m = out.(Model); m.status != "no active sprint: velocity only" {
+		t.Errorf("status %q", m.status)
+	}
+}

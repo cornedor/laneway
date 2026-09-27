@@ -119,13 +119,15 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.renderJira()
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab),
 		key.Matches(msg, m.keys.PrevView), key.Matches(msg, m.keys.NextView):
-		if ch.sprint != nil {
-			d := 1
-			if key.Matches(msg, m.keys.ShiftTab) || key.Matches(msg, m.keys.PrevView) {
-				d = chartTabs - 1
-			}
-			ch.tab = (ch.tab + d) % chartTabs
+		if ch.sprint == nil {
+			m.status = "no active sprint: velocity only"
+			break
 		}
+		d := 1
+		if key.Matches(msg, m.keys.ShiftTab) || key.Matches(msg, m.keys.PrevView) {
+			d = chartTabs - 1
+		}
+		ch.tab = (ch.tab + d) % chartTabs
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadCharts()
 	case key.Matches(msg, m.keys.CopyKey):
