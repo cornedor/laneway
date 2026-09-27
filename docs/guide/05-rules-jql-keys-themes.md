@@ -109,9 +109,10 @@ the same screen, and `?` always shows the keys as you bound them.
 
 ## Settings: `,`
 
-`,` lists every `ui:` option with its value and default. `enter` edits one:
-checked, written back to the config file (your comments kept) and applied
-at once.
+`,` lists every `ui:` option with its value and default, and says what the
+selected one does. `enter` edits one, or picks from its values when it has
+a fixed set (`icons`, `theme`, …): checked, written back to the config file
+(your comments kept) and applied at once.
 
 ![Every ui: option with its value and default](../screenshots/settings.png)
 

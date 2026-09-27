@@ -4,8 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
 )
@@ -115,5 +118,46 @@ func TestSettingsEdit(t *testing.T) {
 	got, _ := os.ReadFile(path)
 	if want := "jira:\n  email: a@b\nui:\n  stale_days: 3 # red after\n  card_fields: [type, points]\n"; string(got) != want {
 		t.Errorf("file =\n%s", got)
+	}
+}
+
+// TestSettingDocs: every option says what it does.
+func TestSettingDocs(t *testing.T) {
+	for _, r := range settingRows(config.UIConfig{}) {
+		if settingDocs[r.name] == "" {
+			t.Errorf("%s has no description", r.name)
+		}
+	}
+}
+
+// TestSettingsChoice: an option with a fixed set picks from it, the
+// current one marked; one that holds more shows its whole value.
+func TestSettingsChoice(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("ui:\n  icons: nerd\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := jiraTabModel(t)
+	m.uiConfig.Icons = "nerd"
+	m.uiConfig.Templates = map[string]string{"bug": "## Steps"}
+	m = m.WithConfigPath(path)
+	m.openSettings()
+	s := m.settings
+	s.idx = slices.IndexFunc(s.rows, func(r settingRow) bool { return r.name == "icons" })
+	out, _ := m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if s.choices == nil || !strings.Contains(view, "✓ nerd") || !strings.Contains(view, "plain") || !strings.Contains(view, "icons: issue type icons") {
+		t.Fatalf("choices:\n%s", view)
+	}
+	out, _ = m.handleKey(keyMsg(t, "down"))
+	out, _ = out.(Model).handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if b, _ := os.ReadFile(path); s.choices != nil || m.uiConfig.Icons != "plain" || !strings.Contains(string(b), "icons: plain") {
+		t.Errorf("saved %q: %s", m.uiConfig.Icons, b)
+	}
+	s.idx = slices.IndexFunc(s.rows, func(r settingRow) bool { return r.name == "templates" })
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "bug: '## Steps'") {
+		t.Errorf("templates in full:\n%s", view)
 	}
 }

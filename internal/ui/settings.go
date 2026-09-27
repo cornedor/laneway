@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -124,6 +125,10 @@ type settingsView struct {
 	idx   int
 	input *textinput.Model // the value being edited
 	err   string
+	// choices are the values of the option being picked, choice the one
+	// under the cursor.
+	choices []string
+	choice  int
 }
 
 // window is the first row shown and how many show in height.
@@ -140,6 +145,9 @@ func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := m.settings
 	if s.input != nil {
 		return m.handleSettingsInput(msg)
+	}
+	if s.choices != nil {
+		return m.handleSettingsChoice(msg)
 	}
 	switch {
 	case msg.String() == "ctrl+c":
@@ -180,6 +188,11 @@ func editable(f reflect.Value) bool {
 func (m *Model) editSetting() {
 	s := m.settings
 	r := s.rows[s.idx]
+	if choices := settingChoices(r.name); choices != nil {
+		s.choices, s.err = choices, ""
+		s.choice = max(slices.IndexFunc(choices, func(c string) bool { return strings.EqualFold(c, r.value) }), 0)
+		return
+	}
 	if !editable(settingField(&m.uiConfig, r.name)) {
 		s.err = r.name + " holds more than a line: edit it in the file"
 		return
@@ -192,6 +205,30 @@ func (m *Model) editSetting() {
 	ti.Focus()
 	s.input, s.err = &ti, ""
 }
+
+// handleSettingsChoice moves through the option's values; enter saves the
+// one under the cursor.
+func (m Model) handleSettingsChoice(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	s := m.settings
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "esc":
+		s.choices, s.err = nil, ""
+	case "enter":
+		if err := m.saveSetting(s.rows[s.idx].name, s.choices[s.choice]); err != "" {
+			s.err = err
+			return m, nil
+		}
+		s.choices, s.err = nil, ""
+	default:
+		s.choice, _ = m.keys.listNav(msg, s.choice, len(s.choices), settingChoicesShown, false)
+	}
+	return m, nil
+}
+
+// settingChoicesShown is how many values the picker shows at once.
+const settingChoicesShown = 8
 
 func (m Model) handleSettingsInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s := m.settings
@@ -309,14 +346,49 @@ func (m *Model) renderSettings(height int) string {
 			line = pad(r.name, nameW) + "  " + jiraKeyStyle.Render(pad(val, valW)) + "  " + jiraDimStyle.Render(pad(r.def, valW))
 		}
 		lines = append(lines, line)
+		if i == s.idx && s.choices != nil {
+			cur := r.value
+			if cur == "" && r.name != "code_theme" && r.name != "theme" {
+				cur = s.choices[0] // the default
+			}
+			first := min(max(s.choice-settingChoicesShown/2, 0), max(len(s.choices)-settingChoicesShown, 0))
+			for j := first; j < min(first+settingChoicesShown, len(s.choices)); j++ {
+				c := s.choices[j]
+				mark := "  "
+				if strings.EqualFold(c, cur) {
+					mark = "✓ "
+				}
+				row := strings.Repeat(" ", nameW+2) + mark + c
+				if j == s.choice {
+					row = strings.Repeat(" ", nameW+2) + selectedRow.Render(mark+c)
+				}
+				lines = append(lines, row)
+			}
+		}
+	}
+	r := s.rows[s.idx]
+	if doc := settingDocs[r.name]; doc != "" {
+		lines = append(lines, "", jiraDimStyle.Render(truncate(r.name+": "+doc, width)))
+	}
+	if full := settingFull(m.uiConfig, r.name); full != "" {
+		fl := strings.Split(full, "\n")
+		if len(fl) > 8 {
+			fl = append(fl[:8], "…")
+		}
+		for _, l := range fl {
+			lines = append(lines, jiraKeyStyle.Render("  "+truncate(l, width-2)))
+		}
 	}
 	where := "your config file"
 	if m.configPath != "" {
 		where = m.configPath
 	}
 	hintText := "↵ edit · esc closes · writes ui: in " + where
-	if s.input != nil {
+	switch {
+	case s.input != nil:
 		hintText = "↵ save · empty for the default · esc cancel"
+	case s.choices != nil:
+		hintText = "↑ ↓ choose · ↵ save · esc cancel"
 	}
 	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate(hintText, max(m.width-8, width)))
 	foot := []string{strings.Join(lines, "\n"), "", hint}

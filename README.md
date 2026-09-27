@@ -132,7 +132,10 @@ ui:
 `,` lists every `ui:` option with its value and default; `enter` edits a one-line
 one (empty for the default), checked, written back to the file (comments kept)
 and applied at once (`images`, `image_max_rows`, `card_limit`, `default_mode`,
-`flag_value`, `inbox_issues` after a restart).
+`flag_value`, `inbox_issues` after a restart). An option with a fixed set
+(`icons`, `mouse`, `theme`, `code_theme`, …) picks from its values instead,
+the current one ✓; the selected row says what it does, and one that holds
+more than a line (`templates`, `views`, `keys`) shows its whole value.
 
 A bad value keeps its default and is reported on the status line, as is a key
 bound to two actions on one screen (board, panel, planning, roadmap, charts,
