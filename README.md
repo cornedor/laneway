@@ -310,6 +310,8 @@ In the `c` composer (`enter` or `ctrl+s` posts; `esc` asks once before dropping 
 
 ## Inbox
 
+![Others' changes and a mention in the inbox](docs/screenshots/inbox.png)
+
 `I` lists what others did since you last opened it (a day, the first
 time) on the issues you watch, are assigned or reported: field changes and
 comments, those mentioning you first and marked `@`. Filter by typing;
@@ -321,6 +323,8 @@ also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 
 ## Standup
 
+![What you did since Friday](docs/screenshots/standup.png)
+
 `U` lists what you did since the previous workday (Friday on a Monday), by
 day: status and field changes, comments and logged work. Its first row,
 Copy as text, puts it on the clipboard grouped per issue, ready to paste.
@@ -328,6 +332,8 @@ Copy as text, puts it on the clipboard grouped per issue, ready to paste.
 workday later again.
 
 ## Time tracking
+
+![Today's worklogs](docs/screenshots/worklogs.png)
 
 `w` in the panel logs work: `1h 30m what you did` (also `1.5h`, `45m`,
 `2d` of 8h), ending now; a day first logs it then, from `ui.workday_start`
@@ -339,6 +345,8 @@ what you logged today with the day's total; `[` `]` step a day, `e` edits
 an entry's time and comment, `d` twice deletes it, `y` copies the day as a markdown table, `enter` opens the issue.
 
 ## Planning
+
+![The backlog beside the next sprint](docs/screenshots/planning.png)
 
 `P` on a scrum board shows the backlog beside a sprint (the first future
 one; `[` `]` pick another), each with its card count and points, the sprint
@@ -367,6 +375,8 @@ says how much was added after the start; issues taken out of it don't show.
 `y` copies the open chart's numbers as a markdown table.
 
 ## JQL search
+
+![JQL completing a status](docs/screenshots/jql.png)
 
 `Q` opens a JQL input that completes fields, functions and keywords, and a
 field's values after an operator (`tab` takes one, `↑↓` choose); `enter`

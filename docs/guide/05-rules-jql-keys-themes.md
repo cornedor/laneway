@@ -9,6 +9,8 @@ changes, and bend the keys and colours to your taste.
 `/` only narrows the cards already loaded. `Q` asks Jira itself: type JQL,
 `enter`, and the results show as a view like any other.
 
+![JQL completing a status](../screenshots/jql.png)
+
 - It completes fields, functions and keywords as you type, and a field's
   values after an operator. `tab` takes a suggestion, `↑` `↓` choose.
 - An empty input offers your past searches.
@@ -110,6 +112,8 @@ the same screen, and `?` always shows the keys as you bound them.
 `,` lists every `ui:` option with its value and default. `enter` edits one:
 checked, written back to the config file (your comments kept) and applied
 at once.
+
+![Every ui: option with its value and default](../screenshots/settings.png)
 
 > **Try it:** `,`, find `panel_width`, set it to `40`. The panel resizes
 > as you press `enter`.

@@ -85,6 +85,8 @@ In the panel:
   of Jira; those hits come last, marked `⌕`.
 - `*` pins an issue. Pinned ones come first in the palette.
 
+![The command palette](../screenshots/palette.png)
+
 > **Try it:** press `:` and type `sprint`. You'll see the views, any issue
 > with "sprint" in it, and the actions whose name says sprint, all in one
 > list.

@@ -11,6 +11,8 @@ On a scrum board, `P` puts the backlog on the left and a sprint on the
 right (the first future one; `[` `]` pick another). Each side counts its
 cards and points; the sprint also splits them per person.
 
+![The backlog beside the next sprint](../screenshots/planning.png)
+
 | Key | Does |
 | --- | --- |
 | `←` `→` | switch side |
@@ -90,11 +92,15 @@ in with the time.
 `W` lists what you logged today, with the total. `[` `]` step a day, `e`
 edits an entry, `d` twice deletes it, `y` copies the day as a table.
 
+![Today's worklogs](../screenshots/worklogs.png)
+
 ### Standup: `U`
 
 `U` lists what you did since the previous workday (Friday, on a Monday):
 status changes, comments and logged work, by day. Its first row, *Copy as
 text*, puts it on the clipboard grouped per issue.
+
+![What you did since Friday](../screenshots/standup.png)
 
 > **Try it:** `U`, `enter` on *Copy as text*, paste it in your team's
 > standup channel. Done before the coffee's ready.
@@ -105,10 +111,14 @@ text*, puts it on the clipboard grouped per issue.
 changes and comments, mentions of you first, marked `@`. The header shows
 `✉ 3` when there's something new.
 
+![Others' changes and a mention in the inbox](../screenshots/inbox.png)
+
 ### My work: `O`
 
 `O` shows what's assigned to you in every project, open or done this week,
 grouped by status.
+
+![Your issues across projects, by status](../screenshots/mywork.png)
 
 ## Recap
 
