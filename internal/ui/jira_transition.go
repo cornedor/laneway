@@ -59,9 +59,18 @@ type jiraFormState struct {
 	busy         bool
 	err          string
 	bulk         []string // marked cards the move goes to, with these fields (bulk.go)
+	// create is the issue a failed create would make: the form asks for the
+	// fields it lacked, and key is the create box's title (jira_create.go).
+	create *jiraFormCreate
 	// firstRow is the first field's line inside the box, as last drawn; the
 	// button sits a blank line after the last field (clickJiraForm).
 	firstRow int
+}
+
+// jiraFormCreate is a create waiting on the form.
+type jiraFormCreate struct {
+	in     jira.NewIssue
+	sprint int
 }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
@@ -218,6 +227,11 @@ func (m Model) handleJiraFormDone(msg jiraFormDoneMsg) (tea.Model, tea.Cmd) {
 func (m *Model) cancelJiraForm() tea.Cmd {
 	f := m.jiraForm
 	m.jiraForm = nil
+	if f.create != nil { // back to the create box, your summary kept
+		m.jiraCreateActive = true
+		m.status = "create cancelled"
+		return m.jiraCreateInput.Focus()
+	}
 	m.status = f.key + ": move cancelled"
 	if f.origin == jiraFromBoard {
 		return m.loadJiraCards(m.jiraTab.viewIdx, false)
@@ -399,6 +413,12 @@ func (m *Model) submitJiraForm() tea.Cmd {
 		f.err = "fill in " + strings.Join(missing, ", ")
 		return nil
 	}
+	if f.create != nil {
+		f.busy, f.err = true, ""
+		in := f.create.in
+		in.Fields = fields
+		return m.createJiraIssue(in, f.create.sprint, "")
+	}
 	if len(f.bulk) > 0 {
 		m.jiraForm = nil
 		return m.bulkTransition(f.bulk, f.to, fields, comment)
@@ -481,7 +501,11 @@ func (m *Model) renderJiraForm() string {
 	outerW := min(max(confirmDialogMaxWidth+16, 40), m.width-4)
 	inner := max(outerW-8, 1)
 	center := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center)
-	parts := []string{center.Bold(true).Render(f.key + " → " + f.to)}
+	title, button, busy := f.key+" → "+f.to, "[ Move to "+f.to+" ]", "moving…"
+	if f.create != nil {
+		title, button, busy = f.key, "[ Create ]", "creating…"
+	}
+	parts := []string{center.Bold(true).Render(title)}
 	if f.message != "" {
 		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Foreground(dimColor).Italic(true).Render(f.message))
 	}
@@ -520,9 +544,8 @@ func (m *Model) renderJiraForm() string {
 			parts = append(parts, "  "+name+"  "+val)
 		}
 	}
-	button := "[ Move to " + f.to + " ]"
 	if f.busy {
-		button = "moving…"
+		button = busy
 	}
 	if f.idx == len(f.fields) {
 		button = cursor.Render("▸ " + button)
@@ -534,6 +557,9 @@ func (m *Model) renderJiraForm() string {
 		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
 	}
 	hint := "↑/↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
+	if f.create != nil {
+		hint = "↑/↓ field · ↵ edit · del clear · ctrl+s create · esc back"
+	}
 	if f.editing {
 		hint = "↵ keep · esc undo"
 	}

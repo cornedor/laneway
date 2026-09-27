@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -71,5 +74,83 @@ func TestJiraCreate(t *testing.T) {
 	m = out.(Model)
 	if r := m.currentRef(); r == nil || r.jiraKey != "ABC-9" || m.status != "created ABC-9" {
 		t.Errorf("panel %+v, status %q", r, m.status)
+	}
+}
+
+// TestJiraCreateAsksRequired: a create refused for a required Component
+// opens the form for it; the pick goes with the retry, esc goes back.
+func TestJiraCreateAsksRequired(t *testing.T) {
+	var created []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method + " " + r.URL.Path {
+		case "GET /rest/api/3/issue/createmeta/ABC/issuetypes":
+			_, _ = w.Write([]byte(`{"issueTypes":[{"id":"2","name":"Bug"}]}`))
+		case "GET /rest/api/3/issue/createmeta/ABC/issuetypes/2":
+			_, _ = w.Write([]byte(`{"fields":[
+				{"fieldId":"summary","name":"Summary","required":true,"schema":{"type":"string"}},
+				{"fieldId":"components","name":"Components","required":true,"schema":{"type":"array","items":"component"},"allowedValues":[{"id":"10","name":"Web"},{"id":"11","name":"App"}]}]}`))
+		case "POST /rest/api/3/issue":
+			var body struct{ Fields map[string]any }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			created = append(created, body.Fields)
+			if body.Fields["components"] == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"errors":{"components":"Component/s is required."}}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"key":"ABC-9"}`))
+		case "POST /rest/agile/1.0/sprint/9/issue":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.openJiraCreateSummary("Bug")
+	m.jiraCreateInput.SetValue("Crash")
+	out, cmd := m.handleKey(keyStr("enter"))
+	out, _ = out.(Model).handleJiraCreated(cmd().(jiraCreatedMsg))
+	m = out.(Model)
+	f := m.jiraForm
+	if f == nil || f.create == nil || len(f.fields) != 1 || f.fields[0].ID != "components" {
+		t.Fatalf("form = %+v", f)
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Components *") || !strings.Contains(view, "Component/s is required") || !strings.Contains(view, "[ Create ]") {
+		t.Errorf("form view:\n%s", view)
+	}
+
+	out, _ = m.handleKey(keyStr("esc"))
+	m = out.(Model)
+	if m.jiraForm != nil || !m.jiraCreateActive || m.jiraCreateInput.Value() != "Crash" {
+		t.Fatalf("esc: form %v, box %v %q", m.jiraForm, m.jiraCreateActive, m.jiraCreateInput.Value())
+	}
+	m.jiraForm, m.jiraCreateActive = f, false
+
+	out, _ = m.handleKey(keyStr("enter")) // the Components picker
+	out, _ = out.(Model).handleKey(keyStr("down"))
+	out, _ = out.(Model).handleKey(keyStr("enter"))
+	m = out.(Model)
+	if got := jiraValueText(m.jiraForm.fields[0].val); got != "App" {
+		t.Fatalf("picked %q", got)
+	}
+	out, cmd = m.handleKey(keyStr("ctrl+s"))
+	m = out.(Model)
+	if !m.jiraForm.busy {
+		t.Fatal("ctrl+s sent nothing")
+	}
+	out, _ = m.handleJiraCreated(cmd().(jiraCreatedMsg))
+	m = out.(Model)
+	if m.jiraForm != nil || m.status != "created ABC-9" {
+		t.Errorf("form %v, status %q", m.jiraForm, m.status)
+	}
+	if len(created) != 2 || created[1]["summary"] != "Crash" {
+		t.Fatalf("creates = %v", created)
+	}
+	if c, _ := created[1]["components"].([]any); len(c) != 1 || c[0].(map[string]any)["id"] != "11" {
+		t.Errorf("components = %v", created[1]["components"])
 	}
 }

@@ -94,3 +94,34 @@ func TestIssueTypesSkipsSubtasks(t *testing.T) {
 		t.Fatalf("IssueTypes = %v, %v", got, err)
 	}
 }
+
+func TestCreateFields(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issue/createmeta/JB/issuetypes":
+			_, _ = w.Write([]byte(`{"issueTypes":[{"id":"1","name":"Bug"},{"id":"2","name":"Sub-task","subtask":true}]}`))
+		case "/rest/api/3/issue/createmeta/JB/issuetypes/1":
+			_, _ = w.Write([]byte(`{"fields":[
+				{"fieldId":"components","name":"Components","required":true,"schema":{"type":"array","items":"component","system":"components"},"allowedValues":[{"id":"10","name":"Web"}]},
+				{"fieldId":"reporter","name":"Reporter","required":true,"hasDefaultValue":true,"schema":{"type":"user","system":"reporter"}},
+				{"fieldId":"labels","name":"Labels","required":false,"schema":{"type":"array","items":"string"}}]}`))
+		default:
+			t.Errorf("path = %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.CreateFields(context.Background(), "JB", "bug")
+	if err != nil || len(got) != 3 {
+		t.Fatalf("CreateFields = %+v, %v", got, err)
+	}
+	if !got[0].Required || got[0].Kind != KindOptions || got[0].Options[0].Name != "Web" {
+		t.Errorf("components = %+v", got[0])
+	}
+	if got[1].Required || got[2].Required {
+		t.Errorf("reporter has a default and labels are optional: %+v %+v", got[1], got[2])
+	}
+	if _, err := c.CreateFields(context.Background(), "JB", "Epic"); err == nil {
+		t.Error("an unknown type should fail")
+	}
+}

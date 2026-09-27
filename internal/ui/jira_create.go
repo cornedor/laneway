@@ -17,8 +17,9 @@ import (
 
 // jiraCreatedMsg reports a create.
 type jiraCreatedMsg struct {
-	key string
-	err error
+	key  string
+	err  error
+	form *jiraFormState // the fields a failed create lacks, to fill in
 }
 
 // openJiraCreate lists the project's issue types.
@@ -73,22 +74,63 @@ func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraCreateActive = false
 		sprint, _ := m.createSprint()
 		m.status = "creating " + in.Type + " in " + in.Project + "…"
-		c, ctx := m.jiraClient, m.ctx
-		return m, func() tea.Msg {
-			ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
-			defer cancel()
-			key, err := c.CreateIssue(ctx, in)
-			if err == nil && sprint != 0 {
-				if err = c.MoveToSprint(ctx, sprint, key); err != nil {
-					err = &jiraCreateSprintErr{err}
-				}
-			}
-			return jiraCreatedMsg{key: key, err: err}
-		}
+		return m, m.createJiraIssue(in, sprint, m.jiraCreateTitle())
 	}
 	var cmd tea.Cmd
 	m.jiraCreateInput, cmd = m.jiraCreateInput.Update(msg)
 	return m, cmd
+}
+
+// createJiraIssue creates in and adds it to sprint (0 for none). A create
+// Jira refuses is checked against the create screen: required fields it
+// lacks (a Component) come back as a form titled title; "" asks nothing.
+func (m *Model) createJiraIssue(in jira.NewIssue, sprint int, title string) tea.Cmd {
+	c, ctx := m.jiraClient, m.ctx
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
+		defer cancel()
+		key, err := c.CreateIssue(ctx, in)
+		if err != nil && title != "" {
+			if fields, fErr := c.CreateFields(ctx, in.Project, in.Type); fErr == nil {
+				if form := buildCreateForm(title, in, sprint, fields); form != nil {
+					form.err = err.Error()
+					return jiraCreatedMsg{err: err, form: form}
+				}
+			}
+		}
+		if err == nil && sprint != 0 {
+			if err = c.MoveToSprint(ctx, sprint, key); err != nil {
+				err = &jiraCreateSprintErr{err}
+			}
+		}
+		return jiraCreatedMsg{key: key, err: err}
+	}
+}
+
+// buildCreateForm is the form for the required fields in lacks, nil when
+// it lacks none. People can't be picked before the issue exists: those rows
+// say to set them in Jira.
+func buildCreateForm(title string, in jira.NewIssue, sprint int, fields []jira.CreateField) *jiraFormState {
+	set := map[string]bool{"project": true, "issuetype": true, "summary": true,
+		"description": in.Description != "" || len(in.DescriptionADF) > 0, "parent": in.Parent != "", "priority": in.Priority != ""}
+	if len(in.Labels) > 0 {
+		set["labels"] = true
+	}
+	f := &jiraFormState{key: title, create: &jiraFormCreate{in: in, sprint: sprint}}
+	for _, cf := range fields {
+		if !cf.Required || set[cf.ID] {
+			continue
+		}
+		fm := cf.FieldMeta
+		if fm.Kind == jira.KindUser || fm.Kind == jira.KindUsers {
+			fm.Kind = jira.KindOther
+		}
+		f.fields = append(f.fields, jiraFormField{FieldMeta: fm, required: true})
+	}
+	if len(f.fields) == 0 {
+		return nil
+	}
+	return f
 }
 
 // jiraCreateSprintErr is a create that worked but did not reach the sprint.
@@ -99,6 +141,18 @@ func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: 
 // handleJiraCreated opens the new issue and refetches the board; a failed
 // create reopens the box with your summary.
 func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
+	if msg.form != nil && !m.modalOpen() {
+		m.jiraForm = msg.form
+		m.status = msg.form.key + " needs a few fields"
+		return m, nil
+	}
+	if f := m.jiraForm; f != nil && f.create != nil {
+		if msg.key == "" {
+			f.busy, f.err = false, msg.err.Error() // the fix is one edit away
+			return m, nil
+		}
+		m.jiraForm = nil
+	}
 	if msg.key == "" {
 		m.fail("create: " + msg.err.Error())
 		if !m.modalOpen() && m.jiraCreateInput.Value() != "" {

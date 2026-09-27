@@ -33,6 +33,9 @@ type NewIssue struct {
 	// DescriptionADF replaces Description with a ready document (a clone's).
 	DescriptionADF json.RawMessage
 	Priority       string // a priority id, "" for the default
+	// Fields are more fields to set, id → EncodeValue output (a required
+	// Component the create screen asks for).
+	Fields map[string]any
 }
 
 // Projects lists the projects the user can create issues in, up to 100.
@@ -68,27 +71,88 @@ func (c *Client) SubtaskTypes(ctx context.Context, project string) ([]Option, er
 }
 
 func (c *Client) issueTypes(ctx context.Context, project string, subtask bool) ([]Option, error) {
+	types, err := c.allIssueTypes(ctx, project)
+	var out []Option
+	for _, t := range types {
+		if t.Subtask == subtask {
+			out = append(out, t.Option)
+		}
+	}
+	return out, err
+}
+
+// issueType is an issue type creatable in a project.
+type issueType struct {
+	Option
+	Subtask bool
+}
+
+// allIssueTypes lists the issue types creatable in project, subtasks too.
+func (c *Client) allIssueTypes(ctx context.Context, project string) ([]issueType, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
-	type issueType struct {
+	type rawType struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
 		Subtask bool   `json:"subtask"`
 	}
 	var resp struct {
-		IssueTypes []issueType `json:"issueTypes"`
-		Values     []issueType `json:"values"` // older createmeta shape
+		IssueTypes []rawType `json:"issueTypes"`
+		Values     []rawType `json:"values"` // older createmeta shape
 	}
 	path := "/rest/api/3/issue/createmeta/" + url.PathEscape(project) + "/issuetypes"
 	if err := c.do(ctx, http.MethodGet, path, project, nil, &resp); err != nil {
 		return nil, err
 	}
-	var out []Option
+	var out []issueType
 	for _, t := range append(resp.IssueTypes, resp.Values...) {
-		if t.Subtask == subtask {
-			out = append(out, Option{ID: t.ID, Name: t.Name})
+		out = append(out, issueType{Option: Option{ID: t.ID, Name: t.Name}, Subtask: t.Subtask})
+	}
+	return out, nil
+}
+
+// CreateField is a field on a create screen and whether Jira insists on it
+// without a default of its own.
+type CreateField struct {
+	FieldMeta
+	Required bool
+}
+
+// CreateFields lists the create screen's fields for the issue type named
+// typ in project (createmeta).
+func (c *Client) CreateFields(ctx context.Context, project, typ string) ([]CreateField, error) {
+	types, err := c.allIssueTypes(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	id := ""
+	for _, t := range types {
+		if strings.EqualFold(t.Name, typ) {
+			id = t.ID
 		}
+	}
+	if id == "" {
+		return nil, fmt.Errorf("jira: no issue type %q in %s", typ, project)
+	}
+	type field struct {
+		rawFieldMeta
+		FieldID         string `json:"fieldId"`
+		Required        bool   `json:"required"`
+		HasDefaultValue bool   `json:"hasDefaultValue"`
+	}
+	var resp struct {
+		Fields  []field `json:"fields"`
+		Results []field `json:"results"`
+		Values  []field `json:"values"`
+	}
+	path := "/rest/api/3/issue/createmeta/" + url.PathEscape(project) + "/issuetypes/" + url.PathEscape(id) + "?maxResults=200"
+	if err := c.do(ctx, http.MethodGet, path, project, nil, &resp); err != nil {
+		return nil, err
+	}
+	var out []CreateField
+	for _, f := range append(append(resp.Fields, resp.Results...), resp.Values...) {
+		out = append(out, CreateField{FieldMeta: f.meta(f.FieldID), Required: f.Required && !f.HasDefaultValue})
 	}
 	return out, nil
 }
@@ -202,6 +266,9 @@ func (c *Client) CreateIssue(ctx context.Context, in NewIssue) (string, error) {
 	}
 	if in.Priority != "" {
 		fields["priority"] = map[string]string{"id": in.Priority}
+	}
+	for id, v := range in.Fields {
+		fields[id] = v
 	}
 	var resp struct {
 		Key string `json:"key"`
