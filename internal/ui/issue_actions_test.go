@@ -388,3 +388,30 @@ func TestWebLinks(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+// TestWatchers: the watchers come first, ticked; enter on one removes them,
+// on anyone else adds them.
+func TestWatchers(t *testing.T) {
+	m, writes := actionsModel(t, map[string]string{
+		"/rest/api/3/issue/ABC-1/watchers":  `{"watchers":[{"accountId":"a1","displayName":"Ada"}]}`,
+		"/rest/api/3/user/viewissue/search": `[{"accountId":"a1","displayName":"Ada"},{"accountId":"b2","displayName":"Bob"}]`,
+	})
+	m, cmd := pickAction(t, m, "watchers")
+	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	it := m.jiraPicker.items
+	if len(it) != 2 || !it[0].current || it[0].label != "Ada" || it[1].current || it[1].label != "Bob" {
+		t.Fatalf("items = %+v", it)
+	}
+	base := m
+	m.jiraPicker.idx = 1
+	_, cmd = m.applyJiraPick()
+	cmd()
+	m = base
+	m.jiraPicker.idx = 0
+	_, cmd = m.applyJiraPick()
+	cmd()
+	if w := writes(); len(w) != 2 || w[0] != `POST /rest/api/3/issue/ABC-1/watchers "b2"` || w[1] != "DELETE /rest/api/3/issue/ABC-1/watchers " {
+		t.Errorf("writes = %q", w)
+	}
+}

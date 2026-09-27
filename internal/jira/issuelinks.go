@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Linking, watching and cloning issues.
@@ -116,6 +117,47 @@ func (c *Client) ToggleWatch(ctx context.Context, key string) (bool, error) {
 		err = c.do(ctx, http.MethodPost, path, key, me.AccountID, nil)
 	}
 	return !resp.IsWatching, err
+}
+
+// Watchers lists who watches key.
+func (c *Client) Watchers(ctx context.Context, key string) ([]User, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var resp struct {
+		Watchers []User `json:"watchers"`
+	}
+	err := c.do(ctx, http.MethodGet, "/rest/api/3/issue/"+url.PathEscape(key)+"/watchers", key, nil, &resp)
+	return resp.Watchers, err
+}
+
+// SetWatcher adds accountID to key's watchers, or removes them.
+func (c *Client) SetWatcher(ctx context.Context, key, accountID string, watch bool) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/watchers"
+	var err error
+	if watch {
+		err = c.do(ctx, http.MethodPost, path, key, accountID, nil)
+	} else {
+		err = c.do(ctx, http.MethodDelete, path+"?accountId="+url.QueryEscape(accountID), key, nil, nil)
+	}
+	if err == nil {
+		c.Invalidate(key)
+	}
+	return err
+}
+
+// ViewUsers finds the people who can see key, matching query.
+func (c *Client) ViewUsers(ctx context.Context, key, query string) ([]User, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var resp []User
+	path := "/rest/api/3/user/viewissue/search?issueKey=" + url.QueryEscape(key) + "&query=" + url.QueryEscape(strings.TrimSpace(query))
+	err := c.do(ctx, http.MethodGet, path, key, nil, &resp)
+	return resp, err
 }
 
 // Clone copies key into a new issue (CloneDraft), linked to it as a clone

@@ -105,6 +105,9 @@ const (
 	jiraPickMoveType
 	// jiraPickDeleteIssue confirms deleting the issue (issue_actions.go).
 	jiraPickDeleteIssue
+	// jiraPickWatchers lists the issue's watchers and finds people to add,
+	// searched server-side like the assignee (issue_actions.go).
+	jiraPickWatchers
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -589,8 +592,12 @@ var copyRowKinds = map[jiraPickerKind]bool{jiraPickDev: true, jiraPickInbox: tru
 // handleJiraAssigneeDebounce runs the pending assignee search once the debounce
 // window elapses, unless a newer keystroke has superseded it.
 func (m Model) handleJiraAssigneeDebounce(msg jiraAssigneeDebounceMsg) (tea.Model, tea.Cmd) {
-	if k := m.jiraPicker.kind; !m.jiraPicker.active || (k != jiraPickAssignee && k != jiraPickFormUser) || msg.seq != m.jiraPicker.fetchSeq {
+	k := m.jiraPicker.kind
+	if !m.jiraPicker.active || (k != jiraPickAssignee && k != jiraPickFormUser && k != jiraPickWatchers) || msg.seq != m.jiraPicker.fetchSeq {
 		return m, nil
+	}
+	if k == jiraPickWatchers {
+		return m, m.fetchWatchers(m.jiraPicker.gen, msg.seq, m.jiraPicker.issueKey, m.jiraPicker.filter.Value())
 	}
 	return m, m.fetchAssignees(m.jiraPicker.gen, msg.seq, m.jiraPicker.issueKey, m.jiraPicker.filter.Value())
 }
@@ -727,6 +734,16 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
 		m.status = "deleting the comment…"
 		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+	}
+	if kind == jiraPickWatchers {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		c, ctx, watch := m.jiraClient, m.ctx, !it.current
+		field := "watcher added"
+		if !watch {
+			field = "watcher removed"
+		}
+		return m, jiraMutateCmd(key, field, func() error { return c.SetWatcher(ctx, key, it.id, watch) })
 	}
 	if kind == jiraPickDeleteIssue {
 		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
@@ -963,6 +980,8 @@ func mutatedStatus(key, field string) string {
 		return "cleared the flag on " + key
 	case "comment deleted":
 		return "deleted a comment on " + key
+	case "watcher added", "watcher removed":
+		return field + " on " + key
 	case "links", "attachments":
 		return key + " " + field + " changed"
 	}

@@ -116,3 +116,20 @@ func TestWebLinks(t *testing.T) {
 		t.Errorf("posted %s, %v", posted, err)
 	}
 }
+
+// TestSetWatcher: an add posts the account id, a removal names it in the query.
+func TestSetWatcher(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = append(got, r.Method+" "+r.URL.RequestURI()+" "+string(b))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	_ = c.SetWatcher(context.Background(), "ABC-1", "b2", true)
+	_ = c.SetWatcher(context.Background(), "ABC-1", "b2", false)
+	if len(got) != 2 || got[0] != `POST /rest/api/3/issue/ABC-1/watchers "b2"` || got[1] != "DELETE /rest/api/3/issue/ABC-1/watchers?accountId=b2 " {
+		t.Errorf("requests = %q", got)
+	}
+}

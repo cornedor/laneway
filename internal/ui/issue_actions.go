@@ -44,6 +44,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "move", label: "Move to another project"},
 		jiraPickerItem{id: "delete", label: "Delete the issue"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
+		jiraPickerItem{id: "watchers", label: "Add or remove watchers"},
 		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
 		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
 		jiraPickerItem{id: "upload", label: "Upload a file"},
@@ -116,6 +117,10 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			}
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickChangeType, items: items, err: err}
 		}
+	case "watchers":
+		gen := m.startJiraPicker(jiraPickWatchers, "Watchers of "+key+" · ↵ adds or removes", true)
+		m.jiraPicker.issueKey = key
+		return m.fetchWatchers(gen, m.jiraPicker.fetchSeq, key, "")
 	case "delete":
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil
@@ -258,6 +263,32 @@ func (m *Model) openMoveTypes(key, project string) tea.Cmd {
 				focus: strings.EqualFold(t.Name, current)})
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickMoveType, items: items, err: err}
+	}
+}
+
+// fetchWatchers lists key's watchers (✓) matching query, then the people
+// who can see it and don't watch it yet.
+func (m *Model) fetchWatchers(gen, seq int, key, query string) tea.Cmd {
+	c, ctx := m.jiraClient, m.ctx
+	return func() tea.Msg {
+		watchers, err := c.Watchers(ctx, key)
+		if err != nil {
+			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickWatchers, err: err}
+		}
+		others, err := c.ViewUsers(ctx, key, query)
+		q := strings.ToLower(strings.TrimSpace(query))
+		var items []jiraPickerItem
+		for _, u := range watchers {
+			if strings.Contains(strings.ToLower(u.DisplayName), q) {
+				items = append(items, jiraPickerItem{id: u.AccountID, label: u.DisplayName, current: true})
+			}
+		}
+		for _, u := range others {
+			if !slices.ContainsFunc(watchers, func(w jira.User) bool { return w.AccountID == u.AccountID }) {
+				items = append(items, jiraPickerItem{id: u.AccountID, label: u.DisplayName})
+			}
+		}
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickWatchers, items: items, err: err}
 	}
 }
 
