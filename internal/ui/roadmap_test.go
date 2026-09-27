@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -449,5 +451,67 @@ func TestRoadmapGrip(t *testing.T) {
 	}
 	if e.Start.After(e.End) {
 		t.Errorf("start passed the end: %v – %v", e.Start, e.End)
+	}
+}
+
+// TestRoadmapRefreshAfterSave: r right after a move writes the dates before
+// it reads them back, so the bar doesn't jump to the old ones.
+func TestRoadmapRefreshAfterSave(t *testing.T) {
+	var mu sync.Mutex
+	var log []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			io.WriteString(w, `[]`)
+			return
+		}
+		if r.Method == http.MethodPut {
+			time.Sleep(50 * time.Millisecond)
+		}
+		mu.Lock()
+		log = append(log, r.Method)
+		mu.Unlock()
+		if r.Method == http.MethodPut {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		fmt.Fprint(w, `{"issues":[]}`)
+	}))
+	t.Cleanup(srv.Close)
+	m := roadmapModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleJiraKey(keyMsg(t, ">"))
+	m = out.(Model)
+	if len(m.jiraTab.roadmap.pending) == 0 {
+		t.Fatal("> should move the end")
+	}
+	_, cmd := m.handleJiraKey(keyMsg(t, "r"))
+	runCmds(cmd)
+	mu.Lock()
+	defer mu.Unlock()
+	if len(log) < 2 || log[0] != http.MethodPut {
+		t.Fatalf("requests %v: the read beat the write", log)
+	}
+}
+
+// runCmds runs cmd as the program would: a batch at once, a sequence in
+// order, until every command has answered.
+func runCmds(cmd tea.Cmd) {
+	if cmd == nil {
+		return
+	}
+	msg := cmd()
+	if b, ok := msg.(tea.BatchMsg); ok {
+		var wg sync.WaitGroup
+		for _, c := range b {
+			wg.Add(1)
+			go func() { defer wg.Done(); runCmds(c) }()
+		}
+		wg.Wait()
+		return
+	}
+	if v := reflect.ValueOf(msg); v.Kind() == reflect.Slice && v.Type().Elem() == reflect.TypeFor[tea.Cmd]() {
+		for i := range v.Len() { // tea.Sequence
+			runCmds(v.Index(i).Interface().(tea.Cmd))
+		}
 	}
 }

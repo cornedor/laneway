@@ -274,7 +274,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Today):
 		r.from = roadmapStart(time.Now(), zoom)
 	case key.Matches(msg, m.keys.Refresh):
-		return m, tea.Batch(m.saveRoadmap(), m.loadRoadmap())
+		return m, tea.Sequence(m.saveRoadmap(), m.loadRoadmap()) // the reload reads the dates just written
 	case key.Matches(msg, m.keys.RoadmapIssues):
 		row, ok := r.selected()
 		if !ok {
