@@ -40,7 +40,8 @@ func main() {
 	}
 }
 
-// subcommand runs rules, setup, prompt or hook, handing on the global -config and -site
+// subcommand runs a command without the board (list, view, create, move,
+// rules, setup, prompt or hook), handing on the global -config and -site
 // given before it.
 func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int {
 	var global []string
@@ -71,8 +72,13 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 			global = append(global, "-site", site)
 		}
 		return hookCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
+	case "list", "view", "create", "move":
+		if site != "" {
+			global = append(global, "-site", site)
+		}
+		return cliCmd(args[0], append(global, args[1:]...), out, errOut)
 	}
-	fmt.Fprintf(errOut, "laneway: unknown command %q (rules, setup, prompt, hook)\n", args[0])
+	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, rules, setup, prompt, hook)\n", args[0])
 	return 2
 }
 

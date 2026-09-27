@@ -198,7 +198,7 @@ func messageKeys(msg string) []string {
 // checkKeys refuses keys Jira doesn't know; one it can't ask about (no
 // network) passes with a warning, so a commit offline still goes in.
 func checkKeys(cfgPath, site string, keys []string) error {
-	c, err := hookClient(cfgPath, site)
+	c, err := siteClient(cfgPath, site)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,8 @@ func checkKeys(cfgPath, site string, keys []string) error {
 	return nil
 }
 
-func hookClient(cfgPath, site string) (*jira.Client, error) {
+// siteClient is a client for the config's site.
+func siteClient(cfgPath, site string) (*jira.Client, error) {
 	cfg, _, err := loadSite(cfgPath, site)
 	if err != nil {
 		return nil, err
@@ -235,7 +236,7 @@ func hookPostCheckout(cfgPath, site string, errOut io.Writer) {
 		return
 	}
 	defer tty.Close()
-	c, err := hookClient(cfgPath, site)
+	c, err := siteClient(cfgPath, site)
 	if err != nil {
 		return
 	}

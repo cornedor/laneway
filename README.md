@@ -456,6 +456,18 @@ on checking out an issue's branch while it's still to do, asks
 `move ABC-12 (To Do) to In Progress? [y/N]`. A hook that isn't laneway's
 is kept unless `-force`; the hooks do nothing where laneway isn't installed.
 
+## Scripts
+
+Four commands work without the board, for scripts and CI (flags before the
+key; `-site` picks a site):
+
+```sh
+laneway list [-jql 'project = ABC ORDER BY rank'] [-format plain|csv|json]   # default: your open issues
+laneway view [-format plain|json] ABC-12
+laneway create -project ABC [-type Bug] -summary 'Login fails' [-description '…'] [-format json]
+laneway move ABC-12 'In Progress'        # a status the issue can move to, any case
+```
+
 ## Planning
 
 ![The backlog beside the next sprint](docs/screenshots/planning.png)
