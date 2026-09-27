@@ -70,9 +70,19 @@ func (s *Store) write() error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
+	// A tmp name of its own, so a second laneway writing the same file
+	// cannot truncate this one before the rename.
+	f, err := os.CreateTemp(filepath.Dir(s.path), filepath.Base(s.path)+".*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.path)
+	defer os.Remove(f.Name())
+	if _, err := f.Write(raw); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), s.path)
 }
