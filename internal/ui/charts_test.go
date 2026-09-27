@@ -130,3 +130,39 @@ func TestChartsCopy(t *testing.T) {
 		t.Errorf("velocity table = %q", got)
 	}
 }
+
+// TestChartsPlanStaleAfterReopen: a reply for charts or planning closed
+// before it loaded doesn't fill the one reopened.
+func TestChartsPlanStaleAfterReopen(t *testing.T) {
+	m := jiraTabModel(t)
+	for _, k := range []string{"C", "P"} {
+		out, _ := m.handleJiraKey(keyMsg(t, k))
+		m = out.(Model)
+		var stale int
+		if k == "C" {
+			stale = m.jiraTab.charts.seq
+		} else {
+			stale = m.jiraTab.plan.seq
+		}
+		out, _ = m.handleJiraKey(keyMsg(t, "esc"))
+		m = out.(Model)
+		if m.jiraTab.charts != nil || m.jiraTab.plan != nil {
+			t.Fatalf("%s: esc should close", k)
+		}
+		out, _ = m.handleJiraKey(keyMsg(t, k))
+		m = out.(Model)
+		if k == "C" {
+			out, _ = m.handleCharts(chartsMsg{seq: stale, vel: []jira.SprintVelocity{{Name: "Old board"}}})
+			if m = out.(Model); !m.jiraTab.charts.loading || m.jiraTab.charts.vel != nil {
+				t.Error("C: a stale reply filled the reopened charts")
+			}
+		} else {
+			out, _ = m.handlePlan(planMsg{seq: stale, left: []jira.Card{{Key: "OLD-1"}}})
+			if m = out.(Model); !m.jiraTab.plan.loading || m.jiraTab.plan.sides[0] != nil {
+				t.Error("P: a stale reply filled the reopened planning")
+			}
+		}
+		out, _ = m.handleJiraKey(keyMsg(t, "esc"))
+		m = out.(Model)
+	}
+}

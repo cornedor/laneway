@@ -72,7 +72,8 @@ func (m *Model) openCharts() tea.Cmd {
 
 func (m *Model) loadCharts() tea.Cmd {
 	t, ch := m.jiraTab, m.jiraTab.charts
-	ch.seq++
+	t.chartsSeq++
+	ch.seq = t.chartsSeq
 	ch.loading = true
 	seq, ctx, c, board, pf, n := ch.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg.PointsField, m.opts.velocitySprints
 	sprint := 0

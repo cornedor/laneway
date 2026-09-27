@@ -305,6 +305,9 @@ type jiraTabState struct {
 	roadmap *roadmapState
 	plan    *planState
 	charts  *chartsState // charts.go
+	// planSeq and chartsSeq outlive a close, so a reply for a view since
+	// closed never matches the one reopened.
+	planSeq, chartsSeq int
 
 	drag    jiraDrag
 	loading bool

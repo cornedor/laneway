@@ -86,7 +86,8 @@ func (m *Model) openPlanning() tea.Cmd {
 
 func (m *Model) loadPlan() tea.Cmd {
 	t, p := m.jiraTab, m.jiraTab.plan
-	p.seq++
+	t.planSeq++
+	p.seq = t.planSeq
 	p.loading = true
 	seq, ctx, c, board, cfg, sprint := p.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, p.sprints[p.target]
 	return func() tea.Msg {
