@@ -1,10 +1,17 @@
 # Roadmap
 
 ## Next
+- Board: `K`/`J` rank the card within its lane, as in planning (`client.Rank` exists)
+- `L` link picker, link types, sprints and boards filter like the project picker
+- The palette's Jira search, `@` mentions and JQL value completions say when their search failed, not just show nothing
+- `A` deletes a comment of yours, next to editing one
+- `A` deletes an attachment (a wrong clipboard paste)
+- Panel: `backspace` with no trail says so
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Boards and active/future sprints load past 50: a remembered board beyond the 50th no longer falls back to the first, `M` and planning see every future sprint
 - A form's multi-line value shows its first line and `+2 lines` on its row, not the lines run together
 - The move and create forms edit a doc field and the comment in the in-app editor under the row (enter breaks the line, `ctrl+s` keeps, esc undoes); a paste reaches a form's field
 - A clone Jira refuses for a required field asks for it with the create form (`Clone of ABC-1`), then links the clone; a failed clone no longer reopens an old create box

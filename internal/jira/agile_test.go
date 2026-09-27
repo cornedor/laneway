@@ -383,3 +383,29 @@ func TestCardsMoreFields(t *testing.T) {
 		t.Errorf("card = %q %q", c.Sprint, c.Extra)
 	}
 }
+
+// TestBoardsAndSprintsPage: past 50, the next pages are fetched too.
+func TestBoardsAndSprintsPage(t *testing.T) {
+	page := func(start, n int, isLast bool) string {
+		var vals []string
+		for i := start; i < start+n; i++ {
+			vals = append(vals, fmt.Sprintf(`{"id":%d,"name":"N%d","state":"future"}`, i+1, i+1))
+		}
+		return fmt.Sprintf(`{"values":[%s],"isLast":%v}`, strings.Join(vals, ","), isLast)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("startAt") == "50" {
+			fmt.Fprint(w, page(50, 3, true))
+			return
+		}
+		fmt.Fprint(w, page(0, 50, false))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if bs, err := c.Boards(context.Background(), "ABC"); err != nil || len(bs) != 53 || bs[52].ID != 53 {
+		t.Errorf("boards = %d, %v", len(bs), err)
+	}
+	if ss, err := c.Sprints(context.Background(), 7); err != nil || len(ss) != 53 {
+		t.Errorf("sprints = %d, %v", len(ss), err)
+	}
+}

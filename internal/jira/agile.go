@@ -261,20 +261,27 @@ func (c *Client) Boards(ctx context.Context, project string) ([]Board, error) {
 }
 
 func (c *Client) fetchBoards(ctx context.Context, project string) ([]Board, error) {
-	var resp struct {
-		Values []struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
-			Type string `json:"type"`
-		} `json:"values"`
-	}
-	path := "/rest/agile/1.0/board?maxResults=50&projectKeyOrId=" + url.QueryEscape(project)
-	if err := c.do(ctx, http.MethodGet, path, "boards of "+project, nil, &resp); err != nil {
-		return nil, err
-	}
-	out := make([]Board, 0, len(resp.Values))
-	for _, b := range resp.Values {
-		out = append(out, Board{ID: b.ID, Name: b.Name, Type: b.Type})
+	var out []Board
+	for start := 0; start < 1000; {
+		var resp struct {
+			Values []struct {
+				ID   int    `json:"id"`
+				Name string `json:"name"`
+				Type string `json:"type"`
+			} `json:"values"`
+			IsLast bool `json:"isLast"`
+		}
+		path := "/rest/agile/1.0/board?maxResults=50&projectKeyOrId=" + url.QueryEscape(project) + "&startAt=" + strconv.Itoa(start)
+		if err := c.do(ctx, http.MethodGet, path, "boards of "+project, nil, &resp); err != nil {
+			return nil, err
+		}
+		for _, b := range resp.Values {
+			out = append(out, Board{ID: b.ID, Name: b.Name, Type: b.Type})
+		}
+		if resp.IsLast || len(resp.Values) < 50 { // a short page is the last
+			break
+		}
+		start += len(resp.Values)
 	}
 	return out, nil
 }
@@ -326,22 +333,32 @@ func (c *Client) Sprints(ctx context.Context, board int) ([]Sprint, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
-	var resp struct {
-		Values []struct {
-			ID        int       `json:"id"`
-			Name      string    `json:"name"`
-			State     string    `json:"state"`
-			StartDate time.Time `json:"startDate"`
-			EndDate   time.Time `json:"endDate"`
-			Goal      string    `json:"goal"`
-		} `json:"values"`
+	type sprint struct {
+		ID        int       `json:"id"`
+		Name      string    `json:"name"`
+		State     string    `json:"state"`
+		StartDate time.Time `json:"startDate"`
+		EndDate   time.Time `json:"endDate"`
+		Goal      string    `json:"goal"`
 	}
-	path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/sprint?state=active,future&maxResults=50"
-	if err := c.do(ctx, http.MethodGet, path, "sprints", nil, &resp); err != nil {
-		return nil, err
+	var all []sprint
+	for start := 0; start < 1000; {
+		var resp struct {
+			Values []sprint `json:"values"`
+			IsLast bool     `json:"isLast"`
+		}
+		path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/sprint?state=active,future&maxResults=50&startAt=" + strconv.Itoa(start)
+		if err := c.do(ctx, http.MethodGet, path, "sprints", nil, &resp); err != nil {
+			return nil, err
+		}
+		all = append(all, resp.Values...)
+		if resp.IsLast || len(resp.Values) < 50 { // a short page is the last
+			break
+		}
+		start += len(resp.Values)
 	}
 	var active, future []Sprint
-	for _, s := range resp.Values {
+	for _, s := range all {
 		sp := Sprint{ID: s.ID, Name: s.Name, State: s.State, Start: s.StartDate, End: s.EndDate, Goal: strings.TrimSpace(s.Goal)}
 		if s.State == "active" {
 			active = append(active, sp)
