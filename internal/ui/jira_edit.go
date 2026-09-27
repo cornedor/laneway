@@ -103,6 +103,8 @@ const (
 	// to (issue_actions.go).
 	jiraPickMoveProject
 	jiraPickMoveType
+	// jiraPickDeleteIssue confirms deleting the issue (issue_actions.go).
+	jiraPickDeleteIssue
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -725,6 +727,15 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
 		m.status = "deleting the comment…"
 		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+	}
+	if kind == jiraPickDeleteIssue {
+		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
+			m.jiraPicker.pendingDelete = it.id
+			m.status = "enter again deletes " + it.id + ", for good"
+			return m, nil
+		}
+		m.closeJiraPicker()
+		return m, m.deleteIssue(it.id, it.value == "subtasks")
 	}
 	if kind == jiraPickMoveProject {
 		key := m.jiraPicker.issueKey

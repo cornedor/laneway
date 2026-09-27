@@ -110,6 +110,20 @@ func (c *Client) DeleteComment(ctx context.Context, key, id string) error {
 	return nil
 }
 
+// DeleteIssue deletes key, and its subtasks with it when subtasks is set;
+// Jira refuses an issue with subtasks otherwise.
+func (c *Client) DeleteIssue(ctx context.Context, key string, subtasks bool) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "?deleteSubtasks=" + strconv.FormatBool(subtasks)
+	if err := c.do(ctx, http.MethodDelete, path, key, nil, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // EditableDescription is raw as markdown to edit, or why it can't be.
 func EditableDescription(raw json.RawMessage) (Editable, error) {
 	if len(raw) == 0 || string(raw) == "null" {

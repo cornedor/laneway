@@ -337,3 +337,28 @@ func TestMoveToProject(t *testing.T) {
 		t.Errorf("status %q, panel on %q", m.status, m.refs[m.refIdx].jiraKey)
 	}
 }
+
+// TestDeleteIssue: A → delete asks a second enter, deletes the subtasks with
+// it, and closes the panel.
+func TestDeleteIssue(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	m.jiraIssue.Links = append(m.jiraIssue.Links, jira.Link{Rel: "subtask", Key: "ABC-7"})
+	m, _ = pickAction(t, m, "delete")
+	if it := m.jiraPicker.items; len(it) != 1 || it[0].label != "Delete ABC-1 and its subtask" {
+		t.Fatalf("items = %+v", it)
+	}
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || !m.jiraPicker.active {
+		t.Fatal("the first enter should only ask")
+	}
+	out, cmd = m.applyJiraPick()
+	m = out.(Model)
+	msg := cmd().(jiraDeletedMsg)
+	if w := writes(); msg.err != nil || len(w) != 1 || w[0] != "DELETE /rest/api/3/issue/ABC-1 " {
+		t.Fatalf("err %v, writes %q", msg.err, w)
+	}
+	out, _ = m.handleJiraDeleted(msg)
+	if m = out.(Model); m.refOpen || m.status != "deleted ABC-1" {
+		t.Errorf("panel open %v, status %q", m.refOpen, m.status)
+	}
+}

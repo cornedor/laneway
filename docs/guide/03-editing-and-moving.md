@@ -86,7 +86,7 @@ Bold, italic, code and links show styled as you type.
 ## More actions
 
 `A` in the panel holds the rest: a subtask (or a child for an epic), a link
-to another issue, clone, change its type or move it to another project, watch, vote, flag, upload a file or the image on
+to another issue, clone, change its type, move it to another project or delete it, watch, vote, flag, upload a file or the image on
 your clipboard, download or delete an attachment.
 
 ## Create an issue

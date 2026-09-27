@@ -76,3 +76,19 @@ func TestMoveTypes(t *testing.T) {
 		t.Error("a subtask should not move alone")
 	}
 }
+
+// TestDeleteIssue: subtasks go along only when asked.
+func TestDeleteIssue(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Method+" "+r.URL.RequestURI())
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	_ = c.DeleteIssue(context.Background(), "ABC-1", true)
+	_ = c.DeleteIssue(context.Background(), "ABC-2", false)
+	if len(got) != 2 || got[0] != "DELETE /rest/api/3/issue/ABC-1?deleteSubtasks=true" || got[1] != "DELETE /rest/api/3/issue/ABC-2?deleteSubtasks=false" {
+		t.Errorf("requests = %q", got)
+	}
+}

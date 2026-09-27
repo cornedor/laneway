@@ -641,6 +641,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraAssigneeDebounce(msg)
 	case jiraMutatedMsg:
 		return m.handleJiraMutated(msg)
+	case jiraDeletedMsg:
+		return m.handleJiraDeleted(msg)
 	case jiraRelocatedMsg:
 		return m.handleJiraRelocated(msg)
 	case jiraPreparedMsg:

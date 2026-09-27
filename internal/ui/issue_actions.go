@@ -41,6 +41,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "type", label: "Change the issue type"},
 		jiraPickerItem{id: "move", label: "Move to another project"},
+		jiraPickerItem{id: "delete", label: "Delete the issue"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
 		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
 		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
@@ -114,6 +115,19 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			}
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickChangeType, items: items, err: err}
 		}
+	case "delete":
+		if m.jiraIssue == nil || m.jiraIssue.Key != key {
+			return nil
+		}
+		m.startJiraPicker(jiraPickDeleteIssue, "Delete "+key+"?", false)
+		it := jiraPickerItem{id: key, label: "Delete " + key + "  " + m.jiraIssue.Summary}
+		switch n := countSubtasks(m.jiraIssue.Links); {
+		case n == 1:
+			it.label, it.value = "Delete "+key+" and its subtask", "subtasks"
+		case n > 1:
+			it.label, it.value = fmt.Sprintf("Delete %s and its %d subtasks", key, n), "subtasks"
+		}
+		m.setJiraPickerItems([]jiraPickerItem{it})
 	case "move":
 		gen := m.startJiraPicker(jiraPickMoveProject, "Move "+key+" to", true)
 		m.jiraPicker.issueKey = key
@@ -241,6 +255,44 @@ func (m *Model) openMoveTypes(key, project string) tea.Cmd {
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickMoveType, items: items, err: err}
 	}
+}
+
+// countSubtasks is how many of links are subtasks.
+func countSubtasks(links []jira.Link) int {
+	n := 0
+	for _, l := range links {
+		if l.Rel == "subtask" {
+			n++
+		}
+	}
+	return n
+}
+
+// jiraDeletedMsg is key deleted.
+type jiraDeletedMsg struct {
+	key string
+	err error
+}
+
+// deleteIssue deletes key, its subtasks too when subtasks is set.
+func (m *Model) deleteIssue(key string, subtasks bool) tea.Cmd {
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "deleting " + key + "…"
+	return func() tea.Msg { return jiraDeletedMsg{key: key, err: c.DeleteIssue(ctx, key, subtasks)} }
+}
+
+// handleJiraDeleted closes the panel on the deleted issue and reloads the
+// board without it.
+func (m Model) handleJiraDeleted(msg jiraDeletedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail(msg.key + " not deleted: " + msg.err.Error())
+		return m, nil
+	}
+	if r := m.currentRef(); r != nil && r.jiraKey == msg.key {
+		m.closeRef()
+	}
+	m.status = "deleted " + msg.key
+	return m, m.refreshJiraAfterEdit()
 }
 
 // jiraRelocatedMsg is key moved to another project, now next.
