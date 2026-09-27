@@ -283,3 +283,25 @@ func TestClipboardImageCommand(t *testing.T) {
 		t.Errorf("commands %q %q", o.clipboardImage, o.openCmd)
 	}
 }
+
+// TestChangeType: A → change type lists the other non-subtask types and
+// writes the picked one's id.
+func TestChangeType(t *testing.T) {
+	m, writes := actionsModel(t, map[string]string{
+		"/rest/api/3/issue/createmeta/ABC/issuetypes": `{"issueTypes":[{"id":"1","name":"Task"},{"id":"2","name":"Bug"},{"id":"5","name":"Sub-task","subtask":true}]}`,
+	})
+	m.jiraIssue.Type = "Task"
+	m, cmd := pickAction(t, m, "type")
+	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].value != "Bug" {
+		t.Fatalf("types = %+v", m.jiraPicker.items)
+	}
+	_, cmd = m.applyJiraPick()
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil || msg.field != "type" {
+		t.Fatalf("msg = %+v", msg)
+	}
+	if w := writes(); len(w) != 1 || w[0] != `PUT /rest/api/3/issue/ABC-1 {"fields":{"issuetype":{"id":"2"}}}` {
+		t.Errorf("writes = %q", w)
+	}
+}

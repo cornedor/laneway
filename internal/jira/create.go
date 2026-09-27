@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -79,6 +80,33 @@ func (c *Client) issueTypes(ctx context.Context, project string, subtask bool) (
 		}
 	}
 	return out, err
+}
+
+// TypesLike lists the project's issue types an issue of type current can
+// change to: subtask types for a subtask, else the others, current left out.
+func (c *Client) TypesLike(ctx context.Context, project, current string) ([]Option, error) {
+	types, err := c.allIssueTypes(ctx, project)
+	sub := slices.ContainsFunc(types, func(t issueType) bool { return t.Subtask && strings.EqualFold(t.Name, current) })
+	var out []Option
+	for _, t := range types {
+		if t.Subtask == sub && !strings.EqualFold(t.Name, current) {
+			out = append(out, t.Option)
+		}
+	}
+	return out, err
+}
+
+// SetIssueType changes key's issue type to typeID.
+func (c *Client) SetIssueType(ctx context.Context, key, typeID string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"fields": map[string]any{"issuetype": map[string]string{"id": typeID}}}
+	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
 }
 
 // issueType is an issue type creatable in a project.

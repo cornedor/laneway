@@ -39,6 +39,7 @@ func (m *Model) openIssueActions() {
 	items = append(items,
 		jiraPickerItem{id: "link", label: "Link to another issue"},
 		jiraPickerItem{id: "clone", label: "Clone"},
+		jiraPickerItem{id: "type", label: "Change the issue type"},
 		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
 		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
 		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
@@ -95,6 +96,22 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 				}
 			}
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickLinkType, items: items, err: err}
+		}
+	case "type":
+		if m.jiraIssue == nil || m.jiraIssue.Key != key {
+			return nil
+		}
+		current, project := m.jiraIssue.Type, issueProject(key)
+		gen := m.startJiraPicker(jiraPickChangeType, key+" is a "+current+": change to", false)
+		m.jiraPicker.issueKey = key
+		seq := m.jiraPicker.fetchSeq
+		return func() tea.Msg {
+			types, err := c.TypesLike(ctx, project, current)
+			items := make([]jiraPickerItem, 0, len(types))
+			for _, t := range types {
+				items = append(items, jiraPickerItem{id: t.ID, label: jiraTypeIcon(t.Name) + " " + t.Name, value: t.Name})
+			}
+			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickChangeType, items: items, err: err}
 		}
 	case "clone":
 		m.status = "cloning " + key + "…"
