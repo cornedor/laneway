@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Next
+- Docs: a friendly guide that walks the reader step by step from first run to the advanced topics; it opens with spoilers (what you'll be able to do), and carries tips and "try it" steps along the way. Steps: outline and first run → the board and the panel → editing and moving → planning, roadmap, charts, timesheet → rules, JQL, keys and themes
 - Timesheet: `]` stops at today, as standup stops at the last workday (it walks into empty future days)
 - Inbox: the title counts issues, as the header's `✉ 3` does (it counts entries: "11 since…")
 - Planning: `y` refuses while the sprint side is loading or failed, and says why (it copies an empty table)
