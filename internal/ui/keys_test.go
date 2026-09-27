@@ -27,11 +27,11 @@ func TestKeysConfigYAML(t *testing.T) {
 
 func TestRebindKeys(t *testing.T) {
 	k := defaultKeys()
-	warn := k.applyKeys(map[string]config.KeyList{"search": {"f"}, "bogus": {"x"}, "help": {}})
+	warn := k.applyKeys(map[string]config.KeyList{"search": {"ctrl+f"}, "bogus": {"x"}, "help": {}})
 	if len(warn) != 2 || !strings.Contains(warn[0], "bogus") || !strings.Contains(warn[1], "help") {
 		t.Errorf("warnings = %v", warn)
 	}
-	if keysLabel(k.Search) != "f" || k.Search.Help().Desc != "search" {
+	if keysLabel(k.Search) != "ctrl+f" || k.Search.Help().Desc != "search" {
 		t.Errorf("search = %q %q", keysLabel(k.Search), k.Search.Help().Desc)
 	}
 	if keysLabel(k.Help) != "?" {

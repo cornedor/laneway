@@ -557,7 +557,9 @@ table, `esc` back to the board.
 `H`/`L` move a bar (an epic's or a child's) a column, `<`/`>` move its end,
 `e` picks up its start (again: its end, again: lets go) for `h`/`l` to move;
 with the mouse, drag a bar to move it, or drag either end to stretch it;
-the dates are written to Jira once you pause. `f` shows the epic's issues as
+the dates are written to Jira once you pause, and `u` puts the last moved
+bar's back. `/` narrows the roadmap to the epics, and children, that match;
+`E` quick edits the row's issue (status, assignee, points…). `f` shows the epic's issues as
 a board view, `n` makes a new epic. An epic an open epic blocks shows `⛓`, red `⛔` when
 that blocker ends after it starts. Epics with a parent (an initiative)
 sit under it; the parent's faint bar spans its epics, `space` folds it.

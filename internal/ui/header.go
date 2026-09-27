@@ -314,6 +314,12 @@ func (m *Model) roadmapSegs() []headSeg {
 	}
 	segs := []headSeg{plainSeg(s)}
 	switch {
+	case r.finding:
+		segs = append(segs, plainSeg("  "+r.find.View()))
+	case r.filter != "":
+		segs = append(segs, plainSeg(dim("  /"+r.filter+" (esc clears)")))
+	}
+	switch {
 	case r.loading:
 		segs = append(segs, plainSeg(dim("  ·  loading…")))
 	case !r.fetched.IsZero():

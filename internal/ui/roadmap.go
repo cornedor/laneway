@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -47,6 +48,48 @@ type roadmapState struct {
 	// grip is the bar end e picked up: "start" or "end", h/l then move
 	// it; "" scrolls.
 	grip string
+	// filter narrows the epics to those it matches, or whose children do
+	// (/); find is its input while typed.
+	filter  string
+	find    textinput.Model
+	finding bool
+	// undo is the last moved bar's dates before its run of moves, for u.
+	undo *roadmapUndo
+}
+
+// roadmapUndo is a bar's dates before it moved.
+type roadmapUndo struct {
+	key         string
+	start, end  time.Time
+	fromSprints bool
+}
+
+// roadmapMatch reports whether every word of filter is in e's key or
+// summary.
+func roadmapMatch(key, summary, filter string) bool {
+	hay := strings.ToLower(key + " " + summary)
+	for _, w := range strings.Fields(strings.ToLower(filter)) {
+		if !strings.Contains(hay, w) {
+			return false
+		}
+	}
+	return true
+}
+
+// shows reports whether the filter lets epic i through, and which of its
+// children match.
+func (r *roadmapState) shows(i int) (bool, []int) {
+	e := r.epics[i]
+	if r.filter == "" {
+		return true, nil
+	}
+	var kids []int
+	for k, kid := range e.Kids {
+		if roadmapMatch(kid.Key, kid.Summary, r.filter) {
+			kids = append(kids, k)
+		}
+	}
+	return len(kids) > 0 || roadmapMatch(e.Key, e.Summary, r.filter), kids
 }
 
 // roadmapRow is one line: an epic (kid -1), one of its children, or a
@@ -145,11 +188,18 @@ func (m Model) handleRoadmap(msg roadmapMsg) (tea.Model, tea.Cmd) {
 func (r *roadmapState) rows() []roadmapRow {
 	var out []roadmapRow
 	epic := func(i int) {
+		show, kids := r.shows(i)
+		if !show {
+			return
+		}
 		out = append(out, roadmapRow{epic: i, kid: -1})
-		if e := r.epics[i]; r.open[e.Key] {
+		if e := r.epics[i]; r.open[e.Key] && r.filter == "" {
 			for k := range e.Kids {
 				out = append(out, roadmapRow{epic: i, kid: k})
 			}
+		}
+		for _, k := range kids { // a filter shows the children it matches
+			out = append(out, roadmapRow{epic: i, kid: k})
 		}
 	}
 	for i, e := range r.epics {
@@ -158,6 +208,9 @@ func (r *roadmapState) rows() []roadmapRow {
 		}
 	}
 	for g, gr := range r.groups {
+		if r.filter != "" && !slices.ContainsFunc(gr.epics, func(i int) bool { show, _ := r.shows(i); return show }) {
+			continue
+		}
 		out = append(out, roadmapRow{epic: -1, kid: -1, group: g})
 		if !r.shut[gr.key] {
 			for _, i := range gr.epics {
@@ -209,9 +262,30 @@ func roadmapStart(now time.Time, zoom int) time.Time {
 
 func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	r := m.jiraTab.roadmap
+	if r.finding {
+		return m.handleRoadmapFindKey(msg)
+	}
 	zoom := roadmapZooms[r.zoom]
 	last := max(len(r.rows())-1, 0)
 	switch {
+	case msg.String() == "esc" && r.grip == "" && r.filter != "":
+		r.filter, r.idx, r.top = "", 0, 0
+		m.status = "filter cleared"
+	case key.Matches(msg, m.keys.Search):
+		r.find = textinput.New()
+		r.find.Prompt = "/"
+		r.find.Placeholder = "words in an epic's or child's key or summary"
+		r.find.SetWidth(40)
+		r.find.SetValue(r.filter)
+		r.find.CursorEnd()
+		r.find.Focus()
+		r.finding = true
+	case key.Matches(msg, m.keys.RoadmapEdit):
+		if k := m.roadmapKey(); k != "" {
+			m.openQuickEditKey(k)
+		}
+	case key.Matches(msg, m.keys.Undo):
+		return m, m.undoRoadmap()
 	case msg.String() == "ctrl+c":
 		if m.unsentWork() != "" && !m.quitAsked {
 			return m.quit()
@@ -391,6 +465,9 @@ func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
 		return nil
 	}
 	key, start, end, fromSprints := r.rowDates(row)
+	if r.undo == nil || r.undo.key != key {
+		r.undo = &roadmapUndo{key: key, start: *start, end: *end, fromSprints: *fromSprints}
+	}
 	if start.IsZero() && end.IsZero() {
 		now := time.Now()
 		*start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
@@ -414,6 +491,52 @@ func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
 	m.status = fmt.Sprintf("%s %s – %s", key, roadmapDate(*start), roadmapDate(*end))
 	seq := r.saveSeq
 	return tea.Tick(roadmapSaveDelay, func(time.Time) tea.Msg { return roadmapSaveMsg{seq} })
+}
+
+// undoRoadmap puts the last moved bar's dates back, written like a move.
+func (m *Model) undoRoadmap() tea.Cmd {
+	r := m.jiraTab.roadmap
+	u := r.undo
+	if u == nil {
+		m.status = "nothing to undo"
+		return nil
+	}
+	r.undo = nil
+	for _, row := range r.rows() {
+		key, start, end, fromSprints := r.rowDates(row)
+		if row.epic < 0 || key != u.key {
+			continue
+		}
+		*start, *end, *fromSprints = u.start, u.end, u.fromSprints
+		r.pending[key] = true
+		r.saveSeq++
+		m.status = fmt.Sprintf("%s back to %s – %s", key, roadmapDate(u.start), roadmapDate(u.end))
+		seq := r.saveSeq
+		return tea.Tick(roadmapSaveDelay, func(time.Time) tea.Msg { return roadmapSaveMsg{seq} })
+	}
+	m.status = u.key + " is not on the roadmap now"
+	return nil
+}
+
+// handleRoadmapFindKey types the filter; enter keeps it, esc drops it.
+func (m Model) handleRoadmapFindKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	r := m.jiraTab.roadmap
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "esc":
+		r.finding, r.filter, r.idx, r.top = false, "", 0, 0
+		return m, nil
+	case "enter":
+		r.finding = false
+		return m, nil
+	}
+	var cmd tea.Cmd
+	r.find, cmd = r.find.Update(msg)
+	if v := r.find.Value(); v != r.filter {
+		r.filter, r.idx, r.top = v, 0, 0
+	}
+	return m, cmd
 }
 
 func roadmapDate(t time.Time) string {

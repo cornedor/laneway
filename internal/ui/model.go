@@ -70,6 +70,7 @@ type keyMap struct {
 	RoadmapGrip, RoadmapFold            key.Binding
 	ZoomIn, ZoomOut, Today              key.Binding
 	EndEarlier, EndLater, RoadmapIssues key.Binding
+	RoadmapEdit                         key.Binding
 	EditEntry, DeleteEntry              key.Binding
 }
 
@@ -175,6 +176,7 @@ func defaultKeys() keyMap {
 		EndEarlier:      bind("end a column earlier", "<"),
 		EndLater:        bind("end a column later", ">"),
 		RoadmapIssues:   bind("the epic's issues as a view", "f"),
+		RoadmapEdit:     bind("quick edit the row's issue", "E"),
 		EditEntry:       bind("edit the entry", "e"),
 		DeleteEntry:     bind("delete the entry (twice)", "d", "delete"),
 	}

@@ -405,6 +405,9 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 		if t.plan != nil {
 			cmds = append(cmds, m.loadPlan())
 		}
+		if t.roadmap != nil {
+			cmds = append(cmds, m.loadRoadmap())
+		}
 		return m, tea.Batch(cmds...)
 	}
 	t.marked = nil

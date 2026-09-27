@@ -515,3 +515,42 @@ func runCmds(cmd tea.Cmd) {
 		}
 	}
 }
+
+// TestRoadmapFilterEditUndo: / narrows to the epics (and children) it
+// matches; E quick edits the row; u puts the last bar's dates back.
+func TestRoadmapFilterEditUndo(t *testing.T) {
+	m := roadmapModel(t)
+	r := m.jiraTab.roadmap
+	for _, k := range []string{"/", "p", "a", "y"} {
+		out, _ := m.Update(keyStr(k))
+		m = out.(Model)
+	}
+	out, _ := m.Update(keyMsg(t, "enter"))
+	m = out.(Model)
+	rows := r.rows()
+	if len(rows) != 2 || r.rowKey(rows[0]) != "ABC-10" || r.rowKey(rows[1]) != "ABC-12" {
+		t.Fatalf("filtered rows %v", rows)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "esc"))
+	if m = out.(Model); m.jiraTab.roadmap == nil || r.filter != "" || len(r.rows()) != 2 {
+		t.Fatal("esc should clear the filter first")
+	}
+	out, _ = m.handleJiraKey(keyStr("E"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.quickKey != "ABC-10" {
+		t.Fatalf("E: picker %v key %q", m.jiraPicker.active, m.quickKey)
+	}
+	m.closeJiraPicker()
+	m.quickKey = ""
+	before := r.epics[0].End
+	m.shiftRoadmap(0, 1)
+	m.shiftRoadmap(0, 1)
+	if r.epics[0].End.Equal(before) {
+		t.Fatal("the bar should have moved")
+	}
+	out, cmd := m.handleJiraKey(keyMsg(t, "u"))
+	m = out.(Model)
+	if cmd == nil || !r.epics[0].End.Equal(before) || !r.pending["ABC-10"] {
+		t.Errorf("undo: end %v, want %v", r.epics[0].End, before)
+	}
+}
