@@ -11,9 +11,10 @@ terminal.
 - Sprints, backlog and kanban boards; the board's quick filters plus your own
 - Local search, JQL with completion, a command palette, jump to any issue by key
 - Issue panel with description (edited as markdown), comments, links, subtasks and attachments
-- Sprint planning, burndown and velocity charts, an epic roadmap
-- Time tracking: log work, a timer, today's worklogs
-- Inbox of others' changes, a standup of yours
+- Sprint planning, burndown and velocity charts, an epic roadmap, releases
+- Time tracking: log work, a timer, the day's and the week's worklogs
+- Inbox of others' changes, a standup of yours (commits too) or your team's
+- Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Rules that notify, run a command or act on Jira when issues change
 - Several Jira sites, inline images in kitty and Ghostty
 - Every key and colour configurable
@@ -266,10 +267,10 @@ Board:
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
-- views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (the issues of the pull and merge requests `gh` and `glab` say wait on you, by the keys in their titles and branches; their cards get `⌥`) · `R` roadmap · `P` planning · `C` charts · `V` releases
+- views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
-- `q` quit; on the roadmap, planning and charts it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
+- `q` quit; on the roadmap, planning, charts or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
 Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
@@ -280,7 +281,7 @@ Panel:
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels (existing ones suggested as you type: `↓` `tab`; custom labels fields and form rows too) · `a` assignee
 - talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
-- more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue, a web page, remove one · the issue: change its type, move it to another project, set the original estimate, delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, download or delete an attachment · your comments: edit, delete · with the project in `jira.repos`: open a draft pull request (pushes the issue's branch, then `gh pr create` for a GitHub origin, `glab mr create` else; titled with the key and summary, linking the issue)
+- more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue, a web page, remove one · the issue: change its type, move it to another project, set the original estimate, delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, download or delete an attachment · your comments: edit, delete · a draft pull request (see [Git](#git-and-your-shell))
 - `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
 - mouse: drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
@@ -422,7 +423,14 @@ week totals and how far each past workday is short of 8h. `enter` on a cell
 logs work on that issue that day (from `ui.workday_start`), `[` `]` step a
 week, `y` copies the grid as a markdown table.
 
-## Prompt segment
+## Git and your shell
+
+With the project in `jira.repos`, `A` → *Open a pull request* pushes the
+issue's branch and opens a draft titled with its key and summary, linking
+the issue: `gh pr create` for a GitHub origin, `glab mr create` else. `D`
+lists it. `ctrl+r` shows the issues of the pull and merge requests waiting
+on your review (from `gh` and `glab`, by the keys in their titles and
+branches) as a view, their cards marked `⌥`.
 
 `laneway prompt` prints the git branch's issue, its status on a board as
 last loaded, the timer and the inbox count: `ABC-12 · In review · ⏱ 1h 20m
@@ -438,8 +446,6 @@ when = true
 # tmux.conf
 set -g status-right '#(laneway prompt -format "{{.Key}} {{.Timer}}")'
 ```
-
-## Git hooks
 
 `laneway hook install` (in a repository) adds two hooks. `commit-msg`
 puts the branch's key before a message that names no issue

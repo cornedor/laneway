@@ -142,12 +142,20 @@ grouped by status.
 
 ![Your issues across projects, by status](../screenshots/mywork.png)
 
+### Your git
+
+`ctrl+r` shows the issues whose pull or merge requests wait on your review.
+In a repository, `laneway hook install` puts the branch's key in your
+commit messages, and `laneway prompt` prints the branch's issue, the timer
+and the inbox count for your shell prompt or tmux status line. See the
+[reference](../reference.md#git-and-your-shell).
+
 ## Recap
 
-- `P` planning, `R` roadmap, `C` charts; `esc` back to the board.
-- `w` logs work, `T` times it, `W` shows the day.
-- `U` writes your standup, `I` shows what others did, `O` shows all your
-  work.
+- `P` planning, `R` roadmap, `C` charts, `V` releases; `esc` back to the board.
+- `w` logs work, `T` times it, `W` shows the day, `W` again the week.
+- `U` writes your standup (its *Team* row everyone's), `I` shows what others
+  did, `O` shows all your work, `ctrl+r` what waits on your review.
 
 Previous: [Editing and moving](03-editing-and-moving.md) · Next:
 [Rules, JQL, keys and themes](05-rules-jql-keys-themes.md)

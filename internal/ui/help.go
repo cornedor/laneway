@@ -161,6 +161,7 @@ func (m *Model) helpSections() []struct {
 			row(k.EditEntry, "edit the entry"),
 			row(k.DeleteEntry, "delete it (twice)"),
 			row(k.CopyKey, "copy the day as a table"),
+			row(k.Timesheet, "the week"),
 		}},
 	)
 	if m.opts.mouse {
