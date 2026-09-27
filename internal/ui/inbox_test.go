@@ -42,7 +42,7 @@ func TestInbox(t *testing.T) {
 	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)
-	if !strings.Contains(view, "Inbox — 1 since") || !strings.Contains(view, "Bob  ABC-2 Second — status: To Do → Done") {
+	if !strings.Contains(view, "Inbox — 1 change since") || !strings.Contains(view, "Bob  ABC-2 Second — status: To Do → Done") {
 		t.Errorf("inbox not drawn:\n%s", view)
 	}
 	v, _, _ := m.store.GetMeta(inboxMeta)
@@ -117,5 +117,16 @@ func TestInboxOptions(t *testing.T) {
 	}
 	if _, warn = optionsFrom(config.UIConfig{InboxIssues: 999}); len(warn) != 1 {
 		t.Errorf("cap unchecked: %v", warn)
+	}
+}
+
+func TestInboxCount(t *testing.T) {
+	for _, c := range []struct {
+		changes, issues int
+		want            string
+	}{{0, 0, "0 changes on 0 issues"}, {1, 1, "1 change"}, {4, 1, "4 changes on 1 issue"}, {11, 3, "11 changes on 3 issues"}} {
+		if got := inboxCount(c.changes, c.issues); got != c.want {
+			t.Errorf("inboxCount(%d, %d) = %q, want %q", c.changes, c.issues, got, c.want)
+		}
 	}
 }

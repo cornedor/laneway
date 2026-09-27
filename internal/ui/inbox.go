@@ -55,9 +55,24 @@ func (m *Model) openInbox() tea.Cmd {
 				items = []jiraPickerItem{{label: "nothing new"}}
 			}
 		}
+		issues := map[string]bool{} // as the header's ✉ counts them
+		for _, e := range entries {
+			issues[e.Key] = true
+		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickInbox, items: items, err: err,
-			title: fmt.Sprintf("Inbox — %d since %s", len(entries), inboxWhen(since, now))}
+			title: fmt.Sprintf("Inbox — %s since %s", inboxCount(len(entries), len(issues)), inboxWhen(since, now))}
 	}
+}
+
+// inboxCount is "1 change", "5 changes on 2 issues".
+func inboxCount(changes, issues int) string {
+	switch {
+	case changes == 1:
+		return "1 change"
+	case issues == 1:
+		return fmt.Sprintf("%d changes on 1 issue", changes)
+	}
+	return fmt.Sprintf("%d changes on %d issues", changes, issues)
 }
 
 // inboxWhen is "15:04" today, "Mon 15:04" before.
