@@ -11,13 +11,13 @@ terminal.
 - Sprints, backlog and kanban boards; the board's quick filters plus your own
 - Local search, JQL with completion, a command palette, jump to any issue by key
 - Issue panel with description (edited as markdown), comments, links, subtasks and attachments
-- Sprint planning, burndown and velocity charts, an epic roadmap, releases
+- Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases
 - Time tracking: log work, a timer, the day's and the week's worklogs
-- Inbox of others' changes, a standup of yours (commits too) or your team's
+- Inbox of others' changes on every site, a standup of yours (commits too) or your team's
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key
-- Several Jira sites, inline images in kitty and Ghostty
+- Several Jira sites, inline images in kitty and Ghostty, changes made offline sent later
 - Every key and colour configurable
 
 `t` swaps the lanes for a sortable list:

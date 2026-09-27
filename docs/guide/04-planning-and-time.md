@@ -161,7 +161,8 @@ and the inbox count for your shell prompt or tmux status line. See the
 
 ## Recap
 
-- `P` planning, `R` roadmap, `C` charts, `V` releases; `esc` back to the board.
+- `P` planning, `ctrl+e` refinement, `R` roadmap, `C` charts (cycle time and a
+  retro too), `V` releases; `esc` back to the board.
 - `w` logs work, `T` times it, `W` shows the day, `W` again the week.
 - `U` writes your standup (its *Team* row everyone's), `I` shows what others
   did, `O` shows all your work, `ctrl+r` what waits on your review.
