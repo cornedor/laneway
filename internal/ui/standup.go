@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -26,10 +27,15 @@ func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 	m.jiraPicker.day = since
 	seq := m.jiraPicker.fetchSeq
 	c, ctx := m.jiraClient, m.ctx
+	// Rows step a workday either way, U back too.
+	steps := []jiraPickerItem{{id: "earlier", label: "← a workday further back"}}
+	if since.Before(jira.PreviousWorkday(now, m.opts.workdays)) {
+		steps = append(steps, jiraPickerItem{id: "later", label: "→ a workday later"})
+	}
 	return func() tea.Msg {
 		entries, err := c.Standup(ctx, since)
 		text := standupText(entries)
-		items := []jiraPickerItem{{id: "copy", label: "Copy as text"}}
+		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
 		day := ""
 		for _, e := range entries {
 			if d := standupDay(e.When, now); d != day {
@@ -39,7 +45,7 @@ func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 			items = append(items, jiraPickerItem{id: e.Key, label: fmt.Sprintf("  %s  %s %s — %s", e.When.Local().Format("15:04"), e.Key, e.Summary, e.What)})
 		}
 		if err == nil && len(entries) == 0 {
-			items = []jiraPickerItem{{label: "nothing since " + standupDay(since, now)}}
+			items = append([]jiraPickerItem{{label: "nothing since " + standupDay(since, now)}}, steps...)
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,
 			title: "Standup — since " + standupDay(since, now) + "  ·  U further back", text: text}
@@ -98,4 +104,16 @@ func standupText(entries []jira.InboxEntry) string {
 	}
 	flush()
 	return strings.TrimSpace(b.String())
+}
+
+// nextWorkday is the first workday after day.
+func nextWorkday(day time.Time, workdays []time.Weekday) time.Time {
+	if len(workdays) == 0 {
+		workdays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	}
+	d := day.AddDate(0, 0, 1)
+	for !slices.Contains(workdays, d.Weekday()) {
+		d = d.AddDate(0, 0, 1)
+	}
+	return d
 }

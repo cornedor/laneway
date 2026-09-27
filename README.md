@@ -319,7 +319,8 @@ also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 `U` lists what you did since the previous workday (Friday on a Monday), by
 day: status and field changes, comments and logged work. Its first row,
 Copy as text, puts it on the clipboard grouped per issue, ready to paste.
-`U` again reaches a workday further back.
+`U` again (or its `←` row) reaches a workday further back, its `→` row a
+workday later again.
 
 ## Time tracking
 

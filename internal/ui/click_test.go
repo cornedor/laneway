@@ -1274,3 +1274,22 @@ func TestPlanHalfLoaded(t *testing.T) {
 		t.Errorf("move: %q", m.status)
 	}
 }
+
+// TestStandupSteps: rows step the standup a workday back and forward again.
+func TestStandupSteps(t *testing.T) {
+	m := jiraTabModel(t)
+	m.openStandup()
+	first := m.jiraPicker.day
+	m.setJiraPickerItems([]jiraPickerItem{{id: "earlier"}})
+	out, _ := m.applyJiraPick()
+	m = out.(Model)
+	back := m.jiraPicker.day
+	if !back.Before(first) {
+		t.Fatalf("earlier: %v, not before %v", back, first)
+	}
+	m.setJiraPickerItems([]jiraPickerItem{{id: "later"}})
+	out, _ = m.applyJiraPick()
+	if m = out.(Model); !m.jiraPicker.day.Equal(first) {
+		t.Errorf("later: %v, want %v", m.jiraPicker.day, first)
+	}
+}

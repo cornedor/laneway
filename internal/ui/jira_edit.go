@@ -656,6 +656,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.openLinkTarget(key, it)
 		return m, nil
 	}
+	if kind == jiraPickStandup && (it.id == "earlier" || it.id == "later") {
+		day := jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays)
+		if it.id == "later" {
+			day = nextWorkday(m.jiraPicker.day, m.opts.workdays)
+		}
+		return m, m.openStandupSince(day)
+	}
 	if kind == jiraPickStandup && it.id == "copy" {
 		text := m.jiraPicker.text
 		m.closeJiraPicker()
