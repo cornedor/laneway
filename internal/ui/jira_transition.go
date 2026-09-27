@@ -306,6 +306,9 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		f.editing = true
 		return f.input.Focus()
 	case jira.KindUser, jira.KindUsers, jira.KindOption, jira.KindOptions:
+		if f.create != nil {
+			return m.openFieldPicker(*ff, f.create.in.Project) // people assignable in it
+		}
 		return m.openFieldPicker(*ff, f.key)
 	case jira.KindSprint:
 		ff.Options = m.sprintOptions()

@@ -790,3 +790,19 @@ func TestWriting(t *testing.T) {
 		t.Errorf("after the write: %d", n)
 	}
 }
+
+// TestAssignableUsersInProject: a project key searches the project, for an
+// issue not made yet.
+func TestAssignableUsersInProject(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if q := r.URL.Query(); q.Get("project") != "ABC" || q.Has("issueKey") {
+			t.Errorf("query = %v", q)
+		}
+		_, _ = w.Write([]byte(`[{"accountId":"a1","displayName":"Ada"}]`))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if users, err := c.AssignableUsers(context.Background(), "ABC", ""); err != nil || len(users) != 1 {
+		t.Fatalf("AssignableUsers = %v, %v", users, err)
+	}
+}

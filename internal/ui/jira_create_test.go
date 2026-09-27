@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -152,5 +153,36 @@ func TestJiraCreateAsksRequired(t *testing.T) {
 	}
 	if c, _ := created[1]["components"].([]any); len(c) != 1 || c[0].(map[string]any)["id"] != "11" {
 		t.Errorf("components = %v", created[1]["components"])
+	}
+}
+
+// TestCreateFormPicksPeople: a required person field on the create form
+// lists the people assignable in the project.
+func TestCreateFormPicksPeople(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/user/assignable/search":
+			if r.URL.Query().Get("project") != "ABC" {
+				t.Errorf("query = %v", r.URL.Query())
+			}
+			_, _ = w.Write([]byte(`[{"accountId":"a1","displayName":"Ada"}]`))
+		case "/rest/api/3/myself":
+			_, _ = w.Write([]byte(`{"accountId":"me","displayName":"Me"}`))
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraForm = buildCreateForm("New Bug in ABC", jira.NewIssue{Project: "ABC", Type: "Bug", Summary: "Crash"}, 0,
+		[]jira.CreateField{{FieldMeta: jira.FieldMeta{ID: "customfield_1", Name: "Reviewer", Kind: jira.KindUser}, Required: true}})
+	out, cmd := m.handleKey(keyStr("enter"))
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickFormUser {
+		t.Fatal("enter opened no people picker")
+	}
+	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if !slices.ContainsFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.label == "Ada" }) {
+		t.Errorf("items = %+v", m.jiraPicker.items)
 	}
 }

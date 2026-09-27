@@ -108,8 +108,7 @@ func (m *Model) createJiraIssue(in jira.NewIssue, sprint int, title string) tea.
 }
 
 // buildCreateForm is the form for the required fields in lacks, nil when
-// it lacks none. People can't be picked before the issue exists: those rows
-// say to set them in Jira.
+// it lacks none.
 func buildCreateForm(title string, in jira.NewIssue, sprint int, fields []jira.CreateField) *jiraFormState {
 	set := map[string]bool{"project": true, "issuetype": true, "summary": true,
 		"description": in.Description != "" || len(in.DescriptionADF) > 0, "parent": in.Parent != "", "priority": in.Priority != ""}
@@ -121,11 +120,7 @@ func buildCreateForm(title string, in jira.NewIssue, sprint int, fields []jira.C
 		if !cf.Required || set[cf.ID] {
 			continue
 		}
-		fm := cf.FieldMeta
-		if fm.Kind == jira.KindUser || fm.Kind == jira.KindUsers {
-			fm.Kind = jira.KindOther
-		}
-		f.fields = append(f.fields, jiraFormField{FieldMeta: fm, required: true})
+		f.fields = append(f.fields, jiraFormField{FieldMeta: cf.FieldMeta, required: true})
 	}
 	if len(f.fields) == 0 {
 		return nil

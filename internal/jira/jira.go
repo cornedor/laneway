@@ -750,7 +750,8 @@ func (c *Client) SetPriority(ctx context.Context, key, priorityID string) error 
 // AssignableUsers returns users who can be assigned to the issue, optionally
 // narrowed by query (matched server-side against name/email). An empty query
 // returns the default page. Jira caps the response (50 by default), so a large
-// project must search rather than rely on the first page.
+// project must search rather than rely on the first page. A key without a
+// dash is a project's: users assignable in it, for an issue yet to be made.
 func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
@@ -760,6 +761,9 @@ func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User
 		DisplayName string `json:"displayName"`
 	}
 	path := "/rest/api/3/user/assignable/search?issueKey=" + url.QueryEscape(key)
+	if !strings.Contains(key, "-") {
+		path = "/rest/api/3/user/assignable/search?project=" + url.QueryEscape(key)
+	}
 	if q := strings.TrimSpace(query); q != "" {
 		path += "&query=" + url.QueryEscape(q)
 	}
