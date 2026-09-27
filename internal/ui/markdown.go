@@ -432,7 +432,10 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 	// matches a merge/pull-request link, it is replaced with an inline badge pill
 	// rather than a plain hyperlink. The badge is inserted directly (not
 	// stashed) so its ANSI escapes survive the later styling passes unchanged.
-	type linkEntry struct{ url, text string }
+	type linkEntry struct {
+		url, text string
+		md        bool // [text](url): the text is markdown too
+	}
 	var links []linkEntry
 	var mrBadges []struct {
 		sentinel string
@@ -440,7 +443,7 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 	}
 	s = mdLinkRe.ReplaceAllStringFunc(s, func(m string) string {
 		sub := mdLinkRe.FindStringSubmatch(m)
-		links = append(links, linkEntry{sub[2], sub[1]})
+		links = append(links, linkEntry{sub[2], sub[1], true})
 		return imgLinkMark(sub[2]) + mdLinkSentinel + strconv.Itoa(len(links)-1) + "\x00"
 	})
 	const mrBadgeSentinel = "\x00MRBADGE"
@@ -457,7 +460,7 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 				return mrBadgeSentinel + strconv.Itoa(idx) + "\x00" + trailing
 			}
 		}
-		links = append(links, linkEntry{clean, clean})
+		links = append(links, linkEntry{clean, clean, false})
 		return imgLinkMark(clean) + mdLinkSentinel + strconv.Itoa(len(links)-1) + "\x00" + trailing
 	})
 
@@ -475,8 +478,35 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 		})
 	}
 
-	// Bold before italic for each delimiter family so the double-marker form
-	// isn't eaten by the single-marker pass.
+	s = mdEmphasis(s)
+	restoreCodes := func(s string) string {
+		for i, c := range codes {
+			s = strings.Replace(s, mdCodeSentinel+strconv.Itoa(i)+"\x00", renderCodeSpan(c), 1)
+		}
+		return s
+	}
+	s = restoreCodes(s)
+	for i, l := range links {
+		text := mdLinkStyle.Render(l.text)
+		if styled := restoreCodes(mdEmphasis(l.text)); l.md && styled != l.text {
+			// Render would split the inner escapes apart: open the link's
+			// style by hand, again after each inner reset. (A bare URL's
+			// underscores are not emphasis, so only [text](url) gets here.)
+			open := ansiOpenSeq(mdLinkStyle)
+			text = open + strings.ReplaceAll(styled, "\x1b[m", "\x1b[m"+open) + "\x1b[m"
+		}
+		s = strings.Replace(s, mdLinkSentinel+strconv.Itoa(i)+"\x00", osc8Link(l.url, text), 1)
+	}
+	for _, b := range mrBadges {
+		s = strings.Replace(s, b.sentinel, b.badge, 1)
+	}
+	return s
+}
+
+// mdEmphasis styles bold, italic and strike. Bold goes before italic for each
+// delimiter family so the double-marker form isn't eaten by the single-marker
+// pass.
+func mdEmphasis(s string) string {
 	s = mdBoldRe.ReplaceAllStringFunc(s, func(m string) string {
 		return mdBoldStyle.Render(m[2 : len(m)-2])
 	})
@@ -489,20 +519,9 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 	s = mdItalicUnderscoreRe.ReplaceAllStringFunc(s, func(m string) string {
 		return mdItalicStyle.Render(m[1 : len(m)-1])
 	})
-	s = mdStrikeRe.ReplaceAllStringFunc(s, func(m string) string {
+	return mdStrikeRe.ReplaceAllStringFunc(s, func(m string) string {
 		return mdStrikeStyle.Render(m[2 : len(m)-2])
 	})
-
-	for i, c := range codes {
-		s = strings.Replace(s, mdCodeSentinel+strconv.Itoa(i)+"\x00", renderCodeSpan(c), 1)
-	}
-	for i, l := range links {
-		s = strings.Replace(s, mdLinkSentinel+strconv.Itoa(i)+"\x00", osc8Link(l.url, mdLinkStyle.Render(l.text)), 1)
-	}
-	for _, b := range mrBadges {
-		s = strings.Replace(s, b.sentinel, b.badge, 1)
-	}
-	return s
 }
 
 // parseTable detects a GFM pipe table starting at lines[i] (a header row
