@@ -40,6 +40,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "link", label: "Link to another issue"},
 		jiraPickerItem{id: "weblink", label: "Add a web link"},
 		jiraPickerItem{id: "estimate", label: "Set the original estimate"},
+		jiraPickerItem{id: "status-time", label: "Time in each status"},
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "type", label: "Change the issue type"},
 		jiraPickerItem{id: "move", label: "Move to another project"},
@@ -76,6 +77,8 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		return m.openJiraCreateChild(key, id)
 	case "pr":
 		return m.openPullRequest(key)
+	case "status-time":
+		return m.openStatusTime(key)
 	case "link":
 		gen := m.startJiraPicker(jiraPickLinkType, "Link "+key, true)
 		m.jiraPicker.issueKey = key

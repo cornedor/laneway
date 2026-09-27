@@ -110,6 +110,8 @@ const (
 	jiraPickWatchers
 	// jiraPickReleases lists the project's versions (releases.go).
 	jiraPickReleases
+	// jiraPickStatusTime is the issue's time in each status (status_time.go).
+	jiraPickStatusTime
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -884,6 +886,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickReleases {
 		return m.applyRelease(it)
+	}
+	if kind == jiraPickStatusTime {
+		m.closeJiraPicker()
+		return m, nil
 	}
 	if kind == jiraPickBulk {
 		m.closeJiraPicker()
