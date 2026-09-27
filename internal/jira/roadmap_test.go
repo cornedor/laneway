@@ -105,3 +105,34 @@ func TestSetDates(t *testing.T) {
 		t.Errorf("request = %s", body)
 	}
 }
+
+// TestRoadmapChildrenPastCardLimit: child counts page on past card_limit.
+func TestRoadmapChildrenPastCardLimit(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/3/search/jql" {
+			io.WriteString(w, `[]`)
+			return
+		}
+		var body struct {
+			JQL   string `json:"jql"`
+			Token string `json:"nextPageToken"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if strings.HasPrefix(body.JQL, "project") {
+			io.WriteString(w, `{"issues":[{"key":"ABC-1","fields":{"status":{"statusCategory":{"key":"new"}}}}]}`)
+			return
+		}
+		kid := `{"key":"ABC-2","fields":{"parent":{"key":"ABC-1"},"status":{"statusCategory":{"key":"new"}}}}`
+		next := `,"nextPageToken":"p2"`
+		if body.Token == "p2" {
+			next = ""
+		}
+		io.WriteString(w, `{"issues":[`+kid+`,`+kid+`]`+next+`}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CardLimit: 2})
+	epics, err := c.Roadmap(context.Background(), "ABC", "Epic", 90)
+	if err != nil || len(epics) != 1 || epics[0].Children != 4 {
+		t.Fatalf("epics %+v, %v", epics, err)
+	}
+}

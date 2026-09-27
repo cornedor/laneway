@@ -181,7 +181,7 @@ func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string
 		keys[i] = e.Key
 	}
 	for chunk := range slices.Chunk(keys, 100) {
-		raw, err := c.search(ctx, "parent in ("+strings.Join(chunk, ",")+") ORDER BY rank", fields)
+		raw, err := c.searchAll(ctx, "parent in ("+strings.Join(chunk, ",")+") ORDER BY rank", fields)
 		if err != nil {
 			return err
 		}

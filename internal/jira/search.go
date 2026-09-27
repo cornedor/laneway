@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"strings"
 )
@@ -68,9 +69,19 @@ func (c *Client) search(ctx context.Context, jql string, fields []string) ([]raw
 
 // searchExpand is search with expand ("changelog"), "" for none.
 func (c *Client) searchExpand(ctx context.Context, jql string, fields []string, expand string) ([]rawIssue, error) {
+	return c.searchUpTo(ctx, jql, fields, expand, c.cardLimit)
+}
+
+// searchAll is search without the card limit, for totals that must be whole.
+func (c *Client) searchAll(ctx context.Context, jql string, fields []string) ([]rawIssue, error) {
+	return c.searchUpTo(ctx, jql, fields, "", math.MaxInt)
+}
+
+// searchUpTo pages through jql's issues until it has limit of them.
+func (c *Client) searchUpTo(ctx context.Context, jql string, fields []string, expand string, limit int) ([]rawIssue, error) {
 	var out []rawIssue
 	token := ""
-	for len(out) < c.cardLimit {
+	for len(out) < limit {
 		body := map[string]any{"jql": jql, "fields": fields, "maxResults": cardPage}
 		if expand != "" {
 			body["expand"] = expand
@@ -90,8 +101,8 @@ func (c *Client) searchExpand(ctx context.Context, jql string, fields []string, 
 			break
 		}
 	}
-	if len(out) > c.cardLimit {
-		out = out[:c.cardLimit]
+	if len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }
