@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -84,6 +85,10 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	ed.SetValue(msg.md)
 	m.descEdit = &descEdit{key: msg.key, comment: msg.comment, field: msg.field, before: msg.md, kept: msg.kept, input: ed}
 	m.status = ""
+	if text, at, ok := m.draft(m.descEdit.draftID()); ok && text != msg.md {
+		m.descEdit.input.SetValue(text)
+		m.status = "your draft from " + draftWhen(at, time.Now()) + " is back · esc twice keeps Jira's"
+	}
 	if m.descEditInline() {
 		m.descEdit.input.MaxHeight = max(m.refView.Height()-4, 6)
 		m.renderRef()
@@ -230,19 +235,22 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.status = "esc again discards your changes · ctrl+s saves"
 			return m, nil
 		}
+		m.dropDraft(d.draftID())
 		m.descEdit, m.status = nil, ""
 		return m, nil
 	case "ctrl+s":
+		m.dropDraft(d.draftID()) // a failed save keeps the text in a file
 		m.descEdit = nil
 		return m.saveDesc(descEditedMsg{key: d.key, comment: d.comment, field: d.field, before: d.before, kept: d.kept}, d.input.Value())
 	case "ctrl+e":
+		m.dropDraft(d.draftID()) // the file holds it now
 		m.descEdit = nil
 		return m.openExternalEditor(descLoadedMsg{key: d.key, comment: d.comment, field: d.field, md: d.input.Value(), kept: d.kept}, d.before)
 	}
 	d.discard = false
 	var cmd tea.Cmd
 	d.input, cmd = d.input.Update(msg)
-	return m, cmd
+	return m, tea.Batch(cmd, m.scheduleDraftSave())
 }
 
 func (m *Model) renderDescEdit() string {

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -46,6 +47,10 @@ func (m *Model) openJiraCommentInput() {
 		m.jiraCommentInput.CursorEnd()
 		m.unsent = struct{ key, text string }{}
 		m.status = "your unsent comment is back"
+	} else if text, at, ok := m.draft(commentDraft(m.jiraCommentKey)); ok {
+		m.jiraCommentInput.SetValue(text)
+		m.jiraCommentInput.CursorEnd()
+		m.status = "your draft from " + draftWhen(at, time.Now()) + " is back · esc twice drops it"
 	}
 }
 
@@ -131,6 +136,9 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.status = "esc again discards your comment · enter posts it"
 			return m, nil
 		}
+		if m.jiraCommentReplyTo == "" {
+			m.dropDraft(commentDraft(m.jiraCommentKey))
+		}
 		m.closeJiraComment()
 		m.status = ""
 		return m, nil
@@ -143,7 +151,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	m.jiraCommentInput, cmd = m.jiraCommentInput.Update(msg)
-	return m, tea.Batch(cmd, m.scheduleMention())
+	return m, tea.Batch(cmd, m.scheduleMention(), m.scheduleDraftSave())
 }
 
 // applyJiraComment closes the composer and posts the comment (or reply). An
@@ -152,6 +160,7 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	key := m.jiraCommentKey
 	text := strings.TrimSpace(m.jiraCommentInput.Value())
 	mention, inline := m.jiraCommentMention, m.jiraCommentMentions
+	m.saveOpenDrafts() // until Jira has it
 	m.closeJiraComment()
 	if text == "" && mention == nil {
 		return m, nil

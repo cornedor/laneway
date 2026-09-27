@@ -371,6 +371,8 @@ type Model struct {
 	jiraCommentDiscard bool
 	// unsent is a comment whose post failed, by issue: c brings it back.
 	unsent struct{ key, text string }
+	// draftPending is a draft write scheduled (drafts.go).
+	draftPending bool
 
 	// panelResizing is set while the panel's left border is dragged
 	// (panel_resize.go).
@@ -615,6 +617,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleInboxCount(msg)
 	case inboxMentionsMsg:
 		return m.handleInboxMentions(msg)
+	case draftSaveMsg:
+		return m.handleDraftSave()
 	case reviewMsg:
 		return m.handleReview(msg)
 	case paletteSearchMsg:
@@ -1020,8 +1024,9 @@ func (m *Model) unsentWork() string {
 func (m Model) quit() (tea.Model, tea.Cmd) {
 	if w := m.unsentWork(); w != "" && !m.quitAsked {
 		m.quitAsked = true
-		m.status = w + " · quit again to leave anyway"
+		m.status = w + " · quit again to leave anyway (a comment or edit is kept as a draft)"
 		return m, nil
 	}
+	m.saveOpenDrafts()
 	return m, tea.Quit
 }
