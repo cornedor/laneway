@@ -78,6 +78,9 @@ type Client struct {
 
 	mu    sync.Mutex
 	cache map[string]cachedIssue
+	// gens counts each key's Invalidates, so a fetch that raced one isn't
+	// cached.
+	gens map[string]int
 	// spFields are the resolved story-points custom-field ids (a configured
 	// override, or every field named "story point…" from the field metadata).
 	// spResolved guards the one-time resolution; both are behind mu.
@@ -110,6 +113,7 @@ func New(cfg Config) *Client {
 		timeout:    cmp.Or(max(cfg.Timeout, 0), DefaultTimeout),
 		custom:     cfg.CustomFields,
 		cache:      map[string]cachedIssue{},
+		gens:       map[string]int{},
 	}
 	c.http = &http.Client{Timeout: c.timeout}
 	if c.cardLimit <= 0 {
@@ -320,12 +324,17 @@ func (c *Client) Get(ctx context.Context, key string) (*Issue, error) {
 	if iss, ok := c.cachedFresh(key); ok {
 		return iss, nil
 	}
+	c.mu.Lock()
+	gen := c.gens[key]
+	c.mu.Unlock()
 	issue, err := c.fetch(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 	c.mu.Lock()
-	c.cache[key] = cachedIssue{issue, time.Now()}
+	if c.gens[key] == gen { // else a write invalidated it meanwhile
+		c.cache[key] = cachedIssue{issue, time.Now()}
+	}
 	c.mu.Unlock()
 	return issue, nil
 }
@@ -362,6 +371,7 @@ func (c *Client) Invalidate(key string) {
 	}
 	c.mu.Lock()
 	delete(c.cache, key)
+	c.gens[key]++
 	c.mu.Unlock()
 }
 

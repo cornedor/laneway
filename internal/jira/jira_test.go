@@ -271,6 +271,35 @@ func TestGetCachesAndInvalidates(t *testing.T) {
 	}
 }
 
+// TestGetRacingInvalidate: an Invalidate while a fetch is out keeps that
+// fetch's (possibly stale) answer out of the cache.
+func TestGetRacingInvalidate(t *testing.T) {
+	var calls int
+	var c *Client
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		calls++
+		if calls == 1 {
+			c.Invalidate("ABC-1") // a write lands mid-request
+		}
+		_, _ = w.Write([]byte(`{"key":"ABC-1","fields":{"summary":"s"}}`))
+	}))
+	defer srv.Close()
+
+	c = New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	for i := 0; i < 2; i++ {
+		if _, err := c.Get(context.Background(), "ABC-1"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if calls != 2 {
+		t.Errorf("expected the raced fetch left uncached, got %d calls", calls)
+	}
+}
+
 func TestGetUnauthorized(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
