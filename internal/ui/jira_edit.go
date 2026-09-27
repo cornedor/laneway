@@ -478,6 +478,7 @@ func (m *Model) closeJiraPicker() {
 
 // closeJiraField tears the field input down.
 func (m *Model) closeJiraField() {
+	m.labels = labelSuggest{seq: m.labels.seq + 1}
 	m.jiraFieldActive = false
 	m.jiraFieldName = ""
 	m.jiraFieldKey = ""
@@ -668,8 +669,15 @@ func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
+	if m.labelKey(msg) {
+		return m, nil
+	}
+	before := m.jiraFieldInput.Value()
 	var cmd tea.Cmd
 	m.jiraFieldInput, cmd = m.jiraFieldInput.Update(msg)
+	if m.jiraFieldInput.Value() != before {
+		cmd = tea.Batch(cmd, m.suggestLabels())
+	}
 	if m.fieldInline() {
 		m.renderRef()
 	}
@@ -1349,6 +1357,7 @@ func (m *Model) renderJiraFieldInput() string {
 	}
 	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(title + " — " + m.jiraFieldKey)
 	hint = lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hint)
-	body := lipgloss.JoinVertical(lipgloss.Left, header, "", m.jiraFieldInput.View(), "", hint)
+	rows := append([]string{header, "", m.jiraFieldInput.View()}, m.labelLines(2)...)
+	body := lipgloss.JoinVertical(lipgloss.Left, append(rows, "", hint)...)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
 }

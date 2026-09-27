@@ -300,6 +300,9 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 	if f.editing {
+		if m.labelKey(msg) { // ↑ ↓ tab through a labels row's suggestions
+			return m, nil
+		}
 		switch msg.String() {
 		case "enter":
 			ff := &f.fields[f.idx]
@@ -326,10 +329,15 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "esc":
 			f.editing = false
+			m.labels.list = nil
 			return m, nil
 		}
+		before := f.input.Value()
 		var cmd tea.Cmd
 		f.input, cmd = f.input.Update(msg)
+		if f.input.Value() != before {
+			cmd = tea.Batch(cmd, m.suggestLabels())
+		}
 		return m, cmd
 	}
 	switch {
@@ -680,6 +688,11 @@ func (m *Model) renderJiraForm() string {
 			for _, l := range strings.Split(f.area.View(), "\n") {
 				parts = append(parts, "  "+l)
 			}
+			continue
+		case f.editing && i == f.idx && ff.ID == "labels":
+			f.input.SetWidth(max(inner-2-nameW-3, 8))
+			parts = append(parts, cursor.Render("▸ "+name)+"  "+f.input.View())
+			parts = append(parts, m.labelLines(nameW+4)...)
 			continue
 		case f.editing && i == f.idx:
 			f.input.SetWidth(max(inner-2-nameW-3, 8)) // its cell, so the cursor stays in view
