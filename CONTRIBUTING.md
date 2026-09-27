@@ -6,7 +6,8 @@ Bug reports, ideas and pull requests are welcome.
 
 - Open an issue first for anything bigger than a small fix, so we can agree
   on the approach.
-- [ROADMAP.md](ROADMAP.md) lists what is planned.
+- Planned work lives in the maintainer's Jira, not in the repo. To propose
+  something, open an issue.
 
 ## Develop
 

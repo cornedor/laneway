@@ -139,7 +139,7 @@ You've seen it all. From here:
 
 - `?` in any screen for its keys, `:` for anything you can't find.
 - The [reference](../reference.md) for every option, search term and key.
-- [the roadmap](https://github.com/cornedor/laneway/blob/main/ROADMAP.md) for what's coming, and what just landed.
+- The [releases](https://github.com/cornedor/laneway/releases) for what just landed.
 
 Previous: [Planning, roadmap, charts and your time](04-planning-and-time.md) ·
 Back to the [start](README.md)
