@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cornedor/laneway/internal/config"
 )
 
 // TestSubcommand: global flags before a subcommand reach it; an unknown one
@@ -34,7 +36,10 @@ func TestPromptCmd(t *testing.T) {
 	t.Setenv("HOME", dir)
 	p := filepath.Join(dir, "config.yaml")
 	_ = os.WriteFile(p, []byte("sites:\n  club: {base_url: \"https://club.test\"}\n"), 0o600)
-	state := filepath.Join(dir, "laneway", "state-club.json")
+	state, err := config.SiteStatePath("club")
+	if err != nil {
+		t.Fatal(err)
+	}
 	_ = os.MkdirAll(filepath.Dir(state), 0o700)
 	_ = os.WriteFile(state, []byte(`{"jira_tab:inbox_unread":"2"}`), 0o600)
 	var out, errOut bytes.Buffer
