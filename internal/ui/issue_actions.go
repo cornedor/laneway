@@ -54,6 +54,9 @@ func (m *Model) openIssueActions() {
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
 	}
+	if m.canOpenPullRequest(iss.Key) {
+		items = append(items, jiraPickerItem{id: "pr", label: "Open a pull request (draft)"})
+	}
 	if len(iss.Comments) > 0 {
 		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours"},
 			jiraPickerItem{id: "delete-comment", label: "Delete a comment of yours"})
@@ -71,6 +74,8 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	switch id {
 	case "subtask", "child":
 		return m.openJiraCreateChild(key, id)
+	case "pr":
+		return m.openPullRequest(key)
 	case "link":
 		gen := m.startJiraPicker(jiraPickLinkType, "Link "+key, true)
 		m.jiraPicker.issueKey = key
