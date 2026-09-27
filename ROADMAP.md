@@ -7,6 +7,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Inbox: an inbox opened and closed by accident isn't lost: the next one's last row, `↶ the inbox before, since …`, shows it again without moving the read marks
 - Views row: the sprint's bar, days and goal keep their room and views give way behind `‹` / `›` (they cut the sprint off); the goal is capped at 32 cells, a click shows it whole
 - Planning: `y` while the sprint side is loading or failed says so instead of copying an empty table
 - Inbox: the title names changes and issues (`11 changes on 3 issues since …`), so it squares with the header's `✉ 3`

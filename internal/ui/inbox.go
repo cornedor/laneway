@@ -13,8 +13,14 @@ import (
 
 // I opens the inbox: what others did on your issues since you last opened
 // it (the first time, the last day). Mentions come first; enter opens one.
+// Its last row brings back the one before, so an inbox opened and closed
+// by accident isn't lost.
 
-const inboxMeta = jiraMetaPrefix + "inbox_seen"
+const (
+	inboxMeta     = jiraMetaPrefix + "inbox_seen"
+	inboxPrevMeta = jiraMetaPrefix + "inbox_prev" // the start of the inbox last read
+	inboxPrevID   = "\x00previous"                // the row that reopens it
+)
 
 // inboxSince is when the inbox was last read, ui.inbox_lookback (a day)
 // ago the first time.
@@ -29,11 +35,27 @@ func (m *Model) inboxSince(now time.Time) time.Time {
 	return now.Add(-m.opts.inboxLookback)
 }
 
+// inboxPrev is when the inbox read last started, false before a second read.
+func (m *Model) inboxPrev() (time.Time, bool) {
+	if m.store == nil {
+		return time.Time{}, false
+	}
+	v, ok, _ := m.store.GetMeta(inboxPrevMeta)
+	sec, err := strconv.ParseInt(v, 10, 64)
+	return time.Unix(sec, 0), ok && err == nil
+}
+
 // openInbox loads the entries since the last read into a picker, and marks
 // them read once they are in.
 func (m *Model) openInbox() tea.Cmd {
+	return m.openInboxSince(m.inboxSince(time.Now()), true)
+}
+
+// openInboxSince lists the entries since since; mark moves the read marks
+// on, keeping since as the start of the inbox before for the next read.
+func (m *Model) openInboxSince(since time.Time, mark bool) tea.Cmd {
 	now := time.Now()
-	since := m.inboxSince(now)
+	prev, hasPrev := m.inboxPrev() // the read before the one since
 	gen := m.startJiraPicker(jiraPickInbox, "Inbox", true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, st := m.jiraClient, m.ctx, m.store
@@ -41,18 +63,23 @@ func (m *Model) openInbox() tea.Cmd {
 		entries, err := c.Inbox(ctx, since)
 		items := make([]jiraPickerItem, len(entries))
 		for i, e := range entries {
-			mark := " "
+			at := " "
 			if e.Mention {
-				mark = "@"
+				at = "@"
 			}
-			items[i] = jiraPickerItem{id: e.Key, label: fmt.Sprintf("%s %s  %s  %s %s — %s", mark, inboxWhen(e.When, now), e.Who, e.Key, e.Summary, e.What)}
+			items[i] = jiraPickerItem{id: e.Key, label: fmt.Sprintf("%s %s  %s  %s %s — %s", at, inboxWhen(e.When, now), e.Who, e.Key, e.Summary, e.What)}
 		}
 		if err == nil {
-			if st != nil {
+			if st != nil && mark {
+				_ = st.SetMeta(inboxPrevMeta, strconv.FormatInt(since.Unix(), 10))
 				_ = st.SetMeta(inboxMeta, strconv.FormatInt(now.Unix(), 10))
 			}
 			if len(items) == 0 {
 				items = []jiraPickerItem{{label: "nothing new"}}
+			}
+			if hasPrev && prev.Before(since) {
+				items = append(items, jiraPickerItem{id: inboxPrevID, label: "↶ the inbox before, since " + inboxWhen(prev, now),
+					value: strconv.FormatInt(prev.Unix(), 10)}) // this read moves the stored one on
 			}
 		}
 		issues := map[string]bool{} // as the header's ✉ counts them

@@ -313,7 +313,9 @@ In the `c` composer (`enter` or `ctrl+s` posts; `esc` asks once before dropping 
 `I` lists what others did since you last opened it (a day, the first
 time) on the issues you watch, are assigned or reported: field changes and
 comments, those mentioning you first and marked `@`. Filter by typing;
-`enter` opens the issue. The header shows `✉ 3` when issues of yours were
+`enter` opens the issue. Opening it marks everything read; its last row,
+`↶ the inbox before`, brings back the one before (opened and closed by
+accident) without moving the marks. The header shows `✉ 3` when issues of yours were
 changed by others since (checked every 5 minutes); a new mention of you
 also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 

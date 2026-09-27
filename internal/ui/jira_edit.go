@@ -755,6 +755,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.focus = focusRef
 		return m, m.switchActivity(activityHistory)
 	}
+	if kind == jiraPickInbox && it.id == inboxPrevID {
+		if sec, err := strconv.ParseInt(it.value, 10, 64); err == nil {
+			return m, m.openInboxSince(time.Unix(sec, 0), false) // the marks stay
+		}
+	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
 		key, _, _ := strings.Cut(it.id, "/") // a worklog row is key/id
 		if key == "" {

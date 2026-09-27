@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
@@ -128,5 +129,48 @@ func TestInboxCount(t *testing.T) {
 		if got := inboxCount(c.changes, c.issues); got != c.want {
 			t.Errorf("inboxCount(%d, %d) = %q, want %q", c.changes, c.issues, got, c.want)
 		}
+	}
+}
+
+// TestInboxPrevious: an inbox opened and closed by accident comes back from
+// the next one's last row, without moving the read marks.
+func TestInboxPrevious(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me"}`)
+		case "/rest/api/3/search/jql":
+			io.WriteString(w, `{"issues":[{"key":"ABC-2","fields":{"summary":"Second"}}]}`)
+		case "/rest/api/3/issue/ABC-2/changelog":
+			io.WriteString(w, `{"total":1,"values":[{"author":{"accountId":"bob","displayName":"Bob"},
+			  "created":"`+time.Now().Add(-time.Hour).Format("2006-01-02T15:04:05.000-0700")+`","items":[{"field":"status","fromString":"To Do","toString":"Done"}]}]}`)
+		default:
+			io.WriteString(w, `{"comments":[]}`)
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	open := func(cmd tea.Cmd) {
+		out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+		m = out.(Model)
+	}
+	open(m.openInbox()) // read by accident, closed at once
+	m.closeJiraPicker()
+	open(m.openInbox())
+	items := m.jiraPicker.items
+	if len(items) != 2 || items[0].label != "nothing new" || items[1].id != inboxPrevID {
+		t.Fatalf("second open = %+v", items)
+	}
+	seen, _, _ := m.store.GetMeta(inboxMeta)
+	m.jiraPicker.idx = 1
+	out, cmd := m.applyJiraPick()
+	m = out.(Model)
+	open(cmd)
+	if items := m.jiraPicker.items; len(items) != 1 || !strings.Contains(items[0].label, "Bob  ABC-2 Second — status: To Do → Done") {
+		t.Errorf("the inbox before = %+v", m.jiraPicker.items)
+	}
+	if again, _, _ := m.store.GetMeta(inboxMeta); again != seen {
+		t.Errorf("the marks moved: %s → %s", seen, again)
 	}
 }
