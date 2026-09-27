@@ -415,3 +415,24 @@ func TestWatchers(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+// TestReporter: the Reporter row edits like the assignee, searching the
+// people who can see the issue, and writes the pick.
+func TestReporter(t *testing.T) {
+	m, writes := actionsModel(t, map[string]string{
+		"/rest/api/3/user/viewissue/search": `[{"accountId":"a1","displayName":"Ada"},{"accountId":"b2","displayName":"Bob"}]`,
+	})
+	m.jiraIssue.Reporter, m.jiraIssue.ReporterAccountID = "Ada", "a1"
+	cmd := panelFields[panelFieldRow("Reporter")].edit(&m)
+	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if it := m.jiraPicker.items; len(it) != 2 || !it[0].current || m.jiraPicker.inline != "Reporter" {
+		t.Fatalf("items = %+v, inline %q", it, m.jiraPicker.inline)
+	}
+	m.jiraPicker.idx = 1
+	_, cmd = m.applyJiraPick()
+	cmd()
+	if w := writes(); len(w) != 1 || w[0] != `PUT /rest/api/3/issue/ABC-1 {"fields":{"reporter":{"accountId":"b2"}}}` {
+		t.Errorf("writes = %q", w)
+	}
+}

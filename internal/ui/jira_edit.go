@@ -105,6 +105,9 @@ const (
 	jiraPickMoveType
 	// jiraPickDeleteIssue confirms deleting the issue (issue_actions.go).
 	jiraPickDeleteIssue
+	// jiraPickReporter picks the issue's reporter among the people who can
+	// see it, searched server-side like the assignee.
+	jiraPickReporter
 	// jiraPickWatchers lists the issue's watchers and finds people to add,
 	// searched server-side like the assignee (issue_actions.go).
 	jiraPickWatchers
@@ -262,6 +265,29 @@ func (m *Model) openJiraAssigneePicker() tea.Cmd {
 	m.jiraPicker.curAssignee = m.jiraIssue.AssigneeAccountID
 	m.jiraPicker.inline = "Assignee"
 	return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
+}
+
+// openJiraReporterPicker opens the reporter picker under its row.
+func (m *Model) openJiraReporterPicker() tea.Cmd {
+	gen := m.startJiraPicker(jiraPickReporter, "Set reporter — "+m.jiraIssue.Key, true)
+	m.jiraPicker.issueKey = m.jiraIssue.Key
+	m.jiraPicker.curAssignee = m.jiraIssue.ReporterAccountID
+	m.jiraPicker.inline = "Reporter"
+	return m.fetchReporters(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
+}
+
+// fetchReporters lists the people who can see key matching query, the
+// reporter marked.
+func (m *Model) fetchReporters(gen, seq int, key, query string) tea.Cmd {
+	c, ctx, cur := m.jiraClient, m.ctx, m.jiraPicker.curAssignee
+	return func() tea.Msg {
+		users, err := c.ViewUsers(ctx, key, query)
+		items := make([]jiraPickerItem, 0, len(users))
+		for _, u := range users {
+			items = append(items, jiraPickerItem{id: u.AccountID, label: u.DisplayName, current: u.AccountID == cur})
+		}
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickReporter, items: items, err: err}
+	}
 }
 
 // fetchAssignees searches assignable users for query and builds the picker
@@ -593,8 +619,11 @@ var copyRowKinds = map[jiraPickerKind]bool{jiraPickDev: true, jiraPickInbox: tru
 // window elapses, unless a newer keystroke has superseded it.
 func (m Model) handleJiraAssigneeDebounce(msg jiraAssigneeDebounceMsg) (tea.Model, tea.Cmd) {
 	k := m.jiraPicker.kind
-	if !m.jiraPicker.active || (k != jiraPickAssignee && k != jiraPickFormUser && k != jiraPickWatchers) || msg.seq != m.jiraPicker.fetchSeq {
+	if !m.jiraPicker.active || (k != jiraPickAssignee && k != jiraPickFormUser && k != jiraPickWatchers && k != jiraPickReporter) || msg.seq != m.jiraPicker.fetchSeq {
 		return m, nil
+	}
+	if k == jiraPickReporter {
+		return m, m.fetchReporters(m.jiraPicker.gen, msg.seq, m.jiraPicker.issueKey, m.jiraPicker.filter.Value())
 	}
 	if k == jiraPickWatchers {
 		return m, m.fetchWatchers(m.jiraPicker.gen, msg.seq, m.jiraPicker.issueKey, m.jiraPicker.filter.Value())
@@ -734,6 +763,16 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
 		m.status = "deleting the comment…"
 		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+	}
+	if kind == jiraPickReporter {
+		key := m.jiraPicker.issueKey
+		m.closeJiraPicker()
+		if it.current {
+			return m, nil
+		}
+		c, ctx := m.jiraClient, m.ctx
+		m.status = "setting " + key + "'s reporter to " + it.label + "…"
+		return m, jiraMutateCmd(key, "reporter", func() error { return c.SetReporter(ctx, key, it.id) })
 	}
 	if kind == jiraPickWatchers {
 		key := m.jiraPicker.issueKey

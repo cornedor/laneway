@@ -188,10 +188,10 @@ type Issue struct {
 	CommentTotal int
 
 	// IDs of the current selection, so the field pickers can mark the active
-	// row. Display-only fields (Status, Reporter) don't need one here: status
-	// changes go through Transitions, not by id.
+	// row. Status needs none: its changes go through Transitions, not by id.
 	PriorityID        string
 	AssigneeAccountID string
+	ReporterAccountID string
 }
 
 // Comment is one issue comment, flattened for display. Body is markdown
@@ -588,6 +588,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	}
 	if a.Fields.Reporter != nil {
 		iss.Reporter = a.Fields.Reporter.DisplayName
+		iss.ReporterAccountID = a.Fields.Reporter.AccountID
 	}
 	// Jira stamps updated as e.g. 2026-06-15T09:41:00.000+0200.
 	if t, err := time.Parse("2006-01-02T15:04:05.999-0700", a.Fields.Updated); err == nil {
@@ -905,6 +906,19 @@ func (c *Client) SetStoryPoints(ctx context.Context, key, raw string) error {
 	body := map[string]any{"fields": map[string]any{fields[0]: value}}
 	path := "/rest/api/3/issue/" + url.PathEscape(key)
 	if err := c.do(ctx, http.MethodPut, path, key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
+// SetReporter makes accountID the issue's reporter.
+func (c *Client) SetReporter(ctx context.Context, key, accountID string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"fields": map[string]any{"reporter": map[string]string{"accountId": accountID}}}
+	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
 		return err
 	}
 	c.Invalidate(key)

@@ -266,7 +266,7 @@ Board:
 
 Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
-  text, number and date fields edit in their row, status, priority, assignee
+  text, number and date fields edit in their row, status, priority, assignee, reporter
   and option fields drop a list under it;
   dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the
   parent an issue key; the sprint a pick of the board's

@@ -32,6 +32,7 @@ func init() {
 		{"Priority", func(m *Model) tea.Cmd { return m.openJiraPriorityPicker() }},
 		{"Points", func(m *Model) tea.Cmd { m.openJiraPointsInput(); return nil }},
 		{"Assignee", func(m *Model) tea.Cmd { return m.openJiraAssigneePicker() }},
+		{"Reporter", func(m *Model) tea.Cmd { return m.openJiraReporterPicker() }},
 		{"Labels", func(m *Model) tea.Cmd { m.openJiraLabelsInput(); return nil }},
 	}
 }

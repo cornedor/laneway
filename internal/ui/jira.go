@@ -103,7 +103,9 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	line()
 	refField(&b, "Assignee", iss.Assignee, 10, sel("Assignee"))
 	m.inlinePickerUnder(&b, "Assignee", 10, width)
-	refMeta(&b, "Reporter", iss.Reporter, 10)
+	line()
+	refField(&b, "Reporter", iss.Reporter, 10, sel("Reporter"))
+	m.inlinePickerUnder(&b, "Reporter", 10, width)
 	line()
 	m.refFieldEdit(&b, "Labels", strings.Join(iss.Labels, ", "), 10, width)
 	if !iss.Updated.IsZero() {
