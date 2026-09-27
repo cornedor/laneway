@@ -100,12 +100,25 @@ Every action can be rebound, to one key or several:
 ```yaml
 ui:
   keys:
-    search: f
+    search: ctrl+f
     mine: [m, M]
 ```
 
 The names are in the README. laneway warns when one key does two things on
 the same screen, and `?` always shows the keys as you bound them.
+
+## Your own actions
+
+A command of yours can sit in the palette, and on a key:
+
+```yaml
+ui:
+  actions:
+    - {name: copy for the changelog, key: "!", command: [sh, -c, 'jq -r "\(.key) \(.summary)" | wl-copy']}
+```
+
+It gets the issue (or the marked cards) as JSON on stdin and
+`LANEWAY_KEY` in its environment; its last line shows on the status line.
 
 ## Settings: `,`
 

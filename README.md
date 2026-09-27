@@ -16,6 +16,7 @@ terminal.
 - Inbox of others' changes, a standup of yours (commits too) or your team's
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Rules that notify, run a command or act on Jira when issues change
+- Scripts: list, view, create and move from the shell, completion, your own actions on a key
 - Several Jira sites, inline images in kitty and Ghostty
 - Every key and colour configurable
 
