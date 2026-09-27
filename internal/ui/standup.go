@@ -17,21 +17,24 @@ import (
 
 // openStandup loads your activity into a picker.
 func (m *Model) openStandup() tea.Cmd {
-	return m.openStandupSince(jira.PreviousWorkday(time.Now(), m.opts.workdays))
+	return m.openStandupSince(jira.PreviousWorkday(time.Now(), m.opts.workdays), false)
 }
 
-// openStandupSince loads your activity since since; U again inside it
-// reaches a workday further back.
-func (m *Model) openStandupSince(since time.Time) tea.Cmd {
+// openStandupSince loads your activity since since, or the board's
+// people's with team; U again inside it reaches a workday further back.
+func (m *Model) openStandupSince(since time.Time, team bool) tea.Cmd {
+	if team {
+		return m.openTeamStandup(since)
+	}
 	now := time.Now()
 	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)
 	m.jiraPicker.day = since
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, repos := m.jiraClient, m.ctx, m.standupRepos()
 	// Rows step a workday either way, U back too.
-	steps := []jiraPickerItem{{id: "earlier", label: "← a workday further back"}}
-	if since.Before(jira.PreviousWorkday(now, m.opts.workdays)) {
-		steps = append(steps, jiraPickerItem{id: "later", label: "→ a workday later"})
+	steps := m.standupSteps(since, now)
+	if len(m.teamPeople()) > 0 {
+		steps = append(steps, jiraPickerItem{id: "team", label: "Team: everyone on the board"})
 	}
 	return func() tea.Msg {
 		entries, err := c.Standup(ctx, since)
@@ -55,6 +58,16 @@ func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,
 			title: "Standup — since " + standupDay(since, now) + "  ·  U further back", text: text}
 	}
+}
+
+// standupSteps are the rows stepping a workday back, and forth when since
+// is before the last.
+func (m *Model) standupSteps(since, now time.Time) []jiraPickerItem {
+	steps := []jiraPickerItem{{id: "earlier", label: "← a workday further back"}}
+	if since.Before(jira.PreviousWorkday(now, m.opts.workdays)) {
+		steps = append(steps, jiraPickerItem{id: "later", label: "→ a workday later"})
+	}
+	return steps
 }
 
 // standupDay names t's day: Today, Yesterday, else the weekday and date.

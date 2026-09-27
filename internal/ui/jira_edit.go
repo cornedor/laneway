@@ -151,6 +151,9 @@ type jiraPickerState struct {
 	// (worklog.go).
 	day           time.Time
 	pendingDelete string
+	// team is the standup of the board's people rather than yours
+	// (standup_team.go).
+	team bool
 	// found are the palette's Jira search hits, shown after its own rows.
 	found []jiraPickerItem
 	// inline is the panel row the list drops under (a panel field name or
@@ -550,7 +553,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openWeek(day)
 	}
 	if m.jiraPicker.kind == jiraPickStandup && key.Matches(msg, m.keys.Standup) {
-		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays))
+		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays), m.jiraPicker.team)
 	}
 	if p := &m.jiraPicker; copyRowKinds[p.kind] && key.Matches(msg, m.keys.CopyBranch) && p.idx < len(p.items) {
 		it := p.items[p.idx]
@@ -741,7 +744,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		if it.id == "later" {
 			day = nextWorkday(m.jiraPicker.day, m.opts.workdays)
 		}
-		return m, m.openStandupSince(day)
+		return m, m.openStandupSince(day, m.jiraPicker.team)
+	}
+	if kind == jiraPickStandup && (it.id == "team" || it.id == "me") {
+		return m, m.openStandupSince(m.jiraPicker.day, it.id == "team")
 	}
 	if kind == jiraPickStandup && it.id == "copy" {
 		text := m.jiraPicker.text

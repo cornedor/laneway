@@ -1,10 +1,16 @@
 package ui
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -48,5 +54,55 @@ func TestStandupCommits(t *testing.T) {
 		[]jira.InboxEntry{{When: now.Add(-3 * time.Minute), What: "commit: tidy"}, {Key: "ABC-2", When: now.Add(-time.Minute), What: "commit: fix"}})
 	if want := "Today\n- ABC-2 Login: status: To Do → Done; commit: fix\n- no ticket: commit: tidy"; standupText(entries) != want {
 		t.Errorf("text:\n%s\nwant:\n%s", standupText(entries), want)
+	}
+}
+
+// TestTeamStandupRows: the Team row lists each assignee of the board with
+// what they did and logged, someone idle as nothing; Just me goes back.
+func TestTeamStandupRows(t *testing.T) {
+	now := time.Now()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"a1"}`)
+		case "/rest/api/3/search/jql":
+			io.WriteString(w, `{"issues":[{"key":"ABC-1","fields":{"summary":"First"}}]}`)
+		case "/rest/api/3/issue/ABC-1/worklog":
+			io.WriteString(w, `{"worklogs":[{"author":{"accountId":"a1","displayName":"Ada"},"started":"`+
+				now.Add(-time.Minute).Format("2006-01-02T15:04:05.000-0700")+`","timeSpentSeconds":7200}]}`)
+		case "/rest/api/3/issue/ABC-1/changelog":
+			io.WriteString(w, `{"total":0,"values":[]}`)
+		default:
+			io.WriteString(w, `{"comments":[]}`)
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Assignee: "Bo", AssigneeID: "b2"})
+	out, _ := m.handleJiraPickerLoaded(m.openStandup()().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	i := slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "team" })
+	if i < 0 {
+		t.Fatal("no Team row")
+	}
+	m.jiraPicker.idx = i
+	out, cmd := m.applyJiraPick()
+	m = out.(Model)
+	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Team standup — 2 people", "── Ada · logged 2h", "ABC-1 First — logged 2h", "── Bo", "nothing since"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("no %q:\n%s", want, view)
+		}
+	}
+	if !strings.HasPrefix(m.jiraPicker.text, "Ada · logged 2h\nToday\n- ABC-1 First: logged 2h\n\nBo\nnothing") {
+		t.Errorf("text %q", m.jiraPicker.text)
+	}
+	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "me" })
+	out, _ = m.applyJiraPick()
+	if m = out.(Model); m.jiraPicker.team || m.jiraPicker.title != "Standup" {
+		t.Errorf("Just me: team %v, title %q", m.jiraPicker.team, m.jiraPicker.title)
 	}
 }

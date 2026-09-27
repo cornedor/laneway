@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,28 +21,50 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 	if err != nil {
 		return nil, err
 	}
+	return c.activity(ctx, since, []string{me.AccountID})
+}
+
+// TeamStandup is what the accounts did since since, oldest first, each
+// entry's Who its person: the standup of each of them, for whoever runs it.
+func (c *Client) TeamStandup(ctx context.Context, since time.Time, accountIDs []string) ([]InboxEntry, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	if len(accountIDs) == 0 {
+		return nil, nil
+	}
+	return c.activity(ctx, since, accountIDs)
+}
+
+// activity is the accounts' changes, comments and logged work since since,
+// oldest first: one search for the issues any of them updated, each read
+// once.
+func (c *Client) activity(ctx context.Context, since time.Time, accountIDs []string) ([]InboxEntry, error) {
 	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
 	// updatedBy takes a user, not currentUser(): JQL won't nest functions.
-	jql := fmt.Sprintf(`issue in updatedBy("%s", "-%dm") ORDER BY updated DESC`, me.AccountID, mins)
-	issues, err := c.search(ctx, jql, []string{"summary"})
+	var by []string
+	for _, id := range accountIDs {
+		by = append(by, fmt.Sprintf(`issue in updatedBy("%s", "-%dm")`, id, mins))
+	}
+	issues, err := c.search(ctx, strings.Join(by, " OR ")+" ORDER BY updated DESC", []string{"summary"})
 	if err != nil {
 		return nil, err
 	}
-	issues = issues[:min(len(issues), c.inboxCap)]
+	issues = issues[:min(len(issues), c.inboxCap*len(accountIDs))]
 	var (
 		out  []InboxEntry
 		mu   sync.Mutex
 		wg   sync.WaitGroup
 		errs = make([]error, len(issues)+1)
 	)
-	mine := func(who string) bool { return who == me.AccountID }
+	theirs := func(who string) bool { return slices.Contains(accountIDs, who) }
 	for i, is := range issues {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			var summary string
 			_ = json.Unmarshal(is.Fields["summary"], &summary)
-			entries, err := c.issueActivity(ctx, is.Key, summary, since, mine, "")
+			entries, err := c.issueActivity(ctx, is.Key, summary, since, theirs, "")
 			entries = dropWorklogChanges(entries)
 			mu.Lock()
 			out = append(out, entries...)
@@ -49,28 +72,26 @@ func (c *Client) Standup(ctx context.Context, since time.Time) ([]InboxEntry, er
 			errs[i] = err
 		}()
 	}
-	// Worklogs, a day at a time back to since.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for d := since; !d.After(time.Now()); d = d.AddDate(0, 0, 1) {
-			logs, err := c.MyWorklogs(ctx, d)
-			if err != nil {
-				errs[len(issues)] = err
-				return
+		from := time.Date(since.Year(), since.Month(), since.Day(), 0, 0, 0, 0, since.Location())
+		logs, err := c.worklogsBetween(ctx, from, time.Now().AddDate(0, 0, 1), accountIDs)
+		if err != nil {
+			errs[len(issues)] = err
+			return
+		}
+		for _, w := range logs {
+			if w.Started.Before(since) {
+				continue
 			}
-			for _, w := range logs {
-				if w.Started.Before(since) {
-					continue
-				}
-				what := "logged " + FormatDuration(w.Seconds)
-				if w.Comment != "" {
-					what += ": " + w.Comment
-				}
-				mu.Lock()
-				out = append(out, InboxEntry{Key: w.Key, Summary: w.Summary, When: w.Started, What: what})
-				mu.Unlock()
+			what := "logged " + FormatDuration(w.Seconds)
+			if w.Comment != "" {
+				what += ": " + w.Comment
 			}
+			mu.Lock()
+			out = append(out, InboxEntry{Key: w.Key, Summary: w.Summary, When: w.Started, Who: w.Author, What: what, Logged: w.Seconds})
+			mu.Unlock()
 		}
 	}()
 	wg.Wait()

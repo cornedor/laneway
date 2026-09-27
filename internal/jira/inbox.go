@@ -32,6 +32,8 @@ type InboxEntry struct {
 	// Changes are a changelog entry's fields one by one, for showing a
 	// long one (the description) as a diff; none for other entries.
 	Changes []Change
+	// Logged is a worklog entry's seconds (the standup's); 0 for others.
+	Logged int
 }
 
 // Change is one field of a changelog entry, before and after.

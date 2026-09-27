@@ -376,6 +376,9 @@ names, keyless ones as *no ticket*. Its first row,
 Copy as text, puts it on the clipboard grouped per issue, ready to paste.
 `U` again (or its `←` row) reaches a workday further back, its `→` row a
 workday later again.
+Its *Team* row shows the same for everyone assigned a card on the board,
+per person with the time each logged, someone idle as *nothing*; *Just me*
+goes back.
 
 ## Releases
 

@@ -71,3 +71,48 @@ func TestStandup(t *testing.T) {
 		t.Errorf("entries = %+v", got)
 	}
 }
+
+// TestTeamStandup: the people's changes and worklogs from one search, with
+// who did them; others' left out.
+func TestTeamStandup(t *testing.T) {
+	now := time.Now().UTC()
+	at := func(d time.Duration) string { return now.Add(-d).Format(jiraTime) }
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/search/jql":
+			var body struct {
+				JQL string `json:"jql"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			switch {
+			case strings.HasPrefix(body.JQL, `issue in updatedBy("ann", "-`) && strings.Contains(body.JQL, `OR issue in updatedBy("bob", "-`):
+				io.WriteString(w, `{"issues":[{"key":"A-1","fields":{"summary":"One"}}]}`)
+			case strings.HasPrefix(body.JQL, `worklogAuthor in ("ann", "bob")`):
+				io.WriteString(w, `{"issues":[{"key":"A-1","fields":{"summary":"One"}}]}`)
+			default:
+				t.Errorf("jql %s", body.JQL)
+				io.WriteString(w, `{"issues":[]}`)
+			}
+		case r.URL.Path == "/rest/api/3/issue/A-1/changelog":
+			io.WriteString(w, `{"total":2,"values":[
+			  {"author":{"accountId":"ann","displayName":"Ann"},"created":"`+at(2*time.Hour)+`","items":[{"field":"status","fromString":"To Do","toString":"Done"}]},
+			  {"author":{"accountId":"carol","displayName":"Carol"},"created":"`+at(time.Hour)+`","items":[{"field":"labels","toString":"x"}]}]}`)
+		case r.URL.Path == "/rest/api/3/issue/A-1/comment":
+			io.WriteString(w, `{"comments":[]}`)
+		case r.URL.Path == "/rest/api/3/issue/A-1/worklog":
+			io.WriteString(w, `{"worklogs":[{"author":{"accountId":"bob","displayName":"Bob"},"started":"`+at(3*time.Hour)+`","timeSpentSeconds":3600},
+			  {"author":{"accountId":"carol","displayName":"Carol"},"started":"`+at(3*time.Hour)+`","timeSpentSeconds":60}]}`)
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.TeamStandup(context.Background(), now.Add(-5*time.Hour), []string{"ann", "bob"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Who != "Bob" || got[0].Logged != 3600 || got[1].Who != "Ann" || got[1].What != "status: To Do → Done" {
+		t.Errorf("entries = %+v", got)
+	}
+}

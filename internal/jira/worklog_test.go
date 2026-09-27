@@ -86,7 +86,7 @@ func TestMyWorklogs(t *testing.T) {
 		case r.URL.Path == "/rest/api/3/search/jql":
 			var body struct{ JQL string }
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body.JQL != `worklogAuthor = "me" AND worklogDate >= "2026-09-25" AND worklogDate < "2026-09-26"` {
+			if body.JQL != `worklogAuthor in ("me") AND worklogDate >= "2026-09-25" AND worklogDate < "2026-09-26"` {
 				t.Errorf("jql %s", body.JQL)
 			}
 			io.WriteString(w, `{"issues":[{"key":"A-1","fields":{"summary":"One"}},{"key":"A-2","fields":{"summary":"Two"}}]}`)

@@ -128,13 +128,18 @@ func (c *Client) MyWorklogsBetween(ctx context.Context, from, to time.Time) ([]W
 	if err != nil {
 		return nil, err
 	}
-	return c.worklogsBetween(ctx, from, to, me.AccountID)
+	return c.worklogsBetween(ctx, from, to, []string{me.AccountID})
 }
 
-// worklogsBetween is what accountID logged from from until to.
-func (c *Client) worklogsBetween(ctx context.Context, from, to time.Time, accountID string) ([]Worklog, error) {
-	jql := fmt.Sprintf(`worklogAuthor = "%s" AND worklogDate >= "%s" AND worklogDate < "%s"`,
-		accountID, from.Format(time.DateOnly), to.Format(time.DateOnly))
+// worklogsBetween is what the accounts logged from from until to, with
+// each entry's Author.
+func (c *Client) worklogsBetween(ctx context.Context, from, to time.Time, accountIDs []string) ([]Worklog, error) {
+	quoted := make([]string, len(accountIDs))
+	for i, id := range accountIDs {
+		quoted[i] = strconv.Quote(id)
+	}
+	jql := fmt.Sprintf(`worklogAuthor in (%s) AND worklogDate >= "%s" AND worklogDate < "%s"`,
+		strings.Join(quoted, ", "), from.Format(time.DateOnly), to.Format(time.DateOnly))
 	issues, err := c.search(ctx, jql, []string{"summary"})
 	if err != nil {
 		return nil, err
@@ -167,10 +172,10 @@ func (c *Client) worklogsBetween(ctx context.Context, from, to time.Time, accoun
 			}
 			for _, w := range resp.Worklogs {
 				started, _ := time.Parse(jiraTime, w.Started)
-				if w.Author.AccountID != accountID || started.Before(from) || !started.Before(to) {
+				if !slices.Contains(accountIDs, w.Author.AccountID) || started.Before(from) || !started.Before(to) {
 					continue
 				}
-				wl := Worklog{ID: w.ID, Key: is.Key, Summary: summary, Seconds: w.TimeSpentSeconds, Started: started}
+				wl := Worklog{ID: w.ID, Key: is.Key, Summary: summary, Author: w.Author.DisplayName, Seconds: w.TimeSpentSeconds, Started: started}
 				if len(w.Comment) > 0 && string(w.Comment) != "null" {
 					wl.Comment = strings.TrimSpace(adfToMarkdown(w.Comment))
 				}

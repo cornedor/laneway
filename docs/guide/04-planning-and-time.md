@@ -118,6 +118,9 @@ clipboard grouped per issue.
 
 ![What you did since Friday](../screenshots/standup.png)
 
+Running the standup? Its *Team* row lists what each person on the board
+did and logged since the last workday.
+
 > **Try it:** `U`, `enter` on *Copy as text*, paste it in your team's
 > standup channel. Done before the coffee's ready.
 
