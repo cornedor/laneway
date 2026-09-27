@@ -2,13 +2,14 @@
 
 ## Next
 - Charts' `y` table in issues for an unpointed sprint, like the plots
-- Charts and planning: keep the half that loaded when the other half fails
+- Planning: keep the side that loaded when the other fails
 - Standup can step forward again (its picker filters as you type, so a key that types nothing)
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Charts keep the half that loaded: a failed velocity leaves the sprint's charts, and the other way round; only the failed tab shows its error
 - The timesheet's empty day says how to log (`w` in the panel) and step days; charts' tab with no active sprint says only velocity is there
 - Burndown and burnup count issues when no issue in the sprint has points (`2 of 3 issues left`), as the header's sprint bar does
 - `D` dev info: `ctrl+y` copies a row's branch (a pull request's source), enter on a row without a link says so, and one tool failing no longer blanks the others

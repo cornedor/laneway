@@ -37,14 +37,16 @@ type chartsState struct {
 	vel     []jira.SprintVelocity
 	loading bool
 	seq     int
-	err     string
+	// burnErr and velErr are why the sprint's issues or the velocity
+	// didn't load; the other half still shows.
+	burnErr, velErr string
 }
 
 type chartsMsg struct {
-	seq  int
-	burn []jira.BurnIssue
-	vel  []jira.SprintVelocity
-	err  error
+	seq             int
+	burn            []jira.BurnIssue
+	vel             []jira.SprintVelocity
+	burnErr, velErr error
 }
 
 // openCharts swaps the board for the charts of its active sprint.
@@ -90,7 +92,7 @@ func (m *Model) loadCharts() tea.Cmd {
 		}()
 		go func() { defer wg.Done(); msg.vel, errV = c.Velocity(ctx, board, n, pf) }()
 		wg.Wait()
-		msg.err = firstErr(errB, errV)
+		msg.burnErr, msg.velErr = errB, errV
 		return msg
 	}
 }
@@ -101,11 +103,19 @@ func (m Model) handleCharts(msg chartsMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	ch.loading = false
-	if msg.err != nil {
-		ch.err = msg.err.Error()
-		return m, nil
+	errText := func(err error) string {
+		if err != nil {
+			return err.Error()
+		}
+		return ""
 	}
-	ch.err, ch.burn, ch.vel = "", msg.burn, msg.vel
+	ch.burnErr, ch.velErr = errText(msg.burnErr), errText(msg.velErr)
+	if msg.burnErr == nil {
+		ch.burn = msg.burn
+	}
+	if msg.velErr == nil {
+		ch.vel = msg.vel
+	}
 	return m, nil
 }
 
@@ -131,7 +141,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadCharts()
 	case key.Matches(msg, m.keys.CopyKey):
-		if ch.loading || ch.err != "" {
+		if ch.loading || ch.tab == chartVelocity && ch.velErr != "" || ch.tab != chartVelocity && ch.burnErr != "" {
 			break
 		}
 		m.status = "copied the numbers as a markdown table"
@@ -165,9 +175,13 @@ func (m *Model) chartsLine() string { return joinSegs(m.chartsSegs()) }
 // renderCharts draws the open chart into width × height.
 func (m *Model) renderCharts(width, height int) string {
 	ch := m.jiraTab.charts
+	failed := ch.velErr
+	if ch.tab != chartVelocity {
+		failed = ch.burnErr
+	}
 	switch {
-	case ch.err != "":
-		s, _ := jiraErrorState(ch.err, width, height, m.screenErrHints()...)
+	case failed != "":
+		s, _ := jiraErrorState(failed, width, height, m.screenErrHints()...)
 		return s
 	case ch.loading && ch.burn == nil && ch.vel == nil:
 		return refDimStyle.Render("loading…")

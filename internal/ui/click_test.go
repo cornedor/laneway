@@ -1223,3 +1223,22 @@ func TestChartsNoSprint(t *testing.T) {
 		t.Errorf("status %q", m.status)
 	}
 }
+
+// TestChartsHalfLoaded: a failed velocity leaves the burndown showing, its
+// tab alone saying what failed.
+func TestChartsHalfLoaded(t *testing.T) {
+	m := chartsModel(t)
+	ch := m.jiraTab.charts
+	burn := ch.burn
+	ch.seq++
+	out, _ := m.handleCharts(chartsMsg{seq: ch.seq, burn: burn, velErr: fmt.Errorf("velocity down")})
+	m = out.(Model)
+	ch.tab = chartBurndown
+	if view := ansi.Strip(m.View().Content); strings.Contains(view, "velocity down") || !strings.Contains(view, "left") {
+		t.Errorf("burndown:\n%s", view)
+	}
+	ch.tab = chartVelocity
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "velocity down") {
+		t.Errorf("velocity tab lacks its error:\n%s", view)
+	}
+}
