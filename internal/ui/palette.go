@@ -25,18 +25,30 @@ var paletteSkip = map[string]bool{
 	"page_up": true, "page_down": true, "palette": true,
 }
 
+// paletteDesc renames actions whose board description is wrong on a
+// screen over the board.
+var paletteDesc = map[string]map[string]string{
+	"roadmap": {"move_left": "move the bar a column earlier", "move_right": "move the bar a column later",
+		"end_earlier": "move its end earlier", "end_later": "move its end later", "quit": "close the roadmap"},
+	"planning": {"quit": "close planning"},
+	"charts":   {"quit": "close the charts"},
+}
+
 // openPalette fills the picker with the palette's rows.
 func (m *Model) openPalette() {
 	m.paletteFocus = m.focus
 	m.startJiraPicker(jiraPickPalette, "Command palette", true)
 	m.jiraPicker.filter.Placeholder = "action, view, filter, board or issue…"
-	scope := "board"
-	if m.focus == focusRef && m.refOpen {
-		scope = "panel"
-	}
+	scope := m.paletteScope()
+	onBoard := scope == "board" || scope == "panel"
 	names := m.keys.keyNames()
+	t := m.jiraTab
 	var items []jiraPickerItem
-	for _, p := range m.pinnedIssues() {
+	var pinned [][2]string
+	if onBoard {
+		pinned = m.pinnedIssues()
+	}
+	for _, p := range pinned {
 		label := "pinned  " + p[0] + "  " + ansi.Strip(p[1])
 		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == p[0] }); i >= 0 {
 			label += "  · " + m.jiraTab.cards[i].Status // on the board: its status now
@@ -52,10 +64,13 @@ func (m *Model) openPalette() {
 			if paletteSkip[name] || b == nil || len(b.Keys()) == 0 {
 				continue
 			}
-			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: b.Help().Desc + "  " + keysLabel(*b)})
+			desc := b.Help().Desc
+			if d, ok := paletteDesc[scope][name]; ok {
+				desc = d
+			}
+			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: desc + "  " + keysLabel(*b)})
 		}
 	}
-	t := m.jiraTab
 	if scope == "board" {
 		for i, v := range t.views {
 			items = append(items, jiraPickerItem{id: "v:" + strconv.Itoa(i), label: "view  " + v.name, current: i == t.viewIdx})
@@ -78,18 +93,37 @@ func (m *Model) openPalette() {
 		items = append(items, jiraPickerItem{id: "d:", label: "open download  " + filepath.Base(m.lastDownload)})
 	}
 	items = append(items, jiraPickerItem{id: "m:", label: fmt.Sprintf("messages  the status line's last %d", len(m.statusLog))})
-	for _, c := range t.cards {
-		if id := "i:" + c.Key; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
-			items = append(items, jiraPickerItem{id: id, label: c.Key + "  " + ansi.Strip(c.Summary)})
+	if onBoard {
+		for _, c := range t.cards {
+			if id := "i:" + c.Key; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
+				items = append(items, jiraPickerItem{id: id, label: c.Key + "  " + ansi.Strip(c.Summary)})
+			}
 		}
-	}
-	for _, r := range m.recentIssues() {
-		if id := "i:" + r[0]; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
-			items = append(items, jiraPickerItem{id: id, label: "recent  " + r[0] + "  " + ansi.Strip(r[1])})
+		for _, r := range m.recentIssues() {
+			if id := "i:" + r[0]; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
+				items = append(items, jiraPickerItem{id: id, label: "recent  " + r[0] + "  " + ansi.Strip(r[1])})
+			}
 		}
 	}
 	m.setJiraPickerItems(items)
 	m.jiraPicker.idx = 0
+}
+
+// paletteScope is the keyScopes entry the palette offers. A screen over the
+// board offers its own keys only: board rows would run as them.
+func (m *Model) paletteScope() string {
+	t := m.jiraTab
+	switch {
+	case m.paletteFocus == focusRef && m.refOpen:
+		return "panel"
+	case t.roadmap != nil:
+		return "roadmap"
+	case t.plan != nil:
+		return "planning"
+	case t.charts != nil:
+		return "charts"
+	}
+	return "board"
 }
 
 // applyPalette runs the picked row.
@@ -194,7 +228,8 @@ type paletteFoundMsg struct {
 // schedulePaletteSearch arms a search for the filter once typing pauses.
 func (m *Model) schedulePaletteSearch() tea.Cmd {
 	m.jiraPicker.fetchSeq++
-	if len([]rune(strings.TrimSpace(m.jiraPicker.filter.Value()))) < paletteSearchMin {
+	if scope := m.paletteScope(); scope != "board" && scope != "panel" ||
+		len([]rune(strings.TrimSpace(m.jiraPicker.filter.Value()))) < paletteSearchMin {
 		return nil
 	}
 	seq := m.jiraPicker.fetchSeq

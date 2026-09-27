@@ -219,3 +219,28 @@ func TestPaletteNamedFilter(t *testing.T) {
 		t.Errorf("query %q, %d shown", m.jiraTab.search.Value(), len(m.jiraTab.order))
 	}
 }
+
+// TestPaletteScreens: over the roadmap, planning and charts the palette
+// lists that screen's keys, not the board's.
+func TestPaletteScreens(t *testing.T) {
+	var writes []string
+	for name, c := range map[string]struct {
+		m        Model
+		want     string
+		notWants []string
+	}{
+		"roadmap":  {roadmapModel(t), "zoom in", []string{"move card left", "view  Backlog", "board  ABC board", "ABC-3  Third"}},
+		"planning": {planModel(t, &writes), "new sprint", []string{"sort", "board  ABC board", "ABC-3  Third"}},
+		"charts":   {chartsModel(t), "refresh", []string{"move card left", "filter  FE"}},
+	} {
+		all := strings.Join(paletteLabels(typePalette(t, c.m, "")), "\n")
+		if !strings.Contains(all, c.want) {
+			t.Errorf("%s palette lacks %q:\n%s", name, c.want, all)
+		}
+		for _, nw := range c.notWants {
+			if strings.Contains(all, nw) {
+				t.Errorf("%s palette offers %q", name, nw)
+			}
+		}
+	}
+}

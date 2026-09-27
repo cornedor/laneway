@@ -82,6 +82,7 @@ var keyScopes = []struct {
 		"move_left", "move_right", "end_earlier", "end_later", "zoom_in", "zoom_out", "today", "refresh", "roadmap_issues",
 		"create", "browser", "open", "toggle_panel", "copy_key", "help",
 	}},
+	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts"}},
 	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry"}},
 }
 
