@@ -280,6 +280,7 @@ Panel:
 - more: `A` subtask / link / web link / unlink / estimate / clone / change type / move to another project / delete (twice; with its subtasks) / edit or delete your comment / watch / add or remove watchers / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
 - mouse: drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
+- `/` find in the issue, `n`/`N` the next / previous hit (what the panel shows: the open activity tab, `all` for everything)
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 

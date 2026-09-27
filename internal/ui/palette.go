@@ -52,6 +52,7 @@ var paletteDesc = map[string]map[string]string{
 	"roadmap": {"move_left": "move the bar a column earlier", "move_right": "move the bar a column later",
 		"end_earlier": "move its end earlier", "end_later": "move its end later", "quit": "close the roadmap"},
 	"planning": {"quit": "close planning"},
+	"panel":    {"search": "find in the issue"},
 	"charts":   {"quit": "close the charts"},
 }
 

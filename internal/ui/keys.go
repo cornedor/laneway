@@ -68,7 +68,7 @@ var keyScopes = []struct {
 		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings", "filter_builder", "panel_wider", "panel_narrower", "quick_edit", "my_work", "compact", "rank_up", "rank_down",
 	}},
 	{"panel", []string{
-		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",
+		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work", "search",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "copy_branch", "help", "refresh", "toggle_panel", "palette",
 		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower",
 	}},

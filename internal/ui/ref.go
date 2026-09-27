@@ -139,6 +139,16 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Palette):
 		m.openPalette()
 		return m, nil
+	case key.Matches(msg, m.keys.Search):
+		m.openPanelFind()
+		return m, nil
+	case m.panelFind != "" && (msg.String() == "n" || msg.String() == "N"):
+		if msg.String() == "n" {
+			m.findInPanel(1)
+		} else {
+			m.findInPanel(-1)
+		}
+		return m, nil
 	case key.Matches(msg, m.keys.JiraDescription):
 		return m, m.editDescription()
 	case key.Matches(msg, m.keys.LogWork) && m.jiraIssue != nil:
@@ -286,6 +296,7 @@ func (m *Model) renderRef() {
 		content = m.placeInlineEditor(content, m.refView.Width())
 		m.refView.SetContent(content)
 		m.indexPanelHits(content)
+		m.panelPlain = plainLines(content)
 	default:
 		m.refView.SetContent(refDimStyle.Render("loading…"))
 	}

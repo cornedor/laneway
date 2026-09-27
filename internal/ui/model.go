@@ -327,6 +327,9 @@ type Model struct {
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.
 	panelHits      map[int]panelHit
+	panelFind      string   // what / last looked for in the panel
+	panelFindAt    int      // the line of the last hit shown
+	panelPlain     []string // the panel's lines, unstyled, for find
 	panelFieldLine []int
 	// pickerLine is the content line of the inline picker's first shown row
 	// (pickerStart), -1 when none (jira_edit.go).
