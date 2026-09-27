@@ -260,8 +260,9 @@ func (m *Model) prepareBulkMove(keys []string, to string) tea.Cmd {
 		if err != nil {
 			return bulkMoveMsg{keys: keys, to: to, err: err}
 		}
-		rules, _ := c.TransitionRules(ctx, ic.Project, ic.TypeID)
-		if len(rules[metas[i].ID].Required) == 0 {
+		rules, rErr := c.TransitionRules(ctx, ic.Project, ic.TypeID)
+		// Unknown rules show the screen, as a single move does.
+		if len(rules[metas[i].ID].Required) == 0 && (rErr == nil || len(metas[i].Fields) == 0) {
 			return bulkMoveMsg{keys: keys, to: to}
 		}
 		form := buildJiraForm(keys[0], metas[i], rules[metas[i].ID], ic)

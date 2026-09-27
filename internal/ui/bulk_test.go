@@ -233,3 +233,26 @@ func TestQuickEdit(t *testing.T) {
 		t.Errorf("marks %v, quick %q", m.jiraTab.marked, m.quickKey)
 	}
 }
+
+// TestBulkMoveRulesUnknown: when the workflow can't be read, a move with a
+// screen asks its fields, as a single move does.
+func TestBulkMoveRulesUnknown(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issue/ABC-1/transitions":
+			io.WriteString(w, `{"transitions":[{"id":"15","name":"Review","hasScreen":true,"to":{"id":"4","name":"Code review"},
+				"fields":{"customfield_2":{"name":"Code Reviewer","schema":{"type":"user"}}}}]}`)
+		case "/rest/api/3/issue/ABC-1":
+			io.WriteString(w, `{"fields":{"project":{"key":"ABC"},"issuetype":{"id":"1"}}}`)
+		default:
+			w.WriteHeader(http.StatusForbidden) // the workflow scheme: admins only
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	msg := m.prepareBulkMove([]string{"ABC-1", "ABC-3"}, "Code review")().(bulkMoveMsg)
+	if msg.err != nil || msg.form == nil || len(msg.form.bulk) != 2 || msg.form.fields[0].Name != "Code Reviewer" {
+		t.Fatalf("msg = %+v", msg)
+	}
+}
