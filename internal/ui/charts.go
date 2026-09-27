@@ -202,7 +202,7 @@ func (m *Model) chartTable(now time.Time) string {
 	ch := m.jiraTab.charts
 	var head []string
 	var rows [][]string
-	day := func(i int) string { return ch.sprint.start.AddDate(0, 0, i).Format("2006-01-02") }
+	day := func(i int) string { return localDay(ch.sprint.start).AddDate(0, 0, i).Format("2006-01-02") }
 	switch ch.tab {
 	case chartBurndown:
 		burn, unit := burnUnit(ch.burn)
@@ -260,6 +260,13 @@ func markdownTable(head []string, rows [][]string) string {
 	return b.String()
 }
 
+// localDay is the local midnight t falls after: charts bucket days as the
+// clock on the wall reads them, not as Jira's UTC timestamps do.
+func localDay(t time.Time) time.Time {
+	t = t.Local()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+}
+
 // burnSeries is the sprint's points now, the points added after it started,
 // and, per day from its start up to today (or its end), the points in it
 // then and still open at that day's end.
@@ -270,7 +277,7 @@ func burnSeries(issues []jira.BurnIssue, start, end, now time.Time) (total, adde
 			added += is.Points
 		}
 	}
-	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	day := localDay(start)
 	last := end
 	if now.Before(last) {
 		last = now
@@ -350,7 +357,7 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, now time.Time, width, h
 		}
 		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+roadmapTodoStyle.Render(row))
 	}
-	from, to := v.start.Format("Mon 2 Jan"), v.end.Format("Mon 2 Jan")
+	from, to := v.start.Local().Format("Mon 2 Jan"), v.end.Local().Format("Mon 2 Jan")
 	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))
 	return strings.Join(lines, "\n")
 }
@@ -390,7 +397,7 @@ func chartNum(f float64) string {
 // burnupSeries is, per day from the sprint's start up to today (or its end),
 // the points in it then and the points of those done by that day's end.
 func burnupSeries(issues []jira.BurnIssue, start, end, now time.Time) (scope, done []float64) {
-	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	day := localDay(start)
 	last := end
 	if now.Before(last) {
 		last = now
@@ -453,7 +460,7 @@ func renderBurnup(v jiraView, issues []jira.BurnIssue, now time.Time, width, hei
 		}
 		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+roadmapDoneStyle.Render(row))
 	}
-	from, to := v.start.Format("Mon 2 Jan"), v.end.Format("Mon 2 Jan")
+	from, to := v.start.Local().Format("Mon 2 Jan"), v.end.Local().Format("Mon 2 Jan")
 	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))
 	return strings.Join(lines, "\n")
 }
@@ -467,7 +474,7 @@ func flowSeries(issues []jira.BurnIssue, cols []jira.Column, start, end, now tim
 			colOf[id] = i
 		}
 	}
-	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	day := localDay(start)
 	last := end
 	if now.Before(last) {
 		last = now
@@ -562,7 +569,7 @@ func renderFlow(v jiraView, issues []jira.BurnIssue, cols []jira.Column, now tim
 		}
 		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+b.String())
 	}
-	from, to := v.start.Format("Mon 2 Jan"), v.end.Format("Mon 2 Jan")
+	from, to := v.start.Local().Format("Mon 2 Jan"), v.end.Local().Format("Mon 2 Jan")
 	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))
 	return strings.Join(lines, "\n")
 }

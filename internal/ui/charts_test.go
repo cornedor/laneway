@@ -33,6 +33,23 @@ func TestBurnSeries(t *testing.T) {
 	}
 }
 
+// TestBurnSeriesLocalDays: days break at local midnight, whatever zone
+// Jira's timestamps carry.
+func TestBurnSeriesLocalDays(t *testing.T) {
+	local := time.Local
+	time.Local = time.FixedZone("JST", 9*3600)
+	t.Cleanup(func() { time.Local = local })
+	start := time.Date(2026, 9, 13, 23, 0, 0, 0, time.UTC) // Mon 14 Sep 08:00 JST
+	resolved := start.Add(90 * time.Minute)                // Mon 09:30 JST, Mon 00:30 UTC
+	_, _, left := burnSeries([]jira.BurnIssue{{Points: 3, Resolved: resolved}, {Points: 1}}, start, start.AddDate(0, 0, 4), start.AddDate(0, 0, 1))
+	if !slices.Equal(left, []float64{1, 1}) {
+		t.Errorf("left %v, want the resolution on day 0", left)
+	}
+	if d := localDay(start); d.Format("Mon 2 Jan") != "Mon 14 Sep" {
+		t.Errorf("day 0 = %s", d.Format("Mon 2 Jan"))
+	}
+}
+
 // chartsModel has the active sprint dated and the charts open with data.
 func chartsModel(t *testing.T) Model {
 	t.Helper()
