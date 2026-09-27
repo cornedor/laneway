@@ -344,3 +344,24 @@ func TestDeleteAttachment(t *testing.T) {
 		t.Errorf("request %q, status %q", got, m.status)
 	}
 }
+
+// TestDescLoadedLate: a description that lands after the panel moved on, or
+// with a comment being written, opens no editor.
+func TestDescLoadedLate(t *testing.T) {
+	m := loadedJiraModel(t)
+	out, _ := m.handleDescLoaded(descLoadedMsg{key: "ABC-9", md: "other"})
+	if m = out.(Model); m.descEdit != nil {
+		t.Error("opened for an issue the panel doesn't show")
+	}
+	m.jiraCommentActive = true
+	out, _ = m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "x"})
+	if m = out.(Model); m.descEdit != nil {
+		t.Error("opened over a comment")
+	}
+	m.jiraCommentActive = false
+	m.refOpen = false
+	out, _ = m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "x"})
+	if m = out.(Model); m.descEdit != nil {
+		t.Error("opened with the panel closed")
+	}
+}

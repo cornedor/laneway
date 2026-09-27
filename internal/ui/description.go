@@ -65,8 +65,15 @@ func (m *Model) editDescription() tea.Cmd {
 	}
 }
 
-// handleDescLoaded opens the in-app editor on the markdown.
+// handleDescLoaded opens the in-app editor on the markdown, unless the
+// panel moved on from the issue or something else opened meanwhile.
 func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
+	if r := m.currentRef(); r == nil || r.jiraKey != msg.key || m.jiraIssue == nil || m.jiraIssue.Key != msg.key || m.modalOpen() {
+		if strings.HasPrefix(m.status, "loading "+msg.key) {
+			m.status = ""
+		}
+		return m, nil
+	}
 	if msg.err != nil {
 		m.fail(msg.key + ": " + msg.err.Error() + " — edit it in Jira (o)")
 		return m, nil
