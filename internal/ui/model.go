@@ -374,6 +374,9 @@ type Model struct {
 	jiraCommentDiscard bool
 	// unsent is a comment whose post failed, by issue: c brings it back.
 	unsent struct{ key, text string }
+	// otherSites are the other configured sites' clients, for the inbox
+	// (inbox_sites.go).
+	otherSites *siteClients
 	// actions are ui.actions, the usable ones (actions.go).
 	actions []config.Action
 	// repeat is the last change, for . to make again (repeat.go).

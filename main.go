@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/ui"
 )
@@ -157,7 +158,15 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown)
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).
+		WithSiteClients(func(other string) (*jira.Client, error) {
+			j, err := cfg.Site(other)
+			if err != nil || j.Check(siteName(other)) != nil {
+				return nil, err
+			}
+			timeout, _ := j.RequestTimeout()
+			return jira.New(jira.Config{BaseURL: j.BaseURL, Email: j.Email, APIToken: j.APIToken, Timeout: timeout}), nil
+		})
 	final, err := tea.NewProgram(m).Run()
 	fm, ok := final.(ui.Model)
 	if ok {

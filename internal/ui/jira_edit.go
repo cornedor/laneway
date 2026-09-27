@@ -875,6 +875,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.focus = focusRef
 		return m, m.switchActivity(activityHistory)
 	}
+	if u, ok := siteEntryURL(it.id); ok && kind == jiraPickInbox { // another site's
+		m.closeJiraPicker()
+		m.status = "opening " + u + "…"
+		return m, m.openOpenable(openable{name: u, url: u})
+	}
 	if kind == jiraPickInbox && it.id == inboxPrevID {
 		if sec, err := strconv.ParseInt(it.value, 10, 64); err == nil {
 			return m, m.openInboxSince(time.Unix(sec, 0), false) // the marks stay

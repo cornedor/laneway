@@ -397,7 +397,8 @@ drops it.
 ![Others' changes and a mention in the inbox](docs/screenshots/inbox.png)
 
 `I` lists what others did since you last opened it (a day, the first
-time) on the issues you watch, are assigned or reported: field changes and
+time) on the issues you watch, are assigned or reported, on every configured
+site (another's entries say `[club]` and open in the browser): field changes and
 comments, those mentioning you first and marked `@`. Filter by typing;
 `enter` opens the issue. Opening it marks everything read; its last row,
 `↶ the inbox before`, brings back the one before (opened and closed by

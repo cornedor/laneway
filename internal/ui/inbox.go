@@ -60,16 +60,20 @@ func (m *Model) openInboxSince(since time.Time, mark bool) tea.Cmd {
 	prev, hasPrev := m.inboxPrev() // the read before the one since
 	gen := m.startJiraPicker(jiraPickInbox, "Inbox", true)
 	seq := m.jiraPicker.fetchSeq
-	c, ctx, st := m.jiraClient, m.ctx, m.store
+	c, ctx, st, others := m.jiraClient, m.ctx, m.store, m.others()
 	return func() tea.Msg {
-		entries, err := c.Inbox(ctx, since)
+		entries, err := inboxAll(ctx, c, others, since)
 		items := make([]jiraPickerItem, len(entries))
 		for i, e := range entries {
 			at := " "
 			if e.Mention {
 				at = "@"
 			}
-			items[i] = jiraPickerItem{id: e.Key, label: fmt.Sprintf("%s %s  %s  %s %s — %s", at, inboxWhen(e.When, now), e.Who, e.Key, e.Summary, e.What)}
+			id, where := e.Key, ""
+			if e.site != "" {
+				id, where = siteEntryPrefix+e.url, "["+e.site+"] "
+			}
+			items[i] = jiraPickerItem{id: id, label: fmt.Sprintf("%s %s  %s  %s%s %s — %s", at, inboxWhen(e.When, now), e.Who, where, e.Key, e.Summary, e.What)}
 		}
 		if err == nil {
 			if st != nil && mark {
@@ -86,7 +90,7 @@ func (m *Model) openInboxSince(since time.Time, mark bool) tea.Cmd {
 		}
 		issues := map[string]bool{} // as the header's ✉ counts them
 		for _, e := range entries {
-			issues[e.Key] = true
+			issues[e.site+" "+e.Key] = true
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickInbox, items: items, err: err,
 			title: fmt.Sprintf("Inbox — %s since %s", inboxCount(len(entries), len(issues)), inboxWhen(since, now))}
@@ -131,9 +135,9 @@ func (m *Model) countInbox() tea.Cmd {
 	if !m.jiraClient.Enabled() {
 		return nil
 	}
-	c, ctx, since := m.jiraClient, m.ctx, m.inboxSince(time.Now())
+	c, ctx, since, others := m.jiraClient, m.ctx, m.inboxSince(time.Now()), m.others()
 	return func() tea.Msg {
-		n, err := c.InboxCount(ctx, since)
+		n, err := inboxCountAll(ctx, c, others, since)
 		if err != nil {
 			return nil // a badge is not worth an error line
 		}
