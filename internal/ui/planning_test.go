@@ -309,3 +309,15 @@ func TestPlanDrag(t *testing.T) {
 		t.Errorf("writes = %q", writes)
 	}
 }
+
+// TestPlanCopyFailedSide: y on a sprint side that didn't load copies
+// nothing and says so.
+func TestPlanCopyFailedSide(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	m.jiraTab.plan.sideErr[1] = "timeout"
+	out, cmd := m.handleJiraKey(keyStr("y"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "didn't load") {
+		t.Errorf("status %q, cmd %v", m.status, cmd != nil)
+	}
+}

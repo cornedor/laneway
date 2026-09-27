@@ -208,6 +208,14 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.planMove()
 	case key.Matches(msg, m.keys.CopyKey):
 		v := p.sprints[p.target]
+		switch {
+		case p.loading:
+			m.status = v.name + " is still loading"
+			return m, nil
+		case p.sideErr[1] != "":
+			m.status = v.name + " didn't load: " + helpKey(m.keys.Refresh) + " retries"
+			return m, nil
+		}
 		var rows [][]string
 		for _, c := range p.sides[1] {
 			rows = append(rows, []string{c.Key, c.Summary, c.Assignee, c.Points})

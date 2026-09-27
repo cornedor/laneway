@@ -1,13 +1,13 @@
 # Roadmap
 
 ## Next
-- Planning: `y` refuses while the sprint side is loading or failed, and says why (it copies an empty table)
 - Standup: "Copy as text" after a failed load says there is nothing to copy (it says "standup copied" and copies nothing)
 - A failed save of the running timer says so (`worklog.go` drops it; the timer is lost on restart)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Planning: `y` while the sprint side is loading or failed says so instead of copying an empty table
 - Inbox: the title names changes and issues (`11 changes on 3 issues since …`), so it squares with the header's `✉ 3`
 - Timesheet: `]` stops at today (it walked into empty future days)
 - The docs are a website: MkDocs Material (`mkdocs.yml`, `docs/`), home, the guide and a reference page drawn from the README; `.github/workflows/docs.yml` builds it strictly and deploys to GitHub Pages
