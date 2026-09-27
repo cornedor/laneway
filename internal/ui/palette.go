@@ -188,6 +188,7 @@ type paletteSearchMsg struct{ seq int }
 type paletteFoundMsg struct {
 	seq   int
 	cards []jira.Card
+	err   error
 }
 
 // schedulePaletteSearch arms a search for the filter once typing pauses.
@@ -207,8 +208,8 @@ func (m Model) handlePaletteSearch(msg paletteSearchMsg) (tea.Model, tea.Cmd) {
 	}
 	c, ctx, q := m.jiraClient, m.ctx, p.filter.Value()
 	return m, func() tea.Msg {
-		cards, _ := c.FindIssues(ctx, q, paletteSearchHits)
-		return paletteFoundMsg{msg.seq, cards}
+		cards, err := c.FindIssues(ctx, q, paletteSearchHits)
+		return paletteFoundMsg{msg.seq, cards, err}
 	}
 }
 
@@ -219,6 +220,9 @@ func (m Model) handlePaletteFound(msg paletteFoundMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	p.found = nil
+	if msg.err != nil {
+		m.fail("issue search: " + msg.err.Error()) // not "no matches"
+	}
 	for _, c := range msg.cards {
 		id := "i:" + c.Key
 		if slices.ContainsFunc(p.all, func(it jiraPickerItem) bool { return it.id == id }) {

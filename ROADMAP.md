@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- The palette's Jira search, `@` mentions and JQL value completions say when their search failed, not just show nothing
 - `A` deletes a comment of yours, next to editing one
 - `A` deletes an attachment (a wrong clipboard paste)
 - Panel: `backspace` with no trail says so
@@ -9,6 +8,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The palette's issue search, `@` mentions and `Q`'s value completions say when their search failed (offline, 401), not just show nothing
 - The `L` link picker, `A`'s link types, `M`'s sprints and `b`'s boards take a filter, as the project picker and "Remove a link" do
 - Board: `K`/`J` rank the card in its lane (or a list sorted by rank), as in planning; the cards swap at once, a failed rank refetches
 - Boards and active/future sprints load past 50: a remembered board beyond the 50th no longer falls back to the first, `M` and planning see every future sprint

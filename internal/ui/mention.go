@@ -36,6 +36,7 @@ type mentionSearchMsg struct {
 type mentionFoundMsg struct {
 	seq   int
 	users []jira.User
+	err   error
 }
 
 // mentionQuery matches "@" and a name start ending at the cursor.
@@ -76,14 +77,17 @@ func (m Model) handleMentionSearch(msg mentionSearchMsg) (tea.Model, tea.Cmd) {
 	}
 	c, ctx, key := m.jiraClient, m.ctx, m.jiraCommentKey
 	return m, func() tea.Msg {
-		users, _ := c.AssignableUsers(ctx, key, msg.query)
-		return mentionFoundMsg{msg.seq, users}
+		users, err := c.AssignableUsers(ctx, key, msg.query)
+		return mentionFoundMsg{msg.seq, users, err}
 	}
 }
 
 func (m Model) handleMentionFound(msg mentionFoundMsg) (tea.Model, tea.Cmd) {
 	if !m.jiraCommentActive || msg.seq != m.jiraMention.seq {
 		return m, nil
+	}
+	if msg.err != nil {
+		m.fail("mention search: " + msg.err.Error())
 	}
 	m.jiraMention.sugg = msg.users[:min(len(msg.users), mentionShown)]
 	m.jiraMention.idx = 0

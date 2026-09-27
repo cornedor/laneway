@@ -37,6 +37,7 @@ type jqlWordsMsg struct {
 type jqlValuesMsg struct {
 	seq    int
 	values []string
+	err    error
 }
 
 // jqlOperators end a clause's field: what follows is a value.
@@ -126,6 +127,9 @@ func (m Model) handleJQLValues(msg jqlValuesMsg) (tea.Model, tea.Cmd) {
 	if m.jql == nil || msg.seq != m.jql.seq {
 		return m, nil
 	}
+	if msg.err != nil {
+		m.fail("completions: " + msg.err.Error())
+	}
 	m.jql.sugg, m.jql.idx = msg.values, 0
 	return m, nil
 }
@@ -148,8 +152,8 @@ func (m *Model) suggestJQL() tea.Cmd {
 	fn := jqlMatches(j.words.Functions, prefix)
 	seq, c, ctx := j.seq, m.jiraClient, m.ctx
 	return func() tea.Msg {
-		vals, _ := c.JQLValues(ctx, field, prefix)
-		return jqlValuesMsg{seq, append(vals, fn...)}
+		vals, err := c.JQLValues(ctx, field, prefix)
+		return jqlValuesMsg{seq, append(vals, fn...), err}
 	}
 }
 
