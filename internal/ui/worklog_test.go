@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/store"
 )
 
 // worklogJira records worklog posts on the model's client.
@@ -261,5 +264,24 @@ func TestTimerRound(t *testing.T) {
 	}
 	if _, warn = optionsFrom(config.UIConfig{TimerRound: "10s"}); len(warn) != 1 {
 		t.Errorf("10s accepted: %v", warn)
+	}
+}
+
+// TestTimerSaveFails: a timer the state file can't keep says a restart
+// loses it.
+func TestTimerSaveFails(t *testing.T) {
+	m := jiraTabModel(t)
+	dir := filepath.Join(t.TempDir(), "state")
+	st, err := store.Open(filepath.Join(dir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir, nil, 0o600); err != nil { // its directory is a file now
+		t.Fatal(err)
+	}
+	m.store = st
+	m.toggleTimer("ABC-1")
+	if m.timer.key != "ABC-1" || !strings.Contains(m.statusErr, "a restart loses it") {
+		t.Errorf("timer %+v, status %q", m.timer, m.statusErr)
 	}
 }

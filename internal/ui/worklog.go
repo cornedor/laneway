@@ -48,15 +48,16 @@ func (m *Model) loadTimer() tea.Cmd {
 	return timerTick()
 }
 
-func (m *Model) saveTimer() {
+// saveTimer keeps the timer in the state file, for a restart.
+func (m *Model) saveTimer() error {
 	if m.store == nil {
-		return
+		return nil
 	}
 	v := ""
 	if m.timer.key != "" {
 		v = m.timer.key + " " + strconv.FormatInt(m.timer.start.Unix(), 10)
 	}
-	_ = m.store.SetMeta(timerMeta, v)
+	return m.store.SetMeta(timerMeta, v)
 }
 
 func (m Model) handleTimerTick() (tea.Model, tea.Cmd) {
@@ -81,8 +82,10 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 		return nil
 	}
 	m.timer = workTimer{key: key, start: time.Now()}
-	m.saveTimer()
 	m.status = "timer started on " + key + " · " + helpKey(m.keys.Timer) + " stops it"
+	if err := m.saveTimer(); err != nil {
+		m.fail("timer started on " + key + ", but a restart loses it: " + err.Error())
+	}
 	return timerTick()
 }
 
@@ -196,7 +199,9 @@ type worklogLoggedMsg struct {
 func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
 	if msg.fromTimer && msg.err == nil && m.timer.key == msg.key {
 		m.timer = workTimer{}
-		m.saveTimer()
+		if err := m.saveTimer(); err != nil {
+			m.logError("timer: still in the state file, a restart brings it back: " + err.Error())
+		}
 	}
 	if msg.err != nil && msg.fromTimer {
 		msg.err = fmt.Errorf("%w (the timer keeps running)", msg.err)
