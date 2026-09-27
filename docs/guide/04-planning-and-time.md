@@ -7,7 +7,7 @@ track of your own day. Each of these is one key from the board; `esc` (or
 
 ## Plan a sprint: `P`
 
-On a scrum board, `P` puts the backlog on the left and a sprint on the
+On a board with sprints, `P` puts the backlog on the left and a sprint on the
 right (the first future one; `[` `]` pick another). Each side counts its
 cards and points; the sprint also splits them per person.
 
@@ -61,7 +61,7 @@ sprints, drawn fainter.
 
 ## Read the charts: `C`
 
-On a scrum board, `C` draws the active sprint: burndown, burnup,
+On a board with sprints, `C` draws the active sprint: burndown, burnup,
 cumulative flow, and the velocity of the last sprints. `tab` steps through
 them; `y` copies the open chart's numbers as a table.
 

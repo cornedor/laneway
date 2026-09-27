@@ -9,10 +9,13 @@ terminal.
 
 - Swim lanes or a sortable list, with drag and drop between lanes
 - Sprints, backlog and kanban boards; the board's quick filters plus your own
-- Local search, "only mine", jump to any issue by key
-- Issue panel with description, comments, links, subtasks and attachments
-- Inline images in kitty and Ghostty
-- Idle auto-refresh, cached boards for instant startup
+- Local search, JQL with completion, a command palette, jump to any issue by key
+- Issue panel with description (edited as markdown), comments, links, subtasks and attachments
+- Sprint planning, burndown and velocity charts, an epic roadmap
+- Time tracking: log work, a timer, today's worklogs
+- Inbox of others' changes, a standup of yours
+- Rules that notify, run a command or act on Jira when issues change
+- Several Jira sites, inline images in kitty and Ghostty
 - Every key and colour configurable
 
 `t` swaps the lanes for a sortable list:
@@ -39,7 +42,7 @@ Or grab a binary from [Releases](https://github.com/cornedor/laneway/releases).
 
 The first `laneway` asks for your Jira (`acme` or its URL), email and an
 [API token](https://id.atlassian.com/manage-profile/security/api-tokens), signs
-in to check them and writes the config. `laneway setup` (or `@` → *add a Jira
+in to check them and writes the config, readable only by you. `laneway setup` (or `@` → *add a Jira
 site* in the app) adds another under `sites:`; given a URL already there, it
 replaces that site's email and token (an expired token). Comments in the file
 are kept.
@@ -132,16 +135,25 @@ and applied at once (`images`, `image_max_rows`, `card_limit`, `default_mode`,
 `flag_value`, `inbox_issues` after a restart).
 
 A bad value keeps its default and is reported on the status line, as is a key
-bound to two actions on one screen (board, panel, planning, roadmap, timesheet).
+bound to two actions on one screen (board, panel, planning, roadmap, charts,
+timesheet).
 
-Actions: up down left right top bottom page_up page_down open toggle_panel
-browser refresh quit help search goto copy_key copy_url copy_branch settings filter_builder panel_wider panel_narrower quick_edit my_work compact move_left move_right
-create project board next_view prev_view toggle_mode sort move_sprint assignee_filter mine
-clear_filters · panel: status priority points summary labels assign comment reply start_work
-linked_issue back image development pin; board also fold unfold_all · planning:
-plan_start plan_goal plan_rename plan_new plan_complete rank_up rank_down ·
-roadmap: roadmap_grip roadmap_fold zoom_in zoom_out today end_earlier end_later
-roadmap_issues · timesheet: edit_entry delete_entry.
+Actions for `keys:`, by where they first apply:
+
+- board: up down left right top bottom page_up page_down open toggle_panel
+  browser refresh quit help search goto create copy_key copy_url copy_branch
+  move_left move_right rank_up rank_down project board next_view prev_view
+  toggle_mode sort fold unfold_all compact move_sprint assignee_filter mine
+  clear_filters mark mark_all undo bulk quick_edit pin palette jql
+  filter_builder my_work roadmap plan charts timer timesheet inbox standup
+  site settings panel_wider panel_narrower
+- panel: status priority points summary labels assign description comment
+  reply log_work start_work linked_issue back image issue_actions history
+  development
+- planning: plan_start plan_goal plan_rename plan_new plan_complete
+- roadmap: roadmap_grip roadmap_fold end_earlier end_later zoom_in zoom_out
+  today roadmap_issues
+- timesheet: edit_entry delete_entry
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -193,9 +205,7 @@ status the issue has does nothing; one its workflow doesn't offer is logged.
 A rule with `watch:` fires on the changes of its own JQL search instead,
 polled every `every:` (default 5m, at least 1m) while laneway runs, whichever
 board is open. `laneway rules watch` polls them without the board, printing
-what fires; `highlight` is skipped there and `notify` needs a terminal.
-`-site club` runs it (and `rules test`) against a `sites:` entry instead of
-`jira:`:
+what fires; `highlight` is skipped there and `notify` needs a terminal:
 
 ```yaml
   - name: mine-moved
@@ -213,6 +223,9 @@ what fires; `highlight` is skipped there and `notify` needs a terminal.
 Template fields: Kind Key Summary Type Status Assignee Priority Points Parent
 OldStatus OldAssignee OldPriority OldPoints Describe.
 
+`laneway rules watch`, `list` and `test` take `-site club` to use a `sites:`
+entry instead of `jira:`.
+
 A bad rule is skipped and reported on the status line. `laneway rules list`
 shows what loaded; `laneway rules test -on status -type Bug -status Done
 -from-status "In review"` (`-watch JQL` for a watch rule) says which rules
@@ -224,7 +237,7 @@ them, and without Jira they are Task and To Do. A matterbox config's
 `rules:` are ignored.
 
 State (last project, board, view, filters, cached boards) lives in
-`~/.config/laneway/state.json`. An existing `~/.config/jiratui` or matterbox
+`~/.config/laneway/state.json`, and `state-club.json` for a site. An existing `~/.config/jiratui` or matterbox
 config is picked up as a fallback.
 
 ## Keys
@@ -235,8 +248,9 @@ config is picked up as a fallback.
 of the focused pane, the board's views, quick filters and boards, the
 loaded issues and the ones you opened lately, filtered by every word you type. From three characters it
 also searches all of Jira (summary, description, comments); those hits come
-last, marked `⌕`. Over the roadmap, planning or charts it lists that
-screen's actions only. Its `messages` row lists the status line's last messages
+last, marked `⌕`. Actions match common words too (`create`, `transition`,
+`worklog`). Over the roadmap, planning or charts it lists that screen's
+actions only. Its `messages` row lists the status line's last messages
 with their time (the line shows one, cut to the screen); `enter` copies one.
 
 Board:
@@ -244,9 +258,10 @@ Board:
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (rank, priority, points, assignee, epic, key, status, updated, due, created; by assignee, priority, epic or status it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue (a field Jira requires, like a Component, is asked for) · `x`/`X`
-  mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name · drag with the mouse (`esc` cancels a drag, here and everywhere); click a view, quick filter or the assignee chip in the header (and any key hint there, the project and board names, `updated`, the timer, `✉`, the offline notice, the sprint bar for charts, the sprint goal to read it whole, a query's `esc`), a swimlane band's header to fold it
+  mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `R` roadmap · `P` planning · `C` charts
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
+- mouse: a click selects, a second opens; drag a card to another lane (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
 - `q` quit; on the roadmap, planning and charts it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
 Panel:
@@ -260,7 +275,7 @@ Panel:
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` subtask / link / unlink / clone / edit or delete your comment / watch / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue · `i` images full size (← →, or click either half or the wheel; a click below goes back)
-- mouse: drag the panel's left border to resize it, its right border (the scrollbar) to scroll; a click selects a field, a second edits it; a click opens a linked issue or a link, or an activity tab; a click on a comment's byline replies to it, on an image shows it full size, on the hint line's keys presses them, on `Links` lists them; a double-click on `Description` edits it; the wheel scrolls the panel while you edit in it. In pickers a click picks, outside cancels (settings: a second click edits; `F`: a field moves on, a value adds; `Q`: a completion is taken; go-to and create: outside cancels, composers keep their text), the wheel moves; in the move form a click selects a field, a second edits it, the button moves
+- mouse: drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 
@@ -358,7 +373,7 @@ an entry's time and comment, `d` twice deletes it, `y` copies the day as a markd
 
 ![The backlog beside the next sprint](docs/screenshots/planning.png)
 
-`P` on a scrum board shows the backlog beside a sprint (the first future
+`P` on a board with sprints shows the backlog beside a sprint (the first future
 one; `[` `]` pick another), each with its card count and points, the sprint
 also per assignee, against `ui.capacity` (red when over). `← →` switch side,
 `x` marks cards, `M` or `space` moves the marked (or the selected) across,
@@ -375,7 +390,7 @@ a failed write reloads both sides.
 
 ![The active sprint's burndown](docs/screenshots/burndown.png)
 
-`C` on a scrum board: the active sprint's burndown (points left per day by
+`C` on a board with sprints: the active sprint's burndown (points left per day by
 resolution date, against the dotted ideal), its burnup (points done against
 the scope, dotted), its cumulative flow (issues per board column, day by
 day) and the velocity of the last 8 closed sprints
