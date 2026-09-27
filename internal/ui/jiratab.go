@@ -1996,6 +1996,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if m.reviewKeys[c.Key] {
 		title = jiraPinStyle.Render("⌥") + " " + title
 	}
+	if a := m.agentMark(c.Key); a != "" {
+		title = a + " " + title
+	}
 	if f.typ {
 		row += jiraTypeIcon(c.Type) + " "
 	}
@@ -2427,6 +2430,9 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 	}
 	if m.reviewKeys[c.Key] {
 		lines[0] = jiraPinStyle.Render("⌥") + " " + lines[0]
+	}
+	if a := m.agentMark(c.Key); a != "" {
+		lines[0] = a + " " + lines[0]
 	}
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		lines[0] = hl + " " + lines[0]

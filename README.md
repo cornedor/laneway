@@ -451,6 +451,10 @@ week, `y` copies the grid as a markdown table.
 
 ## Git and your shell
 
+Cards whose issue has a herdr agent at work (`S`) show its state: `⚙`
+working, `✋` waiting on you (with a desktop notification), `✓` done and not
+yet looked at; the palette lists them as `agent` rows.
+
 With the project in `jira.repos`, `A` → *Open a pull request* pushes the
 issue's branch and opens a draft titled with its key and summary, linking
 the issue: `gh pr create` for a GitHub origin, `glab mr create` else. `D`

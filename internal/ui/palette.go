@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -115,6 +116,11 @@ func (m *Model) openPalette() {
 		}
 		for _, b := range t.boards {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
+		}
+	}
+	if onBoard {
+		for _, k := range slices.Sorted(maps.Keys(m.agents)) {
+			items = append(items, jiraPickerItem{id: "i:" + k, label: "agent  " + k + "  " + string(m.agents[k]), search: "agents herdr"})
 		}
 	}
 	for i, a := range m.actions {

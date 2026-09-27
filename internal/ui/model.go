@@ -321,7 +321,10 @@ type Model struct {
 	mentionsSeen time.Time
 	// reviewKeys are the issues waiting on your review, marked ⌥ (review.go).
 	reviewKeys map[string]bool
-	started    time.Time
+	// agents are the herdr agents' states by issue (agents.go); nil while
+	// herdr doesn't answer.
+	agents  map[string]herdr.Status
+	started time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -469,7 +472,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents())
 }
 
 // bodyH is the rows above the status line.
@@ -650,6 +653,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleBatchCreated(msg)
 	case actionDoneMsg:
 		return m.handleActionDone(msg)
+	case agentTickMsg:
+		return m, m.fetchAgents()
+	case agentsMsg:
+		return m.handleAgents(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:
