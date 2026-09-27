@@ -747,7 +747,13 @@ func (m *Model) buildTableLines(rows []tableRow, content [][]string, widths []in
 			}
 			line = append(line, []rune(text)...)
 			if ri == caretRow && ci == caretCell {
-				caretCol = cellStart + lead + caretOff
+				off := caretOff
+				if r.delim {
+					// The dashes are redrawn from the column's width, so a typed
+					// one is a dead key: the caret stays on what was drawn.
+					off = min(off, len([]rune(text)))
+				}
+				caretCol = cellStart + lead + off
 			}
 			if open && last {
 				break

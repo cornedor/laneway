@@ -143,6 +143,21 @@ func TestTableTabDropsSelection(t *testing.T) {
 	}
 }
 
+// A dash typed in the separator row is a dead key: the row keeps its drawn
+// dashes and the caret stays on them, so the next one can't break the table.
+func TestTableDashInSeparator(t *testing.T) {
+	m := newTableModel(60)
+	m.SetValue("| A   |\n| --- |")
+	m.SetCursorOffset(len("| A   |\n| ---"))
+	m = typeString(m, "--")
+	if got, want := m.Value(), "| A   |\n| --- |"; got != want {
+		t.Fatalf("Value = %q, want %q", got, want)
+	}
+	if got, want := m.CursorOffset(), len("| A   |\n| ---"); got != want {
+		t.Errorf("caret at %d, want %d", got, want)
+	}
+}
+
 // The separator row's colons survive a re-pad, and they steer the padding: a
 // right-aligned column pads on the left.
 func TestTableKeepsAlignmentColons(t *testing.T) {
