@@ -55,7 +55,7 @@ jira:
   email: you@example.com
   api_token: ...          # or JIRA_API_TOKEN
   projects: [ABC]         # listed first in the project picker
-  repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree)
+  repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree), and your commits in U
   timeout: 20s            # one request's limit (an attachment's: without progress); longer actions stretch with it
   story_points_field: customfield_10016  # else found by name ("Story point…")
   start_prompt: "Start on {key}."        # what S hands the agent; {key} is the issue
@@ -370,7 +370,9 @@ also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 ![What you did since Friday](docs/screenshots/standup.png)
 
 `U` lists what you did since the previous workday (Friday on a Monday), by
-day: status and field changes, comments and logged work. Its first row,
+day: status and field changes, comments, logged work, and your commits in
+the `jira.repos` repositories (every branch) under the key their subject
+names, keyless ones as *no ticket*. Its first row,
 Copy as text, puts it on the clipboard grouped per issue, ready to paste.
 `U` again (or its `←` row) reaches a workday further back, its `→` row a
 workday later again.

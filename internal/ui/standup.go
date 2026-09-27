@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -26,7 +27,7 @@ func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)
 	m.jiraPicker.day = since
 	seq := m.jiraPicker.fetchSeq
-	c, ctx := m.jiraClient, m.ctx
+	c, ctx, repos := m.jiraClient, m.ctx, m.standupRepos()
 	// Rows step a workday either way, U back too.
 	steps := []jiraPickerItem{{id: "earlier", label: "← a workday further back"}}
 	if since.Before(jira.PreviousWorkday(now, m.opts.workdays)) {
@@ -34,6 +35,9 @@ func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 	}
 	return func() tea.Msg {
 		entries, err := c.Standup(ctx, since)
+		if err == nil {
+			entries = withCommits(entries, gitCommits(repos, since))
+		}
 		text := standupText(entries)
 		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
 		day := ""
@@ -42,7 +46,8 @@ func (m *Model) openStandupSince(since time.Time) tea.Cmd {
 				day = d
 				items = append(items, jiraPickerItem{label: "── " + d})
 			}
-			items = append(items, jiraPickerItem{id: e.Key, label: fmt.Sprintf("  %s  %s %s — %s", e.When.Local().Format("15:04"), e.Key, e.Summary, e.What)})
+			what := strings.TrimSpace(e.Key + " " + e.Summary)
+			items = append(items, jiraPickerItem{id: e.Key, label: fmt.Sprintf("  %s  %s — %s", e.When.Local().Format("15:04"), cmp.Or(what, noTicket), e.What)})
 		}
 		if err == nil && len(entries) == 0 {
 			items = append([]jiraPickerItem{{label: "nothing since " + standupDay(since, now)}}, steps...)
@@ -77,8 +82,17 @@ func standupText(entries []jira.InboxEntry) string {
 	}
 	var lines []issueLine
 	flush := func() {
+		slices.SortStableFunc(lines, func(a, b issueLine) int { // no ticket last
+			switch {
+			case a.key == "" && b.key != "":
+				return 1
+			case a.key != "" && b.key == "":
+				return -1
+			}
+			return 0
+		})
 		for _, l := range lines {
-			fmt.Fprintf(&b, "- %s %s: %s\n", l.key, l.summary, strings.Join(l.what, "; "))
+			fmt.Fprintf(&b, "- %s: %s\n", cmp.Or(strings.TrimSpace(l.key+" "+l.summary), noTicket), strings.Join(l.what, "; "))
 		}
 		lines = nil
 	}

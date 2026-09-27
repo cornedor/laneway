@@ -105,8 +105,9 @@ edits an entry, `d` twice deletes it, `y` copies the day as a table.
 ### Standup: `U`
 
 `U` lists what you did since the previous workday (Friday, on a Monday):
-status changes, comments and logged work, by day. Its first row, *Copy as
-text*, puts it on the clipboard grouped per issue.
+status changes, comments, logged work and, with `jira.repos` set, your
+git commits, by day. Its first row, *Copy as text*, puts it on the
+clipboard grouped per issue.
 
 ![What you did since Friday](../screenshots/standup.png)
 
