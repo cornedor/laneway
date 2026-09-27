@@ -18,31 +18,37 @@ No Go? Grab a binary from
 
 ## Tell it where your Jira is
 
-Run `laneway`. The first time, it has no config yet, so it prints the three
-lines it needs and where to put them:
+Run `laneway`. The first time, it has no config yet, so it asks three
+things:
 
-```yaml
-jira:
-  base_url: https://your-instance.atlassian.net
-  email: you@example.com
-  api_token: ...   # or JIRA_API_TOKEN
+```
+Connect laneway to a Jira site. ctrl+d cancels.
+
+Jira site, its name (acme) or URL: acme
+  https://acme.atlassian.net
+Email: you@example.com
+API token: make one at https://id.atlassian.com/manage-profile/security/api-tokens
+  paste it, or press enter to open that page:
+  signing in… ✓ signed in as Ada Lovelace
+
+Saved as jira in ~/.config/laneway/config.yaml.
 ```
 
-Save that as `~/.config/laneway/config.yaml` with your own values.
+For the token, press `enter` and the page opens: *Create API token*, name
+it "laneway", copy it, paste it back (it isn't shown). laneway signs in
+before it saves anything; a typo says what went wrong and asks again, with
+`enter` keeping what you typed. Then your board opens.
 
-The token comes from
-<https://id.atlassian.com/manage-profile/security/api-tokens>: *Create API
-token*, give it a name like "laneway", copy it.
+The config it wrote is plain YAML: `~/.config/laneway/config.yaml`.
 
-> **Tip:** rather not keep the token in a file? Leave `api_token` out and
-> export `JIRA_API_TOKEN` in your shell instead.
+> **Tip:** rather not keep the token in a file? Export `JIRA_API_TOKEN`
+> first; setup then offers it, and the file gets none.
 
 > **Tip:** add `projects: [ABC]` under `jira:` to put the projects you work
 > in at the top of the project picker.
 
-Got something wrong? laneway names exactly what is missing (`jira: set
-api_token …`) or off (a `base_url` without `https://`), so read the first
-line it prints.
+Token expired? `laneway setup` again with the same site replaces the
+email and token and leaves the rest of the config alone.
 
 ## Your board
 
@@ -86,8 +92,11 @@ copy while the fresh one loads.
 
 ## More than one Jira?
 
-Add the others under `sites:` and switch with `@` in the app, or start on
-one with `laneway -site club`:
+Press `@` and pick *+ add a Jira site*: the same three questions, and a
+name to pick it by (`club` for club.atlassian.net). It lands under
+`sites:`, and laneway opens on it. `@` switches between them after that;
+`laneway -site club` starts on one. `laneway setup` does the same from
+the shell.
 
 ```yaml
 sites:
@@ -96,7 +105,7 @@ sites:
 
 ## Recap
 
-- `~/.config/laneway/config.yaml` holds your Jira address, email and token.
+- The first `laneway` asks for your Jira, email and token and saves them in `~/.config/laneway/config.yaml`; `@` adds another site.
 - `p` project, `b` board, `[` `]` views, `t` lanes or list.
 - `enter` opens an issue, `esc` closes it, `?` when in doubt.
 

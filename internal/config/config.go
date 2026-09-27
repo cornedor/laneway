@@ -4,8 +4,10 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -281,8 +283,12 @@ func Load(path string) (Config, string, error) {
 		}
 		return c, p, nil
 	}
-	return Config{}, "", fmt.Errorf("no config found; create %s with:\n\n%s\nA token: %s", candidates[0], starterConfig, TokenURL)
+	return Config{}, candidates[0], fmt.Errorf("%w; run `laneway setup`, or create %s with:\n\n%s\nA token: %s", ErrNoConfig, candidates[0], starterConfig, TokenURL)
 }
+
+// ErrNoConfig is Load finding no config file; the path it returns with it
+// is where one belongs.
+var ErrNoConfig = errors.New("no config found")
 
 // StatePath is where the app keeps its state. A state file left by the old
 // jiratui name is copied over on first run.
@@ -296,6 +302,66 @@ func (c Config) Site(site string) (JiraConfig, error) {
 		return JiraConfig{}, fmt.Errorf("no site %q in sites:", site)
 	}
 	return j, nil
+}
+
+// SiteFor is the name of the site whose base_url is baseURL ("" is
+// jira:), ok false when none is.
+func (c Config) SiteFor(baseURL string) (string, bool) {
+	same := func(j JiraConfig) bool {
+		return strings.EqualFold(strings.TrimRight(strings.TrimSpace(j.BaseURL), "/"), strings.TrimRight(baseURL, "/"))
+	}
+	if same(c.Jira) {
+		return "", true
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Sites)) {
+		if same(c.Sites[name]) {
+			return name, true
+		}
+	}
+	return "", false
+}
+
+// BaseURL reads what someone types for their Jira: "acme" is
+// https://acme.atlassian.net, a missing scheme is https, and a pasted
+// Jira Cloud link (a board, an issue) keeps only its host. A self-hosted
+// one keeps its path, which can be the context (/jira).
+func BaseURL(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", errors.New("type your Jira's name or URL")
+	}
+	if !strings.ContainsAny(s, "./:") {
+		s += ".atlassian.net"
+	}
+	if !strings.Contains(s, "://") {
+		s = "https://" + s
+	}
+	u, err := url.Parse(s)
+	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return "", fmt.Errorf("%q is not a web address", s)
+	}
+	u.RawQuery, u.Fragment, u.User = "", "", nil
+	if strings.HasSuffix(strings.ToLower(u.Hostname()), ".atlassian.net") {
+		u.Path, u.RawPath = "", ""
+	}
+	return strings.TrimRight(u.String(), "/"), nil
+}
+
+// SiteName suggests a sites: name for baseURL: its first host label
+// ("acme" for acme.atlassian.net), lower case.
+func SiteName(baseURL string) string {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return ""
+	}
+	label, _, _ := strings.Cut(u.Hostname(), ".")
+	return strings.ToLower(label)
+}
+
+// ValidSiteName says whether name can name a site: it names the site's
+// state file, so letters, digits, - and _ only.
+func ValidSiteName(name string) bool {
+	return name != "" && strings.Trim(name, "abcdefghijklmnopqrstuvwxyz0123456789-_") == ""
 }
 
 // SiteNames are the sites to switch between, "" (jira:) first, then by name.

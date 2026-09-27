@@ -67,7 +67,7 @@ func (m *Model) helpSections() []struct {
 			{"1-9 / " + helpKey(k.ClearFilters), "quick filter / clear"},
 			row(k.Refresh, "refresh"),
 			row(k.Tab, "to panel"),
-			row(k.Site, "switch Jira site"),
+			row(k.Site, "switch or add a Jira site"),
 			row(k.Settings, "settings: every ui: option, editable"),
 			{join(k.PanelWider, k.PanelNarrower), "widen / narrow the panel"},
 			row(k.Quit, "quit"),

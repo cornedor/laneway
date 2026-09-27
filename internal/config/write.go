@@ -13,11 +13,58 @@ import (
 // YAML tree so comments and the other keys stay. A nil value removes the
 // option (back to its default). A list is written in flow style.
 func SetUI(path, name string, value any) error {
+	return editConfig(path, false, func(root *yaml.Node) error {
+		ui, err := section(root, "ui", value != nil)
+		if err != nil || ui == nil {
+			return err
+		}
+		return setMapping(ui, name, value)
+	})
+}
+
+// SetSite writes a Jira site into the config file at path: jira: for
+// name "", else sites.<name>. Its base_url, email and api_token replace
+// the site's (an empty token is left out, for JIRA_API_TOKEN); its other
+// keys and every comment stay. A missing file is created.
+func SetSite(path, name string, j JiraConfig) error {
+	return editConfig(path, true, func(root *yaml.Node) error {
+		site, err := section(root, "jira", true)
+		if name != "" {
+			var sites *yaml.Node
+			if sites, err = section(root, "sites", true); err == nil {
+				site, err = section(sites, name, true)
+			}
+		}
+		if err != nil {
+			return err
+		}
+		for _, f := range []struct{ key, v string }{{"base_url", j.BaseURL}, {"email", j.Email}, {"api_token", j.APIToken}} {
+			if f.v == "" {
+				continue
+			}
+			if err := setMapping(site, f.key, f.v); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// editConfig applies edit to the config file at path through its YAML
+// tree, so comments and the other keys stay. create makes a missing file
+// (and its directory), else a missing file is an error.
+func editConfig(path string, create bool, edit func(root *yaml.Node) error) error {
 	// A dotfiles symlink stays one: write where it points.
 	if real, err := filepath.EvalSymlinks(path); err == nil {
 		path = real
 	}
 	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) && create {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return err
+		}
+		raw, err = nil, nil
+	}
 	if err != nil {
 		return err
 	}
@@ -32,20 +79,8 @@ func SetUI(path, name string, value any) error {
 	if root.Kind != yaml.MappingNode {
 		return fmt.Errorf("%s: not a mapping", path)
 	}
-	ui := mappingValue(root, "ui")
-	switch {
-	case ui == nil && value == nil:
-		return nil
-	case ui == nil:
-		ui = &yaml.Node{Kind: yaml.MappingNode}
-		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: "ui"}, ui)
-	case ui.Kind == yaml.ScalarNode && ui.Tag == "!!null": // a bare "ui:"
-		ui.Kind, ui.Tag, ui.Value = yaml.MappingNode, "", ""
-	case ui.Kind != yaml.MappingNode:
-		return fmt.Errorf("%s: ui: is not a mapping", path)
-	}
-	if err := setMapping(ui, name, value); err != nil {
-		return err
+	if err := edit(root); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
@@ -54,6 +89,24 @@ func SetUI(path, name string, value any) error {
 		return err
 	}
 	return writeFile(path, buf.Bytes())
+}
+
+// section is key's mapping in m. A missing one is added when add, else
+// nil; a bare "key:" becomes an empty mapping.
+func section(m *yaml.Node, key string, add bool) (*yaml.Node, error) {
+	v := mappingValue(m, key)
+	switch {
+	case v == nil && !add:
+		return nil, nil
+	case v == nil:
+		v = &yaml.Node{Kind: yaml.MappingNode}
+		m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: key}, v)
+	case v.Kind == yaml.ScalarNode && v.Tag == "!!null":
+		v.Kind, v.Tag, v.Value = yaml.MappingNode, "", ""
+	case v.Kind != yaml.MappingNode:
+		return nil, fmt.Errorf("%s: is not a mapping", key)
+	}
+	return v, nil
 }
 
 // mappingValue is key's value node in m, nil when m lacks it.

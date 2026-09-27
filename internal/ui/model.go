@@ -142,7 +142,7 @@ func defaultKeys() keyMap {
 		Timesheet:       bind("today's worklogs", "W"),
 		Inbox:           bind("inbox", "I"),
 		IssueActions:    bind("subtask, link, clone, watch", "A"),
-		Site:            bind("switch Jira site", "@"),
+		Site:            bind("switch or add a Jira site", "@"),
 		Standup:         bind("standup: what you did", "U"),
 		History:         bind("issue history", "H"),
 		DevInfo:         bind("pull requests and branches", "D"),
@@ -293,10 +293,12 @@ type Model struct {
 	// once the log is written.
 	worklogFromTimer bool
 	// sites are the configured Jira sites ("" is jira:), site the shown
-	// one; nextSite is set when the app ends to switch (sites.go).
+	// one; nextSite is set when the app ends to switch, addSite when it
+	// ends to add one (sites.go).
 	sites    []string
 	site     string
 	nextSite *string
+	addSite  bool
 	// prefetchSeq debounces the cursor's prefetch (prefetch.go).
 	prefetchSeq int
 	// jql is the open JQL search input (jql.go).

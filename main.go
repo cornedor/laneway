@@ -4,10 +4,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -22,6 +24,9 @@ var version = "dev"
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "rules" {
 		os.Exit(rulesCmd(os.Args[2:], os.Stdout, os.Stderr))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "setup" {
+		os.Exit(setupCmd(os.Args[2:], os.Stderr))
 	}
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
@@ -38,36 +43,65 @@ func main() {
 }
 
 func run(cfgPath, site string) error {
-	cfg, cfgPath, err := config.Load(cfgPath)
-	if err != nil {
-		return err
-	}
-	// @ in the app ends it with another site picked; start again there.
+	// The config is read again for each run: @ ends the app with another
+	// site picked, or to add one, and it starts again there.
 	for {
-		next, switched, err := runSite(cfg, cfgPath, site)
-		if err != nil || !switched {
+		cfg, path, err := config.Load(cfgPath)
+		first := errors.Is(err, config.ErrNoConfig) || err == nil && site == "" && strings.TrimSpace(cfg.Jira.BaseURL) == ""
+		if first && interactive() {
+			// A first start: ask for the site instead of explaining YAML.
+			if site, err = setup(context.Background(), cfgPath, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn); err != nil {
+				return err
+			}
+			fmt.Println()
+			continue
+		}
+		if err != nil {
 			return err
 		}
-		site = next
+		next, end, err := runSite(cfg, path, site)
+		switch {
+		case err != nil || end == endQuit:
+			return err
+		case end == endAddSite:
+			added, err := setup(context.Background(), path, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn)
+			if err == nil {
+				site = added
+			} else if !errors.Is(err, errCancelled) {
+				fmt.Fprintln(os.Stderr, "laneway:", err)
+				fmt.Fprint(os.Stderr, "enter goes back to the board… ")
+				fmt.Scanln()
+			}
+		default:
+			site = next
+		}
 	}
 }
 
-// runSite runs the app on site, and says which site it was left for.
-func runSite(cfg config.Config, cfgPath, site string) (string, bool, error) {
+// How the app ended: quit, to switch site, or to add one.
+const (
+	endQuit = iota
+	endSwitch
+	endAddSite
+)
+
+// runSite runs the app on site, and says how it ended: the site it was
+// left for, or to add one.
+func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	jc, err := cfg.Site(site)
 	if err != nil {
-		return "", false, err
+		return "", endQuit, err
 	}
 	if err := jc.Check(siteName(site)); err != nil {
-		return "", false, err
+		return "", endQuit, fmt.Errorf("%w\n`laneway setup` asks for them and checks they work", err)
 	}
 	path, err := config.SiteStatePath(site)
 	if err != nil {
-		return "", false, err
+		return "", endQuit, err
 	}
 	st, err := store.Open(path)
 	if err != nil {
-		return "", false, err
+		return "", endQuit, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -79,10 +113,15 @@ func runSite(cfg config.Config, cfgPath, site string) (string, bool, error) {
 		fmt.Fprint(os.Stdout, fm.ReleaseImages())
 	}
 	if err != nil || !ok {
-		return "", false, err
+		return "", endQuit, err
 	}
-	next, switched := fm.NextSite()
-	return next, switched, nil
+	if fm.AddSite() {
+		return "", endAddSite, nil
+	}
+	if next, ok := fm.NextSite(); ok {
+		return next, endSwitch, nil
+	}
+	return "", endQuit, nil
 }
 
 func siteName(site string) string {

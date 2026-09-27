@@ -45,3 +45,38 @@ func TestSiteStatePath(t *testing.T) {
 		t.Errorf("dir = %s", filepath.Dir(work))
 	}
 }
+
+func TestBaseURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"acme":                  "https://acme.atlassian.net",
+		" acme.atlassian.net/ ": "https://acme.atlassian.net",
+		"https://acme.atlassian.net/jira/software/projects/ABC/boards/1?x=1": "https://acme.atlassian.net",
+		"jira.example.com/jira": "https://jira.example.com/jira",
+		"http://localhost:8080": "http://localhost:8080",
+	} {
+		if got, err := BaseURL(in); err != nil || got != want {
+			t.Errorf("BaseURL(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"", "ftp://x.org", "https://"} {
+		if _, err := BaseURL(bad); err == nil {
+			t.Errorf("BaseURL(%q) accepted", bad)
+		}
+	}
+}
+
+func TestSiteFor(t *testing.T) {
+	c := Config{Jira: JiraConfig{BaseURL: "https://a.atlassian.net/"}, Sites: map[string]JiraConfig{"club": {BaseURL: "https://Club.atlassian.net"}}}
+	if name, ok := c.SiteFor("https://a.atlassian.net"); !ok || name != "" {
+		t.Errorf("jira: = %q %v", name, ok)
+	}
+	if name, ok := c.SiteFor("https://club.atlassian.net"); !ok || name != "club" {
+		t.Errorf("club = %q %v", name, ok)
+	}
+	if _, ok := c.SiteFor("https://new.atlassian.net"); ok {
+		t.Error("new site found")
+	}
+	if SiteName("https://club.atlassian.net") != "club" || !ValidSiteName("club-2_b") || ValidSiteName("my club") || ValidSiteName("Club") {
+		t.Error("site names")
+	}
+}

@@ -4,6 +4,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `laneway setup` sets up a Jira site without editing YAML: the site (`acme` or a URL), email and token, signed in to check before saving, into `jira:` or `sites.<name>:` with comments kept. It runs by itself on a first start; `@` has *+ add a Jira site* (then opens on it); a URL already there gets its email and token replaced
 - Considered and left fixed: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12). None has been asked for; each option costs a settings row and README lines
 - A timer the state file can't keep says a restart loses it; one it can't clear is logged in messages
 - Standup: Copy as text after a failed load says there is nothing to copy (it said "standup copied" and copied nothing)

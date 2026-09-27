@@ -37,6 +37,13 @@ Or grab a binary from [Releases](https://github.com/cornedor/laneway/releases).
 
 ## Config
 
+The first `laneway` asks for your Jira (`acme` or its URL), email and an
+[API token](https://id.atlassian.com/manage-profile/security/api-tokens), signs
+in to check them and writes the config. `laneway setup` (or `@` → *add a Jira
+site* in the app) adds another under `sites:`; given a URL already there, it
+replaces that site's email and token (an expired token). Comments in the file
+are kept.
+
 `~/.config/laneway/config.yaml`:
 
 ```yaml

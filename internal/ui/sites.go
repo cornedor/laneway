@@ -12,6 +12,12 @@ func (m Model) WithSites(names []string, current string) Model {
 	return m
 }
 
+// AddSite is whether the app ended to set up another site.
+func (m Model) AddSite() bool { return m.addSite }
+
+// addSiteID is the picker row that adds a site; no site name has a space.
+const addSiteID = "+ add"
+
 // NextSite is the site picked to switch to, when the app ended for that.
 func (m Model) NextSite() (string, bool) {
 	if m.nextSite == nil {
@@ -20,21 +26,20 @@ func (m Model) NextSite() (string, bool) {
 	return *m.nextSite, true
 }
 
-// openSitePicker lists the sites, the current one ticked.
+// openSitePicker lists the sites, the current one ticked, and a last row
+// that adds one.
 func (m *Model) openSitePicker() {
-	if len(m.sites) < 2 {
-		m.status = "one Jira site configured; add more under sites:"
-		return
-	}
 	m.startJiraPicker(jiraPickSite, "Jira site", false)
-	items := make([]jiraPickerItem, len(m.sites))
-	for i, s := range m.sites {
-		items[i] = jiraPickerItem{id: s, label: siteLabel(s), current: s == m.site}
+	items := make([]jiraPickerItem, 0, len(m.sites)+1)
+	for _, s := range m.sites {
+		items = append(items, jiraPickerItem{id: s, label: siteLabel(s), current: s == m.site})
 	}
+	items = append(items, jiraPickerItem{id: addSiteID, label: "+ add a Jira site", focus: len(m.sites) < 2})
 	m.setJiraPickerItems(items)
 }
 
-// pickSite ends the app to start again on site.
+// pickSite ends the app to start again on site, or to add one: main asks
+// for it in the terminal, then starts on it.
 func (m Model) pickSite(site string) (tea.Model, tea.Cmd) {
 	if site == m.site {
 		return m, nil
@@ -44,7 +49,11 @@ func (m Model) pickSite(site string) (tea.Model, tea.Cmd) {
 		m.status = w + " · pick it again to switch anyway"
 		return m, nil
 	}
-	m.nextSite = &site
+	if site == addSiteID {
+		m.addSite = true
+	} else {
+		m.nextSite = &site
+	}
 	return m, tea.Quit
 }
 
