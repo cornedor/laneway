@@ -385,6 +385,34 @@ func TestCardsMoreFields(t *testing.T) {
 }
 
 // TestBoardsAndSprintsPage: boards, sprints and quick filters past 50, the next pages are fetched too.
+func TestSimpleBoardType(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/agile/1.0/board":
+			fmt.Fprint(w, `{"values":[{"id":1,"type":"simple"},{"id":2,"type":"simple"},{"id":3,"type":"simple"},{"id":4,"type":"kanban"}],"isLast":true}`)
+		case "/rest/agile/1.0/board/1/features":
+			fmt.Fprint(w, `{"features":[{"feature":"jsw.agility.backlog","state":"ENABLED"},{"feature":"jsw.agility.sprints","state":"ENABLED"}]}`)
+		case "/rest/agile/1.0/board/2/features":
+			fmt.Fprint(w, `{"features":[{"feature":"jsw.agility.sprints","state":"DISABLED"}]}`)
+		default:
+			http.Error(w, "no", http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	bs, err := c.Boards(context.Background(), "ABC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, b := range bs {
+		got = append(got, b.Type)
+	}
+	if want := "scrum kanban kanban kanban"; strings.Join(got, " ") != want {
+		t.Errorf("types = %v, want %s", got, want)
+	}
+}
+
 func TestBoardsAndSprintsPage(t *testing.T) {
 	page := func(start, n int, isLast bool) string {
 		var vals []string

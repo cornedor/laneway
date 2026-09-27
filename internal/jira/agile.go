@@ -78,7 +78,8 @@ func cached[K comparable, V any](mu *sync.Mutex, m *map[K]V, k K, fetch func() (
 	return v, nil
 }
 
-// Board is a Jira Software board: Type is "scrum" or "kanban".
+// Board is a Jira Software board: Type is "scrum" or "kanban" (a
+// team-managed board by whether its sprints are on).
 type Board struct {
 	ID   int
 	Name string
@@ -283,6 +284,9 @@ func (c *Client) fetchBoards(ctx context.Context, project string) ([]Board, erro
 			return nil, err
 		}
 		for _, b := range resp.Values {
+			if b.Type == "simple" {
+				b.Type = c.simpleBoardType(ctx, b.ID)
+			}
 			out = append(out, Board{ID: b.ID, Name: b.Name, Type: b.Type})
 		}
 		if resp.IsLast || len(resp.Values) < 50 { // a short page is the last
@@ -291,6 +295,25 @@ func (c *Client) fetchBoards(ctx context.Context, project string) ([]Board, erro
 		start += len(resp.Values)
 	}
 	return out, nil
+}
+
+// simpleBoardType reads a team-managed board, which Jira types "simple", as
+// "scrum" when its sprints feature is on, else "kanban".
+func (c *Client) simpleBoardType(ctx context.Context, board int) string {
+	var resp struct {
+		Features []struct {
+			Feature string `json:"feature"`
+			State   string `json:"state"`
+		} `json:"features"`
+	}
+	if c.do(ctx, http.MethodGet, "/rest/agile/1.0/board/"+strconv.Itoa(board)+"/features", "board features", nil, &resp) == nil {
+		for _, f := range resp.Features {
+			if f.Feature == "jsw.agility.sprints" && f.State == "ENABLED" {
+				return "scrum"
+			}
+		}
+	}
+	return "kanban"
 }
 
 // BoardConfiguration returns a board's columns and estimation field, cached
