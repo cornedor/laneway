@@ -1,0 +1,121 @@
+# 4. Planning, roadmap, charts and your time
+
+**In this chapter:** step back from single cards. Fill a sprint against
+everyone's capacity, see epics on a timeline, read the burndown, and keep
+track of your own day. Each of these is one key from the board; `esc` (or
+`q`) brings you back.
+
+## Plan a sprint: `P`
+
+On a scrum board, `P` puts the backlog on the left and a sprint on the
+right (the first future one; `[` `]` pick another). Each side counts its
+cards and points; the sprint also splits them per person.
+
+| Key | Does |
+| --- | --- |
+| `←` `→` | switch side |
+| `x` | mark cards |
+| `M` or `space` | move the marked (or the selected) card across |
+| `K` `J` | rank up or down |
+| `S` | start the sprint on the right (today until the day you type, `+2w` by default) |
+| `N` | a new sprint, named on from the last one |
+| `R` / `E` | rename it / edit its goal |
+| `C` twice | complete the active sprint; unfinished work moves to the next one |
+| `y` | copy the sprint as a markdown table |
+
+With the mouse, drag a card to the other side. Changes show at once and are
+written behind.
+
+> **Tip:** tell laneway how many points each person takes on:
+>
+> ```yaml
+> ui:
+>   capacity: {Ada: 13, default: 10}
+> ```
+>
+> A person over capacity turns red and gets a `!` (`Ada 15/13!`).
+
+> **Try it:** open `P` before your next planning meeting, mark the top
+> backlog items with `x` until someone hits their limit, and `M` them into
+> the sprint.
+
+## See the roadmap: `R`
+
+`R` shows the project's epics on a timeline: a bar from start to due date,
+filled by how much is done. Epics without dates span their children's
+sprints, drawn fainter.
+
+![Epics on a timeline, one expanded](../screenshots/roadmap.png)
+
+- `←` `→` scroll, `+` `-` zoom (a day to two weeks per column), `.` back to
+  today.
+- `space` folds an epic's issues out, `enter` opens one.
+- `H` `L` move a bar, `<` `>` move its end, or drag it with the mouse. The
+  new dates go to Jira once you pause.
+- `n` makes a new epic, `f` shows an epic's issues as a board view.
+
+> **Tip:** a `⛓` on an epic means another open epic blocks it. It turns red
+> `⛔` when that blocker ends after this one starts.
+
+## Read the charts: `C`
+
+On a scrum board, `C` draws the active sprint: burndown, burnup,
+cumulative flow, and the velocity of the last sprints. `tab` steps through
+them; `y` copies the open chart's numbers as a table.
+
+![The active sprint's burndown](../screenshots/burndown.png)
+
+> **Tip:** no story points in your team? The burndown and burnup count
+> issues instead.
+
+## Your day
+
+### Log work
+
+`w` in the panel logs time on the issue: `1h 30m fixed the flaky test`
+(also `1.5h`, `45m`, `2d`). It ends now, unless you put a day first:
+`yesterday 2h`, `fri 1h`, `2026-09-21 3h`.
+
+### The timer
+
+`T` starts a timer on the card or issue you're on; it shows in the header
+and survives a restart. `T` again stops it into the same log input, filled
+in with the time.
+
+> **Try it:** `T` on the card you're about to work on. When you're done,
+> `T` again, type what you did, `enter`. Your time is logged.
+
+### Today's work: `W`
+
+`W` lists what you logged today, with the total. `[` `]` step a day, `e`
+edits an entry, `d` twice deletes it, `y` copies the day as a table.
+
+### Standup: `U`
+
+`U` lists what you did since the previous workday (Friday, on a Monday):
+status changes, comments and logged work, by day. Its first row, *Copy as
+text*, puts it on the clipboard grouped per issue.
+
+> **Try it:** `U`, `enter` on *Copy as text*, paste it in your team's
+> standup channel. Done before the coffee's ready.
+
+### Inbox: `I`
+
+`I` lists what others did on your issues since you last looked: field
+changes and comments, mentions of you first, marked `@`. The header shows
+`✉ 3` when there's something new.
+
+### My work: `O`
+
+`O` shows what's assigned to you in every project, open or done this week,
+grouped by status.
+
+## Recap
+
+- `P` planning, `R` roadmap, `C` charts; `esc` back to the board.
+- `w` logs work, `T` times it, `W` shows the day.
+- `U` writes your standup, `I` shows what others did, `O` shows all your
+  work.
+
+Previous: [Editing and moving](03-editing-and-moving.md) · Next: rules,
+JQL, keys and themes *(chapter coming)*

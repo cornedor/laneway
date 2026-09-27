@@ -31,7 +31,7 @@ By the last chapter you will:
 1. [First run](01-first-run.md): install, a token, your board on screen
 2. [The board and the panel](02-board-and-panel.md): narrow the board, read an issue, go anywhere
 3. [Editing and moving](03-editing-and-moving.md): move cards, change fields, write, create, edit many at once
-4. Planning, roadmap, charts and your time *(coming)*
+4. [Planning, roadmap, charts and your time](04-planning-and-time.md): fill a sprint, epics on a timeline, burndown, timer and standup
 5. Rules, JQL, keys and themes *(coming)*
 
 > **Tip:** you can't break anything by reading. laneway only writes to Jira

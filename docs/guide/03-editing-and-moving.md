@@ -119,4 +119,4 @@ on it straight away. A failed create brings your summary back to retry.
 - `n` creates, `x` / `X` / `B` edit many at once.
 
 Previous: [The board and the panel](02-board-and-panel.md) · Next:
-planning, roadmap, charts and your time *(chapter coming)*
+[Planning, roadmap, charts and your time](04-planning-and-time.md)
