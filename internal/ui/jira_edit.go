@@ -59,9 +59,6 @@ const (
 	// jiraPickLink lists the issue's parent, links and subtasks; picking one
 	// shows it in the panel.
 	jiraPickLink
-	// jiraPickCreateType picks a new issue's type, then asks its summary
-	// (jira_create.go).
-	jiraPickCreateType
 	// jiraPickSprint moves the selected card to a sprint or the backlog
 	// (jira_sprint.go).
 	jiraPickSprint
@@ -875,11 +872,6 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickMessages {
 		m.closeJiraPicker()
 		return m.applyMessage(it)
-	}
-	if kind == jiraPickCreateType {
-		m.closeJiraPicker()
-		m.openJiraCreateSummary(it.id)
-		return m, nil
 	}
 	if kind == jiraPickBoardAssignee {
 		m.closeJiraPicker()

@@ -261,20 +261,18 @@ type Model struct {
 	imageView    bool
 	imageViewIdx int
 
-	jiraCreateActive bool
-	jiraCreateType   string
-	lastCreateType   map[string]string             // per project, the type n last created
-	createFieldCache map[string][]jira.CreateField // project/type's create screen
-	createMore       bool                          // the create form shows the fields not required
-	// jiraCreateParent is the issue a new subtask or epic child goes under,
-	// in jiraCreateProject; "" for a plain new issue.
+	jiraCreateActive                    bool
+	jiraCreateType                      string
+	lastCreateType                      map[string]string             // per project, the type n last created
+	createFieldCache                    map[string][]jira.CreateField // project/type's create screen
+	createMore                          bool                          // the create form shows the fields not required
 	jiraCreateParent, jiraCreateProject string
+	jiraCreateClone                     string // the issue the create form clones
 	// jiraCreateReload reloads the roadmap once the new issue (an epic
 	// made from it) exists.
 	jiraCreateReload bool
 	// jiraLinkChoice is the link type and direction picked for "link".
-	jiraLinkChoice  jiraPickerItem
-	jiraCreateInput textinput.Model
+	jiraLinkChoice jiraPickerItem
 
 	jiraPicker jiraPickerState
 	// fieldCursor is the panel's selected field (panel_fields.go), -1 for
@@ -670,6 +668,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleCellSize(msg)
 	case createFieldsMsg:
 		return m.handleCreateFields(msg)
+	case jiraCloneDraftMsg:
+		return m.handleJiraCloneDraft(msg)
 	case jiraCreateTypesMsg:
 		return m.handleJiraCreateTypes(msg)
 	case jiraCreatedMsg:
@@ -724,8 +724,6 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleJQLKey(msg)
 	case m.jiraGotoActive:
 		return m.handleJiraGotoKey(msg)
-	case m.jiraCreateActive:
-		return m.handleJiraCreateKey(msg)
 	case m.jiraPicker.active:
 		return m.handleJiraPickerKey(msg)
 	case m.jiraFieldActive:
@@ -754,12 +752,12 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) inlineEditorOnly() bool {
 	inline := m.jiraCommentActive && m.commentInline() || m.jiraFieldActive && m.fieldInline() || m.descEdit != nil && m.descEditInline()
 	return inline && m.settings == nil && m.filterBuilder == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
-		!m.jiraCreateActive && !m.jiraPicker.active && m.jiraForm == nil &&
+		!m.jiraPicker.active && m.jiraForm == nil &&
 		(m.descEdit == nil || m.descEditInline()) && (!m.jiraCommentActive || m.commentInline()) && (!m.jiraFieldActive || m.fieldInline())
 }
 
 func (m *Model) modalOpen() bool {
-	return m.settings != nil || m.filterBuilder != nil || m.descEdit != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraCreateActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
+	return m.settings != nil || m.filterBuilder != nil || m.descEdit != nil || m.helpOpen || m.imageView || m.jql != nil || m.jiraGotoActive || m.jiraPicker.active || m.jiraFieldActive || m.jiraCommentActive || m.jiraForm != nil
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
@@ -950,14 +948,14 @@ func (m Model) View() tea.View {
 
 // pickerOnTop is whether the picker is the modal drawn (renderOverlay).
 func (m *Model) pickerOnTop() bool {
-	return m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive && !m.jiraCreateActive &&
+	return m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil && !m.helpOpen && m.jql == nil && !m.jiraGotoActive &&
 		!m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // formOnTop is whether the transition form is the modal drawn.
 func (m *Model) formOnTop() bool {
 	return m.jiraForm != nil && !m.jiraPicker.active && m.settings == nil && m.filterBuilder == nil && m.descEdit == nil && !m.helpOpen && !m.imageView && m.jql == nil && !m.jiraGotoActive &&
-		!m.jiraCreateActive && !m.jiraCommentActive && !m.jiraFieldActive
+		!m.jiraCommentActive && !m.jiraFieldActive
 }
 
 // renderOverlay draws the open modal, last one winning as in matterbox.
@@ -975,8 +973,6 @@ func (m *Model) renderOverlay(bodyH int) string {
 		return m.renderJQL()
 	case m.jiraGotoActive:
 		return m.renderJiraGoto()
-	case m.jiraCreateActive:
-		return m.renderJiraCreate()
 	case m.jiraCommentActive && !m.commentInline():
 		return m.renderJiraCommentInput()
 	case m.jiraFieldActive && !m.fieldInline():

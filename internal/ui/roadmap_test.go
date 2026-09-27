@@ -233,8 +233,8 @@ func TestRoadmapFilterAndNew(t *testing.T) {
 	}
 	m = roadmapModel(t)
 	out, _ = m.handleJiraKey(keyMsg(t, "n"))
-	if m = out.(Model); !m.jiraCreateActive || m.jiraCreateType != "Epic" || !m.jiraCreateReload {
-		t.Errorf("create: active %v type %q", m.jiraCreateActive, m.jiraCreateType)
+	if m = out.(Model); m.jiraForm == nil || createFormType(m.jiraForm) != "Epic" || !m.jiraCreateReload {
+		t.Errorf("create: form %v type %q", m.jiraForm != nil, m.jiraCreateType)
 	}
 }
 
@@ -404,8 +404,8 @@ func TestRoadmapEpicType(t *testing.T) {
 	m := roadmapModel(t)
 	m.opts.epicType = "Initiative"
 	out, _ := m.handleKey(keyMsg(t, "n"))
-	if m = out.(Model); !m.jiraCreateActive || m.jiraCreateType != "Initiative" {
-		t.Errorf("create %v type %q", m.jiraCreateActive, m.jiraCreateType)
+	if m = out.(Model); m.jiraForm == nil || createFormType(m.jiraForm) != "Initiative" {
+		t.Errorf("create %v type %q", m.jiraForm != nil, m.jiraCreateType)
 	}
 	o, warn := optionsFrom(config.UIConfig{RoadmapEpicType: "Initiative", RoadmapDoneDays: 30})
 	if o.epicType != "Initiative" || o.roadmapDoneDays != 30 || len(warn) != 0 {

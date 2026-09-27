@@ -42,10 +42,6 @@ func (m *Model) gotoOnTop() bool {
 	return m.jiraGotoActive && !m.imageView && m.jql == nil && m.underInputs()
 }
 
-func (m *Model) createOnTop() bool {
-	return m.jiraCreateActive && !m.imageView && m.jql == nil && !m.jiraGotoActive && m.underInputs()
-}
-
 // clickOverlay handles a left click on settings, the builder or the JQL
 // search; ok is false when none of them is on top.
 func (m Model) clickOverlay(x, y, count int) (out tea.Model, cmd tea.Cmd, ok bool) {
@@ -61,12 +57,6 @@ func (m Model) clickOverlay(x, y, count int) (out tea.Model, cmd tea.Cmd, ok boo
 	case m.gotoOnTop():
 		if _, _, inside := m.overlayAt(m.renderJiraGoto(), x, y); !inside {
 			out, cmd = m.handleJiraGotoKey(keyPress("esc"))
-		} else {
-			out = m
-		}
-	case m.createOnTop():
-		if _, _, inside := m.overlayAt(m.renderJiraCreate(), x, y); !inside {
-			out, cmd = m.handleJiraCreateKey(keyPress("esc"))
 		} else {
 			out = m
 		}

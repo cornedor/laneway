@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -10,9 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -37,11 +36,12 @@ const (
 	createDescField    = "description"
 )
 
-// jiraCreateTypesMsg is a project's issue types, to open the create form.
+// jiraCreateTypesMsg is a project's issue types, to open the create form:
+// for a new issue, or a subtask or epic child when parent is set.
 type jiraCreateTypesMsg struct {
-	project string
-	types   []jira.Option
-	err     error
+	project, parent string
+	types           []jira.Option
+	err             error
 }
 
 // openJiraCreate loads the project's issue types for the create form.
@@ -50,7 +50,6 @@ func (m *Model) openJiraCreate() tea.Cmd {
 	if project == "" {
 		return nil
 	}
-	m.jiraCreateParent, m.jiraCreateProject = "", ""
 	m.status = "new issue in " + project + "…"
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -59,40 +58,114 @@ func (m *Model) openJiraCreate() tea.Cmd {
 	}
 }
 
+// openJiraCreateChild loads the types a subtask ("subtask") or an epic's
+// child ("child") of parent can be, for the create form.
+func (m *Model) openJiraCreateChild(parent, what string) tea.Cmd {
+	project, c, ctx := issueProject(parent), m.jiraClient, m.ctx
+	m.status = "new " + what + " of " + parent + "…"
+	return func() tea.Msg {
+		types, err := c.IssueTypes(ctx, project)
+		if what == "subtask" {
+			types, err = c.SubtaskTypes(ctx, project)
+		}
+		types = slices.DeleteFunc(types, func(t jira.Option) bool { return strings.EqualFold(t.Name, "epic") })
+		return jiraCreateTypesMsg{project: project, parent: parent, types: types, err: err}
+	}
+}
+
 // handleJiraCreateTypes opens the create form: the type you last made in
-// the project (else Task, else the first), cursor in the summary.
+// the project (else Task, else the first).
 func (m Model) handleJiraCreateTypes(msg jiraCreateTypesMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil || len(msg.types) == 0 {
 		m.fail("new issue: " + cmp.Or(errText(msg.err), "no issue types in "+msg.project))
 		return m, nil
 	}
-	if m.modalOpen() || msg.project != m.jiraTab.project {
+	if m.modalOpen() {
 		return m, nil
 	}
-	opts := make([]jira.Option, len(msg.types))
+	names := make([]string, len(msg.types))
 	for i, t := range msg.types {
-		opts[i] = jira.Option{ID: t.Name, Name: t.Name}
+		names[i] = t.Name
+	}
+	return m, m.openCreateForm(createSpec{in: jira.NewIssue{Project: msg.project, Parent: msg.parent}, types: names})
+}
+
+// jiraCloneDraftMsg is the copy of cloneOf to start the create form from.
+type jiraCloneDraftMsg struct {
+	cloneOf string
+	in      jira.NewIssue
+	err     error
+}
+
+// openJiraClone copies key into the create form.
+func (m *Model) openJiraClone(key string) tea.Cmd {
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "copying " + key + "…"
+	return func() tea.Msg {
+		in, err := c.CloneDraft(ctx, key)
+		return jiraCloneDraftMsg{cloneOf: key, in: in, err: err}
+	}
+}
+
+func (m Model) handleJiraCloneDraft(msg jiraCloneDraftMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail("clone: " + msg.err.Error())
+		return m, nil
+	}
+	if m.modalOpen() {
+		return m, nil
+	}
+	return m, m.openCreateForm(createSpec{in: msg.in, types: []string{msg.in.Type}, cloneOf: msg.cloneOf})
+}
+
+// createSpec is what the create form starts from: the issue so far (its
+// project, a locked parent, a clone's copied fields), the types it may be,
+// and the one to start on ("" for the last made, else Task, else the first).
+type createSpec struct {
+	in      jira.NewIssue
+	types   []string
+	typ     string
+	cloneOf string
+	reload  bool // a roadmap epic: the roadmap reloads once it is made
+}
+
+// openCreateForm opens the create form on s, the cursor in the summary.
+func (m *Model) openCreateForm(s createSpec) tea.Cmd {
+	opts := make([]jira.Option, len(s.types))
+	for i, t := range s.types {
+		opts[i] = jira.Option{ID: t, Name: t}
 	}
 	typ := opts[0].Name
-	for _, want := range []string{m.lastCreateType[msg.project], "Task"} {
+	for _, want := range []string{s.typ, m.lastCreateType[s.in.Project], "Task"} {
 		if i := slices.IndexFunc(opts, func(o jira.Option) bool { return strings.EqualFold(o.Name, want) }); want != "" && i >= 0 {
 			typ = opts[i].Name
 			break
 		}
 	}
-	m.jiraCreateType = typ
-	f := &jiraFormState{key: m.jiraCreateTitle(), idx: 1,
-		create: &jiraFormCreate{in: jira.NewIssue{Project: msg.project}, form: true}}
+	m.jiraCreateType, m.jiraCreateParent, m.jiraCreateProject = typ, s.in.Parent, s.in.Project
+	m.jiraCreateClone, m.jiraCreateReload = s.cloneOf, s.reload
+	summary, desc := s.in.Summary, m.opts.templates[strings.ToLower(typ)]
+	cr := &jiraFormCreate{in: s.in, cloneOf: s.cloneOf, form: true}
+	cr.in.Summary, cr.in.Type = "", ""
+	message := ""
+	if len(s.in.DescriptionADF) > 0 { // a clone's: as it is unless you edit it
+		ed, err := jira.EditableDescription(s.in.DescriptionADF)
+		desc, cr.descKept = ed.Markdown, ed.Kept
+		if err != nil {
+			desc, message = "", "The description is copied from "+s.cloneOf+" as it is."
+		}
+	}
+	f := &jiraFormState{key: m.jiraCreateTitle(), idx: 1, create: cr, message: message}
 	f.fields = []jiraFormField{
 		{FieldMeta: jira.FieldMeta{ID: createTypeField, Name: "Type", Kind: jira.KindOption, Options: opts}, required: true,
 			val: jira.Value{Options: []jira.Option{{ID: typ, Name: typ}}}},
-		{FieldMeta: jira.FieldMeta{ID: createSummaryField, Name: "Summary", Kind: jira.KindText}, required: true},
-		{FieldMeta: jira.FieldMeta{ID: createDescField, Name: "Description", Kind: jira.KindDoc},
-			val: jira.Value{Text: m.opts.templates[strings.ToLower(typ)]}},
+		{FieldMeta: jira.FieldMeta{ID: createSummaryField, Name: "Summary", Kind: jira.KindText}, required: true,
+			val: jira.Value{Text: summary}, changed: summary != ""},
+		{FieldMeta: jira.FieldMeta{ID: createDescField, Name: "Description", Kind: jira.KindDoc}, val: jira.Value{Text: desc}},
 	}
 	m.jiraForm = f
 	m.status = ""
-	return m, tea.Batch(m.editJiraFormField(), m.loadCreateFields())
+	return tea.Batch(m.editJiraFormField(), m.loadCreateFields())
 }
 
 // createFieldsMsg is a create screen fetched for the form's type.
@@ -292,51 +365,19 @@ func (m *Model) createFormIssue(f *jiraFormState, fields map[string]any) jiraFor
 		case createSummaryField:
 			cr.in.Summary = strings.TrimSpace(ff.val.Text)
 		case createDescField:
-			cr.in.Description = ff.val.Text
+			switch {
+			case len(cr.in.DescriptionADF) > 0 && !ff.changed: // a clone's, untouched
+			case len(cr.in.DescriptionADF) > 0:
+				cr.in.DescriptionADF, _ = json.Marshal(jira.MarkdownToADFKept(ff.val.Text, cr.descKept))
+			default:
+				cr.in.Description = ff.val.Text
+			}
 		}
 	}
-	cr.sprint, _ = m.createSprint()
+	if cr.cloneOf == "" { // a clone stays out of the sprint, linked instead
+		cr.sprint, _ = m.createSprint()
+	}
 	return cr
-}
-
-// openJiraCreateSummary asks for the summary of a new issue of type typ.
-func (m *Model) openJiraCreateSummary(typ string) {
-	ti := textinput.New()
-	ti.Prompt = "❯ "
-	ti.Placeholder = "summary"
-	ti.CharLimit = 255
-	ti.SetWidth(56)
-	ti.Focus()
-	m.jiraCreateInput = ti
-	m.jiraCreateType = typ
-	m.jiraCreateActive = true
-}
-
-func (m Model) handleJiraCreateKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "ctrl+c":
-		return m.quit()
-	case "esc":
-		m.jiraCreateActive = false
-		return m, nil
-	case "enter":
-		in := jira.NewIssue{Project: m.jiraTab.project, Type: m.jiraCreateType, Summary: strings.TrimSpace(m.jiraCreateInput.Value()),
-			Parent: m.jiraCreateParent, Description: m.opts.templates[strings.ToLower(m.jiraCreateType)]}
-		if m.jiraCreateParent != "" {
-			in.Project = m.jiraCreateProject
-		}
-		if in.Summary == "" {
-			m.status = "type a summary first"
-			return m, nil
-		}
-		m.jiraCreateActive = false
-		sprint, _ := m.createSprint()
-		m.status = "creating " + in.Type + " in " + in.Project + "…"
-		return m, m.createJiraIssue(jiraFormCreate{in: in, sprint: sprint}, m.jiraCreateTitle())
-	}
-	var cmd tea.Cmd
-	m.jiraCreateInput, cmd = m.jiraCreateInput.Update(msg)
-	return m, cmd
 }
 
 // createJiraIssue makes cr's issue: see createIssue.
@@ -405,8 +446,8 @@ type jiraCreateSprintErr struct{ err error }
 
 func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: " + e.err.Error() }
 
-// handleJiraCreated opens the new issue and refetches the board; a failed
-// create reopens the box with your summary.
+// handleJiraCreated opens the new issue and refetches the board; a refused
+// create keeps the form.
 func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && msg.key == "" {
 		// Refused: the form stays with all typed, grown by the rows Jira
@@ -421,28 +462,13 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 		f.busy, f.err = false, formErrors(f, msg.err)
 		return m, nil
 	}
-	if msg.form != nil && !m.modalOpen() {
-		m.jiraForm = msg.form
-		m.status = msg.form.key + " needs a few fields"
-		return m, nil
-	}
 	if f := m.jiraForm; f != nil && f.create != nil {
-		if msg.key == "" {
-			f.busy, f.err = false, msg.err.Error() // the fix is one edit away
-			return m, nil
-		}
 		m.jiraForm = nil
 	}
 	if msg.key == "" {
-		m.fail("create: " + msg.err.Error())
-		if !m.modalOpen() && m.jiraCreateInput.Value() != "" {
-			m.jiraCreateActive = true // your summary back, to retry
-			m.jiraCreateInput.Focus()
-			m.fail("create: " + msg.err.Error() + " · enter retries")
-		}
+		m.fail("create: " + msg.err.Error()) // the form was closed meanwhile
 		return m, nil
 	}
-	m.jiraCreateInput.SetValue("") // made: nothing for a later failure to bring back
 	refresh := m.refreshJiraAfterEdit()
 	if m.jiraCreateReload && m.jiraTab.roadmap != nil {
 		m.jiraCreateReload = false
@@ -457,20 +483,10 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 	return om, tea.Batch(cmd, refresh)
 }
 
-func (m *Model) renderJiraCreate() string {
-	inner := min(62, max(m.width-8, 20)) // narrower on a narrow screen
-	m.jiraCreateInput.SetWidth(inner - 6)
-	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).
-		Render(m.jiraCreateTitle())
-	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render("↵ create · esc cancel")
-	body := lipgloss.JoinVertical(lipgloss.Left, header, "", m.jiraCreateInput.View(), "", hint)
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
-}
-
 // createSprint is the sprint a new issue joins: the shown sprint view's,
 // for an issue without a parent that is no epic; 0 for none.
 func (m *Model) createSprint() (int, string) {
-	if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && m.jiraCreateParent == "" && !strings.EqualFold(m.jiraCreateType, "epic") {
+	if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewSprint && m.jiraCreateParent == "" && m.jiraCreateClone == "" && !strings.EqualFold(m.jiraCreateType, "epic") {
 		return v.sprint, v.name
 	}
 	return 0, ""
@@ -479,6 +495,9 @@ func (m *Model) createSprint() (int, string) {
 // jiraCreateTitle is "New Bug in ABC", "New Bug in ABC → Sprint 12" (it
 // joins the sprint shown), or "New Sub-task of ABC-1".
 func (m *Model) jiraCreateTitle() string {
+	if m.jiraCreateClone != "" {
+		return "Clone of " + m.jiraCreateClone + " · " + m.jiraCreateType
+	}
 	if m.jiraCreateParent != "" {
 		return "New " + m.jiraCreateType + " of " + m.jiraCreateParent
 	}

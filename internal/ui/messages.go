@@ -116,8 +116,6 @@ func (m Model) pasteInput(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, m.suggestJQL())
 	case m.gotoOnTop():
 		m.jiraGotoInput, cmd = m.jiraGotoInput.Update(msg)
-	case m.createOnTop():
-		m.jiraCreateInput, cmd = m.jiraCreateInput.Update(msg)
 	case m.formOnTop() && m.jiraForm.multiline:
 		m.jiraForm.area, cmd = m.jiraForm.area.Update(msg)
 	case m.formOnTop() && m.jiraForm.editing:

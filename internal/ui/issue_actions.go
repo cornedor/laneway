@@ -70,23 +70,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	c, ctx := m.jiraClient, m.ctx
 	switch id {
 	case "subtask", "child":
-		project := issueProject(key)
-		gen := m.startJiraPicker(jiraPickCreateType, "New "+id+" of "+key, false)
-		m.jiraCreateParent, m.jiraCreateProject = key, project
-		seq := m.jiraPicker.fetchSeq
-		return func() tea.Msg {
-			types, err := c.IssueTypes(ctx, project)
-			if id == "subtask" {
-				types, err = c.SubtaskTypes(ctx, project)
-			}
-			items := make([]jiraPickerItem, 0, len(types))
-			for _, t := range types {
-				if !strings.EqualFold(t.Name, "epic") {
-					items = append(items, jiraPickerItem{id: t.Name, label: jiraTypeIcon(t.Name) + " " + t.Name})
-				}
-			}
-			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickCreateType, items: items, err: err}
-		}
+		return m.openJiraCreateChild(key, id)
 	case "link":
 		gen := m.startJiraPicker(jiraPickLinkType, "Link "+key, true)
 		m.jiraPicker.issueKey = key
@@ -150,16 +134,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickMoveProject, items: items, err: err}
 		}
 	case "clone":
-		m.status = "cloning " + key + "…"
-		return func() tea.Msg {
-			ctx, cancel := context.WithTimeout(ctx, c.Scaled(30*time.Second))
-			defer cancel()
-			in, err := c.CloneDraft(ctx, key)
-			if err != nil {
-				return jiraCreatedMsg{err: err}
-			}
-			return createIssue(ctx, c, jiraFormCreate{in: in, cloneOf: key}, "Clone of "+key)
-		}
+		return m.openJiraClone(key)
 	case "estimate":
 		m.openBulkInput("estimate", "2d 4h")
 		m.jiraFieldKey = key

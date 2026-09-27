@@ -58,26 +58,22 @@ func pickAction(t *testing.T, m Model, id string) (Model, tea.Cmd) {
 	return out.(Model), cmd
 }
 
-// TestSubtask: a subtask type, a summary, then created under ABC-1 in its
-// project and not moved to a sprint.
+// TestSubtask: the create form offers subtask types, titled after the
+// parent, and makes the issue under ABC-1 in its project, not moved to a
+// sprint.
 func TestSubtask(t *testing.T) {
 	m, writes := actionsModel(t, map[string]string{
 		"/rest/api/3/issue/createmeta/ABC/issuetypes": `{"issueTypes":[{"id":"1","name":"Story"},{"id":"5","name":"Sub-task","subtask":true}]}`,
 	})
 	m, cmd := pickAction(t, m, "subtask")
-	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
-	m = out.(Model)
-	if len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].id != "Sub-task" {
-		t.Fatalf("types = %+v", m.jiraPicker.items)
+	m = openedForm(t, m, cmd)
+	if opts := m.jiraForm.fields[0].Options; len(opts) != 1 || opts[0].Name != "Sub-task" {
+		t.Fatalf("types = %+v", opts)
 	}
-	out, _ = m.applyJiraPick()
-	m = out.(Model)
 	if !strings.Contains(m.View().Content, "New Sub-task of ABC-1") {
-		t.Error("summary modal title")
+		t.Error("form title")
 	}
-	m.jiraCreateInput.SetValue("Write tests")
-	_, cmd = m.handleJiraCreateKey(keyMsg(t, "enter"))
-	if msg := cmd().(jiraCreatedMsg); msg.err != nil || msg.key != "ABC-9" {
+	if msg := submitCreate(t, m, "Write tests"); msg.err != nil || msg.key != "ABC-9" {
 		t.Fatalf("%+v", msg)
 	}
 	w := writes()
@@ -226,10 +222,8 @@ func TestCreateTemplate(t *testing.T) {
 	m, writes := actionsModel(t, nil)
 	m.opts.templates = map[string]string{"bug": "## Steps\n\n1. "}
 	m.jiraTab.project = "ABC"
-	m.openJiraCreateSummary("Bug")
-	m.jiraCreateInput.SetValue("Cart breaks")
-	_, cmd := m.handleJiraCreateKey(keyMsg(t, "enter"))
-	cmd()
+	m.openCreateForm(createSpec{in: jira.NewIssue{Project: "ABC"}, types: []string{"Bug"}})
+	submitCreate(t, m, "Cart breaks")
 	if w := writes(); len(w) != 1 || !strings.Contains(w[0], `"type":"heading"`) || !strings.Contains(w[0], `"text":"Steps"`) {
 		t.Errorf("writes = %q", w)
 	}

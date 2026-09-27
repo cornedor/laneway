@@ -9,10 +9,44 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
+
+// openedForm runs cmd, what an entry point returns, and opens the create
+// form it loads.
+func openedForm(t *testing.T, m Model, cmd tea.Cmd) Model {
+	t.Helper()
+	var out tea.Model
+	switch msg := cmd().(type) {
+	case jiraCreateTypesMsg:
+		out, _ = m.handleJiraCreateTypes(msg)
+	case jiraCloneDraftMsg:
+		out, _ = m.handleJiraCloneDraft(msg)
+	default:
+		t.Fatalf("not a create form: %T", msg)
+	}
+	m = out.(Model)
+	if m.jiraForm == nil || m.jiraForm.create == nil || !m.jiraForm.create.form {
+		t.Fatalf("no create form: %q", m.status)
+	}
+	m.jiraForm.editing = false
+	return m
+}
+
+// submitCreate types summary into the form and creates the issue.
+func submitCreate(t *testing.T, m Model, summary string) jiraCreatedMsg {
+	t.Helper()
+	f := m.jiraForm
+	f.fields[1].val, f.fields[1].changed = jira.Value{Text: summary}, true
+	cmd := m.submitJiraForm()
+	if cmd == nil {
+		t.Fatalf("no create: %q", f.err)
+	}
+	return cmd().(jiraCreatedMsg)
+}
 
 // TestJiraCreate: n opens one form with the type (Task), summary and
 // description; → changes the type, enter on the summary creates the issue in
@@ -113,7 +147,7 @@ func TestJiraCreateFormEsc(t *testing.T) {
 }
 
 // TestJiraCreateAsksRequired: a create refused for a required Component
-// opens the form for it; the pick goes with the retry, esc goes back.
+// adds a row for it to the form, all typed kept; the pick goes with the retry.
 func TestJiraCreateAsksRequired(t *testing.T) {
 	var created []map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -144,13 +178,12 @@ func TestJiraCreateAsksRequired(t *testing.T) {
 
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	m.openJiraCreateSummary("Bug")
-	m.jiraCreateInput.SetValue("Crash")
-	out, cmd := m.handleKey(keyStr("enter"))
-	out, _ = out.(Model).handleJiraCreated(cmd().(jiraCreatedMsg))
+	m.openCreateForm(createSpec{in: jira.NewIssue{Project: "ABC"}, types: []string{"Bug"}})
+	m.jiraForm.editing = false
+	out, _ := m.handleJiraCreated(submitCreate(t, m, "Crash"))
 	m = out.(Model)
 	f := m.jiraForm
-	if f == nil || f.create == nil || len(f.fields) != 1 || f.fields[0].ID != "components" {
+	if f == nil || len(f.fields) != 4 || f.fields[3].ID != "components" || f.fields[1].val.Text != "Crash" {
 		t.Fatalf("form = %+v", f)
 	}
 	view := ansi.Strip(m.View().Content)
@@ -158,21 +191,15 @@ func TestJiraCreateAsksRequired(t *testing.T) {
 		t.Errorf("form view:\n%s", view)
 	}
 
-	out, _ = m.handleKey(keyStr("esc"))
-	m = out.(Model)
-	if m.jiraForm != nil || !m.jiraCreateActive || m.jiraCreateInput.Value() != "Crash" {
-		t.Fatalf("esc: form %v, box %v %q", m.jiraForm, m.jiraCreateActive, m.jiraCreateInput.Value())
-	}
-	m.jiraForm, m.jiraCreateActive = f, false
-
+	f.idx = 3
 	out, _ = m.handleKey(keyStr("enter")) // the Components picker
 	out, _ = out.(Model).handleKey(keyStr("down"))
 	out, _ = out.(Model).handleKey(keyStr("enter"))
 	m = out.(Model)
-	if got := jiraValueText(m.jiraForm.fields[0].val); got != "App" {
+	if got := jiraValueText(m.jiraForm.fields[3].val); got != "App" {
 		t.Fatalf("picked %q", got)
 	}
-	out, cmd = m.handleKey(keyStr("ctrl+s"))
+	out, cmd := m.handleKey(keyStr("ctrl+s"))
 	m = out.(Model)
 	if !m.jiraForm.busy {
 		t.Fatal("ctrl+s sent nothing")
@@ -221,8 +248,9 @@ func TestCreateFormPicksPeople(t *testing.T) {
 	}
 }
 
-// TestCloneAsksRequired: a clone refused for a required custom field asks
-// for it; the retry keeps the copied components and links the clone.
+// TestCloneAsksRequired: a clone opens the create form with its copy; a
+// refusal for a required custom field adds its row; the retry keeps the
+// copied components and links the clone.
 func TestCloneAsksRequired(t *testing.T) {
 	var created []map[string]any
 	var linked bool
@@ -259,20 +287,19 @@ func TestCloneAsksRequired(t *testing.T) {
 
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	out, _ := m.handleJiraCreated(m.applyIssueAction("ABC-1", "clone")().(jiraCreatedMsg))
-	m = out.(Model)
+	m = openedForm(t, m, m.applyIssueAction("ABC-1", "clone"))
 	f := m.jiraForm
-	if f == nil || f.key != "Clone of ABC-1" || len(f.fields) != 1 || f.fields[0].ID != "customfield_7" {
+	if f.key != "Clone of ABC-1 · Bug" || f.fields[1].val.Text != "CLONE - Pay" {
+		t.Fatalf("form %q, summary %q", f.key, f.fields[1].val.Text)
+	}
+	out, _ := m.handleJiraCreated(submitCreate(t, m, "CLONE - Pay"))
+	m = out.(Model)
+	i := slices.IndexFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == "customfield_7" })
+	if m.jiraForm != f || i < 0 {
 		t.Fatalf("form = %+v", f)
 	}
-	out, _ = m.handleKey(keyStr("enter"))
-	m = out.(Model)
-	for _, r := range "Core" {
-		out, _ = m.handleKey(keyStr(string(r)))
-		m = out.(Model)
-	}
-	out, _ = m.handleKey(keyStr("enter"))
-	out, cmd := out.(Model).handleKey(keyStr("ctrl+s"))
+	f.fields[i].val, f.fields[i].changed = jira.Value{Text: "Core"}, true
+	out, cmd := m.handleKey(keyStr("ctrl+s"))
 	out, _ = out.(Model).handleJiraCreated(cmd().(jiraCreatedMsg))
 	m = out.(Model)
 	if m.jiraForm != nil || m.status != "created ABC-9" || !linked {
@@ -284,8 +311,9 @@ func TestCloneAsksRequired(t *testing.T) {
 
 	m.jiraForm, f.busy = f, false
 	out, _ = m.handleKey(keyStr("esc"))
-	if m = out.(Model); m.jiraCreateActive || m.status != "clone cancelled" {
-		t.Errorf("esc on a clone: box %v, %q", m.jiraCreateActive, m.status)
+	out, _ = out.(Model).handleKey(keyStr("esc"))
+	if m = out.(Model); m.jiraForm != nil || m.status != "create cancelled" {
+		t.Errorf("esc twice on a clone: form %v, %q", m.jiraForm != nil, m.status)
 	}
 }
 

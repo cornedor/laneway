@@ -90,6 +90,9 @@ type jiraFormCreate struct {
 	fieldErrs map[string]fieldErr
 	// screen is the type's create screen, as last loaded.
 	screen []jira.CreateField
+	// descKept are a clone's description blocks markdown can't hold, put
+	// back when its description row is edited.
+	descKept []json.RawMessage
 }
 
 // fieldErr is Jira's message about a field, and the value it was about.
@@ -249,11 +252,7 @@ func (m Model) handleJiraFormDone(msg jiraFormDoneMsg) (tea.Model, tea.Cmd) {
 func (m *Model) cancelJiraForm() tea.Cmd {
 	f := m.jiraForm
 	m.jiraForm = nil
-	if f.create != nil && f.create.cloneOf != "" {
-		m.status = "clone cancelled"
-		return nil
-	}
-	if f.create != nil && f.create.form {
+	if f.create != nil {
 		typed := slices.ContainsFunc(f.fields, func(ff jiraFormField) bool {
 			return ff.ID != createTypeField && ff.changed && !ff.val.Empty()
 		})
@@ -265,11 +264,6 @@ func (m *Model) cancelJiraForm() tea.Cmd {
 		}
 		m.status = "create cancelled"
 		return nil
-	}
-	if f.create != nil { // back to the create box, your summary kept
-		m.jiraCreateActive = true
-		m.status = "create cancelled"
-		return m.jiraCreateInput.Focus()
 	}
 	m.status = f.key + ": move cancelled"
 	if f.origin == jiraFromBoard {

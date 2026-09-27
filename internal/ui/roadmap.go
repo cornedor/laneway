@@ -288,9 +288,7 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.jiraTab.roadmap = nil
 		return m, tea.Batch(save, m.runNamedJQLView(name+k, "parent = "+k+" ORDER BY rank"))
 	case key.Matches(msg, m.keys.Create):
-		m.jiraCreateParent, m.jiraCreateProject = "", ""
-		m.openJiraCreateSummary(m.opts.epicType)
-		m.jiraCreateReload = true
+		return m, m.openCreateForm(createSpec{in: jira.NewIssue{Project: m.jiraTab.project}, types: []string{m.opts.epicType}, reload: true})
 	case key.Matches(msg, m.keys.OpenAttach):
 		if k := m.roadmapKey(); k != "" {
 			url := m.jiraClient.BrowseURL(k)

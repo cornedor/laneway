@@ -209,10 +209,6 @@ func TestClickOutsideInputs(t *testing.T) {
 	if m = click(m, 0, 0); m.jiraGotoActive {
 		t.Error("outside should cancel go-to")
 	}
-	m.openJiraCreateSummary("Task")
-	if m = click(m, 0, 0); m.jiraCreateActive {
-		t.Error("outside should cancel create")
-	}
 }
 
 // TestClickHeaderKeys: the header's key hints, names and chips run their
@@ -790,7 +786,9 @@ func TestListNav(t *testing.T) {
 // while editing and a searchable picker fit the screen.
 func TestNarrowBoxes(t *testing.T) {
 	setups := map[string]func(m *Model){
-		"create":   func(m *Model) { m.openJiraCreateSummary("Task") },
+		"create": func(m *Model) {
+			m.openCreateForm(createSpec{in: jira.NewIssue{Project: "ABC"}, types: []string{"Task"}})
+		},
 		"builder":  func(m *Model) { m.openFilterBuilder() },
 		"settings": func(m *Model) { m.openSettings(); m.settings.idx = 3; m.editSetting() },
 		"palette":  func(m *Model) { m.openPalette() },
@@ -847,15 +845,14 @@ func TestJQLEnterPast(t *testing.T) {
 	}
 }
 
-// TestCreateSummary: a blank summary keeps the box and says so; in a
+// TestCreateSummary: a blank summary keeps the form and says so; in a
 // sprint view the title names the sprint.
 func TestCreateSummary(t *testing.T) {
 	m := jiraTabModel(t)
-	m.openJiraCreateSummary("Task")
-	m.jiraCreateInput.SetValue("   ")
-	out, cmd := m.handleJiraCreateKey(keyPress("enter"))
-	if m = out.(Model); cmd != nil || !m.jiraCreateActive || m.status != "type a summary first" {
-		t.Errorf("blank: active %v, %q", m.jiraCreateActive, m.status)
+	m.openCreateForm(createSpec{in: jira.NewIssue{Project: "ABC"}, types: []string{"Task"}})
+	m.jiraForm.fields[1].val = jira.Value{Text: "   "}
+	if cmd := m.submitJiraForm(); cmd != nil || m.jiraForm == nil || !strings.Contains(m.jiraForm.err, "Summary") {
+		t.Errorf("blank: sent %v, %q", cmd != nil, m.jiraForm.err)
 	}
 	for i, v := range m.jiraTab.views {
 		if v.kind == jiraViewSprint {
@@ -907,20 +904,6 @@ func TestListRowTail(t *testing.T) {
 	}
 	if !strings.Contains(row, "Ada") || !strings.Contains(row, "…") {
 		t.Errorf("row lost its tail: %q", row)
-	}
-}
-
-// TestCreateFailedKeepsSummary: a failed create reopens the box with the
-// summary typed.
-func TestCreateFailedKeepsSummary(t *testing.T) {
-	m := jiraTabModel(t)
-	m.openJiraCreateSummary("Task")
-	m.jiraCreateInput.SetValue("Fix the cart")
-	m.jiraCreateActive = false // sent
-	out, _ := m.handleJiraCreated(jiraCreatedMsg{err: fmt.Errorf("components: required")})
-	m = out.(Model)
-	if !m.jiraCreateActive || m.jiraCreateInput.Value() != "Fix the cart" || !strings.Contains(m.status, "enter retries") {
-		t.Errorf("active %v, %q, %q", m.jiraCreateActive, m.jiraCreateInput.Value(), m.status)
 	}
 }
 
