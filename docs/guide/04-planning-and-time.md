@@ -117,5 +117,5 @@ grouped by status.
 - `U` writes your standup, `I` shows what others did, `O` shows all your
   work.
 
-Previous: [Editing and moving](03-editing-and-moving.md) · Next: rules,
-JQL, keys and themes *(chapter coming)*
+Previous: [Editing and moving](03-editing-and-moving.md) · Next:
+[Rules, JQL, keys and themes](05-rules-jql-keys-themes.md)
