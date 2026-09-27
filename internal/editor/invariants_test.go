@@ -44,6 +44,8 @@ var unicodeCorpus = []string{
 	"👨‍👩‍👧‍👦 family", // ZWJ sequence
 	"🇳🇱 flag",        // regional indicators
 	"zero​width",     // zero-width space
+	"abcd一 x",
+	"ab abcd一",
 }
 
 func fullCorpus() []string {
@@ -273,6 +275,15 @@ func TestWrapStaysWithinWidth(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// TestWrapWideRuneEndsWord: a wide rune that overflows the row starts the
+// next one, with no empty row after.
+func TestWrapWideRuneEndsWord(t *testing.T) {
+	got := wrapLine([]rune("abcd一"), 5, 0)
+	if len(got) != 2 || string(got[0]) != "abcd" || string(got[1]) != "一" {
+		t.Errorf("wrap = %q", got)
 	}
 }
 

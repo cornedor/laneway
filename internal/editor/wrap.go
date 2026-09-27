@@ -37,6 +37,16 @@ func wrapLine(runes []rune, width, reserve int) [][]rune {
 		if unicode.IsSpace(r) {
 			spaces++
 		} else {
+			if len(word) > 0 && w(word)+rwid(r) > width {
+				// A wide rune that no longer fits the row breaks the word
+				// before it.
+				if len(lines[row]) > 0 {
+					row++
+					lines = append(lines, []rune{})
+				}
+				lines[row] = append(lines[row], word...)
+				word = nil
+			}
 			word = append(word, r)
 		}
 		if spaces > 0 {
