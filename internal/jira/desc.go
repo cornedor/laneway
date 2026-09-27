@@ -97,6 +97,19 @@ func (c *Client) SetComment(ctx context.Context, key, id, md string, kept []json
 	return nil
 }
 
+// DeleteComment deletes comment id on key.
+func (c *Client) DeleteComment(ctx context.Context, key, id string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment/" + url.PathEscape(id)
+	if err := c.do(ctx, http.MethodDelete, path, key, nil, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // EditableDescription is raw as markdown to edit, or why it can't be.
 func EditableDescription(raw json.RawMessage) (Editable, error) {
 	if len(raw) == 0 || string(raw) == "null" {

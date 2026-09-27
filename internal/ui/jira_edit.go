@@ -91,8 +91,10 @@ const (
 	jiraPickAttachment
 	// jiraPickUnlink picks an issue link to remove (issue_actions.go).
 	jiraPickUnlink
-	// jiraPickEditComment picks one of your comments to edit (description.go).
+	// jiraPickEditComment picks one of your comments to edit (description.go),
+	// jiraPickDeleteComment one to delete.
 	jiraPickEditComment
+	jiraPickDeleteComment
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -684,6 +686,21 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		}
 		return m, m.editComment(i)
 	}
+	if kind == jiraPickDeleteComment {
+		i, err := strconv.Atoi(it.id)
+		if err != nil || m.jiraIssue == nil || i >= len(m.jiraIssue.Comments) {
+			return m, nil
+		}
+		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
+			m.jiraPicker.pendingDelete = it.id
+			m.status = "enter again deletes the comment " + strings.TrimSpace(it.label)
+			return m, nil
+		}
+		m.closeJiraPicker()
+		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
+		m.status = "deleting the comment…"
+		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+	}
 	if kind == jiraPickUnlink {
 		if m.jiraPicker.pendingDelete != it.id { // a removal is confirmed by a second enter on it
 			m.jiraPicker.pendingDelete = it.id
@@ -865,6 +882,8 @@ func mutatedStatus(key, field string) string {
 		return "flagged " + key
 	case "flag cleared":
 		return "cleared the flag on " + key
+	case "comment deleted":
+		return "deleted a comment on " + key
 	case "links", "attachments":
 		return key + " " + field + " changed"
 	}

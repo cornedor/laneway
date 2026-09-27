@@ -182,7 +182,7 @@ func TestEditComment(t *testing.T) {
 		{ID: "1", AuthorID: "me", Author: "Me", Body: "mine", Raw: json.RawMessage(`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"mine"}]}]}`)},
 		{ID: "2", AuthorID: "bob", Author: "Bob", Body: "his"},
 	}
-	cmd := m.openCommentPicker()
+	cmd := m.openCommentPicker(jiraPickEditComment)
 	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
 	m = out.(Model)
 	if len(m.jiraPicker.items) != 1 || m.jiraPicker.items[0].id != "0" {
@@ -199,6 +199,34 @@ func TestEditComment(t *testing.T) {
 	cmd()
 	if path != "/rest/api/3/issue/ABC-1/comment/1" || !strings.Contains(body, `"text":"mine, edited"`) {
 		t.Errorf("PUT %s %s", path, body)
+	}
+}
+
+// TestDeleteComment: a comment of yours goes at the second enter on it.
+func TestDeleteComment(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/myself" {
+			io.WriteString(w, `{"accountId":"me"}`)
+			return
+		}
+		got = r.Method + " " + r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraIssue.Comments = []jira.Comment{{ID: "1", AuthorID: "me", Author: "Me", Body: "oops"}}
+	out, _ := m.handleJiraPickerLoaded(m.applyIssueAction("ABC-1", "delete-comment")().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "enter again deletes") {
+		t.Fatalf("first enter: %q", m.status)
+	}
+	out, cmd = m.applyJiraPick()
+	out, _ = out.(Model).Update(cmd())
+	if m = out.(Model); got != "DELETE /rest/api/3/issue/ABC-1/comment/1" || m.status != "deleted a comment on ABC-1" {
+		t.Errorf("request %q, status %q", got, m.status)
 	}
 }
 

@@ -49,7 +49,8 @@ func (m *Model) openIssueActions() {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
 	}
 	if len(iss.Comments) > 0 {
-		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours"})
+		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours"},
+			jiraPickerItem{id: "delete-comment", label: "Delete a comment of yours"})
 	}
 	if len(iss.Attachments) > 0 {
 		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"})
@@ -142,7 +143,9 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		}
 		m.setJiraPickerItems(items)
 	case "edit-comment":
-		return m.openCommentPicker()
+		return m.openCommentPicker(jiraPickEditComment)
+	case "delete-comment":
+		return m.openCommentPicker(jiraPickDeleteComment)
 	case "flag":
 		on := true
 		if i := slices.IndexFunc(m.jiraTab.cards, func(cd jira.Card) bool { return cd.Key == key }); i >= 0 {

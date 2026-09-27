@@ -337,13 +337,18 @@ func (m Model) saveDesc(msg descEditedMsg, text string) (tea.Model, tea.Cmd) {
 	return m, jiraMutateCmd(key, "description", func() error { return keep(c.SetDescription(ctx, key, after, kept)) })
 }
 
-// openCommentPicker lists your own comments on the panel issue to edit.
-func (m *Model) openCommentPicker() tea.Cmd {
+// openCommentPicker lists your own comments on the panel issue to edit or
+// (kind jiraPickDeleteComment) delete.
+func (m *Model) openCommentPicker(kind jiraPickerKind) tea.Cmd {
 	if m.jiraIssue == nil {
 		return nil
 	}
 	iss := m.jiraIssue
-	gen := m.startJiraPicker(jiraPickEditComment, "Edit a comment on "+iss.Key, false)
+	title := "Edit a comment on " + iss.Key
+	if kind == jiraPickDeleteComment {
+		title = "Delete a comment on " + iss.Key
+	}
+	gen := m.startJiraPicker(kind, title, false)
 	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
 	comments := iss.Comments
 	return func() tea.Msg {
@@ -358,7 +363,7 @@ func (m *Model) openCommentPicker() tea.Cmd {
 		if err == nil && len(items) == 0 {
 			items = []jiraPickerItem{{id: "", label: "no comments of yours here"}}
 		}
-		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickEditComment, items: items, err: err}
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: kind, items: items, err: err}
 	}
 }
 
