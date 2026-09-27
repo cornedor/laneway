@@ -1,11 +1,12 @@
 # Roadmap
 
 ## Next
-- Clone leaves components behind, so a project requiring one refuses every clone: copy them (and fix versions?)
+- A clone Jira refuses for another required field (a custom one) could ask with the create form too
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Clone copies components and fix versions (a project requiring a component refused every clone)
 - The create form picks people too (a required Reviewer): from those assignable in the project
 - A create Jira refuses for a required field (a Component) opens the move form for the fields it lacks (createmeta); `ctrl+s` creates with them, `esc` goes back to the summary
 - `ctrl+y` copies a row in the inbox, history and standup pickers, as in `D`

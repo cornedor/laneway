@@ -119,7 +119,7 @@ func (c *Client) ToggleWatch(ctx context.Context, key string) (bool, error) {
 }
 
 // Clone copies key's type, summary ("CLONE - …"), description, labels,
-// priority and parent into a new issue, linked to it as a clone when the
+// priority, parent, components and fix versions into a new issue, linked to it as a clone when the
 // instance has that link type. It returns the new key.
 func (c *Client) Clone(ctx context.Context, key string) (string, error) {
 	if !c.Enabled() {
@@ -135,9 +135,11 @@ func (c *Client) Clone(ctx context.Context, key string) (string, error) {
 			Parent      *struct {
 				Key string `json:"key"`
 			} `json:"parent"`
+			Components  []named `json:"components"`
+			FixVersions []named `json:"fixVersions"`
 		} `json:"fields"`
 	}
-	path := "/rest/api/3/issue/" + url.PathEscape(key) + "?fields=issuetype,summary,description,labels,priority,parent"
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "?fields=issuetype,summary,description,labels,priority,parent,components,fixVersions"
 	if err := c.do(ctx, http.MethodGet, path, key, nil, &resp); err != nil {
 		return "", err
 	}
@@ -149,6 +151,20 @@ func (c *Client) Clone(ctx context.Context, key string) (string, error) {
 	}
 	if f.Parent != nil {
 		in.Parent = f.Parent.Key
+	}
+	ids := func(ns []named) []map[string]string {
+		out := make([]map[string]string, len(ns))
+		for i, n := range ns {
+			out[i] = map[string]string{"id": n.ID}
+		}
+		return out
+	}
+	in.Fields = map[string]any{}
+	if len(f.Components) > 0 {
+		in.Fields["components"] = ids(f.Components) // a project may require one
+	}
+	if len(f.FixVersions) > 0 {
+		in.Fields["fixVersions"] = ids(f.FixVersions)
 	}
 	nk, err := c.CreateIssue(ctx, in)
 	if err != nil {

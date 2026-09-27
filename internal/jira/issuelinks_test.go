@@ -71,7 +71,8 @@ func TestToggleWatch(t *testing.T) {
 func TestClone(t *testing.T) {
 	c, writes := fakeJira(t, map[string]string{
 		"/rest/api/3/issue/ABC-1": `{"fields":{"issuetype":{"name":"Story"},"summary":"Pay","labels":["ui"],
-		  "priority":{"id":"2"},"parent":{"key":"ABC-5"},"description":{"type":"doc","content":[]}}}`,
+		  "priority":{"id":"2"},"parent":{"key":"ABC-5"},"description":{"type":"doc","content":[]},
+		  "components":[{"id":"10","name":"Web"}],"fixVersions":[{"id":"20","name":"1.2"}]}}`,
 		"/rest/api/3/issueLinkType": `{"issueLinkTypes":[{"name":"Blocks"},{"name":"Cloners","inward":"is cloned by","outward":"clones"}]}`,
 	})
 	key, err := c.Clone(context.Background(), "ABC-1")
@@ -82,7 +83,8 @@ func TestClone(t *testing.T) {
 	if len(w) != 2 {
 		t.Fatalf("writes = %q", w)
 	}
-	for _, want := range []string{`"summary":"CLONE - Pay"`, `"parent":{"key":"ABC-5"}`, `"priority":{"id":"2"}`, `"labels":["ui"]`, `"project":{"key":"ABC"}`, `"description":{"type":"doc"`} {
+	for _, want := range []string{`"summary":"CLONE - Pay"`, `"parent":{"key":"ABC-5"}`, `"priority":{"id":"2"}`, `"labels":["ui"]`, `"project":{"key":"ABC"}`, `"description":{"type":"doc"`,
+		`"components":[{"id":"10"}]`, `"fixVersions":[{"id":"20"}]`} {
 		if !strings.Contains(w[0], want) {
 			t.Errorf("create lacks %s: %s", want, w[0])
 		}
