@@ -96,7 +96,7 @@ func TestCheck(t *testing.T) {
 		want string
 	}{
 		{JiraConfig{BaseURL: "https://x.atlassian.net", Email: "a@b", APIToken: "t"}, "jira", ""},
-		{JiraConfig{BaseURL: "https://x.atlassian.net"}, "jira", "jira: set email, api_token (or JIRA_API_TOKEN"},
+		{JiraConfig{BaseURL: "https://x.atlassian.net"}, "jira", "jira: set email, api_token (or api_token_cmd, JIRA_API_TOKEN"},
 		{JiraConfig{Email: "a@b", APIToken: "t"}, "sites.club", "sites.club: set base_url"},
 		{JiraConfig{BaseURL: "x.atlassian.net", Email: "a@b", APIToken: "t"}, "jira", `jira.base_url: "x.atlassian.net" needs its scheme, e.g. https://x.atlassian.net`},
 	} {
@@ -114,5 +114,23 @@ func TestNoConfig(t *testing.T) {
 	_, _, err := Load("")
 	if err == nil || !strings.Contains(err.Error(), "base_url: https://") || !strings.Contains(err.Error(), TokenURL) {
 		t.Errorf("got %v", err)
+	}
+}
+
+// TestAPITokenCmd: without api_token, the command's output is the token.
+func TestAPITokenCmd(t *testing.T) {
+	c := Config{Sites: map[string]JiraConfig{
+		"club": {BaseURL: "https://club.test", APITokenCmd: []string{"echo", " tok-1 "}},
+		"set":  {APIToken: "kept", APITokenCmd: []string{"false"}},
+		"bad":  {APITokenCmd: []string{"false"}},
+	}}
+	if j, err := c.Site("club"); err != nil || j.APIToken != "tok-1" {
+		t.Errorf("club: %q %v", j.APIToken, err)
+	}
+	if j, err := c.Site("set"); err != nil || j.APIToken != "kept" {
+		t.Errorf("an api_token wins: %q %v", j.APIToken, err)
+	}
+	if _, err := c.Site("bad"); err == nil || !strings.Contains(err.Error(), "api_token_cmd false") {
+		t.Errorf("a failing command: %v", err)
 	}
 }

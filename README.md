@@ -45,8 +45,9 @@ The first `laneway` asks for your Jira (`acme` or its URL), email and an
 [API token](https://id.atlassian.com/manage-profile/security/api-tokens), signs
 in to check them and writes the config, readable only by you. `laneway setup` (or `@` → *add a Jira
 site* in the app) adds another under `sites:`; given a URL already there, it
-replaces that site's email and token (an expired token). Comments in the file
-are kept.
+replaces that site's email and token (an expired token). Where there is a
+keyring (`secret-tool`, macOS Keychain) it offers to keep the token there,
+writing only the command that reads it back. Comments in the file are kept.
 
 `~/.config/laneway/config.yaml`:
 
@@ -54,7 +55,8 @@ are kept.
 jira:
   base_url: https://your-instance.atlassian.net
   email: you@example.com
-  api_token: ...          # or JIRA_API_TOKEN
+  api_token: ...          # or JIRA_API_TOKEN, or:
+  # api_token_cmd: [secret-tool, lookup, service, laneway]   # prints the token (pass, op read, …)
   projects: [ABC]         # listed first in the project picker
   repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree), and your commits in U
   timeout: 20s            # one request's limit (an attachment's: without progress); longer actions stretch with it

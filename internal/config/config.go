@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -22,9 +23,12 @@ import (
 
 // JiraConfig is matterbox's jira: section.
 type JiraConfig struct {
-	BaseURL          string            `yaml:"base_url"`
-	Email            string            `yaml:"email"`
-	APIToken         string            `yaml:"api_token"`
+	BaseURL  string `yaml:"base_url"`
+	Email    string `yaml:"email"`
+	APIToken string `yaml:"api_token"`
+	// APITokenCmd prints the token when api_token is unset:
+	// [secret-tool, lookup, service, laneway], [pass, jira], [op, read, …].
+	APITokenCmd      []string          `yaml:"api_token_cmd,omitempty"`
 	Projects         []string          `yaml:"projects"`
 	StoryPointsField string            `yaml:"story_points_field"`
 	Repos            map[string]string `yaml:"repos,omitempty"`
@@ -294,13 +298,30 @@ var ErrNoConfig = errors.New("no config found")
 // jiratui name is copied over on first run.
 // Site is the Jira config for site: jira: for "", else sites[site].
 func (c Config) Site(site string) (JiraConfig, error) {
-	if site == "" {
-		return c.Jira, nil
+	j, ok := c.Jira, true
+	if site != "" {
+		j, ok = c.Sites[site]
 	}
-	j, ok := c.Sites[site]
 	if !ok {
 		return JiraConfig{}, fmt.Errorf("no site %q in sites:", site)
 	}
+	return j.withToken()
+}
+
+// withToken runs api_token_cmd for the token when api_token is unset.
+func (j JiraConfig) withToken() (JiraConfig, error) {
+	if strings.TrimSpace(j.APIToken) != "" || len(j.APITokenCmd) == 0 {
+		return j, nil
+	}
+	out, err := exec.Command(j.APITokenCmd[0], j.APITokenCmd[1:]...).Output()
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && len(ee.Stderr) > 0 {
+			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(ee.Stderr)))
+		}
+		return j, fmt.Errorf("api_token_cmd %s: %w", j.APITokenCmd[0], err)
+	}
+	j.APIToken = strings.TrimSpace(string(out))
 	return j, nil
 }
 
@@ -537,9 +558,9 @@ func (j JiraConfig) Check(site string) error {
 	if len(missing) > 0 {
 		hint := ""
 		if slices.Contains(missing, "api_token") {
-			hint = " (a token: " + TokenURL + ")"
+			hint = " (or api_token_cmd; a token: " + TokenURL + ")"
 			if site == "jira" {
-				hint = " (or JIRA_API_TOKEN; a token: " + TokenURL + ")"
+				hint = " (or api_token_cmd, JIRA_API_TOKEN; a token: " + TokenURL + ")"
 			}
 		}
 		return fmt.Errorf("%s: set %s%s", site, strings.Join(missing, ", "), hint)

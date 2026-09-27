@@ -48,6 +48,12 @@ func SetSite(path, name string, j JiraConfig) error {
 				return err
 			}
 		}
+		if len(j.APITokenCmd) > 0 { // the keyring holds it: no token in the file
+			if err := setMapping(site, "api_token", nil); err != nil {
+				return err
+			}
+			return setMapping(site, "api_token_cmd", j.APITokenCmd)
+		}
 		return nil
 	})
 }
