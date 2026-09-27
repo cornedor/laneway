@@ -489,6 +489,9 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 		f.busy, f.err = false, formErrors(f, msg.err)
 		return m, nil
 	}
+	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && f.create.another && msg.key != "" {
+		return m.createdAnother(msg)
+	}
 	if f := m.jiraForm; f != nil && f.create != nil {
 		m.jiraForm = nil
 	}
@@ -508,6 +511,30 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 		om.status += ", " + msg.err.Error()
 	}
 	return om, tea.Batch(cmd, refresh)
+}
+
+// createdAnother keeps the form after a create for the next one: its
+// type, parent, sprint and fields stay, the summary and description start
+// over, and the status line lists what it made.
+func (m Model) createdAnother(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
+	f := m.jiraForm
+	f.busy, f.err, f.create.another = false, "", false
+	f.create.made = append(f.create.made, msg.key)
+	f.create.mentions, f.create.fieldErrs = nil, nil
+	for i := range f.fields {
+		switch ff := &f.fields[i]; ff.ID {
+		case createSummaryField:
+			ff.val, ff.changed = jira.Value{}, false
+			f.idx = i
+		case createDescField:
+			ff.val, ff.changed = jira.Value{Text: m.opts.templates[strings.ToLower(createFormType(f))]}, false
+		}
+	}
+	m.status = fmt.Sprintf("created %s · %d made: %s", msg.key, len(f.create.made), strings.Join(f.create.made, ", "))
+	if msg.err != nil {
+		m.status += " · " + msg.err.Error()
+	}
+	return m, tea.Batch(m.editJiraFormField(), m.refreshJiraAfterEdit())
 }
 
 // createSprint is the sprint a new issue joins: the shown sprint view's,

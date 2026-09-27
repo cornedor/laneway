@@ -92,6 +92,10 @@ type jiraFormCreate struct {
 	screen []jira.CreateField
 	// mentions are the people @-completed in the description.
 	mentions []jira.Mention
+	// another keeps the form after this create, for the next one; made
+	// are the keys it made so far.
+	another bool
+	made    []string
 	// descKept are a clone's description blocks markdown can't hold, put
 	// back when its description row is edited.
 	descKept []json.RawMessage
@@ -325,6 +329,12 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			ff := &f.fields[f.idx]
 			ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
 			return m, m.submitJiraForm()
+		case "ctrl+enter", "alt+enter":
+			if f.create != nil && f.create.form {
+				ff := &f.fields[f.idx]
+				ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
+				return m, m.submitCreateAnother()
+			}
 		case "tab", "shift+tab": // keep it and move on
 			ff := &f.fields[f.idx]
 			ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
@@ -354,6 +364,8 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.cancelJiraForm()
 	case msg.String() == "ctrl+s":
 		return m, m.submitJiraForm()
+	case (msg.String() == "ctrl+enter" || msg.String() == "alt+enter") && f.create != nil && f.create.form:
+		return m, m.submitCreateAnother()
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp), msg.String() == "shift+tab":
 		f.idx = max(f.idx-1, 0)
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown), msg.String() == "tab":
@@ -507,6 +519,17 @@ func (c *jiraFormCreate) errFor(ff jiraFormField) (string, bool) {
 	}
 	fe, ok := c.fieldErrs[ff.ID]
 	return fe.msg, ok && fe.val == jiraValueText(ff.val)
+}
+
+// submitCreateAnother creates the form's issue and keeps the form for the
+// next one.
+func (m *Model) submitCreateAnother() tea.Cmd {
+	m.jiraForm.create.another = true
+	cmd := m.submitJiraForm()
+	if cmd == nil {
+		m.jiraForm.create.another = false // it didn't go: missing fields
+	}
+	return cmd
 }
 
 func (m *Model) submitJiraForm() tea.Cmd {
@@ -754,7 +777,7 @@ func (m *Model) renderJiraForm() string {
 		hint = "↑/↓ field · ↵ edit · del clear · ctrl+s create · esc back"
 	}
 	if onCreate {
-		hint = "tab field · ↵ edit · ← → type · ctrl+s create · esc cancel"
+		hint = "tab field · ↵ edit · ← → type · ctrl+s create · alt+↵ create another · esc cancel"
 		if missing := missingFields(f); len(missing) > 0 {
 			hint = "fill in " + strings.Join(missing, ", ") + " to create · tab field · esc cancel"
 		}
@@ -765,7 +788,7 @@ func (m *Model) renderJiraForm() string {
 	case f.multiline:
 		hint = "ctrl+s keep · ↵ newline · esc undo"
 	case f.editing && onCreate && f.fields[f.idx].ID == createSummaryField:
-		hint = "↵ create · tab next · esc undo"
+		hint = "↵ create · alt+↵ create another · tab next · esc undo"
 	case f.editing:
 		hint = "↵ keep · esc undo"
 	}

@@ -510,3 +510,40 @@ func TestCreateFormMention(t *testing.T) {
 		t.Errorf("mentions %v", cr.in.Mentions)
 	}
 }
+
+// TestCreateAnother: alt+enter on the summary creates and keeps the form,
+// the summary and description cleared, the rest kept, the keys listed.
+func TestCreateAnother(t *testing.T) {
+	m := jiraTabModel(t)
+	m.opts.templates = map[string]string{"task": "## Why"}
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}, {Name: "Bug"}}})
+	m = out.(Model)
+	f := m.jiraForm
+	f.fields[0].val = jira.Value{Options: []jira.Option{{ID: "Bug", Name: "Bug"}}}
+	for _, k := range []string{"O", "n", "e"} {
+		out, _ = m.handleJiraFormKey(keyStr(k))
+		m = out.(Model)
+	}
+	out, cmd := m.handleJiraFormKey(tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModAlt})
+	m = out.(Model)
+	if cmd == nil || !f.busy || !f.create.another {
+		t.Fatalf("alt+enter should create: busy %v another %v", f.busy, f.create.another)
+	}
+	out, _ = m.handleJiraCreated(jiraCreatedMsg{key: "ABC-10"})
+	m = out.(Model)
+	if m.jiraForm != f || f.busy || createFormType(f) != "Bug" {
+		t.Fatalf("form kept %v, busy %v, type %q", m.jiraForm == f, f.busy, createFormType(f))
+	}
+	if f.fields[1].val.Text != "" || !f.editing || f.fields[f.idx].ID != createSummaryField {
+		t.Errorf("summary %q, editing %v on %q", f.fields[1].val.Text, f.editing, f.fields[f.idx].ID)
+	}
+	f.create.another = true
+	out, _ = m.handleJiraCreated(jiraCreatedMsg{key: "ABC-11"})
+	if m = out.(Model); m.status != "created ABC-11 · 2 made: ABC-10, ABC-11" {
+		t.Errorf("status %q", m.status)
+	}
+	out, _ = m.handleJiraCreated(jiraCreatedMsg{key: "ABC-12"})
+	if m = out.(Model); m.jiraForm != nil {
+		t.Error("a plain create closes the form")
+	}
+}

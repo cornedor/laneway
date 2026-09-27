@@ -317,6 +317,9 @@ in the project), the summary, where the cursor waits, and the description
 (`ui.templates` gives a type a starting one, swapped for the new type's
 until you edit it; `@` and a few letters mention someone). `enter` on the summary
 creates it, `ctrl+s` from any row; in a sprint view it joins that sprint.
+`alt+enter` (or `ctrl+enter` where the terminal tells them apart) creates
+it and keeps the form for the next, its type and fields as they were, the
+summary and description cleared; the status line lists the keys made.
 Fields the type requires, like a Component, join the form as the type is
 set and the hint names what is still empty; `+ more fields` shows the rest
 its create screen allows (assignee with *Assign to me* on top, priority,
