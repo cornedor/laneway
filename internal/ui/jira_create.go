@@ -90,7 +90,85 @@ func (m Model) handleJiraCreateTypes(msg jiraCreateTypesMsg) (tea.Model, tea.Cmd
 	}
 	m.jiraForm = f
 	m.status = ""
-	return m, m.editJiraFormField()
+	return m, tea.Batch(m.editJiraFormField(), m.loadCreateFields())
+}
+
+// createFieldsMsg is a create screen fetched for the form's type.
+type createFieldsMsg struct {
+	project, typ string
+	seq          int
+	fields       []jira.CreateField
+	err          error
+}
+
+// loadCreateFields shows the fields the form's type requires: at once when
+// known, else once fetched (a later type change drops the fetch).
+func (m *Model) loadCreateFields() tea.Cmd {
+	f := m.jiraForm
+	project, typ := f.create.in.Project, createFormType(f)
+	if fields, ok := m.createFieldCache[project+"/"+typ]; ok {
+		f.create.loading = false
+		m.setCreateRows(fields)
+		return nil
+	}
+	f.create.fieldsSeq++
+	f.create.loading = true
+	seq, c, ctx := f.create.fieldsSeq, m.jiraClient, m.ctx
+	return func() tea.Msg {
+		fields, err := c.CreateFields(ctx, project, typ)
+		return createFieldsMsg{project: project, typ: typ, seq: seq, fields: fields, err: err}
+	}
+}
+
+// handleCreateFields adds the required fields to the form still showing
+// that type. A failed fetch leaves the form as it is: Jira's refusal still
+// names what's missing.
+func (m Model) handleCreateFields(msg createFieldsMsg) (tea.Model, tea.Cmd) {
+	f := m.jiraForm
+	if f == nil || f.create == nil || !f.create.form || msg.seq != f.create.fieldsSeq {
+		return m, nil
+	}
+	f.create.loading = false
+	if msg.err != nil {
+		return m, nil
+	}
+	if m.createFieldCache == nil {
+		m.createFieldCache = map[string][]jira.CreateField{}
+	}
+	m.createFieldCache[msg.project+"/"+msg.typ] = msg.fields
+	m.setCreateRows(msg.fields)
+	return m, nil
+}
+
+// setCreateRows puts the fields Jira requires of the type after the form's
+// own rows, each with what was typed in it before, even under another type.
+func (m *Model) setCreateRows(fields []jira.CreateField) {
+	f := m.jiraForm
+	if f.create.kept == nil {
+		f.create.kept = map[string]jira.Value{}
+	}
+	own := f.fields[:0:0]
+	for _, ff := range f.fields {
+		switch ff.ID {
+		case createTypeField, createSummaryField, createDescField:
+			own = append(own, ff)
+		default:
+			f.create.kept[ff.ID] = ff.val
+		}
+	}
+	for _, cf := range fields {
+		switch cf.ID {
+		case "project", createTypeField, createSummaryField, createDescField, "parent":
+			continue
+		}
+		if !cf.Required {
+			continue
+		}
+		v, typed := f.create.kept[cf.ID]
+		own = append(own, jiraFormField{FieldMeta: cf.FieldMeta, required: true, val: v, changed: typed && !v.Empty()})
+	}
+	f.fields = own
+	f.idx = min(f.idx, len(f.fields))
 }
 
 func errText(err error) string {
@@ -111,12 +189,12 @@ func createFormType(f *jiraFormState) string {
 }
 
 // syncCreateType follows a new type in the create form: the title (it may
-// no longer join the sprint) and the description, while it is still the
-// old type's template.
-func (m *Model) syncCreateType() {
+// no longer join the sprint), the description while it is still the old
+// type's template, and the fields the type requires.
+func (m *Model) syncCreateType() tea.Cmd {
 	f := m.jiraForm
 	if f == nil || f.create == nil || !f.create.form {
-		return
+		return nil
 	}
 	old, typ := m.jiraCreateType, createFormType(f)
 	m.jiraCreateType = typ
@@ -126,15 +204,16 @@ func (m *Model) syncCreateType() {
 			ff.val.Text = m.opts.templates[strings.ToLower(typ)]
 		}
 	}
+	return m.loadCreateFields()
 }
 
 // cycleCreateType steps the create form's type by d, as ← → do on its row.
-func (m *Model) cycleCreateType(d int) {
+func (m *Model) cycleCreateType(d int) tea.Cmd {
 	ff := &m.jiraForm.fields[m.jiraForm.idx]
 	i := slices.IndexFunc(ff.Options, func(o jira.Option) bool { return o.Name == createFormType(m.jiraForm) })
 	o := ff.Options[(i+d+len(ff.Options))%len(ff.Options)]
 	ff.val = jira.Value{Options: []jira.Option{o}}
-	m.syncCreateType()
+	return m.syncCreateType()
 }
 
 // createFormIssue is the create form's issue: its own rows on the issue,

@@ -892,6 +892,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, m.pickPanelExtra(key, kind, it)
 		}
 		m.pickJiraFormValue(kind, it)
+		if f := m.jiraForm; f.idx < len(f.fields) && f.fields[f.idx].ID == createTypeField {
+			return m, m.syncCreateType()
+		}
 		return m, nil
 	}
 	if kind == jiraPickLaneStatus {

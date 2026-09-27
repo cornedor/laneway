@@ -80,6 +80,11 @@ type jiraFormCreate struct {
 	form bool
 	// discard is set by a first esc on a form with something typed.
 	discard bool
+	// fieldsSeq tags the create screen fetch for the type shown, loading
+	// while it runs; kept holds what was typed in rows a type change hid.
+	fieldsSeq int
+	loading   bool
+	kept      map[string]jira.Value
 }
 
 // jiraPreparedMsg is a move worked out: moved already (form nil), or waiting
@@ -342,7 +347,7 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if key.Matches(msg, m.keys.Left) {
 			d = -1
 		}
-		m.cycleCreateType(d)
+		return m, m.cycleCreateType(d)
 	case msg.String() == "delete", msg.String() == "backspace":
 		if f.idx < len(f.fields) {
 			ff := &f.fields[f.idx]
@@ -426,9 +431,6 @@ func (m *Model) pickJiraFormValue(kind jiraPickerKind, it jiraPickerItem) {
 	}
 	f.err = ""
 	pickFieldValue(&f.fields[f.idx], kind, it)
-	if f.fields[f.idx].ID == createTypeField {
-		m.syncCreateType()
-	}
 }
 
 // pickFieldValue applies a pick to ff. A multi-value field toggles the pick in
@@ -669,6 +671,9 @@ func (m *Model) renderJiraForm() string {
 		button = cursor.Render("▸ " + button)
 	} else {
 		button = "  " + button
+	}
+	if f.create != nil && f.create.loading {
+		parts = append(parts, refDimStyle.Render("  "+createFormType(f)+"'s fields loading…"))
 	}
 	parts = append(parts, "", button)
 	if f.err != "" {

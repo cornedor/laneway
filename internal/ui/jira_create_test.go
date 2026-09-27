@@ -288,3 +288,46 @@ func TestCloneAsksRequired(t *testing.T) {
 		t.Errorf("esc on a clone: box %v, %q", m.jiraCreateActive, m.status)
 	}
 }
+
+// TestCreateFormRequiredFields: the type's required fields join the form as
+// it opens; a type change swaps them, what was typed comes back with the
+// type, and the second visit needs no fetch. A late fetch is dropped.
+func TestCreateFormRequiredFields(t *testing.T) {
+	m := jiraTabModel(t)
+	out, cmd := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}, {Name: "Bug"}}})
+	m = out.(Model)
+	f := m.jiraForm
+	if !f.create.loading || !strings.Contains(ansi.Strip(m.View().Content), "Task's fields loading…") {
+		t.Fatal("the form should say its fields are loading")
+	}
+	_ = cmd
+	comp := jira.CreateField{FieldMeta: jira.FieldMeta{ID: "components", Name: "Components", Kind: jira.KindOptions}, Required: true}
+	optional := jira.CreateField{FieldMeta: jira.FieldMeta{ID: "labels", Name: "Labels"}}
+	out, _ = m.handleCreateFields(createFieldsMsg{project: "ABC", typ: "Task", seq: f.create.fieldsSeq, fields: []jira.CreateField{comp, optional}})
+	m = out.(Model)
+	if len(f.fields) != 4 || f.fields[3].ID != "components" || !f.fields[3].required || f.create.loading {
+		t.Fatalf("rows = %+v", f.fields)
+	}
+	f.fields[3].val, f.fields[3].changed = jira.Value{Options: []jira.Option{{ID: "10", Name: "Web"}}}, true
+
+	f.idx, f.editing = 0, false
+	late := f.create.fieldsSeq
+	out, _ = m.handleKey(keyStr("right")) // Bug: fetched
+	m = out.(Model)
+	if createFormType(f) != "Bug" || !f.create.loading {
+		t.Fatalf("type %q, loading %v", createFormType(f), f.create.loading)
+	}
+	out, _ = m.handleCreateFields(createFieldsMsg{project: "ABC", typ: "Task", seq: late, fields: []jira.CreateField{comp}})
+	if m = out.(Model); !f.create.loading {
+		t.Error("a stale fetch should be dropped")
+	}
+	out, _ = m.handleCreateFields(createFieldsMsg{project: "ABC", typ: "Bug", seq: f.create.fieldsSeq})
+	if m = out.(Model); len(f.fields) != 3 {
+		t.Fatalf("Bug rows = %+v", f.fields)
+	}
+	out, cmd = m.handleKey(keyStr("left")) // Task again: cached
+	m = out.(Model)
+	if cmd != nil || len(f.fields) != 4 || jiraValueText(f.fields[3].val) != "Web" {
+		t.Errorf("Task again: cmd %v, rows %+v", cmd != nil, f.fields)
+	}
+}

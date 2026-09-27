@@ -95,8 +95,8 @@ your clipboard, download or delete an attachment.
 the type you last made), the summary, where the cursor waits, and the
 description. `enter` on the summary creates it, `ctrl+s` from anywhere. The
 issue lands in the board's project, and in the sprint you are looking at;
-the panel opens on it. A failed create keeps the form, with any field Jira
-insists on added.
+the panel opens on it. Fields the type requires, like a Component, show up
+in the form as soon as the type is set. A failed create keeps the form.
 
 > **Tip:** give a type a starting description with `ui.templates` in the
 > config, such as steps, expected and actual for every new Bug.

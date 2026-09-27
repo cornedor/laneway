@@ -263,7 +263,8 @@ type Model struct {
 
 	jiraCreateActive bool
 	jiraCreateType   string
-	lastCreateType   map[string]string // per project, the type n last created
+	lastCreateType   map[string]string             // per project, the type n last created
+	createFieldCache map[string][]jira.CreateField // project/type's create screen
 	// jiraCreateParent is the issue a new subtask or epic child goes under,
 	// in jiraCreateProject; "" for a plain new issue.
 	jiraCreateParent, jiraCreateProject string
@@ -666,6 +667,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraAutoRefresh()
 	case uv.CellSizeEvent:
 		return m.handleCellSize(msg)
+	case createFieldsMsg:
+		return m.handleCreateFields(msg)
 	case jiraCreateTypesMsg:
 		return m.handleJiraCreateTypes(msg)
 	case jiraCreatedMsg:
