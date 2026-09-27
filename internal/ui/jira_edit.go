@@ -114,6 +114,8 @@ const (
 	jiraPickStatusTime
 	// jiraPickActionOutput is an action's output (actions.go).
 	jiraPickActionOutput
+	// jiraPickDeps is the issue's dependency tree (deps.go).
+	jiraPickDeps
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -586,7 +588,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickStandup || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
-			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases {
+			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
 			if k == jiraPickPalette {
@@ -889,6 +891,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickReleases {
 		return m.applyRelease(it)
+	}
+	if kind == jiraPickDeps {
+		if it.id == "" {
+			return m, nil
+		}
+		m.closeJiraPicker()
+		return m.openJiraKey(it.id)
 	}
 	if kind == jiraPickStatusTime || kind == jiraPickActionOutput {
 		m.closeJiraPicker()
