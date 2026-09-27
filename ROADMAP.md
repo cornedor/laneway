@@ -1,11 +1,12 @@
 # Roadmap
 
 ## Next
-- The move and create forms edit a doc field (Acceptance criteria) on one line; the in-app editor would keep its lines
+- The forms show a multi-line value flattened on its row; its first line and `+2 lines` would read better
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- The move and create forms edit a doc field and the comment in the in-app editor under the row (enter breaks the line, `ctrl+s` keeps, esc undoes); a paste reaches a form's field
 - A clone Jira refuses for a required field asks for it with the create form (`Clone of ABC-1`), then links the clone; a failed clone no longer reopens an old create box
 - Clone copies components and fix versions (a project requiring a component refused every clone)
 - The create form picks people too (a required Reviewer): from those assignable in the project

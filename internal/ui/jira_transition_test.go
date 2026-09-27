@@ -61,11 +61,11 @@ func TestJiraFormSubmit(t *testing.T) {
 	m.jiraForm.idx = 1
 	out, _ := m.handleJiraFormKey(keyMsg(t, "enter"))
 	m = out.(Model)
-	if !m.jiraForm.editing {
+	if !m.jiraForm.multiline {
 		t.Fatal("enter on the comment did not start editing")
 	}
-	m.jiraForm.input.SetValue("please review")
-	out, _ = m.handleJiraFormKey(keyMsg(t, "enter"))
+	m.jiraForm.area.SetValue("please review")
+	out, _ = m.handleJiraFormKey(keyStr("ctrl+s"))
 	m = out.(Model)
 	if m.jiraForm.fields[1].val.Text != "please review" {
 		t.Fatalf("comment = %q", m.jiraForm.fields[1].val.Text)
@@ -119,7 +119,7 @@ func TestJiraFormClick(t *testing.T) {
 	if !m.jiraForm.editing {
 		t.Fatal("a second click should edit")
 	}
-	m.jiraForm.input.SetValue("please review")
+	m.jiraForm.area.SetValue("please review")
 	click("Story Points")
 	if f := m.jiraForm; f.idx != 2 || f.editing || f.fields[1].val.Text != "please review" {
 		t.Fatalf("idx %d editing %v comment %q", f.idx, f.editing, f.fields[1].val.Text)
@@ -127,5 +127,32 @@ func TestJiraFormClick(t *testing.T) {
 	click("Move to Code review")
 	if f := m.jiraForm; f.idx != len(f.fields) || !strings.Contains(f.err, "Code Reviewer") {
 		t.Errorf("button: idx %d err %q", f.idx, f.err)
+	}
+}
+
+// TestJiraFormMultiline: the comment edits in an editor under its row, enter
+// breaking the line and ctrl+s keeping it; a paste lands in it; esc undoes.
+func TestJiraFormMultiline(t *testing.T) {
+	m := codeReviewForm(t)
+	m.jiraForm.idx = 1
+	out, _ := m.handleKey(keyStr("enter"))
+	for _, k := range []string{"a", "enter", "b"} {
+		out, _ = out.(Model).handleKey(keyStr(k))
+	}
+	out, _ = out.(Model).Update(tea.PasteMsg{Content: "c"})
+	m = out.(Model)
+	if !strings.Contains(ansi.Strip(m.View().Content), "ctrl+s keep") {
+		t.Errorf("no editor keys:\n%s", ansi.Strip(m.View().Content))
+	}
+	out, _ = m.handleKey(keyStr("ctrl+s"))
+	m = out.(Model)
+	if f := m.jiraForm; f.editing || f.fields[1].val.Text != "a\nbc" {
+		t.Fatalf("editing %v, comment %q", f.editing, f.fields[1].val.Text)
+	}
+	out, _ = m.handleKey(keyStr("enter"))
+	out, _ = out.(Model).handleKey(keyStr("x"))
+	out, _ = out.(Model).handleKey(keyStr("esc"))
+	if m = out.(Model); m.jiraForm == nil || m.jiraForm.fields[1].val.Text != "a\nbc" {
+		t.Errorf("esc should undo only the edit: %+v", m.jiraForm)
 	}
 }

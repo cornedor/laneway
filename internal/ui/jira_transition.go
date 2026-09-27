@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -57,6 +58,8 @@ type jiraFormState struct {
 	idx          int
 	editing      bool
 	input        textinput.Model
+	multiline    bool         // editing in area: a doc field or the comment
+	area         editor.Model // keeps their lines, drawn under the row
 	busy         bool
 	err          string
 	bulk         []string // marked cards the move goes to, with these fields (bulk.go)
@@ -253,6 +256,25 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if f.editing && f.multiline {
+		switch msg.String() {
+		case "ctrl+s":
+			ff := &f.fields[f.idx]
+			ff.val.Text = strings.TrimRight(f.area.Value(), "\n")
+			ff.changed = true
+			f.editing, f.multiline = false, false
+			f.err = ""
+			return m, nil
+		case "esc":
+			f.editing, f.multiline = false, false
+			return m, nil
+		case "ctrl+c":
+			return m.quit()
+		}
+		var cmd tea.Cmd
+		f.area, cmd = f.area.Update(msg)
+		return m, cmd
+	}
 	if f.editing {
 		switch msg.String() {
 		case "enter":
@@ -301,7 +323,16 @@ func (m *Model) editJiraFormField() tea.Cmd {
 	f := m.jiraForm
 	ff := &f.fields[f.idx]
 	switch ff.Kind {
-	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue, jira.KindDoc, jira.KindComment:
+	case jira.KindDoc, jira.KindComment:
+		ed := newModalComposer(strings.ToLower(ff.Name) + "…")
+		ed.NativeCursor = false // drawn in the box: the caret is its own
+		ed.MaxHeight = max(min(m.bodyH()-16, 10), 3)
+		ed.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("enter", "alt+enter", "shift+enter"))
+		ed.SetValue(ff.val.Text)
+		f.area = ed
+		f.editing, f.multiline = true, true
+		return nil
+	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue:
 		ti := textinput.New()
 		ti.Prompt = ""
 		ti.Placeholder = strings.ToLower(ff.Name) + "…"
@@ -480,6 +511,13 @@ func (m Model) clickJiraForm(x, y, count int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	row := y - top - f.firstRow
+	if f.multiline && row > f.idx { // the editor's lines sit under its row
+		h := lipgloss.Height(f.area.View())
+		if row <= f.idx+h {
+			return m, nil
+		}
+		row -= h
+	}
 	i := -1
 	switch {
 	case row >= 0 && row < len(f.fields):
@@ -493,6 +531,9 @@ func (m Model) clickJiraForm(x, y, count int) (tea.Model, tea.Cmd) {
 	if f.editing {
 		ff := &f.fields[f.idx]
 		ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
+		if f.multiline {
+			ff.val.Text, f.multiline = strings.TrimRight(f.area.Value(), "\n"), false
+		}
 	}
 	again := i == f.idx || count == 2
 	f.idx = i
@@ -540,6 +581,13 @@ func (m *Model) renderJiraForm() string {
 		name += strings.Repeat(" ", max(nameW-lipgloss.Width(name), 0))
 		var val string
 		switch {
+		case f.multiline && i == f.idx:
+			f.area.SetWidth(max(inner-4, 8))
+			parts = append(parts, cursor.Render("▸ "+name))
+			for _, l := range strings.Split(f.area.View(), "\n") {
+				parts = append(parts, "  "+l)
+			}
+			continue
 		case f.editing && i == f.idx:
 			f.input.SetWidth(max(inner-2-nameW-3, 8)) // its cell, so the cursor stays in view
 			val = f.input.View()
@@ -573,7 +621,10 @@ func (m *Model) renderJiraForm() string {
 	if f.create != nil {
 		hint = "↑/↓ field · ↵ edit · del clear · ctrl+s create · esc back"
 	}
-	if f.editing {
+	switch {
+	case f.multiline:
+		hint = "ctrl+s keep · ↵ newline · esc undo"
+	case f.editing:
 		hint = "↵ keep · esc undo"
 	}
 	parts = append(parts, "", center.Foreground(dimColor).Italic(true).Render(hint))

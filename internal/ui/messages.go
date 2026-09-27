@@ -103,7 +103,7 @@ func (m Model) applyMessage(it jiraPickerItem) (tea.Model, tea.Cmd) {
 
 // pasteInput hands a paste to the one-line input that has the keys: go-to,
 // create, JQL, the search box, a picker's or the builder's filter, a
-// setting being edited. Others drop it.
+// setting or a move form's field being edited. Others drop it.
 func (m Model) pasteInput(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch t := m.jiraTab; {
@@ -118,6 +118,10 @@ func (m Model) pasteInput(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		m.jiraGotoInput, cmd = m.jiraGotoInput.Update(msg)
 	case m.createOnTop():
 		m.jiraCreateInput, cmd = m.jiraCreateInput.Update(msg)
+	case m.formOnTop() && m.jiraForm.multiline:
+		m.jiraForm.area, cmd = m.jiraForm.area.Update(msg)
+	case m.formOnTop() && m.jiraForm.editing:
+		m.jiraForm.input, cmd = m.jiraForm.input.Update(msg)
 	case m.jiraPicker.active && m.jiraPicker.filterable:
 		m.jiraPicker.filter, cmd = m.jiraPicker.filter.Update(msg)
 		m.filterJiraPicker()
