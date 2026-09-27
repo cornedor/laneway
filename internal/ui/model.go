@@ -61,7 +61,7 @@ type keyMap struct {
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
-	Compact, Releases                  key.Binding
+	Compact, Releases, Review          key.Binding
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -158,6 +158,7 @@ func defaultKeys() keyMap {
 		MyWork:          bind("my work, every project", "O"),
 		Compact:         bind("one-line cards", "c"),
 		Releases:        bind("releases: versions and their progress", "V"),
+		Review:          bind("waiting on my review (gh, glab)", "ctrl+r"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -315,7 +316,9 @@ type Model struct {
 	// mentionsSeen the newest mention notified, started when the app began.
 	inboxUnread  int
 	mentionsSeen time.Time
-	started      time.Time
+	// reviewKeys are the issues waiting on your review, marked ⌥ (review.go).
+	reviewKeys map[string]bool
+	started    time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -612,6 +615,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleInboxCount(msg)
 	case inboxMentionsMsg:
 		return m.handleInboxMentions(msg)
+	case reviewMsg:
+		return m.handleReview(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:

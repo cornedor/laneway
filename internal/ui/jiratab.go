@@ -952,6 +952,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openStandup()
 	case key.Matches(msg, m.keys.Releases):
 		return m, m.openReleases()
+	case key.Matches(msg, m.keys.Review):
+		return m, m.openReview()
 	case key.Matches(msg, m.keys.JQL):
 		return m, m.openJQL()
 	case key.Matches(msg, m.keys.Site):
@@ -1975,6 +1977,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if m.pins[c.Key] {
 		title = jiraPinStyle.Render("★") + " " + title
 	}
+	if m.reviewKeys[c.Key] {
+		title = jiraPinStyle.Render("⌥") + " " + title
+	}
 	if f.typ {
 		row += jiraTypeIcon(c.Type) + " "
 	}
@@ -2400,6 +2405,9 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 	lines := m.cardLines(c, true)
 	if m.pins[c.Key] {
 		lines[0] = jiraPinStyle.Render("★") + " " + lines[0]
+	}
+	if m.reviewKeys[c.Key] {
+		lines[0] = jiraPinStyle.Render("⌥") + " " + lines[0]
 	}
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		lines[0] = hl + " " + lines[0]

@@ -44,6 +44,8 @@ var paletteAliases = map[string]string{
 	"goto":        "open find",
 	"points":      "estimate",
 	"move_sprint": "backlog",
+	"review":      "pull merge request pr mr",
+	"releases":    "versions fix version",
 }
 
 // paletteDesc renames actions whose board description is wrong on a

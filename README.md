@@ -145,8 +145,8 @@ Actions for `keys:`, by where they first apply:
   move_left move_right rank_up rank_down project board next_view prev_view
   toggle_mode sort fold unfold_all compact move_sprint assignee_filter mine
   clear_filters mark mark_all undo bulk quick_edit pin palette jql
-  filter_builder my_work roadmap plan charts releases timer timesheet inbox
-  standup site settings panel_wider panel_narrower
+  filter_builder my_work review roadmap plan charts releases timer timesheet
+  inbox standup site settings panel_wider panel_narrower
 - panel: status priority points summary labels assign description comment
   reply log_work start_work linked_issue back image issue_actions history
   development
@@ -263,7 +263,7 @@ Board:
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
 - cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
-- views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `R` roadmap · `P` planning · `C` charts · `V` releases
+- views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (the issues of the pull and merge requests `gh` and `glab` say wait on you, by the keys in their titles and branches; their cards get `⌥`) · `R` roadmap · `P` planning · `C` charts · `V` releases
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
 - mouse: a click selects, a second opens; drag a card to another lane (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
 - `q` quit; on the roadmap, planning and charts it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
