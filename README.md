@@ -98,7 +98,7 @@ ui:
   stale_days: 5                 # an in-progress card's age turns red past this
   templates:                    # a new issue's description by type (markdown)
     Bug: "## Steps\n\n1. \n\n## Expected\n\n## Actual"
-  saved_filters: on             # your starred Jira filters as views too (off)
+  saved_filters: off            # your starred Jira filters as views too (on)
   branch_template: "{key}-{summary}"  # ctrl+y's branch name: {key} {summary} {type} {project}
   work_branch_template: "issue/{key}-{summary}"  # S's new branch; default branch_template when set
   kanban_done_days: 14          # done work older than this leaves kanban boards
