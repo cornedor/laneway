@@ -72,13 +72,17 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 			global = append(global, "-site", site)
 		}
 		return hookCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
+	case "completion":
+		return completionCmd(args[1:], out, errOut)
+	case "__complete":
+		return completeCmd(args[1:], out)
 	case "list", "view", "create", "move":
 		if site != "" {
 			global = append(global, "-site", site)
 		}
 		return cliCmd(args[0], append(global, args[1:]...), out, errOut)
 	}
-	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, rules, setup, prompt, hook)\n", args[0])
+	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, rules, setup, prompt, hook, completion)\n", args[0])
 	return 2
 }
 

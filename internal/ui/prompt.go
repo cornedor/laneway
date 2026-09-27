@@ -2,8 +2,10 @@ package ui
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -78,6 +80,23 @@ var headBranch = func() string {
 		dir = parent
 	}
 	return ""
+}
+
+// CachedKeys are the issue keys on the stored boards, each once, sorted.
+func CachedKeys(st *store.Store) []string {
+	seen := map[string]bool{}
+	for _, raw := range st.Prefixed(jiraMetaPrefix + "cache:") {
+		var c struct {
+			Cards []struct{ Key string }
+		}
+		if json.Unmarshal([]byte(raw), &c) != nil {
+			continue
+		}
+		for _, card := range c.Cards {
+			seen[card.Key] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(seen))
 }
 
 // cachedStatus is key's status on any stored board, "" when on none.

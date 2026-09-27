@@ -476,6 +476,11 @@ laneway create -project ABC [-type Bug] -summary 'Login fails' [-description 'â€
 laneway move ABC-12 'In Progress'        # a status the issue can move to, any case
 ```
 
+`laneway completion bash` (or `zsh`, `fish`) prints a completion script:
+commands, flags, `-site` names and, for `view` and `move`, the keys on the
+boards laneway last loaded. `source <(laneway completion bash)` in your
+`.bashrc`; `laneway completion fish > ~/.config/fish/completions/laneway.fish`.
+
 ## Planning
 
 ![The backlog beside the next sprint](docs/screenshots/planning.png)
