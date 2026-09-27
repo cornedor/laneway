@@ -253,3 +253,27 @@ func TestPanelStepKeys(t *testing.T) {
 		t.Errorf("> = %d", m.opts.panelPct)
 	}
 }
+
+// TestHeaderViewsKeepSprint: many views give way to the sprint's days and
+// goal (cut, a click shows it whole), behind a › for the rest.
+func TestHeaderViewsKeepSprint(t *testing.T) {
+	m := jiraTabModel(t)
+	for i := range 30 {
+		m.jiraTab.views = append(m.jiraTab.views, jiraView{kind: jiraViewBacklog, name: "View " + strconv.Itoa(i)})
+	}
+	m.jiraTab.views[0].end = time.Now().Add(49 * time.Hour)
+	m.jiraTab.views[0].goal = "Ship the new checkout flow to every market before the freeze"
+	row := strings.Split(ansi.Strip(m.View().Content), "\n")[jiraBodyTop-2]
+	if !strings.Contains(row, "3d left") || !strings.Contains(row, "›") || !strings.Contains(row, "Ship the new checkout flow to e…") || strings.Contains(row, "freeze") {
+		t.Fatalf("views row = %q", row)
+	}
+	x := ansi.StringWidth(row[:strings.Index(row, "Ship")])
+	out, _, ok := m.clickHeader(x+1, jiraBodyTop-2)
+	if m = out.(Model); !ok || !strings.HasSuffix(m.status, "before the freeze") {
+		t.Errorf("goal click: %v %q", ok, m.status)
+	}
+	x = ansi.StringWidth(row[:strings.Index(row, "›")])
+	if h := m.headerHit(x, jiraBodyTop-2); h.kind != "view" || h.i == 0 {
+		t.Errorf("› hits %s %d", h.kind, h.i)
+	}
+}

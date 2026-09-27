@@ -293,9 +293,8 @@ type jiraTabState struct {
 	// offline is why the last fetch failed while cached cards stay shown,
 	// "" once one succeeds.
 	offline string
-	// viewsFirst is the first view the header shows (render sets it, for
-	// clicks).
-	viewsFirst int
+	// viewsW is the views row's width, as last drawn (for clicks).
+	viewsW int
 	// fullAt and fullKey are when and for which view and filters the cards
 	// were last fetched whole; an idle refresh within ui.full_refresh of it
 	// fetches only what changed (loadJiraDelta).
@@ -2735,27 +2734,38 @@ func (m *Model) laneCategory(l int) string {
 // jiraViewSep parts the header's views.
 const jiraViewSep = "  │  "
 
-// jiraViewsFirst is the first view the header shows: 0 when they all fit,
-// else late enough that the active one does, behind a ‹.
-func jiraViewsFirst(views []jiraView, active, width int) int {
+// jiraGoalMax is how much of a sprint's goal the views row shows.
+const jiraGoalMax = 32
+
+// jiraViewsFit is the views the row shows in width, [first, last): from
+// far enough on to show the active one, then on while they fit. A "‹" or
+// "›" and its separator stand for the ones left out.
+func jiraViewsFit(views []jiraView, active, width int) (first, last int) {
 	if active < 0 || active >= len(views) {
-		return 0
+		return 0, len(views)
 	}
-	sep, w := ansi.StringWidth(jiraViewSep), 0
-	for i := active; i >= 0; i-- {
-		w += ansi.StringWidth(views[i].name)
-		if i < active {
-			w += sep
+	sep := ansi.StringWidth(jiraViewSep)
+	more := func(first, last int) int { // the ‹ and › the range needs
+		n := 0
+		if first > 0 {
+			n += 1 + sep
 		}
-		more := 0
-		if i > 0 {
-			more = 1 + sep // "‹" and its separator
+		if last < len(views) {
+			n += 1 + sep
 		}
-		if w+more > width {
-			return min(i+1, active)
-		}
+		return n
 	}
-	return 0
+	w := ansi.StringWidth(views[active].name)
+	first, last = active, active+1
+	for first > 0 && w+sep+ansi.StringWidth(views[first-1].name)+more(first-1, last) <= width {
+		first--
+		w += sep + ansi.StringWidth(views[first].name)
+	}
+	for last < len(views) && w+sep+ansi.StringWidth(views[last].name)+more(first, last+1) <= width {
+		w += sep + ansi.StringWidth(views[last].name)
+		last++
+	}
+	return first, last
 }
 
 // renderJiraPane draws the tab body: the board pane, plus the reference panel
@@ -2772,7 +2782,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 	head := ansi.Truncate(joinSegs(m.jiraTitleSegs()), max(boxW-2, 1), "…")
 	rule := refDimStyle.Render(strings.Repeat("─", max(boxW-2, 1)))
 
-	t.viewsFirst = jiraViewsFirst(t.views, t.viewIdx, max(boxW-3, 1)) // a cell for the truncation's …
+	t.viewsW = max(boxW-3, 1) // a cell for the truncation's …
 	viewLine := joinSegs(m.jiraViewSegs())
 	viewLine = ansi.Truncate(viewLine, max(boxW-2, 1), "…")
 	filterLine := ansi.Truncate(m.jiraFilterLine(), max(boxW-2, 1), "…")
@@ -2884,7 +2894,7 @@ func jiraSprintLine(v jiraView, now time.Time, workdays []time.Weekday) string {
 		parts = append(parts, "ended "+v.end.Local().Format("Jan 2"))
 	}
 	if g := safeterm.Line(strings.Join(strings.Fields(v.goal), " ")); g != "" {
-		parts = append(parts, g)
+		parts = append(parts, ansi.Truncate(g, jiraGoalMax, "…")) // a click shows it whole
 	}
 	return strings.Join(parts, " · ")
 }

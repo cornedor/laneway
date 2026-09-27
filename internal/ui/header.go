@@ -9,6 +9,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // The board's header rows as segments: what each draws and what a click on
@@ -93,43 +95,49 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	return segs
 }
 
-// jiraViewSegs is the views row: the offline notice (retries), the views
-// (‹ the one before the first shown), the sprint's bar (charts), its days
-// and which lanes show.
+// jiraViewSegs is the views row: the offline notice (retries), the views,
+// the sprint's bar (charts), its days and goal (a click shows it whole) and
+// which lanes show. The sprint's part keeps its room; views that don't fit
+// give way (‹ the one before the first shown, › the one after the last).
 func (m *Model) jiraViewSegs() []headSeg {
 	t := m.jiraTab
-	var segs []headSeg
+	var head, tail []headSeg
 	if t.offline != "" {
-		segs = append(segs, keySeg(jiraOverStyle.Render("offline · showing the cached board · "+helpKey(m.keys.Refresh)+" retries"), m.keys.Refresh), plainSeg("    "))
-	}
-	first := min(t.viewsFirst, len(t.views))
-	if first > 0 {
-		segs = append(segs, headSeg{s: jiraDimStyle.Render("‹"), kind: "view", i: first - 1}, plainSeg(jiraDimStyle.Render(jiraViewSep)))
-	}
-	for i, v := range t.views[first:] {
-		if i > 0 {
-			segs = append(segs, plainSeg(jiraDimStyle.Render(jiraViewSep)))
-		}
-		style := jiraDimStyle
-		if first+i == t.viewIdx {
-			style = jiraViewActive
-		}
-		segs = append(segs, headSeg{s: style.Render(v.name), kind: "view", i: first + i})
+		head = append(head, keySeg(jiraOverStyle.Render("offline · showing the cached board · "+helpKey(m.keys.Refresh)+" retries"), m.keys.Refresh), plainSeg("    "))
 	}
 	if v, ok := m.jiraCurrentView(); ok {
 		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && bar != "" {
-			segs = append(segs, plainSeg("    "), keySeg(bar, m.keys.Charts))
+			tail = append(tail, plainSeg("    "), keySeg(bar, m.keys.Charts))
 		}
 		if s := jiraSprintLine(v, time.Now(), m.opts.workdays); s != "" {
-			segs = append(segs, plainSeg(jiraDimStyle.Render("    "+s)))
+			tail = append(tail, headSeg{s: jiraDimStyle.Render("    " + s), kind: "goal"})
 		}
 	}
 	if n := len(t.lanes); m.jiraShowsLanes() && n > 0 {
 		if vis, _ := jiraLaneLayout(t.view.Width(), n); vis < n {
-			segs = append(segs, plainSeg(jiraDimStyle.Render(fmt.Sprintf("    lanes %d–%d of %d", t.firstLane+1, t.firstLane+vis, n))))
+			tail = append(tail, plainSeg(jiraDimStyle.Render(fmt.Sprintf("    lanes %d–%d of %d", t.firstLane+1, t.firstLane+vis, n))))
 		}
 	}
-	return segs
+	room := t.viewsW - ansi.StringWidth(joinSegs(head)) - ansi.StringWidth(joinSegs(tail))
+	first, last := jiraViewsFit(t.views, t.viewIdx, room)
+	segs := head
+	if first > 0 {
+		segs = append(segs, headSeg{s: jiraDimStyle.Render("‹"), kind: "view", i: first - 1}, plainSeg(jiraDimStyle.Render(jiraViewSep)))
+	}
+	for i := first; i < last; i++ {
+		if i > first {
+			segs = append(segs, plainSeg(jiraDimStyle.Render(jiraViewSep)))
+		}
+		style := jiraDimStyle
+		if i == t.viewIdx {
+			style = jiraViewActive
+		}
+		segs = append(segs, headSeg{s: style.Render(t.views[i].name), kind: "view", i: i})
+	}
+	if last < len(t.views) {
+		segs = append(segs, plainSeg(jiraDimStyle.Render(jiraViewSep)), headSeg{s: jiraDimStyle.Render("›"), kind: "view", i: last})
+	}
+	return append(segs, tail...)
 }
 
 // jiraFilterSegs is the filters row: the search (its terms remove one, esc
@@ -225,6 +233,11 @@ func (m Model) runSeg(h headSeg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case "chart":
 		m.jiraTab.charts.tab = h.i
+		return m, nil, true
+	case "goal":
+		if v, ok := m.jiraCurrentView(); ok && strings.TrimSpace(v.goal) != "" {
+			m.status = "goal: " + safeterm.Line(strings.Join(strings.Fields(v.goal), " "))
+		}
 		return m, nil, true
 	case "esc":
 		m.clearJiraSearch()
