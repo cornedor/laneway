@@ -318,7 +318,9 @@ in the project), the summary, where the cursor waits, and the description
 creates it, `ctrl+s` from any row; in a sprint view it joins that sprint.
 Fields the type requires, like a Component, join the form as the type is
 set and the hint names what is still empty; `+ more fields` shows the rest
-its create screen allows (assignee, labels, dates, …). A refused create
+its create screen allows (assignee with *Assign to me* on top, priority,
+labels, dates, a parent, the sprint: the shown one, or another or the
+backlog, …). A refused create
 keeps the form, Jira's reasons under the fields they are about. A subtask
 or epic child and a clone (`A` in the panel) and a roadmap epic (`n` there)
 open the same form.

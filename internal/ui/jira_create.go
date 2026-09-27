@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -234,12 +235,18 @@ func (m *Model) setCreateRows(fields []jira.CreateField) {
 	f.create.screen = fields
 	row := func(cf jira.CreateField) jiraFormField {
 		v, typed := f.create.kept[cf.ID]
+		if !typed && cf.Kind == jira.KindSprint { // the shown sprint, as the title says
+			if id, name := m.createSprint(); id != 0 {
+				v = jira.Value{Options: []jira.Option{{ID: strconv.Itoa(id), Name: name}}}
+			}
+		}
 		return jiraFormField{FieldMeta: cf.FieldMeta, required: cf.Required, val: v, changed: typed && !v.Empty()}
 	}
 	var more []jiraFormField
 	for _, cf := range fields {
 		switch {
-		case slices.Contains([]string{"project", createTypeField, createSummaryField, createDescField, "parent"}, cf.ID):
+		case slices.Contains([]string{"project", createTypeField, createSummaryField, createDescField}, cf.ID),
+			cf.ID == "parent" && f.create.in.Parent != "": // a subtask's or child's, fixed
 		case cf.Required:
 			own = append(own, row(cf))
 		case slices.Contains(createMoreKinds, cf.Kind):
@@ -265,9 +272,10 @@ func (m *Model) setCreateRows(fields []jira.CreateField) {
 const createMoreField = "_more"
 
 // createMoreKinds are the fields the more-fields toggle offers: the ones
-// the form edits. A sprint follows the board instead.
+// the form edits. The sprint starts on the shown one and is joined after
+// the create, as the board's sprint is.
 var createMoreKinds = []string{jira.KindText, jira.KindStrings, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindDoc,
-	jira.KindUser, jira.KindUsers, jira.KindOption, jira.KindOptions, jira.KindIssue}
+	jira.KindUser, jira.KindUsers, jira.KindOption, jira.KindOptions, jira.KindIssue, jira.KindSprint}
 
 // toggleCreateMore shows or hides the create form's optional fields, what
 // was typed in them kept, and remembers the choice for the next form.
@@ -377,7 +385,25 @@ func (m *Model) createFormIssue(f *jiraFormState, fields map[string]any) jiraFor
 	if cr.cloneOf == "" { // a clone stays out of the sprint, linked instead
 		cr.sprint, _ = m.createSprint()
 	}
+	if id, ok := createFormSprint(f); ok {
+		cr.sprint = id
+	}
 	return cr
+}
+
+// createFormSprint is the sprint the form's sprint row picked (0 the
+// backlog); false without one.
+func createFormSprint(f *jiraFormState) (int, bool) {
+	for _, ff := range f.fields {
+		if ff.Kind == jira.KindSprint {
+			id := 0
+			if len(ff.val.Options) > 0 {
+				id, _ = strconv.Atoi(ff.val.Options[0].ID)
+			}
+			return id, true
+		}
+	}
+	return 0, false
 }
 
 // createJiraIssue makes cr's issue: see createIssue.
@@ -501,7 +527,18 @@ func (m *Model) jiraCreateTitle() string {
 	if m.jiraCreateParent != "" {
 		return "New " + m.jiraCreateType + " of " + m.jiraCreateParent
 	}
-	if id, name := m.createSprint(); id != 0 {
+	id, name := m.createSprint()
+	if f := m.jiraForm; f != nil && f.create != nil {
+		for _, ff := range f.fields {
+			if ff.Kind == jira.KindSprint { // the sprint row says where it goes
+				id, name = 0, ""
+				if len(ff.val.Options) > 0 && ff.val.Options[0].ID != "" {
+					id, name = 1, ff.val.Options[0].Name
+				}
+			}
+		}
+	}
+	if id != 0 {
 		return "New " + m.jiraCreateType + " in " + m.jiraTab.project + " → " + name
 	}
 	return "New " + m.jiraCreateType + " in " + m.jiraTab.project

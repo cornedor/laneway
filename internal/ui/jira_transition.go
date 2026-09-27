@@ -516,7 +516,7 @@ func (m *Model) submitJiraForm() tea.Cmd {
 			comment = ff.val.Text
 			continue
 		}
-		if f.create != nil && f.create.form && (ff.ID == createTypeField || ff.ID == createSummaryField || ff.ID == createDescField || ff.ID == createMoreField) {
+		if f.create != nil && f.create.form && (ff.ID == createTypeField || ff.ID == createSummaryField || ff.ID == createDescField || ff.ID == createMoreField || ff.Kind == jira.KindSprint) {
 			continue // the issue's own, see createFormIssue
 		}
 		if !ff.changed {

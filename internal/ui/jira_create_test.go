@@ -432,3 +432,43 @@ func TestCreateFormMoreFields(t *testing.T) {
 		t.Error("the choice should hold for the next form")
 	}
 }
+
+// TestCreateFormSprintParent: among the more fields the sprint starts on
+// the shown one and can go to the backlog, and a parent can be set unless
+// the form's parent is fixed.
+func TestCreateFormSprintParent(t *testing.T) {
+	m := jiraTabModel(t)
+	m.createMore = true
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}}})
+	m = out.(Model)
+	f := m.jiraForm
+	f.editing = false
+	screen := []jira.CreateField{
+		{FieldMeta: jira.FieldMeta{ID: "parent", Name: "Parent", Kind: jira.KindIssue}},
+		{FieldMeta: jira.FieldMeta{ID: "customfield_10020", Name: "Sprint", Kind: jira.KindSprint}},
+	}
+	out, _ = m.handleCreateFields(createFieldsMsg{project: "ABC", typ: "Task", seq: f.create.fieldsSeq, fields: screen})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Parent") || !strings.Contains(view, "Sprint 1") {
+		t.Fatalf("form:\n%s", view)
+	}
+	i := slices.IndexFunc(f.fields, func(ff jiraFormField) bool { return ff.Kind == jira.KindSprint })
+	if cr := m.createFormIssue(f, nil); cr.sprint != 9 {
+		t.Errorf("sprint %d, want the shown 9", cr.sprint)
+	}
+	f.fields[i].val, f.fields[i].changed = jira.Value{Options: []jira.Option{{ID: "", Name: "none (backlog)"}}}, true
+	if cr := m.createFormIssue(f, nil); cr.sprint != 0 || strings.Contains(m.jiraCreateTitle(), "→") {
+		t.Errorf("backlog: sprint %d, title %q", cr.sprint, m.jiraCreateTitle())
+	}
+
+	m.jiraForm = nil
+	out, _ = m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", parent: "ABC-1", types: []jira.Option{{Name: "Sub-task"}}})
+	m = out.(Model)
+	f = m.jiraForm
+	out, _ = m.handleCreateFields(createFieldsMsg{project: "ABC", typ: "Sub-task", seq: f.create.fieldsSeq, fields: screen})
+	m = out.(Model)
+	if slices.ContainsFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == "parent" }) {
+		t.Error("a subtask's parent is fixed, no row")
+	}
+}
