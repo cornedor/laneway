@@ -39,17 +39,20 @@ func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, starte
 	return nil
 }
 
-// UpdateWorklog sets worklog id's time and comment, and its start when
-// started isn't zero (moved to another day).
-func (c *Client) UpdateWorklog(ctx context.Context, key, id string, seconds int, started time.Time, comment string) error {
+// UpdateWorklog sets worklog id's time, its comment (markdown) unless
+// comment is nil, and its start when started isn't zero (moved to another
+// day).
+func (c *Client) UpdateWorklog(ctx context.Context, key, id string, seconds int, started time.Time, comment *string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
 	if seconds < 60 {
 		return fmt.Errorf("jira: log at least a minute")
 	}
-	// The comment always goes along, so emptying it clears it.
-	body := map[string]any{"timeSpentSeconds": seconds, "comment": textToADF(comment, nil)}
+	body := map[string]any{"timeSpentSeconds": seconds}
+	if comment != nil { // an empty one clears it
+		body["comment"] = MarkdownToADF(*comment)
+	}
 	if !started.IsZero() {
 		body["started"] = started.Format(jiraTime)
 	}

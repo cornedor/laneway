@@ -286,9 +286,11 @@ type Model struct {
 	timer        workTimer
 	worklogStart time.Time
 	// worklogEdit is the worklog the input edits (id, on worklogEditDay's
-	// timesheet), "" for a new one.
+	// timesheet), "" for a new one; worklogComment its comment as the
+	// input showed it, which left alone stays as Jira has it.
 	worklogEdit    string
 	worklogEditDay time.Time
+	worklogComment string
 	// worklogFromTimer marks the input as the timer's stop: the timer ends
 	// once the log is written.
 	worklogFromTimer bool
@@ -609,6 +611,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePrefetch(msg)
 	case worklogLoggedMsg:
 		return m.handleWorklogLogged(msg)
+	case worklogFailedMsg:
+		return m.handleWorklogFailed(msg)
 	case timerTickMsg:
 		return m.handleTimerTick()
 	case chartsMsg:

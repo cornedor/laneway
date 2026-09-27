@@ -162,14 +162,19 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		if onDay { // a day first moves the entry there
 			showDay, moved = day, day.Add(m.opts.workdayStart)
 		}
+		var newComment *string
+		if comment != m.worklogComment {
+			newComment = &comment
+		}
+		input, editDay := m.jiraFieldInput.Value(), m.worklogEditDay
 		m.worklogEdit = ""
 		m.closeJiraField()
 		c, ctx := m.jiraClient, m.ctx
 		reload := m.openTimesheetDay(showDay)
 		m.status = "updating the worklog on " + key + "…"
 		return m, func() tea.Msg {
-			if err := c.UpdateWorklog(ctx, key, id, secs, moved, comment); err != nil {
-				return jiraMutatedMsg{key: key, field: "worklog", err: err}
+			if err := c.UpdateWorklog(ctx, key, id, secs, moved, newComment); err != nil {
+				return worklogFailedMsg{key: key, id: id, day: editDay, input: input, err: err}
 			}
 			return reload()
 		}
@@ -194,6 +199,33 @@ type worklogLoggedMsg struct {
 	key       string
 	fromTimer bool
 	err       error
+}
+
+// worklogFailedMsg is a timesheet edit (input the typed text) or delete
+// that failed.
+type worklogFailedMsg struct {
+	key, id string
+	day     time.Time
+	input   string
+	err     error
+}
+
+// handleWorklogFailed says why, then brings back the edit with its text,
+// or the day's timesheet after a delete, unless the timesheet was closed.
+func (m Model) handleWorklogFailed(msg worklogFailedMsg) (tea.Model, tea.Cmd) {
+	out, _ := m.handleJiraMutated(jiraMutatedMsg{key: msg.key, field: "worklog", err: msg.err})
+	m = out.(Model)
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickTimesheet {
+		return m, nil
+	}
+	m.closeJiraPicker()
+	if msg.input == "" {
+		return m, m.openTimesheetDay(msg.day)
+	}
+	comment := m.worklogComment
+	m.openWorklogInput(msg.key, msg.input, time.Time{})
+	m.worklogEdit, m.worklogEditDay, m.worklogComment = msg.id, msg.day, comment
+	return m, nil
 }
 
 func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
@@ -279,7 +311,8 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		day := p.day
 		m.closeJiraPicker()
 		m.openWorklogInput(key, strings.TrimSpace(it.value), time.Time{})
-		m.worklogEdit, m.worklogEditDay = id, day
+		_, comment, _ := jira.ParseDuration(m.jiraFieldInput.Value())
+		m.worklogEdit, m.worklogEditDay, m.worklogComment = id, day, comment
 		return nil, true
 	case is(m.keys.DeleteEntry):
 		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
@@ -297,7 +330,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		reload := m.openTimesheetDay(day)
 		return func() tea.Msg {
 			if err := c.DeleteWorklog(ctx, key, id); err != nil {
-				return jiraMutatedMsg{key: key, field: "worklog", err: err}
+				return worklogFailedMsg{key: key, day: day, err: err}
 			}
 			return reload()
 		}, true

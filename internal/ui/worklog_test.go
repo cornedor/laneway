@@ -204,9 +204,40 @@ func TestTimesheetEdit(t *testing.T) {
 	if len(bodies) == 0 || bodies[0]["path"] != "/rest/api/3/issue/ABC-2/worklog/10101" || bodies[0]["timeSpentSeconds"] != 5400.0 {
 		t.Errorf("requests = %v", bodies)
 	}
+	if _, ok := bodies[0]["comment"]; ok {
+		t.Errorf("an untouched comment was sent: %v", bodies[0])
+	}
 	m.openWorklogInput("ABC-1", "", time.Time{})
 	if m.worklogEdit != "" {
 		t.Error("a new log must not update the edited entry")
+	}
+}
+
+// TestTimesheetEditFails: a refused edit says why and brings back the
+// input with what was typed, still editing the entry.
+func TestTimesheetEditFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"errorMessages":["no"]}`, http.StatusBadRequest)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleJiraKey(keyMsg(t, "W"))
+	m = out.(Model)
+	m.setJiraPickerItems([]jiraPickerItem{{id: "ABC-2/10101", label: "09:00  1h  ABC-2", value: "1h review"}})
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "e"))
+	m = out.(Model)
+	m.jiraFieldInput.SetValue("2h review, **done**")
+	out, cmd := m.applyJiraField()
+	m = out.(Model)
+	msg, ok := cmd().(worklogFailedMsg)
+	if !ok {
+		t.Fatalf("msg %T", msg)
+	}
+	out, _ = m.Update(msg)
+	m = out.(Model)
+	if m.jiraPicker.active || !m.jiraFieldActive || m.jiraFieldInput.Value() != "2h review, **done**" || m.worklogEdit != "10101" || m.worklogComment != "review" {
+		t.Errorf("picker %v, input %v %q, edit %q, comment %q", m.jiraPicker.active, m.jiraFieldActive, m.jiraFieldInput.Value(), m.worklogEdit, m.worklogComment)
 	}
 }
 
