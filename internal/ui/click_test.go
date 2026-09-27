@@ -1343,3 +1343,14 @@ func TestPanelHintsRebound(t *testing.T) {
 		t.Error("the rebound comment hint did not open the composer")
 	}
 }
+
+// TestCopyRow: ctrl+y in the inbox copies the row as read.
+func TestCopyRow(t *testing.T) {
+	m := jiraTabModel(t)
+	m.startJiraPicker(jiraPickInbox, "Inbox", true)
+	m.setJiraPickerItems([]jiraPickerItem{{id: "ABC-1", label: "  @ 2h  Ada  ABC-1 First — commented"}})
+	out, cmd := m.handleJiraPickerKey(keyPress("ctrl+y"))
+	if m = out.(Model); cmd == nil || m.status != "copied @ 2h  Ada  ABC-1 First — commented" {
+		t.Errorf("status %q", m.status)
+	}
+}

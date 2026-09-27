@@ -493,9 +493,12 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.jiraPicker.kind == jiraPickStandup && key.Matches(msg, m.keys.Standup) {
 		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays))
 	}
-	if p := &m.jiraPicker; p.kind == jiraPickDev && key.Matches(msg, m.keys.CopyBranch) && p.idx < len(p.items) {
+	if p := &m.jiraPicker; copyRowKinds[p.kind] && key.Matches(msg, m.keys.CopyBranch) && p.idx < len(p.items) {
 		it := p.items[p.idx]
-		text := cmp.Or(it.value, it.id)
+		text := cmp.Or(it.value, it.id) // dev info: the branch, else the link
+		if p.kind != jiraPickDev {
+			text = strings.TrimSpace(it.label) // the row as read
+		}
 		if text == "" {
 			m.status = "nothing to copy on this row"
 			return m, nil
@@ -553,6 +556,9 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
+
+// copyRowKinds are the pickers whose rows ctrl+y copies.
+var copyRowKinds = map[jiraPickerKind]bool{jiraPickDev: true, jiraPickInbox: true, jiraPickHistory: true, jiraPickStandup: true}
 
 // handleJiraAssigneeDebounce runs the pending assignee search once the debounce
 // window elapses, unless a newer keystroke has superseded it.
