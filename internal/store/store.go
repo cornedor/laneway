@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -36,6 +37,19 @@ func (s *Store) GetMeta(key string) (string, bool, error) {
 	defer s.mu.Unlock()
 	v, ok := s.meta[key]
 	return v, ok, nil
+}
+
+// Prefixed is every value whose key starts with prefix, in no order.
+func (s *Store) Prefixed(prefix string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []string
+	for k, v := range s.meta {
+		if strings.HasPrefix(k, prefix) {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // SetMeta stores key and writes the file through a rename, so a crash never

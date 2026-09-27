@@ -416,7 +416,7 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 	}
 	m.jiraPicker.err = msg.err
 	if msg.kind == jiraPickInbox && msg.err == nil {
-		m.inboxUnread = 0 // read now; a failed load keeps the badge
+		m.setInboxUnread(0) // read now; a failed load keeps the badge
 	}
 	if msg.title != "" {
 		m.jiraPicker.title = msg.title

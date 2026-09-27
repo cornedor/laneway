@@ -399,6 +399,23 @@ same input, filled with the time and started when the timer did. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
 an entry's time and comment, `d` twice deletes it, `y` copies the day as a markdown table, `enter` opens the issue.
 
+## Prompt segment
+
+`laneway prompt` prints the git branch's issue, its status on a board as
+last loaded, the timer and the inbox count: `ABC-12 · In review · ⏱ 1h 20m
+· ✉ 3`. It reads the state file only, never Jira, so it can run on every
+prompt; with nothing known it prints nothing. `-format` takes a Go template
+over `.Key .Status .TimerKey .Timer .Inbox`; `-site` picks the site.
+
+```
+# starship.toml
+[custom.laneway]
+command = "laneway prompt"
+when = true
+# tmux.conf
+set -g status-right '#(laneway prompt -format "{{.Key}} {{.Timer}}")'
+```
+
 ## Planning
 
 ![The backlog beside the next sprint](docs/screenshots/planning.png)

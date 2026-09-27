@@ -20,6 +20,8 @@ const (
 	inboxMeta     = jiraMetaPrefix + "inbox_seen"
 	inboxPrevMeta = jiraMetaPrefix + "inbox_prev" // the start of the inbox last read
 	inboxPrevID   = "\x00previous"                // the row that reopens it
+	// inboxUnreadMeta is the header's count, for laneway prompt.
+	inboxUnreadMeta = jiraMetaPrefix + "inbox_unread"
 )
 
 // inboxSince is when the inbox was last read, ui.inbox_lookback (a day)
@@ -151,6 +153,14 @@ func (m *Model) inboxBadge() string {
 	return fmt.Sprintf("✉ %d", m.inboxUnread)
 }
 
+// setInboxUnread sets the header's count and keeps it for laneway prompt.
+func (m *Model) setInboxUnread(n int) {
+	m.inboxUnread = n
+	if m.store != nil {
+		_ = m.store.SetMeta(inboxUnreadMeta, strconv.Itoa(n))
+	}
+}
+
 // inboxMentionsMsg are the inbox's mentions, read when the count rose.
 type inboxMentionsMsg struct{ entries []jira.InboxEntry }
 
@@ -158,7 +168,7 @@ type inboxMentionsMsg struct{ entries []jira.InboxEntry }
 // mentions to notify.
 func (m Model) handleInboxCount(msg inboxCountMsg) (tea.Model, tea.Cmd) {
 	rose := msg.n > m.inboxUnread
-	m.inboxUnread = msg.n
+	m.setInboxUnread(msg.n)
 	if !rose {
 		return m, nil
 	}

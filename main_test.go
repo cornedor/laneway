@@ -26,3 +26,26 @@ func TestSubcommand(t *testing.T) {
 		t.Errorf("setpu: exit %d, %q", code, errOut.String())
 	}
 }
+
+// TestPromptCmd: prompt reads the site's state file; -format templates it.
+func TestPromptCmd(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("HOME", dir)
+	p := filepath.Join(dir, "config.yaml")
+	_ = os.WriteFile(p, []byte("sites:\n  club: {base_url: \"https://club.test\"}\n"), 0o600)
+	state := filepath.Join(dir, "laneway", "state-club.json")
+	_ = os.MkdirAll(filepath.Dir(state), 0o700)
+	_ = os.WriteFile(state, []byte(`{"jira_tab:inbox_unread":"2"}`), 0o600)
+	var out, errOut bytes.Buffer
+	if code := subcommand([]string{"prompt"}, p, "club", &out, &errOut); code != 0 || !strings.HasSuffix(out.String(), "✉ 2\n") {
+		t.Errorf("prompt: exit %d, %q %q", code, out.String(), errOut.String())
+	}
+	out.Reset()
+	if code := subcommand([]string{"prompt", "-format", "[{{.Inbox}}]"}, p, "club", &out, &errOut); code != 0 || out.String() != "[2]\n" {
+		t.Errorf("prompt -format: exit %d, %q %q", code, out.String(), errOut.String())
+	}
+	if code := subcommand([]string{"prompt", "-format", "{{"}, p, "club", &out, &errOut); code != 2 {
+		t.Errorf("a bad template should fail, exit %d", code)
+	}
+}
