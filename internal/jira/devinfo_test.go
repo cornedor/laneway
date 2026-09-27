@@ -45,3 +45,26 @@ func TestDevInfo(t *testing.T) {
 		t.Errorf("items = %+v", got)
 	}
 }
+
+// TestDevInfoPartial: a tool whose detail fails leaves the others' items.
+func TestDevInfoPartial(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/A-1":
+			io.WriteString(w, `{"id":"1"}`)
+		case r.URL.Path == "/rest/dev-status/latest/issue/summary":
+			io.WriteString(w, `{"summary":{"branch":{"byInstanceType":{"GitHub":{"count":1},"GitLab":{"count":1}}}}}`)
+		case q.Get("applicationType") == "GitHub":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			io.WriteString(w, `{"detail":[{"branches":[{"name":"issue/A-1","url":"https://g/b","repository":{"name":"web"}}]}]}`)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.DevInfo(context.Background(), "A-1")
+	if err != nil || len(got) != 1 || got[0].Name != "issue/A-1" {
+		t.Errorf("got %+v, %v", got, err)
+	}
+}

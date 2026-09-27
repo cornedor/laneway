@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -492,6 +493,16 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.jiraPicker.kind == jiraPickStandup && key.Matches(msg, m.keys.Standup) {
 		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays))
 	}
+	if p := &m.jiraPicker; p.kind == jiraPickDev && key.Matches(msg, m.keys.CopyBranch) && p.idx < len(p.items) {
+		it := p.items[p.idx]
+		text := cmp.Or(it.value, it.id)
+		if text == "" {
+			m.status = "nothing to copy on this row"
+			return m, nil
+		}
+		m.status = "copied " + text
+		return m, tea.SetClipboard(text)
+	}
 	if m.jiraPicker.filterable {
 		// Arrows, ctrl+p/ctrl+n and pgup/pgdown navigate so letters stay
 		// available for typing.
@@ -674,10 +685,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, m.downloadAttachment(it.id)
 	}
 	if kind == jiraPickDev {
-		m.closeJiraPicker()
 		if it.id == "" {
+			m.status = "no link for this row"
 			return m, nil
 		}
+		m.closeJiraPicker()
 		m.status = "opening " + it.id + "…"
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}

@@ -2,12 +2,14 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 // D in the panel: the pull requests (open first), builds, deployments,
-// branches and commits linked to the issue; enter opens one in the browser.
+// branches and commits linked to the issue; enter opens one in the browser,
+// ctrl+y copies its branch (else its link).
 
 func (m *Model) openDevInfo() tea.Cmd {
 	if m.jiraIssue == nil {
@@ -38,7 +40,14 @@ func (m *Model) openDevInfo() tea.Cmd {
 			if d.Repo != "" {
 				label += "  " + d.Repo
 			}
-			rows[i] = jiraPickerItem{id: d.URL, label: label}
+			branch, _, _ := strings.Cut(d.Branch, " → ") // a pull request's source
+			switch d.Kind {
+			case "branch":
+				branch = d.Name
+			case "deploy", "commit":
+				branch = "" // an environment, none
+			}
+			rows[i] = jiraPickerItem{id: d.URL, label: label, value: branch}
 		}
 		if err == nil && len(rows) == 0 {
 			rows = []jiraPickerItem{{label: "no development work linked"}}

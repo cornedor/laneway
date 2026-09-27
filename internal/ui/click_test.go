@@ -1182,3 +1182,20 @@ func TestHistoryEnter(t *testing.T) {
 		t.Errorf("active %v, tab %d, focus %v", m.jiraPicker.active, m.activityTab, m.focus)
 	}
 }
+
+// TestDevInfoCopy: ctrl+y in D copies a row's branch; enter on a row
+// without a link says so.
+func TestDevInfoCopy(t *testing.T) {
+	m := panelModel(t)
+	m.startJiraPicker(jiraPickDev, "Development — ABC-1", true)
+	m.setJiraPickerItems([]jiraPickerItem{{id: "https://git/pr/1", label: "OPEN  Fix  (issue/ABC-1-fix)", value: "issue/ABC-1-fix"}, {label: "commit abc"}})
+	out, cmd := m.handleJiraPickerKey(keyPress("ctrl+y"))
+	if m = out.(Model); cmd == nil || m.status != "copied issue/ABC-1-fix" {
+		t.Errorf("ctrl+y: %q", m.status)
+	}
+	m.jiraPicker.idx = 1
+	out, _ = m.applyJiraPick()
+	if m = out.(Model); !m.jiraPicker.active || m.status != "no link for this row" {
+		t.Errorf("enter without a link: %q", m.status)
+	}
+}

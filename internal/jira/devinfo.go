@@ -49,6 +49,7 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 		return nil, err
 	}
 	var out []DevItem
+	var firstErr error
 	for _, dataType := range []string{"pullrequest", "branch", "repository", "build", "deployment-environment"} {
 		tools := sum.Summary[dataType].ByInstanceType
 		names := make([]string, 0, len(tools))
@@ -60,11 +61,15 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 		sort.Strings(names)
 		for _, tool := range names {
 			items, err := c.devDetail(ctx, iss.ID, tool, dataType)
-			if err != nil {
-				return nil, err
+			if err != nil { // one tool failing leaves the others
+				firstErr = cmp.Or(firstErr, err)
+				continue
 			}
 			out = append(out, items...)
 		}
+	}
+	if len(out) == 0 && firstErr != nil {
+		return nil, firstErr
 	}
 	slices.SortStableFunc(out, func(a, b DevItem) int {
 		rank := func(d DevItem) int {

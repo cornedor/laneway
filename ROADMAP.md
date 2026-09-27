@@ -3,13 +3,13 @@
 ## Next
 - Charts: burndown/burnup count issues when the sprint has no points
 - Charts and planning: keep the half that loaded when the other half fails
-- Dev info: ctrl+y copies a branch, enter on a row without a link says so, one failing tool doesn't blank the rest
 - The timesheet's empty state hints `w` and `[ ]`; standup can step forward again
 - A create that fails for a required field (a Component) could ask for it with the move form (createmeta)
 - Fixed sizes to consider as options: inline picker rows (8), JQL completions (8), recent issues (20), history diff lines (12)
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- `D` dev info: `ctrl+y` copies a row's branch (a pull request's source), enter on a row without a link says so, and one tool failing no longer blanks the others
 - The inbox's ✉ badge clears once the inbox has loaded (a failed load kept nothing read yet cleared it); enter in `H` history goes on to the panel's History tab, changes in full
 - Planning: `x` says how many are marked, moving from an empty side says so, an empty side says how to fill it, heads count unestimated cards (`12 cards · 20p · 3 unestimated`), `y` copies the sprint as a markdown table
 - Charts, planning and roadmap errors wrap and centre with `r retries · esc back to the board`; an empty roadmap says `n` adds one and names `ui.roadmap_epic_type`
