@@ -24,3 +24,13 @@ func TestMarkdownLinkText(t *testing.T) {
 		}
 	}
 }
+
+// TestMarkdownQuotedCodeBlock: a fenced block inside a quote renders as code
+// behind the bar, its asterisks kept, as adf.go writes quoted code blocks.
+func TestMarkdownQuotedCodeBlock(t *testing.T) {
+	got := ansi.Strip(renderMarkdown("> ```go\n> x := *a * *b\n> ```\n> > nested", nil, nil, ""))
+	want := "  ┃ ```go\n  ┃ x := *a * *b\n  ┃ ```\n  ┃ ┃ nested"
+	if got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}

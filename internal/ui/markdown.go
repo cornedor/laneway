@@ -366,9 +366,21 @@ func renderMarkdown(msg string, ei *emojiImages, mr changeInlineFn, self string)
 			continue
 		}
 
+		// Blockquote: the run of > lines renders as markdown of its own, so
+		// fences, lists and nested quotes work inside it, behind a bar. A
+		// table's encoded line keeps no gutter and stays unbarred.
 		if strings.HasPrefix(raw, ">") {
-			content := strings.TrimPrefix(strings.TrimPrefix(raw, ">"), " ")
-			out = append(out, "  "+mdQuoteBarStyle.Render("┃")+" "+renderInline(content, ei, mr, self))
+			var quoted []string
+			for ; i < len(lines) && strings.HasPrefix(lines[i], ">"); i++ {
+				quoted = append(quoted, strings.TrimPrefix(strings.TrimPrefix(lines[i], ">"), " "))
+			}
+			i--
+			for _, ln := range strings.Split(renderMarkdown(strings.Join(quoted, "\n"), ei, mr, self), "\n") {
+				if rest, ok := strings.CutPrefix(ln, "  "); ok {
+					ln = "  " + mdQuoteBarStyle.Render("┃") + " " + rest
+				}
+				out = append(out, ln)
+			}
 			prevBlank = false
 			continue
 		}
