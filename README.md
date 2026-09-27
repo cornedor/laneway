@@ -511,7 +511,9 @@ says how much was added after the start; issues taken out of it don't show.
 field's values after an operator (`tab` takes one, `↑↓` choose); `enter`
 shows the results as a view. An empty input offers your past searches.
 `ctrl+s` stars the query as a view on every board (`★ …`, kept in the
-state file); `ctrl+s` on a starred one unstars it.
+state file); `ctrl+s` on a starred one unstars it. `ctrl+f` saves it as a real
+Jira filter under a name you type, starred, so it is a view here too and
+yours to share or subscribe to in Jira.
 
 ## Roadmap
 

@@ -189,3 +189,34 @@ func TestMyWorkJQL(t *testing.T) {
 		t.Errorf("jql %q", v.jql)
 	}
 }
+
+// TestSaveJiraFilter: ctrl+f in the JQL input names the query and saves it
+// as a starred Jira filter.
+func TestSaveJiraFilter(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/rest/api/3/filter" {
+			b, _ := io.ReadAll(r.Body)
+			body = string(b)
+		}
+		io.WriteString(w, `{}`)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.openJQL()
+	m.jql.input.SetValue("project = ABC AND status = Open")
+	out, _ := m.handleJQLKey(tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
+	m = out.(Model)
+	if m.jql != nil || !m.jiraFieldActive || m.jiraFieldName != "jql-filter" {
+		t.Fatal("ctrl+f should ask the filter's name")
+	}
+	m.jiraFieldInput.SetValue("Open ABC")
+	out, cmd := m.applyJiraField()
+	m = out.(Model)
+	out, _ = m.Update(cmd())
+	m = out.(Model)
+	if !strings.Contains(body, `"name":"Open ABC"`) || !strings.Contains(body, `"favourite":true`) || !strings.Contains(m.status, "saved the Jira filter Open ABC") {
+		t.Errorf("body %s, status %q", body, m.status)
+	}
+}

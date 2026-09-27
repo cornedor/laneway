@@ -629,6 +629,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePullRequest(msg)
 	case commentVisMsg:
 		return m.handleCommentVis(msg)
+	case filterSavedMsg:
+		return m.handleFilterSaved(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:

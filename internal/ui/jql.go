@@ -173,6 +173,13 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.toggleSavedJQL(q)
 		}
 		return m, nil
+	case "ctrl+f":
+		if q := strings.TrimSpace(j.input.Value()); q != "" {
+			m.jql = nil
+			m.openBulkInput("jql-filter", "filter name")
+			m.jiraFieldKey = q
+		}
+		return m, nil
 	case "tab":
 		if strings.TrimSpace(j.input.Value()) == "" && j.idx < len(j.sugg) {
 			j.input.SetValue(j.sugg[j.idx]) // a past search, whole
@@ -270,7 +277,7 @@ func (m *Model) renderJQL() string {
 		lines = append(lines, refDimStyle.Render("  no completions"))
 	}
 	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).
-		Render("tab complete · ↑↓ choose · ↵ search · ctrl+s star as a view · esc cancel")
+		Render("tab complete · ↑↓ choose · ↵ search · ctrl+s star as a view · ctrl+f save as a Jira filter · esc cancel")
 	lines = append(lines, "", hint)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
 		Render(strings.Join(lines, "\n"))
@@ -321,6 +328,40 @@ func (m *Model) toggleSavedJQL(q string) {
 	}
 	m.setJQLList(jqlSavedMeta, append(saved, q))
 	m.status = "starred as a view of every board"
+}
+
+// applySaveFilter saves the query as a starred Jira filter named name,
+// then reloads the board so it shows among the views.
+func (m Model) applySaveFilter(name string) (tea.Model, tea.Cmd) {
+	q := m.jiraFieldKey
+	m.closeJiraField()
+	if name = strings.TrimSpace(name); name == "" {
+		m.status = "a filter needs a name"
+		return m, nil
+	}
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "saving the filter " + name + "…"
+	return m, func() tea.Msg {
+		return filterSavedMsg{name: name, err: c.SaveFilter(ctx, name, q)}
+	}
+}
+
+type filterSavedMsg struct {
+	name string
+	err  error
+}
+
+func (m Model) handleFilterSaved(msg filterSavedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail("save filter: " + msg.err.Error())
+		return m, nil
+	}
+	m.status = "saved the Jira filter " + msg.name + " · starred"
+	if !m.opts.savedFilters {
+		m.status += " (ui.saved_filters is off, so it isn't a view here)"
+		return m, nil
+	}
+	return m, m.loadJiraBoard(m.jiraTab.project, m.jiraBoardID(), "", false)
 }
 
 // savedJQLViews are the starred searches as views.

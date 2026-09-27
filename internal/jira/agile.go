@@ -205,6 +205,23 @@ func (c *Client) fetchQuickFilters(ctx context.Context, board int) ([]QuickFilte
 	return out, nil
 }
 
+// SaveFilter saves jql as a Jira filter named name, starred so it is one
+// of your favourites; the favourites are read again next time.
+func (c *Client) SaveFilter(ctx context.Context, name, jql string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"name": name, "jql": jql, "favourite": true}
+	if err := c.do(ctx, http.MethodPost, "/rest/api/3/filter", "filter "+name, body, nil); err != nil {
+		return err
+	}
+	bm := &c.boardMeta
+	bm.mu.Lock()
+	delete(bm.saved, "")
+	bm.mu.Unlock()
+	return nil
+}
+
 // FavouriteFilters lists the saved filters you starred, cached for the
 // session.
 func (c *Client) FavouriteFilters(ctx context.Context) ([]QuickFilter, error) {
