@@ -100,5 +100,5 @@ sites:
 - `p` project, `b` board, `[` `]` views, `t` lanes or list.
 - `enter` opens an issue, `esc` closes it, `?` when in doubt.
 
-Next: the board and the panel, where you read and answer an issue without
-leaving the terminal *(chapter coming)*.
+Next: [The board and the panel](02-board-and-panel.md), where you narrow
+the board down and read an issue without leaving the terminal.

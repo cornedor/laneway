@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Next
-- Docs: a friendly guide that walks the reader step by step from first run to the advanced topics; it opens with spoilers (what you'll be able to do), and carries tips and "try it" steps along the way. Left: the board and the panel → editing and moving → planning, roadmap, charts, timesheet → rules, JQL, keys and themes (`docs/guide/`)
+- Docs: a friendly guide that walks the reader step by step from first run to the advanced topics; it opens with spoilers (what you'll be able to do), and carries tips and "try it" steps along the way. Left: editing and moving → planning, roadmap, charts, timesheet → rules, JQL, keys and themes (`docs/guide/`)
 - Timesheet: `]` stops at today, as standup stops at the last workday (it walks into empty future days)
 - Inbox: the title counts issues, as the header's `✉ 3` does (it counts entries: "11 since…")
 - Planning: `y` refuses while the sprint side is loading or failed, and says why (it copies an empty table)
@@ -11,7 +11,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
-- Guide started (`docs/guide/`): a start page with spoilers and the chapter map, chapter 1 (install, token, your board, looking around) with tips and try-its; linked from the README
+- Guide started (`docs/guide/`): a start page with spoilers and the chapter map, chapter 1 (install, token, your board, looking around) and 2 (narrowing the board, reading an issue, going anywhere) with tips and try-its; linked from the README
 - Inbox, standup and timesheet: enter on a day heading or an empty row says there is no issue there and keeps the list open (it closed it)
 - Board: `b` with no boards, `a` and `m` before the board loaded say why nothing happened (still loading, no boards in the project, `r` retries)
 - An empty picker says "no matches" only when a filter matched nothing; the status picker with no transitions says so (the workflow, or your permissions), others "nothing here"

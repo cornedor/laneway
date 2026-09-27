@@ -29,7 +29,7 @@ By the last chapter you will:
 ## Chapters
 
 1. [First run](01-first-run.md): install, a token, your board on screen
-2. The board and the panel *(coming)*
+2. [The board and the panel](02-board-and-panel.md): narrow the board, read an issue, go anywhere
 3. Editing and moving *(coming)*
 4. Planning, roadmap, charts and your time *(coming)*
 5. Rules, JQL, keys and themes *(coming)*
