@@ -30,7 +30,7 @@ func main() {
 	}
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
-	site := flag.String("site", "", "Jira site from the config's sites: (default jira:)")
+	site := flag.String("site", "", "Jira site from the config's sites: (default the one last picked with @, else jira:)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("laneway", version)
@@ -43,10 +43,15 @@ func main() {
 }
 
 func run(cfgPath, site string) error {
+	// Without -site it starts on the site last picked with @.
+	remembered := site == ""
 	// The config is read again for each run: @ ends the app with another
 	// site picked, or to add one, and it starts again there.
 	for {
 		cfg, path, err := config.Load(cfgPath)
+		if remembered && err == nil {
+			site, remembered = config.LastSite(cfg.SiteNames()), false
+		}
 		first := errors.Is(err, config.ErrNoConfig) || err == nil && site == "" && strings.TrimSpace(cfg.Jira.BaseURL) == ""
 		if first && interactive() {
 			// A first start: ask for the site instead of explaining YAML.
@@ -67,6 +72,7 @@ func run(cfgPath, site string) error {
 			added, err := setup(context.Background(), path, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn)
 			if err == nil {
 				site = added
+				_ = config.SetLastSite(site)
 			} else if !errors.Is(err, errCancelled) {
 				fmt.Fprintln(os.Stderr, "laneway:", err)
 				fmt.Fprint(os.Stderr, "enter goes back to the board… ")
@@ -74,6 +80,7 @@ func run(cfgPath, site string) error {
 			}
 		default:
 			site = next
+			_ = config.SetLastSite(site) // a convenience: failing it only forgets the pick
 		}
 	}
 }

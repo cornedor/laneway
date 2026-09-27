@@ -94,8 +94,9 @@ copy while the fresh one loads.
 
 Press `@` and pick *+ add a Jira site*: the same three questions, and a
 name to pick it by (`club` for club.atlassian.net). It lands under
-`sites:`, and laneway opens on it. `@` switches between them after that;
-`laneway -site club` starts on one. `laneway setup` does the same from
+`sites:`, and laneway opens on it. `@` switches between them after that,
+and the next start opens the one you last picked; `laneway -site club`
+starts on one. `laneway setup` does the same from
 the shell.
 
 ```yaml

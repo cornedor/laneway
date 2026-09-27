@@ -56,7 +56,7 @@ jira:
   timeout: 20s            # one request's limit; longer actions stretch with it
   story_points_field: customfield_10016  # else found by name ("Story point…")
   start_prompt: "Start on {key}."        # what S hands the agent; {key} is the issue
-sites:                    # more Jira instances: laneway -site club, or @ in the app
+sites:                    # more Jira instances: laneway -site club, or @ in the app (remembered)
   club: {base_url: https://club.atlassian.net, email: you@example.com, api_token: ...}
 ```
 

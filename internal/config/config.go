@@ -380,6 +380,32 @@ func SiteStatePath(site string) (string, error) {
 	return filepath.Join(filepath.Dir(p), "state-"+site+".json"), nil
 }
 
+// LastSite is the site last picked with @, when it is still one of names;
+// else "" (jira:).
+func LastSite(names []string) string {
+	p, err := StatePath()
+	if err != nil {
+		return ""
+	}
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(p), "site"))
+	if site := strings.TrimSpace(string(b)); err == nil && slices.Contains(names, site) {
+		return site
+	}
+	return ""
+}
+
+// SetLastSite remembers site for the next start without -site.
+func SetLastSite(site string) error {
+	p, err := StatePath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(filepath.Dir(p), "site"), []byte(site+"\n"), 0o600)
+}
+
 func StatePath() (string, error) {
 	d, err := os.UserConfigDir()
 	if err != nil {

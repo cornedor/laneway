@@ -80,3 +80,23 @@ func TestSiteFor(t *testing.T) {
 		t.Error("site names")
 	}
 }
+
+func TestLastSite(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	names := []string{"", "club", "work"}
+	if got := LastSite(names); got != "" {
+		t.Errorf("nothing picked yet = %q", got)
+	}
+	if err := SetLastSite("club"); err != nil {
+		t.Fatal(err)
+	}
+	if got := LastSite(names); got != "club" {
+		t.Errorf("after picking club = %q", got)
+	}
+	if got := LastSite([]string{"", "work"}); got != "" {
+		t.Errorf("a site since removed = %q, want the default", got)
+	}
+	if err := SetLastSite(""); err != nil || LastSite(names) != "" {
+		t.Errorf("picking jira: again = %q, %v", LastSite(names), err)
+	}
+}
