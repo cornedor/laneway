@@ -252,6 +252,23 @@ func TestFlagAction(t *testing.T) {
 	}
 }
 
+// TestFlagActionOffBoard: an issue not on the board is asked for its flag,
+// so a flagged one can be cleared.
+func TestFlagActionOffBoard(t *testing.T) {
+	m, writes := actionsModel(t, map[string]string{
+		"/rest/api/3/field":       `[{"id":"customfield_50","name":"Flagged"}]`,
+		"/rest/api/3/issue/ABC-1": `{"fields":{"customfield_50":[{"value":"Impediment"}]}}`,
+	})
+	m.jiraTab.cards = nil
+	_, cmd := pickAction(t, m, "flag")
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil || msg.field != "flag cleared" {
+		t.Fatalf("%+v", msg)
+	}
+	if w := writes(); len(w) != 1 || !strings.HasSuffix(w[0], `{"fields":{"customfield_50":null}}`) {
+		t.Errorf("writes = %q", w)
+	}
+}
+
 func TestClipboardImageCommand(t *testing.T) {
 	png := filepath.Join(t.TempDir(), "c.png")
 	os.WriteFile(png, []byte("\x89PNG-data"), 0o600)

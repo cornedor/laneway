@@ -158,16 +158,24 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	case "delete-comment":
 		return m.openCommentPicker(jiraPickDeleteComment)
 	case "flag":
-		on := true
-		if i := slices.IndexFunc(m.jiraTab.cards, func(cd jira.Card) bool { return cd.Key == key }); i >= 0 {
-			on = !m.jiraTab.cards[i].Flagged
-		}
-		what := "flagged"
-		if !on {
-			what = "flag cleared"
-		}
+		// The board's card tells the flag; an issue off it is asked.
+		i := slices.IndexFunc(m.jiraTab.cards, func(cd jira.Card) bool { return cd.Key == key })
+		onBoard := i >= 0 && m.jiraTab.cards[i].Flagged
 		m.status = "setting the flag on " + key + "…"
-		return jiraMutateCmd(key, what, func() error { return c.SetFlagged(ctx, key, on) })
+		return func() tea.Msg {
+			flagged := onBoard
+			if i < 0 {
+				var err error
+				if flagged, err = c.Flagged(ctx, key); err != nil {
+					return jiraMutatedMsg{key: key, field: "flag", err: err}
+				}
+			}
+			what := "flagged"
+			if flagged {
+				what = "flag cleared"
+			}
+			return jiraMutatedMsg{key: key, field: what, err: c.SetFlagged(ctx, key, !flagged)}
+		}
 	case "vote":
 		return func() tea.Msg {
 			on, err := c.ToggleVote(ctx, key)

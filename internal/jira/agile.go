@@ -760,6 +760,21 @@ func flagSet(raw json.RawMessage) bool {
 	return json.Unmarshal(raw, &opts) == nil && len(opts) > 0
 }
 
+// Flagged reads whether key's Flagged field is set.
+func (c *Client) Flagged(ctx context.Context, key string) (bool, error) {
+	id := c.flagField(ctx)
+	if id == "" {
+		return false, fmt.Errorf("jira: no Flagged field on this instance")
+	}
+	var res struct {
+		Fields map[string]json.RawMessage `json:"fields"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/issue/"+url.PathEscape(key)+"?fields="+url.QueryEscape(id), key, nil, &res); err != nil {
+		return false, err
+	}
+	return flagSet(res.Fields[id]), nil
+}
+
 // SetFlagged flags key (Config.FlagValue, an impediment by default), or
 // clears the flag.
 func (c *Client) SetFlagged(ctx context.Context, key string, on bool) error {
