@@ -232,10 +232,13 @@ func applyMarks(text string, marks []adfMark) string {
 		}
 	}
 	if href != "" {
-		text = "[" + text + "](" + href + ")"
+		text = "[" + text + "](" + mdHref(href) + ")"
 	}
 	return text
 }
+
+// mdHref percent-encodes the characters that end a markdown link's URL early.
+var mdHref = strings.NewReplacer(" ", "%20", "(", "%28", ")", "%29").Replace
 
 // textToADF builds a minimal ADF document from plain text for posting a
 // comment (the inverse of adfToMarkdown, much narrower). Blank lines separate

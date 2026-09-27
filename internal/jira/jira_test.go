@@ -44,6 +44,15 @@ func TestADFToMarkdown(t *testing.T) {
 			want: "[site](https://x.test)",
 		},
 		{
+			name: "link href with parens and a space",
+			adf: `{"type":"doc","content":[
+				{"type":"paragraph","content":[
+					{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://en.wikipedia.org/wiki/Go_(lang) x"}}]}
+				]}
+			]}`,
+			want: "[Go](https://en.wikipedia.org/wiki/Go_%28lang%29%20x)",
+		},
+		{
 			name: "heading and bullet list",
 			adf: `{"type":"doc","content":[
 				{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Title"}]},

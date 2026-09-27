@@ -12,6 +12,7 @@ import (
 
 // editableDocs round trip: markdown out, the same document back.
 var editableDocs = []string{
+	`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://en.wikipedia.org/wiki/Go_(lang)"}}]}]}]}`,
 	`{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Hello "},{"type":"text","text":"bold","marks":[{"type":"strong"}]},{"type":"text","text":" and "},{"type":"text","text":"it","marks":[{"type":"em"}]}]}]}`,
 	`{"type":"doc","content":[{"type":"heading","attrs":{"level":3},"content":[{"type":"text","text":"Steps"}]},
 	  {"type":"orderedList","attrs":{"order":1},"content":[

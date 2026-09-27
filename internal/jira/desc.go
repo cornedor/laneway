@@ -302,7 +302,7 @@ func canon(n adfNode) string {
 		for _, mk := range c.Marks {
 			m := mk.Type
 			if href, ok := mk.Attrs["href"].(string); ok {
-				m += "=" + href
+				m += "=" + mdHref(href)
 			}
 			marks = append(marks, m)
 		}
