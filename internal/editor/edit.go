@@ -83,7 +83,7 @@ func (m *Model) InsertNewline() {
 	m.insert([]rune{'\n'})
 }
 
-// deleteBackward removes the rune before the cursor, joining lines at a line
+// deleteBackward removes the character (grapheme cluster) before the cursor, joining lines at a line
 // start. Inside a pipe table it goes through the table's own rules first, which
 // keep it off the bars and the padding (see table.go).
 func (m *Model) deleteBackward() {
@@ -92,8 +92,9 @@ func (m *Model) deleteBackward() {
 	}
 	if m.col > 0 {
 		line := m.lines[m.row]
-		m.setLine(m.row, concatRunes(line[:m.col-1], line[m.col:]))
-		m.col--
+		from := clusterBefore(line, m.col)
+		m.setLine(m.row, concatRunes(line[:from], line[m.col:]))
+		m.col = from
 	} else if m.row > 0 {
 		prev := m.lines[m.row-1]
 		joinAt := len(prev)
@@ -104,7 +105,7 @@ func (m *Model) deleteBackward() {
 	m.afterEdit()
 }
 
-// deleteForward removes the rune at the cursor, joining the next line at a line
+// deleteForward removes the character (grapheme cluster) at the cursor, joining the next line at a line
 // end. Inside a pipe table the table's rules go first (see table.go).
 func (m *Model) deleteForward() {
 	if m.ContinueTables && m.deleteForwardTable() {
@@ -112,7 +113,7 @@ func (m *Model) deleteForward() {
 	}
 	line := m.lines[m.row]
 	if m.col < len(line) {
-		m.setLine(m.row, concatRunes(line[:m.col], line[m.col+1:]))
+		m.setLine(m.row, concatRunes(line[:m.col], line[clusterAfter(line, m.col):]))
 	} else if m.row < len(m.lines)-1 {
 		m.joinLines(m.row, concatRunes(line, m.lines[m.row+1]))
 	}

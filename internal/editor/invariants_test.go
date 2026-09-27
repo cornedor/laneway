@@ -6,6 +6,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/rivo/uniseg"
 
 	"github.com/cornedor/laneway/internal/textwidth"
 )
@@ -372,27 +373,64 @@ func TestResizeKeepsTheCursorPut(t *testing.T) {
 }
 
 // TestHorizontalWalkVisitsEveryOffset: left and right must step through every
-// rune offset in order, in both directions, across line breaks.
+// grapheme cluster boundary in order, in both directions, across line breaks.
 func TestHorizontalWalkVisitsEveryOffset(t *testing.T) {
 	for _, txt := range fullCorpus() {
 		m := newTestModel(7)
 		m.SetValue(txt)
-		n := len([]rune(m.Value()))
+		stops := []int{0}
+		g := uniseg.NewGraphemes(m.Value())
+		for g.Next() {
+			stops = append(stops, stops[len(stops)-1]+len(g.Runes()))
+		}
 
 		m.MoveToBegin()
-		for want := range n + 1 {
+		for i, want := range stops {
 			if got := m.CursorOffset(); got != want {
-				t.Fatalf("right walk of %q: step %d is at offset %d", txt, want, got)
+				t.Fatalf("right walk of %q: step %d is at offset %d, want %d", txt, i, got, want)
 			}
 			m.characterRight()
 		}
 		m.CursorEnd()
-		for want := n; want >= 0; want-- {
-			if got := m.CursorOffset(); got != want {
-				t.Fatalf("left walk of %q: expected offset %d, got %d", txt, want, got)
+		for i := len(stops) - 1; i >= 0; i-- {
+			if got := m.CursorOffset(); got != stops[i] {
+				t.Fatalf("left walk of %q: expected offset %d, got %d", txt, stops[i], got)
 			}
 			m.characterLeft()
 		}
+	}
+}
+
+// TestBackspaceTakesCluster: backspace and delete take a flag or a ZWJ
+// family whole.
+func TestBackspaceTakesCluster(t *testing.T) {
+	for _, c := range []string{"🇳🇱", "👨\u200d👩\u200d👧", "❤\ufe0f", "é"} {
+		m := newTestModel(40)
+		m.SetValue("a" + c + "b")
+		m.SetCursorOffset(1 + len([]rune(c)))
+		m.deleteBackward()
+		if got := m.Value(); got != "ab" {
+			t.Errorf("backspace after %q: %q", c, got)
+		}
+		m.SetValue("a" + c + "b")
+		m.SetCursorOffset(1)
+		m.deleteForward()
+		if got := m.Value(); got != "ab" {
+			t.Errorf("delete before %q: %q", c, got)
+		}
+	}
+}
+
+// TestUpLandsOnCluster: a vertical move never lands inside a cluster.
+func TestUpLandsOnCluster(t *testing.T) {
+	m := newTestModel(40)
+	fam := "👨\u200d👩\u200d👧"
+	m.SetValue(fam + "x\nabcdef")
+	m.SetCursorOffset(len([]rune(fam+"x\n")) + 3) // column 3: past the family and x
+	m.refreshDesired()
+	m.cursorUp()
+	if got, want := m.CursorOffset(), len([]rune(fam+"x")); got != want {
+		t.Errorf("up landed at %d, want %d", got, want)
 	}
 }
 

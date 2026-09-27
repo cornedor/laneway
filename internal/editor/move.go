@@ -6,11 +6,11 @@ import (
 	"github.com/cornedor/laneway/internal/textwidth"
 )
 
-// characterLeft moves one rune left, crossing to the end of the previous
+// characterLeft moves one character (grapheme cluster) left, crossing to the end of the previous
 // logical line at a line start.
 func (m *Model) characterLeft() {
 	if m.col > 0 {
-		m.col--
+		m.col = clusterBefore(m.lines[m.row], m.col)
 	} else if m.row > 0 {
 		m.row--
 		m.col = len(m.lines[m.row])
@@ -18,11 +18,11 @@ func (m *Model) characterLeft() {
 	m.refreshDesired()
 }
 
-// characterRight moves one rune right, crossing to the start of the next
+// characterRight moves one character (grapheme cluster) right, crossing to the start of the next
 // logical line at a line end.
 func (m *Model) characterRight() {
 	if m.col < len(m.lines[m.row]) {
-		m.col++
+		m.col = clusterAfter(m.lines[m.row], m.col)
 	} else if m.row < len(m.lines)-1 {
 		m.row++
 		m.col = 0
@@ -90,8 +90,8 @@ func (m *Model) cursorDown() {
 	m.moveToVis(rows, ci+1, m.desiredVCol)
 }
 
-// moveToVis places the cursor on visual row vi at the rune nearest visual
-// column vcol. desiredVCol is intentionally left unchanged so a run of vertical
+// moveToVis places the cursor on visual row vi at the character nearest
+// visual column vcol, never inside a grapheme cluster. desiredVCol is intentionally left unchanged so a run of vertical
 // moves keeps targeting the same column.
 func (m *Model) moveToVis(rows []visRow, vi, vcol int) {
 	if vi < 0 || vi >= len(rows) {
@@ -103,21 +103,22 @@ func (m *Model) moveToVis(rows []visRow, vi, vcol int) {
 	col := vr.a
 	w := 0
 	for col < vr.b {
-		cw := textwidth.Width(string(rs[col]))
+		next := min(clusterAfter(rs, col), vr.b)
+		cw := textwidth.Width(string(rs[col:next]))
 		if w+cw > vcol {
 			break
 		}
 		w += cw
-		col++
+		col = next
 	}
 	// The offset at a soft-wrap seam is shared by two rows, and cursorVisRaw
 	// resolves it to the start of the *following* one. Landing there would put
 	// the caret a row below the one asked for — and for cursorUp that means no
 	// visible movement at all, which is how the caret got stuck on a wrapped
 	// long word: every up-press re-targeted the seam and bounced straight back.
-	// Keep the caret on row vi by stopping one rune short of the seam.
+	// Keep the caret on row vi by stopping one character short of the seam.
 	if col == vr.b && col > vr.a && vi+1 < len(rows) && rows[vi+1].line == vr.line {
-		col--
+		col = max(clusterBefore(rs, col), vr.a)
 	}
 	m.col = col
 	m.clampScroll()
