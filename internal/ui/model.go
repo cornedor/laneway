@@ -61,7 +61,7 @@ type keyMap struct {
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
-	Compact, Releases, Review          key.Binding
+	Compact, Releases, Review, Repeat  key.Binding
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -159,6 +159,7 @@ func defaultKeys() keyMap {
 		Compact:         bind("one-line cards", "c"),
 		Releases:        bind("releases: versions and their progress", "V"),
 		Review:          bind("waiting on my review (gh, glab)", "ctrl+r"),
+		Repeat:          bind("do the last change again on the selected card", "."),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -371,6 +372,8 @@ type Model struct {
 	jiraCommentDiscard bool
 	// unsent is a comment whose post failed, by issue: c brings it back.
 	unsent struct{ key, text string }
+	// repeat is the last change, for . to make again (repeat.go).
+	repeat *repeatAction
 	// draftPending is a draft write scheduled (drafts.go).
 	draftPending bool
 	// jiraCommentVis is who the comment being written is for; commentVis

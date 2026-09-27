@@ -967,6 +967,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openSitePicker()
 	case key.Matches(msg, m.keys.Undo):
 		return m, m.undoJiraMove()
+	case key.Matches(msg, m.keys.Repeat):
+		return m, m.repeatOnSelected()
 	case key.Matches(msg, m.keys.Pin):
 		if c, ok := m.selectedJiraCard(); ok {
 			m.togglePin(c.Key, c.Summary)
@@ -1421,6 +1423,7 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	t.lastMove = [2]string{key, cur}
 	t.undoSeq++
 	t.moveSeq = t.undoSeq
+	m.setRepeat("move to "+lane.name, func(m *Model, key string) tea.Cmd { return m.moveJiraCard(key, to, statusID) })
 	target, name := lane.statusIDs[0], lane.name
 	want := func(tm jira.TransitionMeta) bool { return slices.Contains(lane.statusIDs, tm.ToID) }
 	if statusID != "" {

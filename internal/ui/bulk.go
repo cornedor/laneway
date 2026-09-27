@@ -219,6 +219,10 @@ func (m *Model) openBulkInput(field, placeholder string) {
 func (m *Model) applyBulkPick(kind jiraPickerKind, keys []string, it jiraPickerItem) tea.Cmd {
 	client := m.jiraClient
 	m.undoBulkPick(kind, keys)
+	m.setRepeat(it.label, func(m *Model, key string) tea.Cmd {
+		m.quickKey = key
+		return m.applyBulkPick(kind, []string{key}, it)
+	})
 	switch kind {
 	case jiraPickStatus:
 		return m.prepareBulkMove(keys, it.id)
@@ -312,11 +316,20 @@ func (m *Model) bulkTransition(keys []string, to string, fields map[string]any, 
 // applyBulkField writes the bulk input's labels or points.
 func (m Model) applyBulkField(field, raw string) (tea.Model, tea.Cmd) {
 	keys := m.markedKeys()
-	client := m.jiraClient
 	m.closeJiraField()
+	m.setRepeat(strings.TrimPrefix(field, "bulk-")+" "+raw, func(m *Model, key string) tea.Cmd {
+		m.quickKey = key
+		return m.bulkFieldWrite(field, raw, []string{key})
+	})
+	return m, m.bulkFieldWrite(field, raw, keys)
+}
+
+// bulkFieldWrite writes labels (+add -remove) or points to keys.
+func (m *Model) bulkFieldWrite(field, raw string, keys []string) tea.Cmd {
+	client := m.jiraClient
 	if field == "bulk-points" {
 		m.undoEach("points", keys, func(ctx context.Context, cd jira.Card) error { return client.SetStoryPoints(ctx, cd.Key, cd.Points) })
-		return m, m.runBulk("points", keys, func(ctx context.Context, key string) error {
+		return m.runBulk("points", keys, func(ctx context.Context, key string) error {
 			return client.SetStoryPoints(ctx, key, raw)
 		})
 	}
@@ -329,12 +342,12 @@ func (m Model) applyBulkField(field, raw string) (tea.Model, tea.Cmd) {
 		}
 	}
 	if len(add)+len(remove) == 0 {
-		return m, nil
+		return nil
 	}
 	m.undoEach("labels", keys, func(ctx context.Context, cd jira.Card) error {
 		return client.SetLabels(ctx, cd.Key, strings.Fields(cd.Labels))
 	})
-	return m, m.runBulk("labels", keys, func(ctx context.Context, key string) error {
+	return m.runBulk("labels", keys, func(ctx context.Context, key string) error {
 		return client.EditLabels(ctx, key, add, remove)
 	})
 }
