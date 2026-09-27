@@ -544,6 +544,11 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.applyJiraPick()
 	}
 
+	if m.jiraPicker.kind == jiraPickTimesheet && key.Matches(msg, m.keys.Timesheet) {
+		day := m.jiraPicker.day
+		m.closeJiraPicker()
+		return m, m.openWeek(day)
+	}
 	if m.jiraPicker.kind == jiraPickStandup && key.Matches(msg, m.keys.Standup) {
 		return m, m.openStandupSince(jira.PreviousWorkday(m.jiraPicker.day, m.opts.workdays))
 	}

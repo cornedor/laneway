@@ -266,7 +266,11 @@ func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil && msg.fromTimer {
 		msg.err = fmt.Errorf("%w (the timer keeps running)", msg.err)
 	}
-	return m.handleJiraMutated(jiraMutatedMsg{key: msg.key, field: "worklog", err: msg.err})
+	out, cmd := m.handleJiraMutated(jiraMutatedMsg{key: msg.key, field: "worklog", err: msg.err})
+	if m = out.(Model); m.jiraTab.week != nil && msg.err == nil {
+		cmd = tea.Batch(cmd, m.loadWeek())
+	}
+	return m, cmd
 }
 
 // openTimesheet lists today's worklogs of yours; enter opens the issue.
@@ -282,8 +286,8 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, k := m.jiraClient, m.ctx, m.keys
 	empty := fmt.Sprintf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
-	hint := fmt.Sprintf("  ·  %s %s day · %s edit · %s %s delete · %s copy", helpKey(k.PrevView), helpKey(k.NextView),
-		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.CopyKey))
+	hint := fmt.Sprintf("  ·  %s %s day · %s edit · %s %s delete · %s copy · %s week", helpKey(k.PrevView), helpKey(k.NextView),
+		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.CopyKey), helpKey(k.Timesheet))
 	return func() tea.Msg {
 		logs, err := c.MyWorklogs(ctx, day)
 		total := 0

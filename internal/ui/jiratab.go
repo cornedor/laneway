@@ -305,6 +305,7 @@ type jiraTabState struct {
 	roadmap *roadmapState
 	plan    *planState
 	charts  *chartsState // charts.go
+	week    *weekState   // week.go
 	// planSeq and chartsSeq outlive a close, so a reply for a view since
 	// closed never matches the one reopened.
 	planSeq, chartsSeq int
@@ -874,6 +875,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if t.charts != nil {
 		return m.handleChartsKey(msg)
+	}
+	if t.week != nil {
+		return m.handleWeekKey(msg)
 	}
 	lanes := m.jiraShowsLanes()
 	if m.needsCard(msg) {
@@ -2819,6 +2823,10 @@ func (m *Model) renderJiraPane(height, width int) string {
 		viewLine = ansi.Truncate(m.chartsLine(), max(boxW-2, 1), "…")
 		filterLine = ""
 		body = m.renderCharts(t.view.Width(), t.view.Height())
+	case t.week != nil:
+		viewLine = ansi.Truncate(m.weekLine(), max(boxW-2, 1), "…")
+		filterLine = ""
+		body = m.renderWeek(t.view.Width(), t.view.Height())
 	case t.plan != nil:
 		viewLine = ansi.Truncate(m.planLine(), max(boxW-2, 1), "…")
 		filterLine = ""

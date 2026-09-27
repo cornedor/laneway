@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
@@ -85,9 +84,10 @@ func TestMyWorklogs(t *testing.T) {
 		case r.URL.Path == "/rest/api/3/myself":
 			io.WriteString(w, `{"accountId":"me"}`)
 		case r.URL.Path == "/rest/api/3/search/jql":
-			b, _ := io.ReadAll(r.Body)
-			if !strings.Contains(string(b), `worklogDate = \"2026-09-25\"`) {
-				t.Errorf("jql body %s", b)
+			var body struct{ JQL string }
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.JQL != `worklogAuthor = "me" AND worklogDate >= "2026-09-25" AND worklogDate < "2026-09-26"` {
+				t.Errorf("jql %s", body.JQL)
 			}
 			io.WriteString(w, `{"issues":[{"key":"A-1","fields":{"summary":"One"}},{"key":"A-2","fields":{"summary":"Two"}}]}`)
 		case r.URL.Path == "/rest/api/3/issue/A-1/worklog":

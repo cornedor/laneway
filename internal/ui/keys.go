@@ -83,7 +83,8 @@ var keyScopes = []struct {
 		"create", "browser", "open", "toggle_panel", "copy_key", "help",
 	}},
 	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts"}},
-	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry"}},
+	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "timesheet"}},
+	{"week", []string{"up", "down", "left", "right", "prev_view", "next_view", "open", "copy_key", "refresh", "help", "quit", "timesheet"}},
 }
 
 // clashes reports keys bound to two actions in one scope.

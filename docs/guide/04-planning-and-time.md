@@ -102,6 +102,13 @@ edits an entry, `d` twice deletes it, `y` copies the day as a table.
 
 ![Today's worklogs](../screenshots/worklogs.png)
 
+`W` again shows the whole week as a grid, an issue per row and a day per
+column, with the totals and how short each workday is of 8h. `enter` on an
+empty cell logs work there.
+
+> **Try it:** on Friday, `W` `W`, fill the gaps, `y`, paste it into the
+> time registration.
+
 ### Standup: `U`
 
 `U` lists what you did since the previous workday (Friday, on a Monday):

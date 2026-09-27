@@ -264,7 +264,7 @@ Board:
 - cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last move or band drop · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (the issues of the pull and merge requests `gh` and `glab` say wait on you, by the keys in their titles and branches; their cards get `⌥`) · `R` roadmap · `P` planning · `C` charts · `V` releases
-- you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs
+- you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
 - `q` quit; on the roadmap, planning and charts it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
@@ -400,6 +400,10 @@ shown in the header and kept across restarts; `T` again stops it into the
 same input, filled with the time and started when the timer did. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
 an entry's time and comment, `d` twice deletes it, `y` copies the day as a markdown table, `enter` opens the issue.
+`W` again shows the week: an issue per row, a day per column, the day and
+week totals and how far each past workday is short of 8h. `enter` on a cell
+logs work on that issue that day (from `ui.workday_start`), `[` `]` step a
+week, `y` copies the grid as a markdown table.
 
 ## Prompt segment
 

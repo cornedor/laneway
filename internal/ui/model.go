@@ -629,6 +629,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWorklogFailed(msg)
 	case timerTickMsg:
 		return m.handleTimerTick()
+	case weekMsg:
+		return m.handleWeek(msg)
 	case chartsMsg:
 		return m.handleCharts(msg)
 	case planMsg:
@@ -750,7 +752,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	before := m.selectedJiraKey()
 	out, cmd := m.handleJiraKey(msg)
-	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil {
+	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil {
 		if after := om.selectedJiraKey(); after != "" && after != before {
 			return om, tea.Batch(cmd, om.schedulePrefetch())
 		}
@@ -854,7 +856,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	case t.plan != nil:
 		m.focus = focusJira
 		return m.clickPlan(msg.X, msg.Y, count)
-	case t.charts != nil:
+	case t.charts != nil, t.week != nil:
 		return m, nil
 	case t.empty.row >= 0 && msg.Y == jiraBodyTop+t.empty.row:
 		if out, cmd, ok := m.runSeg(segAt(t.empty.segs, msg.X, 1+t.empty.left)); ok {

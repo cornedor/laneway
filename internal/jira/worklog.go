@@ -114,6 +114,13 @@ type Worklog struct {
 
 // MyWorklogs lists what you logged on day, in the order you started it.
 func (c *Client) MyWorklogs(ctx context.Context, day time.Time) ([]Worklog, error) {
+	from := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	return c.MyWorklogsBetween(ctx, from, from.AddDate(0, 0, 1))
+}
+
+// MyWorklogsBetween lists what you logged from from until to (both
+// midnights), in the order you started it.
+func (c *Client) MyWorklogsBetween(ctx context.Context, from, to time.Time) ([]Worklog, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
@@ -121,9 +128,13 @@ func (c *Client) MyWorklogs(ctx context.Context, day time.Time) ([]Worklog, erro
 	if err != nil {
 		return nil, err
 	}
-	from := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
-	to := from.AddDate(0, 0, 1)
-	jql := fmt.Sprintf(`worklogAuthor = currentUser() AND worklogDate = "%s"`, from.Format(time.DateOnly))
+	return c.worklogsBetween(ctx, from, to, me.AccountID)
+}
+
+// worklogsBetween is what accountID logged from from until to.
+func (c *Client) worklogsBetween(ctx context.Context, from, to time.Time, accountID string) ([]Worklog, error) {
+	jql := fmt.Sprintf(`worklogAuthor = "%s" AND worklogDate >= "%s" AND worklogDate < "%s"`,
+		accountID, from.Format(time.DateOnly), to.Format(time.DateOnly))
 	issues, err := c.search(ctx, jql, []string{"summary"})
 	if err != nil {
 		return nil, err
@@ -156,7 +167,7 @@ func (c *Client) MyWorklogs(ctx context.Context, day time.Time) ([]Worklog, erro
 			}
 			for _, w := range resp.Worklogs {
 				started, _ := time.Parse(jiraTime, w.Started)
-				if w.Author.AccountID != me.AccountID || started.Before(from) || !started.Before(to) {
+				if w.Author.AccountID != accountID || started.Before(from) || !started.Before(to) {
 					continue
 				}
 				wl := Worklog{ID: w.ID, Key: is.Key, Summary: summary, Seconds: w.TimeSpentSeconds, Started: started}
