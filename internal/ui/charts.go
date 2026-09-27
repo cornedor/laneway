@@ -204,14 +204,19 @@ func (m *Model) chartTable(now time.Time) string {
 	day := func(i int) string { return ch.sprint.start.AddDate(0, 0, i).Format("2006-01-02") }
 	switch ch.tab {
 	case chartBurndown:
+		burn, unit := burnUnit(ch.burn)
 		head = []string{"Day", "Points left"}
-		_, _, left := burnSeries(ch.burn, ch.sprint.start, ch.sprint.end, now)
+		if unit != "p" {
+			head[1] = "Issues left"
+		}
+		_, _, left := burnSeries(burn, ch.sprint.start, ch.sprint.end, now)
 		for i, l := range left {
 			rows = append(rows, []string{day(i), chartNum(l)})
 		}
 	case chartBurnup:
+		burn, _ := burnUnit(ch.burn)
 		head = []string{"Day", "Scope", "Done"}
-		scope, done := burnupSeries(ch.burn, ch.sprint.start, ch.sprint.end, now)
+		scope, done := burnupSeries(burn, ch.sprint.start, ch.sprint.end, now)
 		for i := range scope {
 			rows = append(rows, []string{day(i), chartNum(scope[i]), chartNum(done[i])})
 		}

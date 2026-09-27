@@ -1242,3 +1242,16 @@ func TestChartsHalfLoaded(t *testing.T) {
 		t.Errorf("velocity tab lacks its error:\n%s", view)
 	}
 }
+
+// TestChartTableIssues: an unpointed sprint's burndown table counts issues.
+func TestChartTableIssues(t *testing.T) {
+	m := chartsModel(t)
+	ch := m.jiraTab.charts
+	ch.tab = chartBurndown
+	for i := range ch.burn {
+		ch.burn[i].Points = 0
+	}
+	if got := m.chartTable(time.Now()); !strings.Contains(got, "Issues left") {
+		t.Errorf("table:\n%s", got)
+	}
+}
