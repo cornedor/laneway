@@ -597,6 +597,14 @@ func (m *Model) renderJiraForm() string {
 			val = refDimStyle.Render("—")
 		default:
 			val = jiraValueText(ff.val)
+			if lines := strings.Split(strings.TrimSpace(ff.val.Text), "\n"); len(ff.val.Users)+len(ff.val.Options) == 0 && len(lines) > 1 {
+				more := " +1 line"
+				if len(lines) > 2 {
+					more = fmt.Sprintf(" +%d lines", len(lines)-1)
+				}
+				more = refDimStyle.Render(more)
+				val = ansi.Truncate(lines[0], max(inner-2-nameW-2-lipgloss.Width(more), 1), "…") + more
+			}
 		}
 		val = ansi.Truncate(val, max(inner-2-nameW-2, 1), "…")
 		if i == f.idx {

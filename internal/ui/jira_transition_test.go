@@ -149,6 +149,9 @@ func TestJiraFormMultiline(t *testing.T) {
 	if f := m.jiraForm; f.editing || f.fields[1].val.Text != "a\nbc" {
 		t.Fatalf("editing %v, comment %q", f.editing, f.fields[1].val.Text)
 	}
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "a +1 line") {
+		t.Errorf("row should show the first line and a count:\n%s", view)
+	}
 	out, _ = m.handleKey(keyStr("enter"))
 	out, _ = out.(Model).handleKey(keyStr("x"))
 	out, _ = out.(Model).handleKey(keyStr("esc"))
