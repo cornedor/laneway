@@ -22,10 +22,11 @@ func rulesWatch(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("rules watch", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	cfgPath := fs.String("config", "", "config file")
+	site := fs.String("site", "", "Jira site from the config's sites: (default jira:)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	cfg, _, err := config.Load(*cfgPath)
+	cfg, _, err := loadSite(*cfgPath, *site)
 	if err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1
@@ -39,11 +40,11 @@ func rulesWatch(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "laneway: no rule has a watch:")
 		return 1
 	}
-	if cfg.Jira.BaseURL == "" || cfg.Jira.Email == "" || cfg.Jira.APIToken == "" {
-		fmt.Fprintln(errOut, "laneway: jira.base_url, jira.email and jira.api_token (or JIRA_API_TOKEN) must be set")
+	if err := cfg.Jira.Check(siteName(*site)); err != nil {
+		fmt.Fprintln(errOut, "laneway:", err)
 		return 1
 	}
-	state, err := config.StatePath()
+	state, err := config.SiteStatePath(*site)
 	if err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1

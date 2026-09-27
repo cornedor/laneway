@@ -15,9 +15,9 @@ import (
 	"github.com/cornedor/laneway/internal/rules"
 )
 
-const rulesUsage = `usage: laneway rules list [-config path]
-       laneway rules watch [-config path]
-       laneway rules test [-config path] [-on kind] [-key K] [-summary S] [-type T]
+const rulesUsage = `usage: laneway rules list [-config path] [-site name]
+       laneway rules watch [-config path] [-site name]
+       laneway rules test [-config path] [-site name] [-on kind] [-key K] [-summary S] [-type T]
                           [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B] [-watch JQL]`
 
 // rulesCmd lists the config's rules, or says which a described change
@@ -33,6 +33,7 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("rules "+args[0], flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	cfgPath := fs.String("config", "", "config file")
+	site := fs.String("site", "", "Jira site from the config's sites: (default jira:)")
 	on := fs.String("on", rules.New, "change kind: new status assignee priority points summary")
 	c := jira.Card{}
 	var fromStatus string
@@ -49,7 +50,7 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
-	cfg, path, err := config.Load(*cfgPath)
+	cfg, path, err := loadSite(*cfgPath, *site)
 	if err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1
@@ -129,6 +130,16 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 // or the first configured) Task or first type and that type's first to-do
 // status, else Task and To Do. typ, when set, is the type to find a status
 // for.
+// loadSite loads the config with site's Jira settings as its jira:.
+func loadSite(cfgPath, site string) (config.Config, string, error) {
+	cfg, path, err := config.Load(cfgPath)
+	if err != nil {
+		return cfg, path, err
+	}
+	cfg.Jira, err = cfg.Site(site)
+	return cfg, path, err
+}
+
 func testDefaults(cfg *config.Config, keySet bool, key, typ string) (string, string) {
 	t, s := cfg.RulesTest.Type, cfg.RulesTest.Status
 	if typ != "" {

@@ -193,7 +193,9 @@ status the issue has does nothing; one its workflow doesn't offer is logged.
 A rule with `watch:` fires on the changes of its own JQL search instead,
 polled every `every:` (default 5m, at least 1m) while laneway runs, whichever
 board is open. `laneway rules watch` polls them without the board, printing
-what fires; `highlight` is skipped there and `notify` needs a terminal:
+what fires; `highlight` is skipped there and `notify` needs a terminal.
+`-site club` runs it (and `rules test`) against a `sites:` entry instead of
+`jira:`:
 
 ```yaml
   - name: mine-moved

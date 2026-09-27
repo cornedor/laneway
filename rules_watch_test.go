@@ -88,3 +88,20 @@ func (s *syncBuf) String() string {
 	defer s.mu.Unlock()
 	return s.b.String()
 }
+
+// TestRulesWatchSite: -site picks a sites: entry, and says what it lacks.
+func TestRulesWatchSite(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	_ = os.WriteFile(p, []byte(`
+sites:
+  club: {base_url: "https://club.test", email: me@club.test}
+rules:
+  - {name: w, watch: "project = C", actions: [{type: log}]}
+`), 0o600)
+	for site, want := range map[string]string{"club": "sites.club: set api_token", "nope": `no site "nope"`} {
+		var out, errOut bytes.Buffer
+		if code := rulesWatch([]string{"-config", p, "-site", site}, &out, &errOut); code != 1 || !strings.Contains(errOut.String(), want) {
+			t.Errorf("%s: exit %d, %q", site, code, errOut.String())
+		}
+	}
+}
