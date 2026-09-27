@@ -1452,3 +1452,40 @@ func TestCardColors(t *testing.T) {
 		t.Error("custom colour by key")
 	}
 }
+
+// TestBoardRank: J ranks the card after the next one in its lane, which
+// swaps them on screen; K on the first card says so.
+func TestBoardRank(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = r.Method + " " + r.URL.Path + " " + string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	out, _ := m.handleKey(keyStr("K"))
+	if m = out.(Model); m.status != "ABC-1 is ranked first already" {
+		t.Errorf("K on the first card: %q", m.status)
+	}
+	out, cmd := m.handleKey(keyStr("J"))
+	m = out.(Model)
+	lane := m.jiraTab.lanes[0].cards
+	if m.jiraTab.cards[lane[0]].Key != "ABC-3" || m.selectedJiraKey() != "ABC-1" {
+		t.Fatalf("lane = %v, selected %s", lane, m.selectedJiraKey())
+	}
+	out, _ = m.Update(cmd())
+	if m = out.(Model); m.status != "ranked ABC-1" {
+		t.Errorf("status %q", m.status)
+	}
+	if body != `PUT /rest/agile/1.0/issue/rank {"issues":["ABC-1"],"rankAfterIssue":"ABC-3"}` {
+		t.Errorf("rank = %s", body)
+	}
+
+	m.jiraTab.swim = jiraSortAssignee
+	out, _ = m.handleKey(keyStr("J"))
+	if m = out.(Model); !strings.Contains(m.status, "swimlanes off") {
+		t.Errorf("with swimlanes: %q", m.status)
+	}
+}

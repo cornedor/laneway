@@ -567,6 +567,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleAvatarLoaded(msg)
 	case cardColorsMsg:
 		return m.handleCardColors(msg)
+	case jiraRankedMsg:
+		return m.handleJiraRanked(msg)
 	case jiraMovedMsg:
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:

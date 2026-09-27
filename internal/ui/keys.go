@@ -65,7 +65,7 @@ var keyScopes = []struct {
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down",
 		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto", "create",
 		"copy_key", "copy_url", "copy_branch", "move_left", "move_right", "project", "board",
-		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings", "filter_builder", "panel_wider", "panel_narrower", "quick_edit", "my_work", "compact",
+		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings", "filter_builder", "panel_wider", "panel_narrower", "quick_edit", "my_work", "compact", "rank_up", "rank_down",
 	}},
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work",

@@ -1,7 +1,6 @@
 # Roadmap
 
 ## Next
-- Board: `K`/`J` rank the card within its lane, as in planning (`client.Rank` exists)
 - `L` link picker, link types, sprints and boards filter like the project picker
 - The palette's Jira search, `@` mentions and JQL value completions say when their search failed, not just show nothing
 - `A` deletes a comment of yours, next to editing one
@@ -11,6 +10,7 @@
 - Lanes render ~1ms, swimlanes ~2ms, View ~1.2ms at 600 cards with every card mark on: fine, revisit if boards grow
 
 ## Done
+- Board: `K`/`J` rank the card in its lane (or a list sorted by rank), as in planning; the cards swap at once, a failed rank refetches
 - Boards and active/future sprints load past 50: a remembered board beyond the 50th no longer falls back to the first, `M` and planning see every future sprint
 - A form's multi-line value shows its first line and `+2 lines` on its row, not the lines run together
 - The move and create forms edit a doc field and the comment in the in-app editor under the row (enter breaks the line, `ctrl+s` keeps, esc undoes); a paste reaches a form's field

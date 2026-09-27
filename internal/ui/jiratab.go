@@ -880,6 +880,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.moveJiraCardBy(-1)
 	case lanes && key.Matches(msg, m.keys.MoveCardRight):
 		return m, m.moveJiraCardBy(1)
+	case key.Matches(msg, m.keys.RankUp):
+		return m, m.rankJiraCard(-1)
+	case key.Matches(msg, m.keys.RankDown):
+		return m, m.rankJiraCard(1)
 	case key.Matches(msg, m.keys.Home):
 		t.idx, t.row = 0, 0
 		m.renderJira()
@@ -1245,12 +1249,73 @@ func (m *Model) needsCard(msg tea.KeyPressMsg) bool {
 	if len(m.jiraTab.marked) > 0 {
 		return false
 	}
-	for _, b := range []key.Binding{k.OpenChannel, k.OpenAttach, k.Pin, k.CopyBranch, k.CopyKey, k.CopyURL, k.Mark, k.QuickEdit, k.MoveSprint, k.MoveCardLeft, k.MoveCardRight} {
+	for _, b := range []key.Binding{k.OpenChannel, k.OpenAttach, k.Pin, k.CopyBranch, k.CopyKey, k.CopyURL, k.Mark, k.QuickEdit, k.MoveSprint, k.MoveCardLeft, k.MoveCardRight, k.RankUp, k.RankDown} {
 		if key.Matches(msg, b) {
 			return true
 		}
 	}
 	return key.Matches(msg, k.Timer) && m.timer.key == ""
+}
+
+// jiraRankedMsg is a board rank answered.
+type jiraRankedMsg struct {
+	key string
+	err error
+}
+
+// rankJiraCard ranks the selected card before (d -1) or after (d 1) the card
+// next to it: in its lane, or in a list in rank order. The cards swap on
+// screen at once; a failed rank refetches the board.
+func (m *Model) rankJiraCard(d int) tea.Cmd {
+	t := m.jiraTab
+	var shown []int // the card indexes in the order the cursor walks
+	var at int
+	switch {
+	case m.jiraShowsLanes() && t.swim != jiraSortRank:
+		m.status = "ranking needs the swimlanes off (" + helpKey(m.keys.Sort) + ")"
+		return nil
+	case m.jiraShowsLanes():
+		if t.lane < len(t.lanes) {
+			shown, at = t.lanes[t.lane].cards, t.row
+		}
+	case t.sort != jiraSortRank:
+		m.status = "ranking needs the list sorted by rank (" + helpKey(m.keys.Sort) + ")"
+		return nil
+	default:
+		shown, at = t.order, t.idx
+	}
+	if at >= len(shown) {
+		return nil
+	}
+	c := t.cards[shown[at]]
+	switch {
+	case at+d < 0:
+		m.status = c.Key + " is ranked first already"
+		return nil
+	case at+d >= len(shown):
+		m.status = c.Key + " is ranked last already"
+		return nil
+	}
+	other := t.cards[shown[at+d]]
+	i, j := shown[at], shown[at+d]
+	t.cards[i], t.cards[j] = t.cards[j], t.cards[i]
+	m.buildJiraLanes()
+	m.selectJiraKey(c.Key)
+	m.renderJira()
+	m.status = "ranking " + c.Key + "…"
+	client, ctx := m.jiraClient, m.ctx
+	return func() tea.Msg {
+		return jiraRankedMsg{key: c.Key, err: client.Rank(ctx, c.Key, other.Key, d > 0)}
+	}
+}
+
+func (m Model) handleJiraRanked(msg jiraRankedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail("rank " + msg.key + ": " + msg.err.Error())
+		return m, m.loadJiraCards(m.jiraTab.viewIdx, false)
+	}
+	m.status = "ranked " + msg.key
+	return m, nil
 }
 
 // moveJiraCardBy moves the selected card delta lanes over. A lane of several
