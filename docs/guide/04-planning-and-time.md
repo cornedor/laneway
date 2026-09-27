@@ -76,7 +76,8 @@ them; `y` copies the open chart's numbers as a table.
 
 `w` in the panel logs time on the issue: `1h 30m fixed the flaky test`
 (also `1.5h`, `45m`, `2d`). It ends now, unless you put a day first:
-`yesterday 2h`, `fri 1h`, `2026-09-21 3h`.
+`yesterday 2h`, `fri 1h`, `2026-09-21 3h`. It comes off the issue's
+remaining estimate; add `left:2h` to say what's left instead.
 
 ### The timer
 

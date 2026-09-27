@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -112,7 +113,7 @@ func (m *Model) timerLabel() string {
 func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "1h 30m what you did (yesterday 2h: another day)"
+	ti.Placeholder = "1h 30m what you did (yesterday 2h: another day; left:2h: what's left)"
 	ti.SetWidth(max(min(m.width-16, 60), 16))
 	ti.SetValue(value)
 	ti.CursorEnd()
@@ -124,6 +125,25 @@ func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	m.worklogStart = started
 	m.worklogEdit = "" // a new entry, unless the caller says otherwise
 	m.worklogFromTimer = false
+}
+
+// worklogLeft takes a left:2h (the remaining estimate after this work) or
+// left:keep word out of a worklog input.
+func worklogLeft(raw string) (left, rest string, err error) {
+	words := strings.Fields(raw)
+	i := slices.IndexFunc(words, func(w string) bool { return strings.HasPrefix(strings.ToLower(w), "left:") })
+	if i < 0 {
+		return "", raw, nil
+	}
+	left = words[i][len("left:"):]
+	rest = strings.Join(slices.Delete(words, i, i+1), " ")
+	if strings.EqualFold(left, jira.LeftKeep) {
+		return jira.LeftKeep, rest, nil
+	}
+	if secs, extra, err := jira.ParseDuration(left); err != nil || secs == 0 || extra != "" {
+		return "", "", fmt.Errorf("left:%s is not a time (left:2h, left:keep)", left)
+	}
+	return left, rest, nil
 }
 
 // worklogDay reads a leading day off a worklog input: "yesterday 2h",
@@ -151,6 +171,14 @@ func worklogDay(raw string, now time.Time) (day time.Time, rest string, ok bool)
 // the entry there.
 func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	day, raw, onDay := worklogDay(raw, time.Now())
+	left, raw, err := worklogLeft(raw)
+	if err == nil && left != "" && m.worklogEdit != "" {
+		err = errors.New("left: is for new work, not an edit")
+	}
+	if err != nil {
+		m.fail(err.Error())
+		return m, nil
+	}
 	secs, comment, err := jira.ParseDuration(raw)
 	if err != nil {
 		m.fail(err.Error())
@@ -189,7 +217,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	c, ctx, fromTimer := m.jiraClient, m.ctx, m.worklogFromTimer
 	m.status = fmt.Sprintf("logging %s on %s…", jira.FormatDuration(secs), key)
 	return m, func() tea.Msg {
-		return worklogLoggedMsg{key: key, fromTimer: fromTimer, err: c.AddWorklog(ctx, key, secs, started, comment)}
+		return worklogLoggedMsg{key: key, fromTimer: fromTimer, err: c.AddWorklog(ctx, key, secs, started, comment, left)}
 	}
 }
 

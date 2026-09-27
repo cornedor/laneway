@@ -52,11 +52,29 @@ func TestAddWorklog(t *testing.T) {
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	started := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
-	if err := c.AddWorklog(context.Background(), "ABC-1", 5400, started, "tests"); err != nil {
+	if err := c.AddWorklog(context.Background(), "ABC-1", 5400, started, "tests", ""); err != nil {
 		t.Fatal(err)
 	}
 	if body["timeSpentSeconds"] != 5400.0 || body["started"] != "2026-09-25T09:00:00.000+0000" || body["comment"] == nil {
 		t.Errorf("body = %v", body)
+	}
+}
+
+// TestAddWorklogLeft: the remaining estimate is left alone or set.
+func TestAddWorklogLeft(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.RequestURI())
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	now := time.Now()
+	_ = c.AddWorklog(context.Background(), "ABC-1", 3600, now, "", LeftKeep)
+	_ = c.AddWorklog(context.Background(), "ABC-1", 3600, now, "", "2h")
+	if len(got) != 2 || got[0] != "/rest/api/3/issue/ABC-1/worklog?adjustEstimate=leave" ||
+		got[1] != "/rest/api/3/issue/ABC-1/worklog?adjustEstimate=new&newEstimate=2h" {
+		t.Errorf("requests = %q", got)
 	}
 }
 

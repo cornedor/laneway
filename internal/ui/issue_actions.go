@@ -39,6 +39,7 @@ func (m *Model) openIssueActions() {
 	items = append(items,
 		jiraPickerItem{id: "link", label: "Link to another issue"},
 		jiraPickerItem{id: "weblink", label: "Add a web link"},
+		jiraPickerItem{id: "estimate", label: "Set the original estimate"},
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "type", label: "Change the issue type"},
 		jiraPickerItem{id: "move", label: "Move to another project"},
@@ -159,6 +160,9 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			}
 			return createIssue(ctx, c, jiraFormCreate{in: in, cloneOf: key}, "Clone of "+key)
 		}
+	case "estimate":
+		m.openBulkInput("estimate", "2d 4h")
+		m.jiraFieldKey = key
 	case "weblink":
 		m.openBulkInput("weblink", "https://… and a title")
 		m.jiraFieldKey = key
@@ -360,6 +364,19 @@ func (m Model) handleJiraRelocated(msg jiraRelocatedMsg) (tea.Model, tea.Cmd) {
 	m = out.(Model)
 	m.status = "moved " + msg.key + " to " + msg.next
 	return m, tea.Batch(cmd, board)
+}
+
+// applyEstimate sets the typed original estimate on the panel issue.
+func (m Model) applyEstimate(raw string) (tea.Model, tea.Cmd) {
+	key, raw := m.jiraFieldKey, strings.TrimSpace(raw)
+	if secs, extra, err := jira.ParseDuration(raw); err != nil || secs == 0 || extra != "" {
+		m.status = raw + " is not a time: 2d 4h, 90m"
+		return m, nil
+	}
+	m.closeJiraField()
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "estimating " + key + " at " + raw + "…"
+	return m, jiraMutateCmd(key, "estimate", func() error { return c.SetEstimate(ctx, key, raw) })
 }
 
 // applyWebLink adds the typed "URL title" to the panel issue.

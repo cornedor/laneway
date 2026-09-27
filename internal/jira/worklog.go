@@ -15,12 +15,29 @@ import (
 
 // Time tracking: log work on an issue, and read back a day of your own.
 
+// LeftKeep leaves the remaining estimate as it is when logging work.
+const LeftKeep = "keep"
+
+// SetEstimate sets key's original estimate ("2d 4h").
+func (c *Client) SetEstimate(ctx context.Context, key, estimate string) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	body := map[string]any{"fields": map[string]any{"timetracking": map[string]string{"originalEstimate": estimate}}}
+	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(key)
+	return nil
+}
+
 // jiraTime is the timestamp shape worklogs take and return.
 const jiraTime = "2006-01-02T15:04:05.000-0700"
 
 // AddWorklog logs seconds of work on key, started at started, with an
-// optional comment.
-func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, started time.Time, comment string) error {
+// optional comment. left is what the remaining estimate becomes: "" takes
+// the time off it (Jira's auto), LeftKeep leaves it, else a duration ("2h").
+func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, started time.Time, comment, left string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
@@ -32,6 +49,13 @@ func (c *Client) AddWorklog(ctx context.Context, key string, seconds int, starte
 		body["comment"] = textToADF(comment, nil)
 	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/worklog"
+	switch left {
+	case "":
+	case LeftKeep:
+		path += "?adjustEstimate=leave"
+	default:
+		path += "?adjustEstimate=new&newEstimate=" + url.QueryEscape(left)
+	}
 	if err := c.do(ctx, http.MethodPost, path, key, body, nil); err != nil {
 		return err
 	}

@@ -338,3 +338,32 @@ func TestTimerSaveFails(t *testing.T) {
 		t.Errorf("timer %+v, status %q", m.timer, m.statusErr)
 	}
 }
+
+// TestWorklogLeft: a left: word anywhere sets what's left of the estimate.
+func TestWorklogLeft(t *testing.T) {
+	for in, want := range map[string][2]string{
+		"1h fix":           {"", "1h fix"},
+		"1h left:2h fix":   {"2h", "1h fix"},
+		"1h fix left:KEEP": {"keep", "1h fix"},
+	} {
+		left, rest, err := worklogLeft(in)
+		if err != nil || left != want[0] || rest != want[1] {
+			t.Errorf("%q = %q %q %v", in, left, rest, err)
+		}
+	}
+	if _, _, err := worklogLeft("1h left:soon"); err == nil {
+		t.Error("left:soon should fail")
+	}
+}
+
+// TestEstimate: A → set the original estimate writes timetracking.
+func TestEstimate(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	m, _ = pickAction(t, m, "estimate")
+	m.jiraFieldInput.SetValue("2d 4h")
+	_, cmd := m.applyJiraField()
+	cmd()
+	if w := writes(); len(w) != 1 || w[0] != `PUT /rest/api/3/issue/ABC-1 {"fields":{"timetracking":{"originalEstimate":"2d 4h"}}}` {
+		t.Errorf("writes = %q", w)
+	}
+}

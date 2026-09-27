@@ -983,6 +983,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	if field == "weblink" {
 		return m.applyWebLink(raw)
 	}
+	if field == "estimate" {
+		return m.applyEstimate(raw)
+	}
 	if field == "worklog" {
 		return m.applyWorklog(raw)
 	}
@@ -1322,6 +1325,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↵ link · esc cancel", m.jiraFieldInput.Width()+12
 	case "weblink":
 		title, hint, outerW = "Web link on "+m.jiraFieldKey, "↵ add · esc cancel", m.jiraFieldInput.Width()+12
+	case "estimate":
+		title, hint, outerW = "Original estimate of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":
 		title, hint, outerW = "Log work", "↵ log · esc cancel", m.jiraFieldInput.Width()+12
 	case "bulk-labels":

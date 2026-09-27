@@ -273,7 +273,7 @@ Panel:
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels · `a` assignee
 - talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
-- more: `A` subtask / link / web link / unlink / clone / change type / move to another project / delete (twice; with its subtasks) / edit or delete your comment / watch / add or remove watchers / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
+- more: `A` subtask / link / web link / unlink / estimate / clone / change type / move to another project / delete (twice; with its subtasks) / edit or delete your comment / watch / add or remove watchers / vote / flag / upload / paste image / download or delete an attachment · `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
 - mouse: drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
@@ -363,7 +363,9 @@ workday later again.
 `w` in the panel logs work: `1h 30m what you did` (also `1.5h`, `45m`,
 `2d` of 8h), ending now; a day first logs it then, from `ui.workday_start`
 (09:00) (`yesterday 2h`, `fri 1h` the last Friday, `2026-09-21 3h`, `-2d 1h`);
-in an edit (`e` in `W`) it moves the entry to that day. `T` starts a timer on the card or panel issue,
+in an edit (`e` in `W`) it moves the entry to that day. The time comes off
+the remaining estimate; `left:2h` sets it instead, `left:keep` leaves it.
+`A` → *Set the original estimate* sets one. `T` starts a timer on the card or panel issue,
 shown in the header and kept across restarts; `T` again stops it into the
 same input, filled with the time and started when the timer did. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
