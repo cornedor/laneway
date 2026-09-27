@@ -311,6 +311,12 @@ Panel:
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
 
+Offline, a change to an issue that never reached Jira (no connection) is
+kept in the state file, `⇡3` in the header, and sent every 30 seconds
+until Jira answers, oldest first. If the issue changed in Jira meanwhile
+it waits: the palette's *queue* row sends it anyway or drops it. Anything
+that may have reached Jira fails as before, so nothing is sent twice.
+
 ## Search and filters
 
 `/` narrows the loaded cards (lanes and list) as you type, without a refetch.

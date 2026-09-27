@@ -77,7 +77,9 @@ type Client struct {
 	// transfer is http without the whole-request limit, for attachment
 	// bodies that may take longer than timeout; stallGuard bounds them.
 	transfer *http.Client
-	writing  atomic.Int32 // writes (not GETs) on their way
+	// queue keeps writes that never reached Jira (queue.go); nil fails them.
+	queue   func(PendingWrite)
+	writing atomic.Int32 // writes (not GETs) on their way
 
 	mu    sync.Mutex
 	cache map[string]cachedIssue
@@ -432,6 +434,12 @@ func (c *Client) moreComments(ctx context.Context, key string, start, total int)
 // statusError; what labels the request in that error (an issue key, or e.g.
 // "priorities"). Each call carries its own timeout.
 func (c *Client) doRaw(ctx context.Context, method, path, what string, body any) ([]byte, error) {
+	return c.send(ctx, method, path, what, body, true)
+}
+
+// send is doRaw; queue lets a write that never reached Jira go to the
+// offline queue (queue.go).
+func (c *Client) send(ctx context.Context, method, path, what string, body any, queue bool) ([]byte, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
@@ -459,6 +467,9 @@ func (c *Client) doRaw(ctx context.Context, method, path, what string, body any)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		if queue && c.queueWrite(method, path, what, body, err) {
+			return nil, fmt.Errorf("%s: %w", what, ErrQueued)
+		}
 		if ctx.Err() == nil && isTimeout(err) {
 			return nil, fmt.Errorf("jira: %s timed out after %s · raise jira.timeout for a slow instance: %w", what, c.timeout, err)
 		}

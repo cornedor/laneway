@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -116,6 +117,8 @@ const (
 	jiraPickActionOutput
 	// jiraPickDeps is the issue's dependency tree (deps.go).
 	jiraPickDeps
+	// jiraPickQueue lists the offline writes (queue.go).
+	jiraPickQueue
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -897,6 +900,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickReleases {
 		return m.applyRelease(it)
 	}
+	if kind == jiraPickQueue {
+		return m.applyQueuePick(it)
+	}
 	if kind == jiraPickDeps {
 		if it.id == "" {
 			return m, nil
@@ -1093,6 +1099,11 @@ func jiraMutateCmd(key, field string, run func() error) tea.Cmd {
 // handleJiraMutated reports the write outcome and reloads the issue on success
 // so the panel shows the authoritative (and any cascading) values.
 func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
+	if errors.Is(msg.err, jira.ErrQueued) {
+		m.queued = len(readQueue(m.store))
+		m.status = fmt.Sprintf("offline: %s %s kept for later · %s", msg.key, msg.field, m.queueBadge())
+		return m, nil
+	}
 	if msg.err != nil {
 		m.fail(fmt.Sprintf("%s %s update failed: %v", msg.key, msg.field, msg.err))
 		if msg.text != "" {

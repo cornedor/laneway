@@ -384,6 +384,8 @@ type Model struct {
 	otherSites *siteClients
 	// actions are ui.actions, the usable ones (actions.go).
 	actions []config.Action
+	// queued counts the offline writes waiting (queue.go).
+	queued int
 	// refine is the refinement queue being stepped through (refine.go).
 	refine *refineState
 	// repeat is the last change, for . to make again (repeat.go).
@@ -471,12 +473,14 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	m.loadPanelWidth()
 	if m.store != nil {
 		_, m.jiraTab.compact, _ = m.store.GetMeta(jiraCompactMeta)
+		m.jiraClient.SetQueue(queueTo(m.store))
+		m.queued = len(readQueue(m.store))
 	}
 	return m
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick())
 }
 
 // bodyH is the rows above the status line.
@@ -659,6 +663,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleActionDone(msg)
 	case agentTickMsg:
 		return m, m.fetchAgents()
+	case queueTickMsg:
+		return m.handleQueueTick()
+	case queueReplayedMsg:
+		return m.handleQueueReplayed(msg)
 	case agentsMsg:
 		return m.handleAgents(msg)
 	case paletteSearchMsg:

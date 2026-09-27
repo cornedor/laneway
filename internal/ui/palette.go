@@ -139,6 +139,9 @@ func (m *Model) openPalette() {
 		items = append(items, jiraPickerItem{id: "d:", label: "open download  " + filepath.Base(m.lastDownload)})
 	}
 	items = append(items, jiraPickerItem{id: "m:", label: fmt.Sprintf("messages  the status line's last %d", len(m.statusLog))})
+	if m.queued > 0 {
+		items = append(items, jiraPickerItem{id: "w:", label: fmt.Sprintf("queue  %s waiting to reach Jira", plural(m.queued, "write")), search: "offline"})
+	}
 	if onBoard {
 		for _, c := range t.cards {
 			if id := "i:" + c.Key; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
@@ -199,6 +202,9 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 		return m, m.pickJiraBoard(jiraPickBoard, arg)
 	case "m":
 		m.openMessages()
+		return m, nil
+	case "w":
+		m.openQueue()
 		return m, nil
 	case "x":
 		i, _ := strconv.Atoi(arg)

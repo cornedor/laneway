@@ -68,6 +68,9 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	if tl := m.timerLabel(); tl != "" {
 		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(tl), k.Timer))
 	}
+	if b := m.queueBadge(); b != "" {
+		segs = append(segs, plainSeg(dim("  ·  ")+jiraOverStyle.Render(b)))
+	}
 	if b := m.inboxBadge(); b != "" {
 		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(b+" "+helpKey(k.Inbox)), k.Inbox))
 	}
