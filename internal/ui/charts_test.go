@@ -206,3 +206,23 @@ func TestCycleChart(t *testing.T) {
 		t.Errorf("table:\n%s", tbl)
 	}
 }
+
+// TestRetroChart: the last sprint beside the one before, with the issues
+// carried over and moved back, and as a table.
+func TestRetroChart(t *testing.T) {
+	rs := []jira.RetroSprint{
+		{Name: "S1", Committed: []string{"A-1", "A-2"}, Done: []string{"A-1", "A-2"}, Points: 5, DonePoints: 5},
+		{Name: "S2", Committed: []string{"A-3"}, Added: []string{"A-4"}, Done: []string{"A-3"}, Carried: []string{"A-4"}, Back: []string{"A-3"}, Points: 8, DonePoints: 3},
+	}
+	out := ansi.Strip(renderRetro(rs, 100))
+	for _, want := range []string{"Retro — S2", "S1", "carried over      0             1", "moved backwards   0", "points done       5 of 5        3 of 8", "carried over  A-4", "moved backwards  A-3"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("no %q:\n%s", want, out)
+		}
+	}
+	m := jiraTabModel(t)
+	m.jiraTab.charts = &chartsState{tab: chartRetro, retro: rs}
+	if tbl := m.chartTable(time.Now()); !strings.Contains(tbl, "| carried over | 0 | 1 |") {
+		t.Errorf("table:\n%s", tbl)
+	}
+}

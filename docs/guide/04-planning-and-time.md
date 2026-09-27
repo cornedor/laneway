@@ -66,7 +66,8 @@ sprints, drawn fainter.
 
 On a board with sprints, `C` draws the active sprint: burndown, burnup,
 cumulative flow, the velocity of the last sprints, and how long work takes
-(cycle and lead time, with the 50th and 85th percentile). `tab` steps through
+(cycle and lead time, with the 50th and 85th percentile). *Retro* compares
+the last sprint with the one before, for the retrospective. `tab` steps through
 them; `y` copies the open chart's numbers as a table.
 
 ![The active sprint's burndown](../screenshots/burndown.png)

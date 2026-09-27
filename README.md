@@ -537,6 +537,9 @@ says how much was added after the start; issues taken out of it don't show.
 *Cycle* plots the project's issues resolved in the last 8 weeks by how long
 they took from first in progress to done, with the 50th and 85th percentile
 lines, the same for lead time (created to done) and the slowest listed.
+*Retro* sets the last closed sprint beside the one before: committed, added
+during, done, carried over, moved backwards (to an earlier status category)
+and points done, then which issues were carried over, added or moved back.
 `y` copies the open chart's numbers as a markdown table.
 
 ## JQL search

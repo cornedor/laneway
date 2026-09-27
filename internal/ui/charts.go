@@ -28,6 +28,7 @@ const (
 	chartFlow
 	chartVelocity
 	chartCycle
+	chartRetro
 	chartTabs
 )
 
@@ -37,12 +38,14 @@ type chartsState struct {
 	burn    []jira.BurnIssue
 	vel     []jira.SprintVelocity
 	cycle   []jira.CycleIssue
+	retro   []jira.RetroSprint
 	loading bool
 	seq     int
 	// burnErr and velErr are why the sprint's issues or the velocity
 	// didn't load; the other half still shows.
 	burnErr, velErr string
 	cycleErr        string
+	retroErr        string
 }
 
 type chartsMsg struct {
@@ -50,8 +53,10 @@ type chartsMsg struct {
 	burn            []jira.BurnIssue
 	vel             []jira.SprintVelocity
 	cycle           []jira.CycleIssue
+	retro           []jira.RetroSprint
 	burnErr, velErr error
 	cycleErr        error
+	retroErr        error
 }
 
 // openCharts swaps the board for the charts of its active sprint.
@@ -89,8 +94,9 @@ func (m *Model) loadCharts() tea.Cmd {
 		msg := chartsMsg{seq: seq}
 		var errB, errV error
 		var wg sync.WaitGroup
-		wg.Add(3)
+		wg.Add(4)
 		go func() { defer wg.Done(); msg.cycle, msg.cycleErr = c.CycleTimes(ctx, project, cycleWeeks) }()
+		go func() { defer wg.Done(); msg.retro, msg.retroErr = c.Retro(ctx, board, 2, pf) }()
 		go func() {
 			defer wg.Done()
 			if sprint != 0 {
@@ -127,6 +133,10 @@ func (m Model) handleCharts(msg chartsMsg) (tea.Model, tea.Cmd) {
 	if msg.cycleErr == nil {
 		ch.cycle = msg.cycle
 	}
+	ch.retroErr = errText(msg.retroErr)
+	if msg.retroErr == nil {
+		ch.retro = msg.retro
+	}
 	return m, nil
 }
 
@@ -152,7 +162,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadCharts()
 	case key.Matches(msg, m.keys.CopyKey):
-		if ch.loading || ch.tab == chartVelocity && ch.velErr != "" || ch.tab == chartCycle && ch.cycleErr != "" ||
+		if ch.loading || ch.tab == chartVelocity && ch.velErr != "" || ch.tab == chartCycle && ch.cycleErr != "" || ch.tab == chartRetro && ch.retroErr != "" ||
 			ch.tab < chartVelocity && ch.burnErr != "" {
 			break
 		}
@@ -165,7 +175,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // chartTabNames are the charts' tab labels, by tab.
-var chartTabNames = []string{"Burndown", "Burnup", "Flow", "Velocity", "Cycle"}
+var chartTabNames = []string{"Burndown", "Burnup", "Flow", "Velocity", "Cycle", "Retro"}
 
 const chartTabSep = "  │  "
 
@@ -174,7 +184,7 @@ const chartTabSep = "  │  "
 func (ch *chartsState) chartTabsShown() []int {
 	var out []int
 	for i := range chartTabNames {
-		if i == chartVelocity || i == chartCycle || ch.sprint != nil || i == ch.tab {
+		if i >= chartVelocity || ch.sprint != nil || i == ch.tab {
 			out = append(out, i)
 		}
 	}
@@ -192,6 +202,8 @@ func (m *Model) renderCharts(width, height int) string {
 	case chartVelocity:
 	case chartCycle:
 		failed = ch.cycleErr
+	case chartRetro:
+		failed = ch.retroErr
 	default:
 		failed = ch.burnErr
 	}
@@ -210,6 +222,9 @@ func (m *Model) renderCharts(width, height int) string {
 	}
 	if ch.tab == chartCycle {
 		return renderCycle(ch.cycle, time.Now(), width, height)
+	}
+	if ch.tab == chartRetro {
+		return renderRetro(ch.retro, width)
 	}
 	return renderVelocity(ch.vel, width)
 }
@@ -251,6 +266,8 @@ func (m *Model) chartTable(now time.Time) string {
 			}
 			rows = append(rows, row)
 		}
+	case chartRetro:
+		head, rows = retroTable(ch.retro)
 	case chartCycle:
 		head = []string{"Issue", "Resolved", "Cycle days", "Lead days"}
 		for _, ci := range ch.cycle {
