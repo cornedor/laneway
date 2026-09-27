@@ -39,8 +39,13 @@ func (m Model) pickSite(site string) (tea.Model, tea.Cmd) {
 	if site == m.site {
 		return m, nil
 	}
+	if w := m.unsentWork(); w != "" && !m.quitAsked {
+		m.quitAsked = true // the next pick (or quit) goes
+		m.status = w + " · pick it again to switch anyway"
+		return m, nil
+	}
 	m.nextSite = &site
-	return m.quit()
+	return m, tea.Quit
 }
 
 func siteLabel(s string) string {

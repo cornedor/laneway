@@ -723,7 +723,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickMessages {
 		m.closeJiraPicker()
-		return m.applyMessage(it.id)
+		return m.applyMessage(it)
 	}
 	if kind == jiraPickCreateType {
 		m.closeJiraPicker()

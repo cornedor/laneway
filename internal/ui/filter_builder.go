@@ -134,8 +134,14 @@ func (m *Model) builderTerm() string {
 func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	b := m.filterBuilder
 	move := func(col int) {
-		b.col = min(max(col, 0), 2)
+		// The cursor indexes the narrowed rows: find its row in the full
+		// list before the filter goes.
+		id := m.builderPick(b.col).id
 		b.filter.SetValue("")
+		if i := slices.IndexFunc(m.builderRows(b.col), func(it jiraPickerItem) bool { return it.id == id }); i >= 0 {
+			b.idx[b.col] = i
+		}
+		b.col = min(max(col, 0), 2)
 	}
 	switch {
 	case msg.String() == "ctrl+c":

@@ -83,7 +83,7 @@ func (m *Model) openMessages() {
 		if e.err {
 			mark = "✗ "
 		}
-		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: e.at.Format("15:04:05") + "  " + mark + e.text})
+		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: e.at.Format("15:04:05") + "  " + mark + e.text, value: e.text})
 	}
 	if len(items) == 0 {
 		m.jiraPicker.err = fmt.Errorf("no messages yet")
@@ -92,12 +92,38 @@ func (m *Model) openMessages() {
 }
 
 // applyMessage copies the picked message whole.
-func (m Model) applyMessage(id string) (tea.Model, tea.Cmd) {
-	i, err := strconv.Atoi(id)
-	if err != nil || i >= len(m.statusLog) {
+// The row carries its text: the log shifts as new messages arrive.
+func (m Model) applyMessage(it jiraPickerItem) (tea.Model, tea.Cmd) {
+	if it.value == "" {
 		return m, nil
 	}
-	text := m.statusLog[i].text
 	m.status = "copied the message"
-	return m, tea.SetClipboard(text)
+	return m, tea.SetClipboard(it.value)
+}
+
+// pasteInput hands a paste to the one-line input that has the keys: go-to,
+// create, JQL, the search box, a picker's or the builder's filter, a
+// setting being edited. Others drop it.
+func (m Model) pasteInput(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch t := m.jiraTab; {
+	case m.settings != nil && m.settings.input != nil:
+		*m.settings.input, cmd = m.settings.input.Update(msg)
+	case m.builderOnTop():
+		m.filterBuilder.filter, cmd = m.filterBuilder.filter.Update(msg)
+	case m.jqlOnTop():
+		m.jql.input, cmd = m.jql.input.Update(msg)
+		return m, tea.Batch(cmd, m.suggestJQL())
+	case m.gotoOnTop():
+		m.jiraGotoInput, cmd = m.jiraGotoInput.Update(msg)
+	case m.createOnTop():
+		m.jiraCreateInput, cmd = m.jiraCreateInput.Update(msg)
+	case m.jiraPicker.active && m.jiraPicker.filterable:
+		m.jiraPicker.filter, cmd = m.jiraPicker.filter.Update(msg)
+		m.filterJiraPicker()
+	case t.searching:
+		t.search, cmd = t.search.Update(msg)
+		m.applyJiraSearch()
+	}
+	return m, cmd
 }

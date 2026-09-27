@@ -1293,3 +1293,42 @@ func TestStandupSteps(t *testing.T) {
 		t.Errorf("later: %v, want %v", m.jiraPicker.day, first)
 	}
 }
+
+// TestReviewFixes: the builder keeps a field picked through its filter; a
+// paste reaches go-to; messages copies the row picked though the log
+// shifted; a held site switch doesn't fire on a later quit.
+func TestReviewFixes(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "F"))
+	m = out.(Model)
+	for _, r := range "repo" {
+		out, _ = m.handleKey(keyMsg(t, string(r)))
+		m = out.(Model)
+	}
+	out, _ = m.handleKey(keyPress("enter"))
+	if m = out.(Model); m.builderPick(0).id != "reporter" {
+		t.Errorf("builder field %q after the filter", m.builderPick(0).id)
+	}
+	m.filterBuilder = nil
+
+	out, _ = m.handleKey(keyMsg(t, "#"))
+	out, _ = out.(Model).Update(tea.PasteMsg{Content: "https://x.atlassian.net/browse/ABC-9"})
+	if m = out.(Model); !strings.Contains(m.jiraGotoInput.Value(), "ABC-9") {
+		t.Errorf("go-to after a paste: %q", m.jiraGotoInput.Value())
+	}
+	m.jiraGotoActive = false
+
+	out, _ = m.applyMessage(jiraPickerItem{id: "0", value: "the one picked"})
+	if m = out.(Model); m.status != "copied the message" {
+		t.Errorf("messages: %q", m.status)
+	}
+
+	m.site = ""
+	m.quitAsked = false
+	var mm Model
+	out, _ = m.pickSite("club")
+	mm = out.(Model)
+	if _, switched := mm.NextSite(); !switched {
+		t.Error("with nothing unsent the pick should switch")
+	}
+}

@@ -553,7 +553,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
-		return m, nil
+		return m.pasteInput(msg)
 
 	case jiraBoardMsg:
 		out, cmd := m.handleJiraBoard(msg)

@@ -213,6 +213,9 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	last := max(len(r.rows())-1, 0)
 	switch {
 	case msg.String() == "ctrl+c":
+		if m.unsentWork() != "" && !m.quitAsked {
+			return m.quit()
+		}
 		return m, tea.Sequence(m.saveRoadmap(), tea.Quit) // pending date moves first
 	case msg.String() == "esc" && r.grip != "":
 		r.grip = ""
