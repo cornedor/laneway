@@ -19,7 +19,7 @@ import (
 // headSeg is one run of a header row.
 type headSeg struct {
 	s     string // as drawn
-	kind  string // a click: "view", "quick", "term", "chart", "assignee", "esc", "key", "" nothing
+	kind  string // a click: "view", "quick", "term", "chart", "assignee", "esc", "key", "branch", "" nothing
 	i     int    // the view, quick filter, term or chart
 	press string // the key a "key" click presses
 }
@@ -70,6 +70,9 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	}
 	if b := m.inboxBadge(); b != "" {
 		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(b+" "+helpKey(k.Inbox)), k.Inbox))
+	}
+	if m.branchKey != "" {
+		segs = append(segs, plainSeg(dim("  ·  ")), headSeg{s: dim("⎇ " + m.branchKey), kind: "branch"})
 	}
 	segs = append(segs, plainSeg(dim("  ·  ")))
 	for i, h := range []struct {
@@ -242,6 +245,9 @@ func (m Model) runSeg(h headSeg) (tea.Model, tea.Cmd, bool) {
 	case "esc":
 		m.clearJiraSearch()
 		return m, nil, true
+	case "branch":
+		out, cmd := m.openBranchIssue()
+		return out, cmd, true
 	case "assignee":
 		h = keySeg("", m.keys.Assignee)
 	case "key":

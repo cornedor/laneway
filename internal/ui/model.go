@@ -319,6 +319,7 @@ type Model struct {
 	panelExtra    []jiraFormField
 	panelExtraKey string
 	panelFacts    jira.Facts     // panelExtraKey's read-only details (created, watchers, time)
+	branchKey     string         // the issue of the git branch laneway started in
 	webLinks      []jira.WebLink // webLinksKey's remote links
 	webLinksKey   string
 	showEmpty     bool // the empty fields ui.empty_fields: hide folds, shown for the session
@@ -440,7 +441,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue())
 }
 
 // bodyH is the rows above the status line.
@@ -643,6 +644,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraAssigneeDebounce(msg)
 	case jiraMutatedMsg:
 		return m.handleJiraMutated(msg)
+	case branchIssueMsg:
+		return m.handleBranchIssue(msg)
 	case jiraDeletedMsg:
 		return m.handleJiraDeleted(msg)
 	case jiraRelocatedMsg:

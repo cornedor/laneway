@@ -69,7 +69,13 @@ func (m *Model) openPalette() {
 	if onBoard {
 		pinned = m.pinnedIssues()
 	}
+	if onBoard && m.branchKey != "" {
+		items = append(items, jiraPickerItem{id: "i:" + m.branchKey, label: "branch  " + m.branchKey})
+	}
 	for _, p := range pinned {
+		if p[0] == m.branchKey {
+			continue // the branch row has it
+		}
 		label := "pinned  " + p[0] + "  " + ansi.Strip(p[1])
 		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == p[0] }); i >= 0 {
 			label += "  · " + m.jiraTab.cards[i].Status // on the board: its status now

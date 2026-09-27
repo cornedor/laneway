@@ -84,6 +84,8 @@ In the panel:
   lately. Type any words to filter. From three letters it also searches all
   of Jira; those hits come last, marked `⌕`.
 - `*` pins an issue. Pinned ones come first in the palette.
+- Start laneway in a git branch named after an issue (`issue/ABC-12-fix`)
+  and it opens that issue; `⎇ ABC-12` in the header opens it again.
 
 ![The command palette](../screenshots/palette.png)
 

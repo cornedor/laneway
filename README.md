@@ -253,6 +253,10 @@ last, marked `⌕`. Actions match common words too (`create`, `transition`,
 actions only. Its `messages` row lists the status line's last messages
 with their time (the line shows one, cut to the screen); `enter` copies one.
 
+Started in a git branch named after an issue (`issue/ABC-12-fix`), laneway
+opens that issue; the header's `⎇ ABC-12` and the palette's first row open
+it again.
+
 Board:
 - move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search · `F` filter builder (field, compare and value columns side by side, typing narrows the one with the cursor, `enter` adds the term to the `/` query and stays for the next, `ctrl+x` drops the last; the terms show as header chips, a click removes one)
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (rank, priority, points, assignee, epic, key, status, updated, due, created; by assignee, priority, epic or status it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
