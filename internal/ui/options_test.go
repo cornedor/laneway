@@ -123,6 +123,15 @@ func TestLocalViews(t *testing.T) {
 	if gotPath != "/rest/agile/1.0/board/7/issue" || gotJQL != "(assignee = currentUser()) AND (type = Bug)" {
 		t.Errorf("request = %s jql %q", gotPath, gotJQL)
 	}
+	// An ORDER BY stays last once a filter joins it.
+	ordered := o.views[0]
+	ordered.jql += " ORDER BY priority"
+	if _, _, err := fetchJiraView(context.Background(), c, 7, &jira.BoardConfig{}, ordered, "type = Bug"); err != nil {
+		t.Fatal(err)
+	}
+	if gotJQL != "(assignee = currentUser()) AND (type = Bug) ORDER BY priority" {
+		t.Errorf("ordered jql %q", gotJQL)
+	}
 	back := cacheOf(jiraBoardMsg{views: o.views}, "").boardMsg(0).views
 	if len(back) != 1 || back[0] != o.views[0] {
 		t.Errorf("cache round trip = %+v", back)
