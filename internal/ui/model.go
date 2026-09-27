@@ -265,6 +265,7 @@ type Model struct {
 	jiraCreateType   string
 	lastCreateType   map[string]string             // per project, the type n last created
 	createFieldCache map[string][]jira.CreateField // project/type's create screen
+	createMore       bool                          // the create form shows the fields not required
 	// jiraCreateParent is the issue a new subtask or epic child goes under,
 	// in jiraCreateProject; "" for a plain new issue.
 	jiraCreateParent, jiraCreateProject string

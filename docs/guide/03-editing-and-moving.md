@@ -97,7 +97,8 @@ description. `enter` on the summary creates it, `ctrl+s` from anywhere. The
 issue lands in the board's project, and in the sprint you are looking at;
 the panel opens on it. Fields the type requires, like a Component, show up
 in the form as soon as the type is set, and the hint says what is still
-empty. A refused create keeps the form, Jira's reasons under the fields
+empty. `+ more fields` shows the others the type allows, like the assignee,
+labels or a due date; the form remembers which you prefer. A refused create keeps the form, Jira's reasons under the fields
 they are about.
 
 > **Tip:** give a type a starting description with `ui.templates` in the

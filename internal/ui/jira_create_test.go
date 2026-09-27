@@ -361,3 +361,46 @@ func TestCreateFormErrors(t *testing.T) {
 		t.Error("an edited field drops Jira's message")
 	}
 }
+
+// TestCreateFormMoreFields: the form starts minimal; the toggle row shows
+// every field it can edit, typed values survive hiding them, a picked one
+// goes with the create, and the choice holds for the next form.
+func TestCreateFormMoreFields(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraCreateTypes(jiraCreateTypesMsg{project: "ABC", types: []jira.Option{{Name: "Task"}}})
+	m = out.(Model)
+	f := m.jiraForm
+	f.editing = false
+	screen := []jira.CreateField{
+		{FieldMeta: jira.FieldMeta{ID: "priority", Name: "Priority", Kind: jira.KindOption, Options: []jira.Option{{ID: "2", Name: "High"}}}},
+		{FieldMeta: jira.FieldMeta{ID: "labels", Name: "Labels", Kind: jira.KindText}},
+		{FieldMeta: jira.FieldMeta{ID: "attachment", Name: "Attachment", Kind: jira.KindOther}},
+	}
+	out, _ = m.handleCreateFields(createFieldsMsg{project: "ABC", typ: "Task", seq: f.create.fieldsSeq, fields: screen})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "+ 2 more fields") || strings.Contains(view, "Priority") {
+		t.Fatalf("minimal form:\n%s", view)
+	}
+	f.idx = 3
+	out, _ = m.handleKey(keyStr("enter"))
+	m = out.(Model)
+	view = ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "− fewer fields") || !strings.Contains(view, "Priority") || strings.Contains(view, "Attachment") {
+		t.Fatalf("more fields:\n%s", view)
+	}
+	f.fields[4].val, f.fields[4].changed = jira.Value{Options: []jira.Option{{ID: "2", Name: "High"}}}, true
+	m.toggleCreateMore()
+	m.toggleCreateMore()
+	if jiraValueText(f.fields[4].val) != "High" {
+		t.Fatal("a typed value should survive hiding")
+	}
+	f.fields[1].val, f.fields[1].changed = jira.Value{Text: "Crash"}, true
+	cr := m.createFormIssue(f, map[string]any{"priority": map[string]string{"id": "2"}})
+	if cr.in.Fields["priority"] == nil || cr.in.Fields[createMoreField] != nil {
+		t.Errorf("fields = %v", cr.in.Fields)
+	}
+	if !m.createMore {
+		t.Error("the choice should hold for the next form")
+	}
+}

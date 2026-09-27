@@ -30,6 +30,7 @@ const (
 	KindUsers   = "users"   // several people: [{"accountId": …}]
 	KindNumber  = "number"  // a float
 	KindText    = "text"    // a one-line string
+	KindStrings = "strings" // several words, typed apart by spaces: ["a", "b"] (labels)
 	KindDate    = "date"    // a day, "2006-01-02"
 	KindTime    = "time"    // a moment: a day and a clock time
 	KindIssue   = "issue"   // another issue by key: {"key": …} (parent)
@@ -165,6 +166,8 @@ func (f rawFieldMeta) meta(id string) FieldMeta {
 		fm.Kind = KindDoc
 	case s.Type == "string":
 		fm.Kind = KindText
+	case s.Type == "array" && s.Items == "string":
+		fm.Kind = KindStrings
 	default:
 		fm.Kind = KindOther
 	}
@@ -230,6 +233,10 @@ func DecodeValue(kind string, raw json.RawMessage) Value {
 		}
 	case KindText, KindDate:
 		_ = json.Unmarshal(raw, &v.Text)
+	case KindStrings:
+		var ss []string
+		_ = json.Unmarshal(raw, &ss)
+		v.Text = strings.Join(ss, " ")
 	case KindTime:
 		var s string
 		if json.Unmarshal(raw, &s) == nil {
@@ -316,6 +323,8 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 		return f, true, nil
 	case KindText:
 		return v.Text, true, nil
+	case KindStrings:
+		return append([]string{}, strings.Fields(v.Text)...), true, nil
 	case KindDate:
 		if strings.TrimSpace(v.Text) == "" {
 			return nil, true, nil

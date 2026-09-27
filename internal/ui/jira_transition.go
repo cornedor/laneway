@@ -88,6 +88,8 @@ type jiraFormCreate struct {
 	// fieldErrs are Jira's reasons for refusing the create, by field id,
 	// shown under the row while it holds the value refused.
 	fieldErrs map[string]fieldErr
+	// screen is the type's create screen, as last loaded.
+	screen []jira.CreateField
 }
 
 // fieldErr is Jira's message about a field, and the value it was about.
@@ -355,7 +357,7 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.cycleCreateType(d)
 	case msg.String() == "delete", msg.String() == "backspace":
-		if f.idx < len(f.fields) {
+		if f.idx < len(f.fields) && f.fields[f.idx].ID != createMoreField {
 			ff := &f.fields[f.idx]
 			ff.val, ff.changed = jira.Value{}, true
 		}
@@ -373,6 +375,10 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) editJiraFormField() tea.Cmd {
 	f := m.jiraForm
 	ff := &f.fields[f.idx]
+	if ff.ID == createMoreField {
+		m.toggleCreateMore()
+		return nil
+	}
 	switch ff.Kind {
 	case jira.KindDoc, jira.KindComment:
 		ed := newModalComposer(strings.ToLower(ff.Name) + "…")
@@ -383,7 +389,7 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		f.area = ed
 		f.editing, f.multiline = true, true
 		return nil
-	case jira.KindText, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue:
+	case jira.KindText, jira.KindStrings, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue:
 		ti := textinput.New()
 		ti.Prompt = ""
 		ti.Placeholder = strings.ToLower(ff.Name) + "…"
@@ -508,7 +514,7 @@ func (m *Model) submitJiraForm() tea.Cmd {
 			comment = ff.val.Text
 			continue
 		}
-		if f.create != nil && f.create.form && (ff.ID == createTypeField || ff.ID == createSummaryField || ff.ID == createDescField) {
+		if f.create != nil && f.create.form && (ff.ID == createTypeField || ff.ID == createSummaryField || ff.ID == createDescField || ff.ID == createMoreField) {
 			continue // the issue's own, see createFormIssue
 		}
 		if !ff.changed {
@@ -646,7 +652,9 @@ func (m *Model) renderJiraForm() string {
 	}
 	nameW := 0
 	for _, ff := range f.fields {
-		nameW = max(nameW, lipgloss.Width(ff.Name)+2)
+		if ff.ID != createMoreField {
+			nameW = max(nameW, lipgloss.Width(ff.Name)+2)
+		}
 	}
 	cursor := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 	parts = append(parts, "")
@@ -655,6 +663,16 @@ func (m *Model) renderJiraForm() string {
 		f.firstRow += lipgloss.Height(p)
 	}
 	for i, ff := range f.fields {
+		if ff.ID == createMoreField {
+			label := refDimStyle.Render(ff.Name)
+			if i == f.idx {
+				label = cursor.Render("▸ " + ff.Name)
+			} else {
+				label = "  " + label
+			}
+			parts = append(parts, label)
+			continue
+		}
 		name := ff.Name
 		if ff.required {
 			name += " *"

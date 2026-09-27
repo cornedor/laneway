@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -131,5 +132,21 @@ func TestSetWatcher(t *testing.T) {
 	_ = c.SetWatcher(context.Background(), "ABC-1", "b2", false)
 	if len(got) != 2 || got[0] != `POST /rest/api/3/issue/ABC-1/watchers "b2"` || got[1] != "DELETE /rest/api/3/issue/ABC-1/watchers?accountId=b2 " {
 		t.Errorf("requests = %q", got)
+	}
+}
+
+// TestStringsKind: a list of words (labels) reads and writes as words
+// apart by spaces.
+func TestStringsKind(t *testing.T) {
+	var raw rawFieldMeta
+	_ = json.Unmarshal([]byte(`{"name":"Labels","schema":{"type":"array","items":"string","system":"labels"}}`), &raw)
+	if fm := raw.meta("labels"); fm.Kind != KindStrings {
+		t.Fatalf("kind = %q", fm.Kind)
+	}
+	if v := DecodeValue(KindStrings, json.RawMessage(`["ui","api"]`)); v.Text != "ui api" {
+		t.Errorf("decoded %q", v.Text)
+	}
+	if got, ok, _ := EncodeValue(KindStrings, Value{Text: " ui  api "}); !ok || fmt.Sprint(got) != "[ui api]" {
+		t.Errorf("encoded %v", got)
 	}
 }

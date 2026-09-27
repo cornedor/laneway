@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -157,19 +158,50 @@ func (m *Model) setCreateRows(fields []jira.CreateField) {
 			f.create.kept[ff.ID] = ff.val
 		}
 	}
-	for _, cf := range fields {
-		switch cf.ID {
-		case "project", createTypeField, createSummaryField, createDescField, "parent":
-			continue
-		}
-		if !cf.Required {
-			continue
-		}
+	f.create.screen = fields
+	row := func(cf jira.CreateField) jiraFormField {
 		v, typed := f.create.kept[cf.ID]
-		own = append(own, jiraFormField{FieldMeta: cf.FieldMeta, required: true, val: v, changed: typed && !v.Empty()})
+		return jiraFormField{FieldMeta: cf.FieldMeta, required: cf.Required, val: v, changed: typed && !v.Empty()}
+	}
+	var more []jiraFormField
+	for _, cf := range fields {
+		switch {
+		case slices.Contains([]string{"project", createTypeField, createSummaryField, createDescField, "parent"}, cf.ID):
+		case cf.Required:
+			own = append(own, row(cf))
+		case slices.Contains(createMoreKinds, cf.Kind):
+			more = append(more, row(cf))
+		}
+	}
+	if len(more) > 0 {
+		label := fmt.Sprintf("+ %d more fields", len(more))
+		if m.createMore {
+			label = "− fewer fields"
+		}
+		own = append(own, jiraFormField{FieldMeta: jira.FieldMeta{ID: createMoreField, Name: label}})
+		if m.createMore {
+			own = append(own, more...)
+		}
 	}
 	f.fields = own
 	f.idx = min(f.idx, len(f.fields))
+}
+
+// createMoreField is the create form's row that shows or hides the
+// fields the type doesn't require.
+const createMoreField = "_more"
+
+// createMoreKinds are the fields the more-fields toggle offers: the ones
+// the form edits. A sprint follows the board instead.
+var createMoreKinds = []string{jira.KindText, jira.KindStrings, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindDoc,
+	jira.KindUser, jira.KindUsers, jira.KindOption, jira.KindOptions, jira.KindIssue}
+
+// toggleCreateMore shows or hides the create form's optional fields, what
+// was typed in them kept, and remembers the choice for the next form.
+func (m *Model) toggleCreateMore() {
+	m.createMore = !m.createMore
+	m.setCreateRows(m.jiraForm.create.screen)
+	m.jiraForm.idx = slices.IndexFunc(m.jiraForm.fields, func(ff jiraFormField) bool { return ff.ID == createMoreField })
 }
 
 // formErrors files a refused create's reasons: those about a row under it
