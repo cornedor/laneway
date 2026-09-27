@@ -104,7 +104,7 @@ func defaultKeys() keyMap {
 		JiraComment:  bind("add comment", "c"),
 		JiraReply:    bind("reply to comment", "R"),
 		JiraStart:    bind("start work in a herdr worktree", "S"),
-		JiraLinks:    bind("go to linked issue", "L"),
+		JiraLinks:    bind("go to linked issue or web link", "L"),
 		Back:         bind("previous issue", "backspace"),
 		Image:        bind("view images", "i"),
 
@@ -318,8 +318,10 @@ type Model struct {
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
 	panelExtraKey string
-	panelFacts    jira.Facts // panelExtraKey's read-only details (created, watchers, time)
-	showEmpty     bool       // the empty fields ui.empty_fields: hide folds, shown for the session
+	panelFacts    jira.Facts     // panelExtraKey's read-only details (created, watchers, time)
+	webLinks      []jira.WebLink // webLinksKey's remote links
+	webLinksKey   string
+	showEmpty     bool // the empty fields ui.empty_fields: hide folds, shown for the session
 	// panelHits are the panel's clickable lines by content line: a field's
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.

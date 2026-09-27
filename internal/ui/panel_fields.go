@@ -38,10 +38,11 @@ func init() {
 
 // panelExtraMsg is the shown issue's edit screen fetched.
 type panelExtraMsg struct {
-	key    string
-	fields []jiraFormField
-	facts  jira.Facts
-	err    error
+	key      string
+	fields   []jiraFormField
+	facts    jira.Facts
+	err      error
+	webLinks []jira.WebLink // its remote links; nil when they failed to load
 }
 
 // fetchPanelExtra loads the shown issue's other editable fields.
@@ -51,19 +52,29 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 	}
 	c, ctx, key := m.jiraClient, m.ctx, m.jiraIssue.Key
 	return func() tea.Msg {
+		links := make(chan []jira.WebLink, 1)
+		go func() {
+			l, _ := c.WebLinks(ctx, key) // a failure only leaves them out
+			links <- l
+		}()
 		metas, values, err := c.EditMeta(ctx, key)
 		fields := make([]jiraFormField, len(metas))
 		for i, fm := range metas {
 			fields[i] = jiraFormField{FieldMeta: fm, val: jira.DecodeValue(fm.Kind, values[fm.ID]), raw: values[fm.ID]}
 		}
-		return panelExtraMsg{key: key, fields: fields, facts: jira.IssueFacts(values), err: err}
+		return panelExtraMsg{key: key, fields: fields, facts: jira.IssueFacts(values), err: err, webLinks: <-links}
 	}
 }
 
 // handlePanelExtra installs the fields when they are still the shown issue's.
 // A failed fetch leaves the panel's own fields only.
 func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
-	if msg.err != nil || m.jiraIssue == nil || m.jiraIssue.Key != msg.key {
+	if m.jiraIssue == nil || m.jiraIssue.Key != msg.key {
+		return m, nil
+	}
+	m.webLinks, m.webLinksKey = msg.webLinks, msg.key
+	if msg.err != nil {
+		m.renderRef()
 		return m, nil
 	}
 	m.panelExtra, m.panelExtraKey, m.panelFacts = msg.fields, msg.key, msg.facts

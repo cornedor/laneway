@@ -93,7 +93,7 @@ func (m *Model) helpSections() []struct {
 			row(k.OpenAttach, "open in browser"),
 			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
 			row(k.CopyBranch, "copy branch name"),
-			row(k.JiraLinks, "go to linked issue"),
+			row(k.JiraLinks, "go to linked issue or web link"),
 			row(k.Image, "view images full size"),
 			row(k.Back, "previous issue"),
 			row(k.Refresh, "refresh"),

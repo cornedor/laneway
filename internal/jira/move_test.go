@@ -92,3 +92,27 @@ func TestDeleteIssue(t *testing.T) {
 		t.Errorf("requests = %q", got)
 	}
 }
+
+// TestWebLinks: remote links read with their app, and one added titled by
+// its URL when no title is given.
+func TestWebLinks(t *testing.T) {
+	var posted string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			b, _ := io.ReadAll(r.Body)
+			posted = string(b)
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		io.WriteString(w, `[{"object":{"url":"https://wiki.test/spec","title":"Spec"},"application":{"name":"Confluence"}},{"object":{"url":"https://x.test"}}]`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	links, err := c.WebLinks(context.Background(), "ABC-1")
+	if err != nil || len(links) != 2 || links[0] != (WebLink{"Spec", "https://wiki.test/spec", "Confluence"}) || links[1].Title != "https://x.test" {
+		t.Fatalf("links %+v, %v", links, err)
+	}
+	if err := c.AddWebLink(context.Background(), "ABC-1", "https://y.test", ""); err != nil || posted != `{"object":{"title":"https://y.test","url":"https://y.test"}}` {
+		t.Errorf("posted %s, %v", posted, err)
+	}
+}

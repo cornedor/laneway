@@ -38,6 +38,7 @@ func (m *Model) openIssueActions() {
 	}
 	items = append(items,
 		jiraPickerItem{id: "link", label: "Link to another issue"},
+		jiraPickerItem{id: "weblink", label: "Add a web link"},
 		jiraPickerItem{id: "clone", label: "Clone"},
 		jiraPickerItem{id: "type", label: "Change the issue type"},
 		jiraPickerItem{id: "move", label: "Move to another project"},
@@ -153,6 +154,9 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			}
 			return createIssue(ctx, c, jiraFormCreate{in: in, cloneOf: key}, "Clone of "+key)
 		}
+	case "weblink":
+		m.openBulkInput("weblink", "https://… and a title")
+		m.jiraFieldKey = key
 	case "upload":
 		m.openBulkInput("upload", "file path (~ works)")
 		m.jiraFieldKey = key
@@ -325,6 +329,20 @@ func (m Model) handleJiraRelocated(msg jiraRelocatedMsg) (tea.Model, tea.Cmd) {
 	m = out.(Model)
 	m.status = "moved " + msg.key + " to " + msg.next
 	return m, tea.Batch(cmd, board)
+}
+
+// applyWebLink adds the typed "URL title" to the panel issue.
+func (m Model) applyWebLink(raw string) (tea.Model, tea.Cmd) {
+	key := m.jiraFieldKey
+	u, title, _ := strings.Cut(strings.TrimSpace(raw), " ")
+	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
+		m.status = "a web link starts with http:// or https://"
+		return m, nil
+	}
+	m.closeJiraField()
+	c, ctx := m.jiraClient, m.ctx
+	m.status = "linking " + key + " to " + u + "…"
+	return m, jiraMutateCmd(key, "links", func() error { return c.AddWebLink(ctx, key, u, strings.TrimSpace(title)) })
 }
 
 // openLinkTarget asks which issue the picked link goes to.

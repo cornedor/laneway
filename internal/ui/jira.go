@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // Jira-specific half of the reference panel: fetching an issue and rendering it.
@@ -166,6 +167,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	}
 
 	m.renderJiraLinks(&b, iss, width)
+	m.renderWebLinks(&b, iss, width)
 	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraActivity(&b, iss, width)
 	return b.String()
@@ -232,16 +234,45 @@ func (m *Model) renderJiraLinks(b *strings.Builder, iss *jira.Issue, width int) 
 	}
 }
 
-// openJiraLinkPicker lists the shown issue's links to jump to.
-func (m *Model) openJiraLinkPicker() {
-	if m.jiraIssue == nil || len(m.jiraIssue.Links) == 0 {
-		m.status = "no linked issues"
+// renderWebLinks lists the issue's remote links, each opening its page.
+func (m *Model) renderWebLinks(b *strings.Builder, iss *jira.Issue, width int) {
+	links := m.shownWebLinks()
+	if len(links) == 0 {
 		return
 	}
-	m.startJiraPicker(jiraPickLink, "Go to linked issue", true)
-	items := make([]jiraPickerItem, len(m.jiraIssue.Links))
-	for i, l := range m.jiraIssue.Links {
-		items[i] = jiraPickerItem{id: l.Key, label: l.Rel + " " + l.Key + " " + l.Summary}
+	b.WriteString(sectionHead(fmt.Sprintf("Web links (%d)", len(links)), "  L open", width))
+	for _, l := range links {
+		line := osc8Link(l.URL, mdLinkStyle.Render(safeterm.Line(l.Title)))
+		if l.App != "" {
+			line += refDimStyle.Render(" · " + safeterm.Line(l.App))
+		}
+		b.WriteString(ansi.Truncate(line, max(width, 1), "…") + "\n")
+	}
+}
+
+// shownWebLinks are the panel issue's remote links, once loaded.
+func (m *Model) shownWebLinks() []jira.WebLink {
+	if m.jiraIssue == nil || m.webLinksKey != m.jiraIssue.Key {
+		return nil
+	}
+	return m.webLinks
+}
+
+// openJiraLinkPicker lists the shown issue's links to jump to, and its web
+// links to open.
+func (m *Model) openJiraLinkPicker() {
+	web := m.shownWebLinks()
+	if m.jiraIssue == nil || len(m.jiraIssue.Links)+len(web) == 0 {
+		m.status = "no links"
+		return
+	}
+	m.startJiraPicker(jiraPickLink, "Go to a link", true)
+	var items []jiraPickerItem
+	for _, l := range m.jiraIssue.Links {
+		items = append(items, jiraPickerItem{id: l.Key, label: l.Rel + " " + l.Key + " " + l.Summary})
+	}
+	for _, l := range web {
+		items = append(items, jiraPickerItem{id: l.URL, label: "web " + safeterm.Line(l.Title), value: "web"})
 	}
 	m.setJiraPickerItems(items)
 }

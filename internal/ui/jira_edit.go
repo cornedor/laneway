@@ -842,6 +842,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.pickJiraLaneStatus(it.id)
 	}
+	if kind == jiraPickLink && it.value == "web" {
+		m.closeJiraPicker()
+		m.status = "opening " + it.id + "…"
+		return m, m.openOpenable(openable{name: it.label, url: it.id})
+	}
 	if kind == jiraPickLink {
 		m.closeJiraPicker()
 		m.selectJiraKey(it.id)
@@ -918,6 +923,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	}
 	if field == "link" {
 		return m.applyLink(raw)
+	}
+	if field == "weblink" {
+		return m.applyWebLink(raw)
 	}
 	if field == "worklog" {
 		return m.applyWorklog(raw)
@@ -1254,6 +1262,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Upload a file", "tab complete · ↵ upload · esc cancel", m.jiraFieldInput.Width()+12
 	case "link":
 		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↵ link · esc cancel", m.jiraFieldInput.Width()+12
+	case "weblink":
+		title, hint, outerW = "Web link on "+m.jiraFieldKey, "↵ add · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":
 		title, hint, outerW = "Log work", "↵ log · esc cancel", m.jiraFieldInput.Width()+12
 	case "bulk-labels":

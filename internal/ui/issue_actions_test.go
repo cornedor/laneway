@@ -362,3 +362,29 @@ func TestDeleteIssue(t *testing.T) {
 		t.Errorf("panel open %v, status %q", m.refOpen, m.status)
 	}
 }
+
+// TestWebLinks: the panel lists the issue's web links, L offers them, and
+// A adds one.
+func TestWebLinks(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", webLinks: []jira.WebLink{{Title: "Spec", URL: "https://wiki.test/spec", App: "Confluence"}}})
+	m = out.(Model)
+	if c := ansi.Strip(m.View().Content); !strings.Contains(c, "Web links (1)") || !strings.Contains(c, "Spec · Confluence") {
+		t.Error("panel lacks the web link")
+	}
+	m.openJiraLinkPicker()
+	if it := m.jiraPicker.items; len(it) == 0 || it[len(it)-1].id != "https://wiki.test/spec" {
+		t.Errorf("L items = %+v", it)
+	}
+	m.closeJiraPicker()
+	m, _ = pickAction(t, m, "weblink")
+	m.jiraFieldInput.SetValue("https://y.test Design doc")
+	out, cmd := m.applyJiraField()
+	if m = out.(Model); cmd == nil {
+		t.Fatalf("no write: %q", m.status)
+	}
+	cmd()
+	if w := writes(); len(w) != 1 || w[0] != `POST /rest/api/3/issue/ABC-1/remotelink {"object":{"title":"Design doc","url":"https://y.test"}}` {
+		t.Errorf("writes = %q", w)
+	}
+}

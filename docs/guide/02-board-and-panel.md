@@ -61,7 +61,7 @@ In the panel:
 | `j` `k`, `space` / `b`, the wheel | scroll a line, a page |
 | `tab` / `shift+tab` | walk the fields |
 | `[` `]` | activity tabs: comments, history, work log, all |
-| `L` | pick a linked issue, subtask or the parent to open |
+| `L` | pick a linked issue, subtask, the parent or a web link to open |
 | `backspace` | back to the issue you came from |
 | `i` | the issue's images full size (in kitty or Ghostty) |
 | `o` | open it in the browser |
