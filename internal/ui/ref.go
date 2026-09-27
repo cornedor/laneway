@@ -120,6 +120,9 @@ func (m Model) openCurrentRefURL() (tea.Model, tea.Cmd) {
 // open-reference key close it, r refetches, o opens it in a browser, the
 // Jira keys edit it, and anything else scrolls the viewport.
 func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if i, ok := m.actionForKey(msg.String(), true); ok {
+		return m, m.runAction(i, true)
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()

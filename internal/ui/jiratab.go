@@ -882,6 +882,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if t.week != nil {
 		return m.handleWeekKey(msg)
 	}
+	if i, ok := m.actionForKey(msg.String(), false); ok {
+		return m, m.runAction(i, false)
+	}
 	lanes := m.jiraShowsLanes()
 	if m.needsCard(msg) {
 		if _, ok := m.selectedJiraCard(); !ok {

@@ -195,6 +195,8 @@ type UIConfig struct {
 	// Theme is a preset name (theme: tokyonight) or colours by name, over
 	// an optional preset: {preset: nord, accent: "#7aa2f7"}.
 	Theme Theme `yaml:"theme"`
+	// Actions are your own commands, in the palette and on a key if given.
+	Actions []Action `yaml:"actions"`
 }
 
 // QuickFilter is a named JQL clause, ANDed with the board's query: a quick
@@ -205,6 +207,20 @@ type QuickFilter struct {
 }
 
 // NamedQuery is a / search query with a name.
+// Action is a command of yours run on the selected issue, or the marked
+// ones: their JSON on stdin, LANEWAY_KEY (LANEWAY_KEYS) in the env.
+type Action struct {
+	Name    string   `yaml:"name"`
+	Key     string   `yaml:"key,omitempty"`
+	Command []string `yaml:"command"`
+	// Where is board, panel or both (the default).
+	Where string `yaml:"where,omitempty"`
+	// Show is status (the output's last line, the default) or pager.
+	Show string `yaml:"show,omitempty"`
+	// Refresh reloads the board and the issue after.
+	Refresh bool `yaml:"refresh,omitempty"`
+}
+
 type NamedQuery struct {
 	Name  string `yaml:"name"`
 	Query string `yaml:"query"`

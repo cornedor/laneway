@@ -117,6 +117,15 @@ func (m *Model) openPalette() {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
 	}
+	for i, a := range m.actions {
+		if actionOn(a, scope == "panel") && onBoard {
+			label := "action  " + a.Name
+			if a.Key != "" {
+				label += "  " + a.Key
+			}
+			items = append(items, jiraPickerItem{id: "x:" + strconv.Itoa(i), label: label})
+		}
+	}
 	if n := m.hiddenFields(); n > 0 {
 		items = append(items, jiraPickerItem{id: "e:", label: fmt.Sprintf("show empty fields  %d hidden", n)})
 	}
@@ -185,6 +194,10 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "m":
 		m.openMessages()
 		return m, nil
+	case "x":
+		i, _ := strconv.Atoi(arg)
+		m.focus = m.paletteFocus
+		return m, m.runAction(i, m.focus == focusRef && m.refOpen)
 	case "e":
 		m.showEmpty = true
 		m.renderRef()

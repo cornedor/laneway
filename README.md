@@ -173,6 +173,22 @@ default selection_idle turns light grey (`253`); the presets are for dark ones.
 `theme: mono` (or `NO_COLOR` set) draws no colour at all: the cursor and a
 drop in reverse, the accent bold, the dim faint.
 
+### Actions
+
+`ui.actions` are your own commands on an issue: each is in the palette (`:`),
+and on its key when it has one no built-in uses. It runs with the selected
+issue (in the panel, the panel's; on the board, the marked cards when there
+are) as JSON on stdin, `LANEWAY_KEY` and `LANEWAY_KEYS` in the environment.
+The output's last line shows on the status line, or all of it with
+`show: pager`; `refresh: true` reloads the board and issue after.
+
+```yaml
+ui:
+  actions:
+    - {name: open in my notes, key: "!", command: [sh, -c, 'obsidian "jira/$LANEWAY_KEY"']}
+    - {name: estimate, command: [./estimate.sh], where: panel, show: pager, refresh: true}
+```
+
 ### Rules
 
 Top-level `rules:` fire on what a board refresh shows changed since the last

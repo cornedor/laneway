@@ -72,6 +72,7 @@ var settingDefaults = map[string]string{
 	"work_agent":           "claude",
 	"code_theme":           "the preset's, else monokai",
 	"theme":                "terminal colours",
+	"actions":              "none",
 }
 
 type settingRow struct {

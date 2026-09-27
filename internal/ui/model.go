@@ -372,6 +372,8 @@ type Model struct {
 	jiraCommentDiscard bool
 	// unsent is a comment whose post failed, by issue: c brings it back.
 	unsent struct{ key, text string }
+	// actions are ui.actions, the usable ones (actions.go).
+	actions []config.Action
 	// repeat is the last change, for . to make again (repeat.go).
 	repeat *repeatAction
 	// draftPending is a draft write scheduled (drafts.go).
@@ -409,6 +411,8 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	warn = append(warn, thWarn...)
 	ruleSet, ruleWarn := rules.Compile(rs)
 	warn = append(warn, ruleWarn...)
+	actions, actWarn := actionsFrom(ui.Actions, &keys)
+	warn = append(warn, actWarn...)
 	timeout, err := cfg.RequestTimeout()
 	if err != nil {
 		warn = append(warn, err.Error())
@@ -441,6 +445,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		opts:            opts,
 		uiConfig:        ui,
 		rules:           ruleSet,
+		actions:         actions,
 		rulesLog:        rulesLog,
 		herdr:           herdr.Default(),
 		refView:         viewport.New(),
@@ -638,6 +643,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleEditUndone(msg)
 	case batchCreatedMsg:
 		return m.handleBatchCreated(msg)
+	case actionDoneMsg:
+		return m.handleActionDone(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:
