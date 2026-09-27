@@ -254,6 +254,10 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 	case k == helpKey(m.keys.PrevView):
 		return m.openTimesheetDay(p.day.AddDate(0, 0, -1)), true
 	case k == helpKey(m.keys.NextView):
+		if y, mo, d := time.Now().Date(); !p.day.Before(time.Date(y, mo, d, 0, 0, 0, 0, time.Local)) {
+			m.status = "today is the last day to show"
+			return nil, true
+		}
 		return m.openTimesheetDay(p.day.AddDate(0, 0, 1)), true
 	case is(m.keys.CopyKey):
 		if p.loading || p.err != nil {

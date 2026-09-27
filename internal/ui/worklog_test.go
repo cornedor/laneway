@@ -143,6 +143,10 @@ func TestTimesheetDays(t *testing.T) {
 	out, _ := m.handleJiraKey(keyMsg(t, "W"))
 	m = out.(Model)
 	today := m.jiraPicker.day
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "]"))
+	if m = out.(Model); m.status != "today is the last day to show" || !m.jiraPicker.day.Equal(today) {
+		t.Fatalf("] on today: %q, day %v", m.status, m.jiraPicker.day)
+	}
 	out, _ = m.handleJiraPickerKey(keyMsg(t, "["))
 	m = out.(Model)
 	if !m.jiraPicker.active || m.jiraPicker.day.Format(time.DateOnly) != today.AddDate(0, 0, -1).Format(time.DateOnly) || m.jiraPicker.title != "Yesterday" {
