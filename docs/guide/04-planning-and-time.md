@@ -166,8 +166,12 @@ grouped by status.
 `ctrl+r` shows the issues whose pull or merge requests wait on your review.
 In a repository, `laneway hook install` puts the branch's key in your
 commit messages, and `laneway prompt` prints the branch's issue, the timer
-and the inbox count for your shell prompt or tmux status line. See the
-[reference](../reference.md#git-and-your-shell).
+and the inbox count for your shell prompt or tmux status line.
+
+With herdr running, `S` in the panel starts a coding agent on the issue in
+its own worktree. Its card then shows how it's doing (`✋` means it waits on
+you); `S` again attaches to its terminal, and `A` prompts or stops it. See
+the [reference](../reference.md#git-and-your-shell).
 
 ## Recap
 

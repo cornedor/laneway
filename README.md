@@ -15,6 +15,7 @@ terminal.
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git and your agents' activity
 - Inbox of others' changes on every site; a standup of yours (commits too), or your team's walking the board
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
+- Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to it
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key
 - Several Jira sites, inline images in kitty and Ghostty; a local index of what you read, searchable offline; changes made offline sent later
@@ -488,22 +489,25 @@ week, `y` copies the grid as a markdown table.
 
 ## Git and your shell
 
-Cards whose issue has a herdr agent (`S`) show its state: `⚙` working, `✋`
-waiting on you (with a desktop notification), `✓` done and not yet looked
-at, `○` idle; with a count when there are several, the worst state first;
-a dim `◌` for a worktree (in a `jira.repos` checkout) without an agent. The
-palette's *worktrees and agents* view shows every such issue, across projects.
-`S` asks which agent to start (the kinds on your PATH, `ui.work_agent`
-first) and its prompt (empty: `jira.start_prompt`, `none`: no prompt).
-`S` on an issue whose agent runs attaches to its terminal instead of starting
-another, as does `enter` on its `agent` row in the palette: laneway steps
-aside for `herdr agent attach` and comes back when you detach. Inside herdr
-it focuses the agent's pane. The panel lists the issue's agents (state,
-worktree, terminal title); `A` attaches to one, sends it a prompt, stops it
-(closing its tab) or starts another in the same worktree. On a done issue
-`A` → *Remove its worktree* removes the checkout through herdr once its
-branch is merged into the default branch; uncommitted changes keep it, and
-the branch stays.
+With [herdr](https://herdr.dev) running and the project in `jira.repos`,
+`S` starts work: it opens the issue's worktree as a herdr workspace and
+starts an agent there. It asks which one (the kinds on your PATH,
+`ui.work_agent` first) and with what prompt (empty: `jira.start_prompt`,
+`none`: no prompt). Without herdr none of this shows.
+
+- Cards show the agent's state: `⚙` working, `✋` waiting on you (with a
+  desktop notification), `✓` done and not yet looked at, `○` idle, a count
+  when there are several (worst first); a dim `◌` for a worktree without one.
+- `S` on an issue whose agent runs attaches to its terminal (`herdr agent
+  attach`; laneway returns when you detach), as does `enter` on its `agent`
+  row in the palette. Inside herdr it focuses the agent's pane instead.
+- The panel lists the issue's agents; `A` attaches to one, sends it a
+  prompt, stops it (closing its tab) or starts another in its worktree.
+- On a done issue, `A` → *Remove its worktree* removes the checkout once
+  its branch is merged into the default branch. Uncommitted changes keep
+  it; the branch stays.
+- The palette's *worktrees and agents* view lists every issue with either,
+  across projects.
 
 With the project in `jira.repos`, `A` → *Open a pull request* pushes the
 issue's branch and opens a draft titled with its key and summary, linking
