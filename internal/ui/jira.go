@@ -161,13 +161,12 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	if m.descEditOn("") {
 		b.WriteString(sectionHead("Description", "  "+descEditHint, max(width, 1)))
 		b.WriteString(descEditMark + "\n")
-	} else if desc := strings.TrimSpace(iss.Description); desc != "" {
-		divW := width
-		if divW < 1 {
-			divW = 1
+	} else {
+		desc := strings.TrimSpace(iss.Description)
+		b.WriteString(sectionHead(descHead, "  "+m.descHint(desc != ""), max(width, 1)))
+		if desc != "" {
+			b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
 		}
-		b.WriteString(sectionHead("Description", "", divW))
-		b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
 	}
 	// Rich-text fields read like the description, under their own heads.
 	for _, ff := range m.extraFields() {
@@ -187,6 +186,16 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraActivity(&b, iss, width)
 	return b.String()
+}
+
+const descHead = "Description"
+
+// descHint is the Description heading's key: edit it, or add one.
+func (m *Model) descHint(has bool) string {
+	if has {
+		return helpKey(m.keys.JiraDescription) + " edit"
+	}
+	return helpKey(m.keys.JiraDescription) + " add one"
 }
 
 // refFieldEdit writes the panel's own field row: the inline input while it

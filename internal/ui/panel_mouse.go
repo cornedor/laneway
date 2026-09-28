@@ -81,8 +81,11 @@ func (m *Model) indexPanelHits(content string) {
 			m.activityLine = i
 		case text == m.panelHintLine():
 			m.panelHits[i] = panelHit{field: -1, keys: m.panelHints()}
-		case text == "Description" && m.descEdit == nil:
-			m.panelHits[i] = panelHit{field: -1, press: "E", double: true}
+		case m.descEdit == nil && (text == descHead+"  "+m.descHint(true) || text == descHead+"  "+m.descHint(false)):
+			// Its hint edits; a double-click on the rest does too.
+			e := firstKey(m.keys.JiraDescription)
+			hint := strings.TrimPrefix(text, descHead+"  ")
+			m.panelHits[i] = panelHit{field: -1, press: e, double: true, keys: [][2]string{{hint, e}}, off: ansi.StringWidth(descHead + "  ")}
 		case text == fmt.Sprintf(emptyFieldsRow, m.hiddenFields()):
 			m.panelHits[i] = panelHit{field: -1, empty: true}
 		case strings.HasPrefix(text, "…and ") && strings.HasSuffix(text, "o opens in browser"):
@@ -223,9 +226,10 @@ func linkSpan(line string, col int) (url string, x0, x1 int) {
 // clickPanel acts on a clicked panel line.
 func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 	if len(h.keys) > 0 {
-		h.press = ""
 		if i, _, _ := labelAt(firsts(h.keys), h.col-h.off); i >= 0 {
-			h.press = h.keys[i][1]
+			h.press, h.double = h.keys[i][1], false
+		} else if !h.double {
+			h.press = ""
 		}
 	}
 	switch {

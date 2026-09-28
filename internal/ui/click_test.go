@@ -1318,3 +1318,25 @@ func TestCopyRow(t *testing.T) {
 		t.Errorf("status %q", m.status)
 	}
 }
+
+// TestClickDescriptionEdit: one click on the Description heading's hint
+// edits it; with none, the heading still shows, to add one. The text under
+// it keeps its own clicks.
+func TestClickDescriptionEdit(t *testing.T) {
+	m := panelModel(t)
+	x, y := screenAt(t, m, "E edit")
+	if got := hovered(m, x, y); got != "E edit" {
+		t.Errorf("hover on the hint = %q", got)
+	}
+	if m := clickText(t, m, "E edit"); !strings.Contains(m.status, "loading ABC-1 description") {
+		t.Fatalf("a click on the hint should edit: %q", m.status)
+	}
+	if m := clickText(t, m, "Words"); strings.Contains(m.status, "description") {
+		t.Error("a click on the text should not edit")
+	}
+	m.jiraIssue.Description = ""
+	m.renderRef()
+	if m := clickText(t, m, "E add one"); !strings.Contains(m.status, "loading ABC-1 description") {
+		t.Fatalf("with none, the hint should add one: %q", m.status)
+	}
+}
