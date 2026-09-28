@@ -3,7 +3,9 @@ package ui
 import (
 	"bytes"
 	"errors"
+	"os"
 	"os/exec"
+	"slices"
 )
 
 // clipboardImage reads a PNG off the system clipboard with command
@@ -32,4 +34,37 @@ var clipboardImage = func(command []string) ([]byte, error) {
 		return nil, errors.New("ui.clipboard_image: no " + command[0])
 	}
 	return nil, errors.New("reading the clipboard needs wl-paste, xclip or pngpaste (or ui.clipboard_image)")
+}
+
+// screenshot captures a region of the screen as a PNG, with the first tool
+// found: grim and slurp (Wayland), gnome-screenshot, spectacle (KDE),
+// screencapture (macOS). Tests swap it.
+var screenshot = func() ([]byte, error) {
+	f, err := os.CreateTemp("", "laneway-shot-*.png")
+	if err != nil {
+		return nil, err
+	}
+	path := f.Name()
+	f.Close()
+	defer os.Remove(path)
+	tools := []struct {
+		need []string
+		cmd  []string
+	}{
+		{[]string{"grim", "slurp"}, []string{"sh", "-c", `grim -g "$(slurp)" "$1"`, "sh", path}},
+		{[]string{"gnome-screenshot"}, []string{"gnome-screenshot", "-a", "-f", path}},
+		{[]string{"spectacle"}, []string{"spectacle", "-r", "-b", "-n", "-o", path}},
+		{[]string{"screencapture"}, []string{"screencapture", "-i", path}},
+	}
+	for _, t := range tools {
+		if !slices.ContainsFunc(t.need, func(n string) bool { _, err := exec.LookPath(n); return err != nil }) {
+			_ = exec.Command(t.cmd[0], t.cmd[1:]...).Run()
+			img, _ := os.ReadFile(path)
+			if !bytes.HasPrefix(img, []byte("\x89PNG")) {
+				return nil, errors.New("no screenshot taken")
+			}
+			return img, nil
+		}
+	}
+	return nil, errors.New("a screenshot needs grim and slurp, gnome-screenshot, spectacle or screencapture")
 }

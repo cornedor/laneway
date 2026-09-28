@@ -52,6 +52,7 @@ func (m *Model) openIssueActions() {
 		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
 		jiraPickerItem{id: "upload", label: "Upload a file"},
 		jiraPickerItem{id: "paste", label: "Upload the image on the clipboard"},
+		jiraPickerItem{id: "screenshot", label: "Screenshot a region and attach it"},
 	)
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
@@ -163,6 +164,16 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		name, command := time.Now().Format("pasted-20060102-150405.png"), m.opts.clipboardImage
 		return jiraMutateCmd(key, "attachments", func() error {
 			img, err := clipboardImage(command)
+			if err != nil {
+				return err
+			}
+			return c.UploadAttachmentFrom(ctx, key, name, bytes.NewReader(img))
+		})
+	case "screenshot":
+		m.status = "pick a region to attach to " + key + "…"
+		name := time.Now().Format("screenshot-20060102-150405.png")
+		return jiraMutateCmd(key, "attachments", func() error {
+			img, err := screenshot()
 			if err != nil {
 				return err
 			}

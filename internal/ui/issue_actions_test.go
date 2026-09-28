@@ -156,6 +156,26 @@ func TestPasteAction(t *testing.T) {
 	}
 }
 
+// TestScreenshotAction: A → screenshot uploads the captured PNG.
+func TestScreenshotAction(t *testing.T) {
+	m, writes := actionsModel(t, nil)
+	orig := screenshot
+	t.Cleanup(func() { screenshot = orig })
+	screenshot = func() ([]byte, error) { return []byte("\x89PNG-shot"), nil }
+	_, cmd := pickAction(t, m, "screenshot")
+	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	if w := writes(); len(w) != 1 || !strings.Contains(w[0], `filename="screenshot-`) || !strings.Contains(w[0], "PNG-shot") {
+		t.Errorf("writes = %q", w)
+	}
+	screenshot = func() ([]byte, error) { return nil, errors.New("no screenshot taken") }
+	_, cmd = pickAction(t, m, "screenshot")
+	if msg := cmd().(jiraMutatedMsg); msg.err == nil || len(writes()) != 1 {
+		t.Error("a cancelled capture should upload nothing")
+	}
+}
+
 // TestDownloadAction: with attachments, A offers download; the pick lands
 // in the download dir.
 func TestDownloadAction(t *testing.T) {
