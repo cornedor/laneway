@@ -488,9 +488,13 @@ week, `y` copies the grid as a markdown table.
 
 ## Git and your shell
 
-Cards whose issue has a herdr agent at work (`S`) show its state: `⚙`
-working, `✋` waiting on you (with a desktop notification), `✓` done and not
-yet looked at; the palette lists them as `agent` rows.
+Cards whose issue has a herdr agent (`S`) show its state: `⚙` working, `✋`
+waiting on you (with a desktop notification), `✓` done and not yet looked
+at, `○` idle; with a count when there are several, the worst state first.
+`S` on an issue whose agent runs attaches to its terminal instead of starting
+another, as does `enter` on its `agent` row in the palette: laneway steps
+aside for `herdr agent attach` and comes back when you detach. Inside herdr
+it focuses the agent's pane.
 
 With the project in `jira.repos`, `A` → *Open a pull request* pushes the
 issue's branch and opens a draft titled with its key and summary, linking

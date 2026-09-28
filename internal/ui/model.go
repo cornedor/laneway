@@ -344,9 +344,9 @@ type Model struct {
 	mentionsSeen time.Time
 	// reviewKeys are the issues waiting on your review, marked ⌥ (review.go).
 	reviewKeys map[string]bool
-	// agents are the herdr agents' states by issue (agents.go); nil while
-	// herdr doesn't answer.
-	agents  map[string]herdr.Status
+	// agents are the herdr agents by issue, worst state first (agents.go);
+	// nil while herdr doesn't answer.
+	agents  map[string][]herdr.Agent
 	started time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
@@ -726,6 +726,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleQueueReplayed(msg)
 	case agentsMsg:
 		return m.handleAgents(msg)
+	case agentAttachedMsg:
+		return m.handleAgentAttached(msg)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:

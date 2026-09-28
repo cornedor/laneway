@@ -122,7 +122,10 @@ func (m *Model) openPalette() {
 	}
 	if onBoard {
 		for _, k := range slices.Sorted(maps.Keys(m.agents)) {
-			items = append(items, jiraPickerItem{id: "i:" + k, label: "agent  " + k + "  " + string(m.agents[k]), search: "agents herdr"})
+			for _, a := range m.agents[k] {
+				items = append(items, jiraPickerItem{id: "g:" + k + ":" + a.PaneID,
+					label: "agent  " + k + "  " + string(a.Status) + "  " + a.Name, search: "agents herdr attach"})
+			}
 		}
 	}
 	for i, a := range m.actions {
@@ -221,6 +224,9 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "d":
 		m.status = "opening " + m.lastDownload + "…"
 		return m, m.openOpenable(openable{name: filepath.Base(m.lastDownload), url: m.lastDownload})
+	case "g":
+		k, pane, _ := strings.Cut(arg, ":")
+		return m, m.attachAgent(k, pane)
 	case "i":
 		m.selectJiraKey(arg)
 		m.renderJira()

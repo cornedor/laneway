@@ -23,7 +23,8 @@ import (
 // or the ui.work_create command — label
 // its tab with the key and start the agent (ui.work_agent, Claude by
 // default) in it with ui.work_args and the start prompt (jira.start_prompt;
-// none starts it without one).
+// none starts it without one). An issue whose agent already runs gets
+// attached to instead (agents.go).
 
 const defaultWorkBranch = "issue/{key}-{summary}"
 
@@ -59,6 +60,9 @@ func (m *Model) startJiraWork() tea.Cmd {
 	}
 	if m.jiraStarting[iss.Key] {
 		return nil
+	}
+	if as := m.agents[iss.Key]; len(as) > 0 {
+		return m.attachAgent(iss.Key, as[0].PaneID)
 	}
 	if m.jiraStarting == nil {
 		m.jiraStarting = map[string]bool{}
@@ -151,7 +155,7 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 		m.fail(msg.key + ": start work: " + msg.err.Error())
 		return m, nil
 	case msg.running:
-		m.status = msg.key + ": already running in " + msg.path
+		return m, m.attachAgent(msg.key, msg.pane)
 	default:
 		m.status = msg.key + ": " + msg.agent + " started in " + msg.path
 	}

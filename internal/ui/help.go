@@ -98,7 +98,7 @@ func (m *Model) helpSections() []struct {
 			row(k.History, "history: changes and comments"),
 			row(k.DevInfo, "pull requests, builds, deploys, branches, commits"),
 			row(k.Pin, "pin: first in the palette"),
-			row(k.JiraStart, "start work"),
+			row(k.JiraStart, "start work, or attach to its agent"),
 			row(k.OpenAttach, "open in browser"),
 			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
 			row(k.CopyBranch, "copy branch name"),
