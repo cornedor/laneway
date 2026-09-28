@@ -3076,6 +3076,7 @@ func (m *Model) hitJira(x, y int) hit {
 // opens it in the panel.
 func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
+	onMark := count == 1 && h.line >= 0 && len(m.agents) > 0 && isAgentGlyph(m.frameCell(x, y))
 	m.focus = focusJira
 	if h.band != "" {
 		m.toggleJiraSwimlane(h.band)
@@ -3093,9 +3094,13 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 		t.idx = h.line
 	} else {
 		t.lane, t.row = h.idx, h.line
-		if c, ok := m.selectedJiraCard(); ok && count == 1 {
+		if c, ok := m.selectedJiraCard(); ok && count == 1 && !onMark {
 			t.drag = jiraDrag{key: c.Key, x: x, y: y, from: h.idx, over: h.idx}
 		}
+	}
+	if c, ok := m.selectedJiraCard(); ok && onMark && len(m.agents[c.Key]) > 0 && !(m.jiraTab.marked[c.Key] && m.frameCell(x, y) == "✓") {
+		m.renderJira()
+		return m, m.attachAgent(c.Key, m.agents[c.Key][0].PaneID)
 	}
 	m.renderJira()
 	if count == 2 {

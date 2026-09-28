@@ -24,8 +24,8 @@ import (
 // issue has more than one (the worst state shows); ◌ a worktree without
 // one. The palette's "worktrees and agents" view lists them all. An agent that starts
 // waiting raises a desktop notification. herdr is asked every few seconds;
-// while it isn't running, rarely. S on an issue with an agent, or enter on
-// its palette row, attaches to its terminal. The panel lists the issue's
+// while it isn't running, rarely. S on an issue with an agent, a click on
+// its card's mark, or enter on its palette row, attaches to its terminal. The panel lists the issue's
 // agents; its A menu attaches, prompts or stops one, or starts another in
 // the same worktree.
 
@@ -346,4 +346,33 @@ func (m *Model) openWorkView() tea.Cmd {
 	}
 	slices.Sort(keys)
 	return m.runNamedJQLView("Work: agents and worktrees", "key in ("+strings.Join(keys, ", ")+") ORDER BY updated DESC")
+}
+
+// frameCell is the glyph drawn at screen cell (x, y), a wide one from
+// either of its cells; a digit right after a mark counts as the mark.
+func (m *Model) frameCell(x, y int) string {
+	lines := strings.Split(m.View().Content, "\n")
+	if y < 0 || y >= len(lines) || x < 0 {
+		return ""
+	}
+	cell := func(x int) string { return ansi.Strip(ansi.Cut(lines[y], x, x+1)) }
+	c := cell(x)
+	if c == "" { // the left half of a wide glyph: Cut yields it at its right
+		c = cell(x + 1)
+	}
+	if len(c) == 1 && c[0] >= '0' && c[0] <= '9' && x > 0 {
+		if p := cell(x - 1); isAgentGlyph(p) {
+			return p
+		}
+	}
+	return c
+}
+
+// isAgentGlyph is whether s is one of agentMark's signs.
+func isAgentGlyph(s string) bool {
+	switch s {
+	case "⚙", "✋", "✓", "○":
+		return true
+	}
+	return false
 }

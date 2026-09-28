@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/herdr"
@@ -209,5 +210,55 @@ func TestWorkView(t *testing.T) {
 	}
 	if m.openWorkView() == nil {
 		t.Fatal("should run the view")
+	}
+}
+
+// TestAgentMarkClick: a click on a card's agent mark (or its count)
+// attaches to the agent; a click elsewhere on the card only selects it.
+func TestAgentMarkClick(t *testing.T) {
+	t.Setenv("HERDR_ENV", "")
+	herdrBin = "true"
+	t.Cleanup(func() { herdrBin = "herdr" })
+	for _, tc := range []struct {
+		name   string
+		agents []herdr.Agent
+		mark   string
+	}{
+		{"working", []herdr.Agent{{PaneID: "p1", Name: "jira-abc-3-a", Status: herdr.Working}}, "⚙"},
+		{"wide and counted", []herdr.Agent{{PaneID: "p1", Name: "jira-abc-3-a", Status: herdr.Blocked}, {PaneID: "p2", Name: "jira-abc-3-b", Status: herdr.Idle}}, "✋2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := jiraTabModel(t)
+			m.width, m.height = 120, 30
+			m.resize()
+			m.herdr = herdr.New("/nowhere.sock")
+			out, _ := m.handleAgents(agentsMsg{agents: tc.agents})
+			m = out.(Model)
+			for i, row := range strings.Split(m.View().Content, "\n") {
+				if w := ansi.StringWidth(row); w != m.width {
+					t.Errorf("row %d is %d wide, want %d", i, w, m.width)
+				}
+			}
+			lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+			y, x := -1, -1
+			for i, l := range lines {
+				if j := strings.Index(l, tc.mark+" ABC-3"); j >= 0 {
+					y, x = i, ansi.StringWidth(l[:j])
+				}
+			}
+			if y < 0 {
+				t.Fatalf("no mark on the card:\n%s", strings.Join(lines, "\n"))
+			}
+			for dx := 0; dx < ansi.StringWidth(tc.mark); dx++ {
+				out, cmd := m.handleClick(tea.MouseClickMsg{X: x + dx, Y: y, Button: tea.MouseLeft})
+				if mm := out.(Model); cmd == nil || !strings.Contains(mm.status, "ABC-3: attached") {
+					t.Fatalf("click at +%d should attach: %q", dx, mm.status)
+				}
+			}
+			out, cmd := m.handleClick(tea.MouseClickMsg{X: x + ansi.StringWidth(tc.mark) + 2, Y: y, Button: tea.MouseLeft})
+			if mm := out.(Model); cmd != nil || strings.Contains(mm.status, "attached") {
+				t.Fatalf("the title only selects: %q", mm.status)
+			}
+		})
 	}
 }
