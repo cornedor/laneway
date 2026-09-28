@@ -62,6 +62,8 @@ In the panel:
 | `tab` / `shift+tab` | walk the fields |
 | `[` `]` | activity tabs: comments, history, work log, all |
 | `L` | pick a linked issue, subtask, the parent or a web link to open |
+| `N` | your private notes on it, a file on this machine (`$EDITOR`) |
+| `ctrl+a` | ask `ui.llm` (`claude -p` by default): a summary, acceptance criteria, subtasks, points |
 | `/` | find text in the issue; `n` / `N` step through the hits |
 | `backspace` | back to the issue you came from |
 | `i` | the issue's images full size (in kitty or Ghostty) |
@@ -85,6 +87,7 @@ In the panel:
   lately. Type any words to filter. From three letters it also searches all
   of Jira; those hits come last, marked `⌕`.
 - `*` pins an issue. Pinned ones come first in the palette.
+- `ctrl+t` shows the board as it was: `←` `→` a day at a time, `esc` back.
 - Start laneway in a git branch named after an issue (`issue/ABC-12-fix`)
   and it opens that issue; `⎇ ABC-12` in the header opens it again.
 
@@ -99,7 +102,7 @@ In the panel:
 - `m`, `a`, `1`–`9`, `0` and `/` narrow the board; `F` builds a `/` query.
 - `t` lanes or list, `s` sort or swimlanes.
 - `enter` opens an issue, `L` follows links, `backspace` comes back.
-- `#` goes to a key, `:` goes to anything.
+- `#` goes to a key, `:` goes to anything, `ctrl+t` goes back in time.
 
 Previous: [First run](01-first-run.md) · Next:
 [Editing and moving](03-editing-and-moving.md)

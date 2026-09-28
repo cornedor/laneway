@@ -87,8 +87,8 @@ Bold, italic, code and links show styled as you type.
 ## More actions
 
 `A` in the panel holds the rest: a subtask (or a child for an epic), a link
-to another issue or a web page, clone, change its type, move it to another project or delete it, watch it or add and remove watchers, vote, flag, upload a file or the image on
-your clipboard, download or delete an attachment. With the project in
+to another issue (type its key or words, check the hit, `enter`) or a web page, clone, change its type, move it to another project or delete it, watch it or add and remove watchers, vote, flag, upload a file, the image on
+your clipboard or a screenshot of a region, download or delete an attachment. With the project in
 `jira.repos` it also opens a draft pull request from the issue's branch
 (`gh` or `glab`), which `D` then lists.
 

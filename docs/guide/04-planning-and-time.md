@@ -46,9 +46,10 @@ written behind.
 
 ### Refine the backlog: `ctrl+e`
 
-On the backlog view, `ctrl+e` shows its issues one at a time, the ones
-without points first, in a wide panel: set points (`P`), priority, labels,
-status, or split one into subtasks (`A`). `J` goes to the next, `K` back;
+On the backlog view, `ctrl+e` steps through the open issues on screen (the
+search and filters apply) one at a time, the ones without points first, in
+a wide panel: set points (`P`), priority, labels, status, or split one into
+subtasks (`A`). `J` goes to the next, `K` back;
 `esc` ends it and copies what you changed, for the meeting notes.
 
 ## See the roadmap: `R`
@@ -110,7 +111,10 @@ in with the time.
 ### Today's work: `W`
 
 `W` lists what you logged today, with the total. `[` `]` step a day, `e`
-edits an entry, `d` twice deletes it, `y` copies the day as a table.
+edits an entry, `d` twice deletes it, `y` copies the day as a table. `p`
+proposes what you forgot to log, from your commits and branch switches in
+`jira.repos` and whatever `ui.activity` commands report (agent logs, shell
+history); `enter` on one logs it.
 
 ![Today's worklogs](../screenshots/worklogs.png)
 
@@ -123,10 +127,12 @@ empty cell logs work there.
 
 ### Standup: `U`
 
-`U` lists what you did since the previous workday (Friday, on a Monday):
-status changes, comments, logged work and, with `jira.repos` set, your
-git commits, by day. Its first row, *Copy as text*, puts it on the
-clipboard grouped per issue.
+`U` is your standup since the previous workday (Friday, on a Monday), one
+row per issue with what changed: *Done since*, *In progress* (a card of yours
+with no activity too, with how long it sat), *Next* in the sprint and
+*Blockers* (flagged). With `jira.repos` set your git commits count too. Its
+first row, *Copy as text*, puts it on the clipboard as Yesterday / Today /
+Blockers.
 
 ![What you did since Friday](../screenshots/standup.png)
 
@@ -163,7 +169,8 @@ and the inbox count for your shell prompt or tmux status line. See the
 
 - `P` planning, `ctrl+e` refinement, `R` roadmap, `C` charts (cycle time and a
   retro too), `V` releases; `esc` back to the board.
-- `w` logs work, `T` times it, `W` shows the day, `W` again the week.
+- `w` logs work, `T` times it, `W` shows the day (`p` proposes the gaps),
+  `W` again the week.
 - `U` writes your standup (its *Team* row everyone's), `I` shows what others
   did, `O` shows all your work, `ctrl+r` what waits on your review.
 
