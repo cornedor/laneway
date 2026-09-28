@@ -49,8 +49,9 @@ before it saves anything; a typo says what went wrong and asks again, with
 
 The config it wrote is plain YAML: `~/.config/laneway/config.yaml`.
 
-> **Tip:** rather not keep the token in a file? Export `JIRA_API_TOKEN`
-> first; setup then offers it, and the file gets none.
+> **Tip:** rather not keep the token in a file? Where there is a keyring
+> (`secret-tool`, macOS Keychain) setup offers to keep it there. Or export
+> `JIRA_API_TOKEN` first; setup then offers that, and the file gets none.
 
 > **Tip:** add `projects: [ABC]` under `jira:` to put the projects you work
 > in at the top of the project picker.

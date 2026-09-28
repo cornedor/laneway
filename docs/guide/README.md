@@ -21,8 +21,12 @@ By the last chapter you will:
   `M` cards across, start the sprint from the keyboard.
 - **See where it's going.** Epics on a timeline, burndown and velocity charts.
 - **Track your day.** A timer, work logs, and a standup that writes itself.
-- **Make it yours.** Rules that notify or act on changes, your own keys and
-  colours.
+- **Ship code.** A branch and commits that name the issue, a coding agent in
+  its own worktree, a draft pull request.
+- **Script it.** Your issues in scripts and your prompt; offline, laneway
+  keeps working.
+- **Make it yours.** Rules that notify or act on changes, your own cards,
+  keys and colours.
 
 ![The board as swim lanes](../screenshots/board.png)
 
@@ -31,8 +35,11 @@ By the last chapter you will:
 1. [First run](01-first-run.md): install, a token, your board on screen
 2. [The board and the panel](02-board-and-panel.md): narrow the board, read an issue, go anywhere
 3. [Editing and moving](03-editing-and-moving.md): move cards, change fields, write, create, edit many at once
-4. [Planning, roadmap, charts and your time](04-planning-and-time.md): fill a sprint, epics on a timeline, burndown, timer and standup
-5. [Rules, JQL, keys and themes](05-rules-jql-keys-themes.md): search all of Jira, let rules watch, make it yours
+4. [Planning and reporting](04-planning-and-reporting.md): fill a sprint, epics on a timeline, burndown, releases
+5. [Your day](05-your-day.md): log time, a timer, your standup, the inbox
+6. [Work on an issue](06-work-on-an-issue.md): branches, commit keys, coding agents, pull requests
+7. [From the shell](07-from-the-shell.md): scripts, completion, your prompt, working offline
+8. [Make it yours](08-make-it-yours.md): JQL, rules, cards, keys, themes, when something looks off
 
 > **Tip:** you can't break anything by reading. laneway only writes to Jira
 > when you move a card, edit a field or comment, so poke around freely.

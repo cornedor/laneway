@@ -1,8 +1,9 @@
-# 5. Rules, JQL, keys and themes
+# 8. Make it yours
 
 **In this chapter:** make laneway work for you. Search all of Jira with
 JQL, keep your favourite searches one key away, let rules watch for
-changes, and bend the keys and colours to your taste.
+changes, and bend the cards, keys and colours to your taste. It ends with
+what to check when something looks off.
 
 ## JQL: `Q`
 
@@ -16,6 +17,9 @@ changes, and bend the keys and colours to your taste.
 - An empty input offers your past searches.
 - `ctrl+s` stars the query: it becomes a view (`★ …`) on every board.
   `ctrl+s` on a starred one unstars it.
+- `ctrl+f` saves it as a real Jira filter under a name you type, to share
+  or subscribe to in Jira. `ui.saved_filters: on` shows all your starred
+  Jira filters as views.
 
 > **Try it:** `Q`, then `assignee = currentUser() AND updated >= -7d`,
 > `enter`. Everything of yours that moved this week, on one board. Like it?
@@ -104,7 +108,7 @@ ui:
     mine: [m, M]
 ```
 
-The names are in the README. laneway warns when one key does two things on
+The names are in the [reference](../reference.md#keys). laneway warns when one key does two things on
 the same screen, and `?` always shows the keys as you bound them.
 
 ## Your own actions
@@ -119,6 +123,20 @@ ui:
 
 It gets the issue (or the marked cards) as JSON on stdin and
 `LANEWAY_KEY` in its environment; its last line shows on the status line.
+
+## Your cards
+
+`ui.card_fields` picks what a card shows and in what order; leave out what
+you don't use. Your own Jira fields join by name:
+
+```yaml
+ui:
+  card_fields: [type, priority, points, assignee, due, age]
+  custom_fields: [Team, Test type]
+```
+
+Custom fields show on cards and rows and are searchable:
+`/"test type":e2e`.
 
 ## Settings: `,`
 
@@ -149,6 +167,18 @@ Font glyphs, `ui.icons: plain` draws issue types as letters. `theme: mono`,
 or `NO_COLOR` in your environment, uses no colour: reverse video shows the
 cursor.
 
+## When something looks off
+
+| You see | Try |
+| --- | --- |
+| Boxes or `?` for issue types | `ui.icons: plain`, or a Nerd Font |
+| No images in tmux | `set -g allow-passthrough on` in `tmux.conf` |
+| Your terminal can't select text | `ui.mouse: off` leaves the mouse to it |
+| A message flashed by | the palette's `messages` row lists the last ones |
+| Sign-in fails after months | the token expired: `laneway setup` again |
+| Requests time out on a slow site | raise `jira.timeout` (`20s` by default) |
+| A rule doesn't fire | `laneway rules test` says what stopped it |
+
 ## Where to next
 
 You've seen it all. From here:
@@ -157,5 +187,5 @@ You've seen it all. From here:
 - The [reference](../reference.md) for every option, search term and key.
 - The [releases](https://github.com/cornedor/laneway/releases) for what just landed.
 
-Previous: [Planning, roadmap, charts and your time](04-planning-and-time.md) ·
+Previous: [From the shell](07-from-the-shell.md) ·
 Back to the [start](README.md)

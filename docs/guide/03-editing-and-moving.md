@@ -76,6 +76,8 @@ Bold, italic, code and links show styled as you type.
 ## Talk
 
 - `c` writes a comment after the thread. `ctrl+s` posts it; `enter` starts a new line.
+  In a Service Desk project, `ctrl+o` makes it an internal note, or for one
+  project role.
 - `R` replies to a comment, composed right under it.
 - `@` and a few letters list people; `tab` inserts a mention that notifies
   them.
@@ -85,7 +87,7 @@ Bold, italic, code and links show styled as you type.
 
 > **Try it:** on an issue a colleague works on, press `c`, type `@` and
 > the first letters of their name, `tab`, then your message. `esc` instead
-> of `enter` if you'd rather not send it; laneway asks before dropping
+> of `ctrl+s` if you'd rather not send it; laneway asks before dropping
 > what you wrote.
 
 ## More actions
@@ -106,6 +108,9 @@ the panel opens on it. Fields the type requires, like a Component, show up
 in the form as soon as the type is set, and the hint says what is still
 empty. `+ more fields` shows the others the type allows, like the assignee,
 labels or a due date; the form remembers which you prefer.
+Making several? `alt+enter` creates the issue and keeps the form for the
+next, its type and fields as they were. Or paste a list into the summary:
+one issue a line.
 A subtask, an epic's child, a roadmap epic and a clone open the same form,
 the parent or the clone's copy filled in. A refused create keeps the form, Jira's reasons under the fields
 they are about.
@@ -134,4 +139,4 @@ they are about.
 - `n` creates, `x` / `X` / `B` edit many at once.
 
 Previous: [The board and the panel](02-board-and-panel.md) · Next:
-[Planning, roadmap, charts and your time](04-planning-and-time.md)
+[Planning and reporting](04-planning-and-reporting.md)

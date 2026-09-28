@@ -41,6 +41,9 @@ nav:
       - guide/01-first-run.md
       - guide/02-board-and-panel.md
       - guide/03-editing-and-moving.md
-      - guide/04-planning-and-time.md
-      - guide/05-rules-jql-keys-themes.md
+      - guide/04-planning-and-reporting.md
+      - guide/05-your-day.md
+      - guide/06-work-on-an-issue.md
+      - guide/07-from-the-shell.md
+      - guide/08-make-it-yours.md
   - Reference: reference.md
