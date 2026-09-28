@@ -165,3 +165,28 @@ func TestAgentPanel(t *testing.T) {
 		t.Errorf("start: %q", got)
 	}
 }
+
+// TestStartWorkAsks: S without an agent asks which kind, ui.work_agent
+// first, then the prompt; an empty one starts with the start prompt.
+func TestStartWorkAsks(t *testing.T) {
+	m := jiraTabModel(t)
+	m.herdr = herdr.New("/nowhere.sock")
+	m.opts.workAgent = "codex"
+	m.jiraIssue = &jira.Issue{Key: "ABC-1", Summary: "First"}
+	m.jiraRepos = map[string]string{"ABC": t.TempDir()}
+	if cmd := m.startJiraWork(); cmd != nil || m.jiraPicker.kind != jiraPickAgentKind {
+		t.Fatalf("S should ask the kind: %v", m.jiraPicker.kind)
+	}
+	if it := m.jiraPicker.items[m.jiraPicker.idx]; it.id != "codex" {
+		t.Fatalf("default first: %+v", it)
+	}
+	out, _ := m.applyJiraPick()
+	m = out.(Model)
+	if m.jiraFieldName != "work-prompt" || m.workKind != "codex" || m.jiraFieldKey != "ABC-1" {
+		t.Fatalf("prompt input: %q %q %q", m.jiraFieldName, m.workKind, m.jiraFieldKey)
+	}
+	out, cmd := m.applyWorkPrompt("")
+	if m = out.(Model); cmd == nil || !m.jiraStarting["ABC-1"] {
+		t.Fatal("should start work")
+	}
+}

@@ -23,8 +23,9 @@ import (
 // or the ui.work_create command — label
 // its tab with the key and start the agent (ui.work_agent, Claude by
 // default) in it with ui.work_args and the start prompt (jira.start_prompt;
-// none starts it without one). An issue whose agent already runs gets
-// attached to instead (agents.go).
+// none starts it without one). S asks for both: the kinds found on PATH,
+// ui.work_agent first, then a prompt, empty for the start prompt. An issue
+// whose agent already runs gets attached to instead (agents.go).
 
 const defaultWorkBranch = "issue/{key}-{summary}"
 
@@ -44,17 +45,20 @@ type jiraWorkMsg struct {
 	err     error
 }
 
-// startJiraWork starts work on the panel's issue.
+// agentKinds are the agent kinds herdr can start.
+var agentKinds = []string{"claude", "codex", "gemini", "opencode", "cursor", "copilot", "amp", "pi", "devin", "agy", "cline",
+	"omp", "mastracode", "kimi", "kiro", "droid", "grok", "hermes", "kilo", "qodercli", "qwen", "letta", "maki", "muse"}
+
+// startJiraWork starts work on the panel's issue: attaches to its running
+// agent, else asks which agent to start.
 func (m *Model) startJiraWork() tea.Cmd {
 	iss := m.jiraIssue
-	c := m.herdr
-	if c == nil {
+	if m.herdr == nil {
 		m.status = "start work needs herdr running"
 		return nil
 	}
 	project, _, _ := strings.Cut(iss.Key, "-")
-	repo := m.jiraRepos[project]
-	if repo == "" {
+	if m.jiraRepos[project] == "" {
 		m.status = "no jira.repos entry for " + project
 		return nil
 	}
@@ -64,13 +68,43 @@ func (m *Model) startJiraWork() tea.Cmd {
 	if as := m.agents[iss.Key]; len(as) > 0 {
 		return m.attachAgent(iss.Key, as[0].PaneID)
 	}
+	m.startJiraPicker(jiraPickAgentKind, "Start work on "+iss.Key+": which agent", false)
+	items := []jiraPickerItem{{id: m.opts.workAgent, label: m.opts.workAgent, current: true}}
+	for _, k := range agentKinds {
+		if _, err := exec.LookPath(k); err == nil && k != m.opts.workAgent {
+			items = append(items, jiraPickerItem{id: k, label: k})
+		}
+	}
+	m.setJiraPickerItems(items)
+	return nil
+}
+
+// askWorkPrompt asks for the prompt the kind starts on key with.
+func (m *Model) askWorkPrompt(key, kind string) {
+	m.openBulkInput("work-prompt", "empty: the start prompt · none: no prompt")
+	m.jiraFieldKey, m.workKind = key, kind
+}
+
+// applyWorkPrompt starts the picked agent on the panel's issue with the
+// typed prompt, the start prompt when empty.
+func (m Model) applyWorkPrompt(raw string) (tea.Model, tea.Cmd) {
+	key, kind, prompt := m.jiraFieldKey, m.workKind, strings.TrimSpace(raw)
+	m.closeJiraField()
+	iss := m.jiraIssue
+	if iss == nil || iss.Key != key || m.herdr == nil || m.jiraStarting[key] {
+		return m, nil
+	}
+	if prompt == "" {
+		prompt = m.jiraStartPrompt
+	}
 	if m.jiraStarting == nil {
 		m.jiraStarting = map[string]bool{}
 	}
-	m.jiraStarting[iss.Key] = true
-	m.status = iss.Key + ": starting work…"
-	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, m.opts.workAgent, iss.Key, iss.Type, iss.Summary,
-		workArgs(m.opts.workArgs, m.jiraStartPrompt, iss.Key), m.opts.workCreate)
+	m.jiraStarting[key] = true
+	m.status = key + ": starting work…"
+	project, _, _ := strings.Cut(key, "-")
+	return m, jiraWork(m.herdr, expandUserPath(m.jiraRepos[project]), m.opts.workBranch, kind, key, iss.Type, iss.Summary,
+		workArgs(m.opts.workArgs, prompt, key), m.opts.workCreate)
 }
 
 // workArgs are the agent's arguments: extra with {key} replaced, then the

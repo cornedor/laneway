@@ -125,7 +125,7 @@ ui:
   open: wslview                 # opens URLs and attachments (xdg-open / open by default)
   full_refresh: 10m             # idle refreshes fetch changes only, whole again after this
   flag_value: Impediment        # the Flagged option A → flag sets
-  work_agent: claude            # the herdr agent S starts in the worktree
+  work_agent: claude            # the herdr agent S offers first
   work_args: [--append-system-prompt, "User is working on {key}"]  # its arguments before the prompt
   work_create: [wt, switch, --create, "{branch}", --base, "{base}", --no-cd]  # makes a missing worktree; unset: herdr
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
@@ -491,6 +491,8 @@ week, `y` copies the grid as a markdown table.
 Cards whose issue has a herdr agent (`S`) show its state: `⚙` working, `✋`
 waiting on you (with a desktop notification), `✓` done and not yet looked
 at, `○` idle; with a count when there are several, the worst state first.
+`S` asks which agent to start (the kinds on your PATH, `ui.work_agent`
+first) and its prompt (empty: `jira.start_prompt`, `none`: no prompt).
 `S` on an issue whose agent runs attaches to its terminal instead of starting
 another, as does `enter` on its `agent` row in the palette: laneway steps
 aside for `herdr agent attach` and comes back when you detach. Inside herdr

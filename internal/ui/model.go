@@ -347,9 +347,10 @@ type Model struct {
 	// agents are the herdr agents by issue, worst state first (agents.go);
 	// nil while herdr doesn't answer.
 	agents map[string][]herdr.Agent
-	// agentPane is the agent the prompt being typed goes to.
-	agentPane string
-	started   time.Time
+	// agentPane is the agent the prompt being typed goes to; workKind the
+	// agent kind start work launches once its prompt is typed.
+	agentPane, workKind string
+	started             time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
