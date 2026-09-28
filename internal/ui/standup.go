@@ -30,7 +30,7 @@ func (m *Model) openStandupSince(since time.Time, team bool) tea.Cmd {
 	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)
 	m.jiraPicker.day = since
 	seq := m.jiraPicker.fetchSeq
-	c, ctx, repos := m.jiraClient, m.ctx, m.standupRepos()
+	c, ctx, repos, me := m.jiraClient, m.ctx, m.standupRepos(), m.jiraClient.KnownMyself()
 	// Rows step a workday either way, U back too.
 	steps := m.standupSteps(since, now)
 	if len(m.teamPeople()) > 0 {
@@ -41,18 +41,23 @@ func (m *Model) openStandupSince(since time.Time, team bool) tea.Cmd {
 		if err == nil {
 			entries = withCommits(entries, gitCommits(repos, since))
 		}
-		text := standupText(entries)
-		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
-		day := ""
-		for _, e := range entries {
-			if d := standupDay(e.When, now); d != day {
-				day = d
-				items = append(items, jiraPickerItem{label: "── " + d})
+		var cards []jira.Card
+		if err == nil {
+			var keys []string
+			for _, e := range entries {
+				if e.Key != "" && !slices.Contains(keys, e.Key) {
+					keys = append(keys, e.Key)
+				}
 			}
-			what := strings.TrimSpace(e.Key + " " + e.Summary)
-			items = append(items, jiraPickerItem{id: e.Key, label: fmt.Sprintf("  %s  %s — %s", e.When.Local().Format("15:04"), cmp.Or(what, noTicket), e.What)})
+			var cerr error
+			if cards, cerr = c.SearchCards(ctx, standupJQL(keys)); cerr != nil && len(keys) > 0 {
+				cards, _ = c.SearchCards(ctx, standupJQL(nil)) // a deleted key fails the whole search
+			} // without cards the rows still list the activity
 		}
-		if err == nil && len(entries) == 0 {
+		rows, text := standupMine(entries, cards, me, since, now)
+		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
+		items = append(items, rows...)
+		if err == nil && len(rows) == 0 {
 			items = append([]jiraPickerItem{{label: "nothing since " + standupDay(since, now)}}, steps...)
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,

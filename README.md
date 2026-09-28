@@ -421,11 +421,15 @@ also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 
 ![What you did since Friday](docs/screenshots/standup.png)
 
-`U` lists what you did since the previous workday (Friday on a Monday), by
-day: status and field changes, comments, logged work, and your commits in
-the `jira.repos` repositories (every branch) under the key their subject
-names, keyless ones as *no ticket*. Its first row,
-Copy as text, puts it on the clipboard grouped per issue, ready to paste.
+`U` is your standup since the previous workday (Friday on a Monday), one
+row per issue with its status now and what changed (`To Do → Done, logged
+2h, 2 comments`), in sections: *Done since*, *In progress* (your in-progress
+cards without activity too, with how long they sat), *Also touched*, *Next*
+(your top to-dos in the open sprints by rank) and *Blockers* (flagged).
+Activity is status and field changes, comments, logged work, and your
+commits in the `jira.repos` repositories (every branch) under the key their
+subject names, keyless ones as *no ticket*. Its first row, Copy as text,
+puts it on the clipboard as Yesterday / Today / Blockers, ready to paste.
 `U` again (or its `←` row) reaches a workday further back, its `→` row a
 workday later again.
 Its *Team* row shows the same for everyone assigned a card on the board,
