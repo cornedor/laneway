@@ -13,14 +13,14 @@ import (
 // checkout goes (herdr's worktree.remove, the branch stays). Uncommitted
 // changes, or a branch not merged yet, keep it.
 
-// issueWorktree is the repo's linked worktree whose branch fits tmpl for
-// the issue: its path and branch, "" for none.
-func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
+// linkedWorktrees are repo's linked worktrees (not its main checkout) that
+// have a branch: path → branch.
+func linkedWorktrees(repo string) map[string]string {
 	out, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
 	if err != nil {
-		return "", ""
+		return nil
 	}
-	fits := branchPattern(tmpl, key, typ)
+	wts := map[string]string{}
 	for i, block := range strings.Split(strings.TrimSpace(string(out)), "\n\n") {
 		if i == 0 {
 			continue // the main checkout
@@ -34,7 +34,19 @@ func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
 				b = v
 			}
 		}
-		if b != "" && fits.MatchString(b) {
+		if b != "" {
+			wts[p] = b
+		}
+	}
+	return wts
+}
+
+// issueWorktree is the repo's linked worktree whose branch fits tmpl for
+// the issue: its path and branch, "" for none.
+func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
+	fits := branchPattern(tmpl, key, typ)
+	for p, b := range linkedWorktrees(repo) {
+		if fits.MatchString(b) {
 			return p, b
 		}
 	}

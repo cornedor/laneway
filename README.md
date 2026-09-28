@@ -490,7 +490,9 @@ week, `y` copies the grid as a markdown table.
 
 Cards whose issue has a herdr agent (`S`) show its state: `⚙` working, `✋`
 waiting on you (with a desktop notification), `✓` done and not yet looked
-at, `○` idle; with a count when there are several, the worst state first.
+at, `○` idle; with a count when there are several, the worst state first;
+a dim `◌` for a worktree (in a `jira.repos` checkout) without an agent. The
+palette's *worktrees and agents* view shows every such issue, across projects.
 `S` asks which agent to start (the kinds on your PATH, `ui.work_agent`
 first) and its prompt (empty: `jira.start_prompt`, `none`: no prompt).
 `S` on an issue whose agent runs attaches to its terminal instead of starting

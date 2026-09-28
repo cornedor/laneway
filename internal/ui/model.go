@@ -347,6 +347,8 @@ type Model struct {
 	// agents are the herdr agents by issue, worst state first (agents.go);
 	// nil while herdr doesn't answer.
 	agents map[string][]herdr.Agent
+	// worktrees are the issues' linked worktrees in jira.repos, by key.
+	worktrees map[string]string
 	// agentPane is the agent the prompt being typed goes to; workKind the
 	// agent kind start work launches once its prompt is typed.
 	agentPane, workKind string

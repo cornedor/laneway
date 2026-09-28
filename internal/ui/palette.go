@@ -120,6 +120,9 @@ func (m *Model) openPalette() {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
 	}
+	if onBoard && (len(m.agents) > 0 || len(m.worktrees) > 0) {
+		items = append(items, jiraPickerItem{id: "k:", label: "view  worktrees and agents", search: "herdr work"})
+	}
 	if onBoard {
 		for _, k := range slices.Sorted(maps.Keys(m.agents)) {
 			for _, a := range m.agents[k] {
@@ -224,6 +227,8 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "d":
 		m.status = "opening " + m.lastDownload + "…"
 		return m, m.openOpenable(openable{name: filepath.Base(m.lastDownload), url: m.lastDownload})
+	case "k":
+		return m, m.openWorkView()
 	case "g":
 		k, pane, _ := strings.Cut(arg, ":")
 		return m, m.attachAgent(k, pane)

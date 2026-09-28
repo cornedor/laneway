@@ -26,6 +26,9 @@ func TestWorktreeRemove(t *testing.T) {
 	git(repo, "commit", "-q", "--allow-empty", "-m", "init")
 	git(repo, "worktree", "add", "-q", "-b", "issue/ABC-1-fix", wt)
 
+	if wts := linkedWorktrees(repo); len(wts) != 1 {
+		t.Fatalf("linked worktrees %v", wts)
+	}
 	path, branch := issueWorktree(repo, defaultWorkBranch, "ABC-1", "Bug")
 	if branch != "issue/ABC-1-fix" || filepath.Base(path) != "abc-1" {
 		t.Fatalf("worktree %q %q", path, branch)

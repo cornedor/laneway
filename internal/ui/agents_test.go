@@ -190,3 +190,24 @@ func TestStartWorkAsks(t *testing.T) {
 		t.Fatal("should start work")
 	}
 }
+
+// TestWorkView: a worktree without an agent marks its card ◌; the view
+// lists every issue with an agent or a worktree.
+func TestWorkView(t *testing.T) {
+	m := jiraTabModel(t)
+	if m.openWorkView() != nil {
+		t.Fatal("nothing to show")
+	}
+	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{{PaneID: "p1", Name: "jira-abc-2-a", Status: herdr.Working}},
+		worktrees: map[string]string{"ABC-1": "/wt/abc-1", "ABC-2": "/wt/abc-2"}})
+	m = out.(Model)
+	if got := ansi.Strip(m.agentMark("ABC-1")); got != "◌" {
+		t.Errorf("worktree mark %q", got)
+	}
+	if got := ansi.Strip(m.agentMark("ABC-2")); got != "⚙" {
+		t.Errorf("agent mark %q", got)
+	}
+	if m.openWorkView() == nil {
+		t.Fatal("should run the view")
+	}
+}

@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +21,8 @@ import (
 
 // The herdr agents started on issues (S), live on their cards: ⚙ working,
 // ✋ waiting on you, ✓ done and not yet seen, ○ idle, with a count when an
-// issue has more than one (the worst state shows). An agent that starts
+// issue has more than one (the worst state shows); ◌ a worktree without
+// one. The palette's "worktrees and agents" view lists them all. An agent that starts
 // waiting raises a desktop notification. herdr is asked every few seconds;
 // while it isn't running, rarely. S on an issue with an agent, or enter on
 // its palette row, attaches to its terminal. The panel lists the issue's
@@ -35,8 +37,9 @@ const (
 type agentTickMsg struct{}
 
 type agentsMsg struct {
-	agents []herdr.Agent
-	err    error
+	agents    []herdr.Agent
+	worktrees map[string]string // issue → its linked worktree, from jira.repos
+	err       error
 }
 
 func agentTick(d time.Duration) tea.Cmd {
@@ -49,11 +52,26 @@ func (m *Model) fetchAgents() tea.Cmd {
 	if c == nil {
 		return nil
 	}
+	var repos []string
+	for _, r := range m.jiraRepos {
+		repos = append(repos, expandUserPath(r))
+	}
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		as, err := c.Agents(ctx)
-		return agentsMsg{as, err}
+		if err != nil {
+			return agentsMsg{err: err}
+		}
+		wts := map[string]string{}
+		for _, r := range repos {
+			for path, branch := range linkedWorktrees(r) {
+				if k := branchKey(branch); k != "" {
+					wts[k] = path
+				}
+			}
+		}
+		return agentsMsg{agents: as, worktrees: wts}
 	}
 }
 
@@ -81,7 +99,7 @@ func agentRank(s herdr.Status) int {
 
 func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.agents = nil
+		m.agents, m.worktrees = nil, nil
 		return m, agentTick(agentIdle)
 	}
 	next := map[string][]herdr.Agent{}
@@ -101,7 +119,7 @@ func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 	for _, as := range next {
 		slices.SortStableFunc(as, func(a, b herdr.Agent) int { return agentRank(a.Status) - agentRank(b.Status) })
 	}
-	m.agents = next
+	m.agents, m.worktrees = next, msg.worktrees
 	m.jiraTab.rows = nil
 	m.renderJira()
 	return m, tea.Batch(append(cmds, agentTick(agentEvery))...)
@@ -111,6 +129,9 @@ func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 func (m *Model) agentMark(key string) string {
 	as := m.agents[key]
 	if len(as) == 0 {
+		if m.worktrees[key] != "" {
+			return jiraDimStyle.Render("◌")
+		}
 		return ""
 	}
 	mark := statusMark(as[0].Status)
@@ -304,4 +325,21 @@ func (m Model) handleAgentDone(msg agentDoneMsg) (tea.Model, tea.Cmd) {
 		m.status = msg.key + ": " + msg.what
 	}
 	return m, m.fetchAgents()
+}
+
+// openWorkView shows every issue with an agent or a worktree as a view,
+// across projects.
+func (m *Model) openWorkView() tea.Cmd {
+	keys := slices.Collect(maps.Keys(m.agents))
+	for k := range m.worktrees {
+		if !slices.Contains(keys, k) {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) == 0 {
+		m.status = "no issue has a herdr agent or a worktree"
+		return nil
+	}
+	slices.Sort(keys)
+	return m.runNamedJQLView("Work: agents and worktrees", "key in ("+strings.Join(keys, ", ")+") ORDER BY updated DESC")
 }
