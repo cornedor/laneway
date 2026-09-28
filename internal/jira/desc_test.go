@@ -158,3 +158,45 @@ func TestInlineLabel(t *testing.T) {
 		}
 	}
 }
+
+// TestEditablePanel: a panel edits as its blocks between marker lines, and
+// saves back as a panel of its type, a mention in it kept inline.
+func TestEditablePanel(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"panel","attrs":{"panelType":"success","localId":"p1"},"content":[
+	  {"type":"paragraph","content":[{"type":"text","text":"Done when:","marks":[{"type":"strong"}]}]},
+	  {"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"it works for "},{"type":"mention","attrs":{"id":"x","text":"@Ann"}}]}]}]}]},
+	  {"type":"paragraph","content":[{"type":"text","text":"after"}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<!-- panel:success -->\n\n**Done when:**\n\n- it works for ⟦1 @Ann⟧\n\n<!-- /panel -->\n\nafter"
+	if ed.Markdown != want {
+		t.Fatalf("markdown:\n%s\nwant\n%s", ed.Markdown, want)
+	}
+	edited := strings.Replace(ed.Markdown, "Done when:", "Ready when:", 1)
+	out, _ := json.Marshal(MarkdownToADFKept(edited, ed.Kept))
+	for _, s := range []string{`"type":"panel"`, `"panelType":"success"`, `"text":"Ready when:"`, `"type":"mention"`} {
+		if !strings.Contains(string(out), s) {
+			t.Errorf("saved lacks %s: %s", s, out)
+		}
+	}
+	var got struct {
+		Content []struct{ Type string } `json:"content"`
+	}
+	_ = json.Unmarshal(out, &got)
+	if len(got.Content) != 2 || got.Content[0].Type != "panel" || got.Content[1].Type != "paragraph" {
+		t.Errorf("saved blocks = %+v", got.Content)
+	}
+}
+
+// TestEditableTrailingSpace: a space ending a paragraph, gone in markdown
+// and unseen in Jira, doesn't make the description uneditable.
+func TestEditableTrailingSpace(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"due on "},
+	  {"type":"date","attrs":{"timestamp":"1788220800000"}},{"type":"text","text":" or later. "}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil || len(ed.Kept) != 1 || !strings.HasPrefix(ed.Markdown, "due on ⟦1") {
+		t.Fatalf("%q, kept %d, %v", ed.Markdown, len(ed.Kept), err)
+	}
+}

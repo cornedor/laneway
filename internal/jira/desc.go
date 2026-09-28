@@ -143,6 +143,10 @@ func EditableDescription(raw json.RawMessage) (Editable, error) {
 			writeBlock(&b, escapeTexts(n), "")
 			continue
 		}
+		if md, ok := editablePanel(n, &ed.Kept); ok {
+			b.WriteString(md)
+			continue
+		}
 		had := len(ed.Kept)
 		if sub := keepInlines(n, &ed.Kept); editableBlock(sub) {
 			writeBlock(&b, escapeTexts(sub), "")
@@ -161,6 +165,36 @@ func EditableDescription(raw json.RawMessage) (Editable, error) {
 		return Editable{}, fmt.Errorf("the description has text markdown would change (like * or `)")
 	}
 	return ed, nil
+}
+
+// A panel (info, note, success, …) edits as its blocks between two marker
+// lines, <!-- panel:success --> and <!-- /panel -->.
+var (
+	panelOpen  = regexp.MustCompile(`^<!-- panel:([a-z]+) -->$`)
+	panelClose = "<!-- /panel -->"
+)
+
+// editablePanel is panel n as markdown to edit, its inline nodes kept
+// inline; false when it is no panel, or holds a block markdown can't keep.
+func editablePanel(n adfNode, kept *[]json.RawMessage) (string, bool) {
+	typ, _ := n.Attrs["panelType"].(string)
+	if n.Type != "panel" || !panelOpen.MatchString("<!-- panel:"+typ+" -->") {
+		return "", false
+	}
+	had := len(*kept)
+	var b strings.Builder
+	b.WriteString("<!-- panel:" + typ + " -->\n\n")
+	for _, c := range n.Content {
+		if !editableBlock(c) {
+			if c = keepInlines(c, kept); !editableBlock(c) {
+				*kept = (*kept)[:had]
+				return "", false
+			}
+		}
+		writeBlock(&b, escapeTexts(c), "")
+	}
+	b.WriteString(panelClose + "\n\n")
+	return b.String(), true
 }
 
 // keepInlines is n with its unmarked leaf inline nodes (mentions, emoji,
@@ -343,8 +377,15 @@ func canon(n adfNode) string {
 	case "codeBlock":
 		lang, _ := n.Attrs["language"].(string)
 		b.WriteString(":" + lang)
+	case "panel":
+		typ, _ := n.Attrs["panelType"].(string)
+		b.WriteString(":" + typ)
 	}
 	b.WriteString("(")
+	content := n.Content
+	if n.Type == "paragraph" || n.Type == "heading" {
+		content = trimEnds(content)
+	}
 	var run, runMarks string
 	flush := func() {
 		if run != "" {
@@ -352,7 +393,7 @@ func canon(n adfNode) string {
 		}
 		run, runMarks = "", ""
 	}
-	for _, c := range n.Content {
+	for _, c := range content {
 		if c.Type != "text" {
 			flush()
 			b.WriteString(canon(c) + ",")
@@ -377,6 +418,19 @@ func canon(n adfNode) string {
 	flush()
 	b.WriteString(")")
 	return b.String()
+}
+
+// trimEnds is a text block's content without the spaces that begin and
+// end it: markdown drops them, and Jira shows none.
+func trimEnds(content []adfNode) []adfNode {
+	out := slices.Clone(content)
+	if len(out) > 0 && out[0].Type == "text" {
+		out[0].Text = strings.TrimLeft(out[0].Text, " ")
+	}
+	if l := len(out) - 1; l >= 0 && out[l].Type == "text" {
+		out[l].Text = strings.TrimRight(out[l].Text, " ")
+	}
+	return slices.DeleteFunc(out, func(c adfNode) bool { return c.Type == "text" && c.Text == "" })
 }
 
 // MarkdownToADF parses the markdown adfToMarkdown writes back into a
@@ -415,6 +469,16 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 			if n >= 1 && n <= len(kept) {
 				blocks = append(blocks, kept[n-1])
 			}
+			i++
+		case panelOpen.MatchString(strings.TrimSpace(ln)):
+			typ := panelOpen.FindStringSubmatch(strings.TrimSpace(ln))[1]
+			var inner []string
+			for i++; i < len(lines) && strings.TrimSpace(lines[i]) != panelClose; i++ {
+				inner = append(inner, lines[i])
+			}
+			i++ // the closing line
+			blocks = append(blocks, map[string]any{"type": "panel", "attrs": map[string]any{"panelType": typ}, "content": parseMDBlocks(inner, kept)})
+		case strings.TrimSpace(ln) == panelClose: // one left alone
 			i++
 		case strings.HasPrefix(ln, "```"):
 			lang := strings.TrimSpace(strings.TrimPrefix(ln, "```"))
@@ -466,7 +530,7 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 
 // startsBlock reports whether ln opens a block other than a paragraph.
 func startsBlock(ln string) bool {
-	return keepLine.MatchString(strings.TrimSpace(ln)) || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
+	return keepLine.MatchString(strings.TrimSpace(ln)) || panelOpen.MatchString(strings.TrimSpace(ln)) || strings.TrimSpace(ln) == panelClose || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
 		strings.TrimSpace(ln) == "---" || mdBullet.MatchString(ln) || mdOrdered.MatchString(ln)
 }
 
