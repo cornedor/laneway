@@ -47,7 +47,7 @@ func (c *Client) CycleTimes(ctx context.Context, project string, weeks int) ([]C
 		return nil, err
 	}
 	jql := fmt.Sprintf(`project = "%s" AND statusCategory = Done AND resolved >= -%dw ORDER BY resolved ASC`, project, weeks)
-	raw, err := c.searchExpand(ctx, jql, []string{"summary", "created", "resolutiondate"}, "changelog")
+	raw, err := c.searchChart(ctx, jql, []string{"summary", "created", "resolutiondate"}, "changelog")
 	if err != nil {
 		return nil, err
 	}

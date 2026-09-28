@@ -78,6 +78,17 @@ func (c *Client) searchExpand(ctx context.Context, jql string, fields []string, 
 	return c.searchUpTo(ctx, jql, fields, expand, c.cardLimit)
 }
 
+// chartLimit bounds the searches charts and the roadmap count from: past
+// the card limit, so a big sprint or project counts whole, but bounded, as
+// they may read each issue's changelog.
+const chartLimit = 5000
+
+// searchChart is searchExpand up to chartLimit (or the card limit, when
+// higher).
+func (c *Client) searchChart(ctx context.Context, jql string, fields []string, expand string) ([]rawIssue, error) {
+	return c.searchUpTo(ctx, jql, fields, expand, max(c.cardLimit, chartLimit))
+}
+
 // searchAll is search without the card limit, for totals that must be whole.
 func (c *Client) searchAll(ctx context.Context, jql string, fields []string) ([]rawIssue, error) {
 	return c.searchUpTo(ctx, jql, fields, "", math.MaxInt)

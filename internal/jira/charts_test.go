@@ -3,9 +3,12 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -75,5 +78,36 @@ func TestSprintBurnAdded(t *testing.T) {
 	}
 	if got[0].Added.Format(time.DateOnly) != "2026-09-23" || !got[1].Added.IsZero() {
 		t.Errorf("added %v, %v", got[0].Added, got[1].Added)
+	}
+}
+
+// TestSprintBurnPastCardLimit: a sprint bigger than the card limit counts
+// whole.
+func TestSprintBurnPastCardLimit(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			fmt.Fprint(w, `[]`)
+			return
+		}
+		var body struct {
+			Token string `json:"nextPageToken"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		page, _ := strconv.Atoi(body.Token)
+		var issues []string
+		for i := range 100 {
+			issues = append(issues, fmt.Sprintf(`{"key": "ABC-%d", "fields": {}}`, page*100+i+1))
+		}
+		next := ""
+		if page < 2 {
+			next = strconv.Itoa(page + 1)
+		}
+		fmt.Fprintf(w, `{"issues": [%s], "nextPageToken": %q}`, strings.Join(issues, ","), next)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CardLimit: 50})
+	got, err := c.SprintBurn(context.Background(), 7, "")
+	if err != nil || len(got) != 300 {
+		t.Fatalf("SprintBurn = %d issues, %v; want 300", len(got), err)
 	}
 }

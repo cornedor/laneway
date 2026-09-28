@@ -125,7 +125,7 @@ func (c *Client) Roadmap(ctx context.Context, project, epicType string, doneDays
 		}
 	}
 	jql := fmt.Sprintf(`project = %q AND issuetype = %q AND (statusCategory != Done OR resolved >= -%dd) ORDER BY rank`, project, epicType, doneDays)
-	raw, err := c.search(ctx, jql, fields)
+	raw, err := c.searchChart(ctx, jql, fields, "")
 	if err != nil {
 		return nil, err
 	}

@@ -69,7 +69,7 @@ func (c *Client) sprintIssues(ctx context.Context, sprint int, pointsField strin
 	if changes {
 		expand = "changelog"
 	}
-	raw, err := c.searchExpand(ctx, "sprint = "+strconv.Itoa(sprint), append([]string{"resolutiondate", "status"}, pf...), expand)
+	raw, err := c.searchChart(ctx, "sprint = "+strconv.Itoa(sprint), append([]string{"resolutiondate", "status"}, pf...), expand)
 	if err != nil {
 		return nil, err
 	}

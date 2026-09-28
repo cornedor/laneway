@@ -80,7 +80,7 @@ ui:
   images: auto       # kitty/Ghostty inline images and avatar chips (cached in ~/.cache/laneway/avatars); "off"
   image_max_rows: 16
   panel_width: 50    # issue panel, percent of the width; drag its left border or < > to resize, remembered (near this it snaps back and forgets)
-  card_limit: 500    # most cards one view fetches (50–5000)
+  card_limit: 500    # most cards one view fetches (50–5000); charts and the roadmap count up to 5000
   default_mode: lanes           # or list; the last used mode wins after that
   date_format: 2006-01-02 15:04 # Go time layout; the panel says 2d ago within a week
   card_fields: [type, priority, status, points, assignee, avatar, parent, pr, deploy, subtasks, due, flagged, age]
