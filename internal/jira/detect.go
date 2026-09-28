@@ -21,6 +21,15 @@ var browseURLRe = regexp.MustCompile(`https?://([^/\s]+)/browse/([A-Z][A-Z0-9]+-
 // caller trims punctuation, but "ABC-123-foo" does not).
 var bareKeyRe = regexp.MustCompile(`^[A-Z][A-Z0-9]+-[0-9]+$`)
 
+// validKeyRe is any key an instance may issue: a project key (letters,
+// digits, underscore; lowercase on Server with a custom pattern) and a number.
+var validKeyRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*-[0-9]+$`)
+
+// ValidKey is whether key is shaped like an issue key. Keys go into file
+// names (notes, editor temp files), so one from a response that is not —
+// "../x", "A/B-1" — is dropped where it enters.
+func ValidKey(key string) bool { return validKeyRe.MatchString(key) }
+
 // bareKeySearchRe is the unanchored form used to find bare issue IDs anywhere
 // in text (including inside markdown formatting like **ABC-123** or `ABC-123`).
 // Word boundaries prevent matching inside longer tokens like "ABC-123foo".

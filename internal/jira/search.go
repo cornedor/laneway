@@ -30,6 +30,9 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 	}
 	out := make([]Card, 0, len(issues))
 	for _, is := range issues {
+		if !ValidKey(is.Key) {
+			continue
+		}
 		card := toCard(is.Key, is.Fields, "")
 		for _, id := range sp {
 			if card = toCard(is.Key, is.Fields, id); card.Points != "" {
@@ -135,9 +138,11 @@ func (c *Client) FindIssues(ctx context.Context, text string, n int) ([]Card, er
 	if err := c.do(ctx, http.MethodPost, "/rest/api/3/search/jql", "search", body, &resp); err != nil {
 		return nil, err
 	}
-	out := make([]Card, len(resp.Issues))
-	for i, is := range resp.Issues {
-		out[i] = toCard(is.Key, is.Fields, "")
+	out := make([]Card, 0, len(resp.Issues))
+	for _, is := range resp.Issues {
+		if ValidKey(is.Key) {
+			out = append(out, toCard(is.Key, is.Fields, ""))
+		}
 	}
 	return out, nil
 }

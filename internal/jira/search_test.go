@@ -49,3 +49,33 @@ func TestSearchCards(t *testing.T) {
 		t.Errorf("tokens = %q", tokens)
 	}
 }
+
+// TestSearchCardsDropsBadKeys: a key that could climb out of a folder never
+// becomes a card.
+func TestSearchCardsDropsBadKeys(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			fmt.Fprint(w, `[]`)
+			return
+		}
+		fmt.Fprint(w, `{"issues": [{"key": "../../x-1", "fields": {}}, {"key": "A/B-1", "fields": {}}, {"key": "ABC-1", "fields": {}}]}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	cards, err := c.SearchCards(context.Background(), "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cards) != 1 || cards[0].Key != "ABC-1" {
+		t.Errorf("cards = %+v", cards)
+	}
+}
+
+func TestValidKey(t *testing.T) {
+	for key, want := range map[string]bool{"ABC-1": true, "A_B2-10": true, "abc-1": true,
+		"": false, "ABC": false, "ABC-": false, "../ABC-1": false, "A/B-1": false, "ABC-1/..": false, "1AB-1": false} {
+		if ValidKey(key) != want {
+			t.Errorf("ValidKey(%q) = %v", key, !want)
+		}
+	}
+}

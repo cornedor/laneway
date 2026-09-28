@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Private notes: N in the panel opens notes/ABC-12.md in $EDITOR. They stay
@@ -31,7 +33,7 @@ func (m *Model) notesDir() string {
 // notesPath is key's notes file, "" without a store.
 func (m *Model) notesPath(key string) string {
 	d := m.notesDir()
-	if d == "" || key == "" {
+	if d == "" || !jira.ValidKey(key) {
 		return ""
 	}
 	return filepath.Join(d, key+".md")

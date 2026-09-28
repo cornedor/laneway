@@ -403,6 +403,9 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		return nil, fmt.Errorf("decode issue: %w", err)
 	}
+	if !ValidKey(decoded.Key) {
+		return nil, fmt.Errorf("jira: %s came back with a bad key %q", key, decoded.Key)
+	}
 	if cm := decoded.Fields.Comment; cm != nil && cm.Total > len(cm.Comments) {
 		cm.Comments = append(cm.Comments, c.moreComments(ctx, key, len(cm.Comments), cm.Total)...)
 	}

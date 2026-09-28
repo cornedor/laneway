@@ -476,6 +476,9 @@ func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Ca
 		}
 		out := make([]Card, 0, len(resp.Issues))
 		for _, is := range resp.Issues {
+			if !ValidKey(is.Key) {
+				continue
+			}
 			card := toCard(is.Key, is.Fields, pointsField)
 			card.PR = prState(is.Fields[dev])
 			card.Deploy = deployEnv(is.Fields[dev])

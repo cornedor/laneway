@@ -62,6 +62,20 @@ func TestNotes(t *testing.T) {
 	}
 }
 
+// TestNotesPathBadKey: a key that is not one gets no notes file.
+func TestNotesPathBadKey(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := Model{store: st}
+	for _, key := range []string{"../../.bashrc-1", "A/B-1", ""} {
+		if p := m.notesPath(key); p != "" {
+			t.Errorf("notesPath(%q) = %q", key, p)
+		}
+	}
+}
+
 // TestNotesDirSite: another site's notes sit in their own folder.
 func TestNotesDirSite(t *testing.T) {
 	d := t.TempDir()
