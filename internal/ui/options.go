@@ -16,7 +16,8 @@ type options struct {
 	autoRefresh     time.Duration // 0: off
 	staleAfter      time.Duration
 	images          bool
-	delight         bool // small celebrations (ui.delight)
+	delight         bool     // small celebrations (ui.delight)
+	llm             []string // the ask command (ui.llm), nil for the default
 	imageMaxRows    int
 	panelPct        int
 	panelDefault    int  // ui.panel_width, which a drag near it snaps back to
@@ -143,6 +144,9 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	if f := strings.Fields(c.ClipboardImage); len(f) > 0 {
 		o.clipboardImage = f
+	}
+	if f := strings.Fields(c.LLM); len(f) > 0 {
+		o.llm = f
 	}
 	if f := strings.Fields(c.Open); len(f) > 0 {
 		o.openCmd = f

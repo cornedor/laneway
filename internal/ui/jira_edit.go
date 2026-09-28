@@ -119,6 +119,8 @@ const (
 	jiraPickDeps
 	// jiraPickQueue lists the offline writes (queue.go).
 	jiraPickQueue
+	// jiraPickAsk picks what to ask ui.llm about the issue (llm.go).
+	jiraPickAsk
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -741,6 +743,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
 		return m, m.applyIssueAction(key, it.id)
+	}
+	if kind == jiraPickAsk {
+		m.closeJiraPicker()
+		return m, m.askLLM(it.id)
 	}
 	if kind == jiraPickLinkType {
 		key := m.jiraPicker.issueKey

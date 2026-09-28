@@ -200,6 +200,10 @@ type UIConfig struct {
 	// Delight is "on" (small celebrations: confetti on a card into done, a
 	// line on a completed sprint) or "off".
 	Delight string `yaml:"delight"`
+	// LLM is a command that answers a prompt (its last argument) about the
+	// issue on stdin: "claude -p", "llm", "ollama run llama3". By default
+	// claude -p when claude is on the PATH.
+	LLM string `yaml:"llm"`
 }
 
 // QuickFilter is a named JQL clause, ANDed with the board's query: a quick

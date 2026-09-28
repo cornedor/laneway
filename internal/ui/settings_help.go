@@ -54,6 +54,7 @@ var settingDocs = map[string]string{
 	"filters":              "named / queries to recall from the : palette",
 	"card_colors":          "how cards show the board's card colours",
 	"mouse":                "clicks, drags and the wheel; off leaves the mouse to the terminal",
+	"llm":                  "a command answering ctrl+a's questions about the issue, piped on stdin",
 	"delight":              "small celebrations: confetti on a card into done, a line on a completed sprint",
 	"double_click":         "how quickly a second click makes a double-click (100ms–2s)",
 	"icons":                "issue type icons: Nerd Font glyphs, or letters for fonts without them",

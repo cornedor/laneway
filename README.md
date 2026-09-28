@@ -90,6 +90,7 @@ ui:
     - {name: Mine, jql: "assignee = currentUser()"}
   card_colors: ribbon           # the board's own card colours as a bar on cards and rows; off
   mouse: on                     # clicks, drags and the wheel; off leaves the mouse to the terminal
+  llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off
   double_click: 400ms           # how quickly a second click opens (100ms–2s)
   icons: nerd                   # issue type glyphs need a Nerd Font; plain draws letters (B S E ↳ •)
@@ -303,6 +304,7 @@ Panel:
   parent an issue key; the sprint a pick of the board's
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels (existing ones suggested as you type: `↓` `tab`; custom labels fields and form rows too) · `a` assignee
 - talk: `c` comment (composed after the thread) · `R` reply (under its comment) · `w` log work · `T` timer
+- ask: `ctrl+a` pipes the issue, its comments and history to `ui.llm` (default `claude -p` when on the PATH) to summarise the thread, draft acceptance criteria, split it into subtasks or suggest points; the answer opens in the comment composer, posted only on `ctrl+s`
 - notes: `N` opens private notes in `$EDITOR`, a plain file beside the state file (`notes/ABC-12.md`, `notes-<site>/` for another site); the panel shows them folded, `is:notes` finds them, `A` posts them as a comment
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue, a web page, remove one · the issue: change its type, move it to another project, set the original estimate, time in each status, the dependency tree (blockers of blockers, and what it holds up), delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, screenshot a region (grim + slurp, gnome-screenshot, spectacle or screencapture), download or delete an attachment · your comments: edit, delete · post your notes · a draft pull request (see [Git](#git-and-your-shell))
