@@ -30,21 +30,23 @@ comment thread.
 
 ![An issue in the panel beside the board](docs/screenshots/panel.png)
 
-New here? The [guide](https://cornedor.github.io/laneway/guide/) walks you through it step by step
+New here? `laneway -demo` opens a generated board, no Jira needed. The
+[guide](https://cornedor.github.io/laneway/guide/) walks you through it step by step
 ([source](docs/guide/README.md)).
 
 ## Install
 
 ```sh
-brew install cornedor/tap/laneway
+brew install cornedor/tap/laneway      # macOS
 nix run github:cornedor/laneway
 go install github.com/cornedor/laneway@latest
 ```
 
 Or grab a binary from [Releases](https://github.com/cornedor/laneway/releases).
 
-`laneway -demo` tries it without Jira: a generated project (sprints,
-comments, worklogs) served in-process; what you change is gone when it ends.
+`laneway -demo` runs on a generated project (sprints, comments, worklogs)
+served in-process: nothing of yours is read or written, and what you change
+is gone when it ends.
 
 Once a day laneway looks for a newer release; one shows as `↑ v1.2` in the
 header, and the palette (`:`) has its upgrade command. `ui.update_check: off`

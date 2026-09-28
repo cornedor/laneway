@@ -6,15 +6,23 @@ and back out again.
 
 ## Install
 
-With Go:
+Pick one:
 
 ```sh
+brew install cornedor/tap/laneway      # macOS
+nix run github:cornedor/laneway
 go install github.com/cornedor/laneway@latest
 ```
 
-No Go? Grab a binary from
+Or grab a binary from
 [Releases](https://github.com/cornedor/laneway/releases) and put it on your
-`PATH`.
+`PATH`. When a newer release is out, `↑ v1.2` shows in the header and the
+palette (`:`) has the command that updates it.
+
+**Try it first:** `laneway -demo` opens a generated project, with sprints,
+comments and worklogs, served inside laneway itself. No site, no token;
+move cards and comment all you like, it is gone when you quit. Most of this
+guide works on it; git, agents and your own sites need the real thing.
 
 ## Tell it where your Jira is
 

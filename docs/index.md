@@ -10,10 +10,13 @@ without leaving the terminal.
 ## Install
 
 ```sh
+brew install cornedor/tap/laneway      # macOS
+nix run github:cornedor/laneway
 go install github.com/cornedor/laneway@latest
 ```
 
 Or grab a binary from [Releases](https://github.com/cornedor/laneway/releases).
+`laneway -demo` tries it on a generated board, no Jira needed.
 
 ## Where to start
 
