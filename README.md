@@ -43,6 +43,9 @@ go install github.com/cornedor/laneway@latest
 
 Or grab a binary from [Releases](https://github.com/cornedor/laneway/releases).
 
+`laneway -demo` tries it without Jira: a generated project (sprints,
+comments, worklogs) served in-process; what you change is gone when it ends.
+
 Once a day laneway looks for a newer release; one shows as `↑ v1.2` in the
 header, and the palette (`:`) has its upgrade command. `ui.update_check: off`
 stops it.

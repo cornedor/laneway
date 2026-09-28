@@ -38,7 +38,7 @@ compdef _laneway laneway
 
 // commandFlags are each command's flags, for completion.
 var commandFlags = map[string][]string{
-	"":       {"-config", "-site", "-version"},
+	"":       {"-config", "-site", "-demo", "-version"},
 	"list":   {"-config", "-site", "-format", "-jql"},
 	"view":   {"-config", "-site", "-format"},
 	"create": {"-config", "-site", "-format", "-project", "-type", "-summary", "-description"},

@@ -1,0 +1,232 @@
+package demo
+
+import (
+	"fmt"
+	"time"
+)
+
+// The generated project: DEMO on one scrum board, an active sprint with
+// work in every lane, the next sprint, a backlog, three epics, and four
+// closed sprints behind the velocity chart. Dates are relative to now.
+
+type user struct{ id, name string }
+
+var (
+	me    = user{"demo-0001", "Jamie Rivers"}
+	mira  = user{"demo-0002", "Mira Jansen"}
+	tomas = user{"demo-0003", "Tomás Ruiz"}
+	priya = user{"demo-0004", "Priya Nair"}
+	sam   = user{"demo-0005", "Sam Okafor"}
+	users = []user{me, mira, tomas, priya, sam}
+)
+
+type status struct{ id, name, cat string }
+
+var (
+	todo     = status{"1", "To Do", "new"}
+	doing    = status{"2", "In Progress", "indeterminate"}
+	review   = status{"3", "In Review", "indeterminate"}
+	done     = status{"4", "Done", "done"}
+	statuses = []status{todo, doing, review, done}
+)
+
+var types = map[string]string{"Epic": "10000", "Story": "10001", "Task": "10002", "Sub-task": "10003", "Bug": "10004"}
+
+var priorities = []string{"Highest", "High", "Medium", "Low", "Lowest"}
+
+const (
+	pointsField = "customfield_10016"
+	sprintField = "customfield_10020"
+	flagField   = "customfield_10021"
+	startField  = "customfield_10015"
+)
+
+const (
+	project  = "DEMO"
+	boardID  = 1
+	activeID = 12
+	nextID   = 13
+)
+
+type sprint struct {
+	id          int
+	name, state string
+	start, end  time.Time
+	goal        string
+}
+
+type comment struct {
+	id      string
+	author  user
+	body    string
+	created time.Time
+}
+
+type worklog struct {
+	id      string
+	author  user
+	started time.Time
+	seconds int
+	comment string
+}
+
+type change struct {
+	author   user
+	at       time.Time
+	field    string
+	from, to string
+	fromID   string
+	toID     string
+}
+
+type issue struct {
+	key, typ, summary string
+	status            status
+	priority          string
+	assignee          *user
+	reporter          user
+	points            float64
+	parent            string
+	sprint            int
+	due               string
+	flagged           bool
+	labels            []string
+	description       string
+	created, updated  time.Time
+	resolved          time.Time
+	start             string // an epic's start date
+	comments          []comment
+	worklogs          []worklog
+	changes           []change
+}
+
+// seed is one issue of the generated project.
+type seed struct {
+	key, typ, summary string
+	st                status
+	prio              int
+	who               *user
+	pts               float64
+	parent            string
+	sprint            int
+	due               int // days from now; 0 for none
+	flagged           bool
+	labels            []string
+}
+
+func generate(now time.Time) *Server {
+	day := func(d int) time.Time { return now.AddDate(0, 0, d) }
+	date := func(d int) string { return day(d).Format(time.DateOnly) }
+	s := &Server{now: now, issues: map[string]*issue{}, sprints: []sprint{
+		{id: activeID, name: "Sprint 12 - Checkout", state: "active", start: day(-5), end: day(9),
+			goal: "Guest checkout behind a flag, and the order page under 400ms."},
+		{id: nextID, name: "Sprint 13", state: "future"},
+	}}
+	for i, n := range []struct{ committed, done int }{{31, 26}, {38, 38}, {35, 29}, {40, 34}} {
+		end := day(-6 - 14*(3-i))
+		s.sprints = append(s.sprints, sprint{id: 8 + i, name: fmt.Sprintf("Sprint %d", 8+i), state: "closed", start: end.AddDate(0, 0, -13), end: end})
+		s.closedWork(8+i, n.committed, n.done, end)
+	}
+	seeds := []seed{
+		{"DEMO-1", "Epic", "Guest checkout", doing, 2, &mira, 0, "", 0, 20, false, nil},
+		{"DEMO-2", "Epic", "Order page performance", doing, 3, &priya, 0, "", 0, 12, false, nil},
+		{"DEMO-3", "Epic", "Invoices", todo, 3, nil, 0, "", 0, 45, false, nil},
+		{"DEMO-4", "Story", "Checkout without an account", doing, 2, &me, 5, "DEMO-1", activeID, 4, false, []string{"frontend"}},
+		{"DEMO-5", "Story", "Remember the guest's address for the next order", todo, 3, &tomas, 3, "DEMO-1", activeID, 8, false, []string{"frontend"}},
+		{"DEMO-6", "Bug", "Order total rounds a cent off on split payments", doing, 1, &sam, 3, "DEMO-1", activeID, 1, true, []string{"backend"}},
+		{"DEMO-7", "Task", "Cache the shipping-rate lookup per region", review, 3, &priya, 2, "DEMO-2", activeID, 3, false, []string{"backend"}},
+		{"DEMO-8", "Story", "Lazy-load product images on the order page", review, 3, &mira, 3, "DEMO-2", activeID, 0, false, []string{"frontend"}},
+		{"DEMO-9", "Bug", "Double click on Pay places two orders", todo, 1, &me, 2, "DEMO-1", activeID, 0, true, []string{"backend"}},
+		{"DEMO-10", "Task", "p95 latency panel for the order page", todo, 4, &priya, 1, "DEMO-2", activeID, 12, false, nil},
+		{"DEMO-11", "Story", "Order confirmation e-mail for guests", done, 3, &tomas, 3, "DEMO-1", activeID, 0, false, nil},
+		{"DEMO-12", "Task", "Drop the legacy /v1/cart endpoint", done, 4, &sam, 2, "", activeID, 0, false, []string{"backend"}},
+		{"DEMO-13", "Bug", "Address form loses the house number", review, 2, &me, 1, "DEMO-1", activeID, 0, false, []string{"frontend"}},
+		{"DEMO-14", "Story", "Invoice PDF per order", todo, 3, nil, 5, "DEMO-3", nextID, 0, false, nil},
+		{"DEMO-15", "Task", "VAT line on invoices for the EU", todo, 3, nil, 3, "DEMO-3", nextID, 0, false, nil},
+		{"DEMO-16", "Story", "Resend an invoice from the order page", todo, 4, &tomas, 2, "DEMO-3", nextID, 0, false, nil},
+		{"DEMO-17", "Bug", "Search results jump when images load", todo, 3, nil, 0, "", 0, 0, false, []string{"frontend"}},
+		{"DEMO-18", "Task", "Upgrade the payment SDK", todo, 4, nil, 2, "", 0, 0, false, nil},
+		{"DEMO-19", "Story", "Saved carts across devices", todo, 5, nil, 8, "", 0, 0, false, nil},
+		{"DEMO-20", "Task", "Retry failed webhooks with a backoff", todo, 3, nil, 3, "DEMO-2", 0, 0, false, []string{"backend"}},
+		{"DEMO-21", "Sub-task", "Guest session token", done, 3, &me, 0, "DEMO-4", 0, 0, false, nil},
+		{"DEMO-22", "Sub-task", "Skip the account step in the flow", doing, 3, &me, 0, "DEMO-4", 0, 0, false, nil},
+		{"DEMO-23", "Sub-task", "Guest checkout behind the feature flag", todo, 3, nil, 0, "DEMO-4", 0, 0, false, nil},
+	}
+	for i, sd := range seeds {
+		iss := &issue{key: sd.key, typ: sd.typ, summary: sd.summary, status: sd.st, priority: priorities[sd.prio-1],
+			assignee: sd.who, reporter: mira, points: sd.pts, parent: sd.parent, sprint: sd.sprint,
+			flagged: sd.flagged, labels: sd.labels, created: day(-20 + i/2), updated: day(-1).Add(time.Duration(i) * time.Hour),
+			description: "What: " + sd.summary + ".\n\nWhy: part of " + orNone(sd.parent) + "."}
+		if sd.due != 0 {
+			iss.due = date(sd.due)
+		}
+		if sd.st == done {
+			iss.resolved = day(-4 + i%3)
+		}
+		if sd.typ == "Epic" {
+			iss.start = date(-20 + 12*i)
+		}
+		// A status history that walks the workflow up to where it is.
+		at := day(-6)
+		for j := 1; j < len(statuses) && statuses[j-1] != sd.st; j++ {
+			from, to := statuses[j-1], statuses[j]
+			who := me
+			if sd.who != nil {
+				who = *sd.who
+			}
+			iss.changes = append(iss.changes, change{author: who, at: at, field: "status", from: from.name, to: to.name, fromID: from.id, toID: to.id})
+			at = at.AddDate(0, 0, 2)
+		}
+		s.issues[sd.key] = iss
+		s.order = append(s.order, sd.key)
+	}
+	s.comment("DEMO-4", mira, "Can we keep the account upsell on the confirmation page?", day(-2))
+	s.comment("DEMO-4", me, "Yes, after the order: it won't block paying.", day(-1))
+	s.comment("DEMO-6", sam, "Reproduced with a 3-way split of 10.00: one part gets 3.34.", day(-1))
+	s.comment("DEMO-7", priya, "Hit rate is 92% on staging.", now.Add(-3*time.Hour))
+	for d, w := range []struct {
+		key  string
+		secs int
+		text string
+	}{{"DEMO-4", 3 * 3600, "guest session"}, {"DEMO-13", 5400, "reproduce"}, {"DEMO-4", 4 * 3600, "skip the account step"}, {"DEMO-9", 3600, "look into it"}} {
+		s.worklog(w.key, me, day(-d-1).Truncate(24*time.Hour).Add(9*time.Hour), w.secs, w.text)
+	}
+	return s
+}
+
+func orNone(parent string) string {
+	if parent == "" {
+		return "the backlog"
+	}
+	return parent
+}
+
+// closedWork adds a closed sprint's issues: only what the velocity chart
+// reads, off the board.
+func (s *Server) closedWork(sp, committed, doneP int, end time.Time) {
+	sizes := []float64{3, 5, 2, 8, 3, 5, 1, 2, 5, 3}
+	for i := 0; committed > 0; i++ {
+		pts := min(float64(committed), sizes[i%len(sizes)])
+		committed -= int(pts)
+		iss := &issue{key: fmt.Sprintf("DEMO-%d", 100+len(s.hidden)), typ: "Story", summary: "Earlier work", status: todo,
+			priority: "Medium", reporter: mira, points: pts, sprint: sp, created: end.AddDate(0, 0, -20), updated: end}
+		if doneP >= int(pts) {
+			doneP -= int(pts)
+			iss.status, iss.resolved = done, end.AddDate(0, 0, -1-i%5)
+		}
+		s.issues[iss.key] = iss
+		s.hidden = append(s.hidden, iss.key)
+	}
+}
+
+func (s *Server) comment(key string, who user, body string, at time.Time) {
+	iss := s.issues[key]
+	s.seq++
+	iss.comments = append(iss.comments, comment{id: fmt.Sprint(s.seq), author: who, body: body, created: at})
+}
+
+func (s *Server) worklog(key string, who user, at time.Time, secs int, text string) {
+	iss := s.issues[key]
+	s.seq++
+	iss.worklogs = append(iss.worklogs, worklog{id: fmt.Sprint(s.seq), author: who, started: at, seconds: secs, comment: text})
+}
