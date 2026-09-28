@@ -2970,7 +2970,14 @@ func (m *Model) renderJiraPane(height, width int) string {
 		borderColor = focusedColor
 	}
 	content := strings.Join(rows, "\n")
-	box, ok := renderPaneBox(content, boxW, innerH, borderColor)
+	var box string
+	ok := false
+	if refW == 0 {
+		box, ok = renderPaneBox(content, boxW, innerH, borderColor)
+	} else {
+		box, ok = renderPanelBox(content, listW, innerH, borderColor)
+	}
+	cut := !ok && refW > 0
 	if !ok {
 		box = lipgloss.NewStyle().Border(border).UnsetBorderTop().
 			Width(boxW).Height(innerH).BorderForeground(borderColor).Render(content)
@@ -2979,11 +2986,14 @@ func (m *Model) renderJiraPane(height, width int) string {
 	if refW == 0 {
 		return list
 	}
-	lines := strings.Split(list, "\n")
-	for i, l := range lines {
-		lines[i] = ansi.Truncate(l, listW, "")
+	if cut {
+		lines := strings.Split(list, "\n")
+		for i, l := range lines {
+			lines[i] = ansi.Truncate(l, listW, "")
+		}
+		list = strings.Join(lines, "\n")
 	}
-	list, ref := strings.Join(lines, "\n"), m.renderRefPane(height, refW)
+	ref := m.renderRefPane(height, refW)
 	if pane, ok := joinBeside(list, ref); ok {
 		return pane
 	}
