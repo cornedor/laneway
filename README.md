@@ -152,7 +152,7 @@ Actions for `keys:`, by where they first apply:
 
 - board: up down left right top bottom page_up page_down open toggle_panel
   browser refresh quit help search goto create copy_key copy_url copy_branch
-  move_left move_right rank_up rank_down project board next_view prev_view
+  move_left move_right rank_up rank_down rank_top rank_bottom project board next_view prev_view
   toggle_mode sort fold unfold_all compact move_sprint assignee_filter mine
   clear_filters mark mark_all undo bulk quick_edit pin palette jql
   filter_builder my_work review roadmap plan charts releases timer timesheet
@@ -289,7 +289,7 @@ Board:
 - move: arrows or `hjkl` · `enter` open · `tab` panel · `#` go to key · `/` search · `F` filter builder (field, compare and value columns side by side, typing narrows the one with the cursor, `enter` adds the term to the `/` query and stays for the next, `ctrl+x` drops the last; the terms show as header chips, a click removes one)
 - board: `p` project · `b` board · `[` `]` view · `t` lanes/list · `s` sort list (rank, priority, points, assignee, epic, key, status, updated, due, created; by assignee, priority, epic or status it groups), in lanes swimlanes by assignee / epic / priority (kept per board; a drop into another band assigns it; `z` folds a band, `Z` unfolds all) ·
   `a` assignee · `m` mine · `1-9` quick filters · `0` clear · `r` refresh · `@` site
-- cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank) · `u` undo the last change: a move, a band drop, a field, quick or bulk edit, a sprint move or a deleted comment (also in the panel) · `.` does the last move or quick / bulk edit again on the selected card · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
+- cards: `H`/`L` move a lane · `K`/`J` rank in its lane (or a list by rank), `alt+k`/`alt+j` to its top / bottom · `u` undo the last change: a move, a rank, a band drop, a field, quick or bulk edit, a sprint move or a deleted comment (also in the panel) · `.` does the last move or quick / bulk edit again on the selected card · `M` to sprint/backlog · `n` new issue (see [New issues](#new-issues)) · `x`/`X`
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out), `esc` back to now
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list

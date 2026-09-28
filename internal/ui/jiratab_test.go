@@ -1495,6 +1495,56 @@ func TestBoardRank(t *testing.T) {
 	}
 }
 
+// TestBoardRankEnds: alt+j and alt+k rank a card to the bottom and top of
+// its lane; u ranks it back beside its old neighbour.
+func TestBoardRankEnds(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Summary: "Fifth", StatusID: "1", Status: "New"})
+	m.buildJiraLanes()
+	lane := func() (keys []string) {
+		for _, i := range m.jiraTab.lanes[0].cards {
+			keys = append(keys, m.jiraTab.cards[i].Key)
+		}
+		return keys
+	}
+
+	out, cmd := m.handleKey(tea.KeyPressMsg{Code: 'j', Mod: tea.ModAlt})
+	m = out.(Model)
+	if got := strings.Join(lane(), " "); got != "ABC-3 ABC-5 ABC-1" || m.selectedJiraKey() != "ABC-1" {
+		t.Fatalf("lane = %s, selected %s", got, m.selectedJiraKey())
+	}
+	cmd()
+	if body != `{"issues":["ABC-1"],"rankAfterIssue":"ABC-5"}` {
+		t.Errorf("to the bottom: %s", body)
+	}
+	out, _ = m.handleKey(tea.KeyPressMsg{Code: 'j', Mod: tea.ModAlt})
+	if m = out.(Model); m.status != "ABC-1 is ranked last already" {
+		t.Errorf("at the bottom: %q", m.status)
+	}
+
+	out, cmd = m.handleKey(keyStr("u"))
+	m = out.(Model)
+	cmd()
+	if body != `{"issues":["ABC-1"],"rankBeforeIssue":"ABC-3"}` {
+		t.Errorf("undo: %s", body)
+	}
+
+	out, cmd = m.handleKey(tea.KeyPressMsg{Code: 'k', Mod: tea.ModAlt})
+	m = out.(Model)
+	cmd()
+	if got := strings.Join(lane(), " "); got != "ABC-1 ABC-3 ABC-5" || body != `{"issues":["ABC-1"],"rankBeforeIssue":"ABC-3"}` {
+		t.Errorf("to the top: lane %s, rank %s", got, body)
+	}
+}
+
 // TestPickersFilter: the board and sprint pickers take a filter as the
 // project picker does.
 func TestPickersFilter(t *testing.T) {

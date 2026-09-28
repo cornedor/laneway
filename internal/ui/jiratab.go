@@ -930,6 +930,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.rankJiraCard(-1)
 	case key.Matches(msg, m.keys.RankDown):
 		return m, m.rankJiraCard(1)
+	case key.Matches(msg, m.keys.RankTop):
+		return m, m.rankJiraCard(-jiraRankEnd)
+	case key.Matches(msg, m.keys.RankBottom):
+		return m, m.rankJiraCard(jiraRankEnd)
 	case key.Matches(msg, m.keys.Home):
 		t.idx, t.row = 0, 0
 		m.renderJira()
@@ -1306,7 +1310,7 @@ func (m *Model) needsCard(msg tea.KeyPressMsg) bool {
 	if len(m.jiraTab.marked) > 0 {
 		return false
 	}
-	for _, b := range []key.Binding{k.OpenChannel, k.OpenAttach, k.Pin, k.CopyBranch, k.CopyKey, k.CopyURL, k.Mark, k.QuickEdit, k.MoveSprint, k.MoveCardLeft, k.MoveCardRight, k.RankUp, k.RankDown} {
+	for _, b := range []key.Binding{k.OpenChannel, k.OpenAttach, k.Pin, k.CopyBranch, k.CopyKey, k.CopyURL, k.Mark, k.QuickEdit, k.MoveSprint, k.MoveCardLeft, k.MoveCardRight, k.RankUp, k.RankDown, k.RankTop, k.RankBottom} {
 		if key.Matches(msg, b) {
 			return true
 		}
@@ -1320,9 +1324,11 @@ type jiraRankedMsg struct {
 	err error
 }
 
-// rankJiraCard ranks the selected card before (d -1) or after (d 1) the card
-// next to it: in its lane, or in a list in rank order. The cards swap on
-// screen at once; a failed rank refetches the board.
+// jiraRankEnd, as rankJiraCard's d, ranks to the top (-) or bottom (+).
+const jiraRankEnd = 1 << 30
+
+// rankJiraCard ranks the selected card d places up (-) or down (+): in its
+// lane, or in a list in rank order.
 func (m *Model) rankJiraCard(d int) tea.Cmd {
 	t := m.jiraTab
 	var shown []int // the card indexes in the order the cursor walks
@@ -1344,25 +1350,47 @@ func (m *Model) rankJiraCard(d int) tea.Cmd {
 	if at >= len(shown) {
 		return nil
 	}
-	c := t.cards[shown[at]]
-	switch {
-	case at+d < 0:
-		m.status = c.Key + " is ranked first already"
+	to := min(max(at+d, 0), len(shown)-1)
+	switch key := t.cards[shown[at]].Key; {
+	case to == at && d < 0:
+		m.status = key + " is ranked first already"
 		return nil
-	case at+d >= len(shown):
-		m.status = c.Key + " is ranked last already"
+	case to == at:
+		m.status = key + " is ranked last already"
 		return nil
 	}
-	other := t.cards[shown[at+d]]
-	i, j := shown[at], shown[at+d]
-	t.cards[i], t.cards[j] = t.cards[j], t.cards[i]
+	return m.rankJiraCardTo(shown, at, to)
+}
+
+// rankJiraCardTo ranks card shown[at] into place to of shown: before the
+// card there going up, after it going down. The card moves on screen at
+// once; u ranks it back beside its old neighbour; a failed rank refetches
+// the board.
+func (m *Model) rankJiraCardTo(shown []int, at, to int) tea.Cmd {
+	t := m.jiraTab
+	c, other, after := t.cards[shown[at]], t.cards[shown[to]], to > at
+	client := m.jiraClient
+	if at+1 < len(shown) {
+		next := t.cards[shown[at+1]].Key
+		m.recordUndo(c.Key+"'s rank", func(ctx context.Context) error { return client.Rank(ctx, c.Key, next, false) })
+	} else if at > 0 {
+		prev := t.cards[shown[at-1]].Key
+		m.recordUndo(c.Key+"'s rank", func(ctx context.Context) error { return client.Rank(ctx, c.Key, prev, true) })
+	}
+	i := shown[at]
+	t.cards = slices.Delete(t.cards, i, i+1)
+	j := slices.IndexFunc(t.cards, func(cd jira.Card) bool { return cd.Key == other.Key })
+	if after {
+		j++
+	}
+	t.cards = slices.Insert(t.cards, j, c)
 	m.buildJiraLanes()
 	m.selectJiraKey(c.Key)
 	m.renderJira()
 	m.status = "ranking " + c.Key + "…"
-	client, ctx := m.jiraClient, m.ctx
+	ctx := m.ctx
 	return func() tea.Msg {
-		return jiraRankedMsg{key: c.Key, err: client.Rank(ctx, c.Key, other.Key, d > 0)}
+		return jiraRankedMsg{key: c.Key, err: client.Rank(ctx, c.Key, other.Key, after)}
 	}
 }
 

@@ -68,6 +68,7 @@ type keyMap struct {
 	PlanStart, PlanGoal, PlanRename     key.Binding
 	PlanNew, PlanComplete               key.Binding
 	RankUp, RankDown                    key.Binding
+	RankTop, RankBottom                 key.Binding
 	RoadmapGrip, RoadmapFold            key.Binding
 	ZoomIn, ZoomOut, Today              key.Binding
 	EndEarlier, EndLater, RoadmapIssues key.Binding
@@ -173,6 +174,8 @@ func defaultKeys() keyMap {
 		PlanComplete:    bind("complete the sprint (twice)", "C"),
 		RankUp:          bind("rank up", "K"),
 		RankDown:        bind("rank down", "J"),
+		RankTop:         bind("rank to the top", "alt+k"),
+		RankBottom:      bind("rank to the bottom", "alt+j"),
 		RoadmapGrip:     bind("grip the bar's start, end, let go", "e"),
 		RoadmapFold:     bind("fold the epic's issues", "space"),
 		ZoomIn:          bind("zoom in", "+", "="),
