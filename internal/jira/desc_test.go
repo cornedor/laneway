@@ -200,3 +200,46 @@ func TestEditableTrailingSpace(t *testing.T) {
 		t.Fatalf("%q, kept %d, %v", ed.Markdown, len(ed.Kept), err)
 	}
 }
+
+// TestEmoji: a known :shortcode: saves as Jira's emoji node, not as text;
+// an emoji node edits as its shortcode and saves back as one; text that
+// only looks like one (a time, an unknown name) stays text.
+func TestEmoji(t *testing.T) {
+	doc, _ := json.Marshal(MarkdownToADF("ship it :rocket: at 10:30 :nosuchemoji: **:tada:**"))
+	got := string(doc)
+	for _, want := range []string{`{"attrs":{"shortName":":rocket:","text":"🚀"},"type":"emoji"}`, `"shortName":":tada:"`, `at 10:30 :nosuchemoji: `} {
+		if !strings.Contains(got, want) {
+			t.Errorf("saved lacks %s:\n%s", want, got)
+		}
+	}
+	para := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"nice "},{"type":"emoji","attrs":{"shortName":":thumbsup:","id":"1f44d","text":"👍"}},{"type":"text","text":" but :smile: is typed"}]}]}`
+	ed, err := EditableDescription(json.RawMessage(para))
+	if err != nil || len(ed.Kept) != 0 || ed.Markdown != `nice :thumbsup: but \:smile: is typed` {
+		t.Fatalf("%q, kept %d, %v", ed.Markdown, len(ed.Kept), err)
+	}
+	back, _ := json.Marshal(MarkdownToADFKept(ed.Markdown, ed.Kept))
+	if s := string(back); !strings.Contains(s, `"shortName":":thumbsup:"`) || !strings.Contains(s, `" but :smile: is typed"`) {
+		t.Errorf("saved = %s", s)
+	}
+}
+
+// TestEmojiShows: an emoji Jira names in a way the table doesn't know (a
+// skin tone, a custom one) shows as its text.
+func TestEmojiShows(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"paragraph","content":[
+	  {"type":"emoji","attrs":{"shortName":":thumbsup::skin-tone-2:","id":"1f44d","text":"👍🏽"}},
+	  {"type":"emoji","attrs":{"shortName":":awthanks:","id":"atlassian-awthanks","text":":awthanks:"}},
+	  {"type":"emoji","attrs":{"shortName":":grinning:"}}]}]}`
+	if got := adfToMarkdown(json.RawMessage(doc)); got != "👍🏽:awthanks::grinning:" {
+		t.Errorf("shows %q", got)
+	}
+}
+
+// TestTextEmoji: a plain-text comment's :shortcode: posts as an emoji too.
+func TestTextEmoji(t *testing.T) {
+	doc, _ := json.Marshal(textToADF("done :tada: at 10:30:00 `:x:`", nil))
+	got := string(doc)
+	if !strings.Contains(got, `{"text":"done ","type":"text"},{"attrs":{"shortName":":tada:","text":"🎉"},"type":"emoji"},{"text":" at 10:30:00 `+"`:x:`"+`","type":"text"}`) {
+		t.Errorf("doc = %s", got)
+	}
+}

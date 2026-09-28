@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cornedor/laneway/internal/emoji"
 )
 
 // Editing a description as markdown. Only documents made of what markdown
@@ -23,7 +25,7 @@ import (
 // trip keeps.
 var (
 	editableBlocks = []string{"doc", "paragraph", "heading", "bulletList", "orderedList", "listItem",
-		"codeBlock", "blockquote", "rule", "text", "hardBreak"}
+		"codeBlock", "blockquote", "rule", "text", "hardBreak", "emoji"}
 	editableMarks = []string{"strong", "em", "code", "strike", "link"}
 )
 
@@ -325,13 +327,36 @@ func escapeMD(s string, start bool) string {
 		b.WriteString(m[:len(m)-1] + "\\" + m[len(m)-1:])
 		s = s[len(m):]
 	}
-	for _, r := range s {
+	for i, r := range s {
 		if strings.ContainsRune("\\*~`[", r) {
+			b.WriteByte('\\')
+		}
+		if _, _, ok := emojiAt(s, i); ok { // a typed shortcode stays text
 			b.WriteByte('\\')
 		}
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// mdEmoji is a :shortcode: at a string's start.
+var mdEmoji = regexp.MustCompile(`^:[a-zA-Z0-9_+\-]+:`)
+
+// emojiAt is the shortcode of an emoji the table knows at s[i:], and its
+// length: one standing alone, not in a time (10:30:00), a word or `quotes`.
+func emojiAt(s string, i int) (short string, n int, ok bool) {
+	if s[i] != ':' || i > 0 && isWordByte(s[i-1]) {
+		return "", 0, false
+	}
+	short = mdEmoji.FindString(s[i:])
+	if short == "" || i+len(short) < len(s) && isWordByte(s[i+len(short)]) || emoji.Glyph(short[1:len(short)-1]) == "" {
+		return "", 0, false
+	}
+	return short, len(short), true
+}
+
+func isWordByte(c byte) bool {
+	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '`'
 }
 
 // blockName says what a kept block is: "table", "paragraph with a mention".
@@ -380,6 +405,9 @@ func canon(n adfNode) string {
 	case "panel":
 		typ, _ := n.Attrs["panelType"].(string)
 		b.WriteString(":" + typ)
+	case "emoji":
+		short, _ := n.Attrs["shortName"].(string)
+		b.WriteString(short)
 	}
 	b.WriteString("(")
 	content := n.Content
@@ -621,6 +649,12 @@ func parseInline(s string, marks []any) []any {
 					continue
 				}
 			}
+		}
+		if short, n, ok := emojiAt(s, i); ok { // an emoji takes no marks
+			emit()
+			out = append(out, map[string]any{"type": "emoji", "attrs": map[string]any{"shortName": short, "text": emoji.Glyph(short[1 : len(short)-1])}})
+			i += n
+			continue
 		}
 		matched := false
 		for _, sp := range mdSpans {

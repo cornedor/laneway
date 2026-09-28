@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cornedor/laneway/internal/emoji"
 )
 
 // adfNode is one node in an Atlassian Document Format tree. Block and inline
@@ -169,11 +171,7 @@ func inline(nodes []adfNode) string {
 				b.WriteString(strings.TrimPrefix(name, "@"))
 			}
 		case "emoji":
-			if short, ok := n.Attrs["shortName"].(string); ok {
-				b.WriteString(short)
-			} else if txt, ok := n.Attrs["text"].(string); ok {
-				b.WriteString(txt)
-			}
+			b.WriteString(emojiText(n))
 		case "inlineCard":
 			if href, ok := n.Attrs["url"].(string); ok {
 				b.WriteString(href)
@@ -263,7 +261,32 @@ func textToADF(text string, mention *Mention) map[string]any {
 		// Jira rejects an empty doc; a single space keeps it valid.
 		blocks = []any{paragraphNode([]string{" "})}
 	}
-	return map[string]any{"type": "doc", "version": 1, "content": blocks}
+	doc := map[string]any{"type": "doc", "version": 1, "content": blocks}
+	splitTexts(doc, splitEmoji)
+	return doc
+}
+
+// splitEmoji cuts text into text and emoji nodes, one per :shortcode: the
+// emoji table knows.
+func splitEmoji(text string) []any {
+	var out []any
+	from := 0
+	for i := 0; i < len(text); i++ {
+		short, n, ok := emojiAt(text, i)
+		if !ok {
+			continue
+		}
+		if i > from {
+			out = append(out, map[string]any{"type": "text", "text": text[from:i]})
+		}
+		out = append(out, map[string]any{"type": "emoji", "attrs": map[string]any{"shortName": short, "text": emoji.Glyph(short[1 : len(short)-1])}})
+		i += n - 1
+		from = i + 1
+	}
+	if from < len(text) {
+		out = append(out, map[string]any{"type": "text", "text": text[from:]})
+	}
+	return out
 }
 
 // parseADFBlocks splits plain text into ADF block nodes (paragraphs and
@@ -405,4 +428,16 @@ func splitMentions(text string, ms []Mention) []any {
 		}
 	}
 	return []any{map[string]any{"type": "text", "text": text}}
+}
+
+// emojiText is how an emoji node reads: its :shortcode: when the emoji
+// table knows it (the panel draws it, an edit keeps it), else its text,
+// the glyph Jira gives a skin tone or a custom emoji.
+func emojiText(n adfNode) string {
+	short, _ := n.Attrs["shortName"].(string)
+	text, _ := n.Attrs["text"].(string)
+	if name := strings.Trim(short, ":"); mdEmoji.MatchString(short) && len(name)+2 == len(short) && emoji.Glyph(name) != "" || text == "" {
+		return short
+	}
+	return text
 }

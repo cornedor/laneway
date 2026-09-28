@@ -159,7 +159,7 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 		if list := m.renderMentions(); list != "" {
 			view = append(view, strings.Split(list, "\n")...)
 		}
-		hint := "ctrl+s post · @ mention · ctrl+o who sees it · esc cancel"
+		hint := "ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel"
 		if v := m.jiraCommentVis; v != (jira.Visibility{}) {
 			hint = "for " + v.Label() + " · " + hint
 		}

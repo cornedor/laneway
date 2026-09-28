@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -66,5 +68,51 @@ func TestMentionFlow(t *testing.T) {
 	cmd()
 	if !strings.Contains(posted, `"type":"mention"`) || !strings.Contains(posted, `"id":"a1"`) {
 		t.Errorf("posted = %s", posted)
+	}
+}
+
+// TestEmojiFlow: ":rocke" offers the rocket, tab writes it, posting sends
+// Jira's emoji; a comment's emoji shows as its glyph.
+func TestEmojiFlow(t *testing.T) {
+	var posted string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		posted = string(b)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.openJiraCommentInput()
+	m.jiraCommentInput.SetValue("ship it :rocke")
+	m.jiraCommentInput.CursorEnd()
+	if cmd := m.scheduleMention(); cmd != nil || len(m.jiraMention.emoji) == 0 || m.jiraMention.emoji[0] != "rocket" {
+		t.Fatalf("offered %v", m.jiraMention.emoji)
+	}
+	m.renderRef() // as Update does after a key
+	if !strings.Contains(ansi.Strip(m.View().Content), "🚀 :rocket:") {
+		t.Fatal("emoji not shown")
+	}
+	out, _ := m.handleJiraCommentKey(keyMsg(t, "tab"))
+	m = out.(Model)
+	if got := m.jiraCommentInput.Value(); got != "ship it :rocket: " {
+		t.Fatalf("value = %q", got)
+	}
+	_, cmd := m.applyJiraComment()
+	cmd()
+	if !strings.Contains(posted, `"shortName":":rocket:"`) || !strings.Contains(posted, `"type":"emoji"`) {
+		t.Errorf("posted = %s", posted)
+	}
+	for _, text := range []string{"at 10:30", "mail me:ab"} {
+		if _, _, ok := emojiQueryAt(text, len(text)); ok {
+			t.Errorf("%q offered emoji", text)
+		}
+	}
+
+	m = loadedJiraModel(t)
+	m.jiraIssue.Comments = []jira.Comment{{ID: "1", Author: "Ann", Body: "nice 👍🏽:tada:"}} // as jira reads the emoji nodes (TestEmojiShows)
+	m.renderRef()
+	if got := ansi.Strip(m.refView.GetContent()); !strings.Contains(got, "nice 👍🏽🎉") {
+		t.Errorf("comment shows:\n%s", got)
 	}
 }

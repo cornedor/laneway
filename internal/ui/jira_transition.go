@@ -790,7 +790,7 @@ func (m *Model) renderJiraForm() string {
 	}
 	switch {
 	case f.multiline && onCreate && f.fields[f.idx].ID == createDescField:
-		hint = "ctrl+s keep · ↵ newline · @ mention · esc undo"
+		hint = "ctrl+s keep · ↵ newline · @ mention · : emoji · esc undo"
 	case f.multiline:
 		hint = "ctrl+s keep · ↵ newline · esc undo"
 	case f.editing && onCreate && f.fields[f.idx].ID == createSummaryField:
