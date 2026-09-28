@@ -793,10 +793,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.closeJiraPicker()
-		key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
-		m.undoDeleteComment(key, m.jiraIssue.Comments[i])
-		m.status = "deleting the comment…"
-		return m, jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+		return m, m.deleteComment(i)
 	}
 	if kind == jiraPickReporter {
 		key := m.jiraPicker.issueKey

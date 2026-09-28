@@ -1,6 +1,11 @@
 package ui
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -114,6 +119,76 @@ func TestCommentBylineClick(t *testing.T) {
 	out, _ = m.Update(tea.MouseClickMsg{X: listW + 4, Y: y, Button: tea.MouseLeft})
 	if m = out.(Model); !m.jiraCommentActive || m.jiraCommentReplyTo != "Bob" {
 		t.Errorf("composer %v, reply to %q", m.jiraCommentActive, m.jiraCommentReplyTo)
+	}
+}
+
+// TestCommentActions: each comment has a row of actions: reply on
+// anyone's, edit and delete (clicked twice) on your own, a threaded reply too.
+func TestCommentActions(t *testing.T) {
+	var deleted string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/myself":
+			fmt.Fprint(w, `{"accountId":"me1","displayName":"Me"}`)
+		case r.Method == http.MethodDelete:
+			deleted = r.URL.Path
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			fmt.Fprint(w, `{}`)
+		}
+	}))
+	defer srv.Close()
+	m := configuredJiraModel(t, "ABC")
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if _, err := m.jiraClient.Myself(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	when := time.Date(2025, 9, 25, 9, 0, 0, 0, time.Local)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Comments: []jira.Comment{
+		{ID: "1", Author: "Ann", AuthorID: "ann", Created: when, Body: "first"},
+		{ID: "2", Author: "Me", AuthorID: "me1", Created: when.Add(time.Hour), Body: "second", ParentID: "1", Raw: json.RawMessage(`{"type":"doc","version":1,"content":[]}`)},
+	}}})
+	m = out.(Model)
+	content := ansi.Strip(m.refView.GetContent())
+	if strings.Count(content, "↩ reply · ✎ edit · ✕ delete") != 1 || strings.Count(content, "↩ reply") != 2 {
+		t.Fatalf("action rows:\n%s", content)
+	}
+	click := func(label string) tea.Cmd {
+		t.Helper()
+		lines := strings.Split(m.refView.GetContent(), "\n")
+		for i, l := range lines {
+			plain := ansi.Strip(l)
+			col := strings.Index(plain, label)
+			if col < 0 || !strings.Contains(plain, "✎ edit") {
+				continue
+			}
+			y := 1 + m.crumbRows() + visualRowsBefore(lines, i, m.refView.Width()) - m.refView.YOffset()
+			listW, _ := m.jiraListWidth(m.width)
+			x := listW + 1 + ansi.StringWidth(plain[:col])
+			out, cmd := m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+			m = out.(Model)
+			return cmd
+		}
+		t.Fatalf("no %q on screen", label)
+		return nil
+	}
+	if cmd := click("✎ edit"); cmd == nil {
+		t.Fatal("edit did nothing")
+	} else if msg, ok := cmd().(descLoadedMsg); !ok || msg.comment != "2" {
+		t.Errorf("edit = %#v", msg)
+	}
+	if cmd := click("✕ delete"); cmd != nil || !strings.Contains(ansi.Strip(m.refView.GetContent()), "delete? click again") {
+		t.Fatalf("first delete click should ask")
+	}
+	cmd := click("✕ delete")
+	if cmd == nil {
+		t.Fatal("second click did not delete")
+	}
+	cmd()
+	if deleted != "/rest/api/3/issue/ABC-1/comment/2" {
+		t.Errorf("deleted %q", deleted)
 	}
 }
 

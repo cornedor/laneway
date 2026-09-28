@@ -407,8 +407,15 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 		} else {
 			m.renderComment(&cb, c)
 		}
-		m.commentHeads = append(m.commentHeads, commentHead{i: tc.i,
-			text: strings.Repeat("│ ", min(tc.depth, replyDepthMax)) + m.commentByline(iss.Comments[tc.i])})
+		bars := strings.Repeat("│ ", min(tc.depth, replyDepthMax))
+		head := commentHead{i: tc.i, text: bars + m.commentByline(iss.Comments[tc.i])}
+		if !m.commentEditOn(iss.Comments[tc.i].ID) {
+			head.acts = m.commentActionLine(iss.Comments[tc.i])
+			if bars != "" { // the gutter's spaces sit after the bars, not trimmed
+				head.acts, head.bar = bars+"  "+head.acts, ansi.StringWidth(bars)+2
+			}
+		}
+		m.commentHeads = append(m.commentHeads, head)
 		b.WriteString(indentReply(cb.String(), tc.depth))
 		if c := iss.Comments[tc.i]; m.commentInline() && c.ID != "" && c.ID == m.jiraCommentReplyID {
 			if !strings.HasSuffix(b.String(), "\n") {
@@ -438,12 +445,51 @@ func (m *Model) commentByline(c jira.Comment) string {
 	return author + " · " + m.when(c.Created)
 }
 
-// renderComment writes one comment: author and time, its body.
+// renderComment writes one comment: author and time, its body, and the
+// row of its actions.
 func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
 	b.WriteString(refDimStyle.Render(m.commentByline(c)) + "\n")
 	if body := strings.TrimSpace(c.Body); body != "" {
-		b.WriteString(renderMarkdown(body, m.emojiImg, nil, ""))
+		b.WriteString(strings.TrimSuffix(renderMarkdown(body, m.emojiImg, nil, ""), "\n") + "\n")
 	}
+	b.WriteString("  " + refDimStyle.Render(m.commentActionLine(c)) + "\n") // in the body's gutter
+}
+
+// commentActions are what a click on comment c's action row can do: reply,
+// and on your own edit and delete. Each is its label and action.
+func (m *Model) commentActions(c jira.Comment) [][2]string {
+	acts := [][2]string{{"↩ reply", "reply"}}
+	if me := m.jiraClient.KnownMyself(); me != "" && c.AuthorID == me && c.ID != "" {
+		del := "✕ delete"
+		if m.commentDelete == c.ID {
+			del = "✕ delete? click again"
+		}
+		acts = append(acts, [2]string{"✎ edit", "edit"}, [2]string{del, "delete"})
+	}
+	return acts
+}
+
+// commentActionLine is comment c's action row.
+func (m *Model) commentActionLine(c jira.Comment) string {
+	var labels []string
+	for _, a := range m.commentActions(c) {
+		labels = append(labels, a[0])
+	}
+	return strings.Join(labels, " · ")
+}
+
+// commentActionAt is the action at column col of comment c's action row,
+// "" between them.
+func (m *Model) commentActionAt(c jira.Comment, col int) string {
+	at := 0
+	for _, a := range m.commentActions(c) {
+		w := ansi.StringWidth(a[0])
+		if col >= at && col < at+w {
+			return a[1]
+		}
+		at += w + 3
+	}
+	return ""
 }
 
 // writeFacts writes the issue's read-only details: created, resolved,

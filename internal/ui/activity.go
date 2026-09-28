@@ -35,10 +35,13 @@ type activityState struct {
 }
 
 // commentHead is a drawn comment's byline, in drawing order: a click on it
-// replies to comment i.
+// replies to comment i. acts is its action row as found on the line, ""
+// when not drawn; its actions start bar columns in.
 type commentHead struct {
 	text string
 	i    int
+	acts string
+	bar  int
 }
 
 type activityLoadedMsg struct {
@@ -290,7 +293,7 @@ func (m *Model) renderActivityAll(b *strings.Builder, iss *jira.Issue) {
 	for i, c := range iss.Comments {
 		items = append(items, item{c.Created.UnixNano(), func() {
 			m.renderComment(b, c)
-			m.commentHeads = append(m.commentHeads, commentHead{i: i, text: m.commentByline(c)})
+			m.commentHeads = append(m.commentHeads, commentHead{i: i, text: m.commentByline(c), acts: m.commentActionLine(c)})
 		}})
 	}
 	for _, e := range m.activity.changes {

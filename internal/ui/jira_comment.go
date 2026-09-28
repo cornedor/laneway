@@ -252,3 +252,37 @@ func (m Model) handleCommentVis(msg commentVisMsg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
+
+// deleteComment deletes comment i of the panel issue; u posts it again.
+func (m *Model) deleteComment(i int) tea.Cmd {
+	key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
+	m.undoDeleteComment(key, m.jiraIssue.Comments[i])
+	m.status = "deleting the comment…"
+	return jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
+}
+
+// clickCommentAction does the action at column col of comment i's action
+// row: reply, edit, or delete, which a second click confirms.
+func (m Model) clickCommentAction(i, col int) (tea.Model, tea.Cmd) {
+	if m.jiraIssue == nil || i < 0 || i >= len(m.jiraIssue.Comments) {
+		return m, nil
+	}
+	c := m.jiraIssue.Comments[i]
+	act := m.commentActionAt(c, col)
+	confirm := m.commentDelete == c.ID
+	m.commentDelete = ""
+	switch act {
+	case "reply":
+		m.openJiraReply(c)
+	case "edit":
+		return m, m.editComment(i)
+	case "delete":
+		if confirm {
+			return m, m.deleteComment(i)
+		}
+		m.commentDelete = c.ID
+		m.status = "click delete again to delete the comment"
+	}
+	m.renderRef()
+	return m, nil
+}

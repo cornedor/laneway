@@ -382,6 +382,7 @@ type Model struct {
 	jiraCommentMention *jira.Mention
 	jiraCommentReplyTo string
 	jiraCommentReplyID string // the comment replied to, its composer drawn under it
+	commentDelete      string // the comment whose delete a second click confirms
 	// jiraCommentBefore is the text it opened with (a reply's quote), so esc
 	// asks once only for text you wrote; jiraCommentDiscard is that ask.
 	jiraCommentBefore  string

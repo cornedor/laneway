@@ -29,6 +29,9 @@ type panelHit struct {
 	hints  bool
 	col    int
 	empty  bool // the folded empty fields' row: show them
+	// acts is comment field's action row, its actions off columns in.
+	acts bool
+	off  int
 }
 
 // panelHints are the panel's line of edit keys, as bound: its label and
@@ -86,13 +89,23 @@ func (m *Model) indexPanelHits(content string) {
 			m.panelHits[i] = panelHit{field: -1, image: att}
 		}
 	}
-	// The bylines in drawing order, each found after the one before.
+	// The bylines in drawing order, each found after the one before, and
+	// each one's action row after it.
 	if at := m.activityLine; at >= 0 {
 		heads := m.commentHeads
-		for i := at + 1; i < len(lines) && len(heads) > 0; i++ {
-			if strings.TrimSpace(ansi.Strip(lines[i])) == heads[0].text {
+		var acts *commentHead // the byline found last, its action row not yet
+		for i := at + 1; i < len(lines) && (len(heads) > 0 || acts != nil); i++ {
+			text := strings.TrimSpace(ansi.Strip(lines[i]))
+			switch {
+			case len(heads) > 0 && text == heads[0].text:
 				m.panelHits[i] = panelHit{field: heads[0].i, reply: true}
+				if acts = nil; heads[0].acts != "" {
+					acts = &heads[0]
+				}
 				heads = heads[1:]
+			case acts != nil && text == acts.acts:
+				m.panelHits[i] = panelHit{field: acts.i, acts: true, off: acts.bar}
+				acts = nil
 			}
 		}
 	}
@@ -213,6 +226,9 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 	if h.url != "" {
 		m.status = "opening " + h.url + "…"
 		return m, m.openOpenable(openable{name: h.url, url: h.url})
+	}
+	if h.acts {
+		return m.clickCommentAction(h.field, h.col-h.off)
 	}
 	if h.reply {
 		if h.field < len(m.jiraIssue.Comments) {

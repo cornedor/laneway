@@ -53,6 +53,7 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 	}
 	c, ctx, key := m.jiraClient, m.ctx, m.jiraIssue.Key
 	return func() tea.Msg {
+		_, _ = c.Myself(ctx) // cached: which comments are yours to edit
 		links := make(chan []jira.WebLink, 1)
 		go func() {
 			l, _ := c.WebLinks(ctx, key) // a failure only leaves them out
