@@ -178,6 +178,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		}
 	}
 
+	m.renderNotes(&b, iss.Key, width)
 	m.renderJiraLinks(&b, iss, width)
 	m.renderWebLinks(&b, iss, width)
 	m.renderJiraAttachments(&b, iss, width)

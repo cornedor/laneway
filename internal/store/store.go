@@ -100,3 +100,6 @@ func (s *Store) write() error {
 	}
 	return os.Rename(f.Name(), s.path)
 }
+
+// Path is the file the store keeps its state in.
+func (s *Store) Path() string { return s.path }

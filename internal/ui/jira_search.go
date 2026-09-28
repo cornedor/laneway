@@ -41,13 +41,14 @@ func (t *jiraTabState) jiraSearchQuery() string {
 // jiraQueryEnv is what a query compares against besides the card: you
 // (is:mine) and the time (due, age).
 type jiraQueryEnv struct {
-	me  string // your accountId, "" until known
-	now time.Time
+	me    string // your accountId, "" until known
+	now   time.Time
+	notes map[string]bool // keys with local notes (is:notes)
 }
 
 // jiraQueryEnv is the model's: its accountId once the client knows it.
 func (m *Model) jiraQueryEnv() jiraQueryEnv {
-	return jiraQueryEnv{me: m.jiraClient.KnownMyself(), now: time.Now()}
+	return jiraQueryEnv{me: m.jiraClient.KnownMyself(), now: time.Now(), notes: m.notedKeys()}
 }
 
 // jiraCardMatches reports whether c has every term of a parsed query.
@@ -67,7 +68,7 @@ func jiraCardMatches(c jira.Card, terms []jiraTerm, env jiraQueryEnv) bool {
 //	status:review,test a field containing any of the values
 //	epic:              a field that is empty
 //	points>2 prio>=high comparisons: numbers, priorities by rank
-//	is:flagged         flagged, done, pr, unassigned, mine, overdue
+//	is:flagged         flagged, done, pr, unassigned, mine, overdue, notes
 //	due<7d age>3d      due within / after, in progress longer / shorter (h d w)
 //	updated<1d         changed within a day (updated>7d: not for a week)
 //	created<7d         made within a week
@@ -90,7 +91,7 @@ type jiraTerm struct {
 var jiraQueryFields = map[string]string{
 	"status": "status", "assignee": "assignee", "who": "assignee", "type": "type",
 	"prio": "priority", "priority": "priority", "epic": "parent", "parent": "parent",
-	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is",
+	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is", "has": "is",
 	"due": "due", "age": "age", "updated": "updated", "pr": "pr", "deploy": "deploy", "sprint": "sprint",
 	"created": "created", "reporter": "reporter", "component": "component", "components": "component",
 }
@@ -330,6 +331,8 @@ func jiraCardIs(c jira.Card, what string, env jiraQueryEnv) bool {
 		return c.PR != ""
 	case "unassigned":
 		return c.Assignee == ""
+	case "notes":
+		return env.notes[c.Key]
 	}
 	return false
 }

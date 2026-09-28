@@ -62,7 +62,7 @@ type keyMap struct {
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
-	Refine                             key.Binding
+	Refine, Notes                      key.Binding
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -163,6 +163,7 @@ func defaultKeys() keyMap {
 		Review:          bind("waiting on my review (gh, glab)", "ctrl+r"),
 		Repeat:          bind("do the last change again on the selected card", "."),
 		Refine:          bind("refine: the view's issues one at a time", "ctrl+e"),
+		Notes:           bind("private notes on the issue ($EDITOR)", "N"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -631,6 +632,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case notesEditedMsg:
+		return m.handleNotesEdited(msg)
 	case mentionSearchMsg:
 		return m.handleMentionSearch(msg)
 	case mentionFoundMsg:

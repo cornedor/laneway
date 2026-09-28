@@ -89,6 +89,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Timesheet, "today's worklogs"),
 			row(k.Inbox, "inbox"),
 			row(k.IssueActions, "subtask / child, link, clone, change type, move, delete, watchers"),
+			row(k.Notes, "private notes, on this machine ($EDITOR)"),
 			{join(k.PrevView, k.NextView), "activity: comments, history, work log, all"},
 			row(k.History, "history: changes and comments"),
 			row(k.DevInfo, "pull requests, builds, deploys, branches, commits"),

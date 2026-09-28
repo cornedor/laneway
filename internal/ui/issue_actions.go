@@ -63,6 +63,9 @@ func (m *Model) openIssueActions() {
 		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours"},
 			jiraPickerItem{id: "delete-comment", label: "Delete a comment of yours"})
 	}
+	if m.notes(iss.Key) != "" {
+		items = append(items, jiraPickerItem{id: "post-notes", label: "Post your local notes as a comment"})
+	}
 	if len(iss.Attachments) > 0 {
 		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"},
 			jiraPickerItem{id: "delete-attachment", label: "Delete an attachment"})
@@ -202,6 +205,9 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		return m.openCommentPicker(jiraPickEditComment)
 	case "delete-comment":
 		return m.openCommentPicker(jiraPickDeleteComment)
+	case "post-notes":
+		m.postNotes()
+		return nil
 	case "flag":
 		// The board's card tells the flag; an issue off it is asked.
 		i := slices.IndexFunc(m.jiraTab.cards, func(cd jira.Card) bool { return cd.Key == key })
