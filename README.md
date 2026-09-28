@@ -36,6 +36,8 @@ New here? The [guide](https://cornedor.github.io/laneway/guide/) walks you throu
 ## Install
 
 ```sh
+brew install cornedor/tap/laneway
+nix run github:cornedor/laneway
 go install github.com/cornedor/laneway@latest
 ```
 

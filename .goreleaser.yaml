@@ -16,6 +16,25 @@ archives:
         formats: [zip]
     files: [LICENSE, README.md]
 
+homebrew_casks:
+  - name: laneway
+    repository:
+      owner: cornedor
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/cornedor/laneway
+    description: A terminal board for Jira
+    license: MIT
+    commit_author:
+      name: Corné Dorrestijn
+      email: contact@corne.info
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/laneway"]
+          end
+
 checksum:
   name_template: checksums.txt
 
