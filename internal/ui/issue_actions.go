@@ -16,7 +16,8 @@ import (
 )
 
 // A in the panel: what else can be done with the issue — a subtask (or, on
-// an epic, a child), a link to another issue, a clone, watching it.
+// an epic, a child), a link to another issue, a clone, watching it, its
+// herdr agents (agents.go).
 
 // jiraWatchMsg is a watch toggled.
 type jiraWatchMsg struct {
@@ -57,6 +58,7 @@ func (m *Model) openIssueActions() {
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
 	}
+	items = append(items, m.agentActions(iss.Key)...)
 	if m.canOpenPullRequest(iss.Key) {
 		items = append(items, jiraPickerItem{id: "pr", label: "Open a pull request (draft)"})
 	}
@@ -77,6 +79,9 @@ func (m *Model) openIssueActions() {
 // applyIssueAction runs the picked action on key.
 func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	c, ctx := m.jiraClient, m.ctx
+	if what, pane, ok := strings.Cut(id, ":"); ok && strings.HasPrefix(what, "agent-") {
+		return m.applyAgentAction(key, what, pane)
+	}
 	switch id {
 	case "subtask", "child":
 		return m.openJiraCreateChild(key, id)

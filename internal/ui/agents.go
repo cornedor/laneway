@@ -2,14 +2,17 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/rules"
@@ -20,7 +23,9 @@ import (
 // issue has more than one (the worst state shows). An agent that starts
 // waiting raises a desktop notification. herdr is asked every few seconds;
 // while it isn't running, rarely. S on an issue with an agent, or enter on
-// its palette row, attaches to its terminal.
+// its palette row, attaches to its terminal. The panel lists the issue's
+// agents; its A menu attaches, prompts or stops one, or starts another in
+// the same worktree.
 
 const (
 	agentEvery = 5 * time.Second
@@ -108,17 +113,7 @@ func (m *Model) agentMark(key string) string {
 	if len(as) == 0 {
 		return ""
 	}
-	var mark string
-	switch as[0].Status {
-	case herdr.Working:
-		mark = "⚙"
-	case herdr.Blocked:
-		mark = jiraOverStyle.Render("✋")
-	case herdr.Done:
-		mark = "✓"
-	default:
-		mark = jiraDimStyle.Render("○")
-	}
+	mark := statusMark(as[0].Status)
 	if len(as) > 1 {
 		mark += jiraDimStyle.Render(strconv.Itoa(len(as)))
 	}
@@ -127,6 +122,19 @@ func (m *Model) agentMark(key string) string {
 
 // herdrBin is the herdr CLI; tests swap it.
 var herdrBin = "herdr"
+
+// statusMark is one agent's state as a mark.
+func statusMark(s herdr.Status) string {
+	switch s {
+	case herdr.Working:
+		return "⚙"
+	case herdr.Blocked:
+		return jiraOverStyle.Render("✋")
+	case herdr.Done:
+		return "✓"
+	}
+	return jiraDimStyle.Render("○")
+}
 
 type agentAttachedMsg struct {
 	key string
@@ -167,6 +175,133 @@ func (m Model) handleAgentAttached(msg agentAttachedMsg) (tea.Model, tea.Cmd) {
 		m.fail(msg.key + ": attach: " + msg.err.Error())
 	} else {
 		m.status = msg.key + ": back from its agent"
+	}
+	return m, m.fetchAgents()
+}
+
+// renderAgents writes the panel's "Agents (herdr)" section: each agent's
+// mark, name, state and worktree, and its terminal title under it.
+func (m *Model) renderAgents(b *strings.Builder, key string, width int) {
+	as := m.agents[key]
+	if len(as) == 0 {
+		return
+	}
+	b.WriteString(sectionHead("Agents (herdr)", "  "+helpKey(m.keys.JiraStart)+" attach · "+helpKey(m.keys.IssueActions)+" more", width))
+	for _, a := range as {
+		b.WriteString(ansi.Truncate(statusMark(a.Status)+" "+a.Name+"  "+string(a.Status)+"  "+refDimStyle.Render(homeShort(a.CWD)), max(width, 1), "…") + "\n")
+		if a.Title != "" {
+			b.WriteString(refDimStyle.Render(truncate("  "+a.Title, max(width, 1))) + "\n")
+		}
+	}
+}
+
+// homeShort writes p under the home directory as ~/….
+func homeShort(p string) string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		if rest, ok := strings.CutPrefix(p, home); ok && (rest == "" || rest[0] == '/') {
+			return "~" + rest
+		}
+	}
+	return p
+}
+
+// agentActions are the A menu's rows for key's agents: attach, prompt and
+// stop each, and a new agent in each worktree.
+func (m *Model) agentActions(key string) []jiraPickerItem {
+	var items []jiraPickerItem
+	seen := map[string]bool{}
+	for _, a := range m.agents[key] {
+		items = append(items,
+			jiraPickerItem{id: "agent-attach:" + a.PaneID, label: "Attach to agent " + a.Name + " (" + string(a.Status) + ")"},
+			jiraPickerItem{id: "agent-prompt:" + a.PaneID, label: "Send agent " + a.Name + " a prompt"},
+			jiraPickerItem{id: "agent-stop:" + a.PaneID, label: "Stop agent " + a.Name + " (closes its tab)"})
+		if a.CWD != "" && !seen[a.CWD] {
+			seen[a.CWD] = true
+			items = append(items, jiraPickerItem{id: "agent-new:" + a.PaneID, label: "New agent in " + homeShort(a.CWD)})
+		}
+	}
+	return items
+}
+
+// agentByPane is key's agent in pane.
+func (m *Model) agentByPane(key, pane string) (herdr.Agent, bool) {
+	i := slices.IndexFunc(m.agents[key], func(a herdr.Agent) bool { return a.PaneID == pane })
+	if i < 0 {
+		return herdr.Agent{}, false
+	}
+	return m.agents[key][i], true
+}
+
+type agentDoneMsg struct {
+	key, what string
+	err       error
+}
+
+// applyAgentAction runs an A menu agent row: what on the agent in pane.
+func (m *Model) applyAgentAction(key, what, pane string) tea.Cmd {
+	a, ok := m.agentByPane(key, pane)
+	if !ok || m.herdr == nil {
+		m.status = key + ": that agent is gone"
+		return nil
+	}
+	c := m.herdr
+	switch what {
+	case "agent-attach":
+		return m.attachAgent(key, pane)
+	case "agent-prompt":
+		m.openBulkInput("agent-prompt", "what "+a.Name+" should do next")
+		m.jiraFieldKey, m.agentPane = key, pane
+		return nil
+	case "agent-stop":
+		m.status = key + ": stopping " + a.Name + "…"
+		return agentCall(key, "stopped "+a.Name, func(ctx context.Context) error { return c.CloseTab(ctx, a.TabID) })
+	case "agent-new":
+		kind, name := m.opts.workAgent, jiraAgentName(key, time.Now())
+		args := workArgs(m.opts.workArgs, m.jiraStartPrompt, key)
+		m.status = key + ": starting " + kind + " in " + homeShort(a.CWD) + "…"
+		return agentCall(key, kind+" started in "+homeShort(a.CWD), func(ctx context.Context) error {
+			_, p, err := c.NewTab(ctx, a.WorkspaceID, key, a.CWD, nil)
+			if err != nil {
+				return err
+			}
+			return startAgent(ctx, c, kind, name, p, args)
+		})
+	}
+	return nil
+}
+
+// applyAgentPrompt sends the typed prompt to the agent picked in the A menu.
+func (m Model) applyAgentPrompt(raw string) (tea.Model, tea.Cmd) {
+	key, pane, text := m.jiraFieldKey, m.agentPane, strings.TrimSpace(raw)
+	m.closeJiraField()
+	if text == "" || m.herdr == nil {
+		return m, nil
+	}
+	c := m.herdr
+	m.status = key + ": sending the prompt…"
+	return m, agentCall(key, "prompt sent", func(ctx context.Context) error {
+		err := c.Prompt(ctx, pane, text)
+		if herdr.IsCode(err, "agent_blocked") {
+			return errors.New("the agent waits on an approval or question: attach to answer it")
+		}
+		return err
+	})
+}
+
+// agentCall runs one herdr call, reported as what on success.
+func agentCall(key, what string, call func(context.Context) error) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		return agentDoneMsg{key: key, what: what, err: call(ctx)}
+	}
+}
+
+func (m Model) handleAgentDone(msg agentDoneMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.fail(msg.key + ": " + msg.err.Error())
+	} else {
+		m.status = msg.key + ": " + msg.what
 	}
 	return m, m.fetchAgents()
 }

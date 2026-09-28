@@ -494,7 +494,9 @@ at, `○` idle; with a count when there are several, the worst state first.
 `S` on an issue whose agent runs attaches to its terminal instead of starting
 another, as does `enter` on its `agent` row in the palette: laneway steps
 aside for `herdr agent attach` and comes back when you detach. Inside herdr
-it focuses the agent's pane.
+it focuses the agent's pane. The panel lists the issue's agents (state,
+worktree, terminal title); `A` attaches to one, sends it a prompt, stops it
+(closing its tab) or starts another in the same worktree.
 
 With the project in `jira.repos`, `A` → *Open a pull request* pushes the
 issue's branch and opens a draft titled with its key and summary, linking

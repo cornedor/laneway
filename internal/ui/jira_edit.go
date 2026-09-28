@@ -1021,6 +1021,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	if field == "estimate" {
 		return m.applyEstimate(raw)
 	}
+	if field == "agent-prompt" {
+		return m.applyAgentPrompt(raw)
+	}
 	if field == "find" {
 		m.applyPanelFind(raw)
 		return m, nil
@@ -1380,6 +1383,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Web link on "+m.jiraFieldKey, "↵ add · esc cancel", m.jiraFieldInput.Width()+12
 	case "estimate":
 		title, hint, outerW = "Original estimate of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+	case "agent-prompt":
+		title, hint, outerW = "Prompt for "+m.jiraFieldKey+"'s agent", "↵ send · esc cancel", m.jiraFieldInput.Width()+12
 	case "find":
 		title, hint, outerW = "Find in "+m.jiraFieldKey, "↵ find · n / N next / previous · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":

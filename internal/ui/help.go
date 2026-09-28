@@ -91,7 +91,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.LogWork, k.Timer), "log work / timer"},
 			row(k.Timesheet, "today's worklogs"),
 			row(k.Inbox, "inbox"),
-			row(k.IssueActions, "subtask / child, link, clone, change type, move, delete, watchers"),
+			row(k.IssueActions, "subtask / child, link, clone, change type, move, delete, watchers, agents"),
 			row(k.Notes, "private notes, on this machine ($EDITOR)"),
 			row(k.Ask, "ask ui.llm: summary, acceptance criteria, subtasks, points"),
 			{join(k.PrevView, k.NextView), "activity: comments, history, work log, all"},

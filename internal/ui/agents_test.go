@@ -1,7 +1,11 @@
 package ui
 
 import (
+	"bufio"
+	"encoding/json"
 	"errors"
+	"net"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -73,5 +77,91 @@ func TestAgentAttach(t *testing.T) {
 	out, _ = m.handleAgentAttached(agentAttachedMsg{key: "ABC-1"})
 	if m = out.(Model); !strings.Contains(m.status, "back from") {
 		t.Errorf("status %q", m.status)
+	}
+}
+
+// fakeHerdrCalls serves a herdr socket that answers every request, and
+// records each as "method params".
+func fakeHerdrCalls(t *testing.T) (*herdr.Client, chan string) {
+	sock := filepath.Join(t.TempDir(), "h.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	calls := make(chan string, 10)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			line, _ := bufio.NewReader(conn).ReadBytes('\n')
+			var req struct {
+				Method string          `json:"method"`
+				Params json.RawMessage `json:"params"`
+			}
+			_ = json.Unmarshal(line, &req)
+			calls <- req.Method + " " + string(req.Params)
+			if req.Method == "tab.create" {
+				conn.Write([]byte(`{"id":"x","result":{"tab":{"tab_id":"w1:t2"},"root_pane":{"pane_id":"w1:p9"}}}` + "\n"))
+			} else {
+				conn.Write([]byte(`{"id":"x","result":{}}` + "\n"))
+			}
+			conn.Close()
+		}
+	}()
+	return herdr.New(sock), calls
+}
+
+// TestAgentPanel: the panel lists the issue's agents; the A menu prompts,
+// stops, or starts another in the same worktree.
+func TestAgentPanel(t *testing.T) {
+	m := jiraTabModel(t)
+	c, calls := fakeHerdrCalls(t)
+	m.herdr = c
+	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{{PaneID: "w1:p1", TabID: "w1:t1", WorkspaceID: "w1",
+		Name: "jira-abc-1-a", CWD: "/wt/abc-1", Title: "Reading the ticket", Status: herdr.Working}}})
+	m = out.(Model)
+	iss := &jira.Issue{Key: "ABC-1", Summary: "First"}
+	m.jiraIssue = iss
+	body := ansi.Strip(m.renderJiraIssue(iss, 80))
+	if !strings.Contains(body, "Agents (herdr)") || !strings.Contains(body, "⚙ jira-abc-1-a  working  /wt/abc-1") || !strings.Contains(body, "Reading the ticket") {
+		t.Fatalf("panel:\n%s", body)
+	}
+	var ids []string
+	for _, it := range m.agentActions("ABC-1") {
+		ids = append(ids, it.id)
+	}
+	if strings.Join(ids, " ") != "agent-attach:w1:p1 agent-prompt:w1:p1 agent-stop:w1:p1 agent-new:w1:p1" {
+		t.Fatalf("actions %q", ids)
+	}
+
+	m.applyIssueAction("ABC-1", "agent-prompt:w1:p1")
+	if m.jiraFieldName != "agent-prompt" || m.agentPane != "w1:p1" {
+		t.Fatalf("prompt input: %q %q", m.jiraFieldName, m.agentPane)
+	}
+	out, cmd := m.applyAgentPrompt("add a test")
+	m = out.(Model)
+	done := cmd().(agentDoneMsg)
+	if got := <-calls; done.err != nil || !strings.HasPrefix(got, "agent.prompt") || !strings.Contains(got, `"text":"add a test"`) {
+		t.Fatalf("prompt: %q %v", got, done.err)
+	}
+
+	cmd = m.applyIssueAction("ABC-1", "agent-stop:w1:p1")
+	if cmd().(agentDoneMsg).err != nil || !strings.Contains(<-calls, `tab.close {"tab_id":"w1:t1"}`) {
+		t.Fatal("stop should close the agent's tab")
+	}
+
+	m.opts.workAgent = "claude"
+	cmd = m.applyIssueAction("ABC-1", "agent-new:w1:p1")
+	if cmd().(agentDoneMsg).err != nil {
+		t.Fatal("new agent failed")
+	}
+	if got := <-calls; !strings.HasPrefix(got, "tab.create") || !strings.Contains(got, `"cwd":"/wt/abc-1"`) || !strings.Contains(got, `"workspace_id":"w1"`) {
+		t.Errorf("tab: %q", got)
+	}
+	if got := <-calls; !strings.HasPrefix(got, "agent.start") || !strings.Contains(got, `"pane_id":"w1:p9"`) {
+		t.Errorf("start: %q", got)
 	}
 }
