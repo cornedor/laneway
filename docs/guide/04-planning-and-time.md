@@ -136,8 +136,11 @@ Blockers.
 
 ![What you did since Friday](../screenshots/standup.png)
 
-Running the standup? Its *Team* row lists what each person on the board
-did and logged since the last workday.
+Running the standup? Its *Team* row walks the board right to left, closest
+to done first: each card with who has it, how long it has been in
+progress, and what happened since the last workday. A card marked *no
+activity* is the one worth raising. *By person* groups it per person
+instead.
 
 > **Try it:** `U`, `enter` on *Copy as text*, paste it in your team's
 > standup channel. Done before the coffee's ready.

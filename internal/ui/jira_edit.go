@@ -165,6 +165,9 @@ type jiraPickerState struct {
 	// team is the standup of the board's people rather than yours
 	// (standup_team.go).
 	team bool
+	// byPerson groups the Team standup by person rather than walking the
+	// board.
+	byPerson bool
 	// found are the palette's Jira search hits, shown after its own rows.
 	found []jiraPickerItem
 	// inline is the panel row the list drops under (a panel field name or
@@ -760,6 +763,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			day = nextWorkday(m.jiraPicker.day, m.opts.workdays)
 		}
 		return m, m.openStandupSince(day, m.jiraPicker.team)
+	}
+	if kind == jiraPickStandup && it.id == "group" {
+		return m, m.openTeamStandup(m.jiraPicker.day, !m.jiraPicker.byPerson)
 	}
 	if kind == jiraPickStandup && (it.id == "team" || it.id == "me") {
 		return m, m.openStandupSince(m.jiraPicker.day, it.id == "team")

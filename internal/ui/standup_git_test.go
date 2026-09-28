@@ -57,8 +57,9 @@ func TestStandupCommits(t *testing.T) {
 	}
 }
 
-// TestTeamStandupRows: the Team row lists each assignee of the board with
-// what they did and logged, someone idle as nothing; Just me goes back.
+// TestTeamStandupRows: the Team row walks the board with what was done on
+// each card; By person groups it with the time each logged; Just me goes
+// back.
 func TestTeamStandupRows(t *testing.T) {
 	now := time.Now()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,13 +93,20 @@ func TestTeamStandupRows(t *testing.T) {
 	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"Team standup — 2 people", "── Ada · logged 2h", "ABC-1 First — logged 2h", "── Bo", "nothing since"} {
+	for _, want := range []string{"Team standup — since", "── To do (1)", "ABC-1 First · Ada · logged 2h"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("no %q:\n%s", want, view)
 		}
 	}
-	if !strings.HasPrefix(m.jiraPicker.text, "Ada · logged 2h\nToday\n- ABC-1 First: logged 2h\n\nBo\nnothing") {
+	if m.jiraPicker.text != "To do\n- ABC-1 First · Ada · logged 2h" {
 		t.Errorf("text %q", m.jiraPicker.text)
+	}
+	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "group" })
+	out, cmd = m.applyJiraPick()
+	m = out.(Model)
+	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	if m = out.(Model); !m.jiraPicker.byPerson || !strings.HasPrefix(m.jiraPicker.text, "Ada · logged 2h\n- ABC-1 First · To do · logged 2h") {
+		t.Errorf("by person: %v %q", m.jiraPicker.byPerson, m.jiraPicker.text)
 	}
 	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "me" })
 	out, _ = m.applyJiraPick()

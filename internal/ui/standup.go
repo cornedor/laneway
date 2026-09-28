@@ -24,7 +24,7 @@ func (m *Model) openStandup() tea.Cmd {
 // people's with team; U again inside it reaches a workday further back.
 func (m *Model) openStandupSince(since time.Time, team bool) tea.Cmd {
 	if team {
-		return m.openTeamStandup(since)
+		return m.openTeamStandup(since, m.jiraPicker.byPerson)
 	}
 	now := time.Now()
 	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)

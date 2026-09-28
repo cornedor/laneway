@@ -433,9 +433,14 @@ subject names, keyless ones as *no ticket*. Its first row, Copy as text,
 puts it on the clipboard as Yesterday / Today / Blockers, ready to paste.
 `U` again (or its `←` row) reaches a workday further back, its `→` row a
 workday later again.
-Its *Team* row shows the same for everyone assigned a card on the board,
-per person with the time each logged, someone idle as *nothing*; *Just me*
-goes back.
+Its *Team* row walks the board right to left for whoever runs the standup,
+under the sprint goal and the workdays left: per column, each card in
+progress with who has it, how long (*stale* past `ui.stale_days`), a flag,
+its pull request or deploy, and what happened since, or *no activity*;
+done and to-do cards only when something happened on them. *Off the board*
+has the team's activity on other issues. *By person* groups the same cards
+per person with the time each logged, for teams that go round; *Walk the
+board* goes back, *Just me* to yours.
 
 ## Releases
 
