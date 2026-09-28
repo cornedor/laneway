@@ -30,7 +30,13 @@ _laneway() {
   c=("${(@f)$(laneway __complete "${(@)words[2,CURRENT]}")}")
   compadd -a c
 }
-compdef _laneway laneway
+# Autoloaded from fpath (the packages' site-functions) this file is the
+# body of _laneway: complete now. Sourced, register it.
+if [ "$funcstack[1]" = "_laneway" ]; then
+  _laneway "$@"
+else
+  compdef _laneway laneway
+fi
 `,
 	"fish": `complete -c laneway -f -a '(laneway __complete (commandline -opc)[2..-1] (commandline -ct))'
 `,

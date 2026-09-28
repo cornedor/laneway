@@ -42,7 +42,10 @@ func TestComplete(t *testing.T) {
 		}
 	}
 	var out, errOut bytes.Buffer
-	if code := subcommand([]string{"completion", "zsh"}, "", "", &out, &errOut); code != 0 || !strings.Contains(out.String(), "laneway __complete") {
+	// Autoloaded from fpath, as the packages install it, the script must
+	// complete on the first tab, not only define itself.
+	if code := subcommand([]string{"completion", "zsh"}, "", "", &out, &errOut); code != 0 || !strings.Contains(out.String(), "laneway __complete") ||
+		!strings.Contains(out.String(), `_laneway "$@"`) {
 		t.Errorf("zsh script: %d %q", code, out.String())
 	}
 }
