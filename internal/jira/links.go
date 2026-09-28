@@ -5,6 +5,8 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // Link is an issue related to another: its parent, a subtask, or an issue
@@ -83,9 +85,9 @@ type apiIssueLink struct {
 }
 
 func (a *apiLinked) link(rel string) Link {
-	l := Link{Rel: rel, Key: a.Key, Summary: a.Fields.Summary}
+	l := Link{Rel: safeterm.Line(rel), Key: a.Key, Summary: safeterm.Line(a.Fields.Summary)}
 	if a.Fields.Status != nil {
-		l.Status = a.Fields.Status.Name
+		l.Status = safeterm.Line(a.Fields.Status.Name)
 	}
 	return l
 }

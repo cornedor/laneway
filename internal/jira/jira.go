@@ -28,6 +28,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // errNotConfigured is returned by every call when the client lacks a base URL
@@ -484,7 +486,9 @@ func (c *Client) send(ctx context.Context, method, path, what string, body any, 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, statusError(resp.StatusCode, what, respBody, resp.Header.Get("Retry-After"))
 	}
-	return respBody, nil
+	// Jira's text reaches the terminal by many paths; no string in it may
+	// carry an escape.
+	return safeterm.JSON(respBody), nil
 }
 
 // do is doRaw plus JSON decode into out (skip with out=nil, e.g. a 204 mutation
@@ -516,7 +520,9 @@ func (e notFound) Is(t error) bool { return t == ErrNotFound }
 // limit. what labels the request (an issue key, or e.g. "priorities");
 // retryAfter is a 429's Retry-After.
 func statusError(code int, what string, body []byte, retryAfter string) error {
-	msg := jiraMessages(body)
+	// The body is Jira's, and may be a proxy's HTML; it ends up on the
+	// status line.
+	msg := safeterm.Line(jiraMessages(body))
 	switch code {
 	case http.StatusUnauthorized:
 		return fmt.Errorf("jira: not authorized for %s · check email and api_token in the config", what)
@@ -534,7 +540,7 @@ func statusError(code int, what string, body []byte, retryAfter string) error {
 		return fmt.Errorf("jira: rate-limited on %s · retry in a minute", what)
 	}
 	if msg == "" {
-		msg = strings.TrimSpace(string(body))
+		msg = strings.TrimSpace(safeterm.Line(string(body)))
 		if len(msg) > 200 {
 			msg = msg[:200] + "…"
 		}
@@ -548,7 +554,15 @@ func statusError(code int, what string, body []byte, retryAfter string) error {
 		Errors        map[string]string `json:"errors"`
 	}
 	if json.Unmarshal(body, &e) == nil {
-		re.Messages, re.Fields = e.ErrorMessages, e.Errors
+		for _, m := range e.ErrorMessages {
+			re.Messages = append(re.Messages, safeterm.Line(m))
+		}
+		if e.Errors != nil {
+			re.Fields = make(map[string]string, len(e.Errors))
+			for k, v := range e.Errors {
+				re.Fields[k] = safeterm.Line(v)
+			}
+		}
 	}
 	return re
 }
@@ -598,33 +612,35 @@ func isTimeout(err error) bool {
 func (c *Client) toIssue(a apiIssue) *Issue {
 	iss := &Issue{
 		Key:         a.Key,
-		Summary:     a.Fields.Summary,
-		Labels:      a.Fields.Labels,
+		Summary:     safeterm.Line(a.Fields.Summary),
 		URL:         c.BrowseURL(a.Key),
-		Description: adfToMarkdown(a.Fields.Description),
+		Description: safeterm.Text(adfToMarkdown(a.Fields.Description)),
 		Assignee:    "Unassigned",
 	}
+	for _, l := range a.Fields.Labels {
+		iss.Labels = append(iss.Labels, safeterm.Line(l))
+	}
 	for _, at := range a.Fields.Attachment {
-		iss.Attachments = append(iss.Attachments, Attachment{ID: at.ID, Filename: at.Filename, MimeType: at.MimeType, Size: at.Size})
+		iss.Attachments = append(iss.Attachments, Attachment{ID: at.ID, Filename: safeterm.Line(at.Filename), MimeType: at.MimeType, Size: at.Size})
 	}
 	iss.Description = resolveMedia(iss.Description, iss.Attachments)
 	iss.Links = issueLinks(a.Fields.Parent, a.Fields.IssueLinks, a.Fields.Subtasks)
 	if a.Fields.Status != nil {
-		iss.Status, iss.StatusCategory = a.Fields.Status.Name, a.Fields.Status.Category.Key
+		iss.Status, iss.StatusCategory = safeterm.Line(a.Fields.Status.Name), a.Fields.Status.Category.Key
 	}
 	if a.Fields.Priority != nil {
-		iss.Priority = a.Fields.Priority.Name
+		iss.Priority = safeterm.Line(a.Fields.Priority.Name)
 		iss.PriorityID = a.Fields.Priority.ID
 	}
 	if a.Fields.IssueType != nil {
-		iss.Type = a.Fields.IssueType.Name
+		iss.Type = safeterm.Line(a.Fields.IssueType.Name)
 	}
 	if a.Fields.Assignee != nil && a.Fields.Assignee.DisplayName != "" {
-		iss.Assignee = a.Fields.Assignee.DisplayName
+		iss.Assignee = safeterm.Line(a.Fields.Assignee.DisplayName)
 		iss.AssigneeAccountID = a.Fields.Assignee.AccountID
 	}
 	if a.Fields.Reporter != nil {
-		iss.Reporter = a.Fields.Reporter.DisplayName
+		iss.Reporter = safeterm.Line(a.Fields.Reporter.DisplayName)
 		iss.ReporterAccountID = a.Fields.Reporter.AccountID
 	}
 	// Jira stamps updated as e.g. 2026-06-15T09:41:00.000+0200.
@@ -634,9 +650,9 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	if a.Fields.Comment != nil {
 		iss.CommentTotal = a.Fields.Comment.Total
 		for _, ac := range a.Fields.Comment.Comments {
-			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: resolveMedia(adfToMarkdown(ac.Body), iss.Attachments)}
+			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfToMarkdown(ac.Body), iss.Attachments))}
 			if ac.Author != nil {
-				cm.Author = ac.Author.DisplayName
+				cm.Author = safeterm.Line(ac.Author.DisplayName)
 				cm.AuthorID = ac.Author.AccountID
 			}
 			if t, err := time.Parse("2006-01-02T15:04:05.999-0700", ac.Created); err == nil {

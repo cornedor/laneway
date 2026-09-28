@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -878,5 +879,47 @@ func TestGetPagesComments(t *testing.T) {
 	iss, err := c.Get(context.Background(), "ABC-1")
 	if err != nil || len(iss.Comments) != 2 || iss.Comments[1].Body != "newest" {
 		t.Fatalf("comments = %+v, %v", iss.Comments, err)
+	}
+}
+
+func TestGetStripsTerminalEscapes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			_, _ = w.Write([]byte(`[]`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"key":"ABC-1","fields":{
+			"summary":"a\u001b]52;c;eA==\u0007b\nc",
+			"description":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"x\u001b[2Jy"}]}]},
+			"labels":["l\u009b31m"],
+			"status":{"name":"S\u001b[31m"},
+			"assignee":{"displayName":"Eve\u001b]0;title\u0007"}}}`))
+	}))
+	defer srv.Close()
+
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	iss, err := c.Get(context.Background(), "ABC-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, got := range map[string]string{"summary": iss.Summary, "description": iss.Description,
+		"labels": strings.Join(iss.Labels, " "), "status": iss.Status, "assignee": iss.Assignee} {
+		if strings.ContainsAny(got, "\x1b\x07\u009b") {
+			t.Errorf("%s kept an escape: %q", name, got)
+		}
+	}
+	if iss.Summary != "a]52;c;eA==bc" {
+		t.Errorf("summary = %q, want one line", iss.Summary)
+	}
+}
+
+func TestStatusErrorStripsTerminalEscapes(t *testing.T) {
+	err := statusError(400, "ABC-1", []byte(`{"errorMessages":["bad\u001b]52;c;eA==\u0007"],"errors":{"summary":"x\u001b[2J"}}`), "")
+	if strings.ContainsAny(err.Error(), "\x1b\x07") {
+		t.Errorf("error kept an escape: %q", err.Error())
+	}
+	var re *RequestError
+	if !errors.As(err, &re) || strings.ContainsAny(re.Messages[0]+re.Fields["summary"], "\x1b\x07") {
+		t.Errorf("RequestError kept an escape: %+v", re)
 	}
 }

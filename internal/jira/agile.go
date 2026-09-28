@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // Boards, sprints and board issues, for the Jira tab (internal/ui/jiratab.go).
@@ -524,7 +526,7 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	str := func(name string) string {
 		var s string
 		_ = json.Unmarshal(f[name], &s)
-		return s
+		return safeterm.Line(s)
 	}
 	obj := func(name string) (id, label string) {
 		var v struct {
@@ -535,14 +537,14 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 		}
 		_ = json.Unmarshal(f[name], &v)
 		if v.DisplayName != "" {
-			return v.AccountID, v.DisplayName
+			return v.AccountID, safeterm.Line(v.DisplayName)
 		}
-		return v.ID, v.Name
+		return v.ID, safeterm.Line(v.Name)
 	}
 	card.Summary = str("summary")
 	var labels []string
 	_ = json.Unmarshal(f["labels"], &labels)
-	card.Labels = strings.Join(labels, " ")
+	card.Labels = safeterm.Line(strings.Join(labels, " "))
 	card.StatusID, card.Status = obj("status")
 	card.Due = dateField(f["duedate"])
 	var st struct {
@@ -570,7 +572,7 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	_ = json.Unmarshal(f["components"], &comps)
 	names := make([]string, len(comps))
 	for i, c := range comps {
-		names[i] = c.Name
+		names[i] = safeterm.Line(c.Name)
 	}
 	card.Components = strings.Join(names, ExtraSep)
 	card.TypeID, card.Type = obj("issuetype")
@@ -601,7 +603,7 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	}
 	var parent apiLinked
 	if json.Unmarshal(f["parent"], &parent) == nil {
-		card.ParentKey, card.ParentSummary = parent.Key, parent.Fields.Summary
+		card.ParentKey, card.ParentSummary = parent.Key, safeterm.Line(parent.Fields.Summary)
 	}
 	if raw, ok := f[pointsField]; ok && pointsField != "" {
 		var v float64
@@ -840,11 +842,11 @@ func (mf moreFields) ids() []string {
 
 // fill sets card's sprint and extra fields from an issue's fields.
 func (mf moreFields) fill(card *Card, f map[string]json.RawMessage) {
-	card.Sprint = currentSprint(f[mf.sprint])
+	card.Sprint = safeterm.Line(currentSprint(f[mf.sprint]))
 	var extra []string
 	for _, c := range mf.custom {
 		if v := fieldText(f[c[1]]); v != "" {
-			extra = append(extra, c[0]+"="+v)
+			extra = append(extra, c[0]+"="+safeterm.Line(v))
 		}
 	}
 	card.Extra = strings.Join(extra, ExtraSep)
