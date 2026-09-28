@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
-	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -57,9 +57,9 @@ func TestStandupCommits(t *testing.T) {
 	}
 }
 
-// TestTeamStandupRows: the Team row walks the board with what was done on
-// each card; By person groups it with the time each logged; Just me goes
-// back.
+// TestTeamStandupRows: U opens the standup in place of the board; tab
+// walks the board with what was done on each card, p groups it by person,
+// tab again is yours; esc goes back to the board.
 func TestTeamStandupRows(t *testing.T) {
 	now := time.Now()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,36 +81,40 @@ func TestTeamStandupRows(t *testing.T) {
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Assignee: "Bo", AssigneeID: "b2"})
-	out, _ := m.handleJiraPickerLoaded(m.openStandup()().(jiraPickerLoadedMsg))
-	m = out.(Model)
-	i := slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "team" })
-	if i < 0 {
-		t.Fatal("no Team row")
+	press := func(k tea.KeyPressMsg) {
+		t.Helper()
+		out, cmd := m.handleKey(k)
+		m = out.(Model)
+		if msg, ok := findMsg[standupMsg](cmd); ok {
+			out, _ = m.Update(msg)
+			m = out.(Model)
+		}
 	}
-	m.jiraPicker.idx = i
-	out, cmd := m.applyJiraPick()
-	m = out.(Model)
-	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
-	m = out.(Model)
+	press(keyStr("U"))
+	if m.jiraTab.standup == nil || m.jiraTab.standup.team {
+		t.Fatal("U did not open your standup")
+	}
+	press(keyMsg(t, "tab"))
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"Team standup — since", "── To do (1)", "ABC-1 First · Ada · logged 2h"} {
+	for _, want := range []string{"Team standup · since", "To do (1)", "ABC-1 First", "Ada", "logged 2h"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("no %q:\n%s", want, view)
 		}
 	}
-	if m.jiraPicker.text != "To do\n- ABC-1 First · Ada · logged 2h" {
-		t.Errorf("text %q", m.jiraPicker.text)
+	if s := m.jiraTab.standup; s.text != "To do\n- ABC-1 First · Ada · logged 2h" || s.lines[s.row].key != "ABC-1" {
+		t.Errorf("text %q, row %d", s.text, s.row)
 	}
-	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "group" })
-	out, cmd = m.applyJiraPick()
-	m = out.(Model)
-	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
-	if m = out.(Model); !m.jiraPicker.byPerson || !strings.HasPrefix(m.jiraPicker.text, "Ada · logged 2h\n- ABC-1 First · To do · logged 2h") {
-		t.Errorf("by person: %v %q", m.jiraPicker.byPerson, m.jiraPicker.text)
+	press(keyStr("p"))
+	if s := m.jiraTab.standup; !s.byPerson || !strings.HasPrefix(s.text, "Ada · logged 2h\n- ABC-1 First · To do · logged 2h") {
+		t.Errorf("by person: %v %q", s.byPerson, s.text)
 	}
-	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "me" })
-	out, _ = m.applyJiraPick()
-	if m = out.(Model); m.jiraPicker.team || m.jiraPicker.title != "Standup" {
-		t.Errorf("Just me: team %v, title %q", m.jiraPicker.team, m.jiraPicker.title)
+	press(keyMsg(t, "tab"))
+	if m.jiraTab.standup.team {
+		t.Error("tab again should be yours")
+	}
+	press(keyStr("y"))
+	press(keyStr("esc"))
+	if m.jiraTab.standup != nil {
+		t.Error("esc left the standup open")
 	}
 }

@@ -12,12 +12,12 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// The standup's Team row walks the board right to left, as a team runs its
-// daily scrum: closest to done first, the work rather than the people. Each
-// card says who has it, how long it has been in progress, a flag, its pull
-// request or deploy, and what happened on it since the day the standup
-// starts, or "no activity" — the stuck card worth raising. A row groups it
-// by person instead, for teams that go round.
+// The team's standup (tab in U) walks the board right to left, as a team
+// runs its daily scrum: closest to done first, the work rather than the
+// people. Each card says who has it, how long it has been in progress, a
+// flag, its pull request or deploy, and what happened on it since the day
+// the standup starts, or "no activity" — the stuck card worth raising. p
+// groups it by person instead, for teams that go round.
 
 // teamPerson is one of the board's people.
 type teamPerson struct{ id, name string }
@@ -73,14 +73,11 @@ func (m *Model) teamHeader(now time.Time) string {
 	return strings.Join(parts, " · ")
 }
 
-// openTeamStandup loads the board's people's activity since since and walks
-// the board with it, or groups it by person.
-func (m *Model) openTeamStandup(since time.Time, byPerson bool) tea.Cmd {
+// loadTeamStandup fetches the board's people's activity since since and
+// walks the board with it, or groups it by person.
+func (m *Model) loadTeamStandup(seq int, since time.Time, byPerson bool) tea.Cmd {
 	now := time.Now()
 	people := m.teamPeople()
-	gen := m.startJiraPicker(jiraPickStandup, "Team standup", true)
-	m.jiraPicker.day, m.jiraPicker.team, m.jiraPicker.byPerson = since, true, byPerson
-	seq := m.jiraPicker.fetchSeq
 	c, ctx := m.jiraClient, m.ctx
 	ids := make([]string, len(people))
 	for i, p := range people {
@@ -88,23 +85,16 @@ func (m *Model) openTeamStandup(since time.Time, byPerson bool) tea.Cmd {
 	}
 	cols, head, stale := m.teamColumns(), m.teamHeader(now), m.opts.staleDays
 	projects := teamProjects(cols, m.jiraTab.project)
-	group := jiraPickerItem{id: "group", label: "By person"}
-	if byPerson {
-		group.label = "Walk the board"
-	}
-	steps := append(m.standupSteps(since, now), group, jiraPickerItem{id: "me", label: "Just me"})
 	return func() tea.Msg {
 		entries, err := c.TeamStandup(ctx, since, ids)
-		rows, folded, text := teamWalk(cols, entries, projects, byPerson, stale, since, now)
-		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
-		items = append(items, rows...)
-		title := "Team standup — since " + standupDay(since, now)
+		if err != nil {
+			return standupMsg{seq: seq, err: err}
+		}
+		lines, folded, text := teamWalk(cols, entries, projects, byPerson, stale, since, now)
 		if head != "" {
-			title += " · " + head
 			text = head + "\n\n" + text
 		}
-		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,
-			title: title + "  ·  U further back", text: text, folded: folded}
+		return standupMsg{seq: seq, lines: lines, folded: folded, head: head, text: text}
 	}
 }
 
@@ -148,7 +138,7 @@ func teamDid(events []jira.InboxEntry) bool {
 // on the board's projects' other issues. A done or not started card shows
 // only when something happened on it, or it is flagged; one in progress
 // always does.
-func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, byPerson bool, stale int, since, now time.Time) (items, folded []jiraPickerItem, _ string) {
+func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, byPerson bool, stale int, since, now time.Time) (items, folded []standupLine, _ string) {
 	byKey := map[string][]jira.InboxEntry{}
 	for _, e := range entries {
 		byKey[e.Key] = append(byKey[e.Key], e)
@@ -164,19 +154,19 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 		}
 	}
 	var text strings.Builder
-	section := func(name string, list []teamCard, row func(teamCard) string) {
+	section := func(name string, list []teamCard, row func(teamCard) standupLine) {
 		if len(list) == 0 {
 			return
 		}
-		items = append(items, jiraPickerItem{label: fmt.Sprintf("── %s (%d)", name, len(list))})
+		items = append(items, standupLine{head: fmt.Sprintf("%s (%d)", name, len(list))})
 		if text.Len() > 0 {
 			text.WriteString("\n")
 		}
 		text.WriteString(name + "\n")
 		for _, tc := range list {
 			line := row(tc)
-			items = append(items, jiraPickerItem{id: tc.card.Key, label: "  " + line})
-			text.WriteString("- " + line + "\n")
+			items = append(items, line)
+			text.WriteString("- " + line.text() + "\n")
 		}
 	}
 	if byPerson {
@@ -204,7 +194,7 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 					events = append(events, tc.events...)
 				}
 			}
-			section(n+teamLogged(events), theirs, func(tc teamCard) string { return teamRow(tc, tc.column, stale, now) })
+			section(n+teamLogged(events), theirs, func(tc teamCard) standupLine { return teamRow(tc, tc.column, stale, now) })
 		}
 	} else {
 		for i := len(cols) - 1; i >= 0; i-- {
@@ -214,7 +204,7 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 					in = append(in, tc)
 				}
 			}
-			section(cols[i].name, in, func(tc teamCard) string {
+			section(cols[i].name, in, func(tc teamCard) standupLine {
 				return teamRow(tc, cmp.Or(tc.card.Assignee, "unassigned"), stale, now)
 			})
 		}
@@ -231,11 +221,10 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 		off = append(off, teamCard{card: jira.Card{Key: e.Key, Summary: e.Summary}, events: byKey[e.Key]})
 	}
 	if len(items) == 0 {
-		items = append(items, jiraPickerItem{label: "nothing in progress, nothing since " + standupDay(since, now)})
 		text.WriteString("nothing since " + standupDay(since, now))
 	}
 	if len(off) > 0 {
-		items = append(items, jiraPickerItem{id: "unfold", label: fmt.Sprintf("── Off the board (%d)%s", len(off), jiraUnfoldHint)})
+		items = append(items, standupLine{head: fmt.Sprintf("Off the board (%d)", len(off)), unfold: true})
 		for _, tc := range off {
 			var who []string
 			for _, e := range tc.events {
@@ -243,7 +232,7 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 					who = append(who, e.Who)
 				}
 			}
-			folded = append(folded, jiraPickerItem{id: tc.card.Key, label: "  " + teamRow(tc, strings.Join(who, ", "), stale, now)})
+			folded = append(folded, teamRow(tc, strings.Join(who, ", "), stale, now))
 		}
 	}
 	return items, folded, strings.TrimSpace(text.String())
@@ -252,31 +241,29 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 // teamRow is a card's line: title, who (or its column), how long in
 // progress (stale past stale days), flag, pull request and deploy, and what
 // happened since, or no activity.
-func teamRow(tc teamCard, who string, stale int, now time.Time) string {
+func teamRow(tc teamCard, who string, stale int, now time.Time) standupLine {
 	c := tc.card
-	parts := []string{cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), noTicket)}
-	if who != "" {
-		parts = append(parts, who)
-	}
+	l := standupLine{key: c.Key, title: cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), noTicket), who: who,
+		what: cmp.Or(standupWhat(tc.events), "no activity")}
 	if c.InProgress && !c.Since.IsZero() {
 		days := int(now.Sub(c.Since).Hours() / 24)
-		age := fmt.Sprintf("%dd", days)
+		l.age = fmt.Sprintf("%dd", days)
 		if stale > 0 && days > stale {
-			age += " stale"
+			l.age += " stale"
 		}
-		parts = append(parts, age)
 	}
+	var marks []string
 	if c.Flagged {
-		parts = append(parts, "flagged")
+		marks = append(marks, "flagged")
 	}
 	if c.PR != "" {
-		parts = append(parts, "PR "+c.PR)
+		marks = append(marks, "PR "+c.PR)
 	}
 	if c.Deploy != "" {
-		parts = append(parts, "on "+c.Deploy)
+		marks = append(marks, "on "+c.Deploy)
 	}
-	parts = append(parts, cmp.Or(standupWhat(tc.events), "no activity"))
-	return strings.Join(parts, " · ")
+	l.marks = strings.Join(marks, " · ")
+	return l
 }
 
 // teamLogged is " · logged 6h" of the entries' worklogs, "" for none.

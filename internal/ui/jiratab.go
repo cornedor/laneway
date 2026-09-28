@@ -316,8 +316,9 @@ type jiraTabState struct {
 	// (roadmap.go, planning.go).
 	roadmap *roadmapState
 	plan    *planState
-	charts  *chartsState // charts.go
-	week    *weekState   // week.go
+	charts  *chartsState  // charts.go
+	week    *weekState    // week.go
+	standup *standupState // standup_screen.go
 	// planSeq and chartsSeq outlive a close, so a reply for a view since
 	// closed never matches the one reopened.
 	planSeq, chartsSeq int
@@ -900,6 +901,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if t.week != nil {
 		return m.handleWeekKey(msg)
+	}
+	if t.standup != nil {
+		return m.handleStandupKey(msg)
 	}
 	if t.past != nil {
 		return m.handleTimeMachineKey(msg)
@@ -2914,6 +2918,10 @@ func (m *Model) renderJiraPane(height, width int) string {
 		viewLine = ansi.Truncate(m.weekLine(), max(boxW-2, 1), "…")
 		filterLine = ""
 		body = m.renderWeek(t.view.Width(), t.view.Height())
+	case t.standup != nil:
+		viewLine = ansi.Truncate(m.standupViewLine(), max(boxW-2, 1), "…")
+		filterLine = ""
+		body = m.renderStandup(t.view.Width(), t.view.Height())
 	case t.plan != nil:
 		viewLine = ansi.Truncate(m.planLine(), max(boxW-2, 1), "…")
 		filterLine = ""

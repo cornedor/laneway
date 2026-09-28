@@ -109,22 +109,17 @@ func standupSections(entries []jira.InboxEntry, cards []jira.Card, me string) (d
 	return done, doing, touched, next, blocked
 }
 
-// standupRow is an issue's line: title, status now, what changed or how
-// long it has sat.
-func standupRow(s standupIssue, now time.Time) string {
-	parts := []string{s.title()}
-	if st := s.card.Status; st != "" {
-		parts = append(parts, st)
+// standupRow is an issue's row: title, status now, how long in progress,
+// what changed, or no activity on one in progress.
+func standupRow(s standupIssue, now time.Time) standupLine {
+	l := standupLine{key: s.card.Key, title: s.title(), who: s.card.Status, what: standupWhat(s.events)}
+	if s.card.InProgress && !s.card.Since.IsZero() {
+		l.age = fmt.Sprintf("%dd", int(now.Sub(s.card.Since).Hours()/24))
 	}
-	switch what := standupWhat(s.events); {
-	case what != "":
-		parts = append(parts, what)
-	case s.card.InProgress && !s.card.Since.IsZero():
-		parts = append(parts, fmt.Sprintf("no activity · in progress %dd", int(now.Sub(s.card.Since).Hours()/24)))
-	case s.card.InProgress:
-		parts = append(parts, "no activity")
+	if l.what == "" && s.card.InProgress {
+		l.what = "no activity"
 	}
-	return strings.Join(parts, " · ")
+	return l
 }
 
 // standupWhat folds an issue's events into one line: the status from its
@@ -189,18 +184,18 @@ func standupQuietField(f string) bool {
 	return slices.Contains(standupQuietFields, strings.ToLower(f))
 }
 
-// standupMine is the picker's rows (after the copy and step rows) and the
-// Yesterday / Today / Blockers text.
-func standupMine(entries []jira.InboxEntry, cards []jira.Card, me string, since, now time.Time) ([]jiraPickerItem, string) {
+// standupMine is the standup's rows and the Yesterday / Today / Blockers
+// text.
+func standupMine(entries []jira.InboxEntry, cards []jira.Card, me string, since, now time.Time) ([]standupLine, string) {
 	done, doing, touched, next, blocked := standupSections(entries, cards, me)
-	var items []jiraPickerItem
+	var items []standupLine
 	section := func(name string, list []standupIssue) {
 		if len(list) == 0 {
 			return
 		}
-		items = append(items, jiraPickerItem{label: "── " + name})
+		items = append(items, standupLine{head: name})
 		for _, s := range list {
-			items = append(items, jiraPickerItem{id: s.card.Key, label: "  " + standupRow(s, now)})
+			items = append(items, standupRow(s, now))
 		}
 	}
 	section("Done since "+standupDay(since, now), done)

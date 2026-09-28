@@ -57,6 +57,7 @@ var paletteDesc = map[string]map[string]string{
 	"planning": {"quit": "close planning"},
 	"panel":    {"search": "find in the issue"},
 	"charts":   {"quit": "close the charts"},
+	"standup":  {"quit": "close the standup", "open": "open the issue", "prev_view": "a workday further back", "next_view": "a workday later"},
 	"week":     {"quit": "close the week", "open": "log work in the cell", "prev_view": "previous week", "next_view": "next week"},
 }
 
@@ -173,6 +174,8 @@ func (m *Model) paletteScope() string {
 		return "charts"
 	case t.week != nil:
 		return "week"
+	case t.standup != nil:
+		return "standup"
 	}
 	return "board"
 }

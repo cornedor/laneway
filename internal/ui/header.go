@@ -203,7 +203,7 @@ func (m *Model) jiraFilterSegs() []headSeg {
 // headerHit is the header segment at x, y; its kind is "" for nothing.
 func (m *Model) headerHit(x, y int) headSeg {
 	t := m.jiraTab
-	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil
+	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil || t.standup != nil
 	var segs []headSeg
 	switch {
 	case y == 0 && !other:
@@ -212,7 +212,7 @@ func (m *Model) headerHit(x, y int) headSeg {
 		segs = m.roadmapSegs()
 	case y == jiraBodyTop-2 && t.charts != nil:
 		segs = m.chartsSegs()
-	case y == jiraBodyTop-2 && t.week != nil:
+	case y == jiraBodyTop-2 && (t.week != nil || t.standup != nil):
 		return headSeg{}
 	case y == jiraBodyTop-2 && t.plan != nil:
 		segs = m.planSegs()

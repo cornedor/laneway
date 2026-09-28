@@ -159,6 +159,15 @@ func (m *Model) helpSections() []struct {
 			row(k.Refresh, "refresh"),
 			{"esc / " + helpKey(k.Quit), "back to the board"},
 		}},
+		section{"Standup", []helpRow{
+			{helpKey(k.Tab), "yours / the team's, walking the board"},
+			row(k.StandupGroup, "the team's by person / walking the board"),
+			{join(k.PrevView, k.NextView), "a workday further back / later"},
+			row(k.OpenChannel, "open the issue in the panel"),
+			row(k.Fold, "show Off the board"),
+			row(k.CopyKey, "copy as Yesterday / Today / Blockers"),
+			{"esc / " + helpKey(k.Standup), "back to the board"},
+		}},
 		section{"Week", []helpRow{
 			{join(k.PrevView, k.NextView), "previous / next week"},
 			row(k.OpenChannel, "log work on the cell's issue and day"),

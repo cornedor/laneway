@@ -12,67 +12,32 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// U lists what you did since the previous workday, by day: moves, edits,
-// comments and logged work. Its first row copies it as text for a standup.
+// Your standup: what you did since the previous workday, by issue, with
+// your git commits (standup_screen.go shows it).
 
-// openStandup loads your activity into a picker.
-func (m *Model) openStandup() tea.Cmd {
-	return m.openStandupSince(jira.PreviousWorkday(time.Now(), m.opts.workdays), false)
-}
-
-// openStandupSince loads your activity since since, or the board's
-// people's with team; U again inside it reaches a workday further back.
-func (m *Model) openStandupSince(since time.Time, team bool) tea.Cmd {
-	if team {
-		return m.openTeamStandup(since, m.jiraPicker.byPerson)
-	}
+// loadMyStandup fetches your activity since since and the cards it needs.
+func (m *Model) loadMyStandup(seq int, since time.Time) tea.Cmd {
 	now := time.Now()
-	gen := m.startJiraPicker(jiraPickStandup, "Standup", true)
-	m.jiraPicker.day = since
-	seq := m.jiraPicker.fetchSeq
 	c, ctx, repos, me := m.jiraClient, m.ctx, m.standupRepos(), m.jiraClient.KnownMyself()
-	// Rows step a workday either way, U back too.
-	steps := m.standupSteps(since, now)
-	if len(m.teamPeople()) > 0 {
-		steps = append(steps, jiraPickerItem{id: "team", label: "Team: everyone on the board"})
-	}
 	return func() tea.Msg {
 		entries, err := c.Standup(ctx, since)
-		if err == nil {
-			entries = withCommits(entries, gitCommits(repos, since))
+		if err != nil {
+			return standupMsg{seq: seq, err: err}
 		}
-		var cards []jira.Card
-		if err == nil {
-			var keys []string
-			for _, e := range entries {
-				if e.Key != "" && !slices.Contains(keys, e.Key) {
-					keys = append(keys, e.Key)
-				}
+		entries = withCommits(entries, gitCommits(repos, since))
+		var keys []string
+		for _, e := range entries {
+			if e.Key != "" && !slices.Contains(keys, e.Key) {
+				keys = append(keys, e.Key)
 			}
-			var cerr error
-			if cards, cerr = c.SearchCards(ctx, standupJQL(keys)); cerr != nil && len(keys) > 0 {
-				cards, _ = c.SearchCards(ctx, standupJQL(nil)) // a deleted key fails the whole search
-			} // without cards the rows still list the activity
 		}
-		rows, text := standupMine(entries, cards, me, since, now)
-		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
-		items = append(items, rows...)
-		if err == nil && len(rows) == 0 {
-			items = append([]jiraPickerItem{{label: "nothing since " + standupDay(since, now)}}, steps...)
-		}
-		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,
-			title: "Standup — since " + standupDay(since, now) + "  ·  U further back", text: text}
+		cards, cerr := c.SearchCards(ctx, standupJQL(keys))
+		if cerr != nil && len(keys) > 0 {
+			cards, _ = c.SearchCards(ctx, standupJQL(nil)) // a deleted key fails the whole search
+		} // without cards the rows still list the activity
+		lines, text := standupMine(entries, cards, me, since, now)
+		return standupMsg{seq: seq, lines: lines, text: text}
 	}
-}
-
-// standupSteps are the rows stepping a workday back, and forth when since
-// is before the last.
-func (m *Model) standupSteps(since, now time.Time) []jiraPickerItem {
-	steps := []jiraPickerItem{{id: "earlier", label: "← a workday further back"}}
-	if since.Before(jira.PreviousWorkday(now, m.opts.workdays)) {
-		steps = append(steps, jiraPickerItem{id: "later", label: "→ a workday later"})
-	}
-	return steps
 }
 
 // standupDay names t's day: Today, Yesterday, else the weekday and date.

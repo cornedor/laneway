@@ -47,8 +47,8 @@ To do
 		t.Errorf("walk:\n%s\nwant\n%s", text, want)
 	}
 	// Off the board: folded, the board's projects only, bulk edits left out.
-	if last := items[len(items)-1]; last.id != "unfold" || last.label != "── Off the board (1)"+jiraUnfoldHint ||
-		len(folded) != 1 || folded[0].label != "  ABC-8 Aside · Ann · commented" {
+	if last := items[len(items)-1]; !last.unfold || last.head != "Off the board (1)" ||
+		len(folded) != 1 || folded[0].text() != "ABC-8 Aside · Ann · commented" {
 		t.Errorf("off the board: %+v, folded %+v", last, folded)
 	}
 	items, _, text = teamWalk(cols, entries, []string{"ABC"}, true, 5, since, now)
@@ -56,23 +56,7 @@ To do
 		!strings.Contains(text, "Bob · logged 2h\n- ABC-4 Moving · In progress") {
 		t.Errorf("by person:\n%s", text)
 	}
-	if items[0].label != "── Ann (2)" || items[1].id != "ABC-6" {
+	if items[0].head != "Ann (2)" || items[1].key != "ABC-6" {
 		t.Errorf("items = %+v", items[:2])
-	}
-}
-
-// TestPickerUnfold: enter on a folded row puts its rows under it.
-func TestPickerUnfold(t *testing.T) {
-	m := jiraTabModel(t)
-	gen := m.startJiraPicker(jiraPickStandup, "Team standup", true)
-	out, _ := m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickStandup,
-		items:  []jiraPickerItem{{id: "copy", label: "Copy as text"}, {id: "unfold", label: "── Off the board (1)" + jiraUnfoldHint}},
-		folded: []jiraPickerItem{{id: "ABC-8", label: "  ABC-8 Aside"}}})
-	m = out.(Model)
-	m.jiraPicker.idx = 1
-	out, _ = m.applyJiraPick()
-	m = out.(Model)
-	if !m.jiraPicker.active || len(m.jiraPicker.items) != 3 || m.jiraPicker.items[1].label != "── Off the board (1)" || m.jiraPicker.items[2].id != "ABC-8" {
-		t.Errorf("items = %+v", m.jiraPicker.items)
 	}
 }

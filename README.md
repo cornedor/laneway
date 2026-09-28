@@ -422,26 +422,26 @@ also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 
 ![What you did since Friday](docs/screenshots/standup.png)
 
-`U` is your standup since the previous workday (Friday on a Monday), one
-row per issue with its status now and what changed (`To Do → Done, logged
+`U` swaps the board for your standup since the previous workday (Friday on
+a Monday), a table of one row per issue with its status now and what changed (`To Do → Done, logged
 2h, 2 comments`), in sections: *Done since*, *In progress* (your in-progress
 cards without activity too, with how long they sat), *Also touched*, *Next*
 (your top to-dos in the open sprints by rank) and *Blockers* (flagged).
 Activity is status and field changes, comments, logged work, and your
 commits in the `jira.repos` repositories (every branch) under the key their
-subject names, keyless ones as *no ticket*. Its first row, Copy as text,
-puts it on the clipboard as Yesterday / Today / Blockers, ready to paste.
-`U` again (or its `←` row) reaches a workday further back, its `→` row a
-workday later again.
-Its *Team* row walks the board right to left for whoever runs the standup,
+subject names, keyless ones as *no ticket*, the activity wrapped rather than
+cut. `y` puts it on the clipboard as Yesterday / Today / Blockers, ready to
+paste; `[` reaches a workday further back, `]` a workday later again; `enter`
+opens the issue in the panel; `esc` (or `U`) goes back to the board.
+`tab` is the team's standup, walking the board right to left for whoever runs it,
 under the sprint goal and the workdays left: per column, each card in
 progress with who has it, how long (*stale* past `ui.stale_days`), a flag,
 its pull request or deploy, and what happened since, or *no activity*;
 done and to-do cards only when something happened on them. *Off the board*,
-folded until `enter`, has what the team did on the board's projects' other
-issues (comments, work, moves; bulk field edits left out). *By person* groups the same cards
-per person with the time each logged, for teams that go round; *Walk the
-board* goes back, *Just me* to yours.
+folded until `z` or `enter`, has what the team did on the board's projects'
+other issues (comments, work, moves; bulk field edits left out). `p` groups
+the same cards per person with the time each logged, for teams that go
+round, and back; `tab` again is yours.
 
 ## Releases
 

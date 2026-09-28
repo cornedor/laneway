@@ -127,22 +127,21 @@ empty cell logs work there.
 
 ### Standup: `U`
 
-`U` is your standup since the previous workday (Friday, on a Monday), one
-row per issue with what changed: *Done since*, *In progress* (a card of yours
+`U` swaps the board for your standup since the previous workday (Friday, on
+a Monday), one row per issue with what changed: *Done since*, *In progress* (a card of yours
 with no activity too, with how long it sat), *Next* in the sprint and
-*Blockers* (flagged). With `jira.repos` set your git commits count too. Its
-first row, *Copy as text*, puts it on the clipboard as Yesterday / Today /
-Blockers.
+*Blockers* (flagged). With `jira.repos` set your git commits count too. `y`
+puts it on the clipboard as Yesterday / Today / Blockers; `[` goes a
+workday further back.
 
 ![What you did since Friday](../screenshots/standup.png)
 
-Running the standup? Its *Team* row walks the board right to left, closest
-to done first: each card with who has it, how long it has been in
-progress, and what happened since the last workday. A card marked *no
-activity* is the one worth raising. *By person* groups it per person
-instead.
+Running the standup? `tab` walks the board right to left, closest to done
+first: each card with who has it, how long it has been in progress, and
+what happened since the last workday. A card marked *no activity* is the
+one worth raising. `p` groups it per person instead.
 
-> **Try it:** `U`, `enter` on *Copy as text*, paste it in your team's
+> **Try it:** `U`, `y`, paste it in your team's
 > standup channel. Done before the coffee's ready.
 
 ### Inbox: `I`

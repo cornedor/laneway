@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"strings"
 	"testing"
 	"time"
@@ -21,23 +22,6 @@ func TestStandupText(t *testing.T) {
 		"- A-1 Login: status: In progress → Done; commented: shipped\n- A-2 Docs: logged 1h"
 	if got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
-	}
-}
-
-// TestStandupCopy: the first row copies the text.
-func TestStandupCopy(t *testing.T) {
-	m := jiraTabModel(t)
-	out, _ := m.handleJiraKey(keyMsg(t, "U"))
-	m = out.(Model)
-	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickStandup {
-		t.Fatal("U should open the standup")
-	}
-	out, _ = m.handleJiraPickerLoaded(jiraPickerLoadedMsg{gen: m.jiraPicker.gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickStandup,
-		items: []jiraPickerItem{{id: "copy", label: "Copy as text"}, {label: "── Today"}}, text: "Today\n- A-1"})
-	m = out.(Model)
-	out, cmd := m.applyJiraPick()
-	if m = out.(Model); cmd == nil || m.jiraPicker.active || !strings.Contains(m.status, "copied") {
-		t.Errorf("copy: cmd %v, status %q", cmd != nil, m.status)
 	}
 }
 
@@ -68,19 +52,6 @@ func TestDevInfoKey(t *testing.T) {
 	}
 }
 
-// TestStandupFurther: U inside the standup reaches a workday further back.
-func TestStandupFurther(t *testing.T) {
-	m := jiraTabModel(t)
-	out, _ := m.handleJiraKey(keyMsg(t, "U"))
-	m = out.(Model)
-	first := m.jiraPicker.day
-	out, cmd := m.handleJiraPickerKey(keyMsg(t, "U"))
-	m = out.(Model)
-	if cmd == nil || !m.jiraPicker.day.Equal(jira.PreviousWorkday(first, nil)) || m.jiraPicker.kind != jiraPickStandup {
-		t.Errorf("since %v, want %v", m.jiraPicker.day, jira.PreviousWorkday(first, nil))
-	}
-}
-
 // TestStandupMine: one row per issue in sections, a stuck card shows with
 // its age, the next to-dos by rank, flagged ones as blockers; the text is
 // Yesterday / Today / Blockers.
@@ -107,20 +78,20 @@ func TestStandupMine(t *testing.T) {
 	items, text := standupMine(entries, cards, "me", since, now)
 	var labels []string
 	for _, it := range items {
-		labels = append(labels, strings.TrimSpace(it.label))
+		labels = append(labels, cmp.Or(it.head, it.text()))
 	}
 	want := []string{
-		"── Done since Yesterday",
+		"Done since Yesterday",
 		"A-1 Login · Done · To Do → Done, logged 2h",
-		"── In progress",
+		"In progress",
 		"A-2 Docs · In progress · 2 comments",
-		"A-5 Stuck · In progress · no activity · in progress 4d",
-		"── Also touched",
+		"A-5 Stuck · In progress · 4d · no activity",
+		"Also touched",
 		"tidy · 1 commit",
-		"── Next",
+		"Next",
 		"A-6 Next up · To Do",
-		"── Blockers",
-		"A-5 Stuck · In progress · no activity · in progress 4d",
+		"Blockers",
+		"A-5 Stuck · In progress · 4d · no activity",
 	}
 	if strings.Join(labels, "\n") != strings.Join(want, "\n") {
 		t.Errorf("rows\n%s\nwant\n%s", strings.Join(labels, "\n"), strings.Join(want, "\n"))
