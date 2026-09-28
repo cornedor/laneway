@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -90,7 +91,7 @@ func TestEmojiFlow(t *testing.T) {
 		t.Fatalf("offered %v", m.jiraMention.emoji)
 	}
 	m.renderRef() // as Update does after a key
-	if !strings.Contains(ansi.Strip(m.View().Content), "🚀 :rocket:") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "🚀  :rocket:") {
 		t.Fatal("emoji not shown")
 	}
 	out, _ := m.handleJiraCommentKey(keyMsg(t, "tab"))
@@ -103,7 +104,7 @@ func TestEmojiFlow(t *testing.T) {
 	if !strings.Contains(posted, `"shortName":":rocket:"`) || !strings.Contains(posted, `"type":"emoji"`) {
 		t.Errorf("posted = %s", posted)
 	}
-	for _, text := range []string{"at 10:30", "mail me:ab"} {
+	for _, text := range []string{"at 10:30", "mail me:ab", "ok :)", "hm :-)", ":a", "done :tada: ok"} {
 		if _, _, ok := emojiQueryAt(text, len(text)); ok {
 			t.Errorf("%q offered emoji", text)
 		}
@@ -114,5 +115,71 @@ func TestEmojiFlow(t *testing.T) {
 	m.renderRef()
 	if got := ansi.Strip(m.refView.GetContent()); !strings.Contains(got, "nice 👍🏽🎉") {
 		t.Errorf("comment shows:\n%s", got)
+	}
+}
+
+// TestEmojiMatches: exact, then prefix, then inside, then the letters in
+// order; one taken before rises within its band.
+func TestEmojiMatches(t *testing.T) {
+	m := loadedJiraModel(t)
+	if got := m.emojiMatches("smile"); got[0] != "smile" {
+		t.Errorf("exact first: %v", got)
+	}
+	if got := m.emojiMatches("smle"); !slices.Contains(got, "smile") {
+		t.Errorf("fuzzy: %v", got)
+	}
+	got := m.emojiMatches("rock")
+	if got[0] != "rock" || got[1] != "rocket" {
+		t.Fatalf("rock: %v", got)
+	}
+	m.openJiraCommentInput()
+	m.jiraCommentInput.SetValue(":rocke")
+	m.jiraCommentInput.CursorEnd()
+	m.scheduleMention()
+	m.acceptEmoji("rocket")
+	if got := m.emojiMatches("roc"); got[0] != "rocket" {
+		t.Errorf("taken before should lead its band: %v", got)
+	}
+}
+
+// TestEmojiListKeys: while the list shows, ↓ chooses, enter takes (not a
+// newline) and esc closes it, the comment kept; in the description editor
+// too.
+func TestEmojiListKeys(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.openJiraCommentInput()
+	type_ := func(s string) {
+		t.Helper()
+		for _, r := range s {
+			out, _ := m.handleJiraCommentKey(keyMsg(t, string(r)))
+			m = out.(Model)
+		}
+	}
+	type_("hi :tad")
+	if len(m.jiraMention.emoji) == 0 || m.jiraMention.emoji[0] != "tada" {
+		t.Fatalf("offered %v", m.jiraMention.emoji)
+	}
+	out, _ := m.handleJiraCommentKey(keyMsg(t, "enter"))
+	if m = out.(Model); m.jiraCommentInput.Value() != "hi :tada: " {
+		t.Fatalf("enter: %q", m.jiraCommentInput.Value())
+	}
+	type_(":smi")
+	out, _ = m.handleJiraCommentKey(keyMsg(t, "esc"))
+	if m = out.(Model); !m.jiraCommentActive || len(m.jiraMention.emoji) != 0 || m.jiraCommentDiscard {
+		t.Fatalf("esc should close the list only: active %v list %v", m.jiraCommentActive, m.jiraMention.emoji)
+	}
+
+	m = loadedJiraModel(t)
+	out, _ = m.handleDescLoaded(descLoadedMsg{key: "ABC-1", md: "see :rocke"})
+	m = out.(Model)
+	m.descEdit.input.CursorEnd()
+	out, _ = m.handleDescEditKey(keyMsg(t, "t"))
+	m = out.(Model)
+	if len(m.jiraMention.emoji) == 0 || !strings.Contains(ansi.Strip(m.renderDescEdit()), ":rocket:") {
+		t.Fatalf("description editor: %v", m.jiraMention.emoji)
+	}
+	out, _ = m.handleDescEditKey(keyMsg(t, "tab"))
+	if m = out.(Model); m.descEdit.input.Value() != "see :rocket: " {
+		t.Errorf("tab: %q", m.descEdit.input.Value())
 	}
 }

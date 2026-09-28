@@ -128,6 +128,9 @@ func (m *Model) closeJiraComment() {
 // cancels (asking once when you wrote something), ctrl+s posts, enter
 // inserts a newline (bound on the textarea), everything else edits the text.
 func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.mentionKey(msg.String()) { // an open list takes its keys first
+		return m, nil
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()
@@ -149,9 +152,6 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.cycleCommentVis()
 	}
 	m.jiraCommentDiscard = false
-	if m.mentionKey(msg.String()) {
-		return m, nil
-	}
 	var cmd tea.Cmd
 	m.jiraCommentInput, cmd = m.jiraCommentInput.Update(msg)
 	return m, tea.Batch(cmd, m.scheduleMention(), m.scheduleDraftSave())

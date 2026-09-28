@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/jira"
@@ -164,8 +165,13 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 			hint = "for " + v.Label() + " · " + hint
 		}
 		view = append(view, refDimStyle.Render(hint))
-	} else if m.descEdit.comment != "" {
-		view = append(view, refDimStyle.Render(descEditHint))
+	} else {
+		if list := m.renderMentions(); list != "" {
+			view = append(view, strings.Split(list, "\n")...)
+		}
+		if m.descEdit.comment != "" {
+			view = append(view, refDimStyle.Render(descEditHint))
+		}
 	}
 	bars := refDimStyle.Render(strings.Repeat("│ ", indent))
 	for j := range view {
@@ -228,6 +234,9 @@ func (d *descEdit) title() string {
 
 func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	d := m.descEdit
+	if m.mentionKey(msg.String()) { // the emoji list takes its keys first
+		return m, nil
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()
@@ -252,12 +261,17 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	d.discard = false
 	var cmd tea.Cmd
 	d.input, cmd = d.input.Update(msg)
+	m.scheduleEmoji()
 	return m, tea.Batch(cmd, m.scheduleDraftSave())
 }
 
 func (m *Model) renderDescEdit() string {
 	d := m.descEdit
-	return m.renderModalComposer(d.title(), nil, "ctrl+s save · ctrl+e $EDITOR · esc cancel", &d.input)
+	box := m.renderModalComposer(d.title(), nil, "ctrl+s save · ctrl+e $EDITOR · : emoji · esc cancel", &d.input)
+	if list := m.renderMentions(); list != "" {
+		box = lipgloss.JoinVertical(lipgloss.Left, box, list)
+	}
+	return box
 }
 
 // openExternalEditor writes md to a file and opens $VISUAL / $EDITOR on it;

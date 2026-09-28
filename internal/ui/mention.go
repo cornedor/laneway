@@ -9,15 +9,15 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
-	"github.com/cornedor/laneway/internal/emoji"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
 // @mentions in the comment composer: "@" and a few letters before the
 // cursor search the issue's assignable people; tab takes the chosen one,
 // written as "@Name" and posted as a real mention. ":" and two letters
-// offer emoji the same way, from the emoji table, written as ":name:" and
-// posted as Jira's emoji.
+// offer emoji the same way (emoji_complete.go), in the description editor
+// too, written as ":name:" and posted as Jira's emoji. While a list shows,
+// ↑/↓ (ctrl+p/n) choose, tab or enter takes, esc closes it.
 
 const (
 	mentionDelay = 250 * time.Millisecond
@@ -28,7 +28,8 @@ const (
 type mentionState struct {
 	start int // where the "@" (or ":") is, in runes
 	sugg  []jira.User
-	emoji []string // the emoji offered instead, their names
+	emoji []string // the emoji offered instead, their names, for query
+	query string
 	idx   int
 	seq   int
 }
@@ -80,10 +81,10 @@ func (m *Model) mentionEditor() (*editor.Model, string) {
 func (m *Model) scheduleMention() tea.Cmd {
 	ed, _ := m.mentionEditor()
 	if ed == nil {
+		m.scheduleEmoji() // the description editor completes emoji only
 		return nil
 	}
-	if q, start, ok := emojiQueryAt(ed.Value(), ed.CursorOffset()); ok {
-		m.jiraMention = mentionState{seq: m.jiraMention.seq + 1, start: start, emoji: emojiMatches(q)}
+	if m.scheduleEmoji() {
 		return nil
 	}
 	q, start, ok := mentionAt(ed.Value(), ed.CursorOffset())
@@ -129,16 +130,18 @@ func (m *Model) mentionKey(k string) bool {
 		return false
 	}
 	switch k {
-	case "ctrl+n":
+	case "down", "ctrl+n":
 		ms.idx = (ms.idx + 1) % n
-	case "ctrl+p":
+	case "up", "ctrl+p":
 		ms.idx = (ms.idx + n - 1) % n
-	case "tab":
+	case "tab", "enter":
 		if len(ms.emoji) > 0 {
 			m.acceptEmoji(ms.emoji[ms.idx])
 		} else {
 			m.acceptMention(ms.sugg[ms.idx])
 		}
+	case "esc":
+		m.jiraMention = mentionState{seq: ms.seq + 1}
 	default:
 		return false
 	}
@@ -171,16 +174,7 @@ func (m *Model) acceptMention(u jira.User) {
 func (m *Model) renderMentions() string {
 	ms := m.jiraMention
 	if len(ms.emoji) > 0 {
-		var lines []string
-		for i, name := range ms.emoji {
-			row := emoji.Glyph(name) + " :" + name + ":"
-			if i == ms.idx {
-				lines = append(lines, lipgloss.NewStyle().Foreground(focusedColor).Bold(true).Render("▸ "+row))
-			} else {
-				lines = append(lines, "  "+refDimStyle.Render(row))
-			}
-		}
-		return strings.Join(append(lines, refDimStyle.Render("tab inserts · ctrl+n/p choose")), "\n")
+		return m.renderEmojiList()
 	}
 	if len(ms.sugg) == 0 {
 		return ""
@@ -193,54 +187,7 @@ func (m *Model) renderMentions() string {
 			lines = append(lines, "  "+refDimStyle.Render("@"+u.DisplayName))
 		}
 	}
-	lines = append(lines, refDimStyle.Render("tab mention · ctrl+n/p choose"))
+	lines = append(lines, refDimStyle.Render("tab mention · ↑/↓ choose · esc closes"))
 	return strings.Join(lines, "\n")
 }
 
-// emojiQuery matches ":" and two or more name letters ending at the cursor.
-var emojiQuery = regexp.MustCompile(`(?:^|\s):([a-z0-9_+\-]{2,})$`)
-
-// emojiQueryAt is the emoji name being typed before the cursor, and where
-// its ":" is; ok false when none.
-func emojiQueryAt(text string, cursor int) (query string, start int, ok bool) {
-	r := []rune(text)
-	cursor = min(cursor, len(r))
-	m := emojiQuery.FindStringSubmatch(string(r[:cursor]))
-	if m == nil {
-		return "", 0, false
-	}
-	return m[1], cursor - len([]rune(m[1])) - 1, true
-}
-
-// emojiMatches are the first mentionShown emoji names starting with q,
-// then those holding it.
-func emojiMatches(q string) []string {
-	var pre, in []string
-	for _, n := range emoji.Names() {
-		switch {
-		case strings.HasPrefix(n, q):
-			pre = append(pre, n)
-		case len(in) < mentionShown && strings.Contains(n, q):
-			in = append(in, n)
-		}
-		if len(pre) == mentionShown {
-			break
-		}
-	}
-	return append(pre, in...)[:min(len(pre)+len(in), mentionShown)]
-}
-
-// acceptEmoji writes ":name: " over the typed ":query".
-func (m *Model) acceptEmoji(name string) {
-	in, _ := m.mentionEditor()
-	if in == nil {
-		return
-	}
-	r := []rune(in.Value())
-	cur := min(in.CursorOffset(), len(r))
-	start := min(m.jiraMention.start, cur)
-	code := ":" + name + ": "
-	in.SetValue(string(r[:start]) + code + string(r[cur:]))
-	in.SetCursorOffset(start + len([]rune(code)))
-	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
-}

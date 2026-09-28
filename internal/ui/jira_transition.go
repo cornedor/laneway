@@ -290,6 +290,9 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if f.editing && f.multiline {
+		if m.mentionKey(msg.String()) { // an open list takes its keys first
+			return m, nil
+		}
 		switch msg.String() {
 		case "ctrl+s":
 			ff := &f.fields[f.idx]
@@ -305,9 +308,6 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+c":
 			return m.quit()
-		}
-		if m.mentionKey(msg.String()) {
-			return m, nil
 		}
 		var cmd tea.Cmd
 		f.area, cmd = f.area.Update(msg)
