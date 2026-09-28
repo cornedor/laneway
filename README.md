@@ -498,7 +498,10 @@ another, as does `enter` on its `agent` row in the palette: laneway steps
 aside for `herdr agent attach` and comes back when you detach. Inside herdr
 it focuses the agent's pane. The panel lists the issue's agents (state,
 worktree, terminal title); `A` attaches to one, sends it a prompt, stops it
-(closing its tab) or starts another in the same worktree.
+(closing its tab) or starts another in the same worktree. On a done issue
+`A` → *Remove its worktree* removes the checkout through herdr once its
+branch is merged into the default branch; uncommitted changes keep it, and
+the branch stays.
 
 With the project in `jira.repos`, `A` → *Open a pull request* pushes the
 issue's branch and opens a draft titled with its key and summary, linking

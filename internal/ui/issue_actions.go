@@ -59,6 +59,9 @@ func (m *Model) openIssueActions() {
 		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
 	}
 	items = append(items, m.agentActions(iss.Key)...)
+	if iss.StatusCategory == "done" && m.canOpenPullRequest(iss.Key) {
+		items = append(items, jiraPickerItem{id: "worktree-remove", label: "Remove its worktree (merged, no uncommitted changes)"})
+	}
 	if m.canOpenPullRequest(iss.Key) {
 		items = append(items, jiraPickerItem{id: "pr", label: "Open a pull request (draft)"})
 	}
@@ -87,6 +90,8 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		return m.openJiraCreateChild(key, id)
 	case "pr":
 		return m.openPullRequest(key)
+	case "worktree-remove":
+		return m.removeWorktree(key)
 	case "status-time":
 		return m.openStatusTime(key)
 	case "deps":

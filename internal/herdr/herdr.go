@@ -283,6 +283,12 @@ func (c *Client) CreateWorktree(ctx context.Context, repo, branch, base string) 
 	return res.worktree(), err
 }
 
+// RemoveWorktree runs git worktree remove on the linked checkout open as
+// workspace, closing it. The branch stays.
+func (c *Client) RemoveWorktree(ctx context.Context, workspace string) error {
+	return c.call(ctx, "worktree.remove", map[string]any{"workspace_id": workspace, "force": false}, nil)
+}
+
 // RenameTab relabels a tab.
 func (c *Client) RenameTab(ctx context.Context, tab, label string) error {
 	return c.call(ctx, "tab.rename", map[string]any{"tab_id": tab, "label": label}, nil)
