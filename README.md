@@ -17,7 +17,7 @@ terminal.
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key
-- Several Jira sites, inline images in kitty and Ghostty, changes made offline sent later
+- Several Jira sites, inline images in kitty and Ghostty; a local index of what you read, searchable offline; changes made offline sent later
 - Every key and colour configurable
 
 `t` swaps the lanes for a sortable list:
