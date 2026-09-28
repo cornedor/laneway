@@ -180,7 +180,7 @@ func (m *Model) helpSections() []struct {
 		}{"Mouse", []helpRow{
 			{"click", "select; a field again: edit"},
 			{"double-click", "open the issue"},
-			{"drag", "a card to a lane, band or sprint; a roadmap bar"},
+			{"drag", "a card to a lane, band or sprint, or within its lane to rank; a roadmap bar"},
 			{"header", "views, filters, chips and key hints act"},
 			{"▾ ▸", "fold a swimlane, epic or parent"},
 			{"panel edges", "left: resize · right: scroll"},

@@ -7,7 +7,7 @@ terminal.
 
 ![The board as swim lanes](docs/screenshots/board.png)
 
-- Swim lanes or a sortable list, with drag and drop between lanes
+- Swim lanes or a sortable list, with drag and drop between lanes and to rank
 - Sprints, backlog and kanban boards; the board's quick filters plus your own
 - Local search, JQL with completion, a command palette, jump to any issue by key
 - Issue panel with description (edited as markdown), comments, links, subtasks, attachments and private notes; ask an LLM command about it
@@ -294,7 +294,7 @@ Board:
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out), `esc` back to now
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
 - you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs (`W` again: the week)
-- mouse: a click selects, a second opens; drag a card to another lane (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
+- mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
 - `q` quit; on the roadmap, planning, charts or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
 Panel:

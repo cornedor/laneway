@@ -202,6 +202,11 @@ type jiraDrag struct {
 	from   int
 	over   int
 	zone   int // the status zone under the pointer, in a lane of several
+	// slot is where in the lane under the pointer the card would land,
+	// counted among its other cards; ok over a lane of one status, with
+	// the swimlanes off.
+	slot   int
+	slotOK bool
 	// band is a card of the swimlane under the pointer, ok when over one.
 	band   jira.Card
 	bandOK bool
@@ -2363,10 +2368,17 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		if l < len(t.laneTop) {
 			top = min(t.laneTop[l], max(len(lane.cards)-1, 0))
 		}
-		if g := ghost; g >= 0 && l == t.drag.over && l != t.drag.from {
+		if g := ghost; g >= 0 && l == t.drag.over && (l != t.drag.from || t.drag.slotOK) {
 			at := 0
-			for at < len(lane.cards) && lane.cards[at] < g {
-				at++
+			if t.drag.slotOK {
+				// The ghost sits where the drop ranks it, its old place
+				// closed up.
+				slots = slices.DeleteFunc(slots, func(s slot) bool { return s.ci == g })
+				at = min(t.drag.slot, len(slots))
+			} else {
+				for at < len(lane.cards) && lane.cards[at] < g {
+					at++
+				}
 			}
 			slots = slices.Insert(slots, at, slot{ci: g, ghost: true})
 			top = min(top, at)
@@ -3122,11 +3134,35 @@ func (m Model) dragJira(x, y int) (tea.Model, tea.Cmd) {
 			t.drag.band, t.drag.bandOK = t.swimBand[l], true
 		}
 	}
-	if over != t.drag.over || zone != t.drag.zone || scrolled {
-		t.drag.over, t.drag.zone = over, zone
+	slot, slotOK := m.jiraDropSlot(over, y)
+	if over != t.drag.over || zone != t.drag.zone || slot != t.drag.slot || slotOK != t.drag.slotOK || scrolled {
+		t.drag.over, t.drag.zone, t.drag.slot, t.drag.slotOK = over, zone, slot, slotOK
 		m.renderJira()
 	}
 	return m, nil
+}
+
+// jiraLaneOthers is lane l's cards but the dragged one.
+func (m *Model) jiraLaneOthers(l int) []int {
+	t := m.jiraTab
+	return slices.DeleteFunc(slices.Clone(t.lanes[l].cards), func(ci int) bool { return t.cards[ci].Key == t.drag.key })
+}
+
+// jiraDropSlot is where among lane over's other cards a drop at row y
+// lands: the gap between cards nearest the pointer. ok only where a drop
+// can rank: a lane of one status, the swimlanes off.
+func (m *Model) jiraDropSlot(over, y int) (int, bool) {
+	t := m.jiraTab
+	if t.swim != jiraSortRank || over < 0 || over >= len(t.lanes) || len(t.lanes[over].statusIDs) != 1 {
+		return 0, false
+	}
+	n := len(m.jiraLaneOthers(over))
+	top := 0
+	if over < len(t.laneTop) {
+		top = min(t.laneTop[over], max(n-1, 0))
+	}
+	line := y - jiraBodyTop - 1
+	return min(max(top+(line+m.cardSlot()/2)/m.cardSlot(), 0), n), true
 }
 
 // dropJira ends a drag, moving the card when it landed on another lane, or on
@@ -3146,10 +3182,18 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 	}
 	band := m.jiraBandMove(d)
 	if d.over == d.from && status == "" {
+		if d.slotOK {
+			if cmd := m.rankJiraDrop(d); cmd != nil {
+				return m, tea.Batch(cmd, band)
+			}
+		}
 		m.renderJira()
 		return m, band
 	}
 	if cmd := m.moveJiraCard(d.key, d.over, status); cmd != nil {
+		if d.slotOK {
+			cmd = tea.Batch(cmd, m.rankJiraDrop(d))
+		}
 		if band != nil {
 			t.lastBand.seq = t.moveSeq // one drop, one undo
 		}
@@ -3161,6 +3205,27 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 	m.selectJiraKey(d.key)
 	m.renderJira()
 	return m, nil
+}
+
+// rankJiraDrop ranks a dropped card into its slot in the lane it landed
+// in; nil when that is where it was.
+func (m *Model) rankJiraDrop(d jiraDrag) tea.Cmd {
+	t := m.jiraTab
+	if d.over < 0 || d.over >= len(t.lanes) {
+		return nil
+	}
+	shown := t.lanes[d.over].cards
+	at := slices.IndexFunc(shown, func(ci int) bool { return t.cards[ci].Key == d.key })
+	if at < 0 || len(shown) < 2 {
+		return nil
+	}
+	// Counted among the lane's other cards, slot is the place the card
+	// takes in the whole lane too.
+	to := min(d.slot, len(shown)-1)
+	if to == at {
+		return nil
+	}
+	return m.rankJiraCardTo(shown, at, to)
 }
 
 // jiraBandMove is the write a drop into another swimlane makes, as on

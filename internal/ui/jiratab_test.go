@@ -165,6 +165,67 @@ func TestJiraTabDragDrop(t *testing.T) {
 	}
 }
 
+// TestJiraTabDragRank: dragging a card down its own lane ranks it where it
+// is dropped, the ghost showing the spot on the way; a drop into another
+// lane lands at the spot too.
+func TestJiraTabDragRank(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/agile/1.0/issue/rank" {
+			b, _ := io.ReadAll(r.Body)
+			body = string(b)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Summary: "Fifth", StatusID: "1", Status: "New"})
+	m.buildJiraLanes()
+	m.renderJira()
+	lane := func(l int) string {
+		var keys []string
+		for _, i := range m.jiraTab.lanes[l].cards {
+			keys = append(keys, m.jiraTab.cards[i].Key)
+		}
+		return strings.Join(keys, " ")
+	}
+	y := jiraBodyTop + 1
+	below := y + 2*m.cardSlot() // under the lane's last card
+	out, _ := m.Update(tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft})
+	out, _ = out.(Model).Update(tea.MouseMotionMsg{X: 2, Y: below, Button: tea.MouseLeft})
+	m = out.(Model)
+	if d := m.jiraTab.drag; !d.active || d.over != 0 || !d.slotOK || d.slot != 2 {
+		t.Fatalf("drag = %+v, want lane 0 slot 2", d)
+	}
+	if g, c := strings.Index(m.jiraTab.lanesOut, "┊ First"), strings.Index(m.jiraTab.lanesOut, "Fifth"); g < 0 || c < 0 || g < c {
+		t.Errorf("ghost not below ABC-5:\n%s", m.jiraTab.lanesOut)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: 2, Y: below, Button: tea.MouseLeft})
+	m = out.(Model)
+	if got := lane(0); got != "ABC-3 ABC-5 ABC-1" || cmd == nil {
+		t.Fatalf("lane = %s, cmd %v", got, cmd != nil)
+	}
+	cmd()
+	if body != `{"issues":["ABC-1"],"rankAfterIssue":"ABC-5"}` {
+		t.Errorf("rank = %s", body)
+	}
+
+	// ABC-3 into In progress, under ABC-2 (clicked elsewhere than before: no
+	// double-click).
+	out, _ = m.Update(tea.MouseClickMsg{X: 6, Y: y, Button: tea.MouseLeft})
+	out, _ = out.(Model).Update(tea.MouseMotionMsg{X: m.jiraTab.laneW + 3, Y: y + m.cardSlot(), Button: tea.MouseLeft})
+	m = out.(Model)
+	if d := m.jiraTab.drag; d.key != "ABC-3" || d.over != 1 || d.slot != 1 {
+		t.Fatalf("drag = %+v, want ABC-3 over lane 1 slot 1", d)
+	}
+	out, _ = m.Update(tea.MouseReleaseMsg{X: m.jiraTab.laneW + 3, Y: y + m.cardSlot(), Button: tea.MouseLeft})
+	m = out.(Model)
+	if got := lane(1); got != "ABC-2 ABC-3" {
+		t.Errorf("In progress = %s", got)
+	}
+}
+
 // TestJiraTabDropZones: a lane of several statuses splits into a zone per
 // status while dragged over, and the drop lands on the zone's status.
 func TestJiraTabDropZones(t *testing.T) {
