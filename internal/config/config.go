@@ -192,6 +192,11 @@ type UIConfig struct {
 	// WorkArgs are arguments the agent gets before the start prompt, with
 	// {key} replaced ([--append-system-prompt, "User is working on {key}"]).
 	WorkArgs []string `yaml:"work_args"`
+	// WorkCreate is a command start work runs in the repo when the branch
+	// has no worktree, with {branch}, {base} and {key} replaced ([wt, switch,
+	// --create, "{branch}", --base, "{base}", --no-cd]); unset, herdr
+	// creates it.
+	WorkCreate []string `yaml:"work_create"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);
 	// by default the one matching the theme preset.
 	CodeTheme string `yaml:"code_theme"`

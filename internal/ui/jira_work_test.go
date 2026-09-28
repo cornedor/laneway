@@ -2,12 +2,15 @@ package ui
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -122,7 +125,7 @@ func TestWorkAgent(t *testing.T) {
 			conn.Close()
 		}
 	}()
-	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "codex", "ABC-1", "Bug", "Fix", []string{"go"})().(jiraWorkMsg)
+	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "codex", "ABC-1", "Bug", "Fix", []string{"go"}, nil)().(jiraWorkMsg)
 	if msg.err != nil || msg.agent != "codex" || <-kinds != "codex" {
 		t.Fatalf("msg = %+v", msg)
 	}
@@ -145,5 +148,60 @@ func TestWorkArgs(t *testing.T) {
 	}
 	if got := workArgs(nil, "none", "ABC-1"); len(got) != 0 {
 		t.Errorf("nothing: %q", got)
+	}
+}
+
+// TestWorkCreate: with ui.work_create a missing worktree is made by the
+// command, run in the repo with the placeholders replaced, then opened.
+func TestWorkCreate(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "h.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	var methods []string
+	opens := 0
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			line, _ := bufio.NewReader(conn).ReadBytes('\n')
+			var req struct {
+				Method string `json:"method"`
+			}
+			_ = json.Unmarshal(line, &req)
+			methods = append(methods, req.Method)
+			if req.Method == "worktree.open" {
+				if opens++; opens == 1 {
+					conn.Write([]byte(`{"id":"x","error":{"code":"worktree_not_found","message":"no worktree"}}` + "\n"))
+				} else {
+					conn.Write([]byte(`{"id":"x","result":{"root_pane":{"pane_id":"w1:p1","tab_id":"w1:t1"},"workspace":{"workspace_id":"w1"},"worktree":{"path":"/wt/x"}}}` + "\n"))
+				}
+			} else {
+				conn.Write([]byte(`{"id":"x","result":{}}` + "\n"))
+			}
+			conn.Close()
+		}
+	}()
+	repo := t.TempDir()
+	create := []string{"sh", "-c", `echo "$0 $1 $2" > made`, "{branch}", "{base}", "{key}"}
+	wt, err := worktreeIn(herdr.New(sock), repo, "issue/ABC-1-fix", "", "ABC-1", create)(context.Background())
+	if err != nil || wt.Path != "/wt/x" {
+		t.Fatalf("worktree = %+v, %v", wt, err)
+	}
+	made, _ := os.ReadFile(filepath.Join(repo, "made"))
+	if got := strings.TrimSpace(string(made)); got != "issue/ABC-1-fix HEAD ABC-1" {
+		t.Errorf("the command got %q", got)
+	}
+	if slices.Contains(methods, "worktree.create") {
+		t.Errorf("herdr created it too: %q", methods)
+	}
+	fail := []string{"sh", "-c", "echo nope; exit 3"}
+	opens = 0
+	if _, err := worktreeIn(herdr.New(sock), repo, "b", "", "ABC-1", fail)(context.Background()); err == nil || !strings.Contains(err.Error(), "nope") {
+		t.Errorf("a failing command: %v", err)
 	}
 }

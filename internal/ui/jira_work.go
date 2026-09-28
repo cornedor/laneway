@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os/exec"
@@ -18,7 +19,8 @@ import (
 
 // Start work (S in the Jira panel): open the issue's worktree as a herdr
 // workspace — reusing a local branch that fits ui.work_branch_template when
-// one exists, else creating one from it (issue/KEY-slug by default) — label
+// one exists, else creating one from it (issue/KEY-slug by default), by herdr
+// or the ui.work_create command — label
 // its tab with the key and start the agent (ui.work_agent, Claude by
 // default) in it with ui.work_args and the start prompt (jira.start_prompt;
 // none starts it without one).
@@ -64,7 +66,7 @@ func (m *Model) startJiraWork() tea.Cmd {
 	m.jiraStarting[iss.Key] = true
 	m.status = iss.Key + ": starting work…"
 	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, m.opts.workAgent, iss.Key, iss.Type, iss.Summary,
-		workArgs(m.opts.workArgs, m.jiraStartPrompt, iss.Key))
+		workArgs(m.opts.workArgs, m.jiraStartPrompt, iss.Key), m.opts.workCreate)
 }
 
 // workArgs are the agent's arguments: extra with {key} replaced, then the
@@ -80,7 +82,7 @@ func workArgs(extra []string, prompt, key string) []string {
 	return out
 }
 
-func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary string, args []string) tea.Cmd {
+func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary string, args, create []string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -88,20 +90,43 @@ func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary string, args
 		if branch == "" {
 			branch = branchName(tmpl, key, typ, summary)
 		}
-		path, pane, running, err := agentInWorktree(ctx, c, repo, branch, defaultBase(repo), key, agent, jiraAgentName(key, time.Now()), args)
+		wt := worktreeIn(c, repo, branch, defaultBase(repo), key, create)
+		path, pane, running, err := agentInWorktree(ctx, c, wt, key, agent, jiraAgentName(key, time.Now()), args)
 		return jiraWorkMsg{key: key, path: path, pane: pane, agent: agent, running: running, err: err}
 	}
 }
 
-// agentInWorktree opens repo's worktree on branch as a herdr workspace
-// (creating it from base when there is none), labels its tab and starts
-// the agent kind in it with args. pane is the agent's; running reports one
-// was already there.
-func agentInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, tab, kind, name string, args []string) (path, pane string, running bool, err error) {
-	wt, err := c.OpenWorktree(ctx, repo, branch)
-	if herdr.IsCode(err, "worktree_not_found") {
-		wt, err = c.CreateWorktree(ctx, repo, branch, base)
+// worktreeIn opens repo's worktree on branch as a herdr workspace, making
+// it from base when there is none: by herdr, or by running create in repo
+// ({branch}, {base} and {key} replaced) and opening what it made.
+func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string) func(context.Context) (herdr.Worktree, error) {
+	return func(ctx context.Context) (herdr.Worktree, error) {
+		wt, err := c.OpenWorktree(ctx, repo, branch)
+		if !herdr.IsCode(err, "worktree_not_found") {
+			return wt, err
+		}
+		if len(create) == 0 {
+			return c.CreateWorktree(ctx, repo, branch, base)
+		}
+		r := strings.NewReplacer("{branch}", branch, "{base}", cmp.Or(base, "HEAD"), "{key}", key)
+		argv := make([]string, len(create))
+		for i, a := range create {
+			argv[i] = r.Replace(a)
+		}
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		cmd.Dir = repo
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return wt, fmt.Errorf("%s: %w: %s", argv[0], err, strings.TrimSpace(string(out)))
+		}
+		return c.OpenWorktree(ctx, repo, branch)
 	}
+}
+
+// agentInWorktree opens a worktree with open, labels its tab and starts the
+// agent kind in it with args. pane is the agent's; running reports one was
+// already there.
+func agentInWorktree(ctx context.Context, c *herdr.Client, open func(context.Context) (herdr.Worktree, error), tab, kind, name string, args []string) (path, pane string, running bool, err error) {
+	wt, err := open(ctx)
 	if err != nil {
 		return "", "", false, err
 	}

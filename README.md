@@ -127,6 +127,7 @@ ui:
   flag_value: Impediment        # the Flagged option A → flag sets
   work_agent: claude            # the herdr agent S starts in the worktree
   work_args: [--append-system-prompt, "User is working on {key}"]  # its arguments before the prompt
+  work_create: [wt, switch, --create, "{branch}", --base, "{base}", --no-cd]  # makes a missing worktree; unset: herdr
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
   keys:              # rebind any action: one key or a list
     search: f

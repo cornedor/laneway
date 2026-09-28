@@ -73,6 +73,7 @@ var settingDefaults = map[string]string{
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"work_args":            "none",
+	"work_create":          "herdr creates the worktree",
 	"code_theme":           "the preset's, else monokai",
 	"theme":                "terminal colours",
 	"actions":              "none",

@@ -41,6 +41,7 @@ type options struct {
 	workBranch      string              // start work's new branch
 	workAgent       string              // the herdr agent kind start work launches
 	workArgs        []string            // its arguments before the start prompt
+	workCreate      []string            // the command that makes a missing worktree, nil: herdr's
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
 	epicType        string              // the roadmap's issue type
 	myWorkJQL       string              // O's query
@@ -251,6 +252,9 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.workAgent = a
 	}
 	o.workArgs = slices.DeleteFunc(slices.Clone(c.WorkArgs), func(a string) bool { return a == "" })
+	if len(c.WorkCreate) > 0 && strings.TrimSpace(c.WorkCreate[0]) != "" {
+		o.workCreate = slices.Clone(c.WorkCreate)
+	}
 	if tmpl := strings.TrimSpace(c.WorkBranchTemplate); tmpl != "" {
 		if bad := badBranchPlaceholder(tmpl); bad != "" {
 			warn = append(warn, fmt.Sprintf("ui.work_branch_template: unknown %s", bad))
