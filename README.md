@@ -38,6 +38,7 @@ New here? `laneway -demo` opens a generated board, no Jira needed. The
 
 ```sh
 brew install cornedor/tap/laneway      # macOS
+yay -S laneway                         # Arch (AUR), laneway-git for main
 nix run github:cornedor/laneway
 go install github.com/cornedor/laneway@latest
 ```
