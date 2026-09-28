@@ -329,10 +329,12 @@ func (m *Model) renderRef() {
 		}
 		m.refView.SetContent(refDimStyle.Render("loading " + label + "…"))
 	case m.jiraIssue != nil:
-		refRowWidth = m.refView.Width()
-		content := m.placeImages(expandTables(m.renderJiraIssue(m.jiraIssue, m.refView.Width()), m.refView.Width()))
-		content = m.placeInlineEditor(content, m.refView.Width())
+		w := m.refView.Width()
+		refRowWidth = w
+		content := m.placeImages(wrapPanel(expandTables(m.renderJiraIssue(m.jiraIssue, w), w), w))
+		content = m.placeInlineEditor(content, w)
 		content = m.markPanelSel(content)
+		content, m.panelSoft = softRows(content)
 		m.refView.SetContent(content)
 		m.indexPanelHits(content)
 		m.panelPlain = plainLines(content)

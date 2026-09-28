@@ -382,6 +382,7 @@ type Model struct {
 	panelFindAt    int          // the line of the last hit shown
 	panelSel       panelSel     // text selected with the mouse (panel_select.go)
 	panelPlain     []string     // the panel's lines, unstyled, for find
+	panelSoft      []bool       // which of them a wrap continues on the next
 	panelFieldLine []int
 	// pickerLine is the content line of the inline picker's first shown row
 	// (pickerStart), -1 when none (jira_edit.go).

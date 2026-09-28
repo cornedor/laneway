@@ -131,11 +131,12 @@ func (m *Model) markPanelSel(content string) string {
 // first starts where the drag did).
 func (m *Model) panelSelText() string {
 	var lines []string
+	var at []int // each line's panel row
 	for i, l := range m.panelPlain {
 		if from, to, ok := m.panelSelSpan(i, ansi.StringWidth(l)); ok {
-			lines = append(lines, strings.TrimRight(ansi.Cut(l, from, to), " "))
+			lines, at = append(lines, strings.TrimRight(ansi.Cut(l, from, to), " ")), append(at, i)
 		} else if s, e := m.panelSelRange(); i > s[0] && i < e[0] {
-			lines = append(lines, "")
+			lines, at = append(lines, ""), append(at, i)
 		}
 	}
 	if len(lines) == 0 {
@@ -150,8 +151,19 @@ func (m *Model) panelSelText() string {
 			}
 		}
 	}
-	for i, l := range lines[1:] {
-		lines[i+1] = l[min(max(indent, 0), len(l)):]
+	var b strings.Builder
+	for i, l := range lines {
+		if i > 0 {
+			l = l[min(max(indent, 0), len(l)):]
+			if r := at[i-1]; r < len(m.panelSoft) && m.panelSoft[r] && at[i] == r+1 {
+				// A wrapped row: the words run on.
+				b.WriteString(" ")
+				l = strings.TrimLeft(l, " ")
+			} else {
+				b.WriteString("\n")
+			}
+		}
+		b.WriteString(l)
 	}
-	return strings.TrimSpace(strings.Join(lines, "\n"))
+	return strings.TrimSpace(b.String())
 }

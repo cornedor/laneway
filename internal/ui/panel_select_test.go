@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -53,5 +54,28 @@ func TestPanelSelect(t *testing.T) {
 	out, cmd = out.(Model).Update(tea.MouseReleaseMsg{X: x1, Y: y1, Button: tea.MouseLeft})
 	if m = out.(Model); m.panelSel.on || cmd != nil || strings.Contains(m.refView.GetContent(), panelSelStyle.Render("line of text")) {
 		t.Errorf("a click kept the selection: %+v", m.panelSel)
+	}
+}
+
+// TestPanelSelectWrapped: a paragraph the panel wraps copies as the one
+// line it is, its words run on over each break.
+func TestPanelSelectWrapped(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	para := strings.TrimSpace(strings.Repeat("words that wrap around ", 12))
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Description: para}})
+	m = out.(Model)
+	first := slices.IndexFunc(m.panelPlain, func(l string) bool { return strings.HasPrefix(strings.TrimSpace(l), "words that") })
+	last := first
+	for last >= 0 && m.panelSoft[last] {
+		last++
+	}
+	if first < 0 || last == first {
+		t.Fatalf("paragraph not wrapped:\n%s", strings.Join(m.panelPlain, "\n"))
+	}
+	m.panelSel = panelSel{on: true, a: [2]int{first, 0}, b: [2]int{last, 999}}
+	if got := m.panelSelText(); got != para {
+		t.Errorf("text = %q, want %q", got, para)
 	}
 }

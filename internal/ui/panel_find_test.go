@@ -37,3 +37,27 @@ func TestPanelFind(t *testing.T) {
 		t.Errorf("miss: %q", m.status)
 	}
 }
+
+// TestPanelFindWrapped: a phrase the panel's wrap splits over two rows is
+// still found, on the row it starts.
+func TestPanelFindWrapped(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.jiraIssue.Description = strings.Repeat("filler words ", 30) + "needle haystack"
+	m.renderRef()
+	// Find a break and search the two words either side of it.
+	for i, l := range m.panelPlain {
+		if i+1 >= len(m.panelPlain) || !m.panelSoft[i] {
+			continue
+		}
+		f := strings.Fields(l)
+		q := f[len(f)-1] + " " + strings.Fields(m.panelPlain[i+1])[0]
+		m.panelFind = q
+		m.panelFindAt = i - 1
+		m.findInPanel(1)
+		if m.panelFindAt != i {
+			t.Fatalf("%q over the break at row %d: found at %d (%s)", q, i, m.panelFindAt, m.status)
+		}
+		return
+	}
+	t.Fatalf("no wrapped row:\n%s", strings.Join(m.panelPlain, "\n"))
+}

@@ -38,7 +38,13 @@ func (m *Model) findInPanel(dir int) {
 	q := strings.ToLower(m.panelFind)
 	var hits []int
 	for i, l := range m.panelPlain {
-		if strings.Contains(strings.ToLower(l), q) {
+		l = strings.ToLower(l)
+		n := len(l)
+		if i+1 < len(m.panelPlain) && i < len(m.panelSoft) && m.panelSoft[i] {
+			// A wrapped row: a phrase may run on over the break.
+			l += " " + strings.TrimLeft(strings.ToLower(m.panelPlain[i+1]), " ")
+		}
+		if at := strings.Index(l, q); at >= 0 && at < n {
 			hits = append(hits, i)
 		}
 	}
