@@ -586,6 +586,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			out = om
 		}
+		if om.dropdownOn() { // the rows a dropdown shows stay put until the selection leaves them
+			om.jiraPicker.top, _ = om.dropdownWindow(om.dropdownWin(om.bodyH()))
+			out = om
+		}
 		if f := om.flushImages(); f != nil {
 			return om, tea.Batch(cmd, f)
 		}

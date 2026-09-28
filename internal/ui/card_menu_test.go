@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -132,4 +133,59 @@ func TestCardMenuDropdown(t *testing.T) {
 	if m = out.(Model); m.jiraPicker.active || m.dropdown != nil {
 		t.Error("a click off the menu should close it")
 	}
+}
+
+// TestDropdownHoverKeepsStill: moving the pointer over a long list selects
+// the rows under it and never scrolls it; the keys still scroll, a row at a
+// time.
+func TestDropdownHoverKeepsStill(t *testing.T) {
+	m := jiraTabModel(t)
+	x, y := screenAt(t, m, "ABC-3")
+	out, _ := m.handleClick(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseRight})
+	m = out.(Model)
+	m.jiraPicker.idx = 2
+	out, _ = m.handleJiraPickerKey(keyPress("enter"))
+	m = out.(Model)
+	var users []jiraPickerItem
+	for i := range 30 {
+		users = append(users, jiraPickerItem{id: fmt.Sprint(i), label: fmt.Sprintf("Person %02d", i)})
+	}
+	out, _ = m.Update(jiraPickerLoadedMsg{gen: m.jiraPicker.gen, seq: m.jiraPicker.fetchSeq, kind: jiraPickAssignee, items: users})
+	m = out.(Model)
+	top := func() string {
+		_, y := screenAt(t, m, "Person ")
+		return strings.Fields(ansi.Strip(strings.Split(m.View().Content, "\n")[y]))[0]
+	}
+	px, py := screenAt(t, m, "Person 00")
+	first := top()
+	win := m.dropdownWin(m.bodyH())
+	for _, dy := range append(seq(0, win), seq(win-1, -1)...) {
+		out, _ = m.Update(tea.MouseMotionMsg{X: px, Y: py + dy})
+		m = out.(Model)
+		if m.jiraPicker.idx != dy {
+			t.Fatalf("pointer on row %d selected %d", dy, m.jiraPicker.idx)
+		}
+		if got := top(); got != first {
+			t.Fatalf("pointer on row %d scrolled the list to %s", dy, got)
+		}
+	}
+	m.jiraPicker.idx = win - 1
+	out, _ = m.Update(keyPress("down"))
+	if m = out.(Model); m.jiraPicker.idx != win || m.jiraPicker.top != 1 {
+		t.Errorf("down past the last row: idx %d top %d, want %d and 1", m.jiraPicker.idx, m.jiraPicker.top, win)
+	}
+}
+
+// seq is from, from±1, … up to (not including) to.
+func seq(from, to int) []int {
+	var out []int
+	for i := from; i != to; {
+		out = append(out, i)
+		if to > from {
+			i++
+		} else {
+			i--
+		}
+	}
+	return out
 }

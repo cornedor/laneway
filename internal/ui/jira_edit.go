@@ -169,8 +169,10 @@ type jiraPickerState struct {
 	// inline is the panel row the list drops under (a panel field name or
 	// an extra field's id), "" for the modal.
 	inline string
-	// at is where a dropdown's corner goes (dropdown.go), nil for the modal.
-	at *point
+	// at is where a dropdown's corner goes (dropdown.go), nil for the modal;
+	// top its first row shown.
+	at  *point
+	top int
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +

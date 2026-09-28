@@ -48,6 +48,23 @@ func (m *Model) dropdownOn() bool {
 	return m.jiraPicker.at != nil && m.pickerOnTop() && !m.pickerInline()
 }
 
+// dropdownWindow is the rows [start, end) a dropdown shows of win: it
+// scrolls only as far as the selection needs, so a row the pointer selects
+// stays where it is.
+func (m *Model) dropdownWindow(win int) (start, end int) {
+	p := &m.jiraPicker
+	n := len(p.items)
+	start = p.top
+	if p.idx < start {
+		start = p.idx
+	}
+	if p.idx >= start+win {
+		start = p.idx - win + 1
+	}
+	start = min(max(start, 0), max(n-win, 0))
+	return start, min(start+win, n)
+}
+
 // dropdownWin is how many rows a dropdown lists in maxH.
 func (m *Model) dropdownWin(maxH int) int {
 	win := maxH - 4 // the borders and the scroll markers
@@ -75,10 +92,14 @@ func (m *Model) renderDropdown(maxH int) string {
 	case len(p.items) == 0:
 		rows = append(rows, refDimStyle.Render(" "+p.emptyText()))
 	default:
-		start, end := m.pickerWindow(m.dropdownWin(maxH))
+		start, end := m.dropdownWindow(m.dropdownWin(maxH))
 		marks := slices.ContainsFunc(p.items, func(it jiraPickerItem) bool { return it.current })
+		more := len(p.items) > end-start // both marker lines kept: the box keeps its size as it scrolls
+		if more {
+			rows = append(rows, "")
+		}
 		if start > 0 {
-			rows = append(rows, refDimStyle.Render("  ↑ more"))
+			rows[len(rows)-1] = refDimStyle.Render("  ↑ more")
 		}
 		for i := start; i < end; i++ {
 			it := p.items[i]
@@ -98,8 +119,11 @@ func (m *Model) renderDropdown(maxH int) string {
 			}
 			rows = append(rows, row)
 		}
+		if more {
+			rows = append(rows, "")
+		}
 		if end < len(p.items) {
-			rows = append(rows, refDimStyle.Render("  ↓ more"))
+			rows[len(rows)-1] = refDimStyle.Render("  ↓ more")
 		}
 	}
 	w := 0
@@ -158,13 +182,13 @@ func (m *Model) dropdownRowAt(x, y int) (idx int, outside bool) {
 	if p.loading || p.err != nil || len(p.items) == 0 {
 		return -1, false
 	}
-	start, end := m.pickerWindow(m.dropdownWin(bodyH))
+	start, end := m.dropdownWindow(m.dropdownWin(bodyH))
 	first := top + 1 // the border
 	if p.filterable {
 		first++
 	}
-	if start > 0 {
-		first++
+	if len(p.items) > end-start {
+		first++ // the ↑ line
 	}
 	if i := start + y - first; y >= first && i < end {
 		return i, false
