@@ -10,7 +10,8 @@ import (
 
 // TestTeamWalk: the Team standup walks the columns right to left; a card in
 // progress shows with its age (stale past stale days) or "no activity", a
-// done or to-do card only with activity; by person groups the same cards.
+// done or to-do card only with activity (a status back where it was, a rank
+// or parent set are none); by person groups the same cards.
 func TestTeamWalk(t *testing.T) {
 	now := time.Date(2026, 9, 28, 10, 0, 0, 0, time.Local)
 	since := now.AddDate(0, 0, -3)
@@ -26,6 +27,9 @@ func TestTeamWalk(t *testing.T) {
 		{Key: "ABC-4", Summary: "Moving", Who: "Bob", Logged: 7200, What: "logged 2h", When: now.Add(-2 * time.Hour)},
 		{Key: "ABC-6", Summary: "Fresh", Who: "Ann", What: "status", Changes: []jira.Change{{Field: "status", From: "In progress", To: "Done"}}, When: now.Add(-3 * time.Hour)},
 		{Key: "XYZ-9", Summary: "Elsewhere", Who: "Ann", What: "commented: there", When: now.Add(-time.Hour)},
+		// Noise: a status back where it was, a rank and a parent set.
+		{Key: "ABC-1", Summary: "Idle", Who: "Ann", What: "status", Changes: []jira.Change{{Field: "status", From: "To Do", To: "In progress"}, {Field: "status", From: "In progress", To: "To Do"}}, When: now.Add(-time.Hour)},
+		{Key: "ABC-1", Summary: "Idle", Who: "Ann", What: "rank", Changes: []jira.Change{{Field: "Rank", From: "", To: "x"}, {Field: "IssueParentAssociation", To: "ABC-9"}}, When: now.Add(-time.Hour)},
 	}
 	_, text := teamWalk(cols, entries, false, 5, since, now)
 	want := `Done

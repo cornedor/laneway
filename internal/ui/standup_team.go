@@ -128,7 +128,7 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, byPerson bool, stale
 	for i := len(cols) - 1; i >= 0; i-- {
 		for _, c := range cols[i].cards {
 			onBoard[c.Key] = true
-			if ev := byKey[c.Key]; len(ev) > 0 || c.InProgress || c.Flagged {
+			if ev := byKey[c.Key]; standupWhat(ev) != "" || c.InProgress || c.Flagged {
 				walk = append(walk, teamCard{card: c, column: cols[i].name, events: ev})
 			}
 		}
@@ -240,11 +240,7 @@ func teamRow(tc teamCard, who string, stale int, now time.Time) string {
 	if c.Deploy != "" {
 		parts = append(parts, "on "+c.Deploy)
 	}
-	if len(tc.events) > 0 {
-		parts = append(parts, standupWhat(tc.events))
-	} else {
-		parts = append(parts, "no activity")
-	}
+	parts = append(parts, cmp.Or(standupWhat(tc.events), "no activity"))
 	return strings.Join(parts, " · ")
 }
 

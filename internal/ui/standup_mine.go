@@ -116,9 +116,9 @@ func standupRow(s standupIssue, now time.Time) string {
 	if st := s.card.Status; st != "" {
 		parts = append(parts, st)
 	}
-	switch {
-	case len(s.events) > 0:
-		parts = append(parts, standupWhat(s.events))
+	switch what := standupWhat(s.events); {
+	case what != "":
+		parts = append(parts, what)
 	case s.card.InProgress && !s.card.Since.IsZero():
 		parts = append(parts, fmt.Sprintf("no activity · in progress %dd", int(now.Sub(s.card.Since).Hours()/24)))
 	case s.card.InProgress:
@@ -151,7 +151,7 @@ func standupWhat(events []jira.InboxEntry) string {
 						from = ch.From
 					}
 					to = ch.To
-				} else if !slices.Contains(fields, ch.Field) {
+				} else if !slices.Contains(fields, ch.Field) && !standupQuietField(ch.Field) {
 					fields = append(fields, ch.Field)
 				}
 			}
@@ -160,7 +160,7 @@ func standupWhat(events []jira.InboxEntry) string {
 		}
 	}
 	var out []string
-	if to != "" {
+	if to != "" && to != from { // moved and back again is no move
 		out = append(out, cmp.Or(from, "—")+" → "+to)
 	}
 	if logged > 0 {
@@ -179,6 +179,14 @@ func standupWhat(events []jira.InboxEntry) string {
 		out = append(out, "edited "+strings.Join(fields, ", "))
 	}
 	return strings.Join(append(out, other...), ", ")
+}
+
+// standupQuietFields are changelog fields Jira writes beside what someone
+// did (a parent set, a rank dragged) rather than edits worth telling.
+var standupQuietFields = []string{"issueparentassociation", "rank"}
+
+func standupQuietField(f string) bool {
+	return slices.Contains(standupQuietFields, strings.ToLower(f))
 }
 
 // standupMine is the picker's rows (after the copy and step rows) and the
