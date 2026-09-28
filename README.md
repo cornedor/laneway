@@ -13,7 +13,7 @@ terminal.
 - Issue panel with description (edited as markdown), comments, links, subtasks, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases; the board replayed day by day
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git and your agents' activity
-- Inbox of others' changes on every site, a standup of yours (commits too) or your team's
+- Inbox of others' changes on every site; a standup of yours (commits too), or your team's walking the board
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key
@@ -293,9 +293,9 @@ Board:
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out), `esc` back to now
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
-- you: `I` inbox · `U` standup · `T` timer · `W` today's worklogs (`W` again: the week)
+- you: `I` inbox · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
-- `q` quit; on the roadmap, planning, charts or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
+- `q` quit; on the roadmap, planning, charts, the standup or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
 Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
@@ -311,7 +311,7 @@ Panel:
 - more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue (a key or words find it as you type; the picked one shows its type, status and assignee to confirm), a web page, remove one · the issue: change its type, move it to another project, set the original estimate, time in each status, the dependency tree (blockers of blockers, and what it holds up), delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, screenshot a region (grim + slurp, gnome-screenshot, spectacle or screencapture), download or delete an attachment · your comments: edit, delete · post your notes · a draft pull request (see [Git](#git-and-your-shell))
 - `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
-- mouse: drag over the panel's text (description, comments, fields) to select it, and letting go copies it; drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, and its row under it replies, edits or deletes (your own; delete asks for a second click, `u` posts it again), a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
+- mouse: drag over the panel's text (description, comments, fields) to select it, and letting go copies it; drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, the row under it replies, edits or deletes (yours; delete clicks twice), a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `/` find in the issue, `n`/`N` the next / previous hit (what the panel shows: the open activity tab, `all` for everything)
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close

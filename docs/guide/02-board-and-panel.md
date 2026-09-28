@@ -77,7 +77,8 @@ In the panel:
 > walks it back, one issue at a time.
 
 > **Tip:** `<` widens the panel and `>` narrows it, or drag its left border
-> with the mouse. laneway remembers the width.
+> with the mouse. laneway remembers the width. Drag over the panel's text
+> to select it; letting go copies it.
 
 ## Go anywhere
 

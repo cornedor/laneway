@@ -12,8 +12,10 @@ the mouse, drag it.
 
 - A lane holding several statuses asks which one.
 - Moved the wrong card, or set the wrong priority? `u` takes back the last
-  change: a move, an edit, a bulk edit or a deleted comment.
-- `K` and `J` rank a card up or down within its lane.
+  change: a move, a rank, an edit, a bulk edit or a deleted comment.
+- `K` and `J` rank a card up or down within its lane, `alt+k` and `alt+j`
+  to its top or bottom. With the mouse, drag it up or down the lane: it
+  lands where its ghost shows.
 - `M` sends it to another sprint or the backlog.
 
 > **Try it:** pick one of your cards in To do and press `L`. Watch the
@@ -77,7 +79,9 @@ Bold, italic, code and links show styled as you type.
 - `R` replies to a comment, composed right under it.
 - `@` and a few letters list people; `tab` inserts a mention that notifies
   them.
-- Your own comments: `A` → Edit a comment of yours, or delete it.
+- Under each comment: *reply*, and on your own *edit* and *delete*, to
+  click. Or `}` and `{` select a comment: `R` replies, `enter` edits yours,
+  `delete` twice deletes it (`u` brings it back).
 
 > **Try it:** on an issue a colleague works on, press `c`, type `@` and
 > the first letters of their name, `tab`, then your message. `esc` instead
