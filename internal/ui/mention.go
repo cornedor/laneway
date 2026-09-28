@@ -190,4 +190,3 @@ func (m *Model) renderMentions() string {
 	lines = append(lines, refDimStyle.Render("tab mention · ↑/↓ choose · esc closes"))
 	return strings.Join(lines, "\n")
 }
-
