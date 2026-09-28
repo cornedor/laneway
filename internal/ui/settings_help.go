@@ -62,6 +62,7 @@ var settingDocs = map[string]string{
 	"custom_fields":        "Jira fields by name that cards show and / searches",
 	"flag_value":           "the Flagged field's option flagging sets",
 	"work_agent":           "the herdr agent kind S launches",
+	"work_args":            "the agent's arguments before the start prompt, {key} replaced",
 	"code_theme":           "the chroma style code blocks use",
 	"theme":                "a preset name, or colours by name over an optional preset",
 	"actions":              "your own commands on the issue: in the palette, on a key if given",

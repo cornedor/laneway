@@ -20,7 +20,8 @@ import (
 // workspace — reusing a local branch that fits ui.work_branch_template when
 // one exists, else creating one from it (issue/KEY-slug by default) — label
 // its tab with the key and start the agent (ui.work_agent, Claude by
-// default) in it on the start prompt.
+// default) in it with ui.work_args and the start prompt (jira.start_prompt;
+// none starts it without one).
 
 const defaultWorkBranch = "issue/{key}-{summary}"
 
@@ -62,11 +63,24 @@ func (m *Model) startJiraWork() tea.Cmd {
 	}
 	m.jiraStarting[iss.Key] = true
 	m.status = iss.Key + ": starting work…"
-	prompt := strings.ReplaceAll(m.jiraStartPrompt, "{key}", iss.Key)
-	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, m.opts.workAgent, iss.Key, iss.Type, iss.Summary, prompt)
+	return jiraWork(c, expandUserPath(repo), m.opts.workBranch, m.opts.workAgent, iss.Key, iss.Type, iss.Summary,
+		workArgs(m.opts.workArgs, m.jiraStartPrompt, iss.Key))
 }
 
-func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary, prompt string) tea.Cmd {
+// workArgs are the agent's arguments: extra with {key} replaced, then the
+// start prompt, left out when it is "none".
+func workArgs(extra []string, prompt, key string) []string {
+	var out []string
+	for _, a := range extra {
+		out = append(out, strings.ReplaceAll(a, "{key}", key))
+	}
+	if !strings.EqualFold(strings.TrimSpace(prompt), "none") {
+		out = append(out, strings.ReplaceAll(prompt, "{key}", key))
+	}
+	return out
+}
+
+func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary string, args []string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -74,16 +88,16 @@ func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary, prompt stri
 		if branch == "" {
 			branch = branchName(tmpl, key, typ, summary)
 		}
-		path, pane, running, err := agentInWorktree(ctx, c, repo, branch, defaultBase(repo), key, agent, jiraAgentName(key, time.Now()), prompt)
+		path, pane, running, err := agentInWorktree(ctx, c, repo, branch, defaultBase(repo), key, agent, jiraAgentName(key, time.Now()), args)
 		return jiraWorkMsg{key: key, path: path, pane: pane, agent: agent, running: running, err: err}
 	}
 }
 
 // agentInWorktree opens repo's worktree on branch as a herdr workspace
 // (creating it from base when there is none), labels its tab and starts
-// the agent kind in it on prompt. pane is the agent's; running reports one
+// the agent kind in it with args. pane is the agent's; running reports one
 // was already there.
-func agentInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, tab, kind, name, prompt string) (path, pane string, running bool, err error) {
+func agentInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, tab, kind, name string, args []string) (path, pane string, running bool, err error) {
 	wt, err := c.OpenWorktree(ctx, repo, branch)
 	if herdr.IsCode(err, "worktree_not_found") {
 		wt, err = c.CreateWorktree(ctx, repo, branch, base)
@@ -101,7 +115,7 @@ func agentInWorktree(ctx context.Context, c *herdr.Client, repo, branch, base, t
 		}
 	}
 	_ = c.RenameTab(ctx, wt.Tab, tab)
-	err = startAgent(ctx, c, kind, name, wt.Pane, []string{prompt})
+	err = startAgent(ctx, c, kind, name, wt.Pane, args)
 	return wt.Path, wt.Pane, false, err
 }
 

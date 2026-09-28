@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -121,7 +122,7 @@ func TestWorkAgent(t *testing.T) {
 			conn.Close()
 		}
 	}()
-	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "codex", "ABC-1", "Bug", "Fix", "go")().(jiraWorkMsg)
+	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "codex", "ABC-1", "Bug", "Fix", []string{"go"})().(jiraWorkMsg)
 	if msg.err != nil || msg.agent != "codex" || <-kinds != "codex" {
 		t.Fatalf("msg = %+v", msg)
 	}
@@ -129,5 +130,20 @@ func TestWorkAgent(t *testing.T) {
 	out, _ := m.handleJiraWork(msg)
 	if s := out.(Model).status; s != "ABC-1: codex started in /wt/x" {
 		t.Errorf("status = %q", s)
+	}
+}
+
+// TestWorkArgs: ui.work_args come before the prompt, {key} replaced; a
+// start_prompt of none leaves the prompt out.
+func TestWorkArgs(t *testing.T) {
+	extra := []string{"--append-system-prompt", "User is working on {key}"}
+	if got := workArgs(extra, "Start on {key}.", "ABC-1"); !slices.Equal(got, []string{"--append-system-prompt", "User is working on ABC-1", "Start on ABC-1."}) {
+		t.Errorf("with a prompt: %q", got)
+	}
+	if got := workArgs(extra, " None ", "ABC-1"); !slices.Equal(got, []string{"--append-system-prompt", "User is working on ABC-1"}) {
+		t.Errorf("start_prompt none: %q", got)
+	}
+	if got := workArgs(nil, "none", "ABC-1"); len(got) != 0 {
+		t.Errorf("nothing: %q", got)
 	}
 }

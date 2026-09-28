@@ -72,6 +72,7 @@ var settingDefaults = map[string]string{
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
+	"work_args":            "none",
 	"code_theme":           "the preset's, else monokai",
 	"theme":                "terminal colours",
 	"actions":              "none",

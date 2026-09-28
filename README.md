@@ -62,7 +62,7 @@ jira:
   repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree), and your commits in U
   timeout: 20s            # one request's limit (an attachment's: without progress); longer actions stretch with it
   story_points_field: customfield_10016  # else found by name ("Story point…")
-  start_prompt: "Start on {key}."        # what S hands the agent; {key} is the issue
+  start_prompt: "Start on {key}."        # what S hands the agent; {key} is the issue; none: no prompt
 sites:                    # more Jira instances: laneway -site club, or @ in the app (remembered)
   club: {base_url: https://club.atlassian.net, email: you@example.com, api_token: ...}
 ```
@@ -126,6 +126,7 @@ ui:
   full_refresh: 10m             # idle refreshes fetch changes only, whole again after this
   flag_value: Impediment        # the Flagged option A → flag sets
   work_agent: claude            # the herdr agent S starts in the worktree
+  work_args: [--append-system-prompt, "User is working on {key}"]  # its arguments before the prompt
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
   keys:              # rebind any action: one key or a list
     search: f

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ type options struct {
 	branchTemplate  string              // copy_branch's name
 	workBranch      string              // start work's new branch
 	workAgent       string              // the herdr agent kind start work launches
+	workArgs        []string            // its arguments before the start prompt
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
 	epicType        string              // the roadmap's issue type
 	myWorkJQL       string              // O's query
@@ -248,6 +250,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	if a := strings.TrimSpace(c.WorkAgent); a != "" {
 		o.workAgent = a
 	}
+	o.workArgs = slices.DeleteFunc(slices.Clone(c.WorkArgs), func(a string) bool { return a == "" })
 	if tmpl := strings.TrimSpace(c.WorkBranchTemplate); tmpl != "" {
 		if bad := badBranchPlaceholder(tmpl); bad != "" {
 			warn = append(warn, fmt.Sprintf("ui.work_branch_template: unknown %s", bad))

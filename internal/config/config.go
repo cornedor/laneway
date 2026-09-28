@@ -189,6 +189,9 @@ type UIConfig struct {
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
 	WorkAgent string `yaml:"work_agent"`
+	// WorkArgs are arguments the agent gets before the start prompt, with
+	// {key} replaced ([--append-system-prompt, "User is working on {key}"]).
+	WorkArgs []string `yaml:"work_args"`
 	// CodeTheme is the chroma style code blocks use (monokai, dracula, …);
 	// by default the one matching the theme preset.
 	CodeTheme string `yaml:"code_theme"`
