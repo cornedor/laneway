@@ -352,6 +352,7 @@ type Model struct {
 	labels         labelSuggest // the labels input's suggestions
 	panelFind      string       // what / last looked for in the panel
 	panelFindAt    int          // the line of the last hit shown
+	panelSel       panelSel     // text selected with the mouse (panel_select.go)
 	panelPlain     []string     // the panel's lines, unstyled, for find
 	panelFieldLine []int
 	// pickerLine is the content line of the inline picker's first shown row
@@ -570,8 +571,14 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.jiraDragging() && msg.Button == tea.MouseLeft {
 			return m.dragJira(msg.X, msg.Y)
 		}
+		if m.panelSel.held && msg.Button == tea.MouseLeft {
+			return m.dragPanelSel(msg.X, msg.Y)
+		}
 		return m, nil
 	case tea.MouseReleaseMsg:
+		if m.panelSel.held {
+			return m.endPanelSel()
+		}
 		if m.panelResizing {
 			m.panelResizing = false
 			m.savePanelWidth()
@@ -900,6 +907,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
 		m.focus = focusRef
+		m.startPanelSel(msg.X, msg.Y)
 		if i := m.crumbAt(msg.Y); i >= 0 {
 			return m.backToCrumb(i)
 		}

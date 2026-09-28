@@ -64,6 +64,7 @@ func (m *Model) loadCurrentRef() tea.Cmd {
 	m.refLoading = true
 	m.refErr = nil
 	m.jiraIssue = nil
+	m.panelSel = panelSel{} // its lines go with the issue
 	m.refView.GotoTop()
 	m.renderRef()
 	return m.fetchJira(m.refGen, r.jiraKey)
@@ -307,6 +308,7 @@ func (m *Model) renderRef() {
 		refRowWidth = m.refView.Width()
 		content := m.placeImages(expandTables(m.renderJiraIssue(m.jiraIssue, m.refView.Width()), m.refView.Width()))
 		content = m.placeInlineEditor(content, m.refView.Width())
+		content = m.markPanelSel(content)
 		m.refView.SetContent(content)
 		m.indexPanelHits(content)
 		m.panelPlain = plainLines(content)

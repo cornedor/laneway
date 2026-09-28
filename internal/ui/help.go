@@ -184,6 +184,7 @@ func (m *Model) helpSections() []struct {
 			{"header", "views, filters, chips and key hints act"},
 			{"▾ ▸", "fold a swimlane, epic or parent"},
 			{"panel edges", "left: resize · right: scroll"},
+			{"drag panel text", "select it; letting go copies"},
 			{"↩ ✎ ✕", "under a comment: reply, edit, delete (twice)"},
 			{"wheel", "scroll, move the cursor"},
 			{"esc", "cancel a drag"},
