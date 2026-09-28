@@ -159,7 +159,7 @@ func TestInboxPrevious(t *testing.T) {
 	m.closeJiraPicker()
 	open(m.openInbox())
 	items := m.jiraPicker.items
-	if len(items) != 2 || items[0].label != "nothing new" || items[1].id != inboxPrevID {
+	if len(items) != 2 || items[0].label != "nothing new · all caught up ✓" || items[1].id != inboxPrevID {
 		t.Fatalf("second open = %+v", items)
 	}
 	seen, _, _ := m.store.GetMeta(inboxMeta)

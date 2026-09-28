@@ -268,6 +268,8 @@ type jiraTabState struct {
 	lanesOut  string
 	// empty is an empty board's hint line, for the mouse; row -1 for none.
 	empty emptyHint
+	// confetti is the lane head celebrating a card into done (delight.go).
+	confetti confetti
 
 	sort jiraSort // the list's order; lanes keep the board's rank
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
@@ -1435,8 +1437,10 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 		target, name = statusID, m.jiraStatusName(statusID)
 		want = func(tm jira.TransitionMeta) bool { return tm.ToID == statusID }
 	}
+	cat := m.laneCategory(to) // before the card lands, which would tell its old one
 	t.cards[ci].StatusID = target
 	t.cards[ci].Status = name
+	t.cards[ci].Done, t.cards[ci].InProgress = cat == "done", cat == "indeterminate"
 	m.buildJiraLanes()
 	m.selectJiraKey(key)
 	m.renderJira()
@@ -1482,7 +1486,7 @@ func (m Model) handleJiraMoved(msg jiraMovedMsg) (tea.Model, tea.Cmd) {
 	} else {
 		m.status = fmt.Sprintf("%s → %s", msg.key, msg.lane)
 	}
-	return m, m.loadJiraCards(m.jiraTab.viewIdx, false)
+	return m, tea.Batch(m.loadJiraCards(m.jiraTab.viewIdx, false), m.celebrateMove(msg.key))
 }
 
 // refreshJiraAfterEdit refetches the board after the panel changed an issue on
@@ -2735,6 +2739,9 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 		}
 	}
 	head := ansi.Truncate(lane.name+" "+count, max(inner-2-lipgloss.Width(before+after), 1), "…")
+	if t.confetti.on(lane.name) {
+		after = confettiStyle.Render(" "+t.confetti.line(inner-3-lipgloss.Width(before+head+after))) + after
+	}
 	switch {
 	case over && !(t.drag.active && l == t.drag.over):
 		head = jiraOverStyle.Underline(l == t.lane).Render(head)

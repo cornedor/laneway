@@ -16,6 +16,7 @@ type options struct {
 	autoRefresh     time.Duration // 0: off
 	staleAfter      time.Duration
 	images          bool
+	delight         bool // small celebrations (ui.delight)
 	imageMaxRows    int
 	panelPct        int
 	panelDefault    int  // ui.panel_width, which a drag near it snaps back to
@@ -68,7 +69,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -285,6 +286,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.savedFilters = false
 	default:
 		warn = append(warn, fmt.Sprintf("ui.saved_filters: %q is not on or off", c.SavedFilters))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.Delight)) {
+	case "", "on":
+	case "off":
+		o.delight = false
+	default:
+		warn = append(warn, fmt.Sprintf("ui.delight: %q is not on or off", c.Delight))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Images)) {
 	case "", "auto":

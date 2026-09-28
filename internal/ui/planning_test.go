@@ -158,6 +158,7 @@ func TestPlanCloseSprint(t *testing.T) {
 	defer srv.Close()
 	var ignored []string
 	m := planModel(t, &ignored)
+	m.opts.delight = false // no velocity read after
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	out, cmd := m.handleJiraKey(keyMsg(t, "S"))
 	if m = out.(Model); cmd != nil || m.jiraFieldName != "plan-end" {

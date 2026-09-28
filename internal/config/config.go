@@ -197,6 +197,9 @@ type UIConfig struct {
 	Theme Theme `yaml:"theme"`
 	// Actions are your own commands, in the palette and on a key if given.
 	Actions []Action `yaml:"actions"`
+	// Delight is "on" (small celebrations: confetti on a card into done, a
+	// line on a completed sprint) or "off".
+	Delight string `yaml:"delight"`
 }
 
 // QuickFilter is a named JQL clause, ANDed with the board's query: a quick

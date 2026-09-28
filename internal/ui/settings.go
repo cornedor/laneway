@@ -46,6 +46,7 @@ var settingDefaults = map[string]string{
 	"workday_start":        "09:00",
 	"capacity":             "none",
 	"saved_filters":        "on",
+	"delight":              "on",
 	"branch_template":      defaultBranchTemplate,
 	"work_branch_template": "branch_template if set, else issue/{key}-{summary}",
 	"kanban_done_days":     "14",

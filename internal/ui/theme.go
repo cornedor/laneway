@@ -274,6 +274,7 @@ func applyTheme(th theme) {
 		return c("drop_fg").Background(lipgloss.Color(th[bg])).Bold(true)
 	}
 	laneMark = map[string]lipgloss.Style{"new": c("status_todo"), "indeterminate": c("status_progress"), "done": c("status_done")}
+	confettiStyle = c("status_done").Bold(true)
 	statusLozenge = map[string]lipgloss.Style{
 		"new":           c("selection_fg").Background(lipgloss.Color(th["selection_bg"])).Bold(true),
 		"indeterminate": onColour("status_progress"),
@@ -314,6 +315,7 @@ func applyMono(th theme) {
 	roadmapDoneStyle, roadmapTodoStyle, roadmapTodayStyle = faint, plain, bold
 	refKeyStyle, refLabelStyle, refDimStyle = bold, faint, faint
 	laneMark = map[string]lipgloss.Style{"new": faint, "indeterminate": bold, "done": plain}
+	confettiStyle = plain
 	statusLozenge = map[string]lipgloss.Style{"new": rev, "indeterminate": rev.Bold(true), "done": rev.Faint(true)}
 	refErrStyle = bold.Underline(true)
 	mdCodeStyle, mdCodeBlockStyle = plain, plain

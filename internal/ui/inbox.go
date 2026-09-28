@@ -60,7 +60,7 @@ func (m *Model) openInboxSince(since time.Time, mark bool) tea.Cmd {
 	prev, hasPrev := m.inboxPrev() // the read before the one since
 	gen := m.startJiraPicker(jiraPickInbox, "Inbox", true)
 	seq := m.jiraPicker.fetchSeq
-	c, ctx, st, others := m.jiraClient, m.ctx, m.store, m.others()
+	c, ctx, st, others, delight := m.jiraClient, m.ctx, m.store, m.others(), m.opts.delight
 	return func() tea.Msg {
 		entries, err := inboxAll(ctx, c, others, since)
 		items := make([]jiraPickerItem, len(entries))
@@ -82,6 +82,9 @@ func (m *Model) openInboxSince(since time.Time, mark bool) tea.Cmd {
 			}
 			if len(items) == 0 {
 				items = []jiraPickerItem{{label: "nothing new"}}
+				if delight {
+					items[0].label = "nothing new · all caught up ✓"
+				}
 			}
 			if hasPrev && prev.Before(since) {
 				items = append(items, jiraPickerItem{id: inboxPrevID, label: "↶ the inbox before, since " + inboxWhen(prev, now),

@@ -568,7 +568,7 @@ func (m *Model) planClose() tea.Cmd {
 	if cols := t.cfg.Columns; len(cols) > 0 {
 		done = cols[len(cols)-1].StatusIDs
 	}
-	c, ctx, board, cfg := m.jiraClient, m.ctx, m.jiraBoardID(), t.cfg
+	c, ctx, board, cfg, delight, n := m.jiraClient, m.ctx, m.jiraBoardID(), t.cfg, m.opts.delight, m.opts.velocitySprints
 	nextID := 0
 	if next >= 0 {
 		nextID = p.sprints[next].sprint
@@ -609,7 +609,15 @@ func (m *Model) planClose() tea.Cmd {
 		if err := c.CloseSprint(ctx, active.sprint); err != nil {
 			return planSprintMsg{err: err}
 		}
-		return planSprintMsg{what: fmt.Sprintf("%s completed, %d unfinished to %s", active.name, moved, dest)}
+		what := fmt.Sprintf("%s completed, %d unfinished to %s", active.name, moved, dest)
+		if delight {
+			if vel, err := c.Velocity(ctx, board, n, cfg.PointsField); err == nil {
+				if cheer := sprintCheer(vel); cheer != "" {
+					what += " · " + cheer
+				}
+			}
+		}
+		return planSprintMsg{what: what}
 	}
 }
 

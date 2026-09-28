@@ -632,6 +632,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case confettiMsg:
+		return m.handleConfetti(msg)
 	case notesEditedMsg:
 		return m.handleNotesEdited(msg)
 	case mentionSearchMsg:
