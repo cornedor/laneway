@@ -401,22 +401,26 @@ func (m *Model) renderRefPane(height, width int) string {
 	innerH := max(height, 1)
 	width = max(width, refPaneMinWidth)
 
-	total := viewportVisualRows(m.refView.GetContent(), m.refView.Width())
+	total := m.refView.TotalLineCount()
 	pct := scrollPercentFor(total, m.refView.Height(), m.refView.YOffset())
 	showScrollbar := total > m.refView.Height() && pct < 1.0
 
 	parts := append([]string{bar(titleStyle.Render(m.refPaneTitle()), width-3)}, m.crumbLines(width-3)...)
-	content := lipgloss.JoinVertical(lipgloss.Left, append(parts, m.refView.View())...)
+	content := strings.Join(append(parts, m.refView.View()), "\n")
 
 	borderColor := dimColor
 	if m.focus == focusRef {
 		borderColor = focusedColor
 	}
+	rightBorder := renderRightBorder(innerH, 1, m.refView.Height(), total, pct, borderColor, showScrollbar, -1)
+	if box, ok := renderPanelBox(content, width-1, innerH, borderColor); ok {
+		if pane, ok := joinBeside(box, rightBorder); ok {
+			return pane
+		}
+	}
 	style := lipgloss.NewStyle().Border(border).UnsetBorderTop().UnsetBorderRight().
 		Width(width - 1).Height(innerH).BorderForeground(borderColor)
-	box := style.Render(content)
-
-	rightBorder := renderRightBorder(innerH, 1, m.refView.Height(), total, pct, borderColor, showScrollbar, -1)
+	box := style.Render(lipgloss.JoinVertical(lipgloss.Left, append(parts, m.refView.View())...))
 	return lipgloss.JoinHorizontal(lipgloss.Top, box, rightBorder)
 }
 

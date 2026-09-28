@@ -557,6 +557,9 @@ func (m *Model) resize() {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if b, ok := msg.(wheelBatchMsg); ok {
+		return m.wheelBatch(b)
+	}
 	wasLoading := m.jiraTab != nil && m.jiraTab.loading // the tab is shared: read it before
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
@@ -1106,7 +1109,11 @@ func (m Model) View() tea.View {
 		st = refErrStyle
 	}
 	status := st.Render(ansi.Truncate(" "+m.status, m.width, "…"))
-	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
+	screen, ok := joinVerticalLeft(body, status)
+	if !ok {
+		screen = lipgloss.JoinVertical(lipgloss.Left, body, status)
+	}
+	v.SetContent(screen)
 	if cx, cy, ok := m.agentTermCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)
 	} else if cx, cy, ok := m.inlineEditorCursor(); ok {

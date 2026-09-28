@@ -88,14 +88,6 @@ func visualRowsBefore(lines []string, n, maxWidth int) int {
 	return rows
 }
 
-func viewportVisualRows(content string, width int) int {
-	if content == "" {
-		return 0
-	}
-	lines := strings.Split(content, "\n")
-	return visualRowsBefore(lines, len(lines), width)
-}
-
 func scrollPercentFor(total, height, yOffset int) float64 {
 	if height >= total {
 		return 1.0

@@ -190,7 +190,7 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 			timeout, _ := j.RequestTimeout()
 			return jira.New(jira.Config{BaseURL: j.BaseURL, Email: j.Email, APIToken: j.APIToken, Timeout: timeout}), nil
 		})
-	final, err := tea.NewProgram(m).Run()
+	final, err := newProgram(m).Run()
 	fm, ok := final.(ui.Model)
 	if ok {
 		fmt.Fprint(os.Stdout, fm.ReleaseImages())
@@ -228,8 +228,15 @@ func runDemo() error {
 	defer cancel()
 	jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
 	m := ui.New(ctx, jc, config.UIConfig{UpdateCheck: "off"}, nil, filepath.Join(dir, "rules.log"), st).WithVersion(version, "")
-	_, err = tea.NewProgram(m).Run()
+	_, err = newProgram(m).Run()
 	return err
+}
+
+// newProgram runs m with wheel bursts folded into one message a frame.
+func newProgram(m tea.Model) *tea.Program {
+	var p *tea.Program
+	p = tea.NewProgram(m, tea.WithFilter(ui.WheelFilter(func(msg tea.Msg) { p.Send(msg) })))
+	return p
 }
 
 func siteName(site string) string {

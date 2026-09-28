@@ -2951,7 +2951,11 @@ func (m *Model) renderJiraPane(height, width int) string {
 	for i, l := range lines {
 		lines[i] = ansi.Truncate(l, listW, "")
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(lines, "\n"), m.renderRefPane(height, refW))
+	list, ref := strings.Join(lines, "\n"), m.renderRefPane(height, refW)
+	if pane, ok := joinBeside(list, ref); ok {
+		return pane
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, list, ref)
 }
 
 // jiraSprintBar is the sprint's progress as a thin bar and a count: done

@@ -2,8 +2,11 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -59,5 +62,35 @@ func BenchmarkRenderJiraSwimlanes(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		m.moveJiraCursor(1)
+	}
+}
+
+// BenchmarkPanelWheel is a wheel notch over a long issue in the panel and
+// the frame drawn after it.
+func BenchmarkPanelWheel(b *testing.B) {
+	m := configuredJiraModel(&testing.T{}, "ABC")
+	out, _ := m.Update(tea.WindowSizeMsg{Width: 200, Height: 60})
+	out, _ = openRefFor(out.(Model), "ABC-1")
+	m = out.(Model)
+	var desc strings.Builder
+	for i := range 200 {
+		fmt.Fprintf(&desc, "Paragraph %d with **bold** and `code` and a long line of words that wraps around the panel a couple of times.\n\n", i)
+	}
+	var comments []jira.Comment
+	for i := range 60 {
+		comments = append(comments, jira.Comment{ID: fmt.Sprint(i), Author: "Ann", Created: time.Now(), Body: strings.Repeat("comment words ", 40)})
+	}
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Description: desc.String(), Comments: comments}})
+	m = out.(Model)
+	listW, _ := m.jiraListWidth(m.width)
+	b.ResetTimer()
+	for i := 0; b.Loop(); i++ {
+		btn := tea.MouseWheelDown
+		if i/50%2 == 1 {
+			btn = tea.MouseWheelUp
+		}
+		out, _ := m.Update(tea.MouseWheelMsg{X: listW + 5, Y: 20, Button: btn})
+		m = out.(Model)
+		_ = m.View()
 	}
 }

@@ -1,12 +1,11 @@
 // Package viewport is a vendored copy of charm.land/bubbles/v2/viewport
-// (v2.1.0), with one change: the internal cell-width measurements that
-// SetContentLines / SetYOffset / maxLineWidth run over every line on every
-// content update now go through matterbox/internal/textwidth.Width instead of
-// ansi.StringWidth. The two return identical values, but textwidth.Width is
+// (v2.1.0). The internal cell-width measurements go through
+// matterbox/internal/textwidth.Width instead of ansi.StringWidth. The two return identical values, but textwidth.Width is
 // several times faster on the styled and box-drawing lines matterbox renders —
 // which a pprof showed dominating the message-pane render hot path (every
-// arrow-key selection move re-measures the whole loaded window). Everything
-// else is upstream verbatim; keep diffs minimal so re-syncing stays easy.
+// arrow-key selection move re-measures the whole loaded window). Each line's
+// width is measured once in SetContentLines, not on every scroll and frame.
+// Keep diffs minimal so re-syncing stays easy.
 package viewport
 
 import (
@@ -107,6 +106,7 @@ type Model struct {
 
 	initialized      bool
 	lines            []string
+	widths           []int // each line's width, when SetContentLines measured them
 	longestLineWidth int
 
 	// HighlightStyle highlights the ranges set with [SetHighligths].
@@ -241,7 +241,7 @@ func (m *Model) SetContent(s string) {
 // SetContentLinesWidth sets lines free of newlines that are at most width
 // wide, skipping the per-line measuring [Model.SetContentLines] does.
 func (m *Model) SetContentLinesWidth(lines []string, width int) {
-	m.lines = lines
+	m.lines, m.widths = lines, nil
 	if len(lines) == 0 {
 		m.lines = nil
 	}
@@ -278,7 +278,11 @@ func (m *Model) SetContentLines(lines []string) {
 		}
 	}
 
-	m.longestLineWidth = maxLineWidth(m.lines)
+	m.widths = lineWidths(m.lines)
+	m.longestLineWidth = 0
+	if len(m.widths) > 0 {
+		m.longestLineWidth = slices.Max(m.widths)
+	}
 	m.ClearHighlights()
 
 	if m.YOffset() > m.maxYOffset() {
@@ -305,8 +309,8 @@ func (m Model) calculateLine(yoffset int) (total, ridx, voffset int) {
 	maxWidth := float64(m.maxWidth())
 	var lineHeight int
 
-	for i, line := range m.lines {
-		lineHeight = max(1, int(math.Ceil(float64(textwidth.Width(line))/maxWidth)))
+	for i := range m.lines {
+		lineHeight = max(1, int(math.Ceil(float64(m.lineWidth(i))/maxWidth)))
 
 		if yoffset >= total && yoffset < total+lineHeight {
 			ridx = i
@@ -785,12 +789,21 @@ func clamp[T cmp.Ordered](v, low, high T) T {
 	return min(high, max(low, v))
 }
 
-func maxLineWidth(lines []string) int {
-	result := 0
-	for _, line := range lines {
-		result = max(result, textwidth.Width(line))
+func lineWidths(lines []string) []int {
+	w := make([]int, len(lines))
+	for i, line := range lines {
+		w[i] = textwidth.Width(line)
 	}
-	return result
+	return w
+}
+
+// lineWidth is line i's width: measured once when the content was set, as
+// every scroll and frame walks all lines.
+func (m Model) lineWidth(i int) int {
+	if len(m.widths) == len(m.lines) {
+		return m.widths[i]
+	}
+	return textwidth.Width(m.lines[i])
 }
 
 // padBlock pads lines out to a contentWidth × contentHeight block, producing

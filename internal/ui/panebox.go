@@ -22,7 +22,20 @@ import (
 // reports false for anything it can't draw that way — a line wider than the
 // pane, a tab, a degenerate size — so those keep taking the full path.
 func renderPaneBox(content string, width, height int, borderColor color.Color) (string, bool) {
-	inner := width - 2 // between the side borders
+	return paneBox(content, width, height, borderColor, true)
+}
+
+// renderPanelBox is renderPaneBox without the right border: the panel's
+// box, whose right edge is its scrollbar.
+func renderPanelBox(content string, width, height int, borderColor color.Color) (string, bool) {
+	return paneBox(content, width, height, borderColor, false)
+}
+
+func paneBox(content string, width, height int, borderColor color.Color, right bool) (string, bool) {
+	inner := width - 1 // beside the left border
+	if right {
+		inner--
+	}
 	rows := height - 1 // content rows; the last row is the bottom border
 	if inner <= 0 || rows <= 0 {
 		return "", false
@@ -42,7 +55,11 @@ func renderPaneBox(content string, width, height int, borderColor color.Color) (
 	// once and pasted.
 	bs := lipgloss.NewStyle().Foreground(borderColor)
 	side := bs.Render(border.Left)
-	bottom := bs.Render(border.BottomLeft + strings.Repeat(border.Bottom, inner) + border.BottomRight)
+	rside, corner := "", ""
+	if right {
+		rside, corner = side, border.BottomRight
+	}
+	bottom := bs.Render(border.BottomLeft + strings.Repeat(border.Bottom, inner) + corner)
 
 	var b strings.Builder
 	b.Grow((len(lines)+max(rows-len(lines), 0))*(2*len(side)+inner+1) + len(bottom))
@@ -50,13 +67,13 @@ func renderPaneBox(content string, width, height int, borderColor color.Color) (
 		b.WriteString(side)
 		b.WriteString(line)
 		b.WriteString(textwidth.Spaces(pads[i]))
-		b.WriteString(side)
+		b.WriteString(rside)
 		b.WriteByte('\n')
 	}
 	for i := len(lines); i < rows; i++ { // pad the pane out to its height
 		b.WriteString(side)
 		b.WriteString(textwidth.Spaces(inner))
-		b.WriteString(side)
+		b.WriteString(rside)
 		b.WriteByte('\n')
 	}
 	b.WriteString(bottom)
@@ -105,4 +122,53 @@ func joinVerticalLeft(blocks ...string) (string, bool) {
 		b.WriteString(textwidth.Spaces(widest - widths[i]))
 	}
 	return b.String(), true
+}
+
+// joinBeside puts right's lines after left's: lipgloss.JoinHorizontal(
+// lipgloss.Top, left, right), byte for byte, when each block is one width
+// throughout, as panes drawn to size are; the shorter one is padded with
+// blank rows. It reports false otherwise, and for tabs, leaving those to
+// lipgloss.
+func joinBeside(left, right string) (string, bool) {
+	l, r := strings.Split(left, "\n"), strings.Split(right, "\n")
+	lw, lok := uniformWidth(l)
+	rw, rok := uniformWidth(r)
+	if !lok || !rok {
+		return "", false
+	}
+	n := max(len(l), len(r))
+	var b strings.Builder
+	b.Grow(len(left) + len(right) + n*(lw+rw+1))
+	for i := range n {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		if i < len(l) {
+			b.WriteString(l[i])
+		} else {
+			b.WriteString(textwidth.Spaces(lw))
+		}
+		if i < len(r) {
+			b.WriteString(r[i])
+		} else {
+			b.WriteString(textwidth.Spaces(rw))
+		}
+	}
+	return b.String(), true
+}
+
+// uniformWidth is the lines' width when they all have the same one.
+func uniformWidth(lines []string) (int, bool) {
+	w := -1
+	for _, line := range lines {
+		if strings.IndexByte(line, '\t') >= 0 || strings.IndexByte(line, '\r') >= 0 {
+			return 0, false
+		}
+		if lw := textwidth.Width(line); w < 0 {
+			w = lw
+		} else if lw != w {
+			return 0, false
+		}
+	}
+	return w, true
 }

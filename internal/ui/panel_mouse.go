@@ -294,14 +294,14 @@ func (m *Model) panelHintAt(col int) string {
 // the body is taller than the panel.
 func (m *Model) onPanelScrollbar(y int) bool {
 	h := m.refView.Height()
-	return y >= 1 && y < 1+h && viewportVisualRows(m.refView.GetContent(), m.refView.Width()) > h
+	return y >= 1 && y < 1+h && m.refView.TotalLineCount() > h
 }
 
 // scrollPanelTo scrolls the panel so its thumb sits at row y: the top row
 // is the start, the last the end.
 func (m *Model) scrollPanelTo(y int) {
 	h := m.refView.Height()
-	total := viewportVisualRows(m.refView.GetContent(), m.refView.Width())
+	total := m.refView.TotalLineCount()
 	if total <= h || h < 2 {
 		return
 	}
