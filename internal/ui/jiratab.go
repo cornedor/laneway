@@ -1905,7 +1905,7 @@ func (m *Model) renderJira() {
 	keyW, stW := 0, 0
 	for _, ci := range t.order {
 		keyW = max(keyW, len(t.cards[ci].Key))
-		stW = max(stW, lipgloss.Width(t.cards[ci].Status))
+		stW = max(stW, visualWidth(t.cards[ci].Status))
 	}
 	stW = min(stW, 20)
 	if t.rowsFor != [3]int{w, keyW, stW} || len(t.rows) != len(t.order) {
@@ -2008,7 +2008,7 @@ func (m *Model) jiraGroupAvatar(by jiraSort, g string) string {
 
 func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) string {
 	status := ansi.Truncate(c.Status, stW, "…")
-	status += strings.Repeat(" ", max(stW-lipgloss.Width(status), 0))
+	status += strings.Repeat(" ", max(stW-visualWidth(status), 0))
 	pts := fmt.Sprintf("%3s", c.Points)
 	f := m.opts.fields
 	// The summary, its parent and custom fields give way on a long row; the
@@ -2078,8 +2078,8 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if f.points {
 		row += jiraDimStyle.Render(pts) + "  "
 	}
-	if avail := width - 1 - lipgloss.Width(row); lipgloss.Width(title)+lipgloss.Width(tail) > avail {
-		title = ansi.Truncate(title, max(avail-lipgloss.Width(tail), 12), "…")
+	if avail := width - 1 - visualWidth(row); visualWidth(title)+visualWidth(tail) > avail {
+		title = ansi.Truncate(title, max(avail-visualWidth(tail), 12), "…")
 	}
 	row += title + tail
 	row = ansi.Truncate(row, width-1, "…")
@@ -2147,6 +2147,38 @@ func jiraLaneLayout(width, n int) (visible, laneW int) {
 // jiraCardLines is a card's three lines: key, type and points; summary;
 // assignee. styled false leaves them plain, for the drag ghost.
 func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
+	if !styled {
+		return renderCardLines(c, false, f)
+	}
+	now := time.Now().Truncate(time.Minute)
+	if !now.Equal(cardLinesAt) {
+		clear(cardLinesMemo)
+		cardLinesAt = now
+	}
+	k := cardLinesKey{c, f, plainIcons}
+	lines, ok := cardLinesMemo[k]
+	if !ok {
+		lines = renderCardLines(c, true, f)
+		cardLinesMemo[k] = lines
+	}
+	return slices.Clone(lines)
+}
+
+// cardLinesMemo caches styled card lines: styling is most of a lane frame.
+// It is cleared by the minute (due and age marks), a theme and an avatar
+// arriving; renders run on one goroutine.
+var (
+	cardLinesMemo = map[cardLinesKey][]string{}
+	cardLinesAt   time.Time
+)
+
+type cardLinesKey struct {
+	c     jira.Card
+	f     cardFields
+	plain bool
+}
+
+func renderCardLines(c jira.Card, styled bool, f cardFields) []string {
 	key, pts, who := c.Key, "", ""
 	if f.points && c.Points != "" {
 		pts = " " + c.Points
@@ -2309,7 +2341,7 @@ func (m *Model) jiraDropZones(lane jiraLane, ghost, width, height int) []string 
 			case r == (zh-1)/2:
 				line = " " + ansi.Truncate(name, width-2, "…")
 			}
-			line += strings.Repeat(" ", max(width-lipgloss.Width(line), 0))
+			line += strings.Repeat(" ", max(width-visualWidth(line), 0))
 			if i != t.drag.zone {
 				line = "┊" + line[min(len(line), 1):]
 			}
@@ -2452,10 +2484,10 @@ func jiraErrorState(err string, w, h int, hint ...headSeg) (string, emptyHint) {
 	lines := strings.Split(lipgloss.NewStyle().Width(max(min(w-4, 80), 10)).Render(err), "\n")
 	for _, l := range lines {
 		l = strings.TrimRight(l, " ")
-		b.WriteString(strings.Repeat(" ", max((w-lipgloss.Width(l))/2, 0)) + refErrStyle.Render(l) + "\n")
+		b.WriteString(strings.Repeat(" ", max((w-visualWidth(l))/2, 0)) + refErrStyle.Render(l) + "\n")
 	}
 	s := ansi.Truncate(joinSegs(hint), max(w, 1), "…")
-	left := max((w-lipgloss.Width(s))/2, 0)
+	left := max((w-visualWidth(s))/2, 0)
 	b.WriteString(strings.Repeat(" ", left) + s)
 	return b.String(), emptyHint{row: top + len(lines), left: left, segs: hint}
 }
@@ -2470,7 +2502,7 @@ type emptyHint struct {
 // jiraEmptyState is what an empty board shows: a title and what to do
 // about it, centred a third of the way down.
 func jiraEmptyState(title string, w, h int, hint ...headSeg) (string, emptyHint) {
-	pad := func(s string) int { return max((w-lipgloss.Width(s))/2, 0) }
+	pad := func(s string) int { return max((w-visualWidth(s))/2, 0) }
 	t := ansi.Truncate(titleStyle.Render(title), max(w, 1), "…")
 	s := ansi.Truncate(joinSegs(hint), max(w, 1), "…")
 	top := max(h/3, 0)
@@ -2482,7 +2514,7 @@ func jiraEmptyState(title string, w, h int, hint ...headSeg) (string, emptyHint)
 // the terminal's background, anything else on the shaded canvas around
 // the cards.
 func canvasCell(cell string, w int) string {
-	pad := w - lipgloss.Width(cell)
+	pad := w - visualWidth(cell)
 	switch {
 	case pad <= 0:
 		return cell
@@ -2517,7 +2549,7 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 		case sel: // plain: dim marks vanish on the selection colour
 			lines[i] = ribbon + m.jiraSelect(stripKeepImages(line), true, inner)
 		default: // full width, on the terminal's own background
-			lines[i] = ribbon + line + strings.Repeat(" ", max(inner-lipgloss.Width(line), 0))
+			lines[i] = ribbon + line + strings.Repeat(" ", max(inner-visualWidth(line), 0))
 		}
 	}
 	return lines
@@ -2802,15 +2834,15 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 			after = fmt.Sprintf(" %d›", rest)
 		}
 	}
-	head := ansi.Truncate(lane.name+" "+count, max(inner-2-lipgloss.Width(before+after), 1), "…")
+	head := ansi.Truncate(lane.name+" "+count, max(inner-2-visualWidth(before+after), 1), "…")
 	if t.confetti.on(lane.name) {
-		after = confettiStyle.Render(" "+t.confetti.line(inner-3-lipgloss.Width(before+head+after))) + after
+		after = confettiStyle.Render(" "+t.confetti.line(inner-3-visualWidth(before+head+after))) + after
 	}
 	switch {
 	case over && !(t.drag.active && l == t.drag.over):
 		head = jiraOverStyle.Underline(l == t.lane).Render(head)
 	case t.drag.active && l == t.drag.over:
-		head = jiraDropStyle.Render(head + strings.Repeat(" ", max(inner-lipgloss.Width(head), 0)))
+		head = jiraDropStyle.Render(head + strings.Repeat(" ", max(inner-visualWidth(head), 0)))
 	case l == t.lane:
 		head = jiraViewActive.Render(head)
 	default:

@@ -138,6 +138,7 @@ func (m Model) handleAvatarLoaded(msg avatarLoadedMsg) (tea.Model, tea.Cmd) {
 			delete(avatars, c.Assignee)
 		}
 	}
+	clear(cardLinesMemo)
 	m.jiraTab.rows = nil
 	m.renderJira()
 	return m, m.images.send(msg.seq)

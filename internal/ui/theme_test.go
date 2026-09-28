@@ -4,6 +4,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/cornedor/laneway/internal/jira"
 	"image/color"
 	"strings"
 	"testing"
@@ -24,8 +25,13 @@ func TestThemeFrom(t *testing.T) {
 
 func TestApplyThemeRecolours(t *testing.T) {
 	defer applyTheme(defaultTheme())
+	card := jira.Card{Key: "ABC-1", Type: "Bug"}
+	jiraCardLines(card, true, allCardFields) // cached in the old colours
 	th, _ := themeFrom(map[string]string{"accent": "#ff0000", "priority_high": "#00ff00", "type_bug": "#0000ff"})
 	applyTheme(th)
+	if got := jiraCardLines(card, true, allCardFields)[0]; !strings.Contains(got, "255;0;0") {
+		t.Errorf("card head = %q, want red", got)
+	}
 	if got := jiraKeyStyle.Render("ABC-1"); !strings.Contains(got, "255;0;0") {
 		t.Errorf("key style = %q, want red", got)
 	}

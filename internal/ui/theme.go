@@ -231,6 +231,7 @@ var monoTheme bool
 
 // applyTheme sets every themed colour and style.
 func applyTheme(th theme) {
+	clear(cardLinesMemo)
 	if th[monoKey] != "" {
 		applyMono(th)
 		return
