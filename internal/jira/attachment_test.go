@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -51,6 +53,29 @@ func TestAttachmentContent(t *testing.T) {
 	}
 	if gotPath != "/rest/api/3/attachment/content/10" || !strings.HasPrefix(gotAuth, "Basic ") {
 		t.Errorf("path=%q auth=%q", gotPath, gotAuth)
+	}
+}
+
+// TestDownloadAttachmentPrivate: a download and its new folder are the
+// user's alone.
+func TestDownloadAttachmentPrivate(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("PDF"))
+	}))
+	defer srv.Close()
+	dir := filepath.Join(t.TempDir(), "downloads")
+	path, err := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"}).DownloadAttachment(context.Background(), "10", "contract.pdf", dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for p, want := range map[string]os.FileMode{dir: 0o700, path: 0o600} {
+		fi, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode().Perm() != want {
+			t.Errorf("%s: mode %v, want %v", p, fi.Mode().Perm(), want)
+		}
 	}
 }
 

@@ -189,7 +189,7 @@ func (c *Client) DownloadAttachment(ctx context.Context, id, name, dir string) (
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return "", statusError(resp.StatusCode, "attachment "+id, body, resp.Header.Get("Retry-After"))
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
 	f, path, err := createFree(dir, filepath.Base(name))
@@ -252,7 +252,7 @@ func createFree(dir, name string) (*os.File, string, error) {
 			try = fmt.Sprintf("%s (%d)%s", stem, n, ext)
 		}
 		path := filepath.Join(dir, try)
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if err == nil {
 			return f, path, nil
 		}
