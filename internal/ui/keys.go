@@ -30,7 +30,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"rank_up": &k.RankUp, "rank_down": &k.RankDown,
 		"roadmap_grip": &k.RoadmapGrip, "roadmap_fold": &k.RoadmapFold, "zoom_in": &k.ZoomIn, "zoom_out": &k.ZoomOut, "today": &k.Today,
 		"end_earlier": &k.EndEarlier, "end_later": &k.EndLater, "roadmap_issues": &k.RoadmapIssues, "roadmap_edit": &k.RoadmapEdit,
-		"edit_entry": &k.EditEntry, "delete_entry": &k.DeleteEntry,
+		"edit_entry": &k.EditEntry, "delete_entry": &k.DeleteEntry, "propose_work": &k.ProposeWork,
 	}
 }
 
@@ -84,7 +84,7 @@ var keyScopes = []struct {
 		"create", "browser", "open", "toggle_panel", "copy_key", "help", "search", "undo", "roadmap_edit",
 	}},
 	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts"}},
-	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "timesheet"}},
+	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "propose_work", "timesheet"}},
 	{"week", []string{"up", "down", "left", "right", "prev_view", "next_view", "open", "copy_key", "refresh", "help", "quit", "timesheet"}},
 }
 

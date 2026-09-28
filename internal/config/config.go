@@ -204,6 +204,11 @@ type UIConfig struct {
 	// issue on stdin: "claude -p", "llm", "ollama run llama3". By default
 	// claude -p when claude is on the PATH.
 	LLM string `yaml:"llm"`
+	// Activity are commands telling what you worked on, for the
+	// timesheet's proposals (p in W): each gets the day (2026-09-28) as its
+	// last argument and prints "time<TAB>key or text" lines, the time
+	// RFC 3339 (agent logs, a shell history, herdr, …).
+	Activity []string `yaml:"activity"`
 }
 
 // QuickFilter is a named JQL clause, ANDed with the board's query: a quick

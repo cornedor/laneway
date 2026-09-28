@@ -65,6 +65,7 @@ var settingDocs = map[string]string{
 	"code_theme":           "the chroma style code blocks use",
 	"theme":                "a preset name, or colours by name over an optional preset",
 	"actions":              "your own commands on the issue: in the palette, on a key if given",
+	"activity":             "commands printing \"time<TAB>key\" lines of a day's work, for the timesheet's proposals",
 }
 
 // settingChoices are the values an option with a fixed set takes, the

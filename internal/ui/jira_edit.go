@@ -894,6 +894,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, m.openInboxSince(time.Unix(sec, 0), false) // the marks stay
 		}
 	}
+	if rest, ok := strings.CutPrefix(it.id, proposalID); ok && kind == jiraPickTimesheet {
+		key, at, _ := strings.Cut(rest, "/")
+		sec, _ := strconv.ParseInt(at, 10, 64)
+		m.closeJiraPicker()
+		m.openWorklogInput(key, it.value+" ", time.Unix(sec, 0))
+		return m, nil
+	}
 	if kind == jiraPickTimesheet || kind == jiraPickInbox || kind == jiraPickStandup {
 		key, _, _ := strings.Cut(it.id, "/") // a worklog row is key/id
 		if key == "" {

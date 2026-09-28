@@ -288,6 +288,7 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	empty := fmt.Sprintf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
 	hint := fmt.Sprintf("  ·  %s %s day · %s edit · %s %s delete · %s copy · %s week", helpKey(k.PrevView), helpKey(k.NextView),
 		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.CopyKey), helpKey(k.Timesheet))
+	hint = strings.Replace(hint, " · "+helpKey(k.CopyKey)+" copy", " · "+helpKey(k.ProposeWork)+" propose · "+helpKey(k.CopyKey)+" copy", 1)
 	return func() tea.Msg {
 		logs, err := c.MyWorklogs(ctx, day)
 		total := 0
@@ -328,6 +329,11 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 			return nil, true
 		}
 		return m.openTimesheetDay(p.day.AddDate(0, 0, 1)), true
+	case is(m.keys.ProposeWork):
+		if p.loading || p.err != nil {
+			return nil, true
+		}
+		return m.loadProposals(), true
 	case is(m.keys.CopyKey):
 		if p.loading || p.err != nil {
 			return nil, true

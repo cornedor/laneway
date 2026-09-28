@@ -90,6 +90,7 @@ ui:
     - {name: Mine, jql: "assignee = currentUser()"}
   card_colors: ribbon           # the board's own card colours as a bar on cards and rows; off
   mouse: on                     # clicks, drags and the wheel; off leaves the mouse to the terminal
+  activity: [~/bin/claude-activity]  # p in W: commands printing "time<TAB>key" lines of a day's work
   llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off
   double_click: 400ms           # how quickly a second click opens (100ms–2s)
@@ -162,7 +163,7 @@ Actions for `keys:`, by where they first apply:
 - planning: plan_start plan_goal plan_rename plan_new plan_complete
 - roadmap: roadmap_grip roadmap_fold end_earlier end_later zoom_in zoom_out
   today roadmap_issues
-- timesheet: edit_entry delete_entry
+- timesheet: edit_entry delete_entry propose_work
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -459,6 +460,12 @@ shown in the header and kept across restarts; `T` again stops it into the
 same input, filled with the time and started when the timer did. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
 an entry's time and comment, `d` twice deletes it, `y` copies the day as a markdown table, `enter` opens the issue.
+`p` proposes what's missing: your commits and branch switches in the
+`jira.repos` repositories, plus the lines `ui.activity` commands print
+(`2026-09-28T09:10:00+02:00<TAB>ABC-12 what`, the day as their last argument:
+agent logs, shell history, herdr), make sessions (30 minutes idle ends one), each
+issue's time less what it has logged, rounded to a quarter; `enter` on one
+logs it from its start.
 `W` again shows the week: an issue per row, a day per column, the day and
 week totals and how far each past workday is short of 8h. `enter` on a cell
 logs work on that issue that day (from `ui.workday_start`), `[` `]` step a

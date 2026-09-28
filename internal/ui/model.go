@@ -72,7 +72,7 @@ type keyMap struct {
 	ZoomIn, ZoomOut, Today              key.Binding
 	EndEarlier, EndLater, RoadmapIssues key.Binding
 	RoadmapEdit                         key.Binding
-	EditEntry, DeleteEntry              key.Binding
+	EditEntry, DeleteEntry, ProposeWork key.Binding
 }
 
 func bind(help string, keys ...string) key.Binding {
@@ -184,6 +184,7 @@ func defaultKeys() keyMap {
 		RoadmapEdit:     bind("quick edit the row's issue", "E"),
 		EditEntry:       bind("edit the entry", "e"),
 		DeleteEntry:     bind("delete the entry (twice)", "d", "delete"),
+		ProposeWork:     bind("propose worklogs from git and ui.activity", "p"),
 	}
 }
 
@@ -636,6 +637,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case proposalsMsg:
+		return m.handleProposals(msg)
 	case linkSearchMsg:
 		return m.handleLinkSearch(msg)
 	case linkFoundMsg:

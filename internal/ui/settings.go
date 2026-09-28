@@ -75,6 +75,7 @@ var settingDefaults = map[string]string{
 	"code_theme":           "the preset's, else monokai",
 	"theme":                "terminal colours",
 	"actions":              "none",
+	"activity":             "none: git in jira.repos only",
 }
 
 type settingRow struct {
