@@ -168,6 +168,7 @@ func (m *Model) movePanelField(d int) {
 		return
 	}
 	m.fieldCursor, m.fieldCursorKey = i, m.jiraIssue.Key
+	m.commentCursorKey = ""
 	m.refView.GotoTop() // the fields sit at the top
 	m.renderRef()
 }

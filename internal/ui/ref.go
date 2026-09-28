@@ -135,9 +135,17 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.clearPanelField()
 			return m, nil
 		}
+		if _, ok := m.selectedComment(); ok {
+			m.commentCursorKey = ""
+			m.renderRef()
+			return m, nil
+		}
 		m.closeRef()
 		return m, nil
 	case "enter":
+		if i, ok := m.selectedComment(); ok {
+			return m.commentAction(i, "enter")
+		}
 		if m.panelFieldSel() != "" {
 			return m, m.editPanelField()
 		}
@@ -272,7 +280,22 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.JiraComment):
 			m.openJiraCommentInput()
 			return m, nil
+		case key.Matches(msg, m.keys.NextComment), key.Matches(msg, m.keys.PrevComment):
+			d := 1
+			if key.Matches(msg, m.keys.PrevComment) {
+				d = -1
+			}
+			return m, m.moveCommentCursor(d)
+		case key.Matches(msg, m.keys.DeleteComment):
+			if i, ok := m.selectedComment(); ok {
+				return m.commentAction(i, "delete")
+			}
+			m.status = "select a comment first (" + helpKey(m.keys.NextComment) + ")"
+			return m, nil
 		case key.Matches(msg, m.keys.JiraReply):
+			if i, ok := m.selectedComment(); ok {
+				return m.commentAction(i, "reply")
+			}
 			if len(m.jiraIssue.Comments) == 0 {
 				m.status = "no comments to reply to"
 				return m, nil

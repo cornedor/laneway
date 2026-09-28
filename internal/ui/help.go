@@ -87,6 +87,7 @@ func (m *Model) helpSections() []struct {
 			row(k.JiraDescription, "edit description (ctrl+e: $EDITOR)"),
 			row(k.JiraAssignee, "assignee"),
 			{join(k.JiraComment, k.JiraReply), "comment / reply"},
+			{join(k.NextComment, k.PrevComment), "select a comment: R reply, ↵ edit yours, " + helpKey(k.DeleteComment) + " twice delete"},
 			{join(k.LogWork, k.Timer), "log work / timer"},
 			row(k.Timesheet, "today's worklogs"),
 			row(k.Inbox, "inbox"),

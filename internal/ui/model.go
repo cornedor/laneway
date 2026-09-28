@@ -69,6 +69,8 @@ type keyMap struct {
 	PlanNew, PlanComplete               key.Binding
 	RankUp, RankDown                    key.Binding
 	RankTop, RankBottom                 key.Binding
+	NextComment, PrevComment            key.Binding
+	DeleteComment                       key.Binding
 	RoadmapGrip, RoadmapFold            key.Binding
 	ZoomIn, ZoomOut, Today              key.Binding
 	EndEarlier, EndLater, RoadmapIssues key.Binding
@@ -176,6 +178,9 @@ func defaultKeys() keyMap {
 		RankDown:        bind("rank down", "J"),
 		RankTop:         bind("rank to the top", "alt+k"),
 		RankBottom:      bind("rank to the bottom", "alt+j"),
+		NextComment:     bind("next comment", "}"),
+		PrevComment:     bind("previous comment", "{"),
+		DeleteComment:   bind("delete the comment (twice)", "delete"),
 		RoadmapGrip:     bind("grip the bar's start, end, let go", "e"),
 		RoadmapFold:     bind("fold the epic's issues", "space"),
 		ZoomIn:          bind("zoom in", "+", "="),
@@ -383,7 +388,11 @@ type Model struct {
 	jiraCommentMention *jira.Mention
 	jiraCommentReplyTo string
 	jiraCommentReplyID string // the comment replied to, its composer drawn under it
-	commentDelete      string // the comment whose delete a second click confirms
+	commentDelete      string // the comment whose delete a second click or key confirms
+	// commentCursor is the comment } and { selected on commentCursorKey,
+	// an index into its comments.
+	commentCursor    int
+	commentCursorKey string
 	// jiraCommentBefore is the text it opened with (a reply's quote), so esc
 	// asks once only for text you wrote; jiraCommentDiscard is that ask.
 	jiraCommentBefore  string

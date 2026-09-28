@@ -262,27 +262,90 @@ func (m *Model) deleteComment(i int) tea.Cmd {
 }
 
 // clickCommentAction does the action at column col of comment i's action
-// row: reply, edit, or delete, which a second click confirms.
+// row.
 func (m Model) clickCommentAction(i, col int) (tea.Model, tea.Cmd) {
 	if m.jiraIssue == nil || i < 0 || i >= len(m.jiraIssue.Comments) {
 		return m, nil
 	}
+	return m.commentAction(i, m.commentActionAt(m.jiraIssue.Comments[i], col))
+}
+
+// commentAction does act on comment i: reply, edit, or delete, which the
+// same click or key again confirms; enter edits your own, replies to
+// others'.
+func (m Model) commentAction(i int, act string) (tea.Model, tea.Cmd) {
 	c := m.jiraIssue.Comments[i]
-	act := m.commentActionAt(c, col)
+	own := len(m.commentActions(c)) > 1
+	if act == "enter" {
+		act = "reply"
+		if own {
+			act = "edit"
+		}
+	}
 	confirm := m.commentDelete == c.ID
 	m.commentDelete = ""
-	switch act {
-	case "reply":
+	switch {
+	case act == "reply":
 		m.openJiraReply(c)
-	case "edit":
+	case act == "edit" && own:
 		return m, m.editComment(i)
-	case "delete":
-		if confirm {
-			return m, m.deleteComment(i)
-		}
+	case act == "delete" && !own:
+		m.status = "only your own comments can be deleted"
+	case act == "delete" && confirm:
+		return m, m.deleteComment(i)
+	case act == "delete":
 		m.commentDelete = c.ID
-		m.status = "click delete again to delete the comment"
+		m.status = "delete again to delete the comment"
 	}
 	m.renderRef()
 	return m, nil
+}
+
+// selectedComment is the comment } and { selected, ok false when none on
+// the panel's issue.
+func (m *Model) selectedComment() (int, bool) {
+	iss := m.jiraIssue
+	if iss == nil || m.commentCursorKey != iss.Key || m.commentCursor < 0 || m.commentCursor >= len(iss.Comments) {
+		return 0, false
+	}
+	return m.commentCursor, true
+}
+
+// moveCommentCursor selects the next (d 1) or previous (-1) comment in the
+// thread's order, the Comments tab showing, and scrolls to it.
+func (m *Model) moveCommentCursor(d int) tea.Cmd {
+	iss := m.jiraIssue
+	thread := commentThread(iss.Comments)
+	if len(thread) == 0 {
+		m.status = "no comments"
+		return nil
+	}
+	at := -1
+	if i, ok := m.selectedComment(); ok {
+		at = slices.IndexFunc(thread, func(tc threadedComment) bool { return tc.i == i })
+	}
+	switch {
+	case at < 0 && d < 0:
+		at = len(thread) - 1
+	case at < 0:
+		at = 0
+	default:
+		at = min(max(at+d, 0), len(thread)-1)
+	}
+	m.clearPanelField()
+	m.commentCursor, m.commentCursorKey = thread[at].i, iss.Key
+	var cmd tea.Cmd
+	if m.activityTab != activityComments {
+		cmd = m.switchActivity(activityComments)
+	}
+	m.renderRef()
+	for line, h := range m.panelHits {
+		if h.reply && h.field == m.commentCursor {
+			row := visualRowsBefore(strings.Split(m.refView.GetContent(), "\n"), line, m.refView.Width())
+			if top := m.refView.YOffset(); row < top || row+3 >= top+m.refView.Height() {
+				m.refView.SetYOffset(max(row-2, 0))
+			}
+		}
+	}
+	return cmd
 }

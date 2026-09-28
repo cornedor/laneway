@@ -448,7 +448,11 @@ func (m *Model) commentByline(c jira.Comment) string {
 // renderComment writes one comment: author and time, its body, and the
 // row of its actions.
 func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
-	b.WriteString(refDimStyle.Render(m.commentByline(c)) + "\n")
+	by := refDimStyle
+	if i, ok := m.selectedComment(); ok && m.jiraIssue.Comments[i].ID == c.ID {
+		by = selectedRow
+	}
+	b.WriteString(by.Render(m.commentByline(c)) + "\n")
 	if body := strings.TrimSpace(c.Body); body != "" {
 		b.WriteString(strings.TrimSuffix(renderMarkdown(body, m.emojiImg, nil, ""), "\n") + "\n")
 	}
@@ -462,7 +466,7 @@ func (m *Model) commentActions(c jira.Comment) [][2]string {
 	if me := m.jiraClient.KnownMyself(); me != "" && c.AuthorID == me && c.ID != "" {
 		del := "✕ delete"
 		if m.commentDelete == c.ID {
-			del = "✕ delete? click again"
+			del = "✕ delete? again"
 		}
 		acts = append(acts, [2]string{"✎ edit", "edit"}, [2]string{del, "delete"})
 	}

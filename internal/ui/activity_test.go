@@ -179,7 +179,7 @@ func TestCommentActions(t *testing.T) {
 	} else if msg, ok := cmd().(descLoadedMsg); !ok || msg.comment != "2" {
 		t.Errorf("edit = %#v", msg)
 	}
-	if cmd := click("✕ delete"); cmd != nil || !strings.Contains(ansi.Strip(m.refView.GetContent()), "delete? click again") {
+	if cmd := click("✕ delete"); cmd != nil || !strings.Contains(ansi.Strip(m.refView.GetContent()), "delete? again") {
 		t.Fatalf("first delete click should ask")
 	}
 	cmd := click("✕ delete")
@@ -189,6 +189,78 @@ func TestCommentActions(t *testing.T) {
 	cmd()
 	if deleted != "/rest/api/3/issue/ABC-1/comment/2" {
 		t.Errorf("deleted %q", deleted)
+	}
+}
+
+// TestCommentKeys: } and { select a comment; R replies to it, enter
+// edits your own, delete twice deletes it, esc lets it go.
+func TestCommentKeys(t *testing.T) {
+	var deleted string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/myself":
+			fmt.Fprint(w, `{"accountId":"me1","displayName":"Me"}`)
+		case r.Method == http.MethodDelete:
+			deleted = r.URL.Path
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			fmt.Fprint(w, `{}`)
+		}
+	}))
+	defer srv.Close()
+	m := configuredJiraModel(t, "ABC")
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	_, _ = m.jiraClient.Myself(context.Background())
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	when := time.Date(2025, 9, 25, 9, 0, 0, 0, time.Local)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Comments: []jira.Comment{
+		{ID: "1", Author: "Ann", AuthorID: "ann", Created: when, Body: "first"},
+		{ID: "2", Author: "Me", AuthorID: "me1", Created: when.Add(time.Hour), Body: "second", Raw: json.RawMessage(`{"type":"doc","version":1,"content":[]}`)},
+	}}})
+	m = out.(Model)
+	m.focus = focusRef
+	press := func(k tea.KeyPressMsg) tea.Cmd {
+		t.Helper()
+		out, cmd := m.handleRefKey(k)
+		m = out.(Model)
+		return cmd
+	}
+	press(keyStr("}"))
+	if i, ok := m.selectedComment(); !ok || i != 0 {
+		t.Fatalf("} selected %d %v", i, ok)
+	}
+	if !strings.Contains(m.refView.GetContent(), selectedRow.Render("Ann · ")) && !strings.Contains(m.refView.GetContent(), selectedRow.Render(m.commentByline(m.jiraIssue.Comments[0]))) {
+		t.Error("the selected byline is not drawn selected")
+	}
+	press(tea.KeyPressMsg{Code: tea.KeyDelete})
+	if m.status != "only your own comments can be deleted" {
+		t.Errorf("delete on Ann's: %q", m.status)
+	}
+	press(keyStr("R"))
+	if !m.jiraCommentActive || m.jiraCommentReplyTo != "Ann" {
+		t.Fatalf("R: composer %v to %q", m.jiraCommentActive, m.jiraCommentReplyTo)
+	}
+	m.jiraCommentActive = false
+	press(keyStr("}"))
+	if cmd := press(keyStr("enter")); cmd == nil {
+		t.Fatal("enter on your own did not edit")
+	} else if msg, ok := cmd().(descLoadedMsg); !ok || msg.comment != "2" {
+		t.Errorf("enter = %#v", msg)
+	}
+	m.descEdit = nil
+	press(tea.KeyPressMsg{Code: tea.KeyDelete})
+	cmd := press(tea.KeyPressMsg{Code: tea.KeyDelete})
+	if cmd == nil {
+		t.Fatal("delete twice did not delete")
+	}
+	cmd()
+	if deleted != "/rest/api/3/issue/ABC-1/comment/2" {
+		t.Errorf("deleted %q", deleted)
+	}
+	press(keyStr("esc"))
+	if _, ok := m.selectedComment(); ok || !m.refOpen {
+		t.Errorf("esc: selected %v, panel open %v", ok, m.refOpen)
 	}
 }
 
