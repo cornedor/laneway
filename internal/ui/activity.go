@@ -106,19 +106,25 @@ func activityLabels(comments int) [activityTabs]string {
 // activityTabAt is the tab under display column col of the tab row line,
 // -1 for none.
 func activityTabAt(line string, col, comments int) int {
+	t, _, _ := activityTabSpan(line, col, comments)
+	return t
+}
+
+// activityTabSpan is activityTabAt and the tab's columns.
+func activityTabSpan(line string, col, comments int) (tab, x0, x1 int) {
 	plain, from := ansi.Strip(line), 0
 	for t, l := range activityLabels(comments) {
 		i := strings.Index(plain[from:], l)
 		if i < 0 {
-			return -1
+			return -1, 0, 0
 		}
 		start := ansi.StringWidth(plain[:from+i])
 		if col >= start && col < start+ansi.StringWidth(l) {
-			return t
+			return t, start, start + ansi.StringWidth(l)
 		}
 		from += i + len(l)
 	}
-	return -1
+	return -1, 0, 0
 }
 
 // renderJiraActivity appends the Activity section: its tab row, then the

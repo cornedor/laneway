@@ -488,13 +488,9 @@ func (m *Model) commentActionLine(c jira.Comment) string {
 // commentActionAt is the action at column col of comment c's action row,
 // "" between them.
 func (m *Model) commentActionAt(c jira.Comment, col int) string {
-	at := 0
-	for _, a := range m.commentActions(c) {
-		w := ansi.StringWidth(a[0])
-		if col >= at && col < at+w {
-			return a[1]
-		}
-		at += w + 3
+	acts := m.commentActions(c)
+	if i, _, _ := labelAt(firsts(acts), col); i >= 0 {
+		return acts[i][1]
 	}
 	return ""
 }

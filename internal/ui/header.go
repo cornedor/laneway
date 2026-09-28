@@ -205,6 +205,12 @@ func (m *Model) jiraFilterSegs() []headSeg {
 
 // headerHit is the header segment at x, y; its kind is "" for nothing.
 func (m *Model) headerHit(x, y int) headSeg {
+	s, _, _ := m.headerSpan(x, y)
+	return s
+}
+
+// headerSpan is headerHit and the columns the segment covers.
+func (m *Model) headerSpan(x, y int) (headSeg, int, int) {
 	t := m.jiraTab
 	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil || t.standup != nil
 	var segs []headSeg
@@ -216,18 +222,18 @@ func (m *Model) headerHit(x, y int) headSeg {
 	case y == jiraBodyTop-2 && t.charts != nil:
 		segs = m.chartsSegs()
 	case y == jiraBodyTop-2 && (t.week != nil || t.standup != nil):
-		return headSeg{}
+		return headSeg{}, 0, 0
 	case y == jiraBodyTop-2 && t.plan != nil:
 		segs = m.planSegs()
 	case y == jiraBodyTop-2:
 		segs = m.jiraViewSegs()
 	case y == jiraBodyTop-1 && !other:
 		if t.searching {
-			return headSeg{}
+			return headSeg{}, 0, 0
 		}
 		segs = m.jiraFilterSegs()
 	}
-	return segAt(segs, x, 1) // after the box's left border
+	return segSpan(segs, x, 1) // after the box's left border
 }
 
 // clickHeader acts on a header hit; ok false when x, y is none.
@@ -274,14 +280,34 @@ func (m Model) runSeg(h headSeg) (tea.Model, tea.Cmd, bool) {
 
 // segAt is the segment of segs at column x, the row starting at column at.
 func segAt(segs []headSeg, x, at int) headSeg {
+	s, _, _ := segSpan(segs, x, at)
+	return s
+}
+
+// segSpan is segAt and the columns the segment covers.
+func segSpan(segs []headSeg, x, at int) (headSeg, int, int) {
 	for _, s := range segs {
 		w := ansi.StringWidth(s.s)
 		if x >= at && x < at+w {
-			return s
+			return s, at, at + w
 		}
 		at += w
 	}
-	return headSeg{}
+	return headSeg{}, 0, 0
+}
+
+// labelAt is which of labels, drawn " · " apart from column 0, is under
+// col, and its columns; -1 between them.
+func labelAt(labels []string, col int) (i, x0, x1 int) {
+	at := 0
+	for i, l := range labels {
+		w := ansi.StringWidth(l)
+		if col >= at && col < at+w {
+			return i, at, at + w
+		}
+		at += w + 3
+	}
+	return -1, 0, 0
 }
 
 // hint is a key shown as label that a click presses; a pair has two keys

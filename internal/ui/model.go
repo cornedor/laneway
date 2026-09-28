@@ -455,6 +455,11 @@ type Model struct {
 		at   time.Time
 		x, y int
 	}
+	// mouse is where the pointer last moved (hover.go), mouseIn whether it
+	// has; pointer the shape set, pointerOn whether the terminal gets one.
+	mouseX, mouseY     int
+	mouseIn, pointerOn bool
+	pointer            string
 }
 
 // New builds the app from the jira: config.
@@ -480,9 +485,10 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		prompt = cfg.StartPrompt
 	}
 	m := Model{
-		ctx:   ctx,
-		store: st,
-		keys:  keys,
+		ctx:       ctx,
+		store:     st,
+		keys:      keys,
+		pointerOn: opts.mouse && pointerOK(),
 		jiraClient: jira.New(jira.Config{
 			BaseURL:          cfg.BaseURL,
 			Email:            cfg.Email,
@@ -627,7 +633,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.panelSel.held && msg.Button == tea.MouseLeft {
 			return m.dragPanelSel(msg.X, msg.Y)
 		}
-		return m, nil
+		m.mouseX, m.mouseY, m.mouseIn = msg.X, msg.Y, true
+		return m, m.pointerTo(m.hoverAt(msg.X, msg.Y).pointer)
 	case tea.MouseReleaseMsg:
 		if m.agentTermDrag {
 			m.agentTermDragTo(msg.Mouse(), true)
@@ -1113,6 +1120,9 @@ func (m Model) View() tea.View {
 	screen, ok := joinVerticalLeft(body, status)
 	if !ok {
 		screen = lipgloss.JoinVertical(lipgloss.Left, body, status)
+	}
+	if m.mouseIn {
+		screen = underline(screen, m.hoverAt(m.mouseX, m.mouseY))
 	}
 	v.SetContent(screen)
 	if cx, cy, ok := m.agentTermCursor(); ok {

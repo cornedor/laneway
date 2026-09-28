@@ -25,6 +25,7 @@ func configuredJiraModel(t *testing.T, projects ...string) Model {
 		Projects: projects,
 	}, config.UIConfig{}, nil, "", st)
 	m.herdr = nil
+	m.pointerOn = false // the terminal's pointer is hover_test.go's
 	m.width, m.height = 120, 40
 	m.resize()
 	return m

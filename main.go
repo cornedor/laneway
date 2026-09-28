@@ -193,7 +193,7 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	final, err := newProgram(m).Run()
 	fm, ok := final.(ui.Model)
 	if ok {
-		fmt.Fprint(os.Stdout, fm.ReleaseImages())
+		fmt.Fprint(os.Stdout, fm.ReleaseImages()+fm.ReleasePointer())
 	}
 	if err != nil || !ok {
 		return "", endQuit, err
@@ -228,7 +228,10 @@ func runDemo() error {
 	defer cancel()
 	jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
 	m := ui.New(ctx, jc, config.UIConfig{UpdateCheck: "off"}, nil, filepath.Join(dir, "rules.log"), st).WithVersion(version, "")
-	_, err = newProgram(m).Run()
+	final, err := newProgram(m).Run()
+	if fm, ok := final.(ui.Model); ok {
+		fmt.Fprint(os.Stdout, fm.ReleasePointer())
+	}
 	return err
 }
 

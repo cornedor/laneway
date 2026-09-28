@@ -172,7 +172,13 @@ func (m *Model) panelLinkAt(x, y int) string {
 // linkAt is the OSC 8 link target at display column col of line, "" when
 // col falls on plain text.
 func linkAt(line string, col int) string {
-	url, at := "", 0
+	u, _, _ := linkSpan(line, col)
+	return u
+}
+
+// linkSpan is linkAt and the columns of the link's run on line.
+func linkSpan(line string, col int) (url string, x0, x1 int) {
+	at, from, hit := 0, 0, ""
 	for len(line) > 0 {
 		if strings.HasPrefix(line, "\x1b]") { // OSC: a link opens or closes
 			end, n := len(line), 0
@@ -183,15 +189,19 @@ func linkAt(line string, col int) string {
 				end, n = j, 1
 			}
 			if body := line[2:end]; strings.HasPrefix(body, "8;") {
+				if hit != "" { // the hit's run ends
+					return hit, from, at
+				}
 				_, url, _ = strings.Cut(body[2:], ";")
+				from = at
 			}
 			line = line[min(end+n, len(line)):]
 			continue
 		}
 		seq, w, n, _ := ansi.DecodeSequence(line, ansi.NormalState, nil)
 		if w > 0 {
-			if col >= at && col < at+w {
-				return url
+			if col >= at && col < at+w && url != "" {
+				hit = url
 			}
 			at += w
 		}
@@ -200,7 +210,10 @@ func linkAt(line string, col int) string {
 		}
 		line = line[max(n, 1):]
 	}
-	return ""
+	if hit != "" {
+		return hit, from, at
+	}
+	return "", 0, 0
 }
 
 // clickPanel acts on a clicked panel line.
@@ -276,15 +289,20 @@ func panelIndent(line string) int {
 // panelHintAt is the key of the hint at column col of the hint line, ""
 // between them.
 func (m *Model) panelHintAt(col int) string {
-	at := 0
-	for _, h := range m.panelHints() {
-		w := ansi.StringWidth(h[0])
-		if col >= at && col < at+w {
-			return h[1]
-		}
-		at += w + 3
+	hints := m.panelHints()
+	if i, _, _ := labelAt(firsts(hints), col); i >= 0 {
+		return hints[i][1]
 	}
 	return ""
+}
+
+// firsts are the labels of label, value pairs.
+func firsts(pairs [][2]string) []string {
+	out := make([]string, len(pairs))
+	for i, p := range pairs {
+		out[i] = p[0]
+	}
+	return out
 }
 
 // The panel's right border is its scrollbar, beside the body's rows from
