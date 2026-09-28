@@ -460,6 +460,8 @@ type Model struct {
 	mouseX, mouseY     int
 	mouseIn, pointerOn bool
 	pointer            string
+	// dropdown is the card menu a right-click opened (dropdown.go).
+	dropdown *dropdownState
 }
 
 // New builds the app from the jira: config.
@@ -634,6 +636,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.dragPanelSel(msg.X, msg.Y)
 		}
 		m.mouseX, m.mouseY, m.mouseIn = msg.X, msg.Y, true
+		if m.dropdownOn() { // a menu's row follows the pointer
+			if i, _ := m.pickerRowAt(msg.X, msg.Y); i >= 0 {
+				m.jiraPicker.idx = i
+			}
+		}
 		return m, m.pointerTo(m.hoverAt(msg.X, msg.Y).pointer)
 	case tea.MouseReleaseMsg:
 		if m.agentTermDrag {
@@ -951,6 +958,18 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	if msg.Button == tea.MouseLeft && m.pickerOnTop() {
 		// A click picks the row (as enter would); outside the box, cancels.
 		switch i, outside := m.pickerRowAt(msg.X, msg.Y); {
+		case outside && m.dropdown != nil:
+			// On the menu under a submenu: back to it, and that row; else
+			// off both, they close.
+			if d := m.dropdown; d.parent != "" && m.backToMenu() {
+				if i, _ := m.pickerRowAt(msg.X, msg.Y); i >= 0 {
+					m.jiraPicker.idx = i
+					return m.handleJiraPickerKey(keyPress("enter"))
+				}
+				return m, nil
+			}
+			m.closeJiraPicker()
+			return m, nil
 		case outside:
 			return m.handleJiraPickerKey(keyPress("esc"))
 		case i >= 0:
@@ -964,7 +983,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.Button == tea.MouseRight && m.cardClickable(msg.X, msg.Y) {
-		return m.rightClickJira(m.hitJira(msg.X, msg.Y))
+		return m.rightClickJira(m.hitJira(msg.X, msg.Y), msg.X, msg.Y)
 	}
 	form := m.formOnTop()
 	if msg.Button != tea.MouseLeft || msg.Y >= m.bodyH() {
@@ -1112,7 +1131,9 @@ func (m Model) View() tea.View {
 	if m.imageView {
 		body = m.renderImageView(m.width, bodyH)
 	}
-	if ov := m.renderOverlay(bodyH); ov != "" {
+	if m.dropdownOn() && !m.imageView {
+		body = m.drawDropdown(body, bodyH)
+	} else if ov := m.renderOverlay(bodyH); ov != "" {
 		body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, ov)
 	}
 	st := statusStyle

@@ -37,7 +37,9 @@ func (m *Model) hoverAt(x, y int) hover {
 		return hover{}
 	}
 	if m.pickerOnTop() {
-		if i, _ := m.pickerRowAt(x, y); i >= 0 {
+		if i, _ := m.pickerRowAt(x, y); i >= 0 && m.jiraPicker.at != nil {
+			return hover{pointer: pointerHand} // the row under it is the selected one
+		} else if i >= 0 {
 			box := m.renderJiraPicker(m.bodyH())
 			_, left, _ := m.overlayAt(box, x, y)
 			return hover{y: y, x0: left + overlayPadLeft, x1: left + lipgloss.Width(box) - overlayPadLeft, pointer: pointerHand}

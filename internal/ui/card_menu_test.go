@@ -31,7 +31,7 @@ func TestCardRightClick(t *testing.T) {
 		}
 		var labels []string
 		for _, it := range m.jiraPicker.items {
-			labels = append(labels, ansi.Strip(it.label))
+			labels = append(labels, strings.TrimSpace(ansi.Strip(it.label)+"  "+it.hint))
 		}
 		if got := strings.Join(labels, "|"); !strings.Contains(got, "Assignee") || !strings.Contains(got, "Copy the key  y") {
 			t.Fatalf("items %s", got)
@@ -92,5 +92,44 @@ func TestAgentRowsClick(t *testing.T) {
 	out, _ = m.handleClick(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
 	if mm := out.(Model); !mm.jiraPicker.active {
 		t.Error("A more should open the issue actions")
+	}
+}
+
+// TestCardMenuDropdown: the menu opens at the pointer over the board; a row
+// follows the pointer and a click picks it; Assignee opens its list beside
+// the row, the menu still drawn, esc back to it; a click off both closes.
+func TestCardMenuDropdown(t *testing.T) {
+	m := jiraTabModel(t)
+	x, y := screenAt(t, m, "ABC-3")
+	out, _ := m.handleClick(tea.MouseClickMsg{X: x + 2, Y: y, Button: tea.MouseRight})
+	m = out.(Model)
+	sx, sy := screenAt(t, m, "Status")
+	if sy != y+1 || sx != x+4 {
+		t.Errorf("Status at %d,%d, want the menu's corner at the pointer %d,%d", sx, sy, x+2, y)
+	}
+	if _, fy := screenAt(t, m, "First"); fy >= y {
+		t.Error("the board should show round the menu")
+	}
+	ax, ay := screenAt(t, m, "Assignee")
+	out, _ = m.Update(tea.MouseMotionMsg{X: ax, Y: ay})
+	if m = out.(Model); m.jiraPicker.idx != 2 {
+		t.Errorf("hovered row %d, want Assignee (2)", m.jiraPicker.idx)
+	}
+	out, _ = m.handleClick(tea.MouseClickMsg{X: ax, Y: ay, Button: tea.MouseLeft})
+	m = out.(Model)
+	if m.jiraPicker.kind != jiraPickAssignee || m.jiraPicker.at == nil || m.dropdown == nil || m.dropdown.parent == "" {
+		t.Fatalf("assignee should open as a submenu: kind %v at %v", m.jiraPicker.kind, m.jiraPicker.at)
+	}
+	if _, fy := screenAt(t, m, "filter…"); fy != ay {
+		t.Errorf("the submenu's filter at row %d, want beside Assignee (%d)", fy, ay)
+	}
+	screenAt(t, m, "Story points") // the menu, still drawn
+	out, _ = m.handleJiraPickerKey(keyPress("esc"))
+	if m = out.(Model); m.jiraPicker.kind != jiraPickBulk || m.jiraPicker.idx != 2 || m.dropdown.parent != "" {
+		t.Fatalf("esc should go back to the menu on Assignee: kind %v idx %d", m.jiraPicker.kind, m.jiraPicker.idx)
+	}
+	out, _ = m.handleClick(tea.MouseClickMsg{X: m.width - 3, Y: m.bodyH() - 2, Button: tea.MouseLeft})
+	if m = out.(Model); m.jiraPicker.active || m.dropdown != nil {
+		t.Error("a click off the menu should close it")
 	}
 }

@@ -133,6 +133,7 @@ type jiraPickerItem struct {
 	value   string // what an edit of the row starts from (a worklog's "1h fix")
 	focus   bool   // the cursor starts here rather than on the current row
 	search  string // more words the filter matches, never shown
+	hint    string // dim at a dropdown row's right: its key, ▸ for a submenu
 }
 
 // jiraPickerState is the modal list picker reused for the three list-style
@@ -168,6 +169,8 @@ type jiraPickerState struct {
 	// inline is the panel row the list drops under (a panel field name or
 	// an extra field's id), "" for the modal.
 	inline string
+	// at is where a dropdown's corner goes (dropdown.go), nil for the modal.
+	at *point
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -488,6 +491,7 @@ func (m *Model) filterJiraPicker() {
 // ignored.
 func (m *Model) closeJiraPicker() {
 	m.jiraPicker = jiraPickerState{gen: m.jiraPicker.gen}
+	m.dropdown = nil
 }
 
 // closeJiraField tears the field input down.
@@ -550,10 +554,20 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m.quit()
 	case "esc":
-		m.closeJiraPicker()
+		if !m.backToMenu() {
+			m.closeJiraPicker()
+		}
 		return m, nil
 	case "enter":
 		return m.applyJiraPick()
+	case "left":
+		if !m.jiraPicker.filterable && m.backToMenu() {
+			return m, nil
+		}
+	case "right":
+		if p := &m.jiraPicker; m.dropdown != nil && p.kind == jiraPickBulk && p.idx < len(p.items) && p.items[p.idx].hint == submenuHint {
+			return m.applyJiraPick()
+		}
 	}
 
 	if m.jiraPicker.kind == jiraPickTimesheet && key.Matches(msg, m.keys.Timesheet) {
@@ -906,12 +920,23 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if kind == jiraPickBulk {
+		d, row := m.dropdown, m.jiraPicker.idx
+		var box string
+		var top, left int
+		if d != nil {
+			box = m.renderDropdown(m.bodyH())
+			top, left = m.dropdownPlace(box)
+		}
 		m.closeJiraPicker()
 		if k, ok := strings.CutPrefix(it.id, "key:"); ok { // a card menu's key: pressed on the card
 			m.quickKey = ""
 			return m.handleJiraKey(keyPress(k))
 		}
-		return m, m.applyBulkMenu(it.id)
+		cmd := m.applyBulkMenu(it.id)
+		if d != nil {
+			m.openSubmenu(d, box, top, left, row)
+		}
+		return m, cmd
 	}
 	if kind == jiraPickPalette {
 		m.closeJiraPicker()
@@ -1154,6 +1179,9 @@ func (m *Model) pickerWindow(win int) (start, end int) {
 // pickerRowAt is the picker item on screen row y, -1 for none; outside
 // is true when y, x fall outside the box.
 func (m *Model) pickerRowAt(x, y int) (idx int, outside bool) {
+	if m.jiraPicker.at != nil {
+		return m.dropdownRowAt(x, y)
+	}
 	bodyH := m.bodyH()
 	top, _, inside := m.overlayAt(m.renderJiraPicker(bodyH), x, y)
 	if !inside {

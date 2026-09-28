@@ -146,10 +146,21 @@ func (m *Model) openQuickEditKey(key string) {
 	m.setJiraPickerItems(slices.Clone(bulkFields))
 }
 
+// submenuHint marks a card menu row that opens a list beside it.
+const submenuHint = "▸"
+
 // cardMenu is what a right-click on a card offers: the quick edit's fields,
 // then the card's own keys, each shown with its key.
 func (m *Model) cardMenu() []jiraPickerItem {
 	items := slices.Clone(bulkFields)
+	for i, it := range items {
+		switch it.id {
+		case "status", "priority", "assignee", "sprint":
+			items[i].hint = submenuHint
+		case "labels":
+			items[i].label = "Labels"
+		}
+	}
 	for _, a := range []struct {
 		id, label string
 		b         key.Binding
@@ -159,7 +170,7 @@ func (m *Model) cardMenu() []jiraPickerItem {
 		{"copy-key", "Copy the key", m.keys.CopyKey},
 		{"pin", "Pin / unpin", m.keys.Pin},
 	} {
-		items = append(items, jiraPickerItem{id: "key:" + firstKey(a.b), label: a.label + "  " + refDimStyle.Render(helpKey(a.b))})
+		items = append(items, jiraPickerItem{id: "key:" + firstKey(a.b), label: a.label, hint: helpKey(a.b)})
 	}
 	return items
 }
@@ -168,12 +179,21 @@ func (m *Model) cardMenu() []jiraPickerItem {
 func (m *Model) cardClickable(x, y int) bool {
 	t := m.jiraTab
 	listW, _ := m.jiraListWidth(m.width)
-	return y < m.bodyH() && !m.modalOpen() && !m.pickerOnTop() && !m.pickerInline() && (!m.refOpen || x < listW) &&
+	menu := m.dropdown != nil && m.dropdownOn() // a right-click off it opens another
+	if menu {
+		if _, outside := m.pickerRowAt(x, y); !outside {
+			return false
+		}
+		if d := m.dropdown; d.parent != "" && y >= d.top && y < d.top+lipgloss.Height(d.parent) && x >= d.left && x < d.left+lipgloss.Width(d.parent) {
+			return false
+		}
+	}
+	return y < m.bodyH() && (menu || !m.modalOpen() && !m.pickerOnTop() && !m.pickerInline()) && (!m.refOpen || x < listW) &&
 		t.roadmap == nil && t.plan == nil && t.charts == nil && t.week == nil && t.standup == nil
 }
 
-// rightClickJira selects the card under h and opens its menu.
-func (m Model) rightClickJira(h hit) (tea.Model, tea.Cmd) {
+// rightClickJira selects the card under h and opens its menu at x, y.
+func (m Model) rightClickJira(h hit, x, y int) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
 	if h.line < 0 {
 		return m, nil
@@ -185,9 +205,9 @@ func (m Model) rightClickJira(h hit) (tea.Model, tea.Cmd) {
 		t.lane, t.row = h.idx, h.line
 	}
 	m.renderJira()
+	m.closeJiraPicker() // a menu open on another card
 	if c, ok := m.selectedJiraCard(); ok {
-		m.openQuickEditKey(c.Key)
-		m.setJiraPickerItems(m.cardMenu())
+		m.openCardMenu(c.Key, point{x, y}, 0)
 	}
 	return m, nil
 }
