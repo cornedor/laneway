@@ -10,7 +10,6 @@ package viewport
 
 import (
 	"cmp"
-	"math"
 	"slices"
 	"strings"
 
@@ -300,17 +299,17 @@ func (m Model) GetContent() string {
 // lines and the real-line index for the given yoffset, as well as the virtual
 // line offset.
 func (m Model) calculateLine(yoffset int) (total, ridx, voffset int) {
-	if !m.SoftWrap {
+	maxWidth := m.maxWidth()
+	if !m.SoftWrap || maxWidth == 0 || m.longestLineWidth <= maxWidth { // one row a line
 		total = len(m.lines)
 		ridx = min(yoffset, len(m.lines))
 		return total, ridx, 0
 	}
 
-	maxWidth := float64(m.maxWidth())
 	var lineHeight int
 
 	for i := range m.lines {
-		lineHeight = max(1, int(math.Ceil(float64(m.lineWidth(i))/maxWidth)))
+		lineHeight = max(1, (m.lineWidth(i)+maxWidth-1)/maxWidth)
 
 		if yoffset >= total && yoffset < total+lineHeight {
 			ridx = i
