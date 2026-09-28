@@ -37,3 +37,18 @@ func TestRefine(t *testing.T) {
 		t.Errorf("end: refine %v, open %v, pct %d, status %q", m.refine, m.refOpen, m.opts.panelPct, m.status)
 	}
 }
+
+// TestRefineView: refining takes what the view shows, minus done cards.
+func TestRefineView(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[3].Done = true
+	for _, k := range []string{"/", "o", "enter"} {
+		out, _ := m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	out, _ := m.handleJiraKey(keyMsg(t, "ctrl+e"))
+	m = out.(Model)
+	if m.refine == nil || strings.Join(m.refine.keys, " ") != "ABC-2" {
+		t.Fatalf("queue %v, want ABC-2 (Second; Fourth is done)", m.refine)
+	}
+}

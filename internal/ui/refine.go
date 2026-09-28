@@ -25,10 +25,15 @@ type refineState struct {
 // refineWidth is the panel's share while refining.
 const refineWidth = 80
 
-// startRefine queues the view's cards, unestimated first, and opens the
-// first.
+// startRefine queues the cards the view shows that aren't done, unestimated
+// first, and opens the first.
 func (m *Model) startRefine() tea.Cmd {
-	cards := slices.Clone(m.jiraTab.cards)
+	var cards []jira.Card
+	for _, i := range m.jiraTab.order {
+		if c := m.jiraTab.cards[i]; !c.Done {
+			cards = append(cards, c)
+		}
+	}
 	if len(cards) == 0 {
 		m.status = "no issues in this view to refine"
 		return nil
