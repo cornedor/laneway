@@ -85,12 +85,22 @@ func (m *Model) loadTeamStandup(seq int, since time.Time, byPerson bool) tea.Cmd
 	}
 	cols, head, stale := m.teamColumns(), m.teamHeader(now), m.opts.staleDays
 	projects := teamProjects(cols, m.jiraTab.project)
+	var keys []string
+	for _, col := range cols {
+		for _, cd := range col.cards {
+			if !cd.Done {
+				keys = append(keys, cd.Key)
+			}
+		}
+	}
 	return func() tea.Msg {
 		entries, err := c.TeamStandup(ctx, since, ids)
 		if err != nil {
 			return standupMsg{seq: seq, err: err}
 		}
-		lines, folded, text := teamWalk(cols, entries, projects, byPerson, stale, since, now)
+		// Blockers are a nicety: the walk goes on without them.
+		blockers, _ := c.Blockers(ctx, keys)
+		lines, folded, text := teamWalk(cols, entries, projects, byPerson, stale, since, now, blockers)
 		if head != "" {
 			text = head + "\n\n" + text
 		}
@@ -100,9 +110,10 @@ func (m *Model) loadTeamStandup(seq int, since time.Time, byPerson bool) tea.Cmd
 
 // teamCard is a card of the walk and what happened on it.
 type teamCard struct {
-	card   jira.Card
-	column string
-	events []jira.InboxEntry
+	card     jira.Card
+	column   string
+	events   []jira.InboxEntry
+	blockers []string // open issues it is blocked by
 }
 
 // teamProjects are the projects of the board's cards, and project.
@@ -136,9 +147,9 @@ func teamDid(events []jira.InboxEntry) bool {
 // behind the one row that shows them, and the text: the columns right to
 // left (or byPerson, each person's cards in that order), then what was done
 // on the board's projects' other issues. A done or not started card shows
-// only when something happened on it, or it is flagged; one in progress
-// always does.
-func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, byPerson bool, stale int, since, now time.Time) (items, folded []standupLine, _ string) {
+// only when something happened on it, or it is flagged or blocked (by
+// blockers' keys); one in progress always does.
+func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, byPerson bool, stale int, since, now time.Time, blockers map[string][]string) (items, folded []standupLine, _ string) {
 	byKey := map[string][]jira.InboxEntry{}
 	for _, e := range entries {
 		byKey[e.Key] = append(byKey[e.Key], e)
@@ -148,8 +159,8 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 	for i := len(cols) - 1; i >= 0; i-- {
 		for _, c := range cols[i].cards {
 			onBoard[c.Key] = true
-			if ev := byKey[c.Key]; standupWhat(ev) != "" || c.InProgress || c.Flagged {
-				walk = append(walk, teamCard{card: c, column: cols[i].name, events: ev})
+			if ev := byKey[c.Key]; standupWhat(ev) != "" || c.InProgress || c.Flagged || len(blockers[c.Key]) > 0 {
+				walk = append(walk, teamCard{card: c, column: cols[i].name, events: ev, blockers: blockers[c.Key]})
 			}
 		}
 	}
@@ -239,8 +250,8 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 }
 
 // teamRow is a card's line: title, who (or its column), how long in
-// progress (stale past stale days), flag, pull request and deploy, and what
-// happened since, or no activity.
+// progress (stale past stale days), flag, blockers, pull request and
+// deploy, and what happened since, or no activity.
 func teamRow(tc teamCard, who string, stale int, now time.Time) standupLine {
 	c := tc.card
 	l := standupLine{key: c.Key, title: cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), noTicket), who: who,
@@ -255,6 +266,9 @@ func teamRow(tc teamCard, who string, stale int, now time.Time) standupLine {
 	var marks []string
 	if c.Flagged {
 		marks = append(marks, "flagged")
+	}
+	if len(tc.blockers) > 0 {
+		marks = append(marks, "blocked by "+strings.Join(tc.blockers, ", "))
 	}
 	if c.PR != "" {
 		marks = append(marks, "PR "+c.PR)

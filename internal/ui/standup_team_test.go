@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -33,7 +37,7 @@ func TestTeamWalk(t *testing.T) {
 		{Key: "ABC-1", Summary: "Idle", Who: "Ann", What: "status", Changes: []jira.Change{{Field: "status", From: "To Do", To: "In progress"}, {Field: "status", From: "In progress", To: "To Do"}}, When: now.Add(-time.Hour)},
 		{Key: "ABC-1", Summary: "Idle", Who: "Ann", What: "rank", Changes: []jira.Change{{Field: "Rank", From: "", To: "x"}, {Field: "IssueParentAssociation", To: "ABC-9"}}, When: now.Add(-time.Hour)},
 	}
-	items, folded, text := teamWalk(cols, entries, []string{"ABC"}, false, 5, since, now)
+	items, folded, text := teamWalk(cols, entries, []string{"ABC"}, false, 5, since, now, nil)
 	want := `Done
 - ABC-6 Fresh · Ann · In progress → Done
 
@@ -51,12 +55,68 @@ To do
 		len(folded) != 1 || folded[0].text() != "ABC-8 Aside · Ann · commented" {
 		t.Errorf("off the board: %+v, folded %+v", last, folded)
 	}
-	items, _, text = teamWalk(cols, entries, []string{"ABC"}, true, 5, since, now)
+	items, _, text = teamWalk(cols, entries, []string{"ABC"}, true, 5, since, now, nil)
 	if !strings.HasPrefix(text, "Ann\n- ABC-6 Fresh · Done · In progress → Done\n- ABC-3 Stuck · In progress · 9d stale") ||
 		!strings.Contains(text, "Bob · logged 2h\n- ABC-4 Moving · In progress") {
 		t.Errorf("by person:\n%s", text)
 	}
 	if items[0].head != "Ann (2)" || items[1].key != "ABC-6" {
 		t.Errorf("items = %+v", items[:2])
+	}
+}
+
+// TestTeamWalkBlockers: a blocked card joins the walk, even not started,
+// and says what blocks it.
+func TestTeamWalkBlockers(t *testing.T) {
+	now := time.Date(2026, 9, 28, 10, 0, 0, 0, time.Local)
+	cols := []teamColumn{{"To do", []jira.Card{{Key: "ABC-1", Summary: "Waiting", Assignee: "Bob"}, {Key: "ABC-2", Summary: "Idle"}}}}
+	_, _, text := teamWalk(cols, nil, []string{"ABC"}, false, 5, now.AddDate(0, 0, -1), now, map[string][]string{"ABC-1": {"XY-3", "XY-4"}})
+	if want := "To do\n- ABC-1 Waiting · Bob · blocked by XY-3, XY-4 · no activity"; text != want {
+		t.Errorf("walk:\n%s\nwant\n%s", text, want)
+	}
+}
+
+// TestStandupParkAndStep: P parks the card, which then also shows in the
+// parking lot at the end and is kept for the sprint; space shows one card
+// at a time.
+func TestStandupParkAndStep(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.standup = &standupState{team: true, seq: 1}
+	lines := []standupLine{{head: "In progress (2)"}, {key: "ABC-1", title: "ABC-1 One", who: "Ann"}, {key: "ABC-2", title: "ABC-2 Two", what: "commented"}}
+	out, _ := m.handleStandup(standupMsg{seq: 1, lines: lines, text: "In progress\n- ABC-1 One\n- ABC-2 Two"})
+	m = out.(Model)
+	out, _ = m.handleStandupKey(keyMsg(t, "down"))
+	m = out.(Model)
+	out, _ = m.handleStandupKey(keyMsg(t, "P"))
+	m = out.(Model)
+	s := m.jiraTab.standup
+	var labels []string
+	for _, l := range s.lines {
+		labels = append(labels, cmp.Or(l.head, l.text()))
+	}
+	want := "In progress (2)\nABC-1 One · Ann\nABC-2 Two · parked · commented\nParking lot (1)\nABC-2 Two · commented"
+	if got := strings.Join(labels, "\n"); got != want {
+		t.Fatalf("rows:\n%s\nwant\n%s", got, want)
+	}
+	if !strings.HasSuffix(s.copyText(), "\n\nParking lot\n- ABC-2 Two · commented") {
+		t.Errorf("copy:\n%s", s.copyText())
+	}
+	// A reload keeps it: the parking lot is stored per sprint.
+	out, _ = m.handleStandup(standupMsg{seq: 1, lines: slices.Clone(lines), text: "x"})
+	m = out.(Model)
+	if s := m.jiraTab.standup; len(s.lines) != 5 || s.lines[3].head != "Parking lot (1)" {
+		t.Errorf("after a reload: %+v", s.lines)
+	}
+	out, _ = m.handleStandupKey(keyMsg(t, "space"))
+	m = out.(Model)
+	m.jiraTab.standup.row = 2
+	if v := ansi.Strip(m.renderStandup(100, 20)); !strings.Contains(v, "ABC-2 Two") || !strings.Contains(v, "card 2 of 3") || strings.Contains(v, "ABC-1") {
+		t.Errorf("one card:\n%s", v)
+	}
+	m.jiraTab.standup.row = 2
+	out, _ = m.handleStandupKey(keyMsg(t, "P"))
+	m = out.(Model)
+	if s := m.jiraTab.standup; len(s.lines) != 3 || strings.Contains(s.lines[2].marks, "parked") {
+		t.Errorf("unparked: %+v", s.lines)
 	}
 }

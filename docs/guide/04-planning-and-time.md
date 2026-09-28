@@ -139,7 +139,9 @@ workday further back.
 Running the standup? `tab` walks the board right to left, closest to done
 first: each card with who has it, how long it has been in progress, and
 what happened since the last workday. A card marked *no activity* is the
-one worth raising. `p` groups it per person instead.
+one worth raising, as is one *blocked by* another. `p` groups it per person
+instead. `space` shows one card at a time; `P` parks a card that needs a
+longer talk, in the parking lot at the end.
 
 > **Try it:** `U`, `y`, paste it in your team's
 > standup channel. Done before the coffee's ready.

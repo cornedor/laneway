@@ -165,6 +165,8 @@ func (m *Model) helpSections() []struct {
 			{join(k.PrevView, k.NextView), "a workday further back / later"},
 			row(k.OpenChannel, "open the issue in the panel"),
 			row(k.Fold, "show Off the board"),
+			row(k.StandupStep, "one card at a time, the list again"),
+			row(k.StandupPark, "park the card: the parking lot comes last, kept for the sprint"),
 			row(k.CopyKey, "copy as Yesterday / Today / Blockers"),
 			{"esc / " + helpKey(k.Standup), "back to the board"},
 		}},

@@ -73,6 +73,7 @@ type keyMap struct {
 	NextComment, PrevComment            key.Binding
 	DeleteComment                       key.Binding
 	StandupGroup                        key.Binding
+	StandupStep, StandupPark            key.Binding
 	RoadmapGrip, RoadmapFold            key.Binding
 	ZoomIn, ZoomOut, Today              key.Binding
 	EndEarlier, EndLater, RoadmapIssues key.Binding
@@ -184,6 +185,8 @@ func defaultKeys() keyMap {
 		PrevComment:     bind("previous comment", "{"),
 		DeleteComment:   bind("delete the comment (twice)", "delete"),
 		StandupGroup:    bind("standup: by person / walk the board", "p"),
+		StandupStep:     bind("standup: one card at a time / the list", "space"),
+		StandupPark:     bind("standup: park the card for after", "P"),
 		RoadmapGrip:     bind("grip the bar's start, end, let go", "e"),
 		RoadmapFold:     bind("fold the epic's issues", "space"),
 		ZoomIn:          bind("zoom in", "+", "="),

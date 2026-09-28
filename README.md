@@ -441,12 +441,14 @@ opens the issue in the panel; `esc` (or `U`) goes back to the board.
 `tab` is the team's standup, walking the board right to left for whoever runs it,
 under the sprint goal and the workdays left: per column, each card in
 progress with who has it, how long (*stale* past `ui.stale_days`), a flag,
-its pull request or deploy, and what happened since, or *no activity*;
-done and to-do cards only when something happened on them. *Off the board*,
+what blocks it, its pull request or deploy, and what happened since, or *no activity*;
+done and to-do cards only when something happened on them or they are blocked. *Off the board*,
 folded until `z` or `enter`, has what the team did on the board's projects'
 other issues (comments, work, moves; bulk field edits left out). `p` groups
 the same cards per person with the time each logged, for teams that go
-round, and back; `tab` again is yours.
+round, and back; `tab` again is yours. `space` shows one card at a time
+(`↑` `↓` step), and back; `P` parks a card for after the standup: the
+*Parking lot* comes last, and in what `y` copies, kept for the sprint.
 
 ## Releases
 
