@@ -49,6 +49,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Inbox, "inbox: others' changes, comments, mentions"),
 			row(k.Standup, "standup: what you did since the last workday"),
 			row(k.Charts, "sprint charts (y copies the numbers)"),
+			row(k.TimeMachine, "time machine: ← → the board a day earlier / later, esc now"),
 			row(k.Review, "waiting on my review: gh and glab requests' issues, marked ⌥"),
 			row(k.Releases, "releases: versions, done / total; enter lists one, ↳ releases it"),
 			row(k.Plan, "sprint planning: backlog beside a sprint (K J rank)"),

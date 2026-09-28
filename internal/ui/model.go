@@ -62,7 +62,7 @@ type keyMap struct {
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
-	Refine, Notes, Ask                 key.Binding
+	Refine, Notes, Ask, TimeMachine    key.Binding
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -165,6 +165,7 @@ func defaultKeys() keyMap {
 		Refine:          bind("refine: the view's issues one at a time", "ctrl+e"),
 		Notes:           bind("private notes on the issue ($EDITOR)", "N"),
 		Ask:             bind("ask ui.llm about the issue", "ctrl+a"),
+		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -633,6 +634,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case timeMachineMsg:
+		return m.handleTimeMachine(msg)
 	case llmDoneMsg:
 		return m.handleLLMDone(msg)
 	case confettiMsg:

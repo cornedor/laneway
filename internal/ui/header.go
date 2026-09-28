@@ -158,6 +158,9 @@ func (m *Model) jiraFilterSegs() []headSeg {
 		return dim(s)
 	}
 	var segs []headSeg
+	if t.past != nil {
+		segs = append(segs, plainSeg(jiraViewActive.Render(t.past.label(time.Now()))), plainSeg("  "))
+	}
 	switch {
 	case t.searching:
 		listW, _ := m.jiraListWidth(m.width)

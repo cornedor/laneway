@@ -270,6 +270,8 @@ type jiraTabState struct {
 	empty emptyHint
 	// confetti is the lane head celebrating a card into done (delight.go).
 	confetti confetti
+	// past replays the board on an earlier day, nil for now (timemachine.go).
+	past *timeMachine
 
 	sort jiraSort // the list's order; lanes keep the board's rank
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
@@ -788,9 +790,19 @@ func (m *Model) buildJiraLanes() {
 		}
 		t.lanes = append(t.lanes, jiraLane{name: c.Name, statusIDs: c.StatusIDs, max: c.Max})
 	}
+	var asOf time.Time
+	if t.past != nil && !t.past.loading {
+		asOf = t.past.asOf(time.Now())
+	}
 	for i, cd := range t.cards {
 		if !jiraCardMatches(cd, q, env) {
 			continue
+		}
+		if !asOf.IsZero() {
+			var ok bool
+			if cd, ok = t.past.card(cd, asOf); !ok {
+				continue
+			}
 		}
 		if l, ok := col[cd.StatusID]; ok {
 			t.lanes[l].cards = append(t.lanes[l].cards, i)
@@ -884,6 +896,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if t.week != nil {
 		return m.handleWeekKey(msg)
 	}
+	if t.past != nil {
+		return m.handleTimeMachineKey(msg)
+	}
 	if i, ok := m.actionForKey(msg.String(), false); ok {
 		return m, m.runAction(i, false)
 	}
@@ -954,6 +969,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openPlanning()
 	case key.Matches(msg, m.keys.Charts):
 		return m, m.openCharts()
+	case key.Matches(msg, m.keys.TimeMachine):
+		return m, m.openTimeMachine()
 	case key.Matches(msg, m.keys.Timer):
 		return m, m.toggleTimer(m.selectedJiraKey())
 	case key.Matches(msg, m.keys.Timesheet):

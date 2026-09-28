@@ -92,19 +92,48 @@ func (c *Client) sprintIssues(ctx context.Context, sprint int, pointsField strin
 		}
 		_ = json.Unmarshal(is.Fields["status"], &st)
 		b.Status = st.ID
-		for _, h := range is.Changelog.Histories {
-			when, err := time.Parse(jiraTime, h.Created)
-			if err != nil {
-				continue
-			}
-			for _, it := range h.Items {
-				if it.Field == "status" {
-					b.Moves = append(b.Moves, StatusMove{When: when, From: it.From, To: it.To})
-				}
+		b.Moves = statusMoves(is)
+		out[i] = b
+	}
+	return out, nil
+}
+
+// statusMoves is the issue's status changes from its changelog, oldest
+// first.
+func statusMoves(is rawIssue) []StatusMove {
+	var out []StatusMove
+	for _, h := range is.Changelog.Histories {
+		when, err := time.Parse(jiraTime, h.Created)
+		if err != nil {
+			continue
+		}
+		for _, it := range h.Items {
+			if it.Field == "status" {
+				out = append(out, StatusMove{When: when, From: it.From, To: it.To})
 			}
 		}
-		slices.SortFunc(b.Moves, func(x, y StatusMove) int { return x.When.Compare(y.When) })
-		out[i] = b
+	}
+	slices.SortFunc(out, func(x, y StatusMove) int { return x.When.Compare(y.When) })
+	return out
+}
+
+// StatusMoves is each key's status changes, oldest first, for replaying a
+// board on an earlier day. Keys without changes are left out.
+func (c *Client) StatusMoves(ctx context.Context, keys []string) (map[string][]StatusMove, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	out := map[string][]StatusMove{}
+	for chunk := range slices.Chunk(keys, 100) {
+		raw, err := c.searchUpTo(ctx, "key in ("+strings.Join(chunk, ",")+")", []string{"status"}, "changelog", len(chunk))
+		if err != nil {
+			return nil, err
+		}
+		for _, is := range raw {
+			if mv := statusMoves(is); len(mv) > 0 {
+				out[is.Key] = mv
+			}
+		}
 	}
 	return out, nil
 }

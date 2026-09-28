@@ -1,0 +1,154 @@
+package ui
+
+import (
+	"strings"
+	"time"
+
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/jira"
+)
+
+// The board's time machine: ctrl+t, then ← and → step the lanes back and
+// forth a day at a time, each card where its status changelog had it at
+// the end of that day; cards made later drop out. esc comes back to now.
+// It only looks: keys that change a card wait until you are back.
+
+// timeMachine is the replay's state.
+type timeMachine struct {
+	moves   map[string][]jira.StatusMove // the cards' status changes, by key
+	loading bool
+	days    int // how many days back; the board shows the end of that day
+	seq     int
+}
+
+// timeMachineMax is how far back ← goes, in days.
+const timeMachineMax = 90
+
+type timeMachineMsg struct {
+	seq   int
+	moves map[string][]jira.StatusMove
+	err   error
+}
+
+// openTimeMachine loads the cards' changelogs and steps back a day.
+func (m *Model) openTimeMachine() tea.Cmd {
+	t := m.jiraTab
+	if !m.jiraShowsLanes() {
+		m.status = "the time machine needs lanes (" + helpKey(m.keys.ToggleMode) + ")"
+		return nil
+	}
+	keys := make([]string, len(t.cards))
+	for i, c := range t.cards {
+		keys[i] = c.Key
+	}
+	seq := 1
+	if t.past != nil {
+		seq = t.past.seq + 1
+	}
+	t.past = &timeMachine{loading: true, days: 1, seq: seq}
+	m.status = "reading the board's history…"
+	m.renderJira()
+	c, ctx := m.jiraClient, m.ctx
+	return func() tea.Msg {
+		moves, err := c.StatusMoves(ctx, keys)
+		return timeMachineMsg{seq: seq, moves: moves, err: err}
+	}
+}
+
+func (m Model) handleTimeMachine(msg timeMachineMsg) (tea.Model, tea.Cmd) {
+	p := m.jiraTab.past
+	if p == nil || p.seq != msg.seq {
+		return m, nil
+	}
+	if msg.err != nil {
+		m.jiraTab.past = nil
+		m.fail("time machine: " + msg.err.Error())
+		m.renderJira()
+		return m, nil
+	}
+	p.moves, p.loading = msg.moves, false
+	m.stepTimeMachine(0)
+	return m, nil
+}
+
+// asOf is the moment the board replays: the end of the day days back.
+func (p *timeMachine) asOf(now time.Time) time.Time {
+	y, mo, d := now.Date()
+	return time.Date(y, mo, d-p.days+1, 0, 0, 0, 0, now.Location())
+}
+
+// pastLabel is the header's "as of mon 22".
+func (p *timeMachine) label(now time.Time) string {
+	if p.loading {
+		return "⏲ reading history…"
+	}
+	return "⏲ as of " + strings.ToLower(p.asOf(now).Add(-time.Minute).Format("Mon 2 Jan"))
+}
+
+// pastCard is c as the time machine has it, false when it didn't exist yet.
+func (p *timeMachine) card(c jira.Card, asOf time.Time) (jira.Card, bool) {
+	if !c.Created.IsZero() && !c.Created.Before(asOf) {
+		return c, false
+	}
+	c.StatusID = jira.BurnIssue{Status: c.StatusID, Moves: p.moves[c.Key]}.StatusAt(asOf)
+	return c, true
+}
+
+// stepTimeMachine moves d days further back (negative: forward); back at
+// today it closes.
+func (m *Model) stepTimeMachine(d int) {
+	t := m.jiraTab
+	p := t.past
+	p.days = min(p.days+d, timeMachineMax)
+	if p.days <= 0 {
+		m.closeTimeMachine()
+		return
+	}
+	keep := m.selectedJiraKey()
+	m.buildJiraLanes()
+	m.selectJiraKey(keep)
+	m.status = "← earlier · → later · esc back to now"
+	m.renderJira()
+}
+
+func (m *Model) closeTimeMachine() {
+	keep := m.selectedJiraKey()
+	m.jiraTab.past = nil
+	m.buildJiraLanes()
+	m.selectJiraKey(keep)
+	m.status = "back to now"
+	m.renderJira()
+}
+
+// handleTimeMachineKey owns the board's keys while it replays: ← → step,
+// the cursor keys and enter still work, esc leaves.
+func (m Model) handleTimeMachineKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	p := m.jiraTab.past
+	switch s := msg.String(); {
+	case s == "ctrl+c", key.Matches(msg, m.keys.Quit):
+		return m.quit()
+	case s == "esc", key.Matches(msg, m.keys.TimeMachine):
+		m.closeTimeMachine()
+	case p.loading:
+		m.status = "still reading the history · esc cancels"
+	case s == "left":
+		m.stepTimeMachine(1)
+	case s == "right":
+		m.stepTimeMachine(-1)
+	case key.Matches(msg, m.keys.Up):
+		m.moveJiraCursor(-1)
+	case key.Matches(msg, m.keys.Down):
+		m.moveJiraCursor(1)
+	case key.Matches(msg, m.keys.Left):
+		m.moveJiraLane(-1)
+	case key.Matches(msg, m.keys.Right):
+		m.moveJiraLane(1)
+	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
+		return m.openJiraCard()
+	default:
+		m.status = "the time machine only looks · esc back to now"
+	}
+	return m, nil
+}
