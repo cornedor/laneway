@@ -36,6 +36,15 @@ var ErrQueued = errors.New("offline: queued, sent when Jira is back")
 // SetQueue gives the client somewhere to keep offline writes.
 func (c *Client) SetQueue(q func(PendingWrite)) { c.queue = q }
 
+// Indexer keeps the issues the client reads (internal/index).
+type Indexer interface {
+	PutCards([]Card)
+	PutIssue(*Issue)
+}
+
+// SetIndex gives the client somewhere to mirror what it reads.
+func (c *Client) SetIndex(ix Indexer) { c.index = ix }
+
 // issuePathKey is the issue key in /rest/api/3/issue/KEY[/…], "" for
 // another path (a create, the agile API).
 func issuePathKey(path string) string {

@@ -438,10 +438,19 @@ func (c *Client) BoardIssues(ctx context.Context, board int, jql, pointsField st
 // cardPage is how many issues one request asks for; the Agile API caps it.
 const cardPage = 100
 
-// cards pages through an Agile issue list up to the card limit, returning the cards
+// cards is fetchCards, mirrored into the index.
+func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Card, int, error) {
+	out, total, err := c.fetchCards(ctx, path, jql, pointsField)
+	if err == nil && c.index != nil {
+		c.index.PutCards(out)
+	}
+	return out, total, err
+}
+
+// fetchCards pages through an Agile issue list up to the card limit, returning the cards
 // and the server's total. The first page says how many there are; the rest
 // are fetched at once.
-func (c *Client) cards(ctx context.Context, path, jql, pointsField string) ([]Card, int, error) {
+func (c *Client) fetchCards(ctx context.Context, path, jql, pointsField string) ([]Card, int, error) {
 	if !c.Enabled() {
 		return nil, 0, errNotConfigured
 	}

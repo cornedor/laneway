@@ -45,6 +45,9 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 		more.fill(&card, is.Fields)
 		out = append(out, card)
 	}
+	if c.index != nil {
+		c.index.PutCards(out)
+	}
 	return out, nil
 }
 

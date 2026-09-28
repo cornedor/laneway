@@ -268,6 +268,10 @@ State (last project, board, view, filters, cached boards) lives in
 `~/.config/laneway/state.json`, and `state-club.json` for a site. An existing `~/.config/jiratui` or matterbox
 config is picked up as a fallback.
 
+Every issue laneway reads (boards, searches, the panel) is mirrored in
+`~/.cache/laneway/index-jira.db`, `index-club.db` for a site. `laneway index`
+shows what it holds, `laneway index clear` drops it.
+
 ## Keys
 
 ![The ? help overlay](docs/screenshots/help.png)

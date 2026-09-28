@@ -80,7 +80,9 @@ type Client struct {
 	// bodies that may take longer than timeout; stallGuard bounds them.
 	transfer *http.Client
 	// queue keeps writes that never reached Jira (queue.go); nil fails them.
-	queue   func(PendingWrite)
+	queue func(PendingWrite)
+	// index mirrors the cards and issues read (queue.go); nil keeps none.
+	index   Indexer
 	writing atomic.Int32 // writes (not GETs) on their way
 
 	mu    sync.Mutex
@@ -338,6 +340,9 @@ func (c *Client) Get(ctx context.Context, key string) (*Issue, error) {
 	issue, err := c.fetch(ctx, key)
 	if err != nil {
 		return nil, err
+	}
+	if c.index != nil {
+		c.index.PutIssue(issue)
 	}
 	c.mu.Lock()
 	if c.gens[key] == gen { // else a write invalidated it meanwhile

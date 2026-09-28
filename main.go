@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/ui"
@@ -42,7 +43,7 @@ func main() {
 }
 
 // subcommand runs a command without the board (list, view, create, move,
-// rules, setup, prompt or hook), handing on the global -config and -site
+// rules, setup, prompt, hook or index), handing on the global -config and -site
 // given before it.
 func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int {
 	var global []string
@@ -73,6 +74,8 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 			global = append(global, "-site", site)
 		}
 		return hookCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
+	case "index":
+		return indexCmd(args[1:], site, out, errOut)
 	case "completion":
 		return completionCmd(args[1:], out, errOut)
 	case "__complete":
@@ -83,7 +86,7 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 		}
 		return cliCmd(args[0], append(global, args[1:]...), out, errOut)
 	}
-	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, rules, setup, prompt, hook, completion)\n", args[0])
+	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, rules, setup, prompt, hook, index, completion)\n", args[0])
 	return 2
 }
 
@@ -155,10 +158,18 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	if err != nil {
 		return "", endQuit, err
 	}
+	// The index is a mirror: without it the app still runs.
+	var ix *index.Index
+	if p, err := index.Path(site); err == nil {
+		if ix, err = index.Open(p); err != nil {
+			fmt.Fprintln(os.Stderr, "laneway: index:", err)
+		}
+	}
+	defer ix.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).WithIndex(ix).
 		WithSiteClients(func(other string) (*jira.Client, error) {
 			j, err := cfg.Site(other)
 			if err != nil || j.Check(siteName(other)) != nil {

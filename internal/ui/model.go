@@ -501,6 +501,12 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	return m
 }
 
+// WithIndex mirrors the issues the app reads into ix.
+func (m Model) WithIndex(ix jira.Indexer) Model {
+	m.jiraClient.SetIndex(ix)
+	return m
+}
+
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick())
 }
