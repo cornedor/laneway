@@ -60,7 +60,7 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 	m.activity = activityState{} // a refetch reloads the history too
 	activity := m.loadActivity()
 	m.renderRef()
-	return m, tea.Batch(m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra(), activity)
+	return m, tea.Batch(m.swapIssueImages(m.jiraIssue), m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra(), activity)
 }
 
 // renderJiraIssue formats one issue for the viewport: a key + type header, the

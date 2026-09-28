@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
@@ -52,6 +53,11 @@ type panelImage struct {
 	id         uint32 // kitty image id, 24-bit
 	pxW, pxH   int    // the transmitted pixels, for re-fitting
 	cols, rows int    // the current placement
+	// seq is the transmit, kept to send again: after another program had
+	// the terminal, and when its issue is shown again.
+	seq string
+	// gone is freed from the terminal while its issue isn't shown.
+	gone bool
 }
 
 // panelImages holds the panel's images by attachment id, for the session.
@@ -182,9 +188,75 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 		e.state = imgFailed
 		return m, nil
 	}
-	e.state, e.pxW, e.pxH, e.cols, e.rows = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows
+	e.state, e.pxW, e.pxH, e.cols, e.rows, e.seq = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows, msg.seq
 	m.renderRef()
 	return m, tea.Raw(m.images.wrap(msg.seq))
+}
+
+// transmit is e's data with its current placement, for sending again.
+func (e *panelImage) transmit() string {
+	return e.seq + fmt.Sprintf("\x1b_Ga=d,d=i,i=%d,q=2\x1b\\\x1b_Ga=p,U=1,i=%d,c=%d,r=%d,q=2\x1b\\", e.id, e.id, e.cols, e.rows)
+}
+
+// swapIssueImages frees the images of attachments not on iss, the issue
+// the panel now shows, and sends back those on it freed before. Images
+// held on to for the session would fill the terminal's image store, which
+// then drops the oldest: the avatars.
+func (m *Model) swapIssueImages(iss *jira.Issue) tea.Cmd {
+	ii := m.images
+	if ii == nil || !ii.on {
+		return nil
+	}
+	on := map[string]bool{}
+	if iss != nil {
+		for _, a := range iss.Attachments {
+			on[a.ID] = true
+		}
+	}
+	var sb strings.Builder
+	for att, e := range ii.byAtt {
+		switch {
+		case e.state != imgReady || on[att] != e.gone:
+		case e.gone:
+			sb.WriteString(e.transmit())
+			e.gone = false
+		default:
+			fmt.Fprintf(&sb, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", e.id)
+			e.gone = true
+		}
+	}
+	if sb.Len() == 0 {
+		return nil
+	}
+	return tea.Raw(ii.wrap(sb.String()))
+}
+
+// resendImagesMsg asks for every image on the terminal to be sent again.
+type resendImagesMsg struct{}
+
+// resendImagesLater sends the images again once an external program
+// ($EDITOR, herdr) has handed the terminal back. It may have reset the
+// terminal, and the first frame after it writes tea.Raw before switching
+// back to the alternate screen, which keeps its own images: sent then,
+// they'd land on the main screen. The delay puts them after that frame.
+func resendImagesLater() tea.Cmd {
+	return tea.Tick(200*time.Millisecond, func(time.Time) tea.Msg { return resendImagesMsg{} })
+}
+
+func (m Model) handleResendImages() (tea.Model, tea.Cmd) {
+	if m.images == nil || !m.images.on {
+		return m, nil
+	}
+	var sb strings.Builder
+	for _, e := range append(slices.Collect(maps.Values(m.images.byAtt)), slices.Collect(maps.Values(m.images.avatars))...) {
+		if e.state == imgReady && !e.gone {
+			sb.WriteString(e.transmit())
+		}
+	}
+	if sb.Len() == 0 {
+		return m, nil
+	}
+	return m, tea.Raw(m.images.wrap(sb.String()))
 }
 
 // encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
@@ -378,7 +450,7 @@ func (m Model) ReleaseImages() string {
 	}
 	var sb strings.Builder
 	for _, e := range append(slices.Collect(maps.Values(m.images.byAtt)), slices.Collect(maps.Values(m.images.avatars))...) {
-		if e.state == imgReady {
+		if e.state == imgReady && !e.gone {
 			fmt.Fprintf(&sb, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", e.id)
 		}
 	}

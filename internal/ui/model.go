@@ -704,7 +704,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case descLoadedMsg:
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
-		return m.handleDescEdited(msg)
+		out, cmd := m.handleDescEdited(msg)
+		return out, tea.Batch(cmd, resendImagesLater())
 	case proposalsMsg:
 		return m.handleProposals(msg)
 	case linkSearchMsg:
@@ -718,7 +719,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case confettiMsg:
 		return m.handleConfetti(msg)
 	case notesEditedMsg:
-		return m.handleNotesEdited(msg)
+		out, cmd := m.handleNotesEdited(msg)
+		return out, tea.Batch(cmd, resendImagesLater())
 	case mentionSearchMsg:
 		return m.handleMentionSearch(msg)
 	case mentionFoundMsg:
@@ -758,7 +760,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentsMsg:
 		return m.handleAgents(msg)
 	case agentAttachedMsg:
-		return m.handleAgentAttached(msg)
+		out, cmd := m.handleAgentAttached(msg)
+		return out, tea.Batch(cmd, resendImagesLater())
 	case agentDoneMsg:
 		return m.handleAgentDone(msg)
 	case termOutputMsg:
@@ -826,6 +829,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraFormDone(msg)
 	case jiraWorkMsg:
 		return m.handleJiraWork(msg)
+	case resendImagesMsg:
+		return m.handleResendImages()
 	case imageLoadedMsg:
 		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:

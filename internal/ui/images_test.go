@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
@@ -245,5 +246,55 @@ func TestKittyGraphicsDetect(t *testing.T) {
 		if ok, tmux := kittyGraphics(); ok != c.ok || tmux != c.tmux {
 			t.Errorf("%v: ok %v tmux %v, want %v %v", c.env, ok, tmux, c.ok, c.tmux)
 		}
+	}
+}
+
+// TestSwapIssueImages: moving to another issue frees the last one's images
+// and a return sends them back from memory, placement included.
+func TestSwapIssueImages(t *testing.T) {
+	m := Model{images: &panelImages{on: true, byAtt: map[string]*panelImage{
+		"10": {state: imgReady, id: 42, cols: 4, rows: 2, seq: "SEQ"},
+		"11": {state: imgLoading, id: 43},
+	}}}
+	one := &jira.Issue{Attachments: []jira.Attachment{{ID: "10"}}}
+	if m.swapIssueImages(one) != nil {
+		t.Error("the shown issue's image was touched")
+	}
+	cmd := m.swapIssueImages(&jira.Issue{})
+	if cmd == nil || !m.images.byAtt["10"].gone || m.images.byAtt["11"].gone {
+		t.Fatal("left issue's image not freed")
+	}
+	if got := fmt.Sprint(cmd().(tea.RawMsg).Msg); got != "\x1b_Ga=d,d=I,i=42,q=2\x1b\\" {
+		t.Errorf("free = %q", got)
+	}
+	if m.ReleaseImages() != "" {
+		t.Error("a freed image released again")
+	}
+	cmd = m.swapIssueImages(one)
+	if cmd == nil || m.images.byAtt["10"].gone {
+		t.Fatal("image not sent back")
+	}
+	if got := fmt.Sprint(cmd().(tea.RawMsg).Msg); got != "SEQ\x1b_Ga=d,d=i,i=42,q=2\x1b\\\x1b_Ga=p,U=1,i=42,c=4,r=2,q=2\x1b\\" {
+		t.Errorf("resend = %q", got)
+	}
+}
+
+// TestResendImages: after an external program, every image on the
+// terminal goes again, avatars included; freed ones stay freed.
+func TestResendImages(t *testing.T) {
+	m := Model{images: &panelImages{on: true,
+		byAtt: map[string]*panelImage{
+			"10": {state: imgReady, id: 42, cols: 4, rows: 2, seq: "A"},
+			"11": {state: imgReady, id: 43, seq: "GONE", gone: true},
+		},
+		avatars: map[string]*panelImage{"u": {state: imgReady, id: 44, cols: 2, rows: 1, seq: "B"}},
+	}}
+	_, cmd := m.handleResendImages()
+	if cmd == nil {
+		t.Fatal("nothing resent")
+	}
+	got := fmt.Sprint(cmd().(tea.RawMsg).Msg)
+	if !strings.Contains(got, "A\x1b_G") || !strings.Contains(got, "B\x1b_G") || strings.Contains(got, "GONE") {
+		t.Errorf("resend = %q", got)
 	}
 }

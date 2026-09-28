@@ -130,7 +130,7 @@ func (m Model) handleAvatarLoaded(msg avatarLoadedMsg) (tea.Model, tea.Cmd) {
 		e.state = imgFailed // the initials stay
 		return m, nil
 	}
-	e.state = imgReady
+	e.state, e.seq = imgReady, msg.seq
 	place := kittyPlaceholder(e.id, 1, 2)[0]
 	for _, c := range m.jiraTab.cards {
 		if c.AvatarURL == msg.url && c.Assignee != "" {
