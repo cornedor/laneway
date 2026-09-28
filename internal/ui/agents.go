@@ -211,12 +211,22 @@ func (m *Model) renderAgents(b *strings.Builder, key string, width int) {
 	if len(as) == 0 {
 		return
 	}
-	b.WriteString(sectionHead("Agents (herdr)", "  "+helpKey(m.keys.JiraStart)+" attach · "+helpKey(m.keys.IssueActions)+" more", width))
+	b.WriteString(sectionHead(agentsHead, "  "+strings.Join(firsts(m.agentHints()), " · "), width))
 	for _, a := range as {
 		b.WriteString(ansi.Truncate(statusMark(a.Status)+" "+a.Name+"  "+string(a.Status)+"  "+refDimStyle.Render(homeShort(a.CWD)), max(width, 1), "…") + "\n")
 		if a.Title != "" {
 			b.WriteString(refDimStyle.Render(truncate("  "+a.Title, max(width, 1))) + "\n")
 		}
+	}
+}
+
+const agentsHead = "Agents (herdr)"
+
+// agentHints are the Agents heading's keys: attach, and the A menu.
+func (m *Model) agentHints() [][2]string {
+	return [][2]string{
+		{helpKey(m.keys.JiraStart) + " attach", firstKey(m.keys.JiraStart)},
+		{helpKey(m.keys.IssueActions) + " more", firstKey(m.keys.IssueActions)},
 	}
 }
 

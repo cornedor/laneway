@@ -907,6 +907,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickBulk {
 		m.closeJiraPicker()
+		if k, ok := strings.CutPrefix(it.id, "key:"); ok { // a card menu's key: pressed on the card
+			m.quickKey = ""
+			return m.handleJiraKey(keyPress(k))
+		}
 		return m, m.applyBulkMenu(it.id)
 	}
 	if kind == jiraPickPalette {

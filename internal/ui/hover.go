@@ -117,9 +117,9 @@ func (m *Model) hoverPanel(x, y, listW int) hover {
 	}
 	at := base + panelIndent(line) // where the hint and action labels start
 	switch {
-	case h.hints:
-		if k, a, b := labelAt(firsts(m.panelHints()), x-at); k >= 0 {
-			return span(at+a, at+b)
+	case len(h.keys) > 0:
+		if k, a, b := labelAt(firsts(h.keys), x-at-h.off); k >= 0 {
+			return span(at+h.off+a, at+h.off+b)
 		}
 		return hover{}
 	case h.acts:

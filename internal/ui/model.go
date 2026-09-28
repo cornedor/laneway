@@ -963,6 +963,9 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		m.helpOpen, m.helpPage = false, 0 // any click closes it
 		return m, nil
 	}
+	if msg.Button == tea.MouseRight && m.cardClickable(msg.X, msg.Y) {
+		return m.rightClickJira(m.hitJira(msg.X, msg.Y))
+	}
 	form := m.formOnTop()
 	if msg.Button != tea.MouseLeft || msg.Y >= m.bodyH() {
 		return m, nil

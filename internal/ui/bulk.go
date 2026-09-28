@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -143,6 +144,52 @@ func (m *Model) openQuickEditKey(key string) {
 	m.quickKey = key
 	m.startJiraPicker(jiraPickBulk, "Edit "+key, false)
 	m.setJiraPickerItems(slices.Clone(bulkFields))
+}
+
+// cardMenu is what a right-click on a card offers: the quick edit's fields,
+// then the card's own keys, each shown with its key.
+func (m *Model) cardMenu() []jiraPickerItem {
+	items := slices.Clone(bulkFields)
+	for _, a := range []struct {
+		id, label string
+		b         key.Binding
+	}{
+		{"open", "Open in the panel", m.keys.OpenChannel},
+		{"browser", "Open in the browser", m.keys.OpenAttach},
+		{"copy-key", "Copy the key", m.keys.CopyKey},
+		{"pin", "Pin / unpin", m.keys.Pin},
+	} {
+		items = append(items, jiraPickerItem{id: "key:" + firstKey(a.b), label: a.label + "  " + refDimStyle.Render(helpKey(a.b))})
+	}
+	return items
+}
+
+// cardClickable is whether x, y is on the board's cards, nothing over them.
+func (m *Model) cardClickable(x, y int) bool {
+	t := m.jiraTab
+	listW, _ := m.jiraListWidth(m.width)
+	return y < m.bodyH() && !m.modalOpen() && !m.pickerOnTop() && !m.pickerInline() && (!m.refOpen || x < listW) &&
+		t.roadmap == nil && t.plan == nil && t.charts == nil && t.week == nil && t.standup == nil
+}
+
+// rightClickJira selects the card under h and opens its menu.
+func (m Model) rightClickJira(h hit) (tea.Model, tea.Cmd) {
+	t := m.jiraTab
+	if h.line < 0 {
+		return m, nil
+	}
+	m.focus = focusJira
+	if h.idx < 0 {
+		t.idx = h.line
+	} else {
+		t.lane, t.row = h.idx, h.line
+	}
+	m.renderJira()
+	if c, ok := m.selectedJiraCard(); ok {
+		m.openQuickEditKey(c.Key)
+		m.setJiraPickerItems(m.cardMenu())
+	}
+	return m, nil
 }
 
 // applyBulkMenu opens the picked field's editor for the marked cards.

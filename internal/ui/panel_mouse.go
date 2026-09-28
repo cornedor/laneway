@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -15,9 +16,10 @@ import (
 
 // panelHit is what a panel line does when clicked: url opens in the
 // browser, reply answers comment field, image shows that attachment full
-// size, press presses a key (on a double-click when double), hints presses
-// the hint under col, field >= 0 selects that field, else key opens that
-// issue.
+// size, press presses a key (on a double-click when double), keys presses
+// the one of its labels under col (drawn " · " apart, off columns in),
+// agent attaches to the agent in that pane, field >= 0 selects that field,
+// else key opens that issue.
 type panelHit struct {
 	field  int
 	key    string
@@ -26,7 +28,8 @@ type panelHit struct {
 	image  string
 	press  string
 	double bool
-	hints  bool
+	keys   [][2]string
+	agent  string
 	col    int
 	empty  bool // the folded empty fields' row: show them
 	// acts is comment field's action row, its actions off columns in.
@@ -77,7 +80,7 @@ func (m *Model) indexPanelHits(content string) {
 		case text == tabs:
 			m.activityLine = i
 		case text == m.panelHintLine():
-			m.panelHits[i] = panelHit{field: -1, hints: true}
+			m.panelHits[i] = panelHit{field: -1, keys: m.panelHints()}
 		case text == "Description" && m.descEdit == nil:
 			m.panelHits[i] = panelHit{field: -1, press: "E", double: true}
 		case text == fmt.Sprintf(emptyFieldsRow, m.hiddenFields()):
@@ -109,6 +112,7 @@ func (m *Model) indexPanelHits(content string) {
 			}
 		}
 	}
+	m.indexAgentHits(lines, iss.Key)
 	if len(iss.Links) == 0 {
 		return
 	}
@@ -218,8 +222,11 @@ func linkSpan(line string, col int) (url string, x0, x1 int) {
 
 // clickPanel acts on a clicked panel line.
 func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
-	if h.hints {
-		h.press = m.panelHintAt(h.col)
+	if len(h.keys) > 0 {
+		h.press = ""
+		if i, _, _ := labelAt(firsts(h.keys), h.col-h.off); i >= 0 {
+			h.press = h.keys[i][1]
+		}
 	}
 	switch {
 	case h.empty:
@@ -233,8 +240,10 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 		return m, nil
 	case h.press != "":
 		return m.handleRefKey(keyPress(h.press))
-	case h.hints:
+	case len(h.keys) > 0:
 		return m, nil
+	case h.agent != "":
+		return m, m.attachAgent(m.jiraIssue.Key, h.agent)
 	}
 	if h.url != "" {
 		m.status = "opening " + h.url + "…"
@@ -325,4 +334,26 @@ func (m *Model) scrollPanelTo(y int) {
 	}
 	f := float64(min(max(y-1, 0), h-1)) / float64(h-1)
 	m.refView.SetYOffset(int(f*float64(total-h) + 0.5))
+}
+
+// indexAgentHits makes the Agents section's heading hints and each agent's
+// rows clickable: a row attaches to its agent.
+func (m *Model) indexAgentHits(lines []string, key string) {
+	as := m.agents[key]
+	if len(as) == 0 {
+		return
+	}
+	keys := m.agentHints()
+	head := agentsHead + "  " + strings.Join(firsts(keys), " · ")
+	i := slices.IndexFunc(lines, func(l string) bool { return strings.TrimSpace(ansi.Strip(l)) == head })
+	if i < 0 {
+		return
+	}
+	m.panelHits[i] = panelHit{field: -1, keys: keys, off: ansi.StringWidth(agentsHead + "  ")}
+	for _, a := range as {
+		for n := 1 + min(len(a.Title), 1); n > 0 && i+1 < len(lines); n-- { // its row, and its title's
+			i++
+			m.panelHits[i] = panelHit{field: -1, agent: a.PaneID}
+		}
+	}
 }
