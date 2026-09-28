@@ -15,8 +15,8 @@ import (
 
 // The Jira comment composer: a modal multi-line input for adding a comment to
 // the open issue (c) or replying to one (R, via the reply-target picker in
-// jira_edit.go). It mirrors the message composer's keys — Enter posts,
-// alt/shift+enter inserts a newline, esc cancels — and is fully modal: it owns
+// jira_edit.go). ctrl+s posts, enter inserts a newline, esc cancels — and
+// it is fully modal: it owns
 // every keystroke while open (dispatched in update.go before the focus-based
 // routing) and overlays the screen (view.go), like the field pickers. A
 // confirmed post goes through internal/jira, reusing the jiraMutated path so the
@@ -125,9 +125,8 @@ func (m *Model) closeJiraComment() {
 }
 
 // handleJiraCommentKey owns every keystroke while the composer is open: esc
-// cancels (asking once when you wrote something), Enter or ctrl+s posts,
-// alt/shift+enter insert a newline (bound on the textarea), everything else
-// edits the text.
+// cancels (asking once when you wrote something), ctrl+s posts, enter
+// inserts a newline (bound on the textarea), everything else edits the text.
 func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -135,7 +134,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		if strings.TrimSpace(m.jiraCommentInput.Value()) != strings.TrimSpace(m.jiraCommentBefore) && !m.jiraCommentDiscard {
 			m.jiraCommentDiscard = true
-			m.status = "esc again discards your comment · enter posts it"
+			m.status = "esc again discards your comment · ctrl+s posts it"
 			return m, nil
 		}
 		if m.jiraCommentReplyTo == "" {
@@ -144,7 +143,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.closeJiraComment()
 		m.status = ""
 		return m, nil
-	case "enter", "ctrl+s":
+	case "ctrl+s":
 		return m.applyJiraComment()
 	case "ctrl+o":
 		return m, m.cycleCommentVis()
@@ -200,7 +199,7 @@ func (m *Model) renderJiraCommentInput() string {
 		above = append(above, lipgloss.NewStyle().Foreground(dimColor).Italic(true).
 			Render("↩ replying to "+m.jiraCommentReplyTo))
 	}
-	box := m.renderModalComposer(titleTxt, above, "↵ post · alt+↵ newline · @ mention · ctrl+o who sees it · esc cancel", &m.jiraCommentInput)
+	box := m.renderModalComposer(titleTxt, above, "ctrl+s post · @ mention · ctrl+o who sees it · esc cancel", &m.jiraCommentInput)
 	if list := m.renderMentions(); list != "" {
 		box = lipgloss.JoinVertical(lipgloss.Left, box, list)
 	}

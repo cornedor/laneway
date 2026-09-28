@@ -10,16 +10,16 @@ import (
 // The centred multi-line composer box: a modal that asks for a paragraph of
 // text and posts it somewhere. Two surfaces use it — the Jira comment / reply
 // composer and the diff view's inline note — and they must stay identical,
-// because to the user they are the same gesture: type a comment, press enter.
+// because to the user they are the same gesture: type a comment, press ctrl+s.
 //
 // It is one component rather than two copies because the cursor placement is
 // the fiddly half: the terminal cursor is positioned by arithmetic over the
 // box's own layout (see modalComposerCursor), so a box whose layout drifts from
 // its cursor maths puts the caret in the wrong place.
 
-// newModalComposer builds the editor these boxes share: dynamic height, Enter
-// posts, alt/shift+enter inserts a newline, native terminal cursor — the
-// message composer's keys, so the muscle memory carries over.
+// newModalComposer builds the editor these boxes share: dynamic height, enter
+// inserts a newline (ctrl+s posts, so a stray enter never does), native
+// terminal cursor.
 func newModalComposer(placeholder string) editor.Model {
 	ta := editor.New()
 	ta.Placeholder = placeholder
@@ -36,8 +36,8 @@ func newModalComposer(placeholder string) editor.Model {
 	ta.ContinueTables = true
 	ta.MarkdownHighlight = true // bold, italic, strike and code styled, markers kept
 	ta.KeyMap.InsertNewline = key.NewBinding(
-		key.WithKeys("alt+enter", "shift+enter"),
-		key.WithHelp("alt+↵/shift+↵", "newline"),
+		key.WithKeys("enter", "alt+enter", "shift+enter"),
+		key.WithHelp("↵", "newline"),
 	)
 	ta.Focus()
 	return ta

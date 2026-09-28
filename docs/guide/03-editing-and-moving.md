@@ -75,7 +75,7 @@ Bold, italic, code and links show styled as you type.
 
 ## Talk
 
-- `c` writes a comment after the thread. `enter` or `ctrl+s` posts it.
+- `c` writes a comment after the thread. `ctrl+s` posts it; `enter` starts a new line.
 - `R` replies to a comment, composed right under it.
 - `@` and a few letters list people; `tab` inserts a mention that notifies
   them.

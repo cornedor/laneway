@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
@@ -81,7 +80,6 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	}
 	ed := newModalComposer("")
 	ed.MaxHeight = max(m.bodyH()-12, 6)
-	ed.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("enter", "alt+enter", "shift+enter"))
 	ed.SetValue(msg.md)
 	m.descEdit = &descEdit{key: msg.key, comment: msg.comment, field: msg.field, before: msg.md, kept: msg.kept, input: ed}
 	m.status = ""
@@ -161,7 +159,7 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 		if list := m.renderMentions(); list != "" {
 			view = append(view, strings.Split(list, "\n")...)
 		}
-		hint := "↵ post · alt+↵ newline · @ mention · ctrl+o who sees it · esc cancel"
+		hint := "ctrl+s post · @ mention · ctrl+o who sees it · esc cancel"
 		if v := m.jiraCommentVis; v != (jira.Visibility{}) {
 			hint = "for " + v.Label() + " · " + hint
 		}

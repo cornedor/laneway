@@ -409,7 +409,6 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		ed := newModalComposer(strings.ToLower(ff.Name) + "…")
 		ed.NativeCursor = false // drawn in the box: the caret is its own
 		ed.MaxHeight = max(min(m.bodyH()-16, 10), 3)
-		ed.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("enter", "alt+enter", "shift+enter"))
 		ed.SetValue(ff.val.Text)
 		f.area = ed
 		f.editing, f.multiline = true, true

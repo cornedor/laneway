@@ -545,7 +545,7 @@ func TestInlineCommentComposer(t *testing.T) {
 	m = out.(Model)
 	v := m.View()
 	c := ansi.Strip(v.Content)
-	if strings.Contains(c, "Reply — ABC-1") || !order(c, "first", "│ ┃", "↵ post", "Bob") {
+	if strings.Contains(c, "Reply — ABC-1") || !order(c, "first", "│ ┃", "ctrl+s post", "Bob") {
 		t.Fatalf("reply should compose under Ada's comment:\n%s", c)
 	}
 	if v.Cursor == nil {
@@ -556,7 +556,7 @@ func TestInlineCommentComposer(t *testing.T) {
 	m.openJiraCommentInput()
 	out, _ = m.Update(keyMsg(t, "x"))
 	m = out.(Model)
-	if c := ansi.Strip(m.View().Content); strings.Contains(c, "Comment — ABC-1") || !order(c, "first", "second", "┃ x", "↵ post") {
+	if c := ansi.Strip(m.View().Content); strings.Contains(c, "Comment — ABC-1") || !order(c, "first", "second", "┃ x", "ctrl+s post") {
 		t.Fatalf("a new comment should compose after the thread:\n%s", c)
 	}
 }
@@ -585,5 +585,28 @@ func TestEnterOnHeadingKeepsList(t *testing.T) {
 	out, _ := m.applyJiraPick()
 	if m = out.(Model); !m.jiraPicker.active || m.status != "no issue on this row" {
 		t.Errorf("active %v, status %q", m.jiraPicker.active, m.status)
+	}
+}
+
+// TestCommentEnterIsNewline: enter adds a line to the comment, only ctrl+s
+// posts it (a stray enter posted half-written comments).
+func TestCommentEnterIsNewline(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Summary: "Fix the widget"}})
+	m = out.(Model)
+	m.openJiraCommentInput()
+	for _, k := range []string{"a", "enter", "b"} {
+		out, _ = m.Update(keyMsg(t, k))
+		m = out.(Model)
+	}
+	if !m.jiraCommentActive || m.jiraCommentInput.Value() != "a\nb" {
+		t.Fatalf("after a, enter, b: active %v, text %q", m.jiraCommentActive, m.jiraCommentInput.Value())
+	}
+	out, cmd := m.Update(keyMsg(t, "ctrl+s"))
+	m = out.(Model)
+	if m.jiraCommentActive || cmd == nil {
+		t.Errorf("ctrl+s should post: active %v, cmd %v", m.jiraCommentActive, cmd != nil)
 	}
 }
