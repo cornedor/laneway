@@ -54,3 +54,11 @@ func TestReview(t *testing.T) {
 		t.Errorf("status %q", m.status)
 	}
 }
+
+// TestReviewerMRsPath: a username can't add parameters to the query.
+func TestReviewerMRsPath(t *testing.T) {
+	got := reviewerMRsPath("a&scope=x#y")
+	if !strings.HasSuffix(got, "&reviewer_username=a%26scope%3Dx%23y") {
+		t.Errorf("path = %q", got)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"os/exec"
 	"slices"
 	"strings"
@@ -40,7 +41,7 @@ var reviewRequests = func(ctx context.Context) ([]reviewRequest, error) {
 	if me, err := exec.CommandContext(ctx, "glab", "api", "user").Output(); err == nil {
 		var u struct{ Username string }
 		_ = json.Unmarshal(me, &u)
-		b, err := exec.CommandContext(ctx, "glab", "api", "merge_requests?scope=all&state=opened&per_page=100&reviewer_username="+u.Username).Output()
+		b, err := exec.CommandContext(ctx, "glab", "api", reviewerMRsPath(u.Username)).Output()
 		var mrs []struct {
 			Title        string `json:"title"`
 			SourceBranch string `json:"source_branch"`
@@ -132,4 +133,10 @@ func (m Model) handleReview(msg reviewMsg) (tea.Model, tea.Cmd) {
 	}
 	m.status = ""
 	return m, m.runNamedJQLView("Review: waiting on me", "key in ("+strings.Join(msg.keys, ", ")+") ORDER BY updated DESC")
+}
+
+// reviewerMRsPath is glab api's path to the open merge requests user is a
+// reviewer on.
+func reviewerMRsPath(user string) string {
+	return "merge_requests?scope=all&state=opened&per_page=100&reviewer_username=" + url.QueryEscape(user)
 }
