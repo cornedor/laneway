@@ -398,17 +398,25 @@ func (m Model) applyWebLink(raw string) (tea.Model, tea.Cmd) {
 
 // openLinkTarget asks which issue the picked link goes to.
 func (m *Model) openLinkTarget(key string, it jiraPickerItem) {
-	m.openBulkInput("link", "issue key, or a number in "+issueProject(key))
+	m.openBulkInput("link", "a key, a number in "+issueProject(key)+", or words to search")
 	m.jiraFieldKey = key
 	m.jiraLinkChoice = it
+	m.linkFind = linkFind{seq: m.linkFind.seq + 1}
 }
 
 // applyLink links the panel issue and the typed key.
 func (m Model) applyLink(raw string) (tea.Model, tea.Cmd) {
 	key := m.jiraFieldKey
-	target := jiraGotoKey(raw, issueProject(key))
-	if target == "" || target == key {
-		m.status = "not an issue key: " + raw
+	target, ok := m.linkTarget()
+	if !ok {
+		switch {
+		case strings.TrimSpace(raw) == "":
+			m.status = "type a key or words to find the issue"
+		case m.linkFind.loading:
+			m.status = "still looking…"
+		default:
+			m.status = "no issue to link: " + raw
+		}
 		return m, nil
 	}
 	dir, typ, _ := strings.Cut(m.jiraLinkChoice.id, "|")

@@ -690,14 +690,14 @@ func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
-	if m.labelKey(msg) {
+	if m.labelKey(msg) || m.linkKey(msg) {
 		return m, nil
 	}
 	before := m.jiraFieldInput.Value()
 	var cmd tea.Cmd
 	m.jiraFieldInput, cmd = m.jiraFieldInput.Update(msg)
 	if m.jiraFieldInput.Value() != before {
-		cmd = tea.Batch(cmd, m.suggestLabels())
+		cmd = tea.Batch(cmd, m.suggestLabels(), m.searchLinkTarget())
 	}
 	if m.fieldInline() {
 		m.renderRef()
@@ -1398,7 +1398,7 @@ func (m *Model) renderJiraFieldInput() string {
 	case "upload":
 		title, hint, outerW = "Upload a file", "tab complete · ↵ upload · esc cancel", m.jiraFieldInput.Width()+12
 	case "link":
-		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↵ link · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↑↓ pick · ↵ link · esc cancel", m.jiraFieldInput.Width()+12
 	case "weblink":
 		title, hint, outerW = "Web link on "+m.jiraFieldKey, "↵ add · esc cancel", m.jiraFieldInput.Width()+12
 	case "estimate":
@@ -1427,6 +1427,7 @@ func (m *Model) renderJiraFieldInput() string {
 	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(title + " — " + m.jiraFieldKey)
 	hint = lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hint)
 	rows := append([]string{header, "", m.jiraFieldInput.View()}, m.labelLines(2)...)
+	rows = append(rows, m.linkLines(inner)...)
 	body := lipgloss.JoinVertical(lipgloss.Left, append(rows, "", hint)...)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
 }

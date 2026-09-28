@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"errors"
 	"github.com/charmbracelet/x/ansi"
 	"io"
@@ -27,6 +28,10 @@ func actionsModel(t *testing.T, gets map[string]string) (Model, func() []string)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			io.WriteString(w, gets[r.URL.Path])
+			return
+		}
+		if r.URL.Path == "/rest/api/3/search/jql" { // a read, answered like a GET
+			io.WriteString(w, cmp.Or(gets[r.URL.Path], `{"issues":[]}`))
 			return
 		}
 		b, _ := io.ReadAll(r.Body)
@@ -86,6 +91,7 @@ func TestSubtask(t *testing.T) {
 func TestLinkAction(t *testing.T) {
 	m, writes := actionsModel(t, map[string]string{
 		"/rest/api/3/issueLinkType": `{"issueLinkTypes":[{"name":"Blocks","inward":"is blocked by","outward":"blocks"},{"name":"Relates","inward":"relates to","outward":"relates to"}]}`,
+		"/rest/api/3/search/jql":    `{"issues":[{"key":"ABC-7","fields":{"summary":"Payment page","status":{"name":"In review"},"issuetype":{"name":"Bug"},"assignee":{"displayName":"Ada"}}}]}`,
 	})
 	m, cmd := pickAction(t, m, "link")
 	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
@@ -100,7 +106,21 @@ func TestLinkAction(t *testing.T) {
 	m.jiraPicker.idx = 1 // is blocked by
 	out, _ = m.applyJiraPick()
 	m = out.(Model)
-	m.jiraFieldInput.SetValue("7")
+	if out, cmd = m.applyJiraField(); cmd != nil || !strings.Contains(out.(Model).status, "type a key") {
+		t.Fatalf("empty input: %q", out.(Model).status)
+	}
+	out, _ = m.handleJiraFieldKey(keyMsg(t, "7"))
+	m = out.(Model)
+	if !m.linkFind.loading {
+		t.Fatal("typing should start a search")
+	}
+	out, cmd = m.handleLinkSearch(linkSearchMsg{seq: m.linkFind.seq})
+	m = out.(Model)
+	out, _ = m.handleLinkFound(cmd().(linkFoundMsg))
+	m = out.(Model)
+	if box := ansi.Strip(m.renderJiraFieldInput()); !strings.Contains(box, "▸ ABC-7  Payment page") || !strings.Contains(box, "Bug · In review · Ada") {
+		t.Fatalf("no confirmation of ABC-7:\n%s", box)
+	}
 	_, cmd = m.applyJiraField()
 	cmd()
 	w := writes()

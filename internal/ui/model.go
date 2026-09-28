@@ -281,8 +281,10 @@ type Model struct {
 	// jiraCreateReload reloads the roadmap once the new issue (an epic
 	// made from it) exists.
 	jiraCreateReload bool
-	// jiraLinkChoice is the link type and direction picked for "link".
+	// jiraLinkChoice is the link type and direction picked for "link",
+	// linkFind the search for the issue to link (link_search.go).
 	jiraLinkChoice jiraPickerItem
+	linkFind       linkFind
 
 	jiraPicker jiraPickerState
 	// fieldCursor is the panel's selected field (panel_fields.go), -1 for
@@ -634,6 +636,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDescLoaded(msg)
 	case descEditedMsg:
 		return m.handleDescEdited(msg)
+	case linkSearchMsg:
+		return m.handleLinkSearch(msg)
+	case linkFoundMsg:
+		return m.handleLinkFound(msg)
 	case timeMachineMsg:
 		return m.handleTimeMachine(msg)
 	case llmDoneMsg:
