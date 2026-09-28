@@ -533,7 +533,7 @@ func (m Model) WithIndex(ix *index.Index) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease(), resendImagesLater())
 }
 
 // bodyH is the rows above the status line.

@@ -46,7 +46,7 @@ func TestAvatars(t *testing.T) {
 	defer srv.Close()
 
 	m := jiraTabModel(t)
-	m.images.on = true
+	m.images.on, m.images.live = true, true
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	m.jiraTab.cards[0].AvatarURL = srv.URL + "/ada.png" // ABC-1, Ada, selected
 	m.jiraTab.cards[1].Assignee, m.jiraTab.cards[1].AvatarURL = "Ada", srv.URL+"/ada.png"

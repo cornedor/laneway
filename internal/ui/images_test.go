@@ -87,7 +87,7 @@ func TestEncodeKittyImage(t *testing.T) {
 // no mark at all.
 func TestPanelPlacesImage(t *testing.T) {
 	m := jiraTabModel(t)
-	m.images = &panelImages{on: true, maxRows: 16, byAtt: map[string]*panelImage{}}
+	m.images = &panelImages{on: true, live: true, maxRows: 16, byAtt: map[string]*panelImage{}}
 	iss := &jira.Issue{Key: "ABC-1", Summary: "s",
 		Description: "![shot.png](attachment:10)\n\n![web](https://x.test/a.png)",
 		Attachments: []jira.Attachment{{ID: "10", Filename: "shot.png", MimeType: "image/png"}, {ID: "11", MimeType: "image/png"}}}
@@ -146,7 +146,7 @@ func TestReleaseImages(t *testing.T) {
 // to a smaller one, sent after the update.
 func TestImageRefitsToNarrowPanel(t *testing.T) {
 	m := jiraTabModel(t)
-	m.images = &panelImages{on: true, maxRows: 16, byAtt: map[string]*panelImage{"10": {state: imgReady, id: 9, pxW: 800, pxH: 100, cols: 80, rows: 5}}}
+	m.images = &panelImages{on: true, live: true, maxRows: 16, byAtt: map[string]*panelImage{"10": {state: imgReady, id: 9, pxW: 800, pxH: 100, cols: 80, rows: 5}}}
 	m.refView.SetWidth(42)
 	got := m.placeImages("  " + imgMark("attachment:10") + "shot")
 	if e := m.images.byAtt["10"]; e.cols != 40 || e.rows != 3 {
@@ -186,7 +186,7 @@ func TestPanelListsLooseAttachments(t *testing.T) {
 // the panel; any key goes back to the panel's size.
 func TestImageView(t *testing.T) {
 	m := jiraTabModel(t)
-	m.images = &panelImages{on: true, maxRows: 16, cell: defaultCell, byAtt: map[string]*panelImage{}}
+	m.images = &panelImages{on: true, live: true, maxRows: 16, cell: defaultCell, byAtt: map[string]*panelImage{}}
 	iss := &jira.Issue{Key: "ABC-1", Summary: "s", Description: "![shot.png](attachment:10)",
 		Attachments: []jira.Attachment{{ID: "10", Filename: "shot.png", MimeType: "image/png"}}}
 	out, _ := openRefFor(m, "ABC-1")
@@ -252,7 +252,7 @@ func TestKittyGraphicsDetect(t *testing.T) {
 // TestSwapIssueImages: moving to another issue frees the last one's images
 // and a return sends them back from memory, placement included.
 func TestSwapIssueImages(t *testing.T) {
-	m := Model{images: &panelImages{on: true, byAtt: map[string]*panelImage{
+	m := Model{images: &panelImages{on: true, live: true, byAtt: map[string]*panelImage{
 		"10": {state: imgReady, id: 42, cols: 4, rows: 2, seq: "SEQ"},
 		"11": {state: imgLoading, id: 43},
 	}}}
@@ -296,5 +296,20 @@ func TestResendImages(t *testing.T) {
 	got := fmt.Sprint(cmd().(tea.RawMsg).Msg)
 	if !strings.Contains(got, "A\x1b_G") || !strings.Contains(got, "B\x1b_G") || strings.Contains(got, "GONE") {
 		t.Errorf("resend = %q", got)
+	}
+}
+
+// TestImagesWaitForFirstFrame: a transmit before the program is on the
+// alternate screen would land on the main one, so it waits for the resend.
+func TestImagesWaitForFirstFrame(t *testing.T) {
+	m := Model{images: &panelImages{on: true, byAtt: map[string]*panelImage{"10": {state: imgLoading, id: 42}}, avatars: map[string]*panelImage{}}}
+	out, cmd := m.handleImageLoaded(imageLoadedMsg{att: "10", id: 42, cols: 4, rows: 2, seq: "SEQ"})
+	m = out.(Model)
+	if cmd != nil {
+		t.Fatal("sent before the first frame")
+	}
+	_, cmd = m.handleResendImages()
+	if cmd == nil || !m.images.live || !strings.HasPrefix(fmt.Sprint(cmd().(tea.RawMsg).Msg), "SEQ") {
+		t.Fatal("held image not sent once live")
 	}
 }

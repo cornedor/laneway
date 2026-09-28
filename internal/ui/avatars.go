@@ -140,7 +140,7 @@ func (m Model) handleAvatarLoaded(msg avatarLoadedMsg) (tea.Model, tea.Cmd) {
 	}
 	m.jiraTab.rows = nil
 	m.renderJira()
-	return m, tea.Raw(m.images.wrap(msg.seq))
+	return m, m.images.send(msg.seq)
 }
 
 // imageRun is a kitty placeholder run: its id colour, the cells, the reset.

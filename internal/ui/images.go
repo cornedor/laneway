@@ -72,6 +72,10 @@ type panelImages struct {
 	pending strings.Builder
 	// tmux wraps every graphics sequence for tmux's passthrough.
 	tmux bool
+	// live is the program drawing on the alternate screen, which keeps its
+	// own images. Until the first frame switches to it, tea.Raw goes to the
+	// main screen, so transmits wait for handleResendImages.
+	live bool
 }
 
 func newPanelImages(on bool, maxRows int) *panelImages {
@@ -122,6 +126,14 @@ func (ii *panelImages) wrap(seq string) string {
 		seq = seq[j:]
 	}
 	return b.String()
+}
+
+// send is a transmit for the terminal, or nil until the images are live.
+func (ii *panelImages) send(seq string) tea.Cmd {
+	if !ii.live || seq == "" {
+		return nil
+	}
+	return tea.Raw(ii.wrap(seq))
 }
 
 // imageLoadedMsg carries one fetched image, encoded for transmit.
@@ -190,7 +202,7 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 	}
 	e.state, e.pxW, e.pxH, e.cols, e.rows, e.seq = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows, msg.seq
 	m.renderRef()
-	return m, tea.Raw(m.images.wrap(msg.seq))
+	return m, m.images.send(msg.seq)
 }
 
 // transmit is e's data with its current placement, for sending again.
@@ -225,20 +237,18 @@ func (m *Model) swapIssueImages(iss *jira.Issue) tea.Cmd {
 			e.gone = true
 		}
 	}
-	if sb.Len() == 0 {
-		return nil
-	}
-	return tea.Raw(ii.wrap(sb.String()))
+	return ii.send(sb.String())
 }
 
 // resendImagesMsg asks for every image on the terminal to be sent again.
 type resendImagesMsg struct{}
 
-// resendImagesLater sends the images again once an external program
-// ($EDITOR, herdr) has handed the terminal back. It may have reset the
-// terminal, and the first frame after it writes tea.Raw before switching
-// back to the alternate screen, which keeps its own images: sent then,
-// they'd land on the main screen. The delay puts them after that frame.
+// resendImagesLater sends the images once the program is on the alternate
+// screen: at start, and again after an external program ($EDITOR, herdr)
+// handed the terminal back, which may have reset it. The first frame writes
+// tea.Raw before switching to the alternate screen, which keeps its own
+// images: sent then, they'd land on the main screen. The delay puts them
+// after that frame.
 func resendImagesLater() tea.Cmd {
 	return tea.Tick(200*time.Millisecond, func(time.Time) tea.Msg { return resendImagesMsg{} })
 }
@@ -247,16 +257,14 @@ func (m Model) handleResendImages() (tea.Model, tea.Cmd) {
 	if m.images == nil || !m.images.on {
 		return m, nil
 	}
+	m.images.live = true
 	var sb strings.Builder
 	for _, e := range append(slices.Collect(maps.Values(m.images.byAtt)), slices.Collect(maps.Values(m.images.avatars))...) {
 		if e.state == imgReady && !e.gone {
 			sb.WriteString(e.transmit())
 		}
 	}
-	if sb.Len() == 0 {
-		return m, nil
-	}
-	return m, tea.Raw(m.images.wrap(sb.String()))
+	return m, m.images.send(sb.String())
 }
 
 // encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
@@ -320,9 +328,9 @@ func (m *Model) flushImages() tea.Cmd {
 	if m.images == nil || m.images.pending.Len() == 0 {
 		return nil
 	}
-	seq := m.images.wrap(m.images.pending.String())
+	seq := m.images.pending.String()
 	m.images.pending.Reset()
-	return tea.Raw(seq)
+	return m.images.send(seq) // before, the images go with their placement
 }
 
 // fitCells sizes a w×h pixel image in cells: aspect kept, no upscaling, at
