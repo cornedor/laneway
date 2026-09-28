@@ -2,6 +2,11 @@ version: 2
 
 project_name: laneway
 
+before:
+  hooks:
+    - mkdir -p completions
+    - sh -c 'for s in bash zsh fish; do go run . completion $s > completions/laneway.$s; done'
+
 builds:
   - binary: laneway
     env: [CGO_ENABLED=0]
@@ -34,6 +39,23 @@ homebrew_casks:
           if OS.mac?
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/laneway"]
           end
+
+nfpms:
+  - package_name: laneway
+    homepage: https://github.com/cornedor/laneway
+    description: A terminal board for Jira
+    maintainer: Corné Dorrestijn <contact@corne.info>
+    license: MIT
+    formats: [deb, rpm]
+    contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/laneway/LICENSE
+      - src: completions/laneway.bash
+        dst: /usr/share/bash-completion/completions/laneway
+      - src: completions/laneway.zsh
+        dst: /usr/share/zsh/site-functions/_laneway
+      - src: completions/laneway.fish
+        dst: /usr/share/fish/vendor_completions.d/laneway.fish
 
 checksum:
   name_template: checksums.txt
