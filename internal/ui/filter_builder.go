@@ -51,11 +51,17 @@ func filterOps(field string) []jiraPickerItem {
 	switch field {
 	case "is":
 		return []jiraPickerItem{{id: ":", label: "is"}}
-	case "prio", "points":
+	case "prio":
 		return []jiraPickerItem{{id: ">=", label: "at least"}, {id: "<=", label: "at most"}, {id: "=", label: "exactly"}}
+	case "points":
+		return []jiraPickerItem{{id: ">=", label: "at least"}, {id: "<=", label: "at most"}, {id: "=", label: "exactly"},
+			{id: "empty", label: "is empty"}, {id: "-empty", label: "is not empty"}}
 	}
 	return []jiraPickerItem{{id: ":", label: "is"}, {id: "-:", label: "is not"}, {id: "empty", label: "is empty"}}
 }
+
+// opNoValue is whether op makes a term without a value: is (not) empty.
+func opNoValue(op string) bool { return op == "empty" || op == "-empty" }
 
 // filterValueItems are field's values on the loaded cards with their
 // counts, most common first (priorities by rank).
@@ -88,7 +94,7 @@ func (m *Model) builderRows(col int) []jiraPickerItem {
 	case 1:
 		rows = filterOps(m.builderPick(0).id)
 	case 2:
-		if m.builderPick(1).id != "empty" {
+		if !opNoValue(m.builderPick(1).id) {
 			rows = m.filterValueItems(m.builderPick(0).id)
 		}
 	}
@@ -119,6 +125,8 @@ func (m *Model) builderTerm() string {
 		return ""
 	case op == "empty":
 		return field + ":"
+	case op == "-empty":
+		return "-" + field + ":"
 	case v == "":
 		return ""
 	}
@@ -150,7 +158,7 @@ func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		m.filterBuilder = nil
 		return m, nil
 	case msg.String() == "enter":
-		if b.col == 0 || b.col == 1 && m.builderPick(1).id != "empty" {
+		if b.col == 0 || b.col == 1 && !opNoValue(m.builderPick(1).id) {
 			move(b.col + 1)
 			return m, nil
 		}
@@ -228,7 +236,7 @@ func (m *Model) renderFilterBuilder(height int) string {
 			}
 			lines = append(lines, label)
 		}
-		if len(rows) == 0 && c == 2 && m.builderPick(1).id == "empty" {
+		if len(rows) == 0 && c == 2 && opNoValue(m.builderPick(1).id) {
 			lines = append(lines, jiraDimStyle.Render("no value needed"))
 		}
 		cols = append(cols, lipgloss.NewStyle().Width(widths[c]).Render(strings.Join(lines, "\n")))

@@ -331,7 +331,7 @@ Every term must hold:
 login                text in key, summary, assignee or epic ("log in" a phrase)
 status:review,test   a field containing any of the values
 assignee:ada,bob     who: works too
-epic:                a field that is empty (label:, assignee:, …)
+epic:                a field that is empty (label:, points:, …; -epic: set)
 points>2 prio>=high  numbers and priorities compare (<, <=, >, >=, =)
 is:flagged           also done, pr, unassigned, mine, overdue, notes (has:)
 due<7d age>3d        due within a week, in progress over 3 days (h, d, w)

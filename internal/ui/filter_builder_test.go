@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 func TestFilterBuilder(t *testing.T) {
@@ -81,6 +83,33 @@ func TestFilterBuilder(t *testing.T) {
 	press("esc")
 	if m.filterBuilder != nil {
 		t.Error("esc left it open")
+	}
+}
+
+// TestFilterBuilderPointsEmpty: points can be filtered for empty and not
+// empty, as points: and -points:.
+func TestFilterBuilderPointsEmpty(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyStr("F"))
+	m = out.(Model)
+	b := m.filterBuilder
+	for col, id := range []string{"points", "-empty"} {
+		b.idx[col] = slices.IndexFunc(m.builderRows(col), func(it jiraPickerItem) bool { return it.id == id })
+	}
+	if term := m.builderTerm(); term != "-points:" {
+		t.Fatalf("not empty = %q", term)
+	}
+	b.idx[1] = slices.IndexFunc(m.builderRows(1), func(it jiraPickerItem) bool { return it.id == "empty" })
+	if term := m.builderTerm(); term != "points:" {
+		t.Fatalf("empty = %q", term)
+	}
+	env := m.jiraQueryEnv()
+	withPoints, without := jira.Card{Key: "ABC-1", Points: "3"}, jira.Card{Key: "ABC-2"}
+	for q, want := range map[string][2]bool{"points:": {false, true}, "-points:": {true, false}} {
+		terms := jiraParseQuery(q)
+		if got := [2]bool{jiraCardMatches(withPoints, terms, env), jiraCardMatches(without, terms, env)}; got != want {
+			t.Errorf("%s matches %v, want %v", q, got, want)
+		}
 	}
 }
 
