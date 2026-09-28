@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // maxAvatarBytes caps an avatar download; they are small.
@@ -13,10 +14,12 @@ const maxAvatarBytes = 1 << 20
 
 // Avatar downloads an avatar image. The API credentials go only to the
 // instance itself, never to another host (Gravatar, Atlassian's avatar
-// CDN); Go drops them on a redirect elsewhere too.
+// CDN); Go drops them on a redirect elsewhere too. The URL comes from a
+// response, so only the instance and Atlassian's avatar hosts are fetched,
+// redirects included: never localhost or a cloud metadata address.
 func (c *Client) Avatar(ctx context.Context, avatarURL string) ([]byte, error) {
 	u, err := url.Parse(avatarURL)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") {
+	if err != nil || !c.avatarHost(u) {
 		return nil, fmt.Errorf("avatar: bad url %q", avatarURL)
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
@@ -28,7 +31,14 @@ func (c *Client) Avatar(ctx context.Context, avatarURL string) ([]byte, error) {
 	if base, err := url.Parse(c.baseURL); err == nil && c.auth != "" && u.Host == base.Host {
 		req.Header.Set("Authorization", c.auth)
 	}
-	resp, err := c.http.Do(req)
+	hc := *c.http
+	hc.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+		if len(via) >= 5 || !c.avatarHost(r.URL) {
+			return fmt.Errorf("avatar: redirect to %s refused", r.URL.Host)
+		}
+		return nil
+	}
+	resp, err := hc.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -37,4 +47,30 @@ func (c *Client) Avatar(ctx context.Context, avatarURL string) ([]byte, error) {
 		return nil, fmt.Errorf("avatar: %s", resp.Status)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, maxAvatarBytes))
+}
+
+// avatarHosts are the hosts, and their subdomains, Jira Cloud's avatar URLs
+// point at besides the instance: Gravatar, which falls back to Atlassian's
+// initials images, and Atlassian's avatar CDN.
+var avatarHosts = []string{"gravatar.com", "atl-paas.net", "atlassian.net", "atlassian.com"}
+
+// avatarHost is whether u may be fetched as an avatar: the instance itself,
+// or https to one of avatarHosts.
+func (c *Client) avatarHost(u *url.URL) bool {
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return false
+	}
+	if base, err := url.Parse(c.baseURL); err == nil && base.Host != "" && u.Host == base.Host {
+		return true
+	}
+	if u.Scheme != "https" || u.Port() != "" {
+		return false
+	}
+	h := strings.ToLower(u.Hostname())
+	for _, d := range avatarHosts {
+		if h == d || strings.HasSuffix(h, "."+d) {
+			return true
+		}
+	}
+	return false
 }
