@@ -86,7 +86,8 @@ In the panel:
 - `:` opens the command palette: every action of the pane you are in, the
   board's views and quick filters, the loaded issues and the ones you opened
   lately. Type any words to filter. From three letters it also searches all
-  of Jira; those hits come last, marked `⌕`.
+  of Jira and the issues laneway has read before, in every project, also
+  offline; those hits come last, marked `⌕`.
 - `*` pins an issue. Pinned ones come first in the palette.
 - `ctrl+t` shows the board as it was: `←` `→` a day at a time, `esc` back.
 - Start laneway in a git branch named after an issue (`issue/ABC-12-fix`)

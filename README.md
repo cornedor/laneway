@@ -270,7 +270,8 @@ config is picked up as a fallback.
 
 Every issue laneway reads (boards, searches, the panel) is mirrored in
 `~/.cache/laneway/index-jira.db`, `index-club.db` for a site. `laneway index`
-shows what it holds, `laneway index clear` drops it.
+shows what it holds, `laneway index clear` drops it. Offline, the palette
+and the panel answer from it and say so.
 
 ## Keys
 
@@ -279,8 +280,8 @@ shows what it holds, `laneway index clear` drops it.
 `?` shows every key as bound, and the mouse, paged to the screen's width (`←` `→`; from the panel it opens at the panel's keys). `:` opens the command palette: every action
 of the focused pane, the board's views, quick filters and boards, the
 loaded issues and the ones you opened lately, filtered by every word you type. From three characters it
-also searches all of Jira (summary, description, comments); those hits come
-last, marked `⌕`. Actions match common words too (`create`, `transition`,
+also searches all of Jira (summary, description, comments) and the index
+(below); those hits come last, marked `⌕`, the index's with when they were read. Actions match common words too (`create`, `transition`,
 `worklog`). Over the roadmap, planning or charts it lists that screen's
 actions only. Its `messages` row lists the status line's last messages
 with their time (the line shows one, cut to the screen); `enter` copies one.

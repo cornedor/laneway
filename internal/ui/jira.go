@@ -47,7 +47,9 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.refLoading = false
-	if msg.err != nil {
+	if iss, ok := m.indexedIssue(r.jiraKey, msg.err); ok {
+		m.refErr, m.jiraIssue = nil, iss
+	} else if msg.err != nil {
 		m.refErr = msg.err
 		m.jiraIssue = nil
 	} else {

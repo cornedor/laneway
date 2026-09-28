@@ -2,6 +2,7 @@ package index
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,5 +86,41 @@ func TestNilIndex(t *testing.T) {
 	ix.PutIssue(&jira.Issue{Key: "ABC-1"})
 	if _, ok := ix.Get("ABC-1"); ok || ix.Close() != nil {
 		t.Error("a nil index should hold nothing")
+	}
+}
+
+func TestSearch(t *testing.T) {
+	ix, _ := openTemp(t)
+	day := func(d int) time.Time { return time.Date(2026, 9, d, 0, 0, 0, 0, time.UTC) }
+	ix.PutCards([]jira.Card{
+		{Key: "ABC-1", Summary: "Login page broken", Updated: day(1)},
+		{Key: "XY-7", Summary: "login with SSO", Updated: day(3)},
+		{Key: "ABC-2", Summary: "100% width_bar", Updated: day(2)},
+	})
+	keys := func(hs []Hit) (out []string) {
+		for _, h := range hs {
+			out = append(out, h.Card.Key)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		q    string
+		want string
+	}{
+		{"LOGIN", "XY-7 ABC-1"},
+		{"login broken", "ABC-1"},
+		{"xy-7", "XY-7"},
+		{"%", "ABC-2"},
+		{"h_b", "ABC-2"},
+		{"nothing", ""},
+		{"  ", ""},
+	} {
+		hs, err := ix.Search(tc.q, 10)
+		if got := strings.Join(keys(hs), " "); err != nil || got != tc.want {
+			t.Errorf("Search(%q) = %q, %v; want %q", tc.q, got, err, tc.want)
+		}
+	}
+	if hs, _ := ix.Search("login", 1); len(hs) != 1 || hs[0].Synced.IsZero() {
+		t.Errorf("Search limit 1 = %+v", hs)
 	}
 }

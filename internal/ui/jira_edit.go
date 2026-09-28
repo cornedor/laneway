@@ -160,8 +160,9 @@ type jiraPickerState struct {
 	text          string // the list as text, for its copy (the timesheet)
 	day           time.Time
 	pendingDelete string
-	// found are the palette's Jira search hits, shown after its own rows.
-	found []jiraPickerItem
+	// found are the palette's search hits, shown after its own rows: remote
+	// (Jira's) then indexed (the index's) not already listed.
+	found, remote, indexed []jiraPickerItem
 	// inline is the panel row the list drops under (a panel field name or
 	// an extra field's id), "" for the modal.
 	inline string

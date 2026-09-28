@@ -18,6 +18,7 @@ import (
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
@@ -232,6 +233,7 @@ type Model struct {
 	rulesLog string
 
 	jiraClient      *jira.Client
+	index           *index.Index // nil: none
 	jiraProjects    []string
 	jiraRepos       map[string]string
 	jiraStartPrompt string
@@ -501,9 +503,13 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	return m
 }
 
-// WithIndex mirrors the issues the app reads into ix.
-func (m Model) WithIndex(ix jira.Indexer) Model {
-	m.jiraClient.SetIndex(ix)
+// WithIndex mirrors the issues the app reads into ix, which the palette
+// searches and the panel falls back on offline (index.go).
+func (m Model) WithIndex(ix *index.Index) Model {
+	m.index = ix
+	if ix != nil {
+		m.jiraClient.SetIndex(ix)
+	}
 	return m
 }
 

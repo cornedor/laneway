@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -271,7 +272,8 @@ func keyPress(s string) tea.KeyPressMsg {
 }
 
 // The palette also searches all of Jira once three characters are typed:
-// the hits come after its own rows, marked ⌕.
+// the hits come after its own rows, marked ⌕. The index answers first, its
+// hits marked with when they were read; Jira's replace them as they come.
 const (
 	paletteSearchMin   = 3
 	paletteSearchDelay = 300 * time.Millisecond
@@ -284,11 +286,15 @@ type paletteFoundMsg struct {
 	seq   int
 	cards []jira.Card
 	err   error
+	// indexed are the index's hits, sent before Jira's (cards is then nil).
+	indexed []index.Hit
+	local   bool
 }
 
 // schedulePaletteSearch arms a search for the filter once typing pauses.
 func (m *Model) schedulePaletteSearch() tea.Cmd {
 	m.jiraPicker.fetchSeq++
+	m.jiraPicker.remote, m.jiraPicker.indexed = nil, nil
 	if scope := m.paletteScope(); scope != "board" && scope != "panel" ||
 		len([]rune(strings.TrimSpace(m.jiraPicker.filter.Value()))) < paletteSearchMin {
 		return nil
@@ -302,29 +308,54 @@ func (m Model) handlePaletteSearch(msg paletteSearchMsg) (tea.Model, tea.Cmd) {
 	if !p.active || p.kind != jiraPickPalette || msg.seq != p.fetchSeq {
 		return m, nil
 	}
-	c, ctx, q := m.jiraClient, m.ctx, p.filter.Value()
-	return m, func() tea.Msg {
+	c, ctx, ix, q := m.jiraClient, m.ctx, m.index, p.filter.Value()
+	remote := func() tea.Msg {
 		cards, err := c.FindIssues(ctx, q, paletteSearchHits)
-		return paletteFoundMsg{msg.seq, cards, err}
+		return paletteFoundMsg{seq: msg.seq, cards: cards, err: err}
 	}
+	if ix == nil {
+		return m, remote
+	}
+	local := func() tea.Msg {
+		hits, _ := ix.Search(q, paletteSearchHits)
+		return paletteFoundMsg{seq: msg.seq, indexed: hits, local: true}
+	}
+	return m, tea.Batch(local, remote)
 }
 
-// handlePaletteFound adds the hits not already listed.
+// handlePaletteFound adds the hits not already listed: Jira's, then the
+// index's Jira didn't find (a key, a word's middle), whichever lands first.
 func (m Model) handlePaletteFound(msg paletteFoundMsg) (tea.Model, tea.Cmd) {
 	p := &m.jiraPicker
 	if !p.active || p.kind != jiraPickPalette || msg.seq != p.fetchSeq {
 		return m, nil
 	}
-	p.found = nil
-	if msg.err != nil {
-		m.fail("issue search: " + msg.err.Error()) // not "no matches"
-	}
-	for _, c := range msg.cards {
-		id := "i:" + c.Key
-		if slices.ContainsFunc(p.all, func(it jiraPickerItem) bool { return it.id == id }) {
-			continue
+	if msg.local {
+		now := time.Now()
+		p.indexed = nil
+		for _, h := range msg.indexed {
+			p.indexed = append(p.indexed, jiraPickerItem{id: "i:" + h.Card.Key, label: "⌕ " + h.Card.Key + "  " + ansi.Strip(h.Card.Summary) + "  · " + draftWhen(h.Synced, now)})
 		}
-		p.found = append(p.found, jiraPickerItem{id: id, label: "⌕ " + c.Key + "  " + ansi.Strip(c.Summary)})
+	} else {
+		p.remote = nil
+		switch {
+		case msg.err != nil && jira.Offline(msg.err) && m.index != nil:
+			m.status = "offline: issues from the index"
+		case msg.err != nil:
+			m.fail("issue search: " + msg.err.Error()) // not "no matches"
+		}
+		for _, c := range msg.cards {
+			p.remote = append(p.remote, jiraPickerItem{id: "i:" + c.Key, label: "⌕ " + c.Key + "  " + ansi.Strip(c.Summary)})
+		}
+	}
+	p.found = nil
+	for _, it := range append(slices.Clone(p.remote), p.indexed...) {
+		listed := func(l []jiraPickerItem) bool {
+			return slices.ContainsFunc(l, func(o jiraPickerItem) bool { return o.id == it.id })
+		}
+		if !listed(p.all) && !listed(p.found) {
+			p.found = append(p.found, it)
+		}
 	}
 	idx := p.idx
 	m.filterJiraPicker()

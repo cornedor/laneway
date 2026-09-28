@@ -185,6 +185,47 @@ func (ix *Index) Synced(key string) time.Time {
 	return time.UnixMilli(ms)
 }
 
+// Hit is an indexed card and when it was last read from Jira.
+type Hit struct {
+	Card   jira.Card
+	Synced time.Time
+}
+
+// Search finds up to n issues in every indexed project whose key or summary
+// holds each word of text, most recently updated first.
+func (ix *Index) Search(text string, n int) ([]Hit, error) {
+	words := strings.Fields(strings.ToLower(text))
+	if ix == nil || len(words) == 0 {
+		return nil, nil
+	}
+	q := "SELECT card, synced FROM issues WHERE 1"
+	var args []any
+	for _, w := range words {
+		q += ` AND (lower(key) LIKE ? ESCAPE '\' OR lower(summary) LIKE ? ESCAPE '\')`
+		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(w) + "%"
+		args = append(args, like, like)
+	}
+	q += " ORDER BY updated DESC LIMIT ?"
+	rows, err := ix.db.Query(q, append(args, n)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Hit
+	for rows.Next() {
+		var raw string
+		var ms int64
+		if err := rows.Scan(&raw, &ms); err != nil {
+			return nil, err
+		}
+		h := Hit{Synced: time.UnixMilli(ms)}
+		if json.Unmarshal([]byte(raw), &h.Card) == nil {
+			out = append(out, h)
+		}
+	}
+	return out, rows.Err()
+}
+
 // Stats counts the indexed issues per project.
 func (ix *Index) Stats() (map[string]int, error) {
 	rows, err := ix.db.Query("SELECT project, count(*) FROM issues GROUP BY project")

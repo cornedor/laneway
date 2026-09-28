@@ -71,6 +71,10 @@ func unreached(err error) bool {
 	return errors.As(err, &dns) || errors.As(err, &op) && op.Op == "dial"
 }
 
+// Offline reports whether err means Jira couldn't be reached: no
+// connection, no such host, or no answer in time.
+func Offline(err error) bool { return unreached(err) || isTimeout(err) }
+
 // queueWrite keeps a write that never reached Jira, when it can be sent
 // again safely; false when it can't be queued.
 func (c *Client) queueWrite(method, path, what string, body any, err error) bool {
