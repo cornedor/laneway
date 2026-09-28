@@ -41,7 +41,10 @@ small form with exactly those fields, the required ones first and marked
 ## Change fields
 
 **From the board:** `e` on a card opens a quick edit: status, priority,
-assignee, labels, points or sprint, without opening the panel.
+assignee, labels, points or sprint, without opening the panel. Or
+right-click the card: the same, as a menu at the pointer, with open, copy
+and pin below. Status, priority, assignee and sprint open their list
+beside it; `esc` goes back to the menu.
 
 **From the panel:** one key per common field.
 
@@ -63,8 +66,9 @@ dates edit right in their row; people and options drop a list under it.
 
 ## Write
 
-`E` opens the description as markdown in an editor, right where it was.
-Bold, italic, code and links show styled as you type.
+`E` opens the description as markdown in an editor, right where it was,
+as does a click on `E edit` on its heading. Bold, italic, code and links
+show styled as you type.
 
 - `enter` is a newline, `ctrl+s` saves, `esc` cancels (it asks once if you
   changed something).
@@ -72,6 +76,8 @@ Bold, italic, code and links show styled as you type.
 - Things markdown can't hold, like a table or an image, stand as a
   `<!-- keep:1 table … -->` line. Move the line and the block moves; leave
   it and the block comes back untouched.
+- A panel (the coloured info or warning boxes) is its text between
+  `<!-- panel:info -->` and `<!-- /panel -->`: edit inside, it stays a panel.
 
 ## Talk
 
@@ -81,6 +87,8 @@ Bold, italic, code and links show styled as you type.
 - `R` replies to a comment, composed right under it.
 - `@` and a few letters list people; `tab` inserts a mention that notifies
   them.
+- `:` and two letters list emoji, the ones you use most first; `tab` inserts
+  one, and Jira shows it as its emoji. In the description editor too.
 - Under each comment: *reply*, and on your own *edit* and *delete*, to
   click. Or `}` and `{` select a comment: `R` replies, `enter` edits yours,
   `delete` twice deletes it (`u` brings it back).

@@ -316,7 +316,8 @@ Board:
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out), `esc` back to now
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
 - you: `I` inbox · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
-- mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts
+- mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts. What a click would act on is underlined under the pointer, which turns to a hand (where the terminal draws pointer shapes; in tmux with `allow-passthrough`)
+- right-click a card or row: its menu at the pointer, as big as its rows: status, priority, assignee and sprint open their list beside it (`→` or a click; `esc` or `←` back), labels and points ask, and open, browser, copy key and pin do what their key does. The row under the pointer is the chosen one; a click off the menu closes it
 - `q` quit; on the roadmap, planning, charts, the standup or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
 
 Panel:
@@ -333,7 +334,7 @@ Panel:
 - more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue (a key or words find it as you type; the picked one shows its type, status and assignee to confirm), a web page, remove one · the issue: change its type, move it to another project, set the original estimate, time in each status, the dependency tree (blockers of blockers, and what it holds up), delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, screenshot a region (grim + slurp, gnome-screenshot, spectacle or screencapture), download or delete an attachment · your comments: edit, delete · post your notes · a draft pull request (see [Git](#git-and-your-shell))
 - `H` history ·
   `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
-- mouse: drag over the panel's text (description, comments, fields) to select it, and letting go copies it; drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, the row under it replies, edits or deletes (yours; delete clicks twice), a double-click on `Description` edits it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
+- mouse: drag over the panel's text (description, comments, fields) to select it, and letting go copies it; drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, the row under it replies, edits or deletes (yours; delete clicks twice), `E edit` on the Description heading edits it (`E add one` with none; a double-click on the heading too), an agent's row attaches to it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `/` find in the issue, `n`/`N` the next / previous hit (what the panel shows: the open activity tab, `all` for everything)
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·
   `r` refresh · `esc` drop field, close
@@ -409,15 +410,21 @@ when there are changes), `ctrl+e` hands the text to `$VISUAL` or `$EDITOR`
 (else `vi`), where saving a changed file writes it back. A failed save keeps
 your text in a file and says where. Paragraphs,
 headings, lists, code, quotes, rules and bold / italic / code / strike /
-links are text to edit. A mention, emoji, date or status inside text
-stands as `⟦2 @Ada⟧`: edit around it, delete it to drop it. A block
-markdown can't keep as it is — a table, an image or a stray `*` — stands as
-a `<!-- keep:1 table … -->` line: move it and the block moves, delete it
-and the block goes, anything else and it comes back untouched. Your own
+links are text to edit; text that would read as markdown (a `*`, a `#`
+at a line's start, a `:smile:` typed as words) is escaped with `\`. An
+emoji edits as its `:shortcode:`, and a panel (info, note, success, …) as
+its text between `<!-- panel:info -->` and `<!-- /panel -->`. A mention,
+date or status inside text stands as `⟦2 @Ada⟧`: edit around it, delete it
+to drop it. A block markdown can't keep as it is — a table, an image —
+stands as a `<!-- keep:1 table … -->` line: move it and the block moves,
+delete it and the block goes, anything else and it comes back untouched. Your own
 comments edit the same way from `A` → Edit a comment.
 
 In the `c` composer (`ctrl+s` posts, `enter` is a newline; `esc` asks once before dropping what you wrote; a post that fails keeps the text for the next `c`), `@` and a few letters list matching users;
-`ctrl+n`/`ctrl+p` pick, `tab` inserts a mention that notifies them. `ctrl+o` steps who
+`↑`/`↓` (or `ctrl+p`/`ctrl+n`) pick, `tab` or `enter` inserts a mention that notifies them,
+`esc` closes the list. `:` and two letters list emoji the same way, here and in the
+description editor: the best match first (`:smle` finds `:smile:`), the ones you use
+most above the rest; a `:shortcode:` posts as Jira's emoji. `ctrl+o` steps who
 the comment is for: everyone, an internal note (Service Desk projects) or one
 project role.
 

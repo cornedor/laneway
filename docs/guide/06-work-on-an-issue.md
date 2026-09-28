@@ -67,7 +67,8 @@ While it runs, its card shows how it's doing:
 | `○` | idle |
 | `◌` | a worktree without an agent |
 
-`S` again, or a click on the mark, attaches to its terminal; herdr's
+`S` again, a click on the mark, or a click on the agent's row in the
+panel, attaches to its terminal; herdr's
 `ctrl+b q` detaches. Rather keep the board in sight? `ui.agent_view: panel`
 puts the agent in the panel instead, and `ctrl+\` goes back to the issue.
 In the panel, `A` sends an agent a prompt, stops it, or starts another in

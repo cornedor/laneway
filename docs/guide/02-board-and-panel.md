@@ -80,6 +80,9 @@ In the panel:
 > with the mouse. laneway remembers the width. Drag over the panel's text
 > to select it; letting go copies it.
 
+> **Tip:** not sure what takes a click? Move the mouse over it: what a
+> click would do is underlined, and the pointer turns to a hand.
+
 ## Go anywhere
 
 - `#` jumps to any issue by key, or by a pasted Jira URL.
