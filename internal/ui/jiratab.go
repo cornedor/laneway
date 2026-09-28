@@ -1300,6 +1300,9 @@ func (m Model) showJiraKey(key string) (tea.Model, tea.Cmd) {
 		delete(m.jiraTab.highlights, key)
 		m.jiraTab.rows = nil
 	}
+	if key != m.agentTermKey {
+		m.closeAgentPanel()
+	}
 	refs := []reference{{kind: refJira, jiraKey: key}}
 	m.refOpen = true
 	m.refs = refs

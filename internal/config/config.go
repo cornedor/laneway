@@ -189,6 +189,9 @@ type UIConfig struct {
 	FlagValue string `yaml:"flag_value"`
 	// WorkAgent is the herdr agent kind start work launches ("claude").
 	WorkAgent string `yaml:"work_agent"`
+	// AgentView is where an attached agent shows: fullscreen (laneway steps
+	// aside) or panel (in the issue panel).
+	AgentView string `yaml:"agent_view"`
 	// WorkArgs are arguments the agent gets before the start prompt, with
 	// {key} replaced ([--append-system-prompt, "User is working on {key}"]).
 	WorkArgs []string `yaml:"work_args"`

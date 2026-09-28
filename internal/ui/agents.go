@@ -163,7 +163,8 @@ type agentAttachedMsg struct {
 }
 
 // attachAgent opens the agent's terminal in pane: inside herdr by focusing
-// it, else by handing the terminal to herdr agent attach until it detaches.
+// it, else in the panel (ui.agent_view: panel) or by handing the terminal
+// to herdr agent attach until it detaches.
 func (m *Model) attachAgent(key, pane string) tea.Cmd {
 	if m.herdr == nil {
 		m.status = "attach needs herdr running"
@@ -175,6 +176,9 @@ func (m *Model) attachAgent(key, pane string) tea.Cmd {
 		return nil
 	}
 	done := func(err error) tea.Msg { return agentAttachedMsg{key: key, err: err} }
+	if os.Getenv("HERDR_ENV") != "1" && m.opts.agentView == "panel" {
+		return m.openAgentPanel(key, pane, bin)
+	}
 	if os.Getenv("HERDR_ENV") == "1" {
 		cmd := herdrCommand(bin, m.herdr.Path(), "agent", "focus", pane)
 		m.status = key + ": focusing its agent"

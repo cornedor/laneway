@@ -40,6 +40,7 @@ type options struct {
 	branchTemplate  string              // copy_branch's name
 	workBranch      string              // start work's new branch
 	workAgent       string              // the herdr agent kind start work launches
+	agentView       string              // where an attached agent shows: fullscreen or panel
 	workArgs        []string            // its arguments before the start prompt
 	workCreate      []string            // the command that makes a missing worktree, nil: herdr's
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
@@ -73,7 +74,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -130,6 +131,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		} else {
 			o.doubleClick = d
 		}
+	}
+	switch v := strings.ToLower(strings.TrimSpace(c.AgentView)); v {
+	case "":
+	case "fullscreen", "panel":
+		o.agentView = v
+	default:
+		warn = append(warn, fmt.Sprintf("ui.agent_view: %q is not fullscreen or panel", c.AgentView))
 	}
 	switch v := strings.ToLower(strings.TrimSpace(c.CardColors)); v {
 	case "":

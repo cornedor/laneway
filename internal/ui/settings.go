@@ -72,6 +72,7 @@ var settingDefaults = map[string]string{
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
+	"agent_view":           "fullscreen",
 	"work_args":            "none",
 	"work_create":          "herdr creates the worktree",
 	"code_theme":           "the preset's, else monokai",

@@ -64,6 +64,7 @@ type keyMap struct {
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
+	AgentBack                          key.Binding // out of the agent's terminal in the panel
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -172,6 +173,7 @@ func defaultKeys() keyMap {
 		Notes:           bind("private notes on the issue ($EDITOR)", "N"),
 		Ask:             bind("ask ui.llm about the issue", "ctrl+a"),
 		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
+		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -352,7 +354,12 @@ type Model struct {
 	// agentPane is the agent the prompt being typed goes to; workKind the
 	// agent kind start work launches once its prompt is typed.
 	agentPane, workKind string
-	started             time.Time
+	// agentTerm is the agent attached in the panel (agent_panel.go), for
+	// agentTermKey; agentTermDrag a drag the agent takes.
+	agentTerm     *termSession
+	agentTermKey  string
+	agentTermDrag bool
+	started       time.Time
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -537,6 +544,9 @@ func (m *Model) resize() {
 	_, refW := m.jiraListWidth(m.width)
 	m.refView.SetWidth(max(refW-4, 1))
 	m.sizeRefView()
+	if m.agentTerm != nil {
+		m.agentTerm.resize(m.agentTermSize())
+	}
 	m.renderJira()
 	m.renderRef()
 	m.fitImageView()
@@ -586,6 +596,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseClickMsg:
 		return m.handleClick(msg)
 	case tea.MouseMotionMsg:
+		if m.agentTermDrag {
+			m.agentTermDragTo(msg.Mouse(), false)
+			return m, nil
+		}
 		if m.panelResizing {
 			return m.resizePanel(msg.X)
 		}
@@ -607,6 +621,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tea.MouseReleaseMsg:
+		if m.agentTermDrag {
+			m.agentTermDragTo(msg.Mouse(), true)
+			return m, nil
+		}
 		if m.panelSel.held {
 			return m.endPanelSel()
 		}
@@ -629,6 +647,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.PasteMsg:
+		if m.agentTermShown() && m.focus == focusRef && !m.modalOpen() {
+			m.agentTerm.paste(msg.Content)
+			return m, nil
+		}
 		if m.descEdit != nil {
 			var cmd tea.Cmd
 			m.descEdit.input, cmd = m.descEdit.input.Update(msg)
@@ -735,6 +757,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleAgentAttached(msg)
 	case agentDoneMsg:
 		return m.handleAgentDone(msg)
+	case termOutputMsg:
+		return m.handleTermOutput(msg.t, false)
+	case termExitMsg:
+		return m.handleTermOutput(msg.t, true)
 	case paletteSearchMsg:
 		return m.handlePaletteSearch(msg)
 	case paletteFoundMsg:
@@ -865,6 +891,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleJiraCommentKey(msg)
 	case m.jiraForm != nil:
 		return m.handleJiraFormKey(msg)
+	case m.focus == focusRef && m.agentTermShown():
+		return m.handleAgentTermKey(msg)
 	case m.focus == focusRef && m.refOpen:
 		return m.handleRefKey(msg)
 	case m.jiraTab.searching:
@@ -937,10 +965,13 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		m.panelResizing, m.panelResizeFrom = true, m.opts.panelPct // the panel's left border: drag to resize
 		return m, nil
 	}
-	if m.refOpen && msg.X == m.width-1 && m.onPanelScrollbar(msg.Y) {
+	if m.refOpen && !m.agentTermShown() && msg.X == m.width-1 && m.onPanelScrollbar(msg.Y) {
 		m.panelScrolling, m.panelScrollFrom = true, m.refView.YOffset() // the scrollbar: jump there, drag to scroll
 		m.scrollPanelTo(msg.Y)
 		return m, nil
+	}
+	if listW, _ := m.jiraListWidth(m.width); m.agentTermShown() && msg.X > listW {
+		return m.clickAgentPanel(msg)
 	}
 	if listW, _ := m.jiraListWidth(m.width); m.refOpen && msg.X >= listW {
 		m.focus = focusRef
@@ -988,6 +1019,9 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if m.agentTermShown() && !m.modalOpen() && m.agentTermWheel(msg) {
+		return m, nil
+	}
 	if m.pickerOnTop() {
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -1061,7 +1095,9 @@ func (m Model) View() tea.View {
 	}
 	status := st.Render(ansi.Truncate(" "+m.status, m.width, "…"))
 	v.SetContent(lipgloss.JoinVertical(lipgloss.Left, body, status))
-	if cx, cy, ok := m.inlineEditorCursor(); ok {
+	if cx, cy, ok := m.agentTermCursor(); ok {
+		v.Cursor = tea.NewCursor(cx, cy)
+	} else if cx, cy, ok := m.inlineEditorCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)
 	} else if m.descEdit != nil && !m.descEditInline() {
 		if cx, cy, ok := m.modalComposerCursor(0, &m.descEdit.input); ok {

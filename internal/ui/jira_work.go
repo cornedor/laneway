@@ -57,6 +57,9 @@ func (m *Model) startJiraWork() tea.Cmd {
 		m.status = "start work needs herdr running"
 		return nil
 	}
+	if as := m.agents[iss.Key]; len(as) > 0 {
+		return m.attachAgent(iss.Key, as[0].PaneID)
+	}
 	project, _, _ := strings.Cut(iss.Key, "-")
 	if m.jiraRepos[project] == "" {
 		m.status = "no jira.repos entry for " + project
@@ -64,9 +67,6 @@ func (m *Model) startJiraWork() tea.Cmd {
 	}
 	if m.jiraStarting[iss.Key] {
 		return nil
-	}
-	if as := m.agents[iss.Key]; len(as) > 0 {
-		return m.attachAgent(iss.Key, as[0].PaneID)
 	}
 	m.startJiraPicker(jiraPickAgentKind, "Start work on "+iss.Key+": which agent", false)
 	items := []jiraPickerItem{{id: m.opts.workAgent, label: m.opts.workAgent, current: true}}

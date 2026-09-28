@@ -77,6 +77,7 @@ func (m *Model) closeRef() {
 		return
 	}
 	m.refOpen = false
+	m.closeAgentPanel()
 	m.refs = nil
 	m.refBack = nil
 	m.sizeRefView()
@@ -394,6 +395,9 @@ func orDash(s string) string {
 // renderRefPane draws the bordered side pane: a title row + the scrollable
 // detail viewport, with a scrollbar on the right border.
 func (m *Model) renderRefPane(height, width int) string {
+	if m.agentTermShown() {
+		return m.renderAgentPane(height, width)
+	}
 	innerH := max(height, 1)
 	width = max(width, refPaneMinWidth)
 

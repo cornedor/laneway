@@ -99,6 +99,7 @@ func (m *Model) helpSections() []struct {
 			row(k.DevInfo, "pull requests, builds, deploys, branches, commits"),
 			row(k.Pin, "pin: first in the palette"),
 			row(k.JiraStart, "start work, or attach to its agent"),
+			row(k.AgentBack, "from the agent in the panel back to its issue"),
 			row(k.OpenAttach, "open in browser"),
 			{join(k.CopyKey, k.CopyURL), "copy key / URL"},
 			row(k.CopyBranch, "copy branch name"),

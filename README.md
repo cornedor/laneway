@@ -127,6 +127,7 @@ ui:
   full_refresh: 10m             # idle refreshes fetch changes only, whole again after this
   flag_value: Impediment        # the Flagged option A → flag sets
   work_agent: claude            # the herdr agent S offers first
+  agent_view: panel             # an attached agent in the panel; fullscreen (default) hands it the screen
   work_args: [--append-system-prompt, "User is working on {key}"]  # its arguments before the prompt
   work_create: [wt, switch, --create, "{branch}", --base, "{base}", --no-cd]  # makes a missing worktree; unset: herdr
   code_theme: monokai           # chroma style for code blocks; default follows theme's preset
@@ -499,8 +500,12 @@ starts an agent there. It asks which one (the kinds on your PATH,
   desktop notification), `✓` done and not yet looked at, `○` idle, a count
   when there are several (worst first); a dim `◌` for a worktree without one.
 - `S` on an issue whose agent runs attaches to its terminal (`herdr agent
-  attach`; laneway returns when you detach), as does `enter` on its `agent`
-  row in the palette. Inside herdr it focuses the agent's pane instead.
+  attach`), as does `enter` on its `agent` row in the palette. By default
+  it takes the screen until you detach (herdr's `ctrl+b q`). With
+  `ui.agent_view: panel` it opens in the panel, under a strip for its
+  issue: keys, paste and the mouse go to the agent, and `ctrl+\` or a
+  click on the strip goes back to the issue. Inside herdr it focuses the
+  agent's pane instead.
 - The panel lists the issue's agents; `A` attaches to one, sends it a
   prompt, stops it (closing its tab) or starts another in its worktree.
 - On a done issue, `A` → *Remove its worktree* removes the checkout once

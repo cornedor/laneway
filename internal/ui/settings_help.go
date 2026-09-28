@@ -62,6 +62,7 @@ var settingDocs = map[string]string{
 	"custom_fields":        "Jira fields by name that cards show and / searches",
 	"flag_value":           "the Flagged field's option flagging sets",
 	"work_agent":           "the herdr agent kind S launches",
+	"agent_view":           "where an attached agent shows: fullscreen or in the panel",
 	"work_args":            "the agent's arguments before the start prompt, {key} replaced",
 	"work_create":          "a command that makes a missing worktree: {branch}, {base}, {key}",
 	"code_theme":           "the chroma style code blocks use",
@@ -80,6 +81,8 @@ func settingChoices(name string) []string {
 		return []string{"lanes", "list"}
 	case "card_colors":
 		return []string{"ribbon", "off"}
+	case "agent_view":
+		return []string{"fullscreen", "panel"}
 	case "icons":
 		return []string{"nerd", "plain"}
 	case "empty_fields":
