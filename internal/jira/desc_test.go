@@ -46,7 +46,8 @@ func TestEditableDescription(t *testing.T) {
 // TestEditableDescriptionKeeps: blocks markdown can't keep become
 // placeholder lines, and saving puts them back untouched, wherever the
 // line was moved; a deleted line drops its block. A mention stays inline
-// as ⟦N @name⟧, its paragraph editable around it.
+// as ⟦N @name⟧, its paragraph editable around it; stars that are text are
+// escaped.
 func TestEditableDescriptionKeeps(t *testing.T) {
 	table := `{"type":"table","attrs":{"layout":"default"},"content":[{"type":"tableRow","content":[]}]}`
 	mention := `{"type":"paragraph","content":[{"type":"text","text":"ping "},{"type":"mention","attrs":{"id":"x","text":"@Ann"}}]}`
@@ -58,8 +59,8 @@ func TestEditableDescriptionKeeps(t *testing.T) {
 	}
 	want := "intro\n\n<!-- keep:1 table: move or delete this line -->\n\n" +
 		"ping ⟦2 @Ann⟧\n\n" +
-		"<!-- keep:3 paragraph: move or delete this line -->"
-	if ed.Markdown != want || len(ed.Kept) != 3 {
+		`5 \* 3 \* 2`
+	if ed.Markdown != want || len(ed.Kept) != 2 {
 		t.Fatalf("markdown:\n%s\nkept %d", ed.Markdown, len(ed.Kept))
 	}
 	edited := "hey ⟦2 renamed⟧, ⟦1 not inline⟧ **ok**\n\nnew intro\n\n<!-- keep:1 table -->"
@@ -72,6 +73,30 @@ func TestEditableDescriptionKeeps(t *testing.T) {
 		`{"text":", ⟦1 not inline⟧ ","type":"text"},{"marks":[{"type":"strong"}],"text":"ok","type":"text"}],"type":"paragraph"}`
 	if len(got.Content) != 3 || string(got.Content[0]) != para || string(got.Content[2]) != table {
 		t.Errorf("saved = %s", out)
+	}
+}
+
+// TestEditableEscapes: text that reads as markdown ("**not bold**", "# 1",
+// a backslash) edits escaped and saves as it was, not as a placeholder
+// that would bring the old text back.
+func TestEditableEscapes(t *testing.T) {
+	for _, text := range []string{"before edit **bold**", "# not a heading", "- not a list", "1. no", "a \\ b `c` [d] ~~e~~", "<!-- keep:1 x -->"} {
+		raw, _ := json.Marshal(map[string]any{"type": "doc", "version": 1, "content": []any{
+			map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": text}}}}})
+		ed, err := EditableDescription(raw)
+		if err != nil || len(ed.Kept) != 0 {
+			t.Errorf("%q: %q, kept %d, %v", text, ed.Markdown, len(ed.Kept), err)
+			continue
+		}
+		back, _ := json.Marshal(MarkdownToADFKept(ed.Markdown, ed.Kept))
+		if got := adfToMarkdown(back); got != text {
+			t.Errorf("%q came back %q (edited as %q)", text, got, ed.Markdown)
+		}
+	}
+	// Bold stays bold, around escaped text.
+	doc, _ := json.Marshal(MarkdownToADF(`**5 \* 3** \[x]`))
+	if got := string(doc); !strings.Contains(got, `"text":"5 * 3"`) || !strings.Contains(got, `"text":" [x]"`) {
+		t.Errorf("escapes = %s", got)
 	}
 }
 

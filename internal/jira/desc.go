@@ -140,12 +140,12 @@ func EditableDescription(raw json.RawMessage) (Editable, error) {
 	var b strings.Builder
 	for i, n := range doc.Content {
 		if editableBlock(n) {
-			writeBlock(&b, n, "")
+			writeBlock(&b, escapeTexts(n), "")
 			continue
 		}
 		had := len(ed.Kept)
 		if sub := keepInlines(n, &ed.Kept); editableBlock(sub) {
-			writeBlock(&b, sub, "")
+			writeBlock(&b, escapeTexts(sub), "")
 			continue
 		}
 		ed.Kept = ed.Kept[:had]
@@ -247,11 +247,57 @@ func editableBlock(n adfNode) bool {
 		return false
 	}
 	var b strings.Builder
-	writeBlock(&b, n, "")
+	writeBlock(&b, escapeTexts(n), "")
 	back, _ := json.Marshal(MarkdownToADF(b.String()))
 	var again adfNode
 	_ = json.Unmarshal(back, &again)
 	return canon(adfNode{Type: "doc", Content: []adfNode{n}}) == canon(again)
+}
+
+// escapeTexts is n with a backslash before each character of its text
+// that markdown would read as markup: *, ~, `, [ and \ anywhere, and what
+// would start a block (#, >, -, +, 1.) at a line's start. Text a comment
+// posted as plain words ("**not bold**") so edits as it was. Code keeps
+// its text as is.
+func escapeTexts(n adfNode) adfNode {
+	if n.Type == "codeBlock" || len(n.Content) == 0 {
+		return n
+	}
+	out := n
+	out.Content = make([]adfNode, len(n.Content))
+	start := true // at a line's start: the block's, or after a hard break
+	for i, c := range n.Content {
+		switch {
+		case c.Type == "text" && !slices.ContainsFunc(c.Marks, func(mk adfMark) bool { return mk.Type == "code" }):
+			c.Text = escapeMD(c.Text, start)
+		case c.Type != "text":
+			c = escapeTexts(c)
+		}
+		out.Content[i] = c
+		start = c.Type == "hardBreak" || (start && c.Type == "text" && c.Text == "")
+	}
+	return out
+}
+
+// mdBlockStart finds what would make a line a heading, quote, list or keep
+// placeholder.
+var mdBlockStart = regexp.MustCompile(`^(#|>|-|\+|<|[0-9]+\.)`)
+
+// escapeMD escapes s's markup characters; start is whether it begins a
+// line.
+func escapeMD(s string, start bool) string {
+	var b strings.Builder
+	if m := mdBlockStart.FindString(s); start && m != "" {
+		b.WriteString(m[:len(m)-1] + "\\" + m[len(m)-1:])
+		s = s[len(m):]
+	}
+	for _, r := range s {
+		if strings.ContainsRune("\\*~`[", r) {
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // blockName says what a kept block is: "table", "paragraph with a mention".
@@ -474,6 +520,11 @@ var mdSpans = []struct{ open, close, mark string }{
 	{"**", "**", "strong"}, {"~~", "~~", "strike"}, {"*", "*", "em"}, {"`", "`", "code"},
 }
 
+// isASCIIPunct is whether c may be backslash-escaped, as in CommonMark.
+func isASCIIPunct(c byte) bool {
+	return strings.IndexByte("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", c) >= 0
+}
+
 // parseInline turns a line into text nodes carrying marks (plus those of
 // the span it sits in).
 func parseInline(s string, marks []any) []any {
@@ -490,6 +541,11 @@ func parseInline(s string, marks []any) []any {
 		}
 	}
 	for i := 0; i < len(s); {
+		if s[i] == '\\' && i+1 < len(s) && isASCIIPunct(s[i+1]) { // an escape: the character itself
+			text += s[i+1 : i+2]
+			i += 2
+			continue
+		}
 		if s[i] == '[' {
 			if end := strings.Index(s[i:], "]("); end > 0 {
 				if close := strings.IndexByte(s[i+end:], ')'); close > 0 {
