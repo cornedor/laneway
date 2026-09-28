@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -29,6 +30,7 @@ func main() {
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
 	site := flag.String("site", "", "Jira site from the config's sites: (default the one last picked with @, else jira:)")
 	flag.Parse()
+	version = buildVersion(version)
 	if *showVersion {
 		fmt.Println("laneway", version)
 		return
@@ -169,7 +171,7 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).WithIndex(ix).
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).WithIndex(ix).WithVersion(version, upgradeCmd()).
 		WithSiteClients(func(other string) (*jira.Client, error) {
 			j, err := cfg.Site(other)
 			if err != nil || j.Check(siteName(other)) != nil {
@@ -200,4 +202,38 @@ func siteName(site string) string {
 		return "jira"
 	}
 	return "sites." + site
+}
+
+// buildVersion is the release build's version, else the module version a
+// go install records; "dev" for a local build (its VCS-stamped version
+// too: only a module download has a sum).
+func buildVersion(v string) string {
+	if v != "dev" {
+		return v
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok && goInstalled(bi) {
+		return bi.Main.Version
+	}
+	return v
+}
+
+func goInstalled(bi *debug.BuildInfo) bool {
+	return bi.Main.Sum != "" && bi.Main.Version != "" && bi.Main.Version != "(devel)"
+}
+
+// upgradeCmd is the command that updates this binary, from where it was
+// installed; "" when unknown.
+func upgradeCmd() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	exe, _ = filepath.EvalSymlinks(exe)
+	if strings.Contains(exe, "/Caskroom/") || strings.Contains(exe, "/homebrew/") || strings.Contains(exe, "/linuxbrew/") {
+		return "brew upgrade laneway"
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok && goInstalled(bi) {
+		return "go install github.com/cornedor/laneway@latest"
+	}
+	return ""
 }

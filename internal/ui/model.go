@@ -360,6 +360,10 @@ type Model struct {
 	agentTermKey  string
 	agentTermDrag bool
 	started       time.Time
+	// version is the running build's; upgradeCmd the command that updates
+	// it, "" for the release page; newRelease a newer release, once seen
+	// (update_check.go).
+	version, upgradeCmd, newRelease string
 	// panelExtra is panelExtraKey's other editable fields (editmeta);
 	// panelEditID is the one being edited.
 	panelExtra    []jiraFormField
@@ -529,7 +533,7 @@ func (m Model) WithIndex(ix *index.Index) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease())
 }
 
 // bodyH is the rows above the status line.
@@ -805,6 +809,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMutated(msg)
 	case branchIssueMsg:
 		return m.handleBranchIssue(msg)
+	case releaseMsg:
+		m.handleRelease(msg)
+		return m, nil
 	case labelTickMsg:
 		return m.handleLabelTick(msg)
 	case labelsFoundMsg:

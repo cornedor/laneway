@@ -211,6 +211,9 @@ type UIConfig struct {
 	// Delight is "on" (small celebrations: confetti on a card into done, a
 	// line on a completed sprint) or "off".
 	Delight string `yaml:"delight"`
+	// UpdateCheck is "on" (once a day, whether a newer release exists) or
+	// "off".
+	UpdateCheck string `yaml:"update_check"`
 	// LLM is a command that answers a prompt (its last argument) about the
 	// issue on stdin: "claude -p", "llm", "ollama run llama3". By default
 	// claude -p when claude is on the PATH.

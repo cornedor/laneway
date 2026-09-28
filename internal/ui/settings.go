@@ -47,6 +47,7 @@ var settingDefaults = map[string]string{
 	"capacity":             "none",
 	"saved_filters":        "on",
 	"delight":              "on",
+	"update_check":         "on",
 	"llm":                  "claude -p, when claude is on the PATH",
 	"branch_template":      defaultBranchTemplate,
 	"work_branch_template": "branch_template if set, else issue/{key}-{summary}",

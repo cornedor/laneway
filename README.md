@@ -43,6 +43,10 @@ go install github.com/cornedor/laneway@latest
 
 Or grab a binary from [Releases](https://github.com/cornedor/laneway/releases).
 
+Once a day laneway looks for a newer release; one shows as `↑ v1.2` in the
+header, and the palette (`:`) has its upgrade command. `ui.update_check: off`
+stops it.
+
 ## Config
 
 The first `laneway` asks for your Jira (`acme` or its URL), email and an
@@ -96,6 +100,7 @@ ui:
   activity: [~/bin/claude-activity]  # p in W: commands printing "time<TAB>key" lines of a day's work
   llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off
+  update_check: on              # a daily look for a newer release, ↑ in the header; off
   double_click: 400ms           # how quickly a second click opens (100ms–2s)
   icons: nerd                   # issue type glyphs need a Nerd Font; plain draws letters (B S E ↳ •)
   empty_fields: show            # hide folds the panel's empty fields behind a row (a click or : shows them)

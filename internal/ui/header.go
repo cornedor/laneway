@@ -77,6 +77,9 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	if m.branchKey != "" {
 		segs = append(segs, plainSeg(dim("  ·  ")), headSeg{s: dim("⎇ " + m.branchKey), kind: "branch"})
 	}
+	if m.newRelease != "" {
+		segs = append(segs, plainSeg(dim("  ·  ")+jiraOverStyle.Render("↑ "+m.newRelease)))
+	}
 	segs = append(segs, plainSeg(dim("  ·  ")))
 	for i, h := range []struct {
 		b    key.Binding

@@ -146,6 +146,9 @@ func (m *Model) openPalette() {
 	if m.lastDownload != "" {
 		items = append(items, jiraPickerItem{id: "d:", label: "open download  " + filepath.Base(m.lastDownload)})
 	}
+	if m.newRelease != "" {
+		items = append(items, jiraPickerItem{id: "u:", label: "update  " + m.newRelease + " is out  " + m.upgradeHint(), search: "upgrade release version"})
+	}
 	items = append(items, jiraPickerItem{id: "m:", label: fmt.Sprintf("messages  the status line's last %d", len(m.statusLog))})
 	if m.queued > 0 {
 		items = append(items, jiraPickerItem{id: "w:", label: fmt.Sprintf("queue  %s waiting to reach Jira", plural(m.queued, "write")), search: "offline"})
@@ -229,6 +232,8 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 		return m, m.openOpenable(openable{name: filepath.Base(m.lastDownload), url: m.lastDownload})
 	case "k":
 		return m, m.openWorkView()
+	case "u":
+		return m, m.upgrade()
 	case "g":
 		k, pane, _ := strings.Cut(arg, ":")
 		return m, m.attachAgent(k, pane)

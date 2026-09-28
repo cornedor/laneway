@@ -56,6 +56,7 @@ var settingDocs = map[string]string{
 	"mouse":                "clicks, drags and the wheel; off leaves the mouse to the terminal",
 	"llm":                  "a command answering ctrl+a's questions about the issue, piped on stdin",
 	"delight":              "small celebrations: confetti on a card into done, a line on a completed sprint",
+	"update_check":         "once a day, whether a newer release exists; never on a dev build",
 	"double_click":         "how quickly a second click makes a double-click (100ms–2s)",
 	"icons":                "issue type icons: Nerd Font glyphs, or letters for fonts without them",
 	"empty_fields":         "every editable field in the panel, or empty ones folded behind a row",
@@ -87,7 +88,7 @@ func settingChoices(name string) []string {
 		return []string{"nerd", "plain"}
 	case "empty_fields":
 		return []string{"show", "hide"}
-	case "saved_filters", "mouse", "delight":
+	case "saved_filters", "mouse", "delight", "update_check":
 		return []string{"on", "off"}
 	case "timer_on_start", "start_assigns":
 		return []string{"off", "on"}
