@@ -87,6 +87,7 @@ func (m *Model) openTeamStandup(since time.Time, byPerson bool) tea.Cmd {
 		ids[i] = p.id
 	}
 	cols, head, stale := m.teamColumns(), m.teamHeader(now), m.opts.staleDays
+	projects := teamProjects(cols, m.jiraTab.project)
 	group := jiraPickerItem{id: "group", label: "By person"}
 	if byPerson {
 		group.label = "Walk the board"
@@ -94,7 +95,7 @@ func (m *Model) openTeamStandup(since time.Time, byPerson bool) tea.Cmd {
 	steps := append(m.standupSteps(since, now), group, jiraPickerItem{id: "me", label: "Just me"})
 	return func() tea.Msg {
 		entries, err := c.TeamStandup(ctx, since, ids)
-		rows, text := teamWalk(cols, entries, byPerson, stale, since, now)
+		rows, folded, text := teamWalk(cols, entries, projects, byPerson, stale, since, now)
 		items := append([]jiraPickerItem{{id: "copy", label: "Copy as text"}}, steps...)
 		items = append(items, rows...)
 		title := "Team standup — since " + standupDay(since, now)
@@ -103,7 +104,7 @@ func (m *Model) openTeamStandup(since time.Time, byPerson bool) tea.Cmd {
 			text = head + "\n\n" + text
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStandup, items: items, err: err,
-			title: title + "  ·  U further back", text: text}
+			title: title + "  ·  U further back", text: text, folded: folded}
 	}
 }
 
@@ -114,11 +115,40 @@ type teamCard struct {
 	events []jira.InboxEntry
 }
 
-// teamWalk is the Team standup's rows and text: the columns right to left
-// (or byPerson, each person's cards in that order), then activity on issues
-// not on the board. A done or not started card shows only when something
-// happened on it, or it is flagged; one in progress always does.
-func teamWalk(cols []teamColumn, entries []jira.InboxEntry, byPerson bool, stale int, since, now time.Time) ([]jiraPickerItem, string) {
+// teamProjects are the projects of the board's cards, and project.
+func teamProjects(cols []teamColumn, project string) []string {
+	var out []string
+	if project != "" {
+		out = append(out, project)
+	}
+	for _, col := range cols {
+		for _, c := range col.cards {
+			if p, _, ok := strings.Cut(c.Key, "-"); ok && !slices.Contains(out, p) {
+				out = append(out, p)
+			}
+		}
+	}
+	return out
+}
+
+// teamDid is whether events hold something someone did: a comment, logged
+// work, a commit, a move. Field edits alone are left to bulk changes.
+func teamDid(events []jira.InboxEntry) bool {
+	return slices.ContainsFunc(events, func(e jira.InboxEntry) bool {
+		if e.Logged > 0 || len(e.Changes) == 0 {
+			return true // a worklog, comment, commit or other note
+		}
+		return slices.ContainsFunc(e.Changes, func(ch jira.Change) bool { return ch.Field == "status" && ch.From != ch.To })
+	})
+}
+
+// teamWalk is the Team standup's rows, the Off the board rows kept folded
+// behind the one row that shows them, and the text: the columns right to
+// left (or byPerson, each person's cards in that order), then what was done
+// on the board's projects' other issues. A done or not started card shows
+// only when something happened on it, or it is flagged; one in progress
+// always does.
+func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, byPerson bool, stale int, since, now time.Time) (items, folded []jiraPickerItem, _ string) {
 	byKey := map[string][]jira.InboxEntry{}
 	for _, e := range entries {
 		byKey[e.Key] = append(byKey[e.Key], e)
@@ -133,7 +163,6 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, byPerson bool, stale
 			}
 		}
 	}
-	var items []jiraPickerItem
 	var text strings.Builder
 	section := func(name string, list []teamCard, row func(teamCard) string) {
 		if len(list) == 0 {
@@ -190,28 +219,34 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, byPerson bool, stale
 			})
 		}
 	}
-	// Activity on issues the board doesn't show, by issue.
+	// What was done on the projects' issues the board doesn't show, by
+	// issue, folded: it is for after the walk.
 	var off []teamCard
 	for _, e := range entries {
-		if onBoard[e.Key] || slices.ContainsFunc(off, func(tc teamCard) bool { return tc.card.Key == e.Key && e.Key != "" }) {
+		p, _, _ := strings.Cut(e.Key, "-")
+		if e.Key == "" || onBoard[e.Key] || !slices.Contains(projects, p) || !teamDid(byKey[e.Key]) ||
+			slices.ContainsFunc(off, func(tc teamCard) bool { return tc.card.Key == e.Key }) {
 			continue
 		}
 		off = append(off, teamCard{card: jira.Card{Key: e.Key, Summary: e.Summary}, events: byKey[e.Key]})
 	}
-	section("Off the board", off, func(tc teamCard) string {
-		var who []string
-		for _, e := range tc.events {
-			if !slices.Contains(who, e.Who) {
-				who = append(who, e.Who)
-			}
-		}
-		return teamRow(tc, strings.Join(who, ", "), stale, now)
-	})
 	if len(items) == 0 {
 		items = append(items, jiraPickerItem{label: "nothing in progress, nothing since " + standupDay(since, now)})
 		text.WriteString("nothing since " + standupDay(since, now))
 	}
-	return items, strings.TrimSpace(text.String())
+	if len(off) > 0 {
+		items = append(items, jiraPickerItem{id: "unfold", label: fmt.Sprintf("── Off the board (%d)%s", len(off), jiraUnfoldHint)})
+		for _, tc := range off {
+			var who []string
+			for _, e := range tc.events {
+				if !slices.Contains(who, e.Who) {
+					who = append(who, e.Who)
+				}
+			}
+			folded = append(folded, jiraPickerItem{id: tc.card.Key, label: "  " + teamRow(tc, strings.Join(who, ", "), stale, now)})
+		}
+	}
+	return items, folded, strings.TrimSpace(text.String())
 }
 
 // teamRow is a card's line: title, who (or its column), how long in

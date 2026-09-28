@@ -158,6 +158,7 @@ type jiraPickerState struct {
 	all         []jiraPickerItem // a locally filtered picker's full list
 	bulk        []string         // the marked keys a pick applies to, none for one issue
 	text        string           // the standup's text (standup.go)
+	folded      []jiraPickerItem // what the "unfold" row shows
 	// day is the timesheet's day; pendingDelete the entry a first d picked
 	// (worklog.go).
 	day           time.Time
@@ -187,6 +188,8 @@ type jiraPickerLoadedMsg struct {
 	projects []jira.Project
 	title    string // replaces the picker's title when set
 	text     string // the standup as text, for its copy row
+	// folded are rows the row with id "unfold" shows when picked.
+	folded []jiraPickerItem
 }
 
 // jiraAssigneeDebounceMsg fires after the debounce window to run the pending
@@ -438,7 +441,7 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 	if msg.title != "" {
 		m.jiraPicker.title = msg.title
 	}
-	m.jiraPicker.text = msg.text
+	m.jiraPicker.text, m.jiraPicker.folded = msg.text, msg.folded
 	m.setJiraPickerItems(msg.items)
 	return m, nil
 }
@@ -457,6 +460,25 @@ func (p *jiraPickerState) emptyText() string {
 
 // setJiraPickerItems fills an open picker and parks the cursor on the current
 // value (when present).
+// unfoldJiraPicker puts the folded rows under the "unfold" row, the
+// cursor staying on it.
+func (m *Model) unfoldJiraPicker() {
+	p := &m.jiraPicker
+	i := slices.IndexFunc(p.all, func(it jiraPickerItem) bool { return it.id == "unfold" })
+	if i < 0 {
+		return
+	}
+	all := slices.Clone(p.all)
+	all[i].id, all[i].label = "", strings.TrimSuffix(all[i].label, jiraUnfoldHint)
+	all = slices.Insert(all, i+1, p.folded...)
+	p.folded = nil
+	m.setJiraPickerItems(all)
+	m.jiraPicker.idx = i
+}
+
+// jiraUnfoldHint ends an "unfold" row's label.
+const jiraUnfoldHint = " · ↵ shows them"
+
 func (m *Model) setJiraPickerItems(items []jiraPickerItem) {
 	m.jiraPicker.loading = false
 	m.jiraPicker.items = items
@@ -763,6 +785,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			day = nextWorkday(m.jiraPicker.day, m.opts.workdays)
 		}
 		return m, m.openStandupSince(day, m.jiraPicker.team)
+	}
+	if it.id == "unfold" {
+		m.unfoldJiraPicker()
+		return m, nil
 	}
 	if kind == jiraPickStandup && it.id == "group" {
 		return m, m.openTeamStandup(m.jiraPicker.day, !m.jiraPicker.byPerson)
