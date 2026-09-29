@@ -65,10 +65,19 @@ type jiraFormState struct {
 	// create is the issue a failed create would make: the form asks for the
 	// fields it lacked, and key is the create box's title (jira_create.go).
 	create *jiraFormCreate
-	// firstRow is the first field's line inside the box, as last drawn; the
-	// button sits a blank line after the last field (clickJiraForm).
-	firstRow int
+	// firstRow is the first field line's row inside the box, as last drawn;
+	// rowField the field of each row from there (-1 none, editorRow the
+	// description editor's lines) and buttonRow the button's row
+	// (clickJiraForm).
+	firstRow  int
+	rowField  []int
+	buttonRow int
+	// top is the first field shown when the fields outgrow the screen.
+	top int
 }
+
+// editorRow marks rows of the multiline editor in rowField.
+const editorRow = -2
 
 // jiraFormCreate is a create waiting on the form.
 type jiraFormCreate struct {
@@ -667,18 +676,11 @@ func (m Model) clickJiraForm(x, y, count int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	row := y - top - f.firstRow
-	if f.multiline && row > f.idx { // the editor's lines sit under its row
-		h := lipgloss.Height(f.area.View())
-		if row <= f.idx+h {
-			return m, nil
-		}
-		row -= h
-	}
 	i := -1
 	switch {
-	case row >= 0 && row < len(f.fields):
-		i = row
-	case row == len(f.fields)+1:
+	case row >= 0 && row < len(f.rowField):
+		i = f.rowField[row]
+	case row == f.buttonRow:
 		i = len(f.fields)
 	}
 	if i < 0 || (f.editing && i == f.idx) {
@@ -700,6 +702,41 @@ func (m Model) clickJiraForm(x, y, count int) (tea.Model, tea.Cmd) {
 		return m, m.editJiraFormField()
 	}
 	return m, nil
+}
+
+// fieldWindow is the fields [lo, hi) that fit room lines, keeping the
+// cursor's in view (the last ones with the button focused); f.top keeps the
+// window still while the cursor moves inside it.
+func (f *jiraFormState) fieldWindow(blocks [][]string, room int) (lo, hi int) {
+	total := 0
+	for _, b := range blocks {
+		total += len(b)
+	}
+	if total <= room {
+		f.top = 0
+		return 0, len(blocks)
+	}
+	room = max(room-2, 1) // the ↑ and ↓ lines
+	cur := min(f.idx, len(blocks)-1)
+	lo = min(f.top, cur)
+	used := func(a, b int) (n int) {
+		for _, bl := range blocks[a:b] {
+			n += len(bl)
+		}
+		return n
+	}
+	for lo < cur && used(lo, cur+1) > room {
+		lo++
+	}
+	hi = cur + 1
+	for hi < len(blocks) && used(lo, hi+1) <= room {
+		hi++
+	}
+	for lo > 0 && used(lo-1, hi) <= room {
+		lo--
+	}
+	f.top = lo
+	return lo, hi
 }
 
 // renderJiraForm draws the transition form as a modal, like the pickers.
@@ -732,10 +769,9 @@ func (m *Model) renderJiraForm() string {
 	}
 	cursor := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
 	parts = append(parts, "")
-	f.firstRow = 2 // the border and the padding
-	for _, p := range parts {
-		f.firstRow += lipgloss.Height(p)
-	}
+	// Each field's lines, windowed below once the rest is measured.
+	blocks := make([][]string, len(f.fields))
+	areaAt := -1 // the editor's first line in its block
 	for i, ff := range f.fields {
 		if ff.ID == createMoreField {
 			label := refDimStyle.Render(ff.Name)
@@ -744,7 +780,7 @@ func (m *Model) renderJiraForm() string {
 			} else {
 				label = "  " + label
 			}
-			parts = append(parts, label)
+			blocks[i] = []string{label}
 			continue
 		}
 		name := ff.Name
@@ -756,16 +792,15 @@ func (m *Model) renderJiraForm() string {
 		switch {
 		case f.multiline && i == f.idx:
 			f.area.SetWidth(max(inner-4, 8))
-			parts = append(parts, cursor.Render("▸ "+name))
-			m.formArea = &point{x: 1 + 3 + 2, y: 1 + 1 + lipgloss.Height(strings.Join(parts, "\n"))} // border, padding, "  "
+			blocks[i] = []string{cursor.Render("▸ " + name)}
+			areaAt = 1
 			for _, l := range strings.Split(f.area.View(), "\n") {
-				parts = append(parts, "  "+l)
+				blocks[i] = append(blocks[i], "  "+l)
 			}
 			continue
 		case f.editing && i == f.idx && (ff.ID == "labels" || ff.Clause != ""):
 			f.input.SetWidth(max(inner-2-nameW-3, 8))
-			parts = append(parts, cursor.Render("▸ "+name)+"  "+f.input.View())
-			parts = append(parts, m.labelLines(nameW+4)...)
+			blocks[i] = append([]string{cursor.Render("▸ "+name) + "  " + f.input.View()}, m.labelLines(nameW+4)...)
 			continue
 		case f.editing && i == f.idx:
 			f.input.SetWidth(max(inner-2-nameW-3, 8)) // its cell, so the cursor stays in view
@@ -787,12 +822,12 @@ func (m *Model) renderJiraForm() string {
 		}
 		val = ansi.Truncate(val, max(inner-2-nameW-2, 1), "…")
 		if i == f.idx {
-			parts = append(parts, cursor.Render("▸ "+name)+"  "+val)
+			blocks[i] = []string{cursor.Render("▸ "+name) + "  " + val}
 		} else {
-			parts = append(parts, "  "+name+"  "+val)
+			blocks[i] = []string{"  " + name + "  " + val}
 		}
 		if fe, ok := f.create.errFor(ff); ok {
-			parts = append(parts, strings.Repeat(" ", nameW+4)+refErrStyle.Render(ansi.Truncate(fe, max(inner-nameW-4, 1), "…")))
+			blocks[i] = append(blocks[i], strings.Repeat(" ", nameW+4)+refErrStyle.Render(ansi.Truncate(fe, max(inner-nameW-4, 1), "…")))
 		}
 	}
 	if f.busy {
@@ -803,12 +838,13 @@ func (m *Model) renderJiraForm() string {
 	} else {
 		button = "  " + button
 	}
+	var foot []string
 	if f.create != nil && f.create.loading {
-		parts = append(parts, refDimStyle.Render("  "+createFormType(f)+"'s fields loading…"))
+		foot = append(foot, refDimStyle.Render("  "+createFormType(f)+"'s fields loading…"))
 	}
-	parts = append(parts, "", button)
+	foot = append(foot, "", button)
 	if f.err != "" && !onCreate {
-		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
+		foot = append(foot, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
 	}
 	hint := "tab/↑↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
 	if f.create != nil {
@@ -830,7 +866,39 @@ func (m *Model) renderJiraForm() string {
 	case f.editing:
 		hint = "↵ keep · tab/↑↓ field · esc undo"
 	}
-	parts = append(parts, "", center.Foreground(dimColor).Italic(true).Render(hint))
+	foot = append(foot, "", center.Foreground(dimColor).Italic(true).Render(hint))
+
+	// The fields that fit around the cursor, the rest behind ↑/↓ counts.
+	f.firstRow = 2 // the border and the padding
+	for _, p := range parts {
+		f.firstRow += lipgloss.Height(p)
+	}
+	room := m.bodyH() - f.firstRow - 2 - lipgloss.Height(strings.Join(foot, "\n"))
+	lo, hi := f.fieldWindow(blocks, room)
+	f.rowField = nil
+	if lo > 0 {
+		parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↑ %d more", lo)))
+		f.rowField = append(f.rowField, -1)
+	}
+	for i := lo; i < hi; i++ {
+		for j, l := range blocks[i] {
+			if i == f.idx && areaAt >= 0 && j == areaAt {
+				m.formArea = &point{x: 1 + 3 + 2, y: f.firstRow + len(f.rowField)} // border, padding, "  "
+			}
+			parts = append(parts, l)
+			if i == f.idx && areaAt >= 0 && j >= areaAt {
+				f.rowField = append(f.rowField, editorRow)
+			} else {
+				f.rowField = append(f.rowField, i)
+			}
+		}
+	}
+	if hi < len(blocks) {
+		parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↓ %d more", len(blocks)-hi)))
+		f.rowField = append(f.rowField, -1)
+	}
+	f.buttonRow = len(f.rowField) + slices.Index(foot, button)
+	parts = append(parts, foot...)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
 		Render(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }

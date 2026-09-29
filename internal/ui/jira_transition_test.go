@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -157,5 +158,37 @@ func TestJiraFormMultiline(t *testing.T) {
 	out, _ = out.(Model).handleKey(keyStr("esc"))
 	if m = out.(Model); m.jiraForm == nil || m.jiraForm.fields[1].val.Text != "a\nbc" {
 		t.Errorf("esc should undo only the edit: %+v", m.jiraForm)
+	}
+}
+
+// TestJiraFormScrolls: fields past the screen hide behind ↑/↓ counts, the
+// cursor's always shown; clicks land on the rows drawn.
+func TestJiraFormScrolls(t *testing.T) {
+	m := codeReviewForm(t)
+	m.height = 24
+	m.resize()
+	for i := range 30 {
+		m.jiraForm.fields = append(m.jiraForm.fields, jiraFormField{FieldMeta: jira.FieldMeta{ID: fmt.Sprintf("customfield_%d", 100+i), Name: fmt.Sprintf("Extra %02d", i), Kind: jira.KindText}})
+	}
+	screen := func() string { return ansi.Strip(m.View().Content) }
+	if s := screen(); !strings.Contains(s, "↓ ") || strings.Contains(s, "Extra 29") || !strings.Contains(s, "Move to Code review") {
+		t.Fatalf("top:\n%s", s)
+	}
+	if n := len(strings.Split(screen(), "\n")); n > 24 {
+		t.Fatalf("%d rows on a 24-row screen", n)
+	}
+	m.jiraForm.idx = len(m.jiraForm.fields) - 1
+	if s := screen(); !strings.Contains(s, "↑ ") || !strings.Contains(s, "Extra 29") || strings.Contains(s, "Code Reviewer") {
+		t.Fatalf("bottom:\n%s", s)
+	}
+	var x, y int
+	for row, l := range strings.Split(screen(), "\n") {
+		if i := strings.Index(l, "Extra 25"); i >= 0 {
+			x, y = ansi.StringWidth(l[:i]), row
+		}
+	}
+	out, _ := m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+	if m = out.(Model); m.jiraForm.fields[m.jiraForm.idx].Name != "Extra 25" {
+		t.Errorf("click picked %q", m.jiraForm.fields[m.jiraForm.idx].Name)
 	}
 }
