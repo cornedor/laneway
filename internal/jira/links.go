@@ -3,6 +3,7 @@ package jira
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 
@@ -114,4 +115,34 @@ func issueLinks(parent *apiLinked, links []apiIssueLink, subtasks []apiLinked) [
 		out = append(out, subtasks[i].link("subtask"))
 	}
 	return out
+}
+
+// Child is an issue under an epic.
+type Child struct {
+	Key, Summary, Status, Assignee string
+	Done                           bool
+}
+
+// Children lists every issue whose parent is key, in rank order: an epic's
+// child issues, which its subtasks field does not hold.
+func (c *Client) Children(ctx context.Context, key string) ([]Child, error) {
+	raw, err := c.searchAll(ctx, "parent = "+key+" ORDER BY rank", []string{"summary", "status", "assignee"})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Child, 0, len(raw))
+	for _, is := range raw {
+		ch := Child{Key: is.Key}
+		_ = json.Unmarshal(is.Fields["summary"], &ch.Summary)
+		ch.Summary = safeterm.Line(ch.Summary)
+		ch.Status, ch.Done = statusOf(is.Fields["status"])
+		ch.Status = safeterm.Line(ch.Status)
+		var a struct {
+			DisplayName string `json:"displayName"`
+		}
+		_ = json.Unmarshal(is.Fields["assignee"], &a)
+		ch.Assignee = safeterm.Line(a.DisplayName)
+		out = append(out, ch)
+	}
+	return out, nil
 }

@@ -1340,3 +1340,31 @@ func TestClickDescriptionEdit(t *testing.T) {
 		t.Fatalf("with none, the hint should add one: %q", m.status)
 	}
 }
+
+// TestPanelEpicChildren: an epic's panel lists its children open ones first
+// under a progress count; L offers them, a click opens one.
+func TestPanelEpicChildren(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := openRefFor(m, "ABC-1")
+	out, _ = out.(Model).handleJiraLoaded(jiraLoadedMsg{gen: out.(Model).refGen, key: "ABC-1", issue: &jira.Issue{Key: "ABC-1", Summary: "s", Type: "Epic"}})
+	out, _ = out.(Model).handlePanelExtra(panelExtraMsg{key: "ABC-1", children: []jira.Child{
+		{Key: "ABC-2", Summary: "Shipped", Status: "Done", Done: true},
+		{Key: "ABC-3", Summary: "Pending", Status: "Open", Assignee: "Ann"},
+	}})
+	m = out.(Model)
+	body := strings.Join(m.panelPlain, "\n")
+	head := strings.Index(body, "Children (1/2 done)")
+	open, done := strings.Index(body, "ABC-3 Pending · Open · Ann"), strings.Index(body, "ABC-2 Shipped")
+	if head < 0 || open < head || done < open {
+		t.Fatalf("panel:\n%s", body)
+	}
+	m.openJiraLinkPicker()
+	if !slices.ContainsFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "ABC-3" }) {
+		t.Errorf("picker = %+v", m.jiraPicker.items)
+	}
+	m.jiraPicker.active = false
+	m.renderRef()
+	if m = clickText(t, m, "ABC-3 Pending"); m.currentRef().jiraKey != "ABC-3" {
+		t.Errorf("click opened %q", m.currentRef().jiraKey)
+	}
+}

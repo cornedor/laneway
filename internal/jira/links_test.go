@@ -62,3 +62,31 @@ func TestCardReporterComponents(t *testing.T) {
 		t.Errorf("card = %q %q %v", c.Reporter, c.Components, c.Created)
 	}
 }
+
+// TestChildren: an epic's children come from a parent search, with status,
+// done and assignee.
+func TestChildren(t *testing.T) {
+	var jql string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var b struct {
+			JQL string `json:"jql"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&b)
+		jql = b.JQL
+		_, _ = w.Write([]byte(`{"issues":[
+			{"key":"ABC-2","fields":{"summary":"One","status":{"name":"Done","statusCategory":{"key":"done"}},"assignee":{"displayName":"Ann"}}},
+			{"key":"ABC-3","fields":{"summary":"Two","status":{"name":"Open","statusCategory":{"key":"new"}},"assignee":null}}]}`))
+	}))
+	defer srv.Close()
+	kids, err := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"}).Children(context.Background(), "ABC-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if jql != "parent = ABC-1 ORDER BY rank" {
+		t.Errorf("jql = %q", jql)
+	}
+	want := []Child{{Key: "ABC-2", Summary: "One", Status: "Done", Assignee: "Ann", Done: true}, {Key: "ABC-3", Summary: "Two", Status: "Open"}}
+	if len(kids) != 2 || kids[0] != want[0] || kids[1] != want[1] {
+		t.Errorf("children = %+v", kids)
+	}
+}

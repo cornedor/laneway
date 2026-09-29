@@ -10,7 +10,7 @@ terminal.
 - Swim lanes or a sortable list, with drag and drop between lanes and to rank
 - Sprints, backlog and kanban boards; the board's quick filters plus your own
 - Local search, JQL with completion, a command palette, jump to any issue by key
-- Issue panel with description (edited as markdown), comments, links, subtasks, attachments and private notes; ask an LLM command about it
+- Issue panel with description (edited as markdown), comments, links, subtasks, an epic's children, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases; the board replayed day by day
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git and your agents' activity
 - Inbox of others' changes on every site; a standup of yours (commits too), or your team's walking the board
@@ -339,7 +339,7 @@ Panel:
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all
 - more: `A` holds the rest — new: subtask or epic child, clone · links: to an issue (a key or words find it as you type; the picked one shows its type, status and assignee to confirm), a web page, remove one · the issue: change its type, move it to another project, set the original estimate, time in each status, the dependency tree (blockers of blockers, and what it holds up), delete it (`enter` twice; subtasks too) · people: watch, add or remove watchers, vote · flag · files: upload, paste an image, screenshot a region (grim + slurp, gnome-screenshot, spectacle or screencapture), download or delete an attachment · your comments: edit, delete · post your notes · a draft pull request (see [Git](#git-and-your-shell))
 - `H` history ·
-  `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
+  `D` pull requests / builds / deployments / branches / commits · `*` pin (first in the palette) · `L` linked issue, epic child or web link (Confluence pages, specs) · `i` images full size (← →, or click either half or the wheel; a click below goes back)
 - mouse: drag over the panel's text (description, comments, fields) to select it, and letting go copies it; drag the panel's left border to resize it, the scrollbar to scroll; a click selects a field, a second edits it; links, activity tabs, images and key hints click, a comment's byline replies to it, the row under it replies, edits or deletes (yours; delete clicks twice), `E edit` on the Description heading edits it (`E add one` with none; a double-click on the heading too), an agent's row attaches to it. In pickers and forms a click picks and a click outside cancels (a composer keeps its text); the wheel scrolls
 - `/` find in the issue, `n`/`N` the next / previous hit (what the panel shows: the open activity tab, `all` for everything)
 - `backspace` (or a click on a ↰ strip) back to the issue a link came from · `S` start work · `o` browser · `y`/`Y` copy ·

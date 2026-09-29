@@ -372,7 +372,8 @@ type Model struct {
 	branchKey     string         // the issue of the git branch laneway started in
 	webLinks      []jira.WebLink // webLinksKey's remote links
 	webLinksKey   string
-	showEmpty     bool // the empty fields ui.empty_fields: hide folds, shown for the session
+	children      []jira.Child // webLinksKey's child issues, when it is an epic
+	showEmpty     bool         // the empty fields ui.empty_fields: hide folds, shown for the session
 	// panelHits are the panel's clickable lines by content line: a field's
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.

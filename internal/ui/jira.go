@@ -182,6 +182,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	m.renderNotes(&b, iss.Key, width)
 	m.renderAgents(&b, iss.Key, width)
 	m.renderJiraLinks(&b, iss, width)
+	m.renderChildren(&b, width)
 	m.renderWebLinks(&b, iss, width)
 	m.renderJiraAttachments(&b, iss, width)
 	m.renderJiraActivity(&b, iss, width)
@@ -259,6 +260,63 @@ func (m *Model) renderJiraLinks(b *strings.Builder, iss *jira.Issue, width int) 
 	}
 }
 
+// isEpic is whether iss is an epic, whose children are not subtasks.
+func (m *Model) isEpic(iss *jira.Issue) bool {
+	return strings.EqualFold(iss.Type, "epic") || strings.EqualFold(iss.Type, m.opts.epicType)
+}
+
+// renderChildren lists an epic's child issues, open ones first, under a
+// progress count; L picks one to open.
+func (m *Model) renderChildren(b *strings.Builder, width int) {
+	kids := m.shownChildren()
+	if len(kids) == 0 {
+		return
+	}
+	b.WriteString(sectionHead(childrenHead(kids), "  L open", width))
+	for _, ch := range kids {
+		line := jiraKeyStyle.Render(ch.Key) + " " + ch.Summary
+		meta := ch.Status
+		if ch.Assignee != "" {
+			meta += " · " + ch.Assignee
+		}
+		line += refDimStyle.Render(" · " + meta)
+		if ch.Done {
+			line = refDimStyle.Render(ansi.Strip(line))
+		}
+		b.WriteString(ansi.Truncate(line, max(width, 1), "…") + "\n")
+	}
+}
+
+// childrenHead is the Children section's label: "Children (3/8 done)".
+func childrenHead(kids []jira.Child) string {
+	done := 0
+	for _, ch := range kids {
+		if ch.Done {
+			done++
+		}
+	}
+	return fmt.Sprintf("Children (%d/%d done)", done, len(kids))
+}
+
+// shownChildren are the panel epic's child issues, open ones first, once
+// loaded.
+func (m *Model) shownChildren() []jira.Child {
+	if m.jiraIssue == nil || m.webLinksKey != m.jiraIssue.Key {
+		return nil
+	}
+	kids := slices.Clone(m.children)
+	slices.SortStableFunc(kids, func(a, b jira.Child) int {
+		switch {
+		case a.Done == b.Done:
+			return 0
+		case a.Done:
+			return 1
+		}
+		return -1
+	})
+	return kids
+}
+
 // renderWebLinks lists the issue's remote links, each opening its page.
 func (m *Model) renderWebLinks(b *strings.Builder, iss *jira.Issue, width int) {
 	links := m.shownWebLinks()
@@ -286,8 +344,8 @@ func (m *Model) shownWebLinks() []jira.WebLink {
 // openJiraLinkPicker lists the shown issue's links to jump to, and its web
 // links to open.
 func (m *Model) openJiraLinkPicker() {
-	web := m.shownWebLinks()
-	if m.jiraIssue == nil || len(m.jiraIssue.Links)+len(web) == 0 {
+	web, kids := m.shownWebLinks(), m.shownChildren()
+	if m.jiraIssue == nil || len(m.jiraIssue.Links)+len(kids)+len(web) == 0 {
 		m.status = "no links"
 		return
 	}
@@ -295,6 +353,9 @@ func (m *Model) openJiraLinkPicker() {
 	var items []jiraPickerItem
 	for _, l := range m.jiraIssue.Links {
 		items = append(items, jiraPickerItem{id: l.Key, label: l.Rel + " " + l.Key + " " + l.Summary})
+	}
+	for _, ch := range kids {
+		items = append(items, jiraPickerItem{id: ch.Key, label: "child " + ch.Key + " " + ch.Summary})
 	}
 	for _, l := range web {
 		items = append(items, jiraPickerItem{id: l.URL, label: "web " + safeterm.Line(l.Title), value: "web"})

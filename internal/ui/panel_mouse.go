@@ -116,18 +116,33 @@ func (m *Model) indexPanelHits(content string) {
 		}
 	}
 	m.indexAgentHits(lines, iss.Key)
-	if len(iss.Links) == 0 {
+	keys := make([]string, len(iss.Links))
+	for j, lk := range iss.Links {
+		keys[j] = lk.Key
+	}
+	m.indexKeyHits(lines, fmt.Sprintf("Links (%d)  L open", len(iss.Links)), keys)
+	kids := m.shownChildren()
+	keys = make([]string, len(kids))
+	for j, ch := range kids {
+		keys[j] = ch.Key
+	}
+	m.indexKeyHits(lines, childrenHead(kids)+"  L open", keys)
+}
+
+// indexKeyHits makes the section headed head press L, and the issue rows
+// under it open keys, one per row.
+func (m *Model) indexKeyHits(lines []string, head string, keys []string) {
+	if len(keys) == 0 {
 		return
 	}
-	head := fmt.Sprintf("Links (%d)  L open", len(iss.Links))
 	for i, l := range lines {
 		if strings.TrimSpace(ansi.Strip(l)) != head {
 			continue
 		}
 		m.panelHits[i] = panelHit{field: -1, press: "L"}
-		for j, lk := range iss.Links {
+		for j, k := range keys {
 			if i+1+j < len(lines) {
-				m.panelHits[i+1+j] = panelHit{field: -1, key: lk.Key}
+				m.panelHits[i+1+j] = panelHit{field: -1, key: k}
 			}
 		}
 		return

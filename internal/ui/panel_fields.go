@@ -44,6 +44,7 @@ type panelExtraMsg struct {
 	facts    jira.Facts
 	err      error
 	webLinks []jira.WebLink // its remote links; nil when they failed to load
+	children []jira.Child   // an epic's child issues; nil for other issues
 }
 
 // fetchPanelExtra loads the shown issue's other editable fields.
@@ -51,7 +52,7 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 	if m.jiraIssue == nil || !m.jiraClient.Enabled() {
 		return nil
 	}
-	c, ctx, key := m.jiraClient, m.ctx, m.jiraIssue.Key
+	c, ctx, key, epic := m.jiraClient, m.ctx, m.jiraIssue.Key, m.isEpic(m.jiraIssue)
 	return func() tea.Msg {
 		_, _ = c.Myself(ctx)     // cached: which comments are yours to edit
 		go c.WarmUsers(ctx, key) // @ in a comment answers at once
@@ -60,12 +61,20 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 			l, _ := c.WebLinks(ctx, key) // a failure only leaves them out
 			links <- l
 		}()
+		kids := make(chan []jira.Child, 1)
+		go func() {
+			var k []jira.Child
+			if epic {
+				k, _ = c.Children(ctx, key) // a failure only leaves them out
+			}
+			kids <- k
+		}()
 		metas, values, err := c.EditMeta(ctx, key)
 		fields := make([]jiraFormField, len(metas))
 		for i, fm := range metas {
 			fields[i] = jiraFormField{FieldMeta: fm, val: jira.DecodeValue(fm.Kind, values[fm.ID]), raw: values[fm.ID]}
 		}
-		return panelExtraMsg{key: key, fields: fields, facts: jira.IssueFacts(values), err: err, webLinks: <-links}
+		return panelExtraMsg{key: key, fields: fields, facts: jira.IssueFacts(values), err: err, webLinks: <-links, children: <-kids}
 	}
 }
 
@@ -76,6 +85,7 @@ func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.webLinks, m.webLinksKey = msg.webLinks, msg.key
+	m.children = msg.children
 	if msg.err != nil {
 		m.renderRef()
 		return m, nil
