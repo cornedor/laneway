@@ -289,7 +289,9 @@ config is picked up as a fallback.
 Every issue laneway reads (boards, searches, the panel) is mirrored in
 `~/.cache/laneway/index-jira.db`, `index-club.db` for a site. `laneway index`
 shows what it holds, `laneway index clear` drops it. Offline, the palette
-and the panel answer from it and say so.
+and the panel answer from it and say so, and so does a `Q` search for its
+`AND`ed project, key, status, type, priority, assignee, statusCategory and
+`text ~` clauses, naming the ones it left out.
 
 It keeps each project's people too: everyone assignable, read in full once
 a week, and whoever laneway sees on issues meanwhile. `@` mentions and the

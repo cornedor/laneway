@@ -59,7 +59,8 @@ how to write them.
 laneway keeps working.
 
 - **Reading.** Every issue it has read is kept in a local index. Offline,
-  the palette (`:`) and the panel answer from it and say so. It keeps the
+  the palette (`:`), the panel and simple `Q` searches answer from it and
+  say so. It keeps the
   project's people as well, so `@` mentions and the assignee picker work
   offline too. `laneway index` shows what it holds, `laneway index clear`
   empties it.

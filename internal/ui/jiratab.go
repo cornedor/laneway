@@ -17,6 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/safeterm"
 	"github.com/cornedor/laneway/internal/viewport"
@@ -381,6 +382,8 @@ type jiraCardsMsg struct {
 	cards   []jira.Card
 	total   int
 	err     error
+	// note says the cards came from the index, offline (indexJQL).
+	note string
 }
 
 // jiraMovedMsg reports a card's transition to another lane.
@@ -617,6 +620,29 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 	return cards, total, err
 }
 
+// indexJQL answers q from the index for a search Jira can't take offline,
+// saying so and what of q it left out.
+func indexJQL(ctx context.Context, c *jira.Client, ix *index.Index, q string, msg jiraCardsMsg) jiraCardsMsg {
+	me, _ := c.Myself(ctx) // cached from before; offline without it, currentUser() drops
+	hits, dropped, err := ix.JQL(q, me.AccountID, indexJQLHits)
+	if err != nil {
+		msg.err = err
+		return msg
+	}
+	for _, h := range hits {
+		msg.cards = append(msg.cards, h.Card)
+	}
+	msg.total = len(msg.cards)
+	msg.note = "offline: " + plural(len(msg.cards), "issue") + " from the index"
+	if len(dropped) > 0 {
+		msg.note += " · left out " + strings.Join(dropped, ", ")
+	}
+	return msg
+}
+
+// indexJQLHits bounds an offline search's answer.
+const indexJQLHits = 500
+
 // loadJiraCards refetches the cards of view idx on the loaded board.
 // fromCache shows the stored copy first, when it was narrowed by the same
 // filters; a refetch after a change leaves it out, as it predates the change.
@@ -630,7 +656,7 @@ func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 	t.seq++
 	t.loading, t.loadingSince = true, time.Now()
 	t.err = ""
-	seq, ctx, c, board, cfg, v := t.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, t.views[idx]
+	seq, ctx, c, board, cfg, v, ix := t.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, t.views[idx], m.index
 	filter := jiraFilterJQL(t.assignee, t.quick, t.quickOn)
 	st := m.store
 	base := cacheOf(jiraBoardMsg{project: t.project, boards: t.boards, board: t.board, cfg: cfg, views: t.views,
@@ -651,6 +677,9 @@ func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 		if err == nil {
 			base.Cards, base.Total = cards, total
 			saveJiraCache(st, board, v.name, base)
+		}
+		if v.kind == jiraViewFilter && jira.Offline(err) && ix != nil {
+			return indexJQL(ctx, c, ix, andOrderedJQL(v.jql, filter), jiraCardsMsg{seq: seq, viewIdx: idx})
 		}
 		return jiraCardsMsg{seq: seq, viewIdx: idx, cards: cards, total: total, err: err}
 	})
@@ -742,6 +771,9 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 	}
 	t.viewIdx = msg.viewIdx
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
+	if msg.note != "" {
+		m.status = msg.note
+	}
 	if msg.cached || msg.err != nil {
 		return m, nil
 	}

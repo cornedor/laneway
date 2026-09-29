@@ -106,3 +106,28 @@ func TestPanelOfflineFromIndex(t *testing.T) {
 		}
 	}
 }
+
+// TestJQLViewOffline: offline, a Q search answers from the index what it
+// can and says what it left out.
+func TestJQLViewOffline(t *testing.T) {
+	m := jiraTabModel(t)
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	url := "http://" + l.Addr().String()
+	l.Close() // nothing listens: the dial fails
+	m.jiraClient = jira.New(jira.Config{BaseURL: url, Email: "me@x.test", APIToken: "tok"})
+	m.index = tempIndex(t, jira.Card{Key: "OPS-1", Summary: "Outage", Status: "To Do"}, jira.Card{Key: "OPS-2", Summary: "Fixed", Status: "Done", Done: true},
+		jira.Card{Key: "ABC-9", Summary: "Other", Status: "To Do"})
+	cmd := m.runJQLView("project = OPS AND statusCategory != Done AND labels = ui")
+	msg, ok := cmd().(jiraCardsMsg) // no cache to show first: one command
+	if !ok {
+		t.Fatal("want the cards")
+	}
+	out, _ := m.handleJiraCards(msg)
+	m = out.(Model)
+	if len(m.jiraTab.cards) != 1 || m.jiraTab.cards[0].Key != "OPS-1" {
+		t.Errorf("cards = %+v", m.jiraTab.cards)
+	}
+	if !strings.Contains(m.status, "from the index") || !strings.Contains(m.status, "left out labels = ui") {
+		t.Errorf("status = %q", m.status)
+	}
+}
