@@ -388,9 +388,9 @@ type Model struct {
 	// (pickerStart), -1 when none (jira_edit.go).
 	pickerLine, pickerStart int
 	// inlineLine is the content line the inline editor starts on, -1 when
-	// none; commentIndent the reply bars before it in the thread
-	// (description.go).
-	inlineLine, commentIndent int
+	// none, inlineRows its rows with an open list and keys (0 without);
+	// commentIndent the reply bars before it in the thread (description.go).
+	inlineLine, inlineRows, commentIndent int
 	// activityTab is the Activity section's open tab, activityLine its tab
 	// row's content line (-1 when not drawn); activity the history and
 	// worklogs it shows; commentHeads the comments' bylines (activity.go).
@@ -685,7 +685,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.jiraCommentActive {
 			var cmd tea.Cmd
 			m.jiraCommentInput, cmd = m.jiraCommentInput.Update(msg)
-			return m, cmd
+			return m, tea.Batch(cmd, m.scheduleMention())
 		}
 		if m.jiraFieldActive {
 			var cmd tea.Cmd

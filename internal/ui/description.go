@@ -177,6 +177,10 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 	for j := range view {
 		view[j] = bars + view[j]
 	}
+	m.inlineRows = 0
+	if m.renderMentions() != "" {
+		m.inlineRows = len(view)
+	}
 	return strings.Join(slices.Concat(lines[:i], view, lines[i+1:]), "\n")
 }
 
@@ -205,19 +209,24 @@ func (m *Model) inlineEditorRow() int {
 }
 
 // showInlineEditor scrolls the panel to keep the inline editor's cursor in
-// view, a line or two above it too when the cursor allows.
+// view, a line or two above it too when the cursor allows, and an open
+// list below it.
 func (m *Model) showInlineEditor() {
 	ed, _ := m.inlineEditor()
 	if ed == nil || m.inlineLine < 0 {
 		return
 	}
 	_, cy, _ := ed.CursorViewPos()
-	row, top, h := m.inlineEditorRow()+cy, m.refView.YOffset(), m.refView.Height()
+	first := m.inlineEditorRow()
+	row, top, h := first+cy, m.refView.YOffset(), m.refView.Height()
 	switch {
 	case row < top:
 		m.refView.SetYOffset(max(row-2, 0))
 	case row >= top+h:
 		m.refView.SetYOffset(row - h + 3) // the keys line below it too
+	}
+	if end := first + m.inlineRows; end > m.refView.YOffset()+h {
+		m.refView.SetYOffset(min(end-h, row))
 	}
 }
 

@@ -183,3 +183,34 @@ func TestEmojiListKeys(t *testing.T) {
 		t.Errorf("tab: %q", m.descEdit.input.Value())
 	}
 }
+
+// TestMentionListInView: under a long thread the composer sits at the
+// panel's foot; the list the search brings scrolls into view with it.
+func TestMentionListInView(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `[{"accountId":"a1","displayName":"Claude"}]`)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	for i := range 30 {
+		m.jiraIssue.Comments = append(m.jiraIssue.Comments, jira.Comment{ID: string(rune('a' + i)), Author: "Ann", Body: "a comment"})
+	}
+	m.renderRef()
+	out, _ := m.handleRefKey(keyStr("c"))
+	m = out.(Model)
+	for _, k := range []string{"@", "c", "l"} {
+		out, _ = m.Update(keyMsg(t, k))
+		m = out.(Model)
+	}
+	out, cmd := m.Update(mentionSearchMsg{m.jiraMention.seq, "cl"})
+	m = out.(Model)
+	out, _ = m.Update(cmd())
+	m = out.(Model)
+	if !m.commentInline() {
+		t.Fatal("composer should sit in the panel")
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "▸ @Claude") {
+		t.Fatalf("suggestion not in view:\n%s", ansi.Strip(m.View().Content))
+	}
+}
