@@ -524,9 +524,10 @@ week, `y` copies the grid as a markdown table.
 
 With [herdr](https://herdr.dev) running and the project in `jira.repos`,
 `S` starts work: it opens the issue's worktree as a herdr workspace and
-starts an agent there. It asks which one (the kinds on your PATH,
-`ui.work_agent` first) and with what prompt (empty: `jira.start_prompt`,
-`none`: no prompt). Without herdr none of this shows.
+starts an agent there. One form shows the agent (the kinds on your PATH,
+`ui.work_agent` first), the branch and the prompt (`jira.start_prompt`),
+filled in and editable; enter starts it, an empty prompt starts it without
+one. Without herdr none of this shows.
 
 - Cards show the agent's state: `⚙` working, `✋` waiting on you (with a
   desktop notification), `✓` done and not yet looked at, `○` idle, a count

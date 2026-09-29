@@ -181,28 +181,37 @@ func TestAgentPanelLive(t *testing.T) {
 	}
 }
 
-// TestStartWorkAsks: S without an agent asks which kind, ui.work_agent
-// first, then the prompt; an empty one starts with the start prompt.
-func TestStartWorkAsks(t *testing.T) {
+// TestStartWorkForm: S opens one form with the agent (ui.work_agent
+// first), the branch and the start prompt filled in; the agent is picked
+// there, the prompt edited, and the button starts it.
+func TestStartWorkForm(t *testing.T) {
 	m := jiraTabModel(t)
 	m.herdr = herdr.New("/nowhere.sock")
 	m.opts.workAgent = "codex"
-	m.jiraIssue = &jira.Issue{Key: "ABC-1", Summary: "First"}
+	m.jiraStartPrompt = "Work on {key}."
+	m.jiraIssue = &jira.Issue{Key: "ABC-1", Summary: "First step", Type: "Story"}
 	m.jiraRepos = map[string]string{"ABC": t.TempDir()}
-	if cmd := m.startJiraWork(); cmd != nil || m.jiraPicker.kind != jiraPickAgentKind {
-		t.Fatalf("S should ask the kind: %v", m.jiraPicker.kind)
+	if cmd := m.startJiraWork(); cmd != nil || m.jiraForm == nil || !m.jiraForm.work {
+		t.Fatal("S should open the start work form")
 	}
-	if it := m.jiraPicker.items[m.jiraPicker.idx]; it.id != "codex" {
-		t.Fatalf("default first: %+v", it)
+	f := m.jiraForm
+	if got := jiraValueText(f.fields[0].val); got != "codex" || f.fields[1].val.Text != "issue/ABC-1-first-step" || f.fields[2].val.Text != "Work on ABC-1." {
+		t.Fatalf("rows: %q %q %q", got, f.fields[1].val.Text, f.fields[2].val.Text)
 	}
-	out, _ := m.applyJiraPick()
-	m = out.(Model)
-	if m.jiraFieldName != "work-prompt" || m.workKind != "codex" || m.jiraFieldKey != "ABC-1" {
-		t.Fatalf("prompt input: %q %q %q", m.jiraFieldName, m.workKind, m.jiraFieldKey)
+	if f.idx != len(f.fields) {
+		t.Errorf("cursor on %d, want the button", f.idx)
 	}
-	out, cmd := m.applyWorkPrompt("")
-	if m = out.(Model); cmd == nil || !m.jiraStarting["ABC-1"] {
-		t.Fatal("should start work")
+	screen := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Start work on ABC-1", "Agent", "Branch", "Prompt", "[ Start work ]"} {
+		if !strings.Contains(screen, want) {
+			t.Errorf("no %q:\n%s", want, screen)
+		}
+	}
+	f.idx = 2
+	f.fields[2].val.Text = "Only look."
+	out, cmd := m.handleJiraFormKey(keyStr("ctrl+s"))
+	if m = out.(Model); cmd == nil || !m.jiraStarting["ABC-1"] || m.jiraForm != nil {
+		t.Fatal("ctrl+s should start work")
 	}
 }
 

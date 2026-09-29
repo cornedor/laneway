@@ -353,9 +353,8 @@ type Model struct {
 	agents map[string][]herdr.Agent
 	// worktrees are the issues' linked worktrees in jira.repos, by key.
 	worktrees map[string]string
-	// agentPane is the agent the prompt being typed goes to; workKind the
-	// agent kind start work launches once its prompt is typed.
-	agentPane, workKind string
+	// agentPane is the agent the prompt being typed goes to.
+	agentPane string
 	// agentTerm is the agent attached in the panel (agent_panel.go), for
 	// agentTermKey; agentTermDrag a drag the agent takes.
 	agentTerm     *termSession

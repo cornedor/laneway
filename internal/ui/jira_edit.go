@@ -121,8 +121,6 @@ const (
 	jiraPickQueue
 	// jiraPickAsk picks what to ask ui.llm about the issue (llm.go).
 	jiraPickAsk
-	// jiraPickAgentKind picks the agent start work launches (jira_work.go).
-	jiraPickAgentKind
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -766,12 +764,6 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.askLLM(it.id)
 	}
-	if kind == jiraPickAgentKind {
-		key := m.jiraPicker.issueKey
-		m.closeJiraPicker()
-		m.askWorkPrompt(key, it.id)
-		return m, nil
-	}
 	if kind == jiraPickClosedSprint {
 		m.closeJiraPicker()
 		return m, m.openClosedSprint(it.id)
@@ -1073,9 +1065,6 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	}
 	if field == "agent-prompt" {
 		return m.applyAgentPrompt(raw)
-	}
-	if field == "work-prompt" {
-		return m.applyWorkPrompt(raw)
 	}
 	if field == "find" {
 		m.applyPanelFind(raw)
@@ -1439,8 +1428,6 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Web link on "+m.jiraFieldKey, "↵ add · esc cancel", m.jiraFieldInput.Width()+12
 	case "estimate":
 		title, hint, outerW = "Original estimate of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
-	case "work-prompt":
-		title, hint, outerW = "Start "+m.workKind+" on "+m.jiraFieldKey, "↵ start · esc cancel", m.jiraFieldInput.Width()+12
 	case "agent-prompt":
 		title, hint, outerW = "Prompt for "+m.jiraFieldKey+"'s agent", "↵ send · esc cancel", m.jiraFieldInput.Width()+12
 	case "find":

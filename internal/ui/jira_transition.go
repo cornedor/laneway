@@ -62,6 +62,9 @@ type jiraFormState struct {
 	busy         bool
 	err          string
 	bulk         []string // marked cards the move goes to, with these fields (bulk.go)
+	// work is start work's form (jira_work.go): which agent, the branch, the
+	// prompt.
+	work bool
 	// create is the issue a failed create would make: the form asks for the
 	// fields it lacked, and key is the create box's title (jira_create.go).
 	create *jiraFormCreate
@@ -281,6 +284,10 @@ func (m *Model) cancelJiraForm() tea.Cmd {
 			return nil
 		}
 		m.status = "create cancelled"
+		return nil
+	}
+	if f.work {
+		m.status = f.key + ": start work cancelled"
 		return nil
 	}
 	m.status = f.key + ": move cancelled"
@@ -581,6 +588,9 @@ func (m *Model) submitCreateAnother() tea.Cmd {
 
 func (m *Model) submitJiraForm() tea.Cmd {
 	f := m.jiraForm
+	if f.work {
+		return m.submitWorkForm()
+	}
 	var missing []string
 	fields := map[string]any{}
 	comment := ""
@@ -750,6 +760,9 @@ func (m *Model) renderJiraForm() string {
 	if f.create != nil {
 		title, button, busy = f.key, "[ Create ]", "creating…"
 	}
+	if f.work {
+		title, button, busy = "Start work on "+f.key, "[ Start work ]", "starting…"
+	}
 	parts := []string{center.Bold(true).Render(title)}
 	onCreate := f.create != nil && f.create.form
 	if onCreate && f.err != "" { // about the whole create: first thing read
@@ -846,6 +859,9 @@ func (m *Model) renderJiraForm() string {
 	hint := "tab/↑↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
 	if f.create != nil {
 		hint = "tab/↑↓ field · ↵ edit · del clear · ctrl+s create · esc back"
+	}
+	if f.work {
+		hint = "tab/↑↓ field · ↵ edit · del clear · ctrl+s start · esc cancel"
 	}
 	if onCreate {
 		hint = "tab/↑↓ field · ↵ edit · ← → type · ctrl+s create · alt+↵ create another · esc cancel"

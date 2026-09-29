@@ -23,9 +23,10 @@ import (
 // or the ui.work_create command — label
 // its tab with the key and start the agent (ui.work_agent, Claude by
 // default) in it with ui.work_args and the start prompt (jira.start_prompt;
-// none starts it without one). S asks for both: the kinds found on PATH,
-// ui.work_agent first, then a prompt, empty for the start prompt. An issue
-// whose agent already runs gets attached to instead (agents.go).
+// none starts it without one). S asks in one form: the agent (the kinds
+// found on PATH, ui.work_agent first), the branch and the prompt, all
+// filled in. An issue whose agent already runs gets attached to instead
+// (agents.go).
 
 const defaultWorkBranch = "issue/{key}-{summary}"
 
@@ -68,34 +69,72 @@ func (m *Model) startJiraWork() tea.Cmd {
 	if m.jiraStarting[iss.Key] {
 		return nil
 	}
-	m.startJiraPicker(jiraPickAgentKind, "Start work on "+iss.Key+": which agent", false)
-	items := []jiraPickerItem{{id: m.opts.workAgent, label: m.opts.workAgent, current: true}}
-	for _, k := range agentKinds {
-		if _, err := exec.LookPath(k); err == nil && k != m.opts.workAgent {
-			items = append(items, jiraPickerItem{id: k, label: k})
-		}
-	}
-	m.setJiraPickerItems(items)
+	m.openWorkForm(iss)
 	return nil
 }
 
-// askWorkPrompt asks for the prompt the kind starts on key with.
-func (m *Model) askWorkPrompt(key, kind string) {
-	m.openBulkInput("work-prompt", "empty: the start prompt · none: no prompt")
-	m.jiraFieldKey, m.workKind = key, kind
+// The start work form's rows: which agent, the branch and the prompt.
+const (
+	workAgentField  = "_agent"
+	workBranchField = "_branch"
+	workPromptField = "_prompt"
+)
+
+// openWorkForm asks, in one form, which agent starts on iss (ui.work_agent
+// first, then the kinds on PATH), on which branch (the issue's own when the
+// repo has one, else the template's) and with which prompt (the start
+// prompt, editable; empty starts without one). The cursor waits on the
+// button: enter starts with them as they are.
+func (m *Model) openWorkForm(iss *jira.Issue) {
+	kinds := []jira.Option{{ID: m.opts.workAgent, Name: m.opts.workAgent}}
+	for _, k := range agentKinds {
+		if _, err := exec.LookPath(k); err == nil && k != m.opts.workAgent {
+			kinds = append(kinds, jira.Option{ID: k, Name: k})
+		}
+	}
+	project, _, _ := strings.Cut(iss.Key, "-")
+	branch := issueBranch(expandUserPath(m.jiraRepos[project]), m.opts.workBranch, iss.Key, iss.Type)
+	if branch == "" {
+		branch = branchName(m.opts.workBranch, iss.Key, iss.Type, iss.Summary)
+	}
+	prompt := m.jiraStartPrompt
+	if !strings.EqualFold(strings.TrimSpace(prompt), "none") {
+		prompt = strings.ReplaceAll(prompt, "{key}", iss.Key)
+	} else {
+		prompt = ""
+	}
+	f := &jiraFormState{key: iss.Key, origin: jiraFromPanel, work: true, fields: []jiraFormField{
+		{FieldMeta: jira.FieldMeta{ID: workAgentField, Name: "Agent", Kind: jira.KindOption, Options: kinds}, val: jira.Value{Options: kinds[:1]}},
+		{FieldMeta: jira.FieldMeta{ID: workBranchField, Name: "Branch", Kind: jira.KindText}, val: jira.Value{Text: branch}},
+		{FieldMeta: jira.FieldMeta{ID: workPromptField, Name: "Prompt", Kind: jira.KindDoc}, val: jira.Value{Text: prompt}},
+	}}
+	f.idx = len(f.fields)
+	m.jiraForm = f
 }
 
-// applyWorkPrompt starts the picked agent on the panel's issue with the
-// typed prompt, the start prompt when empty.
-func (m Model) applyWorkPrompt(raw string) (tea.Model, tea.Cmd) {
-	key, kind, prompt := m.jiraFieldKey, m.workKind, strings.TrimSpace(raw)
-	m.closeJiraField()
-	iss := m.jiraIssue
+// submitWorkForm starts the form's agent on its issue, on its branch, with
+// its prompt.
+func (m *Model) submitWorkForm() tea.Cmd {
+	f := m.jiraForm
+	val := func(id string) jira.Value {
+		i := slices.IndexFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == id })
+		return f.fields[i].val
+	}
+	kind, branch, prompt := "", strings.TrimSpace(val(workBranchField).Text), strings.TrimSpace(val(workPromptField).Text)
+	if o := val(workAgentField).Options; len(o) > 0 {
+		kind = o[0].ID
+	}
+	if kind == "" {
+		f.err = "pick an agent"
+		return nil
+	}
+	key, iss := f.key, m.jiraIssue
+	m.jiraForm = nil
 	if iss == nil || iss.Key != key || m.herdr == nil || m.jiraStarting[key] {
-		return m, nil
+		return nil
 	}
 	if prompt == "" {
-		prompt = m.jiraStartPrompt
+		prompt = "none"
 	}
 	if m.jiraStarting == nil {
 		m.jiraStarting = map[string]bool{}
@@ -103,7 +142,7 @@ func (m Model) applyWorkPrompt(raw string) (tea.Model, tea.Cmd) {
 	m.jiraStarting[key] = true
 	m.status = key + ": starting work…"
 	project, _, _ := strings.Cut(key, "-")
-	return m, jiraWork(m.herdr, expandUserPath(m.jiraRepos[project]), m.opts.workBranch, kind, key, iss.Type, iss.Summary,
+	return jiraWork(m.herdr, expandUserPath(m.jiraRepos[project]), m.opts.workBranch, branch, kind, key, iss.Type, iss.Summary,
 		workArgs(m.opts.workArgs, prompt, key), m.opts.workCreate)
 }
 
@@ -120,11 +159,15 @@ func workArgs(extra []string, prompt, key string) []string {
 	return out
 }
 
-func jiraWork(c *herdr.Client, repo, tmpl, agent, key, typ, summary string, args, create []string) tea.Cmd {
+// jiraWork opens the issue's worktree on branch (the issue's own, else
+// tmpl's, when "") and starts agent there.
+func jiraWork(c *herdr.Client, repo, tmpl, branch, agent, key, typ, summary string, args, create []string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
-		branch := issueBranch(repo, tmpl, key, typ)
+		if branch == "" {
+			branch = issueBranch(repo, tmpl, key, typ)
+		}
 		if branch == "" {
 			branch = branchName(tmpl, key, typ, summary)
 		}

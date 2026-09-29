@@ -125,7 +125,7 @@ func TestWorkAgent(t *testing.T) {
 			conn.Close()
 		}
 	}()
-	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "codex", "ABC-1", "Bug", "Fix", []string{"go"}, nil)().(jiraWorkMsg)
+	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "", "codex", "ABC-1", "Bug", "Fix", []string{"go"}, nil)().(jiraWorkMsg)
 	if msg.err != nil || msg.agent != "codex" || <-kinds != "codex" {
 		t.Fatalf("msg = %+v", msg)
 	}

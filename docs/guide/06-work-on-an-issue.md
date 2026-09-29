@@ -43,9 +43,10 @@ Checking out an issue's branch while it's still to do asks
 ## Start work with an agent: `S`
 
 With [herdr](https://herdr.dev) running, `S` in the panel starts work: the
-issue's worktree opens as a herdr workspace with a coding agent in it. It
-asks which agent (those on your `PATH`, `ui.work_agent` first) and with
-what prompt (empty: `jira.start_prompt`, `Start on ABC-12.`). Without
+issue's worktree opens as a herdr workspace with a coding agent in it. One
+form shows the agent (those on your `PATH`, `ui.work_agent` first), the
+branch and the prompt (`jira.start_prompt`), all filled in and editable;
+enter starts it. An empty prompt starts the agent without one. Without
 herdr, `S` isn't there.
 
 Starting can do more, each off until you turn it on:
