@@ -83,9 +83,23 @@ func signIn(ctx context.Context, j config.JiraConfig) (string, error) {
 // yet, else sites.<name>. A site whose base_url is already there gets the
 // new email and token. It returns the site's name ("" is jira:).
 func setup(ctx context.Context, cfgPath string, p prompter, verify func(context.Context, config.JiraConfig) (string, error)) (string, error) {
+	return setupSite(ctx, cfgPath, "", p, verify)
+}
+
+// setupSite is setup with site's URL filled in, so enter signs that site in
+// again (a new token); "" asks for any.
+func setupSite(ctx context.Context, cfgPath, site string, p prompter, verify func(context.Context, config.JiraConfig) (string, error)) (string, error) {
 	cfg, path, err := config.Load(cfgPath)
 	if err != nil && !errors.Is(err, config.ErrNoConfig) {
 		return "", err
+	}
+	var j config.JiraConfig
+	if site != "" {
+		known, ok := cfg.Sites[site]
+		if !ok {
+			return "", fmt.Errorf("no site %q in sites:; laneway setup adds one", site)
+		}
+		j.BaseURL = known.BaseURL
 	}
 	if filepath.Base(filepath.Dir(path)) == "matterbox" {
 		return "", fmt.Errorf("the config in use is matterbox's (%s), whose sites laneway doesn't read; copy its jira: to a laneway config (-config) first", path)
@@ -93,7 +107,6 @@ func setup(ctx context.Context, cfgPath string, p prompter, verify func(context.
 	fmt.Fprintln(p.out, "Connect laneway to a Jira site. ctrl+d cancels.")
 	fmt.Fprintln(p.out)
 	envToken := os.Getenv("JIRA_API_TOKEN")
-	var j config.JiraConfig
 	name, found, typedTok := "", false, ""
 	for {
 		typed, err := p.ask("Jira site, its name (acme) or URL", j.BaseURL)
@@ -217,11 +230,12 @@ func setupCmd(args []string, errOut io.Writer) int {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	cfgPath := fs.String("config", "", "config file to write (default ~/.config/laneway/config.yaml)")
+	site := fs.String("site", "", "a site from sites: to sign in again")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	cfg, _, _ := config.Load(*cfgPath)
-	name, err := setup(context.Background(), *cfgPath, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn)
+	name, err := setupSite(context.Background(), *cfgPath, *site, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn)
 	if err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1

@@ -72,6 +72,9 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 		}
 		return rulesCmd(nil, out, errOut)
 	case "setup":
+		if site != "" {
+			global = append(global, "-site", site)
+		}
 		return setupCmd(append(global, args[1:]...), errOut)
 	case "prompt":
 		if site != "" {

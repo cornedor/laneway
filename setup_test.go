@@ -107,6 +107,25 @@ func TestSetupReplacesToken(t *testing.T) {
 	}
 }
 
+// TestSetupSite: -site b setup offers b's URL, so enter signs b in again;
+// an unknown site fails with a hint.
+func TestSetupSite(t *testing.T) {
+	t.Setenv("JIRA_API_TOKEN", "")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte("jira: {base_url: https://a.atlassian.net, email: a@a, api_token: x}\nsites:\n  b: {base_url: https://b.atlassian.net, email: me@b, api_token: expired}\n"), 0o600)
+	s := &scripted{}
+	name, err := setupSite(context.Background(), path, "b", s.prompter("", "", "fresh"), s.verify)
+	if err != nil || name != "b" {
+		t.Fatalf("setup = %q %v\n%s", name, err, s.out.String())
+	}
+	if c, _, _ := config.Load(path); c.Sites["b"].APIToken != "fresh" || c.Jira.APIToken != "x" {
+		t.Errorf("config = %+v", c)
+	}
+	if _, err := setupSite(context.Background(), path, "nope", s.prompter(), s.verify); err == nil || !strings.Contains(err.Error(), "laneway setup adds one") {
+		t.Errorf("unknown site: %v", err)
+	}
+}
+
 // TestSetupEnvToken: with JIRA_API_TOKEN, enter at the token uses it and
 // the file gets none; enter without one opens the token page first.
 func TestSetupEnvToken(t *testing.T) {

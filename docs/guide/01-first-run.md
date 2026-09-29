@@ -58,7 +58,8 @@ The config it wrote is plain YAML: `~/.config/laneway/config.yaml`.
 > in at the top of the project picker.
 
 Token expired? `laneway setup` again with the same site replaces the
-email and token and leaves the rest of the config alone.
+email and token and leaves the rest of the config alone;
+`laneway -site club setup` fills in club's URL for you.
 
 ## Your board
 
