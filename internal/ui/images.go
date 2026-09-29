@@ -30,7 +30,9 @@ import (
 // Kitty and Ghostty support it; elsewhere the caption stays text.
 
 const (
-	imgMaxPx = 1600 // longer sides are downscaled before transmitting
+	// imgMaxPx is the longest side transmitted; longer ones are downscaled.
+	// It is large enough that i shows a screenshot at its own pixels.
+	imgMaxPx = 3840
 )
 
 // cellPx is a terminal cell's size in pixels.

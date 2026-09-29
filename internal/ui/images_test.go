@@ -49,6 +49,19 @@ func TestShrinkImage(t *testing.T) {
 	}
 }
 
+// TestEncodeKeepsScreenshotPixels: a wide screenshot is sent at its own
+// size, for i to show it sharp, not halved.
+func TestEncodeKeepsScreenshotPixels(t *testing.T) {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1771, 568))); err != nil {
+		t.Fatal(err)
+	}
+	_, w, h, err := encodeKittyImage(1, buf.Bytes(), 80, 16, defaultCell)
+	if err != nil || w != 1771 || h != 568 {
+		t.Fatalf("sent %d×%d, %v", w, h, err)
+	}
+}
+
 func TestKittyPlaceholderWidth(t *testing.T) {
 	rows := kittyPlaceholder(0x123456, 3, 7)
 	if len(rows) != 3 {
