@@ -31,7 +31,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
 	site := flag.String("site", "", "Jira site from the config's sites: (default the one last picked with @, else jira:)")
-	demoFlag := flag.Bool("demo", false, "try laneway on a generated project, without Jira; writes are kept in memory")
+	demoFlag := flag.Bool("demo", false, "try laneway on a generated project, without Jira; writes are kept in memory (-config: its ui: only)")
 	flag.Parse()
 	version = buildVersion(version)
 	if *showVersion {
@@ -39,7 +39,7 @@ func main() {
 		return
 	}
 	if *demoFlag {
-		if err := runDemo(); err != nil {
+		if err := runDemo(*cfgPath); err != nil {
 			fmt.Fprintln(os.Stderr, "laneway:", err)
 			os.Exit(1)
 		}
@@ -212,7 +212,18 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 
 // runDemo runs the app on a generated project served in-process, with a
 // throwaway state: nothing of yours is read or written.
-func runDemo() error {
+// runDemo runs the board on a generated project; with cfgPath its ui:
+// settings apply (the docs' screenshots use that), never its sites.
+func runDemo(cfgPath string) error {
+	var uiCfg config.UIConfig
+	if cfgPath != "" {
+		cfg, _, err := config.Load(cfgPath)
+		if err != nil {
+			return err
+		}
+		uiCfg = cfg.UI
+	}
+	uiCfg.UpdateCheck = "off"
 	baseURL, stop, err := demo.New(time.Now()).Start()
 	if err != nil {
 		return err
@@ -230,7 +241,7 @@ func runDemo() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
-	m := ui.New(ctx, jc, config.UIConfig{UpdateCheck: "off"}, nil, filepath.Join(dir, "rules.log"), st).WithVersion(version, "")
+	m := ui.New(ctx, jc, uiCfg, nil, filepath.Join(dir, "rules.log"), st).WithVersion(version, "")
 	final, err := newProgram(m).Run()
 	if fm, ok := final.(ui.Model); ok {
 		fmt.Fprint(os.Stdout, fm.ReleasePointer())

@@ -1,0 +1,8 @@
+# The ui: the docs' screenshots are taken with; laneway -demo reads only
+# this part of a -config.
+ui:
+  auto_refresh: off
+  images: off
+  panel_width: 46
+  default_mode: lanes
+  date_format: 2006-01-02 15:04
