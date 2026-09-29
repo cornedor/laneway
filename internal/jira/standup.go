@@ -104,7 +104,7 @@ func (c *Client) activity(ctx context.Context, since time.Time, accountIDs []str
 
 // worklogFields are the changelog's side of logging work, which the
 // standup lists from the worklogs themselves.
-var worklogFields = []string{"timespent", "timeestimate", "WorklogId", "WorklogTimeSpent"}
+var worklogFields = []string{"timespent", "timeestimate", "WorklogId", "WorklogTimeSpent", LoggedField}
 
 // dropWorklogChanges leaves worklogFields out of entries' changes, and an
 // entry out when nothing else changed.

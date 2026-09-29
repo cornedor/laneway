@@ -208,6 +208,10 @@ func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
 	b.WriteString(refDimStyle.Render(orDash(e.Who)+" · "+m.when(e.When)) + "\n")
 	if len(e.Changes) > 0 {
 		for _, c := range e.Changes {
+			if c.Field == jira.LoggedField {
+				b.WriteString(refDimStyle.Render(c.Field+" ") + c.To + "\n")
+				continue
+			}
 			if !strings.Contains(c.From, "\n") && !strings.Contains(c.To, "\n") {
 				b.WriteString(refDimStyle.Render(c.Field+" ") + orDash(c.From) + " → " + orDash(c.To) + "\n")
 				continue

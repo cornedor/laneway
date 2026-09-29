@@ -123,3 +123,26 @@ func TestInboxCap(t *testing.T) {
 		}
 	}
 }
+
+// TestChangelogWorklog: logging work reads as "logged 1h", not its raw
+// timespent and WorklogId items; removing it as "-1h".
+func TestChangelogWorklog(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, `{"total":2,"values":[
+			{"author":{"displayName":"Bob"},"created":"2026-09-25T09:00:00.000+0000","items":[
+				{"field":"timespent","fromString":"3600","toString":"7200"},
+				{"field":"timeestimate","fromString":"7200","toString":"3600"},
+				{"field":"WorklogId","toString":"10042"}]},
+			{"author":{"displayName":"Bob"},"created":"2026-09-25T10:00:00.000+0000","items":[
+				{"field":"timespent","fromString":"7200","toString":"3600"},
+				{"field":"WorklogId","fromString":"10042"}]}]}`)
+	}))
+	defer srv.Close()
+	got, err := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"}).Changelog(context.Background(), "A-1")
+	if err != nil || len(got) != 2 || got[0].What != "logged 1h" || got[1].What != "logged -1h" || len(got[0].Changes) != 1 {
+		t.Errorf("%+v, %v", got, err)
+	}
+	if kept := dropWorklogChanges(got); len(kept) != 0 {
+		t.Errorf("standup kept %+v", kept)
+	}
+}

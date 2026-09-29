@@ -206,6 +206,7 @@ func (c *Client) issueChanges(ctx context.Context, key, summary string, since ti
 		for _, it := range h.Items {
 			changes = append(changes, Change{Field: it.Field, From: it.FromString, To: it.ToString})
 		}
+		changes = foldWorklog(changes)
 		if len(changes) > 0 {
 			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: changesText(changes), Changes: changes})
 		}
@@ -213,10 +214,41 @@ func (c *Client) issueChanges(ctx context.Context, key, summary string, since ti
 	return out, nil
 }
 
+// LoggedField is the Change foldWorklog makes of logging work: To is the
+// time logged ("1h"), or removed ("-1h").
+const LoggedField = "logged"
+
+// foldWorklog turns the items logging work writes to the changelog
+// (timespent 3600 → 7200, WorklogId — → 10042, the remaining estimate) into
+// one LoggedField change. Changes without a timespent item pass as they are.
+func foldWorklog(changes []Change) []Change {
+	i := slices.IndexFunc(changes, func(ch Change) bool { return ch.Field == "timespent" })
+	if i < 0 {
+		return changes
+	}
+	from, _ := strconv.Atoi(changes[i].From)
+	to, _ := strconv.Atoi(changes[i].To)
+	logged := FormatDuration(to - from)
+	if to < from {
+		logged = "-" + FormatDuration(from-to)
+	}
+	out := []Change{{Field: LoggedField, To: logged}}
+	for _, ch := range changes {
+		if !slices.Contains(worklogFields, ch.Field) {
+			out = append(out, ch)
+		}
+	}
+	return out
+}
+
 // changesText is changes as "field: from → to", joined by " · ".
 func changesText(changes []Change) string {
 	parts := make([]string, len(changes))
 	for i, ch := range changes {
+		if ch.Field == LoggedField {
+			parts[i] = LoggedField + " " + ch.To
+			continue
+		}
 		parts[i] = fmt.Sprintf("%s: %s → %s", ch.Field, orDash(ch.From), orDash(ch.To))
 	}
 	return strings.Join(parts, " · ")
