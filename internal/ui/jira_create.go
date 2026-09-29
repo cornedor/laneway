@@ -54,6 +54,7 @@ func (m *Model) openJiraCreate() tea.Cmd {
 	m.status = "new issue in " + project + "…"
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
+		go c.WarmUsers(ctx, project) // @ in the description answers at once
 		types, err := c.IssueTypes(ctx, project)
 		return jiraCreateTypesMsg{project: project, types: types, err: err}
 	}
@@ -65,6 +66,7 @@ func (m *Model) openJiraCreateChild(parent, what string) tea.Cmd {
 	project, c, ctx := issueProject(parent), m.jiraClient, m.ctx
 	m.status = "new " + what + " of " + parent + "…"
 	return func() tea.Msg {
+		go c.WarmUsers(ctx, project) // @ in the description answers at once
 		types, err := c.IssueTypes(ctx, project)
 		if what == "subtask" {
 			types, err = c.SubtaskTypes(ctx, project)

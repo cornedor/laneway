@@ -388,9 +388,12 @@ type Model struct {
 	// (pickerStart), -1 when none (jira_edit.go).
 	pickerLine, pickerStart int
 	// inlineLine is the content line the inline editor starts on, -1 when
-	// none, inlineRows its rows with an open list and keys (0 without);
-	// commentIndent the reply bars before it in the thread (description.go).
-	inlineLine, inlineRows, commentIndent int
+	// none; commentIndent the reply bars before it in the thread
+	// (description.go).
+	inlineLine, commentIndent int
+	// formArea is where the form's description editor starts inside its
+	// box, while it is drawn; nil otherwise (jira_transition.go).
+	formArea *point
 	// activityTab is the Activity section's open tab, activityLine its tab
 	// row's content line (-1 when not drawn); activity the history and
 	// worklogs it shows; commentHeads the comments' bylines (activity.go).
@@ -1135,11 +1138,13 @@ func (m Model) View() tea.View {
 	if m.imageView {
 		body = m.renderImageView(m.width, bodyH)
 	}
+	var ov string
 	if m.dropdownOn() && !m.imageView {
 		body = m.drawDropdown(body, bodyH)
-	} else if ov := m.renderOverlay(bodyH); ov != "" {
+	} else if ov = m.renderOverlay(bodyH); ov != "" {
 		body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, ov)
 	}
+	body = m.placeCompletion(body, ov)
 	st := statusStyle
 	if m.statusIsErr() {
 		st = refErrStyle
@@ -1158,7 +1163,7 @@ func (m Model) View() tea.View {
 	} else if cx, cy, ok := m.inlineEditorCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)
 	} else if m.descEdit != nil && !m.descEditInline() {
-		if cx, cy, ok := m.modalComposerCursor(0, &m.descEdit.input); ok {
+		if cx, cy, ok := m.modalComposerCursor(0, &m.descEdit.input, ov); ok {
 			v.Cursor = tea.NewCursor(cx, cy)
 		}
 	}
@@ -1167,7 +1172,7 @@ func (m Model) View() tea.View {
 		if m.jiraCommentReplyTo != "" {
 			above = 1
 		}
-		if cx, cy, ok := m.modalComposerCursor(above, &m.jiraCommentInput); ok {
+		if cx, cy, ok := m.modalComposerCursor(above, &m.jiraCommentInput, ov); ok {
 			v.Cursor = tea.NewCursor(cx, cy)
 		}
 	}

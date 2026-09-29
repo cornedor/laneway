@@ -669,6 +669,7 @@ func (m Model) clickJiraForm(x, y, count int) (tea.Model, tea.Cmd) {
 
 // renderJiraForm draws the transition form as a modal, like the pickers.
 func (m *Model) renderJiraForm() string {
+	m.formArea = nil
 	f := m.jiraForm
 	if f == nil {
 		return ""
@@ -721,13 +722,9 @@ func (m *Model) renderJiraForm() string {
 		case f.multiline && i == f.idx:
 			f.area.SetWidth(max(inner-4, 8))
 			parts = append(parts, cursor.Render("▸ "+name))
+			m.formArea = &point{x: 1 + 3 + 2, y: 1 + 1 + lipgloss.Height(strings.Join(parts, "\n"))} // border, padding, "  "
 			for _, l := range strings.Split(f.area.View(), "\n") {
 				parts = append(parts, "  "+l)
-			}
-			if list := m.renderMentions(); list != "" {
-				for _, l := range strings.Split(list, "\n") {
-					parts = append(parts, "  "+l)
-				}
 			}
 			continue
 		case f.editing && i == f.idx && (ff.ID == "labels" || ff.Clause != ""):

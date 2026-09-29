@@ -199,11 +199,7 @@ func (m *Model) renderJiraCommentInput() string {
 		above = append(above, lipgloss.NewStyle().Foreground(dimColor).Italic(true).
 			Render("↩ replying to "+m.jiraCommentReplyTo))
 	}
-	box := m.renderModalComposer(titleTxt, above, "ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel", &m.jiraCommentInput)
-	if list := m.renderMentions(); list != "" {
-		box = lipgloss.JoinVertical(lipgloss.Left, box, list)
-	}
-	return box
+	return m.renderModalComposer(titleTxt, above, "ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel", &m.jiraCommentInput)
 }
 
 // commentVisMsg is who a comment in project can be limited to.

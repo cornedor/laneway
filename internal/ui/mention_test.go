@@ -4,12 +4,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -91,7 +93,7 @@ func TestEmojiFlow(t *testing.T) {
 		t.Fatalf("offered %v", m.jiraMention.emoji)
 	}
 	m.renderRef() // as Update does after a key
-	if !strings.Contains(ansi.Strip(m.View().Content), "🚀  :rocket:") {
+	if !strings.Contains(ansi.Strip(m.View().Content), "🚀 :rocket:") {
 		t.Fatal("emoji not shown")
 	}
 	out, _ := m.handleJiraCommentKey(keyMsg(t, "tab"))
@@ -127,6 +129,15 @@ func TestEmojiMatches(t *testing.T) {
 	}
 	if got := m.emojiMatches("smle"); !slices.Contains(got, "smile") {
 		t.Errorf("fuzzy: %v", got)
+	}
+	if got := m.emojiMatches("tad"); !slices.Contains(got, "tada") || slices.ContainsFunc(got, func(n string) bool { return strings.Contains(n, "standing") }) {
+		t.Errorf("tad: %v; want no letters-in-order matches beside nearer ones", got)
+	}
+	if got := m.emojiMatches("+1"); slices.ContainsFunc(got, func(n string) bool { return strings.HasSuffix(n, "skin_tone") }) {
+		t.Errorf("+1: %v; want skin tones only when asked", got)
+	}
+	if got := m.emojiMatches("+1_skin"); len(got) == 0 {
+		t.Error("+1_skin: want the tones")
 	}
 	got := m.emojiMatches("rock")
 	if got[0] != "rock" || got[1] != "rocket" {
@@ -175,7 +186,7 @@ func TestEmojiListKeys(t *testing.T) {
 	m.descEdit.input.CursorEnd()
 	out, _ = m.handleDescEditKey(keyMsg(t, "t"))
 	m = out.(Model)
-	if len(m.jiraMention.emoji) == 0 || !strings.Contains(ansi.Strip(m.renderDescEdit()), ":rocket:") {
+	if len(m.jiraMention.emoji) == 0 || !strings.Contains(ansi.Strip(m.View().Content), ":rocket:") {
 		t.Fatalf("description editor: %v", m.jiraMention.emoji)
 	}
 	out, _ = m.handleDescEditKey(keyMsg(t, "tab"))
@@ -185,7 +196,7 @@ func TestEmojiListKeys(t *testing.T) {
 }
 
 // TestMentionListInView: under a long thread the composer sits at the
-// panel's foot; the list the search brings scrolls into view with it.
+// panel's foot; the list floats above it, nothing moving under it.
 func TestMentionListInView(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, `[{"accountId":"a1","displayName":"Claude"}]`)
@@ -203,6 +214,10 @@ func TestMentionListInView(t *testing.T) {
 		out, _ = m.Update(keyMsg(t, k))
 		m = out.(Model)
 	}
+	row := func(s string) int {
+		return slices.IndexFunc(strings.Split(ansi.Strip(m.View().Content), "\n"), func(l string) bool { return strings.Contains(l, s) })
+	}
+	before := row("┃ @cl")
 	out, cmd := m.Update(mentionSearchMsg{m.jiraMention.seq, "cl"})
 	m = out.(Model)
 	out, _ = m.Update(cmd())
@@ -210,7 +225,69 @@ func TestMentionListInView(t *testing.T) {
 	if !m.commentInline() {
 		t.Fatal("composer should sit in the panel")
 	}
-	if !strings.Contains(ansi.Strip(m.View().Content), "▸ @Claude") {
-		t.Fatalf("suggestion not in view:\n%s", ansi.Strip(m.View().Content))
+	if at := row("@Claude"); at < 0 || at >= before {
+		t.Fatalf("suggestion at row %d, composer at %d; want it above:\n%s", at, before, ansi.Strip(m.View().Content))
+	}
+	if after := row("┃ @cl"); after != before {
+		t.Errorf("composer moved from row %d to %d", before, after)
+	}
+}
+
+// TestMentionFromKept: with the project's people kept, "@cl" lists them on
+// the keystroke, no search; the one chosen stays chosen as you type on.
+func TestMentionFromKept(t *testing.T) {
+	ix, err := index.Open(filepath.Join(t.TempDir(), "ix.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ix.Close()
+	ix.SyncAssignable("ABC", []jira.User{{AccountID: "c1", DisplayName: "Claude"}, {AccountID: "c2", DisplayName: "Clara Oswald"}, {AccountID: "a1", DisplayName: "Ada"}})
+	m := loadedJiraModel(t).WithIndex(ix)
+	m.openJiraCommentInput()
+	type_ := func(s string) {
+		t.Helper()
+		for _, r := range s {
+			out, _ := m.handleJiraCommentKey(keyMsg(t, string(r)))
+			m = out.(Model)
+		}
+	}
+	type_("hi @cl")
+	if ms := m.jiraMention; len(ms.sugg) != 2 || ms.searching {
+		t.Fatalf("sugg %v searching %v; want both at once", ms.sugg, ms.searching)
+	}
+	out, _ := m.handleJiraCommentKey(keyMsg(t, "down"))
+	m = out.(Model)
+	chosen := m.jiraMention.sugg[1]
+	type_("a")
+	if ms := m.jiraMention; ms.sugg[ms.idx] != chosen {
+		t.Errorf("chose %v; want %v kept", ms.sugg[ms.idx], chosen)
+	}
+}
+
+// TestMentionListModal: in the composer drawn over the board, the list
+// floats under the cursor and the composer keeps its place.
+func TestMentionListModal(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.openJiraCommentInput()
+	m.refOpen = false
+	for _, k := range []string{"@", "a", "d"} {
+		out, _ := m.handleJiraCommentKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	lines := func() []string { return strings.Split(ansi.Strip(m.View().Content), "\n") }
+	row := func(s string) int {
+		return slices.IndexFunc(lines(), func(l string) bool { return strings.Contains(l, s) })
+	}
+	before := row("┃ @ad")
+	out, _ := m.Update(mentionFoundMsg{seq: m.jiraMention.seq, users: []jira.User{{AccountID: "a1", DisplayName: "Ada Lovelace"}}})
+	m = out.(Model)
+	if m.commentInline() {
+		t.Fatal("want the composer over the board")
+	}
+	if at := row("@Ada Lovelace"); at != before+2 { // under the cursor's line and the box's top
+		t.Fatalf("suggestion at row %d, composer at %d:\n%s", at, before, strings.Join(lines(), "\n"))
+	}
+	if after := row("┃ @ad"); after != before {
+		t.Errorf("composer moved from row %d to %d", before, after)
 	}
 }

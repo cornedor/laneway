@@ -11,7 +11,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/jira"
@@ -157,29 +156,17 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 	ed.SetWidth(max(width-2*indent, 8))
 	view := strings.Split(ed.View(), "\n")
 	if mark == commentMark {
-		if list := m.renderMentions(); list != "" {
-			view = append(view, strings.Split(list, "\n")...)
-		}
 		hint := "ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel"
 		if v := m.jiraCommentVis; v != (jira.Visibility{}) {
 			hint = "for " + v.Label() + " · " + hint
 		}
 		view = append(view, refDimStyle.Render(hint))
-	} else {
-		if list := m.renderMentions(); list != "" {
-			view = append(view, strings.Split(list, "\n")...)
-		}
-		if m.descEdit.comment != "" {
-			view = append(view, refDimStyle.Render(descEditHint))
-		}
+	} else if m.descEdit.comment != "" {
+		view = append(view, refDimStyle.Render(descEditHint))
 	}
 	bars := refDimStyle.Render(strings.Repeat("│ ", indent))
 	for j := range view {
 		view[j] = bars + view[j]
-	}
-	m.inlineRows = 0
-	if m.renderMentions() != "" {
-		m.inlineRows = len(view)
 	}
 	return strings.Join(slices.Concat(lines[:i], view, lines[i+1:]), "\n")
 }
@@ -209,24 +196,19 @@ func (m *Model) inlineEditorRow() int {
 }
 
 // showInlineEditor scrolls the panel to keep the inline editor's cursor in
-// view, a line or two above it too when the cursor allows, and an open
-// list below it.
+// view, a line or two above it too when the cursor allows.
 func (m *Model) showInlineEditor() {
 	ed, _ := m.inlineEditor()
 	if ed == nil || m.inlineLine < 0 {
 		return
 	}
 	_, cy, _ := ed.CursorViewPos()
-	first := m.inlineEditorRow()
-	row, top, h := first+cy, m.refView.YOffset(), m.refView.Height()
+	row, top, h := m.inlineEditorRow()+cy, m.refView.YOffset(), m.refView.Height()
 	switch {
 	case row < top:
 		m.refView.SetYOffset(max(row-2, 0))
 	case row >= top+h:
 		m.refView.SetYOffset(row - h + 3) // the keys line below it too
-	}
-	if end := first + m.inlineRows; end > m.refView.YOffset()+h {
-		m.refView.SetYOffset(min(end-h, row))
 	}
 }
 
@@ -276,11 +258,7 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) renderDescEdit() string {
 	d := m.descEdit
-	box := m.renderModalComposer(d.title(), nil, "ctrl+s save · ctrl+e $EDITOR · : emoji · esc cancel", &d.input)
-	if list := m.renderMentions(); list != "" {
-		box = lipgloss.JoinVertical(lipgloss.Left, box, list)
-	}
-	return box
+	return m.renderModalComposer(d.title(), nil, "ctrl+s save · ctrl+e $EDITOR · : emoji · esc cancel", &d.input)
 }
 
 // openExternalEditor writes md to a file and opens $VISUAL / $EDITOR on it;

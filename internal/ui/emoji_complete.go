@@ -6,8 +6,6 @@ import (
 	"strings"
 	"unicode"
 
-	"charm.land/lipgloss/v2"
-
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/emoji"
 )
@@ -15,8 +13,9 @@ import (
 // ":" completion, after matterbox's: ":" at a word's start and two or more
 // shortcode letters before the cursor list the emoji that match, best
 // first — exact, then prefix, then anywhere in the name, then the letters
-// in order (":smle" finds :smile:) — and within each, the ones you took
-// most. Emoticons (":)", ":-)") never open it.
+// in order (":smle" finds :smile:), only when nothing nearer matches — and
+// within each, the ones you took most. Skin tones show when asked for
+// (":+1_skin"). Emoticons (":)", ":-)") never open it.
 
 // emojiShown caps the list.
 const emojiShown = 8
@@ -95,10 +94,19 @@ func (m *Model) emojiMatches(q string) []string {
 		band, score int
 	}
 	var cands []cand
+	close := false // a match nearer than the letters in order
+	tones := strings.Contains(q, "skin") || strings.Contains(q, "tone")
 	for _, n := range emoji.Names() {
+		if !tones && strings.HasSuffix(n, "skin_tone") {
+			continue // half the names: asked for by name
+		}
 		if band, score, ok := fuzzyScore(n, q); ok {
 			cands = append(cands, cand{n, band, score})
+			close = close || band < 3
 		}
+	}
+	if close {
+		cands = slices.DeleteFunc(cands, func(c cand) bool { return c.band == 3 })
 	}
 	use := m.emojiUsage()
 	slices.SortStableFunc(cands, func(a, b cand) int {
@@ -177,22 +185,4 @@ func (m *Model) acceptEmoji(name string) {
 			_ = m.store.SetMeta(emojiUsageMeta, string(b))
 		}
 	}
-}
-
-// renderEmojiList is the emoji list: a box of each one's glyph and code,
-// the chosen one lit.
-func (m *Model) renderEmojiList() string {
-	ms := m.jiraMention
-	rows := make([]string, 0, len(ms.emoji)+1)
-	for i, name := range ms.emoji {
-		row := emoji.Glyph(name) + "  :" + name + ":"
-		if i == ms.idx {
-			rows = append(rows, selectedRow.Render(row))
-		} else {
-			rows = append(rows, emoji.Glyph(name)+"  "+refDimStyle.Render(":"+name+":"))
-		}
-	}
-	rows = append(rows, refDimStyle.Render("tab takes · ↑/↓ · esc"))
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(0, 1).
-		Render(strings.Join(rows, "\n"))
 }

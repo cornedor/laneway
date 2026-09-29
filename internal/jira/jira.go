@@ -900,11 +900,8 @@ func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User
 		return nil, errNotConfigured
 	}
 	people, project := c.usersFrom(ctx, key)
-	fresh := people != nil && time.Since(people.UsersSynced(project)) <= peopleFresh
-	if fresh {
-		if us := people.Users(project, query, true); len(us) > 0 {
-			return us[:min(len(us), peopleShown)], nil
-		}
+	if us, ok := c.KnownUsers(key, query); ok {
+		return us, nil
 	}
 	var resp []struct {
 		AccountID   string `json:"accountId"`

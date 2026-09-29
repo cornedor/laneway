@@ -73,3 +73,21 @@ func (c *Client) allAssignable(ctx context.Context, project string) ([]User, err
 		}
 	}
 }
+
+// KnownUsers are key's assignable people matching query, from the cache
+// alone; ok is false when it can't answer: none kept, stale, or no match.
+func (c *Client) KnownUsers(key, query string) (us []User, ok bool) {
+	if c.people == nil {
+		return nil, false
+	}
+	project, _, _ := strings.Cut(key, "-")
+	if time.Since(c.people.UsersSynced(project)) > peopleFresh {
+		return nil, false
+	}
+	us = c.people.Users(project, query, true)
+	return us[:min(len(us), peopleShown)], len(us) > 0
+}
+
+// WarmUsers reads key's project's people when the cache lacks them, so
+// the first search answers at once.
+func (c *Client) WarmUsers(ctx context.Context, key string) { c.usersFrom(ctx, key) }

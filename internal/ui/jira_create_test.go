@@ -497,7 +497,7 @@ func TestCreateFormMention(t *testing.T) {
 	}
 	out, _ = m.Update(mentionFoundMsg{seq: m.jiraMention.seq, users: []jira.User{{AccountID: "a1", DisplayName: "Ada"}}})
 	m = out.(Model)
-	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "▸ @Ada") || !strings.Contains(view, "@ mention") {
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "@Ada") || !strings.Contains(view, "@ mention") {
 		t.Fatalf("no completion:\n%s", view)
 	}
 	out, _ = m.handleJiraFormKey(keyMsg(t, "tab"))

@@ -84,28 +84,21 @@ func (m *Model) renderModalComposer(title string, above []string, hint string, i
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
 }
 
-// modalComposerCursor is where the terminal cursor goes for a box with
-// len(above) context lines. Mirrors renderModalComposer's layout exactly: change
-// one and you change the other.
-func (m *Model) modalComposerCursor(above int, input *editor.Model) (col, row int, ok bool) {
+// modalComposerCursor is where the terminal cursor goes in box, the
+// composer drawn with above context lines, centred in the body. Mirrors
+// renderModalComposer's layout: change one and you change the other.
+func (m *Model) modalComposerCursor(above int, input *editor.Model, box string) (col, row int, ok bool) {
 	cx, cy, okPos := input.CursorViewPos()
-	if !okPos {
-		return 0, 0, false
-	}
 	bodyH := m.bodyH()
-	if bodyH <= 0 {
+	if !okPos || bodyH <= 0 || box == "" {
 		return 0, 0, false
 	}
-	outerW := m.modalComposerWidth()
 	// Rows stacked above the editor inside the box: the title + its blank, then
 	// each context line + its blank.
 	aboveEditor := 2 + 2*above
-	// Box outer height: rounded border (2) + padding (2) + the rows above the
-	// editor, the editor itself, then a blank and the hint.
-	boxH := 4 + aboveEditor + input.Height() + 2
-
-	boxLeft := placeOffset(m.width, outerW)
-	boxTop := placeOffset(bodyH, boxH)
+	// Measured, not counted: the hint wraps on a narrow screen.
+	boxLeft := placeOffset(m.width, lipgloss.Width(box))
+	boxTop := placeOffset(bodyH, lipgloss.Height(box))
 	// Editor origin inside the box: left border (1) + left padding (3); top
 	// border (1) + top padding (1) + the rows above it.
 	return boxLeft + 4 + cx, boxTop + 2 + aboveEditor + cy, true
