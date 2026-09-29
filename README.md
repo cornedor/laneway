@@ -106,6 +106,7 @@ ui:
   activity: [~/bin/claude-activity]  # p in W: commands printing "time<TAB>key" lines of a day's work
   llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off
+  skin_tone: medium             # : completion's tone for people: light, medium_light, medium, medium_dark, dark
   update_check: on              # a daily look for a newer release, ↑ in the header; off
   double_click: 400ms           # how quickly a second click opens (100ms–2s)
   icons: nerd                   # issue type glyphs need a Nerd Font; plain draws letters (B S E ↳ •)

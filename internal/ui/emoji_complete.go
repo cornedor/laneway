@@ -15,7 +15,7 @@ import (
 // first — exact, then prefix, then anywhere in the name, then the letters
 // in order (":smle" finds :smile:), only when nothing nearer matches — and
 // within each, the ones you took most. Skin tones show when asked for
-// (":+1_skin"). Emoticons (":)", ":-)") never open it.
+// (":+1_skin"), or in ui.skin_tone where a name has one. Emoticons (":)", ":-)") never open it.
 
 // emojiShown caps the list.
 const emojiShown = 8
@@ -101,6 +101,9 @@ func (m *Model) emojiMatches(q string) []string {
 			continue // half the names: asked for by name
 		}
 		if band, score, ok := fuzzyScore(n, q); ok {
+			if t := m.opts.skinTone; !tones && t != "" && emoji.Glyph(n+t) != "" {
+				n += t
+			}
 			cands = append(cands, cand{n, band, score})
 			close = close || band < 3
 		}

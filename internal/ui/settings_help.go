@@ -56,6 +56,7 @@ var settingDocs = map[string]string{
 	"mouse":                "clicks, drags and the wheel; off leaves the mouse to the terminal",
 	"llm":                  "a command answering ctrl+a's questions about the issue, piped on stdin",
 	"delight":              "small celebrations: confetti on a card into done, a line on a completed sprint",
+	"skin_tone":            "the tone : completion offers for people and hands",
 	"update_check":         "once a day, whether a newer release exists; never on a dev build",
 	"double_click":         "how quickly a second click makes a double-click (100ms–2s)",
 	"icons":                "issue type icons: Nerd Font glyphs, or letters for fonts without them",
@@ -90,6 +91,8 @@ func settingChoices(name string) []string {
 		return []string{"show", "hide"}
 	case "saved_filters", "mouse", "delight", "update_check":
 		return []string{"on", "off"}
+	case "skin_tone":
+		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}
 	case "timer_on_start", "start_assigns":
 		return []string{"off", "on"}
 	case "code_theme":

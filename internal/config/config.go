@@ -211,6 +211,9 @@ type UIConfig struct {
 	// Delight is "on" (small celebrations: confetti on a card into done, a
 	// line on a completed sprint) or "off".
 	Delight string `yaml:"delight"`
+	// SkinTone is the tone ":" completion offers people and hands in:
+	// light, medium_light, medium, medium_dark or dark; "" for none.
+	SkinTone string `yaml:"skin_tone"`
 	// UpdateCheck is "on" (once a day, whether a newer release exists) or
 	// "off".
 	UpdateCheck string `yaml:"update_check"`

@@ -18,6 +18,7 @@ type options struct {
 	staleAfter      time.Duration
 	images          bool
 	delight         bool     // small celebrations (ui.delight)
+	skinTone        string   // "_medium_skin_tone" and the like (ui.skin_tone), "" for none
 	updateCheck     bool     // a daily look for a newer release (ui.update_check)
 	llm             []string // the ask command (ui.llm), nil for the default
 	imageMaxRows    int
@@ -320,6 +321,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.delight = false
 	default:
 		warn = append(warn, fmt.Sprintf("ui.delight: %q is not on or off", c.Delight))
+	}
+	switch t := strings.ToLower(strings.TrimSpace(c.SkinTone)); t {
+	case "", "none":
+	case "light", "medium_light", "medium", "medium_dark", "dark":
+		o.skinTone = "_" + t + "_skin_tone"
+	default:
+		warn = append(warn, fmt.Sprintf("ui.skin_tone: %q is not light, medium_light, medium, medium_dark or dark", c.SkinTone))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Images)) {
 	case "", "auto":

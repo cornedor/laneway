@@ -153,6 +153,19 @@ func TestEmojiMatches(t *testing.T) {
 	}
 }
 
+// TestEmojiSkinTone: ui.skin_tone offers the toned name where one exists,
+// the plain one elsewhere.
+func TestEmojiSkinTone(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.opts.skinTone = "_medium_skin_tone"
+	if got := m.emojiMatches("+1"); got[0] != "+1_medium_skin_tone" {
+		t.Errorf("+1: %v", got)
+	}
+	if got := m.emojiMatches("rocket"); got[0] != "rocket" {
+		t.Errorf("rocket: %v", got)
+	}
+}
+
 // TestEmojiListKeys: while the list shows, ↓ chooses, enter takes (not a
 // newline) and esc closes it, the comment kept; in the description editor
 // too.
