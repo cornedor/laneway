@@ -221,8 +221,7 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openJiraLinkPicker()
 		return m, nil
 	case key.Matches(msg, m.keys.Image):
-		m.openImageView()
-		return m, nil
+		return m, m.openImageView()
 	case key.Matches(msg, m.keys.Back):
 		if n := len(m.refBack); n > 0 {
 			return m.backToCrumb(n - 1)

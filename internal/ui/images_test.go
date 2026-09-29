@@ -49,19 +49,6 @@ func TestShrinkImage(t *testing.T) {
 	}
 }
 
-// TestEncodeKeepsScreenshotPixels: a wide screenshot is sent at its own
-// size, for i to show it sharp, not halved.
-func TestEncodeKeepsScreenshotPixels(t *testing.T) {
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1771, 568))); err != nil {
-		t.Fatal(err)
-	}
-	_, w, h, err := encodeKittyImage(1, buf.Bytes(), 80, 16, defaultCell)
-	if err != nil || w != 1771 || h != 568 {
-		t.Fatalf("sent %d×%d, %v", w, h, err)
-	}
-}
-
 func TestKittyPlaceholderWidth(t *testing.T) {
 	rows := kittyPlaceholder(0x123456, 3, 7)
 	if len(rows) != 3 {
@@ -80,7 +67,7 @@ func TestKittyPlaceholderWidth(t *testing.T) {
 func TestEncodeKittyImage(t *testing.T) {
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 50, 40)))
-	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), 80, 16, defaultCell)
+	seq, w, h, err := encodeKittyImage(7, buf.Bytes(), imgMaxPx, 80, 16, defaultCell)
 	if err != nil || w != 50 || h != 40 {
 		t.Fatalf("encode: %d×%d %v", w, h, err)
 	}
@@ -90,7 +77,7 @@ func TestEncodeKittyImage(t *testing.T) {
 	if !strings.HasPrefix(seq, "\x1b_G") || !strings.Contains(seq, "i=7") || !strings.Contains(seq, "U=1") {
 		t.Errorf("seq = %.60q", seq)
 	}
-	if _, _, _, err := encodeKittyImage(7, []byte("nope"), 80, 16, defaultCell); err == nil {
+	if _, _, _, err := encodeKittyImage(7, []byte("nope"), imgMaxPx, 80, 16, defaultCell); err == nil {
 		t.Error("garbage decoded")
 	}
 }
@@ -324,5 +311,66 @@ func TestImagesWaitForFirstFrame(t *testing.T) {
 	_, cmd = m.handleResendImages()
 	if cmd == nil || !m.images.live || !strings.HasPrefix(fmt.Sprint(cmd().(tea.RawMsg).Msg), "SEQ") {
 		t.Fatal("held image not sent once live")
+	}
+}
+
+// TestImageViewFullCopy: i sends a copy made from the original, not the
+// panel's shrunk one, draws it once it is on the terminal and frees it on
+// close.
+func TestImageViewFullCopy(t *testing.T) {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 1771, 568))); err != nil {
+		t.Fatal(err)
+	}
+	m := jiraTabModel(t)
+	m.width = 400
+	m.images = &panelImages{on: true, live: true, maxRows: 16, cell: defaultCell, byAtt: map[string]*panelImage{}}
+	iss := &jira.Issue{Key: "ABC-1", Summary: "s", Description: "![shot.png](attachment:10)",
+		Attachments: []jira.Attachment{{ID: "10", Filename: "shot.png", MimeType: "image/png"}}}
+	out, _ := openRefFor(m, "ABC-1")
+	m = out.(Model)
+	out, _ = m.handleJiraLoaded(jiraLoadedMsg{gen: m.refGen, key: "ABC-1", issue: iss})
+	m = out.(Model)
+	id := m.images.byAtt["10"].id
+	out, _ = m.handleImageLoaded(imageLoadedMsg{att: "10", id: id, pxW: 885, pxH: 284, cols: 4, rows: 2, seq: "SEQ", raw: buf.Bytes()})
+	m = out.(Model)
+
+	out, cmd := m.handleKey(keyStr("i"))
+	m = out.(Model)
+	if m.viewImage() != m.images.byAtt["10"] {
+		t.Fatal("the panel's copy shows until the full one is sent")
+	}
+	var loaded *imageLoadedMsg
+	msgs := []tea.Msg{cmd()}
+	for len(msgs) > 0 {
+		msg := msgs[0]
+		msgs = msgs[1:]
+		switch msg := msg.(type) {
+		case tea.BatchMsg:
+			for _, c := range msg {
+				if c != nil {
+					msgs = append(msgs, c())
+				}
+			}
+		case imageLoadedMsg:
+			loaded = &msg
+		}
+	}
+	if loaded == nil || !loaded.full || loaded.pxW != 1771 || loaded.pxH != 568 {
+		t.Fatalf("full copy %+v", loaded)
+	}
+	out, _ = m.Update(*loaded)
+	m = out.(Model)
+	full := m.viewImage()
+	if full == nil || full.id != loaded.id || full.pxW != 1771 {
+		t.Fatalf("view draws %+v", full)
+	}
+	if view := m.View().Content; strings.Count(view, string(rune(0x10EEEE))) != full.cols*full.rows {
+		t.Error("the full copy's cells are not drawn")
+	}
+	out, cmd = m.handleKey(keyStr("x"))
+	m = out.(Model)
+	if m.images.full != nil || cmd == nil {
+		t.Errorf("close kept the full copy: %v, free %v", m.images.full != nil, cmd != nil)
 	}
 }

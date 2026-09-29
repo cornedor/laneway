@@ -74,7 +74,7 @@ func (m Model) clickImageView(x, y int) (tea.Model, tea.Cmd) {
 	if len(ids) == 0 {
 		return m.handleImageViewKey(back)
 	}
-	rows := m.images.ready(ids[min(m.imageViewIdx, len(ids)-1)]).rows
+	rows := m.viewImage().rows
 	switch top := (m.bodyH() - rows - 2) / 2; { // the image, a gap, the caption
 	case y >= top+rows:
 		return m.handleImageViewKey(back)

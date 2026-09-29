@@ -238,8 +238,7 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 		m.renderRef()
 		return m, nil
 	case h.image != "":
-		m.openImageViewAt(h.image)
-		return m, nil
+		return m, m.openImageViewAt(h.image)
 	case h.double && count < 2:
 		return m, nil
 	case h.press != "":

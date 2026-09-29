@@ -30,9 +30,10 @@ import (
 // Kitty and Ghostty support it; elsewhere the caption stays text.
 
 const (
-	// imgMaxPx is the longest side transmitted; longer ones are downscaled.
-	// It is large enough that i shows a screenshot at its own pixels.
-	imgMaxPx = 3840
+	imgMaxPx = 1600 // the panel's copy: longer sides are downscaled
+	// imgFullPx is the longest side of the copy i shows, sent from the
+	// original when it opens: large enough for a screenshot's own pixels.
+	imgFullPx = 3840
 )
 
 // cellPx is a terminal cell's size in pixels.
@@ -60,6 +61,8 @@ type panelImage struct {
 	seq string
 	// gone is freed from the terminal while its issue isn't shown.
 	gone bool
+	// raw is the attachment as downloaded, for the full-size copy.
+	raw []byte
 }
 
 // panelImages holds the panel's images by attachment id, for the session.
@@ -70,6 +73,10 @@ type panelImages struct {
 	nextID  uint32
 	byAtt   map[string]*panelImage
 	avatars map[string]*panelImage // by avatar URL (avatars.go)
+	// full is the image view's copy of attachment fullAtt, sent while it
+	// shows and freed when it closes (image_view.go).
+	full    *panelImage
+	fullAtt string
 	// pending is placement changes a render queued, flushed after Update.
 	pending strings.Builder
 	// tmux wraps every graphics sequence for tmux's passthrough.
@@ -138,13 +145,16 @@ func (ii *panelImages) send(seq string) tea.Cmd {
 	return tea.Raw(ii.wrap(seq))
 }
 
-// imageLoadedMsg carries one fetched image, encoded for transmit.
+// imageLoadedMsg carries one fetched image, encoded for transmit; full
+// marks the image view's copy.
 type imageLoadedMsg struct {
 	att        string
 	id         uint32
 	pxW, pxH   int
 	cols, rows int
 	seq        string
+	raw        []byte
+	full       bool
 	err        error
 }
 
@@ -170,9 +180,9 @@ func (m *Model) fetchIssueImages(iss *jira.Issue) tea.Cmd {
 			if err != nil {
 				return imageLoadedMsg{att: att, err: err}
 			}
-			seq, w, h, err := encodeKittyImage(id, b, box, maxRows, cell)
+			seq, w, h, err := encodeKittyImage(id, b, imgMaxPx, box, maxRows, cell)
 			cols, rows := fitCells(w, h, box, maxRows, cell)
-			return imageLoadedMsg{att: att, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, err: err}
+			return imageLoadedMsg{att: att, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, raw: b, err: err}
 		})
 	}
 	return tea.Batch(cmds...)
@@ -194,6 +204,9 @@ func issueShowsAttachment(iss *jira.Issue, att string) bool {
 }
 
 func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
+	if msg.full {
+		return m.handleFullImage(msg)
+	}
 	e := m.images.byAtt[msg.att]
 	if e == nil {
 		return m, nil
@@ -202,7 +215,7 @@ func (m Model) handleImageLoaded(msg imageLoadedMsg) (tea.Model, tea.Cmd) {
 		e.state = imgFailed
 		return m, nil
 	}
-	e.state, e.pxW, e.pxH, e.cols, e.rows, e.seq = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows, msg.seq
+	e.state, e.pxW, e.pxH, e.cols, e.rows, e.seq, e.raw = imgReady, msg.pxW, msg.pxH, msg.cols, msg.rows, msg.seq, msg.raw
 	m.renderRef()
 	return m, m.images.send(msg.seq)
 }
@@ -261,7 +274,7 @@ func (m Model) handleResendImages() (tea.Model, tea.Cmd) {
 	}
 	m.images.live = true
 	var sb strings.Builder
-	for _, e := range append(slices.Collect(maps.Values(m.images.byAtt)), slices.Collect(maps.Values(m.images.avatars))...) {
+	for _, e := range m.images.all() {
 		if e.state == imgReady && !e.gone {
 			sb.WriteString(e.transmit())
 		}
@@ -269,15 +282,15 @@ func (m Model) handleResendImages() (tea.Model, tea.Cmd) {
 	return m, m.images.send(sb.String())
 }
 
-// encodeKittyImage decodes b, downscales it past imgMaxPx, fits it to at most
-// box columns and imgMaxRows rows, and builds the transmit sequence. w×h is
+// encodeKittyImage decodes b, downscales it past maxPx, fits it to at most
+// box columns and maxRows rows, and builds the transmit sequence. w×h is
 // the transmitted pixel size.
-func encodeKittyImage(id uint32, b []byte, box, maxRows int, cell cellPx) (seq string, w, h int, err error) {
+func encodeKittyImage(id uint32, b []byte, maxPx, box, maxRows int, cell cellPx) (seq string, w, h int, err error) {
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("decode image: %w", err)
 	}
-	img = shrinkImage(img, imgMaxPx)
+	img = shrinkImage(img, maxPx)
 	w, h = img.Bounds().Dx(), img.Bounds().Dy()
 	cols, rows := fitCells(w, h, box, maxRows, cell)
 	var sb strings.Builder
@@ -441,6 +454,16 @@ func (m *Model) placeImages(s string) string {
 	return strings.Join(out, "\n")
 }
 
+// all is every image the session holds: attachments, avatars and the image
+// view's copy.
+func (ii *panelImages) all() []*panelImage {
+	out := append(slices.Collect(maps.Values(ii.byAtt)), slices.Collect(maps.Values(ii.avatars))...)
+	if ii.full != nil {
+		out = append(out, ii.full)
+	}
+	return out
+}
+
 func (ii *panelImages) ready(att string) *panelImage {
 	if ii == nil {
 		return nil
@@ -459,7 +482,7 @@ func (m Model) ReleaseImages() string {
 		return ""
 	}
 	var sb strings.Builder
-	for _, e := range append(slices.Collect(maps.Values(m.images.byAtt)), slices.Collect(maps.Values(m.images.avatars))...) {
+	for _, e := range m.images.all() {
 		if e.state == imgReady && !e.gone {
 			fmt.Fprintf(&sb, "\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", e.id)
 		}
