@@ -93,6 +93,8 @@ In the panel:
   offline; those hits come last, marked `⌕`.
 - `*` pins an issue. Pinned ones come first in the palette.
 - `ctrl+t` shows the board as it was: `←` `→` a day at a time, `esc` back.
+- `ctrl+o` picks a closed sprint and shows its lanes as it closed, with
+  what was done and where the rest carried over to.
 - Start laneway in a git branch named after an issue (`issue/ABC-12-fix`)
   and it opens that issue; `⎇ ABC-12` in the header opens it again.
 

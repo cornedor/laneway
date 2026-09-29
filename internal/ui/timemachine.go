@@ -21,6 +21,9 @@ type timeMachine struct {
 	loading bool
 	days    int // how many days back; the board shows the end of that day
 	seq     int
+	// at pins the replay to one moment instead (a closed sprint's close);
+	// zero steps by days.
+	at time.Time
 }
 
 // timeMachineMax is how far back ← goes, in days.
@@ -33,7 +36,10 @@ type timeMachineMsg struct {
 }
 
 // openTimeMachine loads the cards' changelogs and steps back a day.
-func (m *Model) openTimeMachine() tea.Cmd {
+func (m *Model) openTimeMachine() tea.Cmd { return m.openTimeMachineAt(time.Time{}) }
+
+// openTimeMachineAt is openTimeMachine pinned at at; zero steps by days.
+func (m *Model) openTimeMachineAt(at time.Time) tea.Cmd {
 	t := m.jiraTab
 	if !m.jiraShowsLanes() {
 		m.status = "the time machine needs lanes (" + helpKey(m.keys.ToggleMode) + ")"
@@ -47,7 +53,7 @@ func (m *Model) openTimeMachine() tea.Cmd {
 	if t.past != nil {
 		seq = t.past.seq + 1
 	}
-	t.past = &timeMachine{loading: true, days: 1, seq: seq}
+	t.past = &timeMachine{loading: true, days: 1, seq: seq, at: at}
 	m.status = "reading the board's history…"
 	m.renderJira()
 	c, ctx := m.jiraClient, m.ctx
@@ -75,6 +81,9 @@ func (m Model) handleTimeMachine(msg timeMachineMsg) (tea.Model, tea.Cmd) {
 
 // asOf is the moment the board replays: the end of the day days back.
 func (p *timeMachine) asOf(now time.Time) time.Time {
+	if !p.at.IsZero() {
+		return p.at
+	}
 	y, mo, d := now.Date()
 	return time.Date(y, mo, d-p.days+1, 0, 0, 0, 0, now.Location())
 }
@@ -83,6 +92,9 @@ func (p *timeMachine) asOf(now time.Time) time.Time {
 func (p *timeMachine) label(now time.Time) string {
 	if p.loading {
 		return "⏲ reading history…"
+	}
+	if !p.at.IsZero() {
+		return "⏲ as it closed, " + strings.ToLower(p.at.Local().Format("Mon 2 Jan"))
 	}
 	return "⏲ as of " + strings.ToLower(p.asOf(now).Add(-time.Minute).Format("Mon 2 Jan"))
 }
@@ -110,6 +122,9 @@ func (m *Model) stepTimeMachine(d int) {
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
 	m.status = "← earlier · → later · esc back to now"
+	if !p.at.IsZero() {
+		m.status = "a closed sprint, as it closed · esc leaves it"
+	}
 	m.renderJira()
 }
 
@@ -129,10 +144,14 @@ func (m Model) handleTimeMachineKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch s := msg.String(); {
 	case s == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m.quit()
+	case !p.at.IsZero() && (s == "esc" || key.Matches(msg, m.keys.TimeMachine) || key.Matches(msg, m.keys.ClosedSprint)):
+		return m, m.leaveClosedSprint()
 	case s == "esc", key.Matches(msg, m.keys.TimeMachine):
 		m.closeTimeMachine()
 	case p.loading:
 		m.status = "still reading the history · esc cancels"
+	case !p.at.IsZero() && (s == "left" || s == "right"):
+		m.status = "a closed sprint shows as it closed · esc leaves it"
 	case s == "left":
 		m.stepTimeMachine(1)
 	case s == "right":
@@ -147,6 +166,8 @@ func (m Model) handleTimeMachineKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.moveJiraLane(1)
 	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
 		return m.openJiraCard()
+	case !p.at.IsZero():
+		m.status = "a closed sprint only looks · esc leaves it"
 	default:
 		m.status = "the time machine only looks · esc back to now"
 	}

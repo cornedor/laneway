@@ -77,6 +77,8 @@ const (
 	// its link types (issue_actions.go).
 	jiraPickIssueActions
 	jiraPickLinkType
+	// jiraPickClosedSprint lists the board's closed sprints (closed_sprint.go).
+	jiraPickClosedSprint
 	// jiraPickSite switches the Jira site (sites.go).
 	jiraPickSite
 	// jiraPickHistory is the panel issue's history (history.go).
@@ -185,8 +187,10 @@ type jiraPickerLoadedMsg struct {
 	err   error
 	// projects is the project picker's fetch, kept for the next opening.
 	projects []jira.Project
-	title    string // replaces the picker's title when set
-	text     string // the list as text, for its copy (the timesheet)
+	// sprints is the closed sprint picker's fetch (closed_sprint.go).
+	sprints []jira.Sprint
+	title   string // replaces the picker's title when set
+	text    string // the list as text, for its copy (the timesheet)
 }
 
 // jiraAssigneeDebounceMsg fires after the debounce window to run the pending
@@ -431,6 +435,9 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 	if msg.projects != nil {
 		m.jiraTab.projects = msg.projects
 	}
+	if msg.kind == jiraPickClosedSprint {
+		m.jiraTab.closedSprints = msg.sprints
+	}
 	m.jiraPicker.err = msg.err
 	if msg.kind == jiraPickInbox && msg.err == nil {
 		m.setInboxUnread(0) // read now; a failed load keeps the badge
@@ -604,7 +611,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
-			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
+			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickClosedSprint || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
 			if k == jiraPickPalette {
@@ -764,6 +771,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		m.askWorkPrompt(key, it.id)
 		return m, nil
+	}
+	if kind == jiraPickClosedSprint {
+		m.closeJiraPicker()
+		return m, m.openClosedSprint(it.id)
 	}
 	if kind == jiraPickLinkType {
 		key := m.jiraPicker.issueKey

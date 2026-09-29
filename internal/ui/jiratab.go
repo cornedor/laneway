@@ -119,6 +119,9 @@ type jiraView struct {
 	goal       string
 	// doneDays is how long a kanban board shows done work (0: the default).
 	doneDays int
+	// closed is when a closed sprint closed (closed_sprint.go); zero for a
+	// view that is not one.
+	closed time.Time
 }
 
 // jiraLane is a board column and the cards (indexes into cards) in it.
@@ -277,6 +280,10 @@ type jiraTabState struct {
 	confetti confetti
 	// past replays the board on an earlier day, nil for now (timemachine.go).
 	past *timeMachine
+	// closedSprints is the board's closed sprints, as the closed sprint
+	// picker last fetched them; closedFrom the view a closed one returns to.
+	closedSprints []jira.Sprint
+	closedFrom    int
 
 	sort jiraSort // the list's order; lanes keep the board's rank
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
@@ -421,7 +428,7 @@ func (m *Model) jiraCurrentView() (jiraView, bool) {
 // jiraShowsLanes reports whether the board shows as swim lanes right now.
 func (m *Model) jiraShowsLanes() bool {
 	v, ok := m.jiraCurrentView()
-	return ok && v.lanes && m.jiraTab.wantLanes
+	return ok && v.lanes && (m.jiraTab.wantLanes || !v.closed.IsZero())
 }
 
 // loadJiraBoard fetches a board from scratch. An empty project falls back to
@@ -725,6 +732,9 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 			added -= len(msg.gone)
 		}
 		m.installJiraCards(merged, max(t.total+added, len(merged)), nil, keep)
+		if m.inClosedSprint() {
+			return m, nil
+		}
 		return m, m.runRules(merged)
 	}
 	if !msg.cached && msg.err == nil {
@@ -734,6 +744,12 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
 	if msg.cached || msg.err != nil {
 		return m, nil
+	}
+	if v, _ := m.jiraCurrentView(); !v.closed.IsZero() {
+		if t.past != nil && t.past.at.Equal(v.closed) {
+			return m, nil // a refresh: the replay stays
+		}
+		return m, m.openTimeMachineAt(v.closed)
 	}
 	return m, m.runRules(msg.cards)
 }
@@ -754,6 +770,7 @@ func (m *Model) installJiraCards(cards []jira.Card, total int, err error, keep s
 	default:
 		t.offline = ""
 	}
+	m.dropClosedSprint()
 	t.cards, t.total = cards, total
 	t.fetched = time.Now()
 	if t.people == nil {
@@ -984,6 +1001,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openCharts()
 	case key.Matches(msg, m.keys.TimeMachine):
 		return m, m.openTimeMachine()
+	case key.Matches(msg, m.keys.ClosedSprint):
+		return m, m.openClosedSprintPicker()
 	case key.Matches(msg, m.keys.Timer):
 		return m, m.toggleTimer(m.selectedJiraKey())
 	case key.Matches(msg, m.keys.Timesheet):
@@ -3059,6 +3078,8 @@ func jiraSprintLine(v jiraView, now time.Time, workdays []time.Weekday) string {
 	var parts []string
 	days := func(t time.Time) int { return int(math.Ceil(t.Sub(now).Hours() / 24)) }
 	switch {
+	case !v.closed.IsZero():
+		parts = append(parts, "closed "+v.closed.Local().Format("Jan 2"))
 	case !v.start.IsZero() && v.start.After(now):
 		parts = append(parts, "starts "+v.start.Local().Format("Jan 2"))
 	case !v.end.IsZero() && days(v.end) > 0:
@@ -3141,6 +3162,7 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 		m.renderJira()
 		return m, nil
 	}
+	onMark = onMark || t.past != nil // replayed cards don't drag
 	if h.idx < 0 {
 		t.idx = h.line
 		if c, ok := m.selectedJiraCard(); ok && count == 1 && !onMark {

@@ -88,6 +88,8 @@ func keyMsg(t *testing.T, name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl}
 	case "ctrl+t":
 		return tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl}
+	case "ctrl+o":
+		return tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl}
 	case "ctrl+x":
 		return tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl}
 	case "ctrl+y":

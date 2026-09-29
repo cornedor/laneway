@@ -115,11 +115,15 @@ func (m *Model) jiraViewSegs() []headSeg {
 		head = append(head, keySeg(jiraOverStyle.Render("offline · showing the cached board · "+helpKey(m.keys.Refresh)+" retries"), m.keys.Refresh), plainSeg("    "))
 	}
 	if v, ok := m.jiraCurrentView(); ok {
-		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && bar != "" {
+		// A closed sprint's bar would count what is done now; its line says what was.
+		if bar := jiraSprintBar(t.cards); v.kind == jiraViewSprint && v.closed.IsZero() && bar != "" {
 			tail = append(tail, plainSeg("    "), keySeg(bar, m.keys.Charts))
 		}
 		if s := jiraSprintLine(v, time.Now(), m.opts.workdays); s != "" {
 			tail = append(tail, headSeg{s: jiraDimStyle.Render("    " + s), kind: "goal"})
+		}
+		if !v.closed.IsZero() {
+			tail = append(tail, plainSeg(jiraDimStyle.Render("    "+closedSprintLine(t.cards))))
 		}
 	}
 	if n := len(t.lanes); m.jiraShowsLanes() && n > 0 {

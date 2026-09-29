@@ -110,6 +110,8 @@ type Sprint struct {
 	State      string
 	Start, End time.Time // zero until planned
 	Goal       string
+	// Complete is when a closed sprint was closed, zero for the others.
+	Complete time.Time
 }
 
 // Card is an issue as a board shows it.
@@ -379,43 +381,66 @@ func (c *Client) fetchBoardConfiguration(ctx context.Context, board int) (*Board
 
 // Sprints lists a scrum board's active and future sprints, active first.
 func (c *Client) Sprints(ctx context.Context, board int) ([]Sprint, error) {
-	if !c.Enabled() {
-		return nil, errNotConfigured
-	}
-	type sprint struct {
-		ID        int       `json:"id"`
-		Name      string    `json:"name"`
-		State     string    `json:"state"`
-		StartDate time.Time `json:"startDate"`
-		EndDate   time.Time `json:"endDate"`
-		Goal      string    `json:"goal"`
-	}
-	var all []sprint
-	for start := 0; start < 1000; {
-		var resp struct {
-			Values []sprint `json:"values"`
-			IsLast bool     `json:"isLast"`
-		}
-		path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/sprint?state=active,future&maxResults=50&startAt=" + strconv.Itoa(start)
-		if err := c.do(ctx, http.MethodGet, path, "sprints", nil, &resp); err != nil {
-			return nil, err
-		}
-		all = append(all, resp.Values...)
-		if resp.IsLast || len(resp.Values) < 50 { // a short page is the last
-			break
-		}
-		start += len(resp.Values)
+	all, err := c.boardSprints(ctx, board, "active,future")
+	if err != nil {
+		return nil, err
 	}
 	var active, future []Sprint
-	for _, s := range all {
-		sp := Sprint{ID: s.ID, Name: s.Name, State: s.State, Start: s.StartDate, End: s.EndDate, Goal: strings.TrimSpace(s.Goal)}
-		if s.State == "active" {
+	for _, sp := range all {
+		if sp.State == "active" {
 			active = append(active, sp)
 		} else {
 			future = append(future, sp)
 		}
 	}
 	return append(active, future...), nil
+}
+
+// ClosedSprints lists a scrum board's closed sprints, the last closed first.
+func (c *Client) ClosedSprints(ctx context.Context, board int) ([]Sprint, error) {
+	all, err := c.boardSprints(ctx, board, "closed")
+	if err != nil {
+		return nil, err
+	}
+	slices.Reverse(all) // Jira lists them oldest first
+	return all, nil
+}
+
+// boardSprints lists a board's sprints in state (Jira's comma-separated
+// list), in Jira's order.
+func (c *Client) boardSprints(ctx context.Context, board int, state string) ([]Sprint, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	type sprint struct {
+		ID           int       `json:"id"`
+		Name         string    `json:"name"`
+		State        string    `json:"state"`
+		StartDate    time.Time `json:"startDate"`
+		EndDate      time.Time `json:"endDate"`
+		CompleteDate time.Time `json:"completeDate"`
+		Goal         string    `json:"goal"`
+	}
+	var all []Sprint
+	for start := 0; start < 1000; {
+		var resp struct {
+			Values []sprint `json:"values"`
+			IsLast bool     `json:"isLast"`
+		}
+		path := "/rest/agile/1.0/board/" + strconv.Itoa(board) + "/sprint?state=" + state + "&maxResults=50&startAt=" + strconv.Itoa(start)
+		if err := c.do(ctx, http.MethodGet, path, "sprints", nil, &resp); err != nil {
+			return nil, err
+		}
+		for _, s := range resp.Values {
+			all = append(all, Sprint{ID: s.ID, Name: s.Name, State: s.State, Start: s.StartDate, End: s.EndDate,
+				Complete: s.CompleteDate, Goal: strings.TrimSpace(s.Goal)})
+		}
+		if resp.IsLast || len(resp.Values) < 50 { // a short page is the last
+			break
+		}
+		start += len(resp.Values)
+	}
+	return all, nil
 }
 
 // SprintIssues returns a sprint's issues in rank order, narrowed by jql when

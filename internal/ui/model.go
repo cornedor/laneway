@@ -64,6 +64,7 @@ type keyMap struct {
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
+	ClosedSprint                       key.Binding
 	AgentBack                          key.Binding // out of the agent's terminal in the panel
 
 	// Planning's, the roadmap's and the timesheet's own keys.
@@ -173,6 +174,7 @@ func defaultKeys() keyMap {
 		Notes:           bind("private notes on the issue ($EDITOR)", "N"),
 		Ask:             bind("ask ui.llm about the issue", "ctrl+a"),
 		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
+		ClosedSprint:    bind("closed sprints: one as it ended", "ctrl+o"),
 		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),

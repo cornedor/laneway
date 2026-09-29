@@ -207,6 +207,21 @@ func TestSprints(t *testing.T) {
 	}
 }
 
+// TestClosedSprints: state=closed, the last closed first, with when.
+func TestClosedSprints(t *testing.T) {
+	var q string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q = r.URL.Query().Get("state")
+		fmt.Fprint(w, `{"isLast": true, "values": [{"id": 1, "name": "S1", "state": "closed", "completeDate": "2026-09-14T15:00:00.000Z"},
+			{"id": 2, "name": "S2", "state": "closed", "completeDate": "2026-09-28T15:00:00.000Z"}]}`)
+	}))
+	defer srv.Close()
+	ss, err := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"}).ClosedSprints(context.Background(), 7)
+	if err != nil || q != "closed" || len(ss) != 2 || ss[0].ID != 2 || ss[0].Complete.Day() != 28 {
+		t.Errorf("sprints = %+v, %v (state %q)", ss, err, q)
+	}
+}
+
 func TestRank(t *testing.T) {
 	var got string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
