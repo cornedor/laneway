@@ -165,6 +165,8 @@ func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.editSetting()
 	case msg.String() == "esc", msg.String() == "q", key.Matches(msg, m.keys.Settings):
 		m.settings = nil
+	case m.formFieldStep(msg) != 0:
+		s.idx = min(max(s.idx+m.formFieldStep(msg), 0), len(s.rows)-1)
 	default:
 		_, visible := s.window(m.bodyH())
 		s.idx, _ = m.keys.listNav(msg, s.idx, len(s.rows), visible, false)
@@ -253,6 +255,17 @@ func (m Model) handleSettingsInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		s.input, s.err = nil, ""
+		return m, nil
+	}
+	if d := m.formFieldStep(msg); d != 0 { // keep it and move on
+		if r := s.rows[s.idx]; s.input.Value() != r.value {
+			if err := m.saveSetting(r.name, s.input.Value()); err != "" {
+				s.err = err
+				return m, nil
+			}
+		}
+		s.input, s.err = nil, ""
+		s.idx = min(max(s.idx+d, 0), len(s.rows)-1)
 		return m, nil
 	}
 	var cmd tea.Cmd
@@ -395,7 +408,7 @@ func (m *Model) renderSettings(height int) string {
 	hintText := "↵ edit · esc closes · writes ui: in " + where
 	switch {
 	case s.input != nil:
-		hintText = "↵ save · empty for the default · esc cancel"
+		hintText = "↵ save · tab/↑↓ save and move · empty for the default · esc cancel"
 	case s.choices != nil:
 		hintText = "↑ ↓ choose · ↵ save · esc cancel"
 	}

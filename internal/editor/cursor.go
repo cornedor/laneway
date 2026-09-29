@@ -44,6 +44,14 @@ func (m *Model) CursorVisualRow() int {
 	return i
 }
 
+// CursorOnLastVisualRow is whether the caret sits on the buffer's bottom
+// wrapped row, where ↓ has nowhere left to go.
+func (m *Model) CursorOnLastVisualRow() bool {
+	rows := m.layout(true)
+	i, _ := m.cursorVis(rows)
+	return i == len(rows)-1
+}
+
 // CursorViewPos returns the cursor's position relative to the editor's own
 // top-left cell, for an owner that draws the real terminal cursor (see
 // NativeCursor): col counts the prompt gutter plus the content display column,

@@ -120,6 +120,14 @@ func (m *Model) helpSections() []struct {
 		rows  []helpRow
 	}
 	sections = append(sections,
+		section{"Forms", []helpRow{
+			{"tab / ↓ / ctrl+n", "next field, keeping what you typed"},
+			{"shift+tab / ↑ / ctrl+p", "previous field"},
+			{"↑ ↓ in a description", "move lines; leave at the top / bottom"},
+			{"enter", "edit the field; on the summary, create"},
+			{"ctrl+s", "save the form"},
+			{"esc", "undo the field, then close"},
+		}},
 		section{"Planning", []helpRow{
 			{join(k.Left, k.Right), "switch side"},
 			{join(k.PrevView, k.NextView), "the sprint on the right"},

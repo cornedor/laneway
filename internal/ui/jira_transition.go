@@ -309,6 +309,14 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m.quit()
 		}
+		if d := m.formFieldStep(msg); d != 0 && m.multilineLeaves(msg, d) {
+			ff := &f.fields[f.idx]
+			ff.val.Text, ff.changed = strings.TrimRight(f.area.Value(), "\n"), true
+			f.editing, f.multiline = false, false
+			m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
+			f.idx = min(max(f.idx+d, 0), len(f.fields))
+			return m, nil
+		}
 		var cmd tea.Cmd
 		f.area, cmd = f.area.Update(msg)
 		return m, tea.Batch(cmd, m.scheduleMention())
@@ -338,18 +346,16 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
 				return m, m.submitCreateAnother()
 			}
-		case "tab", "shift+tab": // keep it and move on
-			ff := &f.fields[f.idx]
-			ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
-			if msg.String() == "tab" {
-				f.idx = min(f.idx+1, len(f.fields))
-			} else {
-				f.idx = max(f.idx-1, 0)
-			}
-			return m, nil
 		case "esc":
 			f.editing = false
 			m.labels.list = nil
+			return m, nil
+		}
+		if d := m.formFieldStep(msg); d != 0 { // keep it and move on
+			ff := &f.fields[f.idx]
+			ff.val.Text, ff.changed, f.editing = f.input.Value(), true, false
+			m.labels.list = nil
+			f.idx = min(max(f.idx+d, 0), len(f.fields))
 			return m, nil
 		}
 		before := f.input.Value()
@@ -370,10 +376,12 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.submitJiraForm()
 	case (msg.String() == "ctrl+enter" || msg.String() == "alt+enter") && f.create != nil && f.create.form:
 		return m, m.submitCreateAnother()
-	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp), msg.String() == "shift+tab":
+	case key.Matches(msg, m.keys.Up):
 		f.idx = max(f.idx-1, 0)
-	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown), msg.String() == "tab":
+	case key.Matches(msg, m.keys.Down):
 		f.idx = min(f.idx+1, len(f.fields))
+	case m.formFieldStep(msg) != 0:
+		f.idx = min(max(f.idx+m.formFieldStep(msg), 0), len(f.fields))
 	case f.create != nil && f.create.form && f.idx < len(f.fields) && f.fields[f.idx].ID == createTypeField &&
 		(key.Matches(msg, m.keys.Left) || key.Matches(msg, m.keys.Right)):
 		d := 1
@@ -393,6 +401,33 @@ func (m Model) handleJiraFormKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.editJiraFormField()
 	}
 	return m, nil
+}
+
+// formFieldStep is the field a key moves a form to: 1 for the next (tab, ↓,
+// ctrl+n), -1 for the previous (shift+tab, ↑, ctrl+p), 0 for any other key.
+// j and k are not in it: while a field is edited they are letters.
+func (m Model) formFieldStep(msg tea.KeyPressMsg) int {
+	switch {
+	case msg.String() == "tab", key.Matches(msg, m.keys.InputDown):
+		return 1
+	case msg.String() == "shift+tab", key.Matches(msg, m.keys.InputUp):
+		return -1
+	}
+	return 0
+}
+
+// multilineLeaves is whether a step key leaves the multi-line field rather
+// than moving in it: ↑ on its top row, ↓ on its bottom one, tab outside a
+// table (where it steps cells).
+func (m Model) multilineLeaves(msg tea.KeyPressMsg, d int) bool {
+	a := &m.jiraForm.area
+	switch s := msg.String(); {
+	case s == "tab" || s == "shift+tab":
+		return !a.InTableRow()
+	case d < 0:
+		return a.CursorVisualRow() == 0
+	}
+	return a.CursorOnLastVisualRow()
 }
 
 // editJiraFormField starts editing the selected row: inline for text, a
@@ -775,25 +810,25 @@ func (m *Model) renderJiraForm() string {
 	if f.err != "" && !onCreate {
 		parts = append(parts, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
 	}
-	hint := "↑/↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
+	hint := "tab/↑↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
 	if f.create != nil {
-		hint = "↑/↓ field · ↵ edit · del clear · ctrl+s create · esc back"
+		hint = "tab/↑↓ field · ↵ edit · del clear · ctrl+s create · esc back"
 	}
 	if onCreate {
-		hint = "tab field · ↵ edit · ← → type · ctrl+s create · alt+↵ create another · esc cancel"
+		hint = "tab/↑↓ field · ↵ edit · ← → type · ctrl+s create · alt+↵ create another · esc cancel"
 		if missing := missingFields(f); len(missing) > 0 {
-			hint = "fill in " + strings.Join(missing, ", ") + " to create · tab field · esc cancel"
+			hint = "fill in " + strings.Join(missing, ", ") + " to create · tab/↑↓ field · esc cancel"
 		}
 	}
 	switch {
 	case f.multiline && onCreate && f.fields[f.idx].ID == createDescField:
-		hint = "ctrl+s keep · ↵ newline · @ mention · : emoji · esc undo"
+		hint = "ctrl+s keep · tab field · ↵ newline · @ mention · : emoji · esc undo"
 	case f.multiline:
-		hint = "ctrl+s keep · ↵ newline · esc undo"
+		hint = "ctrl+s keep · tab field · ↵ newline · esc undo"
 	case f.editing && onCreate && f.fields[f.idx].ID == createSummaryField:
-		hint = "↵ create · alt+↵ create another · tab next · esc undo"
+		hint = "↵ create · alt+↵ create another · tab/↑↓ field · esc undo"
 	case f.editing:
-		hint = "↵ keep · esc undo"
+		hint = "↵ keep · tab/↑↓ field · esc undo"
 	}
 	parts = append(parts, "", center.Foreground(dimColor).Italic(true).Render(hint))
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).

@@ -116,7 +116,7 @@ func (m Model) handleLabelsFound(msg labelsFoundMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// labelKey handles ↑ ↓ and tab while suggestions show; ok is false for any
+// labelKey handles ↑ ↓ (ctrl+p ctrl+n) and tab while suggestions show; ok is false for any
 // other key.
 func (m *Model) labelKey(msg tea.KeyPressMsg) bool {
 	ls := &m.labels
@@ -124,9 +124,9 @@ func (m *Model) labelKey(msg tea.KeyPressMsg) bool {
 		return false
 	}
 	switch msg.String() {
-	case "down":
+	case "down", "ctrl+n":
 		ls.idx = (ls.idx + 1) % len(ls.list)
-	case "up":
+	case "up", "ctrl+p":
 		ls.idx = (ls.idx - 1 + len(ls.list)) % len(ls.list)
 	case "tab":
 		ti := m.labelInput()

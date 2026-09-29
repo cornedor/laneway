@@ -155,7 +155,7 @@ ui:
 ```
 
 `,` lists every `ui:` option with its value and default; `enter` edits a one-line
-one (empty for the default), checked, written back to the file (comments kept)
+one (empty for the default; `tab`, `↑` or `↓` save it and move on), checked, written back to the file (comments kept)
 and applied at once (`images`, `image_max_rows`, `card_limit`, `default_mode`,
 `flag_value`, `inbox_issues` after a restart). An option with a fixed set
 (`icons`, `mouse`, `theme`, `code_theme`, …) picks from its values instead,
@@ -386,6 +386,10 @@ creates it, `ctrl+s` from any row; in a sprint view it joins that sprint.
 `alt+enter` (or `ctrl+enter` where the terminal tells them apart) creates
 it and keeps the form for the next, its type and fields as they were, the
 summary and description cleared; the status line lists the keys made.
+`tab`, `↓` or `ctrl+n` go to the next field and `shift+tab`, `↑` or `ctrl+p` to
+the one before, from a row or while typing in it (the text kept); in the
+description `↑` and `↓` leave at its top and bottom line, `tab` outside a
+table. The move and bulk-move forms work the same.
 A list pasted into the summary (one a line; `-`, `*`, `1.` and `[ ]` dropped)
 makes one issue a line with the form's type and fields; typing drops it.
 Fields the type requires, like a Component, join the form as the type is
