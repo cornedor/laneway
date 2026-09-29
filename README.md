@@ -290,6 +290,11 @@ Every issue laneway reads (boards, searches, the panel) is mirrored in
 shows what it holds, `laneway index clear` drops it. Offline, the palette
 and the panel answer from it and say so.
 
+It keeps each project's people too: everyone assignable, read in full once
+a week, and whoever laneway sees on issues meanwhile. `@` mentions and the
+person pickers answer from it at once, offline too; a name it lacks is
+still searched in Jira.
+
 ## Keys
 
 ![The ? help overlay](docs/screenshots/help.png)

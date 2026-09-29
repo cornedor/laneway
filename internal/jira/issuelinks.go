@@ -149,7 +149,8 @@ func (c *Client) SetWatcher(ctx context.Context, key, accountID string, watch bo
 	return err
 }
 
-// ViewUsers finds the people who can see key, matching query.
+// ViewUsers finds the people who can see key, matching query; offline,
+// the people seen in its project.
 func (c *Client) ViewUsers(ctx context.Context, key, query string) ([]User, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
@@ -157,6 +158,16 @@ func (c *Client) ViewUsers(ctx context.Context, key, query string) ([]User, erro
 	var resp []User
 	path := "/rest/api/3/user/viewissue/search?issueKey=" + url.QueryEscape(key) + "&query=" + url.QueryEscape(strings.TrimSpace(query))
 	err := c.do(ctx, http.MethodGet, path, key, nil, &resp)
+	if c.people == nil {
+		return resp, err
+	}
+	project, _, _ := strings.Cut(key, "-")
+	if err != nil && Offline(err) {
+		if us := c.people.Users(project, query, false); len(us) > 0 {
+			return us[:min(len(us), peopleShown)], nil
+		}
+	}
+	c.people.PutUsers(project, resp, false)
 	return resp, err
 }
 

@@ -20,10 +20,10 @@ func TestIndexCmd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ix.PutCards([]jira.Card{{Key: "ABC-1"}, {Key: "ABC-2"}, {Key: "XY-1"}})
+	ix.PutCards([]jira.Card{{Key: "ABC-1", AssigneeID: "a1", Assignee: "Ada"}, {Key: "ABC-2"}, {Key: "XY-1"}})
 	ix.Close()
 	var out, errOut bytes.Buffer
-	if code := subcommand([]string{"index"}, "", "work", &out, &errOut); code != 0 || !strings.Contains(out.String(), "ABC\t2\nXY\t1\n") {
+	if code := subcommand([]string{"index"}, "", "work", &out, &errOut); code != 0 || !strings.Contains(out.String(), "ABC\t2 issues\t1 people\nXY\t1 issues\t0 people\n") {
 		t.Fatalf("index = %d, %q %q", code, out.String(), errOut.String())
 	}
 	out.Reset()

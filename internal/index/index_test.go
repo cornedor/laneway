@@ -124,3 +124,45 @@ func TestSearch(t *testing.T) {
 		t.Errorf("Search limit 1 = %+v", hs)
 	}
 }
+
+// TestUsers: a sync sets who is assignable; people seen on issues are kept
+// by name, renamed as seen, without becoming assignable; a query matches
+// word starts, names starting with it first.
+func TestUsers(t *testing.T) {
+	ix, _ := openTemp(t)
+	if !ix.UsersSynced("ABC").IsZero() {
+		t.Fatal("synced before any sync")
+	}
+	ix.SyncAssignable("ABC", []jira.User{{AccountID: "a1", DisplayName: "Ada Lovelace"}, {AccountID: "c1", DisplayName: "Claude"}, {AccountID: "g1", DisplayName: "Grace Hopper"}})
+	ix.PutIssue(&jira.Issue{Key: "ABC-1", ReporterAccountID: "r1", Reporter: "Rita Clark",
+		Comments: []jira.Comment{{AuthorID: "g1", Author: "Grace B. Hopper"}}})
+	if ix.UsersSynced("ABC").IsZero() {
+		t.Error("sync not noted")
+	}
+	names := func(us []jira.User) string {
+		var out []string
+		for _, u := range us {
+			out = append(out, u.DisplayName)
+		}
+		return strings.Join(out, ", ")
+	}
+	if got := names(ix.Users("ABC", "", true)); got != "Ada Lovelace, Claude, Grace B. Hopper" {
+		t.Errorf("assignable = %s", got)
+	}
+	if got := names(ix.Users("ABC", "cl", false)); got != "Claude, Rita Clark" {
+		t.Errorf("cl = %s", got)
+	}
+	if got := names(ix.Users("ABC", "hop gr", true)); got != "Grace B. Hopper" {
+		t.Errorf("hop gr = %s", got)
+	}
+	if got := names(ix.Users("XY", "", false)); got != "" {
+		t.Errorf("other project = %s", got)
+	}
+	ix.SyncAssignable("ABC", []jira.User{{AccountID: "c1", DisplayName: "Claude"}})
+	if got := names(ix.Users("ABC", "", true)); got != "Claude" {
+		t.Errorf("after a resync = %s; want the ones gone no longer assignable", got)
+	}
+	if n, _ := ix.PeopleStats(); n["ABC"] != 4 {
+		t.Errorf("PeopleStats = %v", n)
+	}
+}

@@ -42,8 +42,12 @@ type Indexer interface {
 	PutIssue(*Issue)
 }
 
-// SetIndex gives the client somewhere to mirror what it reads.
-func (c *Client) SetIndex(ix Indexer) { c.index = ix }
+// SetIndex gives the client somewhere to mirror what it reads, and to find
+// people in when it keeps them (People).
+func (c *Client) SetIndex(ix Indexer) {
+	c.index = ix
+	c.people, _ = ix.(People)
+}
 
 // issuePathKey is the issue key in /rest/api/3/issue/KEY[/…], "" for
 // another path (a create, the agile API).

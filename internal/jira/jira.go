@@ -82,8 +82,12 @@ type Client struct {
 	// queue keeps writes that never reached Jira (queue.go); nil fails them.
 	queue func(PendingWrite)
 	// index mirrors the cards and issues read (queue.go); nil keeps none.
-	index   Indexer
-	writing atomic.Int32 // writes (not GETs) on their way
+	index Indexer
+	// people answers person searches (users.go); nil asks Jira each time.
+	// peopleTried are the projects synced this session, behind mu.
+	people      People
+	peopleTried map[string]bool
+	writing     atomic.Int32 // writes (not GETs) on their way
 
 	mu    sync.Mutex
 	cache map[string]cachedIssue
@@ -885,13 +889,22 @@ func (c *Client) SetPriority(ctx context.Context, key, priorityID string) error 
 }
 
 // AssignableUsers returns users who can be assigned to the issue, optionally
-// narrowed by query (matched server-side against name/email). An empty query
-// returns the default page. Jira caps the response (50 by default), so a large
-// project must search rather than rely on the first page. A key without a
-// dash is a project's: users assignable in it, for an issue yet to be made.
+// narrowed by query. With People it answers from the project's full list,
+// read once a week (users.go); a query that matches no one there, or no
+// cache, asks Jira, matching name and email. Jira caps the response (50 by
+// default), so a large project must search rather than rely on the first
+// page. A key without a dash is a project's: users assignable in it, for an
+// issue yet to be made. Offline, the cache answers even when stale.
 func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
+	}
+	people, project := c.usersFrom(ctx, key)
+	fresh := people != nil && time.Since(people.UsersSynced(project)) <= peopleFresh
+	if fresh {
+		if us := people.Users(project, query, true); len(us) > 0 {
+			return us[:min(len(us), peopleShown)], nil
+		}
 	}
 	var resp []struct {
 		AccountID   string `json:"accountId"`
@@ -905,11 +918,19 @@ func (c *Client) AssignableUsers(ctx context.Context, key, query string) ([]User
 		path += "&query=" + url.QueryEscape(q)
 	}
 	if err := c.do(ctx, http.MethodGet, path, key, nil, &resp); err != nil {
+		if people != nil && Offline(err) {
+			if us := people.Users(project, query, true); len(us) > 0 {
+				return us[:min(len(us), peopleShown)], nil
+			}
+		}
 		return nil, err
 	}
 	out := make([]User, 0, len(resp))
 	for _, u := range resp {
 		out = append(out, User{AccountID: u.AccountID, DisplayName: u.DisplayName})
+	}
+	if people != nil {
+		people.PutUsers(project, out, true)
 	}
 	return out, nil
 }

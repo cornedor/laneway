@@ -45,9 +45,21 @@ func indexCmd(args []string, site string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1
 	}
+	people, err := ix.PeopleStats()
+	if err != nil {
+		fmt.Fprintln(errOut, "laneway:", err)
+		return 1
+	}
 	fmt.Fprintln(out, path)
-	for _, p := range slices.Sorted(maps.Keys(n)) {
-		fmt.Fprintf(out, "%s\t%d\n", p, n[p])
+	projects := slices.Collect(maps.Keys(n))
+	for p := range people {
+		if _, ok := n[p]; !ok {
+			projects = append(projects, p)
+		}
+	}
+	slices.Sort(projects)
+	for _, p := range projects {
+		fmt.Fprintf(out, "%s\t%d issues\t%d people\n", p, n[p], people[p])
 	}
 	return 0
 }
