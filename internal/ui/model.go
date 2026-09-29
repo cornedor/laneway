@@ -113,7 +113,7 @@ func defaultKeys() keyMap {
 		JiraAssignee: bind("change assignee", "a"),
 		JiraComment:  bind("add comment", "c"),
 		JiraReply:    bind("reply to comment", "R"),
-		JiraStart:    bind("start work in a herdr worktree", "S"),
+		JiraStart:    bind("start work: agent, branch and prompt, then a herdr worktree", "S"),
 		JiraLinks:    bind("go to linked issue or web link", "L"),
 		Back:         bind("previous issue", "backspace"),
 		Image:        bind("view images", "i"),

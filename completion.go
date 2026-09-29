@@ -52,7 +52,7 @@ var commandFlags = map[string][]string{
 	"prompt": {"-config", "-site", "-format"},
 	"hook":   {"-config", "-site", "-strict", "-force"},
 	"rules":  {"-config", "-site", "-on", "-key", "-summary", "-type", "-status", "-from-status", "-assignee", "-priority", "-points", "-watch", "-by-me"},
-	"setup":  {"-config"},
+	"setup":  {"-config", "-site"},
 }
 
 var commandArgs = map[string][]string{

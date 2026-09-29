@@ -50,7 +50,8 @@ laneway remembers the mode and swimlanes per board.
 
 `enter` on a card opens its issue in the panel on the right; `tab` moves
 the keys between the board and the panel. The panel shows the fields at the
-top, then the description, links, subtasks, attachments and the activity.
+top, then the description, links, subtasks (an epic's child issues, with
+how many are done), attachments and the activity.
 
 ![An issue in the panel beside the board](../screenshots/panel.png)
 
@@ -61,7 +62,7 @@ In the panel:
 | `j` `k`, `space` / `b`, the wheel | scroll a line, a page |
 | `tab` / `shift+tab` | walk the fields |
 | `[` `]` | activity tabs: comments, history, work log, all |
-| `L` | pick a linked issue, subtask, the parent or a web link to open |
+| `L` | pick a linked issue, subtask, child, the parent or a web link to open |
 | `N` | your private notes on it, a file on this machine (`$EDITOR`); `A` posts them as a comment |
 | `ctrl+a` | ask `ui.llm` (`claude -p` by default): a summary, acceptance criteria, subtasks, points |
 | `/` | find text in the issue; `n` / `N` step through the hits |

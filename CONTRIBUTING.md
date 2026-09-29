@@ -21,7 +21,8 @@ gofmt -l .    # must print nothing
 ```
 
 Tests never talk to a real Jira: use `httptest` servers for the client and
-the model harness in `internal/ui/harness_test.go` for the UI.
+the model harness in `internal/ui/harness_test.go` for the UI. The docs'
+screenshots are shot from `laneway -demo` by `scripts/screenshots`.
 
 ## Pull requests
 

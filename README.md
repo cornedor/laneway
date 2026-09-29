@@ -395,7 +395,8 @@ table. The move and bulk-move forms work the same.
 A list pasted into the summary (one a line; `-`, `*`, `1.` and `[ ]` dropped)
 makes one issue a line with the form's type and fields; typing drops it.
 Fields the type requires, like a Component, join the form as the type is
-set and the hint names what is still empty; `+ more fields` shows the rest
+set and the hint names what is still empty (the type last created in the
+project comes first, across restarts); `+ more fields` shows the rest
 its create screen allows (assignee with *Assign to me* on top, priority,
 labels, dates, a parent, the sprint: the shown one, or another or the
 backlog, …). A refused create
