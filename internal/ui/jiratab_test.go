@@ -1606,6 +1606,46 @@ func TestBoardRankEnds(t *testing.T) {
 	}
 }
 
+// TestListDragRank: in the backlog's list sorted by rank, a card dragged up shows
+// where it would land and is ranked there on the drop.
+func TestListDragRank(t *testing.T) {
+	var body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.viewIdx = 1 // the backlog
+	m.buildJiraLanes()
+	m.renderJira()
+	tt := m.jiraTab
+	first, last := tt.cards[tt.order[0]].Key, tt.cards[tt.order[len(tt.order)-1]].Key
+	yOf := func(i int) int { return jiraBodyTop + tt.lineOf[i] - tt.view.YOffset() }
+	yLast, yFirst := yOf(len(tt.order)-1), yOf(0)
+	out, _ := m.Update(tea.MouseClickMsg{X: 3, Y: yLast, Button: tea.MouseLeft})
+	m = out.(Model)
+	out, _ = m.Update(tea.MouseMotionMsg{X: 3, Y: yFirst, Button: tea.MouseLeft})
+	m = out.(Model)
+	if !strings.Contains(ansi.Strip(m.jiraTab.view.View()), "┊ "+last) {
+		t.Fatalf("no ghost:\n%s", ansi.Strip(m.jiraTab.view.View()))
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: 3, Y: yFirst, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("the drop should rank")
+	}
+	cmd()
+	if got := m.jiraTab.cards[m.jiraTab.order[0]].Key; got != last {
+		t.Errorf("first is %s, want %s", got, last)
+	}
+	if want := `{"issues":["` + last + `"],"rankBeforeIssue":"` + first + `"}`; body != want {
+		t.Errorf("rank %s, want %s", body, want)
+	}
+}
+
 // TestPickersFilter: the board and sprint pickers take a filter as the
 // project picker does.
 func TestPickersFilter(t *testing.T) {

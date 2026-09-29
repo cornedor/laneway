@@ -1921,15 +1921,19 @@ func (m *Model) renderJira() {
 	var lines []string
 	t.lineOf = t.lineOf[:0]
 	group := ""
-	for i, ci := range t.order {
+	for i, at := range t.jiraListOrder() {
+		ci := t.order[at]
 		if g, ok := jiraGroupOf(t.sort, t.cards[ci]); ok && (i == 0 || g != group) {
 			group = g
 			lines = append(lines, m.jiraGroupHeader(g, i))
 		}
 		t.lineOf = append(t.lineOf, len(lines))
-		row := t.rows[i]
-		if i == t.idx {
-			row = m.jiraListRow(t.cards[ci], true, w, keyW, stW)
+		row := t.rows[at]
+		switch c := t.cards[ci]; {
+		case t.drag.active && c.Key == t.drag.key: // being dragged: faint, where it would land
+			row = jiraGhostStyle.Render(ansi.Truncate("┊ "+c.Key+" "+c.Summary, w, "…"))
+		case at == t.idx:
+			row = m.jiraListRow(c, true, w, keyW, stW)
 		}
 		lines = append(lines, row)
 	}
@@ -1944,6 +1948,7 @@ func (m *Model) renderJira() {
 		head = r - 1
 	}
 	switch {
+	case t.drag.active: // the pointer scrolls it
 	case head < top:
 		t.view.SetYOffset(head)
 	case r >= top+h:
@@ -3138,6 +3143,9 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 	}
 	if h.idx < 0 {
 		t.idx = h.line
+		if c, ok := m.selectedJiraCard(); ok && count == 1 && !onMark {
+			t.drag = jiraDrag{key: c.Key, x: x, y: y, from: -1, over: -1}
+		}
 	} else {
 		t.lane, t.row = h.idx, h.line
 		if c, ok := m.selectedJiraCard(); ok && count == 1 && !onMark {
@@ -3164,6 +3172,9 @@ func (m Model) dragJira(x, y int) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		t.drag.active = true
+	}
+	if !m.jiraShowsLanes() {
+		return m.dragJiraList(y)
 	}
 	visible, _ := jiraLaneLayout(t.view.Width(), len(t.lanes))
 	listW, _ := m.jiraListWidth(m.width)
@@ -3204,6 +3215,50 @@ func (m Model) dragJira(x, y int) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// dragJiraList follows a card dragged in list mode: sorted by rank, the
+// row under the pointer is where it would be ranked.
+func (m Model) dragJiraList(y int) (tea.Model, tea.Cmd) {
+	t := m.jiraTab
+	if t.sort != jiraSortRank {
+		m.status = "ranking needs the list sorted by rank (" + helpKey(m.keys.Sort) + ")"
+		return m, nil
+	}
+	switch line := y - jiraBodyTop; {
+	case line < 0:
+		t.view.ScrollUp(1)
+	case line >= t.view.Height():
+		t.view.ScrollDown(1)
+	}
+	slot := t.drag.slot
+	if h := m.hitJira(1, min(max(y, jiraBodyTop), jiraBodyTop+t.view.Height()-1)); h.line >= 0 {
+		slot = h.line
+	}
+	if slot != t.drag.slot || !t.drag.slotOK {
+		t.drag.slot, t.drag.slotOK = slot, true
+		m.status = "drop to rank " + t.drag.key + " here"
+		m.renderJira()
+	}
+	return m, nil
+}
+
+// jiraListOrder is the list's order with a card dragged in it shown at its
+// slot, as positions into t.order.
+func (t *jiraTabState) jiraListOrder() []int {
+	pos := make([]int, len(t.order))
+	for i := range pos {
+		pos[i] = i
+	}
+	d := t.drag
+	if !d.active || !d.slotOK || d.from != -1 {
+		return pos
+	}
+	at := slices.IndexFunc(t.order, func(ci int) bool { return t.cards[ci].Key == d.key })
+	if at < 0 || d.slot == at {
+		return pos
+	}
+	return slices.Insert(slices.Delete(pos, at, at+1), min(d.slot, len(pos)-1), at)
+}
+
 // jiraLaneOthers is lane l's cards but the dragged one.
 func (m *Model) jiraLaneOthers(l int) []int {
 	t := m.jiraTab
@@ -3234,6 +3289,15 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 	d := t.drag
 	t.drag = jiraDrag{}
 	if !d.active {
+		return m, nil
+	}
+	if d.from == -1 { // list mode
+		m.status = ""
+		at := slices.IndexFunc(t.order, func(ci int) bool { return t.cards[ci].Key == d.key })
+		if d.slotOK && at >= 0 && d.slot != at && d.slot < len(t.order) {
+			return m, m.rankJiraCardTo(t.order, at, d.slot)
+		}
+		m.renderJira()
 		return m, nil
 	}
 	status := ""
