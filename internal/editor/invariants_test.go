@@ -288,6 +288,28 @@ func TestWrapWideRuneEndsWord(t *testing.T) {
 	}
 }
 
+// TestWrapKeepsClustersWhole: a flag or ZWJ family at a row edge moves down
+// whole instead of splitting over two rows.
+func TestWrapKeepsClustersWhole(t *testing.T) {
+	for _, line := range []string{"abcd🇳🇱", "abcd👨‍👩‍👧 ab", "abcde\u0301f"} {
+		bounds := map[int]bool{}
+		pos := 0
+		for g := uniseg.NewGraphemes(line); g.Next(); {
+			pos += len(g.Runes())
+			bounds[pos] = true
+		}
+		for _, w := range []int{2, 3, 4, 5} {
+			off := 0
+			for _, sub := range wrapLine([]rune(line), w, 0) {
+				off += len(sub)
+				if !bounds[off] {
+					t.Fatalf("wrap(%q, w=%d) splits a cluster: %q", line, w, wrapLine([]rune(line), w, 0))
+				}
+			}
+		}
+	}
+}
+
 // TestCaretStaysInScrollWindow: after any cursor placement the caret's row is
 // inside [yOffset, yOffset+height) — otherwise the owner is told to place a
 // terminal cursor on a row it never rendered.

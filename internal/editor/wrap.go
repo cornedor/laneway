@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	"github.com/cornedor/laneway/internal/textwidth"
+	"github.com/rivo/uniseg"
 )
 
 // wrapLine soft-wraps one logical line into visual sub-lines at the given cell
@@ -25,20 +26,25 @@ func wrapLine(runes []rune, width, reserve int) [][]rune {
 		return [][]rune{append([]rune(nil), runes...)}
 	}
 	w := func(rs []rune) int { return textwidth.Width(string(rs)) }
-	rwid := func(r rune) int { return textwidth.Width(string(r)) }
 
 	var (
 		lines  = [][]rune{{}}
 		word   []rune
+		lastW  int // width of word's last cluster
 		row    int
 		spaces int
 	)
-	for _, r := range runes {
-		if unicode.IsSpace(r) {
+	// Step by grapheme cluster, so a flag or ZWJ family is never split across
+	// rows.
+	g := uniseg.NewGraphemes(string(runes))
+	for g.Next() {
+		c := g.Runes()
+		if len(c) == 1 && unicode.IsSpace(c[0]) {
 			spaces++
 		} else {
-			if len(word) > 0 && w(word)+rwid(r) > width {
-				// A wide rune that no longer fits the row breaks the word
+			cw := w(c)
+			if len(word) > 0 && w(word)+cw > width {
+				// A wide cluster that no longer fits the row breaks the word
 				// before it.
 				if len(lines[row]) > 0 {
 					row++
@@ -47,7 +53,8 @@ func wrapLine(runes []rune, width, reserve int) [][]rune {
 				lines[row] = append(lines[row], word...)
 				word = nil
 			}
-			word = append(word, r)
+			word = append(word, c...)
+			lastW = cw
 		}
 		if spaces > 0 {
 			// A run of spaces closes the pending word; flush word+spaces,
@@ -62,8 +69,8 @@ func wrapLine(runes []rune, width, reserve int) [][]rune {
 			word = nil
 		} else if len(word) > 0 {
 			// No spaces yet: a word that on its own would overflow the row
-			// (accounting for its last rune's width) starts a fresh row.
-			if w(word)+rwid(word[len(word)-1]) > width {
+			// (accounting for its last cluster's width) starts a fresh row.
+			if w(word)+lastW > width {
 				if len(lines[row]) > 0 {
 					row++
 					lines = append(lines, []rune{})
