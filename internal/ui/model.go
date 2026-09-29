@@ -531,6 +531,8 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	m.loadPanelWidth()
 	if m.store != nil {
 		_, m.jiraTab.compact, _ = m.store.GetMeta(jiraCompactMeta)
+		v, _, _ := m.store.GetMeta(createMoreMeta)
+		m.createMore = v == "true"
 		m.jiraClient.SetQueue(queueTo(m.store))
 		m.queued = len(readQueue(m.store))
 	}

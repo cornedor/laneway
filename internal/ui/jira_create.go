@@ -139,7 +139,7 @@ func (m *Model) openCreateForm(s createSpec) tea.Cmd {
 		opts[i] = jira.Option{ID: t, Name: t}
 	}
 	typ := opts[0].Name
-	for _, want := range []string{s.typ, m.lastCreateType[s.in.Project], "Task"} {
+	for _, want := range []string{s.typ, m.lastCreateTypeIn(s.in.Project), "Task"} {
 		if i := slices.IndexFunc(opts, func(o jira.Option) bool { return strings.EqualFold(o.Name, want) }); want != "" && i >= 0 {
 			typ = opts[i].Name
 			break
@@ -269,6 +269,33 @@ func (m *Model) setCreateRows(fields []jira.CreateField) {
 	f.idx = min(f.idx, len(f.fields))
 }
 
+// The create form's choices kept across restarts, in the site's state:
+// the type last created per project, and whether the more fields show.
+const (
+	createTypeMeta = jiraMetaPrefix + "create_type:"
+	createMoreMeta = jiraMetaPrefix + "create_more"
+)
+
+// lastCreateTypeIn is the type last created in project, "" for none.
+func (m *Model) lastCreateTypeIn(project string) string {
+	if t, ok := m.lastCreateType[project]; ok || m.store == nil {
+		return t
+	}
+	t, _, _ := m.store.GetMeta(createTypeMeta + project)
+	return t
+}
+
+// rememberCreateType keeps typ as the type last created in project.
+func (m *Model) rememberCreateType(project, typ string) {
+	if m.lastCreateType == nil {
+		m.lastCreateType = map[string]string{}
+	}
+	m.lastCreateType[project] = typ
+	if m.store != nil {
+		_ = m.store.SetMeta(createTypeMeta+project, typ)
+	}
+}
+
 // createMoreField is the create form's row that shows or hides the
 // fields the type doesn't require.
 const createMoreField = "_more"
@@ -283,6 +310,9 @@ var createMoreKinds = []string{jira.KindText, jira.KindStrings, jira.KindNumber,
 // was typed in them kept, and remembers the choice for the next form.
 func (m *Model) toggleCreateMore() {
 	m.createMore = !m.createMore
+	if m.store != nil {
+		_ = m.store.SetMeta(createMoreMeta, strconv.FormatBool(m.createMore))
+	}
 	m.setCreateRows(m.jiraForm.create.screen)
 	m.jiraForm.idx = slices.IndexFunc(m.jiraForm.fields, func(ff jiraFormField) bool { return ff.ID == createMoreField })
 }

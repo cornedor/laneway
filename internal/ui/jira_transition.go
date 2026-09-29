@@ -620,10 +620,7 @@ func (m *Model) submitJiraForm() tea.Cmd {
 		}
 		title := ""
 		if cr.form {
-			if m.lastCreateType == nil {
-				m.lastCreateType = map[string]string{}
-			}
-			m.lastCreateType[cr.in.Project] = cr.in.Type
+			m.rememberCreateType(cr.in.Project, cr.in.Type)
 			title = f.key // what it lacks comes back as rows
 		}
 		return m.createJiraIssue(cr, title)

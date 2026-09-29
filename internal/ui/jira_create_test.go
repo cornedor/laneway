@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -589,5 +591,21 @@ func TestCreateBatch(t *testing.T) {
 	m = out.(Model)
 	if strings.Join(summaries, "|") != "Login fails|Cart empty|Slow search" || m.jiraForm != nil || m.status != "created 3: ABC-11, ABC-12, ABC-13" {
 		t.Errorf("summaries %q, status %q", summaries, m.status)
+	}
+}
+
+// TestCreateChoicesSurviveRestart: the type last created per project and
+// the more-fields choice come back from the state in a new session.
+func TestCreateChoicesSurviveRestart(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	m.rememberCreateType("ABC", "Bug")
+	_ = m.store.SetMeta(createMoreMeta, "true") // what toggleCreateMore writes
+	again := New(context.Background(), config.JiraConfig{BaseURL: "https://example.atlassian.net", Email: "me@x.test", APIToken: "tok"},
+		config.UIConfig{}, nil, "", m.store)
+	if got := again.lastCreateTypeIn("ABC"); got != "Bug" || !again.createMore {
+		t.Errorf("after a restart: type %q, more %v", got, again.createMore)
+	}
+	if got := again.lastCreateTypeIn("XYZ"); got != "" {
+		t.Errorf("another project: %q", got)
 	}
 }
