@@ -206,6 +206,11 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 // a multi-line field (the description) as the lines it changed.
 func (m *Model) renderChange(b *strings.Builder, e jira.InboxEntry) {
 	b.WriteString(refDimStyle.Render(orDash(e.Who)+" · "+m.when(e.When)) + "\n")
+	m.renderChangeFields(b, e)
+}
+
+// renderChangeFields writes a changelog entry's fields, without its byline.
+func (m *Model) renderChangeFields(b *strings.Builder, e jira.InboxEntry) {
 	if len(e.Changes) > 0 {
 		for _, c := range e.Changes {
 			if c.Field == jira.LoggedField {

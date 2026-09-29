@@ -577,10 +577,10 @@ func TestEmptyStatusPicker(t *testing.T) {
 	}
 }
 
-// TestEnterOnHeadingKeepsList: enter on an inbox's day heading keeps it.
+// TestEnterOnHeadingKeepsList: enter on a timesheet's heading keeps it.
 func TestEnterOnHeadingKeepsList(t *testing.T) {
 	m := loadedJiraModel(t)
-	m.startJiraPicker(jiraPickInbox, "Inbox", true)
+	m.startJiraPicker(jiraPickTimesheet, "Today", true)
 	m.setJiraPickerItems([]jiraPickerItem{{id: "", label: "── Today"}, {id: "ABC-1", label: "ABC-1 First"}})
 	out, _ := m.applyJiraPick()
 	if m = out.(Model); !m.jiraPicker.active || m.status != "no issue on this row" {

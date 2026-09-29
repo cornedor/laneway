@@ -68,6 +68,11 @@ func (m *Model) hoverAt(x, y int) hover {
 			return hover{pointer: pointerHand}
 		}
 		return hover{}
+	case t.inbox != nil:
+		if y >= jiraBodyTop && x <= t.inbox.listW+1 && (y-jiraBodyTop+t.inbox.top)/2 < len(t.inbox.rows) {
+			return hover{pointer: pointerHand}
+		}
+		return hover{}
 	case t.charts != nil, t.week != nil, t.standup != nil:
 		return hover{}
 	case t.empty.row >= 0 && y == jiraBodyTop+t.empty.row:

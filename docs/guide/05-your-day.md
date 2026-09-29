@@ -60,10 +60,11 @@ card that needs a longer talk, in the parking lot at the end.
 
 ## Inbox: `I`
 
-`I` lists what others did on your issues since you last looked, on every
-site you added: field changes and comments, mentions of you first, marked
-`@`. The header shows `✉ 3` when there's something new. Opened it by
-accident? Its last row, `↶ the inbox before`, brings the previous one back.
+`I` shows what others did on your issues this week, on every site you
+added: one thread per issue, mentions of you first, each in full beside the
+list. Reading one leaves the rest unread. `e` marks a thread done until
+something new happens, `s` snoozes it till tomorrow, `u` makes it unread,
+`c` / `R` comment and reply. The header shows `✉ 3` for unread threads.
 
 ![Others' changes and a mention in the inbox](../screenshots/inbox.png)
 

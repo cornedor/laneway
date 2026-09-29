@@ -1,9 +1,6 @@
 package ui
 
 import (
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -13,41 +10,25 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// inboxSite is a fake Jira whose inbox holds one change on key by who.
-func inboxSite(t *testing.T, key, who string) *jira.Client {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/rest/api/3/myself":
-			io.WriteString(w, `{"accountId":"me"}`)
-		case r.URL.Path == "/rest/api/3/search/jql":
-			io.WriteString(w, `{"issues":[{"key":"`+key+`","fields":{"summary":"S"}}]}`)
-		case strings.HasSuffix(r.URL.Path, "/changelog"):
-			io.WriteString(w, `{"total":1,"values":[{"author":{"accountId":"x","displayName":"`+who+`"},
-			  "created":"`+time.Now().Add(-time.Minute).Format("2006-01-02T15:04:05.000-0700")+`","items":[{"field":"status","fromString":"A","toString":"B"}]}]}`)
-		default:
-			io.WriteString(w, `{"comments":[]}`)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-}
-
-// TestInboxAcrossSites: the inbox lists the other sites' changes too,
+// TestInboxAcrossSites: the inbox lists the other sites' threads too,
 // tagged, and enter on one opens it in the browser.
 func TestInboxAcrossSites(t *testing.T) {
 	m := jiraTabModel(t)
-	m.jiraClient = inboxSite(t, "ABC-1", "Ann")
-	club := inboxSite(t, "CLB-7", "Bob")
+	m.jiraClient = (&fakeInbox{issues: []string{"ABC-1 S"}, updated: time.Now()}).client(t)
+	club := (&fakeInbox{issues: []string{"CLB-7 S"}, updated: time.Now(), age: map[string]time.Duration{"CLB-7": time.Hour}}).client(t)
 	m = m.WithSites([]string{"", "club"}, "").WithSiteClients(func(site string) (*jira.Client, error) { return club, nil })
 	out, cmd := m.handleJiraKey(keyMsg(t, "I"))
-	m = out.(Model)
-	out, _ = m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
-	m = out.(Model)
+	m = syncInbox(t, out.(Model), cmd)
 	view := ansi.Strip(m.View().Content)
-	if !strings.Contains(view, "Ann  ABC-1 S") || !strings.Contains(view, "Bob  [club] CLB-7 S") || !strings.Contains(view, "2 changes on 2 issues") {
+	if !strings.Contains(view, "ABC-1 S") || !strings.Contains(view, "[club] CLB-7 S") || !strings.Contains(view, "Inbox 2") {
 		t.Fatalf("inbox:\n%s", view)
 	}
-	if n := m.countInbox()().(inboxCountMsg).n; n != 2 {
-		t.Errorf("badge %d, want 2", n)
+	if m.inboxUnread != 1 {
+		t.Errorf("badge %d, want 1: ABC-1 is shown", m.inboxUnread)
+	}
+	m = inboxKey(t, m, "j")
+	out, cmd = m.handleInboxKey(keyMsg(t, "enter"))
+	if m = out.(Model); cmd == nil || !strings.Contains(m.status, "opening http") || m.refOpen {
+		t.Errorf("another site's thread: status %q, panel %v", m.status, m.refOpen)
 	}
 }

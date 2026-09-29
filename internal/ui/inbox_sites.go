@@ -2,8 +2,8 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -11,7 +11,7 @@ import (
 )
 
 // The inbox and its ✉ count take in every configured site, not only the
-// one shown: another site's entries say which, and open in the browser.
+// one shown: another site's threads say which, and open in the browser.
 
 // siteClients makes a client for another configured site on first use.
 type siteClients struct {
@@ -53,71 +53,60 @@ func (m *Model) others() map[string]*jira.Client {
 	return out
 }
 
-// siteEntry is an inbox entry and the site it is from, "" for this one.
-type siteEntry struct {
-	jira.InboxEntry
-	site string
-	url  string
-}
-
-// inboxAll is the shown site's inbox and the others', mentions first,
-// then newest; another site failing only leaves it out.
-func inboxAll(ctx context.Context, c *jira.Client, others map[string]*jira.Client, since time.Time) ([]siteEntry, error) {
-	entries, err := c.Inbox(ctx, since)
-	if err != nil {
-		return nil, err
+// inboxThreads are every site's threads, newest news first: prev's
+// reused where the issue was not updated since, the rest read again.
+// Another site failing only leaves it out.
+func inboxThreads(ctx context.Context, sites map[string]*jira.Client, shown string, since time.Time, prev []inboxThread) ([]inboxThread, error) {
+	known := map[string]inboxThread{}
+	for _, t := range prev {
+		known[t.id()] = t
 	}
-	out := make([]siteEntry, len(entries))
-	for i, e := range entries {
-		out[i] = siteEntry{InboxEntry: e}
-	}
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	for site, oc := range others {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			es, err := oc.Inbox(ctx, since)
-			if err != nil {
-				return
-			}
+	var (
+		out     []inboxThread
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+		shownEr error
+	)
+	for site, c := range sites {
+		wg.Go(func() {
+			ts, err := siteThreads(ctx, c, site, since, known)
 			mu.Lock()
-			for _, e := range es {
-				out = append(out, siteEntry{InboxEntry: e, site: site, url: oc.BrowseURL(e.Key)})
+			defer mu.Unlock()
+			if err != nil && site == shown {
+				shownEr = err
 			}
-			mu.Unlock()
-		}()
+			out = append(out, ts...)
+		})
 	}
 	wg.Wait()
-	slices.SortStableFunc(out, func(a, b siteEntry) int {
-		if a.Mention != b.Mention {
-			if a.Mention {
-				return -1
-			}
-			return 1
-		}
-		return b.When.Compare(a.When)
-	})
+	if shownEr != nil {
+		return nil, shownEr
+	}
+	slices.SortStableFunc(out, func(a, b inboxThread) int { return b.latest().Compare(a.latest()) })
 	return out, nil
 }
 
-// inboxCountAll adds the other sites' counts to this one's.
-func inboxCountAll(ctx context.Context, c *jira.Client, others map[string]*jira.Client, since time.Time) (int, error) {
-	n, err := c.InboxCount(ctx, since)
+// siteThreads are one site's threads, the issues without news by others
+// too, so they are not read again while unchanged.
+func siteThreads(ctx context.Context, c *jira.Client, site string, since time.Time, known map[string]inboxThread) ([]inboxThread, error) {
+	issues, err := c.InboxIssues(ctx, since)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	for _, oc := range others {
-		if k, err := oc.InboxCount(ctx, since); err == nil {
-			n += k
+	out := make([]inboxThread, len(issues))
+	errs := make([]error, len(issues))
+	var wg sync.WaitGroup
+	for i, is := range issues {
+		out[i] = inboxThread{InboxIssue: is, site: site, url: c.BrowseURL(is.Key)}
+		if k, ok := known[out[i].id()]; ok && k.Updated.Equal(is.Updated) {
+			out[i].entries = slices.DeleteFunc(slices.Clone(k.entries), func(e jira.InboxEntry) bool { return !e.When.After(since) })
+			continue
 		}
+		wg.Go(func() { out[i].entries, errs[i] = c.IssueInbox(ctx, is.Key, is.Summary, since) })
 	}
-	return n, nil
-}
-
-// siteEntryID is an inbox row's id for another site's entry: its URL.
-const siteEntryPrefix = "\x00site "
-
-func siteEntryURL(id string) (string, bool) {
-	return strings.CutPrefix(id, siteEntryPrefix)
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

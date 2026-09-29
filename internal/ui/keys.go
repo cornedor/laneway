@@ -27,7 +27,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
 		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings, "filter_builder": &k.FilterBuilder, "panel_wider": &k.PanelWider, "panel_narrower": &k.PanelNarrower, "quick_edit": &k.QuickEdit, "my_work": &k.MyWork, "compact": &k.Compact, "releases": &k.Releases, "review": &k.Review, "repeat": &k.Repeat, "refine": &k.Refine, "notes": &k.Notes, "ask": &k.Ask, "time_machine": &k.TimeMachine, "closed_sprint": &k.ClosedSprint, "agent_back": &k.AgentBack,
 		"plan_start": &k.PlanStart, "plan_goal": &k.PlanGoal, "plan_rename": &k.PlanRename, "plan_new": &k.PlanNew, "plan_complete": &k.PlanComplete,
-		"rank_up": &k.RankUp, "rank_down": &k.RankDown, "rank_top": &k.RankTop, "rank_bottom": &k.RankBottom, "next_comment": &k.NextComment, "prev_comment": &k.PrevComment, "delete_comment": &k.DeleteComment, "standup_group": &k.StandupGroup, "standup_step": &k.StandupStep, "standup_park": &k.StandupPark,
+		"rank_up": &k.RankUp, "rank_down": &k.RankDown, "rank_top": &k.RankTop, "rank_bottom": &k.RankBottom, "next_comment": &k.NextComment, "prev_comment": &k.PrevComment, "delete_comment": &k.DeleteComment, "standup_group": &k.StandupGroup, "standup_step": &k.StandupStep, "standup_park": &k.StandupPark, "inbox_done": &k.InboxDone, "inbox_done_all": &k.InboxDoneAll, "inbox_unread": &k.InboxUnread, "inbox_snooze": &k.InboxSnooze,
 		"roadmap_grip": &k.RoadmapGrip, "roadmap_fold": &k.RoadmapFold, "zoom_in": &k.ZoomIn, "zoom_out": &k.ZoomOut, "today": &k.Today,
 		"end_earlier": &k.EndEarlier, "end_later": &k.EndLater, "roadmap_issues": &k.RoadmapIssues, "roadmap_edit": &k.RoadmapEdit,
 		"edit_entry": &k.EditEntry, "delete_entry": &k.DeleteEntry, "propose_work": &k.ProposeWork,
@@ -86,6 +86,7 @@ var keyScopes = []struct {
 	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts"}},
 	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "propose_work", "timesheet"}},
 	{"standup", []string{"up", "down", "open", "fold", "standup_group", "standup_step", "standup_park", "prev_view", "next_view", "copy_key", "refresh", "help", "quit", "standup"}},
+	{"inbox", []string{"up", "down", "top", "bottom", "page_up", "page_down", "open", "browser", "comment", "reply", "inbox_done", "inbox_done_all", "inbox_unread", "inbox_snooze", "copy_key", "refresh", "help", "quit", "inbox"}},
 	{"week", []string{"up", "down", "left", "right", "prev_view", "next_view", "open", "copy_key", "refresh", "help", "quit", "timesheet"}},
 }
 

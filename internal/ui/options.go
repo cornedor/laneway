@@ -49,8 +49,8 @@ type options struct {
 	epicType        string              // the roadmap's issue type
 	myWorkJQL       string              // O's query
 	workdays        []time.Weekday      // nil: Monday to Friday
-	inboxEvery      time.Duration       // 0: the count never refreshes
-	inboxLookback   time.Duration       // a first inbox read looks this far back
+	inboxEvery      time.Duration       // 0: the inbox never syncs by itself
+	inboxLookback   time.Duration       // how far back the inbox reaches
 	inboxIssues     int                 // 0: the client's default
 	timerRound      time.Duration       // 0: to the minute
 	fullRefresh     time.Duration       // idle refreshes fetch changes only for this long
@@ -76,7 +76,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.

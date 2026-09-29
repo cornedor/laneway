@@ -10,13 +10,12 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
-// The inbox: what others did since you last looked, on the issues you watch,
-// are assigned or reported — field changes, comments, and comments that
-// mention you.
+// The inbox: what others did on the issues you watch, are assigned or
+// reported — field changes, comments, and comments that mention you. The
+// ui keeps it per issue: InboxIssues finds them, IssueInbox reads one.
 
 // inboxIssues caps how many recently updated issues the inbox reads, unless
 // Config.InboxIssues says otherwise.
@@ -26,9 +25,12 @@ const inboxIssues = 30
 type InboxEntry struct {
 	Key, Summary string
 	When         time.Time
-	Who          string
+	Who, WhoID   string
 	What         string // "Status: To Do → Done", "commented: …"
 	Mention      bool   // a comment that mentions you
+	Assigned     bool   // a change that made you the assignee
+	// CommentID and Body are a comment's, Body as markdown; "" for others.
+	CommentID, Body string
 	// Changes are a changelog entry's fields one by one, for showing a
 	// long one (the description) as a diff; none for other entries.
 	Changes []Change
@@ -39,10 +41,46 @@ type InboxEntry struct {
 // Change is one field of a changelog entry, before and after.
 type Change struct {
 	Field, From, To string
+	to              string // the new value's id: an assignee's accountId
 }
 
-// Inbox lists what others did since since, mentions first, then newest.
-func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, error) {
+// InboxIssue is an issue of yours as the inbox lists it.
+type InboxIssue struct {
+	Key, Summary, Status, Assignee string
+	Updated                        time.Time
+}
+
+// InboxIssues are your issues updated since since, newest first, up to the
+// inbox cap.
+func (c *Client) InboxIssues(ctx context.Context, since time.Time) ([]InboxIssue, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	issues, err := c.search(ctx, inboxJQL(since)+" ORDER BY updated DESC", []string{"summary", "status", "assignee", "updated"})
+	if err != nil {
+		return nil, err
+	}
+	issues = issues[:min(len(issues), c.inboxCap)]
+	out := make([]InboxIssue, len(issues))
+	for i, is := range issues {
+		var status struct {
+			Name string `json:"name"`
+		}
+		var assignee user
+		var updated string
+		_ = json.Unmarshal(is.Fields["summary"], &out[i].Summary)
+		_ = json.Unmarshal(is.Fields["status"], &status)
+		_ = json.Unmarshal(is.Fields["assignee"], &assignee)
+		_ = json.Unmarshal(is.Fields["updated"], &updated)
+		out[i].Key, out[i].Status, out[i].Assignee = is.Key, status.Name, assignee.DisplayName
+		out[i].Updated, _ = time.Parse(jiraTime, updated)
+	}
+	return out, nil
+}
+
+// IssueInbox is what others did on key since since, oldest first; Rank
+// changes, which no one reads, are left out.
+func (c *Client) IssueInbox(ctx context.Context, key, summary string, since time.Time) ([]InboxEntry, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
@@ -50,43 +88,23 @@ func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, erro
 	if err != nil {
 		return nil, err
 	}
-	issues, err := c.search(ctx, inboxJQL(since)+" ORDER BY updated DESC", []string{"summary"})
+	entries, err := c.issueActivity(ctx, key, summary, since, func(who string) bool { return who != me.AccountID }, me.AccountID)
 	if err != nil {
 		return nil, err
 	}
-	issues = issues[:min(len(issues), c.inboxCap)]
-	var (
-		out  []InboxEntry
-		mu   sync.Mutex
-		wg   sync.WaitGroup
-		errs = make([]error, len(issues))
-	)
-	for i, is := range issues {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var summary string
-			_ = json.Unmarshal(is.Fields["summary"], &summary)
-			entries, err := c.issueActivity(ctx, is.Key, summary, since, func(who string) bool { return who != me.AccountID }, me.AccountID)
-			mu.Lock()
-			out = append(out, entries...)
-			mu.Unlock()
-			errs[i] = err
-		}()
-	}
-	wg.Wait()
-	if err := firstError(errs); err != nil {
-		return nil, err
-	}
-	slices.SortFunc(out, func(a, b InboxEntry) int {
-		if a.Mention != b.Mention {
-			if a.Mention {
-				return -1
-			}
-			return 1
+	out := entries[:0]
+	for _, e := range entries {
+		e.Changes = slices.DeleteFunc(e.Changes, func(ch Change) bool { return ch.Field == "Rank" })
+		if e.CommentID == "" && e.Logged == 0 && len(e.Changes) == 0 {
+			continue
 		}
-		return b.When.Compare(a.When)
-	})
+		if e.CommentID == "" {
+			e.What = changesText(e.Changes)
+		}
+		e.Assigned = slices.ContainsFunc(e.Changes, func(ch Change) bool { return ch.Field == "assignee" && ch.to == me.AccountID })
+		out = append(out, e)
+	}
+	slices.SortStableFunc(out, func(a, b InboxEntry) int { return a.When.Compare(b.When) })
 	return out, nil
 }
 
@@ -95,24 +113,6 @@ func (c *Client) Inbox(ctx context.Context, since time.Time) ([]InboxEntry, erro
 func inboxJQL(since time.Time) string {
 	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
 	return fmt.Sprintf("(watcher = currentUser() OR assignee = currentUser() OR reporter = currentUser()) AND updated >= -%dm", mins)
-}
-
-// InboxCount is how many of your issues others updated since since and you
-// did not touch after: one search, for a badge. An issue you and someone
-// else both changed is left out.
-func (c *Client) InboxCount(ctx context.Context, since time.Time) (int, error) {
-	if !c.Enabled() {
-		return 0, errNotConfigured
-	}
-	// updatedBy takes a user, not currentUser(): JQL won't nest functions.
-	me, err := c.Myself(ctx)
-	if err != nil {
-		return 0, err
-	}
-	mins := int(math.Ceil(time.Since(since).Minutes())) + 1
-	jql := fmt.Sprintf(`%s AND issue not in updatedBy("%s", "-%dm")`, inboxJQL(since), me.AccountID, mins)
-	issues, err := c.search(ctx, jql, []string{"summary"})
-	return len(issues), err
 }
 
 func firstError(errs []error) error {
@@ -134,6 +134,7 @@ func (c *Client) issueActivity(ctx context.Context, key, summary string, since t
 	base := "/rest/api/3/issue/" + url.PathEscape(key)
 	var comments struct {
 		Comments []struct {
+			ID      string          `json:"id"`
 			Author  user            `json:"author"`
 			Created string          `json:"created"`
 			Body    json.RawMessage `json:"body"`
@@ -147,13 +148,15 @@ func (c *Client) issueActivity(ctx context.Context, key, summary string, since t
 		if !keep(cm.Author.AccountID) || !when.After(since) {
 			continue
 		}
-		text := strings.Join(strings.Fields(adfToMarkdown(cm.Body)), " ")
+		body := adfToMarkdown(cm.Body)
+		text := strings.Join(strings.Fields(body), " ")
 		mention := mentions(cm.Body, me)
 		what := "commented: " + text
 		if mention {
 			what = "mentioned you: " + text
 		}
-		out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: cm.Author.DisplayName, What: what, Mention: mention})
+		out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: cm.Author.DisplayName, WhoID: cm.Author.AccountID,
+			What: what, Mention: mention, CommentID: cm.ID, Body: body})
 	}
 	return out, nil
 }
@@ -180,6 +183,7 @@ func (c *Client) issueChanges(ctx context.Context, key, summary string, since ti
 				Field      string `json:"field"`
 				FromString string `json:"fromString"`
 				ToString   string `json:"toString"`
+				To         string `json:"to"`
 			} `json:"items"`
 		} `json:"values"`
 	}
@@ -204,11 +208,12 @@ func (c *Client) issueChanges(ctx context.Context, key, summary string, since ti
 		}
 		var changes []Change
 		for _, it := range h.Items {
-			changes = append(changes, Change{Field: it.Field, From: it.FromString, To: it.ToString})
+			changes = append(changes, Change{Field: it.Field, From: it.FromString, To: it.ToString, to: it.To})
 		}
 		changes = foldWorklog(changes)
 		if len(changes) > 0 {
-			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, What: changesText(changes), Changes: changes})
+			out = append(out, InboxEntry{Key: key, Summary: summary, When: when, Who: h.Author.DisplayName, WhoID: h.Author.AccountID,
+				What: changesText(changes), Changes: changes})
 		}
 	}
 	return out, nil

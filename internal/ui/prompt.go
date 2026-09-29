@@ -23,7 +23,7 @@ type Prompt struct {
 	Status   string // its status on a board as last loaded
 	TimerKey string // the issue the timer runs on
 	Timer    string // how long it has run, "1h 20m"
-	Inbox    int    // issues with news, as the header last counted
+	Inbox    int    // unread inbox threads, as the header last counted
 }
 
 // ReadPrompt fills a Prompt from st and the working directory's branch.

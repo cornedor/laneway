@@ -13,7 +13,7 @@ terminal.
 - Issue panel with description (edited as markdown), comments, links, subtasks, an epic's children, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases; the board replayed day by day
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git and your agents' activity
-- Inbox of others' changes on every site; a standup of yours (commits too), or your team's walking the board
+- Inbox: a thread per issue others changed, on every site, each read, done or snoozed on its own; a standup of yours (commits too), or your team's walking the board
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to it
 - Rules that notify, run a command or act on Jira when issues change
@@ -132,8 +132,8 @@ ui:
   my_work_jql: "assignee = currentUser() AND statusCategory != Done"   # O's query; default: yours everywhere, open or done this week
   roadmap_done_days: 90         # resolved epics older than this leave the roadmap
   workdays: [mon, tue, wed, thu, fri]  # standup (U) looks back to the previous one
-  inbox_every: 5m               # header ✉ count refresh; "off"
-  inbox_lookback: 24h           # how far back the first inbox read looks
+  inbox_every: 5m               # inbox sync, for the header's ✉ count; "off"
+  inbox_lookback: 168h          # how far back the inbox reaches
   inbox_issues: 30              # recently updated issues the inbox and standup read
   timer_round: 15m              # T's logged time rounded up to this (to the minute)
   clipboard_image: wl-paste --type image/png  # prints the clipboard's PNG (probed by default)
@@ -182,6 +182,7 @@ Actions for `keys:`, by where they first apply:
 - roadmap: roadmap_grip roadmap_fold end_earlier end_later zoom_in zoom_out
   today roadmap_issues
 - timesheet: edit_entry delete_entry propose_work
+- inbox: inbox_done inbox_done_all inbox_unread inbox_snooze
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -450,15 +451,22 @@ drops it.
 
 ![Others' changes and a mention in the inbox](docs/screenshots/inbox.png)
 
-`I` lists what others did since you last opened it (a day, the first
-time) on the issues you watch, are assigned or reported, on every configured
-site (another's entries say `[club]` and open in the browser): field changes and
-comments, those mentioning you first and marked `@`. Filter by typing;
-`enter` opens the issue. Opening it marks everything read; its last row,
-`↶ the inbox before`, brings back the one before (opened and closed by
-accident) without moving the marks. The header shows `✉ 3` when issues of yours were
-changed by others since (checked every 5 minutes); a new mention of you
-also raises a desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
+`I` swaps the board for what others did on the issues you watch, are
+assigned or reported, in the last week, on every configured site (another's
+threads say `[club]` and open in the browser). One thread per issue on the
+left, unread marked `●`, mentions `@` and first; the cursor's thread on the
+right in full: comments, field changes, what's new marked `●`.
+
+Each thread keeps its own marks. Showing it reads it; `u` makes it unread
+again. `e` marks it done: off the list until something new happens on it.
+`E` does that for every read thread. `s` snoozes it till the next workday.
+`tab` switches Inbox · Mentions · All (done and snoozed included). `enter`
+opens the issue in the panel, `c` comments, `R` replies to its newest
+comment, `o` opens it in the browser.
+
+The header shows `✉ 3` for unread threads; the inbox syncs every 5 minutes,
+reading only the issues updated since. A new mention of you also raises a
+desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 
 ## Standup
 

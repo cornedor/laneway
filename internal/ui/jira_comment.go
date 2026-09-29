@@ -36,9 +36,13 @@ func newCommentTextarea() editor.Model {
 
 // openJiraCommentInput opens an empty composer for a new top-level comment on
 // the shown issue.
-func (m *Model) openJiraCommentInput() {
+func (m *Model) openJiraCommentInput() { m.openJiraCommentInputFor(m.jiraIssue.Key) }
+
+// openJiraCommentInputFor opens the composer on key, shown or not (the
+// inbox's): not shown, it opens over the screen.
+func (m *Model) openJiraCommentInputFor(key string) {
 	m.jiraCommentActive = true
-	m.jiraCommentKey = m.jiraIssue.Key
+	m.jiraCommentKey = key
 	m.jiraCommentMention = nil
 	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
 	m.jiraCommentInput = newCommentTextarea()
@@ -74,9 +78,12 @@ func (m *Model) commentMarkLine(mark string, depth int) string {
 // openJiraReply opens the composer prefilled with an editable quote of c and
 // arranged to @mention its author, so the post reads as (and notifies like) a
 // reply. The user is free to trim the quote or change the text before posting.
-func (m *Model) openJiraReply(c jira.Comment) {
+func (m *Model) openJiraReply(c jira.Comment) { m.openJiraReplyFor(m.jiraIssue.Key, c) }
+
+// openJiraReplyFor is openJiraReply on key's comment c, shown or not.
+func (m *Model) openJiraReplyFor(key string, c jira.Comment) {
 	m.jiraCommentActive = true
-	m.jiraCommentKey = m.jiraIssue.Key
+	m.jiraCommentKey = key
 	m.jiraCommentReplyTo, m.jiraCommentReplyID = c.Author, c.ID
 	if c.AuthorID != "" {
 		m.jiraCommentMention = &jira.Mention{AccountID: c.AuthorID, DisplayName: c.Author}

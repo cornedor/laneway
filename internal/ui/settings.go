@@ -59,7 +59,7 @@ var settingDefaults = map[string]string{
 	"roadmap_done_days":    "90",
 	"workdays":             "mon–fri",
 	"inbox_every":          "5m",
-	"inbox_lookback":       "24h",
+	"inbox_lookback":       "168h",
 	"inbox_issues":         "30",
 	"timer_round":          "to the minute",
 	"clipboard_image":      "wl-paste, xclip or pngpaste",

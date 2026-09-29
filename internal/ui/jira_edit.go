@@ -71,8 +71,6 @@ const (
 	jiraPickBulk
 	// jiraPickTimesheet lists today's worklogs (worklog.go).
 	jiraPickTimesheet
-	// jiraPickInbox lists what others did on your issues (inbox.go).
-	jiraPickInbox
 	// jiraPickIssueActions and jiraPickLinkType are the panel's A menu and
 	// its link types (issue_actions.go).
 	jiraPickIssueActions
@@ -437,9 +435,6 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 		m.jiraTab.closedSprints = msg.sprints
 	}
 	m.jiraPicker.err = msg.err
-	if msg.kind == jiraPickInbox && msg.err == nil {
-		m.setInboxUnread(0) // read now; a failed load keeps the badge
-	}
 	if msg.title != "" {
 		m.jiraPicker.title = msg.title
 	}
@@ -608,7 +603,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickInbox || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
 			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickClosedSprint || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
@@ -648,7 +643,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // copyRowKinds are the pickers whose rows ctrl+y copies.
-var copyRowKinds = map[jiraPickerKind]bool{jiraPickDev: true, jiraPickInbox: true, jiraPickHistory: true}
+var copyRowKinds = map[jiraPickerKind]bool{jiraPickDev: true, jiraPickHistory: true}
 
 // handleJiraAssigneeDebounce runs the pending assignee search once the debounce
 // window elapses, unless a newer keystroke has superseded it.
@@ -881,16 +876,6 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.focus = focusRef
 		return m, m.switchActivity(activityHistory)
 	}
-	if u, ok := siteEntryURL(it.id); ok && kind == jiraPickInbox { // another site's
-		m.closeJiraPicker()
-		m.status = "opening " + u + "…"
-		return m, m.openOpenable(openable{name: u, url: u})
-	}
-	if kind == jiraPickInbox && it.id == inboxPrevID {
-		if sec, err := strconv.ParseInt(it.value, 10, 64); err == nil {
-			return m, m.openInboxSince(time.Unix(sec, 0), false) // the marks stay
-		}
-	}
 	if rest, ok := strings.CutPrefix(it.id, proposalID); ok && kind == jiraPickTimesheet {
 		key, at, _ := strings.Cut(rest, "/")
 		sec, _ := strconv.ParseInt(at, 10, 64)
@@ -898,7 +883,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.openWorklogInput(key, it.value+" ", time.Unix(sec, 0))
 		return m, nil
 	}
-	if kind == jiraPickTimesheet || kind == jiraPickInbox {
+	if kind == jiraPickTimesheet {
 		key, _, _ := strings.Cut(it.id, "/") // a worklog row is key/id
 		if key == "" {
 			m.status = "no issue on this row" // a day's heading: the list stays

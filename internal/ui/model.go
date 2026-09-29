@@ -76,6 +76,8 @@ type keyMap struct {
 	DeleteComment                       key.Binding
 	StandupGroup                        key.Binding
 	StandupStep, StandupPark            key.Binding
+	InboxDone, InboxDoneAll             key.Binding
+	InboxUnread, InboxSnooze            key.Binding
 	RoadmapGrip, RoadmapFold            key.Binding
 	ZoomIn, ZoomOut, Today              key.Binding
 	EndEarlier, EndLater, RoadmapIssues key.Binding
@@ -191,6 +193,10 @@ func defaultKeys() keyMap {
 		StandupGroup:    bind("standup: by person / walk the board", "p"),
 		StandupStep:     bind("standup: one card at a time / the list", "space"),
 		StandupPark:     bind("standup: park the card for after", "P"),
+		InboxDone:       bind("inbox: done, until something new", "e"),
+		InboxDoneAll:    bind("inbox: every read thread done", "E"),
+		InboxUnread:     bind("inbox: read / unread", "u"),
+		InboxSnooze:     bind("inbox: snooze till the next workday", "s"),
 		RoadmapGrip:     bind("grip the bar's start, end, let go", "e"),
 		RoadmapFold:     bind("fold the epic's issues", "space"),
 		ZoomIn:          bind("zoom in", "+", "="),
@@ -342,8 +348,10 @@ type Model struct {
 	// jiraMention its open completion (mention.go).
 	jiraCommentMentions []jira.Mention
 	jiraMention         mentionState
-	// inboxUnread is the header's count of issues with news (inbox.go);
-	// mentionsSeen the newest mention notified, started when the app began.
+	// inbox is every site's inbox threads and their marks; inboxUnread
+	// the header's count of unread threads (inbox.go); mentionsSeen the
+	// newest mention notified, started when the app began.
+	inbox        *inboxData
 	inboxUnread  int
 	mentionsSeen time.Time
 	// reviewKeys are the issues waiting on your review, marked ⌥ (review.go).
@@ -549,7 +557,7 @@ func (m Model) WithIndex(ix *index.Index) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.countInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease(), resendImagesLater())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.loadTimer(), m.syncInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease(), resendImagesLater())
 }
 
 // bodyH is the rows above the status line.
@@ -760,10 +768,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJQLValues(msg)
 	case inboxTickMsg:
 		return m.handleInboxTick()
-	case inboxCountMsg:
-		return m.handleInboxCount(msg)
-	case inboxMentionsMsg:
-		return m.handleInboxMentions(msg)
+	case inboxSyncMsg:
+		return m.handleInboxSync(msg)
 	case draftSaveMsg:
 		return m.handleDraftSave()
 	case reviewMsg:
@@ -941,7 +947,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	before := m.selectedJiraKey()
 	out, cmd := m.handleJiraKey(msg)
-	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil && om.jiraTab.standup == nil {
+	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil && om.jiraTab.standup == nil && om.jiraTab.inbox == nil {
 		if after := om.selectedJiraKey(); after != "" && after != before {
 			return om, tea.Batch(cmd, om.schedulePrefetch())
 		}
@@ -1064,6 +1070,8 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	case t.plan != nil:
 		m.focus = focusJira
 		return m.clickPlan(msg.X, msg.Y, count)
+	case t.inbox != nil:
+		return m.clickInbox(msg.X, msg.Y, count)
 	case t.charts != nil, t.week != nil, t.standup != nil:
 		return m, nil
 	case t.empty.row >= 0 && msg.Y == jiraBodyTop+t.empty.row:
