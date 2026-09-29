@@ -100,6 +100,7 @@ func agentRank(s herdr.Status) int {
 func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.agents, m.worktrees = nil, nil
+		m.renderRef()
 		return m, agentTick(agentIdle)
 	}
 	next := map[string][]herdr.Agent{}
@@ -119,9 +120,17 @@ func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 	for _, as := range next {
 		slices.SortStableFunc(as, func(a, b herdr.Agent) int { return agentRank(a.Status) - agentRank(b.Status) })
 	}
+	open := ""
+	if m.jiraIssue != nil {
+		open = m.jiraIssue.Key
+	}
+	changed := !slices.Equal(m.agents[open], next[open])
 	m.agents, m.worktrees = next, msg.worktrees
 	m.jiraTab.rows = nil
 	m.renderJira()
+	if changed {
+		m.renderRef() // the open panel's Agents section
+	}
 	return m, tea.Batch(append(cmds, agentTick(agentEvery))...)
 }
 

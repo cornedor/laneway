@@ -167,6 +167,20 @@ func TestAgentPanel(t *testing.T) {
 	}
 }
 
+// TestAgentPanelLive: an agent started on the open issue shows in its panel
+// without reopening it.
+func TestAgentPanelLive(t *testing.T) {
+	m := panelModel(t)
+	if strings.Contains(strings.Join(m.panelPlain, "\n"), agentsHead) {
+		t.Fatal("no agent yet")
+	}
+	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{{PaneID: "w1:p1", Name: "jira-abc-1-a", Status: herdr.Working}}})
+	m = out.(Model)
+	if !strings.Contains(strings.Join(m.panelPlain, "\n"), agentsHead) {
+		t.Fatalf("panel:\n%s", strings.Join(m.panelPlain, "\n"))
+	}
+}
+
 // TestStartWorkAsks: S without an agent asks which kind, ui.work_agent
 // first, then the prompt; an empty one starts with the start prompt.
 func TestStartWorkAsks(t *testing.T) {
