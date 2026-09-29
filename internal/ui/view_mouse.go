@@ -191,23 +191,37 @@ func (m Model) dragPlan(x, y int) (tea.Model, tea.Cmd) {
 	if !d.active && x-d.x < 2 && d.x-x < 2 && y == d.y {
 		return m, nil
 	}
+	p := m.jiraTab.plan
 	d.active, d.over = true, m.planSideAt(x)
-	if d.over != d.side {
-		m.status = "drop " + d.key + " on " + []string{"the backlog", m.jiraTab.plan.sprints[m.jiraTab.plan.target].name}[d.over]
-	} else {
-		m.status = ""
+	switch {
+	case d.over != d.side:
+		m.status = "drop " + d.key + " on " + []string{"the backlog", p.sprints[p.target].name}[d.over]
+	case p.filter != "":
+		m.status = "ranking needs every card: esc clears the filter"
+	default:
+		n := len(p.sides[d.side])
+		d.slot = min(max(p.top[d.side]+y-jiraBodyTop-2, 0), max(n-1, 0))
+		m.status = "drop to rank " + d.key + " here"
 	}
 	return m, nil
 }
 
 // dropPlan lets go of a held card: over the other side it moves there,
-// taking the side's marked cards along when it is one of them.
+// taking the side's marked cards along when it is one of them; on its own
+// side it is ranked where it lies.
 func (m Model) dropPlan() (tea.Model, tea.Cmd) {
 	p := m.jiraTab.plan
 	d := p.drag
 	p.drag = planDrag{}
-	if !d.active || d.over == d.side {
+	switch {
+	case !d.active:
 		return m, nil
+	case d.over == d.side:
+		m.status = ""
+		if p.filter != "" {
+			return m, nil
+		}
+		return m, m.planRankTo(d.side, d.key, d.slot)
 	}
 	p.side = d.side
 	if m.jiraTab.marked[d.key] {

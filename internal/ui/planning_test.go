@@ -311,6 +311,35 @@ func TestPlanDrag(t *testing.T) {
 	}
 }
 
+// TestPlanDragRank: a card dragged within its side shows where it would
+// land and is ranked there on the drop.
+func TestPlanDragRank(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	y := jiraBodyTop + 3 // ABC-8, below ABC-7
+	out, _ := m.Update(tea.MouseClickMsg{X: 5, Y: y, Button: tea.MouseLeft})
+	m = out.(Model)
+	out, _ = m.Update(tea.MouseMotionMsg{X: 5, Y: y - 1, Button: tea.MouseLeft})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if g, k := strings.Index(view, "┊ ABC-8"), strings.Index(view, "ABC-7"); g < 0 || g > k {
+		t.Fatalf("ghost not above ABC-7:\n%s", view)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: 5, Y: y - 1, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd == nil {
+		t.Fatal("the drop should rank")
+	}
+	cmd()
+	p := m.jiraTab.plan
+	if p.sides[0][0].Key != "ABC-8" || p.idx[0] != 0 {
+		t.Fatalf("backlog %v, idx %d", p.sides[0], p.idx[0])
+	}
+	if len(writes) != 1 || !strings.Contains(writes[0], `"rankBeforeIssue":"ABC-7"`) {
+		t.Errorf("writes = %q", writes)
+	}
+}
+
 // TestPlanCopyFailedSide: y on a sprint side that didn't load copies
 // nothing and says so.
 func TestPlanCopyFailedSide(t *testing.T) {

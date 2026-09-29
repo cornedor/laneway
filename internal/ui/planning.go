@@ -82,11 +82,13 @@ func planMatch(c jira.Card, filter string) bool {
 }
 
 // planDrag is a card held by the mouse: armed on the press, active once
-// the pointer leaves the cell, over the side under it.
+// the pointer leaves the cell, over the side under it; on its own side,
+// slot is the row it would be ranked into.
 type planDrag struct {
 	key          string
 	x, y         int
 	side, over   int
+	slot         int
 	active, held bool
 }
 
@@ -660,6 +662,43 @@ func (m *Model) planRank(d int) tea.Cmd {
 	return planWrite(key+" ranked", func() error { return client.Rank(ctx, key, other, d > 0) })
 }
 
+// planRankTo moves key to row slot of side and ranks it before the card
+// that now follows it, or after the last.
+func (m *Model) planRankTo(side int, key string, slot int) tea.Cmd {
+	p := m.jiraTab.plan
+	s := p.sides[side]
+	i := slices.IndexFunc(s, func(c jira.Card) bool { return c.Key == key })
+	if i < 0 || slot == i || len(s) < 2 {
+		return nil
+	}
+	c := s[i]
+	s = slices.Insert(slices.Delete(slices.Clone(s), i, i+1), slot, c)
+	p.sides[side], p.side, p.idx[side] = s, side, slot
+	other, after := "", false
+	if slot+1 < len(s) {
+		other = s[slot+1].Key
+	} else {
+		other, after = s[slot-1].Key, true
+	}
+	client, ctx := m.jiraClient, m.ctx
+	return planWrite(key+" ranked", func() error { return client.Rank(ctx, key, other, after) })
+}
+
+// dragOrder is side's cards with a card dragged within it shown at its
+// slot.
+func (p *planState) dragOrder(side int, cards []jira.Card) []jira.Card {
+	d := p.drag
+	if !d.active || d.side != side || d.over != side || p.filter != "" {
+		return cards
+	}
+	i := slices.IndexFunc(cards, func(c jira.Card) bool { return c.Key == d.key })
+	if i < 0 || d.slot == i {
+		return cards
+	}
+	c := cards[i]
+	return slices.Insert(slices.Delete(slices.Clone(cards), i, i+1), min(d.slot, len(cards)-1), c)
+}
+
 func planWrite(what string, run func() error) tea.Cmd {
 	return func() tea.Msg { return planWroteMsg{what: what, err: run()} }
 }
@@ -728,8 +767,9 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	for _, c := range cards {
 		keyW = max(keyW, len(c.Key))
 	}
-	for r := p.top[side]; r < len(cards) && r < p.top[side]+shown; r++ {
-		c := cards[r]
+	rows := p.dragOrder(side, cards)
+	for r := p.top[side]; r < len(rows) && r < p.top[side]+shown; r++ {
+		c := rows[r]
 		ptsCol := fmt.Sprintf("%4s", c.Points)
 		mark := " "
 		if mk := m.jiraMark(c.Key); mk != "" {
