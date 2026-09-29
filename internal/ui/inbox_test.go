@@ -136,7 +136,7 @@ func TestInboxReadsOneThread(t *testing.T) {
 // TestInboxDone: e takes a thread off the list until something new
 // happens on it; All still shows it, marked.
 func TestInboxDone(t *testing.T) {
-	f := &fakeInbox{issues: []string{"ABC-1 First", "ABC-2 Second"}}
+	f := &fakeInbox{issues: []string{"ABC-1 First", "ABC-2 Second"}, age: map[string]time.Duration{"ABC-2": 2 * time.Minute}}
 	m := inboxModel(t, f)
 	m = inboxKey(t, m, "e")
 	s := m.jiraTab.inbox
@@ -164,15 +164,16 @@ func TestInboxDone(t *testing.T) {
 func TestInboxSnoozeAndUnread(t *testing.T) {
 	f := &fakeInbox{issues: []string{"ABC-1 First", "ABC-2 Second"}}
 	m := inboxModel(t, f)
+	id := m.jiraTab.inbox.cursorID()
 	m = inboxKey(t, m, "s")
 	if len(m.jiraTab.inbox.rows) != 1 || !strings.Contains(m.status, "snoozed till") {
 		t.Fatalf("rows %v, status %q", m.jiraTab.inbox.rows, m.status)
 	}
-	if mk := m.inboxMark("/ABC-1"); time.UnixMilli(mk.Snooze).Before(time.Now()) {
+	if mk := m.inboxMark(id); time.UnixMilli(mk.Snooze).Before(time.Now()) {
 		t.Errorf("snoozed till %v", time.UnixMilli(mk.Snooze))
 	}
 	if m.inboxUnread != 0 {
-		t.Errorf("unread %d: ABC-2 is shown, ABC-1 snoozed", m.inboxUnread)
+		t.Errorf("unread %d: one is shown, the other snoozed", m.inboxUnread)
 	}
 	m = inboxKey(t, m, "u")
 	if m.inboxUnread != 1 {
