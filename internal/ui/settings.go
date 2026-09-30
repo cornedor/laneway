@@ -85,15 +85,51 @@ var settingDefaults = map[string]string{
 
 type settingRow struct {
 	name, value, def string // value "" when the file leaves it unset
+	group            string
 }
 
-// settingRows lists the ui: options in the config's own order.
+// settingGroups are the settings screen's headings and their options, in
+// order; an option in none shows under Other.
+var settingGroups = []struct {
+	title string
+	names []string
+}{
+	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "custom_fields", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
+	{"Views and filters", []string{"quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
+	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme"}},
+	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
+	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity"}},
+	{"Start work and agents", []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
+	{"Planning, roadmap and charts", []string{"velocity_sprints", "roadmap_epic_type", "roadmap_done_days"}},
+	{"Inbox", []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
+	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "delight", "skin_tone"}},
+	{"System", []string{"open", "clipboard_image", "download_dir", "update_check"}},
+}
+
+// settingRows lists the ui: options by group, each group in its order.
 func settingRows(c config.UIConfig) []settingRow {
 	v := reflect.ValueOf(c)
-	var rows []settingRow
+	byName := map[string]settingRow{}
+	var names []string
 	for i := range v.NumField() {
 		name, _, _ := strings.Cut(v.Type().Field(i).Tag.Get("yaml"), ",")
-		rows = append(rows, settingRow{name, settingValue(v.Field(i)), settingDefaults[name]})
+		byName[name] = settingRow{name: name, value: settingValue(v.Field(i)), def: settingDefaults[name], group: "Other"}
+		names = append(names, name)
+	}
+	var rows []settingRow
+	for _, g := range settingGroups {
+		for _, n := range g.names {
+			if r, ok := byName[n]; ok {
+				r.group = g.title
+				rows = append(rows, r)
+				delete(byName, n)
+			}
+		}
+	}
+	for _, n := range names { // in no group: last, in the config's order
+		if r, ok := byName[n]; ok {
+			rows = append(rows, r)
+		}
 	}
 	return rows
 }
@@ -130,24 +166,107 @@ func settingValue(f reflect.Value) string {
 }
 
 type settingsView struct {
-	rows  []settingRow
-	idx   int
-	input *textinput.Model // the value being edited
-	err   string
+	all  []settingRow // every option; rows those the filter keeps
+	rows []settingRow
+	idx  int
+	top  int // the first row shown
+	// filter narrows the rows by name and help text (/); finding is while
+	// it is typed.
+	filter  string
+	finding bool
+	input   *textinput.Model // the value being edited
+	err     string
 	// choices are the values of the option being picked, choice the one
 	// under the cursor.
 	choices []string
 	choice  int
 }
 
-// window is the first row shown and how many show in height.
+// window is the first row shown and how many lines the rows and their
+// group headings get in height, keeping the cursor's row in them.
 func (s *settingsView) window(height int) (top, visible int) {
-	visible = max(height-10, 4) // border, padding, title and hint
-	return min(max(s.idx-visible+1, 0), max(len(s.rows)-visible, 0)), visible
+	visible = max(height-12, 4) // border, padding, title, filter and hint
+	s.top = min(s.top, s.idx)
+	for s.top < s.idx && s.lines(s.top, s.idx) > visible {
+		s.top++
+	}
+	return s.top, visible
+}
+
+// lines is how many lines rows from..to (inclusive) take with their group
+// headings.
+func (s *settingsView) lines(from, to int) int {
+	n := 0
+	for i := from; i <= to && i < len(s.rows); i++ {
+		if i == from || s.rows[i].group != s.rows[i-1].group {
+			n++
+		}
+		n++
+	}
+	return n
+}
+
+// rowAtLine is the row on line n of the rows shown from first, -1 for a
+// group heading or past the end.
+func (s *settingsView) rowAtLine(first, n int) int {
+	line := 0
+	for i := first; i < len(s.rows); i++ {
+		if i == first || s.rows[i].group != s.rows[i-1].group {
+			if line == n {
+				return -1
+			}
+			line++
+		}
+		if line == n {
+			return i
+		}
+		line++
+	}
+	return -1
 }
 
 func (m *Model) openSettings() {
-	m.settings = &settingsView{rows: settingRows(m.uiConfig)}
+	all := settingRows(m.uiConfig)
+	m.settings = &settingsView{all: all, rows: all}
+}
+
+// applySettingsFilter keeps the options whose name or help has the filter's
+// words.
+func (s *settingsView) applySettingsFilter() {
+	words := strings.Fields(strings.ToLower(s.filter))
+	s.rows = nil
+	for _, r := range s.all {
+		hay := strings.ToLower(r.name + " " + strings.ReplaceAll(r.name, "_", " ") + " " + settingDocs[r.name] + " " + r.group)
+		if !slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(hay, w) }) {
+			s.rows = append(s.rows, r)
+		}
+	}
+	s.idx, s.top = 0, 0
+}
+
+// handleSettingsFind types the filter: enter keeps it, esc drops it.
+func (m Model) handleSettingsFind(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	s := m.settings
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "enter":
+		s.finding = false
+	case "esc":
+		s.finding, s.filter = false, ""
+		s.applySettingsFilter()
+	case "backspace":
+		if r := []rune(s.filter); len(r) > 0 {
+			s.filter = string(r[:len(r)-1])
+			s.applySettingsFilter()
+		}
+	default:
+		if msg.Text != "" {
+			s.filter += msg.Text
+			s.applySettingsFilter()
+		}
+	}
+	return m, nil
 }
 
 func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -158,11 +277,20 @@ func (m Model) handleSettingsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if s.choices != nil {
 		return m.handleSettingsChoice(msg)
 	}
+	if s.finding {
+		return m.handleSettingsFind(msg)
+	}
 	switch {
 	case msg.String() == "ctrl+c":
 		return m.quit()
+	case msg.String() == "/":
+		s.finding = true
+	case len(s.rows) == 0 && msg.String() != "esc":
 	case msg.String() == "enter":
 		m.editSetting()
+	case msg.String() == "esc" && s.filter != "":
+		s.filter = ""
+		s.applySettingsFilter()
 	case msg.String() == "esc", msg.String() == "q", key.Matches(msg, m.keys.Settings):
 		m.settings = nil
 	case m.formFieldStep(msg) != 0:
@@ -321,7 +449,10 @@ func (m *Model) saveSetting(name, text string) string {
 	m.uiConfig, m.opts = next, opts
 	plainIcons = opts.plainIcons
 	setCodeTheme(opts.codeTheme)
-	m.settings.rows = settingRows(next)
+	idx := m.settings.idx
+	m.settings.all = settingRows(next)
+	m.settings.applySettingsFilter() // the saved value in the filtered rows too
+	m.settings.idx = min(idx, max(len(m.settings.rows)-1, 0))
 	m.jiraTab.rows = nil
 	m.renderJira()
 	if m.refOpen {
@@ -348,9 +479,30 @@ func (m *Model) renderSettings(height int) string {
 		v = truncate(v, w)
 		return v + strings.Repeat(" ", w-lipgloss.Width(v))
 	}
-	lines := []string{helpTitle("Settings", width), jiraDimStyle.Render(pad("", nameW) + "  " + pad("value", valW) + "  " + "default")}
-	for i := top; i < min(top+visible, len(s.rows)); i++ {
+	find := jiraDimStyle.Render("/ filter")
+	switch {
+	case s.finding:
+		find = "/" + s.filter + "█"
+	case s.filter != "":
+		find = jiraKeyStyle.Render("/"+s.filter) + jiraDimStyle.Render(fmt.Sprintf("  %d of %d · esc clears", len(s.rows), len(s.all)))
+	}
+	lines := []string{helpTitle("Settings", width), find, jiraDimStyle.Render(pad("", nameW) + "  " + pad("value", valW) + "  " + "default")}
+	if len(s.rows) == 0 {
+		lines = append(lines, jiraDimStyle.Render("no option matches"))
+	}
+	used := 0
+	for i := top; i < len(s.rows); i++ {
 		r := s.rows[i]
+		if head := i == top || r.group != s.rows[i-1].group; head {
+			if used+2 > visible {
+				break
+			}
+			lines = append(lines, jiraViewActive.Render(r.group))
+			used++
+		} else if used+1 > visible {
+			break
+		}
+		used++
 		val := r.value
 		if val == "" {
 			val = "·"
@@ -388,11 +540,14 @@ func (m *Model) renderSettings(height int) string {
 			}
 		}
 	}
-	r := s.rows[s.idx]
+	var r settingRow
+	if s.idx < len(s.rows) {
+		r = s.rows[s.idx]
+	}
 	if doc := settingDocs[r.name]; doc != "" {
 		lines = append(lines, "", jiraDimStyle.Render(truncate(r.name+": "+doc, width)))
 	}
-	if full := settingFull(m.uiConfig, r.name); full != "" {
+	if full := settingFull(m.uiConfig, r.name); r.name != "" && full != "" {
 		fl := strings.Split(full, "\n")
 		if len(fl) > 8 {
 			fl = append(fl[:8], "…")
@@ -405,7 +560,7 @@ func (m *Model) renderSettings(height int) string {
 	if m.configPath != "" {
 		where = m.configPath
 	}
-	hintText := "↵ edit · esc closes · writes ui: in " + where
+	hintText := "↵ edit · / filter · esc closes · writes ui: in " + where
 	switch {
 	case s.input != nil:
 		hintText = "↵ save · tab/↑↓ save and move · empty for the default · esc cancel"

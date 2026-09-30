@@ -34,7 +34,7 @@ func TestSettingRowsCoverConfig(t *testing.T) {
 
 func TestSettingsOverlay(t *testing.T) {
 	m := jiraTabModel(t)
-	m.uiConfig.BranchTemplate = "{type}/{key}"
+	m.uiConfig.DefaultMode = "list"
 	m = m.WithConfigPath("/tmp/laneway.yaml")
 	out, _ := m.handleKey(keyMsg(t, ","))
 	m = out.(Model)
@@ -42,7 +42,7 @@ func TestSettingsOverlay(t *testing.T) {
 		t.Fatal(", did not open settings")
 	}
 	view := m.View().Content
-	for _, s := range []string{"Settings", "branch_template", "{type}/{key}", "/tmp/laneway.yaml", "↵ edit"} {
+	for _, s := range []string{"Settings", "Board and cards", "default_mode", "list", "/tmp/laneway.yaml", "↵ edit"} {
 		if !strings.Contains(view, s) {
 			t.Errorf("view lacks %q", s)
 		}
@@ -159,5 +159,38 @@ func TestSettingsChoice(t *testing.T) {
 	s.idx = slices.IndexFunc(s.rows, func(r settingRow) bool { return r.name == "templates" })
 	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "bug: '## Steps'") {
 		t.Errorf("templates in full:\n%s", view)
+	}
+}
+
+// TestSettingsGroupsAndFilter: options show under their group's heading;
+// / narrows them by name and help, esc clears the filter, then closes.
+func TestSettingsGroupsAndFilter(t *testing.T) {
+	for _, r := range settingRows(config.UIConfig{}) {
+		if r.group == "Other" {
+			t.Errorf("%s is in no group", r.name)
+		}
+	}
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, ","))
+	m = out.(Model)
+	for _, k := range []string{"/", "i", "n", "b", "o", "x", "enter"} {
+		out, _ = m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	s := m.settings
+	if len(s.rows) != 3 || s.rows[0].group != "Inbox" || s.finding {
+		t.Fatalf("/inbox: %d rows %v", len(s.rows), s.rows)
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Inbox") || !strings.Contains(view, "inbox_every") || strings.Contains(view, "auto_refresh") {
+		t.Errorf("filtered view:\n%s", view)
+	}
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	if m = out.(Model); m.settings == nil || len(m.settings.rows) != len(m.settings.all) {
+		t.Fatal("esc should clear the filter first")
+	}
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	if out.(Model).settings != nil {
+		t.Error("esc again should close settings")
 	}
 }

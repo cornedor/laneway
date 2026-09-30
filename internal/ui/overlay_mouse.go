@@ -99,11 +99,12 @@ func (m Model) clickSettings(x, y, count int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	first, visible := s.window(m.bodyH())
-	r := y - top - overlayPadTop - 3 // the title, its rule and the column heads
-	if r < 0 || r >= visible || first+r >= len(s.rows) {
+	r := y - top - overlayPadTop - 4 // the title, its rule, the filter and the column heads
+	i := s.rowAtLine(first, r)
+	if r < 0 || r >= visible || i < 0 {
 		return m, nil
 	}
-	if i := first + r; i != s.idx {
+	if i != s.idx {
 		s.idx = i
 		return m, nil
 	}

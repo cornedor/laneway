@@ -155,7 +155,7 @@ ui:
     dim: "244"
 ```
 
-`,` lists every `ui:` option with its value and default; `enter` edits a one-line
+`,` lists every `ui:` option by topic with its value and default (`/` filters them); `enter` edits a one-line
 one (empty for the default; `tab`, `↑` or `↓` save it and move on), checked, written back to the file (comments kept)
 and applied at once (`images`, `image_max_rows`, `card_limit`, `default_mode`,
 `flag_value`, `inbox_issues` after a restart). An option with a fixed set
