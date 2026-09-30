@@ -273,3 +273,26 @@ func TestBulkMoveRulesUnknown(t *testing.T) {
 		t.Fatalf("msg = %+v", msg)
 	}
 }
+
+// TestQuickEditShowsValues: e lists each field with the card's value, the
+// bulk menu with the marked cards' shared one or "mixed".
+func TestQuickEditShowsValues(t *testing.T) {
+	m := jiraTabModel(t)
+	m.selectJiraKey("ABC-3")
+	m.openQuickEdit()
+	got := map[string]string{}
+	for _, it := range m.jiraPicker.items {
+		f := strings.Fields(ansi.Strip(it.label))
+		got[it.id] = f[len(f)-1]
+	}
+	if got["status"] != "New" || got["points"] != "5" || got["assignee"] != "unassigned" || got["sprint"] != "backlog" {
+		t.Errorf("values = %v", got)
+	}
+	m.jiraTab.marked = map[string]bool{"ABC-1": true, "ABC-3": true}
+	m.openBulkMenu()
+	for _, it := range m.jiraPicker.items {
+		if l := ansi.Strip(it.label); it.id == "status" && !strings.HasSuffix(l, "New") || it.id == "assignee" && !strings.HasSuffix(l, "mixed") {
+			t.Errorf("bulk %s = %q", it.id, l)
+		}
+	}
+}

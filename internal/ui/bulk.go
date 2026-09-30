@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
@@ -119,6 +120,64 @@ var bulkFields = []jiraPickerItem{
 	{id: "sprint", label: "Sprint / backlog"},
 }
 
+// withValues shows each field's value on cards dim after its label: the
+// shared one, "mixed" when they differ.
+func withValues(items []jiraPickerItem, cards []jira.Card) []jiraPickerItem {
+	if len(cards) == 0 {
+		return items
+	}
+	value := func(id string, c jira.Card) string {
+		switch id {
+		case "status":
+			return c.Status
+		case "priority":
+			return c.Priority
+		case "assignee":
+			return cmp.Or(c.Assignee, "unassigned")
+		case "labels":
+			return c.Labels
+		case "points":
+			return c.Points
+		case "sprint":
+			if c.Sprint == "" {
+				return "backlog"
+			}
+			return c.Sprint
+		}
+		return ""
+	}
+	w := 0
+	for _, it := range items {
+		w = max(w, visualWidth(it.label))
+	}
+	for i, it := range items {
+		v := value(it.id, cards[0])
+		for _, c := range cards[1:] {
+			if value(it.id, c) != v {
+				v = "mixed"
+			}
+		}
+		if v == "" {
+			v = "—"
+		}
+		if it.id != "clear" && !strings.HasPrefix(it.id, "key:") {
+			items[i].label = it.label + strings.Repeat(" ", w-visualWidth(it.label)+2) + jiraDimStyle.Render(v)
+		}
+	}
+	return items
+}
+
+// cardsByKey are the loaded cards with keys, in the keys' order.
+func (m *Model) cardsByKey(keys ...string) []jira.Card {
+	var out []jira.Card
+	for _, k := range keys {
+		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == k }); i >= 0 {
+			out = append(out, m.jiraTab.cards[i])
+		}
+	}
+	return out
+}
+
 // openBulkMenu asks what to change on the marked cards.
 func (m *Model) openBulkMenu() {
 	m.quickKey = ""
@@ -128,7 +187,7 @@ func (m *Model) openBulkMenu() {
 		return
 	}
 	m.startJiraPicker(jiraPickBulk, fmt.Sprintf("Edit %d marked", len(keys)), false)
-	m.setJiraPickerItems(append(slices.Clone(bulkFields), jiraPickerItem{id: "clear", label: "Clear marks"}))
+	m.setJiraPickerItems(append(withValues(slices.Clone(bulkFields), m.cardsByKey(keys...)), jiraPickerItem{id: "clear", label: "Clear marks"}))
 }
 
 // openQuickEdit edits the selected card from the board with the bulk
@@ -143,7 +202,7 @@ func (m *Model) openQuickEdit() {
 func (m *Model) openQuickEditKey(key string) {
 	m.quickKey = key
 	m.startJiraPicker(jiraPickBulk, "Edit "+key, false)
-	m.setJiraPickerItems(slices.Clone(bulkFields))
+	m.setJiraPickerItems(withValues(slices.Clone(bulkFields), m.cardsByKey(key)))
 }
 
 // submenuHint marks a card menu row that opens a list beside it.
