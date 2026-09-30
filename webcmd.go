@@ -63,7 +63,16 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 		if err := os.WriteFile(opt.ConfigPath, []byte("# demo config\n"), 0o600); err != nil {
 			return err
 		}
-		opt.Client = webClient(jc, config.UIConfig{})
+		var uiCfg config.UIConfig
+		if cfgPath != "" { // as in the TUI's demo: the config's ui: and rules: apply, never its sites
+			cfg, _, err := config.Load(cfgPath)
+			if err != nil {
+				return err
+			}
+			uiCfg, opt.Rules, opt.RulesTest = cfg.UI, cfg.Rules, cfg.RulesTest
+		}
+		opt.UI = uiCfg
+		opt.Client = webClient(jc, uiCfg)
 		opt.Client.SetQueue(offline.To(opt.Store))
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)

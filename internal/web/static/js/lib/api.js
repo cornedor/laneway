@@ -17,6 +17,7 @@ async function call(method, path, body, signal) {
   let data = null;
   try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) throw new ApiError((data && data.error) || res.statusText, res.status);
+  if (res.status === 202) window.dispatchEvent(new CustomEvent('lw:queued')); // a write kept for when Jira is back
   return data;
 }
 

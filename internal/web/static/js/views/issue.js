@@ -46,6 +46,8 @@ export function mountIssue(el, key, { app, full }) {
   };
   panes.details.append(box.fields, box.desc, box.children, box.links, box.files);
   panes.comments.append(box.more, box.list, box.composer);
+  let offNotes = null;
+  import('./issue_notes.js').then(m => { if (!dead) offNotes = m.mountNotes(panes.details, key, { app, el, full }); });
   scroll.append(panes.details, panes.comments, panes.history);
   const root = h('div.iss' + (full ? '.full' : ''), !full && h('div.iss-grip', { title: 'Drag to resize', role: 'separator' }), head, tabs, scroll);
   el.append(root);
@@ -601,6 +603,7 @@ export function mountIssue(el, key, { app, full }) {
 
   return () => {
     dead = true; scope.dispose(); offChanged(); offFocus();
+    if (offNotes) offNotes();
     drafts.set(key, comp.ta.value);
     if (!full) document.title = 'laneway';
   };

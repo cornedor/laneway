@@ -1,0 +1,24 @@
+.rules { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(300px, 1fr); grid-template-rows: auto 1fr; gap: var(--pad) calc(var(--pad) * 2); padding: var(--pad) calc(var(--pad) * 2); height: 100%; overflow: auto; align-content: start; }
+.rules h3 { margin: 0 0 var(--pad); font-size: 1em; color: var(--fg-2); font-weight: 600; }
+.rules-col { min-width: 0; }
+.rules-log-wrap { grid-column: 1 / -1; min-width: 0; }
+.rule { padding: var(--pad); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2); margin-bottom: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.rule.sel { border-color: var(--accent); background: var(--accent-bg); }
+.rule-top { display: flex; align-items: center; gap: 8px; }
+.rule-match, .rule-acts { display: flex; flex-wrap: wrap; gap: 4px; }
+.rule-warn { color: var(--warn); padding: 4px 0; }
+.rule-note { padding: 4px 0; }
+.act-notify { color: var(--info); } .act-exec, .act-transition, .act-comment { color: var(--warn); }
+.rules-test { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; margin-bottom: var(--pad); }
+.rt-f { display: flex; flex-direction: column; gap: 2px; font-size: .9em; color: var(--fg-2); min-width: 0; }
+.rt-f .input { width: 100%; }
+.rt-go { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.rt-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.rt-row.fires .rt-mark { color: var(--ok); }
+.rt-row:not(.fires) .rt-mark { color: var(--err); }
+.rt-acts { flex-basis: 100%; padding-left: 22px; }
+.rules-log { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em; max-height: 40vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: var(--pad); background: var(--bg-2); }
+.lg { display: flex; gap: 8px; padding: 1px 0; white-space: pre-wrap; }
+.lg.err { color: var(--err); }
+.lg-at { flex: none; }
+@media (max-width: 800px) { .rules { grid-template-columns: 1fr; } .rules-test { grid-template-columns: 1fr; } }

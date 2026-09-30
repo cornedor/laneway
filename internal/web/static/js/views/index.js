@@ -11,5 +11,8 @@ export const routes = [
   { path: '/work', name: 'work', title: 'My work', key: 'w', load: () => import('./work.js') },
   { path: '/inbox', name: 'inbox', title: 'Inbox', key: 'i', load: () => import('./inbox.js') },
   { path: '/standup', name: 'standup', title: 'Standup', key: 's', load: () => import('./standup.js') },
+  { path: '/agents', name: 'agents', title: 'Agents', key: 'a', load: () => import('./agents.js') },
+  { path: '/review', name: 'review', title: 'Review', key: 'R', load: () => import('./review.js') },
+  { path: '/rules', name: 'rules', title: 'Rules', key: 'l', nav: false, load: () => import('./rules.js') },
   { path: '/settings', name: 'settings', title: 'Settings', key: ',', nav: false, load: () => import('./settings.js') },
 ];

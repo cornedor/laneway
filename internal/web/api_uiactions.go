@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -73,7 +74,7 @@ func init() {
 		cmd := llm.Command(strings.Fields(s.opt.UI.LLM))
 		name := ""
 		if len(cmd) > 0 {
-			name = cmd[0]
+			name = filepath.Base(cmd[0])
 		}
 		return map[string]any{"Available": cmd != nil, "Command": name, "Asks": llm.Asks}, nil
 	})

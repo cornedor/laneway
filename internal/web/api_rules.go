@@ -117,7 +117,7 @@ func (ss *siteSet) rulesOf(ctx context.Context, o Options) *ruleRunner {
 		ss.rules = map[string]*ruleRunner{}
 	}
 	ss.rules[o.Site] = r
-	if len(set.Watches()) > 0 && o.Client != nil && !o.Demo {
+	if len(set.Watches()) > 0 && o.Client != nil {
 		go r.w.Run(ctx)
 	}
 	go runQueue(ctx, o)
@@ -176,7 +176,7 @@ func init() {
 			"Rules": rr.set.Rules(), "Warnings": rr.warn, "Watches": ws, "Counts": counts,
 			"Test":  map[string]string{"Type": s.opt.RulesTest.Type, "Status": s.opt.RulesTest.Status},
 			"Kinds": []string{rules.New, rules.Status, rules.Assignee, rules.Priority, rules.Points, rules.Summary},
-			"Last":  last, "Running": len(ws) > 0 && !s.opt.Demo, "Log": rr.log,
+			"Last":  last, "Running": len(ws) > 0, "Log": rr.log,
 		}, nil
 	})
 	post("/rules/test", ruleTest)
