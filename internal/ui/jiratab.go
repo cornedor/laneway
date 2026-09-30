@@ -264,7 +264,7 @@ type jiraTabState struct {
 	// rows caches the list mode's unselected rows, per order, for rowsFor;
 	// buildJiraLanes drops it.
 	rows    []string
-	rowsFor [3]int // width, key and status column widths
+	rowsFor listCols
 	// lineOf is each order entry's line in the list, which group headers
 	// (sorted by assignee or priority) push down.
 	lineOf []int
@@ -1983,21 +1983,24 @@ func (m *Model) renderJira() {
 		t.lanesOut = m.renderJiraLanes(w, h)
 		return
 	}
-	keyW, stW := 0, 0
+	cols := listCols{width: w}
 	for _, ci := range t.order {
-		keyW = max(keyW, len(t.cards[ci].Key))
-		stW = max(stW, visualWidth(t.cards[ci].Status))
+		c := t.cards[ci]
+		cols.key = max(cols.key, len(c.Key))
+		cols.status = max(cols.status, visualWidth(c.Status))
+		cols.who = max(cols.who, visualWidth(m.jiraListWho(c)))
+		cols.marks = max(cols.marks, visualWidth(m.jiraListMarks(c)))
 	}
-	stW = min(stW, 20)
-	if t.rowsFor != [3]int{w, keyW, stW} || len(t.rows) != len(t.order) {
+	cols.status, cols.who = min(cols.status, 20), min(cols.who, 24)
+	if t.rowsFor != cols || len(t.rows) != len(t.order) {
 		t.rows = make([]string, len(t.order))
 		for i, ci := range t.order {
-			t.rows[i] = m.jiraListRow(t.cards[ci], false, w, keyW, stW)
+			t.rows[i] = m.jiraListRow(t.cards[ci], false, cols)
 			if i%2 == 1 { // zebra: every other row faintly shaded
 				t.rows[i] = shade(t.rows[i], w)
 			}
 		}
-		t.rowsFor = [3]int{w, keyW, stW}
+		t.rowsFor = cols
 	}
 	var lines []string
 	t.lineOf = t.lineOf[:0]
@@ -2014,7 +2017,7 @@ func (m *Model) renderJira() {
 		case t.drag.active && c.Key == t.drag.key: // being dragged: faint, where it would land
 			row = jiraGhostStyle.Render(ansi.Truncate("┊ "+c.Key+" "+c.Summary, w, "…"))
 		case at == t.idx:
-			row = m.jiraListRow(c, true, w, keyW, stW)
+			row = m.jiraListRow(c, true, cols)
 		}
 		lines = append(lines, row)
 	}
@@ -2092,16 +2095,56 @@ func (m *Model) jiraGroupAvatar(by jiraSort, g string) string {
 	return jiraAvatar(g) + " "
 }
 
-func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) string {
-	status := ansi.Truncate(c.Status, stW, "…")
-	status += strings.Repeat(" ", max(stW-visualWidth(status), 0))
+// listCols are the list's width and its columns' widths, the widest of
+// the rows shown.
+type listCols struct {
+	width, key, status int
+	who, marks         int // the assignee and the marks after it (deploy, subtasks, due, age)
+}
+
+// jiraListWho is a list row's assignee, its avatar first; "" when not shown.
+func (m *Model) jiraListWho(c jira.Card) string {
+	f := m.opts.fields
+	switch {
+	case !f.assignee || c.Assignee == "":
+		return ""
+	case f.avatar:
+		return jiraAvatar(c.Assignee) + jiraDimStyle.Render(" "+c.Assignee)
+	}
+	return jiraDimStyle.Render(c.Assignee)
+}
+
+// jiraListMarks are a list row's marks after the assignee.
+func (m *Model) jiraListMarks(c jira.Card) string {
+	f := m.opts.fields
+	var marks []string
+	if d := jiraDeployMark(c.Deploy); f.deploy && d != "" {
+		marks = append(marks, d)
+	}
+	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
+		marks = append(marks, st)
+	}
+	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
+		marks = append(marks, d)
+	}
+	if a := jiraAgeMark(c, time.Now(), m.opts.staleDays); f.age && a != "" {
+		marks = append(marks, a)
+	}
+	return strings.Join(marks, " ")
+}
+
+func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
+	width, keyW := cols.width, cols.key
+	status := ansi.Truncate(c.Status, cols.status, "…")
+	status += strings.Repeat(" ", max(cols.status-visualWidth(status), 0))
 	pts := "    "
 	if c.Points != "" {
 		pts = fmt.Sprintf("%4s", c.Points+"p")
 	}
 	f := m.opts.fields
 	// The summary, its parent and custom fields give way on a long row; the
-	// tail (assignee, deploy, subtasks, due, age) is what a row is scanned for.
+	// tail (assignee, deploy, subtasks, due, age) is what a row is scanned
+	// for, in columns at the right edge.
 	title := c.Summary
 	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
@@ -2112,24 +2155,13 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
 		title = pr + " " + title
 	}
+	pad := func(s string, w int) string { return s + strings.Repeat(" ", max(w-visualWidth(s), 0)) }
 	var tail string
-	switch {
-	case f.assignee && f.avatar && c.Assignee != "":
-		tail += " " + jiraAvatar(c.Assignee) + jiraDimStyle.Render(" "+c.Assignee)
-	case f.assignee && c.Assignee != "":
-		tail += jiraDimStyle.Render(" · " + c.Assignee)
+	if cols.who > 0 {
+		tail += "  " + pad(ansi.Truncate(m.jiraListWho(c), cols.who, "…"), cols.who)
 	}
-	if d := jiraDeployMark(c.Deploy); f.deploy && d != "" {
-		tail += " " + d
-	}
-	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
-		tail += " " + st
-	}
-	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
-		tail += " " + d
-	}
-	if a := jiraAgeMark(c, time.Now(), m.opts.staleDays); f.age && a != "" {
-		tail += " " + a
+	if cols.marks > 0 {
+		tail += "  " + pad(m.jiraListMarks(c), cols.marks)
 	}
 	row := "  "
 	if r := m.cardRibbon(c); r != "" && !selected {
@@ -2167,10 +2199,11 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) st
 	if f.points {
 		row += jiraDimStyle.Render(pts) + "  "
 	}
-	if avail := width - 1 - visualWidth(row); visualWidth(title)+visualWidth(tail) > avail {
+	avail := width - 1 - visualWidth(row)
+	if visualWidth(title)+visualWidth(tail) > avail {
 		title = ansi.Truncate(title, max(avail-visualWidth(tail), 12), "…")
 	}
-	row += title + tail
+	row += pad(title, avail-visualWidth(tail)) + tail
 	row = ansi.Truncate(row, width-1, "…")
 	if selected {
 		// Plain selection colours, as the selected card: dim status, points

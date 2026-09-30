@@ -1412,10 +1412,10 @@ func TestJiraListSelectedPlain(t *testing.T) {
 	if dim == "" {
 		t.Skip("no colours in this environment")
 	}
-	if row := m.jiraListRow(c, false, 80, 6, 8); !strings.Contains(row, dim) {
+	if row := m.jiraListRow(c, false, listCols{width: 80, key: 6, status: 8}); !strings.Contains(row, dim) {
 		t.Fatal("unselected row lost its dim status")
 	}
-	row := m.jiraListRow(c, true, 80, 6, 8)
+	row := m.jiraListRow(c, true, listCols{width: 80, key: 6, status: 8})
 	if strings.Contains(row, dim) || strings.Contains(row, ansiOpenSeq(jiraViewActive)) {
 		t.Errorf("selected row keeps other colours: %q", row)
 	}
