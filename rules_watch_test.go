@@ -42,12 +42,12 @@ func TestRulesWatchLoop(t *testing.T) {
 		t.Fatal(warn)
 	}
 	var out syncBuf
-	w := &watcher{c: jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"}), set: set,
-		log: filepath.Join(dir, "rules.log"), out: &out}
+	w := &rules.Watcher{C: jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"}), Set: set,
+		Log: filepath.Join(dir, "rules.log"), Out: &out}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		w.loop(ctx, rules.Watch{JQL: "x", Every: 5 * time.Millisecond})
+		w.Loop(ctx, rules.Watch{JQL: "x", Every: 5 * time.Millisecond})
 		close(done)
 	}()
 	deadline := time.Now().Add(5 * time.Second)
@@ -59,7 +59,7 @@ func TestRulesWatchLoop(t *testing.T) {
 	}
 	cancel()
 	<-done
-	b, _ := os.ReadFile(w.log)
+	b, _ := os.ReadFile(w.Log)
 	if !strings.HasSuffix(string(b), " moved: ABC-1 status To do → Done\n") {
 		t.Errorf("log = %q", b)
 	}
