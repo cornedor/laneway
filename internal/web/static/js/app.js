@@ -148,6 +148,7 @@ function chrome() {
 
 async function boot() {
   chrome(); globalKeys();
+  import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./views/fields.js').then(m => m.installUndo(app)); // `u` undoes the last edit
   import('./views/plan_cmds.js').then(m => m.register(app));
   try {
