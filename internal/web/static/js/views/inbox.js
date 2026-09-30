@@ -191,6 +191,7 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('o', () => { const t = cur(); if (t && app.session.baseURL) window.open(app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key, '_blank', 'noopener'); }, 'open in Jira', G);
 
   const off = [app.bus.on('focus', reload), onMetrics(() => list.setRowHeight(Math.max(px14(34), rowPx())))];
+  buildRows(); // the tabs and Loading… now, so the view bar does not wait for the data
   load(false);
   return () => { dead = true; clearTimeout(readTimer); list.destroy(); off.forEach(f => f()); };
 }

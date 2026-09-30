@@ -6,7 +6,7 @@ import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
 import { onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
-import { isZero, date, shortDate, ago } from '../lib/fmt.js';
+import { isZero, date, shortDate, ago, localDate } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import { openFilterBuilder } from './board_filter.js';
@@ -581,7 +581,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (c.Subtasks) { r.sub.textContent = c.SubtasksDone + '/' + c.Subtasks; r.sub.style.setProperty('--p', Math.round(100 * c.SubtasksDone / c.Subtasks) + '%'); r.sub.title = 'Subtasks done'; }
     const due = date(c.Due);
     r.due.hidden = !due || !cf('due');
-    if (due) { r.due.textContent = fdate(c.Due, shortDate(c.Due)); r.due.className = 'cdue' + (!c.Done && due.getTime() < startOfToday() ? ' overdue' : ''); r.due.title = 'Due ' + due.toLocaleDateString(); }
+    if (due) { r.due.textContent = fdate(c.Due, shortDate(c.Due)); r.due.className = 'cdue' + (!c.Done && due.getTime() < startOfToday() ? ' overdue' : ''); r.due.title = 'Due ' + localDate(due); }
     r.pr.hidden = !c.PR || !cf('pr'); r.pr.textContent = PR_TEXT[c.PR] || c.PR; r.pr.className = 'cpr pr-' + (c.PR || '').toLowerCase();
     r.dep.hidden = !c.Deploy || !cf('deploy'); r.dep.textContent = '↑ ' + c.Deploy;
     const ev = extraValues(c);
@@ -635,7 +635,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- selection and navigation
   function rebind(key) { const w = S.where.get(key); if (w) w.p.vl.refresh(w.i); }
-  const openPanel = debounce(() => { if (S.sel && app.panel.key && app.panel.key !== S.sel) app.panel.open(S.sel); }, 110);
+  const openIssue = key => app.panel.open(key, { card: S.cards.find(c => c.Key === key) });
+  const openPanel = debounce(() => { if (S.sel && app.panel.key && app.panel.key !== S.sel) openIssue(S.sel); }, 110);
   function select(key, { scroll = true, row = true } = {}) {
     const old = S.sel;
     S.sel = key;
@@ -695,7 +696,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (e.target.closest('.cparent') && e.target.closest('.cparent').dataset.open) { app.panel.open(e.target.closest('.cparent').dataset.open); return; }
     if (e.ctrlKey || e.metaKey || e.shiftKey) { toggleMark(key); select(key, { scroll: false }); return; }
     select(key, { scroll: false });
-    app.panel.open(key);
+    openIssue(key);
   });
   delegate(main, 'click', '[data-fold]', (e, t) => foldBand(t.dataset.fold));
   delegate(main, 'click', '[data-sort]', (e, t) => { if (t.dataset.sort) setSort(t.dataset.sort, S.sort === t.dataset.sort ? -S.dir : 1); });
@@ -746,18 +747,20 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     }
     return catsP;
   }
-  const trsCache = new Map(); // issue key -> Promise of its transitions
-  offs.push(bus.on('issue:changed', ({ key }) => trsCache.delete(key)));
-  function transitionsOf(key) {
-    if (!trsCache.has(key)) trsCache.set(key, api.get('/issues/' + key + '/transitions').catch(() => { trsCache.delete(key); return null; }));
-    return trsCache.get(key);
+  // Transitions per issue and status: drag zones and H/L share them; a change or another status asks again.
+  const trsCache = new Map(); // 'KEY status' -> Promise of its transitions
+  offs.push(bus.on('issue:changed', ({ key }) => { for (const k of trsCache.keys()) if (k.startsWith(key + ' ')) trsCache.delete(k); }));
+  function transitionsOf(card) {
+    const k = card.Key + ' ' + card.StatusID;
+    if (!trsCache.has(k)) trsCache.set(k, api.get('/issues/' + card.Key + '/transitions').catch(e => { trsCache.delete(k); throw e; }));
+    return trsCache.get(k);
   }
   function clearZones() { for (const z of main.querySelectorAll('.bd-zones')) z.remove(); }
   async function showZones(key) {
     const card = S.cards.find(c => c.Key === key);
     const multi = S.mode === 'lanes' ? S.panes.filter(p => { const c = columns()[p.col]; return c && (c.StatusIDs || []).length > 1; }) : [];
     if (!card || !multi.length) return;
-    const [trs] = await Promise.all([transitionsOf(key), loadCats()]);
+    const [trs] = await Promise.all([transitionsOf(card).catch(() => null), loadCats()]);
     if (S.drag !== key) return;
     const names = S.bundle.statusNames || {};
     const can = trs && new Set(trs.flatMap(t => [String(t.StatusID), t.Name]));
@@ -855,7 +858,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (!col || !writable()) return;
     S.lastEdit = { what: '→ ' + col.Name, run: key => { const c = S.cards.find(x => x.Key === key); return c && moveCol(c, to, null); } };
     let trs;
-    try { trs = await api.get('/issues/' + card.Key + '/transitions', { fresh: true }); } catch (e) { return ui.errToast(e); }
+    try { trs = await transitionsOf(card); } catch (e) { return ui.errToast(e); }
     const names = (col.StatusIDs || []).map(id => (S.bundle.statusNames || {})[id]);
     let opts = trs.filter(t => (col.StatusIDs || []).includes(String(t.StatusID)) || names.includes(t.Name));
     if (statusID) opts = opts.filter(t => String(t.StatusID) === String(statusID) || t.Name === (S.bundle.statusNames || {})[statusID]);
@@ -900,9 +903,34 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- repeat the last change (.) on the selected card
   offs.push(bus.on('issue:patch', ({ key, field, value }) => {
+    patchCard(key, field, value);
     if (field === 'summary' || value === undefined) return;
     S.lastEdit = { what: field + ' → ' + (value && value.DisplayName ? value.DisplayName : Array.isArray(value) ? value.join(' ') : value == null || value === '' ? 'none' : value), run: key2 => repeatField(key2, field, value) };
   }));
+  // An edit from a picker (status, priority…) shows on its card at once; the refetch after the write settles it.
+  function patchCard(key, field, value) {
+    const card = S.cards.find(c => c.Key === key);
+    if (!card || value === undefined) return;
+    let patch;
+    switch (field) {
+      case 'status': {
+        const names = (S.bundle && S.bundle.statusNames) || {};
+        const id = Object.keys(names).find(k => names[k] === value);
+        if (!id) return;
+        const to = sc.get(String(id)), last = columns().length - 1;
+        patch = { Status: value, StatusID: id, Done: to === last, InProgress: to != null && to > 0 && to < last };
+        break;
+      }
+      case 'priority': patch = { Priority: value }; break;
+      case 'points': patch = { Points: value }; break;
+      case 'summary': patch = { Summary: value }; break;
+      case 'assignee': patch = { Assignee: value ? value.DisplayName : '', AssigneeID: value ? value.AccountID : '' }; break;
+      default: return;
+    }
+    replaceCard(card, patch);
+    layout();
+    if (S.sel === key) select(key);
+  }
   async function repeatField(key, field, value) {
     let body;
     switch (field) {
@@ -1192,7 +1220,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('End', () => edge(true), 'last card in lane', { group: G });
     k.bind('PageDown', () => page(1), 'page down', { group: G, hidden: true });
     k.bind('PageUp', () => page(-1), 'page up', { group: G, hidden: true });
-    k.bind('Enter', need(c => app.panel.open(c.Key)), 'open issue', { group: G });
+    k.bind('Enter', need(c => openIssue(c.Key)), 'open issue', { group: G });
     k.bind('Escape', () => {
       if (S.past) leavePast();
       else if (app.panel.key) app.panel.close();
@@ -1316,6 +1344,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     try {
       if (!project) project = lastProject(app) || (app.session.projects || [])[0];
       if (project && !bid) bid = lastBoard(app, project);
+      if (project) app.chrome.label(projectBtn, project);
       if (!project) { const ps = await firstOf(api, '/projects'); project = ps[0] && ps[0].Key; }
       if (!project) return bdMsg(h('div', h('h2', 'No project'), h('p', 'Add one under jira.projects in the config.')));
       S.project = project;
@@ -1352,7 +1381,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (query.issue) {
       const t0 = Date.now();
       const pickIssue = () => {
-        if (S.where.has(query.issue)) { select(query.issue); app.panel.open(query.issue); }
+        if (S.where.has(query.issue)) { select(query.issue); openIssue(query.issue); }
         else if (!S.dead && Date.now() - t0 < 8000) later(pickIssue, 150);
       };
       later(pickIssue, 100);

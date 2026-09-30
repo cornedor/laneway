@@ -107,7 +107,7 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .tis-row .track { height: .429rem; border-radius: 3px; background: var(--bg-3); } .tis-row .track i { display: block; height: 100%; border-radius: 3px; background: var(--fg-3); }
 .tis-row.now .track i { background: var(--accent); } .tis-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip.st-merged { background: var(--ok); color: var(--bg); } .chip.st-open { background: var(--info); color: var(--bg); } .chip.st-declined { background: var(--err); color: var(--bg); }
-.chg { padding: .429rem 0; border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 3.571rem; }
+.pane.history .chg { padding: .429rem 0; border-bottom: 1px solid var(--border); content-visibility: auto; contain-intrinsic-size: auto 3.571rem; }
 .chg-head { display: flex; align-items: center; gap: .571rem; font-size: .9em; }
 .chg-line { display: flex; gap: .571rem; align-items: baseline; padding: 1px 0 1px 1.857rem; flex-wrap: wrap; }
 .chg-line .fname { color: var(--fg-3); font-size: .85em; min-width: 5rem; } .chg-line .from { color: var(--fg-2); text-decoration: line-through; } .chg-line .arrow { color: var(--fg-3); }

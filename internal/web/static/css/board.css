@@ -1,15 +1,17 @@
 /* Board view: filter bar, swim lanes, cards, list. Theme variables only. */
 .bd { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
 .bd .sp { flex: 1; }
-.bd-bar { display: flex; align-items: center; gap: var(--pad); padding: calc(var(--pad) * .75) var(--pad); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.bd-chips { display: flex; gap: .286rem; flex-wrap: wrap; align-items: center; }
+/* One line whatever the width (the panel opening narrows it): chips scroll sideways instead of wrapping and moving the lanes. */
+.bd-bar { display: flex; align-items: center; gap: var(--pad); padding: calc(var(--pad) * .75) var(--pad); border-bottom: 1px solid var(--border); }
+.bd-chips { display: flex; gap: .286rem; align-items: center; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.bd-chips > * { flex: none; }
 .fchip { font: inherit; font-size: .857rem; color: var(--fg-2); background: var(--bg-3); border: 1px solid transparent; border-radius: 12px; padding: 1px .643rem 1px .286rem; cursor: pointer; display: inline-flex; gap: .357rem; align-items: center; line-height: 1.429rem; }
 .fchip:hover { background: var(--bg-4); }
 .fchip.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
 .fchip.clear { padding-left: .643rem; color: var(--fg-3); background: transparent; }
 .fchip kbd { font-size: .714rem; padding: 0 .286rem; line-height: 1rem; }
-.bd-filter { width: 15.714rem; max-width: 40vw; }
-.bd-stats { font-size: .857rem; white-space: nowrap; }
+.bd-filter { flex: 0 1 15.714rem; min-width: 7rem; max-width: 40vw; }
+.bd-stats { flex: none; font-size: .857rem; white-space: nowrap; }
 
 .bd-main { flex: 1; min-height: 0; position: relative; }
 
@@ -74,7 +76,8 @@
 .l-due, .l-updated, .l-created, .l-age, .l-epic, .l-labels, .l-reporter { color: var(--fg-2); font-size: .857rem; } .l-due.overdue { color: var(--err); font-weight: 600; }
 
 @media (max-width: 700px) {
-  .bd-filter { width: 100%; max-width: none; }
+  .bd-bar { flex-wrap: wrap; } .bd-chips { flex-wrap: wrap; }
+  .bd-filter { flex-basis: 100%; max-width: none; }
   .bd-lhead, .lrow { grid-template-columns: 1.857rem 5.714rem minmax(7.143rem, 1fr) 7.143rem; }
   .bd-lhead span:nth-child(n+5), .lrow > :nth-child(n+5) { display: none; }
 }
@@ -97,6 +100,8 @@
 .bd-lane-body.static { flex: none; overflow: visible; min-height: 3.143rem; padding-bottom: 0; }
 .bd-lane-body.static.empty::after { top: .714rem; }
 .vl-static { position: static !important; transform: none !important; height: auto !important; }
+/* swimlane cells are not virtual: off-screen cards skip layout and paint (auto remembers their size once seen) */
+.bd-lane-body.static > .vl-static { content-visibility: auto; contain-intrinsic-size: auto 6.929rem; }
 
 /* cards: extras */
 .cpin { color: var(--warn); font-size: .786rem; }

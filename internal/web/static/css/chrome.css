@@ -16,6 +16,7 @@
 .site-chip { font: inherit; font-size: .857rem; color: var(--fg-2); background: var(--bg-3); border: 0; border-radius: 9px; padding: 0 .571rem; line-height: 1.429rem; cursor: pointer; }
 .site-chip:hover { color: var(--fg); background: var(--bg-4); }
 
+#top.boot #site, #top.boot #nav { visibility: hidden; } /* until the session says what goes beside the brand */
 #nav { flex: 1; min-width: 0; display: flex; align-self: stretch; overflow: hidden; }
 #nav a, .nav-more { position: relative; flex: none; display: flex; align-items: center; gap: .429rem; padding: 0 .714rem; color: var(--fg-2); font: inherit; font-weight: 500; white-space: nowrap; background: none; border: 0; cursor: pointer; }
 #nav a:hover, .nav-more:hover { color: var(--fg); text-decoration: none; box-shadow: inset 0 -2px 0 var(--border); }
@@ -53,7 +54,8 @@
 /* ---- view bar: context (where) then toolbar (how) */
 #viewbar { min-width: 0; display: flex; align-items: center; gap: var(--pad); min-height: var(--bar-h); padding: .214rem calc(var(--pad) * 1.5); background: var(--bg); border-bottom: 1px solid var(--border);
   overflow-x: auto; scrollbar-width: none; }
-#viewbar:has(> #context:empty):has(> #toolbar:empty) { display: none; }
+/* .hold keeps an empty bar while a view with controls mounts, so the page below does not jump */
+#viewbar:not(.hold):has(> #context:empty):has(> #toolbar:empty) { display: none; }
 #context { flex: none; display: flex; align-items: center; margin-left: -.429rem; margin-right: var(--pad); }
 #context:empty { display: none; }
 #toolbar { flex: 1; display: flex; align-items: center; gap: var(--pad); min-width: 0; }

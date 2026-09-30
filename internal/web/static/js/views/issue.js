@@ -35,11 +35,11 @@ const drafts = new Map();    // unsent comment text by issue key
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
 const dash = h('span.faint', '—');
 
-export function mountIssue(el, key, { app, full }) {
+export function mountIssue(el, key, { app, full, card }) {
   css('issue');
   const { api, bus, ui } = app;
   const me = () => (app.session && app.session.me) || {};
-  const st = { issue: null, card: null, tab: 'details', children: null, weblinks: null, hist: null, tis: null,
+  const st = { issue: null, card: card && card.Key === key ? card : null, tab: 'details', children: null, weblinks: null, hist: null, tis: null,
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
   if (expect !== key) trail.length = 0;
   expect = null;
@@ -149,10 +149,10 @@ export function mountIssue(el, key, { app, full }) {
         h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira ↗'),
         h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? '← Back' : '✕')),
       h('h1.iss-title', { title: 'Edit summary', onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
-      ...(i ? [h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, ui.statusPill(i.Status, i.StatusCategory)),
+      ...(i || c ? [h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, i ? ui.statusPill(i.Status, i.StatusCategory) : ui.statusPill(c.Status, catOf(c))),
         ...(c && c.Flagged ? [h('span.chip.flag', 'Flagged')] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
-        h('span.dim', 'updated ' + ago(i.Updated)))] : []));
+        h('span.dim', 'updated ' + ago((i || c).Updated)))] : []));
     learn(key, c); if (i) learn(key, { Summary: i.Summary, Status: i.Status, StatusCategory: i.StatusCategory });
     const tr = trailEl(); if (tr) head.prepend(tr);
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';

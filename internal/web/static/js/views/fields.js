@@ -200,9 +200,9 @@ async function custom(app, key, id) {
 async function status(app, key) {
   const metaP = app.api.get(`/issues/${key}/transitionmeta`, { fresh: true });
   metaP.catch(() => {});
-  const list = await app.api.get(`/issues/${key}/transitions`, { fresh: true });
-  if (!list.length) return app.ui.toast(key + ' has no moves from here');
-  const t = await app.ui.pick({ title: `Move ${key}`, items: list, label: t => t.Name, placeholder: 'Move to…' });
+  // Open at once; the moves fill in when Jira answers.
+  const list = app.api.get(`/issues/${key}/transitions`, { fresh: true });
+  const t = await app.ui.pick({ title: `Move ${key}`, items: list, label: t => t.Name, placeholder: 'Move to…', empty: 'No moves from here' });
   if (!t) return;
   let meta;
   try { meta = ((await metaP).Transitions || []).find(x => x.ID === t.ID); } catch (e) { meta = null; }

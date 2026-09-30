@@ -38,7 +38,8 @@ export const app = {
     const url = '#' + path + (s ? '?' + s : '');
     replace ? history.replaceState(null, '', url) : (location.hash = url);
   },
-  // The issue panel. Board/list/etc. call app.panel.open(key); the issue module renders it.
+  // The issue panel. Board/list/etc. call app.panel.open(key[, {card}]); the issue module renders it,
+  // its head from `card` (the view's copy) until its own data arrives.
   panel: {
     key: null, cleanup: null,
     async open(key, opts = {}) {
@@ -52,7 +53,7 @@ export const app = {
         const m = await import('./views/issue.js');
         if (app.panel.key !== key) return;
         clear(el);
-        app.panel.cleanup = m.mountIssue(el, key, { app, full: false }) || null;
+        app.panel.cleanup = m.mountIssue(el, key, { app, full: false, card: opts.card }) || null;
       } catch (e) { if (reloadOnce(e)) return; clear(el).append(h('div.empty', 'Issue panel not available: ' + e.message)); }
       bus.emit('panel', { key });
     },
@@ -110,6 +111,7 @@ async function navigate() {
   if (current && current.cleanup) { try { current.cleanup(); } catch (e) { console.error(e); } }
   if (current && current.scope) current.scope.dispose();
   current = null;
+  $('#viewbar').classList.toggle('hold', !!hit && hit.bar !== false);
   clear($('#toolbar')); clear($('#context'));
   if (!hit) {
     app.route = { name: '', params: {}, query: {} };
@@ -136,6 +138,7 @@ async function navigate() {
   try {
     current.cleanup = await (mod.default || mod.mount)(view, { app, params, query: app.route.query, scope: current.scope, context: $('#context'), toolbar: $('#toolbar') });
   } catch (e) { console.error(e); clear(view).append(h('div.empty', h('h2', 'Something broke'), h('pre', e.stack || e.message))); }
+  if (token === viewToken) $('#viewbar').classList.remove('hold');
   bus.emit('route', app.route);
 }
 
@@ -182,10 +185,10 @@ async function boot() {
     onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });
     theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
-  } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
+  } catch (e) { $('#top').classList.remove('boot'); $('#viewbar').classList.remove('hold'); clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
-  import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e));
+  import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e)).finally(() => $('#top').classList.remove('boot'));
   $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');
   if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
   await import('./views/plan_ctx.js').then(m => m.sanitize(app)).catch(e => console.warn('ctx', e));

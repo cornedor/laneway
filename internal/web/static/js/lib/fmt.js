@@ -1,6 +1,12 @@
 // Formatting helpers. The Go API sends zero times as "0001-01-01T00:00:00Z".
 export const isZero = t => !t || String(t).startsWith('0001-');
 export const date = t => (isZero(t) ? null : new Date(t));
+// toLocale*String builds a formatter per call; a board formats thousands of dates, so keep them.
+const DM = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
+const DMY = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+const DMT = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const YMD = new Intl.DateTimeFormat();
+export const localDate = d => YMD.format(d); // what toLocaleDateString() gives
 export function ago(t, now = Date.now()) {
   const d = date(t); if (!d) return '';
   const s = Math.round((now - d) / 1000);
@@ -9,10 +15,10 @@ export function ago(t, now = Date.now()) {
   if (s < 3600) return Math.round(s / 60) + 'm ago';
   if (s < 86400) return Math.round(s / 3600) + 'h ago';
   if (s < 7 * 86400) return Math.round(s / 86400) + 'd ago';
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  return (d.getFullYear() === new Date(now).getFullYear() ? DM : DMY).format(d);
 }
-export const shortDate = t => { const d = date(t); return d ? d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''; };
-export const dateTime = t => { const d = date(t); return d ? d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; };
+export const shortDate = t => { const d = date(t); return d ? DM.format(d) : ''; };
+export const dateTime = t => { const d = date(t); return d ? DMT.format(d) : ''; };
 export function duration(sec) {
   sec = Math.round(sec); if (!sec) return '0m';
   const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);

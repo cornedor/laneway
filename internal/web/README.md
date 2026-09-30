@@ -16,7 +16,7 @@ app.keys     scope(name) → {bind(spec, fn, desc, {input,hidden,group}), dispos
 app.ui       toast errToast modal pick prompt confirm avatar chip statusPill          (lib/ui.js)
 app.commands register({id,title,group,run,when}) → unregister                         (palette lists these)
 app.go('/board/ABC/1?issue=ABC-1'), app.query(), app.setQuery({issue})
-app.panel    open(key) / close()    the right-hand issue panel (js/views/issue.js: mountIssue(el, key, {app, full}) → cleanup)
+app.panel    open(key[, {card}]) / close()    the right-hand issue panel (js/views/issue.js: mountIssue(el, key, {app, full}) → cleanup)
 app.actions  edit(key, field[, anchor]) transition(key) create({project,parent,type}) palette(mode) jump() bulk(keys)
 app.prefs    get/set                per-site prefs on the server, mirrored to localStorage
 app.session  {site, sites, demo, baseURL, me:{AccountID,DisplayName}, projects, ui}
@@ -28,7 +28,7 @@ A view is `export default function mount(el, {app, params, query, scope, context
 Chrome (`css/chrome.css`, `lib/chrome.js`), two bars:
 
 - App bar, the same on every route: brand and site (`@`), the views grouped Project / You / Tools, the tray, search. Views that don't fit fold into More (`M`, every view with its key); the open one always stays. The tray shows only what needs you: offline, queued writes, agents waiting (or working), the running timer. Libraries add to it with `app.chrome.add(el, order)` (lower sits further left) and hide their item when quiet; never append to `#top`.
-- View bar, the view's own: `context` holds where you are (project / board / sprint switchers: `app.chrome.crumb` + `label`), `toolbar` how you look at it (filters, modes, actions). Both are cleared on route change; the bar hides while both are empty, so a view without controls gets no bar.
+- View bar, the view's own: `context` holds where you are (project / board / sprint switchers: `app.chrome.crumb` + `label`), `toolbar` how you look at it (filters, modes, actions). Both are cleared on route change; the bar keeps its place while the next view mounts and hides when both stay empty; a route that never has controls sets `bar: false` (`views/index.js`) to hide it at once.
 - Project and board are one context for board, planning, reports, roadmap, standup and the create dialog (`views/plan_ctx.js`: `resolve`, `setCtx`, `switcher`; prefs `project` and `board.last.<project>`). Routes without params use the remembered one; project and board are separate crumbs: `alt+p` switches the project (to its remembered board, no prompt), `B` the board (project-only views: `B` is the project too).
 - After a chord prefix (`g`) a hint lists what can follow.
 
@@ -62,7 +62,8 @@ Moved because of a clash: standup project `P`->`B` (`P` parks),  board sort `S`-
 - Performance is a feature: render from cached data first (`api.swr`), patch DOM instead of rebuilding, virtualise lists over ~150 rows, delegate events, no layout thrash, no dependencies. Optimistic updates for moves/edits, rolled back with a toast on error.
 - After any write call `app.bus.emit('issue:changed', {key})`.
 - Mouse works, keyboard is complete. `j/k` and arrows move, `enter` opens, `esc` backs out, `x` selects, `?` shows keys.
-- CSS per area in `css/<area>.css`, loaded with `import { css } from '../lib/css.js'; css('board')`.
+- CSS per area in `css/<area>.css`, linked in `index.html` (render-blocking: a sheet added on first use paints its view unstyled for a frame); `css('board')` from `lib/css.js` adds one that is not. Scope selectors to the area: every sheet applies everywhere.
+- No layout shift: reserve the room of anything that arrives later (charts their height, the panel head from the view's card), and fill the view bar in `mount` synchronously.
 - Reference for behaviour: the TUI in `internal/ui` (keys in `internal/ui/keys.go`, guide in `docs/guide`).
 
 ## Settings, remapping, phone

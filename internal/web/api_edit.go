@@ -115,17 +115,19 @@ func editStatus(ctx context.Context, c *jira.Client, key string, e edit) (*edit,
 	if err != nil {
 		return nil, err
 	}
-	trs, err := c.Transitions(ctx, key)
-	if err != nil {
-		return nil, err
+	id := e.ID // a picked move: Jira checks it, no need to list the moves first
+	if id == "" {
+		trs, err := c.Transitions(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		i := slices.IndexFunc(trs, func(t jira.Option) bool { return strings.EqualFold(t.Name, e.To) })
+		if i < 0 {
+			return nil, badRequest("no transition to " + e.To + " from here")
+		}
+		id = trs[i].ID
 	}
-	i := slices.IndexFunc(trs, func(t jira.Option) bool {
-		return (e.ID != "" && t.ID == e.ID) || (e.ID == "" && strings.EqualFold(t.Name, e.To))
-	})
-	if i < 0 {
-		return nil, badRequest("no transition to " + cmpOr(e.To, e.ID) + " from here")
-	}
-	if err := c.DoTransition(ctx, key, trs[i].ID); err != nil {
+	if err := c.DoTransition(ctx, key, id); err != nil {
 		return nil, err
 	}
 	return &edit{Field: "status", To: iss.Status}, nil

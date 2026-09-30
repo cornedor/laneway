@@ -201,6 +201,7 @@ export function chart(host, spec) {
   }, true);
 
   function apply() {
+    svgBox.style.height = (spec.height || 260) + 'px'; // the drawing comes a frame later; keep its room meanwhile
     box.setAttribute('aria-label', spec.title || 'chart');
     if (spec.desc) box.setAttribute('aria-description', spec.desc);
     if (!raf) raf = requestAnimationFrame(draw);
