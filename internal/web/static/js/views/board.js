@@ -9,6 +9,7 @@ import { isZero, date, shortDate, ago } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import { openFilterBuilder } from './board_filter.js';
+import { lastProject, lastBoard, setCtx, pickContext } from './plan_ctx.js';
 
 css('board');
 

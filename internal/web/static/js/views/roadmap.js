@@ -3,7 +3,7 @@ import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { hwheel } from '../lib/hscroll.js';
 import { isZero, shortDate } from '../lib/fmt.js';
-import { resolve, remember, pickScope, noBoard } from './plan_ctx.js';
+import { resolve, switcher, noBoard } from './plan_ctx.js';
 
 const DAY = 86400000;
 const ZOOMS = [2, 4, 8, 14, 24, 40, 64]; // px per day
@@ -21,9 +21,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   let t0 = 0, t1 = 0;
   const scroller = h('div.rm', { tabindex: -1 }); hwheel(scroller);
   el.append(scroller);
-  const projBtn = app.chrome.crumb('Project (b)', () => pickProject());
-  projBtn.textContent = project || '—';
-  context.append(projBtn);
+  switcher(app, { scope, context, project, boards: false, group: 'Roadmap', onPick: r => { project = r.project; epics = []; history.replaceState(null, '', '#/roadmap/' + project); load(); } });
   toolbar.append(h('span.spacer'),
     h('button.btn', { title: 'Zoom out (-)', 'aria-label': 'Zoom out', onclick: () => setZoom(zoom - 1) }, '−'),
     h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, '+'),
@@ -31,12 +29,6 @@ export default async function mount(el, { app, params, scope, context, toolbar }
 
   const ppd = () => ZOOMS[zoom];
   const xOf = t => (t - t0) / DAY * ppd();
-
-  async function pickProject() {
-    const r = await pickScope(app, { boards: false }); if (!r) return;
-    project = r.project; remember(app, project, null); projBtn.textContent = project;
-    history.replaceState(null, '', '#/roadmap/' + project); load();
-  }
 
   async function load(fresh) {
     const my = ++token;
@@ -159,12 +151,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('.', today, 'scroll to today', { group: 'Roadmap' });
   scope.bind('Space', toggle, 'fold epic issues', { group: 'Roadmap' });
   scope.bind('Enter', () => { const r = rows[cur]; if (r) app.panel.open(r.e.Key); }, 'open', { group: 'Roadmap' });
-  scope.bind('b', pickProject, 'pick project', { group: 'Roadmap' });
   scope.bind('R', () => load(true), 'reload', { group: 'Roadmap' });
   scope.bind('n', () => app.actions.create({ project, type: app.session.ui.RoadmapEpicType || 'Epic' }), 'new epic', { group: 'Roadmap' });
   const off = app.bus.on('issue:changed', () => load(true));
 
-  remember(app, project, null);
   await load();
   return () => { token++; off(); };
 }

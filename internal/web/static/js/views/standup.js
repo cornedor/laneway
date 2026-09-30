@@ -3,19 +3,20 @@
 // Rows come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
+import { projectOf, boardsOf, lastBoard, setCtx, switcher } from './plan_ctx.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
 
 const PARK = 'Parking lot';
 
-export default function mount(el, { app, scope, toolbar }) {
+export default function mount(el, { app, scope, context, toolbar }) {
   css('work'); css('standup');
   const { api, ui, prefs } = app;
   const wd = workdays(app);
   const prevWorkday = d => { let x = addDays(d, -1); while (!wd.includes(x.getDay())) x = addDays(x, -1); return x; };
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
   let since = prevWorkday(midnight), mode = 'mine', data = null, err = '', dead = false, single = false, seq = 0;
-  let project = prefs.get('standup_project', (app.session.projects || [])[0] || '');
-  let board = null, sprint = 0, lines = [], folded = [], sel = 0, parkedKeys = [];
+  let project = projectOf(app, {});
+  let sw = null, board = null, sprint = 0, lines = [], folded = [], sel = 0, parkedKeys = [];
 
   const root = h('div.standup');
   el.append(root);
@@ -29,8 +30,9 @@ export default function mount(el, { app, scope, toolbar }) {
   async function resolveBoard() {
     if (board || !project) return;
     try {
-      const bs = await api.get('/projects/' + encodeURIComponent(project) + '/boards');
-      board = bs.find(b => /scrum/i.test(b.Type)) || bs[0] || null;
+      const bs = await boardsOf(app, project), last = lastBoard(app, project);
+      board = bs.find(b => b.ID === last) || bs.find(b => /scrum/i.test(b.Type)) || bs[0] || null;
+      if (board && !last) setCtx(app, project, board);
       if (board) {
         const b = await api.get('/boards/' + board.ID);
         const a = (b.sprints || []).find(s => s.State === 'active');
@@ -138,6 +140,7 @@ export default function mount(el, { app, scope, toolbar }) {
     data = null; err = ''; paint();
     try {
       await resolveBoard();
+      if (sw && !dead) sw.label(project, board);
       if (team() && !board) throw new Error('No board found for ' + (project || 'this site') + '. B picks a project.');
       loadParked();
       const q = 'since=' + ymd(since) + '&mode=' + mode + (board ? '&board=' + board.ID + '&sprint=' + sprint : '');
@@ -162,12 +165,6 @@ export default function mount(el, { app, scope, toolbar }) {
     if (!data) return;
     navigator.clipboard.writeText(copyText()).then(() => ui.toast('Copied the standup'), e => ui.errToast(e));
   }
-  async function setProject() {
-    const ps = app.session.projects || [];
-    if (!ps.length) return ui.toast('No projects configured');
-    const p = await ui.pick({ title: 'Board of project', items: ps, label: x => x });
-    if (p) { project = p; prefs.set('standup_project', p); board = null; load(); }
-  }
   const open = () => { const l = lines[sel]; if (!l) return; if (l.Unfold) unfold(); else if (l.Key) app.panel.open(l.Key); };
 
   delegate(root, 'click', '.strow', (e, row) => { sel = +row.dataset.i; paint(); if (row.dataset.key) app.panel.open(row.dataset.key); });
@@ -183,7 +180,7 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind(']', () => step(1), 'a workday forward', G);
   scope.bind('Tab', () => setMode(team() ? 'mine' : 'team'), 'mine / team', { ...G, when: () => !app.panel.key });
   scope.bind('p', () => setMode(!team() ? 'team' : mode === 'team' ? 'person' : 'team'), 'team: by person / walk the board', G);
-  scope.bind('B', setProject, 'board of another project', G);
+  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; load(); } });
   scope.bind('y', copy, 'copy as text, parking lot included', G);
   scope.bind('r', load, 'refresh', G);
 

@@ -4,6 +4,7 @@ import { h } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { fieldInput, formRow } from './fields.js';
 import { mdEdit } from '../lib/mdedit.js';
+import { projectOf } from './plan_ctx.js';
 
 css('forms');
 
@@ -22,7 +23,7 @@ let draft = null; // a closed, unsent form comes back next time
 export async function openCreate(app, opts = {}) {
   const prefs = app.prefs;
   const restore = !opts.summary && draft && (!opts.project || opts.project === draft.project) ? draft : null;
-  let project = opts.project || (restore && restore.project) || prefs.get('create.project', '') || ((app.session.projects || [])[0] || '');
+  let project = opts.project || (restore && restore.project) || projectOf(app, {});
   let type = opts.type || (restore && restore.type) || '';
   let widgets = new Map(), fields = [], pseq = 0, fseq = 0, busy = false, submitted = false;
   const kept = new Map(); // values typed, kept across a type change

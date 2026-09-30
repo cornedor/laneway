@@ -3,7 +3,7 @@ import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { chart, niceTicks, timeTicks, localDay, num, percentile } from '../lib/charts.js';
 import { isZero, shortDate } from '../lib/fmt.js';
-import { resolve, remember, pickScope, noBoard } from './plan_ctx.js';
+import { resolve, switcher, noBoard } from './plan_ctx.js';
 import { KINDS } from './report_kinds.js';
 
 const SPRINT_KINDS = ['burndown', 'burnup', 'cfd'];
@@ -41,8 +41,8 @@ export default async function mount(el, { app, params, query, scope, context, to
     h('button', { role: 'tab', dataset: { kind: id }, title: label + ' (' + (i + 1) + ')', onclick: () => go(id) }, label)));
   const sprintBtn = app.chrome.crumb('Sprint (s)', () => pickSprint());
   sprintBtn.textContent = 'Sprint';
-  const boardBtn = app.chrome.crumb('Board (b)', () => pickBoard());
-  context.append(boardBtn, sprintBtn);
+  const sw = switcher(app, { scope, context, project, board, scrum: true, group: 'Reports', onPick: r => { project = r.project; board = r.board; sprintId = 0; go(kind); } });
+  context.append(sprintBtn);
   toolbar.append(tabs);
 
   function go(k) {
@@ -53,11 +53,6 @@ export default async function mount(el, { app, params, query, scope, context, to
   }
   const step = d => { const i = KINDS.findIndex(k => k[0] === kind); go(KINDS[(i + d + KINDS.length) % KINDS.length][0]); };
 
-  async function pickBoard() {
-    const r = await pickScope(app, { scrum: kind !== 'cycle' && kind !== 'releases' }); if (!r) return;
-    project = r.project; board = r.board; sprintId = 0;
-    remember(app, project, board); go(kind);
-  }
   let lastSprints = [];
   async function pickSprint() {
     if (!lastSprints.length) return;
@@ -71,7 +66,7 @@ export default async function mount(el, { app, params, query, scope, context, to
     tabs.querySelectorAll('button').forEach(b => { const on = b.dataset.kind === kind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
     const sprintKind = SPRINT_KINDS.includes(kind);
     sprintBtn.hidden = !sprintKind;
-    app.chrome.label(boardBtn, project || '—', board && board.Name);
+    sw.label(project, board);
     const needsBoard = kind !== 'cycle' && kind !== 'releases';
     if (needsBoard && !board) { clear(body).append(noBoard('Charts', project)); return; }
     if (!project) { clear(body).append(noBoard('Reports', '')); return; }
@@ -320,7 +315,6 @@ export default async function mount(el, { app, params, query, scope, context, to
   scope.bind(['h', '[', 'ArrowLeft'], () => step(-1), 'previous report', { group: 'Reports' });
   KINDS.forEach(([id], i) => scope.bind(String(i + 1), () => go(id), 'report ' + (i + 1), { hidden: true }));
   scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports' });
-  scope.bind('b', () => pickBoard(), 'pick board', { group: 'Reports' });
   scope.bind('W', () => { if (kind === 'cycle') nextWeeks(); }, 'cycle time: weeks', { group: 'Reports' });
   scope.bind('R', () => load(true), 'reload', { group: 'Reports' });
   const move = d => { if (curItems.length) { cur = Math.min(Math.max(cur + d, 0), curItems.length - 1); mark(); } };
@@ -329,7 +323,6 @@ export default async function mount(el, { app, params, query, scope, context, to
   scope.bind('Enter', () => { const k = curItems[cur]; if (typeof k === 'string') open(k); }, 'open issue', { group: 'Reports' });
   scope.bind('r', () => { if (kind === 'releases') release(curItems[cur]); }, 'release the version', { group: 'Reports' });
 
-  remember(app, project, board);
   await load();
   return () => { token++; cleanupCharts(); };
 }

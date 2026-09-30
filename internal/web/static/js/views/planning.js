@@ -3,7 +3,7 @@
 import { h, clear, frame } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { isZero, shortDate } from '../lib/fmt.js';
-import { resolve, remember, pickScope, noBoard } from './plan_ctx.js';
+import { resolve, switcher, noBoard } from './plan_ctx.js';
 
 const pts = c => Number(c.Points) || 0;
 const fmtP = n => String(Math.round(n * 10) / 10);
@@ -21,7 +21,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   css('planning');
   const sc = await resolve(app, params);
   let { project, board } = sc;
-  remember(app, project, board);
+  switcher(app, { scope, context, project, board, group: 'Planning', onPick: r => app.go('/planning/' + r.project + (r.board ? '/' + r.board.ID : '')) });
   if (!board) { el.append(noBoard('Planning', project)); return; }
 
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
@@ -37,9 +37,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scroller.append(space);
   el.append(h('div.pl', scroller));
 
-  const boardBtn = app.chrome.label(app.chrome.crumb('Board (b)', () => pickBoard()), project, board.Name);
   const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', oninput: () => { filter = filterIn.value.trim().toLowerCase(); relayout(); } });
-  context.append(boardBtn);
   toolbar.append(filterIn, h('span.spacer'), h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'));
 
   // ---- data
@@ -312,11 +310,6 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const onAction = e => { const f = act[e.detail]; if (f) f(); };
   document.addEventListener('plan:action', onAction);
 
-  async function pickBoard() {
-    const r = await pickScope(app); if (!r) return;
-    app.go('/planning/' + r.project + '/' + r.board.ID);
-  }
-
   // ---- mouse
   scroller.addEventListener('click', e => {
     const n = e.target.closest('.pl-row'); if (!n) return;
@@ -393,10 +386,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('P', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'points'); }, 'story points', G);
   scope.bind('a', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'assignee'); }, 'assignee', G);
   scope.bind('N', newSprint, 'new sprint', G);
-  scope.bind('S', startSprint, 'start the sprint', G);
+  scope.bind('Z', startSprint, 'start the sprint (S starts work on the issue)', G);
   scope.bind('C', closeSprint, 'complete the active sprint', G);
   scope.bind('E', editSprint, 'edit sprint name, goal, end', G);
-  scope.bind('b', pickBoard, 'pick board', G);
   scope.bind('R', () => load(true), 'reload', G);
   scope.bind('f', () => filterIn.focus(), 'filter', G);
   scope.bind('Escape', () => {
