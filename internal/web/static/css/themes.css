@@ -65,7 +65,8 @@
   --cat-new: #888; --cat-indeterminate: #ccc; --cat-done: #b5e8b0;
   --shadow: 0 8px 30px rgba(0,0,0,.8);
 }
-/* Density: --pad scales gaps, --row the list row height. */
-:root { --pad: 8px; --row: 32px; --fs: 14px; --radius: 6px; }
-:root[data-density="compact"] { --pad: 5px; --row: 26px; --fs: 13px; }
-:root[data-density="roomy"] { --pad: 12px; --row: 40px; --fs: 15px; }
+/* Density and font size: html font-size is --fs and every length is rem/em, so one number scales the UI.
+   --pad gaps, --row list row height (both rem). */
+:root { --pad: .571rem; --row: 2.286rem; --fs: 14px; --radius: 6px; }
+:root[data-density="compact"] { --pad: .4rem; --row: 2.05rem; --fs: 13px; }
+:root[data-density="roomy"] { --pad: .7rem; --row: 2.4rem; --fs: 15px; }

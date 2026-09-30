@@ -129,7 +129,8 @@ export function confirm({ title, text = '', ok = 'OK', danger = false } = {}) {
 
 // Avatar: an image when the API gave a URL, else coloured initials.
 export function avatar(name, url, size = 20) {
-  const s = { width: size + 'px', height: size + 'px', fontSize: Math.round(size * 0.42) + 'px' };
+  const r = v => Math.round(v / 14 * 1000) / 1000 + 'rem';
+  const s = { width: r(size), height: r(size), fontSize: r(Math.round(size * 0.42)) };
   if (!name) return h('span.avatar.none', { style: s, title: 'Unassigned' }, '·');
   return h('span.avatar', { style: { ...s, background: `hsl(${hue(name)} 45% 42%)` }, title: name }, initials(name),
     url && h('img', { src: url, alt: '', loading: 'lazy', onerror: e => e.target.remove() }));

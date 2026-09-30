@@ -1,5 +1,5 @@
 .strow.parked .wsum { color: var(--fg-3); }
 .strow .what.quiet { color: var(--warn); }
 .stwho.stale { color: var(--warn); }
-.stcard { padding: calc(var(--pad) * 3) calc(var(--pad) * 2); max-width: 720px; }
+.stcard { padding: calc(var(--pad) * 3) calc(var(--pad) * 2); max-width: 51.429rem; }
 .stcard h2 { margin: .3em 0; } .stcard .what { font-size: 1.1em; line-height: 1.5; white-space: pre-wrap; } .stcard .what.quiet { color: var(--warn); }

@@ -2,6 +2,7 @@
 import { h, clear, delegate, debounce } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
+import { rowPx, onChange as onMetrics } from '../lib/metrics.js';
 import { isZero, date as toDate, shortDate, duration } from '../lib/fmt.js';
 import { ymd, addDays, weekStart, hm, dayStart, targetSeconds, workdays, logDialog } from '../lib/worktime.js';
 
@@ -70,7 +71,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
     if (sel < 0) sel = rows.findIndex(r => r.card);
     paintList();
   }
-  const rowHeight = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row')) || 32;
+  const rowHeight = rowPx;
   function paintList() {
     if (!list) return;
     list.setCount(rows.length);
@@ -333,7 +334,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind('+', addRow, 'add an issue row', { ...G, ...W });
   scope.bind('o', () => { const r = weekRows[cell.row]; if (r) app.panel.open(r.key); }, 'open issue', { ...G, ...W });
 
-  const off = [bus.on('issue:changed', refreshSoon), bus.on('focus', refreshSoon), bus.on('timer', () => list && list.refresh())];
+  const off = [bus.on('issue:changed', refreshSoon), bus.on('focus', refreshSoon), bus.on('timer', () => list && list.refresh()), onMetrics(() => render())];
   paintToolbar();
   render();
   loadWork();

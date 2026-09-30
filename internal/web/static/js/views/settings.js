@@ -11,6 +11,7 @@
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import theme from '../lib/theme.js';
+import { onChange as onMetrics } from '../lib/metrics.js';
 import api from '../lib/api.js';
 import * as notifier from '../lib/notify.js';
 import { load as loadConfig } from './settings_config.js';
@@ -28,6 +29,22 @@ export default function mount(el, { app, scope, toolbar }) {
   const ui = (app.session && app.session.ui) || {};
   const s = app.session || {};
 
+  // Font size: 11-20px in steps, or auto (the density's size). Always shows the size in use.
+  const FS_MIN = 11, FS_MAX = 20;
+  const setSize = v => { theme.setFontSize(v); refresh(); };
+  const stepSize = d => { const cur = theme.fontSize || Math.round(theme.effectiveFontSize); setSize(Math.min(FS_MAX, Math.max(FS_MIN, cur + d))); };
+  const fontSize = {
+    name: 'Font size', desc: 'scales all text and spacing; h/l or enter steps 1px, del = auto', section: 'Appearance',
+    render: () => {
+      const eff = Math.round(theme.effectiveFontSize), auto = !theme.fontSize;
+      return h('span.st-val.st-step',
+        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Smaller', disabled: !auto && theme.fontSize <= FS_MIN, onclick: () => stepSize(-1) }, '−'),
+        h('span.st-num.mono', { title: auto ? 'from the density' : 'fixed' }, auto ? 'auto · ' + eff + 'px (from density)' : eff + 'px'),
+        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Larger', disabled: !auto && theme.fontSize >= FS_MAX, onclick: () => stepSize(1) }, '+'),
+        h('button.btn.ghost' + (auto ? '.on' : ''), { tabindex: -1, title: 'Follow the density', onclick: () => setSize(0) }, 'auto'));
+    },
+    change: stepSize, reset: () => setSize(0),
+  };
   // An option: {name, desc, section, render() → control node, change(dir)?}
   const choice = (name, desc, section, list, get, set, label = x => x) => ({
     name, desc, section,
@@ -47,7 +64,7 @@ export default function mount(el, { app, scope, toolbar }) {
         h('input.st-color', { type: 'color', title: 'Custom colour', value: /^#[0-9a-f]{6}$/i.test(theme.accent) ? theme.accent : '#5b8def', tabindex: -1, oninput: e => { theme.setAccent(e.target.value); }, onchange: refresh })),
       change: d => { const l = ['', ...theme.accents]; theme.setAccent(cycle(l, theme.accent, d)); refresh(); } },
     choice('Density', 'spacing of rows and panels', 'Appearance', ['compact', 'normal', 'roomy'], () => theme.density, v => { theme.setDensity(v); refresh(); }),
-    choice('Font size', 'base text size', 'Appearance', [0, 12, 13, 14, 15, 16, 18], () => theme.fontSize, v => { theme.setFontSize(v); refresh(); }, v => (v ? v + 'px' : 'from density')),
+    fontSize,
     ...fontOptions(app, () => refresh()),
     choice('Motion', 'animations and transitions', 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? 'reduced' : 'system')),
     { name: 'Custom tokens', desc: 'CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies', section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
@@ -200,5 +217,7 @@ export default function mount(el, { app, scope, toolbar }) {
     for (const w of c.warnings) options.push(info('Config warning', w, 'Data'));
     setFoot(); draw();
   }).catch(e => app.ui.errToast(e));
-  return () => { dead = true; editor = null; editing = null; };
+  // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
+  const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(); } });
+  return () => { dead = true; offMetrics(); editor = null; editing = null; };
 }

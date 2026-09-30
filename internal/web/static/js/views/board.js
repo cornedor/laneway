@@ -4,6 +4,7 @@
 import { h, clear, delegate, debounce } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
+import { onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
 import { isZero, date, shortDate, ago } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
@@ -21,9 +22,9 @@ const PR_TEXT = { OPEN: '⇄ open', MERGED: '✓ merged', DECLINED: '✕ decline
 const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created'];
 // List columns: id, header, width, class of the cell.
 const COLS = {
-  mark: ['', '26px'], key: ['Key', '86px'], summary: ['Summary', 'minmax(120px, 1fr)'], status: ['Status', '118px'], priority: ['Prio', '34px'],
-  points: ['Pts', '40px'], assignee: ['Assignee', '150px'], epic: ['Epic', '130px'], labels: ['Labels', '110px'], reporter: ['Reporter', '110px'],
-  due: ['Due', '64px'], updated: ['Updated', '84px'], created: ['Created', '84px'], age: ['Age', '44px'],
+  mark: ['', '1.857rem'], key: ['Key', '6.143rem'], summary: ['Summary', 'minmax(8.571rem, 1fr)'], status: ['Status', '8.429rem'], priority: ['Prio', '2.429rem'],
+  points: ['Pts', '2.857rem'], assignee: ['Assignee', '10.714rem'], epic: ['Epic', '9.286rem'], labels: ['Labels', '7.857rem'], reporter: ['Reporter', '7.857rem'],
+  due: ['Due', '4.571rem'], updated: ['Updated', '6rem'], created: ['Created', '6rem'], age: ['Age', '3.143rem'],
 };
 const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'points', 'assignee', 'due', 'updated'];
 const FIELD_COL = { type: null, priority: 'priority', status: 'status', points: 'points', assignee: 'assignee', parent: 'epic', due: 'due', age: 'age' };
@@ -81,6 +82,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const timers = new Set();
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const offs = [], unreg = [];
+  offs.push(onMetrics(() => { if (!S.dead) layout(); }));
   let lastInput = Date.now(), autoT = 0;
 
   // ---- skeleton
@@ -486,7 +488,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   const sortable = id => id !== 'mark' && id !== 'age' && !id.startsWith('x:') && id !== 'labels' && id !== 'reporter';
   const colLabel = id => (id.startsWith('x:') ? id.slice(2) : (COLS[id] || ['', ''])[0]);
-  const colWidth = id => (COLS[id] ? COLS[id][1] : '120px');
+  const colWidth = id => (COLS[id] ? COLS[id][1] : '8.571rem');
   const sortMark = id => (S.sort === id ? (S.dir > 0 ? ' ▲' : ' ▼') : '');
   function paintHead(p) {
     if (S.mode !== 'lanes') {

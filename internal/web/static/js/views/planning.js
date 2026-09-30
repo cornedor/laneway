@@ -2,6 +2,7 @@
 // One scroller, rows of known height, only the visible ones in the DOM.
 import { h, clear, frame } from '../lib/dom.js';
 import { css } from '../lib/css.js';
+import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, switcher, noBoard } from './plan_ctx.js';
 
@@ -70,10 +71,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   // ---- layout
   const match = c => !filter || [c.Key, c.Summary, c.Assignee, c.Labels, c.Status, c.ParentSummary].some(f => f && String(f).toLowerCase().includes(filter));
   const shown = s => (filter ? s.cards.filter(match) : s.cards);
-  const headH = s => ROW + (s.sprint ? 34 : 6);
+  const headH = s => ROW + px14(s.sprint ? 34 : 6);
 
   function relayout(keepScroll) {
-    ROW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row')) || 32;
+    ROW = rowPx();
     rows = [];
     for (const s of sections) {
       rows.push({ k: 'h', key: 'h:' + s.id, s, h: headH(s) });
@@ -397,7 +398,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     sel.clear(); for (const n of live.values()) n._sig = ''; paint();
   }, 'clear filter and selection', { ...G, input: true, when: () => document.activeElement === filterIn || !!filter || sel.size > 0 });
 
-  const off = app.bus.on('issue:changed', () => { if (writing || Date.now() - lastWrite < 1500) return; load(true); });
+  const offBus = app.bus.on('issue:changed', () => { if (writing || Date.now() - lastWrite < 1500) return; load(true); });
+  const off = () => { offBus(); offM(); };
+  const offM = onMetrics(() => relayout(true));
 
   await load();
   loadVelocity();

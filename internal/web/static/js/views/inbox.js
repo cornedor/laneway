@@ -2,6 +2,7 @@
 import { h, clear, delegate, debounce } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
+import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
 import { ago, dateTime } from '../lib/fmt.js';
 import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
@@ -166,7 +167,7 @@ export default function mount(el, { app, scope, toolbar }) {
   }
   const reload = debounce(() => { if (!dead && !document.hidden) load(true); }, 300);
 
-  list = vlist(listEl, { count: 0, rowHeight: Math.max(34, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--row')) || 32), create: () => h('div'), bind: bindRow });
+  list = vlist(listEl, { count: 0, rowHeight: Math.max(px14(34), rowPx()), create: () => h('div'), bind: bindRow });
   delegate(listEl, 'click', '.irow', (e, row) => select(+row.dataset.i));
   delegate(listEl, 'dblclick', '.irow', open);
 
@@ -189,7 +190,7 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('y', () => { const t = cur(); if (t) navigator.clipboard.writeText(t.Key).then(() => ui.toast(t.Key + ' copied')).catch(() => {}); }, 'copy key', G);
   scope.bind('o', () => { const t = cur(); if (t && app.session.baseURL) window.open(app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key, '_blank', 'noopener'); }, 'open in Jira', G);
 
-  const off = [app.bus.on('focus', reload)];
+  const off = [app.bus.on('focus', reload), onMetrics(() => list.setRowHeight(Math.max(px14(34), rowPx())))];
   load(false);
   return () => { dead = true; clearTimeout(readTimer); list.destroy(); off.forEach(f => f()); };
 }

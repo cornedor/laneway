@@ -5,6 +5,7 @@ import api from './lib/api.js';
 import bus from './lib/bus.js';
 import { keys } from './lib/keys.js';
 import theme from './lib/theme.js';
+import { onChange as onMetrics } from './lib/metrics.js';
 import * as ui from './lib/ui.js';
 import { routes } from './views/index.js';
 import * as chromeBars from './lib/chrome.js';
@@ -178,6 +179,7 @@ async function boot() {
     app.session = await api.get('/session');
     api.setSite(app.session.site); store.setSite(app.session.site);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
+    onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });
     theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
   } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }

@@ -1,20 +1,20 @@
-.modal.palette-modal { padding: 0; width: min(720px, 94vw); overflow: hidden; max-height: 70vh; display: flex; flex-direction: column; }
+.modal.palette-modal { padding: 0; width: min(51.429rem, 94vw); overflow: hidden; max-height: 70vh; display: flex; flex-direction: column; }
 .pal { display: flex; flex-direction: column; min-height: 0; }
 .pal-head { display: flex; align-items: center; gap: var(--pad); padding: 0 calc(var(--pad) * 1.5); border-bottom: 1px solid var(--border); }
-.pal-mode { font: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; color: var(--accent); background: var(--accent-bg); border: 0; border-radius: 4px; padding: 2px 7px; cursor: pointer; }
+.pal-mode { font: inherit; font-size: .786rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; color: var(--accent); background: var(--accent-bg); border: 0; border-radius: 4px; padding: .143rem .5rem; cursor: pointer; }
 .pal-input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg); font: inherit; font-size: 1.1em; padding: calc(var(--pad) * 1.5) 0; outline: none; }
-.pal-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--bg-4); border-top-color: var(--accent); animation: pal-spin .7s linear infinite; }
+.pal-spin { width: .857rem; height: .857rem; border-radius: 50%; border: 2px solid var(--bg-4); border-top-color: var(--accent); animation: pal-spin .7s linear infinite; }
 @keyframes pal-spin { to { transform: rotate(360deg); } }
-.pal-tabs { display: flex; gap: 4px; padding: 4px calc(var(--pad) * 1.5); border-bottom: 1px solid var(--border); }
-.pal-tab { font: inherit; font-size: 12px; color: var(--fg-3); background: none; border: 0; border-radius: 4px; padding: 1px 6px; cursor: pointer; display: flex; gap: 5px; align-items: center; }
+.pal-tabs { display: flex; gap: .286rem; padding: .286rem calc(var(--pad) * 1.5); border-bottom: 1px solid var(--border); }
+.pal-tab { font: inherit; font-size: .857rem; color: var(--fg-3); background: none; border: 0; border-radius: 4px; padding: 1px .429rem; cursor: pointer; display: flex; gap: .357rem; align-items: center; }
 .pal-tab:hover { background: var(--bg-3); } .pal-tab.on { color: var(--fg); background: var(--bg-3); }
-.pal-list { overflow: auto; padding: 4px; min-height: 60px; }
-.pal-hdr { padding: 8px 10px 2px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-3); }
-.pal-msg { padding: 16px; text-align: center; color: var(--fg-3); } .pal-msg.err { color: var(--err); }
-.pal-row { display: flex; align-items: center; gap: var(--pad); padding: 0 10px; min-height: var(--row); border-radius: var(--radius); cursor: pointer; }
+.pal-list { overflow: auto; padding: .286rem; min-height: 4.286rem; }
+.pal-hdr { padding: .571rem .714rem .143rem; font-size: .786rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-3); }
+.pal-msg { padding: 1.143rem; text-align: center; color: var(--fg-3); } .pal-msg.err { color: var(--err); }
+.pal-row { display: flex; align-items: center; gap: var(--pad); padding: 0 .714rem; min-height: var(--row); border-radius: var(--radius); cursor: pointer; }
 .pal-row.sel { background: var(--accent-bg); }
 .pal-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pal-title mark { background: none; color: var(--accent); font-weight: 600; }
-.pal-key { color: var(--fg-2); flex: none; font-size: .92em; } .pal-sub { color: var(--fg-3); font-size: 12px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pal-keys { display: flex; gap: 3px; flex: none; }
-.pal-foot { padding: 4px calc(var(--pad) * 1.5); font-size: 12px; color: var(--fg-3); border-top: 1px solid var(--border); }
+.pal-key { color: var(--fg-2); flex: none; font-size: .92em; } .pal-sub { color: var(--fg-3); font-size: .857rem; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-keys { display: flex; gap: .214rem; flex: none; }
+.pal-foot { padding: .286rem calc(var(--pad) * 1.5); font-size: .857rem; color: var(--fg-3); border-top: 1px solid var(--border); }

@@ -1,6 +1,6 @@
 /* Phones, installed app, accessibility media. Tokens only. */
-.skip { position: fixed; top: -60px; left: 8px; z-index: 300; background: var(--accent); color: var(--accent-fg); padding: 6px 12px; border-radius: var(--radius); }
-.skip:focus { top: 8px; text-decoration: none; }
+.skip { position: fixed; top: -4.286rem; left: .571rem; z-index: 300; background: var(--accent); color: var(--accent-fg); padding: .429rem .857rem; border-radius: var(--radius); }
+.skip:focus { top: .571rem; text-decoration: none; }
 
 /* safe areas (notch, home bar) in the installed app */
 #top { padding-top: env(safe-area-inset-top); height: calc(var(--top-h) + env(safe-area-inset-top)); padding-left: max(calc(var(--pad) * 1.5), env(safe-area-inset-left)); padding-right: max(calc(var(--pad) * 1.5), env(safe-area-inset-right)); }
@@ -18,18 +18,18 @@
   .overlay { align-items: flex-end; padding-top: 0; }
   .modal, .modal.wide, .modal.pick-modal { width: 100vw; max-width: none; max-height: 85vh; max-height: 85dvh; border-radius: 14px 14px 0 0; border-bottom: 0; padding-bottom: calc(var(--pad) * 1.5 + env(safe-area-inset-bottom)); animation: lw-sheet .18s ease-out; }
   .modal.pick-modal { padding-bottom: env(safe-area-inset-bottom); }
-  .modal::before { content: ""; display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--bg-4); margin: -4px auto 8px; }
-  .modal.pick-modal::before { margin: 8px auto 0; }
+  .modal::before { content: ""; display: block; width: 2.571rem; height: .286rem; border-radius: 2px; background: var(--bg-4); margin: -.286rem auto .571rem; }
+  .modal.pick-modal::before { margin: .571rem auto 0; }
   .pick-list { max-height: 45vh; max-height: 45dvh; }
-  .pick-input, .input, select.input, textarea.input { font-size: 16px; } /* no zoom-in on focus */
+  .pick-input, .input, select.input, textarea.input { font-size: 1.143rem; } /* no zoom-in on focus */
   .help { columns: 1; }
-  #toasts { bottom: calc(12px + env(safe-area-inset-bottom)); }
+  #toasts { bottom: calc(.857rem + env(safe-area-inset-bottom)); }
 }
 @keyframes lw-sheet { from { transform: translateY(100%); } }
 
 @media (pointer: coarse) {
-  .btn, .tab { min-height: 40px; }
-  .pick-row { min-height: 44px; }
+  .btn, .tab { min-height: 2.857rem; }
+  .pick-row { min-height: 3.143rem; }
   kbd { display: none; }
 }
 

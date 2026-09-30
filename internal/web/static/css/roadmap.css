@@ -1,27 +1,27 @@
 .rm { height: 100%; overflow: auto; position: relative; outline: none; }
-.rm-inner { position: relative; min-height: 100%; background-image: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px var(--wk)); background-position: calc(280px + var(--wko)) 0; background-repeat: repeat; }
-.rm-head { display: flex; position: sticky; top: 0; z-index: 4; background: var(--bg-2); border-bottom: 1px solid var(--border); height: 44px; }
-.rm-corner { position: sticky; left: 0; z-index: 5; width: 280px; flex: none; background: var(--bg-2); border-right: 1px solid var(--border); padding: 0 calc(var(--pad) * 1.5); display: flex; align-items: center; font-weight: 600; }
+.rm-inner { position: relative; min-height: 100%; background-image: repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px var(--wk)); background-position: calc(20rem + var(--wko)) 0; background-repeat: repeat; }
+.rm-head { display: flex; position: sticky; top: 0; z-index: 4; background: var(--bg-2); border-bottom: 1px solid var(--border); height: 3.143rem; }
+.rm-corner { position: sticky; left: 0; z-index: 5; width: 20rem; flex: none; background: var(--bg-2); border-right: 1px solid var(--border); padding: 0 calc(var(--pad) * 1.5); display: flex; align-items: center; font-weight: 600; }
 .rm-axis { position: relative; flex: none; }
-.rm-months, .rm-ticks { position: absolute; left: 0; right: 0; height: 22px; } .rm-months { top: 0; } .rm-ticks { top: 22px; }
-.rm-months span, .rm-ticks span { position: absolute; top: 0; bottom: 0; padding: 0 6px; color: var(--fg-2); font-size: 12px; line-height: 22px; white-space: nowrap; overflow: hidden; border-left: 1px solid var(--border); }
-.rm-ticks span { color: var(--fg-3); font-size: 11px; padding: 0 2px; text-align: center; } .rm-ticks span.wk { background: var(--bg-3); }
+.rm-months, .rm-ticks { position: absolute; left: 0; right: 0; height: 1.571rem; } .rm-months { top: 0; } .rm-ticks { top: 1.571rem; }
+.rm-months span, .rm-ticks span { position: absolute; top: 0; bottom: 0; padding: 0 .429rem; color: var(--fg-2); font-size: .857rem; line-height: 1.571rem; white-space: nowrap; overflow: hidden; border-left: 1px solid var(--border); }
+.rm-ticks span { color: var(--fg-3); font-size: .786rem; padding: 0 .143rem; text-align: center; } .rm-ticks span.wk { background: var(--bg-3); }
 .rm-rows { position: relative; }
-.rm-row { display: flex; height: calc(var(--row) + 6px); border-bottom: 1px solid var(--border); }
-.rm-row.kid { height: var(--row); } .rm-row.kid .rm-label { padding-left: 34px; color: var(--fg-2); }
+.rm-row { display: flex; height: calc(var(--row) + .429rem); border-bottom: 1px solid var(--border); }
+.rm-row.kid { height: var(--row); } .rm-row.kid .rm-label { padding-left: 2.429rem; color: var(--fg-2); }
 .rm-row.cur .rm-label { background: var(--accent-bg); } .rm-row.cur { box-shadow: inset 0 0 0 1px var(--accent); }
-.rm-label { position: sticky; left: 0; z-index: 3; width: 280px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 calc(var(--pad) * 1.5) 0 6px; background: var(--bg-2); border-right: 1px solid var(--border); min-width: 0; cursor: default; }
-.rm-fold { width: 16px; flex: none; text-align: center; background: none; border: 0; color: var(--fg-3); cursor: pointer; padding: 0; font: inherit; }
-.rm-key { font-family: var(--font-mono); font-size: 12px; color: var(--fg-3); flex: none; }
+.rm-label { position: sticky; left: 0; z-index: 3; width: 20rem; flex: none; display: flex; align-items: center; gap: .429rem; padding: 0 calc(var(--pad) * 1.5) 0 .429rem; background: var(--bg-2); border-right: 1px solid var(--border); min-width: 0; cursor: default; }
+.rm-fold { width: 1.143rem; flex: none; text-align: center; background: none; border: 0; color: var(--fg-3); cursor: pointer; padding: 0; font: inherit; }
+.rm-key { font-family: var(--font-mono); font-size: .857rem; color: var(--fg-3); flex: none; }
 .rm-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rm-cnt { font-size: 11px; color: var(--fg-3); font-variant-numeric: tabular-nums; flex: none; } .rm-block { flex: none; } .rm-block.bad { color: var(--err); }
+.rm-cnt { font-size: .786rem; color: var(--fg-3); font-variant-numeric: tabular-nums; flex: none; } .rm-block { flex: none; } .rm-block.bad { color: var(--err); }
 .rm-track { position: relative; flex: none; }
-.rm-nodate { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--fg-3); font-size: 12px; }
-.rm-bar { --c: var(--cat-new); position: absolute; top: 6px; bottom: 6px; border-radius: 5px; border: 1px solid var(--c); overflow: hidden; cursor: pointer;
+.rm-nodate { position: absolute; left: .857rem; top: 50%; transform: translateY(-50%); color: var(--fg-3); font-size: .857rem; }
+.rm-bar { --c: var(--cat-new); position: absolute; top: .429rem; bottom: .429rem; border-radius: 5px; border: 1px solid var(--c); overflow: hidden; cursor: pointer;
   background: linear-gradient(to right, color-mix(in srgb, var(--c) 55%, var(--bg-2)) var(--pct), color-mix(in srgb, var(--c) 16%, var(--bg-2)) var(--pct)); }
 .rm-bar:hover { filter: brightness(1.1); }
 .rm-bar.c-indeterminate { --c: var(--cat-indeterminate); } .rm-bar.c-done { --c: var(--cat-done); }
 .rm-bar.soft { opacity: .6; border-style: dashed; }
-.rm-bar span { position: absolute; inset: 0; padding: 0 8px; line-height: calc(var(--row) - 6px); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); pointer-events: none; }
+.rm-bar span { position: absolute; inset: 0; padding: 0 .571rem; line-height: calc(var(--row) - .429rem); font-size: .857rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); pointer-events: none; }
 .rm-today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--err); opacity: .7; z-index: 2; pointer-events: none; }
-.rm-today::before { content: ""; position: absolute; top: 40px; left: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
+.rm-today::before { content: ""; position: absolute; top: 2.857rem; left: -.214rem; width: .571rem; height: .571rem; border-radius: 50%; background: var(--err); }

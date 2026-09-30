@@ -1,13 +1,14 @@
 // Roadmap: the project's epics as bars on a time axis.
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
+import { remPx, onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, switcher, noBoard } from './plan_ctx.js';
 
 const DAY = 86400000;
 const ZOOMS = [2, 4, 8, 14, 24, 40, 64]; // px per day
-const LABEL_W = 280;
+const labelW = () => 20 * remPx(); // .rm-label / .rm-corner are 20rem
 const ms = t => (isZero(t) ? null : +new Date(t));
 const midnight = t => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
 const addDays = (t, n) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime(); };
@@ -27,7 +28,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, '+'),
     h('button.btn', { title: 'Today (.)', onclick: () => today() }, 'Today'));
 
-  const ppd = () => ZOOMS[zoom];
+  const ppd = () => ZOOMS[zoom] * remPx() / 14; // px per day, scales with the font size
   const xOf = t => (t - t0) / DAY * ppd();
 
   async function load(fresh) {
@@ -66,13 +67,13 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     for (const e of epics) { rows.push({ e }); if (open.has(e.Key)) for (const k of e.Kids || []) rows.push({ e: k, kid: true, parent: e }); }
     cur = Math.min(cur, Math.max(rows.length - 1, 0));
 
-    const inner = h('div.rm-inner', { style: { width: LABEL_W + w + 'px', '--wk': 7 * ppd() + 'px', '--wko': xOf(mondayOnOrBefore(t0)) + 'px' } });
+    const inner = h('div.rm-inner', { style: { width: labelW() + w + 'px', '--wk': 7 * ppd() + 'px', '--wko': xOf(mondayOnOrBefore(t0)) + 'px' } });
     inner.append(header(w));
     const list = h('div.rm-rows', { role: 'list' });
     rows.forEach((r, i) => list.append(rowEl(r, i, w)));
     if (!epics.length) list.append(h('div.empty', 'No epics in ' + project + '.'));
     inner.append(list);
-    inner.append(h('div.rm-today', { style: { left: LABEL_W + xOf(midnight(now)) + ppd() / 2 + 'px' }, title: 'Today' }));
+    inner.append(h('div.rm-today', { style: { left: labelW() + xOf(midnight(now)) + ppd() / 2 + 'px' }, title: 'Today' }));
     clear(scroller).append(inner);
     if (reset) { scroller.scrollLeft = Math.max(xOf(now) - scroller.clientWidth / 3, 0); keepScrollApply(0, keepTop); } else keepScrollApply(keepScroll, keepTop);
     markCur();
@@ -87,10 +88,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       const to = Math.min(d.getTime(), t1);
       months.append(h('span', { style: { left: xOf(from) + 'px', width: xOf(to) - xOf(from) + 'px' } }, new Date(from).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })));
     }
-    const dayMode = ppd() >= 14, step = dayMode ? 1 : 7;
+    const dayMode = ZOOMS[zoom] >= 14, step = dayMode ? 1 : 7;
     for (let t = dayMode ? t0 : mondayOnOrBefore(t0); t < t1; t = addDays(t, step)) {
       const d = new Date(t);
-      ticks.append(h('span', { class: dayMode && (d.getDay() === 0 || d.getDay() === 6) ? 'wk' : '', style: { left: xOf(t) + 'px', width: step * ppd() + 'px' } }, dayMode ? d.getDate() : ppd() >= 4 ? d.getDate() : ''));
+      ticks.append(h('span', { class: dayMode && (d.getDay() === 0 || d.getDay() === 6) ? 'wk' : '', style: { left: xOf(t) + 'px', width: step * ppd() + 'px' } }, dayMode ? d.getDate() : ZOOMS[zoom] >= 4 ? d.getDate() : ''));
     }
     return h('div.rm-head', h('div.rm-corner', project), h('div.rm-axis', { style: { width: w + 'px' } }, months, ticks));
   }
@@ -133,12 +134,12 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
   function setZoom(z) {
     z = Math.min(Math.max(z, 0), ZOOMS.length - 1); if (z === zoom) return;
-    const centre = t0 + (scroller.scrollLeft + (scroller.clientWidth - LABEL_W) / 2) / ppd() * DAY;
+    const centre = t0 + (scroller.scrollLeft + (scroller.clientWidth - labelW()) / 2) / ppd() * DAY;
     zoom = z; app.prefs.set('roadmap.zoom', z);
     draw();
-    scroller.scrollLeft = Math.max(xOf(centre) - (scroller.clientWidth - LABEL_W) / 2, 0);
+    scroller.scrollLeft = Math.max(xOf(centre) - (scroller.clientWidth - labelW()) / 2, 0);
   }
-  function today() { scroller.scrollTo({ left: Math.max(xOf(Date.now()) - (scroller.clientWidth - LABEL_W) / 2, 0), behavior: 'smooth' }); }
+  function today() { scroller.scrollTo({ left: Math.max(xOf(Date.now()) - (scroller.clientWidth - labelW()) / 2, 0), behavior: 'smooth' }); }
   const move = d => { if (rows.length) { cur = Math.min(Math.max(cur + d, 0), rows.length - 1); markCur(); } };
   const pan = d => scroller.scrollBy({ left: d * 120, behavior: 'smooth' });
 
@@ -153,7 +154,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('Enter', () => { const r = rows[cur]; if (r) app.panel.open(r.e.Key); }, 'open', { group: 'Roadmap' });
   scope.bind('R', () => load(true), 'reload', { group: 'Roadmap' });
   scope.bind('n', () => app.actions.create({ project, type: app.session.ui.RoadmapEpicType || 'Epic' }), 'new epic', { group: 'Roadmap' });
-  const off = app.bus.on('issue:changed', () => load(true));
+  const offBus = app.bus.on('issue:changed', () => load(true));
+  const offM = onMetrics(() => rows.length && draw());
+  const off = () => { offBus(); offM(); };
 
   await load();
   return () => { token++; off(); };
