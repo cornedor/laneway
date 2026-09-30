@@ -62,7 +62,7 @@ func TestCardFieldsHideAssignee(t *testing.T) {
 	if got[0] != "ABC-1" || got[2] != "⌃ Epic" {
 		t.Errorf("lines = %q", got)
 	}
-	if got := jiraCardLines(c, false, allCardFields); got[0] != "ABC-1 3" || got[2] != "AD Ada · ⌃ Epic" {
+	if got := jiraCardLines(c, false, allCardFields); got[0] != "ABC-1 3p" || got[2] != "AD Ada · ⌃ Epic" {
 		t.Errorf("all fields = %q", got)
 	}
 }

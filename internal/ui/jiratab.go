@@ -2095,7 +2095,10 @@ func (m *Model) jiraGroupAvatar(by jiraSort, g string) string {
 func (m *Model) jiraListRow(c jira.Card, selected bool, width, keyW, stW int) string {
 	status := ansi.Truncate(c.Status, stW, "…")
 	status += strings.Repeat(" ", max(stW-visualWidth(status), 0))
-	pts := fmt.Sprintf("%3s", c.Points)
+	pts := "    "
+	if c.Points != "" {
+		pts = fmt.Sprintf("%4s", c.Points+"p")
+	}
 	f := m.opts.fields
 	// The summary, its parent and custom fields give way on a long row; the
 	// tail (assignee, deploy, subtasks, due, age) is what a row is scanned for.
@@ -2267,7 +2270,7 @@ type cardLinesKey struct {
 func renderCardLines(c jira.Card, styled bool, f cardFields) []string {
 	key, pts, who := c.Key, "", ""
 	if f.points && c.Points != "" {
-		pts = " " + c.Points
+		pts = " " + c.Points + "p"
 	}
 	if f.assignee {
 		who = c.Assignee
