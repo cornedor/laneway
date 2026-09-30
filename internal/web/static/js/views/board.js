@@ -67,7 +67,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const CUSTOM = (UI.CustomFields || []).map(n => 'x:' + n);
   const allCols = () => [...Object.keys(COLS), ...CUSTOM];
   const S = {
-    project: '', boards: [], board: null, bundle: null,
+    project: '', boards: [], board: null, bundle: null, people: new Map(),
     cards: [], total: 0, loaded: false, path: '', fetched: 0, busy: 0,
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
@@ -143,9 +143,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const anyFilter = () => S.mine || S.who != null || S.qf.size || S.text.trim();
   function renderBar() {
     const kids = [];
-    qfs().slice(0, 9).forEach((q, i) => kids.push(h('button.fchip' + (S.qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)));
     kids.push(h('button.fchip' + (S.mine ? '.on' : ''), { dataset: { act: 'mine' }, title: 'Assigned to me  (m)' }, h('kbd', 'm'), 'Mine'));
     kids.push(h('button.fchip' + (S.who != null ? '.on' : ''), { dataset: { act: 'who' }, title: 'Assignee  (A)' }, h('kbd', 'A'), S.who == null ? 'Assignee' : whoName(S.who)));
+    qfs().slice(0, 9).forEach((q, i) => kids.push(h('button.fchip' + (S.qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)));
     cq.words(S.text).forEach((w, i) => kids.push(h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, ' ✕')));
     if (anyFilter()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: 'Clear filters  (0)' }, '✕ clear'));
     clear(chips).append(...kids);
@@ -153,8 +153,18 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const whoName = id => {
     if (id === '-') return 'Unassigned';
     const c = S.cards.find(c => who(c) === id);
-    return c ? c.Assignee : id;
+    return c ? c.Assignee : (S.people.get(id) || id);
   };
+  // The project's assignable people (like the TUI), fetched once per project.
+  const peopleCache = (app._boardPeople = app._boardPeople || new Map());
+  async function loadPeople() {
+    const p = S.project;
+    if (!p) return;
+    if (!peopleCache.has(p)) peopleCache.set(p, api.get('/users?project=' + encodeURIComponent(p)).catch(() => []));
+    const us = await peopleCache.get(p);
+    if (p !== S.project) return;
+    S.people = new Map((us || []).map(u => [u.AccountID, u.DisplayName]));
+  }
   delegate(chips, 'click', 'button', (e, b) => {
     if (b.dataset.term != null) { filterIn.value = cq.removeTerm(S.text, Number(b.dataset.term)); setText(filterIn.value); }
     else if (b.dataset.qf) toggleQF(Number(b.dataset.qf));
@@ -209,6 +219,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // Show cached data at once, then the fresh answer.
   function loadCards() {
+    loadPeople().then(renderBar);
     const path = cardsPath();
     if (path === S.path) return;
     S.path = path;
@@ -872,6 +883,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   async function pickWho() {
     const seen = new Map();
     for (const c of S.cards) if (who(c)) seen.set(who(c), c.Assignee);
+    const show = () => { for (const [id, n] of S.people) if (!seen.has(id)) seen.set(id, n); };
+    show(); await Promise.race([loadPeople(), new Promise(r => setTimeout(r, 400))]); show();
     const items = [{ id: null, name: 'Anyone' }, { id: '-', name: 'Unassigned' }, ...[...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))];
     const r = await ui.pick({ title: 'Assignee', items, label: i => i.name, render: i => h('span.pick-label', i.id ? ui.avatar(i.name, '', 18) : '', ' ', i.name) });
     if (!r) return;
@@ -1059,18 +1072,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- pickers
   async function pickBoard() {
-    let projects = [];
-    try { projects = await api.get('/projects'); } catch (e) { projects = []; }
-    const mine = app.session.projects || [];
-    const items = [...projects].sort((a, b) => (mine.includes(b.Key) - mine.includes(a.Key)));
-    if (!items.length) mine.forEach(k => items.push({ Key: k, Name: k }));
-    const p = await ui.pick({ title: 'Project', items, label: x => x.Key + ' ' + x.Name, detail: x => (mine.includes(x.Key) ? '★' : '') });
-    if (!p) return;
-    let boards;
-    try { boards = await api.get('/projects/' + p.Key + '/boards'); } catch (e) { return ui.errToast(e); }
-    if (!boards.length) return ui.toast('No boards in ' + p.Key, { kind: 'err' });
-    const b = boards.length === 1 ? boards[0] : await ui.pick({ title: p.Key + ' board', items: boards, label: x => x.Name, detail: x => x.Type });
-    if (b) app.go('/board/' + p.Key + '/' + b.ID);
+    const r = await pickContext(app, { project: S.project, scrum: false });
+    if (r && r.board) app.go('/board/' + r.project + '/' + r.board.ID);
+    else if (r) ui.toast('No boards in ' + r.project, { kind: 'err' });
   }
   async function pickSprint() {
     const items = viewItems();
@@ -1238,11 +1242,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     bdMsg('Loading…');
     let project = params.project, bid = params.board ? Number(params.board) : 0;
     try {
-      if (!project) {
-        const [p, b] = String(app.prefs.get('board.last', '')).split('/');
-        project = p || ''; if (!bid && b) bid = Number(b);
-      }
-      if (!project) project = (app.session.projects || [])[0];
+      if (!project) project = lastProject(app) || (app.session.projects || [])[0];
+      if (project && !bid) bid = lastBoard(app, project);
       if (!project) { const ps = await firstOf(api, '/projects'); project = ps[0] && ps[0].Key; }
       if (!project) return bdMsg(h('div', h('h2', 'No project'), h('p', 'Add one under jira.projects in the config.')));
       S.project = project;
@@ -1254,7 +1255,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const canon = '#/board/' + S.project + '/' + S.board.ID;
     if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; history.replaceState(null, '', canon + (q ? '?' + q : '')); }
     if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
-    if (app.prefs.get('board.last', '') !== S.project + '/' + S.board.ID) app.prefs.set('board.last', S.project + '/' + S.board.ID);
+    setCtx(app, S.project, S.board);
     const dm = app.session.ui && app.session.ui.DefaultMode;
     S.mode = app.prefs.get('board.mode.' + S.board.ID, app.prefs.get('board.mode', dm === 'list' ? 'list' : 'lanes')) === 'list' ? 'list' : 'lanes';
     const [sort, dir] = String(app.prefs.get('board.sort.' + S.board.ID, 'rank:1')).split(':');

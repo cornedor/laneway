@@ -127,3 +127,6 @@
 .fb-col:not(.on) .fb-row.sel { background: var(--bg-3); color: var(--fg); }
 .fb-adds { font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); min-height: 1.3em; }
 .fb-foot { font-size: 11px; color: var(--fg-3); }
+.fb-col.later .fb-row { color: var(--fg-3); }
+.fb-none { padding: 3px 8px; color: var(--fg-3); font-style: italic; }
+.fb-query { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
