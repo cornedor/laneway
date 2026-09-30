@@ -284,6 +284,9 @@ type jiraTabState struct {
 	confetti confetti
 	// past replays the board on an earlier day, nil for now (timemachine.go).
 	past *timeMachine
+	// pastFromList is a time machine opened from the list: leaving it goes
+	// back there.
+	pastFromList bool
 	// closedSprints is the board's closed sprints, as the closed sprint
 	// picker last fetched them; closedFrom the view a closed one returns to.
 	closedSprints []jira.Sprint
@@ -1000,8 +1003,6 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit):
 		return m.quit()
-	case !lanes && (key.Matches(msg, m.keys.MoveCardLeft) || key.Matches(msg, m.keys.MoveCardRight)):
-		m.status = "moving a card needs lanes (" + helpKey(m.keys.ToggleMode) + "), or " + helpKey(m.keys.QuickEdit) + " changes its status"
 	case key.Matches(msg, m.keys.Up), key.Matches(msg, m.keys.InputUp):
 		m.moveJiraCursor(-1)
 	case key.Matches(msg, m.keys.Down), key.Matches(msg, m.keys.InputDown):
@@ -1010,9 +1011,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.moveJiraLane(-1)
 	case lanes && key.Matches(msg, m.keys.Right):
 		m.moveJiraLane(1)
-	case lanes && key.Matches(msg, m.keys.MoveCardLeft):
+	case key.Matches(msg, m.keys.MoveCardLeft):
 		return m, m.moveJiraCardBy(-1)
-	case lanes && key.Matches(msg, m.keys.MoveCardRight):
+	case key.Matches(msg, m.keys.MoveCardRight):
 		return m, m.moveJiraCardBy(1)
 	case key.Matches(msg, m.keys.RankUp):
 		return m, m.rankJiraCard(-1)
@@ -1504,9 +1505,16 @@ func (m Model) handleJiraRanked(msg jiraRankedMsg) (tea.Model, tea.Cmd) {
 func (m *Model) moveJiraCardBy(delta int) tea.Cmd {
 	t := m.jiraTab
 	c, ok := m.selectedJiraCard()
-	to := t.lane + delta
+	from := t.lane
+	if !m.jiraShowsLanes() { // the list: the column of the card's status
+		from = slices.IndexFunc(t.lanes, func(l jiraLane) bool { return slices.Contains(l.statusIDs, c.StatusID) })
+	}
+	to := from + delta
 	switch {
 	case !ok:
+		return nil
+	case from < 0:
+		m.status = c.Key + "'s status is in no column of this board"
 		return nil
 	case to < 0:
 		m.status = c.Key + " is in the first lane already"

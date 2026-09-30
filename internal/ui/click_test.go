@@ -712,7 +712,7 @@ func TestDoubleClickOption(t *testing.T) {
 }
 
 // TestSilentKeys: with no card, card keys say so; H past the first lane
-// and the move keys in list mode say why nothing moved.
+// says why nothing moved, and L in list mode moves the card a column.
 func TestSilentKeys(t *testing.T) {
 	m := jiraTabModel(t)
 	out, _ := m.handleJiraKey(keyMsg(t, "H"))
@@ -721,7 +721,7 @@ func TestSilentKeys(t *testing.T) {
 	}
 	out, _ = m.handleJiraKey(keyMsg(t, "t"))
 	out, _ = out.(Model).handleJiraKey(keyMsg(t, "L"))
-	if m = out.(Model); !strings.Contains(m.status, "needs lanes") {
+	if m = out.(Model); !strings.Contains(m.status, "moving ABC-1 → In progress") {
 		t.Errorf("L in list mode: %q", m.status)
 	}
 	m.jiraTab.search.SetValue("zzz")

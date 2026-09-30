@@ -1751,3 +1751,23 @@ func TestPanelHintLeavesWithPanel(t *testing.T) {
 		t.Errorf("esc: open %v, status %q", m.refOpen, m.status)
 	}
 }
+
+// TestTimeMachineFromList: ctrl+t in the list replays the board in lanes;
+// esc goes back to the list.
+func TestTimeMachineFromList(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "t"))
+	m = out.(Model)
+	if m.jiraShowsLanes() {
+		t.Fatal("t did not switch to the list")
+	}
+	out, cmd := m.handleJiraKey(keyMsg(t, "ctrl+t"))
+	m = out.(Model)
+	if cmd == nil || !m.jiraShowsLanes() || m.jiraTab.past == nil {
+		t.Fatalf("ctrl+t in the list: lanes %v, past %v, status %q", m.jiraShowsLanes(), m.jiraTab.past != nil, m.status)
+	}
+	m.closeTimeMachine()
+	if m.jiraShowsLanes() {
+		t.Error("leaving the time machine kept lanes")
+	}
+}

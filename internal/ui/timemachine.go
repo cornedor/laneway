@@ -42,8 +42,13 @@ func (m *Model) openTimeMachine() tea.Cmd { return m.openTimeMachineAt(time.Time
 func (m *Model) openTimeMachineAt(at time.Time) tea.Cmd {
 	t := m.jiraTab
 	if !m.jiraShowsLanes() {
-		m.status = "the time machine needs lanes (" + helpKey(m.keys.ToggleMode) + ")"
-		return nil
+		if v, ok := m.jiraCurrentView(); !ok || !v.lanes || !v.closed.IsZero() {
+			m.status = "the time machine needs a sprint or board view"
+			return nil
+		}
+		keep := m.selectedJiraKey()
+		t.wantLanes, t.pastFromList = true, true // leaving goes back to the list
+		m.selectJiraKey(keep)
 	}
 	keys := make([]string, len(t.cards))
 	for i, c := range t.cards {
@@ -131,6 +136,9 @@ func (m *Model) stepTimeMachine(d int) {
 func (m *Model) closeTimeMachine() {
 	keep := m.selectedJiraKey()
 	m.jiraTab.past = nil
+	if m.jiraTab.pastFromList {
+		m.jiraTab.wantLanes, m.jiraTab.pastFromList = false, false
+	}
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
 	m.status = "back to now"
