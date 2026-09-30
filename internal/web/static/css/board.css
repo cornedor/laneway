@@ -25,7 +25,7 @@
 .bd-count { font-weight: 500; font-size: 11px; background: var(--bg-3); border-radius: 10px; padding: 0 7px; line-height: 18px; color: var(--fg-2); }
 .bd-wip { font-size: 11px; font-weight: 500; color: var(--fg-3); text-transform: none; letter-spacing: 0; margin-left: auto; }
 .bd-lane-head.over { color: var(--err); } .bd-lane-head.over .bd-count { background: var(--err); color: var(--bg); } .bd-lane-head.over .bd-wip { color: var(--err); font-weight: 700; }
-.bd-lane-body { flex: 1; min-height: 0; overflow-y: auto; position: relative; padding: var(--pad) 6px 0; overscroll-behavior: contain; }
+.bd-lane-body { flex: 1; min-height: 0; overflow-y: auto; position: relative; padding: var(--pad) 6px 0; overscroll-behavior-y: contain; }
 .bd-lane-body.empty::after { content: "No issues"; position: absolute; left: 0; right: 0; top: 18px; text-align: center; color: var(--fg-3); font-size: 12px; pointer-events: none; }
 .bd-drop { position: absolute; left: 6px; right: 6px; height: 4px; border-radius: 2px; background: var(--accent); pointer-events: none; z-index: 2; }
 
@@ -62,7 +62,7 @@
 .bd-lhead, .lrow { display: grid; grid-template-columns: 26px 86px minmax(120px, 1fr) 118px 34px 40px 150px 64px 84px; gap: 10px; align-items: center; padding: 0 var(--pad) 0 calc(var(--pad) * 1.5); }
 .bd-lhead { flex: none; height: 28px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-3); border-bottom: 1px solid var(--border); user-select: none; }
 .bd-lhead span { cursor: pointer; white-space: nowrap; } .bd-lhead span:hover { color: var(--fg); } .bd-lhead .lh-mark { cursor: default; }
-.bd-lbody { flex: 1; min-height: 0; overflow-y: auto; position: relative; overscroll-behavior: contain; }
+.bd-lbody { flex: 1; min-height: 0; overflow-y: auto; position: relative; overscroll-behavior-y: contain; }
 .lrow { box-sizing: border-box; min-height: var(--row); border-bottom: 1px solid var(--bg-3); cursor: pointer; font-size: .96em; }
 .lrow:hover { background: var(--bg-2); }
 .lrow.mark { background: var(--accent-bg); }

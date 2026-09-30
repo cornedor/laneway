@@ -4,6 +4,7 @@
 import { h, clear, delegate, debounce } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
+import { hwheel } from '../lib/hscroll.js';
 import { isZero, date, shortDate, ago } from '../lib/fmt.js';
 
 css('board');
@@ -313,7 +314,7 @@ export default function mount(el, { app, params, query, scope, toolbar }) {
     for (const p of S.panes) p.vl.destroy();
     S.panes = []; S.built = sig; clear(main);
     if (lanes) {
-      const wrap = h('div.bd-lanes');
+      const wrap = h('div.bd-lanes'); hwheel(wrap);
       const names = cols.map((c, i) => ({ name: c.Name, max: c.Max || 0, col: i })).concat(other ? [{ name: 'Other', max: 0, col: cols.length }] : []);
       names.forEach((n, i) => {
         const pane = { col: n.col, name: n.name, max: n.max, cards: [], total: 0, rh: 0 };

@@ -1,6 +1,7 @@
 // Roadmap: the project's epics as bars on a time axis.
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
+import { hwheel } from '../lib/hscroll.js';
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, remember, pickScope, noBoard } from './plan_ctx.js';
 
@@ -18,7 +19,7 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   let epics = [], zoom = Number(app.prefs.get('roadmap.zoom', 3)), cur = 0, open = new Set(), rows = [], token = 0;
   if (!(zoom >= 0 && zoom < ZOOMS.length)) zoom = 3;
   let t0 = 0, t1 = 0;
-  const scroller = h('div.rm', { tabindex: -1 });
+  const scroller = h('div.rm', { tabindex: -1 }); hwheel(scroller);
   el.append(scroller);
   const projBtn = h('button.btn.ghost', { title: 'Project (b)', onclick: () => pickProject() }, project || '—');
   toolbar.append(h('span.spacer'),
