@@ -1,0 +1,22 @@
+/* Inbox and the nav badge. */
+.nav-badge { background: var(--accent); color: var(--accent-fg); font-size: 10px; font-weight: 600; line-height: 16px; min-width: 16px; padding: 0 5px; border-radius: 8px; text-align: center; align-self: center; }
+
+.inbox { height: 100%; display: grid; grid-template-columns: minmax(300px, 40%) 1fr; }
+.inbox-list { min-width: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.inbox-scroll { flex: 1; min-height: 0; overflow: auto; }
+.inbox-detail { overflow: auto; padding: calc(var(--pad) * 2); min-width: 0; }
+.irow { display: flex; align-items: center; gap: var(--pad); padding: 0 calc(var(--pad) * 1.5); cursor: pointer; border-bottom: 1px solid var(--bg-3); white-space: nowrap; }
+.irow:hover { background: var(--bg-3); } .irow.sel { background: var(--accent-bg); box-shadow: inset 2px 0 0 var(--accent); }
+.irow .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: transparent; } .irow.unread .dot { background: var(--accent); }
+.irow .wsum { font-weight: 400; } .irow.unread .wsum { font-weight: 600; }
+.irow.read .wkey, .irow.read .wsum { color: var(--fg-2); }
+.irow .when { color: var(--fg-3); font-size: 12px; flex: none; }
+.irow .mention { color: var(--warn); flex: none; }
+.ihead { padding: 0 calc(var(--pad) * 1.5); font-size: 12px; color: var(--fg-3); display: flex; gap: var(--pad); align-items: center; min-height: 28px; border-bottom: 1px solid var(--border); }
+.itabs { display: inline-flex; gap: 2px; } .itabs .btn { padding: 1px 8px; }
+.ithread h2 { margin-bottom: 2px; } .ithread .sub { color: var(--fg-2); margin-bottom: calc(var(--pad) * 1.5); display: flex; gap: var(--pad); align-items: center; flex-wrap: wrap; }
+.ientry { border-left: 2px solid var(--border); padding: 2px 0 2px var(--pad); margin: 0 0 calc(var(--pad) * 1.5); } .ientry.new { border-left-color: var(--accent); }
+.ientry.mention { border-left-color: var(--warn); }
+.ientry .meta { color: var(--fg-2); font-size: 12px; display: flex; gap: var(--pad); align-items: baseline; } .ientry .who { color: var(--fg); font-weight: 600; }
+.ientry .body { margin-top: 4px; overflow-wrap: anywhere; } .ientry .body p { margin: 0 0 .5em; } .ientry .chg { margin-top: 2px; font-size: 13px; } .chg .f { color: var(--fg-2); } .chg s { color: var(--fg-3); }
+@media (max-width: 900px) { .inbox { grid-template-columns: 1fr; } .inbox-detail { display: none; } }
