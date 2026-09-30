@@ -90,7 +90,7 @@ export function pick(o) {
     const move = d => { if (!shown.length) return; sel = (sel + d + Math.min(shown.length, 200)) % Math.min(shown.length, 200); mark(); };
     m.scope.bind(['ArrowDown', 'ctrl+n', 'Tab'], () => move(1), '', { input: true, hidden: true });
     m.scope.bind(['ArrowUp', 'ctrl+p'], () => move(-1), '', { input: true, hidden: true });
-    m.scope.bind('Enter', () => { if (o.multi) finish([...chosen]); else choose(sel); }, '', { input: true, hidden: true });
+    m.scope.bind('Enter', () => { if (o.multi) finish(o.create && q && !shown.length ? [...chosen, o.create(q)] : [...chosen]); else choose(sel); }, '', { input: true, hidden: true });
     if (o.multi) m.scope.bind('ctrl+Space', () => choose(sel), '', { input: true, hidden: true });
     if (o.multi) input.addEventListener('keydown', e => { if (e.key === ' ' && !q) { e.preventDefault(); choose(sel); } });
     render();

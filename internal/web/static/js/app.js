@@ -148,6 +148,8 @@ function chrome() {
 
 async function boot() {
   chrome(); globalKeys();
+  import('./views/fields.js').then(m => m.installUndo(app)); // `u` undoes the last edit
+  import('./views/plan_cmds.js').then(m => m.register(app));
   try {
     app.session = await api.get('/session');
     api.setSite(app.session.site);

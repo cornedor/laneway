@@ -1,0 +1,589 @@
+package web
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"slices"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/cornedor/laneway/internal/jira"
+)
+
+// Editing: one field at a time (PUT /issues/{key}/field/{field}), many issues
+// at once (POST /bulk), moving with the fields a workflow asks for, creating.
+// Every write answers with the edit that takes it back, built from the values
+// before it, so the frontend's undo needs no state of its own.
+
+func init() {
+	get("/priorities", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		return s.Client().Priorities(ctx)
+	})
+	get("/users", users)
+	get("/projects/creatable", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		return s.Client().Projects(ctx)
+	})
+	get("/projects/{project}/issuetypes", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, p := s.Client(), r.PathValue("project")
+		types, err := c.IssueTypes(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		subs, _ := c.SubtaskTypes(ctx, p)
+		return map[string]any{"Types": uniqueByID(types), "Subtasks": uniqueByID(subs)}, nil
+	})
+	get("/projects/{project}/createfields", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		typ := Q(r, "type")
+		if typ == "" {
+			return nil, badRequest("type is required")
+		}
+		return s.Client().CreateFields(ctx, r.PathValue("project"), typ)
+	})
+	get("/projects/{project}/labels", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		ls, err := s.Client().RecentLabels(ctx, r.PathValue("project"))
+		if ls == nil {
+			ls = []string{}
+		}
+		return ls, err
+	})
+	get("/projects/{project}/statuses", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		return s.Client().ProjectStatuses(ctx, r.PathValue("project"))
+	})
+	get("/projects/{project}/sprints", projectSprints)
+	get("/issues/{key}/editmeta", editMeta)
+	get("/issues/{key}/transitionmeta", transitionMeta)
+	post("/issues/{key}/transitionwith", transitionWith)
+	put("/issues/{key}/field/{field}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		e, err := Body[edit](r)
+		if err != nil {
+			return nil, err
+		}
+		e.Field = r.PathValue("field")
+		undo, err := applyEdit(ctx, s.Client(), r.PathValue("key"), e)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"Undo": undo}, nil
+	})
+	del("/issues/{key}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		key := r.PathValue("key")
+		if !jira.ValidKey(key) {
+			return nil, badRequest("bad issue key")
+		}
+		return nil, s.Client().DeleteIssue(ctx, key, Q(r, "subtasks") != "")
+	})
+	post("/issues", createIssue)
+	post("/bulk", bulk)
+}
+
+// edit is one change to one field. Field is the path's: status, priority,
+// assignee, reporter, points, summary, labels, duedate, issuetype, flag,
+// sprint, or a field id written from Kind and Value (EncodeValue's shapes).
+type edit struct {
+	Field  string
+	ID     string // priority, assignee, reporter, issuetype, status transition; "" unassigns
+	Text   string // points, summary, duedate; "" clears
+	To     string // status: the name to move to
+	Labels []string
+	Add    []string
+	Remove []string
+	On     bool
+	Sprint *int // 0 is the backlog
+	Kind   string
+	Value  jira.Value
+}
+
+func applyEdit(ctx context.Context, c *jira.Client, key string, e edit) (*edit, error) {
+	if !jira.ValidKey(key) {
+		return nil, badRequest("bad issue key")
+	}
+	switch e.Field {
+	case "status":
+		return editStatus(ctx, c, key, e)
+	case "priority", "assignee", "reporter", "points", "summary", "labels":
+		return editBasic(ctx, c, key, e)
+	}
+	return editOther(ctx, c, key, e)
+}
+
+func editStatus(ctx context.Context, c *jira.Client, key string, e edit) (*edit, error) {
+	iss, err := c.Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	trs, err := c.Transitions(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	i := slices.IndexFunc(trs, func(t jira.Option) bool {
+		return (e.ID != "" && t.ID == e.ID) || (e.ID == "" && strings.EqualFold(t.Name, e.To))
+	})
+	if i < 0 {
+		return nil, badRequest("no transition to " + cmpOr(e.To, e.ID) + " from here")
+	}
+	if err := c.DoTransition(ctx, key, trs[i].ID); err != nil {
+		return nil, err
+	}
+	return &edit{Field: "status", To: iss.Status}, nil
+}
+
+func cmpOr(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+func editBasic(ctx context.Context, c *jira.Client, key string, e edit) (*edit, error) {
+	iss, err := c.Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	switch e.Field {
+	case "priority":
+		if e.ID == "" {
+			return nil, badRequest("priority needs an ID")
+		}
+		if err := c.SetPriority(ctx, key, e.ID); err != nil {
+			return nil, err
+		}
+		return undoIf(iss.PriorityID != "", edit{Field: "priority", ID: iss.PriorityID}), nil
+	case "assignee":
+		if err := c.SetAssignee(ctx, key, e.ID); err != nil {
+			return nil, err
+		}
+		return &edit{Field: "assignee", ID: iss.AssigneeAccountID}, nil
+	case "reporter":
+		if e.ID == "" {
+			return nil, badRequest("reporter needs an ID")
+		}
+		if err := c.SetReporter(ctx, key, e.ID); err != nil {
+			return nil, err
+		}
+		return undoIf(iss.ReporterAccountID != "", edit{Field: "reporter", ID: iss.ReporterAccountID}), nil
+	case "points":
+		if err := c.SetStoryPoints(ctx, key, e.Text); err != nil {
+			return nil, err
+		}
+		return &edit{Field: "points", Text: iss.StoryPoints}, nil
+	case "summary":
+		if strings.TrimSpace(e.Text) == "" {
+			return nil, badRequest("summary can't be empty")
+		}
+		if err := c.SetSummary(ctx, key, strings.TrimSpace(e.Text)); err != nil {
+			return nil, err
+		}
+		return &edit{Field: "summary", Text: iss.Summary}, nil
+	}
+	// labels: replace, or add and remove leaving the others be
+	if len(e.Add) > 0 || len(e.Remove) > 0 {
+		if err := c.EditLabels(ctx, key, e.Add, e.Remove); err != nil {
+			return nil, err
+		}
+		back := edit{Field: "labels"}
+		for _, l := range e.Add {
+			if !slices.Contains(iss.Labels, l) {
+				back.Remove = append(back.Remove, l)
+			}
+		}
+		for _, l := range e.Remove {
+			if slices.Contains(iss.Labels, l) {
+				back.Add = append(back.Add, l)
+			}
+		}
+		return &back, nil
+	}
+	if err := c.SetLabels(ctx, key, e.Labels); err != nil {
+		return nil, err
+	}
+	return &edit{Field: "labels", Labels: append([]string{}, iss.Labels...)}, nil
+}
+
+func undoIf(ok bool, e edit) *edit {
+	if !ok {
+		return nil
+	}
+	return &e
+}
+
+// editOther are the fields whose old value needs the issue's raw fields.
+func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, error) {
+	if e.Field == "flag" {
+		was, err := c.Flagged(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		if err := c.SetFlagged(ctx, key, e.On); err != nil {
+			return nil, err
+		}
+		return &edit{Field: "flag", On: was}, nil
+	}
+	ic, err := c.IssueContext(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	switch e.Field {
+	case "duedate":
+		var prev string
+		_ = json.Unmarshal(ic.Values["duedate"], &prev)
+		var v any
+		if strings.TrimSpace(e.Text) != "" {
+			d, err := jira.ParseDate(e.Text, time.Now())
+			if err != nil {
+				return nil, badRequest(err.Error())
+			}
+			v = d.Format(time.DateOnly)
+		}
+		if err := c.SetField(ctx, key, "duedate", v); err != nil {
+			return nil, err
+		}
+		return &edit{Field: "duedate", Text: prev}, nil
+	case "issuetype":
+		if e.ID == "" {
+			return nil, badRequest("issuetype needs an ID")
+		}
+		if err := c.SetIssueType(ctx, key, e.ID); err != nil {
+			return nil, err
+		}
+		return undoIf(ic.TypeID != "", edit{Field: "issuetype", ID: ic.TypeID}), nil
+	case "sprint":
+		if e.Sprint == nil {
+			return nil, badRequest("sprint needs a Sprint id (0 for the backlog)")
+		}
+		prev, _ := currentSprint(ic.Values)
+		var err error
+		if *e.Sprint == 0 {
+			err = c.MoveToBacklog(ctx, key)
+		} else {
+			err = c.MoveToSprint(ctx, *e.Sprint, key)
+		}
+		if err != nil {
+			return nil, err
+		}
+		c.Invalidate(key)
+		return &edit{Field: "sprint", Sprint: &prev.ID}, nil
+	}
+	if !strings.HasPrefix(e.Field, "customfield_") && e.Field != "duedate" {
+		return nil, badRequest("unknown field " + e.Field)
+	}
+	v, ok, err := jira.EncodeValue(e.Kind, e.Value)
+	if err != nil {
+		return nil, badRequest(err.Error())
+	}
+	if !ok {
+		return nil, badRequest("can't write a " + e.Kind + " field")
+	}
+	if err := c.SetField(ctx, key, e.Field, v); err != nil {
+		return nil, err
+	}
+	return &edit{Field: e.Field, Kind: e.Kind, Value: jira.DecodeValue(e.Kind, ic.Values[e.Field])}, nil
+}
+
+// currentSprint finds the open or future sprint among an issue's raw
+// fields: an array of objects holding a boardId and a state.
+func currentSprint(values map[string]json.RawMessage) (jira.Sprint, bool) {
+	for _, raw := range values {
+		var sp []struct {
+			ID      int    `json:"id"`
+			Name    string `json:"name"`
+			State   string `json:"state"`
+			BoardID *int   `json:"boardId"`
+		}
+		if len(raw) == 0 || raw[0] != '[' || json.Unmarshal(raw, &sp) != nil {
+			continue
+		}
+		for _, s := range sp {
+			if s.BoardID != nil && s.State != "closed" {
+				return jira.Sprint{ID: s.ID, Name: s.Name, State: s.State}, true
+			}
+		}
+	}
+	return jira.Sprint{}, false
+}
+
+// users: ?issue=KEY or ?project=P narrows to who can be assigned; q filters.
+func users(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	where := Q(r, "issue")
+	if where == "" {
+		where = Q(r, "project")
+	}
+	if where == "" {
+		return nil, badRequest("issue or project is required")
+	}
+	us, err := s.Client().AssignableUsers(ctx, where, Q(r, "q"))
+	if us == nil {
+		us = []jira.User{}
+	}
+	return us, err
+}
+
+// projectSprints are the open and future sprints of the project's first
+// board that has any, for moving an issue into one.
+func projectSprints(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	c := s.Client()
+	boards, err := c.Boards(ctx, r.PathValue("project"))
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range boards {
+		if sp, err := c.Sprints(ctx, b.ID); err == nil && len(sp) > 0 {
+			return map[string]any{"Board": b.ID, "Sprints": sp}, nil
+		}
+	}
+	return map[string]any{"Board": 0, "Sprints": []jira.Sprint{}}, nil
+}
+
+// editMeta is what editing an issue needs beyond the issue itself: the
+// fields its edit screen offers with their values, and the ones the panel
+// has no own editor for (due date, type, sprint, flag).
+func editMeta(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	c, key := s.Client(), r.PathValue("key")
+	if !jira.ValidKey(key) {
+		return nil, badRequest("bad issue key")
+	}
+	fields, raw, err := c.EditMeta(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	values := map[string]jira.Value{}
+	for _, f := range fields {
+		values[f.ID] = jira.DecodeValue(f.Kind, raw[f.ID])
+	}
+	var due string
+	_ = json.Unmarshal(raw["duedate"], &due)
+	var typ struct{ ID, Name string }
+	_ = json.Unmarshal(raw["issuetype"], &typ)
+	sp, _ := currentSprint(raw)
+	out := map[string]any{"Fields": fields, "Values": values, "Due": due, "TypeID": typ.ID, "Type": typ.Name, "Sprint": sp}
+	if fl, err := c.Flagged(ctx, key); err == nil {
+		out["Flagged"] = fl
+	}
+	return out, nil
+}
+
+// moveField is a field of a move's form: a transition screen field, or one
+// the workflow requires that the screen lacks.
+type moveField struct {
+	jira.FieldMeta
+	Required bool
+	Value    jira.Value
+}
+
+type moveOption struct {
+	jira.TransitionMeta
+	Fields     []moveField
+	Message    string
+	NeedsInput bool // a required field is empty, or the rules are unknown and the screen has fields
+}
+
+// transitionMeta lists the moves offered on an issue, each with the form it
+// needs, the way the TUI decides whether to show one.
+func transitionMeta(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	c, key := s.Client(), r.PathValue("key")
+	if !jira.ValidKey(key) {
+		return nil, badRequest("bad issue key")
+	}
+	var (
+		metas      []jira.TransitionMeta
+		ic         jira.IssueContext
+		mErr, iErr error
+		wg         sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() { defer wg.Done(); metas, mErr = c.TransitionsMeta(ctx, key) }()
+	go func() { defer wg.Done(); ic, iErr = c.IssueContext(ctx, key) }()
+	wg.Wait()
+	if mErr != nil {
+		return nil, mErr
+	}
+	var rules map[string]jira.TransitionRule
+	var rErr error
+	if iErr == nil {
+		rules, rErr = c.TransitionRules(ctx, ic.Project, ic.TypeID)
+	}
+	out := make([]moveOption, 0, len(metas))
+	for _, t := range metas {
+		rule := rules[t.ID]
+		mo := moveOption{TransitionMeta: t, Message: rule.Message}
+		mo.TransitionMeta.Fields = nil
+		for _, fm := range t.Fields {
+			mo.Fields = append(mo.Fields, moveField{FieldMeta: fm, Required: slices.Contains(rule.Required, fm.ID), Value: jira.DecodeValue(fm.Kind, ic.Values[fm.ID])})
+		}
+		for _, id := range rule.Required {
+			if slices.ContainsFunc(mo.Fields, func(f moveField) bool { return f.ID == id }) {
+				continue
+			}
+			fm := jira.FieldMeta{ID: id, Name: id, Kind: jira.KindOther}
+			if id == jira.CommentField {
+				fm.Name, fm.Kind = "Comment", jira.KindComment
+			}
+			mo.Fields = append(mo.Fields, moveField{FieldMeta: fm, Required: true, Value: jira.DecodeValue(fm.Kind, ic.Values[id])})
+		}
+		sort.SliceStable(mo.Fields, func(i, j int) bool { return mo.Fields[i].Required && !mo.Fields[j].Required })
+		for _, f := range mo.Fields {
+			mo.NeedsInput = mo.NeedsInput || (f.Required && f.Value.Empty())
+		}
+		if (rErr != nil || iErr != nil) && t.HasScreen && len(mo.Fields) > 0 {
+			mo.NeedsInput = true
+		}
+		out = append(out, mo)
+	}
+	return map[string]any{"Transitions": out}, nil
+}
+
+// fieldVal is a field to write: Kind says how Value is encoded.
+type fieldVal struct {
+	ID    string
+	Kind  string
+	Value jira.Value
+}
+
+func encodeFields(fs []fieldVal) (map[string]any, string, error) {
+	out := map[string]any{}
+	comment := ""
+	for _, f := range fs {
+		if f.Kind == jira.KindComment {
+			comment = f.Value.Text
+			continue
+		}
+		v, ok, err := jira.EncodeValue(f.Kind, f.Value)
+		if err != nil {
+			return nil, "", badRequest(fmt.Sprintf("%s: %v", f.ID, err))
+		}
+		if ok {
+			out[f.ID] = v
+		}
+	}
+	return out, comment, nil
+}
+
+// transitionWith moves the issue writing the form's fields and comment in
+// the same request, so the validators see the new values.
+func transitionWith(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	b, err := Body[struct {
+		ID     string
+		Fields []fieldVal
+	}](r)
+	if err != nil {
+		return nil, err
+	}
+	key := r.PathValue("key")
+	if !jira.ValidKey(key) || b.ID == "" {
+		return nil, badRequest("bad issue key or transition")
+	}
+	fields, comment, err := encodeFields(b.Fields)
+	if err != nil {
+		return nil, err
+	}
+	iss, _ := s.Client().Get(ctx, key)
+	if err := s.Client().TransitionWith(ctx, key, b.ID, fields, comment); err != nil {
+		return nil, err
+	}
+	var undo *edit
+	if iss != nil {
+		undo = &edit{Field: "status", To: iss.Status}
+	}
+	return map[string]any{"Undo": undo}, nil
+}
+
+// createIssue makes one issue; the frontend calls it once per summary of a
+// batch. Fields are the create screen's own, written through EncodeValue.
+func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	b, err := Body[struct {
+		Project, Type, Summary, Description, Parent string
+		Sprint                                      int
+		Fields                                      []fieldVal
+	}](r)
+	if err != nil {
+		return nil, err
+	}
+	fields, _, err := encodeFields(b.Fields)
+	if err != nil {
+		return nil, err
+	}
+	c := s.Client()
+	key, err := c.CreateIssue(ctx, jira.NewIssue{Project: b.Project, Type: b.Type, Summary: b.Summary, Description: b.Description, Parent: b.Parent, Fields: fields})
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{"Key": key}
+	if b.Sprint > 0 {
+		if err := c.MoveToSprint(ctx, b.Sprint, key); err != nil {
+			out["Warning"] = "created, but not moved to the sprint: " + err.Error()
+		}
+	}
+	return out, nil
+}
+
+// bulk applies the same edit to Keys, or Each's own edit per key (an undo),
+// a few at a time. The answer lists what changed, the edits that take it
+// back, and why the others did not.
+func bulk(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	b, err := Body[struct {
+		Keys []string
+		Edit edit
+		Each map[string]edit
+	}](r)
+	if err != nil {
+		return nil, err
+	}
+	keys := b.Keys
+	if len(b.Each) > 0 {
+		keys = keys[:0]
+		for k := range b.Each {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+	}
+	if len(keys) == 0 {
+		return nil, badRequest("no issues")
+	}
+	var (
+		mu     sync.Mutex
+		wg     sync.WaitGroup
+		done   = []string{}
+		undo   = map[string]*edit{}
+		failed = map[string]string{}
+		sem    = make(chan struct{}, 4)
+	)
+	for _, k := range keys {
+		e := b.Edit
+		if len(b.Each) > 0 {
+			e = b.Each[k]
+		}
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer func() { <-sem; wg.Done() }()
+			u, err := applyEdit(ctx, s.Client(), k, e)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				failed[k] = err.Error()
+				return
+			}
+			done = append(done, k)
+			if u != nil {
+				undo[k] = u
+			}
+		}()
+	}
+	wg.Wait()
+	sort.Strings(done)
+	return map[string]any{"Done": done, "Undo": undo, "Failed": failed}, nil
+}
+
+// uniqueByID drops repeats: the old and new createmeta shapes can both answer.
+func uniqueByID(os []jira.Option) []jira.Option {
+	out := []jira.Option{}
+	for _, o := range os {
+		if !slices.ContainsFunc(out, func(x jira.Option) bool { return x.ID == o.ID }) {
+			out = append(out, o)
+		}
+	}
+	return out
+}

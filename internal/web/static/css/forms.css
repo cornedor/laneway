@@ -1,0 +1,22 @@
+/* Forms: create, bulk, transition and field dialogs. */
+.form { display: grid; grid-template-columns: minmax(90px, 140px) 1fr; gap: 8px 12px; align-items: start; margin-bottom: var(--pad); }
+.form-label { padding-top: 6px; color: var(--fg-2); font-size: .92em; }
+.form-label.req::after { content: " *"; color: var(--err); }
+.form-field { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.form-field textarea.input { resize: vertical; }
+.form-err { color: var(--err); min-height: 1.2em; margin-bottom: 4px; white-space: pre-wrap; }
+.form-hint { font-size: 12px; }
+.form-dialog .row.end { align-items: center; }
+.form-more { margin-bottom: var(--pad); }
+.form-more > summary { cursor: pointer; color: var(--fg-2); padding: 4px 0; margin-bottom: 6px; }
+.form-sprint .form { margin-bottom: var(--pad); }
+.field-btn { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.pick-user { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+label.check { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.bulk { min-width: min(420px, 80vw); }
+.bulk progress { width: 100%; height: 8px; accent-color: var(--accent); }
+.bulk-failed { list-style: none; margin: var(--pad) 0 0; padding: 0; color: var(--err); max-height: 30vh; overflow: auto; }
+.bulk-failed b { color: var(--fg); }
+@media (max-width: 560px) { .form { grid-template-columns: 1fr; gap: 2px; } .form-label { padding-top: 6px; } }
