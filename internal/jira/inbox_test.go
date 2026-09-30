@@ -69,7 +69,7 @@ func TestIssueInbox(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("entries = %+v", got)
 	}
-	if e := got[0]; !e.Mention || e.Who != "Ann" || e.WhoID != "ann" || e.CommentID != "77" || e.Body != "Me look" || e.What != "mentioned you: Me look" {
+	if e := got[0]; !e.Mention || e.Who != "Ann" || e.WhoID != "ann" || e.CommentID != "77" || e.Body != "@Me look" || e.What != "mentioned you: @Me look" {
 		t.Errorf("first = %+v", e)
 	}
 	if e := got[1]; !e.Assigned || e.What != "status: To Do → Done · assignee: Bob → Me" || e.Summary != "One" {

@@ -252,8 +252,7 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	d.discard = false
 	var cmd tea.Cmd
 	d.input, cmd = d.input.Update(msg)
-	m.scheduleEmoji()
-	return m, tea.Batch(cmd, m.scheduleDraftSave())
+	return m, tea.Batch(cmd, m.scheduleMention(), m.scheduleDraftSave())
 }
 
 func (m *Model) renderDescEdit() string {
@@ -395,4 +394,15 @@ func (m *Model) editComment(i int) tea.Cmd {
 		ed, err := jira.EditableDescription(cm.Raw)
 		return descLoadedMsg{key: key, comment: cm.ID, md: ed.Markdown, kept: ed.Kept, err: err}
 	}
+}
+
+// toggleTask checks the description's nth action item, or unchecks it.
+func (m *Model) toggleTask(n int) tea.Cmd {
+	if m.jiraIssue == nil || n < 1 || n > len(m.descTasks) {
+		return nil
+	}
+	key, done, total := m.jiraIssue.Key, !m.descTasks[n-1], len(m.descTasks)
+	c, ctx := m.jiraClient, m.ctx
+	m.status = map[bool]string{true: "checking", false: "unchecking"}[done] + " the action item…"
+	return jiraMutateCmd(key, "action item", func() error { return c.ToggleTask(ctx, key, n, total, done) })
 }

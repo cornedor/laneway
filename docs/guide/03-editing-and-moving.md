@@ -74,11 +74,30 @@ show styled as you type.
 - `enter` is a newline, `ctrl+s` saves, `esc` cancels (it asks once if you
   changed something).
 - `ctrl+e` hands the text to your own `$EDITOR`.
-- Things markdown can't hold, like a table or an image, stand as a
-  `<!-- keep:1 table … -->` line. Move the line and the block moves; leave
-  it and the block comes back untouched.
-- A panel (the coloured info or warning boxes) is its text between
-  `<!-- panel:info -->` and `<!-- /panel -->`: edit inside, it stays a panel.
+- In the panel, a click on an action item's box checks it in Jira, and a
+  click on an expand's title opens or folds it (folded at first, as in
+  Jira).
+- `/` at a line's start lists Jira's content to insert — panels, an
+  expand, action items, a table, a status, today's date, colours — narrowed
+  as you type (`/warn`, `/todo`, `/green`); `tab` writes it. `@` lists
+  people, as in a comment.
+- Jira's extras have a syntax of their own:
+  - a mention `@Ada Lovelace`, a date `<date>2026-09-30</date>`, a status
+    `<status color="green">DONE</status>`, a smart link `<https://…>`, a
+    link card `<!-- card: https://… -->`
+  - a panel (the coloured info or warning boxes): its text between
+    `<!-- panel:info -->` and `<!-- /panel -->`; an expand the same, with
+    `<!-- expand: Title -->` and `<!-- /expand -->`
+  - an action item `- [ ] ` (`- [x] ` done), a decision `<> `
+  - a table as `| a | b |` rows; a cell's colour leads it as
+    `<!-- bg:#deebff -->`, a header cell outside the first row as `<!-- th -->`
+  - underline, sub and superscript, colour: `<u>`, `<sub>`, `<sup>`,
+    `<span style="color:#ff5630">`, `<span style="background-color:#fff0b3">`
+- Things markdown can't hold, like an image or a table with merged
+  cells, stand as a `<!-- keep:1 table … -->` line. Move the line and the
+  block moves; leave it and the block comes back untouched. A synced block
+  or columns keep their frame as `<!-- block:2 … -->` … `<!-- /block -->`
+  lines, their text editable between.
 
 ## Talk
 

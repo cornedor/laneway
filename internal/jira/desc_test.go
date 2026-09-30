@@ -58,7 +58,7 @@ func TestEditableDescriptionKeeps(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "intro\n\n<!-- keep:1 table: move or delete this line -->\n\n" +
-		"ping ⟦2 @Ann⟧\n\n" +
+		"ping @Ann\n\n" +
 		`5 \* 3 \* 2`
 	if ed.Markdown != want || len(ed.Kept) != 2 {
 		t.Fatalf("markdown:\n%s\nkept %d", ed.Markdown, len(ed.Kept))
@@ -170,7 +170,7 @@ func TestEditablePanel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "<!-- panel:success -->\n\n**Done when:**\n\n- it works for ⟦1 @Ann⟧\n\n<!-- /panel -->\n\nafter"
+	want := "<!-- panel:success -->\n\n**Done when:**\n\n- it works for @Ann\n\n<!-- /panel -->\n\nafter"
 	if ed.Markdown != want {
 		t.Fatalf("markdown:\n%s\nwant\n%s", ed.Markdown, want)
 	}
@@ -196,7 +196,7 @@ func TestEditableTrailingSpace(t *testing.T) {
 	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"due on "},
 	  {"type":"date","attrs":{"timestamp":"1788220800000"}},{"type":"text","text":" or later. "}]}]}`
 	ed, err := EditableDescription(json.RawMessage(doc))
-	if err != nil || len(ed.Kept) != 1 || !strings.HasPrefix(ed.Markdown, "due on ⟦1") {
+	if err != nil || len(ed.Kept) != 0 || ed.Markdown != "due on <date>2026-09-01</date> or later." {
 		t.Fatalf("%q, kept %d, %v", ed.Markdown, len(ed.Kept), err)
 	}
 }
@@ -214,7 +214,7 @@ func TestEmoji(t *testing.T) {
 	}
 	para := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"nice "},{"type":"emoji","attrs":{"shortName":":thumbsup:","id":"1f44d","text":"👍"}},{"type":"text","text":" but :smile: is typed"}]}]}`
 	ed, err := EditableDescription(json.RawMessage(para))
-	if err != nil || len(ed.Kept) != 0 || ed.Markdown != `nice :thumbsup: but \:smile: is typed` {
+	if err != nil || len(ed.Kept) != 1 || ed.Markdown != `nice :thumbsup: but \:smile: is typed` {
 		t.Fatalf("%q, kept %d, %v", ed.Markdown, len(ed.Kept), err)
 	}
 	back, _ := json.Marshal(MarkdownToADFKept(ed.Markdown, ed.Kept))
@@ -241,5 +241,152 @@ func TestTextEmoji(t *testing.T) {
 	got := string(doc)
 	if !strings.Contains(got, `{"text":"done ","type":"text"},{"attrs":{"shortName":":tada:","text":"🎉"},"type":"emoji"},{"text":" at 10:30:00 `+"`:x:`"+`","type":"text"}`) {
 		t.Errorf("doc = %s", got)
+	}
+}
+
+// TestEditableRich: tasks, decisions, tables, expands, a list starting
+// past 1 and the marks markdown lacks edit as text and come back the same.
+func TestEditableRich(t *testing.T) {
+	docs := map[string]struct{ adf, md string }{
+		"tasks": {`{"type":"doc","content":[{"type":"taskList","attrs":{"localId":"a"},"content":[
+		  {"type":"taskItem","attrs":{"localId":"b","state":"TODO"},"content":[{"type":"text","text":"write it"}]},
+		  {"type":"taskList","attrs":{"localId":"c"},"content":[{"type":"taskItem","attrs":{"localId":"d","state":"DONE"},"content":[{"type":"text","text":"test it"}]}]},
+		  {"type":"taskItem","attrs":{"localId":"e","state":"TODO"},"content":[]}]}]}`,
+			"- [ ] write it\n  - [x] test it\n- [ ]"},
+		"decision": {`{"type":"doc","content":[{"type":"decisionList","attrs":{"localId":"a"},"content":[
+		  {"type":"decisionItem","attrs":{"localId":"b","state":"DECIDED"},"content":[{"type":"text","text":"ship "},{"type":"text","text":"Friday","marks":[{"type":"strong"}]}]}]}]}`,
+			"<> ship **Friday**"},
+		"table": {`{"type":"doc","content":[{"type":"table","attrs":{"layout":"default"},"content":[
+		  {"type":"tableRow","content":[{"type":"tableHeader","attrs":{},"content":[{"type":"paragraph","content":[{"type":"text","text":"a|b","marks":[{"type":"strong"}]}]}]},{"type":"tableHeader","attrs":{},"content":[{"type":"paragraph","content":[]}]}]},
+		  {"type":"tableRow","content":[{"type":"tableCell","attrs":{},"content":[{"type":"paragraph","content":[{"type":"text","text":"1"}]},{"type":"paragraph","content":[]}]},{"type":"tableCell","attrs":{},"content":[{"type":"paragraph","content":[{"type":"text","text":"x","marks":[{"type":"code"}]}]}]}]}]}]}`,
+			"| **a\\|b** |  |\n| --- | --- |\n| 1 | `x` |"},
+		"headless table": {`{"type":"doc","content":[{"type":"table","content":[
+		  {"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"1"}]}]},{"type":"tableCell","content":[{"type":"paragraph","content":[{"type":"text","text":"2"}]}]}]}]}]}`,
+			"|  |  |\n| --- | --- |\n| 1 | 2 |"},
+		"expand": {`{"type":"doc","content":[{"type":"expand","attrs":{"title":"Spoilers!"},"content":[{"type":"paragraph","content":[{"type":"text","text":"hidden"}]}]}]}`,
+			"<!-- expand: Spoilers! -->\n\nhidden\n\n<!-- /expand -->"},
+		"order": {`{"type":"doc","content":[{"type":"orderedList","attrs":{"order":3},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"third"}]}]}]}]}`,
+			"3. third"},
+		"marks": {`{"type":"doc","content":[{"type":"paragraph","content":[
+		  {"type":"text","text":"u","marks":[{"type":"underline"}]},{"type":"text","text":" H"},{"type":"text","text":"2","marks":[{"type":"subsup","attrs":{"type":"sub"}}]},
+		  {"type":"text","text":"O "},{"type":"text","text":"hot","marks":[{"type":"strong"},{"type":"textColor","attrs":{"color":"#ff5630"}}]},
+		  {"type":"text","text":" ","marks":[{"type":"textColor","attrs":{"color":"#ff5630"}}]},
+		  {"type":"text","text":"lit","marks":[{"type":"backgroundColor","attrs":{"color":"#fff0b3"}}]},{"type":"text","text":" <u>raw</u>"}]}]}`,
+			`<u>u</u> H<sub>2</sub>O <span style="color:#ff5630">**hot**</span> <span style="background-color:#fff0b3">lit</span> \<u>raw\</u>`},
+		"gaps": {`{"type":"doc","content":[{"type":"paragraph","content":[]},{"type":"paragraph","content":[{"type":"text","text":"a"},{"type":"hardBreak"}]},{"type":"paragraph","content":[{"type":"text","text":" "}]},{"type":"paragraph","content":[{"type":"text","text":"| not a table"}]}]}`,
+			`a` + "\n\n" + `\| not a table`},
+	}
+	for name, d := range docs {
+		ed, err := EditableDescription(json.RawMessage(d.adf))
+		if err != nil || len(ed.Kept) != 0 || ed.Markdown != d.md {
+			t.Errorf("%s: %v, kept %d:\n%s\nwant\n%s", name, err, len(ed.Kept), ed.Markdown, d.md)
+		}
+	}
+}
+
+// TestEditableContainer: a block with a node markdown can't carry (a
+// synced block) edits as its content between block markers, its node put
+// back around the edited content on save.
+func TestEditableContainer(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"bodiedSyncBlock","attrs":{"resourceId":"r1"},"content":[
+	  {"type":"paragraph","content":[{"type":"text","text":"shared"}]},
+	  {"type":"panel","attrs":{"panelType":"custom","panelColor":"#abcdef"},"content":[{"type":"paragraph","content":[{"type":"text","text":"tinted"}]}]}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<!-- block:1 synced block -->\n\nshared\n\n<!-- block:2 custom panel -->\n\ntinted\n\n<!-- /block -->\n\n<!-- /block -->"
+	if ed.Markdown != want {
+		t.Fatalf("markdown:\n%s", ed.Markdown)
+	}
+	out, _ := json.Marshal(MarkdownToADFKept(strings.Replace(ed.Markdown, "tinted", "tinted **more**", 1), ed.Kept))
+	for _, s := range []string{`"resourceId":"r1"`, `"panelColor":"#abcdef"`, `"text":"more"`} {
+		if !strings.Contains(string(out), s) {
+			t.Errorf("saved lacks %s: %s", s, out)
+		}
+	}
+}
+
+// TestMarkdownToADFRich: tasks and decisions get the ids Jira requires,
+// empty ones an empty content rather than null; a table's cells are
+// paragraphs.
+func TestMarkdownToADFRich(t *testing.T) {
+	out, _ := json.Marshal(MarkdownToADF("- [ ]\n- [X] done\n\n<> yes\n\n| h |\n|---|\n| c |"))
+	got := string(out)
+	for _, s := range []string{`"state":"TODO"`, `"state":"DONE"`, `"state":"DECIDED"`, `"localId":"`,
+		`"type":"tableHeader"`, `"type":"tableCell"`, `"content":[]`} {
+		if !strings.Contains(got, s) {
+			t.Errorf("lacks %s: %s", s, got)
+		}
+	}
+	if strings.Contains(got, "null") {
+		t.Errorf("a null: %s", got)
+	}
+}
+
+// TestToggleTask: the nth item outside tables flips, the rest of the
+// document untouched; a count or state other than shown writes nothing.
+func TestToggleTask(t *testing.T) {
+	raw := json.RawMessage(`{"type":"doc","version":1,"content":[
+	  {"type":"table","content":[{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"taskList","attrs":{"localId":"t"},"content":[{"type":"taskItem","attrs":{"localId":"x","state":"TODO"},"content":[]}]}]}]}]},
+	  {"type":"taskList","attrs":{"localId":"a"},"content":[
+	    {"type":"taskItem","attrs":{"localId":"b","state":"TODO"},"content":[{"type":"text","text":"one"}]},
+	    {"type":"taskList","attrs":{"localId":"c"},"content":[{"type":"taskItem","attrs":{"localId":"d","state":"DONE"},"content":[{"type":"text","text":"two"}]}]}]}]}`)
+	doc, err := toggleTask(raw, 2, 2, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _ := json.Marshal(doc)
+	if strings.Count(string(out), `"state":"TODO"`) != 3 || !strings.Contains(string(out), `"localId":"d","state":"TODO"`) {
+		t.Errorf("toggled = %s", out)
+	}
+	for _, c := range [][3]int{{2, 3, 0}, {1, 2, 0}, {3, 2, 1}} { // wrong total; already TODO; out of range
+		if _, err := toggleTask(raw, c[0], c[1], c[2] == 1); err == nil {
+			t.Errorf("%v: no error", c)
+		}
+	}
+}
+
+// TestEditableInline: mentions, statuses, dates, smart links, cards,
+// custom emoji and a coloured table with a header column edit as text
+// and save back as the nodes they were; "@Ann" typed as words stays text.
+func TestEditableInline(t *testing.T) {
+	doc := `{"type":"doc","content":[
+	  {"type":"paragraph","content":[{"type":"mention","attrs":{"id":"a1","text":"@Ann Lee","accessLevel":""}},{"type":"text","text":" is "},
+	    {"type":"status","attrs":{"text":"Blocked","color":"red","localId":"s"}},{"type":"text","text":" till "},{"type":"date","attrs":{"timestamp":"1790121600000"}},
+	    {"type":"text","text":", see "},{"type":"inlineCard","attrs":{"url":"https://x.test/a"}},{"type":"text","text":" "},
+	    {"type":"emoji","attrs":{"shortName":":1_one_square_blue:","id":"atlassian-1_one_square_blue","text":":1_one_square_blue:"}},{"type":"text","text":" not @Ann Lee"}]},
+	  {"type":"blockCard","attrs":{"url":"https://x.test/b"}},
+	  {"type":"table","content":[
+	    {"type":"tableRow","content":[{"type":"tableHeader","attrs":{"background":"#deebff"},"content":[{"type":"paragraph","content":[{"type":"text","text":"h"}]}]},{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"i"}]}]}]},
+	    {"type":"tableRow","content":[{"type":"tableHeader","content":[{"type":"paragraph","content":[{"type":"text","text":"row"}]}]},{"type":"tableCell","attrs":{"background":"#e3fcef"},"content":[{"type":"paragraph","content":[{"type":"text","text":"1"}]}]}]}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `@Ann Lee is <status color="red">BLOCKED</status> till <date>2026-09-23</date>, see <https://x.test/a> :1_one_square_blue: not \@Ann Lee` + "\n\n" +
+		"<!-- card: https://x.test/b -->\n\n" +
+		"| <!-- bg:#deebff --> h | i |\n| --- | --- |\n| <!-- th --> row | <!-- bg:#e3fcef --> 1 |"
+	if ed.Markdown != want || strings.Contains(ed.Markdown, "keep:") {
+		t.Fatalf("markdown:\n%s", ed.Markdown)
+	}
+	out, _ := json.Marshal(MarkdownToADFKept(strings.Replace(ed.Markdown, "BLOCKED", "Unblocked", 1), ed.Kept))
+	s := string(out)
+	for _, w := range []string{`"id":"a1"`, `"text":"Unblocked"`, `"timestamp":"1790121600000"`, `"type":"inlineCard"`, `"id":"atlassian-1_one_square_blue"`,
+		`"text":" not @Ann Lee"`, `"type":"blockCard"`, `"background":"#e3fcef"`} {
+		if !strings.Contains(s, w) {
+			t.Errorf("saved lacks %s: %s", w, s)
+		}
+	}
+	if strings.Count(s, `"type":"mention"`) != 1 || strings.Count(s, `"type":"tableHeader"`) != 3 || strings.Contains(s, "") {
+		t.Errorf("saved = %s", s)
+	}
+}
+
+// TestBoldItalic: "***x***" is bold and italic, not bold "*x" and a star.
+func TestBoldItalic(t *testing.T) {
+	out, _ := json.Marshal(MarkdownToADF("***both***"))
+	if s := string(out); !strings.Contains(s, `"marks":[{"type":"strong"},{"type":"em"}],"text":"both"`) {
+		t.Errorf("%s", s)
 	}
 }

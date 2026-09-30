@@ -98,7 +98,8 @@ func wrapPanel(content string, width int) string {
 }
 
 // listMarker is a list item's bullet or number and the space after it.
-var listMarker = regexp.MustCompile(`^([-*+•]|\d{1,3}[.)]|\[[ xX]\]) +`)
+// A task's box, a decision's and a panel's mark count too, coloured or not.
+var listMarker = regexp.MustCompile(`^(?:\x1b\[[0-9;]*m|\x1b\][^\x1b]*\x1b\\)*([-*+•☐☑◆ℹ▪✔⚠✖●]|\d{1,3}[.)]|\[[ xX]\])(?:\x1b\[[0-9;]*m)* +`)
 
 // panelWrapMin is the fewest cells a continuation row's text gets; a hang
 // deeper than that is dropped rather than wrap a word a row.

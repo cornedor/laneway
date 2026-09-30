@@ -183,3 +183,17 @@ func TestMarkdownComposesWithDecorations(t *testing.T) {
 		t.Fatalf("markers not kept visible: %q", got)
 	}
 }
+
+// TestMarkdownClassesJira: a Jira marker line and the tags for underline
+// and colour are syntax; the text between tags is not.
+func TestMarkdownClassesJira(t *testing.T) {
+	for in, want := range map[string]string{
+		"<!-- panel:info -->":          "mmmmmmmmmmmmmmmmmmm",
+		"<u>x</u> a < b":               "mmm.mmmm......",
+		`<span style="c">**b**</span>`: strings.Repeat("m", 16) + "mmBmm" + strings.Repeat("m", 7),
+	} {
+		if got := classString(in); got != want {
+			t.Errorf("%q:\n got %s\nwant %s", in, got, want)
+		}
+	}
+}

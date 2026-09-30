@@ -144,6 +144,11 @@ func (m *Model) hoverPanel(x, y, listW int) hover {
 		return hover{}
 	case h.image != "":
 		return hover{pointer: pointerHand}
+	case h.task > 0: // the box only
+		if d := x - at - h.off; d >= 0 && d <= 1 {
+			return hover{pointer: pointerHand}
+		}
+		return hover{}
 	case h.double: // a double-click's: a single one does nothing
 		return hover{}
 	}

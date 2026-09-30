@@ -32,6 +32,8 @@ type panelHit struct {
 	agent  string
 	col    int
 	empty  bool // the folded empty fields' row: show them
+	task   int  // checks the description's task n (from 1), its box off columns in
+	expand int  // opens or folds the description's expand n (from 1)
 	// acts is comment field's action row, its actions off columns in.
 	acts bool
 	off  int
@@ -93,6 +95,16 @@ func (m *Model) indexPanelHits(content string) {
 		}
 		if att := m.imageOn(l); att != "" {
 			m.panelHits[i] = panelHit{field: -1, image: att}
+		}
+		if cm := clickMarkRe.FindStringSubmatch(l); cm != nil {
+			n, _ := strconv.Atoi(cm[2])
+			if cm[1] == "expand" {
+				m.panelHits[i] = panelHit{field: -1, expand: n}
+				continue
+			}
+			plain := strings.TrimLeft(ansi.Strip(l), " ")
+			box := strings.IndexAny(plain, "☐☑")
+			m.panelHits[i] = panelHit{field: -1, task: n, off: ansi.StringWidth(plain[:max(box, 0)])}
 		}
 	}
 	// The bylines in drawing order, each found after the one before, and
@@ -252,6 +264,19 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 		m.showEmpty = true
 		m.renderRef()
 		return m, nil
+	case h.expand > 0:
+		k := m.jiraIssue.Key + "#" + strconv.Itoa(h.expand)
+		if m.descOpen == nil {
+			m.descOpen = map[string]bool{}
+		}
+		m.descOpen[k] = !m.descOpen[k]
+		m.renderRef()
+		return m, nil
+	case h.task > 0:
+		if d := h.col - h.off; d < 0 || d > 1 { // on the box only, as in Jira
+			return m, nil
+		}
+		return m, m.toggleTask(h.task)
 	case h.image != "":
 		return m, m.openImageViewAt(h.image)
 	case h.double && count < 2:

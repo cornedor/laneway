@@ -290,6 +290,9 @@ func applyTheme(th theme) {
 	mdCodeOpen = ansiOpenSeq(mdCodeStyle)
 	mdFenceStyle, mdQuoteBarStyle = dim, dim
 	mdLinkStyle = c("link").Underline(true)
+	mdPanelStyles = map[string]lipgloss.Style{"info": c("link"), "note": c("type_epic"), "success": c("roadmap_done"),
+		"warning": c("highlight"), "error": c("error")}
+	mdDecisionStyle = c("roadmap_done")
 }
 
 // applyMono sets the styles to show state without colour: reverse for
@@ -323,4 +326,5 @@ func applyMono(th theme) {
 	mdCodeOpen = ansiOpenSeq(mdCodeStyle)
 	mdFenceStyle, mdQuoteBarStyle = faint, faint
 	mdLinkStyle = plain.Underline(true)
+	mdPanelStyles, mdDecisionStyle = map[string]lipgloss.Style{}, bold
 }

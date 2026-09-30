@@ -168,7 +168,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		desc := strings.TrimSpace(iss.Description)
 		b.WriteString(sectionHead(descHead, "  "+m.descHint(desc != ""), max(width, 1)))
 		if desc != "" {
-			b.WriteString(renderMarkdown(desc, m.emojiImg, nil, ""))
+			b.WriteString(renderMarkdown(m.numberDesc(iss.Key, desc), m.emojiImg, nil, ""))
 		}
 	}
 	// Rich-text fields read like the description, under their own heads.

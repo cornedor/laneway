@@ -38,6 +38,8 @@ const (
 	tableAlignSep = "\x00A"
 	tableRowSep   = "\x00R"
 	tableCellSep  = "\x00C"
+	tableBGStart  = "\x00B" // a cell's background opener follows, up to tableBGEnd
+	tableBGEnd    = "\x00E"
 )
 
 var (
@@ -50,6 +52,7 @@ var (
 type mdTable struct {
 	aligns []tableAlign
 	rows   [][]string
+	bgs    [][]string // per cell, the sequence opening its background, or ""
 }
 
 // encodeTable packs a parsed table into the single opaque body line that
@@ -98,11 +101,20 @@ func decodeTable(line string) (*mdTable, bool) {
 			aligns[i] = alignLeft
 		}
 	}
-	var rows [][]string
+	var rows, bgs [][]string
 	for _, rowStr := range strings.Split(rest, tableRowSep) {
-		rows = append(rows, strings.Split(rowStr, tableCellSep))
+		cells := strings.Split(rowStr, tableCellSep)
+		bg := make([]string, len(cells))
+		for i, c := range cells {
+			if rest, ok := strings.CutPrefix(c, tableBGStart); ok {
+				if end := strings.Index(rest, tableBGEnd); end >= 0 {
+					bg[i], cells[i] = rest[:end], rest[end+len(tableBGEnd):]
+				}
+			}
+		}
+		rows, bgs = append(rows, cells), append(bgs, bg)
 	}
-	return &mdTable{aligns: aligns, rows: rows}, true
+	return &mdTable{aligns: aligns, rows: rows, bgs: bgs}, true
 }
 
 // tableLines decodes an encoded table line and lays it out to fit width,
@@ -186,7 +198,11 @@ func renderTableBox(t *mdTable, width int) []string {
 	out := make([]string, 0, len(t.rows)+3)
 	out = append(out, rule("┌", "┬", "┐"))
 	for ri, row := range t.rows {
-		out = append(out, renderTableRow(row, cols, t.aligns, ri == 0)...)
+		var bgs []string
+		if ri < len(t.bgs) {
+			bgs = t.bgs[ri]
+		}
+		out = append(out, renderTableRow(row, bgs, cols, t.aligns, ri == 0)...)
 		if ri == 0 && len(t.rows) > 1 {
 			out = append(out, rule("├", "┼", "┤"))
 		}
@@ -198,7 +214,7 @@ func renderTableBox(t *mdTable, width int) []string {
 // renderTableRow renders one logical row, soft-wrapping each cell within its
 // column so a tall cell stretches the row across several lines. Header cells are
 // bolded when they carry no inner styling of their own.
-func renderTableRow(row []string, cols []int, aligns []tableAlign, header bool) []string {
+func renderTableRow(row, bgs []string, cols []int, aligns []tableAlign, header bool) []string {
 	const gutter = "  "
 	n := len(cols)
 	cellLines := make([][]string, n)
@@ -236,9 +252,11 @@ func renderTableRow(row []string, cols []int, aligns []tableAlign, header bool) 
 			if h < len(cellLines[c]) {
 				seg = cellLines[c][h]
 			}
-			b.WriteString(" ")
-			b.WriteString(padCell(seg, cols[c], aligns[c]))
-			b.WriteString(" ")
+			bg := ""
+			if c < len(bgs) {
+				bg = bgs[c]
+			}
+			b.WriteString(onBackground(" "+padCell(seg, cols[c], aligns[c])+" ", bg))
 			b.WriteString(bar)
 		}
 		lines[h] = b.String()
@@ -247,12 +265,15 @@ func renderTableRow(row []string, cols []int, aligns []tableAlign, header bool) 
 }
 
 // wrapCell hard-wraps a styled cell to width cells per line (ANSI-aware), always
-// returning at least one line.
+// returning at least one line. A style open at a line's end closes there and
+// opens again on the next, so it can't run into the border.
 func wrapCell(cell string, width int) []string {
 	if width < 1 || cell == "" {
 		return []string{""}
 	}
-	return strings.Split(ansi.Wrap(cell, width, ""), "\n")
+	parts := strings.Split(ansi.Wrap(cell, width, ""), "\n")
+	carryStyle(parts)
+	return parts
 }
 
 // padCell pads (or, defensively, truncates) a single wrapped cell line to

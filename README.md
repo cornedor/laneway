@@ -428,12 +428,22 @@ your text in a file and says where. Paragraphs,
 headings, lists, code, quotes, rules and bold / italic / code / strike /
 links are text to edit; text that would read as markdown (a `*`, a `#`
 at a line's start, a `:smile:` typed as words) is escaped with `\`. An
-emoji edits as its `:shortcode:`, and a panel (info, note, success, …) as
-its text between `<!-- panel:info -->` and `<!-- /panel -->`. A mention,
-date or status inside text stands as `⟦2 @Ada⟧`: edit around it, delete it
-to drop it. A block markdown can't keep as it is — a table, an image —
-stands as a `<!-- keep:1 table … -->` line: move it and the block moves,
-delete it and the block goes, anything else and it comes back untouched. Your own
+emoji edits as its `:shortcode:`, a panel (info, note, success, …) as
+its text between `<!-- panel:info -->` and `<!-- /panel -->`, an expand
+between `<!-- expand: Title -->` and `<!-- /expand -->`. Action items are
+`- [ ] `, decisions `<> `, tables `| a | b |` rows; underline, sub,
+superscript and colour are `<u>`, `<sub>`, `<sup>` and
+`<span style="color:#ff5630">`; a mention is `@Ada Lovelace`, a date
+`<date>2026-09-30</date>`, a status `<status color="green">DONE</status>`,
+a smart link `<https://…>`, a link card `<!-- card: https://… -->`, a
+cell's colour `<!-- bg:#deebff -->`. `/` at a line's start lists all of
+these to insert (`/warn`, `/todo`, `/green`), and `@` lists people. What
+else sits inside text stands as `⟦2 …⟧`: edit around it, delete it to
+drop it. A block markdown can't keep as it is — an image, a table with
+merged cells — stands as a `<!-- keep:1 table … -->` line: move it and
+the block moves, delete it and the block goes, anything else and it comes
+back untouched. A synced block or columns edit as their text between
+`<!-- block:2 … -->` and `<!-- /block -->`. Your own
 comments edit the same way from `A` → Edit a comment.
 
 In the `c` composer (`ctrl+s` posts, `enter` is a newline; `esc` asks once before dropping what you wrote; a post that fails keeps the text for the next `c`), `@` and a few letters list matching users;

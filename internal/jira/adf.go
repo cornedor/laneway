@@ -2,6 +2,7 @@ package jira
 
 import (
 	"encoding/json"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -55,7 +56,7 @@ func writeBlocks(b *strings.Builder, nodes []adfNode, indent string) {
 func writeBlock(b *strings.Builder, n adfNode, indent string) {
 	switch n.Type {
 	case "paragraph":
-		if line := inline(n.Content); strings.TrimSpace(line) != "" {
+		if line := strings.Trim(inline(n.Content), "\n"); strings.TrimSpace(line) != "" {
 			b.WriteString(indent + line + "\n\n")
 		}
 	case "heading":
@@ -67,7 +68,7 @@ func writeBlock(b *strings.Builder, n adfNode, indent string) {
 	case "bulletList":
 		writeList(b, n.Content, indent, "- ")
 	case "orderedList":
-		writeOrderedList(b, n.Content, indent)
+		writeOrderedList(b, n.Content, indent, listOrder(n))
 	case "codeBlock":
 		lang, _ := n.Attrs["language"].(string)
 		b.WriteString("```" + lang + "\n" + codeText(n.Content) + "\n```\n\n")
@@ -80,6 +81,41 @@ func writeBlock(b *strings.Builder, n adfNode, indent string) {
 		b.WriteString("\n")
 	case "rule":
 		b.WriteString("---\n\n")
+	case "table":
+		writeTable(b, n)
+	case "taskList":
+		writeTaskList(b, n.Content, indent)
+		if indent == "" {
+			b.WriteString("\n")
+		}
+	case "decisionList":
+		for _, item := range n.Content {
+			b.WriteString(indent + "<> " + inline(item.Content) + "\n")
+		}
+		if indent == "" {
+			b.WriteString("\n")
+		}
+	case "panel":
+		typ, _ := n.Attrs["panelType"].(string)
+		if !panelOpen.MatchString("<!-- panel:" + typ + " -->") {
+			writeBlocks(b, n.Content, indent)
+			break
+		}
+		b.WriteString("<!-- panel:" + typ + " -->\n\n")
+		writeBlocks(b, n.Content, "")
+		b.WriteString(panelClose + "\n\n")
+	case "expand", "nestedExpand":
+		open := "<!-- expand -->"
+		if title, _ := n.Attrs["title"].(string); title != "" {
+			open = "<!-- expand: " + title + " -->"
+		}
+		b.WriteString(open + "\n\n")
+		writeBlocks(b, n.Content, "")
+		b.WriteString(expandClose + "\n\n")
+	case "blockCard", "embedCard":
+		if href, ok := n.Attrs["url"].(string); ok {
+			b.WriteString(indent + "<!-- card: " + mdHref(href) + " -->\n\n")
+		}
 	case "mediaGroup", "mediaSingle":
 		// Each media names its file in alt; toIssue resolves the name to an
 		// attachment id (see resolveMedia).
@@ -114,13 +150,118 @@ func writeList(b *strings.Builder, items []adfNode, indent, marker string) {
 	}
 }
 
-func writeOrderedList(b *strings.Builder, items []adfNode, indent string) {
+func writeOrderedList(b *strings.Builder, items []adfNode, indent string, order int) {
 	for i, item := range items {
-		writeListItem(b, item, indent, itoa(i+1)+". ")
+		writeListItem(b, item, indent, itoa(order+i)+". ")
 	}
 	if indent == "" {
 		b.WriteString("\n")
 	}
+}
+
+// listOrder is the number an ordered list starts at.
+func listOrder(n adfNode) int {
+	if o, ok := n.Attrs["order"].(float64); ok && o >= 0 {
+		return int(o)
+	}
+	return 1
+}
+
+// writeTaskList renders task items as "- [ ] " / "- [x] " lines, a nested
+// task list one step deeper.
+func writeTaskList(b *strings.Builder, items []adfNode, indent string) {
+	for _, it := range items {
+		switch it.Type {
+		case "taskItem":
+			box := "[ ]"
+			if it.Attrs["state"] == "DONE" {
+				box = "[x]"
+			}
+			b.WriteString(indent + "- " + box + " " + inline(it.Content) + "\n")
+		case "taskList":
+			writeTaskList(b, it.Content, indent+"  ")
+		}
+	}
+}
+
+// writeTable renders a table as a GFM pipe table. A table without a header
+// row gets an empty one, which GFM requires. What a pipe table can't hold
+// (a list in a cell, a merged cell) reads flattened.
+func writeTable(b *strings.Builder, n adfNode) {
+	cols := 0
+	for _, row := range n.Content {
+		cols = max(cols, len(row.Content))
+	}
+	if cols == 0 {
+		return
+	}
+	rows := n.Content
+	line := func(cells []string) {
+		for len(cells) < cols {
+			cells = append(cells, "")
+		}
+		b.WriteString("| " + strings.Join(cells, " | ") + " |\n")
+	}
+	if headerRow(n) {
+		line(cellTexts(rows[0], true))
+		rows = rows[1:]
+	} else {
+		line(nil)
+	}
+	line(slices.Repeat([]string{"---"}, cols))
+	for _, row := range rows {
+		line(cellTexts(row, false))
+	}
+	b.WriteString("\n")
+}
+
+// headerRow reports whether a table's first row is all header cells.
+func headerRow(table adfNode) bool {
+	return len(table.Content) > 0 && len(table.Content[0].Content) > 0 &&
+		!slices.ContainsFunc(table.Content[0].Content, func(c adfNode) bool { return c.Type != "tableHeader" })
+}
+
+// cellTexts is a row's cells as one line each, pipes escaped. A cell's
+// background leads it as <!-- bg:#rrggbb -->, a header cell off the
+// header row as <!-- th -->.
+func cellTexts(row adfNode, header bool) []string {
+	var out []string
+	for _, cell := range row.Content {
+		text := strings.ReplaceAll(cellText(cell.Content), "|", `\|`)
+		if cell.Type == "tableHeader" && !header {
+			text = "<!-- th --> " + text
+		}
+		if bg, _ := cell.Attrs["background"].(string); cssColor.MatchString(bg) {
+			text = "<!-- bg:" + bg + " --> " + text
+		}
+		out = append(out, strings.TrimSpace(text))
+	}
+	return out
+}
+
+// statusColor is a status lozenge's colour name.
+var statusColor = regexp.MustCompile(`^(neutral|purple|blue|red|yellow|green)$`)
+
+// cellText flattens a cell's blocks onto one line.
+func cellText(nodes []adfNode) string {
+	var parts []string
+	for _, n := range nodes {
+		var s string
+		switch n.Type {
+		case "paragraph", "heading", "taskItem", "decisionItem":
+			s = inline(n.Content)
+		case "text":
+			s = n.Text
+		case "codeBlock":
+			s = "`" + codeText(n.Content) + "`"
+		default:
+			s = cellText(n.Content)
+		}
+		if s = strings.TrimSpace(strings.ReplaceAll(s, "\n", " ")); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 // writeListItem renders one listItem: its first paragraph on the marker line,
@@ -133,7 +274,7 @@ func writeListItem(b *strings.Builder, item adfNode, indent, marker string) {
 		case child.Type == "bulletList":
 			writeList(b, child.Content, indent+"  ", "- ")
 		case child.Type == "orderedList":
-			writeOrderedList(b, child.Content, indent+"  ")
+			writeOrderedList(b, child.Content, indent+"  ", listOrder(child))
 		case child.Type == "paragraph":
 			b.WriteString(indent + strings.Repeat(" ", len(marker)) + inline(child.Content) + "\n")
 		default:
@@ -160,7 +301,7 @@ func codeText(nodes []adfNode) string {
 // into a single markdown line.
 func inline(nodes []adfNode) string {
 	var b strings.Builder
-	for _, n := range nodes {
+	for _, n := range mergeTexts(nodes) {
 		switch n.Type {
 		case "text":
 			b.WriteString(applyMarks(n.Text, n.Marks))
@@ -168,21 +309,28 @@ func inline(nodes []adfNode) string {
 			b.WriteString("\n")
 		case "mention":
 			if name, ok := n.Attrs["text"].(string); ok {
-				b.WriteString(strings.TrimPrefix(name, "@"))
+				b.WriteString("@" + strings.TrimPrefix(name, "@"))
 			}
 		case "emoji":
 			b.WriteString(emojiText(n))
-		case "inlineCard":
+		case "inlineCard": // <https://…>, a smart link
 			if href, ok := n.Attrs["url"].(string); ok {
-				b.WriteString(href)
+				b.WriteString("<" + mdHref(href) + ">")
 			}
 		case "date": // attrs.timestamp: ms since the epoch, a UTC midnight
 			if ms, ok := adfMillis(n.Attrs["timestamp"]); ok {
-				b.WriteString(time.UnixMilli(ms).UTC().Format("2006-01-02"))
+				b.WriteString("<date>" + time.UnixMilli(ms).UTC().Format("2006-01-02") + "</date>")
 			}
-		case "status":
+		case "status": // <status color="green">DONE</status>, as the panel draws it
 			if txt, ok := n.Attrs["text"].(string); ok && txt != "" {
-				b.WriteString("[" + strings.ToUpper(txt) + "]")
+				if n.Attrs["style"] != "mixedCase" {
+					txt = strings.ToUpper(txt)
+				}
+				color, _ := n.Attrs["color"].(string)
+				if !statusColor.MatchString(color) {
+					color = "neutral"
+				}
+				b.WriteString(`<status color="` + color + `">` + txt + "</status>")
 			}
 		default:
 			if len(n.Content) > 0 {
@@ -191,6 +339,26 @@ func inline(nodes []adfNode) string {
 		}
 	}
 	return b.String()
+}
+
+// mergeTexts joins adjacent text nodes carrying the same marks, so
+// "**a b**" writes as one span rather than "**a** **b**".
+func mergeTexts(nodes []adfNode) []adfNode {
+	var out []adfNode
+	for _, n := range nodes {
+		if l := len(out) - 1; l >= 0 && n.Type == "text" && out[l].Type == "text" && sameMarks(out[l].Marks, n.Marks) {
+			out[l].Text += n.Text
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
+func sameMarks(a, b []adfMark) bool {
+	x, _ := json.Marshal(a)
+	y, _ := json.Marshal(b)
+	return string(x) == string(y)
 }
 
 // adfMillis reads a date node's timestamp: a string by the spec, a number
@@ -213,6 +381,8 @@ func applyMarks(text string, marks []adfMark) string {
 		return text
 	}
 	var href string
+	marks = slices.Clone(marks) // in one order, whatever order Jira keeps them in
+	slices.SortStableFunc(marks, func(a, b adfMark) int { return markRank(a.Type) - markRank(b.Type) })
 	for _, mk := range marks {
 		switch mk.Type {
 		case "strong":
@@ -223,6 +393,20 @@ func applyMarks(text string, marks []adfMark) string {
 			text = "`" + text + "`"
 		case "strike":
 			text = "~~" + text + "~~"
+		case "underline":
+			text = "<u>" + text + "</u>"
+		case "subsup":
+			if t, _ := mk.Attrs["type"].(string); t == "sub" || t == "sup" {
+				text = "<" + t + ">" + text + "</" + t + ">"
+			}
+		case "textColor", "backgroundColor":
+			if c, _ := mk.Attrs["color"].(string); cssColor.MatchString(c) {
+				prop := "color"
+				if mk.Type == "backgroundColor" {
+					prop = "background-color"
+				}
+				text = `<span style="` + prop + ":" + c + `">` + text + "</span>"
+			}
 		case "link":
 			if h, ok := mk.Attrs["href"].(string); ok {
 				href = h
@@ -233,6 +417,11 @@ func applyMarks(text string, marks []adfMark) string {
 		text = "[" + text + "](" + mdHref(href) + ")"
 	}
 	return text
+}
+
+// markRank orders marks innermost first as applyMarks writes them.
+func markRank(typ string) int {
+	return slices.Index([]string{"code", "em", "strong", "strike", "underline", "subsup", "textColor", "backgroundColor", "link"}, typ)
 }
 
 // mdHref percent-encodes the characters that end a markdown link's URL early.

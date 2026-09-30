@@ -366,6 +366,15 @@ func renderMarkdown(msg string, ei *emojiImages, mr changeInlineFn, self string)
 			continue
 		}
 
+		// A Jira panel or expand: its lines render as markdown of their own,
+		// behind a bar (see adfmarkdown.go).
+		if rows, next, ok := renderContainer(lines, i, ei, mr, self); ok {
+			out = append(out, rows...)
+			i = next - 1
+			prevBlank = false
+			continue
+		}
+
 		// Blockquote: the run of > lines renders as markdown of its own, so
 		// fences, lists and nested quotes work inside it, behind a bar. A
 		// table's encoded line keeps no gutter and stays unbarred.
@@ -381,6 +390,16 @@ func renderMarkdown(msg string, ei *emojiImages, mr changeInlineFn, self string)
 				}
 				out = append(out, ln)
 			}
+			prevBlank = false
+			continue
+		}
+		if m := mdCardRe.FindStringSubmatch(strings.TrimSpace(raw)); m != nil { // a link card
+			out = append(out, "  "+renderInline(m[1], ei, mr, self))
+			prevBlank = false
+			continue
+		}
+		if line, ok := taskLine(raw); ok {
+			out = append(out, "  "+line[:len(line)-len(strings.TrimLeft(line, " "))]+renderInline(strings.TrimLeft(line, " "), ei, mr, self))
 			prevBlank = false
 			continue
 		}
@@ -405,6 +424,9 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 		return mdCodeSentinel + strconv.Itoa(len(codes)-1) + "\x00"
 	})
 
+	// A Jira smart link, <https://…>, is its URL.
+	s = mdAutolinkRe.ReplaceAllString(s, "$1")
+
 	// Emoji shortcodes first. A name Mattermost knows becomes its font glyph;
 	// anything else is a custom-emoji candidate, resolved to an inline-image
 	// placeholder when ready (and recorded as a sighting otherwise). The
@@ -413,6 +435,9 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 	s = emojiShortcodeRe.ReplaceAllStringFunc(s, func(m string) string {
 		name := m[1 : len(m)-1]
 		if g := unicodeEmojiGlyph(name); g != "" {
+			return g
+		}
+		if g := atlassianEmoji(name); g != "" {
 			return g
 		}
 		if ei != nil {
@@ -490,7 +515,7 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 		})
 	}
 
-	s = mdEmphasis(s)
+	s = mdTags(mdEmphasis(mdStatus(s)))
 	restoreCodes := func(s string) string {
 		for i, c := range codes {
 			s = strings.Replace(s, mdCodeSentinel+strconv.Itoa(i)+"\x00", renderCodeSpan(c), 1)
@@ -500,7 +525,7 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 	s = restoreCodes(s)
 	for i, l := range links {
 		text := mdLinkStyle.Render(l.text)
-		if styled := restoreCodes(mdEmphasis(l.text)); l.md && styled != l.text {
+		if styled := restoreCodes(mdTags(mdEmphasis(l.text))); l.md && styled != l.text {
 			// Render would split the inner escapes apart: open the link's
 			// style by hand, again after each inner reset. (A bare URL's
 			// underscores are not emphasis, so only [text](url) gets here.)
@@ -560,7 +585,14 @@ func parseTable(lines []string, i int, ei *emojiImages, mr changeInlineFn, self 
 		row := make([]string, n)
 		for c := 0; c < n; c++ {
 			if c < len(cells) {
-				row[c] = renderInline(strings.TrimSpace(cells[c]), ei, mr, self)
+				text, bg, header := cellBackground(strings.TrimSpace(cells[c]))
+				row[c] = renderInline(text, ei, mr, self)
+				if header {
+					row[c] = tableHeaderStyle.Render(row[c])
+				}
+				if bg != "" {
+					row[c] = tableBGStart + bg + tableBGEnd + row[c]
+				}
 			}
 		}
 		return row

@@ -79,12 +79,12 @@ func TestADFToMarkdown(t *testing.T) {
 					{"type":"text","text":" is "},
 					{"type":"status","attrs":{"text":"Blocked","color":"red"}}]}
 			]}`,
-			want: "Due 2026-09-26 is [BLOCKED]",
+			want: `Due <date>2026-09-26</date> is <status color="red">BLOCKED</status>`,
 		},
 		{
 			name: "date with a numeric timestamp",
 			adf:  `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"date","attrs":{"timestamp":1790380800000}}]}]}`,
-			want: "2026-09-26",
+			want: "<date>2026-09-26</date>",
 		},
 		{
 			name: "unknown block degrades to text",

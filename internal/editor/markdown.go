@@ -1,6 +1,15 @@
 package editor
 
-import "unicode"
+import (
+	"regexp"
+	"strings"
+	"unicode"
+)
+
+// mdTag is an inline tag at a string's start, as Jira text written for
+// markdown uses: <u>, <sub>, <sup>, <date>, <span style="color:#…">,
+// <status color="…">, their closers.
+var mdTag = regexp.MustCompile(`^(?:</?(?:u|sub|sup|date)>|<(?:span style|status color)="[^"]*">|</(?:span|status)>)`)
 
 // mdClass tags a rune with the markdown role it plays, so View can paint markers
 // and content differently. Offsets are into Value() (newlines counted), matching
@@ -212,9 +221,22 @@ func markInline(cl []mdClass, start int, line []rune) {
 		set(close, close+markerLen, mdMarker)
 		return close + markerLen
 	}
+	// A comment line (a Jira panel's or kept block's marker) is all syntax.
+	if t := strings.TrimSpace(string(line)); strings.HasPrefix(t, "<!--") && strings.HasSuffix(t, "-->") {
+		set(0, n, mdMarker)
+		return
+	}
 	i := 0
 	for i < n {
 		switch {
+		case line[i] == '<':
+			// A tag for what markdown lacks: <u>, <sub>, <span style="…">.
+			if tag := mdTag.FindString(string(line[i:])); tag != "" {
+				l := len([]rune(tag))
+				set(i, i+l, mdMarker)
+				i += l
+				continue
+			}
 		case line[i] == '!', line[i] == '[':
 			// Link or image: [text](url) / ![text](url), title optional.
 			if l, ok := linkSpan(line, i); ok {

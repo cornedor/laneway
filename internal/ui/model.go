@@ -397,8 +397,10 @@ type Model struct {
 	branchKey     string         // the issue of the git branch laneway started in
 	webLinks      []jira.WebLink // webLinksKey's remote links
 	webLinksKey   string
-	children      []jira.Child // webLinksKey's child issues, when it is an epic
-	showEmpty     bool         // the empty fields ui.empty_fields: hide folds, shown for the session
+	children      []jira.Child    // webLinksKey's child issues, when it is an epic
+	showEmpty     bool            // the empty fields ui.empty_fields: hide folds, shown for the session
+	descOpen      map[string]bool // the description expands opened, by "KEY#n"; closed as in Jira
+	descTasks     []bool          // the action items the panel's description shows: done or not
 	// panelHits are the panel's clickable lines by content line: a field's
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.
@@ -635,6 +637,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.BackgroundColorMsg:
+		termBG = msg.Color
 		adaptTheme(msg.Color)
 		autoShade(msg.Color)
 		m.sizeRefView() // shaded, the trail drops its rule

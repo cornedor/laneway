@@ -19,9 +19,11 @@ import (
 // @mentions in the comment composer: "@" and a few letters before the
 // cursor search the issue's assignable people, from the project's kept
 // list at once, else Jira after mentionDelay; tab takes the chosen one,
-// written as "@Name" and posted as a real mention. ":" and two letters
-// offer emoji the same way (emoji_complete.go), in the description editor
-// too, written as ":name:" and posted as Jira's emoji. While a list shows,
+// written as "@Name" and posted as a real mention; in the description
+// editor too, where the person is kept to save it as one. ":" and two
+// letters offer emoji the same way (emoji_complete.go), written as
+// ":name:" and posted as Jira's emoji; "/" at a line's start Jira's
+// content (quick_insert.go). While a list shows,
 // ↑/↓ (ctrl+p/n) choose, tab or enter takes, esc closes it. The list is a
 // box drawn over the screen at the cursor, so nothing under it moves.
 
@@ -34,7 +36,8 @@ const (
 type mentionState struct {
 	start int // where the "@" (or ":") is, in runes
 	sugg  []jira.User
-	emoji []string // the emoji offered instead, their names, for query
+	emoji []string    // the emoji offered instead, their names, for query
+	quick []quickItem // or what "/" inserts
 	query string
 	idx   int
 	seq   int
@@ -73,11 +76,15 @@ func mentionAt(text string, cursor int) (query string, start int, ok bool) {
 }
 
 // mentionEditor is the editor @ completes in and where its people are
-// searched: the comment composer on its issue, or the create form's
+// searched: the comment composer on its issue, the description (or a
+// comment or field) being edited on its issue, or the create form's
 // description in its project; nil for none.
 func (m *Model) mentionEditor() (*editor.Model, string) {
 	if m.jiraCommentActive {
 		return &m.jiraCommentInput, m.jiraCommentKey
+	}
+	if m.descEdit != nil {
+		return &m.descEdit.input, m.descEdit.key
 	}
 	if f := m.jiraForm; f != nil && f.create != nil && f.create.form && f.editing && f.multiline && f.idx < len(f.fields) && f.fields[f.idx].ID == createDescField {
 		return &f.area, f.create.in.Project
@@ -88,9 +95,11 @@ func (m *Model) mentionEditor() (*editor.Model, string) {
 // scheduleMention arms a search for the name at the cursor, or drops the
 // completion when there is none.
 func (m *Model) scheduleMention() tea.Cmd {
+	if m.scheduleQuick() {
+		return nil
+	}
 	ed, _ := m.mentionEditor()
 	if ed == nil {
-		m.scheduleEmoji() // the description editor completes emoji only
 		return nil
 	}
 	if m.scheduleEmoji() {
@@ -173,7 +182,7 @@ func (m Model) handleMentionFound(msg mentionFoundMsg) (tea.Model, tea.Cmd) {
 // mentionKey handles the completion's keys while it shows; false otherwise.
 func (m *Model) mentionKey(k string) bool {
 	ms := &m.jiraMention
-	n := max(len(ms.sugg), len(ms.emoji))
+	n := max(len(ms.sugg), len(ms.emoji), len(ms.quick))
 	if n == 0 {
 		if ms.searching && k == "esc" { // "searching…" shows
 			m.jiraMention = mentionState{seq: ms.seq + 1}
@@ -187,9 +196,13 @@ func (m *Model) mentionKey(k string) bool {
 	case "up", "ctrl+p":
 		ms.idx = (ms.idx + n - 1) % n
 	case "tab", "enter":
-		if len(ms.emoji) > 0 {
+		switch {
+		case len(ms.quick) > 0:
+			m.acceptQuick(ms.quick[ms.idx])
+			return true
+		case len(ms.emoji) > 0:
 			m.acceptEmoji(ms.emoji[ms.idx])
-		} else {
+		default:
 			m.acceptMention(ms.sugg[ms.idx])
 		}
 	case "esc":
@@ -214,9 +227,12 @@ func (m *Model) acceptMention(u jira.User) {
 	in.SetValue(string(r[:start]) + name + string(r[cur:]))
 	in.SetCursorOffset(start + len([]rune(name)))
 	who := jira.Mention{AccountID: u.AccountID, DisplayName: u.DisplayName}
-	if m.jiraCommentActive {
+	switch {
+	case m.jiraCommentActive:
 		m.jiraCommentMentions = append(m.jiraCommentMentions, who)
-	} else {
+	case m.descEdit != nil: // kept with the markdown, saved as a mention
+		m.descEdit.kept = append(m.descEdit.kept, jira.MentionNode("mention", map[string]any{"id": u.AccountID, "text": "@" + u.DisplayName}))
+	default:
 		m.jiraForm.create.mentions = append(m.jiraForm.create.mentions, who)
 	}
 	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
@@ -232,6 +248,10 @@ func (m *Model) renderCompletion() string {
 	ms := m.jiraMention
 	var rows []string
 	switch {
+	case len(ms.quick) > 0:
+		for _, it := range ms.quick {
+			rows = append(rows, it.label)
+		}
 	case len(ms.emoji) > 0:
 		for _, name := range ms.emoji {
 			g := emoji.Glyph(name)
