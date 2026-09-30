@@ -122,3 +122,23 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .tr-row:hover { background: var(--bg-4); }
 .tr-mark { color: var(--fg-3); } .tr-key { font-family: var(--font-mono); font-weight: 600; flex: none; }
 .tr-row .pill { flex: none; font-size: .85em; padding: 0 .429rem; } .tr-sum { color: var(--fg-2); flex: 1; }
+
+/* Terminal tab (views/issue_term.js): the agent's terminal (lib/term.js, .ag-* in agents.css) fills the panel under the head. */
+.pane.terminal { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .286rem; padding: .429rem calc(var(--pad) * 2) var(--pad); outline: none; }
+.pane.terminal[hidden] { display: none; }
+.iss.term-on .iss-title { font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: .286rem 0 .143rem; }
+.iss.term-on .iss-sub { padding-bottom: .286rem; }
+.iss.term-typing .ag-termbox { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.it-meta { display: flex; flex-wrap: wrap; gap: .286rem; align-items: center; font-size: .857rem; min-width: 0; }
+.it-meta:empty { display: none; }
+.it-agent { font: inherit; display: inline-flex; gap: .357rem; align-items: baseline; max-width: 100%; min-width: 0; padding: .071rem .5rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-3); color: var(--fg-2); cursor: pointer; }
+.it-agent:disabled { cursor: default; opacity: 1; }
+.it-agent.on { border-color: var(--accent); color: var(--fg); }
+.it-agent.st-working .g, .it-st.st-working { color: var(--info); } .it-agent.st-blocked .g, .it-st.st-blocked { color: var(--warn); }
+.it-agent.st-done .g, .it-st.st-done { color: var(--ok); } .it-agent.st-idle .g, .it-st.st-idle, .it-st.st-unknown { color: var(--fg-3); }
+.it-more kbd { font-size: .714rem; }
+.it-none { padding: calc(var(--pad) * 2) 0; display: flex; flex-direction: column; gap: var(--pad); align-items: flex-start; }
+.it-none[hidden] { display: none; }
+.it-none kbd { margin-left: .286rem; }
+/* Room for a usable terminal beside a board (about 70 columns); the phone sheet is full width anyway. */
+@media (min-width: 901px) { #panel.term-on { min-width: min(40rem, 70%); } }

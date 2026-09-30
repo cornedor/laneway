@@ -15,8 +15,9 @@ const TABLE = {
   standup: { ...COMMON, Enter: 'open' },
   agents: { Enter: 'open', v: 'toggle_panel', 'ctrl+\\': 'agent_back' },
   terminal: { 'ctrl+\\': 'agent_back' },
+  'agents-global': { 'ctrl+\\': 'agent_back' },
   issue: { j: 'next_comment', ArrowDown: 'next_comment', k: 'prev_comment', ArrowUp: 'prev_comment', c: 'comment', R: 'reply', e: 'summary', E: 'description', a: 'assign', p: 'priority', P: 'points',
-    l: 'labels', r: 'refresh', d: 'delete_comment', L: 'linked_issue', y: 'copy_key', Y: 'copy_url', o: 'browser', s: 'status' },
+    l: 'labels', r: 'refresh', d: 'delete_comment', L: 'linked_issue', y: 'copy_key', Y: 'copy_url', o: 'browser', s: 'status', 'ctrl+\\': 'agent_back' },
 };
 export const actionFor = (scope, spec) => (TABLE[scope] && TABLE[scope][spec]) || '';
 

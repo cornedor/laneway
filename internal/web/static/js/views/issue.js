@@ -1,5 +1,6 @@
 // The issue panel (right-hand aside) and full page. mountIssue(el, key, {app, full}) → cleanup.
-// One scroll, three tabs: Details (fields, development, description, children, links, files), Comments, History.
+// One scroll, three tabs: Details (fields, development, description, children, links, files), Comments, History;
+// a fourth, Terminal, while a herdr agent works on the issue (views/issue_term.js).
 // Renders from cache first, refetches, and patches sections rather than rebuilding them.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
@@ -7,6 +8,8 @@ import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
 import { issueActions } from './actions.js';
 import { mountDev } from './issue_dev.js';
+import { mountTerm } from './issue_term.js';
+import { GLYPH, LABEL } from '../lib/agents.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
@@ -21,6 +24,13 @@ const catOf = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 export function follow(k) {
   if (here && here.key !== k) { trail.push(here.entry()); expect = k; }
 }
+// showTerminal: type into k's agent in its Terminal tab (ctrl+\ anywhere); the panel opens on k when needed.
+let termWant = '';
+export function showTerminal(app, k) {
+  if (here && here.key === k) return here.term();
+  termWant = k;
+  app.panel.open(k);
+}
 const drafts = new Map();    // unsent comment text by issue key
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
 const dash = h('span.faint', '—');
@@ -33,7 +43,9 @@ export function mountIssue(el, key, { app, full }) {
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
   if (expect !== key) trail.length = 0;
   expect = null;
-  const me_ = here = { key, entry: () => ({ key, ...(meta.get(key) || {}) }) };
+  const startTerm = termWant === key;
+  termWant = '';
+  const me_ = here = { key, entry: () => ({ key, ...(meta.get(key) || {}) }), term: () => openTerm(true) };
   let dead = false;
   const editors = new Set();
   const scope = app.keys.scope('issue');
@@ -62,7 +74,8 @@ export function mountIssue(el, key, { app, full }) {
   let offNotes = null;
   import('./issue_notes.js').then(m => { if (!dead) offNotes = m.mountNotes(panes.details, key, { app, el, full }); });
   scroll.append(panes.details, panes.comments, panes.history);
-  const root = h('div.iss' + (full ? '.full' : ''), !full && h('div.iss-grip', { title: 'Drag to resize', role: 'separator' }), head, tabs, scroll);
+  const term = mountTerm(key, { app, back: () => { setTab('details'); scroll.focus({ preventScroll: true }); }, repaint: () => { if (!dead) renderTabs(); } });
+  const root = h('div.iss' + (full ? '.full' : ''), !full && h('div.iss-grip', { title: 'Drag to resize', role: 'separator' }), head, tabs, scroll, term.el);
   el.append(root);
 
   // ---- helpers
@@ -146,15 +159,32 @@ export function mountIssue(el, key, { app, full }) {
   }
   function renderTabs() {
     const n = st.issue ? (st.issue.CommentTotal || (st.issue.Comments || []).length) : 0;
-    clear(tabs).append(...[['details', 'Details', '1'], ['comments', 'Comments' + (n ? ' ' + n : ''), '2'], ['history', 'History', '3']].map(([id, label, k]) =>
-      h('button.tab' + (st.tab === id ? '.on' : ''), { role: 'tab', 'aria-selected': st.tab === id, onclick: () => setTab(id) }, label, h('kbd', k))));
+    const ts = [['details', 'Details', '1'], ['comments', 'Comments' + (n ? ' ' + n : ''), '2'], ['history', 'History', '3']];
+    if (term.has() || st.tab === 'terminal') ts.push(['terminal', 'Terminal', '4']);
+    clear(tabs).append(...ts.map(([id, label, k]) => {
+      const s = id === 'terminal' && term.status();
+      return h('button.tab' + (st.tab === id ? '.on' : ''), { role: 'tab', 'aria-selected': st.tab === id, onclick: () => (id !== 'terminal' ? setTab(id) : st.tab !== 'terminal' && openTerm(false)) },
+        s ? h('span.it-st.st-' + s, { title: 'agent ' + (LABEL[s] || s) }, GLYPH[s] || '?') : null, label, h('kbd', k));
+    }));
   }
   function setTab(t) {
     st.tab = t;
     for (const [id, p] of Object.entries(panes)) p.hidden = id !== t;
+    const on = t === 'terminal';
+    scroll.hidden = on;
+    root.classList.toggle('term-on', on);
+    el.classList.toggle('term-on', on);
+    if (on) term.show(); else term.hide();
     renderTabs();
     if (t === 'history') loadHistory();
     if (t === 'comments' && st.focusId == null) focusComment(null);
+  }
+  // The Terminal tab: shown (4, a click) or typing (ctrl+\, enter); 4 on it steps through several agents.
+  function openTerm(typing) {
+    if (!term.has() && st.tab !== 'terminal') return ui.toast(key + ' has no agent: S starts one');
+    if (st.tab === 'terminal' && !typing) return term.next();
+    if (st.tab !== 'terminal') setTab('terminal');
+    if (typing) term.type(); else term.el.focus({ preventScroll: true });
   }
   function goBack() {
     if (!full) return app.panel.close();
@@ -590,8 +620,8 @@ export function mountIssue(el, key, { app, full }) {
     goBack();
   }, full ? 'back' : 'close panel', { group: G, input: true });
   scope.bind('ctrl+Enter', e => { const ed = e.target.closest && e.target.closest('.ed'); if (ed && ed._save) ed._save(); }, 'save / send', { group: G, input: true });
-  scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : scroll.scrollBy({ top: 80 })), 'next comment / scroll down', { group: G });
-  scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : scroll.scrollBy({ top: -80 })), 'previous comment / scroll up', { group: G });
+  scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : st.tab === 'terminal' ? term.scroll(3) : scroll.scrollBy({ top: 80 })), 'next comment / scroll down', { group: G });
+  scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), 'previous comment / scroll up', { group: G });
   scope.bind('ctrl+d', () => scroll.scrollBy({ top: scroll.clientHeight / 2 }), 'half page down', { group: G, hidden: true });
   scope.bind('ctrl+u', () => scroll.scrollBy({ top: -scroll.clientHeight / 2 }), 'half page up', { group: G, hidden: true });
   scope.bind('c', composeComment, 'write a comment', { group: G });
@@ -617,6 +647,10 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('1', () => setTab('details'), 'details tab', { group: G });
   scope.bind('2', () => setTab('comments'), 'comments tab', { group: G });
   scope.bind('3', () => setTab('history'), 'history tab', { group: G });
+  scope.bind('4', () => openTerm(false), 'terminal tab: the issue\'s agent (again: the next agent)', { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || el.contains(document.activeElement)) });
+  scope.bind('ctrl+\\', () => openTerm(true), 'type into the issue\'s agent (its terminal here; ctrl+\\ there back to the issue)', { group: G });
+  scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });
+  scope.bind('t', () => term.type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });
   scope.bind('y', () => copy(key, key), 'copy key', { group: G });
   scope.bind('Y', () => copy(browseURL(), 'Link'), 'copy link', { group: G });
   scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), 'open in Jira', { group: G });
@@ -640,9 +674,11 @@ export function mountIssue(el, key, { app, full }) {
     grip.addEventListener('dblclick', () => { document.documentElement.style.removeProperty('--panel-w'); app.prefs.set('panelW', ''); });
   }
   scroll.focus({ preventScroll: true });
+  if (startTerm) openTerm(true);
 
   return () => {
     dead = true; scope.dispose(); offChanged(); offFocus();
+    term.dispose(); el.classList.remove('term-on');
     for (const e of editors) e.dispose();
     if (offNotes) offNotes();
     dev.dispose();
