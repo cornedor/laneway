@@ -46,7 +46,7 @@ export default function mount(el, { app, scope, toolbar }) {
     const t = rows[i]; if (!t) return;
     const s = st(t), last = t.Entries[t.Entries.length - 1];
     row.className = 'vl-row irow' + (i === sel ? ' sel' : '') + (s.unread ? ' unread' : ' read');
-    row.dataset.i = i;
+    row.dataset.i = i; row.dataset.key = t.Key;
     row.replaceChildren(...[h('span.dot'), h('span.wkey.mono', t.Key), h('span.wsum', t.Summary),
       mentioned(t) && h('span.mention', { title: 'Mentions or assigns you' }, '@'),
       s.done && h('span.chip', 'done'), s.snoozed && h('span.chip', { title: 'Until ' + dateTime(new Date(s.till)) }, 'snoozed'),

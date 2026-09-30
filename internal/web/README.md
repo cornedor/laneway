@@ -24,6 +24,26 @@ app.session  {site, sites, demo, baseURL, me:{AccountID,DisplayName}, projects, 
 
 A view is `export default function mount(el, {app, params, query, scope, toolbar}) → cleanup?`; `scope` is its key scope (auto-disposed), `toolbar` the header slot for filters/buttons. Routes: `js/views/index.js`.
 
+## Keys
+
+Scopes stack: global < view < panel (beside a board the panel's keys fire only with focus in it: `Tab`/click; `esc` closes) < modal. Where the TUI has a key (`internal/ui/keys.go`) the web uses the same; `?` lists what applies right now. Clashes were resolved like this: the TUI meaning stays, the other action moves.
+
+| Scope | Keys |
+| --- | --- |
+| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `tab` panel/view focus, `esc` close panel |
+| Go | `g b` board, `g p` planning, `g r` reports, `g m` roadmap, `g w` my work, `g i` inbox, `g s` standup, `g ,` settings, `g t` next theme |
+| Board | `hjkl`/arrows move, `enter` open, `t` lanes/list, `s` status, `e` summary, `a` assign, `p` priority, `P` points, `H`/`L` move column, `J`/`K` rank, `x` mark, `X` bulk, `o` Jira, `y` copy key, `r` refresh, `S` sort (list), `B` board/project, `v` sprint, `[`/`]` sprint, `f` filter, `m` mine, `A` assignee, `0` clear, `1`-`9` quick filters |
+| Issue panel | `j`/`k` comment or scroll, `c` comment, `R` reply, `e` summary (own focused comment), `E` description, `a` `p` `P` `l` assignee, priority, points, labels, `s` status, `L` link issue, `d` delete own comment, `[`/`]` prev/next issue, `1`-`3` tabs, `y`/`Y` copy key/link, `o` Jira, `r` refresh, `ctrl+enter` save |
+| Planning | `jk` move, `J`/`K` rank, `m` move to sprint, `[`/`]` previous/next sprint, `x`/`space` select, `z` fold, `enter` open, `P` points, `a` assignee, `N` `S` `C` `E` new, start, complete, edit sprint, `b` board, `f` filter, `R` reload |
+| Reports | `h`/`l`/`[`/`]`/arrows previous/next report, `1`-`7` pick, `s` sprint, `b` board, `W` weeks (cycle time), `r` release (releases), `R` reload, `jk` items |
+| Roadmap | `jk` rows, `h`/`l` pan, `+`/`-` zoom, `.` today, `space` fold, `enter` open, `b` project, `n` new epic, `R` reload |
+| My work | `jk` move, `enter` open, `1` `2` `3` issues/day/week, `W` day/week, `h`/`l` step, `0` today, `a` add worklog, `e` edit, `d` delete, `+` add row (week), `f` filter, `v` group, `r` refresh, `y` copy |
+| Inbox | `jk`, `enter`, `e` done, `E` all read done, `s` snooze, `u` unread, `a` toggle read, `o` Jira, `r` refresh, `A` or `tab` inbox/all (`tab` goes to an open panel) |
+| Standup | `jk`, `enter`, `[`/`]` day back/forward, `p` or `tab` mine/team, `P` project, `y` copy, `r` refresh |
+| Settings | `jk`, `enter`/`space`/`l` change, `h` back, `/` filter, `esc` leave |
+
+Moved because of a clash: timer `t`->`T` (board `t` is lanes/list), create `c`->`n` (panel `c` is comment), next theme `T`->`g t`, My work day/week `w`->`W` (`w` logs work), cycle-time weeks `w`->`W`, planning filter `/`->`f` and fold `o`->`z` (`/` is search, `o` is Jira), week-view add row `#`->`+`, issue panel: link `l`->`L` (`l` is labels), reply `r`->`R`, description `e`->`E`, `r` refreshes.
+
 ## Conventions
 
 - Performance is a feature: render from cached data first (`api.swr`), patch DOM instead of rebuilding, virtualise lists over ~150 rows, delegate events, no layout thrash, no dependencies. Optimistic updates for moves/edits, rolled back with a toast on error.
