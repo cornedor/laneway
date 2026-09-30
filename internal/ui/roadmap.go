@@ -911,6 +911,18 @@ func roadmapBar(e jira.Epic, from time.Time, cols, zoom, today int) string {
 		switch {
 		case single && c == s:
 			return cell{"◆", &todo}
+		case !single && c == 0 && s < 0 && t >= 0: // it began before the view
+			if fill > 0 {
+				return cell{"◂", &filled} // some of the done share is out there
+			}
+			return cell{"◂", &todo}
+		case !single && c == cols-1 && t >= cols && s < cols: // it ends after the view
+			return cell{"▸", &todo}
+		case !single && c == today && c >= s && c <= t: // today runs through the bar
+			if c < fill {
+				return cell{"█", &roadmapTodayStyle}
+			}
+			return cell{"▒", &roadmapTodayStyle}
 		case !single && c >= s && c <= t && c < fill:
 			return cell{"█", &filled}
 		case !single && c >= s && c <= t:

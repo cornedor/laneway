@@ -554,3 +554,17 @@ func TestRoadmapFilterEditUndo(t *testing.T) {
 		t.Errorf("undo: end %v, want %v", r.epics[0].End, before)
 	}
 }
+
+// TestRoadmapBarClipped: a bar running past either edge says so, and
+// today shows through it.
+func TestRoadmapBarClipped(t *testing.T) {
+	from := time.Date(2026, 9, 1, 0, 0, 0, 0, time.Local)
+	e := jira.Epic{Start: from.AddDate(0, 0, -6), End: from.AddDate(0, 0, 20), Children: 4, DoneChildren: 1}
+	got := ansi.Strip(roadmapBar(e, from, 10, 1, 3))
+	if got != "◂▒▒▒▒▒▒▒▒▸" {
+		t.Errorf("bar = %q", got)
+	}
+	if bar := roadmapBar(e, from, 10, 1, 3); !strings.Contains(bar, roadmapTodayStyle.Render("▒")) {
+		t.Errorf("today is not drawn on the bar: %q", bar)
+	}
+}
