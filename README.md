@@ -73,6 +73,7 @@ jira:
   # api_token_cmd: [secret-tool, lookup, service, laneway]   # prints the token (pass, op read, …)
   projects: [ABC]         # listed first in the project picker
   repos: {ABC: ~/src/abc} # for S (start work in a herdr worktree), and your commits in U
+  start_statuses: {ABC: Doing} # S moves ABC issues there, over ui.start_status ("" for none)
   timeout: 20s            # one request's limit (an attachment's: without progress); longer actions stretch with it
   story_points_field: customfield_10016  # else found by name ("Story point…")
   start_prompt: "Start on {key}."        # what S hands the agent; {key} is the issue; none: no prompt

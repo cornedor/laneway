@@ -25,7 +25,8 @@ import (
 // default) in it with ui.work_args and the start prompt (jira.start_prompt;
 // none starts it without one). S asks in one form: the agent (the kinds
 // found on PATH, ui.work_agent first), the branch and the prompt, all
-// filled in. An issue whose agent already runs gets attached to instead
+// filled in, plus an Also row ticking ui.start_assigns, ui.start_status
+// and ui.timer_on_start when one is set. An issue whose agent already runs gets attached to instead
 // (agents.go).
 
 const defaultWorkBranch = "issue/{key}-{summary}"
@@ -43,7 +44,10 @@ type jiraWorkMsg struct {
 	pane    string
 	agent   string
 	running bool // the agent was already running in the worktree
-	err     error
+	// skipActions is the form's actions row unticked: no assign, move or
+	// timer (startWrites).
+	skipActions bool
+	err         error
 }
 
 // agentKinds are the agent kinds herdr can start.
@@ -75,9 +79,10 @@ func (m *Model) startJiraWork() tea.Cmd {
 
 // The start work form's rows: which agent, the branch and the prompt.
 const (
-	workAgentField  = "_agent"
-	workBranchField = "_branch"
-	workPromptField = "_prompt"
+	workAgentField   = "_agent"
+	workBranchField  = "_branch"
+	workPromptField  = "_prompt"
+	workActionsField = "_actions"
 )
 
 // openWorkForm asks, in one form, which agent starts on iss (ui.work_agent
@@ -108,8 +113,49 @@ func (m *Model) openWorkForm(iss *jira.Issue) {
 		{FieldMeta: jira.FieldMeta{ID: workBranchField, Name: "Branch", Kind: jira.KindText}, val: jira.Value{Text: branch}},
 		{FieldMeta: jira.FieldMeta{ID: workPromptField, Name: "Prompt", Kind: jira.KindDoc}, val: jira.Value{Text: prompt}},
 	}}
+	if acts := m.startActions(iss.Key); len(acts) > 0 {
+		f.fields = append(f.fields, jiraFormField{FieldMeta: jira.FieldMeta{ID: workActionsField, Name: "Also"},
+			val: jira.Value{Text: strings.Join(acts, " · ")}})
+	}
 	f.idx = len(f.fields)
 	m.jiraForm = f
+}
+
+// startStatus is the status start work moves key to: its project's
+// jira.start_statuses, else ui.start_status; "" for none.
+func (m *Model) startStatus(key string) string {
+	project, _, _ := strings.Cut(key, "-")
+	if s, ok := m.jiraStartStatus[project]; ok {
+		return strings.TrimSpace(s)
+	}
+	return m.opts.startStatus
+}
+
+// startActions are what start work on key does besides the agent, in
+// words, by ui.start_assigns, startStatus and ui.timer_on_start.
+func (m *Model) startActions(key string) []string {
+	var acts []string
+	if m.opts.startAssigns {
+		acts = append(acts, "assign to you")
+	}
+	if s := m.startStatus(key); s != "" {
+		acts = append(acts, "move to "+s)
+	}
+	if m.opts.timerOnStart {
+		acts = append(acts, "start timer")
+	}
+	return acts
+}
+
+// toggleWorkActions ticks or unticks the start work form's actions row: an
+// empty value is unticked.
+func (m *Model) toggleWorkActions(ff *jiraFormField) {
+	if ff.val.Empty() {
+		ff.val.Text = strings.Join(m.startActions(m.jiraForm.key), " · ")
+	} else {
+		ff.val = jira.Value{}
+	}
+	ff.changed = true
 }
 
 // submitWorkForm starts the form's agent on its issue, on its branch, with
@@ -128,6 +174,10 @@ func (m *Model) submitWorkForm() tea.Cmd {
 		f.err = "pick an agent"
 		return nil
 	}
+	skip := false
+	if i := slices.IndexFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == workActionsField }); i >= 0 {
+		skip = f.fields[i].val.Empty()
+	}
 	key, iss := f.key, m.jiraIssue
 	m.jiraForm = nil
 	if iss == nil || iss.Key != key || m.herdr == nil || m.jiraStarting[key] {
@@ -142,8 +192,13 @@ func (m *Model) submitWorkForm() tea.Cmd {
 	m.jiraStarting[key] = true
 	m.status = key + ": starting work…"
 	project, _, _ := strings.Cut(key, "-")
-	return jiraWork(m.herdr, expandUserPath(m.jiraRepos[project]), m.opts.workBranch, branch, kind, key, iss.Type, iss.Summary,
+	work := jiraWork(m.herdr, expandUserPath(m.jiraRepos[project]), m.opts.workBranch, branch, kind, key, iss.Type, iss.Summary,
 		workArgs(m.opts.workArgs, prompt, key), m.opts.workCreate)
+	return func() tea.Msg {
+		msg := work().(jiraWorkMsg)
+		msg.skipActions = skip
+		return msg
+	}
 }
 
 // workArgs are the agent's arguments: extra with {key} replaced, then the
@@ -235,6 +290,9 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 		return m, m.attachAgent(msg.key, msg.pane)
 	default:
 		m.status = msg.key + ": " + msg.agent + " started in " + msg.path
+	}
+	if msg.skipActions {
+		return m, nil
 	}
 	writes := m.startWrites(msg.key)
 	if m.opts.timerOnStart && m.timer.key == "" {
@@ -366,10 +424,10 @@ type startWritesMsg struct {
 }
 
 // startWrites assigns the started issue to you (ui.start_assigns) and
-// moves it to ui.start_status, when it isn't so already. A move with a
+// moves it to its startStatus, when it isn't so already. A move with a
 // screen of its own is left to the move form. nil with neither set.
 func (m *Model) startWrites(key string) tea.Cmd {
-	assign, status := m.opts.startAssigns, m.opts.startStatus
+	assign, status := m.opts.startAssigns, m.startStatus(key)
 	if !assign && status == "" {
 		return nil
 	}

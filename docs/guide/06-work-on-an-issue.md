@@ -58,6 +58,16 @@ ui:
   timer_on_start: on          # and start the timer
 ```
 
+A project can move to another status, or to none:
+
+```yaml
+jira:
+  start_statuses: {ABC: Doing, OPS: ""}   # over ui.start_status
+```
+
+With any of them on, the form has an **Also** row listing them, ticked;
+enter on it unticks them for this start.
+
 While it runs, its card shows how it's doing:
 
 | Mark | Means |

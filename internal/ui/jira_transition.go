@@ -455,6 +455,10 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		m.toggleCreateMore()
 		return nil
 	}
+	if ff.ID == workActionsField {
+		m.toggleWorkActions(ff)
+		return nil
+	}
 	switch ff.Kind {
 	case jira.KindDoc, jira.KindComment:
 		ed := newModalComposer(strings.ToLower(ff.Name) + "…")
@@ -800,6 +804,10 @@ func (m *Model) renderJiraForm() string {
 		name += strings.Repeat(" ", max(nameW-lipgloss.Width(name), 0))
 		var val string
 		switch {
+		case ff.ID == workActionsField && ff.val.Empty():
+			val = "[ ] " + refDimStyle.Render(strings.Join(m.startActions(f.key), " · "))
+		case ff.ID == workActionsField:
+			val = "[x] " + ff.val.Text
 		case f.multiline && i == f.idx:
 			f.area.SetWidth(max(inner-4, 8))
 			blocks[i] = []string{cursor.Render("▸ " + name)}
@@ -878,6 +886,8 @@ func (m *Model) renderJiraForm() string {
 		hint = "↵ create · alt+↵ create another · tab/↑↓ field · esc undo"
 	case f.editing:
 		hint = "↵ keep · tab/↑↓ field · esc undo"
+	case f.work && f.idx < len(f.fields) && f.fields[f.idx].ID == workActionsField:
+		hint = "tab/↑↓ field · ↵ toggle · ctrl+s start · esc cancel"
 	}
 	foot = append(foot, "", center.Foreground(dimColor).Italic(true).Render(hint))
 

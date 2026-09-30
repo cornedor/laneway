@@ -33,6 +33,9 @@ type JiraConfig struct {
 	StoryPointsField string            `yaml:"story_points_field"`
 	Repos            map[string]string `yaml:"repos,omitempty"`
 	StartPrompt      string            `yaml:"start_prompt,omitempty"`
+	// StartStatuses is the status S moves an issue to by project, over
+	// ui.start_status; "" moves none.
+	StartStatuses map[string]string `yaml:"start_statuses,omitempty"`
 	// Timeout is one API request's limit ("20s"); the longer actions
 	// (a board load, a move) stretch with it. For slow instances.
 	Timeout string `yaml:"timeout,omitempty"`

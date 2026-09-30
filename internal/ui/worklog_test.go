@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -204,6 +205,48 @@ func TestTimerOnStart(t *testing.T) {
 	out, cmd := m.handleJiraWork(jiraWorkMsg{key: "ABC-1", path: "/w"})
 	if m = out.(Model); m.timer.key != "ABC-1" || cmd == nil || !strings.Contains(m.status, "timer started") {
 		t.Errorf("timer %+v, status %q", m.timer, m.status)
+	}
+}
+
+// TestWorkActionsRow: the start work form ticks the configured actions
+// only when one is set; unticked, S's success leaves the timer alone.
+func TestWorkActionsRow(t *testing.T) {
+	m := jiraTabModel(t)
+	iss := &jira.Issue{Key: "ABC-1", Summary: "Fix"}
+	m.openWorkForm(iss)
+	for _, ff := range m.jiraForm.fields {
+		if ff.ID == workActionsField {
+			t.Fatal("actions row without actions")
+		}
+	}
+	m.opts.timerOnStart, m.opts.startStatus = true, "In Progress"
+	m.openWorkForm(iss)
+	f := m.jiraForm
+	ff := &f.fields[len(f.fields)-1]
+	if ff.ID != workActionsField || ff.val.Text != "move to In Progress · start timer" {
+		t.Fatalf("row %+v", ff)
+	}
+	if !strings.Contains(m.renderJiraForm(), "[x] move to In Progress") {
+		t.Error("ticked row not drawn")
+	}
+	f.idx = len(f.fields) - 1
+	m.editJiraFormField()
+	if !ff.val.Empty() || !strings.Contains(m.renderJiraForm(), "[ ] ") {
+		t.Fatal("enter should untick")
+	}
+	m.jiraStartStatus = map[string]string{"ABC": "Doing", "XYZ": ""}
+	if got := m.startActions("ABC-1"); !slices.Equal(got, []string{"move to Doing", "start timer"}) {
+		t.Errorf("project override: %v", got)
+	}
+	if got := m.startActions("XYZ-1"); !slices.Equal(got, []string{"start timer"}) {
+		t.Errorf("project without a move: %v", got)
+	}
+	if got := m.startStatus("QQ-1"); got != "In Progress" {
+		t.Errorf("fallback = %q", got)
+	}
+	out, cmd := m.handleJiraWork(jiraWorkMsg{key: "ABC-1", path: "/w", skipActions: true})
+	if m = out.(Model); m.timer.key != "" || cmd != nil {
+		t.Errorf("unticked still acted: timer %+v", m.timer)
 	}
 }
 

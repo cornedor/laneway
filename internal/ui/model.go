@@ -250,6 +250,7 @@ type Model struct {
 	jiraProjects    []string
 	jiraRepos       map[string]string
 	jiraStartPrompt string
+	jiraStartStatus map[string]string // by project, over ui.start_status
 	jiraStarting    map[string]bool
 	herdr           *herdr.Client
 	emojiImg        *emojiImages
@@ -519,6 +520,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		jiraProjects:    append([]string(nil), cfg.Projects...),
 		jiraRepos:       cfg.Repos,
 		jiraStartPrompt: prompt,
+		jiraStartStatus: cfg.StartStatuses,
 		jiraTab:         newJiraTabState(),
 		images:          newPanelImages(opts.images, opts.imageMaxRows),
 		opts:            opts,
