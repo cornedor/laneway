@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"slices"
 	"strings"
 	"time"
 )
@@ -185,6 +186,12 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 	if changed.IsZero() {
 		changed = iss.created
 	}
+	fixVersions := []any{}
+	for _, v := range s.versions {
+		if v.id == iss.fixVersion {
+			fixVersions = append(fixVersions, map[string]any{"id": v.id, "name": v.name, "released": v.released})
+		}
+	}
 	labels := iss.labels
 	if labels == nil {
 		labels = []string{}
@@ -194,7 +201,7 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		"priority": map[string]any{"id": "3", "name": iss.priority}, "assignee": userJSON(iss.assignee), "reporter": userJSON(&iss.reporter),
 		"labels": labels, "created": stamp(iss.created), "updated": stamp(iss.updated), "resolutiondate": stamp(iss.resolved),
 		"statuscategorychangedate": stamp(changed), "duedate": due, "description": adf(iss.description), "parent": parent,
-		"subtasks": subtasks, "issuelinks": []any{}, "attachment": []any{},
+		"subtasks": subtasks, "issuelinks": []any{}, "attachment": []any{}, "fixVersions": fixVersions,
 		"project":   projectJSON(),
 		pointsField: points, sprintField: sp, flagField: flag, startField: start,
 	}
@@ -206,4 +213,36 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		fields["comment"] = map[string]any{"comments": cs, "total": len(cs), "maxResults": len(cs), "startAt": 0}
 	}
 	return map[string]any{"id": numID(iss.key), "key": iss.key, "fields": fields}
+}
+
+// versionsJSON is the project's versions, newest first, with their issues'
+// progress.
+func (s *Server) versionsJSON() []any {
+	out := []any{}
+	for _, v := range slices.Backward(s.versions) {
+		counts := map[string]int{"new": 0, "indeterminate": 0, "done": 0}
+		for _, k := range append(slices.Clone(s.order), s.hidden...) {
+			if iss := s.issues[k]; iss.fixVersion == v.id {
+				counts[iss.status.cat]++
+			}
+		}
+		out = append(out, map[string]any{"id": v.id, "name": v.name, "released": v.released, "archived": false, "releaseDate": v.date,
+			"issuesStatusForFixVersion": map[string]int{"unmapped": 0, "toDo": counts["new"], "inProgress": counts["indeterminate"], "done": counts["done"]}})
+	}
+	return out
+}
+
+// release marks a version released, as the body says.
+func (s *Server) release(id string, body map[string]any) {
+	for i, v := range s.versions {
+		if v.id != id {
+			continue
+		}
+		if r, ok := body["released"].(bool); ok {
+			s.versions[i].released = r
+		}
+		if d, ok := body["releaseDate"].(string); ok {
+			s.versions[i].date = d
+		}
+	}
 }

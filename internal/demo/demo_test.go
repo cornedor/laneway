@@ -104,3 +104,30 @@ func TestDemoJQL(t *testing.T) {
 		}
 	}
 }
+
+// TestDemoReleases: V reads the versions with their progress, a release's
+// issues by fixVersion, and releasing one sticks.
+func TestDemoReleases(t *testing.T) {
+	c, s := demoClient(t)
+	ctx := context.Background()
+	vs, err := c.Versions(ctx, project)
+	if err != nil || len(vs) != 3 || vs[0].Name != "2.5" {
+		t.Fatalf("versions = %+v, %v", vs, err)
+	}
+	cur := vs[1]
+	if cur.Name != "2.4" || cur.Released || cur.Total != 5 || cur.Done != 0 {
+		t.Errorf("2.4 = %+v", cur)
+	}
+	if got := s.search("fixVersion = " + cur.ID); len(got) != 5 {
+		t.Errorf("fixVersion = %s: %d issues, want 5", cur.ID, len(got))
+	}
+	if err := c.ReleaseVersion(ctx, cur.ID, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if vs, _ = c.Versions(ctx, project); !vs[1].Released {
+		t.Errorf("2.4 after releasing: %+v", vs[1])
+	}
+	if len(s.Unhandled) > 0 {
+		t.Errorf("unanswered: %v", s.Unhandled)
+	}
+}

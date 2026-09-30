@@ -55,6 +55,13 @@ type sprint struct {
 	goal        string
 }
 
+// version is one of the project's releases.
+type version struct {
+	id, name string
+	released bool
+	date     string // its release date, "" for none
+}
+
 type comment struct {
 	id      string
 	author  user
@@ -95,6 +102,7 @@ type issue struct {
 	created, updated  time.Time
 	resolved          time.Time
 	start             string // an epic's start date
+	fixVersion        string // a version's id, "" for none
 	comments          []comment
 	worklogs          []worklog
 	changes           []change
@@ -179,6 +187,17 @@ func generate(now time.Time) *Server {
 		}
 		s.issues[sd.key] = iss
 		s.order = append(s.order, sd.key)
+	}
+	// A release behind, the one this sprint ships and the next.
+	s.versions = []version{{"10100", "2.3", true, date(-6)}, {"10101", "2.4", false, date(9)}, {"10102", "2.5", false, ""}}
+	for v, keys := range map[string][]string{
+		"10100": {"DEMO-11", "DEMO-12"},
+		"10101": {"DEMO-4", "DEMO-5", "DEMO-6", "DEMO-9", "DEMO-13"},
+		"10102": {"DEMO-14", "DEMO-15", "DEMO-16"},
+	} {
+		for _, k := range keys {
+			s.issues[k].fixVersion = v
+		}
 	}
 	s.comment("DEMO-4", mira, "Can we keep the account upsell on the confirmation page?", day(-2))
 	s.comment("DEMO-4", me, "Yes, after the order: it won't block paying.", day(-1))

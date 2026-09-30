@@ -18,13 +18,14 @@ import (
 )
 
 type Server struct {
-	mu      sync.Mutex
-	now     time.Time
-	issues  map[string]*issue
-	order   []string // board issues in rank order
-	hidden  []string // closed sprints' issues
-	sprints []sprint
-	seq     int
+	mu       sync.Mutex
+	now      time.Time
+	issues   map[string]*issue
+	order    []string // board issues in rank order
+	hidden   []string // closed sprints' issues
+	sprints  []sprint
+	versions []version
+	seq      int
 	// Unhandled are the requests no route answered, for tests.
 	Unhandled []string
 }
@@ -47,6 +48,7 @@ var (
 	issueRe      = regexp.MustCompile(`^/rest/api/3/issue/([A-Z]+-\d+)(/[a-z]+)?(/\d+)?$`)
 	sprintIssues = regexp.MustCompile(`^/rest/agile/1\.0/(?:board/\d+/)?sprint/(\d+)/issue$`)
 	sprintRe     = regexp.MustCompile(`^/rest/agile/1\.0/sprint/(\d+)$`)
+	versionRe    = regexp.MustCompile(`^/rest/api/3/version/(\d+)$`)
 )
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +101,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case r.Method == http.MethodPost && p == "/rest/agile/1.0/backlog/issue":
 		s.moveTo(0, body)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case r.Method == http.MethodPut && versionRe.MatchString(p):
+		s.release(versionRe.FindStringSubmatch(p)[1], body)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	case r.Method == http.MethodPut && p == "/rest/agile/1.0/issue/rank":
@@ -161,7 +167,7 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		}
 		return out, true
 	case "/rest/api/3/project/" + project + "/version":
-		return []any{}, true
+		return map[string]any{"values": s.versionsJSON(), "isLast": true}, true
 	case "/rest/api/3/project/" + project + "/statuses":
 		var sts []any
 		for _, st := range statuses {

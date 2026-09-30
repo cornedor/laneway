@@ -126,6 +126,13 @@ func (s *Server) clause(c string) func(*issue) bool {
 		return func(i *issue) bool { return in(vals, i.parent) }
 	case "status":
 		return func(i *issue) bool { return in(vals, i.status.name) }
+	case "fixversion":
+		return func(i *issue) bool {
+			on := slices.ContainsFunc(s.versions, func(v version) bool {
+				return v.id == i.fixVersion && slices.ContainsFunc(vals, func(x string) bool { return x == v.id || strings.EqualFold(x, v.name) })
+			})
+			return on != negate
+		}
 	case "statuscategory":
 		names := map[string]string{"new": "To Do", "indeterminate": "In Progress", "done": "Done"}
 		return func(i *issue) bool { return in(vals, names[i.status.cat]) }
