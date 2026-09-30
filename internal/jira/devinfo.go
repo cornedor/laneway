@@ -112,6 +112,12 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 	}
 	var out []DevItem
 	var firstErr error
+	// A detail answer carries more than it was asked for (branch brings its pull
+	// requests, pullrequest its branches), so the same item comes back from two
+	// calls. Keep one, the copy from the call for its own kind.
+	seen := map[string]int{} // kind + url (or repo + name) -> index in out
+	ownKind := map[string]string{"pullrequest": "pr", "branch": "branch", "repository": "commit", "build": "build", "deployment-environment": "deploy"}
+	own := map[int]bool{}
 	for _, dataType := range []string{"pullrequest", "branch", "repository", "build", "deployment-environment"} {
 		tools := sum.Summary[dataType].ByInstanceType
 		names := make([]string, 0, len(tools))
@@ -127,7 +133,18 @@ func (c *Client) DevInfo(ctx context.Context, key string) ([]DevItem, error) {
 				firstErr = cmp.Or(firstErr, err)
 				continue
 			}
-			out = append(out, items...)
+			for _, it := range items {
+				k := it.Kind + " " + cmp.Or(it.URL, it.Repo+" "+it.Name+" "+it.Hash)
+				mine := ownKind[dataType] == it.Kind
+				if i, ok := seen[k]; ok {
+					if mine && !own[i] {
+						out[i], own[i] = it, true
+					}
+					continue
+				}
+				seen[k], own[len(out)] = len(out), mine
+				out = append(out, it)
+			}
 		}
 	}
 	if len(out) == 0 && firstErr != nil {

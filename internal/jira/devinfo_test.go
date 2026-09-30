@@ -119,3 +119,28 @@ func TestDevInfoDetail(t *testing.T) {
 		t.Errorf("commit = %+v", cm)
 	}
 }
+
+// TestDevInfoDedupe: the branch detail repeats its pull request and the pull
+// request detail its branch; each shows once, the branch with its commit.
+func TestDevInfoDedupe(t *testing.T) {
+	pr := `{"name":"Fix","status":"OPEN","url":"https://g/mr/1","source":{"branch":"b"},"destination":{"branch":"main"}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/A-1":
+			io.WriteString(w, `{"id":"1"}`)
+		case r.URL.Path == "/rest/dev-status/latest/issue/summary":
+			io.WriteString(w, `{"summary":{"pullrequest":{"byInstanceType":{"GitLab":{"count":1}}},"branch":{"byInstanceType":{"GitLab":{"count":1}}}}}`)
+		case q.Get("dataType") == "pullrequest":
+			io.WriteString(w, `{"detail":[{"pullRequests":[`+pr+`],"branches":[{"name":"b","url":"https://g/b","repository":{"name":"web"}}]}]}`)
+		case q.Get("dataType") == "branch":
+			io.WriteString(w, `{"detail":[{"branches":[{"name":"b","url":"https://g/b","repository":{"name":"web"},"lastCommit":{"displayId":"abc1234","message":"Tidy"}}],"pullRequests":[`+pr+`]}]}`)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.DevInfo(context.Background(), "A-1")
+	if err != nil || len(got) != 2 || got[0].Kind != "pr" || got[1].Kind != "branch" || got[1].ShortHash != "abc1234" {
+		t.Errorf("got %+v, %v", got, err)
+	}
+}
