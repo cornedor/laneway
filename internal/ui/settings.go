@@ -20,90 +20,15 @@ import (
 // word list) in place: checked as at startup, written to the file through
 // its YAML tree (comments kept) and applied at once.
 
-// settingsRestart are options read once at startup.
-var settingsRestart = map[string]bool{"images": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
-
-// settingDefaults is each ui: option's default as the README shows it.
-var settingDefaults = map[string]string{
-	"auto_refresh":         "2m",
-	"stale_after":          "1m",
-	"images":               "auto",
-	"image_max_rows":       "16",
-	"card_limit":           "500",
-	"panel_width":          "50",
-	"keys":                 "as in ?",
-	"default_mode":         "lanes",
-	"date_format":          "2006-01-02 15:04",
-	"card_fields":          "all",
-	"quick_filters":        "none",
-	"views":                "none",
-	"stale_days":           "5",
-	"velocity_sprints":     "8",
-	"templates":            "none",
-	"timer_on_start":       "off",
-	"start_assigns":        "off",
-	"start_status":         "none",
-	"workday_start":        "09:00",
-	"capacity":             "none",
-	"saved_filters":        "on",
-	"delight":              "on",
-	"skin_tone":            "none",
-	"update_check":         "on",
-	"llm":                  "claude -p, when claude is on the PATH",
-	"branch_template":      defaultBranchTemplate,
-	"work_branch_template": "branch_template if set, else issue/{key}-{summary}",
-	"kanban_done_days":     "14",
-	"roadmap_epic_type":    "Epic",
-	"my_work_jql":          "yours everywhere, open or done this week",
-	"download_dir":         "$XDG_DOWNLOAD_DIR, else ~/Downloads",
-	"roadmap_done_days":    "90",
-	"workdays":             "mon–fri",
-	"inbox_every":          "5m",
-	"inbox_lookback":       "168h",
-	"inbox_issues":         "30",
-	"timer_round":          "to the minute",
-	"clipboard_image":      "wl-paste, xclip or pngpaste",
-	"open":                 "xdg-open, open or rundll32",
-	"full_refresh":         "10m",
-	"filters":              "none",
-	"card_colors":          "ribbon",
-	"mouse":                "on",
-	"double_click":         "400ms",
-	"icons":                "nerd",
-	"empty_fields":         "show",
-	"custom_fields":        "none",
-	"flag_value":           "Impediment",
-	"work_agent":           "claude",
-	"agent_view":           "fullscreen",
-	"work_args":            "none",
-	"work_create":          "herdr creates the worktree",
-	"code_theme":           "the preset's, else monokai",
-	"theme":                "terminal colours",
-	"actions":              "none",
-	"activity":             "none: git in jira.repos only",
-}
+var (
+	settingsRestart = config.SettingsRestart
+	settingDefaults = config.SettingDefaults
+	settingGroups   = config.SettingGroups
+)
 
 type settingRow struct {
 	name, value, def string // value "" when the file leaves it unset
 	group            string
-}
-
-// settingGroups are the settings screen's headings and their options, in
-// order; an option in none shows under Other.
-var settingGroups = []struct {
-	title string
-	names []string
-}{
-	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "custom_fields", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
-	{"Views and filters", []string{"quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
-	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme"}},
-	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
-	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity"}},
-	{"Start work and agents", []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
-	{"Planning, roadmap and charts", []string{"velocity_sprints", "roadmap_epic_type", "roadmap_done_days"}},
-	{"Inbox", []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
-	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "delight", "skin_tone"}},
-	{"System", []string{"open", "clipboard_image", "download_dir", "update_check"}},
 }
 
 // settingRows lists the ui: options by group, each group in its order.
@@ -118,9 +43,9 @@ func settingRows(c config.UIConfig) []settingRow {
 	}
 	var rows []settingRow
 	for _, g := range settingGroups {
-		for _, n := range g.names {
+		for _, n := range g.Names {
 			if r, ok := byName[n]; ok {
-				r.group = g.title
+				r.group = g.Title
 				rows = append(rows, r)
 				delete(byName, n)
 			}
