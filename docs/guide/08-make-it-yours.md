@@ -188,4 +188,5 @@ You've seen it all. From here:
 - The [releases](https://github.com/cornedor/laneway/releases) for what just landed.
 
 Previous: [From the shell](07-from-the-shell.md) ·
+Next: [In the browser](09-in-the-browser.md) ·
 Back to the [start](README.md)

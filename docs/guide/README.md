@@ -27,6 +27,8 @@ By the last chapter you will:
   keeps working.
 - **Make it yours.** Rules that notify or act on changes, your own cards,
   keys and colours.
+- **Use it in a browser.** `laneway web` serves the same board, keyboard
+  first.
 
 ![The board as swim lanes](../screenshots/board.png)
 
@@ -40,6 +42,7 @@ By the last chapter you will:
 6. [Work on an issue](06-work-on-an-issue.md): branches, commit keys, coding agents, pull requests
 7. [From the shell](07-from-the-shell.md): scripts, completion, your prompt, working offline
 8. [Make it yours](08-make-it-yours.md): JQL, rules, cards, keys, themes, when something looks off
+9. [In the browser](09-in-the-browser.md): `laneway web`, the layout, themes, what differs
 
 > **Tip:** you can't break anything by reading. laneway only writes to Jira
 > when you move a card, edit a field or comment, so poke around freely.

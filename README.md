@@ -18,6 +18,7 @@ terminal.
 - Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to it
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key
+- The same board in a browser: `laneway web`, served by the same binary, themeable, keyboard first
 - Several Jira sites, inline images in kitty and Ghostty; a local index of what you read, searchable offline; changes made offline sent later
 - Every key and colour configurable
 
@@ -622,6 +623,23 @@ laneway move ABC-12 'In Progress'        # a status the issue can move to, any c
 commands, flags, `-site` names and, for `view` and `move`, the keys on the
 boards laneway last loaded. `source <(laneway completion bash)` in your
 `.bashrc`; `laneway completion fish > ~/.config/fish/completions/laneway.fish`.
+
+## In the browser
+
+`laneway web` (alias `serve`) serves the board, planning, reports, roadmap, your work, inbox and standup in a browser. Same binary, no build step, nothing to install; it talks to Jira with your config.
+
+```sh
+laneway web                     # http://127.0.0.1:8484, opens the browser
+laneway web -demo               # a generated project, no Jira needed
+laneway -site club web          # another site (-config works too)
+laneway web -addr 127.0.0.1:9000 -no-open
+```
+
+- `-remote` allows a non-loopback `-addr`. The UI acts as you on Jira and has no login: only on a network and machine you trust.
+- Keyboard first, like the terminal: `?` lists the keys of the view, `:` is the palette, `g` then a letter goes to a view (`g b` board, `g p` planning, `g w` my work), `tab` moves focus between view and panel. The mouse works too, drag and drop included.
+- Themes: light, dark, nord, gruvbox, solarized, mono or the system's; accent, density, font size and your own CSS tokens under `g ,` (settings). Stored in the browser.
+- Fast by design: views draw from the last answer first and refresh behind it, long lists are virtualised, edits show at once and roll back on an error.
+- Not in the browser: coding agents and herdr, git helpers, inline kitty images, rules, the offline queue, scripts and custom actions, key remapping.
 
 ## Planning
 
