@@ -9,7 +9,7 @@ import { isZero, date, shortDate, ago } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import { openFilterBuilder } from './board_filter.js';
-import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf } from './plan_ctx.js';
+import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
 
 css('board');
 
@@ -1321,7 +1321,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       S.boards = await firstOf(api, '/projects/' + project + '/boards');
       S.board = S.boards.find(b => b.ID === bid) || S.boards[0];
       if (!S.board) return bdMsg(h('div', h('h2', 'No board in ' + project)));
-    } catch (e) { return fail(e); }
+    } catch (e) {
+      if (e.status === 404 && project && (recover(app, project) || params.project)) { params = { ...params, project: '', board: '' }; return start(); }
+      return fail(e);
+    }
     if (S.dead) return;
     const canon = '#/board/' + S.project + '/' + S.board.ID;
     if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; history.replaceState(null, '', canon + (q ? '?' + q : '')); }

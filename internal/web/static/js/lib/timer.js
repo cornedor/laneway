@@ -4,15 +4,15 @@ import { h } from './dom.js';
 import { duration } from './fmt.js';
 import { logDialog, parseDuration, hm } from './worktime.js';
 import { installBadge } from './inbox.js';
+import * as store from './store.js';
 
-const LS = 'lw:timer';
 const MIN5 = 5 * 60000;
 
 function load() {
-  try { const t = JSON.parse(localStorage.getItem(LS)); return t && t.key && t.start ? t : null; } catch (e) { return null; }
+  try { const t = JSON.parse(store.get('timer', 'null')); return t && t.key && t.start ? t : null; } catch (e) { return null; }
 }
 function save(t) {
-  try { t ? localStorage.setItem(LS, JSON.stringify(t)) : localStorage.removeItem(LS); } catch (e) { /* private mode */ }
+  try { store.set('timer', t ? JSON.stringify(t) : ''); } catch (e) { /* private mode */ }
 }
 
 // The issue `T` and `w` act on: the selected row of the view, else the open panel, else the route's issue.
@@ -42,7 +42,7 @@ export function install(app) {
     if (timer && !document.hidden) tick = setInterval(() => { chip.replaceChildren(...label()); }, 20000);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && timer) chip.replaceChildren(...label()); arm(); });
-  window.addEventListener('storage', e => { if (e.key === LS) { timer = load(); paint(); app.bus.emit('timer', timer); } });
+  window.addEventListener('storage', e => { if (e.key === store.key('timer')) { timer = load(); paint(); app.bus.emit('timer', timer); } });
 
   function set(t) { timer = t; save(t); paint(); app.bus.emit('timer', timer); }
 

@@ -3,7 +3,7 @@
 // Rows come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
-import { projectOf, boardsOf, lastBoard, setCtx, switcher } from './plan_ctx.js';
+import { projectOf, boardsOf, lastBoard, setCtx, switcher, recover } from './plan_ctx.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
 
 const PARK = 'Parking lot';
@@ -38,7 +38,10 @@ export default function mount(el, { app, scope, context, toolbar }) {
         const a = (b.sprints || []).find(s => s.State === 'active');
         sprint = a ? a.ID : 0;
       }
-    } catch (e) { /* no board: mine still works */ }
+    } catch (e) {
+      // A project this site lacks (remembered on another): forget it, take the default.
+      if (e.status === 404 && recover(app, project)) { project = projectOf(app, {}); return resolveBoard(); }
+    }
   }
 
   function build() {

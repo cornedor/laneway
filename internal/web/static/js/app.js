@@ -8,6 +8,7 @@ import theme from './lib/theme.js';
 import * as ui from './lib/ui.js';
 import { routes } from './views/index.js';
 import * as chromeBars from './lib/chrome.js';
+import * as store from './lib/store.js';
 
 // ---- commands: the palette lists these. register({id, title, keys?, group?, run, when?}) → unregister
 const cmds = new Map();
@@ -16,6 +17,9 @@ const commands = {
   list: () => [...cmds.values()].filter(c => !c.when || c.when()),
   run(id) { const c = cmds.get(id); if (c) return c.run(); },
 };
+
+// Look-and-feel prefs are mirrored unscoped (boot.js and fonts.js read them before the site is known); the rest per site.
+const GLOBAL_PREF = /^(font|terminal)\./;
 
 export const app = {
   api, bus, keys, ui, theme, commands, routes,
@@ -71,7 +75,7 @@ export const app = {
   prefs: {
     data: {},
     get: (k, d) => (k in app.prefs.data ? app.prefs.data[k] : d),
-    set(k, v) { app.prefs.data[k] = v; api.put('/prefs/' + encodeURIComponent(k), { Value: String(v) }).catch(() => {}); try { localStorage.setItem('lw:p:' + k, String(v)); } catch (e) { /* ignore */ } },
+    set(k, v) { app.prefs.data[k] = v; api.put('/prefs/' + encodeURIComponent(k), { Value: String(v) }).catch(() => {}); if (GLOBAL_PREF.test(k)) { try { localStorage.setItem('lw:p:' + k, String(v)); } catch (e) { /* ignore */ } } else store.set('p:' + k, v); },
   },
 };
 window.laneway = app;
@@ -167,21 +171,22 @@ function chrome() {
 
 async function boot() {
   chrome(); globalKeys();
-  import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/agents.js').then(m => m.install(app)).catch(e => console.error('agents', e));
   import('./views/plan_cmds.js').then(m => m.register(app));
   import('./lib/pwa.js').then(m => m.install(app)).catch(e => console.error('pwa', e));
   try {
     app.session = await api.get('/session');
-    api.setSite(app.session.site);
+    api.setSite(app.session.site); store.setSite(app.session.site);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
     theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
   } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
+  import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
   import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e));
   $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');
   if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
+  await import('./views/plan_ctx.js').then(m => m.sanitize(app)).catch(e => console.warn('ctx', e));
   window.addEventListener('hashchange', navigate);
   await navigate();
   (window.requestIdleCallback || setTimeout)(() => import('./views/palette.js')); // ready before the first ':'
