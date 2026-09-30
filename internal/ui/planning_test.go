@@ -43,7 +43,7 @@ func TestPlanView(t *testing.T) {
 	var writes []string
 	m := planModel(t, &writes)
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"Planning", "Backlog  2 cards · 3p", "Sprint 1  2 cards · 7p", "Ada 5 · — 2", "ABC-7", "ABC-2"} {
+	for _, want := range []string{"Planning", "Backlog  2 cards · 3p", "Sprint 1  2 cards · 7p", "Ada 5 · unassigned 2", "ABC-7", "ABC-2"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("planning lacks %q", want)
 		}
@@ -101,7 +101,7 @@ func TestPlanRank(t *testing.T) {
 func TestPlanCapacity(t *testing.T) {
 	cards := []jira.Card{{Assignee: "Ada", Points: "8"}, {Assignee: "Bob", Points: "3"}, {Points: "2"}}
 	got := planByAssignee(cards, map[string]float64{"Ada": 5, "default": 10})
-	if plain := ansi.Strip(got); plain != "Ada 8/5! · Bob 3/10 · — 2" {
+	if plain := ansi.Strip(got); plain != "Ada 8/5! · Bob 3/10 · unassigned 2" {
 		t.Errorf("plain = %q", plain)
 	}
 	if !strings.Contains(got, jiraOverStyle.Render("Ada 8/5!")) {
@@ -422,5 +422,23 @@ func TestPlanQuickEditUndo(t *testing.T) {
 	}
 	if last := writes[len(writes)-1]; !strings.Contains(last, "/backlog/issue") || !strings.Contains(last, "ABC-7") {
 		t.Errorf("undo wrote %q", last)
+	}
+}
+
+// TestPlanVelocity: the sprint side weighs its points against the last
+// sprints' average done, in the over colour past it.
+func TestPlanVelocity(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	p := m.jiraTab.plan
+	out, _ := m.handlePlan(planMsg{seq: p.seq, left: p.sides[0], right: p.sides[1], velRead: true,
+		vel: []jira.SprintVelocity{{Done: 8}, {Done: 4}}})
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Sprint 1  2 cards · 7p of ~6p (avg last 2) over") {
+		t.Errorf("over the average:\n%s", view)
+	}
+	m.jiraTab.plan.velocity = 10
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "7p of ~10p (avg last 2)") || strings.Contains(view, "(avg last 2) over") {
+		t.Errorf("under the average:\n%s", view)
 	}
 }

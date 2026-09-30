@@ -45,6 +45,10 @@ type planState struct {
 	finding bool
 	// undo is the last move across, for u to take back.
 	undo *planUndo
+	// velocity is the points done a sprint, averaged over the last velN
+	// closed ones; velN 0 until read, -1 when there are none.
+	velocity float64
+	velN     int
 }
 
 // planUndo is a move across: the cards, the side they went to and the
@@ -96,6 +100,8 @@ type planMsg struct {
 	seq         int
 	left, right []jira.Card
 	errs        [2]error // per side
+	vel         []jira.SprintVelocity
+	velRead     bool
 }
 
 // planWroteMsg is a move or rank answered.
@@ -134,10 +140,20 @@ func (m *Model) loadPlan() tea.Cmd {
 	p.seq = t.planSeq
 	p.loading = true
 	seq, ctx, c, board, cfg, sprint := p.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, p.sprints[p.target]
+	vel, n := p.velN == 0, m.opts.velocitySprints
 	return func() tea.Msg {
 		var msg planMsg
 		var errL, errR error
 		var wg sync.WaitGroup
+		if vel { // once a planning: the closed sprints don't change in it
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				var err error
+				msg.vel, err = c.Velocity(ctx, board, n, cfg.PointsField)
+				msg.velRead = err == nil
+			}()
+		}
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
@@ -156,6 +172,16 @@ func (m Model) handlePlan(msg planMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	p.loading = false
+	if msg.velRead {
+		p.velN = -1
+		if len(msg.vel) > 0 {
+			sum := 0.0
+			for _, v := range msg.vel {
+				sum += v.Done
+			}
+			p.velocity, p.velN = sum/float64(len(msg.vel)), len(msg.vel)
+		}
+	}
 	if msg.errs[0] != nil && msg.errs[1] != nil {
 		p.err = msg.errs[0].Error()
 		return m, nil
@@ -729,7 +755,7 @@ func (m *Model) renderPlan(width, height int) string {
 func (m *Model) renderPlanSide(side int, name string, width, height int) string {
 	p := m.jiraTab.plan
 	cards := p.view(side)
-	pts, _ := planPoints(cards)
+	pts, sum := planPoints(cards)
 	unpointed := 0
 	for _, c := range cards {
 		if _, err := strconv.ParseFloat(c.Points, 64); err != nil {
@@ -754,7 +780,18 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	if p.filter != "" {
 		count = fmt.Sprintf("%d of %d cards", len(cards), len(p.sides[side]))
 	}
-	lines := []string{headStyle.Render(ansi.Truncate(fmt.Sprintf("%s  %s · %s%s", name, count, pts, drop), width, "…"))}
+	head := headStyle.Render(fmt.Sprintf("%s  %s · %s", name, count, pts))
+	if side == 1 && p.velN > 0 {
+		// Against what the team got done a sprint lately, over it in the
+		// over colour.
+		vs := fmt.Sprintf(" of ~%sp (avg last %d)", chartNum(math.Round(p.velocity)), p.velN)
+		if sum > p.velocity {
+			head += jiraOverStyle.Render(vs + " over")
+		} else {
+			head += jiraDimStyle.Render(vs)
+		}
+	}
+	lines := []string{ansi.Truncate(head+headStyle.Render(drop), width, "…")}
 	if side == 1 {
 		lines = append(lines, ansi.Truncate(planByAssignee(cards, m.opts.capacity), width, "…"))
 	} else {
@@ -822,7 +859,7 @@ func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
 	for _, c := range cards {
 		name := c.Assignee
 		if name == "" {
-			name = "—"
+			name = "unassigned"
 		}
 		by[name] = append(by[name], c)
 	}
@@ -848,7 +885,7 @@ func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
 	parts := make([]string, len(shares))
 	for i, s := range shares {
 		cp, ok := capacity[s.name]
-		if !ok && s.name != "—" {
+		if !ok && s.name != "unassigned" {
 			cp, ok = capacity["default"]
 		}
 		switch {
