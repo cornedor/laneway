@@ -9,7 +9,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +20,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -173,7 +176,7 @@ func New(ctx context.Context, opt Options) *Server {
 	}
 	routesMu.Unlock()
 	sub, _ := fs.Sub(staticFS, "static")
-	s.mux.Handle("/", assets(http.FS(sub)))
+	s.mux.Handle("/", assets(sub))
 	return s
 }
 
@@ -194,17 +197,41 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-// assets serves the embedded frontend; files are revalidated each load (they
-// change with the binary) but answer 304 from their ETag-less modtime.
-func assets(root http.FileSystem) http.Handler {
-	fsrv := http.FileServer(root)
+// assets serves the embedded frontend. embed.FS has no modtime, so each file
+// gets an ETag from its content hash (computed once) and reloads answer 304.
+func assets(root fs.FS) http.Handler {
+	etags := map[string]string{}
+	_ = fs.WalkDir(root, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if b, err := fs.ReadFile(root, p); err == nil {
+			sum := sha256.Sum256(b)
+			etags["/"+p] = `"` + hex.EncodeToString(sum[:8]) + `"`
+		}
+		return nil
+	})
+	etags["/"] = etags["/index.html"]
+	types := map[string]string{".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".html": "text/html; charset=utf-8"}
+	fsrv := http.FileServer(http.FS(root))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-cache")
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && compressible(r.URL.Path) {
-			w.Header().Set("Vary", "Accept-Encoding")
-			gz := gzipWriter(w)
-			defer gz.Close()
-			fsrv.ServeHTTP(gz, r)
+		h := w.Header()
+		h.Set("Cache-Control", "no-cache")
+		if t, ok := types[path.Ext(r.URL.Path)]; ok {
+			h.Set("Content-Type", t)
+		}
+		gz := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && compressible(r.URL.Path)
+		if e, ok := etags[r.URL.Path]; ok {
+			if gz {
+				e = e[:len(e)-1] + `-gz"`
+			}
+			h.Set("Etag", e)
+		}
+		if gz {
+			h.Set("Vary", "Accept-Encoding")
+			g := &gzw{ResponseWriter: w}
+			defer g.Close()
+			fsrv.ServeHTTP(g, r)
 			return
 		}
 		fsrv.ServeHTTP(w, r)
@@ -220,21 +247,32 @@ func compressible(p string) bool {
 	return false
 }
 
+// gzw compresses 200 responses only; 304s and errors pass through untouched.
 type gzw struct {
 	http.ResponseWriter
 	gz *gzip.Writer
 }
 
-func gzipWriter(w http.ResponseWriter) *gzw {
-	w.Header().Set("Content-Encoding", "gzip")
-	return &gzw{w, gzip.NewWriter(w)}
-}
 func (g *gzw) WriteHeader(c int) {
-	g.Header().Del("Content-Length")
+	if c == http.StatusOK && g.Header().Get("Content-Encoding") == "" {
+		g.Header().Del("Content-Length")
+		g.Header().Set("Content-Encoding", "gzip")
+		g.gz = gzip.NewWriter(g.ResponseWriter)
+	}
 	g.ResponseWriter.WriteHeader(c)
 }
-func (g *gzw) Write(b []byte) (int, error) { g.Header().Del("Content-Length"); return g.gz.Write(b) }
-func (g *gzw) Close() error                { return g.gz.Close() }
+func (g *gzw) Write(b []byte) (int, error) {
+	if g.gz == nil {
+		return g.ResponseWriter.Write(b)
+	}
+	return g.gz.Write(b)
+}
+func (g *gzw) Close() error {
+	if g.gz != nil {
+		return g.gz.Close()
+	}
+	return nil
+}
 
 // Serve listens on addr and serves until ctx ends. A wildcard or public
 // address is refused unless allowRemote: the API acts as you on Jira.
