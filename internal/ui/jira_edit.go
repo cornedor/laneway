@@ -682,6 +682,11 @@ func (m *Model) jiraPickerMove(delta int) {
 
 // handleJiraFieldKey owns every keystroke while the field input is open.
 func (m Model) handleJiraFieldKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.jiraFieldName == "worklog" && m.worklogFromTimer {
+		if out, cmd, ok := m.timerStopKey(msg); ok {
+			return out, cmd
+		}
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()
@@ -1419,6 +1424,12 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Find in "+m.jiraFieldKey, "↵ find · n / N next / previous · esc cancel", m.jiraFieldInput.Width()+12
 	case "worklog":
 		title, hint, outerW = "Log work", "↵ log · esc cancel", m.jiraFieldInput.Width()+12
+		switch {
+		case m.worklogFromTimer && m.timerNext != "":
+			hint = "↵ log, then time " + m.timerNext + " · ctrl+t move the timer there · ctrl+d drop · esc keep timing"
+		case m.worklogFromTimer:
+			hint = "↵ log · ctrl+d drop the timer · esc keep timing"
+		}
 	case "bulk-labels":
 		title, hint, outerW = "Edit labels", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "bulk-points":

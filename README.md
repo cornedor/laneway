@@ -516,8 +516,10 @@ version is set in the panel, among the issue's other fields.
 in an edit (`e` in `W`) it moves the entry to that day. The time comes off
 the remaining estimate; `left:2h` sets it instead, `left:keep` leaves it.
 `A` → *Set the original estimate* sets one. `T` starts a timer on the card or panel issue,
-shown in the header and kept across restarts; `T` again stops it into the
-same input, filled with the time and started when the timer did. `W` lists
+shown in the header and on its card (`⏱ 12m`) and kept across restarts; `T` again stops it into the
+same input, filled with the time and started when the timer did. There `ctrl+d` drops the timer
+unlogged (twice after 5 minutes); `T` on another card logs this one and times that one next, or
+`ctrl+t` moves the timer there, its time with it. `W` lists
 what you logged today with the day's total; `[` `]` step a day, `e` edits
 an entry's time and comment, `d` twice deletes it, `y` copies the day as a markdown table, `enter` opens the issue.
 `p` proposes what's missing: your commits and branch switches in the

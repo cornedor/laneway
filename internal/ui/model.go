@@ -342,6 +342,11 @@ type Model struct {
 	// worklogFromTimer marks the input as the timer's stop: the timer ends
 	// once the log is written.
 	worklogFromTimer bool
+	// timerNext is the card T was pressed on while the timer ran on
+	// another: logging starts the timer there, ctrl+t moves it there.
+	timerNext string
+	// timerDropArmed is a first ctrl+d on a long timer: again drops it.
+	timerDropArmed bool
 	// sites are the configured Jira sites ("" is jira:), site the shown
 	// one; nextSite is set when the app ends to switch, addSite when it
 	// ends to add one (sites.go).

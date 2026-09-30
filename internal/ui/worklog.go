@@ -98,6 +98,9 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 		secs := timerSeconds(time.Since(t.start), m.opts.timerRound)
 		m.openWorklogInput(t.key, jira.FormatDuration(secs)+" ", t.start)
 		m.worklogFromTimer = true
+		if key != t.key {
+			m.timerNext = key
+		}
 		return nil
 	}
 	if key == "" {
@@ -146,7 +149,44 @@ func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	m.jiraFieldKey = key
 	m.worklogStart = started
 	m.worklogEdit = "" // a new entry, unless the caller says otherwise
-	m.worklogFromTimer = false
+	m.worklogFromTimer, m.timerNext, m.timerDropArmed = false, "", false
+}
+
+// timerDropAfter is how long a timer runs before dropping it unlogged asks
+// twice.
+const timerDropAfter = 5 * time.Minute
+
+// timerStopKey handles the timer's stop prompt's own keys: ctrl+d drops
+// the timer unlogged (twice once it ran a while), ctrl+t moves it to the
+// card T was pressed on. ok is false for any other key.
+func (m Model) timerStopKey(msg tea.KeyPressMsg) (_ tea.Model, _ tea.Cmd, ok bool) {
+	ran := jira.FormatDuration(max(int(time.Since(m.timer.start).Seconds()), 0))
+	switch msg.String() {
+	case "ctrl+d":
+		if !m.timerDropArmed && time.Since(m.timer.start) >= timerDropAfter {
+			m.timerDropArmed = true
+			m.status = "ctrl+d again drops the timer: " + ran + " on " + m.timer.key + " not logged"
+			return m, nil, true
+		}
+		key := m.timer.key
+		m.timer = workTimer{}
+		m.status = "timer dropped: " + ran + " on " + key + " not logged"
+	case "ctrl+t":
+		if m.timerNext == "" {
+			return m, nil, false
+		}
+		m.timer.key = m.timerNext
+		m.status = "timer moved to " + m.timerNext + ", " + ran + " on it"
+	default:
+		m.timerDropArmed = false
+		return m, nil, false
+	}
+	if err := m.saveTimer(); err != nil {
+		m.fail("timer: " + err.Error())
+	}
+	m.closeJiraField()
+	m.redrawTimed()
+	return m, nil, true
 }
 
 // worklogLeft takes a left:2h (the remaining estimate after this work) or
@@ -236,10 +276,10 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
 	m.closeJiraField()
-	c, ctx, fromTimer := m.jiraClient, m.ctx, m.worklogFromTimer
+	c, ctx, fromTimer, next := m.jiraClient, m.ctx, m.worklogFromTimer, m.timerNext
 	m.status = fmt.Sprintf("logging %s on %s…", jira.FormatDuration(secs), key)
 	return m, func() tea.Msg {
-		return worklogLoggedMsg{key: key, fromTimer: fromTimer, err: c.AddWorklog(ctx, key, secs, started, comment, left)}
+		return worklogLoggedMsg{key: key, fromTimer: fromTimer, next: next, err: c.AddWorklog(ctx, key, secs, started, comment, left)}
 	}
 }
 
@@ -248,6 +288,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 type worklogLoggedMsg struct {
 	key       string
 	fromTimer bool
+	next      string // the card the timer goes on next, "" for none
 	err       error
 }
 
@@ -279,7 +320,8 @@ func (m Model) handleWorklogFailed(msg worklogFailedMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
-	if msg.fromTimer && msg.err == nil && m.timer.key == msg.key {
+	stopped := msg.fromTimer && msg.err == nil && m.timer.key == msg.key
+	if stopped {
 		m.timer = workTimer{}
 		m.redrawTimed()
 		if err := m.saveTimer(); err != nil {
@@ -292,6 +334,11 @@ func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
 	out, cmd := m.handleJiraMutated(jiraMutatedMsg{key: msg.key, field: "worklog", err: msg.err})
 	if m = out.(Model); m.jiraTab.week != nil && msg.err == nil {
 		cmd = tea.Batch(cmd, m.loadWeek())
+	}
+	if stopped && msg.next != "" {
+		logged := m.status
+		cmd = tea.Batch(cmd, m.toggleTimer(msg.next))
+		m.status = logged + " · timer started on " + msg.next
 	}
 	return m, cmd
 }

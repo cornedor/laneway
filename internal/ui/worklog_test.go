@@ -433,3 +433,47 @@ func TestTimerMarksTheCard(t *testing.T) {
 		t.Errorf("panel title = %q", strings.SplitN(head, "\n", 2)[0])
 	}
 }
+
+// TestTimerDrop: ctrl+d in the stop prompt drops the timer unlogged, asking
+// twice once it ran a while.
+func TestTimerDrop(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	m.timer.start = time.Now().Add(-20 * time.Minute)
+	out, _ = m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	out, _ = m.handleKey(keyMsg(t, "ctrl+d"))
+	m = out.(Model)
+	if m.timer.key != "ABC-1" || !m.jiraFieldActive || !strings.Contains(m.status, "again") {
+		t.Fatalf("first ctrl+d: timer %q, prompt %v, status %q", m.timer.key, m.jiraFieldActive, m.status)
+	}
+	out, _ = m.handleKey(keyMsg(t, "ctrl+d"))
+	m = out.(Model)
+	if m.timer.key != "" || m.jiraFieldActive || !strings.Contains(m.status, "20m on ABC-1 not logged") {
+		t.Errorf("second ctrl+d: timer %q, prompt %v, status %q", m.timer.key, m.jiraFieldActive, m.status)
+	}
+}
+
+// TestTimerSwitch: T on another card logs the timed one, then times the
+// new one; ctrl+t moves the timer there instead.
+func TestTimerSwitch(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	m.selectJiraKey("ABC-3")
+	out, _ = m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	if m.jiraFieldKey != "ABC-1" || m.timerNext != "ABC-3" || !strings.Contains(m.View().Content, "then time ABC-3") {
+		t.Fatalf("T on ABC-3: logging %q, next %q", m.jiraFieldKey, m.timerNext)
+	}
+	out, _ = m.Update(worklogLoggedMsg{key: "ABC-1", fromTimer: true, next: "ABC-3"})
+	if m2 := out.(Model); m2.timer.key != "ABC-3" || !strings.Contains(m2.status, "timer started on ABC-3") {
+		t.Errorf("logged: timer %q, status %q", m2.timer.key, m2.status)
+	}
+	start := m.timer.start
+	out, _ = m.handleKey(keyMsg(t, "ctrl+t"))
+	if m = out.(Model); m.timer.key != "ABC-3" || !m.timer.start.Equal(start) || m.jiraFieldActive {
+		t.Errorf("ctrl+t: timer %+v, prompt %v", m.timer, m.jiraFieldActive)
+	}
+}
