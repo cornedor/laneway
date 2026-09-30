@@ -158,6 +158,7 @@ async function boot() {
     api.setSite(app.session.site);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
   } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
+  import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e));
   $('.brand').title = app.session.baseURL + (app.session.demo ? ' (demo)' : '');
   if (app.session.demo) $('.brand').append(h('span.demo-badge', 'demo'));
   window.addEventListener('hashchange', navigate);

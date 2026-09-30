@@ -35,21 +35,26 @@ var staticFS embed.FS
 
 // Options configure a Server.
 type Options struct {
-	Client  *jira.Client
-	Jira    config.JiraConfig
-	UI      config.UIConfig
-	Store   *store.Store
-	Site    string
-	Sites   []string
-	Demo    bool
-	Version string
+	Client *jira.Client
+	Jira   config.JiraConfig
+	UI     config.UIConfig
+	// ConfigPath is the config file the settings write to; empty: read-only.
+	ConfigPath string
+	Store      *store.Store
+	Site       string
+	Sites      []string
+	Demo       bool
+	Version    string
+	// Open builds the options of another site (nil: no switching).
+	Open func(site string) (Options, error)
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.
 type Server struct {
-	opt Options
-	mux *http.ServeMux
-	ctx context.Context
+	opt   Options
+	mux   *http.ServeMux
+	ctx   context.Context
+	sites *siteSet
 }
 
 // Client is the Jira client; handlers take it from the request's Server.
@@ -168,11 +173,11 @@ func writeJSON(w http.ResponseWriter, r *http.Request, v any) {
 
 // New builds the handler.
 func New(ctx context.Context, opt Options) *Server {
-	s := &Server{opt: opt, mux: http.NewServeMux(), ctx: ctx}
+	s := &Server{opt: opt, mux: http.NewServeMux(), ctx: ctx, sites: newSiteSet(opt)}
 	routesMu.Lock()
 	for _, rt := range routes {
 		h := rt.h
-		s.mux.HandleFunc(rt.pattern, func(w http.ResponseWriter, r *http.Request) { h(s, w, r) })
+		s.mux.HandleFunc(rt.pattern, func(w http.ResponseWriter, r *http.Request) { h(s.at(r), w, r) })
 	}
 	routesMu.Unlock()
 	sub, _ := fs.Sub(staticFS, "static")
