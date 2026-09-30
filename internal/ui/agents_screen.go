@@ -97,7 +97,7 @@ func agentState(s herdr.Status) string {
 func (m *Model) openAgents() tea.Cmd {
 	if len(m.agents) == 0 && len(m.worktrees) == 0 {
 		if m.herdr == nil {
-			m.status = "no herdr running"
+			m.status = m.noHerdr()
 		} else {
 			m.status = "no issue has a herdr agent or a worktree · " + helpKey(m.keys.JiraStart) + " starts one"
 		}

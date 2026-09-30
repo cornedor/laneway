@@ -59,7 +59,7 @@ var agentKinds = []string{"claude", "codex", "gemini", "opencode", "cursor", "co
 func (m *Model) startJiraWork() tea.Cmd {
 	iss := m.jiraIssue
 	if m.herdr == nil {
-		m.status = "start work needs herdr running"
+		m.status = "start work needs herdr: " + m.noHerdr()
 		return nil
 	}
 	if as := m.agents[iss.Key]; len(as) > 0 {

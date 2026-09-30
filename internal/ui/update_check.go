@@ -36,6 +36,21 @@ func (m Model) WithVersion(version, upgradeCmd string) Model {
 	return m
 }
 
+// WithDemo is m for laneway -demo: herdr stays off, so the demo neither
+// shows nor drives the machine's real agents.
+func (m Model) WithDemo() Model {
+	m.herdr, m.demo = nil, true
+	return m
+}
+
+// noHerdr says why there are no agents: none running, or the demo.
+func (m *Model) noHerdr() string {
+	if m.demo {
+		return "herdr is off in the demo"
+	}
+	return "no herdr running"
+}
+
 // checkRelease reads the latest release, from the store when looked up in
 // the last day. Failing quietly: offline is no news.
 func (m *Model) checkRelease() tea.Cmd {

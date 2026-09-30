@@ -257,6 +257,7 @@ type Model struct {
 	jiraStartStatus map[string]string // by project, over ui.start_status
 	jiraStarting    map[string]bool
 	herdr           *herdr.Client
+	demo            bool // laneway -demo (WithDemo)
 	emojiImg        *emojiImages
 
 	jiraTab  *jiraTabState
