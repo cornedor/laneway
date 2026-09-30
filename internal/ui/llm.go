@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/llm"
 )
 
 // ctrl+a in the panel asks ui.llm about the issue: the issue, its comments
@@ -19,13 +18,7 @@ import (
 // lands in the comment composer, so nothing is written until you post it
 // (ctrl+e hands it to $EDITOR, esc drops it).
 
-// asks are the questions ctrl+a offers, by id.
-var asks = []struct{ id, label, prompt string }{
-	{"summary", "Summarise the thread", "Summarise this Jira issue and its discussion in a few lines: where it stands, what was decided, what is open."},
-	{"criteria", "Draft acceptance criteria", "Draft acceptance criteria for this Jira issue as a short markdown checklist."},
-	{"subtasks", "Split into subtasks", "Split this Jira issue into subtasks: a markdown list, one line each, in the order to do them."},
-	{"points", "Suggest story points", "Suggest story points (Fibonacci) for this Jira issue, with one line of reasoning."},
-}
+var asks = llm.Asks
 
 type llmDoneMsg struct {
 	key, label, out string
@@ -33,15 +26,7 @@ type llmDoneMsg struct {
 }
 
 // llmCommand is ui.llm, else claude -p when claude is on the PATH.
-var llmCommand = func(conf []string) []string {
-	if len(conf) > 0 {
-		return conf
-	}
-	if _, err := exec.LookPath("claude"); err == nil {
-		return []string{"claude", "-p"}
-	}
-	return nil
-}
+var llmCommand = llm.Command
 
 // runLLM runs command with prompt appended and input on stdin. Tests swap it.
 var runLLM = func(ctx context.Context, command []string, prompt, input string) (string, error) {
@@ -67,7 +52,7 @@ func (m *Model) openAsk() {
 	m.startJiraPicker(jiraPickAsk, "Ask about "+m.jiraIssue.Key, false)
 	items := make([]jiraPickerItem, len(asks))
 	for i, a := range asks {
-		items[i] = jiraPickerItem{id: a.id, label: a.label}
+		items[i] = jiraPickerItem{id: a.ID, label: a.Label}
 	}
 	m.setJiraPickerItems(items)
 }
@@ -80,8 +65,8 @@ func (m *Model) askLLM(id string) tea.Cmd {
 	}
 	var label, prompt string
 	for _, a := range asks {
-		if a.id == id {
-			label, prompt = a.label, a.prompt
+		if a.ID == id {
+			label, prompt = a.Label, a.Prompt
 		}
 	}
 	if prompt == "" {
@@ -98,33 +83,7 @@ func (m *Model) askLLM(id string) tea.Cmd {
 	}
 }
 
-// llmInput is the issue as markdown: fields, description, comments, history.
-func llmInput(iss jira.Issue, hist []jira.InboxEntry) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s %s\n\n", iss.Key, iss.Summary)
-	for _, f := range [][2]string{{"Type", iss.Type}, {"Status", iss.Status}, {"Priority", iss.Priority},
-		{"Assignee", iss.Assignee}, {"Reporter", iss.Reporter}, {"Points", iss.StoryPoints}, {"Labels", strings.Join(iss.Labels, ", ")}} {
-		if f[1] != "" {
-			fmt.Fprintf(&b, "- %s: %s\n", f[0], f[1])
-		}
-	}
-	if d := strings.TrimSpace(iss.Description); d != "" {
-		b.WriteString("\n## Description\n\n" + d + "\n")
-	}
-	if len(iss.Comments) > 0 {
-		b.WriteString("\n## Comments\n")
-		for _, c := range iss.Comments {
-			fmt.Fprintf(&b, "\n### %s, %s\n\n%s\n", c.Author, c.Created.Format("2006-01-02"), strings.TrimSpace(c.Body))
-		}
-	}
-	if len(hist) > 0 {
-		b.WriteString("\n## History\n\n")
-		for _, e := range hist {
-			fmt.Fprintf(&b, "- %s %s: %s\n", e.When.Format("2006-01-02 15:04"), e.Who, e.What)
-		}
-	}
-	return b.String()
-}
+var llmInput = llm.Input
 
 // handleLLMDone puts the answer in the comment composer, when the panel
 // still shows the issue.
