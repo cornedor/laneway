@@ -47,7 +47,7 @@ func validKey(r *http.Request) (string, error) {
 func myWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	jql := Q(r, "jql")
 	if jql == "" {
-		jql = strings.TrimSpace(s.opt.UI.MyWorkJQL)
+		jql = strings.TrimSpace(s.UIConfig().MyWorkJQL)
 	}
 	if jql == "" {
 		jql = defaultMyWorkJQL
@@ -345,7 +345,7 @@ func standupPeople(ctx context.Context, s *Server, r *http.Request) (any, error)
 // workdays are ui.workdays as weekdays, nil for the default.
 func workdays(s *Server) []time.Weekday {
 	var out []time.Weekday
-	for _, d := range s.opt.UI.Workdays {
+	for _, d := range s.UIConfig().Workdays {
 		for wd := time.Sunday; wd <= time.Saturday; wd++ {
 			if len(d) >= 3 && strings.HasPrefix(strings.ToLower(wd.String()), strings.ToLower(d[:3])) {
 				out = append(out, wd)

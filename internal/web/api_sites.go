@@ -19,12 +19,14 @@ const siteCookie = "lw_site"
 
 type siteSet struct {
 	mu    sync.Mutex
+	uiMu  sync.RWMutex
+	ui    config.UIConfig // the ui: section, shared by every site; settings edits replace it
 	base  Options // the site the server started on
 	open  map[string]Options
 	rules map[string]*ruleRunner
 }
 
-func newSiteSet(base Options) *siteSet { return &siteSet{base: base, open: map[string]Options{}} }
+func newSiteSet(base Options) *siteSet { return &siteSet{base: base, ui: base.UI, open: map[string]Options{}} }
 
 // at is s for the site r asks for.
 func (s *Server) at(r *http.Request) *Server {

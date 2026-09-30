@@ -315,7 +315,7 @@ func reportVelocity(ctx context.Context, s *Server, r *http.Request) (any, error
 	if err != nil {
 		return nil, err
 	}
-	n := sprintCount(r, max(s.opt.UI.VelocitySprints, 8))
+	n := sprintCount(r, max(s.UIConfig().VelocitySprints, 8))
 	return s.Client().Velocity(ctx, id, n, boardPoints(ctx, s, id))
 }
 
@@ -361,7 +361,7 @@ func reportCycle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 }
 
 func roadmap(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	typ, days := s.opt.UI.RoadmapEpicType, s.opt.UI.RoadmapDoneDays
+	typ, days := s.UIConfig().RoadmapEpicType, s.UIConfig().RoadmapDoneDays
 	if typ == "" {
 		typ = "Epic"
 	}

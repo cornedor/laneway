@@ -16,7 +16,7 @@ func TestSettingsEdit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	os.WriteFile(path, []byte("# mine\nui:\n  stale_days: 3 # why\n"), 0o600)
 	s.opt.ConfigPath = path
-	s.opt.UI.StaleDays = 3
+	s.sites.ui.StaleDays = 3
 	ts := httptest.NewServer(s)
 	defer ts.Close()
 

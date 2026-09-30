@@ -373,7 +373,7 @@ func teamStandup(ctx context.Context, s *Server, board, sprint int, since, now t
 			}
 		}
 	}
-	lines, folded, text := teamWalk(cols, entries, projects, byPerson, s.opt.UI.StaleDays, since, now, blockers)
+	lines, folded, text := teamWalk(cols, entries, projects, byPerson, s.UIConfig().StaleDays, since, now, blockers)
 	if head != "" {
 		text = head + "\n\n" + text
 	}
@@ -559,7 +559,7 @@ func worklogProposals(ctx context.Context, s *Server, r *http.Request) (any, err
 		logged[w.Key] += w.Seconds
 	}
 	events := gitWork(s.repos(), d, d.AddDate(0, 0, 1))
-	more, failed := activityWork(s.opt.UI.Activity, d)
+	more, failed := activityWork(s.UIConfig().Activity, d)
 	if failed == nil {
 		failed = []string{}
 	}

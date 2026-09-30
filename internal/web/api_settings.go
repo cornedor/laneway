@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 
 	"gopkg.in/yaml.v3"
 
@@ -20,13 +19,15 @@ import (
 // table the terminal's settings screen uses, and writes them back through
 // config.SetUI (comments stay), so both front ends share one file.
 
-var uiMu sync.RWMutex
-
-// UIConfig is the current ui: section (settings edits apply at once).
+// UIConfig is the current ui: section (settings edits apply at once, for
+// every site).
 func (s *Server) UIConfig() config.UIConfig {
-	uiMu.RLock()
-	defer uiMu.RUnlock()
-	return s.opt.UI
+	if s.sites == nil {
+		return s.opt.UI
+	}
+	s.sites.uiMu.RLock()
+	defer s.sites.uiMu.RUnlock()
+	return s.sites.ui
 }
 
 // Setting is one ui: option for the settings screen. Type is bool, enum,
@@ -248,9 +249,9 @@ func putSetting(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if s.opt.ConfigPath == "" {
 		return nil, httpError{http.StatusConflict, "no config file to write to"}
 	}
-	uiMu.Lock()
-	defer uiMu.Unlock()
-	next, value, err := editUI(s.opt.UI, name, raw)
+	s.sites.uiMu.Lock()
+	defer s.sites.uiMu.Unlock()
+	next, value, err := editUI(s.sites.ui, name, raw)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +263,7 @@ func putSetting(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err := config.SetUI(s.opt.ConfigPath, name, value); err != nil {
 		return nil, err
 	}
-	s.opt.UI = next
+	s.sites.ui = next
 	for _, st := range settings(next) {
 		if st.Name == name {
 			return st, nil

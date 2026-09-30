@@ -53,7 +53,10 @@ func SettingChoices(name string) []string { return settingChoices(name) }
 func ValidateUI(c config.UIConfig) []string {
 	_, warn := optionsFrom(c)
 	k := defaultKeys()
-	return append(warn, k.applyKeys(c.Keys)...)
+	warn = append(warn, k.applyKeys(c.Keys)...)
+	_, thWarn := themeFrom(c.Theme)
+	_, actWarn := actionsFrom(c.Actions, &k)
+	return append(append(warn, thWarn...), actWarn...)
 }
 
 // KeyActions are the rebindable actions of ui.keys with their default keys.
