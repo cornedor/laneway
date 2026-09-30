@@ -185,9 +185,9 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		}
 		return map[string]any{"issueTypes": out, "values": out, "isLast": true}, true
 	case "/rest/api/3/jql/autocompletedata":
-		return map[string]any{"visibleFieldNames": []any{}, "visibleFunctionNames": []any{}, "jqlReservedWords": []string{}}, true
+		return jqlWordsJSON(), true
 	case "/rest/api/3/jql/autocompletedata/suggestions":
-		return map[string]any{"results": []any{}}, true
+		return map[string]any{"results": s.jqlValues(get("fieldName"), get("fieldValue"))}, true
 	case "/rest/dev-status/latest/issue/summary", "/rest/dev-status/latest/issue/detail":
 		return map[string]any{"detail": []any{}, "summary": map[string]any{}}, true
 	case "/rest/agile/1.0/board":

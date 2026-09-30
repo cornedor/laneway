@@ -2,6 +2,7 @@ package demo
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -129,5 +130,23 @@ func TestDemoReleases(t *testing.T) {
 	}
 	if len(s.Unhandled) > 0 {
 		t.Errorf("unanswered: %v", s.Unhandled)
+	}
+}
+
+// TestDemoJQLCompletion: Q completes the demo's fields, functions and a
+// field's values.
+func TestDemoJQLCompletion(t *testing.T) {
+	c, _ := demoClient(t)
+	ctx := context.Background()
+	w, err := c.JQLAutocomplete(ctx)
+	if err != nil || !slices.Contains(w.Fields, "assignee") || !slices.Contains(w.Functions, "currentUser()") {
+		t.Fatalf("words = %+v, %v", w, err)
+	}
+	vals, err := c.JQLValues(ctx, "assignee", "pri")
+	if err != nil || len(vals) != 1 || vals[0] != "Priya Nair" {
+		t.Errorf("assignee values = %v, %v", vals, err)
+	}
+	if vals, _ = c.JQLValues(ctx, "labels", ""); !slices.Contains(vals, "frontend") {
+		t.Errorf("labels = %v", vals)
 	}
 }

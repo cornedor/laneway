@@ -192,3 +192,74 @@ func (s *Server) clause(c string) func(*issue) bool {
 	}
 	return nil
 }
+
+// jqlFields and jqlFunctions are what the demo's JQL search completes.
+var (
+	jqlFields = []string{"assignee", "created", "duedate", "fixVersion", "issuetype", "labels", "parent", "priority",
+		"project", "reporter", "resolved", "sprint", "status", "statusCategory", "summary", "text", "updated"}
+	jqlFunctions = []string{"currentUser()", "openSprints()", "closedSprints()", "startOfDay()", "startOfWeek()",
+		"endOfWeek()", "now()"}
+)
+
+// jqlWordsJSON is /jql/autocompletedata: the fields, functions and keywords.
+func jqlWordsJSON() map[string]any {
+	named := func(vs []string) []any {
+		out := []any{}
+		for _, v := range vs {
+			out = append(out, map[string]any{"value": v, "displayName": v})
+		}
+		return out
+	}
+	return map[string]any{"visibleFieldNames": named(jqlFields), "visibleFunctionNames": named(jqlFunctions),
+		"jqlReservedWords": []string{"and", "or", "not", "in", "is", "empty", "null", "order", "by", "asc", "desc"}}
+}
+
+// jqlValues suggests field's values in the generated project that contain
+// prefix, as Jira's suggestions do.
+func (s *Server) jqlValues(field, prefix string) []any {
+	var vals []string
+	switch strings.ToLower(field) {
+	case "assignee", "reporter":
+		for _, u := range users {
+			vals = append(vals, u.name)
+		}
+	case "status":
+		for _, st := range statuses {
+			vals = append(vals, st.name)
+		}
+	case "statuscategory":
+		vals = []string{"To Do", "In Progress", "Done"}
+	case "priority":
+		vals = priorities
+	case "issuetype", "type":
+		for name := range types {
+			vals = append(vals, name)
+		}
+		slices.Sort(vals)
+	case "project":
+		vals = []string{project}
+	case "labels":
+		for _, k := range s.order {
+			for _, l := range s.issues[k].labels {
+				if !slices.Contains(vals, l) {
+					vals = append(vals, l)
+				}
+			}
+		}
+	case "fixversion":
+		for _, v := range s.versions {
+			vals = append(vals, v.name)
+		}
+	case "sprint":
+		for _, sp := range s.sprints {
+			vals = append(vals, sp.name)
+		}
+	}
+	out := []any{}
+	for _, v := range vals {
+		if strings.Contains(strings.ToLower(v), strings.ToLower(strings.Trim(prefix, `"`))) {
+			out = append(out, map[string]any{"value": v, "displayName": v})
+		}
+	}
+	return out
+}
