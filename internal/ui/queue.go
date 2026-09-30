@@ -1,18 +1,13 @@
 package ui
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/cornedor/laneway/internal/jira"
-	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/offline"
 )
 
 // Offline writes: a change that couldn't reach Jira waits in the state
@@ -20,41 +15,13 @@ import (
 // first. One whose issue changed in Jira since stops the replay rather
 // than overwrite it: the palette's queue row sends it anyway or drops it.
 
-const (
-	queueMeta  = jiraMetaPrefix + "queue"
-	queueEvery = 30 * time.Second
+const queueEvery = offline.Every
+
+var (
+	readQueue  = offline.Read
+	writeQueue = offline.Write
+	queueTo    = offline.To
 )
-
-// queueMu guards the stored queue: the client adds to it from commands.
-var queueMu sync.Mutex
-
-func readQueue(st *store.Store) []jira.PendingWrite {
-	if st == nil {
-		return nil
-	}
-	v, _, _ := st.GetMeta(queueMeta)
-	var ws []jira.PendingWrite
-	_ = json.Unmarshal([]byte(v), &ws)
-	return ws
-}
-
-func writeQueue(st *store.Store, ws []jira.PendingWrite) {
-	if len(ws) == 0 {
-		_ = st.DeleteMeta(queueMeta)
-		return
-	}
-	b, _ := json.Marshal(ws)
-	_ = st.SetMeta(queueMeta, string(b))
-}
-
-// queueTo is the client's queue: the state file.
-func queueTo(st *store.Store) func(jira.PendingWrite) {
-	return func(w jira.PendingWrite) {
-		queueMu.Lock()
-		defer queueMu.Unlock()
-		writeQueue(st, append(readQueue(st), w))
-	}
-}
 
 type queueTickMsg struct{}
 
@@ -82,41 +49,8 @@ func (m Model) handleQueueTick() (tea.Model, tea.Cmd) {
 func (m *Model) replayQueue(force bool) tea.Cmd {
 	c, ctx, st := m.jiraClient, m.ctx, m.store
 	return func() tea.Msg {
-		queueMu.Lock()
-		defer queueMu.Unlock()
-		ws := readQueue(st)
-		var msg queueReplayedMsg
-		for len(ws) > 0 {
-			w := ws[0]
-			cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			if !force {
-				changed, err := c.ChangedSince(cctx, w.Key(), w.At)
-				if err != nil { // offline still, or unreadable: try later
-					cancel()
-					msg.err = err
-					break
-				}
-				if changed {
-					cancel()
-					msg.conflict = w.Key()
-					break
-				}
-			}
-			err := c.Replay(cctx, w)
-			cancel()
-			if errors.Is(err, jira.ErrQueued) {
-				break
-			}
-			if err != nil {
-				msg.failed = append(msg.failed, w.What+": "+err.Error())
-			} else {
-				msg.sent++
-			}
-			ws, force = ws[1:], false
-		}
-		writeQueue(st, ws)
-		msg.left = len(ws)
-		return msg
+		r := offline.Replay(ctx, c, st, force)
+		return queueReplayedMsg{sent: r.Sent, failed: r.Failed, conflict: r.Conflict, left: r.Left, err: r.Err}
 	}
 }
 
@@ -170,14 +104,7 @@ func (m Model) applyQueuePick(it jiraPickerItem) (tea.Model, tea.Cmd) {
 	}
 	m.closeJiraPicker()
 	i, _ := strconv.Atoi(it.id)
-	queueMu.Lock()
-	ws := readQueue(m.store)
-	if i < len(ws) {
-		ws = append(ws[:i], ws[i+1:]...)
-		writeQueue(m.store, ws)
-	}
-	queueMu.Unlock()
-	m.queued = len(ws)
+	m.queued = offline.Drop(m.store, i)
 	m.status = "dropped the write"
 	return m, nil
 }
