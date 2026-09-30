@@ -19,6 +19,11 @@ export function mountIssue(el, key, { app, full }) {
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
   let dead = false;
   const scope = app.keys.scope('issue');
+  // Beside a board the panel's keys apply only while it has focus (Tab / click), so the board keeps j/k/c/e/s.
+  if (!full) {
+    const bind = scope.bind;
+    scope.bind = (spec, fn, desc, opts = {}) => bind(spec, fn, desc, { ...opts, when: opts.when || (() => el.contains(document.activeElement)) });
+  }
 
   // ---- skeleton
   const scroll = h('div.iss-scroll', { tabindex: -1 });

@@ -747,7 +747,7 @@ export default function mount(el, { app, params, query, scope, toolbar }) {
   document.addEventListener('keydown', touch, true);
   document.addEventListener('pointermove', touch, { passive: true });
   function armAuto() {
-    const every = parseEvery(app.session.ui && app.session.ui.AutoRefresh);
+    const pr = app.prefs.get('board.refresh', ''); const every = pr !== '' ? Number(pr) * 1000 : parseEvery(app.session.ui && app.session.ui.AutoRefresh);
     if (!every) return;
     const tick = () => {
       if (S.dead) return;
@@ -783,7 +783,7 @@ export default function mount(el, { app, params, query, scope, toolbar }) {
     if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
     if (app.prefs.get('board.last', '') !== S.project + '/' + S.board.ID) app.prefs.set('board.last', S.project + '/' + S.board.ID);
     const dm = app.session.ui && app.session.ui.DefaultMode;
-    S.mode = app.prefs.get('board.mode.' + S.board.ID, dm === 'list' ? 'list' : 'lanes') === 'list' ? 'list' : 'lanes';
+    S.mode = app.prefs.get('board.mode.' + S.board.ID, app.prefs.get('board.mode', dm === 'list' ? 'list' : 'lanes')) === 'list' ? 'list' : 'lanes';
     const [sort, dir] = String(app.prefs.get('board.sort.' + S.board.ID, 'rank:1')).split(':');
     S.sort = SORTS.includes(sort) ? sort : 'rank'; S.dir = dir === '-1' ? -1 : 1;
     renderToolbar(); renderBar();
