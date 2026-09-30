@@ -1732,6 +1732,31 @@ func TestBoardKeysWithoutBoard(t *testing.T) {
 	}
 }
 
+// TestAssigneeFilterListsProject: a board filtered to one person still
+// offers the project's other assignable people, and their late arrival
+// keeps the filter typed meanwhile.
+func TestAssigneeFilterListsProject(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/user/assignable/search" && r.URL.Query().Get("project") == "ABC" {
+			_, _ = w.Write([]byte(`[{"accountId":"a1","displayName":"Ada"},{"accountId":"b2","displayName":"Bob"},{"accountId":"c3","displayName":"Cy"}]`))
+		}
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	cmd := m.openJiraAssigneeFilter()
+	if !pickerHasLabel(m, "Ada") || pickerHasLabel(m, "Bob") {
+		t.Fatalf("before the load: %+v", m.jiraPicker.items)
+	}
+	u, _ := m.handleJiraPickerKey(keyStr("b"))
+	m = u.(Model)
+	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
+	m = out.(Model)
+	if !pickerHasLabel(m, "Bob") || pickerHasLabel(m, "Cy") || m.jiraPicker.items[m.jiraPicker.idx].id != "b2" {
+		t.Errorf("after the load, filtered to b: %+v at %d", m.jiraPicker.items, m.jiraPicker.idx)
+	}
+}
+
 // TestCardsReloadDuringBoardLoad: a reload after an edit while another
 // board loads leaves that load current, so its reply isn't dropped.
 func TestCardsReloadDuringBoardLoad(t *testing.T) {

@@ -439,6 +439,18 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 		m.jiraPicker.title = msg.title
 	}
 	m.jiraPicker.text = msg.text
+	if msg.kind == jiraPickBoardAssignee && !m.jiraPicker.loading {
+		// more people for a picker already showing: keep the filter typed
+		// and the row chosen
+		chosen := ""
+		if i := m.jiraPicker.idx; i < len(m.jiraPicker.items) {
+			chosen = m.jiraPicker.items[i].id
+		}
+		m.jiraPicker.all = msg.items
+		m.filterJiraPicker()
+		m.jiraPicker.idx = max(0, slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == chosen }))
+		return m, nil
+	}
 	m.setJiraPickerItems(msg.items)
 	return m, nil
 }

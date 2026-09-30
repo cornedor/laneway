@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -1103,7 +1104,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Bulk):
 		m.openBulkMenu()
 	case key.Matches(msg, m.keys.Assignee):
-		m.openJiraAssigneeFilter()
+		return m, m.openJiraAssigneeFilter()
 	case key.Matches(msg, m.keys.Mine):
 		if t.cfg == nil {
 			m.status = m.noBoardYet()
@@ -1723,26 +1724,49 @@ func (m *Model) pickJiraBoard(kind jiraPickerKind, id string) tea.Cmd {
 	return m.loadJiraBoard(t.project, board, "", true)
 }
 
-// openJiraAssigneeFilter offers everyone, you, unassigned, and the people
-// seen on the board, in a filterable picker.
-func (m *Model) openJiraAssigneeFilter() {
+// openJiraAssigneeFilter offers everyone, you, unassigned, the people seen
+// on the board, and the project's assignable people once they load (the
+// board's cards alone miss everyone a filter hides), in a filterable
+// picker.
+func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil {
 		m.status = m.noBoardYet()
-		return
+		return nil
 	}
-	m.startJiraPicker(jiraPickBoardAssignee, "Assignee", true)
-	items := []jiraPickerItem{{id: "", label: "Everyone"}, {id: "me", label: "Me"}, {id: "none", label: "Unassigned"}}
+	gen := m.startJiraPicker(jiraPickBoardAssignee, "Assignee", true)
+	seen, cur := maps.Clone(t.people), t.assignee.id
+	m.setJiraPickerItems(boardAssigneeItems(seen, nil, cur))
+	c, ctx, project, seq := m.jiraClient, m.ctx, t.project, m.jiraPicker.fetchSeq
+	return func() tea.Msg {
+		us, err := c.ProjectUsers(ctx, project)
+		if err != nil || len(us) == 0 {
+			return nil
+		}
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickBoardAssignee, items: boardAssigneeItems(seen, us, cur)}
+	}
+}
+
+// boardAssigneeItems are the assignee filter's rows: everyone, you,
+// unassigned, then seen and us by name, cur marked.
+func boardAssigneeItems(seen map[string]string, us []jira.User, cur string) []jiraPickerItem {
+	names := maps.Clone(seen)
+	if names == nil {
+		names = map[string]string{}
+	}
+	for _, u := range us {
+		names[u.AccountID] = u.DisplayName
+	}
 	var people []jiraPickerItem
-	for id, name := range t.people {
+	for id, name := range names {
 		people = append(people, jiraPickerItem{id: id, label: name})
 	}
 	slices.SortFunc(people, func(a, b jiraPickerItem) int { return strings.Compare(a.label, b.label) })
-	items = append(items, people...)
+	items := append([]jiraPickerItem{{id: "", label: "Everyone"}, {id: "me", label: "Me"}, {id: "none", label: "Unassigned"}}, people...)
 	for i := range items {
-		items[i].current = items[i].id == t.assignee.id
+		items[i].current = items[i].id == cur
 	}
-	m.setJiraPickerItems(items)
+	return items
 }
 
 // setJiraAssignee applies an assignee filter picked from the picker and

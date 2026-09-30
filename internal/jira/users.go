@@ -91,3 +91,22 @@ func (c *Client) KnownUsers(key, query string) (us []User, ok bool) {
 // WarmUsers reads key's project's people when the cache lacks them, so
 // the first search answers at once.
 func (c *Client) WarmUsers(ctx context.Context, key string) { c.usersFrom(ctx, key) }
+
+// ProjectUsers are everyone assignable in project: the cache when fresh,
+// else Jira; offline, the cache even when stale.
+func (c *Client) ProjectUsers(ctx context.Context, project string) ([]User, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	people, _ := c.usersFrom(ctx, project)
+	if people != nil && time.Since(people.UsersSynced(project)) <= peopleFresh {
+		return people.Users(project, "", true), nil
+	}
+	us, err := c.allAssignable(ctx, project)
+	if err != nil && people != nil && Offline(err) {
+		if kept := people.Users(project, "", true); len(kept) > 0 {
+			return kept, nil
+		}
+	}
+	return us, err
+}
