@@ -1,4 +1,6 @@
-// Settings: topic headings, `/` filters by name. j/k move, enter/space/→ change, ← back, esc leaves.
+// Settings: topic headings, `/` filters by name. j/k move, enter/space/→ change, ← back, del resets, esc leaves.
+// Sections: Appearance and Board (this browser), Notifications, Keyboard (remaps, settings_keys.js), then every
+// ui: option of the config file by topic (settings_config.js), shared with the terminal app.
 //
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
@@ -10,7 +12,9 @@ import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import theme from '../lib/theme.js';
 import api from '../lib/api.js';
-import { kbd } from '../lib/keys.js';
+import * as notifier from '../lib/notify.js';
+import { load as loadConfig } from './settings_config.js';
+import { keyOptions } from './settings_keys.js';
 
 css('settings');
 
@@ -46,15 +50,17 @@ export default function mount(el, { app, scope }) {
     choice('Motion', 'animations and transitions', 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? 'reduced' : 'system')),
     { name: 'Custom tokens', desc: 'CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies', section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
 
-    { name: 'Keyboard', section: 'Keyboard', desc: 'Bindings available on this page. Each view lists its own under ?. Remapping is not available in the browser yet.', wide: true, static: true, render: () => h('span') },
-    ...app.keys.active().map(b => ({ name: b.desc, section: 'Keyboard', mono: true, render: () => h('span.st-val', kbd(b.spec).map(k => h('kbd', k))), meta: b.group })),
+    { name: 'Browser notifications', desc: 'inbox news while this tab is in the background; the browser asks when you turn them on', section: 'Notifications',
+      render: () => { const on = notifier.enabled(); return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Browser notifications', tabindex: -1, onclick: () => toggleNotify() }, h('i')), h('span.st-state', notifier.permission() === 'denied' ? 'blocked by the browser' : on ? 'on' : 'off')); },
+      change: () => toggleNotify() },
+    action('Test notification', 'shows one now', 'Notifications', () => { if (!notifier.notify('laneway', 'Notifications work.')) app.ui.toast('Turn notifications on first', { kind: 'err' }); }),
 
-    choice('Default mode', 'how the board opens', 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
-    { name: 'Card fields', desc: 'what cards and list rows show', section: 'Board',
+    choice('Default mode', 'how the board opens (this browser)', 'Board (this browser)', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
+    { name: 'Card fields', desc: 'what cards and list rows show', section: 'Board (this browser)',
       render: () => h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: editFields }, fields().join(', ') || 'none')),
       change: () => editFields() },
-    choice('Auto refresh', 'refetch an idle board', 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
-    choice('Card limit', 'cards fetched per view', 'Board', ['100', '200', '500', '1000'], () => pref('board.limit', '500'), v => { setPref('board.limit', v); refresh(); }),
+    choice('Auto refresh', 'refetch an idle board', 'Board (this browser)', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
+    choice('Card limit', 'cards fetched per view', 'Board (this browser)', ['100', '200', '500', '1000'], () => pref('board.limit', '500'), v => { setPref('board.limit', v); refresh(); }),
 
     info('Site', s.site || '-', 'Data'), info('Jira', s.baseURL || '-', 'Data'),
     info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Data'), info('Version', s.version || 'dev', 'Data'),
@@ -64,6 +70,11 @@ export default function mount(el, { app, scope }) {
       app.ui.toast('Recents cleared', { kind: 'ok' });
     }),
   ];
+  async function toggleNotify() {
+    const on = await notifier.setEnabled(!notifier.enabled());
+    if (!on && notifier.permission() === 'denied') app.ui.toast('The browser blocks notifications for this site', { kind: 'err' });
+    refresh();
+  }
   const fields = () => { const v = pref('board.fields', ''); return v ? v.split(',').filter(f => FIELDS.includes(f)) : FIELDS.slice(); };
   async function editFields() {
     const r = await app.ui.pick({ title: 'Card fields', items: FIELDS, multi: true, selected: fields(), placeholder: 'Toggle with space, confirm with enter' });
@@ -99,14 +110,40 @@ export default function mount(el, { app, scope }) {
   }
 
   // ---- view
-  let q = '', sel = 0, rows = [];
-  const filter = h('input.input.st-filter', { type: 'search', placeholder: 'Filter settings  (/)', spellcheck: false, oninput: e => { q = e.target.value.trim().toLowerCase(); sel = 0; draw(); } });
+  let q = '', sel = 0, rows = [], editing = null, cfg = null, keyRows = [];
+  const filter = h('input.input.st-filter', { type: 'search', placeholder: 'Filter settings  (/)', spellcheck: false, 'aria-label': 'Filter settings', oninput: e => { q = e.target.value.trim().toLowerCase(); sel = 0; draw(); } });
   const list = h('div.st-list');
-  el.append(h('div.st', h('div.st-head', h('h2', 'Settings'), filter), list, h('div.st-foot', 'j/k move · enter/space/→ change · ← back · / filter · esc leaves')));
+  const foot = h('div.st-foot');
+  el.append(h('div.st', h('div.st-head', h('h2', 'Settings'), filter), list, foot));
+  const setFoot = () => { foot.textContent = 'j/k move · enter/space change · ←/→ cycle · del reset · / filter · esc leaves' + (cfg && cfg.path ? ' · ui: options write to ' + cfg.path : ''); };
+  setFoot();
 
-  const shown = () => options.filter(o => !q || (o.name + ' ' + o.desc + ' ' + o.section + ' ' + (o.meta || '')).toLowerCase().includes(q));
+  const host = {
+    redraw: o => { if (o.el && o.el.isConnected) { const n = rowFor(o); o.el.replaceWith(n); o.el = n; mark(); } },
+    begin: e => { editing = e; },
+    end: () => { editing = null; el.focus(); },
+    commit: () => editing && editing.commit(),
+    cancel: () => editing && editing.cancel(),
+    reload: () => { rebuildKeys(); draw(); },
+  };
+  function rebuildKeys() {
+    options.splice(0, options.length, ...options.filter(o => !keyRows.includes(o)));
+    keyRows = keyOptions(app, host);
+    options.push(...keyRows);
+  }
+
+  const hay = o => (o.name + ' ' + o.name.replace(/_/g, ' ') + ' ' + (o.desc || '') + ' ' + o.section + ' ' + (o.meta || '') + ' ' + (o.key ? app.keys.registry().filter(r => r.desc === o.name).map(r => r.specs.join(' ')).join(' ') : '')).toLowerCase();
+  const shown = () => {
+    const words = q.split(/\s+/).filter(Boolean);
+    const vis = options.filter(o => { if (!words.length) return true; const t = hay(o); return words.every(w => t.includes(w)); });
+    const rank = o => (o.key ? 2 : o.cfg ? 4 : ({ Appearance: 0, Notifications: 1, Keyboard: 2, 'Board (this browser)': 3, Data: 5 })[o.section] ?? 4);
+    // sections keep the order they first appear in; the fixed ones come first
+    const seen = []; for (const o of vis) if (!seen.includes(o.section)) seen.push(o.section);
+    const at = sec => rank(vis.find(o => o.section === sec)) * 1000 + seen.indexOf(sec);
+    return vis.map((o, i) => [o, at(o.section), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
+  };
   function rowFor(o) {
-    return h('div.st-row' + (o.wide ? '.wide' : ''), { onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } } },
+    return h('div.st-row' + (o.wide ? '.wide' : ''), { role: 'group', 'aria-label': o.name, onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } } },
       h('div.st-name', h('div', o.name, o.meta && h('span.chip', o.meta)), o.desc && h('div.st-desc', o.desc)), o.render());
   }
   function draw() {
@@ -116,7 +153,7 @@ export default function mount(el, { app, scope }) {
     clear(list);
     let sec = null, body = null;
     for (const o of vis) {
-      if (o.section !== sec) { sec = o.section; list.append(h('h3.st-h', sec)); body = h('div.st-sec'); list.append(body); }
+      if (o.section !== sec) { sec = o.section; list.append(h('h3.st-h', { id: 'st-' + sec.replace(/\W+/g, '-') }, sec)); body = h('div.st-sec', { role: 'group', 'aria-labelledby': 'st-' + sec.replace(/\W+/g, '-') }); list.append(body); }
       o.el = rowFor(o);
       body.append(o.el);
     }
@@ -132,19 +169,33 @@ export default function mount(el, { app, scope }) {
     mark();
   }
   const change = d => { const o = rows[sel]; if (o && o.change) o.change(d); };
+  const activate = () => { const o = rows[sel]; if (o) (o.activate || o.change || (() => {}))(1); };
   const go = d => { if (rows.length) { sel = (sel + d + rows.length) % rows.length; mark(); } };
 
   scope.bind(['j', 'ArrowDown'], () => go(1), 'next option', { group: 'Settings' });
   scope.bind(['k', 'ArrowUp'], () => go(-1), 'previous option', { group: 'Settings' });
-  scope.bind(['Enter', 'Space', 'ArrowRight', 'l'], () => change(1), 'change option', { group: 'Settings' });
-  scope.bind(['ArrowLeft', 'h'], () => change(-1), 'change back', { group: 'Settings' });
+  scope.bind(['Enter', 'Space'], activate, 'change option', { group: 'Settings' });
+  scope.bind(['ArrowRight', 'l'], () => change(1), 'next value', { group: 'Settings' });
+  scope.bind(['ArrowLeft', 'h'], () => change(-1), 'previous value', { group: 'Settings' });
+  scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, 'reset to the default', { group: 'Settings' });
   scope.bind('/', () => { filter.focus(); filter.select(); }, 'filter settings', { group: 'Settings' });
   scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else history.length > 1 ? history.back() : app.go('/board'); }, 'leave settings', { group: 'Settings' });
-  scope.bind('Escape', () => { filter.blur(); el.focus(); }, '', { input: true, hidden: true });
-  scope.bind('Enter', () => { filter.blur(); el.focus(); }, '', { input: true, hidden: true });
-  scope.bind('ArrowDown', () => { filter.blur(); el.focus(); go(1); }, '', { input: true, hidden: true });
+  scope.bind('Escape', () => { if (editing) editing.cancel(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true });
+  scope.bind('Enter', () => { if (editing) editing.commit(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true, when: () => !(editing && editing.multi) });
+  scope.bind('ctrl+Enter', () => { if (editing) editing.commit(); }, '', { input: true, hidden: true });
+  scope.bind('ArrowDown', () => { filter.blur(); el.focus(); go(1); }, '', { input: true, hidden: true, when: () => !editing });
 
   draw();
   el.focus();
-  return () => { editor = null; };
+  let dead = false;
+  keyRows = keyOptions(app, host); options.push(...keyRows); draw();
+  loadConfig(app, host).then(c => {
+    if (dead) return;
+    cfg = c;
+    options.push(...c.options);
+    if (c.path) options.push(info('Config file', c.path, 'Data', c.editable ? 'ui: options are written here, comments kept' : 'read-only'));
+    for (const w of c.warnings) options.push(info('Config warning', w, 'Data'));
+    setFoot(); draw();
+  }).catch(e => app.ui.errToast(e));
+  return () => { dead = true; editor = null; editing = null; };
 }

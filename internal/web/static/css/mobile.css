@@ -1,0 +1,56 @@
+/* Phones, installed app, accessibility media. Tokens only. */
+.skip { position: fixed; top: -60px; left: 8px; z-index: 300; background: var(--accent); color: var(--accent-fg); padding: 6px 12px; border-radius: var(--radius); }
+.skip:focus { top: 8px; text-decoration: none; }
+.offline { position: fixed; left: 0; right: 0; bottom: 0; z-index: 250; text-align: center; font-size: 12px; padding: 4px 12px calc(4px + env(safe-area-inset-bottom)); background: var(--warn); color: var(--bg); }
+body.is-offline #status { display: none; }
+
+/* safe areas (notch, home bar) in the installed app */
+#top { padding-top: env(safe-area-inset-top); height: calc(44px + env(safe-area-inset-top)); padding-left: max(calc(var(--pad) * 1.5), env(safe-area-inset-left)); padding-right: max(calc(var(--pad) * 1.5), env(safe-area-inset-right)); }
+#status { padding-bottom: env(safe-area-inset-bottom); }
+#app { height: 100vh; height: 100dvh; }
+@media (max-width: 900px) { #panel { inset: calc(44px + env(safe-area-inset-top)) 0 0 0; padding-bottom: env(safe-area-inset-bottom); } }
+
+@media (display-mode: standalone) { #status { display: none; } }
+
+@media (max-width: 700px) {
+  :root { --fs: 15px; }
+  #search-btn kbd { display: none; }
+  .brand { font-size: 0; gap: 0; } .brand::before { width: 16px; height: 16px; }
+  #status { display: none; }
+  /* lanes: one column per screen, swipe to snap between them */
+  .bd-lanes { scroll-snap-type: x mandatory; scroll-padding-inline: var(--pad); overscroll-behavior-x: contain; }
+  .bd-lanes .bd-lane { flex: 0 0 calc(100vw - var(--pad) * 4); min-width: 0; scroll-snap-align: center; scroll-snap-stop: always; }
+  .bd-filter { max-width: none; flex: 1; }
+  /* pickers and dialogs become bottom sheets */
+  .overlay { align-items: flex-end; padding-top: 0; }
+  .modal, .modal.wide, .modal.pick-modal { width: 100vw; max-width: none; max-height: 85vh; max-height: 85dvh; border-radius: 14px 14px 0 0; border-bottom: 0; padding-bottom: calc(var(--pad) * 1.5 + env(safe-area-inset-bottom)); animation: lw-sheet .18s ease-out; }
+  .modal.pick-modal { padding-bottom: env(safe-area-inset-bottom); }
+  .modal::before { content: ""; display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--bg-4); margin: -4px auto 8px; }
+  .modal.pick-modal::before { margin: 8px auto 0; }
+  .pick-list { max-height: 45vh; max-height: 45dvh; }
+  .pick-input, .input, select.input, textarea.input { font-size: 16px; } /* no zoom-in on focus */
+  .help { columns: 1; }
+  #toasts { bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+@keyframes lw-sheet { from { transform: translateY(100%); } }
+
+@media (pointer: coarse) {
+  .btn, .tab, #nav a { min-height: 40px; }
+  .pick-row { min-height: 44px; }
+  kbd { display: none; }
+}
+
+/* the OS asks for more contrast / no motion / forced colours */
+@media (prefers-contrast: more) {
+  :root { --border: var(--fg-3); --fg-3: var(--fg-2); }
+  :focus-visible { outline-width: 3px; }
+  .card, .bd-lane, .st-sec, .modal { border-width: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .bd-refresh.spin { animation: none; } }
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid Highlight; }
+  .card.sel, .lrow.sel, .pl-row.sel, .st-row.sel, .pick-row.sel, .ientry.sel, .wlog.sel { outline: 2px solid Highlight; outline-offset: -2px; forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .btn.primary, .pill, .chip { border: 1px solid CanvasText; }
+  .overlay { background: transparent; }
+  .modal { border: 2px solid CanvasText; }
+}

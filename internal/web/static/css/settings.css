@@ -17,3 +17,26 @@
 .st-json { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; } .st-err { color: var(--err); font-size: 12px; min-height: 0; }
 .st-edit { display: flex; flex-direction: column; gap: 6px; }
 .st-foot { margin-top: calc(var(--pad) * 2); font-size: 12px; color: var(--fg-3); }
+.st-val.mono { font-size: .92em; } .st-val { flex-wrap: wrap; justify-content: flex-end; }
+.st-text { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: inherit; }
+.st-switch { width: 34px; height: 20px; padding: 2px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-4); cursor: pointer; display: inline-flex; align-items: center; }
+.st-switch i { width: 14px; height: 14px; border-radius: 50%; background: var(--fg-3); transition: transform .12s; }
+.st-switch.on { background: var(--accent); border-color: var(--accent); } .st-switch.on i { transform: translateX(14px); background: var(--accent-fg); }
+.st-switch.unset { opacity: .65; }
+.st-state { font-size: 12px; color: var(--fg-2); min-width: 2.2em; }
+.st-x { padding: 0 6px; color: var(--fg-3); } .st-x:hover { color: var(--err); }
+.st-yaml { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.st-pre { margin: 0; font-size: 12px; max-height: 10em; }
+.st-edit input.input, .st-edit textarea.input { max-width: 100%; }
+.st-err { flex-basis: 100%; }
+.st-spec { white-space: nowrap; } .st-spec kbd + kbd { margin-left: 3px; }
+.st-was { font-size: 11px; }
+.cap { margin: var(--pad) 0; padding: calc(var(--pad) * 2); min-height: 4.5em; border: 2px dashed var(--border); border-radius: var(--radius); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.cap:focus { border-color: var(--accent); outline: none; }
+.cap-keys kbd { font-size: 1.3em; margin: 0 3px; } .cap-msg { min-height: 1.3em; font-size: 12px; } .cap-msg.bad { color: var(--err); }
+.cap-hint { font-size: 12px; }
+@media (max-width: 700px) {
+  .st { padding: var(--pad); }
+  .st-row { flex-wrap: wrap; } .st-val { max-width: 100%; flex: 1 1 100%; justify-content: flex-start; }
+  .st-head { flex-wrap: wrap; } .st-filter { max-width: none; flex: 1; }
+}

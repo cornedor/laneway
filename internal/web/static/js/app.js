@@ -112,7 +112,7 @@ async function navigate() {
   } catch (e) { console.error(e); clear(view).append(h('div.empty', h('h2', 'Something broke'), h('pre', e.stack || e.message))); }
   bus.emit('route', app.route);
 }
-function markNav(name) { document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.name === name)); }
+function markNav(name) { document.querySelectorAll('#nav a').forEach(a => { a.classList.toggle('on', a.dataset.name === name); a.toggleAttribute('aria-current', a.dataset.name === name); }); }
 
 // ---- global keys
 function globalKeys() {
@@ -153,13 +153,17 @@ function chrome() {
 async function boot() {
   chrome(); globalKeys();
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
+  import('./lib/agents.js').then(m => m.install(app)).catch(e => console.error('agents', e));
   import('./views/fields.js').then(m => m.installUndo(app)); // `u` undoes the last edit
   import('./views/plan_cmds.js').then(m => m.register(app));
+  import('./lib/pwa.js').then(m => m.install(app)).catch(e => console.error('pwa', e));
   try {
     app.session = await api.get('/session');
     api.setSite(app.session.site);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
+    try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
   } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
+  import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
   import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e));
   $('.brand').title = app.session.baseURL + (app.session.demo ? ' (demo)' : '');
   if (app.session.demo) $('.brand').append(h('span.demo-badge', 'demo'));

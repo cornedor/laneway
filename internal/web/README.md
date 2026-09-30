@@ -41,7 +41,7 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 | Inbox | `jk`, `enter`, `e` done, `E` all read done, `s` snooze, `u` unread, `a` toggle read, `o` Jira, `r` refresh, `A` or `tab` inbox/all (`tab` goes to an open panel) |
 | Standup | `jk`, `enter`, `[`/`]` day back/forward, `p` or `tab` mine/team, `P` project, `y` copy, `r` refresh |
 | Agents (herdr; hidden without it) | `g a` agents, `g R` review (gh/glab), `S` start work on the selected issue (anywhere; focuses its agent if one runs), `ctrl+y` copy branch name; on the agents screen `jk`, `tab` worktrees, `enter` issue, `f` focus in herdr, `p` prompt, `N` new agent, `d` stop (twice), `o` `y` `r`; draft pull request in the palette |
-| Settings | `jk`, `enter`/`space`/`l` change, `h` back, `/` filter, `esc` leave |
+| Settings | `jk`, `enter`/`space` change or edit, `h`/`l` cycle, `del` reset to default, `/` filter, `esc` leave (enter on a Keyboard row captures a new key) |
 
 Moved because of a clash: board sort `S`->`O` (`S` starts work), timer `t`->`T` (board `t` is lanes/list), create `c`->`n` (panel `c` is comment), next theme `T`->`g t`, My work day/week `w`->`W` (`w` logs work), cycle-time weeks `w`->`W`, planning filter `/`->`f` and fold `o`->`z` (`/` is search, `o` is Jira), week-view add row `#`->`+`, issue panel: link `l`->`L` (`l` is labels), reply `r`->`R`, description `e`->`E`, `r` refreshes.
 
@@ -52,3 +52,10 @@ Moved because of a clash: board sort `S`->`O` (`S` starts work), timer `t`->`T` 
 - Mouse works, keyboard is complete. `j/k` and arrows move, `enter` opens, `esc` backs out, `x` selects, `?` shows keys.
 - CSS per area in `css/<area>.css`, loaded with `import { css } from '../lib/css.js'; css('board')`.
 - Reference for behaviour: the TUI in `internal/ui` (keys in `internal/ui/keys.go`, guide in `docs/guide`).
+
+## Settings, remapping, phone
+
+- `GET /api/settings` lists every `ui:` option (type, default, value, doc, choices, restart) from `internal/config/schema.go`, the table the terminal's settings screen uses; `PUT /api/settings/{name}` (`{Value}` or `{YAML}`, empty resets) validates like startup and writes through `config.SetUI` (comments kept). Needs `Options.ConfigPath` (demo gets a temp file).
+- Key remaps: `lib/keys.js` gives each bind an id `scope:defaultKey`. Precedence: the `keymap` pref (`{id: [keys]}`, Settings > Keyboard), then `ui.keys` of the config for binds with a TUI action (`lib/keymap.js` maps scope+key to the action name), then the default. Binds seen are remembered in localStorage (`lw:keyreg`) so the settings page lists views not opened this session.
+- `/sw.js` (from `static/sw.js`, version = hash of the embedded files) precaches the shell; `/api` is never cached. `lib/notify.js` `notify(title, body, onclick)` is a no-op unless the user turned notifications on in Settings.
+- Long-press / right-click on a card, row or planning row opens an action menu (`lib/pwa.js`). `css/mobile.css` (bottom sheets, lane snap, safe areas, contrast, forced colours) and `css/print.css` are global.
