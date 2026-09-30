@@ -36,7 +36,6 @@ const time = t => (isZero(t) ? Infinity : Date.parse(t));
 const num = c => (c.Points === '' || c.Points == null ? -1 : Number(c.Points) || 0);
 const who = c => c.AssigneeID || c.Assignee || '';
 const catClass = c => (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo');
-const avatarURL = u => (u ? '/api/avatar?u=' + encodeURIComponent(u) : '');
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const firstOf = (api, path) => new Promise((res, rej) => {
   let got = false;
@@ -551,7 +550,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const k = c.Assignee + '|' + c.AvatarURL + '|' + !!name;
     if (slot._k === k) return;
     slot._k = k;
-    slot.replaceChildren(ui.avatar(c.Assignee, avatarURL(c.AvatarURL), 20), name && c.Assignee ? h('span.l-name', ' ' + c.Assignee) : '');
+    slot.replaceChildren(ui.avatar(c.Assignee, c.AvatarURL, 20), name && c.Assignee ? h('span.l-name', ' ' + c.Assignee) : '');
   }
   const extraValues = c => (c.Extra ? c.Extra.split(SEP).map(kv => kv.slice(kv.indexOf('=') + 1)) : []);
   const fdate = (t, fallback) => (DF ? goDate(t, DF) : fallback);

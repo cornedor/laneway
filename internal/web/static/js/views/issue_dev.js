@@ -65,7 +65,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   const onRow = () => inPanel() && !!rowOf(document.activeElement);
   const rowOf = n => n && n.closest && root.contains(n) ? n.closest('[data-row]') : null;
   const hinted = () => { const c = card && card(); return !!(c && (c.PR || c.Deploy)); };
-  const avatar = (name, url, size = 18) => ui.avatar(name, url ? '/api/avatar?u=' + encodeURIComponent(url) : '', size);
+  const avatar = (name, url, size = 18) => ui.avatar(name, url, size);
 
   async function copy(text, what) {
     try { await navigator.clipboard.writeText(text); ui.toast(what + ' copied'); } catch (e) { ui.toast('Could not copy: ' + text, { kind: 'err' }); }

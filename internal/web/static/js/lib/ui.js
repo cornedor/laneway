@@ -135,7 +135,7 @@ export function avatar(name, url, size = 20) {
   const s = { width: r(size), height: r(size), fontSize: r(Math.round(size * 0.42)) };
   if (!name) return h('span.avatar.none', { style: s, title: 'Unassigned' }, '·');
   return h('span.avatar', { style: { ...s, background: `hsl(${hue(name)} 45% 42%)` }, title: name }, initials(name),
-    url && h('img', { src: url, alt: '', loading: 'lazy', onerror: e => e.target.remove() }));
+    (url && (url.startsWith('/api/avatar/') || url.startsWith('data:'))) && h('img', { src: url, alt: '', loading: 'lazy', onerror: e => e.target.remove() }));
 }
 export const chip = (text, cls = '') => h('span.chip' + (cls ? '.' + cls : ''), text);
 // Status pill coloured by status category ('new'|'indeterminate'|'done' or the card's Done/InProgress).

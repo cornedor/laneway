@@ -174,6 +174,10 @@ func writeJSON(w http.ResponseWriter, r *http.Request, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	emptySlices(&buf)
+	if b := rewriteAvatars(buf.Bytes()); len(b) != buf.Len() || !bytes.Equal(b, buf.Bytes()) {
+		buf.Reset()
+		buf.Write(b)
+	}
 	if buf.Len() > 1024 && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
 		gz := gzip.NewWriter(w)
