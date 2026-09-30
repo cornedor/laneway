@@ -410,3 +410,26 @@ func TestEstimate(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+// TestTimerMarksTheCard: the timed card says so on the board, in the list
+// and in the panel.
+func TestTimerMarksTheCard(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "T"))
+	m = out.(Model)
+	if !strings.Contains(ansi.Strip(m.jiraTab.lanesOut), " ⏱ 0m") {
+		t.Errorf("lanes lack the mark:\n%s", ansi.Strip(m.jiraTab.lanesOut))
+	}
+	if strings.Count(ansi.Strip(m.View().Content), "⏱ 0m") != 1 {
+		t.Error("the mark is on more than the timed card")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "t"))
+	m = out.(Model)
+	if row := ansi.Strip(m.jiraListRow(m.jiraTab.cards[0], false, listCols{width: 120, key: 6, status: 8})); !strings.Contains(strings.Join(strings.Fields(row), " "), "⏱ 0m First") {
+		t.Errorf("list row = %q", row)
+	}
+	m.jiraIssue = &jira.Issue{Key: "ABC-1", Type: "Story", Summary: "First"}
+	if head := ansi.Strip(m.renderJiraIssue(m.jiraIssue, 80)); !strings.Contains(strings.SplitN(head, "\n", 2)[0], "⏱ 0m") {
+		t.Errorf("panel title = %q", strings.SplitN(head, "\n", 2)[0])
+	}
+}

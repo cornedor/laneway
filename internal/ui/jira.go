@@ -74,6 +74,9 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	if iss.Type != "" {
 		header += "  " + refDimStyle.Render(iss.Type)
 	}
+	if tm := m.timerMark(iss.Key); tm != "" {
+		header += "  " + tm
+	}
 	b.WriteString(header + "\n")
 	m.panelFieldLine = m.panelFieldLine[:0]
 	m.pickerLine, m.commentIndent = -1, 0

@@ -65,7 +65,28 @@ func (m Model) handleTimerTick() (tea.Model, tea.Cmd) {
 	if m.timer.key == "" {
 		return m, nil
 	}
+	m.redrawTimed()
 	return m, timerTick()
+}
+
+// timerMark is "⏱ 12m" on the timed issue's card, row and panel; "" on
+// any other.
+func (m *Model) timerMark(key string) string {
+	if m.timer.key == "" || m.timer.key != key {
+		return ""
+	}
+	return jiraPinStyle.Render("⏱ " + jira.FormatDuration(max(int(time.Since(m.timer.start).Seconds()), 0)))
+}
+
+// redrawTimed redraws the board and panel with the timer's mark as it is.
+func (m *Model) redrawTimed() {
+	if m.jiraTab != nil {
+		m.jiraTab.rows = nil
+		m.renderJira()
+	}
+	if m.refOpen {
+		m.renderRef()
+	}
 }
 
 // toggleTimer stops a running timer into its log input, or starts one on
@@ -83,6 +104,7 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 		return nil
 	}
 	m.timer = workTimer{key: key, start: time.Now()}
+	m.redrawTimed()
 	m.status = "timer started on " + key + " · " + helpKey(m.keys.Timer) + " stops it"
 	if err := m.saveTimer(); err != nil {
 		m.fail("timer started on " + key + ", but a restart loses it: " + err.Error())
@@ -259,6 +281,7 @@ func (m Model) handleWorklogFailed(msg worklogFailedMsg) (tea.Model, tea.Cmd) {
 func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
 	if msg.fromTimer && msg.err == nil && m.timer.key == msg.key {
 		m.timer = workTimer{}
+		m.redrawTimed()
 		if err := m.saveTimer(); err != nil {
 			m.logError("timer: still in the state file, a restart brings it back: " + err.Error())
 		}

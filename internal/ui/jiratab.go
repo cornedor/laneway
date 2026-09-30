@@ -57,6 +57,9 @@ func (m *Model) cardSlot() int {
 // marks, the avatar, the summary).
 func (m *Model) cardLines(c jira.Card, styled bool) []string {
 	lines := jiraCardLines(c, styled, m.opts.fields)
+	if tm := m.timerMark(c.Key); tm != "" {
+		lines[0] += " " + tm
+	}
 	if !m.jiraTab.compact {
 		return lines
 	}
@@ -2179,6 +2182,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 	}
 	if m.reviewKeys[c.Key] {
 		title = jiraPinStyle.Render("⌥") + " " + title
+	}
+	if tm := m.timerMark(c.Key); tm != "" {
+		title = tm + " " + title
 	}
 	if a := m.agentMark(c.Key); a != "" {
 		title = a + " " + title
