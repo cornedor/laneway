@@ -18,9 +18,10 @@ import (
 const siteCookie = "lw_site"
 
 type siteSet struct {
-	mu   sync.Mutex
-	base Options // the site the server started on
-	open map[string]Options
+	mu    sync.Mutex
+	base  Options // the site the server started on
+	open  map[string]Options
+	rules map[string]*ruleRunner
 }
 
 func newSiteSet(base Options) *siteSet { return &siteSet{base: base, open: map[string]Options{}} }
@@ -64,6 +65,7 @@ func (s *Server) siteOptions(name string) (Options, error) {
 	}
 	o.Open, o.Sites, o.Version, o.Demo = base.Open, base.Sites, base.Version, base.Demo
 	s.sites.open[name] = o
+	go s.sites.rulesOf(s.ctx, o) // starts its rule watches
 	return o, nil
 }
 

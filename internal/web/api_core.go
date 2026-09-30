@@ -148,5 +148,6 @@ func boardCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	observeRules(s, r, cards)
 	return map[string]any{"cards": cards, "total": total}, nil
 }

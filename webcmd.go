@@ -16,6 +16,7 @@ import (
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/offline"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/web"
 )
@@ -63,6 +64,7 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 			return err
 		}
 		opt.Client = webClient(jc, config.UIConfig{})
+		opt.Client.SetQueue(offline.To(opt.Store))
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)
 		if err != nil {
@@ -117,7 +119,9 @@ func webSite(cfg config.Config, site string, opt web.Options) (web.Options, erro
 		return opt, err
 	}
 	opt.Site, opt.Jira, opt.UI = site, jc, cfg.UI
+	opt.Rules, opt.RulesTest = cfg.Rules, cfg.RulesTest
 	opt.Client = webClient(jc, cfg.UI)
+	opt.Client.SetQueue(offline.To(opt.Store))
 	return opt, nil
 }
 

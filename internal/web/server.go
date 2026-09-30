@@ -27,6 +27,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
 )
 
@@ -45,6 +46,8 @@ type Options struct {
 	Sites      []string
 	Demo       bool
 	Version    string
+	Rules      []rules.Rule
+	RulesTest  config.RulesTest
 	// Open builds the options of another site (nil: no switching).
 	Open func(site string) (Options, error)
 }
@@ -137,6 +140,8 @@ func writeErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.As(err, &he):
 		code = he.code
+	case errors.Is(err, jira.ErrQueued):
+		code = http.StatusAccepted // kept for later: the browser counts it as sent
 	case errors.Is(err, jira.ErrNotFound):
 		code = http.StatusNotFound
 	case errors.Is(err, context.DeadlineExceeded):
@@ -180,6 +185,7 @@ func New(ctx context.Context, opt Options) *Server {
 		s.mux.HandleFunc(rt.pattern, func(w http.ResponseWriter, r *http.Request) { h(s.at(r), w, r) })
 	}
 	routesMu.Unlock()
+	s.sites.rulesOf(ctx, opt) // starts the rule watches
 	sub, _ := fs.Sub(staticFS, "static")
 	s.mux.Handle("/", assets(sub))
 	return s
