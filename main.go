@@ -118,7 +118,9 @@ func run(cfgPath, site string) error {
 		first := errors.Is(err, config.ErrNoConfig) || err == nil && site == "" && strings.TrimSpace(cfg.Jira.BaseURL) == ""
 		if first && interactive() {
 			// A first start: ask for the site instead of explaining YAML.
-			if site, err = setup(context.Background(), cfgPath, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn); err != nil {
+			if site, err = setup(context.Background(), cfgPath, terminalPrompter(strings.Fields(cfg.UI.Open)), signIn); errors.Is(err, errTryDemo) {
+				return runDemo(cfgPath)
+			} else if err != nil {
 				return err
 			}
 			fmt.Println()

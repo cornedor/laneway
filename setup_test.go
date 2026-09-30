@@ -164,3 +164,22 @@ func TestSetupCancel(t *testing.T) {
 		t.Error("a cancelled setup wrote the config")
 	}
 }
+
+// TestSetupDemo: at a first start, demo at the site prompt runs the demo;
+// with a site set up, demo is a site name like any other.
+func TestSetupDemo(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	s := &scripted{}
+	if _, err := setup(context.Background(), path, s.prompter("demo"), s.verify); !errors.Is(err, errTryDemo) {
+		t.Fatalf("first start: err = %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("choosing the demo wrote a config")
+	}
+	if _, err := setup(context.Background(), path, s.prompter("acme", "a@a", "tok"), s.verify); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := setup(context.Background(), path, s.prompter("demo", "a@a", "tok", ""), s.verify); err != nil {
+		t.Errorf("second site named demo: %v", err)
+	}
+}

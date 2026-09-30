@@ -78,6 +78,10 @@ func signIn(ctx context.Context, j config.JiraConfig) (string, error) {
 	return u.DisplayName, err
 }
 
+// errTryDemo is "demo" typed at a first start's site prompt: laneway -demo
+// instead.
+var errTryDemo = errors.New("try the demo")
+
 // setup asks for a Jira site, signs in to check it and writes it to the
 // config at cfgPath (the default when ""): jira: when that has no site
 // yet, else sites.<name>. A site whose base_url is already there gets the
@@ -104,7 +108,12 @@ func setupSite(ctx context.Context, cfgPath, site string, p prompter, verify fun
 	if filepath.Base(filepath.Dir(path)) == "matterbox" {
 		return "", fmt.Errorf("the config in use is matterbox's (%s), whose sites laneway doesn't read; copy its jira: to a laneway config (-config) first", path)
 	}
-	fmt.Fprintln(p.out, "Connect laneway to a Jira site. ctrl+d cancels.")
+	first := errors.Is(err, config.ErrNoConfig) || cfg.Jira.BaseURL == "" && len(cfg.Sites) == 0
+	if first {
+		fmt.Fprintln(p.out, "Connect laneway to a Jira site, or type demo to try it on a generated board first. ctrl+d cancels.")
+	} else {
+		fmt.Fprintln(p.out, "Connect laneway to a Jira site. ctrl+d cancels.")
+	}
 	fmt.Fprintln(p.out)
 	envToken := os.Getenv("JIRA_API_TOKEN")
 	name, found, typedTok := "", false, ""
@@ -112,6 +121,9 @@ func setupSite(ctx context.Context, cfgPath, site string, p prompter, verify fun
 		typed, err := p.ask("Jira site, its name (acme) or URL", j.BaseURL)
 		if err != nil {
 			return "", err
+		}
+		if first && strings.EqualFold(strings.TrimSpace(typed), "demo") {
+			return "", errTryDemo
 		}
 		if j.BaseURL, err = config.BaseURL(typed); err != nil {
 			fmt.Fprintln(p.out, "  "+err.Error())

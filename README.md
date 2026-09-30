@@ -30,7 +30,7 @@ comment thread.
 
 ![An issue in the panel beside the board](docs/screenshots/panel.png)
 
-New here? `laneway -demo` opens a generated board, no Jira needed. The
+New here? `laneway -demo` (or `demo` at the first start's site prompt) opens a generated board, no Jira needed. The
 [guide](https://cornedor.github.io/laneway/guide/) walks you through it step by step
 ([source](docs/guide/README.md)).
 
