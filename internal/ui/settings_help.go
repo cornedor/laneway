@@ -52,5 +52,16 @@ func SettingChoices(name string) []string { return settingChoices(name) }
 // ValidateUI reports what optionsFrom objects to in c, as at startup.
 func ValidateUI(c config.UIConfig) []string {
 	_, warn := optionsFrom(c)
-	return warn
+	k := defaultKeys()
+	return append(warn, k.applyKeys(c.Keys)...)
+}
+
+// KeyActions are the rebindable actions of ui.keys with their default keys.
+func KeyActions() map[string][]string {
+	k := defaultKeys()
+	out := map[string][]string{}
+	for name, b := range k.keyNames() {
+		out[name] = b.Keys()
+	}
+	return out
 }

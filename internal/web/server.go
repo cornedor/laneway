@@ -217,7 +217,7 @@ func assets(root fs.FS) http.Handler {
 		return nil
 	})
 	etags["/"] = etags["/index.html"]
-	types := map[string]string{".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".html": "text/html; charset=utf-8"}
+	types := map[string]string{".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".webmanifest": "application/manifest+json", ".html": "text/html; charset=utf-8"}
 	fsrv := http.FileServer(http.FS(root))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()

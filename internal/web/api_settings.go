@@ -1,0 +1,272 @@
+package web
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"reflect"
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/ui"
+)
+
+// The settings API serves the ui: options of the config file, the same
+// table the terminal's settings screen uses, and writes them back through
+// config.SetUI (comments stay), so both front ends share one file.
+
+var uiMu sync.RWMutex
+
+// UIConfig is the current ui: section (settings edits apply at once).
+func (s *Server) UIConfig() config.UIConfig {
+	uiMu.RLock()
+	defer uiMu.RUnlock()
+	return s.opt.UI
+}
+
+// Setting is one ui: option for the settings screen. Type is bool, enum,
+// duration, number, list, text or yaml (too big for a line).
+type Setting struct {
+	Name    string
+	Group   string
+	Type    string
+	Default string
+	Doc     string
+	Choices []string `json:",omitempty"`
+	Restart bool
+	Set     bool   // the file gives it a value
+	Value   any    // string, number or []string; nil when unset
+	YAML    string `json:",omitempty"` // the value as YAML, for type yaml
+}
+
+var durations = map[string]bool{"auto_refresh": true, "stale_after": true, "full_refresh": true, "inbox_every": true, "inbox_lookback": true, "double_click": true, "timer_round": true}
+
+func init() {
+	get("/settings", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c := s.UIConfig()
+		acts := ui.KeyActions()
+		return map[string]any{
+			"path":       s.opt.ConfigPath,
+			"editable":   s.opt.ConfigPath != "",
+			"groups":     groupTitles(),
+			"settings":   settings(c),
+			"warnings":   ui.ValidateUI(c),
+			"keyActions": acts,
+		}, nil
+	})
+	put("/settings/{name}", putSetting)
+}
+
+func groupTitles() []string {
+	out := make([]string, 0, len(config.SettingGroups)+1)
+	for _, g := range config.SettingGroups {
+		out = append(out, g.Title)
+	}
+	return append(out, "Other")
+}
+
+func fieldByName(v reflect.Value, name string) reflect.Value {
+	t := v.Type()
+	for i := range t.NumField() {
+		if n, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ","); n == name {
+			return v.Field(i)
+		}
+	}
+	return reflect.Value{}
+}
+
+func settings(c config.UIConfig) []Setting {
+	v := reflect.ValueOf(c)
+	group := map[string]string{}
+	for _, g := range config.SettingGroups {
+		for _, n := range g.Names {
+			group[n] = g.Title
+		}
+	}
+	var out []Setting
+	add := func(name string) {
+		f := fieldByName(v, name)
+		if f.IsValid() {
+			out = append(out, describe(name, group[name], f))
+		}
+	}
+	done := map[string]bool{}
+	for _, g := range config.SettingGroups {
+		for _, n := range g.Names {
+			add(n)
+			done[n] = true
+		}
+	}
+	t := v.Type()
+	for i := range t.NumField() {
+		if n, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ","); n != "" && !done[n] {
+			add(n)
+		}
+	}
+	for i := range out {
+		if out[i].Group == "" {
+			out[i].Group = "Other"
+		}
+	}
+	return out
+}
+
+func describe(name, group string, f reflect.Value) Setting {
+	st := Setting{Name: name, Group: group, Default: config.SettingDefaults[name], Doc: config.SettingDocs[name], Restart: config.SettingsRestart[name], Set: !f.IsZero()}
+	st.Choices = ui.SettingChoices(name)
+	switch f.Kind() {
+	case reflect.String:
+		st.Type, st.Value = "text", nil
+		if st.Set {
+			st.Value = f.String()
+		}
+		switch {
+		case durations[name]:
+			st.Type = "duration"
+		case len(st.Choices) == 2 && slices.Contains(st.Choices, "on") && slices.Contains(st.Choices, "off"):
+			st.Type = "bool"
+		case st.Choices != nil:
+			st.Type = "enum"
+		}
+	case reflect.Int:
+		st.Type = "number"
+		if st.Set {
+			st.Value = f.Int()
+		}
+	case reflect.Slice:
+		if f.Type().Elem().Kind() == reflect.String {
+			st.Type = "list"
+			if st.Set {
+				st.Value = f.Interface()
+			}
+			break
+		}
+		st.Type = "yaml"
+	case reflect.Map:
+		st.Type = "yaml"
+		if t, ok := f.Interface().(config.Theme); ok && (len(t) == 0 || len(t) == 1 && t["preset"] != "") {
+			st.Type, st.Value = "enum", t["preset"]
+			if len(t) == 0 {
+				st.Value = nil
+			}
+		}
+	default:
+		st.Type = "yaml"
+	}
+	if st.Type == "yaml" && st.Set {
+		if b, err := yaml.Marshal(f.Interface()); err == nil {
+			st.YAML = strings.TrimRight(string(b), "\n")
+		}
+	}
+	if st.Type != "enum" && st.Type != "bool" {
+		st.Choices = nil
+	}
+	return st
+}
+
+// editUI is c with option name set from raw (JSON or YAML decoded); the
+// value to write is nil when the result is the default.
+func editUI(c config.UIConfig, name string, raw any) (config.UIConfig, any, error) {
+	next := c
+	dst := fieldByName(reflect.ValueOf(&next).Elem(), name)
+	if !dst.IsValid() {
+		return c, nil, badRequest("unknown option " + name)
+	}
+	if s, ok := raw.(string); ok {
+		raw = strings.TrimSpace(s)
+		if raw == "" {
+			raw = nil
+		}
+	}
+	if raw == nil {
+		dst.Set(reflect.Zero(dst.Type()))
+		return next, nil, nil
+	}
+	switch dst.Kind() {
+	case reflect.Int:
+		switch n := raw.(type) {
+		case string:
+			i, err := strconv.Atoi(n)
+			if err != nil {
+				return c, nil, badRequest(fmt.Sprintf("%s: %q is not a number", name, n))
+			}
+			raw = i
+		case float64:
+			if n != float64(int(n)) {
+				return c, nil, badRequest(fmt.Sprintf("%s: %v is not a whole number", name, n))
+			}
+			raw = int(n)
+		}
+	case reflect.Slice:
+		if s, ok := raw.(string); ok {
+			raw = strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' })
+		}
+	case reflect.String:
+		if _, ok := raw.(string); !ok {
+			raw = fmt.Sprint(raw)
+		}
+	}
+	doc, err := yaml.Marshal(map[string]any{name: raw})
+	if err != nil {
+		return c, nil, badRequest(err.Error())
+	}
+	var tmp config.UIConfig
+	if err := yaml.Unmarshal(doc, &tmp); err != nil {
+		return c, nil, badRequest(fmt.Sprintf("%s: %v", name, err))
+	}
+	src := fieldByName(reflect.ValueOf(&tmp).Elem(), name)
+	dst.Set(src)
+	if dst.IsZero() {
+		return next, nil, nil
+	}
+	return next, src.Interface(), nil
+}
+
+func putSetting(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	name := r.PathValue("name")
+	b, err := Body[struct {
+		Value any
+		YAML  *string
+	}](r)
+	if err != nil {
+		return nil, err
+	}
+	raw := b.Value
+	if b.YAML != nil {
+		raw = nil
+		if strings.TrimSpace(*b.YAML) != "" {
+			if err := yaml.Unmarshal([]byte(*b.YAML), &raw); err != nil {
+				return nil, badRequest(name + ": " + err.Error())
+			}
+		}
+	}
+	if s.opt.ConfigPath == "" {
+		return nil, httpError{http.StatusConflict, "no config file to write to"}
+	}
+	uiMu.Lock()
+	defer uiMu.Unlock()
+	next, value, err := editUI(s.opt.UI, name, raw)
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range ui.ValidateUI(next) {
+		if strings.HasPrefix(w, "ui."+name) {
+			return nil, badRequest(w)
+		}
+	}
+	if err := config.SetUI(s.opt.ConfigPath, name, value); err != nil {
+		return nil, err
+	}
+	s.opt.UI = next
+	for _, st := range settings(next) {
+		if st.Name == name {
+			return st, nil
+		}
+	}
+	return nil, nil
+}
