@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>laneway</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%235b8def'/%3E%3Cpath d='M4 3v10h8' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/themes.css">
+<script>
+// Theme before first paint: no flash.
+try{var t=localStorage.getItem('lw:theme');if(t)document.documentElement.dataset.theme=t;var a=localStorage.getItem('lw:accent');if(a)document.documentElement.style.setProperty('--accent',a);var d=localStorage.getItem('lw:density');if(d)document.documentElement.dataset.density=d}catch(e){}
+</script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <a class="brand" href="#/board">laneway</a>
+    <nav id="nav"></nav>
+    <div id="toolbar"></div>
+    <button id="search-btn" class="btn ghost" title="Command palette (:)">⌘ <kbd>:</kbd></button>
+  </header>
+  <div id="body">
+    <main id="view" tabindex="-1"></main>
+    <aside id="panel" hidden></aside>
+  </div>
+  <footer id="status"><span id="chord"></span><span id="hint"></span><span id="conn"></span></footer>
+  <div id="toasts" aria-live="polite"></div>
+</div>
+</body>
+</html>

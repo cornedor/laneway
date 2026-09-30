@@ -1,0 +1,71 @@
+/* Theme = a set of tokens. Views use only these variables, never raw colours.
+   Add a preset: a [data-theme="name"] block + an entry in js/lib/theme.js. */
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fafafa; --bg-2: #ffffff; --bg-3: #f0f1f3; --bg-4: #e4e6ea;
+  --fg: #1c2024; --fg-2: #5b6470; --fg-3: #8a93a0;
+  --border: #dde0e5; --accent: #5b8def; --accent-fg: #ffffff; --accent-bg: color-mix(in srgb, var(--accent) 14%, var(--bg-2));
+  --ok: #2f9e5f; --warn: #c98a00; --err: #d6394a; --info: #3b82c4;
+  --cat-new: #7a8593; --cat-indeterminate: #3b82c4; --cat-done: #2f9e5f;
+  --shadow: 0 8px 30px rgba(0,0,0,.14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #14161a; --bg-2: #1b1e23; --bg-3: #242830; --bg-4: #2e333c;
+    --fg: #e6e8eb; --fg-2: #a2aab5; --fg-3: #6f7886;
+    --border: #2c313a; --accent-bg: color-mix(in srgb, var(--accent) 20%, var(--bg-2));
+    --ok: #46c27f; --warn: #e0b33a; --err: #ef5a6b; --info: #62a4e6;
+    --cat-new: #8a93a0; --cat-indeterminate: #62a4e6; --cat-done: #46c27f;
+    --shadow: 0 8px 30px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14161a; --bg-2: #1b1e23; --bg-3: #242830; --bg-4: #2e333c;
+  --fg: #e6e8eb; --fg-2: #a2aab5; --fg-3: #6f7886;
+  --border: #2c313a; --accent-bg: color-mix(in srgb, var(--accent) 20%, var(--bg-2));
+  --ok: #46c27f; --warn: #e0b33a; --err: #ef5a6b; --info: #62a4e6;
+  --cat-new: #8a93a0; --cat-indeterminate: #62a4e6; --cat-done: #46c27f;
+  --shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+:root[data-theme="nord"] {
+  color-scheme: dark;
+  --bg: #2b303b; --bg-2: #2e3440; --bg-3: #3b4252; --bg-4: #434c5e;
+  --fg: #eceff4; --fg-2: #d8dee9; --fg-3: #8f9bb3;
+  --border: #434c5e; --accent: #88c0d0; --accent-fg: #2e3440; --accent-bg: color-mix(in srgb, var(--accent) 20%, var(--bg-2));
+  --ok: #a3be8c; --warn: #ebcb8b; --err: #bf616a; --info: #81a1c1;
+  --cat-new: #8f9bb3; --cat-indeterminate: #81a1c1; --cat-done: #a3be8c;
+  --shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+:root[data-theme="gruvbox"] {
+  color-scheme: dark;
+  --bg: #1d2021; --bg-2: #282828; --bg-3: #32302f; --bg-4: #3c3836;
+  --fg: #ebdbb2; --fg-2: #bdae93; --fg-3: #928374;
+  --border: #3c3836; --accent: #d79921; --accent-fg: #1d2021; --accent-bg: color-mix(in srgb, var(--accent) 20%, var(--bg-2));
+  --ok: #b8bb26; --warn: #fabd2f; --err: #fb4934; --info: #83a598;
+  --cat-new: #928374; --cat-indeterminate: #83a598; --cat-done: #b8bb26;
+  --shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+:root[data-theme="solarized"] {
+  color-scheme: light;
+  --bg: #fdf6e3; --bg-2: #fffaf0; --bg-3: #eee8d5; --bg-4: #e3dcc3;
+  --fg: #586e75; --fg-2: #657b83; --fg-3: #93a1a1;
+  --border: #e3dcc3; --accent: #268bd2; --accent-fg: #fdf6e3; --accent-bg: color-mix(in srgb, var(--accent) 14%, var(--bg-2));
+  --ok: #859900; --warn: #b58900; --err: #dc322f; --info: #268bd2;
+  --cat-new: #93a1a1; --cat-indeterminate: #268bd2; --cat-done: #859900;
+  --shadow: 0 8px 30px rgba(0,0,0,.14);
+}
+:root[data-theme="mono"] {
+  color-scheme: dark;
+  --bg: #000; --bg-2: #0b0b0b; --bg-3: #171717; --bg-4: #222;
+  --fg: #e8e8e8; --fg-2: #a0a0a0; --fg-3: #6a6a6a;
+  --border: #2a2a2a; --accent: #e8e8e8; --accent-fg: #000; --accent-bg: #1c1c1c;
+  --ok: #b5e8b0; --warn: #f0e0a0; --err: #f0a0a0; --info: #b0c8f0;
+  --cat-new: #888; --cat-indeterminate: #ccc; --cat-done: #b5e8b0;
+  --shadow: 0 8px 30px rgba(0,0,0,.8);
+}
+/* Density: --pad scales gaps, --row the list row height. */
+:root { --pad: 8px; --row: 32px; --fs: 14px; --radius: 6px; }
+:root[data-density="compact"] { --pad: 5px; --row: 26px; --fs: 13px; }
+:root[data-density="roomy"] { --pad: 12px; --row: 40px; --fs: 15px; }

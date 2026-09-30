@@ -91,6 +91,8 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 		return hookCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
 	case "index":
 		return indexCmd(args[1:], site, out, errOut)
+	case "web", "serve":
+		return webCmd(args[1:], cfgPath, site, errOut)
 	case "completion":
 		return completionCmd(args[1:], out, errOut)
 	case "__complete":
@@ -101,7 +103,7 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 		}
 		return cliCmd(args[0], append(global, args[1:]...), out, errOut)
 	}
-	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, rules, setup, prompt, hook, index, completion)\n", args[0])
+	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, web, rules, setup, prompt, hook, index, completion)\n", args[0])
 	return 2
 }
 

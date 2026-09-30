@@ -1,0 +1,24 @@
+// Formatting helpers. The Go API sends zero times as "0001-01-01T00:00:00Z".
+export const isZero = t => !t || String(t).startsWith('0001-');
+export const date = t => (isZero(t) ? null : new Date(t));
+export function ago(t, now = Date.now()) {
+  const d = date(t); if (!d) return '';
+  const s = Math.round((now - d) / 1000);
+  if (s < 45) return 'just now';
+  const u = [[60, 'm', 60], [3600, 'h', 24], [86400, 'd', 7], [604800, 'w', 5]];
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  if (s < 86400) return Math.round(s / 3600) + 'h ago';
+  if (s < 7 * 86400) return Math.round(s / 86400) + 'd ago';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+}
+export const shortDate = t => { const d = date(t); return d ? d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''; };
+export const dateTime = t => { const d = date(t); return d ? d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; };
+export function duration(sec) {
+  sec = Math.round(sec); if (!sec) return '0m';
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return (h ? h + 'h' : '') + (m || !h ? (h ? ' ' : '') + m + 'm' : '');
+}
+export const initials = n => (n || '?').split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+// Stable hue from a string, for avatars and label chips.
+export function hue(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+export const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
