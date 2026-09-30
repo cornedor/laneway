@@ -21,7 +21,7 @@ export const errToast = e => toast(e && e.message ? e.message : String(e), { kin
 export function modal(content, { title, wide = false, onClose, className = '' } = {}) {
   const returnTo = document.activeElement; // per modal: a picker opened inside a modal returns to it
   const back = h('div.overlay', { onmousedown: e => { if (e.target === back) close(); } });
-  const box = h('div.modal' + (wide ? '.wide' : '') + (className ? '.' + className : ''), { role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' },
+  const box = h('div.modal' + (wide ? '.wide' : '') + (className ? '.' + className : ''), { role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '', tabIndex: -1 }, // a click on its text keeps focus, and so tab, in it
     title && h('div.modal-title', title), content);
   back.append(box);
   document.body.append(back);
@@ -48,16 +48,17 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
   return { close, el: box, scope: k };
 }
 
-// pick({title, items, label(item), detail?(item), render?(item, match)→node, multi, selected, placeholder, create?})
-// → Promise<item | item[] | null>. Type to filter, ↑/↓ or ctrl+n/p, Enter picks, Esc cancels.
+// pick({title, items, label(item), detail?(item), render?(item, match)→node, multi, selected, placeholder, create?, query?, current?})
+// → Promise<item | item[] | null>. Type to filter, ↑/↓ or ctrl+n/p, Enter picks, Esc cancels. `query` starts the filter
+// typed, `current` puts the cursor on that item.
 // With `create: q => item` and no match, Enter on typed text creates an item.
 // With `search: async q => items` the list is also fed by the server (debounced).
 export function pick(o) {
   return new Promise(resolve => {
     const label = o.label || (x => String(x));
-    let items = o.items || [], shown = [], sel = 0, q = '';
+    let items = o.items || [], shown = [], sel = o.query || o.current == null ? 0 : Math.max(0, items.indexOf(o.current)), q = o.query || '';
     const chosen = new Set(o.selected || []);
-    const input = h('input.pick-input', { type: 'text', placeholder: o.placeholder || 'Filter…', autofocus: true, spellcheck: false, autocomplete: 'off' });
+    const input = h('input.pick-input', { type: 'text', value: q, placeholder: o.placeholder || 'Filter…', autofocus: true, spellcheck: false, autocomplete: 'off' });
     const list = h('div.pick-list', { role: 'listbox' });
     let done = false;
     const finish = v => { if (done) return; done = true; m.close(); resolve(v); };
@@ -102,7 +103,8 @@ export function pick(o) {
     if (o.multi) m.scope.bind('ctrl+Space', () => choose(sel), '', { input: true, hidden: true });
     if (o.multi) input.addEventListener('keydown', e => { if (e.key === ' ' && !q) { e.preventDefault(); choose(sel); } });
     render();
-    if (o.search) remote('');
+    if (q) input.setSelectionRange(q.length, q.length);
+    if (o.search) remote(q);
   });
 }
 

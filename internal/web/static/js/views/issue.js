@@ -130,6 +130,8 @@ export function mountIssue(el, key, { app, full }) {
         h('button.iss-key.btn.link', { title: 'Copy key (y)', onclick: () => copy(key, key) }, key),
         h('button.btn.ghost.sm', { title: 'Copy link (Y)', onclick: () => copy(browseURL(), 'Link') }, 'Copy link'),
         h('button.btn.ghost.sm', { title: 'Subtask, clone, move, watchers… (A)', onclick: () => actions() }, 'Actions'),
+        app.agents && app.agents.available && !(app.session && app.session.demo) &&
+          h('button.btn.ghost.sm', { title: 'Start work: worktree and agent (S) · another agent (alt+s)', onclick: () => app.agents.start(key) }, (app.agents.stateFor(key) || {}).count ? 'Agent' : 'Start work'),
         h('span.spacer'),
         h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira ↗'),
         h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? '← Back' : '✕')),

@@ -30,6 +30,9 @@ type fakeHerdr struct {
 	agents []map[string]any
 	subs   []net.Conn
 	open   bool // worktree.open finds the worktree
+	// startFails: agent.start fails this many times first, always when < 0.
+	startFails int
+	createErr  string // worktree.create fails with it
 }
 
 func newFakeHerdr(t *testing.T) (*fakeHerdr, *herdr.Client) {
@@ -92,8 +95,17 @@ func (f *fakeHerdr) serve(conn net.Conn) {
 			result = worktree(true)
 		}
 	case "worktree.create":
+		if f.createErr != "" {
+			errObj = map[string]any{"code": "git_failed", "message": f.createErr}
+			break
+		}
 		f.open = true
 		result = worktree(false)
+	case "agent.start":
+		if f.startFails != 0 {
+			f.startFails--
+			errObj = map[string]any{"code": "pane_busy", "message": "the pane is busy"}
+		}
 	case "tab.create":
 		result = map[string]any{"tab": map[string]any{"tab_id": "t3"}, "root_pane": map[string]any{"pane_id": "p3"}}
 	case "agent.prompt":

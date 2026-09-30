@@ -1,0 +1,47 @@
+/* Start work modal (views/agent_start.js): the TUI's start work form, rows with a ▸ cursor. */
+.sw-modal .modal-title { margin-bottom: .143rem; }
+.sw-sum { color: var(--fg-2); margin-bottom: var(--pad); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-notice, .sw-problems { border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--bg-2)); color: var(--fg); border-radius: var(--radius); padding: .429rem .714rem; margin: 0 0 var(--pad); }
+.sw-problems { border-color: var(--err); background: color-mix(in srgb, var(--err) 12%, var(--bg-2)); list-style: none; }
+.sw-problems li + li { margin-top: .286rem; }
+.sw-rows { display: grid; grid-template-columns: max-content 1fr; gap: .429rem .857rem; align-items: start; margin-bottom: var(--pad); }
+.sw-row { display: contents; }
+.sw-row[hidden] { display: none; }
+.sw-label { padding: .357rem 0 0 1rem; color: var(--fg-2); position: relative; white-space: nowrap; }
+.sw-row:focus-within .sw-label { color: var(--accent); font-weight: 600; }
+.sw-row:focus-within .sw-label::before { content: "▸"; position: absolute; left: 0; }
+.sw-field { min-width: 0; display: flex; flex-direction: column; gap: .214rem; }
+.sw-pick { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: .357rem .571rem; display: flex; align-items: baseline; gap: .571rem; text-align: left; cursor: pointer; min-width: 0; width: 100%; }
+.sw-pick:hover { background: var(--bg-3); }
+.sw-pick:focus { border-color: var(--accent); outline: none; }
+.sw-pick[disabled] { opacity: .6; cursor: default; }
+.sw-val { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-detail { flex: 1 1 auto; min-width: 0; color: var(--fg-3); font-size: .857rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-caret { margin-left: auto; color: var(--fg-3); }
+.sw-field .input[readonly] { color: var(--fg-2); background: var(--bg-2); }
+.sw-field .input[aria-invalid="true"] { border-color: var(--err); }
+.sw-field textarea.input { font-size: .857rem; resize: vertical; min-height: 5rem; }
+.sw-hint-l { font-size: .857rem; color: var(--fg-3); min-height: 0; overflow-wrap: anywhere; }
+.sw-hint-l:empty { display: none; }
+.sw-hint-l.bad { color: var(--err); }
+.sw-check { padding-top: .357rem; }
+.sw-steps { list-style: none; margin: 0 0 var(--pad); padding: .429rem .714rem; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); font-size: .857rem; }
+.sw-step { display: flex; gap: .571rem; align-items: baseline; padding: .071rem 0; overflow-wrap: anywhere; }
+.sw-g { width: 1rem; flex: none; text-align: center; }
+.sw-step.st-run { color: var(--fg-2); } .sw-step.st-run .sw-g { color: var(--info); animation: sw-spin 1.2s linear infinite; }
+.sw-step.st-ok .sw-g { color: var(--ok); }
+.sw-step.st-warn { color: var(--warn); }
+.sw-step.st-err { color: var(--err); }
+.sw-err:empty { min-height: 0; margin: 0; }
+.sw-foot { display: flex; justify-content: flex-end; gap: var(--pad); }
+.sw-keys { margin-top: var(--pad); text-align: center; font-size: .857rem; font-style: italic; color: var(--fg-3); }
+.sw.busy .sw-rows { opacity: .7; }
+@keyframes sw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sw-step.st-run .sw-g { animation: none; } }
+@media (max-width: 560px) {
+  .sw-rows { grid-template-columns: 1fr; gap: .143rem; }
+  .sw-row + .sw-row .sw-label { margin-top: .429rem; }
+  .sw-foot .btn { flex: 1; justify-content: center; }
+  .sw-keys { display: none; }
+}
+@media (pointer: coarse) { .sw-pick, .sw-foot .btn, .sw-field .input { min-height: 2.75rem; } .sw-check input { width: 1.25rem; height: 1.25rem; } }

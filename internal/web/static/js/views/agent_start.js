@@ -1,68 +1,286 @@
-// Start work on an issue (S): pick the agent, branch and prompt, then the server opens the worktree in
-// herdr, starts the agent, and moves / assigns the issue as configured. The timer starts here.
-// Another (alt+s): a further agent in the worktree of the issue, whatever runs there.
-import { h } from '../lib/dom.js';
+// Start work on an issue: the TUI's start work form (internal/ui/jira_work.go) as a modal, one for every
+// entry point (S, alt+s, the palette, the panel's button, the agents screen's S and N): openStartAgent.
+// Rows as there: Agent, Branch, Prompt, Also; plus Where when the issue has a worktree or agents already
+// (another agent beside one, its worktree, focus one, or a new worktree). The cursor waits on the button:
+// enter starts as filled in. The server streams each step; a failure stays in the modal with its fix.
+// S on an issue whose agent runs focuses that agent, as the TUI attaches to it.
+import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
+import { LABEL } from '../lib/agents.js';
 
-const show = (app, key) => app.go('/agents?agent=' + encodeURIComponent(key));
+const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
+const GLYPH = { run: '◌', ok: '✓', warn: '!', err: '✗' };
+let openFor = '';
 
-export async function startWork(app, key, { force = false } = {}) {
-  css('agents');
+// refProblem is why git would refuse a branch name (git check-ref-format --branch), '' when it takes it.
+export function refProblem(b) {
+  if (!b) return '';
+  if (b.startsWith('-')) return 'a branch name can\'t start with -';
+  if (/[\s~^:?*[\\\x00-\x1f\x7f]/.test(b)) return 'no spaces or ~ ^ : ? * [ \\ in a branch name';
+  if (b.includes('..')) return 'no .. in a branch name';
+  if (b.includes('@{') || b === '@') return 'no @{ in a branch name';
+  if (b.startsWith('/') || b.endsWith('/') || b.includes('//')) return 'no empty parts between slashes';
+  if (b.endsWith('.')) return 'a branch name can\'t end with .';
+  if (b.split('/').some(p => p.startsWith('.') || p.endsWith('.lock'))) return 'no part may start with . or end in .lock';
+  return '';
+}
+
+// openStartAgent(app, key, {another, path}): another preselects another agent in the issue's worktree
+// (path: which one, as an agent's directory).
+export async function openStartAgent(app, key, { another = false, path = '' } = {}) {
   const { api, ui } = app;
+  if (app.session && app.session.demo) return ui.toast('Not available in demo');
+  if (!key || openFor === key) return;
+  css('agent_start');
+  openFor = key;
   let f;
-  try { f = await api.get('/issues/' + key + '/work', { fresh: true }); } catch (e) { return ui.errToast(e); }
-  const project = key.split('-')[0];
-  if (!f.Herdr) return ui.toast('herdr is not running: start herdr (the agents need it), then try again', { kind: 'err', ms: 8000 });
-  if (f.Running.length && !force) {
+  try { f = await api.get('/issues/' + encodeURIComponent(key) + '/work', { fresh: true }); } catch (e) { openFor = ''; return ui.errToast(e); }
+  let notice = '';
+  if (!another && f.Herdr && f.Running.length) {
+    const a = f.Running[0];
     try {
-      await api.post('/agents/' + f.Running[0].PaneID + '/focus');
-      ui.toast(key + ': focused its agent in herdr', { action: { label: 'Agents', run: () => show(app, key) } });
-    } catch (e) { ui.errToast(e); }
-    return;
+      await api.post('/agents/' + encodeURIComponent(a.PaneID) + '/focus');
+      openFor = '';
+      return ui.toast(key + ': focused ' + a.Name + ' in herdr', { ms: 6000, action: { label: 'Another agent', run: () => openStartAgent(app, key, { another: true, path: a.CWD }) } });
+    } catch (e) { notice = 'Focus failed: ' + e.message; another = true; path = a.CWD; }
   }
-  if (!f.Repo) return ui.toast('No repo for ' + project + ': set jira.repos.' + project + ' to its git checkout in the config', { kind: 'err', ms: 10000 });
+  try { form(app, key, f, { another, path, notice }); } catch (e) { openFor = ''; ui.errToast(e); }
+}
 
-  const another = force && f.Running.length > 0;
-  const agent = h('select.input', f.Agents.map(a => h('option', { value: a, selected: a === f.Agent }, a)));
-  const branch = h('input.input.mono', { type: 'text', value: f.Branch, spellcheck: false });
-  const prompt = h('textarea.input', { rows: 7, value: f.Prompt, placeholder: 'Empty starts the agent without a prompt' });
-  const also = !another && f.Actions.length && h('input', { type: 'checkbox', checked: true });
-  const err = h('div.form-err');
-  const go = h('button.btn.primary', { type: 'submit' }, 'Start');
-  let m, busy = false;
-  const submit = async e => {
-    e && e.preventDefault();
-    if (busy) return;
-    busy = true; go.disabled = true; err.textContent = '';
-    go.textContent = 'Starting…';
-    err.textContent = 'Opening the worktree and starting ' + agent.value + '…';
-    err.classList.add('busy');
-    try {
-      const r = await api.post('/issues/' + key + '/work', { Agent: agent.value, Branch: another ? '' : branch.value.trim(), Prompt: prompt.value, Actions: !!(also && also.checked), Another: another });
-      m.close();
-      if (r.Running) { ui.toast(key + ': its agent runs already, focused'); api.post('/agents/' + r.Pane + '/focus').catch(() => {}); return; }
-      const did = [...r.Did];
-      if (r.Timer && !app.timer.current) { app.timer.start(key); did.push('timer started'); }
-      ui.toast(key + ': ' + r.Agent + ' started on ' + r.Branch + (did.length ? ' · ' + did.join(', ') : ''), { ms: 8000, action: { label: 'Agents', run: () => show(app, key) } });
-      if (r.Warn) ui.toast(key + ': ' + r.Warn, { kind: 'err', ms: 10000 });
-      app.bus.emit('issue:changed', { key });
-      app.agents.refresh();
-    } catch (e2) {
-      busy = false; go.disabled = false; go.textContent = 'Start';
-      err.classList.remove('busy');
-      err.textContent = e2.message || String(e2);
-    }
+// startWork is the old name, kept for callers: force was "another".
+export const startWork = (app, key, { force = false, ...o } = {}) => openStartAgent(app, key, { another: force, ...o });
+
+function form(app, key, f, { another, path, notice }) {
+  const { ui } = app;
+  const problems = [...f.Problems];
+
+  // Where the work goes: the issue's worktrees and agents, then a new worktree.
+  const where = [];
+  for (const w of f.Worktrees) {
+    if (w.Agents.length) where.push({ id: 'another', path: w.Path, branch: w.Branch, label: 'Another agent in ' + home(w.Path), detail: w.Agents.map(a => a.Agent + ' ' + (LABEL[a.Status] || a.Status)).join(', ') });
+    else if (w.Branch) where.push({ id: 'in', path: w.Path, branch: w.Branch, label: 'Its worktree ' + home(w.Path), detail: w.Branch });
+  }
+  for (const a of f.Running) where.push({ id: 'focus', pane: a.PaneID, label: 'Focus ' + a.Name + ' in herdr', detail: a.Agent + ' ' + (LABEL[a.Status] || a.Status) });
+  where.push({ id: 'new', label: 'New worktree', detail: 'on the branch below' });
+  let at = where.findIndex(w => another ? w.id === 'another' && (!path || w.path === path) : w.id === 'in');
+  if (at < 0 && another) at = where.findIndex(w => w.id === 'another');
+  if (at < 0) at = where.findIndex(w => w.id === 'in');
+  if (at < 0) at = where.length - 1;
+  let kind = f.Agent;
+
+  // ---- controls
+  const pickBtn = (id, cls = '') => h('button.sw-pick' + cls, { type: 'button', id, 'aria-haspopup': 'listbox' });
+  const agentBtn = pickBtn('sw-agent'), whereBtn = pickBtn('sw-where');
+  const agentHint = h('span.sw-hint-l');
+  const list = h('datalist#sw-branches', f.Existing.map(b => h('option', { value: b })));
+  const branch = h('input.input.mono#sw-branch', { type: 'text', value: f.Branch, placeholder: f.Branch, autocomplete: 'off', autocapitalize: 'off' });
+  branch.setAttribute('list', 'sw-branches'); // a getter only: h() can't set it
+  const branchHint = h('span.sw-hint-l');
+  const prompt = h('textarea.input.mono#sw-prompt', { rows: 6, value: f.Prompt, placeholder: 'Empty starts the agent without a prompt' });
+  for (const x of [branch, prompt]) x.setAttribute('spellcheck', 'false'); // h() drops false values
+  const promptHint = h('span.sw-hint-l');
+  const also = h('input#sw-also', { type: 'checkbox', checked: true });
+  const alsoText = h('span', f.Actions.join(' · '));
+  const err = h('div.form-err.sw-err', { role: 'alert' });
+  const steps = h('ol.sw-steps', { hidden: true, 'aria-live': 'polite' });
+  const go = h('button.btn.primary.sw-go', { type: 'submit', autofocus: true });
+  const cancel = h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel');
+  const hint = h('div.sw-keys');
+
+  const row = (id, label, forId, ...kids) => h('div.sw-row', { dataset: { row: id } }, h('label.sw-label', { htmlFor: forId }, label), h('div.sw-field', ...kids));
+  const rows = {
+    agent: row('agent', 'Agent', 'sw-agent', agentBtn, agentHint),
+    where: row('where', 'Where', 'sw-where', whereBtn),
+    branch: row('branch', 'Branch', 'sw-branch', branch, list, branchHint),
+    prompt: row('prompt', 'Prompt', 'sw-prompt', prompt, promptHint),
+    also: row('also', 'Also', 'sw-also', h('label.check.sw-check', also, alsoText)),
   };
-  const body = h('form.form-dialog.start-work', { onsubmit: submit },
-    h('div.form',
-      h('label.form-label', 'Agent'), h('div.form-field', agent),
-      !another && h('label.form-label', 'Branch'), !another && h('div.form-field', branch, h('span.form-hint.dim', f.Repo)),
-      another && h('label.form-label', 'Where'), another && h('div.form-field', h('span.form-hint.dim', 'a new tab in the worktree of ' + key + ' (' + f.Running.length + ' running)')),
-      h('label.form-label', 'Prompt'), h('div.form-field', prompt),
-      also && h('label.form-label', 'Also'), also && h('div.form-field', h('label.check', also, f.Actions.join(' · ')))),
-    err,
-    h('div.row.end', h('span.form-hint.dim', 'enter starts · ctrl+enter from the prompt'), h('span.spacer'), h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), go));
-  m = ui.modal(body, { title: (another ? 'Another agent on ' : 'Start work on ') + key, wide: true });
-  m.scope.bind('ctrl+Enter', () => submit(), '', { input: true, hidden: true });
-  go.focus();
+  rows.where.hidden = where.length < 2;
+  rows.also.hidden = !f.Actions.length;
+
+  const cur = () => where[at];
+  function paint() {
+    const w = cur();
+    clear(agentBtn).append(h('span.sw-val', kind), h('span.sw-caret', '▾'));
+    agentHint.textContent = f.Missing.includes(kind) ? kind + ' is not on PATH here: herdr may not find it' : '';
+    clear(whereBtn).append(h('span.sw-val', w.label), h('span.sw-detail', w.detail), h('span.sw-caret', '▾'));
+    const fixed = w.id === 'in' || w.id === 'another';
+    branch.readOnly = fixed;
+    if (fixed) branch.value = w.branch || '';
+    else if (branch.dataset.fixed) branch.value = branch.dataset.typed || f.Branch;
+    branch.dataset.fixed = fixed ? '1' : '';
+    rows.branch.hidden = w.id === 'focus' || (fixed && !w.branch);
+    rows.prompt.hidden = rows.agent.hidden = w.id === 'focus';
+    rows.also.hidden = !f.Actions.length || w.id !== 'new' && w.id !== 'in';
+    paintBranch();
+    paintPrompt();
+    go.textContent = w.id === 'focus' ? 'Focus agent' : w.id === 'another' ? 'Start agent' : 'Start work';
+    go.disabled = busy || problems.length > 0;
+  }
+  function paintBranch() {
+    const w = cur(), v = branch.value.trim();
+    const bad = w.id === 'new' ? refProblem(v) : '';
+    branchHint.className = 'sw-hint-l' + (bad ? ' bad' : '');
+    branch.setAttribute('aria-invalid', bad ? 'true' : 'false');
+    if (bad) { branchHint.textContent = bad; return; }
+    if (w.id !== 'new') { branchHint.textContent = 'the worktree\'s branch'; return; }
+    const reuse = (v || f.Branch) === f.Branch ? f.BranchExists : f.Existing.includes(v);
+    branchHint.textContent = (reuse ? 'exists: its worktree opens, or one is made on it' : 'new, from ' + (f.Base || 'herdr\'s default base')) + ' · ' + home(f.Repo);
+  }
+  function paintPrompt() {
+    const v = prompt.value;
+    promptHint.textContent = !v.trim() ? 'the agent starts without a prompt' : v.includes('{key}') ? '{key} becomes ' + key : '';
+  }
+  branch.addEventListener('input', () => { if (!branch.readOnly) branch.dataset.typed = branch.value; paintBranch(); });
+  prompt.addEventListener('input', paintPrompt);
+
+  // ---- pickers: enter, a click or typing opens one (typing filters); ←/→ cycle
+  const kindDetail = k => (k === f.Agent ? 'ui.work_agent' : '') + (f.Missing.includes(k) ? (k === f.Agent ? ' · ' : '') + 'not on PATH' : '');
+  async function pickAgent(query = '') {
+    const k = await ui.pick({ title: 'Agent — ' + key, items: f.Agents, current: kind, query, detail: kindDetail });
+    if (k) { kind = k; err.textContent = ''; paint(); }
+    agentBtn.focus();
+  }
+  async function pickWhere(query = '') {
+    const w = await ui.pick({ title: 'Where — ' + key, items: where, current: cur(), query, label: w => w.label, detail: w => w.detail });
+    if (w) { at = where.indexOf(w); err.textContent = ''; paint(); }
+    whereBtn.focus();
+  }
+  agentBtn.addEventListener('click', () => pickAgent());
+  whereBtn.addEventListener('click', () => pickWhere());
+  const cycle = (btn, d) => {
+    if (btn === agentBtn) { kind = f.Agents[(f.Agents.indexOf(kind) + d + f.Agents.length) % f.Agents.length]; }
+    else at = (at + d + where.length) % where.length;
+    paint();
+  };
+
+  // ---- keys: tab/shift+tab and ↑↓ between fields (↑ at the prompt's start, ↓ at its end leave it),
+  // enter picks, toggles, or starts; ctrl+s or ctrl+enter start from anywhere; esc cancels.
+  const stops = () => [agentBtn, whereBtn, branch, prompt, also, go].filter(x => !x.closest('[hidden]') && !x.disabled);
+  const move = (from, d) => {
+    const s = stops(), i = s.indexOf(from), n = s[Math.max(0, Math.min(s.length - 1, (i < 0 ? s.length - 1 : i) + d))];
+    if (!n) return;
+    n.focus();
+    if (n === prompt && n !== from) { const at = d > 0 ? 0 : prompt.value.length; prompt.setSelectionRange(at, at); } // entered at the edge it came from
+  };
+  const body = h('form.sw', { onsubmit: e => { e.preventDefault(); submit(); } },
+    h('div.sw-sum', f.Summary),
+    notice && h('div.sw-notice', notice),
+    problems.length > 0 && h('ul.sw-problems', problems.map(p => h('li', p))),
+    h('div.sw-rows', rows.agent, rows.where, rows.branch, rows.prompt, rows.also),
+    steps, err,
+    h('div.sw-foot', cancel, go),
+    hint);
+  body.addEventListener('keydown', e => {
+    if (busy || e.defaultPrevented || e.isComposing) return;
+    const t = e.target, mods = e.ctrlKey || e.altKey || e.metaKey;
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !mods) {
+      const d = e.key === 'ArrowDown' ? 1 : -1;
+      if (t === prompt && (d < 0 ? prompt.selectionStart > 0 : prompt.selectionEnd < prompt.value.length)) return;
+      e.preventDefault(); move(t, d); return;
+    }
+    if (t === agentBtn || t === whereBtn) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !mods) { e.preventDefault(); cycle(t, e.key === 'ArrowLeft' ? -1 : 1); return; }
+      if (e.key.length === 1 && e.key !== ' ' && !mods) { e.preventDefault(); (t === agentBtn ? pickAgent : pickWhere)(e.key); }
+      return;
+    }
+    if (t === also && e.key === 'Enter') { e.preventDefault(); also.checked = !also.checked; }
+  });
+  const hints = {
+    agent: '↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel',
+    where: '↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel',
+    branch: '↵ start · tab/↑↓ field · ctrl+s start · esc cancel',
+    prompt: '↵ newline · ctrl+s or ctrl+↵ start · tab field · esc cancel',
+    also: '↵ or space toggle · tab/↑↓ field · ctrl+s start · esc cancel',
+    go: '↵ start · tab/↑↓ field · esc cancel',
+  };
+  body.addEventListener('focusin', e => {
+    const r = e.target.closest('.sw-row');
+    hint.textContent = busy ? 'esc closes; the start goes on and reports when done' : hints[r ? r.dataset.row : 'go'] || hints.go;
+  });
+
+  // ---- start
+  let busy = false, closed = false;
+  const m = ui.modal(body, { title: 'Start work on ' + key, wide: true, className: 'sw-modal', onClose: () => { closed = true; openFor = ''; } });
+  m.scope.bind(['ctrl+s', 'ctrl+Enter'], () => submit(), '', { input: true, hidden: true });
+  paint();
+  (problems.length ? cancel : go).focus(); // as the TUI: the cursor waits on the button
+  hint.textContent = problems.length ? 'esc cancel' : hints.go;
+
+  const stepEls = new Map();
+  function showStep(s) {
+    let li = stepEls.get(s.Step);
+    if (!li) { li = h('li.sw-step'); stepEls.set(s.Step, li); steps.append(li); }
+    li.className = 'sw-step st-' + s.State;
+    clear(li).append(h('span.sw-g', { 'aria-hidden': 'true' }, GLYPH[s.State] || '·'), h('span', s.Text));
+  }
+  function lock(on) {
+    busy = on;
+    for (const x of [agentBtn, whereBtn, branch, prompt, also]) x.disabled = on;
+    go.disabled = on || problems.length > 0;
+    go.textContent = on ? 'Starting…' : go.textContent;
+    body.classList.toggle('busy', on);
+    if (!on) paint();
+  }
+
+  async function submit() {
+    if (busy) return;
+    const w = cur();
+    err.textContent = '';
+    if (problems.length) { err.textContent = problems[0]; return; }
+    if (w.id === 'focus') {
+      try { await app.api.post('/agents/' + encodeURIComponent(w.pane) + '/focus'); m.close(); ui.toast(key + ': focused in herdr'); }
+      catch (e) { err.textContent = e.message + ' (the herdr CLI does the focusing: is it on PATH?)'; }
+      return;
+    }
+    if (!kind) { err.textContent = 'pick an agent'; agentBtn.focus(); return; }
+    const b = branch.value.trim();
+    if (w.id === 'new' && refProblem(b)) { branch.focus(); return; } // said under the field
+    const req = {
+      Agent: kind, Prompt: prompt.value, Actions: !rows.also.hidden && also.checked,
+      Another: w.id === 'another', Path: w.id === 'another' ? w.path : '',
+      Branch: w.id === 'new' ? b : w.id === 'in' ? w.branch : '',
+    };
+    lock(true);
+    clear(steps); stepEls.clear(); steps.hidden = false;
+    go.focus();
+    hint.textContent = 'esc closes; the start goes on and reports when done';
+    let done = null, fail = '';
+    try {
+      const res = await fetch('/api/issues/' + encodeURIComponent(key) + '/work', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' }, body: JSON.stringify(req) });
+      if (!res.ok) { let e = ''; try { e = (await res.json()).error; } catch (x) { /* no body */ } throw new Error(e || res.statusText); }
+      const rd = res.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      const line = l => { if (!l.trim()) return; const v = JSON.parse(l); if (v.Done) done = v.Done; else if (v.Error) fail = v.Error; else showStep(v); };
+      for (;;) {
+        const { value, done: end } = await rd.read();
+        if (value) { buf += dec.decode(value, { stream: true }); const ls = buf.split('\n'); buf = ls.pop(); ls.forEach(line); }
+        if (end) { line(buf); break; }
+      }
+      if (!done && !fail) fail = 'the server stopped answering mid-start: look in herdr, then start again';
+    } catch (e) { fail = e.message || String(e); }
+    app.agents && app.agents.refresh();
+    if (fail) {
+      lock(false);
+      if (closed) return ui.toast(key + ': ' + fail, { kind: 'err', ms: 12000 });
+      err.textContent = fail;
+      (/branch/i.test(fail) && !rows.branch.hidden ? branch : go).focus();
+      return;
+    }
+    finish(done);
+  }
+
+  function finish(r) {
+    if (!closed) m.close();
+    const show = { label: 'Agents', run: () => app.go('/agents?agent=' + encodeURIComponent(key)) };
+    if (r.Running) {
+      app.api.post('/agents/' + encodeURIComponent(r.Pane) + '/focus').catch(() => {});
+      return ui.toast(key + ': its agent runs already, focused', { action: show });
+    }
+    const did = [...(r.Did || [])];
+    if (r.Timer && app.timer && !app.timer.current) { app.timer.start(key); did.push('timer started'); }
+    ui.toast(key + ': ' + r.Agent + ' started in ' + home(r.Path) + (did.length ? ' · ' + did.join(', ') : ''), { ms: 8000, action: show });
+    if (r.Warn) ui.toast(key + ': ' + r.Warn, { kind: 'err', ms: 10000 });
+    app.bus.emit('issue:changed', { key });
+  }
 }

@@ -92,7 +92,7 @@ export default async function mount(el, { app, scope, toolbar, query }) {
         h('div.ag-meta', h('span.chip', (GLYPH[r.group] || '') + ' ' + (LABEL[r.group] || r.group)), a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',
           a && btn('Focus in herdr', 'f', () => act('focus')), a && btn('Prompt', 'p', () => act('prompt')), a && btn('New agent here', 'N', () => act('new')),
-          btn(a ? 'Another agent' : 'Start agent', a ? 'alt+s' : 'S', () => app.agents.startWork(r.key, { force: true })),
+          btn(a ? 'Another agent' : 'Start agent', a ? 'alt+s' : 'S', () => app.agents.start(r.key, { another: !!a, path: a ? a.CWD : '' })),
           a && btn('Stop', 'd', () => act('stop'), '.danger')),
         a ? pre : h('div.dim', 'A worktree without an agent. S starts one in it.'));
     }
@@ -131,8 +131,7 @@ export default async function mount(el, { app, scope, toolbar, query }) {
         const text = await ui.prompt({ title: 'Prompt for ' + a.Name, multiline: true, placeholder: 'What should it do next?', ok: 'Send' });
         if (text && text.trim()) { await api.post('/agents/' + a.PaneID + '/prompt', { Text: text }); ui.toast('Prompt sent'); }
       } else if (what === 'new') {
-        const text = await ui.prompt({ title: 'New agent in ' + home(a.CWD), multiline: true, value: '', placeholder: 'Prompt (empty starts it without one)', ok: 'Start' });
-        if (text != null) { await api.post('/agents/' + a.PaneID + '/new', { Prompt: text.trim() }); ui.toast('Agent started'); }
+        return app.agents.start(r.key, { another: true, path: a.CWD });
       } else if (what === 'stop') {
         if (stopAsk !== a.PaneID) { stopAsk = a.PaneID; ui.toast('Stop ' + a.Name + ' and close its tab? d again'); return; }
         stopAsk = '';
@@ -155,8 +154,8 @@ export default async function mount(el, { app, scope, toolbar, query }) {
   scope.bind('o', () => { const r = cur(); if (r) window.open(app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
   scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
   scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G });
-  scope.bind('N', () => act('new'), 'start another agent in its directory (prompt only)', { group: G });
-  scope.bind('S', () => { const r = cur(); if (r) app.agents.startWork(r.key, { force: !!r.agent }); }, 'start work on the issue (the form; with an agent: another one)', { group: G });
+  scope.bind('N', () => act('new'), 'new agent in its directory (the start form)', { group: G });
+  scope.bind('S', () => { const r = cur(); if (r) app.agents.start(r.key, { another: !!r.agent, path: r.agent ? r.agent.CWD : '' }); }, 'start work on the issue (the start form; with an agent: another one beside it)', { group: G });
   scope.bind('d', () => act('stop'), 'stop the agent (twice)', { group: G });
   scope.bind('y', () => { const r = cur(); if (r && navigator.clipboard) navigator.clipboard.writeText(r.key).then(() => ui.toast('Copied ' + r.key)); }, 'copy key', { group: G });
   scope.bind('r', () => { app.agents.refresh(); ui.toast('Refreshed'); }, 'refresh', { group: G });
