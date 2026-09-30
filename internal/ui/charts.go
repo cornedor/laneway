@@ -368,26 +368,40 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, now time.Time, width, h
 	if added > 0 {
 		scope = fmt.Sprintf(" · +%s%s added since the start", chartNum(added), unit)
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %s%s left%s · by resolution date", chartNum(cur), chartNum(total), unit, scope))
+	days := max(v.end.Sub(v.start).Hours()/24, 1)
+	elapsed := min(max(now.Sub(v.start).Hours()/24, 0), days)
+	ideal := total * (1 - elapsed/days)
+	pace := ""
+	switch d := cur - ideal; {
+	case total == 0:
+	case d >= 0.5:
+		pace = fmt.Sprintf(" · %s%s behind", chartNum(d), unit)
+	case d <= -0.5:
+		pace = fmt.Sprintf(" · %s%s ahead", chartNum(-d), unit)
+	default:
+		pace = " · on track"
+	}
+	legend := "   " + roadmapDoneStyle.Render("⣿ left") + "  " + jiraDimStyle.Render("⠉ ideal")
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %s%s left · ideal %s%s%s%s · by resolution date",
+		chartNum(cur), chartNum(total), unit, chartNum(ideal), unit, pace, scope)) + legend
 	if total == 0 {
 		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
 	}
 	axisW := len(chartNum(total)) + 1
-	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)
-	c := newBraille(cw, chh)
-	dw, dh := c.dots()
-	days := max(v.end.Sub(v.start).Hours()/24, 1)
+	cw, chh := max(width-axisW-1, 4), min(max(height-5, 3), 16)
+	actual, planned := newBraille(cw, chh), newBraille(cw, chh)
+	dw, dh := actual.dots()
 	x := func(day float64) int { return int(math.Round(day / days * float64(dw-1))) }
 	y := func(pts float64) int { return int(math.Round((1 - pts/total) * float64(dh-1))) }
-	c.line(x(0), y(total), x(days), y(0), 3) // the ideal, dotted
+	planned.line(x(0), y(total), x(days), y(0), 3) // the ideal, dotted
 	for i := 1; i < len(left); i++ {
-		c.line(x(float64(i-1)), y(left[i-1]), x(float64(i)), y(left[i]), 1)
+		actual.line(x(float64(i-1)), y(left[i-1]), x(float64(i)), y(left[i]), 1)
 	}
 	if len(left) == 1 {
-		c.set(x(0), y(left[0]))
+		actual.set(x(0), y(left[0]))
 	}
 	lines := []string{title, ""}
-	for r, row := range c.rows() {
+	for r, row := range overlay(actual, planned, roadmapDoneStyle, jiraDimStyle) {
 		label := ""
 		switch r {
 		case 0:
@@ -395,7 +409,15 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, now time.Time, width, h
 		case chh - 1:
 			label = "0"
 		}
-		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+roadmapTodoStyle.Render(row))
+		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%*s", axisW, label))+" "+row)
+	}
+	if now.After(v.start) && now.Before(v.end) {
+		col := min(x(elapsed)/2, cw-1)
+		mark := "▲ today"
+		if col+len("▲ today") > cw {
+			mark, col = "today ▲", max(col-len("today "), 0)
+		}
+		lines = append(lines, strings.Repeat(" ", axisW+1+col)+roadmapTodayStyle.Render(mark))
 	}
 	from, to := v.start.Local().Format("Mon 2 Jan"), v.end.Local().Format("Mon 2 Jan")
 	lines = append(lines, strings.Repeat(" ", axisW+1)+jiraDimStyle.Render(from+strings.Repeat(" ", max(cw-len(from)-len(to), 1))+to))

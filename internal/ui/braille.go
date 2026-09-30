@@ -1,6 +1,10 @@
 package ui
 
-import "slices"
+import (
+	"slices"
+
+	"charm.land/lipgloss/v2"
+)
 
 // brailleCanvas plots dots at 2×4 per terminal cell with Unicode braille.
 type brailleCanvas struct {
@@ -72,6 +76,42 @@ func (c *brailleCanvas) rows() []string {
 			}
 		}
 		out[r] = string(line)
+	}
+	return out
+}
+
+// overlay draws fg over bg, the two the same size: a cell with any of fg's
+// dots in fgStyle (bg's dots merged in), else bg's in bgStyle.
+func overlay(fg, bg *brailleCanvas, fgStyle, bgStyle lipgloss.Style) []string {
+	out := make([]string, fg.h)
+	for r := range fg.h {
+		var line []rune
+		var fgRun bool
+		flush := func(to *string) {
+			if len(line) == 0 {
+				return
+			}
+			st := bgStyle
+			if fgRun {
+				st = fgStyle
+			}
+			*to += st.Render(string(line))
+			line = line[:0]
+		}
+		for i := range fg.w {
+			f, b := fg.cells[r*fg.w+i], bg.cells[r*fg.w+i]
+			on := f != 0x2800
+			if on != fgRun {
+				flush(&out[r])
+				fgRun = on
+			}
+			ch := f | b
+			if ch == 0x2800 {
+				ch = ' '
+			}
+			line = append(line, ch)
+		}
+		flush(&out[r])
 	}
 	return out
 }

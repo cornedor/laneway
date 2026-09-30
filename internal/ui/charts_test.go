@@ -226,3 +226,21 @@ func TestRetroChart(t *testing.T) {
 		t.Errorf("table:\n%s", tbl)
 	}
 }
+
+// TestBurndownPace: the title says where the sprint stands against the
+// ideal, and today is marked under the chart.
+func TestBurndownPace(t *testing.T) {
+	start := time.Now().AddDate(0, 0, -7)
+	v := jiraView{name: "Sprint 1", start: start, end: start.AddDate(0, 0, 14)}
+	issues := []jira.BurnIssue{{Points: 10}, {Points: 10}} // half the sprint gone, nothing done
+	got := ansi.Strip(renderBurndown(v, issues, time.Now(), 80, 20))
+	for _, want := range []string{"20 of 20p left · ideal 10p · 10p behind", "⣿ left", "⠉ ideal", "▲ today"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("burndown lacks %q:\n%s", want, got)
+		}
+	}
+	issues[0].Resolved, issues[1].Resolved = start.Add(time.Hour), start.Add(time.Hour)
+	if got := ansi.Strip(renderBurndown(v, issues, time.Now(), 80, 20)); !strings.Contains(got, "10p ahead") {
+		t.Errorf("all done early:\n%s", got)
+	}
+}
