@@ -209,7 +209,13 @@ func startWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	cfg := workConfigOf(s)
 	kind := cmp.Or(strings.TrimSpace(b.Agent), cfg.Agent)
+	if b.Agent != "" && !slices.Contains(agentKinds, kind) {
+		return nil, badRequest("unknown agent " + kind)
+	}
 	branch := strings.TrimSpace(b.Branch)
+	if branch != "" && !validBranch(ctx, branch) {
+		return nil, badRequest("bad branch name " + branch)
+	}
 	if branch == "" {
 		branch = cmp.Or(issueBranch(repo, cfg.Branch, key, iss.Type), branchName(cfg.Branch, key, iss.Type, iss.Summary))
 	}
@@ -235,6 +241,14 @@ func startWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	out["Timer"] = cfg.Timer
 	s.Client().Invalidate(key)
 	return out, nil
+}
+
+// validBranch: git's branch name rules, and no leading "-" or "@{" forms.
+func validBranch(ctx context.Context, b string) bool {
+	if b == "" || strings.HasPrefix(b, "-") || strings.Contains(b, "@{") {
+		return false
+	}
+	return exec.CommandContext(ctx, "git", "check-ref-format", "--branch", b).Run() == nil
 }
 
 // startWrites assigns the issue to you and moves it to its start status, when

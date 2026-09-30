@@ -23,6 +23,7 @@ func TestSiteCookieSwitchesClient(t *testing.T) {
 	defer b.Close()
 	optA.Sites = []string{"a", "b"}
 	optA.Open = func(n string) (Options, error) { return optB, nil }
+	optA.AllowedHosts = []string{"example.com"}
 	srv := New(context.Background(), optA)
 	who := func(cookie string) string {
 		req := httptest.NewRequest("GET", "/api/session", nil)

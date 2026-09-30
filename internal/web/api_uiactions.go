@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
@@ -24,7 +25,10 @@ import (
 // LANEWAY_KEY / LANEWAY_KEYS in the environment, as in the TUI. The browser
 // names an action by its index in the list this file serves, never a command.
 
-const actionTimeout = time.Minute
+const (
+	actionTimeout = time.Minute
+	maxQuestion   = 2000
+)
 
 type actionIssue struct {
 	Key      string `json:"key"`
@@ -149,10 +153,15 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 	for _, a := range llm.Asks {
 		if a.ID == b.Question {
 			prompt = a.Prompt
+			b.Text = ""
 		}
 	}
 	if prompt == "" {
 		fail(http.StatusBadRequest, "no question")
+		return
+	}
+	if b.Text != "" && (strings.HasPrefix(prompt, "-") || utf8.RuneCountInString(prompt) > maxQuestion) {
+		fail(http.StatusBadRequest, "question must not start with - and is at most 2000 characters")
 		return
 	}
 	c := s.Client()
@@ -170,6 +179,7 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 	sw := &sseWriter{w: w, fl: fl}
 	err = llm.Stream(ctx, command, prompt, llm.Input(*iss, hist), sw)
+	_ = sw.Flush()
 	if err != nil {
 		e, _ := json.Marshal(err.Error())
 		fmt.Fprintf(w, "event: error\ndata: %s\n\n", e)
@@ -181,19 +191,51 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// sseWriter sends each write as one data event.
+// sseWriter sends each write as one data event. A multi-byte rune cut by the
+// pipe is held back until its rest arrives.
 type sseWriter struct {
-	w  http.ResponseWriter
-	fl http.Flusher
+	w    http.ResponseWriter
+	fl   http.Flusher
+	rest []byte
 }
 
 func (s *sseWriter) Write(p []byte) (int, error) {
+	buf := append(s.rest, p...)
+	s.rest = nil
+	cut := len(buf)
+	for i := 1; i < utf8.UTFMax && i <= len(buf); i++ {
+		c := buf[len(buf)-i]
+		if utf8.RuneStart(c) {
+			if c >= 0xC0 && !utf8.FullRune(buf[len(buf)-i:]) {
+				cut = len(buf) - i
+			}
+			break
+		}
+	}
+	s.rest = append([]byte(nil), buf[cut:]...)
+	if cut == 0 {
+		return len(p), nil
+	}
+	return len(p), s.send(buf[:cut])
+}
+
+// Flush sends what is held back (invalid or cut off for good).
+func (s *sseWriter) Flush() error {
+	if len(s.rest) == 0 {
+		return nil
+	}
+	b := s.rest
+	s.rest = nil
+	return s.send(b)
+}
+
+func (s *sseWriter) send(p []byte) error {
 	b, _ := json.Marshal(string(p))
 	if _, err := fmt.Fprintf(s.w, "data: %s\n\n", b); err != nil {
-		return 0, err
+		return err
 	}
 	if s.fl != nil {
 		s.fl.Flush()
 	}
-	return len(p), nil
+	return nil
 }

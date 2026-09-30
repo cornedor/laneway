@@ -282,9 +282,23 @@ func findAgent(ctx context.Context, c *herdr.Client, pane string) (herdr.Agent, 
 	return herdr.Agent{}, httpError{http.StatusNotFound, "that agent is gone"}
 }
 
+// paneAgent is the agent in the request's {pane}: unknown panes and values
+// that look like flags never reach the herdr CLI.
+func paneAgent(ctx context.Context, c *herdr.Client, r *http.Request) (herdr.Agent, error) {
+	pane := r.PathValue("pane")
+	if pane == "" || strings.HasPrefix(pane, "-") {
+		return herdr.Agent{}, badRequest("bad pane")
+	}
+	return findAgent(ctx, c, pane)
+}
+
 // agentOutput is the pane's recent terminal text, read through the herdr CLI.
 func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	c, err := needHerdr()
+	if err != nil {
+		return nil, err
+	}
+	a, err := paneAgent(ctx, c, r)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +312,7 @@ func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "pane", "read", r.PathValue("pane"), "--source", "recent", "--lines", strconv.Itoa(lines), "--format", "text")
+	cmd := exec.CommandContext(ctx, bin, "pane", "read", a.PaneID, "--source", "recent", "--lines", strconv.Itoa(lines), "--format", "text")
 	cmd.Env = append(os.Environ(), "HERDR_SOCKET_PATH="+c.Path())
 	out, err := cmd.Output()
 	if err != nil {
@@ -320,7 +334,11 @@ func agentPrompt(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if text == "" {
 		return nil, badRequest("empty prompt")
 	}
-	err = c.Prompt(ctx, r.PathValue("pane"), text)
+	a, err := paneAgent(ctx, c, r)
+	if err != nil {
+		return nil, err
+	}
+	err = c.Prompt(ctx, a.PaneID, text)
 	if herdr.IsCode(err, "agent_blocked") {
 		return nil, httpError{http.StatusConflict, "the agent waits on an approval or question: answer it in its terminal"}
 	}
@@ -333,11 +351,15 @@ func agentFocus(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	a, err := paneAgent(ctx, c, r)
+	if err != nil {
+		return nil, err
+	}
 	bin, err := exec.LookPath(herdrBin)
 	if err != nil {
 		return nil, httpError{http.StatusNotImplemented, "no herdr on PATH"}
 	}
-	cmd := exec.CommandContext(ctx, bin, "agent", "focus", r.PathValue("pane"))
+	cmd := exec.CommandContext(ctx, bin, "agent", "focus", a.PaneID)
 	cmd.Env = append(os.Environ(), "HERDR_SOCKET_PATH="+c.Path())
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("herdr agent focus: %s", strings.TrimSpace(string(out)))
@@ -351,7 +373,7 @@ func agentStop(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	a, err := findAgent(ctx, c, r.PathValue("pane"))
+	a, err := paneAgent(ctx, c, r)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +390,7 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	a, err := findAgent(ctx, c, r.PathValue("pane"))
+	a, err := paneAgent(ctx, c, r)
 	if err != nil {
 		return nil, err
 	}
@@ -376,6 +398,8 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	kind := b.Agent
 	if kind == "" {
 		kind = workConfigOf(s).Agent
+	} else if !slices.Contains(agentKinds, kind) {
+		return nil, badRequest("unknown agent " + kind)
 	}
 	_, pane, err := c.NewTab(ctx, a.WorkspaceID, cmpOr(key, a.Name), a.CWD, nil)
 	if err != nil {

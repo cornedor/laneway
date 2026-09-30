@@ -23,7 +23,7 @@ func TestAvatarProxy(t *testing.T) {
 	}))
 	defer jiraSrv.Close()
 	client := jira.New(jira.Config{BaseURL: jiraSrv.URL, Email: "a@b.c", APIToken: "x"})
-	srv := New(context.Background(), Options{Client: client})
+	srv := New(context.Background(), Options{Client: client, AllowedHosts: []string{"example.com"}})
 
 	get := func(u string) *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()

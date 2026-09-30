@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -26,7 +28,7 @@ func webCmd(args []string, cfgPath, site string, errOut io.Writer) int {
 	fs := flag.NewFlagSet("web", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	addr := fs.String("addr", "127.0.0.1:8484", "address to listen on")
-	remote := fs.Bool("remote", false, "allow a non-loopback address (the UI acts as you on Jira)")
+	remote := fs.Bool("remote", false, "allow a non-loopback address; needs the printed ?token= URL. WARNING: grants shell access via ui.actions and ui.llm to whoever holds the token")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
 	demoFlag := fs.Bool("demo", false, "serve a generated project instead of Jira")
 	if err := fs.Parse(args); err != nil {
@@ -89,14 +91,47 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 		opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
 		opt.Sites = cfg.SiteNames()
 	}
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		opt.AllowedHosts = append(opt.AllowedHosts, allowedHosts(host)...)
+	}
+	if remote {
+		b := make([]byte, 24)
+		if _, err := rand.Read(b); err != nil {
+			return err
+		}
+		opt.Token = hex.EncodeToString(b)
+	}
 	srv := web.New(ctx, opt)
 	return web.Serve(ctx, addr, remote, srv, func(a net.Addr) {
 		url := "http://" + a.String()
+		if opt.Token != "" {
+			url += "/?token=" + opt.Token
+		}
 		fmt.Fprintln(os.Stderr, "laneway web on", url)
 		if open {
 			openBrowser(url)
 		}
 	})
+}
+
+// allowedHosts are the Host headers a browser may use for a server bound to
+// host: the host itself, or for a wildcard bind this machine's addresses.
+func allowedHosts(host string) []string {
+	if ip := net.ParseIP(host); host != "" && (ip == nil || !ip.IsUnspecified()) {
+		return []string{host}
+	}
+	var out []string
+	if h, err := os.Hostname(); err == nil {
+		out = append(out, h)
+	}
+	if as, err := net.InterfaceAddrs(); err == nil {
+		for _, a := range as {
+			if ipn, ok := a.(*net.IPNet); ok {
+				out = append(out, ipn.IP.String())
+			}
+		}
+	}
+	return out
 }
 
 func openBrowser(url string) {

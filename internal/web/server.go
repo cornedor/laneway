@@ -10,6 +10,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -50,6 +51,12 @@ type Options struct {
 	RulesTest  config.RulesTest
 	// Open builds the options of another site (nil: no switching).
 	Open func(site string) (Options, error)
+	// AllowedHosts are extra Host headers accepted besides loopback names: a
+	// "host:port" matches exactly, a bare "host" on any port. Needed for -remote.
+	AllowedHosts []string
+	// Token, when set, must be exchanged (?token=) for a cookie before any
+	// other request is served. Set with -remote.
+	Token string
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.
@@ -226,10 +233,61 @@ func New(ctx context.Context, opt Options) *Server {
 	return s
 }
 
-// ServeHTTP guards against other sites driving the API from the browser: a
-// state-changing request must come from this origin.
+// hostAllowed: Host must be a loopback name or one the server was told about,
+// which keeps a DNS-rebound page from talking to the API.
+func (s *Server) hostAllowed(host string) bool {
+	h := strings.ToLower(host)
+	name := h
+	if n, _, err := net.SplitHostPort(h); err == nil {
+		name = n
+	}
+	name = strings.Trim(name, "[]")
+	if name == "localhost" || strings.HasSuffix(name, ".localhost") {
+		return true
+	}
+	if ip := net.ParseIP(name); ip != nil && ip.IsLoopback() {
+		return true
+	}
+	for _, a := range s.opt.AllowedHosts {
+		a = strings.ToLower(a)
+		if _, _, err := net.SplitHostPort(a); a == h || err != nil && strings.Trim(a, "[]") == name {
+			return true
+		}
+	}
+	return false
+}
+
+const tokenCookie = "laneway_token"
+
+// tokenOK exchanges a launch token in the URL for a cookie (and redirects to
+// the clean URL), or accepts the cookie. It reports whether to go on.
+func (s *Server) tokenOK(w http.ResponseWriter, r *http.Request) bool {
+	want := []byte(s.opt.Token)
+	if t := r.URL.Query().Get("token"); t != "" && subtle.ConstantTimeCompare([]byte(t), want) == 1 {
+		http.SetCookie(w, &http.Cookie{Name: tokenCookie, Value: s.opt.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+		q := r.URL.Query()
+		q.Del("token")
+		u := url.URL{Path: r.URL.Path, RawQuery: q.Encode()}
+		http.Redirect(w, r, u.String(), http.StatusSeeOther)
+		return false
+	}
+	if c, err := r.Cookie(tokenCookie); err == nil && subtle.ConstantTimeCompare([]byte(c.Value), want) == 1 {
+		return true
+	}
+	http.Error(w, "open the URL with ?token= that laneway printed at start", http.StatusUnauthorized)
+	return false
+}
+
+// ServeHTTP guards against other sites driving the API from the browser: the
+// Host must be ours (DNS rebinding), a state-changing request must come from
+// this origin, and with a Token every request needs its cookie.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+	if !s.hostAllowed(r.Host) {
+		http.Error(w, "unknown host refused", http.StatusForbidden)
+		return
+	}
+	safe := r.Method == http.MethodGet || r.Method == http.MethodHead
+	if !safe || strings.HasPrefix(r.URL.Path, "/api/") {
 		if o := r.Header.Get("Origin"); o != "" {
 			u, err := url.Parse(o)
 			if err != nil || u.Host != r.Host {
@@ -237,6 +295,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		if f := r.Header.Get("Sec-Fetch-Site"); f != "" && f != "same-origin" && f != "none" {
+			http.Error(w, "cross-site request refused", http.StatusForbidden)
+			return
+		}
+	}
+	if s.opt.Token != "" && !s.tokenOK(w, r) {
+		return
 	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
