@@ -49,3 +49,4 @@
 .strow .wkey { flex: none; } .strow .what { color: var(--fg-2); font-size: 13px; } .strow .main { flex: 1; min-width: 0; }
 .strow .wsum { display: block; white-space: normal; }
 .stwho { margin-left: auto; color: var(--fg-3); font-size: 12px; white-space: nowrap; }
+.wprop-head { margin: var(--pad) 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; } .wlog.wprop { opacity: .85; font-style: italic; }

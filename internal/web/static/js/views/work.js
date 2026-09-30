@@ -130,6 +130,27 @@ export default function mount(el, { app, scope, toolbar, query }) {
   }
   const dayLogs = d => logs.filter(w => ymd(w.at) === ymd(d));
   const curLog = () => dayLogs(day)[wsel];
+  // Proposed worklogs from git and ui.activity (p), listed under the day's logs.
+  let props = [], propsDay = '';
+  const dayProps = () => (propsDay === ymd(day) ? props : []);
+  const curProp = () => dayProps()[wsel - dayLogs(day).length];
+  async function propose() {
+    const d = day;
+    ui.toast('Reading git and ui.activity…');
+    try {
+      const r = await api.get('/worklog/proposals?day=' + ymd(d), { fresh: true });
+      props = r.Items || []; propsDay = ymd(d);
+      ui.toast(props.length ? props.length + ' proposed' : 'Nothing to propose: every session is logged' + (r.Failed.length ? ' · ui.activity failed: ' + r.Failed.join(', ') : ''));
+      wsel = dayLogs(d).length; paintTime();
+    } catch (e) { ui.errToast(e); }
+  }
+  async function logProposal() {
+    const p = curProp(); if (!p) return;
+    const started = new Date(p.Start);
+    if (await logDialog(app, { key: p.Key, summary: (cards.find(c => c.Key === p.Key) || {}).Summary, seconds: p.Seconds, started, note: 'Proposed from ' + Object.entries(p.Sources).map(([k, n]) => n + ' ' + k).join(', ') }) === 'logged') {
+      props = props.filter(x => x !== p); refreshSoon();
+    }
+  }
   function paintTime() { clear(body); tab === 'week' ? paintWeek() : paintDay(); }
   function nav(label, sub) {
     return h('div.time-head',
@@ -148,15 +169,22 @@ export default function mount(el, { app, scope, toolbar, query }) {
 
   function paintDay() {
     const ws = dayLogs(day), total = sum(ws), target = targetSeconds(app);
-    wsel = Math.min(wsel, Math.max(ws.length - 1, 0));
+    wsel = Math.min(wsel, Math.max(ws.length + dayProps().length - 1, 0));
     body.append(nav(day.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }), duration(total) + ' of ' + duration(target)),
       h('div.wbar', h('div.wbar-fill' + (total >= target ? '.full' : ''), { style: { width: Math.min(100, (total / target) * 100) + '%' } })));
-    if (!ws.length) { body.append(h('div.empty', logsPath ? 'Nothing logged. ' : 'Loading…', logsPath && h('button.btn.link', { onclick: () => addLog() }, 'Log work (a)'))); return; }
+    if (!ws.length && !dayProps().length) { body.append(h('div.empty', logsPath ? 'Nothing logged. ' : 'Loading…', logsPath && h('button.btn.link', { onclick: () => addLog() }, 'Log work (a)'), logsPath && h('button.btn.link', { onclick: propose }, ' Propose from git (p)'))); return; }
     const t = h('div.wlist');
     ws.forEach((w, i) => t.append(h('div.wlog' + (i === wsel ? '.sel' : ''), { dataset: { key: w.Key, i } },
       h('span.wtime.dim', hm(w.at)), h('span.wkey.mono', w.Key),
       h('span.wsum', w.Summary, w.Comment && h('span.wcomment.dim', ' — ' + w.Comment.replace(/\s+/g, ' '))),
       h('span.wdur', duration(w.Seconds)))));
+    const ps = dayProps();
+    if (ps.length) {
+      t.append(h('div.wprop-head.dim', 'Proposed · enter logs one'));
+      ps.forEach((p, i) => t.append(h('div.wlog.wprop' + (ws.length + i === wsel ? '.sel' : ''), { dataset: { i: ws.length + i } },
+        h('span.wtime.dim', '≈ ' + hm(new Date(p.Start))), h('span.wkey.mono', p.Key),
+        h('span.wsum.dim', Object.entries(p.Sources).map(([k, n]) => n + ' ' + k).join(', ')), h('span.wdur', duration(p.Seconds)))));
+    }
     body.append(t);
   }
 
@@ -264,7 +292,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
     const i = rows.findIndex(r => r.card && r.card.Key === row.dataset.key);
     if (i >= 0) { select(i); app.panel.open(row.dataset.key); }
   });
-  delegate(root, 'click', '.wlog', (e, row) => { wsel = +row.dataset.i; paintTime(); app.panel.open(row.dataset.key); });
+  delegate(root, 'click', '.wlog', (e, row) => { wsel = +row.dataset.i; paintTime(); if (row.dataset.key) app.panel.open(row.dataset.key); });
   delegate(root, 'dblclick', '.wlog', () => editLog());
   delegate(root, 'click', '.wcell:not(.tot):not(.foot)', (e, td) => { cell = { row: +td.dataset.r, col: +td.dataset.c }; paintTime(); });
   delegate(root, 'dblclick', '.wcell:not(.tot):not(.foot)', () => cellEnter());
@@ -289,13 +317,14 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind('0', goToday, 'today / this week', { ...G, ...T });
   scope.bind('y', copyText, 'copy as text', { ...G, ...T });
   scope.bind('a', () => addLog(), 'log work', { ...G, ...T });
-  scope.bind(['j', 'ArrowDown'], () => { wsel = Math.min(wsel + 1, dayLogs(day).length - 1); paintTime(); }, 'next', { ...G, ...D });
+  scope.bind(['j', 'ArrowDown'], () => { wsel = Math.min(wsel + 1, dayLogs(day).length + dayProps().length - 1); paintTime(); }, 'next', { ...G, ...D });
   scope.bind(['k', 'ArrowUp'], () => { wsel = Math.max(wsel - 1, 0); paintTime(); }, 'previous', { ...G, ...D });
   scope.bind('ArrowLeft', () => step(-1), 'previous day', { ...G, hidden: true, ...D });
   scope.bind('ArrowRight', () => step(1), 'next day', { ...G, hidden: true, ...D });
   scope.bind('e', editLog, 'edit worklog', { ...G, ...D });
   scope.bind(['d', 'Delete'], delLog, 'delete worklog', { ...G, ...D });
-  scope.bind('Enter', () => { const w = curLog(); if (w) app.panel.open(w.Key); }, 'open issue', { ...G, ...D });
+  scope.bind('Enter', () => { const w = curLog(); if (w) app.panel.open(w.Key); else logProposal(); }, 'open issue / log the proposed work', { ...G, ...D });
+  scope.bind('p', propose, 'propose worklogs from git commits and ui.activity', { ...G, ...D });
   scope.bind(['j', 'ArrowDown'], () => moveCell(1, 0), 'next row', { ...G, ...W });
   scope.bind(['k', 'ArrowUp'], () => moveCell(-1, 0), 'previous row', { ...G, ...W });
   scope.bind('ArrowLeft', () => moveCell(0, -1), 'previous day', { ...G, ...W });
