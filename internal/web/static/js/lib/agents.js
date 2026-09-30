@@ -33,7 +33,7 @@ export function install(app) {
     if (!s) return;
     el.className = 'agent-chip st-' + s.status;
     el.textContent = GLYPH[s.status] + (s.count > 1 ? s.count : '');
-    el.title = s.count ? s.agents.map(a => a.Name + ': ' + (LABEL[a.Status] || a.Status)).join('\n') : LABEL.worktree + ' ' + s.worktree;
+    el.title = (s.count ? s.agents.map(a => a.Name + ': ' + (LABEL[a.Status] || a.Status)).join('\n') : LABEL.worktree + ' ' + s.worktree) + '\nclick: show in Agents';
   }
   const chip = key => { const el = h('span.agent-chip', { dataset: { agentKey: key } }); paintChip(el, key); return el; };
   // A card's or row's key element carries the chip as its last child.
@@ -113,13 +113,24 @@ export function install(app) {
       ui.toast('Draft opened: ' + r.URL, { action: { label: 'Open', run: () => window.open(r.URL, '_blank', 'noopener') }, ms: 10000 });
     } catch (e) { close(); ui.errToast(e); }
   };
+  // A chip (card, row, panel) opens the agents screen on that issue's agent.
+  document.addEventListener('click', e => {
+    const c = e.target.closest && e.target.closest('.agent-chip');
+    if (!c || c.hidden) return;
+    const key = c.dataset.agentKey || (c.closest('[data-key]') || {}).dataset?.key;
+    if (!key) return;
+    e.preventDefault(); e.stopPropagation();
+    app.go('/agents?agent=' + encodeURIComponent(key));
+  }, true);
   const k = app.keys.scope('agents-global');
-  k.bind('S', need(key => start(key)), 'start work (worktree + agent)', { group: 'Agents', when: () => !demo() });
+  k.bind('S', need(key => start(key)), 'start work (worktree + agent); focuses its agent if one runs', { group: 'Agents', when: () => !demo() });
+  k.bind('alt+s', need(key => start(key, { force: true })), 'start another agent in the issue\'s worktree', { group: 'Agents', when: () => !demo() });
   k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: 'Agents', when: () => !demo() });
-  const cmd = (id, title, run, when) => app.commands.register({ id, group: 'Agents', get title() { return title(); }, run, when });
-  cmd('agents:start', () => 'Start work on ' + target(app), need(key => start(key)), () => !demo() && !!target(app));
-  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { force: true })), () => !demo() && !!target(app) && snap.Available);
-  cmd('agents:branch', () => 'Copy branch name of ' + target(app), need(copyBranch), () => !demo() && !!target(app));
+  const cmd = (id, title, run, when, keys) => app.commands.register({ id, group: 'Agents', get title() { return title(); }, keys, run, when });
+  cmd('agents:start', () => { const s = stateFor(target(app)); return (s && s.count ? 'Focus the agent of ' : 'Start work on ') + target(app); }, need(key => start(key)), () => !demo() && !!target(app), 'S');
+  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { force: true })), () => !demo() && !!target(app) && snap.Available, 'alt+s');
+  cmd('agents:show', () => 'Show the agent of ' + target(app) + ' in Agents', need(key => app.go('/agents?agent=' + encodeURIComponent(key))), () => !demo() && !!target(app) && !!stateFor(target(app)));
+  cmd('agents:branch', () => 'Copy branch name of ' + target(app), need(copyBranch), () => !demo() && !!target(app), 'ctrl+y');
   cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && !!target(app));
   app.agents.draftPR = demo() ? () => ui.toast('Not available in demo') : draftPR;
 }

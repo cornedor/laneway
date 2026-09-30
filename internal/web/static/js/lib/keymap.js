@@ -7,7 +7,7 @@ const TABLE = {
   undo: { u: 'undo' },
   board: { ...COMMON, h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Enter: 'open', s: 'status', e: 'summary', a: 'assign', p: 'priority', P: 'points',
     H: 'move_left', L: 'move_right', J: 'rank_down', K: 'rank_up', x: 'mark', X: 'bulk', t: 'toggle_mode', S: 'sort', B: 'board', m: 'mine', A: 'assignee_filter', 0: 'clear_filters' },
-  planning: { ...COMMON, J: 'rank_down', K: 'rank_up', m: 'move_sprint', x: 'mark', N: 'plan_new', S: 'plan_start', C: 'plan_complete', E: 'plan_rename', P: 'points', b: 'board', Enter: 'open', R: 'refresh' },
+  planning: { ...COMMON, J: 'rank_down', K: 'rank_up', m: 'move_sprint', x: 'mark', N: 'plan_new', Z: 'plan_start', C: 'plan_complete', E: 'plan_rename', P: 'points', b: 'board', Enter: 'open', R: 'refresh' },
   reports: { ...COMMON, R: 'refresh', Enter: 'open' },
   roadmap: { ...COMMON, h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', '+': 'zoom_in', '-': 'zoom_out', '.': 'today', Space: 'roadmap_fold', R: 'refresh', Enter: 'open' },
   work: { ...COMMON, Enter: 'open', e: 'edit_entry', d: 'delete_entry' },

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ import (
 type fakeHerdr struct {
 	mu     sync.Mutex
 	calls  []string
+	params map[string]map[string]any // the last params of each method
 	agents []map[string]any
 	subs   []net.Conn
 	open   bool // worktree.open finds the worktree
@@ -74,6 +76,10 @@ func (f *fakeHerdr) serve(conn net.Conn) {
 	_ = json.Unmarshal(line, &req)
 	f.mu.Lock()
 	f.calls = append(f.calls, req.Method)
+	if f.params == nil {
+		f.params = map[string]map[string]any{}
+	}
+	f.params[req.Method] = req.Params
 	var result any = map[string]any{}
 	var errObj any
 	switch req.Method {
@@ -88,6 +94,8 @@ func (f *fakeHerdr) serve(conn net.Conn) {
 	case "worktree.create":
 		f.open = true
 		result = worktree(false)
+	case "tab.create":
+		result = map[string]any{"tab": map[string]any{"tab_id": "t3"}, "root_pane": map[string]any{"pane_id": "p3"}}
 	case "agent.prompt":
 		if req.Params["text"] == "block" {
 			errObj = map[string]any{"code": "agent_blocked", "message": "blocked"}
@@ -376,5 +384,88 @@ func TestBranchAndPullRequest(t *testing.T) {
 	var pr map[string]string
 	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/pr", "", &pr); code != 200 || pr["URL"] != "https://git.emico.io/x/y/-/merge_requests/3" || pr["Branch"] != "issue/DEMO-5-old" {
 		t.Errorf("pr = %d %v calls %v", code, pr, calls)
+	}
+}
+
+// The whole start sequence: form defaults, then worktree, tab label, agent with
+// the {key} prompt, the writes; a second S finds the agent; "another" opens a tab.
+func TestStartWorkSequence(t *testing.T) {
+	f, c := newFakeHerdr(t)
+	old := herdrClient
+	herdrClient = func() *herdr.Client { return c }
+	defer func() { herdrClient = old }()
+	oldWait := startAgentWait
+	startAgentWait = time.Millisecond
+	defer func() { startAgentWait = oldWait }()
+	ts := agentsServer(t, gitRepo(t))
+
+	var form struct {
+		Herdr   bool
+		Agent   string
+		Running []AgentOut
+	}
+	workCall(t, "GET", ts.URL+"/api/issues/DEMO-5/work", "", &form)
+	if !form.Herdr || form.Agent != "claude" || len(form.Running) != 0 {
+		t.Fatalf("form = %+v", form)
+	}
+	var res struct {
+		Pane    string
+		Running bool
+		Did     []string
+	}
+	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/work", `{"Agent":"claude","Prompt":"Do {key} now","Actions":true}`, &res); code != 200 {
+		t.Fatalf("start = %d", code)
+	}
+	f.mu.Lock()
+	order := strings.Join(f.calls, ",")
+	start := f.params["agent.start"]
+	rename := f.params["tab.rename"]
+	f.mu.Unlock()
+	if !strings.Contains(order, "worktree.open,worktree.create,tab.rename,agent.start") {
+		t.Errorf("calls = %s", order)
+	}
+	if fmt.Sprint(start["args"]) != "[Do DEMO-5 now]" || start["pane_id"] != "p2" || start["kind"] != "claude" {
+		t.Errorf("agent.start = %v", start)
+	}
+	if fmt.Sprint(rename["label"]) != "DEMO-5" {
+		t.Errorf("tab.rename = %v", rename)
+	}
+	if strings.Join(res.Did, ",") != "assigned to you,moved to In Progress" {
+		t.Errorf("did = %v", res.Did)
+	}
+
+	// Its agent runs now: the form says so, S does not start a second one.
+	f.mu.Lock()
+	f.agents = append(f.agents, map[string]any{"pane_id": "p2", "name": "jira-demo-5-x", "workspace_id": "w2", "tab_id": "t2", "agent": "claude", "agent_status": "idle", "cwd": "/w/demo-5"})
+	f.calls = nil
+	f.mu.Unlock()
+	workCall(t, "GET", ts.URL+"/api/issues/DEMO-5/work", "", &form)
+	if len(form.Running) != 1 || form.Running[0].PaneID != "p2" {
+		t.Errorf("running = %+v", form.Running)
+	}
+	workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/work", `{}`, &res)
+	if !res.Running || res.Pane != "p2" || f.called("agent.start") {
+		t.Errorf("second start = %+v, started: %v", res, f.called("agent.start"))
+	}
+
+	// Another agent: a new tab in the worktree, no writes.
+	res.Running = true
+	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/work", `{"Another":true,"Prompt":"more","Actions":true}`, &res); code != 200 || res.Running || res.Pane != "p3" || len(res.Did) != 0 {
+		t.Fatalf("another = %d %+v", code, res)
+	}
+	f.mu.Lock()
+	tab, start := f.params["tab.create"], f.params["agent.start"]
+	f.mu.Unlock()
+	if tab["workspace_id"] != "w2" || tab["cwd"] != "/w/demo-5" || start["pane_id"] != "p3" {
+		t.Errorf("tab.create %v agent.start %v", tab, start)
+	}
+}
+
+func TestStartWorkErrorsSayHow(t *testing.T) {
+	if e := startError("DEMO-5", "/r", fmt.Errorf("fatal: 'issue/x' is already checked out")); !strings.Contains(e.Error(), "another branch") {
+		t.Errorf("taken branch: %v", e)
+	}
+	if !strings.Contains(noRepo("DEMO"), "jira.repos.DEMO") {
+		t.Error(noRepo("DEMO"))
 	}
 }

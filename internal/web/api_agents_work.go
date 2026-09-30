@@ -96,6 +96,11 @@ func startStatus(s *Server, key string) string {
 	return strings.TrimSpace(s.UIConfig().StartStatus)
 }
 
+// noRepo is the error for a project without a checkout, with the fix.
+func noRepo(project string) string {
+	return "no repo for " + project + ": set jira.repos." + project + " to its git checkout in the config (Settings, or config.yaml)"
+}
+
 func repoFor(s *Server, key string) string {
 	project, _, _ := strings.Cut(key, "-")
 	if r := s.opt.Jira.Repos[project]; r != "" {
@@ -180,7 +185,7 @@ func startWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	b, err := Body[struct {
 		Agent, Branch, Prompt string
-		Actions               bool
+		Actions, Another      bool // Another: a further agent in the worktree, whatever runs there
 	}](r)
 	if err != nil {
 		return nil, err
@@ -192,7 +197,7 @@ func startWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	repo := repoFor(s, key)
 	if repo == "" {
 		project, _, _ := strings.Cut(key, "-")
-		return nil, badRequest("no jira.repos entry for " + project)
+		return nil, badRequest(noRepo(project))
 	}
 	startingMu.Lock()
 	if starting[key] {
@@ -224,13 +229,13 @@ func startWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		prompt = "none"
 	}
 	open := worktreeIn(c, repo, branch, defaultBase(repo), key, cfg.Create)
-	path, pane, running, err := agentInWorktree(ctx, c, open, key, kind, agentName(key, time.Now()), workArgs(cfg.Args, prompt, key))
+	path, pane, running, err := agentInWorktree(ctx, c, open, key, kind, agentName(key, time.Now()), workArgs(cfg.Args, prompt, key), b.Another)
 	forgetWorktrees()
 	if err != nil {
-		return nil, fmt.Errorf("start work: %w", err)
+		return nil, startError(key, repo, err)
 	}
 	out := map[string]any{"Path": path, "Pane": pane, "Agent": kind, "Running": running, "Branch": branch, "Did": []string{}}
-	if running || !b.Actions {
+	if running || b.Another || !b.Actions {
 		return out, nil
 	}
 	did, werr := startWrites(ctx, s, key, iss.Status, cfg.Assigns)
@@ -241,6 +246,17 @@ func startWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	out["Timer"] = cfg.Timer
 	s.Client().Invalidate(key)
 	return out, nil
+}
+
+// startError says what failed and how to fix what can be fixed.
+func startError(key, repo string, err error) error {
+	switch {
+	case herdr.IsCode(err, "worktree_dirty"), strings.Contains(err.Error(), "uncommitted"):
+		return fmt.Errorf("%s: the worktree has uncommitted changes: commit or stash them in %s, then start again", key, repo)
+	case strings.Contains(err.Error(), "already exists"), strings.Contains(err.Error(), "already checked out"):
+		return fmt.Errorf("%s: the branch is taken (%w): pick another branch name", key, err)
+	}
+	return fmt.Errorf("%s: start work: %w", key, err)
 }
 
 // validBranch: git's branch name rules, and no leading "-" or "@{" forms.
@@ -318,7 +334,7 @@ func openPullRequest(ctx context.Context, s *Server, r *http.Request) (any, erro
 	}
 	repo := repoFor(s, key)
 	if repo == "" {
-		return nil, badRequest("no jira.repos entry for " + strings.SplitN(key, "-", 2)[0])
+		return nil, badRequest(noRepo(strings.SplitN(key, "-", 2)[0]))
 	}
 	iss, err := s.Client().Get(ctx, key)
 	if err != nil {
@@ -400,11 +416,19 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 }
 
 // agentInWorktree opens a worktree, labels its tab and starts the agent kind
-// in it. running reports an agent was already there.
-func agentInWorktree(ctx context.Context, c *herdr.Client, open func(context.Context) (herdr.Worktree, error), tab, kind, name string, args []string) (path, pane string, running bool, err error) {
+// in it. running reports an agent was already there; another starts in a tab
+// of its own instead of stopping at that one.
+func agentInWorktree(ctx context.Context, c *herdr.Client, open func(context.Context) (herdr.Worktree, error), tab, kind, name string, args []string, another bool) (path, pane string, running bool, err error) {
 	wt, err := open(ctx)
 	if err != nil {
 		return "", "", false, err
+	}
+	if another && wt.AlreadyOpen {
+		_, p, err := c.NewTab(ctx, wt.Workspace, tab, wt.Path, nil)
+		if err != nil {
+			return wt.Path, "", false, err
+		}
+		return wt.Path, p, false, startAgent(ctx, c, kind, name, p, args)
 	}
 	if wt.AlreadyOpen {
 		if agents, err := c.Agents(ctx); err == nil {

@@ -8,7 +8,7 @@ const GROUPS = ['blocked', 'working', 'done', 'idle', 'worktree'];
 const GROUP_NAME = { blocked: 'Waiting on you', working: 'Working', done: 'Done', idle: 'Idle', unknown: 'Unknown', worktree: 'Worktrees without an agent' };
 const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
 
-export default async function mount(el, { app, scope, toolbar }) {
+export default async function mount(el, { app, scope, toolbar, query }) {
   css('agents');
   for (let i = 0; !app.agents && i < 60; i++) await new Promise(r => setTimeout(r, 50));
   const { api, ui, bus } = app;
@@ -65,7 +65,7 @@ export default async function mount(el, { app, scope, toolbar }) {
     });
     list.replaceChildren(...kids);
     empty.hidden = rows.length > 0;
-    empty.textContent = !s.Available ? 'herdr is not running.' : bare ? 'No agents or worktrees for an issue.' : 'No agent works on an issue. S starts one, Tab lists worktrees.';
+    empty.textContent = !s.Available ? 'herdr is not running.' : bare ? 'No agents or worktrees for an issue.' : 'No agent works on an issue. S on an issue starts one, Tab lists worktrees.';
     const r = list.querySelector('.ag-row.sel'); if (r) r.scrollIntoView({ block: 'nearest' });
   }
 
@@ -92,7 +92,7 @@ export default async function mount(el, { app, scope, toolbar }) {
         h('div.ag-meta', h('span.chip', (GLYPH[r.group] || '') + ' ' + (LABEL[r.group] || r.group)), a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',
           a && btn('Focus in herdr', 'f', () => act('focus')), a && btn('Prompt', 'p', () => act('prompt')), a && btn('New agent here', 'N', () => act('new')),
-          btn(a ? 'Another agent' : 'Start agent', 'S', () => app.agents.startWork(r.key, { force: true })),
+          btn(a ? 'Another agent' : 'Start agent', a ? 'alt+s' : 'S', () => app.agents.startWork(r.key, { force: true })),
           a && btn('Stop', 'd', () => act('stop'), '.danger')),
         a ? pre : h('div.dim', 'A worktree without an agent. S starts one in it.'));
     }
@@ -155,7 +155,8 @@ export default async function mount(el, { app, scope, toolbar }) {
   scope.bind('o', () => { const r = cur(); if (r) window.open(app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
   scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
   scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G });
-  scope.bind('N', () => act('new'), 'start another agent in its directory', { group: G });
+  scope.bind('N', () => act('new'), 'start another agent in its directory (prompt only)', { group: G });
+  scope.bind('S', () => { const r = cur(); if (r) app.agents.startWork(r.key, { force: !!r.agent }); }, 'start work on the issue (the form; with an agent: another one)', { group: G });
   scope.bind('d', () => act('stop'), 'stop the agent (twice)', { group: G });
   scope.bind('y', () => { const r = cur(); if (r && navigator.clipboard) navigator.clipboard.writeText(r.key).then(() => ui.toast('Copied ' + r.key)); }, 'copy key', { group: G });
   scope.bind('r', () => { app.agents.refresh(); ui.toast('Refreshed'); }, 'refresh', { group: G });
@@ -166,5 +167,10 @@ export default async function mount(el, { app, scope, toolbar }) {
   const off = bus.on('agents', () => { if (!dead) build(); });
   const offDone = bus.on('issue:changed', () => { asked.clear(); });
   build();
+  const want = query && query.agent;
+  if (want) {
+    const i = rows.findIndex(r => r.key === want);
+    if (i >= 0) { sel = i; mark(); } else if (!bare && (snap().Worktrees || {})[want]) { bare = true; build(); sel = Math.max(0, rows.findIndex(r => r.key === want)); mark(); }
+  }
   return () => { dead = true; off(); offDone(); stopTerm(); };
 }

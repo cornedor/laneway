@@ -35,3 +35,6 @@
 .rv-row { display: flex; gap: var(--pad); align-items: baseline; padding: 6px calc(var(--pad) * 1.5); border-bottom: 1px solid var(--bg-3); cursor: pointer; }
 .rv-row:hover { background: var(--bg-3); } .rv-row.sel { background: var(--accent-bg); box-shadow: inset 2px 0 0 var(--accent); }
 .rv-row .sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-chip { cursor: pointer; }
+.agent-chip:hover { filter: brightness(1.2); outline: 1px solid var(--border); }
+.start-work .form-err.busy { color: var(--fg-3); }
