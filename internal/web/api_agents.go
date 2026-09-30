@@ -124,14 +124,18 @@ func toOut(as []herdr.Agent) []AgentOut {
 	return out
 }
 
+func unavailable() AgentsSnapshot {
+	return AgentsSnapshot{Agents: []AgentOut{}, Worktrees: map[string]string{}}
+}
+
 func snapshot(ctx context.Context, s *Server) AgentsSnapshot {
 	c := herdrClient()
 	if c == nil {
-		return AgentsSnapshot{}
+		return unavailable()
 	}
 	as, err := c.Agents(ctx)
 	if err != nil {
-		return AgentsSnapshot{}
+		return unavailable()
 	}
 	return AgentsSnapshot{Available: true, Agents: toOut(as), Worktrees: worktreesByKey(s)}
 }
@@ -172,7 +176,7 @@ func agentEvents(s *Server, w http.ResponseWriter, r *http.Request) {
 	for ctx.Err() == nil {
 		c := herdrClient()
 		if c == nil {
-			send(AgentsSnapshot{})
+			send(unavailable())
 			if !sleep(10 * time.Second) {
 				return
 			}
@@ -182,7 +186,7 @@ func agentEvents(s *Server, w http.ResponseWriter, r *http.Request) {
 		as, err := c.Agents(lctx)
 		cancel()
 		if err != nil {
-			send(AgentsSnapshot{})
+			send(unavailable())
 			if !sleep(5 * time.Second) {
 				return
 			}
