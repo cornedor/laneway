@@ -124,6 +124,7 @@ function globalKeys() {
   g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global' });
   g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), 'new issue', { group: 'Global' });
   g.bind('Q', () => app.actions.palette('#'), 'JQL search', { group: 'Global' });
+  g.bind('ctrl+e', () => import('./views/refine.js').then(m => m.startRefine(app)), 'refine: the view\'s issues one at a time', { group: 'Global' });
   g.bind('g t', () => { const t = theme.next(); ui.toast('Theme: ' + t); }, 'next theme', { group: 'Global' });
   g.bind('Tab', () => { const p = $('#panel'); if (p.contains(document.activeElement)) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, 'focus panel / view', { group: 'Global', when: () => app.panel.key });
   g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, 'close panel', { group: 'Global', hidden: true });
@@ -132,6 +133,7 @@ function globalKeys() {
   for (const r of routes) commands.register({ id: 'go:' + r.name, title: 'Go to ' + r.title, group: 'Go', run: () => app.go('/' + r.name) });
   commands.register({ id: 'theme:next', title: 'Theme: next', group: 'Theme', run: () => ui.toast('Theme: ' + theme.next()) });
   for (const p of theme.presets) commands.register({ id: 'theme:' + p.id, title: 'Theme: ' + p.name, group: 'Theme', run: () => theme.set(p.id) });
+  commands.register({ id: 'refine', title: 'Refine the view\'s issues one at a time', group: 'Issue', run: () => import('./views/refine.js').then(m => m.startRefine(app)) });
   commands.register({ id: 'create', title: 'Create issue', group: 'Issue', run: () => app.actions.create({}) });
   commands.register({ id: 'reload', title: 'Reload data (drop caches)', group: 'App', run: () => { api.forget(); navigate(); ui.toast('Reloaded'); } });
   commands.register({ id: 'help', title: 'Keyboard help', group: 'App', run: () => import('./views/help.js').then(m => m.openHelp(app)) });

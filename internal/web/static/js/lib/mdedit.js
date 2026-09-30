@@ -128,7 +128,7 @@ export function mdEdit(app, o) {
     const local = people().filter(([n]) => n.toLowerCase().includes(q.toLowerCase())).map(([n, id]) => ({ DisplayName: n, AccountID: id }));
     let remote = [];
     try {
-      const r = await api.get('/users?' + (o.issueKey ? 'issue=' + encodeURIComponent(o.issueKey) : 'project=' + encodeURIComponent(o.project || '')) + '&q=' + encodeURIComponent(q));
+      const r = await api.get('/users?' + (o.issueKey ? 'issue=' + encodeURIComponent(o.issueKey) : 'project=' + encodeURIComponent((typeof o.project === 'function' ? o.project() : o.project) || '')) + '&q=' + encodeURIComponent(q));
       remote = (Array.isArray(r) ? r : []).map(u => ({ DisplayName: u.DisplayName, AccountID: u.AccountID }));
     } catch (e) { /* local names only */ }
     if (from !== at || kind !== 'mention') return;

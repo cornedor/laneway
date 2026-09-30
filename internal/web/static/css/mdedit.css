@@ -10,3 +10,13 @@
 .mp-g { font-size: 1.15em; width: 1.4em; text-align: center; }
 .mp b { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; }
 .ed-files { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+
+/* find in issue, image viewer */
+.iss-find { display: flex; align-items: center; gap: 6px; padding: 4px calc(var(--pad) * 2); background: var(--bg-3); border-bottom: 1px solid var(--border); }
+.iss-find input { flex: 1; min-width: 0; }
+mark.find { background: var(--warn); color: var(--bg); border-radius: 2px; } mark.find.cur { outline: 2px solid var(--accent); }
+.lb { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.lb .lightbox { max-width: 100%; max-height: 75vh; }
+.lb-prev, .lb-next { position: absolute; top: 50%; transform: translateY(-50%); font-size: 28px; background: var(--bg-2); } .lb-prev { left: 0; } .lb-next { right: 0; }
+.lb-cap { margin-top: 8px; text-align: center; color: var(--fg-2); font-size: .9em; }
+.refine-bar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 50; background: var(--bg-2); border: 1px solid var(--accent); border-radius: var(--radius); padding: 4px 12px; box-shadow: var(--shadow); font-size: .9em; }

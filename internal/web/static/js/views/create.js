@@ -3,6 +3,7 @@
 import { h } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { fieldInput, formRow } from './fields.js';
+import { mdEdit } from '../lib/mdedit.js';
 
 css('forms');
 
@@ -29,7 +30,12 @@ export async function openCreate(app, opts = {}) {
   const projectSel = h('select.input', { onchange: () => { project = projectSel.value; type = ''; loadProject(); } }, h('option', { value: project }, project || '…'));
   const typeSel = h('select.input', { onchange: () => { type = typeSel.value; loadFields(); } });
   const summary = h('textarea.input', { rows: 2, placeholder: 'Summary. One per line makes several issues.', value: opts.summary || (restore && restore.summary) || '', oninput: count });
-  const description = h('textarea.input', { rows: 5, placeholder: 'Description (markdown)', value: restore ? restore.description : '' });
+  const files = [];
+  const fileBar = h('div.ed-files');
+  const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || 'image', ' ', h('button.btn.ghost.sm', { type: 'button', onclick: () => { files.splice(i, 1); paintFiles(); } }, '✕'))));
+  const ed = mdEdit(app, { value: restore ? restore.description : '', rows: 5, placeholder: 'Description (markdown). / formats, @ mentions, drop files to attach', noCancel: true,
+    hint: 'files attach after creating', project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
+  const description = ed.ta;
   const sprintSel = h('select.input', h('option', { value: '' }, 'None (backlog)'));
   const sprintRow = h('div.form-sprint', { hidden: true });
   const count$ = h('div.faint.form-hint');
@@ -40,7 +46,7 @@ export async function openCreate(app, opts = {}) {
   const okBtn = h('button.btn.primary', { type: 'submit' }, 'Create');
 
   const form = h('form.form-dialog', { onsubmit: e => { e.preventDefault(); submit(); } },
-    h('div.form', formRow('Project', projectSel), formRow('Type', typeSel), formRow('Summary', [summary, count$], true), formRow('Description', description)),
+    h('div.form', formRow('Project', projectSel), formRow('Type', typeSel), formRow('Summary', [summary, count$], true), formRow('Description', [ed.el, fileBar], true)),
     extra, sprintRow, more, err,
     h('div.row.end', h('label.check', another, ' Create another'), h('span.spacer'), h('span.faint.form-hint', 'ctrl+⏎ creates'),
       h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), okBtn));
@@ -115,6 +121,15 @@ export async function openCreate(app, opts = {}) {
     } catch (e) { err.textContent = e.message; }
   }
 
+  async function attach(key) {
+    for (const f of files.splice(0)) {
+      const fd = new FormData(); fd.append('file', f, f.name || 'pasted-' + Date.now() + '.png');
+      try { const res = await fetch('/api/issues/' + key + '/attachments', { method: 'POST', body: fd }); if (!res.ok) throw new Error(res.statusText); }
+      catch (e) { app.ui.toast('Could not attach ' + (f.name || 'file') + ' to ' + key, { kind: 'err' }); }
+    }
+    paintFiles();
+  }
+
   async function submit() {
     if (busy) return;
     const sums = summaries(summary.value);
@@ -136,6 +151,7 @@ export async function openCreate(app, opts = {}) {
       try {
         const r = await app.api.post('/issues', { Project: project, Type: type, Summary: s, Description: description.value, Parent: parent, Sprint: Number(sprintSel.value) || 0, Fields });
         made.push(r.Key);
+        if (files.length) await attach(r.Key);
         if (r.Warning) warn.push(r.Warning);
         app.bus.emit('issue:changed', { key: r.Key, created: true });
       } catch (e) { failed = e; summary.value = sums.slice(i).join('\n'); break; }

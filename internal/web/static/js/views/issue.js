@@ -5,9 +5,12 @@ import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
+import { issueActions } from './actions.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
+const trail = [];            // issues left by following a link, for Backspace
+let expect = null;
 const drafts = new Map();    // unsent comment text by issue key
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
 const dash = h('span.faint', '—');
@@ -18,6 +21,8 @@ export function mountIssue(el, key, { app, full }) {
   const me = () => (app.session && app.session.me) || {};
   const st = { issue: null, card: null, tab: 'details', children: null, weblinks: null, hist: null, tis: null, dev: null,
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
+  if (expect !== key) trail.length = 0;
+  expect = null;
   let dead = false;
   const scope = app.keys.scope('issue');
   // Beside a board the panel's keys apply only while it has focus (Tab / click), so the board keeps j/k/c/e/s.
@@ -55,7 +60,15 @@ export function mountIssue(el, key, { app, full }) {
     ui.toast(what + ' copied');
   };
   const browseURL = () => (st.issue && st.issue.URL) || (app.session.baseURL + '/browse/' + key);
-  const open = k => (full ? app.go('/issue/' + k) : app.panel.open(k));
+  const go = k => { expect = k; return full ? app.go('/issue/' + k) : app.panel.open(k); };
+  const open = k => { trail.push(key); go(k); };
+  const back = () => { if (!trail.length) return ui.toast('No previous issue'); go(trail.pop()); };
+  const viewKeys = () => [...new Set([...document.querySelectorAll('#view [data-key]')].map(e => e.dataset.key).filter(k => /^[A-Z][A-Z0-9]*-\d+$/.test(k)))];
+  const step = d => {
+    const ks = viewKeys(), i = ks.indexOf(key);
+    if (i < 0 || !ks[i + d]) return ui.toast(i < 0 ? 'Not in the list beside' : 'End of the list');
+    trail.length = 0; go(ks[i + d]);
+  };
   const prefixes = () => new Set([...(app.session.projects || []), key.split('-')[0], ...(st.issue ? st.issue.Links.map(l => l.Key.split('-')[0]) : [])]);
   const people = () => {
     const i = st.issue, m = new Map();
@@ -82,12 +95,14 @@ export function mountIssue(el, key, { app, full }) {
         type && h('span.chip', type),
         h('button.iss-key.btn.link', { title: 'Copy key (y)', onclick: () => copy(key, key) }, key),
         h('button.btn.ghost.sm', { title: 'Copy link (Y)', onclick: () => copy(browseURL(), 'Link') }, 'Copy link'),
+        h('button.btn.ghost.sm', { title: 'Subtask, clone, move, watchers… (A)', onclick: () => actions() }, 'Actions'),
         h('span.spacer'),
         h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira ↗'),
         h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? '← Back' : '✕')),
       h('h1.iss-title', { title: 'Edit summary', onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
       i && h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, ui.statusPill(i.Status, i.StatusCategory)),
         c && c.Flagged && h('span.chip.flag', 'Flagged'),
+        app.agents && app.agents.chip(key),
         h('span.dim', 'updated ' + ago(i.Updated))));
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';
   }
@@ -198,16 +213,8 @@ export function mountIssue(el, key, { app, full }) {
       web.length > 0 && h('div.lgroup', h('div.rel', 'Web'), web.map(w => h('a.row-link', { href: safeHref(w.URL), target: '_blank', rel: 'noopener noreferrer' },
         h('span.clip', w.Title), w.App && h('span.chip', w.App)))));
   }
-  async function addLink() {
-    let types;
-    try { types = await api.get('/linktypes'); } catch (e) { return fail(e); }
-    const opts = types.flatMap(t => [{ label: t.Outward, Type: t.Name, Outward: true }, ...(t.Inward !== t.Outward ? [{ label: t.Inward, Type: t.Name, Outward: false }] : [])]);
-    const t = await ui.pick({ title: key + ' …', items: opts, label: o => o.label, placeholder: 'Link type…' });
-    if (!t) return;
-    const other = await ui.prompt({ title: key + ' ' + t.label + ' …', placeholder: 'Issue key, e.g. ' + key, ok: 'Link' });
-    if (!other || !other.trim()) return;
-    try { await api.post('/issues/' + key + '/links', { Type: t.Type, Other: other.trim().toUpperCase(), Outward: t.Outward }); changed(); } catch (e) { fail(e); }
-  }
+  const addLink = () => actions('link');
+  const actions = only => issueActions(app, st, { key, changed, open, upload: attachFiles, reloadExtras: () => { st.weblinks = null; return loadExtras(); }, tab: setTab }, only);
   async function addWebLink() {
     const url = await ui.prompt({ title: 'Link a web page', placeholder: 'https://…', ok: 'Add' });
     if (!url || !url.trim()) return;
@@ -226,12 +233,88 @@ export function mountIssue(el, key, { app, full }) {
     const url = a => '/api/attachments/' + encodeURIComponent(a.ID);
     const imgs = fs.filter(a => a.MimeType.startsWith('image/') && !/svg/.test(a.MimeType)), rest = fs.filter(a => !imgs.includes(a));
     fill(box.files,h('div.sec-head', h('h3', 'Attachments'), h('span.dim', String(fs.length))),
-      imgs.length > 0 && h('div.thumbs', imgs.map(a => h('a.thumb', { href: url(a), title: a.Filename + ' · ' + size(a.Size), onclick: e => { e.preventDefault(); lightbox(url(a), a.Filename); } },
+      imgs.length > 0 && h('div.thumbs', imgs.map(a => h('a.thumb', { href: url(a), title: a.Filename + ' · ' + size(a.Size), onclick: e => { e.preventDefault(); gallery(0, url(a)); } },
         h('img', { src: url(a), alt: a.Filename, loading: 'lazy', decoding: 'async' }), h('span.clip', a.Filename)))),
       rest.map(a => h('a.row-link', { href: url(a) + '?download=1&name=' + encodeURIComponent(a.Filename), download: a.Filename }, h('span.clip', a.Filename), h('span.dim', size(a.Size)))));
   }
-  const lightbox = (src, name) => ui.modal(h('img.lightbox', { src, alt: name }), { title: name, wide: true });
-  root.addEventListener('click', e => { const im = e.target.closest('img.md-img'); if (im) lightbox(im.src, im.alt); });
+  // In-page image viewer: the attachments' images, then the ones drawn in the text. ← → step, esc closes.
+  function galleryList() {
+    const seen = new Set(), out = [];
+    const add = (src, name) => { if (src && !seen.has(src)) { seen.add(src); out.push({ src, name }); } };
+    for (const a of (st.issue && st.issue.Attachments) || []) if (a.MimeType.startsWith('image/') && !/svg/.test(a.MimeType)) add('/api/attachments/' + encodeURIComponent(a.ID), a.Filename);
+    for (const im of root.querySelectorAll('img.md-img')) add(im.getAttribute('src'), im.alt);
+    return out;
+  }
+  function gallery(at, src) {
+    const list = galleryList();
+    if (!list.length) return ui.toast('No images');
+    let i = src ? Math.max(0, list.findIndex(x => x.src === src)) : at;
+    const img = h('img.lightbox'), cap = h('div.lb-cap');
+    const show = d => { i = (i + d + list.length) % list.length; img.src = list[i].src; img.alt = list[i].name; cap.textContent = list[i].name + (list.length > 1 ? '  ' + (i + 1) + '/' + list.length : ''); };
+    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: 'Previous (←)' }, '‹'), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: 'Next (→)' }, '›'), cap), { wide: true });
+    m.scope.bind(['ArrowRight', 'l', 'n'], () => show(1), '', { hidden: true });
+    m.scope.bind(['ArrowLeft', 'h', 'N'], () => show(-1), '', { hidden: true });
+    show(0);
+  }
+  root.addEventListener('click', e => { const im = e.target.closest('img.md-img'); if (im) gallery(0, im.getAttribute('src')); });
+
+  // Linked issue jump: parent, links, children, web links.
+  async function linked() {
+    const i = st.issue; if (!i) return;
+    const items = [...i.Links.map(l => ({ k: l.Key, label: l.Key + '  ' + (l.Rel || '') + '  ' + (l.Summary || '') })),
+      ...(st.children || []).filter(c => !i.Links.some(l => l.Key === c.Key)).map(c => ({ k: c.Key, label: c.Key + '  child  ' + c.Summary })),
+      ...(st.weblinks || []).map(w => ({ url: w.URL, label: '↗ ' + (w.Title || w.URL) }))];
+    if (!items.length) return ui.toast('No links');
+    const it = await ui.pick({ title: 'Go to', items, label: x => x.label, placeholder: 'Linked issue…' });
+    if (!it) return;
+    if (it.k) open(it.k); else window.open(safeHref(it.url), '_blank', 'noopener');
+  }
+
+  // Find in the issue: marks matches in all tabs; n / N (or enter) step, esc clears.
+  const find = { on: false, marks: [], at: -1 };
+  const findBar = h('div.iss-find', { hidden: true });
+  const findIn = h('input.input', { type: 'text', placeholder: 'Find in this issue…', spellcheck: false, oninput: () => findRun(findIn.value) });
+  const findCount = h('span.dim');
+  findBar.append(findIn, findCount, h('button.btn.ghost.sm', { onclick: () => findStep(-1), title: 'Previous (N)' }, '↑'), h('button.btn.ghost.sm', { onclick: () => findStep(1), title: 'Next (n)' }, '↓'), h('button.btn.ghost.sm', { onclick: () => findClose() }, '✕'));
+  findIn.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); findStep(e.shiftKey ? -1 : 1); findIn.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); findClose(); }
+  });
+  head.after(findBar);
+  function findClear() {
+    for (const m of find.marks) { const t = document.createTextNode(m.textContent); m.replaceWith(t); t.parentNode && t.parentNode.normalize(); }
+    find.marks = []; find.at = -1;
+  }
+  function findOpen() { find.on = true; findBar.hidden = false; findIn.focus(); findIn.select(); }
+  function findClose() { findClear(); find.on = false; findBar.hidden = true; findIn.value = ''; findCount.textContent = ''; scroll.focus({ preventScroll: true }); }
+  function findRun(q) {
+    findClear();
+    q = q.trim().toLowerCase();
+    if (q.length < 2) { findCount.textContent = ''; return; }
+    const hits = [], w = document.createTreeWalker(scroll, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n && hits.length < 500; n = w.nextNode()) {
+      if (n.parentElement.closest('textarea,script,style,.ed')) continue;
+      const t = n.nodeValue.toLowerCase();
+      for (let i = t.indexOf(q); i >= 0; i = t.indexOf(q, i + q.length)) hits.push([n, i]);
+    }
+    for (let k = hits.length - 1; k >= 0; k--) {
+      const [n, i] = hits[k];
+      const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + q.length);
+      const mk = h('mark.find'); r.surroundContents(mk); find.marks.unshift(mk);
+    }
+    findCount.textContent = find.marks.length ? find.marks.length + ' found' : 'none';
+    if (find.marks.length) findStep(1, true);
+  }
+  function findStep(d, first) {
+    if (!find.marks.length) return;
+    find.marks[find.at]?.classList.remove('cur');
+    find.at = first ? 0 : (find.at + d + find.marks.length) % find.marks.length;
+    const m = find.marks[find.at]; m.classList.add('cur');
+    const pane = Object.entries(panes).find(([, p]) => p.contains(m));
+    if (pane && pane[0] !== st.tab) setTab(pane[0]);
+    m.scrollIntoView({ block: 'center' });
+    findCount.textContent = find.at + 1 + '/' + find.marks.length;
+  }
 
   // ---- comments
   const order = () => {
@@ -458,6 +541,7 @@ export function mountIssue(el, key, { app, full }) {
   // ---- keys
   const G = 'Issue';
   scope.bind('Escape', e => {
+    if (find.on && !(e.target.closest && e.target.closest('.ed'))) return findClose();
     const ed = e.target.closest && e.target.closest('.ed');
     if (ed) { if (ed._escape && ed._escape()) return; if (ed._cancel) return ed._cancel(); }
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,select')) return document.activeElement.blur();
@@ -479,8 +563,15 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[st.issue.Comments.length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
   scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, 'delete own comment', { group: G });
   scope.bind('L', addLink, 'link an issue', { group: G });
-  scope.bind('[', () => bus.emit('issue:nav', { dir: -1, key }), 'previous issue in list', { group: G });
-  scope.bind(']', () => bus.emit('issue:nav', { dir: 1, key }), 'next issue in list', { group: G });
+  scope.bind('A', () => actions(), 'issue actions: subtask, clone, move, watchers…', { group: G });
+  scope.bind('[', () => step(-1), 'previous issue in the list', { group: G });
+  scope.bind(']', () => step(1), 'next issue in the list', { group: G });
+  scope.bind('Backspace', back, 'back to the previous issue', { group: G });
+  scope.bind('G', linked, 'go to a linked issue, child or web link', { group: G });
+  scope.bind('i', () => gallery(0), 'view images', { group: G });
+  scope.bind('/', () => findOpen(), 'find in the issue (n / N next, previous)', { group: G });
+  scope.bind('n', () => findStep(1), 'next match', { group: G, hidden: true, when: () => find.on && (full || el.contains(document.activeElement)) });
+  scope.bind('N', () => findStep(-1), 'previous match', { group: G, hidden: true, when: () => find.on && (full || el.contains(document.activeElement)) });
   scope.bind('1', () => setTab('details'), 'details tab', { group: G });
   scope.bind('2', () => setTab('comments'), 'comments tab', { group: G });
   scope.bind('3', () => setTab('history'), 'history tab', { group: G });
