@@ -268,7 +268,7 @@ const tokenCookie = "laneway_token"
 func (s *Server) tokenOK(w http.ResponseWriter, r *http.Request) bool {
 	want := []byte(s.opt.Token)
 	if t := r.URL.Query().Get("token"); t != "" && subtle.ConstantTimeCompare([]byte(t), want) == 1 {
-		http.SetCookie(w, &http.Cookie{Name: tokenCookie, Value: s.opt.Token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
+		http.SetCookie(w, &http.Cookie{Name: tokenCookie, Value: s.opt.Token, Path: "/", HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteStrictMode})
 		q := r.URL.Query()
 		q.Del("token")
 		u := url.URL{Path: r.URL.Path, RawQuery: q.Encode()}
@@ -280,6 +280,25 @@ func (s *Server) tokenOK(w http.ResponseWriter, r *http.Request) bool {
 	}
 	http.Error(w, "open the URL with ?token= that laneway printed at start", http.StatusUnauthorized)
 	return false
+}
+
+// secureRequest is whether cookies may carry Secure: over TLS (directly or
+// by a proxy), or to a loopback host, which browsers treat as secure. Only
+// plain http to a remote host gets none, where the browser would drop it.
+func secureRequest(r *http.Request) bool {
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		return true
+	}
+	h := r.Host
+	if name, _, err := net.SplitHostPort(h); err == nil {
+		h = name
+	}
+	h = strings.Trim(h, "[]")
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
 
 // ServeHTTP guards against other sites driving the API from the browser: the
@@ -334,6 +353,7 @@ func assets(root fs.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Cache-Control", "no-cache")
+		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'")
 		if t, ok := types[path.Ext(r.URL.Path)]; ok {
 			h.Set("Content-Type", t)

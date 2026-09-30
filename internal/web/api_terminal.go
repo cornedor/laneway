@@ -142,7 +142,7 @@ func agentTerminal(s *Server, w http.ResponseWriter, r *http.Request) {
 	}
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(termEnv(), "HERDR_SOCKET_PATH="+c.Path())
-	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
+	f, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: cols, Rows: rows})
 	if err != nil {
 		ws.Close(websocket.StatusInternalError, trimReason("attach: "+err.Error()))
 		return
@@ -290,12 +290,12 @@ func termEnv() []string {
 	return append(env, "TERM=xterm-256color", "COLORTERM=truecolor")
 }
 
-func termDim(s string, def, lo, hi int) int {
-	n, err := strconv.Atoi(s)
+func termDim(s string, def, lo, hi uint16) uint16 {
+	n, err := strconv.ParseUint(s, 10, 16)
 	if err != nil {
 		return def
 	}
-	return clamp(n, lo, hi)
+	return min(max(uint16(n), lo), hi)
 }
 
 func clamp(n, lo, hi int) int { return min(max(n, lo), hi) }

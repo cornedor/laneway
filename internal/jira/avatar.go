@@ -24,7 +24,9 @@ func (c *Client) Avatar(ctx context.Context, avatarURL string) ([]byte, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	// Rebuilt from the parsed, checked parts: no userinfo, fragment or opaque.
+	safe := url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path, RawPath: u.RawPath, RawQuery: u.RawQuery}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, safe.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +59,7 @@ var avatarHosts = []string{"gravatar.com", "atl-paas.net", "atlassian.net", "atl
 // avatarHost is whether u may be fetched as an avatar: the instance itself,
 // or https to one of avatarHosts.
 func (c *Client) avatarHost(u *url.URL) bool {
-	if u.Scheme != "https" && u.Scheme != "http" {
+	if (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Opaque != "" {
 		return false
 	}
 	if base, err := url.Parse(c.baseURL); err == nil && base.Host != "" && u.Host == base.Host {

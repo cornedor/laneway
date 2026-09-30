@@ -684,6 +684,10 @@ func agentName(key string, now time.Time) string {
 	return name[:min(len(name), 32)]
 }
 
+// safeArg: what may fill a placeholder of a configured command: no leading
+// "-", no whitespace, quotes or shell characters.
+var safeArg = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._/+@-]*$`)
+
 // worktreeIn opens repo's worktree on branch as a herdr workspace, making it
 // from base when there is none: by herdr, or by running create in repo. how
 // says which, in words.
@@ -706,12 +710,21 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 			wt, err := c.CreateWorktree(ctx, repo, branch, base)
 			return wt, how, err
 		}
-		rp := strings.NewReplacer("{branch}", branch, "{base}", cmp.Or(base, "HEAD"), "{key}", key)
-		argv := make([]string, len(create))
-		for i, a := range create {
-			argv[i] = rp.Replace(a)
+		base = cmp.Or(base, "HEAD")
+		for _, v := range []string{branch, base, key} {
+			if !safeArg.MatchString(v) {
+				return wt, "", fmt.Errorf("create: %q is not safe to hand to a command", v)
+			}
 		}
-		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		// The program is the configured one as written; only its arguments
+		// take the placeholders, each already matched against safeArg.
+		rp := strings.NewReplacer("{branch}", branch, "{base}", base, "{key}", key)
+		args := make([]string, len(create)-1)
+		for i, a := range create[1:] {
+			args[i] = rp.Replace(a)
+		}
+		argv := append([]string{create[0]}, args...)
+		cmd := exec.CommandContext(ctx, create[0], args...)
 		cmd.Dir = repo
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return wt, "", fmt.Errorf("%s: %w: %s", argv[0], err, strings.TrimSpace(string(out)))
