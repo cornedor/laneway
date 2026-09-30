@@ -517,6 +517,30 @@ func TestJiraGotoOpensPanel(t *testing.T) {
 	}
 }
 
+// TestJiraGotoNotFound: a key off the board is looked up first; one that
+// isn't there keeps the prompt, the text and the reason.
+func TestJiraGotoNotFound(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "#"))
+	m = out.(Model)
+	m.jiraGotoInput.SetValue("ABC-99")
+	out, cmd := m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if !m.jiraGotoActive || m.refOpen || cmd == nil || m.jiraGotoKey != "ABC-99" {
+		t.Fatalf("enter: active %v, panel %v, looking up %q", m.jiraGotoActive, m.refOpen, m.jiraGotoKey)
+	}
+	out, _ = m.Update(jiraGotoMsg{key: "ABC-99", err: errors.New("jira: ABC-99 not found (or no access)")})
+	m = out.(Model)
+	if !m.jiraGotoActive || m.refOpen || m.jiraGotoInput.Value() != "ABC-99" || !strings.Contains(m.View().Content, "not found") {
+		t.Fatalf("not found: active %v, panel %v, input %q", m.jiraGotoActive, m.refOpen, m.jiraGotoInput.Value())
+	}
+	out, _ = m.handleKey(keyMsg(t, "enter"))
+	out, _ = out.(Model).Update(jiraGotoMsg{key: "ABC-99"})
+	if m = out.(Model); m.jiraGotoActive || !m.refOpen || m.refs[0].jiraKey != "ABC-99" {
+		t.Errorf("found: active %v, panel %v %v", m.jiraGotoActive, m.refOpen, m.refs)
+	}
+}
+
 func TestJiraAutoRefresh(t *testing.T) {
 	m := jiraTabModel(t)
 	seq := m.jiraTab.seq

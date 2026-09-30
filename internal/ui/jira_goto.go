@@ -2,11 +2,14 @@ package ui
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // The # prompt: open any issue by key, on the board or not. A bare number
@@ -23,6 +26,7 @@ func (m *Model) openJiraGoto() {
 	ti.Focus()
 	m.jiraGotoInput = ti
 	m.jiraGotoActive = true
+	m.jiraGotoErr, m.jiraGotoKey = "", ""
 }
 
 // jiraBrowseRe finds the key in a pasted issue URL: …/browse/ABC-1, or a
@@ -58,20 +62,62 @@ func (m Model) handleJiraGotoKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.status = "not an issue key: " + m.jiraGotoInput.Value()
 			return m, nil
 		}
-		m.jiraGotoActive = false
-		m.selectJiraKey(k)
-		m.renderJira()
-		return m.openJiraKey(k)
+		if slices.ContainsFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == k }) {
+			return m.gotoJiraKey(k)
+		}
+		// Off the board: look it up first, so a typo stays here to fix.
+		m.jiraGotoKey, m.jiraGotoErr = k, ""
+		client, ctx := m.jiraClient, m.ctx
+		return m, func() tea.Msg {
+			_, err := client.Get(ctx, k)
+			return jiraGotoMsg{key: k, err: err}
+		}
 	}
 	var cmd tea.Cmd
 	m.jiraGotoInput, cmd = m.jiraGotoInput.Update(msg)
+	m.jiraGotoErr = ""
 	return m, cmd
+}
+
+// jiraGotoMsg is the # prompt's lookup of a key off the board.
+type jiraGotoMsg struct {
+	key string
+	err error
+}
+
+// handleJiraGoto opens a key the lookup found (or the index has, offline);
+// else the prompt stays, saying why.
+func (m Model) handleJiraGoto(msg jiraGotoMsg) (tea.Model, tea.Cmd) {
+	if !m.jiraGotoActive || msg.key != m.jiraGotoKey {
+		return m, nil
+	}
+	m.jiraGotoKey = ""
+	if _, ok := m.indexedIssue(msg.key, msg.err); msg.err != nil && !ok {
+		m.jiraGotoErr = msg.err.Error()
+		return m, nil
+	}
+	return m.gotoJiraKey(msg.key)
+}
+
+// gotoJiraKey closes the prompt and opens k in the panel.
+func (m Model) gotoJiraKey(k string) (tea.Model, tea.Cmd) {
+	m.jiraGotoActive = false
+	m.selectJiraKey(k)
+	m.renderJira()
+	return m.openJiraKey(k)
 }
 
 func (m *Model) renderJiraGoto() string {
 	inner := 32
 	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render("Go to issue")
 	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render("↵ open · esc cancel")
-	body := lipgloss.JoinVertical(lipgloss.Left, header, "", m.jiraGotoInput.View(), "", hint)
+	parts := []string{header, "", m.jiraGotoInput.View()}
+	switch {
+	case m.jiraGotoKey != "":
+		parts = append(parts, refDimStyle.Render("looking up "+m.jiraGotoKey+"…"))
+	case m.jiraGotoErr != "":
+		parts = append(parts, lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(m.jiraGotoErr)))
+	}
+	body := lipgloss.JoinVertical(lipgloss.Left, append(parts, "", hint)...)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).Render(body)
 }

@@ -298,6 +298,8 @@ type Model struct {
 
 	jiraGotoActive bool
 	jiraGotoInput  textinput.Model
+	jiraGotoErr    string // why the key typed can't be opened, under the input
+	jiraGotoKey    string // the key being looked up, "" when none
 
 	// imageView shows the panel's images full size (image_view.go).
 	imageView    bool
@@ -739,6 +741,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraMoved(msg)
 	case jiraLoadedMsg:
 		return m.handleJiraLoaded(msg)
+	case jiraGotoMsg:
+		return m.handleJiraGoto(msg)
 	case activityLoadedMsg:
 		return m.handleActivityLoaded(msg)
 	case jiraDownloadedMsg:
