@@ -73,6 +73,11 @@ func (m *Model) hoverAt(x, y int) hover {
 			return hover{pointer: pointerHand}
 		}
 		return hover{}
+	case t.agentsView != nil:
+		if t.agentsView.rowAt(x, y) >= 0 {
+			return hover{pointer: pointerHand}
+		}
+		return hover{}
 	case t.charts != nil, t.week != nil, t.standup != nil:
 		return hover{}
 	case t.empty.row >= 0 && y == jiraBodyTop+t.empty.row:

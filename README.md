@@ -175,7 +175,7 @@ Actions for `keys:`, by where they first apply:
   toggle_mode sort fold unfold_all compact move_sprint assignee_filter mine
   clear_filters mark mark_all undo bulk quick_edit pin palette jql
   filter_builder my_work review roadmap plan charts releases timer timesheet
-  inbox standup site settings panel_wider panel_narrower
+  inbox agents standup site settings panel_wider panel_narrower
 - panel: status priority points summary labels assign description comment
   reply log_work start_work linked_issue back image issue_actions history
   development next_comment prev_comment delete_comment
@@ -184,6 +184,7 @@ Actions for `keys:`, by where they first apply:
   today roadmap_issues
 - timesheet: edit_entry delete_entry propose_work
 - inbox: inbox_done inbox_done_all inbox_unread inbox_snooze
+- agents: agent_prompt agent_stop
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -325,7 +326,7 @@ Board:
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out), `esc` back to now · `ctrl+o` a closed sprint as it closed: done, and what carried over to which sprint
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
-- you: `I` inbox · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
+- you: `I` inbox · `ctrl+g` agents · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts. What a click would act on is underlined under the pointer, which turns to a hand (where the terminal draws pointer shapes; in tmux with `allow-passthrough`)
 - right-click a card or row: its menu at the pointer, as big as its rows: status, priority, assignee and sprint open their list beside it (`→` or a click; `esc` or `←` back), labels and points ask, and open, browser, copy key and pin do what their key does. The row under the pointer is the chosen one; a click off the menu closes it
 - `q` quit; on the roadmap, planning, charts, the standup or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
@@ -554,8 +555,12 @@ one. Without herdr none of this shows.
 - On a done issue, `A` → *Remove its worktree* removes the checkout once
   its branch is merged into the default branch. Uncommitted changes keep
   it; the branch stays.
-- The palette's *worktrees and agents* view lists every issue with either,
-  across projects.
+- `ctrl+g` lists every agent on an issue, by state (waiting on you first),
+  with the issue's summary and status, from whichever configured site has
+  it; `tab` adds the worktrees without an agent. Beside the list, the
+  cursor's agent and what its terminal shows now. `enter` attaches, `v`
+  opens the issue, `p` sends a prompt, `d` twice stops it. The header
+  counts the agents waiting (`✋`) and working (`⚙`).
 
 With the project in `jira.repos`, `A` → *Open a pull request* pushes the
 issue's branch and opens a draft titled with its key and summary, linking

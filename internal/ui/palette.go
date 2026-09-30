@@ -48,6 +48,7 @@ var paletteAliases = map[string]string{
 	"move_sprint": "backlog",
 	"review":      "pull merge request pr mr",
 	"releases":    "versions fix version",
+	"agents":      "herdr worktrees work",
 }
 
 // paletteDesc renames actions whose board description is wrong on a
@@ -60,6 +61,7 @@ var paletteDesc = map[string]map[string]string{
 	"charts":   {"quit": "close the charts"},
 	"standup":  {"quit": "close the standup", "open": "open the issue", "prev_view": "a workday further back", "next_view": "a workday later"},
 	"inbox":    {"quit": "close the inbox", "open": "open the thread's issue"},
+	"agents":   {"quit": "close the agents", "open": "attach to the agent", "toggle_panel": "open the issue"},
 	"week":     {"quit": "close the week", "open": "log work in the cell", "prev_view": "previous week", "next_view": "next week"},
 }
 
@@ -120,9 +122,6 @@ func (m *Model) openPalette() {
 		for _, b := range t.boards {
 			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
 		}
-	}
-	if onBoard && (len(m.agents) > 0 || len(m.worktrees) > 0) {
-		items = append(items, jiraPickerItem{id: "k:", label: "view  worktrees and agents", search: "herdr work"})
 	}
 	if onBoard {
 		for _, k := range slices.Sorted(maps.Keys(m.agents)) {
@@ -189,6 +188,8 @@ func (m *Model) paletteScope() string {
 		return "standup"
 	case t.inbox != nil:
 		return "inbox"
+	case t.agentsView != nil:
+		return "agents"
 	}
 	return "board"
 }
@@ -233,8 +234,6 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "d":
 		m.status = "opening " + m.lastDownload + "…"
 		return m, m.openOpenable(openable{name: filepath.Base(m.lastDownload), url: m.lastDownload})
-	case "k":
-		return m, m.openWorkView()
 	case "u":
 		return m, m.upgrade()
 	case "g":

@@ -215,24 +215,89 @@ func TestStartWorkForm(t *testing.T) {
 	}
 }
 
-// TestWorkView: a worktree without an agent marks its card ◌; the view
-// lists every issue with an agent or a worktree.
-func TestWorkView(t *testing.T) {
+// TestAgentsScreen: ctrl+g lists each agent by state, waiting on you
+// first, with the issue's summary and status; tab adds the worktrees
+// without one. Beside it the cursor's agent and what its terminal shows.
+// d twice stops it; esc goes back.
+func TestAgentsScreen(t *testing.T) {
 	m := jiraTabModel(t)
-	if m.openWorkView() != nil {
+	if m.openAgents() != nil || m.jiraTab.agentsView != nil {
 		t.Fatal("nothing to show")
 	}
-	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{{PaneID: "p1", Name: "jira-abc-2-a", Status: herdr.Working}},
-		worktrees: map[string]string{"ABC-1": "/wt/abc-1", "ABC-2": "/wt/abc-2"}})
+	c, calls := fakeHerdrCalls(t)
+	m.herdr = c
+	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{
+		{PaneID: "w1:p1", TabID: "w1:t1", Name: "jira-abc-2-a", Agent: "claude", Status: herdr.Working, Title: "Writing tests"},
+		{PaneID: "w1:p2", TabID: "w1:t2", Name: "jira-abc-3-a", Agent: "claude", Status: herdr.Blocked},
+	}, worktrees: map[string]string{"ABC-1": "/wt/abc-1", "ABC-2": "/wt/abc-2"}})
 	m = out.(Model)
 	if got := ansi.Strip(m.agentMark("ABC-1")); got != "◌" {
 		t.Errorf("worktree mark %q", got)
 	}
-	if got := ansi.Strip(m.agentMark("ABC-2")); got != "⚙" {
-		t.Errorf("agent mark %q", got)
+	if head := ansi.Strip(m.View().Content); !strings.Contains(head, "✋1 ⚙1 ctrl+g") {
+		t.Errorf("header lacks the agents badge:\n%s", head)
 	}
-	if m.openWorkView() == nil {
-		t.Fatal("should run the view")
+	out, _ = m.handleKey(keyStr("ctrl+g"))
+	m = out.(Model)
+	s := m.jiraTab.agentsView
+	if s == nil {
+		t.Fatal("ctrl+g should open the agents")
+	}
+	rowKeys := func() string {
+		var keys []string
+		for _, r := range s.rows {
+			keys = append(keys, r.key)
+		}
+		return strings.Join(keys, " ")
+	}
+	if got := rowKeys(); got != "ABC-3 ABC-2" {
+		t.Fatalf("rows %q", got)
+	}
+	out, _ = m.handleKey(keyStr("tab"))
+	if m = out.(Model); rowKeys() != "ABC-3 ABC-2 ABC-1" {
+		t.Fatalf("tab: rows %q", rowKeys())
+	}
+	out, _ = m.handleAgentScreen(agentScreenMsg{pane: "w1:p2", text: "Allow edit?\n❯ 1. Yes\n\n"})
+	m = out.(Model)
+	screen := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Waiting on you", "✋ ABC-3 Third", "Working", "ABC-2 Second", "claude · Writing tests",
+		"Worktrees without an agent", "/wt/abc-1", "jira-abc-3-a · claude · waiting on you", "❯ 1. Yes"} {
+		if !strings.Contains(screen, want) {
+			t.Errorf("no %q:\n%s", want, screen)
+		}
+	}
+
+	out, cmd := m.handleKey(keyStr("d"))
+	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "again") {
+		t.Fatalf("first d should ask: %q", m.status)
+	}
+	out, cmd = m.handleKey(keyStr("d"))
+	m = out.(Model)
+	if cmd().(agentDoneMsg).err != nil || !strings.Contains(<-calls, `tab.close {"tab_id":"w1:t2"}`) {
+		t.Fatal("d twice should close the agent's tab")
+	}
+
+	out, _ = m.handleKey(keyStr("esc"))
+	if m = out.(Model); m.jiraTab.agentsView != nil {
+		t.Fatal("esc should go back to the board")
+	}
+}
+
+// TestAgentIssuesLookup: an issue off the board is looked up on each site,
+// the shown one first; a key no site knows says so.
+func TestAgentIssuesLookup(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{{PaneID: "p1", Name: "jira-xyz-9-a", Status: herdr.Idle}}})
+	m = out.(Model)
+	m.openAgents()
+	out, _ = m.handleAgentIssues(agentIssuesMsg{issues: map[string]agentIssue{"XYZ-9": {}}})
+	m = out.(Model)
+	if screen := ansi.Strip(m.View().Content); !strings.Contains(screen, "XYZ-9 not found on any site") {
+		t.Errorf("screen:\n%s", screen)
+	}
+	m.jiraTab.agentsView.issues["XYZ-9"] = agentIssue{card: jira.Card{Key: "XYZ-9", Summary: "Elsewhere", Status: "Doing"}, site: "other", found: true}
+	if screen := ansi.Strip(m.View().Content); !strings.Contains(screen, "XYZ-9 [other] Elsewhere") || !strings.Contains(screen, "Doing · unassigned · on other") {
+		t.Errorf("screen:\n%s", screen)
 	}
 }
 

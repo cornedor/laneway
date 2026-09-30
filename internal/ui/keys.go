@@ -25,9 +25,9 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
-		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings, "filter_builder": &k.FilterBuilder, "panel_wider": &k.PanelWider, "panel_narrower": &k.PanelNarrower, "quick_edit": &k.QuickEdit, "my_work": &k.MyWork, "compact": &k.Compact, "releases": &k.Releases, "review": &k.Review, "repeat": &k.Repeat, "refine": &k.Refine, "notes": &k.Notes, "ask": &k.Ask, "time_machine": &k.TimeMachine, "closed_sprint": &k.ClosedSprint, "agent_back": &k.AgentBack,
+		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings, "filter_builder": &k.FilterBuilder, "panel_wider": &k.PanelWider, "panel_narrower": &k.PanelNarrower, "quick_edit": &k.QuickEdit, "my_work": &k.MyWork, "compact": &k.Compact, "releases": &k.Releases, "review": &k.Review, "repeat": &k.Repeat, "refine": &k.Refine, "notes": &k.Notes, "ask": &k.Ask, "time_machine": &k.TimeMachine, "closed_sprint": &k.ClosedSprint, "agent_back": &k.AgentBack, "agents": &k.Agents,
 		"plan_start": &k.PlanStart, "plan_goal": &k.PlanGoal, "plan_rename": &k.PlanRename, "plan_new": &k.PlanNew, "plan_complete": &k.PlanComplete,
-		"rank_up": &k.RankUp, "rank_down": &k.RankDown, "rank_top": &k.RankTop, "rank_bottom": &k.RankBottom, "next_comment": &k.NextComment, "prev_comment": &k.PrevComment, "delete_comment": &k.DeleteComment, "standup_group": &k.StandupGroup, "standup_step": &k.StandupStep, "standup_park": &k.StandupPark, "inbox_done": &k.InboxDone, "inbox_done_all": &k.InboxDoneAll, "inbox_unread": &k.InboxUnread, "inbox_snooze": &k.InboxSnooze,
+		"rank_up": &k.RankUp, "rank_down": &k.RankDown, "rank_top": &k.RankTop, "rank_bottom": &k.RankBottom, "next_comment": &k.NextComment, "prev_comment": &k.PrevComment, "delete_comment": &k.DeleteComment, "standup_group": &k.StandupGroup, "standup_step": &k.StandupStep, "standup_park": &k.StandupPark, "inbox_done": &k.InboxDone, "inbox_done_all": &k.InboxDoneAll, "inbox_unread": &k.InboxUnread, "inbox_snooze": &k.InboxSnooze, "agent_prompt": &k.AgentPrompt, "agent_stop": &k.AgentStop,
 		"roadmap_grip": &k.RoadmapGrip, "roadmap_fold": &k.RoadmapFold, "zoom_in": &k.ZoomIn, "zoom_out": &k.ZoomOut, "today": &k.Today,
 		"end_earlier": &k.EndEarlier, "end_later": &k.EndLater, "roadmap_issues": &k.RoadmapIssues, "roadmap_edit": &k.RoadmapEdit,
 		"edit_entry": &k.EditEntry, "delete_entry": &k.DeleteEntry, "propose_work": &k.ProposeWork,
@@ -65,12 +65,12 @@ var keyScopes = []struct {
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down",
 		"open", "toggle_panel", "browser", "refresh", "quit", "help", "search", "goto", "create",
 		"copy_key", "copy_url", "copy_branch", "move_left", "move_right", "project", "board",
-		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings", "filter_builder", "panel_wider", "panel_narrower", "quick_edit", "my_work", "compact", "releases", "review", "repeat", "refine", "rank_up", "rank_down", "rank_top", "rank_bottom", "closed_sprint",
+		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "settings", "filter_builder", "panel_wider", "panel_narrower", "quick_edit", "my_work", "compact", "releases", "review", "repeat", "refine", "rank_up", "rank_down", "rank_top", "rank_bottom", "closed_sprint", "agents",
 	}},
 	{"panel", []string{
 		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work", "search",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "copy_branch", "help", "refresh", "toggle_panel", "palette",
-		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower", "undo", "next_comment", "prev_comment", "delete_comment",
+		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower", "undo", "next_comment", "prev_comment", "delete_comment", "agents",
 	}},
 	{"planning", []string{
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down", "quit", "plan", "next_view", "prev_view",
@@ -87,6 +87,7 @@ var keyScopes = []struct {
 	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "propose_work", "timesheet"}},
 	{"standup", []string{"up", "down", "open", "fold", "standup_group", "standup_step", "standup_park", "prev_view", "next_view", "copy_key", "refresh", "help", "quit", "standup"}},
 	{"inbox", []string{"up", "down", "top", "bottom", "page_up", "page_down", "open", "browser", "comment", "reply", "inbox_done", "inbox_done_all", "inbox_unread", "inbox_snooze", "copy_key", "refresh", "help", "quit", "inbox"}},
+	{"agents", []string{"up", "down", "top", "bottom", "open", "toggle_panel", "browser", "agent_prompt", "agent_stop", "copy_key", "refresh", "help", "quit", "agents"}},
 	{"week", []string{"up", "down", "left", "right", "prev_view", "next_view", "open", "copy_key", "refresh", "help", "quit", "timesheet"}},
 }
 

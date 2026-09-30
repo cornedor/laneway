@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +21,7 @@ import (
 // The herdr agents started on issues (S), live on their cards: ⚙ working,
 // ✋ waiting on you, ✓ done and not yet seen, ○ idle, with a count when an
 // issue has more than one (the worst state shows); ◌ a worktree without
-// one. The palette's "worktrees and agents" view lists them all. An agent that starts
+// one. ctrl+g lists them all (agents_screen.go). An agent that starts
 // waiting raises a desktop notification. herdr is asked every few seconds;
 // while it isn't running, rarely. S on an issue with an agent, a click on
 // its card's mark, or enter on its palette row, attaches to its terminal. The panel lists the issue's
@@ -131,7 +130,7 @@ func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 	if changed {
 		m.renderRef() // the open panel's Agents section
 	}
-	return m, tea.Batch(append(cmds, agentTick(agentEvery))...)
+	return m, tea.Batch(append(cmds, agentTick(agentEvery), m.agentsRefreshed())...)
 }
 
 // agentMark is key's agent state as a card shows it, "" for none.
@@ -174,7 +173,11 @@ type agentAttachedMsg struct {
 // attachAgent opens the agent's terminal in pane: inside herdr by focusing
 // it, else in the panel (ui.agent_view: panel) or by handing the terminal
 // to herdr agent attach until it detaches.
-func (m *Model) attachAgent(key, pane string) tea.Cmd {
+func (m *Model) attachAgent(key, pane string) tea.Cmd { return m.attachAgentIn(key, pane, true) }
+
+// attachAgentIn is attachAgent; panel is whether the panel may show it (not
+// for an issue on another site).
+func (m *Model) attachAgentIn(key, pane string, panel bool) tea.Cmd {
 	if m.herdr == nil {
 		m.status = "attach needs herdr running"
 		return nil
@@ -185,7 +188,7 @@ func (m *Model) attachAgent(key, pane string) tea.Cmd {
 		return nil
 	}
 	done := func(err error) tea.Msg { return agentAttachedMsg{key: key, err: err} }
-	if os.Getenv("HERDR_ENV") != "1" && m.opts.agentView == "panel" {
+	if os.Getenv("HERDR_ENV") != "1" && panel && m.opts.agentView == "panel" {
 		return m.openAgentPanel(key, pane, bin)
 	}
 	if os.Getenv("HERDR_ENV") == "1" {
@@ -348,23 +351,6 @@ func (m Model) handleAgentDone(msg agentDoneMsg) (tea.Model, tea.Cmd) {
 		m.status = msg.key + ": " + msg.what
 	}
 	return m, m.fetchAgents()
-}
-
-// openWorkView shows every issue with an agent or a worktree as a view,
-// across projects.
-func (m *Model) openWorkView() tea.Cmd {
-	keys := slices.Collect(maps.Keys(m.agents))
-	for k := range m.worktrees {
-		if !slices.Contains(keys, k) {
-			keys = append(keys, k)
-		}
-	}
-	if len(keys) == 0 {
-		m.status = "no issue has a herdr agent or a worktree"
-		return nil
-	}
-	slices.Sort(keys)
-	return m.runNamedJQLView("Work: agents and worktrees", "key in ("+strings.Join(keys, ", ")+") ORDER BY updated DESC")
 }
 
 // frameCell is the glyph drawn at screen cell (x, y), a wide one from

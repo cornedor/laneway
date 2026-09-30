@@ -66,6 +66,7 @@ type keyMap struct {
 	Refine, Notes, Ask, TimeMachine    key.Binding
 	ClosedSprint                       key.Binding
 	AgentBack                          key.Binding // out of the agent's terminal in the panel
+	Agents, AgentPrompt, AgentStop     key.Binding // the agents screen (agents_screen.go)
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
@@ -178,6 +179,9 @@ func defaultKeys() keyMap {
 		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
 		ClosedSprint:    bind("closed sprints: one as it ended", "ctrl+o"),
 		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
+		Agents:          bind("agents: every herdr agent and worktree, by state", "ctrl+g"),
+		AgentPrompt:     bind("agents: send the agent a prompt", "p"),
+		AgentStop:       bind("agents: stop the agent (twice)", "d"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
 		PlanGoal:        bind("edit the sprint's goal", "E"),
 		PlanRename:      bind("rename the sprint", "R"),
@@ -796,6 +800,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleQueueReplayed(msg)
 	case agentsMsg:
 		return m.handleAgents(msg)
+	case agentIssuesMsg:
+		return m.handleAgentIssues(msg)
+	case agentScreenMsg:
+		return m.handleAgentScreen(msg)
 	case agentAttachedMsg:
 		out, cmd := m.handleAgentAttached(msg)
 		return out, tea.Batch(cmd, resendImagesLater())
@@ -949,7 +957,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	before := m.selectedJiraKey()
 	out, cmd := m.handleJiraKey(msg)
-	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil && om.jiraTab.standup == nil && om.jiraTab.inbox == nil {
+	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil && om.jiraTab.standup == nil && om.jiraTab.inbox == nil && om.jiraTab.agentsView == nil {
 		if after := om.selectedJiraKey(); after != "" && after != before {
 			return om, tea.Batch(cmd, om.schedulePrefetch())
 		}
@@ -1074,6 +1082,8 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m.clickPlan(msg.X, msg.Y, count)
 	case t.inbox != nil:
 		return m.clickInbox(msg.X, msg.Y, count)
+	case t.agentsView != nil:
+		return m.clickAgents(msg.X, msg.Y, count)
 	case t.charts != nil, t.week != nil, t.standup != nil:
 		return m, nil
 	case t.empty.row >= 0 && msg.Y == jiraBodyTop+t.empty.row:

@@ -88,6 +88,16 @@ the same worktree.
 > **Try it:** `S` on a small bug, pick your agent, `enter` on the empty
 > prompt. Go back to the board and watch its card turn `✋` or `✓`.
 
+## All your agents: `ctrl+g`
+
+`ctrl+g` swaps the board for every agent on an issue, grouped by state,
+the ones waiting on you first, each with its issue's summary and status,
+whichever site it's on. Beside the list: the cursor's agent and what its
+terminal shows now, so you can see where it is without attaching. `enter`
+attaches, `v` opens the issue, `p` sends a prompt, `d` twice stops it.
+`tab` adds the worktrees without an agent. The header counts the agents
+waiting (`✋1`) and working (`⚙2`); a click opens the list.
+
 ## Open a pull request
 
 `A` → *Open a pull request* pushes the issue's branch and opens a draft,
@@ -104,15 +114,15 @@ as a view, their cards marked `⌥`.
 ## Clean up
 
 On a done issue, `A` → *Remove its worktree* removes the checkout once its
-branch is merged. Uncommitted changes keep it; the branch stays. The
-palette's *worktrees and agents* row lists every issue that still has one,
-across projects.
+branch is merged. Uncommitted changes keep it; the branch stays. `ctrl+g`
+then `tab` lists every issue that still has one, across projects.
 
 ## Recap
 
 - `jira.repos` maps a project to its checkout.
 - `ctrl+y` a branch name, `laneway hook install` keys in commits.
 - `S` starts an agent in a worktree, the card shows its state, `S` attaches.
+- `ctrl+g` all your agents by state, with what each terminal shows.
 - `A` → pull request, `D` lists it, `ctrl+r` your reviews, `A` → remove
   the worktree.
 

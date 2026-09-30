@@ -44,8 +44,8 @@ func joinSegs(segs []headSeg) string {
 	return b.String()
 }
 
-// jiraTitleSegs is the title row: project, board, freshness, timer, inbox
-// and the main keys, each a click on its key.
+// jiraTitleSegs is the title row: project, board, freshness, timer, inbox,
+// agents and the main keys, each a click on its key.
 func (m *Model) jiraTitleSegs() []headSeg {
 	t, k := m.jiraTab, m.keys
 	dim := refDimStyle.Render
@@ -73,6 +73,9 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	}
 	if b := m.inboxBadge(); b != "" {
 		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(b+" "+helpKey(k.Inbox)), k.Inbox))
+	}
+	if b := m.agentsBadge(); b != "" {
+		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(b+" "+helpKey(k.Agents)), k.Agents))
 	}
 	if m.branchKey != "" {
 		segs = append(segs, plainSeg(dim("  ·  ")), headSeg{s: dim("⎇ " + m.branchKey), kind: "branch"})
@@ -216,7 +219,7 @@ func (m *Model) headerHit(x, y int) headSeg {
 // headerSpan is headerHit and the columns the segment covers.
 func (m *Model) headerSpan(x, y int) (headSeg, int, int) {
 	t := m.jiraTab
-	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil || t.standup != nil || t.inbox != nil
+	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil || t.standup != nil || t.inbox != nil || t.agentsView != nil
 	var segs []headSeg
 	switch {
 	case y == 0 && !other:
@@ -225,7 +228,7 @@ func (m *Model) headerSpan(x, y int) (headSeg, int, int) {
 		segs = m.roadmapSegs()
 	case y == jiraBodyTop-2 && t.charts != nil:
 		segs = m.chartsSegs()
-	case y == jiraBodyTop-2 && (t.week != nil || t.standup != nil || t.inbox != nil):
+	case y == jiraBodyTop-2 && (t.week != nil || t.standup != nil || t.inbox != nil || t.agentsView != nil):
 		return headSeg{}, 0, 0
 	case y == jiraBodyTop-2 && t.plan != nil:
 		segs = m.planSegs()

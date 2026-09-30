@@ -328,6 +328,8 @@ type jiraTabState struct {
 	week    *weekState    // week.go
 	standup *standupState // standup_screen.go
 	inbox   *inboxScreen  // inbox.go
+	// agentsView is the agents screen (agents_screen.go).
+	agentsView *agentsScreen
 	// planSeq and chartsSeq outlive a close, so a reply for a view since
 	// closed never matches the one reopened.
 	planSeq, chartsSeq int
@@ -958,6 +960,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if t.inbox != nil {
 		return m.handleInboxKey(msg)
 	}
+	if t.agentsView != nil {
+		return m.handleAgentsKey(msg)
+	}
 	if t.past != nil {
 		return m.handleTimeMachineKey(msg)
 	}
@@ -1045,6 +1050,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openTimesheet()
 	case key.Matches(msg, m.keys.Inbox):
 		return m, m.openInbox()
+	case key.Matches(msg, m.keys.Agents):
+		return m, m.openAgents()
 	case key.Matches(msg, m.keys.Standup):
 		return m, m.openStandup()
 	case key.Matches(msg, m.keys.Releases):
@@ -3021,6 +3028,10 @@ func (m *Model) renderJiraPane(height, width int) string {
 		viewLine = ansi.Truncate(m.inboxViewLine(), max(boxW-2, 1), "…")
 		filterLine = ""
 		body = m.renderInbox(t.view.Width(), t.view.Height())
+	case t.agentsView != nil:
+		viewLine = ansi.Truncate(m.agentsViewLine(), max(boxW-2, 1), "…")
+		filterLine = ""
+		body = m.renderAgentsScreen(t.view.Width(), t.view.Height())
 	case t.plan != nil:
 		viewLine = ansi.Truncate(m.planLine(), max(boxW-2, 1), "…")
 		filterLine = ""
