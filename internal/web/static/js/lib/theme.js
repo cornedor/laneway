@@ -25,4 +25,41 @@ export const theme = {
   // Cycle to the next preset (command palette / key).
   next() { const i = presets.findIndex(p => p.id === theme.current); theme.set(presets[(i + 1) % presets.length].id); return theme.current; },
 };
+
+// ---- display extras: font size, reduced motion, custom token overrides (all local to this browser)
+const TOKENS = ['bg', 'bg-2', 'bg-3', 'fg', 'fg-2', 'border', 'accent', 'ok', 'warn', 'err'];
+let customKeys = [];
+const motionCss = document.createElement('style');
+motionCss.textContent = ':root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after { animation: none !important; transition: none !important; }';
+document.head.append(motionCss);
+Object.assign(theme, {
+  get fontSize() { return Number(get('fs', '')) || 0; },
+  setFontSize(px) { if (px) root.style.setProperty('--fs', px + 'px'); else root.style.removeProperty('--fs'); set('fs', px ? String(px) : null); },
+  get motion() { return get('motion', 'auto'); },
+  setMotion(m) { if (m === 'reduce') root.dataset.motion = 'reduce'; else delete root.dataset.motion; set('motion', m === 'reduce' ? 'reduce' : null); },
+  // Custom overrides: {'--bg': '#000', …}; anything not starting with "--" is ignored.
+  get custom() { try { return JSON.parse(get('custom', '{}')) || {}; } catch (e) { return {}; } },
+  setCustom(obj) {
+    for (const k of customKeys) root.style.removeProperty(k);
+    customKeys = [];
+    const clean = {};
+    for (const [k, v] of Object.entries(obj || {})) if (/^--[\w-]+$/.test(k) && typeof v === 'string') { root.style.setProperty(k, v); customKeys.push(k); clean[k] = v; }
+    set('custom', customKeys.length ? JSON.stringify(clean) : null);
+  },
+  // The colours of a preset, for swatches: {bg, fg, accent, …}. Read with the local overrides lifted.
+  tokens(id) {
+    const keep = root.dataset.theme, inline = ['--accent', ...customKeys].map(k => [k, root.style.getPropertyValue(k)]);
+    for (const [k] of inline) root.style.removeProperty(k);
+    if (id === 'auto') delete root.dataset.theme; else root.dataset.theme = id;
+    const cs = getComputedStyle(root), out = {};
+    for (const t of TOKENS) out[t] = cs.getPropertyValue('--' + t).trim();
+    if (keep) root.dataset.theme = keep; else delete root.dataset.theme;
+    for (const [k, v] of inline) if (v) root.style.setProperty(k, v);
+    return out;
+  },
+});
+if (theme.fontSize) theme.setFontSize(theme.fontSize);
+if (theme.motion === 'reduce') theme.setMotion('reduce');
+theme.setCustom(theme.custom);
+
 export default theme;

@@ -7,11 +7,12 @@ export const setSite = s => { site = s; };
 
 export class ApiError extends Error { constructor(msg, status) { super(msg); this.status = status; } }
 
-async function call(method, path, body) {
+async function call(method, path, body, signal) {
   const res = await fetch('/api' + path, {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   let data = null;
   try { data = await res.json(); } catch (e) { /* empty body */ }
@@ -19,7 +20,9 @@ async function call(method, path, body) {
   return data;
 }
 
-export function get(path, { fresh = false } = {}) {
+// `signal` (an AbortSignal) cancels the request; such a call is never shared.
+export function get(path, { fresh = false, signal } = {}) {
+  if (signal) return call('GET', path, undefined, signal);
   if (!fresh && inflight.has(path)) return inflight.get(path);
   const p = call('GET', path).then(d => { mem.set(path, d); return d; }).finally(() => inflight.delete(path));
   inflight.set(path, p);

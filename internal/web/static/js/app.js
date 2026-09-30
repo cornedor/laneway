@@ -157,5 +157,6 @@ async function boot() {
   if (app.session.demo) $('.brand').append(h('span.demo-badge', 'demo'));
   window.addEventListener('hashchange', navigate);
   await navigate();
+  (window.requestIdleCallback || setTimeout)(() => import('./views/palette.js')); // ready before the first ':'
 }
 boot();

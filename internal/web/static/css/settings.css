@@ -1,0 +1,19 @@
+.st { max-width: 860px; margin: 0 auto; padding: calc(var(--pad) * 2); }
+.st-head { display: flex; align-items: center; gap: calc(var(--pad) * 2); margin-bottom: var(--pad); } .st-head h2 { margin: 0; } .st-filter { max-width: 300px; margin-left: auto; }
+.st-h { margin: calc(var(--pad) * 2) 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); }
+.st-sec { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2); overflow: hidden; }
+.st-row { display: flex; align-items: center; gap: calc(var(--pad) * 2); padding: var(--pad) calc(var(--pad) * 1.5); min-height: var(--row); border-bottom: 1px solid var(--border); border-left: 3px solid transparent; }
+.st-row:last-child { border-bottom: 0; } .st-row.sel { background: var(--accent-bg); border-left-color: var(--accent); }
+.st-row.wide { flex-direction: column; align-items: stretch; gap: 4px; }
+.st-name { flex: 1; min-width: 0; } .st-name .chip { margin-left: 8px; } .st-desc { font-size: 12px; color: var(--fg-3); }
+.st-val { display: flex; gap: 4px; align-items: center; flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; }
+.st-swatches { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.st-sw { font: inherit; font-size: 11px; color: var(--fg-2); background: none; border: 2px solid transparent; border-radius: 8px; padding: 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.st-sw.on { border-color: var(--accent); color: var(--fg); }
+.st-sw-box { display: flex; width: 56px; height: 26px; border: 1px solid; border-radius: 5px; overflow: hidden; } .st-sw-box i { flex: 1; } .st-sw-box i:first-child { flex: 2; }
+.st-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; color: var(--fg-3); background: var(--bg-3); font-size: 12px; }
+.st-dot.on { border-color: var(--fg); box-shadow: 0 0 0 2px var(--bg-2) inset; }
+.st-color { width: 28px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; }
+.st-json { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; } .st-err { color: var(--err); font-size: 12px; min-height: 0; }
+.st-edit { display: flex; flex-direction: column; gap: 6px; }
+.st-foot { margin-top: calc(var(--pad) * 2); font-size: 12px; color: var(--fg-3); }
