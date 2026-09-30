@@ -3,10 +3,11 @@
 import { h, clear, $ } from './lib/dom.js';
 import api from './lib/api.js';
 import bus from './lib/bus.js';
-import { keys, kbd } from './lib/keys.js';
+import { keys } from './lib/keys.js';
 import theme from './lib/theme.js';
 import * as ui from './lib/ui.js';
 import { routes } from './views/index.js';
+import * as chromeBars from './lib/chrome.js';
 
 // ---- commands: the palette lists these. register({id, title, keys?, group?, run, when?}) → unregister
 const cmds = new Map();
@@ -93,11 +94,11 @@ async function navigate() {
   const token = ++viewToken;
   if (current && current.cleanup) { try { current.cleanup(); } catch (e) { console.error(e); } }
   if (current && current.scope) current.scope.dispose();
-  clear($('#toolbar'));
+  clear($('#toolbar')); clear($('#context'));
   current = { name: hit.name, scope: keys.scope(hit.name) };
   app.route = { name: hit.name, params, query: Object.fromEntries(new URLSearchParams(qs || '')) };
   document.title = hit.title + ' · laneway';
-  markNav(hit.name);
+  app.chrome.mark(hit.name);
   clear(view).append(h('div.loading', 'Loading…'));
   let mod;
   try { mod = await hit.load(); } catch (e) {
@@ -108,11 +109,10 @@ async function navigate() {
   if (token !== viewToken) return;
   clear(view);
   try {
-    current.cleanup = await (mod.default || mod.mount)(view, { app, params, query: app.route.query, scope: current.scope, toolbar: $('#toolbar') });
+    current.cleanup = await (mod.default || mod.mount)(view, { app, params, query: app.route.query, scope: current.scope, context: $('#context'), toolbar: $('#toolbar') });
   } catch (e) { console.error(e); clear(view).append(h('div.empty', h('h2', 'Something broke'), h('pre', e.stack || e.message))); }
   bus.emit('route', app.route);
 }
-function markNav(name) { document.querySelectorAll('#nav a').forEach(a => { a.classList.toggle('on', a.dataset.name === name); a.toggleAttribute('aria-current', a.dataset.name === name); }); }
 
 // ---- global keys
 function globalKeys() {
@@ -140,14 +140,9 @@ function globalKeys() {
 }
 
 function chrome() {
-  const nav = $('#nav');
-  for (const r of routes) if (r.nav !== false) nav.append(h('a', { href: '#/' + r.name, dataset: { name: r.name } }, r.title, r.key && h('kbd', 'g' + r.key)));
-  $('#search-btn').addEventListener('click', () => app.actions.palette(':'));
-  const chord = $('#chord');
-  keys.onChange(() => { const p = keys.pending(); chord.textContent = p ? kbd(p).join(' ') + ' …' : ''; });
+  chromeBars.install(app);
+  $('#search-btn').addEventListener('click', () => app.actions.palette('/'));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) bus.emit('focus'); });
-  window.addEventListener('online', () => $('#conn').textContent = '');
-  window.addEventListener('offline', () => $('#conn').textContent = 'offline');
 }
 
 async function boot() {
@@ -165,8 +160,8 @@ async function boot() {
   } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
   import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e));
-  $('.brand').title = app.session.baseURL + (app.session.demo ? ' (demo)' : '');
-  if (app.session.demo) $('.brand').append(h('span.demo-badge', 'demo'));
+  $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');
+  if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
   window.addEventListener('hashchange', navigate);
   await navigate();
   (window.requestIdleCallback || setTimeout)(() => import('./views/palette.js')); // ready before the first ':'

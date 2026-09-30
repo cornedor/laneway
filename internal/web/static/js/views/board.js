@@ -57,7 +57,7 @@ function registerPins(app) {
   for (const p of Array.isArray(l) ? l : []) if (Array.isArray(p) && p[0]) pinCmds.push(app.commands.register({ id: 'pin:' + p[0], title: '★ ' + p[0] + '  ' + (p[1] || ''), group: 'Pinned', run: () => app.panel.open(p[0]) }));
 }
 
-export default function mount(el, { app, params, query, scope, toolbar }) {
+export default function mount(el, { app, params, query, scope, context, toolbar }) {
   const { api, bus, ui } = app;
   const me = (app.session.me && app.session.me.AccountID) || '';
   const UI = app.session.ui || {};
@@ -94,19 +94,20 @@ export default function mount(el, { app, params, query, scope, toolbar }) {
   const bdMsg = text => clear(main).append(h('div.empty', text));
 
   // ---- toolbar
-  const boardBtn = h('button.btn', { title: 'Project and board  (B)', onclick: () => pickBoard() });
-  const sprintBtn = h('button.btn', { title: 'View: sprint, backlog, whole board, your views  (v, [ ])', onclick: () => pickSprint() });
+  const boardBtn = app.chrome.crumb('Project and board  (B)', () => pickBoard());
+  const sprintBtn = app.chrome.crumb('View: sprint, backlog, whole board, your views  (v, [ ])', () => pickSprint());
   const modeBtn = h('button.btn', { title: 'Lanes / list  (t)', onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
   const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (S)', onclick: () => cycleSwim() });
   const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, '▦ Columns');
   const compactBtn = h('button.btn.ghost', { title: 'One-line cards  (c)', onclick: () => setCompact(!S.compact) }, '≡');
   const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', onclick: () => refresh(true) }, '⟳');
-  toolbar.append(boardBtn, sprintBtn, h('span.spacer'), swimBtn, colsBtn, compactBtn, modeBtn, refreshBtn);
+  context.append(boardBtn, sprintBtn);
+  toolbar.append(h('span.spacer'), swimBtn, colsBtn, compactBtn, modeBtn, refreshBtn);
 
   function renderToolbar() {
-    boardBtn.textContent = (S.project || '…') + (S.board ? ' › ' + S.board.Name : '') + ' ▾';
+    app.chrome.label(boardBtn, S.project || '…', S.board && S.board.Name);
     const sp = scopeLabel();
-    sprintBtn.textContent = sp + ' ▾';
+    sprintBtn.textContent = sp;
     sprintBtn.hidden = !isScrum() && !viewItems().some(i => i.id.includes(':') && !i.id.startsWith('closed'));
     modeBtn.textContent = S.mode === 'lanes' ? '▥ Lanes' : '☰ List';
     swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes';

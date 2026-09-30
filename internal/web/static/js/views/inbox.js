@@ -8,7 +8,7 @@ import { mdEdit } from '../lib/mdedit.js';
 import { stateOf, latest, unreadCount, setBadge } from '../lib/inbox.js';
 import { dayStart, addDays, workdays } from '../lib/worktime.js';
 
-export default function mount(el, { app, scope, toolbar }) {
+export default function mount(el, { app, scope }) {
   css('inbox');
   const { api, ui } = app;
   let data = { threads: [], marks: {}, floor: 0 };
@@ -190,7 +190,6 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('o', () => { const t = cur(); if (t && app.session.baseURL) window.open(app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key, '_blank', 'noopener'); }, 'open in Jira', G);
 
   const off = [app.bus.on('focus', reload)];
-  clear(toolbar).append(h('h3.dim', 'Inbox'));
   load(false);
   return () => { dead = true; clearTimeout(readTimer); list.destroy(); off.forEach(f => f()); };
 }

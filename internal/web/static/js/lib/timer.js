@@ -1,6 +1,6 @@
 // The work timer: T starts it on the selected issue, stops it into the log-work dialog, or
 // switches it. It lives in localStorage (survives reloads, shared by tabs) and shows in the header.
-import { h, $ } from './dom.js';
+import { h } from './dom.js';
 import { duration } from './fmt.js';
 import { logDialog, parseDuration, hm } from './worktime.js';
 import { installBadge } from './inbox.js';
@@ -25,24 +25,23 @@ export function target(app) {
 
 export function install(app) {
   let timer = load();
-  const chip = h('button.btn.ghost.timer-chip', { hidden: true, onclick: () => toggle('') });
-  const search = $('#search-btn');
-  search ? search.before(chip) : $('#top').append(chip);
+  const chip = app.chrome.add(h('button.timer-chip.accent', { hidden: true, onclick: () => toggle('') }), 30);
   let tick = 0;
 
   const elapsed = () => Date.now() - timer.start;
-  const label = () => '⏱ ' + timer.key + ' ' + (elapsed() < 60000 ? '<1m' : duration(Math.floor(elapsed() / 1000)));
+  const since = () => (elapsed() < 60000 ? '<1m' : duration(Math.floor(elapsed() / 1000)));
+  const label = () => [h('span.tk', timer.key), since()];
   function paint() {
     chip.hidden = !timer;
-    if (timer) { chip.textContent = label(); chip.title = 'Timer on ' + timer.key + ' since ' + hm(new Date(timer.start)) + ' · t stops it'; }
+    if (timer) { chip.replaceChildren(...label()); chip.title = 'Timer on ' + timer.key + ' since ' + hm(new Date(timer.start)) + ' · T stops it'; }
     arm();
   }
   // Redraw while the tab is visible and a timer runs; nothing otherwise.
   function arm() {
     clearInterval(tick); tick = 0;
-    if (timer && !document.hidden) tick = setInterval(() => { chip.textContent = label(); }, 20000);
+    if (timer && !document.hidden) tick = setInterval(() => { chip.replaceChildren(...label()); }, 20000);
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && timer) chip.textContent = label(); arm(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && timer) chip.replaceChildren(...label()); arm(); });
   window.addEventListener('storage', e => { if (e.key === LS) { timer = load(); paint(); app.bus.emit('timer', timer); } });
 
   function set(t) { timer = t; save(t); paint(); app.bus.emit('timer', timer); }

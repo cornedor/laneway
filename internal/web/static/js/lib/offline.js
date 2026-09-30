@@ -1,6 +1,6 @@
 // Writes that never reached Jira wait on the server (TUI: ⇡3). A header chip counts them;
 // click or the palette lists them: send now, or drop one. The server retries on its own.
-import { h, clear, $ } from './dom.js';
+import { h, clear } from './dom.js';
 import { css } from './css.js';
 import { ago } from './fmt.js';
 
@@ -8,9 +8,7 @@ export function install(app) {
   css('ask');
   const { api, ui, bus } = app;
   let list = [], timer = 0;
-  const chip = h('button.btn.ghost.queue-chip', { hidden: true, onclick: () => open() });
-  const anchor = $('#search-btn');
-  anchor ? anchor.before(chip) : $('#top').append(chip);
+  const chip = app.chrome.add(h('button.queue-chip.warn', { hidden: true, onclick: () => open() }), 10);
 
   function paint() {
     chip.hidden = !list.length;

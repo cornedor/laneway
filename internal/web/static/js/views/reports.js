@@ -26,7 +26,7 @@ function sampleTimes(start, end, now) {
   return out.filter((t, i, a) => i === 0 || t > a[i - 1]);
 }
 
-export default async function mount(el, { app, params, query, scope, toolbar }) {
+export default async function mount(el, { app, params, query, scope, context, toolbar }) {
   css('reports');
   let kind = KINDS.some(k => k[0] === params.kind) ? params.kind : 'burndown';
   const sc = await resolve(app, params);
@@ -39,9 +39,11 @@ export default async function mount(el, { app, params, query, scope, toolbar }) 
 
   const tabs = h('div.rp-tabs', { role: 'tablist' }, KINDS.map(([id, label], i) =>
     h('button', { role: 'tab', dataset: { kind: id }, title: label + ' (' + (i + 1) + ')', onclick: () => go(id) }, label)));
-  const sprintBtn = h('button.btn.nw', { title: 'Sprint (s)', onclick: () => pickSprint() }, 'Sprint');
-  const boardBtn = h('button.btn.ghost.nw', { title: 'Board (b)', onclick: () => pickBoard() });
-  toolbar.append(tabs, h('span.spacer'), sprintBtn, boardBtn);
+  const sprintBtn = app.chrome.crumb('Sprint (s)', () => pickSprint());
+  sprintBtn.textContent = 'Sprint';
+  const boardBtn = app.chrome.crumb('Board (b)', () => pickBoard());
+  context.append(boardBtn, sprintBtn);
+  toolbar.append(tabs);
 
   function go(k) {
     kind = k;
@@ -69,7 +71,7 @@ export default async function mount(el, { app, params, query, scope, toolbar }) 
     tabs.querySelectorAll('button').forEach(b => { const on = b.dataset.kind === kind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
     const sprintKind = SPRINT_KINDS.includes(kind);
     sprintBtn.hidden = !sprintKind;
-    boardBtn.textContent = (project || '—') + (board ? ' · ' + board.Name : '');
+    app.chrome.label(boardBtn, project || '—', board && board.Name);
     const needsBoard = kind !== 'cycle' && kind !== 'releases';
     if (needsBoard && !board) { clear(body).append(noBoard('Charts', project)); return; }
     if (!project) { clear(body).append(noBoard('Reports', '')); return; }

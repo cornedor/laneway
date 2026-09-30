@@ -20,7 +20,7 @@ const registry = new Map(); // id -> every bind seen, even of views not open now
 try { for (const r of JSON.parse(localStorage.getItem('lw:keyreg') || '[]')) registry.set(r.id, r); } catch (e) { /* ignore */ }
 let regTimer = 0;
 const listeners = new Set();
-const CHORD_MS = 1200;
+const CHORD_MS = 2500; // long enough to read the chord hint (lib/chrome.js)
 
 function norm(e) {
   let k = e.key;

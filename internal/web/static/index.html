@@ -10,6 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%235b8def'/%3E%3Cpath d='M4 3v10h8' stroke='white' stroke-width='2' fill='none'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/themes.css">
+<link rel="stylesheet" href="css/chrome.css">
 <link rel="stylesheet" href="css/mobile.css">
 <link rel="stylesheet" href="css/print.css" media="print">
 <script>
@@ -22,16 +23,18 @@ try{var t=localStorage.getItem('lw:theme');if(t)document.documentElement.dataset
 <a class="skip" href="#view" onclick="event.preventDefault();document.getElementById('view').focus()">Skip to content</a>
 <div id="app">
   <header id="top">
-    <a class="brand" href="#/board">laneway</a>
-    <nav id="nav" aria-label="Views"></nav>
-    <div id="toolbar"></div>
-    <button id="search-btn" class="btn ghost" title="Command palette (:)">⌘ <kbd>:</kbd></button>
+    <a class="brand" href="#/board" title="laneway"><svg viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="4"/><path d="M5 3.5v8.5h7"/></svg><span class="brand-name">laneway</span></a>
+    <span id="site"></span>
+    <nav id="nav" aria-label="Views"><button id="more" class="nav-more" type="button" aria-haspopup="dialog" title="All views (M)">More</button></nav>
+    <div id="tray" aria-label="Status"></div>
+    <button id="search-btn" class="pal-btn" type="button" aria-label="Search issues" title="Search (/) · commands (:) · jump to a key (g g)"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><span class="pal-text">Search</span><kbd>/</kbd></button>
   </header>
+  <h1 id="vtitle" class="sr-only"></h1>
+  <section id="viewbar" aria-label="View controls"><div id="context"></div><div id="toolbar"></div></section>
   <div id="body">
     <main id="view" tabindex="-1"></main>
     <aside id="panel" aria-label="Issue" hidden></aside>
   </div>
-  <footer id="status"><span id="chord"></span><span id="hint"></span><span id="conn"></span></footer>
   <div id="toasts" aria-live="polite"></div>
 </div>
 </body>

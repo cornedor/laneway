@@ -1,4 +1,4 @@
-// Jira sites from the config: a header chip and `@` pick one; the server keeps
+// Jira sites from the config: a chip beside the brand and `@` pick one; the server keeps
 // every site open and follows the lw_site cookie, so switching is a reload.
 import { h, $ } from './dom.js';
 
@@ -8,9 +8,7 @@ export function install(app) {
   const sites = app.session.sites || [];
   if (sites.length < 2) return;
   const cur = app.session.site;
-  const chip = h('button.btn.ghost.site-chip', { title: 'Switch Jira site (@)', onclick: () => choose() }, '@ ' + label(cur));
-  const anchor = $('#search-btn');
-  anchor ? anchor.before(chip) : $('#top').append(chip);
+  $('#site').append(h('button.site-chip', { type: 'button', title: 'Jira site: ' + label(cur) + ' · @ switches', onclick: () => choose() }, label(cur)));
 
   async function go(s) {
     if (s === null || s === cur) return;

@@ -12,24 +12,9 @@ h1,h2,h3 { margin: 0 0 .4em; line-height: 1.25; } h2 { font-size: 1.25em; } h3 {
 * { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
 
 /* shell */
-#app { display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); height: 100vh; }
-#top { min-width: 0; display: flex; align-items: center; gap: var(--pad); padding: 0 calc(var(--pad) * 1.5); height: 44px; background: var(--bg-2); border-bottom: 1px solid var(--border); }
-.brand { font-weight: 700; letter-spacing: .02em; color: var(--fg); display: flex; align-items: center; gap: 6px; }
-.brand::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
-.demo-badge { font-size: 11px; font-weight: 500; background: var(--accent-bg); color: var(--accent); padding: 1px 6px; border-radius: 10px; }
-#nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
-#nav a { color: var(--fg-2); padding: 6px 10px; border-radius: var(--radius); white-space: nowrap; display: flex; gap: 6px; align-items: baseline; }
-#nav a:hover { background: var(--bg-3); text-decoration: none; } #nav a.on { color: var(--fg); background: var(--bg-3); }
-#nav kbd { display: none; } @media (min-width: 1100px) { #nav kbd { display: inline; font-size: 10px; color: var(--fg-3); } }
-#toolbar { flex: 1; display: flex; align-items: center; gap: var(--pad); min-width: 0; overflow-x: auto; scrollbar-width: none; }
-#toolbar > * { flex-shrink: 0; }
-#toolbar > .spacer { flex-shrink: 1; }
 #body { display: flex; min-height: 0; }
 #view { flex: 1; min-width: 0; overflow: auto; outline: none; contain: content; }
 #panel { width: var(--panel-w, 46%); min-width: 360px; max-width: 70%; border-left: 1px solid var(--border); background: var(--bg-2); overflow: auto; position: relative; }
-@media (max-width: 900px) { #panel { position: fixed; inset: 44px 0 0 0; width: auto; max-width: none; z-index: 20; } }
-#status { display: flex; gap: var(--pad); padding: 2px calc(var(--pad) * 1.5); background: var(--bg-2); border-top: 1px solid var(--border); font-size: 12px; color: var(--fg-3); min-height: 22px; }
-#chord { color: var(--accent); font-family: ui-monospace, monospace; } #hint { flex: 1; } #conn { color: var(--warn); }
 .loading, .empty { padding: 32px; color: var(--fg-2); text-align: center; }
 .empty h2 { color: var(--fg); }
 

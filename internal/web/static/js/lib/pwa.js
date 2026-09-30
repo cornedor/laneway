@@ -1,4 +1,4 @@
-// Installable shell and phone behaviour: service worker, theme-color, offline banner,
+// Installable shell and phone behaviour: service worker, theme-color,
 // card menu on right-click / long-press (the TUI's card menu).
 import { h } from './dom.js';
 
@@ -7,7 +7,6 @@ const KEY = /^[A-Z][A-Z0-9_]*-\d+$/;
 export function install(app) {
   worker();
   themeColor();
-  offline();
   cardMenu(app);
 }
 
@@ -29,13 +28,6 @@ function themeColor() {
   new MutationObserver(sync).observe(root, { attributes: true, attributeFilter: ['data-theme', 'style'] });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sync);
   sync();
-}
-
-function offline() {
-  const bar = h('div.offline', { role: 'status', hidden: true }, 'Offline. Showing what was loaded; edits will fail until the connection is back.');
-  document.body.append(bar);
-  const sync = () => { bar.hidden = navigator.onLine; document.body.classList.toggle('is-offline', !navigator.onLine); };
-  addEventListener('online', sync); addEventListener('offline', sync); sync();
 }
 
 const keyAt = el => {

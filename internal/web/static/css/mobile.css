@@ -1,22 +1,15 @@
 /* Phones, installed app, accessibility media. Tokens only. */
 .skip { position: fixed; top: -60px; left: 8px; z-index: 300; background: var(--accent); color: var(--accent-fg); padding: 6px 12px; border-radius: var(--radius); }
 .skip:focus { top: 8px; text-decoration: none; }
-.offline { position: fixed; left: 0; right: 0; bottom: 0; z-index: 250; text-align: center; font-size: 12px; padding: 4px 12px calc(4px + env(safe-area-inset-bottom)); background: var(--warn); color: var(--bg); }
-body.is-offline #status { display: none; }
 
 /* safe areas (notch, home bar) in the installed app */
-#top { padding-top: env(safe-area-inset-top); height: calc(44px + env(safe-area-inset-top)); padding-left: max(calc(var(--pad) * 1.5), env(safe-area-inset-left)); padding-right: max(calc(var(--pad) * 1.5), env(safe-area-inset-right)); }
-#status { padding-bottom: env(safe-area-inset-bottom); }
+#top { padding-top: env(safe-area-inset-top); height: calc(var(--top-h) + env(safe-area-inset-top)); padding-left: max(calc(var(--pad) * 1.5), env(safe-area-inset-left)); padding-right: max(calc(var(--pad) * 1.5), env(safe-area-inset-right)); }
+#viewbar { padding-left: max(calc(var(--pad) * 1.5), env(safe-area-inset-left)); padding-right: max(calc(var(--pad) * 1.5), env(safe-area-inset-right)); }
 #app { height: 100vh; height: 100dvh; }
-@media (max-width: 900px) { #panel { inset: calc(44px + env(safe-area-inset-top)) 0 0 0; padding-bottom: env(safe-area-inset-bottom); } }
-
-@media (display-mode: standalone) { #status { display: none; } }
+@media (max-width: 900px) { #panel { inset: calc(var(--top-h) + env(safe-area-inset-top)) 0 0 0; padding-bottom: env(safe-area-inset-bottom); } }
 
 @media (max-width: 700px) {
   :root { --fs: 15px; }
-  #search-btn kbd { display: none; }
-  .brand { font-size: 0; gap: 0; } .brand::before { width: 16px; height: 16px; }
-  #status { display: none; }
   /* lanes: one column per screen, swipe to snap between them */
   .bd-lanes { scroll-snap-type: x mandatory; scroll-padding-inline: var(--pad); overscroll-behavior-x: contain; }
   .bd-lanes .bd-lane { flex: 0 0 calc(100vw - var(--pad) * 4); min-width: 0; scroll-snap-align: center; scroll-snap-stop: always; }
@@ -35,7 +28,7 @@ body.is-offline #status { display: none; }
 @keyframes lw-sheet { from { transform: translateY(100%); } }
 
 @media (pointer: coarse) {
-  .btn, .tab, #nav a { min-height: 40px; }
+  .btn, .tab { min-height: 40px; }
   .pick-row { min-height: 44px; }
   kbd { display: none; }
 }

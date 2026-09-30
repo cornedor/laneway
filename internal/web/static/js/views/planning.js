@@ -17,7 +17,7 @@ function nextSprintName(name) {
   return m ? m[1] + (Number(m[2]) + 1) + m[3] : '';
 }
 
-export default async function mount(el, { app, params, scope, toolbar }) {
+export default async function mount(el, { app, params, scope, context, toolbar }) {
   css('planning');
   const sc = await resolve(app, params);
   let { project, board } = sc;
@@ -37,9 +37,10 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   scroller.append(space);
   el.append(h('div.pl', scroller));
 
-  const boardBtn = h('button.btn.ghost.nw', { title: 'Board (b)', onclick: () => pickBoard() }, project + ' · ' + board.Name);
+  const boardBtn = app.chrome.label(app.chrome.crumb('Board (b)', () => pickBoard()), project, board.Name);
   const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', oninput: () => { filter = filterIn.value.trim().toLowerCase(); relayout(); } });
-  toolbar.append(filterIn, h('span.spacer'), h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'), boardBtn);
+  context.append(boardBtn);
+  toolbar.append(filterIn, h('span.spacer'), h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'));
 
   // ---- data
   const secOf = id => sections.find(s => s.id === id);

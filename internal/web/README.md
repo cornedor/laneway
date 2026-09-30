@@ -20,9 +20,16 @@ app.panel    open(key) / close()    the right-hand issue panel (js/views/issue.j
 app.actions  edit(key, field[, anchor]) transition(key) create({project,parent,type}) palette(mode) jump() bulk(keys)
 app.prefs    get/set                per-site prefs on the server, mirrored to localStorage
 app.session  {site, sites, demo, baseURL, me:{AccountID,DisplayName}, projects, ui}
+app.chrome   add(el, order) tray item · crumb(title, onclick) → button · label(btn, ...parts) · menu()   (lib/chrome.js)
 ```
 
-A view is `export default function mount(el, {app, params, query, scope, toolbar}) → cleanup?`; `scope` is its key scope (auto-disposed), `toolbar` the header slot for filters/buttons. Routes: `js/views/index.js`.
+A view is `export default function mount(el, {app, params, query, scope, context, toolbar}) → cleanup?`; `scope` is its key scope (auto-disposed). Routes: `js/views/index.js`.
+
+Chrome (`css/chrome.css`, `lib/chrome.js`), two bars:
+
+- App bar, the same on every route: brand and site (`@`), the views grouped Project / You / Tools, the tray, search. Views that don't fit fold into More (`M`, every view with its key); the open one always stays. The tray shows only what needs you: offline, queued writes, agents waiting (or working), the running timer. Libraries add to it with `app.chrome.add(el, order)` (lower sits further left) and hide their item when quiet; never append to `#top`.
+- View bar, the view's own: `context` holds where you are (project / board / sprint switchers: `app.chrome.crumb` + `label`), `toolbar` how you look at it (filters, modes, actions). Both are cleared on route change; the bar hides while both are empty, so a view without controls gets no bar.
+- After a chord prefix (`g`) a hint lists what can follow.
 
 ## Keys
 
@@ -30,10 +37,10 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 
 | Scope | Keys |
 | --- | --- |
-| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `tab` panel/view focus, `esc` close panel |
+| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `M` all views, `g c` focus the view bar (`tab` on through it), `tab` panel/view focus, `esc` close panel |
 | Editor (in any text box) | `/` formatting menu, `@` mention, `:` emoji, `ctrl+b` `ctrl+i` `ctrl+k`, `ctrl+p` preview, `ctrl+enter` save, paste or drop files to attach |
 | Global extra | `ctrl+e` refine: the view's issues one at a time in the panel, unestimated first (`J` `K`, `esc`) |
-| Go | `g b` board, `g p` planning, `g r` reports, `g m` roadmap, `g w` my work, `g i` inbox, `g s` standup, `g ,` settings, `g t` next theme, `g l` rules, `@` switch Jira site, `ctrl+a` ask the LLM about the issue, your `ui.actions` keys |
+| Go | `g b` board, `g p` planning, `g r` reports, `g m` roadmap, `g w` my work, `g i` inbox, `g s` standup, `g R` review, `g a` agents, `g ,` settings, `g t` next theme, `g l` rules, `@` switch Jira site, `ctrl+a` ask the LLM about the issue, your `ui.actions` keys |
 | Board | `hjkl`/arrows move, `enter` open, `t` lanes/list, `s` status, `e` summary, `a` assign, `p` priority, `P` points, `H`/`L` move column, `J`/`K` rank, `x` mark, `X` bulk, `o` Jira, `y` copy key, `r` refresh, `O` swimlanes (lanes) / sort (list), `z`/`Z` fold/unfold swimlane, `c` one-line cards, `C` list columns, `F` filter builder, `*` pin, `.` repeat, `alt+j`/`alt+k` rank bottom/top, `ctrl+a` mark all, `ctrl+y` copy branch, `Y` copy link, `alt+t` time machine (`←` `→` `esc`), `alt+o` closed sprints, `B` board/project, `v` view, `[`/`]` previous/next view (sprints, backlog, `ui.views`, starred filters), `f` filter, `m` mine, `A` assignee, `0` clear, `1`-`9` quick filters |
 | Issue panel | `j`/`k` comment or scroll, `c` comment, `R` reply, `e` summary (own focused comment), `E` description, `a` `p` `P` `l` assignee, priority, points, labels, `s` status, `L` link issue, `A` actions (subtask, link, clone, type, move, delete, watchers, vote, flag, upload), `G` go to a linked issue, `Backspace` back along followed links, `i` image viewer (arrows), `/` find in the issue (`n`/`N`; `/` is search outside the panel), `d` delete own comment, `[`/`]` previous/next issue of the list beside, `1`-`3` tabs, `N` private notes, `y`/`Y` copy key/link, `o` Jira, `r` refresh, `ctrl+enter` save |
 | Planning | `jk` move, `J`/`K` rank, `m` move to sprint, `[`/`]` previous/next sprint, `x`/`space` select, `z` fold, `enter` open, `P` points, `a` assignee, `N` `S` `C` `E` new, start, complete, edit sprint, `b` board, `f` filter, `R` reload |

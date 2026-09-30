@@ -12,7 +12,7 @@ const ms = t => (isZero(t) ? null : +new Date(t));
 const midnight = t => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); };
 const addDays = (t, n) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime(); };
 
-export default async function mount(el, { app, params, scope, toolbar }) {
+export default async function mount(el, { app, params, scope, context, toolbar }) {
   css('roadmap');
   const sc = await resolve(app, params, { scrum: false });
   let { project } = sc;
@@ -21,11 +21,13 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   let t0 = 0, t1 = 0;
   const scroller = h('div.rm', { tabindex: -1 }); hwheel(scroller);
   el.append(scroller);
-  const projBtn = h('button.btn.ghost', { title: 'Project (b)', onclick: () => pickProject() }, project || '—');
+  const projBtn = app.chrome.crumb('Project (b)', () => pickProject());
+  projBtn.textContent = project || '—';
+  context.append(projBtn);
   toolbar.append(h('span.spacer'),
     h('button.btn', { title: 'Zoom out (-)', 'aria-label': 'Zoom out', onclick: () => setZoom(zoom - 1) }, '−'),
     h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, '+'),
-    h('button.btn', { title: 'Today (.)', onclick: () => today() }, 'Today'), projBtn);
+    h('button.btn', { title: 'Today (.)', onclick: () => today() }, 'Today'));
 
   const ppd = () => ZOOMS[zoom];
   const xOf = t => (t - t0) / DAY * ppd();

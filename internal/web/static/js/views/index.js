@@ -1,5 +1,5 @@
 // Route table. Each view module default-exports mount(el, ctx) → cleanup?
-// ctx: {app, params, query, scope (a keys scope disposed on leave), toolbar (header slot)}.
+// ctx: {app, params, query, scope (a keys scope disposed on leave), context + toolbar (the view bar: where, then how)}.
 // Hash routes: #/board/PROJECT/BOARDID?issue=KEY … (':x' are params).
 // A missing module shows a "not built yet" page; nothing else breaks.
 export const routes = [
