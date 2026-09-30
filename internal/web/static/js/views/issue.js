@@ -71,7 +71,7 @@ export function mountIssue(el, key, { app, full }) {
     if (i < 0 || !ks[i + d]) return ui.toast(i < 0 ? 'Not in the list beside' : 'End of the list');
     trail.length = 0; go(ks[i + d]);
   };
-  const prefixes = () => new Set([...(app.session.projects || []), key.split('-')[0], ...(st.issue ? st.issue.Links.map(l => l.Key.split('-')[0]) : [])]);
+  const prefixes = () => new Set([...(app.session.projects || []), key.split('-')[0], ...(st.issue ? (st.issue.Links || []).map(l => l.Key.split('-')[0]) : [])]);
   const people = () => {
     const i = st.issue, m = new Map();
     const add = (id, name) => { if (name && !m.has(name)) m.set(name, id || ''); };
@@ -109,7 +109,7 @@ export function mountIssue(el, key, { app, full }) {
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';
   }
   function renderTabs() {
-    const n = st.issue ? (st.issue.CommentTotal || st.issue.Comments.length) : 0;
+    const n = st.issue ? (st.issue.CommentTotal || (st.issue.Comments || []).length) : 0;
     clear(tabs).append(...[['details', 'Details', '1'], ['comments', 'Comments' + (n ? ' ' + n : ''), '2'], ['history', 'History', '3']].map(([id, label, k]) =>
       h('button.tab' + (st.tab === id ? '.on' : ''), { role: 'tab', 'aria-selected': st.tab === id, onclick: () => setTab(id) }, label, h('kbd', k))));
   }
@@ -150,7 +150,7 @@ export function mountIssue(el, key, { app, full }) {
       cell(null, 'Updated', ago(i.Updated)),
       cell(null, 'Created', !isZero(c.Created) ? dateTime(c.Created) : null));
   }
-  const parentLink = () => st.issue && st.issue.Links.find(l => l.Rel === 'parent');
+  const parentLink = () => st.issue && (st.issue.Links || []).find(l => l.Rel === 'parent');
 
   // ---- description
   function renderDesc(force) {
@@ -202,7 +202,7 @@ export function mountIssue(el, key, { app, full }) {
   }
   function renderLinks() {
     const i = st.issue; if (!i) return clear(box.links);
-    const links = i.Links.filter(l => l.Rel !== 'parent' && l.Rel !== 'subtask');
+    const links = (i.Links || []).filter(l => l.Rel !== 'parent' && l.Rel !== 'subtask');
     const web = st.weblinks || [];
     const groups = new Map();
     for (const l of links) (groups.get(l.Rel) || groups.set(l.Rel, []).get(l.Rel)).push(l);
@@ -263,8 +263,8 @@ export function mountIssue(el, key, { app, full }) {
   // Linked issue jump: parent, links, children, web links.
   async function linked() {
     const i = st.issue; if (!i) return;
-    const items = [...i.Links.map(l => ({ k: l.Key, label: l.Key + '  ' + (l.Rel || '') + '  ' + (l.Summary || '') })),
-      ...(st.children || []).filter(c => !i.Links.some(l => l.Key === c.Key)).map(c => ({ k: c.Key, label: c.Key + '  child  ' + c.Summary })),
+    const items = [...(i.Links || []).map(l => ({ k: l.Key, label: l.Key + '  ' + (l.Rel || '') + '  ' + (l.Summary || '') })),
+      ...(st.children || []).filter(c => !(i.Links || []).some(l => l.Key === c.Key)).map(c => ({ k: c.Key, label: c.Key + '  child  ' + c.Summary })),
       ...(st.weblinks || []).map(w => ({ url: w.URL, label: '↗ ' + (w.Title || w.URL) }))];
     if (!items.length) return ui.toast('No links');
     const it = await ui.pick({ title: 'Go to', items, label: x => x.label, placeholder: 'Linked issue…' });
@@ -352,7 +352,7 @@ export function mountIssue(el, key, { app, full }) {
   function renderComments() {
     if (!st.issue) return;
     const all = order();
-    const total = st.issue.CommentTotal || st.issue.Comments.length;
+    const total = st.issue.CommentTotal || (st.issue.Comments || []).length;
     const shown = st.all ? all : all.slice(-RECENT);
     const want = shown.map(({ c, reply }) => commentEl(c, reply));
     const live = new Set(shown.map(s => s.c.ID));
@@ -383,13 +383,13 @@ export function mountIssue(el, key, { app, full }) {
     i = i < 0 ? (d > 0 ? 0 : els.length - 1) : Math.max(0, Math.min(els.length - 1, i + d));
     focusComment(els[i].dataset.id);
   }
-  const focused = () => st.issue && st.issue.Comments.find(c => c.ID === st.focusId);
+  const focused = () => st.issue && (st.issue.Comments || []).find(c => c.ID === st.focusId);
   const isMine = c => c && c.AuthorID && c.AuthorID === me().AccountID;
 
   delegate(box.list, 'click', 'article.cm', (e, art) => {
     if (!e.target.closest('a,input,img,textarea')) focusComment(art.dataset.id, false);
     const b = e.target.closest('button[data-act]'); if (!b) return;
-    const c = st.issue.Comments.find(x => x.ID === art.dataset.id);
+    const c = (st.issue.Comments || []).find(x => x.ID === art.dataset.id);
     if (!c) return;
     ({ reply: () => replyTo(c), edit: () => editComment(c), del: () => deleteComment(c) })[b.dataset.act]();
   });
@@ -412,7 +412,7 @@ export function mountIssue(el, key, { app, full }) {
   }
   async function deleteComment(c) {
     if (!await ui.confirm({ title: 'Delete comment', text: 'Delete this comment by ' + c.Author + '?', ok: 'Delete', danger: true })) return;
-    try { await api.del('/issues/' + key + '/comments/' + encodeURIComponent(c.ID)); st.issue.Comments = st.issue.Comments.filter(x => x.ID !== c.ID); renderComments(); changed(); } catch (e) { fail(e); }
+    try { await api.del('/issues/' + key + '/comments/' + encodeURIComponent(c.ID)); st.issue.Comments = (st.issue.Comments || []).filter(x => x.ID !== c.ID); renderComments(); changed(); } catch (e) { fail(e); }
   }
 
   // composer
@@ -562,7 +562,7 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('P', () => edit('points'), 'set story points', { group: G });
   scope.bind('l', () => edit('labels'), 'edit labels', { group: G });
   scope.bind('r', () => reload(true), 'refresh', { group: G });
-  scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[st.issue.Comments.length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
+  scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[(st.issue.Comments || []).length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
   scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, 'delete own comment', { group: G });
   scope.bind('L', addLink, 'link an issue', { group: G });
   scope.bind('A', () => actions(), 'issue actions: subtask, clone, move, watchers…', { group: G });

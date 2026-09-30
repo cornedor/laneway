@@ -166,6 +166,7 @@ func writeJSON(w http.ResponseWriter, r *http.Request, v any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	emptySlices(&buf)
 	if buf.Len() > 1024 && strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
 		gz := gzip.NewWriter(w)
@@ -174,6 +175,40 @@ func writeJSON(w http.ResponseWriter, r *http.Request, v any) {
 		return
 	}
 	_, _ = w.Write(buf.Bytes())
+}
+
+// sliceKeys are response fields that are Go slices: a nil one encodes as null,
+// which the UI would trip over. Keep in step with lib/api.js.
+var sliceKeys = []string{
+	"Links", "Attachments", "Comments", "Labels", "Watches", "Watchers", "Transitions", "Worklogs",
+	"Sprints", "Issues", "Columns", "Statuses", "Subtasks", "Kids", "Mentions", "Threads", "Histories",
+	"FixVersions", "Components", "Warnings", "Options", "AllowedValues", "Entries", "Results", "Changes",
+	"Activity", "Agents", "Views", "Groups", "Filters", "QuickFilters", "Branches", "Commits",
+	"PullRequests", "Builds", "Deployments", "BlockedBy", "References", "Choices", "Moves", "Items", "Rules",
+}
+
+var nullKeys = func() [][2][]byte {
+	out := make([][2][]byte, len(sliceKeys))
+	for i, k := range sliceKeys {
+		out[i] = [2][]byte{[]byte(`"` + k + `":null`), []byte(`"` + k + `":[]`)}
+	}
+	return out
+}()
+
+// emptySlices rewrites null to [] for the known slice fields. One scan for
+// ":null" first, so bodies without nulls cost almost nothing.
+func emptySlices(buf *bytes.Buffer) {
+	b := buf.Bytes()
+	if !bytes.Contains(b, []byte(":null")) {
+		return
+	}
+	for _, kv := range nullKeys {
+		if bytes.Contains(b, kv[0]) {
+			b = bytes.ReplaceAll(b, kv[0], kv[1])
+		}
+	}
+	buf.Reset()
+	buf.Write(b)
 }
 
 // New builds the handler.

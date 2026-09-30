@@ -23,7 +23,7 @@ export async function issueActions(app, st, hk, only) {
     { id: 'vote', label: 'Vote / take back the vote' },
     { id: 'flag', label: flagged ? 'Clear the flag' : 'Flag as an impediment' },
     { id: 'upload', label: 'Upload files' },
-    { id: 'unlink', label: 'Remove a link', skip: !iss.Links.some(l => l.LinkID) },
+    { id: 'unlink', label: 'Remove a link', skip: !(iss.Links || []).some(l => l.LinkID) },
     { id: 'delatt', label: 'Delete an attachment', skip: !(iss.Attachments || []).length },
     { id: 'history', label: 'Time in each status / history' },
   ].filter(x => !x.skip);
@@ -55,7 +55,7 @@ export async function issueActions(app, st, hk, only) {
       }
       case 'move': return move();
       case 'delete': {
-        const n = iss.Links.filter(l => l.Rel === 'subtask').length;
+        const n = (iss.Links || []).filter(l => l.Rel === 'subtask').length;
         const ok = await ui.confirm({ title: 'Delete ' + key, text: 'Delete ' + key + ' ' + iss.Summary + (n ? ' and its ' + (n === 1 ? 'subtask' : n + ' subtasks') : '') + '? This cannot be undone.', ok: 'Delete', danger: true });
         if (!ok) return;
         await api.del('/issues/' + key + (n ? '?subtasks=1' : ''));
@@ -78,7 +78,7 @@ export async function issueActions(app, st, hk, only) {
         return inp.click();
       }
       case 'unlink': {
-        const l = await ui.pick({ title: 'Remove a link from ' + key, items: iss.Links.filter(x => x.LinkID), label: x => x.Rel + ' ' + x.Key + ' ' + x.Summary });
+        const l = await ui.pick({ title: 'Remove a link from ' + key, items: (iss.Links || []).filter(x => x.LinkID), label: x => x.Rel + ' ' + x.Key + ' ' + x.Summary });
         if (!l) return;
         await api.del('/issues/' + key + '/links/' + enc(l.LinkID)); return hk.changed();
       }

@@ -163,7 +163,7 @@ export function chart(host, spec) {
     c.replaceChildren(S('line', { x1: px, x2: px, y1: geo.m.t, y2: geo.hgt - geo.m.b, class: 'ch-cline', visibility: spec.nearest === 'xy' ? 'hidden' : 'visible' }));
     const dots = t.rows && t.rows.some(r => r.y != null) ? t.rows.filter(r => r.y != null) : (t.y != null ? [{ y: t.y, color: 'var(--fg)' }] : []);
     for (const r of dots) c.append(S('circle', { cx: px, cy: geo.Y(r.y), r: 5, class: 'ch-cdot', style: `stroke:${r.color || 'var(--fg)'}` }));
-    tip.replaceChildren(h('div.ch-head', t.head), (t.rows || []).map(r => h('div.ch-row', r.color && h('i', { style: { background: r.color } }), h('span', r.label), h('b', r.value))));
+    tip.replaceChildren(h('div.ch-head', t.head), ...(t.rows || []).map(r => h('div.ch-row', r.color && h('i', { style: { background: r.color } }), h('span', r.label), h('b', r.value))));
     tip.hidden = false;
     const tw = tip.offsetWidth, th = tip.offsetHeight;
     const top = (dots.length ? Math.min(...dots.map(r => geo.Y(r.y))) : geo.m.t + 10) - th - 10;

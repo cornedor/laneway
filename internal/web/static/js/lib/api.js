@@ -7,6 +7,24 @@ export const setSite = s => { site = s; };
 
 export class ApiError extends Error { constructor(msg, status) { super(msg); this.status = status; } }
 
+// Go sends a nil slice as null; these fields are always lists. Keep in step
+// with sliceKeys in internal/web/server.go.
+const LISTS = new Set(['Links', 'Attachments', 'Comments', 'Labels', 'Watches', 'Watchers', 'Transitions', 'Worklogs',
+  'Sprints', 'Issues', 'Columns', 'Statuses', 'Subtasks', 'Kids', 'Mentions', 'Threads', 'Histories',
+  'FixVersions', 'Components', 'Warnings', 'Options', 'AllowedValues', 'Entries', 'Results', 'Changes',
+  'Activity', 'Agents', 'Views', 'Groups', 'Filters', 'QuickFilters', 'Branches', 'Commits',
+  'PullRequests', 'Builds', 'Deployments', 'BlockedBy', 'References', 'Choices', 'Moves', 'Items', 'Rules']);
+export function lists(v) {
+  if (Array.isArray(v)) { for (const x of v) if (x && typeof x === 'object') lists(x); }
+  else if (v && typeof v === 'object') {
+    for (const k in v) {
+      const x = v[k];
+      if (x === null) { if (LISTS.has(k)) v[k] = []; } else if (typeof x === 'object') lists(x);
+    }
+  }
+  return v;
+}
+
 async function call(method, path, body, signal) {
   const res = await fetch('/api' + path, {
     method,
@@ -15,7 +33,7 @@ async function call(method, path, body, signal) {
     signal,
   });
   let data = null;
-  try { data = await res.json(); } catch (e) { /* empty body */ }
+  try { data = lists(await res.json()); } catch (e) { /* empty body */ }
   if (!res.ok) throw new ApiError((data && data.error) || res.statusText, res.status);
   if (res.status === 202) window.dispatchEvent(new CustomEvent('lw:queued')); // a write kept for when Jira is back
   return data;
@@ -39,7 +57,7 @@ function write(method, path, body) {
 }
 
 const lsKey = p => 'lw:c:' + site + ':' + p;
-function readLS(path) { try { const v = localStorage.getItem(lsKey(path)); return v ? JSON.parse(v) : undefined; } catch (e) { return undefined; } }
+function readLS(path) { try { const v = localStorage.getItem(lsKey(path)); return v ? lists(JSON.parse(v)) : undefined; } catch (e) { return undefined; } }
 function writeLS(path, data) {
   try { const s = JSON.stringify(data); if (s.length < 600000) localStorage.setItem(lsKey(path), s); } catch (e) { /* quota */ }
 }

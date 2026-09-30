@@ -71,7 +71,7 @@ export default function mount(el, { app, scope, toolbar }) {
   function buildForm() {
     clear(testEl);
     const kinds = field('On', 'Change', h('select.input', { name: 'On' }, info.Kinds.map(k => h('option', { value: k }, k))));
-    const watch = field('Watch', 'Seen by', h('select.input', { name: 'Watch' }, h('option', { value: '' }, 'a board'), info.Watches.map(w => h('option', { value: w.JQL }, 'watch: ' + w.JQL))));
+    const watch = field('Watch', 'Seen by', h('select.input', { name: 'Watch' }, h('option', { value: '' }, 'a board'), (info.Watches || []).map(w => h('option', { value: w.JQL }, 'watch: ' + w.JQL))));
     const byMe = field('ByMe', 'Made by you', h('select.input', { name: 'ByMe' }, h('option', { value: '' }, 'unknown'), h('option', { value: 'true' }, 'yes'), h('option', { value: 'false' }, 'no')));
     testEl.append(kinds, txt('Key', 'Key', 'TEST-1'), txt('Summary', 'Summary'), txt('Type', 'Type', info.Test.Type || 'Task'), txt('Status', 'Status', info.Test.Status || 'To Do'),
       txt('FromStatus', 'From status'), txt('Assignee', 'Assignee', 'empty: unassigned'), txt('Priority', 'Priority', 'Medium'), txt('Points', 'Points'), watch, byMe,
