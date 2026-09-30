@@ -21,7 +21,7 @@
 .rp-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; }
 .rp-list li { display: flex; gap: var(--pad); align-items: baseline; padding: 3px 6px; border-radius: var(--radius); cursor: pointer; min-width: 0; }
 .rp-list li:hover { background: var(--bg-3); } .rp-list li.cur { background: var(--accent-bg); }
-.rp-list .key { font-family: ui-monospace, monospace; color: var(--fg-3); flex: none; } .rp-list .sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-list .key { font-family: var(--font-mono); color: var(--fg-3); flex: none; } .rp-list .sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .rp-ver { display: grid; grid-template-columns: minmax(120px, 1.2fr) 100px 2fr 90px; gap: var(--pad); align-items: center; padding: 6px 8px; border-radius: var(--radius); min-height: var(--row); cursor: default; }
 .rp-ver.cur { background: var(--accent-bg); } .rp-ver:hover { background: var(--bg-3); } .rp-ver.released { color: var(--fg-2); }

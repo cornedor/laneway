@@ -14,7 +14,7 @@
 .pl-row:hover .pl-sel, .pl-row.picked .pl-sel { visibility: visible; } .pl-row.picked .pl-sel { color: var(--accent); }
 .pl-type { width: 16px; height: 16px; border-radius: 4px; flex: none; font-size: 10px; font-weight: 700; display: grid; place-items: center; color: var(--bg); background: var(--fg-3); }
 .pl-type.bug { background: var(--err); } .pl-type.story { background: var(--ok); } .pl-type.task { background: var(--info); } .pl-type.epic { background: var(--accent); } .pl-type.sub { background: var(--fg-3); }
-.pl-key { font-family: ui-monospace, monospace; font-size: 12px; color: var(--fg-3); flex: none; }
+.pl-key { font-family: var(--font-mono); font-size: 12px; color: var(--fg-3); flex: none; }
 .pl-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pl-flag { color: var(--err); flex: none; }
 .pl-epic { max-width: 140px; overflow: hidden; text-overflow: ellipsis; flex: none; }

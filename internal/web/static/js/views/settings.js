@@ -15,6 +15,7 @@ import api from '../lib/api.js';
 import * as notifier from '../lib/notify.js';
 import { load as loadConfig } from './settings_config.js';
 import { keyOptions } from './settings_keys.js';
+import { fontOptions } from './settings_fonts.js';
 
 css('settings');
 
@@ -47,6 +48,7 @@ export default function mount(el, { app, scope, toolbar }) {
       change: d => { const l = ['', ...theme.accents]; theme.setAccent(cycle(l, theme.accent, d)); refresh(); } },
     choice('Density', 'spacing of rows and panels', 'Appearance', ['compact', 'normal', 'roomy'], () => theme.density, v => { theme.setDensity(v); refresh(); }),
     choice('Font size', 'base text size', 'Appearance', [0, 12, 13, 14, 15, 16, 18], () => theme.fontSize, v => { theme.setFontSize(v); refresh(); }, v => (v ? v + 'px' : 'from density')),
+    ...fontOptions(app, () => refresh()),
     choice('Motion', 'animations and transitions', 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? 'reduced' : 'system')),
     { name: 'Custom tokens', desc: 'CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies', section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
 

@@ -62,4 +62,7 @@ if (theme.fontSize) theme.setFontSize(theme.fontSize);
 if (theme.motion === 'reduce') theme.setMotion('reduce');
 theme.setCustom(theme.custom);
 
+import fonts from './fonts.js'; // applies --font-ui / --font-mono at load
+theme.fonts = fonts;
+
 export default theme;

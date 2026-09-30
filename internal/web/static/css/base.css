@@ -1,8 +1,13 @@
+/* --font-ui, --font-mono, --lig, --lh: js/lib/fonts.js overrides them on <html> (Settings > Appearance) */
+:root { --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; --lig: normal; --lh: 1.45; }
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--fg); font: var(--fs)/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+body { background: var(--bg); color: var(--fg); font: var(--fs)/var(--lh) var(--font-ui); -webkit-font-smoothing: antialiased; overflow: hidden; }
 a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-code, pre, kbd, .mono { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; }
+code, pre, kbd, .mono { font-family: var(--font-mono); font-variant-ligatures: var(--lig); }
+/* inputs do not inherit the font by default */
+button, input, select, textarea { font-family: inherit; }
+input.mono, textarea.mono, .mono input, .mono textarea { font-family: var(--font-mono); font-variant-ligatures: var(--lig); }
 pre { background: var(--bg-3); padding: var(--pad); border-radius: var(--radius); overflow: auto; }
 h1,h2,h3 { margin: 0 0 .4em; line-height: 1.25; } h2 { font-size: 1.25em; } h3 { font-size: 1.05em; }
 .dim { color: var(--fg-2); } .faint { color: var(--fg-3); }

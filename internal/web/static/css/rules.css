@@ -17,7 +17,7 @@
 .rt-row.fires .rt-mark { color: var(--ok); }
 .rt-row:not(.fires) .rt-mark { color: var(--err); }
 .rt-acts { flex-basis: 100%; padding-left: 22px; }
-.rules-log { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em; max-height: 40vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: var(--pad); background: var(--bg-2); }
+.rules-log { font-family: var(--font-mono); font-size: .92em; max-height: 40vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); padding: var(--pad); background: var(--bg-2); }
 .lg { display: flex; gap: 8px; padding: 1px 0; white-space: pre-wrap; }
 .lg.err { color: var(--err); }
 .lg-at { flex: none; }

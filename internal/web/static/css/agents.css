@@ -6,7 +6,7 @@
 .agent-chip.st-done { color: var(--ok); }
 .agent-chip.st-idle, .agent-chip.st-worktree, .agent-chip.st-unknown { color: var(--fg-3); }
 .iss-sub .agent-chip { margin-left: 0; }
-.start-work textarea.input { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; resize: vertical; }
+.start-work textarea.input { font-family: var(--font-mono); font-size: 12px; resize: vertical; }
 
 .agents { height: 100%; display: grid; grid-template-columns: minmax(320px, 42%) 1fr; min-height: 0; }
 .ag-list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; min-height: 0; }

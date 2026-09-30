@@ -7,7 +7,7 @@
 
 .iss-head { padding: var(--pad) calc(var(--pad) * 2) 0; flex: none; }
 .iss-top { display: flex; align-items: center; gap: 6px; }
-.iss-key { font-family: ui-monospace, monospace; font-weight: 600; padding: 0; }
+.iss-key { font-family: var(--font-mono); font-weight: 600; padding: 0; }
 .btn.sm { padding: 1px 7px; font-size: .9em; }
 .iss-title { font-size: 1.3em; margin: 6px 0 4px; cursor: text; overflow-wrap: anywhere; }
 .iss-title:hover { background: var(--bg-3); border-radius: var(--radius); }
@@ -44,7 +44,7 @@ button.fld { cursor: pointer; } button.fld:hover { background: var(--bg-3); bord
 .row-link.done .clip { color: var(--fg-3); text-decoration: line-through; }
 .row-link .clip { flex: 1; } .row-link .k { color: var(--fg-2); flex: none; } .row-link .x { opacity: 0; } .row-link:hover .x { opacity: 1; }
 .lgroup .rel { font-size: .8em; color: var(--fg-3); padding: 4px 8px 0; }
-a.issue-ref { font-family: ui-monospace, monospace; font-size: .95em; }
+a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-bottom: var(--pad); }
 .thumb { display: flex; flex-direction: column; gap: 3px; font-size: .8em; color: var(--fg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; background: var(--bg); }
 .thumb:hover { border-color: var(--accent); text-decoration: none; }
@@ -83,7 +83,7 @@ a.issue-ref { font-family: ui-monospace, monospace; font-size: .95em; }
 /* editor */
 .ed { position: relative; margin: 4px 0; }
 .ed-ta { resize: none; min-height: 4.5em; line-height: 1.45; display: block; }
-.ed-ta.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em; }
+.ed-ta.mono { font-family: var(--font-mono); font-size: .92em; }
 .ed-foot { display: flex; align-items: center; gap: 6px; margin-top: 6px; } .ed-foot .hint { font-size: .8em; }
 .mention-pop { position: absolute; left: 0; bottom: 100%; z-index: 10; min-width: 220px; max-height: 240px; overflow: auto; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 3px; }
 .mp { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius); cursor: pointer; } .mp.sel { background: var(--accent-bg); }
@@ -120,5 +120,5 @@ a.issue-ref { font-family: ui-monospace, monospace; font-size: .95em; }
 .tr-list { display: flex; flex-direction: column; max-height: calc(4 * 1.9em); overflow-y: auto; }
 .tr-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; color: var(--fg); background: none; border: 0; padding: 1px 8px; cursor: pointer; min-width: 0; white-space: nowrap; }
 .tr-row:hover { background: var(--bg-4); }
-.tr-mark { color: var(--fg-3); } .tr-key { font-family: ui-monospace, monospace; font-weight: 600; flex: none; }
+.tr-mark { color: var(--fg-3); } .tr-key { font-family: var(--font-mono); font-weight: 600; flex: none; }
 .tr-row .pill { flex: none; font-size: .85em; padding: 0 6px; } .tr-sum { color: var(--fg-2); flex: 1; }

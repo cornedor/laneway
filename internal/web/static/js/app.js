@@ -175,6 +175,7 @@ async function boot() {
     app.session = await api.get('/session');
     api.setSite(app.session.site);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
+    theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
   } catch (e) { clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));

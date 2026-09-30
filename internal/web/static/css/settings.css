@@ -14,7 +14,7 @@
 .st-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: pointer; color: var(--fg-3); background: var(--bg-3); font-size: 12px; }
 .st-dot.on { border-color: var(--fg); box-shadow: 0 0 0 2px var(--bg-2) inset; }
 .st-color { width: 28px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: none; cursor: pointer; }
-.st-json { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; } .st-err { color: var(--err); font-size: 12px; min-height: 0; }
+.st-json { font-family: var(--font-mono); font-size: 12px; resize: vertical; } .st-err { color: var(--err); font-size: 12px; min-height: 0; }
 .st-edit { display: flex; flex-direction: column; gap: 6px; }
 .st-foot { margin-top: calc(var(--pad) * 2); font-size: 12px; color: var(--fg-3); }
 .st-val.mono { font-size: .92em; } .st-val { flex-wrap: wrap; justify-content: flex-end; }
@@ -40,3 +40,14 @@
   .st-row { flex-wrap: wrap; } .st-val { max-width: 100%; flex: 1 1 100%; justify-content: flex-start; }
   .st-head { flex-wrap: wrap; } .st-filter { max-width: none; flex: 1; }
 }
+
+/* fonts (views/settings_fonts.js) */
+.st-fonts { display: flex; flex-direction: column; gap: 8px; }
+.st-fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
+.st-fbtn { font-size: 14px; text-align: left; color: var(--fg); background: var(--bg-3); border: 2px solid transparent; border-radius: var(--radius); padding: 5px 9px; cursor: pointer; display: flex; flex-direction: column; min-width: 0; }
+.st-fbtn small { font-family: var(--font-ui); font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-fbtn.on { border-color: var(--accent); background: var(--accent-bg); }
+.st-fcustom { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .st-fcustom input.input { flex: 1; min-width: 180px; width: auto; }
+.st-fhint { font-size: 12px; color: var(--fg-3); } .st-fhint.ok { color: var(--ok); } .st-fhint.warn { color: var(--warn); }
+.st-fsample { padding: 8px 10px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--bg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-ffile { display: inline-flex; align-items: center; gap: 2px; }
