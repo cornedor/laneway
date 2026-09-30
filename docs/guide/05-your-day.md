@@ -14,8 +14,10 @@ remaining estimate; add `left:2h` to say what's left instead.
 ## The timer
 
 `T` starts a timer on the card or issue you're on; it shows in the header
-and survives a restart. `T` again stops it into the same log input, filled
-in with the time.
+and on the card (`⏱ 12m`) and survives a restart. `T` again stops it into
+the same log input, filled in with the time. Started on the wrong card?
+`ctrl+d` there drops it unlogged. Switching tasks? `T` on the next card logs
+this one and starts timing that one.
 
 > **Try it:** `T` on the card you're about to work on. When you're done,
 > `T` again, type what you did, `enter`. Your time is logged.
@@ -31,8 +33,9 @@ history); `enter` on one logs it.
 ![Today's worklogs](../screenshots/worklogs.png)
 
 `W` again shows the whole week as a grid, an issue per row and a day per
-column, with the totals and how short each workday is of 8h. `enter` on an
-empty cell logs work there.
+column, with the totals and how short each past workday is of 8h. `enter`
+on an empty cell logs work there; `#` adds a row for an issue you haven't
+logged on yet this week.
 
 > **Try it:** on Friday, `W` `W`, fill the gaps, `y`, paste it into the
 > time registration.

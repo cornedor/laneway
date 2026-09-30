@@ -20,7 +20,8 @@ Or grab a binary from
 `PATH`. When a newer release is out, `↑ v1.2` shows in the header and the
 palette (`:`) has the command that updates it.
 
-**Try it first:** `laneway -demo` opens a generated project, with sprints,
+**Try it first:** `laneway -demo` (or `demo` at the first start's site
+prompt) opens a generated project, with sprints,
 comments and worklogs, served inside laneway itself. No site, no token;
 move cards and comment all you like, it is gone when you quit. Most of this
 guide works on it; git, agents and your own sites need the real thing.

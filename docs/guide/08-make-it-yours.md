@@ -140,14 +140,14 @@ Custom fields show on cards and rows and are searchable:
 
 ## Settings: `,`
 
-`,` lists every `ui:` option with its value and default, and says what the
-selected one does. `enter` edits one, or picks from its values when it has
+`,` lists every `ui:` option by topic with its value and default, and says
+what the selected one does; `/` filters them by name and description. `enter` edits one, or picks from its values when it has
 a fixed set (`icons`, `theme`, …): checked, written back to the config file
 (your comments kept) and applied at once.
 
 ![Every ui: option with its value and default](../screenshots/settings.png)
 
-> **Try it:** `,`, find `panel_width`, set it to `40`. The panel resizes
+> **Try it:** `,`, `/panel_width` `enter`, then `enter` again and set it to `40`. The panel resizes
 > as you press `enter`.
 
 ## Themes

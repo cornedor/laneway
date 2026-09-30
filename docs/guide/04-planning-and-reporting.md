@@ -14,7 +14,9 @@ back.
 
 On a board with sprints, `P` puts the backlog on the left and a sprint on the
 right (the first future one; `[` `]` pick another). Each side counts its
-cards and points; the sprint also splits them per person.
+cards and points; the sprint also splits them per person, and weighs its
+points against what the last sprints got done (`10p of ~12p`, marked over
+when it is more).
 
 ![The backlog beside the next sprint](../screenshots/planning.png)
 
@@ -81,7 +83,9 @@ On a board with sprints, `C` draws the active sprint: burndown, burnup,
 cumulative flow, the velocity of the last sprints, and how long work takes
 (cycle and lead time, with the 50th and 85th percentile). *Retro* compares
 the last sprint with the one before, for the retrospective. `tab` steps through
-them; `y` copies the open chart's numbers as a table.
+them; `y` copies the open chart's numbers as a table. The burndown's title
+says where the sprint stands against the ideal line: ahead, behind or on
+track.
 
 ![The active sprint's burndown](../screenshots/burndown.png)
 
