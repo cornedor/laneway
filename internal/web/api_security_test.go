@@ -104,7 +104,7 @@ func TestAskTextRules(t *testing.T) {
 	}
 	defer stop()
 	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
-	ts := httptest.NewServer(New(context.Background(), Options{Client: cl, UI: config.UIConfig{LLM: "echo"}, Demo: true}))
+	ts := httptest.NewServer(New(context.Background(), Options{Client: cl, UI: config.UIConfig{LLM: "echo"}}))
 	defer ts.Close()
 	for _, text := range []string{"--dangerously-skip-permissions", " -p x", strings.Repeat("a", maxQuestion+1)} {
 		if c := issueCall(t, "POST", ts.URL+"/api/issues/DEMO-1/ask", map[string]string{"Text": text}, nil); c != 400 {

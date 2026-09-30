@@ -33,7 +33,7 @@ func toolsServer(t *testing.T, mod func(*Options)) (*httptest.Server, Options) {
 		t.Fatal(err)
 	}
 	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
-	opt := Options{Client: cl, Store: st, Site: "demo", Demo: true}
+	opt := Options{Client: cl, Store: st, Site: "demo"}
 	if mod != nil {
 		mod(&opt)
 	}

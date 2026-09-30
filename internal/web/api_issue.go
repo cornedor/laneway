@@ -22,8 +22,11 @@ func init() {
 			return nil, err
 		}
 		cards, err := s.Client().SearchCards(ctx, "key = "+key)
-		if err != nil || len(cards) == 0 {
+		if err != nil {
 			return nil, err
+		}
+		if len(cards) == 0 {
+			return nil, httpError{http.StatusNotFound, key + " not found"}
 		}
 		return cards[0], nil
 	})

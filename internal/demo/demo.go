@@ -26,6 +26,8 @@ type Server struct {
 	sprints  []sprint
 	versions []version
 	seq      int
+	links    []link
+	linkSeq  int
 	// Unhandled are the requests no route answered, for tests.
 	Unhandled []string
 }
@@ -111,6 +113,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.rank(body)
 		w.WriteHeader(http.StatusNoContent)
 		return
+	case r.Method == http.MethodPost && p == "/rest/api/3/issueLink":
+		if !s.addLink(body) {
+			w.WriteHeader(http.StatusBadRequest)
+			send(map[string]any{"errorMessages": []string{"unknown link type or issue"}})
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		return
+	case r.Method == http.MethodDelete && strings.HasPrefix(p, "/rest/api/3/issueLink/"):
+		id := strings.TrimPrefix(p, "/rest/api/3/issueLink/")
+		s.links = slices.DeleteFunc(s.links, func(l link) bool { return l.id == id })
+		w.WriteHeader(http.StatusNoContent)
+		return
 	case r.Method != http.MethodGet:
 		s.Unhandled = append(s.Unhandled, r.Method+" "+p)
 		w.WriteHeader(http.StatusNoContent) // any other write succeeds and changes nothing
@@ -156,8 +171,14 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 			out = append(out, map[string]any{"id": strconv.Itoa(i + 1), "name": n})
 		}
 		return out, true
-	case "/rest/api/3/filter/favourite", "/rest/api/3/issueLinkType":
+	case "/rest/api/3/filter/favourite":
 		return []any{}, true
+	case "/rest/api/3/issueLinkType":
+		out := []any{}
+		for i, t := range linkTypes {
+			out = append(out, map[string]any{"id": strconv.Itoa(10000 + i), "name": t[0], "inward": t[1], "outward": t[2]})
+		}
+		return map[string]any{"issueLinkTypes": out}, true
 	case "/rest/api/3/user/assignable/search", "/rest/api/3/user/search", "/rest/api/3/user/viewissue/search":
 		out := []any{}
 		for _, u := range users {
@@ -495,6 +516,57 @@ func (s *Server) list(issues []*issue, changelog bool) []any {
 			j["changelog"] = map[string]any{"histories": hs}
 		}
 		out = append(out, j)
+	}
+	return out
+}
+
+// linkTypes are name, inward, outward.
+var linkTypes = [][3]string{
+	{"Blocks", "is blocked by", "blocks"},
+	{"Relates", "relates to", "relates to"},
+	{"Duplicate", "is duplicated by", "duplicates"},
+}
+
+// link is one issue link: from is the inward end ("from blocks to").
+type link struct{ id, typ, from, to string }
+
+func (s *Server) addLink(body map[string]any) bool {
+	name := func(k, f string) string {
+		m, _ := body[k].(map[string]any)
+		v, _ := m[f].(string)
+		return v
+	}
+	typ, from, to := name("type", "name"), name("inwardIssue", "key"), name("outwardIssue", "key")
+	if s.issues[from] == nil || s.issues[to] == nil || from == to || !slices.ContainsFunc(linkTypes, func(t [3]string) bool { return t[0] == typ }) {
+		return false
+	}
+	s.linkSeq++
+	s.links = append(s.links, link{strconv.Itoa(20000 + s.linkSeq), typ, from, to})
+	return true
+}
+
+// linksJSON is the issuelinks field of key: each link names the other end.
+func (s *Server) linksJSON(key string) []any {
+	out := []any{}
+	for _, l := range s.links {
+		if l.from != key && l.to != key {
+			continue
+		}
+		var t [3]string
+		for _, lt := range linkTypes {
+			if lt[0] == l.typ {
+				t = lt
+			}
+		}
+		e := map[string]any{"id": l.id, "type": map[string]any{"name": t[0], "inward": t[1], "outward": t[2]}}
+		other, side := l.to, "outwardIssue"
+		if l.to == key {
+			other, side = l.from, "inwardIssue"
+		}
+		if o := s.issues[other]; o != nil {
+			e[side] = map[string]any{"key": o.key, "fields": map[string]any{"summary": o.summary, "status": statusJSON(o.status)}}
+			out = append(out, e)
+		}
 	}
 	return out
 }

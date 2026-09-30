@@ -150,3 +150,47 @@ func TestDemoJQLCompletion(t *testing.T) {
 		t.Errorf("labels = %v", vals)
 	}
 }
+
+func TestDemoLinks(t *testing.T) {
+	c, s := demoClient(t)
+	ctx := context.Background()
+	types, err := c.LinkTypes(ctx)
+	if err != nil || len(types) < 3 {
+		t.Fatalf("types = %v, %v", types, err)
+	}
+	if err := c.LinkIssues(ctx, "Blocks", "DEMO-1", "DEMO-2"); err != nil {
+		t.Fatal(err)
+	}
+	rel := func(key string) (string, string) {
+		iss, err := c.Get(ctx, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, l := range iss.Links {
+			if l.Key == "DEMO-1" || l.Key == "DEMO-2" {
+				return l.Rel, l.Key
+			}
+		}
+		return "", ""
+	}
+	if r, k := rel("DEMO-1"); r != "blocks" || k != "DEMO-2" {
+		t.Errorf("DEMO-1: %q %q", r, k)
+	}
+	if r, k := rel("DEMO-2"); r != "is blocked by" || k != "DEMO-1" {
+		t.Errorf("DEMO-2: %q %q", r, k)
+	}
+	if len(s.Unhandled) != 0 {
+		t.Errorf("unhandled %v", s.Unhandled)
+	}
+	iss, _ := c.Get(ctx, "DEMO-1")
+	for _, l := range iss.Links {
+		if l.Key == "DEMO-2" {
+			if err := c.DeleteLink(ctx, "DEMO-1", l.LinkID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if r, _ := rel("DEMO-1"); r != "" {
+		t.Errorf("link kept: %q", r)
+	}
+}

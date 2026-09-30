@@ -6,8 +6,9 @@ import { target } from './timer.js';
 
 export function install(app) {
   const ask = () => {
+    if (app.session && app.session.demo) return app.ui.toast('Not available in demo');
     const key = app.panel.key || target(app);
-    if (!key) return app.ui.toast('Select an issue to ask about');
+    if (!key) return app.ui.toast('Select an issue first');
     openAsk(app, key);
   };
   app.keys.scope('ask').bind('ctrl+a', ask, 'ask the LLM about the issue', { group: 'Issue' });

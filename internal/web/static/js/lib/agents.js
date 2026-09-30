@@ -95,7 +95,8 @@ export function install(app) {
   };
 
   // ---- keys and commands
-  const need = fn => () => { const k = target(app); if (k) fn(k); else ui.toast('Select an issue first'); };
+  const demo = () => !!(app.session && app.session.demo);
+  const need = fn => () => { if (demo()) return ui.toast('Not available in demo'); const k = target(app); if (k) fn(k); else ui.toast('Select an issue first'); };
   const copyBranch = async key => {
     try {
       const { Name } = await api.get('/issues/' + key + '/branch');
@@ -113,12 +114,12 @@ export function install(app) {
     } catch (e) { close(); ui.errToast(e); }
   };
   const k = app.keys.scope('agents-global');
-  k.bind('S', need(key => start(key)), 'start work (worktree + agent)', { group: 'Agents', when: () => !!target(app) });
-  k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: 'Agents', when: () => !!target(app) });
+  k.bind('S', need(key => start(key)), 'start work (worktree + agent)', { group: 'Agents', when: () => !demo() });
+  k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: 'Agents', when: () => !demo() });
   const cmd = (id, title, run, when) => app.commands.register({ id, group: 'Agents', get title() { return title(); }, run, when });
-  cmd('agents:start', () => 'Start work on ' + target(app), need(key => start(key)), () => !!target(app));
-  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { force: true })), () => !!target(app) && snap.Available);
-  cmd('agents:branch', () => 'Copy branch name of ' + target(app), need(copyBranch), () => !!target(app));
-  cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !!target(app));
-  app.agents.draftPR = draftPR;
+  cmd('agents:start', () => 'Start work on ' + target(app), need(key => start(key)), () => !demo() && !!target(app));
+  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { force: true })), () => !demo() && !!target(app) && snap.Available);
+  cmd('agents:branch', () => 'Copy branch name of ' + target(app), need(copyBranch), () => !demo() && !!target(app));
+  cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && !!target(app));
+  app.agents.draftPR = demo() ? () => ui.toast('Not available in demo') : draftPR;
 }

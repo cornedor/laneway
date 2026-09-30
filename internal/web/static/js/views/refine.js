@@ -31,9 +31,10 @@ export async function startRefine(app) {
   scope.bind('K', () => step(-1), 'refine: previous issue', { group: 'Refine' });
   const offChange = bus.on('issue:changed', e => { if (e && e.key) changed.add(e.key); });
   const offPanel = bus.on('panel', e => { if (!e.key) end(); });
+  const offRoute = bus.on('route', () => end());
   async function end() {
     if (ending) return; ending = true;
-    scope.dispose(); offChange(); offPanel(); bar.remove();
+    scope.dispose(); offChange(); offPanel(); offRoute(); bar.remove();
     if (w0) document.documentElement.style.setProperty('--panel-w', w0); else document.documentElement.style.removeProperty('--panel-w');
     active = null;
     const list = [...changed];

@@ -224,7 +224,11 @@ func New(ctx context.Context, opt Options) *Server {
 	routesMu.Lock()
 	for _, rt := range routes {
 		h := rt.h
-		s.mux.HandleFunc(rt.pattern, func(w http.ResponseWriter, r *http.Request) { h(s.at(r), w, r) })
+		s.mux.HandleFunc(rt.pattern, func(w http.ResponseWriter, r *http.Request) {
+			if ss := s.at(r); !demoGate(ss, w, r) {
+				h(ss, w, r)
+			}
+		})
 	}
 	routesMu.Unlock()
 	s.sites.rulesOf(ctx, opt) // starts the rule watches

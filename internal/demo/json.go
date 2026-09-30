@@ -201,7 +201,7 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		"priority": map[string]any{"id": "3", "name": iss.priority}, "assignee": userJSON(iss.assignee), "reporter": userJSON(&iss.reporter),
 		"labels": labels, "created": stamp(iss.created), "updated": stamp(iss.updated), "resolutiondate": stamp(iss.resolved),
 		"statuscategorychangedate": stamp(changed), "duedate": due, "description": adf(iss.description), "parent": parent,
-		"subtasks": subtasks, "issuelinks": []any{}, "attachment": []any{}, "fixVersions": fixVersions,
+		"subtasks": subtasks, "issuelinks": s.linksJSON(iss.key), "attachment": []any{}, "fixVersions": fixVersions,
 		"project":   projectJSON(),
 		pointsField: points, sprintField: sp, flagField: flag, startField: start,
 	}

@@ -76,8 +76,8 @@ export function install(app) {
   }
 
   const k = app.keys.scope('timer');
-  k.bind('T', () => toggle(target(app)), 'start / stop timer', { group: 'Time', when: () => !!timer || !!target(app) });
-  k.bind('w', () => { const key = target(app); key && logDialog(app, { key }); }, 'log work', { group: 'Time', when: () => !!target(app) });
+  k.bind('T', () => { const key = target(app); if (!key && !timer) return app.ui.toast('Select an issue first'); toggle(key); }, 'start / stop timer', { group: 'Time' });
+  k.bind('w', () => { const key = target(app); if (key) logDialog(app, { key }); else app.ui.toast('Select an issue first'); }, 'log work', { group: 'Time' });
 
   const cmd = (id, title, run, when) => app.commands.register({ id, group: 'Time', get title() { return title(); }, run, when });
   cmd('timer:toggle', () => !timer ? 'Start timer on ' + target(app) : target(app) && target(app) !== timer.key ? 'Switch timer to ' + target(app) : 'Stop timer and log ' + timer.key,

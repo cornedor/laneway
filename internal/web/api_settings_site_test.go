@@ -48,8 +48,15 @@ func TestSettingsRace(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range 20 {
 		wg.Add(2)
-		go func() { defer wg.Done(); call(s, "PUT", "/api/settings/stale_days", `{"Value":`+string(rune('1'+i%9))+`}`, "s:demo") }()
-		go func() { defer wg.Done(); call(s, "GET", "/api/ui/actions", "", "s:demo"); call(s, "GET", "/api/settings", "", "") }()
+		go func() {
+			defer wg.Done()
+			call(s, "PUT", "/api/settings/stale_days", `{"Value":`+string(rune('1'+i%9))+`}`, "s:demo")
+		}()
+		go func() {
+			defer wg.Done()
+			call(s, "GET", "/api/ui/actions", "", "s:demo")
+			call(s, "GET", "/api/settings", "", "")
+		}()
 	}
 	wg.Wait()
 }

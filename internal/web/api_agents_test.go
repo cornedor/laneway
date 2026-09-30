@@ -147,7 +147,7 @@ func agentsServer(t *testing.T, repo string) *httptest.Server {
 	st, _ := store.Open(filepath.Join(t.TempDir(), "state.json"))
 	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
 	opt := Options{
-		Client: cl, Store: st, Site: "demo", Demo: true,
+		Client: cl, Store: st, Site: "demo",
 		Jira: config.JiraConfig{Repos: map[string]string{"DEMO": repo}},
 		UI:   config.UIConfig{StartAssigns: "on", StartStatus: "In Progress", TimerOnStart: "on"},
 	}
