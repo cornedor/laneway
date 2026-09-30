@@ -32,7 +32,7 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 | --- | --- |
 | Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `tab` panel/view focus, `esc` close panel |
 | Go | `g b` board, `g p` planning, `g r` reports, `g m` roadmap, `g w` my work, `g i` inbox, `g s` standup, `g ,` settings, `g t` next theme |
-| Board | `hjkl`/arrows move, `enter` open, `t` lanes/list, `s` status, `e` summary, `a` assign, `p` priority, `P` points, `H`/`L` move column, `J`/`K` rank, `x` mark, `X` bulk, `o` Jira, `y` copy key, `r` refresh, `S` sort (list), `B` board/project, `v` sprint, `[`/`]` sprint, `f` filter, `m` mine, `A` assignee, `0` clear, `1`-`9` quick filters |
+| Board | `hjkl`/arrows move, `enter` open, `t` lanes/list, `s` status, `e` summary, `a` assign, `p` priority, `P` points, `H`/`L` move column, `J`/`K` rank, `x` mark, `X` bulk, `o` Jira, `y` copy key, `r` refresh, `O` swimlanes (lanes) / sort (list), `z`/`Z` fold/unfold swimlane, `c` one-line cards, `C` list columns, `F` filter builder, `*` pin, `.` repeat, `alt+j`/`alt+k` rank bottom/top, `ctrl+a` mark all, `ctrl+y` copy branch, `Y` copy link, `alt+t` time machine (`←` `→` `esc`), `alt+o` closed sprints, `B` board/project, `v` view, `[`/`]` previous/next view (sprints, backlog, `ui.views`, starred filters), `f` filter, `m` mine, `A` assignee, `0` clear, `1`-`9` quick filters |
 | Issue panel | `j`/`k` comment or scroll, `c` comment, `R` reply, `e` summary (own focused comment), `E` description, `a` `p` `P` `l` assignee, priority, points, labels, `s` status, `L` link issue, `d` delete own comment, `[`/`]` prev/next issue, `1`-`3` tabs, `y`/`Y` copy key/link, `o` Jira, `r` refresh, `ctrl+enter` save |
 | Planning | `jk` move, `J`/`K` rank, `m` move to sprint, `[`/`]` previous/next sprint, `x`/`space` select, `z` fold, `enter` open, `P` points, `a` assignee, `N` `S` `C` `E` new, start, complete, edit sprint, `b` board, `f` filter, `R` reload |
 | Reports | `h`/`l`/`[`/`]`/arrows previous/next report, `1`-`7` pick, `s` sprint, `b` board, `W` weeks (cycle time), `r` release (releases), `R` reload, `jk` items |
@@ -40,9 +40,10 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 | My work | `jk` move, `enter` open, `1` `2` `3` issues/day/week, `W` day/week, `h`/`l` step, `0` today, `a` add worklog, `e` edit, `d` delete, `+` add row (week), `f` filter, `v` group, `r` refresh, `y` copy |
 | Inbox | `jk`, `enter`, `e` done, `E` all read done, `s` snooze, `u` unread, `a` toggle read, `o` Jira, `r` refresh, `A` or `tab` inbox/all (`tab` goes to an open panel) |
 | Standup | `jk`, `enter`, `[`/`]` day back/forward, `p` or `tab` mine/team, `P` project, `y` copy, `r` refresh |
+| Agents (herdr; hidden without it) | `g a` agents, `g R` review (gh/glab), `S` start work on the selected issue (anywhere; focuses its agent if one runs), `ctrl+y` copy branch name; on the agents screen `jk`, `tab` worktrees, `enter` issue, `f` focus in herdr, `p` prompt, `N` new agent, `d` stop (twice), `o` `y` `r`; draft pull request in the palette |
 | Settings | `jk`, `enter`/`space`/`l` change, `h` back, `/` filter, `esc` leave |
 
-Moved because of a clash: timer `t`->`T` (board `t` is lanes/list), create `c`->`n` (panel `c` is comment), next theme `T`->`g t`, My work day/week `w`->`W` (`w` logs work), cycle-time weeks `w`->`W`, planning filter `/`->`f` and fold `o`->`z` (`/` is search, `o` is Jira), week-view add row `#`->`+`, issue panel: link `l`->`L` (`l` is labels), reply `r`->`R`, description `e`->`E`, `r` refreshes.
+Moved because of a clash: board sort `S`->`O` (`S` starts work), timer `t`->`T` (board `t` is lanes/list), create `c`->`n` (panel `c` is comment), next theme `T`->`g t`, My work day/week `w`->`W` (`w` logs work), cycle-time weeks `w`->`W`, planning filter `/`->`f` and fold `o`->`z` (`/` is search, `o` is Jira), week-view add row `#`->`+`, issue panel: link `l`->`L` (`l` is labels), reply `r`->`R`, description `e`->`E`, `r` refreshes.
 
 ## Conventions
 
