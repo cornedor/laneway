@@ -17,7 +17,8 @@ import (
 // W in today's worklogs opens the week in place of the board: an issue per
 // row, a day per column, with the day's and the week's totals and how far
 // a workday is short of 8h. enter on a cell logs work on that issue that
-// day; [ ] step a week, y copies the grid as a markdown table.
+// day, # adds an issue's row to log on; [ ] step a week, y copies the grid
+// as a markdown table.
 
 // workdaySecs is the day a gap is measured against.
 const workdaySecs = 8 * 3600
@@ -168,6 +169,9 @@ func (m Model) handleWeekKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		r := w.rows[w.row]
 		m.openWorklogInput(r.key, "", w.from.AddDate(0, 0, w.col).Add(m.opts.workdayStart))
+	case key.Matches(msg, m.keys.Goto):
+		m.openBulkInput("week-add", "ABC-123 or 123")
+		m.jiraFieldKey = "the week"
 	case key.Matches(msg, m.keys.CopyKey):
 		if w.loading || w.err != "" {
 			break
@@ -178,6 +182,66 @@ func (m Model) handleWeekKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openHelp("Week")
 	}
 	return m, nil
+}
+
+// applyWeekAdd adds the typed issue's row to the week, the cursor on it;
+// one not on the board is looked up for its summary first.
+func (m Model) applyWeekAdd(raw string) (tea.Model, tea.Cmd) {
+	k := jiraGotoKey(raw, m.jiraTab.project)
+	if k == "" {
+		m.fail("not an issue key: " + raw)
+		return m, nil
+	}
+	m.closeJiraField()
+	if c, ok := m.cardOf(k); ok {
+		m.addWeekRow(k, c.Summary)
+		return m, nil
+	}
+	client, ctx := m.jiraClient, m.ctx
+	m.status = "looking up " + k + "…"
+	return m, func() tea.Msg {
+		iss, err := client.Get(ctx, k)
+		msg := weekAddMsg{key: k, err: err}
+		if iss != nil {
+			msg.summary = iss.Summary
+		}
+		return msg
+	}
+}
+
+// weekAddMsg is an issue looked up to add to the week.
+type weekAddMsg struct {
+	key, summary string
+	err          error
+}
+
+func (m Model) handleWeekAdd(msg weekAddMsg) (tea.Model, tea.Cmd) {
+	if m.jiraTab.week == nil {
+		return m, nil
+	}
+	if msg.err != nil {
+		m.fail(msg.err.Error())
+		return m, nil
+	}
+	m.status = ""
+	m.addWeekRow(msg.key, msg.summary)
+	return m, nil
+}
+
+// addWeekRow puts the cursor on key's row, adding an empty one when the
+// week has none, in today's column when the week is this one.
+func (m *Model) addWeekRow(key, summary string) {
+	w := m.jiraTab.week
+	i := slices.IndexFunc(w.rows, func(r weekRow) bool { return r.key == key })
+	if i < 0 {
+		w.rows = append(w.rows, weekRow{key: key, summary: summary})
+		slices.SortFunc(w.rows, func(a, b weekRow) int { return compareKeys(a.key, b.key) })
+		i = slices.IndexFunc(w.rows, func(r weekRow) bool { return r.key == key })
+	}
+	w.row = i
+	if d := int(time.Since(w.from).Hours() / 24); d >= 0 && d < 7 {
+		w.col = d
+	}
 }
 
 // weekCell is secs as a cell: "1h 30m", "·" for none.
@@ -205,8 +269,8 @@ func (m *Model) weekLine() string {
 		s += jiraDimStyle.Render("  ·  loading…")
 	}
 	k := m.keys
-	return s + jiraDimStyle.Render(fmt.Sprintf("  ·  %s %s week · enter log in the cell · %s copy · esc board",
-		helpKey(k.PrevView), helpKey(k.NextView), helpKey(k.CopyKey)))
+	return s + jiraDimStyle.Render(fmt.Sprintf("  ·  %s %s week · enter log in the cell · %s add an issue · %s copy · esc board",
+		helpKey(k.PrevView), helpKey(k.NextView), helpKey(k.Goto), helpKey(k.CopyKey)))
 }
 
 const weekColW = 8
@@ -256,7 +320,8 @@ func (m *Model) renderWeek(width, height int) string {
 	for d, s := range days {
 		tot += cell(weekCell(s), lipgloss.NewStyle().Bold(true))
 		g := ""
-		if m.workday(w, d) && !w.from.AddDate(0, 0, d).After(time.Now()) {
+		// Days gone by only: today isn't short yet.
+		if m.workday(w, d) && w.from.AddDate(0, 0, d+1).Before(time.Now()) {
 			g = weekGap(s)
 		}
 		gap += cell(g, jiraOverStyle)

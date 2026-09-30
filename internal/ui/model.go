@@ -843,6 +843,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleTimerTick()
 	case standupMsg:
 		return m.handleStandup(msg)
+	case weekAddMsg:
+		return m.handleWeekAdd(msg)
 	case weekMsg:
 		return m.handleWeek(msg)
 	case chartsMsg:

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -60,5 +61,40 @@ func TestWeek(t *testing.T) {
 	out, _ = m.handleJiraKey(keyMsg(t, "esc"))
 	if m = out.(Model); m.jiraTab.week != nil {
 		t.Error("esc should close the week")
+	}
+}
+
+// TestWeekAddRow: # adds an issue's row to log on, the cursor on it in
+// today's column; today isn't counted short.
+func TestWeekAddRow(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.week = &weekState{from: weekStart(time.Now())}
+	out, _ := m.Update(weekMsg{seq: m.jiraTab.week.seq})
+	m = out.(Model)
+	out, _ = m.handleKey(keyMsg(t, "#"))
+	m = out.(Model)
+	if !m.jiraFieldActive || m.jiraFieldName != "week-add" {
+		t.Fatalf("#: field %q active %v", m.jiraFieldName, m.jiraFieldActive)
+	}
+	m.jiraFieldInput.SetValue("3")
+	out, _ = m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	w := m.jiraTab.week
+	today := (int(time.Now().Weekday()) + 6) % 7
+	if len(w.rows) != 1 || w.rows[0].key != "ABC-3" || w.row != 0 || w.col != today {
+		t.Fatalf("rows %v, cursor %d,%d", w.rows, w.row, w.col)
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "ABC-3 Third") {
+		t.Errorf("no row:\n%s", view)
+	}
+	if lines := strings.Split(view, "\n"); slices.ContainsFunc(lines, func(l string) bool {
+		return strings.Contains(l, "Short of 8h") && strings.Count(l, "-8h") > today
+	}) {
+		t.Errorf("today counted short:\n%s", view)
+	}
+	out, _ = m.handleKey(keyMsg(t, "enter"))
+	if m = out.(Model); m.jiraFieldKey != "ABC-3" || m.jiraFieldName != "worklog" {
+		t.Errorf("enter on the new row: logging on %q", m.jiraFieldKey)
 	}
 }

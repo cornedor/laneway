@@ -1038,6 +1038,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	if field == "plan-new" {
 		return m.applyPlanNew(raw)
 	}
+	if field == "week-add" {
+		return m.applyWeekAdd(raw)
+	}
 	if field == "plan-start" {
 		return m.applyPlanStart(raw)
 	}
@@ -1406,6 +1409,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Goal of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "jql-filter":
 		title, hint, outerW = "Save as a Jira filter", "↵ save, starred · esc cancel", m.jiraFieldInput.Width()+12
+	case "week-add":
+		title, hint, outerW = "Add an issue", "↵ add its row · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-new":
 		title, hint, outerW = "New sprint", "↵ create · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-start":

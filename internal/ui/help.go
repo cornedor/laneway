@@ -210,6 +210,7 @@ func (m *Model) helpSections() []struct {
 		section{"Week", []helpRow{
 			{join(k.PrevView, k.NextView), "previous / next week"},
 			row(k.OpenChannel, "log work on the cell's issue and day"),
+			row(k.Goto, "add an issue's row, to log on it"),
 			row(k.CopyKey, "copy the week as a markdown table"),
 			row(k.Refresh, "refresh"),
 			{"esc / " + helpKey(k.Quit) + " / " + helpKey(k.Timesheet), "back to the board"},

@@ -530,8 +530,8 @@ issue's time less what it has logged, rounded to a quarter; `enter` on one
 logs it from its start.
 `W` again shows the week: an issue per row, a day per column, the day and
 week totals and how far each past workday is short of 8h. `enter` on a cell
-logs work on that issue that day (from `ui.workday_start`), `[` `]` step a
-week, `y` copies the grid as a markdown table.
+logs work on that issue that day (from `ui.workday_start`), `#` adds an
+issue's row to log on, `[` `]` step a week, `y` copies the grid as a markdown table.
 
 ## Git and your shell
 
