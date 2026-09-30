@@ -626,7 +626,7 @@ boards laneway last loaded. `source <(laneway completion bash)` in your
 
 ## In the browser
 
-`laneway web` (alias `serve`) serves the board, planning, reports, roadmap, your work, inbox and standup in a browser. Same binary, no build step, nothing to install; it talks to Jira with your config.
+`laneway web` (alias `serve`) serves the board, planning, reports, roadmap, your work, inbox, standup, agents, review and rules in a browser. Same binary, no build step, nothing to install; it talks to Jira with your config.
 
 ```sh
 laneway web                     # http://127.0.0.1:8484, opens the browser
@@ -635,11 +635,12 @@ laneway -site club web          # another site (-config works too)
 laneway web -addr 127.0.0.1:9000 -no-open
 ```
 
-- `-remote` allows a non-loopback `-addr`. The UI acts as you on Jira and has no login: only on a network and machine you trust.
-- Keyboard first, like the terminal: `?` lists the keys of the view, `:` is the palette, `g` then a letter goes to a view (`g b` board, `g p` planning, `g w` my work), `tab` moves focus between view and panel. The mouse works too, drag and drop included.
-- Themes: light, dark, nord, gruvbox, solarized, mono or the system's; accent, density, font size and your own CSS tokens under `g ,` (settings). Stored in the browser.
+- `-remote` allows a non-loopback `-addr` and needs the launch token. The UI acts as you on Jira, and `ui.actions` and `ui.llm` run commands: never expose it publicly. `Host` and `Origin` are checked.
+- Keyboard first, like the terminal: `?` lists the keys of the view, `:` is the palette, `g` then a letter goes to a view (`g b` board, `g p` planning, `g w` my work; `M` lists them all), `tab` moves focus between view and panel. The mouse works too, drag and drop included.
+- Themes: light, dark, nord, gruvbox, solarized, mono or the system's; accent, density, font size and your own CSS tokens under `g ,` (settings). Look is stored in the browser; `ui:` options and key remaps are written to `config.yaml`.
 - Fast by design: views draw from the last answer first and refresh behind it, long lists are virtualised, edits show at once and roll back on an error.
-- Not in the browser: coding agents and herdr, git helpers, inline kitty images, rules, the offline queue, scripts and custom actions, key remapping.
+- Also there: agents and review (herdr), `S` start work, rules, the offline queue (`⇡` chip), `ui.actions`, `ctrl+a` ask the LLM, private notes, several sites (`@`), notifications, installable as a PWA.
+- Not in the browser: terminal attach for agents, inline kitty images, the local index; the inbox covers one site. Where keys clash the browser moves its own: timer `T`, create `n`, reply `R`, description `E`, next theme `g t`.
 
 ## Planning
 

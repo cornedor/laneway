@@ -27,7 +27,16 @@ terminal stops it.
 
 ## The layout
 
-A header with the views, the issue panel on the right.
+Two bars on top and the issue panel on the right.
+
+- **App bar:** brand and site (`@` switches with several `sites:`), the
+  views, the tray, search. Views that don't fit fold into **More** (`M`
+  lists them all with their keys); the open one always stays.
+- **Tray:** only what needs you: offline, queued writes (`⇡3`, click to send
+  or drop one), agents waiting or working, the running timer.
+- **Context bar** (under it): where you are (project, board, sprint) and
+  how you look at it (filters, modes). Views without controls have none.
+- After `g` a hint lists the keys that can follow.
 
 | View | Key | |
 | --- | --- | --- |
@@ -35,17 +44,27 @@ A header with the views, the issue panel on the right.
 | Planning | `g p` | backlog and sprints, start and complete |
 | Reports | `g r` | burndown, burnup, cumulative flow, velocity, cycle time, retro, releases |
 | Roadmap | `g m` | epics on a timeline |
-| My work | `g w` | your issues, worklogs of a day or week |
-| Inbox | `g i` | threads on issues others changed |
-| Standup | `g s` | yours or the team's |
-| Settings | `g ,` | appearance, board defaults |
+| My work | `g w` | your issues, worklogs of a day or week, proposals from git |
+| Inbox | `g i` | threads on issues others changed, mentions |
+| Standup | `g s` | yours or the team's, one card at a time |
+| Review | `g R` | pull requests to review (needs `gh` or `glab`; hidden without herdr) |
+| Agents | `g a` | coding agents and worktrees (needs herdr; hidden without it) |
+| Rules | `g l` | your rules, a live feed, try a change |
+| Settings | `g ,` | every `ui:` option, appearance, keys |
 
 `enter` on a card opens the panel: details, comments, history. It works
-like the terminal's: `e` edits the description, `c` comments, `r` replies,
-`[` `]` step through the list you came from. Editing is the same too:
-`s` status, `a` assignee, `p` priority, `P` points, `H` `L` move a card a
-lane over, `x` marks, `X` edits the marked ones, `c` creates. The timer is
-`t`, `w` logs work.
+like the terminal's: `E` edits the description, `e` the summary, `c`
+comments, `R` replies, `N` keeps private notes, `[` `]` step through the
+list you came from. Editing is the same too: `s` status, `a` assignee,
+`p` priority, `P` points, `H` `L` move a card a lane over, `x` marks, `X`
+edits the marked ones. `n` creates an issue, `T` starts or stops the timer,
+`w` logs work, `S` starts work on the issue in an agent, `ctrl+a` asks the
+LLM about it (`ui.llm`), and your `ui.actions` run on their own keys and
+in the palette.
+
+Where the terminal and the browser clash, the terminal keeps its key and
+the browser's action moves: timer `t`->`T`, create `c`->`n`, next theme
+`T`->`g t`, reply `r`->`R`, description `e`->`E`. `?` shows what applies.
 
 > **Try it:** `laneway web -demo`, then `g p`, `j` to a card, `m` to send it
 > to a sprint.
@@ -62,7 +81,7 @@ Everything has a key, the mouse works as well.
   while the panel has focus; `esc` closes it.
 - `j` `k` `h` `l` or the arrows move, `enter` opens, `esc` backs out,
   `f` filters, `r` refreshes, `o` opens the issue in Jira, `y` copies its key.
-- `T` cycles the theme.
+- `g t` cycles the theme.
 
 ## Make it look right
 
@@ -80,34 +99,53 @@ Everything has a key, the mouse works as well.
 
 - **Board:** default mode, card fields, auto refresh, card limit.
 
-These are kept in the browser. Board and sort choices are kept by laneway
-per site.
+Theme, accent, density, font size, motion and custom tokens are kept in
+the browser and the server's per-site store. The `ui:` options (board
+defaults, capacity, `ui.actions`, `ui.keys` and the rest) are the terminal's
+own: changing one here writes it to `config.yaml`, comments kept, and the
+terminal sees it on its next start.
+
+**Keys:** `enter` on a Keyboard row captures a new key. Remaps are kept per
+site; `ui.keys` from the config applies to binds that have a terminal
+action.
+
+## Phone and offline
+
+The page is an installable app (PWA): the shell is cached by a service
+worker, the API never is. A long press or right-click on a card opens its
+menu. Browser notifications for rules are off until you turn them on in
+Settings or with `N` in Rules. Writes that can't reach Jira wait in the
+queue (the `⇡` chip) and are retried; the server must still be running.
 
 ## What differs from the terminal
 
-Not in the browser:
+- No terminal attach for agents: the agents screen can start, prompt, stop
+  and focus an agent in herdr, but you watch it there. An agent waiting on
+  an approval is answered in its terminal.
+- No kitty image rendering; images open in an in-page viewer (`i`).
+- The inbox shows the current site only; switch with `@`.
+- No local index: the browser needs the server running and Jira reachable,
+  apart from the queue above.
+- Agents and review need herdr, `gh` or `glab` on the server's machine, as
+  in the terminal.
 
-- coding agents and herdr worktrees
-- git helpers: branches, commit keys, pull requests
-- kitty image rendering
-- rules
-- the offline queue and the local index; the browser needs the server
-  running and Jira reachable
-- scripts and custom actions
-- remapping keys
-
-Use the terminal for those. Both can run at once; a change made in one
-shows in the other on the next refresh.
+Both can run at once; a change made in one shows in the other on the next
+refresh.
 
 ## Security
 
 - It listens on `127.0.0.1` only. `-addr` with another address is refused
   unless you pass `-remote`.
-- There is no login. Whoever reaches the port acts as you on Jira. With
-  `-remote`, put it behind something that authenticates, or don't.
-- A write (move, edit, comment) must come from the page's own origin;
-  requests with another `Origin` are refused, so a website you visit can't
-  drive it.
+- There is no login. Whoever reaches the port acts as you on Jira.
+- It is also a shell: `ui.actions` and `ui.llm` run commands on the
+  machine, and so can whoever drives the page. Never expose it publicly.
+- The `Host` header must be a loopback name (or one the server was told to
+  allow), so a DNS-rebound page can't reach it. A write, and any `/api/`
+  request with an `Origin`, must come from the page's own origin;
+  cross-site requests are refused.
+- `-remote` also needs the launch token: open the URL with `?token=`, which
+  sets a cookie; requests without it get 401. Use it on a network you
+  trust, or behind a tunnel that authenticates.
 
 ## Tips
 
