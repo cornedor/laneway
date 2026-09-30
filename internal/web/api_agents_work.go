@@ -63,7 +63,7 @@ func knownTemplate(t string) bool {
 }
 
 func workConfigOf(s *Server) workConfig {
-	u, j := s.opt.UI, s.opt.Jira
+	u, j := s.UIConfig(), s.opt.Jira
 	c := workConfig{Agent: "claude", CopyBranch: defaultBranchTemplate, Branch: defaultWorkBranch, Prompt: defaultStartPrompt}
 	if t := strings.TrimSpace(u.BranchTemplate); t != "" && knownTemplate(t) {
 		c.CopyBranch, c.Branch = t, t
@@ -93,7 +93,7 @@ func startStatus(s *Server, key string) string {
 	if st, ok := s.opt.Jira.StartStatuses[project]; ok {
 		return strings.TrimSpace(st)
 	}
-	return strings.TrimSpace(s.opt.UI.StartStatus)
+	return strings.TrimSpace(s.UIConfig().StartStatus)
 }
 
 func repoFor(s *Server, key string) string {

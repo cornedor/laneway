@@ -61,8 +61,8 @@ func init() {
 			Refresh     bool
 		}
 		out := []item{}
-		ok := usableActions(s.opt.UI.Actions)
-		for i, a := range s.opt.UI.Actions {
+		ok := usableActions(s.UIConfig().Actions)
+		for i, a := range s.UIConfig().Actions {
 			if _, yes := ok[i]; yes {
 				out = append(out, item{i, a.Name, a.Key, a.Where, a.Show, a.Refresh})
 			}
@@ -71,7 +71,7 @@ func init() {
 	})
 	post("/actions/{id}/run", runAction)
 	get("/ask", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
-		cmd := llm.Command(strings.Fields(s.opt.UI.LLM))
+		cmd := llm.Command(strings.Fields(s.UIConfig().LLM))
 		name := ""
 		if len(cmd) > 0 {
 			name = filepath.Base(cmd[0])
@@ -83,7 +83,7 @@ func init() {
 
 func runAction(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	id, err := strconv.Atoi(r.PathValue("id"))
-	a, ok := usableActions(s.opt.UI.Actions)[id]
+	a, ok := usableActions(s.UIConfig().Actions)[id]
 	if err != nil || !ok {
 		return nil, httpError{http.StatusNotFound, "no such action"}
 	}
@@ -140,7 +140,7 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	command := llm.Command(strings.Fields(s.opt.UI.LLM))
+	command := llm.Command(strings.Fields(s.UIConfig().LLM))
 	if command == nil {
 		fail(http.StatusNotImplemented, "asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH")
 		return
