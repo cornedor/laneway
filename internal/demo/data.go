@@ -26,8 +26,9 @@ var (
 	todo     = status{"1", "To Do", "new"}
 	doing    = status{"2", "In Progress", "indeterminate"}
 	review   = status{"3", "In Review", "indeterminate"}
+	qa       = status{"5", "Testing", "indeterminate"}
 	done     = status{"4", "Done", "done"}
-	statuses = []status{todo, doing, review, done}
+	statuses = []status{todo, doing, review, qa, done}
 )
 
 var types = map[string]string{"Epic": "10000", "Story": "10001", "Task": "10002", "Sub-task": "10003", "Bug": "10004"}

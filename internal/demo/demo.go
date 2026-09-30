@@ -225,7 +225,14 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 	case b + "/configuration":
 		var cols []any
 		for i, st := range statuses {
-			col := map[string]any{"name": st.name, "statuses": []any{map[string]any{"id": st.id}}}
+			if st == qa { // shares the In Review column
+				continue
+			}
+			sts := []any{map[string]any{"id": st.id}}
+			if st == review {
+				sts = append(sts, map[string]any{"id": qa.id})
+			}
+			col := map[string]any{"name": st.name, "statuses": sts}
 			if i == 1 {
 				col["max"] = 4
 			}

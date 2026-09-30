@@ -101,3 +101,9 @@
 @media (prefers-reduced-motion: reduce) { #tray > .ind.timer-chip::before { animation: none; } }
 :root[data-motion="reduce"] #tray > .ind.timer-chip::before { animation: none; }
 @media (forced-colors: active) { #nav a.on { border-bottom: 2px solid Highlight; } .crumb::after, .nav-more::after { border-color: CanvasText; } }
+
+/* Refresh buttons: only the glyph turns while .busy; the button keeps its box. */
+.ico-spin { display: inline-block; line-height: 1; }
+.busy > .ico-spin { animation: lw-spin .8s linear infinite; }
+@keyframes lw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .busy > .ico-spin { animation: none; opacity: .5; } }

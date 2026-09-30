@@ -9,7 +9,7 @@ import { isZero, date, shortDate, ago } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import { openFilterBuilder } from './board_filter.js';
-import { lastProject, lastBoard, setCtx, pickContext } from './plan_ctx.js';
+import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf } from './plan_ctx.js';
 
 css('board');
 
@@ -95,25 +95,28 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const bdMsg = text => clear(main).append(h('div.empty', text));
 
   // ---- toolbar
-  const boardBtn = app.chrome.crumb('Project and board  (B)', () => pickBoard());
+  const projectBtn = app.chrome.crumb('Project  (alt+p): switches to its last board', () => pickProjectCtx());
+  const boardBtn = app.chrome.crumb('Board  (B)', () => pickBoard());
   const sprintBtn = app.chrome.crumb('View: sprint, backlog, whole board, your views  (v, [ ])', () => pickSprint());
   const modeBtn = h('button.btn', { title: 'Lanes / list  (t)', onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
   const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (O)', onclick: () => cycleSwim() });
   const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, '▦ Columns');
-  const compactBtn = h('button.btn.ghost', { title: 'One-line cards  (c)', onclick: () => setCompact(!S.compact) }, '≡');
-  const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', onclick: () => refresh(true) }, '⟳');
-  context.append(boardBtn, sprintBtn);
+  const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
+  const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, '⟳'));
+  context.append(projectBtn, boardBtn, sprintBtn);
   toolbar.append(h('span.spacer'), swimBtn, colsBtn, compactBtn, modeBtn, refreshBtn);
 
   function renderToolbar() {
-    app.chrome.label(boardBtn, S.project || '…', S.board && S.board.Name);
+    app.chrome.label(projectBtn, S.project || '…');
+    app.chrome.label(boardBtn, S.board ? S.board.Name : '…');
     const sp = scopeLabel();
     sprintBtn.textContent = sp;
     sprintBtn.hidden = !isScrum() && !viewItems().some(i => i.id.includes(':') && !i.id.startsWith('closed'));
     modeBtn.textContent = S.mode === 'lanes' ? '▥ Lanes' : '☰ List';
     swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes';
     swimBtn.textContent = S.swim === 'none' ? '☰ Swimlanes' : '☰ by ' + S.swim;
-    compactBtn.classList.toggle('on', S.compact);
+    compactBtn.textContent = S.compact ? '▭ Compact' : '▤ Full';
+    compactBtn.setAttribute('aria-pressed', S.compact ? 'true' : 'false');
   }
   const isScrum = () => !!S.board && S.board.Type !== 'kanban';
   const sprints = () => (S.bundle && S.bundle.sprints) || [];
@@ -216,7 +219,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const s = p.toString();
     return '/boards/' + S.board.ID + '/cards' + (s ? '?' + s : '');
   }
-  function setBusy(d) { S.busy += d; refreshBtn.classList.toggle('spin', S.busy > 0); }
+  function setBusy(d) { S.busy += d; refreshBtn.classList.toggle('busy', S.busy > 0); }
 
   // Show cached data at once, then the fresh answer.
   function loadCards() {
@@ -711,6 +714,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', S.drag);
     (w.firstChild.classList ? w.firstChild : w).classList.add('dragging');
+    const key = S.drag;
+    setTimeout(() => { if (S.drag === key) showZones(key); }, 0);
   });
   function dropIndex(p, e) {
     if (!p.rh) {
@@ -723,23 +728,78 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const y = e.clientY - r.top + p.body.scrollTop;
     return Math.max(0, Math.min(p.cards.length, Math.round(y / (p.rh || 96))));
   }
-  function clearDrop() { for (const p of S.panes) { if (p.drop) p.drop.hidden = true; if (p.el) p.el.classList.remove('drop'); } }
+  function clearDrop() {
+    for (const p of S.panes) { if (p.drop) p.drop.hidden = true; if (p.el) p.el.classList.remove('drop'); }
+    for (const z of main.querySelectorAll('.bd-zone.over')) z.classList.remove('over');
+  }
+
+  // While a card is dragged, a lane of several statuses splits into one labelled zone per status,
+  // dimmed where the card's workflow has no transition.
+  let catsP = null;
+  const cats = new Map(); // status name -> category key
+  function loadCats() {
+    if (!catsP) {
+      catsP = api.get('/projects/' + encodeURIComponent(S.project) + '/statuses')
+        .then(l => { for (const t of l || []) for (const s of t.Statuses || []) cats.set(s.Name, s.Category); })
+        .catch(() => { catsP = null; });
+    }
+    return catsP;
+  }
+  const trsCache = new Map(); // issue key -> Promise of its transitions
+  offs.push(bus.on('issue:changed', ({ key }) => trsCache.delete(key)));
+  function transitionsOf(key) {
+    if (!trsCache.has(key)) trsCache.set(key, api.get('/issues/' + key + '/transitions').catch(() => { trsCache.delete(key); return null; }));
+    return trsCache.get(key);
+  }
+  function clearZones() { for (const z of main.querySelectorAll('.bd-zones')) z.remove(); }
+  async function showZones(key) {
+    const card = S.cards.find(c => c.Key === key);
+    const multi = S.mode === 'lanes' ? S.panes.filter(p => { const c = columns()[p.col]; return c && (c.StatusIDs || []).length > 1; }) : [];
+    if (!card || !multi.length) return;
+    const [trs] = await Promise.all([transitionsOf(key), loadCats()]);
+    if (S.drag !== key) return;
+    const names = S.bundle.statusNames || {};
+    const can = trs && new Set(trs.flatMap(t => [String(t.StatusID), t.Name]));
+    const last = columns().length - 1;
+    clearZones();
+    for (const p of multi) {
+      const zs = h('div.bd-zones');
+      for (const id of columns()[p.col].StatusIDs) {
+        const name = names[id] || id, cur = String(card.StatusID) === String(id);
+        const ok = !trs || can.has(String(id)) || can.has(name);
+        const cat = cats.get(name) || (p.col === 0 ? 'new' : p.col === last ? 'done' : 'indeterminate');
+        zs.append(h('div.bd-zone.cat-' + cat + (cur ? '.cur' : ok ? '' : '.no'), { dataset: { status: id }, title: cur ? 'Current status' : ok ? 'Move to ' + name : 'No transition from ' + card.Status + ' to ' + name },
+          h('span.bd-zone-name', name), cur ? h('span.bd-zone-tag', 'current') : ok ? '' : h('span.bd-zone-tag', 'no transition')));
+      }
+      p.el.insertBefore(zs, p.body);
+    }
+  }
   main.addEventListener('dragover', e => {
     const p = S.drag && paneOfEl(e.target);
     if (!p) return;
+    const z = e.target.closest && e.target.closest('.bd-zone');
+    if (z) {
+      clearDrop();
+      if (z.classList.contains('no') || z.classList.contains('cur')) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      z.classList.add('over'); p.el.classList.add('drop');
+      return;
+    }
     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
     clearDrop();
     if (S.mode === 'lanes') p.el.classList.add('drop');
     if (p.drop) { p.drop.hidden = false; p.drop.style.top = (dropIndex(p, e) * p.rh - 3) + 'px'; }
   });
   main.addEventListener('dragleave', e => { if (!main.contains(e.relatedTarget)) clearDrop(); });
-  main.addEventListener('dragend', () => { S.drag = null; clearDrop(); for (const d of main.querySelectorAll('.dragging')) d.classList.remove('dragging'); });
+  main.addEventListener('dragend', () => { S.drag = null; clearDrop(); clearZones(); for (const d of main.querySelectorAll('.dragging')) d.classList.remove('dragging'); });
   main.addEventListener('drop', e => {
     const p = S.drag && paneOfEl(e.target);
     if (!p) return;
     e.preventDefault();
-    const key = S.drag, idx = dropIndex(p, e);
-    S.drag = null; clearDrop();
+    const z = e.target.closest && e.target.closest('.bd-zone');
+    const key = S.drag, idx = z ? 0 : dropIndex(p, e);
+    S.drag = null; clearDrop(); clearZones();
+    if (z) { const card = S.cards.find(c => c.Key === key); if (card) moveCol(card, p.col, null, z.dataset.status); return; }
     dropCard(key, p, idx);
   });
 
@@ -789,7 +849,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       bus.emit('issue:changed', { key: card.Key });
     } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
-  async function moveCol(card, to, at) {
+  async function moveCol(card, to, at, statusID) {
     const col = columns()[to];
     if (!col || !writable()) return;
     S.lastEdit = { what: '→ ' + col.Name, run: key => { const c = S.cards.find(x => x.Key === key); return c && moveCol(c, to, null); } };
@@ -797,6 +857,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     try { trs = await api.get('/issues/' + card.Key + '/transitions', { fresh: true }); } catch (e) { return ui.errToast(e); }
     const names = (col.StatusIDs || []).map(id => (S.bundle.statusNames || {})[id]);
     let opts = trs.filter(t => (col.StatusIDs || []).includes(String(t.StatusID)) || names.includes(t.Name));
+    if (statusID) opts = opts.filter(t => String(t.StatusID) === String(statusID) || t.Name === (S.bundle.statusNames || {})[statusID]);
+    else if (opts.length > 1) { const other = opts.filter(t => String(t.StatusID) !== String(card.StatusID)); if (other.length) opts = other; }
     if (!opts.length) return ui.toast('No transition from ' + card.Status + ' to ' + col.Name, { kind: 'err' });
     let t = opts[0];
     if (opts.length > 1) {
@@ -1073,9 +1135,15 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- pickers
   async function pickBoard() {
-    const r = await pickContext(app, { project: S.project, scrum: false });
-    if (r && r.board) app.go('/board/' + r.project + '/' + r.board.ID);
-    else if (r) ui.toast('No boards in ' + r.project, { kind: 'err' });
+    const b = await pickBoardOf(app, S.project, { scrum: false });
+    if (b) app.go('/board/' + S.project + '/' + b.ID);
+  }
+  async function pickProjectCtx() {
+    const p = await pickProject(app); if (!p) return;
+    let b;
+    try { b = await boardOf(app, p, { scrum: false }); } catch (e) { return ui.errToast(e); }
+    if (b) app.go('/board/' + p + '/' + b.ID);
+    else ui.toast('No boards in ' + p, { kind: 'err' });
   }
   async function pickSprint() {
     const items = viewItems();
@@ -1160,7 +1228,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('C', pickCols, 'list columns', { group: V });
     k.bind('alt+t', openPast, 'time machine: the board on earlier days', { group: V });
     k.bind('alt+o', pickClosed, 'closed sprints: one as it ended', { group: V });
-    k.bind('B', () => pickBoard(), 'switch project / board', { group: V });
+    k.bind('B', () => pickBoard(), 'switch board (same project)', { group: V });
+    k.bind('alt+p', () => pickProjectCtx(), 'switch project (its last board)', { group: V });
     k.bind('v', () => pickSprint(), 'pick a view: sprint, backlog, your views', { group: V });
     k.bind('[', () => cycleScope(-1), 'previous view', { group: V });
     k.bind(']', () => cycleScope(1), 'next view', { group: V });
@@ -1187,7 +1256,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     C('who', 'filter by assignee', pickWho);
     C('clear', 'clear filters', clearFilters);
     C('filter', 'filter cards', () => { filterIn.focus(); filterIn.select(); });
-    C('switch', 'switch project / board', pickBoard);
+    C('switch', 'switch board', pickBoard);
+    C('project', 'switch project', pickProjectCtx);
     C('sprint', 'pick a view: sprint, backlog, whole board', pickSprint);
     C('new', 'new issue', () => app.actions.create({ project: S.project }));
     for (const s of SORTS) C('sort:' + s, 'sort list by ' + s, () => setSort(s, 1));

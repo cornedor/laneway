@@ -60,48 +60,63 @@ export async function resolve(app, params, { scrum = true } = {}) {
 
 export const remember = (app, project, board) => setCtx(app, project, board);
 
-// pickContext → {project, board} (board null for boards:false or when the
-// project has none of the wanted type). Asks for a board only when the project
-// is the current one (you want another board of it) or has no remembered one.
-export async function pickContext(app, { project: cur = '', scrum = true, boards = true } = {}) {
+// pickProject → the project key, or null.
+export async function pickProject(app) {
   const mine = app.session.projects || [];
   let items = [];
   try { items = [...(await app.api.get('/projects'))].sort((a, b) => (mine.includes(b.Key) - mine.includes(a.Key))); } catch (e) { items = []; }
   if (!items.length) mine.forEach(k => items.push({ Key: k, Name: k }));
   if (!items.length) { app.ui.toast('No projects', { kind: 'err' }); return null; }
   const p = await app.ui.pick({ title: 'Project', items, label: x => x.Key + ' ' + x.Name, detail: x => (mine.includes(x.Key) ? '\u2605' : '') });
-  if (!p) return null;
-  if (!boards) return { project: p.Key, board: null };
-  let all;
-  try { all = await boardsOf(app, p.Key); } catch (e) { app.ui.errToast(e); return null; }
-  const list = all.filter(b => !scrum || b.Type === 'scrum');
-  if (!list.length) return { project: p.Key, board: null };
-  const last = lastBoard(app, p.Key);
-  let b = list.find(x => x.ID === last);
-  if (list.length === 1) b = list[0];
-  else if (!b || p.Key === cur) {
-    b = await app.ui.pick({ title: p.Key + ' board', items: list, label: x => x.Name, detail: x => x.Type });
-    if (!b) return null;
-  }
-  return { project: p.Key, board: b };
+  return p ? p.Key : null;
 }
 
-// switcher: the project/board crumb for a view's context slot, with key B.
-// Returns {btn, label(project, board)}; onPick({project, board}) after the choice is remembered.
+// boardOf → the project's remembered board of the wanted type, else its first; null when none. Never asks.
+export async function boardOf(app, project, { scrum = true } = {}) {
+  const list = (await boardsOf(app, project)).filter(b => !scrum || b.Type === 'scrum');
+  return list.find(b => b.ID === lastBoard(app, project)) || list[0] || null;
+}
+
+// pickBoard → a board of the project (asks, even with a remembered one), null when cancelled or none.
+export async function pickBoard(app, project, { scrum = true } = {}) {
+  let list;
+  try { list = (await boardsOf(app, project)).filter(b => !scrum || b.Type === 'scrum'); } catch (e) { app.ui.errToast(e); return null; }
+  if (!list.length) { app.ui.toast('No boards in ' + project, { kind: 'err' }); return null; }
+  if (list.length === 1) return list[0];
+  return app.ui.pick({ title: project + ' board', items: list, label: x => x.Name, detail: x => x.Type });
+}
+
+// switcher: separate project and board crumbs for a view's context slot. Board key B
+// (project-only views: B too), project key alt+p. Picking a project moves to its remembered
+// board without asking. onPick({project, board}) after the choice is remembered.
+// Returns {btn, boardBtn, label(project, board)}.
 export function switcher(app, { scope, context, project, board, scrum = true, boards = true, onPick, key = 'B', group }) {
   let cur = project;
-  const run = async () => {
-    const r = await pickContext(app, { project: cur, scrum, boards }); if (!r) return;
-    setCtx(app, r.project, r.board);
-    cur = r.project;
-    onPick(r);
+  const done = (p, b) => { setCtx(app, p, b); cur = p; onPick({ project: p, board: b }); };
+  const runProject = async () => {
+    const p = await pickProject(app); if (!p) return;
+    let b = null;
+    if (boards) { try { b = await boardOf(app, p, { scrum }); } catch (e) { app.ui.errToast(e); return; } }
+    done(p, b);
   };
-  const btn = app.chrome.crumb('Project' + (boards ? ' and board' : '') + '  (' + key + ')', run);
-  const label = (p, b) => { cur = p; app.chrome.label(btn, p || '\u2014', b && b.Name); };
+  const runBoard = async () => {
+    if (!boards) return runProject();
+    const b = await pickBoard(app, cur, { scrum }); if (b) done(cur, b);
+  };
+  const btn = app.chrome.crumb('Project  (alt+p' + (boards ? '' : ', ' + key) + ')', runProject);
+  const boardBtn = boards ? app.chrome.crumb('Board  (' + key + ')', runBoard) : null;
+  const label = (p, b) => {
+    cur = p; app.chrome.label(btn, p || '\u2014');
+    if (boardBtn) app.chrome.label(boardBtn, b && b.Name || '\u2014');
+  };
   label(project, board);
   context.append(btn);
-  if (scope) scope.bind(key, run, boards ? 'switch project / board' : 'switch project', { group });
-  return { btn, label, run };
+  if (boardBtn) context.append(boardBtn);
+  if (scope) {
+    scope.bind('alt+p', runProject, 'switch project (its last board)', { group });
+    scope.bind(key, runBoard, boards ? 'switch board (same project)' : 'switch project', { group });
+  }
+  return { btn, boardBtn, label, run: runBoard, runProject };
 }
 
 export const noBoard = (what, project) => h('div.empty', h('h2', what), h('p', project ? project + ' has no scrum board. ' + what + ' need sprints.' : 'No project configured.'));
