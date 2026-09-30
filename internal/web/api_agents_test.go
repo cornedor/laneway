@@ -385,16 +385,16 @@ func TestBranchAndPullRequest(t *testing.T) {
 	runIn = func(_ context.Context, dir, name string, args ...string) (string, error) {
 		calls = append(calls, name+" "+strings.Join(args, " "))
 		if name == "git" && args[0] == "remote" {
-			return "git@git.emico.io:x/y.git", nil
+			return "git@gitlab.example.com:x/y.git", nil
 		}
 		if name == "glab" {
-			return "Creating draft\nhttps://git.emico.io/x/y/-/merge_requests/3", nil
+			return "Creating draft\nhttps://gitlab.example.com/x/y/-/merge_requests/3", nil
 		}
 		return "", nil
 	}
 	defer func() { runIn = old }()
 	var pr map[string]string
-	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/pr", "", &pr); code != 200 || pr["URL"] != "https://git.emico.io/x/y/-/merge_requests/3" || pr["Branch"] != "issue/DEMO-5-old" {
+	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/pr", "", &pr); code != 200 || pr["URL"] != "https://gitlab.example.com/x/y/-/merge_requests/3" || pr["Branch"] != "issue/DEMO-5-old" {
 		t.Errorf("pr = %d %v calls %v", code, pr, calls)
 	}
 }
