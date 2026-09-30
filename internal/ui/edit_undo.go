@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -16,25 +17,54 @@ import (
 // write that undoes it is built when the change is made, from the values
 // before it.
 
-// editUndo is a change to take back: what it was, and the write that puts
-// things back. seq orders it among the moves and band drops (undoSeq).
-type editUndo struct {
+// undoStep is a change to take back: what it was, and the way back.
+type undoStep struct {
 	what string
-	seq  int
-	run  func(ctx context.Context) error
+	back func(m *Model) tea.Cmd
+}
+
+// undoMax is how many changes u can take back.
+const undoMax = 50
+
+// pushUndo keeps back as the way back from the change just made; nothing
+// while an undo runs, so taking a change back is not a change to take back.
+func (m *Model) pushUndo(what string, back func(m *Model) tea.Cmd) {
+	t := m.jiraTab
+	if t.undoing {
+		return
+	}
+	t.undo = append(t.undo, undoStep{what: what, back: back})
+	if n := len(t.undo); n > undoMax {
+		t.undo = slices.Delete(t.undo, 0, n-undoMax)
+	}
+}
+
+// joinUndo makes the last two steps one, the latest's name: a drop that
+// moved a card and changed its band.
+func (t *jiraTabState) joinUndo() {
+	n := len(t.undo)
+	if n < 2 {
+		return
+	}
+	a, b := t.undo[n-2], t.undo[n-1]
+	t.undo = append(t.undo[:n-2], undoStep{what: b.what, back: func(m *Model) tea.Cmd { return tea.Batch(a.back(m), b.back(m)) }})
+}
+
+// undoMore is " · 2 more to undo", "" when nothing is left.
+func (t *jiraTabState) undoMore() string {
+	if len(t.undo) == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" · %d more to undo", len(t.undo))
 }
 
 // recordUndo keeps run as the way back from the change just made.
 func (m *Model) recordUndo(what string, run func(ctx context.Context) error) {
-	t := m.jiraTab
-	t.undoSeq++
-	t.lastEdit = &editUndo{what: what, seq: t.undoSeq, run: run}
-}
-
-// lastEditIsLatest is whether the last edit came after the last move and
-// band drop.
-func (t *jiraTabState) lastEditIsLatest() bool {
-	return t.lastEdit != nil && t.lastEdit.seq > t.moveSeq && t.lastEdit.seq > t.lastBand.seq
+	m.pushUndo(what, func(m *Model) tea.Cmd {
+		m.status = "undoing " + what + "…"
+		ctx := m.ctx
+		return func() tea.Msg { return editUndoneMsg{what: what, err: run(ctx)} }
+	})
 }
 
 type editUndoneMsg struct {
@@ -42,21 +72,12 @@ type editUndoneMsg struct {
 	err  error
 }
 
-// undoEdit runs the last edit's way back, once.
-func (m *Model) undoEdit() tea.Cmd {
-	e := m.jiraTab.lastEdit
-	m.jiraTab.lastEdit = nil
-	m.status = "undoing " + e.what + "…"
-	ctx := m.ctx
-	return func() tea.Msg { return editUndoneMsg{what: e.what, err: e.run(ctx)} }
-}
-
 func (m Model) handleEditUndone(msg editUndoneMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.fail("undo " + msg.what + ": " + msg.err.Error())
 		return m, nil
 	}
-	m.status = "undid " + msg.what
+	m.status = "undid " + msg.what + m.jiraTab.undoMore()
 	cmds := []tea.Cmd{m.refreshJiraAfterEdit()}
 	if m.refOpen {
 		cmds = append(cmds, m.loadCurrentRef())

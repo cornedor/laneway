@@ -1030,13 +1030,24 @@ func TestUndoMove(t *testing.T) {
 	if status() != "3" {
 		t.Fatalf("after move: %s", status())
 	}
-	out, cmd := m.handleJiraKey(keyMsg(t, "u"))
-	if m = out.(Model); status() != "1" || cmd == nil {
-		t.Fatalf("after undo: %s", status())
+	m.moveJiraCard("ABC-1", 2, "") // In progress → Done
+	m.moveJiraCard("ABC-3", 1, "")
+	for i, want := range []struct{ key, status string }{{"ABC-3", "1"}, {"ABC-1", "3"}, {"ABC-1", "1"}} {
+		out, cmd := m.handleJiraKey(keyMsg(t, "u"))
+		m = out.(Model)
+		c, _ := m.cardOf(want.key)
+		if c.StatusID != want.status || cmd == nil {
+			t.Fatalf("undo %d: %s in %s, want %s", i+1, want.key, c.StatusID, want.status)
+		}
 	}
-	out, _ = m.handleJiraKey(keyMsg(t, "u"))
-	if m = out.(Model); status() != "3" {
-		t.Errorf("after redo: %s", status())
+	if len(m.jiraTab.undo) != 0 {
+		t.Errorf("undoing pushed steps: %d left", len(m.jiraTab.undo))
+	}
+	m.jiraTab.undo = []undoStep{{what: "x", back: func(*Model) tea.Cmd { return nil }}}
+	m.jiraTab.undoneMove = "ABC-1"
+	out, _ = m.Update(jiraMovedMsg{key: "ABC-1", lane: "To do"})
+	if m = out.(Model); m.status != "undone: ABC-1 back to To do · 1 more to undo" {
+		t.Errorf("undone status %q", m.status)
 	}
 }
 
@@ -1246,7 +1257,7 @@ func TestJiraSwimlaneDropAssigns(t *testing.T) {
 	if len(got) != 1 || got[0] != `PUT /rest/api/3/issue/ABC-3/assignee {"accountId":"a1"}` {
 		t.Errorf("requests = %q", got)
 	}
-	// u gives it back to nobody; u again redoes the drop.
+	// u gives it back to nobody; u again has nothing left to take back.
 	out, cmd = m.handleKey(keyMsg(t, "u"))
 	m = out.(Model)
 	if cmd == nil || !strings.Contains(ansi.Strip(m.View().Content), "▾ Unassigned · 3") {
@@ -1257,8 +1268,8 @@ func TestJiraSwimlaneDropAssigns(t *testing.T) {
 		t.Errorf("undo requests = %q", got)
 	}
 	out, _ = m.handleKey(keyMsg(t, "u"))
-	if m = out.(Model); !strings.Contains(ansi.Strip(m.View().Content), "▾ AD Ada · 2") {
-		t.Error("u again should redo the drop")
+	if m = out.(Model); !strings.Contains(m.status, "nothing to undo") {
+		t.Errorf("u again: status %q", m.status)
 	}
 }
 

@@ -231,16 +231,13 @@ type jiraTabState struct {
 	rulesSeen map[string][]jira.Card
 	// highlights are cards a rule marked, by key: the colour, until opened.
 	highlights map[string]string
-	// lastMove is the card last moved and the status it came from, for u;
-	// lastBand the card last dropped into another swimlane and its values
-	// before. Each is stamped from undoSeq: u reverts the latest stamp.
-	lastMove [2]string
-	lastBand jiraBandUndo
-	moveSeq  int
-	undoSeq  int
-	// lastEdit is the last field, bulk, sprint or comment change, stamped
-	// the same way (edit_undo.go).
-	lastEdit *editUndo
+	// undo is the session's changes to take back, the latest last: moves,
+	// band drops, field, bulk, sprint and comment changes (edit_undo.go).
+	undo []undoStep
+	// undoing is a way back running: the change it makes is not a new step.
+	undoing bool
+	// undoneMove is the card an undo is moving back, for its status.
+	undoneMove string
 	// marked are the cards a bulk edit applies to (bulk.go), by key.
 	marked    map[string]bool
 	viewIdx   int
@@ -1576,9 +1573,17 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	if statusID == cur || (statusID == "" && slices.Contains(lane.statusIDs, cur)) {
 		return nil
 	}
-	t.lastMove = [2]string{key, cur}
-	t.undoSeq++
-	t.moveSeq = t.undoSeq
+	if t.undoing {
+		t.undoneMove = key
+	}
+	m.pushUndo(key+" back to "+m.jiraStatusName(cur), func(m *Model) tea.Cmd {
+		to := slices.IndexFunc(m.jiraTab.lanes, func(l jiraLane) bool { return slices.Contains(l.statusIDs, cur) })
+		if to < 0 {
+			m.status = key + ": its old status is not on this board"
+			return nil
+		}
+		return m.moveJiraCard(key, to, cur)
+	})
 	m.setRepeat("move to "+lane.name, func(m *Model, key string) tea.Cmd { return m.moveJiraCard(key, to, statusID) })
 	target, name := lane.statusIDs[0], lane.name
 	want := func(tm jira.TransitionMeta) bool { return slices.Contains(lane.statusIDs, tm.ToID) }
@@ -1597,41 +1602,28 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	return m.prepareJiraMove(key, name, jiraFromBoard, want)
 }
 
-// undoJiraMove moves the last moved card back to the status it came from;
-// undoing again redoes the move.
+// undoJiraMove takes back the latest change still on the stack; u again
+// takes back the one before.
 func (m *Model) undoJiraMove() tea.Cmd {
 	t := m.jiraTab
-	if t.lastEditIsLatest() {
-		return m.undoEdit()
-	}
-	band, move := t.lastBand.key != "" && t.lastBand.seq >= t.moveSeq, t.lastMove[0] != "" && t.moveSeq >= t.lastBand.seq
-	if !band && !move {
+	if len(t.undo) == 0 {
 		m.status = "nothing to undo"
 		return nil
 	}
-	var cmds []tea.Cmd
-	if band {
-		b := t.lastBand
-		cmds = append(cmds, m.jiraSetBand(b.key, b.swim, b.prev))
-	}
-	if move {
-		key, from := t.lastMove[0], t.lastMove[1]
-		to := slices.IndexFunc(t.lanes, func(l jiraLane) bool { return slices.Contains(l.statusIDs, from) })
-		if to < 0 {
-			m.status = key + ": its old status is not on this board"
-		} else {
-			cmds = append(cmds, m.moveJiraCard(key, to, from))
-		}
-	}
-	if band && move {
-		t.lastBand.seq = t.moveSeq // redone together, as they were done
-	}
-	return tea.Batch(cmds...)
+	step := t.undo[len(t.undo)-1]
+	t.undo = t.undo[:len(t.undo)-1]
+	t.undoing = true
+	cmd := step.back(m)
+	t.undoing = false
+	return cmd
 }
 
 func (m Model) handleJiraMoved(msg jiraMovedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.fail(fmt.Sprintf("%s: move failed: %v", msg.key, msg.err))
+	} else if t := m.jiraTab; t.undoneMove == msg.key {
+		t.undoneMove = ""
+		m.status = fmt.Sprintf("undone: %s back to %s%s", msg.key, msg.lane, t.undoMore())
 	} else {
 		m.status = fmt.Sprintf("%s → %s", msg.key, msg.lane)
 	}
@@ -3463,7 +3455,7 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 			cmd = tea.Batch(cmd, m.rankJiraDrop(d))
 		}
 		if band != nil {
-			t.lastBand.seq = t.moveSeq // one drop, one undo
+			t.joinUndo() // one drop, one undo
 		}
 		return m, tea.Batch(cmd, band)
 	}
@@ -3507,13 +3499,6 @@ func (m *Model) jiraBandMove(d jiraDrag) tea.Cmd {
 }
 
 // jiraBandUndo is a band drop to revert: the card's values before it.
-type jiraBandUndo struct {
-	key  string
-	swim jiraSort
-	prev jira.Card
-	seq  int
-}
-
 // jiraSetBand gives card key band b's assignee (or epic, by swim), locally
 // at once and in Jira; nil when it already has it.
 func (m *Model) jiraSetBand(key string, swim jiraSort, b jira.Card) tea.Cmd {
@@ -3541,8 +3526,7 @@ func (m *Model) jiraSetBand(key string, swim jiraSort, b jira.Card) tea.Cmd {
 	default:
 		return nil
 	}
-	t.undoSeq++
-	t.lastBand = jiraBandUndo{key: key, swim: swim, prev: prev, seq: t.undoSeq}
+	m.pushUndo(key+" back to its "+field, func(m *Model) tea.Cmd { return m.jiraSetBand(key, swim, prev) })
 	m.buildJiraLanes()
 	m.selectJiraKey(key)
 	m.renderJira()
