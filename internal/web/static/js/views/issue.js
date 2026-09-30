@@ -485,7 +485,7 @@ export function mountIssue(el, key, { app, full }) {
     try {
       const [iss, card] = await Promise.all([api.get('/issues/' + key + '?fresh=1', { fresh: true }), api.get('/issues/' + key + '/card', { fresh: true }).catch(() => st.card)]);
       if (dead || g !== gen) return;
-      st.issue = iss; st.card = card; st.children = null; st.hist = null; st.weblinks = null; st.tis = null; st.dev = null;
+      st.issue = iss; if (!iss.Comments) iss.Comments = []; st.card = card; st.children = null; st.hist = null; st.weblinks = null; st.tis = null; st.dev = null;
       paint(); loadExtras();
       if (st.tab === 'history') loadHistory();
     } catch (e) { if (!quiet) fail(e); }
@@ -503,7 +503,7 @@ export function mountIssue(el, key, { app, full }) {
   renderHead(); renderTabs(); setTab('details');
   clear(panes.history);
   box.fields.append(h('div.loading', 'Loading ' + key + '…'));
-  api.swr('/issues/' + key, iss => { if (!dead) { st.issue = iss; paint(); } }).then(() => { if (!dead) loadExtras(); })
+  api.swr('/issues/' + key, iss => { if (!dead) { st.issue = iss; if (!iss.Comments) iss.Comments = []; paint(); } }).then(() => { if (!dead) loadExtras(); })
     .catch(e => { if (!dead && !st.issue) clear(box.fields).append(h('div.empty', 'Could not load ' + key + ': ' + e.message)); });
   api.swr('/issues/' + key + '/card', c => { if (!dead) { st.card = c; renderFields(); renderHead(); } }).catch(() => {});
 

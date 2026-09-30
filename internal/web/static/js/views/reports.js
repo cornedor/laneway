@@ -314,8 +314,8 @@ export default async function mount(el, { app, params, query, scope, toolbar }) 
   }
 
   // ---- keys
-  scope.bind(['l', ']'], () => step(1), 'next report', { group: 'Reports' });
-  scope.bind(['h', '['], () => step(-1), 'previous report', { group: 'Reports' });
+  scope.bind(['l', ']', 'ArrowRight'], () => step(1), 'next report', { group: 'Reports' });
+  scope.bind(['h', '[', 'ArrowLeft'], () => step(-1), 'previous report', { group: 'Reports' });
   KINDS.forEach(([id], i) => scope.bind(String(i + 1), () => go(id), 'report ' + (i + 1), { hidden: true }));
   scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports' });
   scope.bind('b', () => pickBoard(), 'pick board', { group: 'Reports' });

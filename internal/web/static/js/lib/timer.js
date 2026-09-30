@@ -17,8 +17,9 @@ function save(t) {
 
 // The issue `T` and `w` act on: the selected row of the view, else the open panel, else the route's issue.
 export function target(app) {
-  const row = document.querySelector('#view [data-key].sel, #view [data-key].selected, #view [data-key].focused, #view [data-key].cursor');
-  if (row && row.dataset.key) return row.dataset.key;
+  const row = document.querySelector('#view [data-key].sel, #view [data-key].selected, #view [data-key].focused, #view [data-key].cursor, #view [data-key] > .sel');
+  const k = row && row.closest('[data-key]').dataset.key;
+  if (k) return k;
   return app.panel.key || (app.route && ((app.route.params && app.route.params.key) || (app.route.query && app.route.query.issue))) || '';
 }
 

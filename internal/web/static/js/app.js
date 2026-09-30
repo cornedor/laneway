@@ -123,7 +123,7 @@ function globalKeys() {
   g.bind('g g', () => app.actions.jump(), 'jump to issue by key', { group: 'Global' });
   g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global' });
   g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), 'new issue', { group: 'Global' });
-  g.bind('#', () => app.actions.jump(), 'jump to issue by key', { group: 'Global', hidden: true });
+  g.bind('Q', () => app.actions.palette('#'), 'JQL search', { group: 'Global' });
   g.bind('g t', () => { const t = theme.next(); ui.toast('Theme: ' + t); }, 'next theme', { group: 'Global' });
   g.bind('Tab', () => { const p = $('#panel'); if (p.contains(document.activeElement)) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, 'focus panel / view', { group: 'Global', when: () => app.panel.key });
   g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, 'close panel', { group: 'Global', hidden: true });
