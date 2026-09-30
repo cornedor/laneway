@@ -34,7 +34,8 @@ func serviceWorker() []byte {
 			b, _ := fs.ReadFile(root, p)
 			sum.Write([]byte(p))
 			sum.Write(b)
-			if p != "sw.js" && p != "index.html" && !strings.HasPrefix(p, "fonts/") { // fonts are cached on first use
+			// fonts and the terminal's vendor/ are cached on first use
+			if p != "sw.js" && p != "index.html" && !strings.HasPrefix(p, "fonts/") && !strings.HasPrefix(p, "vendor/") {
 				files = append(files, "/"+p)
 			}
 			return nil

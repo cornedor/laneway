@@ -4,7 +4,9 @@
 //   font.ui.custom / font.mono.custom   any CSS font-family list for 'custom', e.g. 'Berkeley Mono', "Iosevka"
 //   font.ligatures                 'on' (default) | 'off'   (font-variant-ligatures in code)
 //   font.lh                        line height multiplier, '' = 1.45
-//   terminal.font                  (for the browser terminal) CSS font-family, '' = follow the monospace font
+//   terminal.font                  (the browser terminal) CSS font-family, '' = the bundled JetBrainsMono Nerd Font Mono,
+//                                  'mono' = the monospace font; the bundled Symbols Nerd Font Mono always follows it
+//   terminal.size                  terminal font size in px, '' = the UI font size
 // For the terminal: fonts.terminalStack() (family list to hand to the terminal), fonts.ready() (promise: the face is
 // loaded, safe to measure cells), fonts.on(fn) (fn() on any change; bus 'prefs' {key:'font.*'} fires too).
 export const SYS_UI = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -45,7 +47,14 @@ export function stack(role) {
 }
 export const uiStack = () => stack('ui');
 export const monoStack = () => stack('mono');
-export function terminalStack() { const t = get('terminal.font').trim(); return validFamily(t) ? t + ', ' + monoStack() : monoStack(); }
+export const NERD = '"JetBrainsMono Nerd Font Mono"', SYMBOLS = '"Symbols Nerd Font Mono"';
+export function terminalStack() {
+  const t = get('terminal.font').trim(), m = monoStack();
+  if (t === 'mono') return m.slice(0, m.length - SYS_MONO.length) + SYMBOLS + ', ' + SYS_MONO;
+  return (validFamily(t) ? t : NERD) + ', ' + SYMBOLS + ', ' + m;
+}
+export const terminalFont = () => get('terminal.font');
+export const terminalSize = () => Number(get('terminal.size')) || 0;
 export const ligatures = () => get('font.ligatures') !== 'off';
 export const lineHeight = () => Number(get('font.lh')) || 0;
 
@@ -72,6 +81,8 @@ export function setChoice(role, id) { set('font.' + role, id === 'system' ? '' :
 export function setCustom(role, fam) { set('font.' + role + '.custom', fam.trim()); apply(); }
 export function setLigatures(on) { set('font.ligatures', on ? '' : 'off'); apply(); }
 export function setLineHeight(v) { set('font.lh', v ? String(v) : ''); apply(); }
+export function setTerminalFont(v) { set('terminal.font', (v || '').trim()); apply(); }
+export function setTerminalSize(px) { set('terminal.size', px ? String(px) : ''); apply(); }
 export const choice = role => get('font.' + role) || 'system';
 export const custom = role => get('font.' + role + '.custom');
 export function reset() { for (const k of ['font.ui', 'font.mono', 'font.ui.custom', 'font.mono.custom', 'font.ligatures', 'font.lh']) set(k, ''); apply(); }
@@ -119,13 +130,13 @@ export function available(list) {
 export function attach(pf) {
   prefs = pf;
   let changed = false;
-  for (const k of ['font.ui', 'font.mono', 'font.ui.custom', 'font.mono.custom', 'font.ligatures', 'font.lh', 'terminal.font']) {
+  for (const k of ['font.ui', 'font.mono', 'font.ui.custom', 'font.mono.custom', 'font.ligatures', 'font.lh', 'terminal.font', 'terminal.size']) {
     const v = pf.data && k in pf.data ? String(pf.data[k]) : null;
     if (v !== null && v !== get(k)) { ls.set(k, v); changed = true; }
   }
   if (changed) apply();
 }
 
-export const fonts = { uiPresets, monoPresets, stack, uiStack, monoStack, terminalStack, ligatures, lineHeight, apply, on, ready, setChoice, setCustom, setLigatures, setLineHeight, choice, custom, reset, files, declare, refreshFiles, upload, remove, fileFamily, available, validFamily, attach, presetStack };
+export const fonts = { uiPresets, monoPresets, stack, uiStack, monoStack, terminalStack, terminalFont, terminalSize, setTerminalFont, setTerminalSize, NERD, SYMBOLS, ligatures, lineHeight, apply, on, ready, setChoice, setCustom, setLigatures, setLineHeight, choice, custom, reset, files, declare, refreshFiles, upload, remove, fileFamily, available, validFamily, attach, presetStack };
 apply();
 export default fonts;

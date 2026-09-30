@@ -48,7 +48,7 @@ Two bars on top and the issue panel on the right.
 | Inbox | `g i` | threads on issues others changed, mentions |
 | Standup | `g s` | yours or the team's, one card at a time |
 | Review | `g R` | pull requests to review (needs `gh` or `glab`; hidden without herdr) |
-| Agents | `g a` | coding agents and worktrees (needs herdr; hidden without it) |
+| Agents | `g a` | coding agents and worktrees, each agent's live terminal (needs herdr; hidden without it) |
 | Rules | `g l` | your rules, a live feed, try a change |
 | Settings | `g ,` | every `ui:` option, appearance, keys |
 
@@ -119,9 +119,18 @@ queue (the `⇡` chip) and are retried; the server must still be running.
 
 ## What differs from the terminal
 
-- No terminal attach for agents: the agents screen can start, prompt, stop
-  and focus an agent in herdr, but you watch it there. An agent waiting on
-  an approval is answered in its terminal.
+- The agent's terminal is the same `herdr agent attach` the terminal's
+  panel runs, drawn by xterm.js: on the agents screen it sits beside the
+  list and attaches once the cursor rests on an agent. `enter` or a click
+  types into it (every key goes to the agent), `ctrl+\` goes back to the
+  list, `z` makes it full size, `t` takes input over from another attach
+  (herdr's `--takeover`), `ctrl+shift+c` copies the selection, shift+drag
+  selects while the program takes the mouse. `ctrl+\` on an issue elsewhere
+  opens its agent's terminal. A second window on the same agent takes it
+  over; the first says so. The browser keeps `ctrl+w`, `ctrl+t` and
+  `ctrl+n` unless laneway runs as an installed app. Font and size: Settings
+  › Appearance (JetBrainsMono Nerd Font by default; Symbols Nerd Font
+  always follows, so any font shows icons).
 - No kitty image rendering; images open in an in-page viewer (`i`).
 - The inbox shows the current site only; switch with `@`.
 - No local index: the browser needs the server running and Jira reachable,
@@ -139,6 +148,13 @@ refresh.
 - There is no login. Whoever reaches the port acts as you on Jira.
 - It is also a shell: `ui.actions` and `ui.llm` run commands on the
   machine, and so can whoever drives the page. Never expose it publicly.
+- The agents' terminal is shell access: typing into a coding agent is
+  running commands as you. It attaches to herdr agent panes only, never an
+  arbitrary shell. The WebSocket upgrade passes the same checks as the API
+  and must carry the page's own `Origin`; `-remote` needs the token cookie
+  too, `-demo` has no terminal. A terminal closes after 30 minutes with
+  nothing either way and reconnects after 8 hours (access checked again);
+  closing it detaches, the agent keeps running.
 - The `Host` header must be a loopback name (or one the server was told to
   allow), so a DNS-rebound page can't reach it. A write, and any `/api/`
   request with an `Origin`, must come from the page's own origin;

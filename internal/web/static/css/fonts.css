@@ -10,3 +10,8 @@
 @font-face { font-family: "Cascadia Code"; src: url("../fonts/cascadia-code.woff2") format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap; }
 @font-face { font-family: "IBM Plex Mono"; src: url("../fonts/ibm-plex-mono-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
 @font-face { font-family: "IBM Plex Mono"; src: url("../fonts/ibm-plex-mono-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+/* The browser terminal (fonts.terminalStack): JetBrainsMono Nerd Font Mono without its icons, which come from Symbols Nerd Font Mono, split so the Material Design half loads only when shown. */
+@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url("../fonts/jetbrains-mono-nf-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrainsMono Nerd Font Mono"; src: url("../fonts/jetbrains-mono-nf-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Symbols Nerd Font Mono"; src: url("../fonts/symbols-nerd-mono.woff2") format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap; unicode-range: U+23FB-23FE, U+2630-26A1, U+276C-2771, U+2B58, U+E000-E00A, U+E0A0-E0D7, U+E200-E2A9, U+E300-E3E3, U+E5FA-E6BB, U+E700-E958, U+EA60-EC84, U+ED00-F385, U+F400-F533; }
+@font-face { font-family: "Symbols Nerd Font Mono"; src: url("../fonts/symbols-nerd-mono-md.woff2") format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap; unicode-range: U+F0001-F1AF0; }

@@ -127,9 +127,13 @@ export function install(app) {
   k.bind('S', need(key => start(key)), 'start work: the form (agent, branch, prompt); focuses its agent if one runs', { group: 'Agents', when: () => !demo() });
   k.bind('alt+s', need(key => start(key, { another: true })), 'start another agent in the issue\'s worktree', { group: 'Agents', when: () => !demo() });
   k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: 'Agents', when: () => !demo() });
+  // The issue's agent's terminal on the agents screen, typing (ctrl+\ there goes back, as the TUI's agent_back).
+  const typeInto = key => { const s = stateFor(key); if (!s || !s.count) return ui.toast(key + ' has no agent: S starts one'); app.go('/agents?agent=' + encodeURIComponent(key) + '&type=1'); };
+  k.bind('ctrl+\\', need(typeInto), 'type into the issue\'s agent (its terminal in Agents)', { group: 'Agents', when: () => !demo() && snap.Available });
   const cmd = (id, title, run, when, keys) => app.commands.register({ id, group: 'Agents', get title() { return title(); }, keys, run, when });
   cmd('agents:start', () => { const s = stateFor(target(app)); return (s && s.count ? 'Focus the agent of ' : 'Start work on ') + target(app); }, need(key => start(key)), () => !demo() && !!target(app), 'S');
   cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { another: true })), () => !demo() && !!target(app) && snap.Available, 'alt+s');
+  cmd('agents:terminal', () => 'Type into the agent of ' + target(app) + ' (terminal)', need(typeInto), () => !demo() && !!target(app) && !!(stateFor(target(app)) || {}).count, 'ctrl+\\');
   cmd('agents:show', () => 'Show the agent of ' + target(app) + ' in Agents', need(key => app.go('/agents?agent=' + encodeURIComponent(key))), () => !demo() && !!target(app) && !!stateFor(target(app)));
   cmd('agents:branch', () => 'Copy branch name of ' + target(app), need(copyBranch), () => !demo() && !!target(app), 'ctrl+y');
   cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && !!target(app));

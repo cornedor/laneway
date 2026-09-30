@@ -1,25 +1,36 @@
-// Agents: every herdr agent on an issue, grouped by state (waiting on you first), with its recent
-// terminal output beside it, read-only. Tab adds the worktrees that have no agent. Live over /api/agents/events.
+// Agents: every herdr agent on an issue, grouped by state (waiting on you first), with its live terminal beside it
+// (lib/term.js: herdr agent attach over a WebSocket), attached once the cursor rests on a row, as in the TUI.
+// Enter or a click types into it, ctrl+\ goes back to the list, z full screen. Tab adds the worktrees that have
+// no agent. Live over /api/agents/events. /agents?agent=KEY selects KEY's agent, &type=1 types into it.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
-import { GLYPH, LABEL, RANK } from '../lib/agents.js';
+import { kbd } from '../lib/keys.js';
+import { GLYPH, LABEL } from '../lib/agents.js';
+import { terminal, LEAVE } from '../lib/term.js';
 
 const GROUPS = ['blocked', 'working', 'done', 'idle', 'worktree'];
 const GROUP_NAME = { blocked: 'Waiting on you', working: 'Working', done: 'Done', idle: 'Idle', unknown: 'Unknown', worktree: 'Worktrees without an agent' };
 const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
+const LIVE = ['open', 'connecting', 'retry']; // terminal states that keep keys in it
+const REST = 150; // ms the cursor rests on a row before its terminal attaches: holding j attaches nothing
 
-export default async function mount(el, { app, scope, toolbar, query }) {
+export default async function mount(el, { app, scope, query }) {
   css('agents');
   for (let i = 0; !app.agents && i < 60; i++) await new Promise(r => setTimeout(r, 50));
   const { api, ui, bus } = app;
   let rows = [], sel = 0, bare = app.prefs.get('agents_bare', 'false') === 'true', stopAsk = '';
   const cards = new Map(); // key → card, looked up once
   const asked = new Set();
-  let dead = false, termSeq = 0, termPane = '', termTimer = 0;
+  let dead = false;
 
-  const list = h('div.ag-scroll'), head = h('div.ag-head'), detail = h('div.ag-detail');
+  const list = h('div.ag-scroll', { tabindex: -1 }), head = h('div.ag-head');
   const empty = h('div.empty', { hidden: true });
-  el.append(h('div.agents', h('div.ag-list', head, list, empty), detail));
+  const info = h('div.ag-info'); // title, meta, actions: repainted when the row changes
+  const host = h('div.ag-term'), hint = h('div.ag-hint', { 'aria-live': 'polite' });
+  const box = h('div.ag-termbox', host, hint), none = h('div.dim', { hidden: true }, 'A worktree without an agent. S starts one in it.');
+  const detail = h('div.ag-detail', info, box, none);
+  const root = h('div.agents', h('div.ag-list', head, list, empty), detail);
+  el.append(root);
 
   const snap = () => app.agents.snapshot;
   const cur = () => rows[sel] || null;
@@ -45,7 +56,7 @@ export default async function mount(el, { app, scope, toolbar, query }) {
     try {
       const r = await api.get('/search?jql=' + encodeURIComponent('key in (' + miss.join(', ') + ')'));
       for (const c of r.cards || []) cards.set(c.Key, c);
-      if (!dead) paintList();
+      if (!dead) { paintList(); paintDetail(); }
     } catch (e) { /* summaries are optional; one unknown key fails the whole search */ }
   }
 
@@ -76,49 +87,93 @@ export default async function mount(el, { app, scope, toolbar, query }) {
     paintDetail();
   }
 
-  // ---- detail and terminal
-  const pre = h('pre.ag-term.mono', { tabindex: 0 });
-  let shownPane = '';
+  // ---- detail
   function paintDetail() {
     const r = cur();
-    if (!r) { clear(detail); shownPane = ''; stopTerm(); return; }
-    const c = cards.get(r.key), a = r.agent;
-    const btn = (label, key, fn, cls = '') => h('button.btn' + cls, { onclick: fn }, label, h('kbd', key));
-    const sig = (r.pane || r.key) + '|' + (a ? a.Status + a.Title : '') + '|' + (c ? c.Summary : '');
-    if (detail._sig !== sig) {
-      detail._sig = sig;
-      clear(detail).append(
+    const c = r && cards.get(r.key), a = r && r.agent;
+    const sig = r ? (r.pane || r.key) + '|' + (a ? a.Status + a.Title : '') + '|' + (c ? c.Summary : '') : '';
+    if (info._sig !== sig) {
+      info._sig = sig;
+      const btn = (label, key, fn, cls = '') => h('button.btn' + cls, { onclick: fn }, label, h('kbd', key));
+      clear(info);
+      if (r) info.append(
         h('h2', h('a.issue-ref', { href: '#/issue/' + r.key, onclick: e => { e.preventDefault(); app.panel.open(r.key); } }, r.key), c ? ' ' + c.Summary : ''),
         h('div.ag-meta', h('span.chip', (GLYPH[r.group] || '') + ' ' + (LABEL[r.group] || r.group)), a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',
           a && btn('Focus in herdr', 'f', () => act('focus')), a && btn('Prompt', 'p', () => act('prompt')), a && btn('New agent here', 'N', () => act('new')),
           btn(a ? 'Another agent' : 'Start agent', a ? 'alt+s' : 'S', () => app.agents.start(r.key, { another: !!a, path: a ? a.CWD : '' })),
-          a && btn('Stop', 'd', () => act('stop'), '.danger')),
-        a ? pre : h('div.dim', 'A worktree without an agent. S starts one in it.'));
+          a && btn('Stop', 'd', () => act('stop'), '.danger')));
     }
-    if (a) startTerm(a.PaneID); else stopTerm();
+    box.hidden = !a; none.hidden = !r || !!a;
+    schedule();
   }
 
-  function stopTerm() { clearTimeout(termTimer); termTimer = 0; termPane = ''; termSeq++; }
-  function startTerm(pane) {
-    if (termPane !== pane) { termPane = pane; pre.textContent = ''; pre._text = null; pre.dataset.pane = pane; }
-    clearTimeout(termTimer);
-    readTerm();
+  // ---- the terminal: one, re-attached to the cursor's agent once it rests there
+  let tc = null, making = null, restTimer = 0, full = false;
+  let ts = { state: 'connecting', text: 'loading the terminal…', typing: false }; // as the terminal last said
+  const visible = () => host.clientWidth > 0 && host.clientHeight > 0;
+  function schedule() {
+    clearTimeout(restTimer);
+    const r = cur(), pane = r && r.agent ? r.pane : '';
+    if (tc && tc.pane === pane) return;
+    restTimer = setTimeout(() => attach(pane), REST);
   }
-  async function readTerm() {
-    const pane = termPane; if (!pane || dead) return;
-    const seq = ++termSeq;
-    if (!document.hidden || pre._text == null) {
-      try {
-        const r = await api.get('/agents/' + encodeURIComponent(pane) + '/output?lines=150', { fresh: true });
-        if (seq === termSeq && pane === termPane && r.Text !== pre._text) {
-          const atEnd = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40 || !pre._text;
-          pre._text = r.Text; pre.textContent = r.Text;
-          if (atEnd) pre.scrollTop = pre.scrollHeight;
-        }
-      } catch (e) { if (seq === termSeq) { pre._text = ''; pre.textContent = e.message; } }
+  async function ensure() {
+    if (tc || dead) return tc;
+    making = making || terminal(host, { app, onState: st => { ts = st; if (st.typing && tc && !LIVE.includes(st.state)) { tc.blur(); list.focus({ preventScroll: true }); } paintHint(); }, onLeave: leave }).then(t => { if (dead) { t.dispose(); return null; } tc = t; return t; });
+    try { return await making; } catch (e) { making = null; ts = { state: 'closed', text: 'the terminal did not load: ' + e.message }; paintHint(); return null; }
+  }
+  async function attach(pane, o) {
+    if (!pane) { if (tc) tc.detach(); return; }
+    if (!visible() && !full) return; // no size to give it (a phone: Enter goes full screen first)
+    const t = await ensure();
+    if (!t || dead) return;
+    const r = cur();
+    if (!r || r.pane !== pane) return; // moved on meanwhile
+    t.attach(pane, o);
+  }
+  // Type into it: attach (again) where needed, full screen when the list leaves no room.
+  async function type(o = {}) {
+    const r = cur();
+    if (!r || !r.agent) return r && app.panel.open(r.key);
+    if (!visible() && !full) setFull(true);
+    const t = await ensure();
+    if (!t || dead) return;
+    const again = !LIVE.includes(t.state) || t.pane !== r.pane;
+    if (again || o.takeover) t.attach(r.pane, { again: true, takeover: o.takeover });
+    t.focus();
+  }
+  function leave() {
+    if (tc) tc.blur();
+    if (full) setFull(false);
+    list.focus({ preventScroll: true });
+  }
+  function setFull(on) {
+    full = on;
+    root.classList.toggle('term-full', on);
+    if (tc) tc.fit();
+    paintHint();
+  }
+
+  const leaveKey = () => { const b = app.keys.registry().find(x => x.id === 'terminal:' + LEAVE); return kbd((b && b.specs[0]) || LEAVE).join(' '); };
+  const K = s => h('kbd', s);
+  function paintHint() {
+    const s = ts, dot = h('span.ag-dot.st-' + s.state);
+    const parts = [];
+    const add = (...xs) => { if (parts.length) parts.push(h('span.dim', ' · ')); parts.push(...xs); };
+    if (s.state === 'open') {
+      add(dot, s.typing ? h('b', 'typing') : 'attached');
+      if (s.typing) { add(K(leaveKey()), ' back to the list'); add(K('⌃⇧C'), ' copy'); add('shift+drag selects'); }
+      else { add(K('⏎'), ' or click to type'); add(K('z'), full ? ' leave full screen' : ' full screen'); add(K('t'), ' take over input'); }
+    } else if (LIVE.includes(s.state)) {
+      add(dot, s.text || 'connecting…');
+    } else {
+      add(dot, s.text || s.state);
+      if (s.state !== 'gone') add(K('⏎'), s.state === 'taken' ? ' take it back' : ' attach again');
+      if (s.state === 'exited' || s.state === 'closed') add(K('t'), ' take over input');
     }
-    if (seq === termSeq) termTimer = setTimeout(readTerm, 2000);
+    hint.replaceChildren(...parts);
+    root.classList.toggle('term-typing', !!s.typing);
   }
 
   // ---- actions
@@ -150,7 +205,12 @@ export default async function mount(el, { app, scope, toolbar, query }) {
   scope.bind('Home', () => move(-rows.length), 'first', { group: G, hidden: true });
   scope.bind('End', () => move(rows.length), 'last', { group: G, hidden: true });
   scope.bind('Tab', toggleBare, 'show / hide worktrees without an agent', { group: G, when: () => !app.panel.key });
-  scope.bind('Enter', () => { const r = cur(); if (r) app.panel.open(r.key); }, 'open issue', { group: G });
+  scope.bind('Enter', () => type(), 'type into the agent\'s terminal (' + LEAVE + ' back to the list; a worktree: open the issue)', { group: G });
+  scope.bind(LEAVE, () => type(), 'type into the terminal / back to the list', { group: G });
+  scope.bind('z', () => { setFull(!full); if (full) type(); }, 'terminal full screen', { group: G });
+  scope.bind('t', () => type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G });
+  scope.bind('Escape', () => setFull(false), 'leave full screen', { group: G, when: () => full });
+  scope.bind('v', () => { const r = cur(); if (r) app.panel.open(r.key); }, 'open issue', { group: G });
   scope.bind('o', () => { const r = cur(); if (r) window.open(app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
   scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
   scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G });
@@ -162,6 +222,7 @@ export default async function mount(el, { app, scope, toolbar, query }) {
 
   delegate(list, 'click', '.ag-row', (e, t) => { sel = +t.dataset.i; mark(); });
   delegate(list, 'dblclick', '.ag-row', (e, t) => app.panel.open(t.dataset.key));
+  hint.addEventListener('click', e => { if (e.target.closest('kbd')) return; type(); });
 
   const off = bus.on('agents', () => { if (!dead) build(); });
   const offDone = bus.on('issue:changed', () => { asked.clear(); });
@@ -170,6 +231,8 @@ export default async function mount(el, { app, scope, toolbar, query }) {
   if (want) {
     const i = rows.findIndex(r => r.key === want);
     if (i >= 0) { sel = i; mark(); } else if (!bare && (snap().Worktrees || {})[want]) { bare = true; build(); sel = Math.max(0, rows.findIndex(r => r.key === want)); mark(); }
+    if (query.type && cur() && cur().key === want && cur().agent) { if (app.panel.key) app.panel.close(); type(); }
   }
-  return () => { dead = true; off(); offDone(); stopTerm(); };
+  paintHint();
+  return () => { dead = true; off(); offDone(); clearTimeout(restTimer); if (tc) tc.dispose(); };
 }

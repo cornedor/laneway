@@ -3,6 +3,7 @@
 // family field (installed fonts), uploaded files, and a sample line. h/l cycle the choices, enter edits the field.
 import { h } from '../lib/dom.js';
 import fonts from '../lib/fonts.js';
+import { terminalOptions } from './settings_terminal.js';
 
 const cycle = (list, cur, d) => list[(Math.max(0, list.indexOf(cur)) + d + list.length) % list.length];
 const SAMPLE = {
@@ -90,7 +91,8 @@ export function fontOptions(app, refresh) {
   const lhs = [0, 1.3, 1.45, 1.6, 1.8];
   return [
     fontRow('ui', 'UI font', 'h/l cycle, enter edits the custom field; bundled fonts load when first used'),
-    fontRow('mono', 'Monospace font', 'keys, code, the editor’s monospace mode, the terminal'),
+    fontRow('mono', 'Monospace font', 'keys, code, the editor’s monospace mode'),
+    ...terminalOptions(app, refresh),
     { name: 'Ligatures', desc: 'in monospace text: -> => != as one glyph (Fira Code, JetBrains Mono, Cascadia Code)', section: 'Appearance',
       render: () => { const on = fonts.ligatures(); return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Ligatures', tabindex: -1, onclick: () => { fonts.setLigatures(!on); refresh(); } }, h('i')), h('span.st-state', on ? 'on' : 'off')); },
       change: () => { fonts.setLigatures(!fonts.ligatures()); refresh(); }, reset: () => { fonts.setLigatures(true); refresh(); } },

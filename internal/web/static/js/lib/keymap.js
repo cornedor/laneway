@@ -13,6 +13,8 @@ const TABLE = {
   work: { ...COMMON, Enter: 'open', e: 'edit_entry', d: 'delete_entry' },
   inbox: { ...COMMON, Enter: 'open', e: 'inbox_done', E: 'inbox_done_all', s: 'inbox_snooze', u: 'inbox_unread' },
   standup: { ...COMMON, Enter: 'open' },
+  agents: { Enter: 'open', v: 'toggle_panel', 'ctrl+\\': 'agent_back' },
+  terminal: { 'ctrl+\\': 'agent_back' },
   issue: { j: 'next_comment', ArrowDown: 'next_comment', k: 'prev_comment', ArrowUp: 'prev_comment', c: 'comment', R: 'reply', e: 'summary', E: 'description', a: 'assign', p: 'priority', P: 'points',
     l: 'labels', r: 'refresh', d: 'delete_comment', L: 'linked_issue', y: 'copy_key', Y: 'copy_url', o: 'browser', s: 'status' },
 };
