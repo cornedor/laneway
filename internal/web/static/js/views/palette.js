@@ -324,7 +324,7 @@ export function openPalette(app, mode = '') {
     if (!key) return;
     if (it.card) recordRecent(it.card);
     close();
-    if (full) app.go('/issue/' + key); else app.panel.open(key);
+    import('./issue.js').then(m => m.follow(key)).catch(() => {}).then(() => (full ? app.go('/issue/' + key) : app.panel.open(key)));
   }
   function accept() {
     const it = items[sel];

@@ -9,8 +9,17 @@ import { issueActions } from './actions.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
-const trail = [];            // issues left by following a link, for Backspace
+const trail = [];            // issues left by following a link, oldest first: {key, summary, status, cat}
+const meta = new Map();      // key -> {summary, status, cat}, what the trail shows
 let expect = null;
+let here = null;             // the mounted issue: {key, entry()}
+let trailOpen = false;       // the whole trail, not the last TRAIL_SHOWN
+const TRAIL_SHOWN = 4;
+const catOf = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
+// follow: the mounted issue joins the trail before k opens (palette, jump), so Backspace returns to it.
+export function follow(k) {
+  if (here && here.key !== k) { trail.push(here.entry()); expect = k; }
+}
 const drafts = new Map();    // unsent comment text by issue key
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
 const dash = h('span.faint', '—');
@@ -23,6 +32,7 @@ export function mountIssue(el, key, { app, full }) {
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
   if (expect !== key) trail.length = 0;
   expect = null;
+  const me_ = here = { key, entry: () => ({ key, ...(meta.get(key) || {}) }) };
   let dead = false;
   const editors = new Set();
   const scope = app.keys.scope('issue');
@@ -63,9 +73,28 @@ export function mountIssue(el, key, { app, full }) {
     ui.toast(what + ' copied');
   };
   const browseURL = () => (st.issue && st.issue.URL) || (app.session.baseURL + '/browse/' + key);
-  const go = k => { expect = k; return full ? app.go('/issue/' + k) : app.panel.open(k); };
-  const open = k => { trail.push(key); go(k); };
-  const back = () => { if (!trail.length) return ui.toast('No previous issue'); go(trail.pop()); };
+  const go = k => { expect = k; return full ? app.go('/issue/' + k) : app.panel.open(k, { force: true }); };
+  const open = k => { if (k !== key) { trail.push(me_.entry()); go(k); } };
+  const back = () => { if (!trail.length) return ui.toast('No previous issue'); go(trail.pop().key); };
+  const jumpTo = i => { const e = trail[i]; if (!e) return; trail.length = i; go(e.key); };
+  const learn = (k, c) => { if (c && c.Summary) meta.set(k, { summary: c.Summary, status: c.Status, cat: c.StatusCategory || catOf(c) }); };
+  function trailEl() {
+    if (!trail.length) return null;
+    const from = trailOpen ? 0 : Math.max(trail.length - TRAIL_SHOWN, 0);
+    for (const e of trail) if (!e.summary && !e.asked) {
+      e.asked = true;
+      api.get('/issues/' + e.key + '/card').then(c => { learn(e.key, c); Object.assign(e, meta.get(e.key)); if (!dead) renderHead(); }).catch(() => {});
+    }
+    return h('div.iss-trail' + (trailOpen ? '.open' : ''), { role: 'navigation', 'aria-label': 'Came from' },
+      h('div.tr-head', h('span', (app.session && app.session.site) || 'Jira'),
+        ...(trail.length > TRAIL_SHOWN ? [h('button.tr-more', { title: 'Show or hide older', onclick: () => { trailOpen = !trailOpen; renderHead(); } },
+          trailOpen ? 'less' : '+' + (trail.length - TRAIL_SHOWN))] : []), h('span.spacer'), h('kbd', 'Backspace')),
+      h('div.tr-list', trail.slice(from).map((e, j) => {
+        const d = meta.get(e.key) || e;
+        return h('button.tr-row', { title: e.key + ' ' + (d.summary || ''), onclick: () => jumpTo(from + j) },
+          h('span.tr-mark', '↰'), h('span.tr-key', e.key), d.status ? ui.statusPill(d.status, d.cat) : null, h('span.tr-sum.clip', d.summary || ''));
+      })));
+  }
   const viewKeys = () => [...new Set([...document.querySelectorAll('#view [data-key]')].map(e => e.dataset.key).filter(k => /^[A-Z][A-Z0-9]*-\d+$/.test(k)))];
   const step = d => {
     const ks = viewKeys(), i = ks.indexOf(key);
@@ -107,6 +136,8 @@ export function mountIssue(el, key, { app, full }) {
         ...(c && c.Flagged ? [h('span.chip.flag', 'Flagged')] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
         h('span.dim', 'updated ' + ago(i.Updated)))] : []));
+    learn(key, c); if (i) learn(key, { Summary: i.Summary, Status: i.Status, StatusCategory: i.StatusCategory });
+    const tr = trailEl(); if (tr) head.prepend(tr);
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';
   }
   function renderTabs() {
@@ -578,7 +609,7 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('A', () => actions(), 'issue actions: subtask, clone, move, watchers…', { group: G });
   scope.bind('[', () => step(-1), 'previous issue in the list', { group: G });
   scope.bind(']', () => step(1), 'next issue in the list', { group: G });
-  scope.bind('Backspace', back, 'back to the previous issue', { group: G });
+  scope.bind('Backspace', back, 'back along the trail of followed issues', { group: G });
   scope.bind('G', linked, 'go to a linked issue, child or web link', { group: G });
   scope.bind('i', () => gallery(0), 'view images', { group: G });
   scope.bind('/', () => findOpen(), 'find in the issue (n / N next, previous)', { group: G });
@@ -616,6 +647,7 @@ export function mountIssue(el, key, { app, full }) {
     for (const e of editors) e.dispose();
     if (offNotes) offNotes();
     drafts.set(key, comp.ta.value);
+    if (here === me_) here = null;
     if (!full) document.title = 'laneway';
   };
 }

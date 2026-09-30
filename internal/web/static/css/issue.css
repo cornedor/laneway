@@ -111,3 +111,14 @@ a.issue-ref { font-family: ui-monospace, monospace; font-size: .95em; }
 .chg-head { display: flex; align-items: center; gap: 8px; font-size: .9em; }
 .chg-line { display: flex; gap: 8px; align-items: baseline; padding: 1px 0 1px 26px; flex-wrap: wrap; }
 .chg-line .fname { color: var(--fg-3); font-size: .85em; min-width: 70px; } .chg-line .from { color: var(--fg-2); text-decoration: line-through; } .chg-line .arrow { color: var(--fg-3); }
+
+/* back trail */
+.iss-trail { margin: 0 0 6px; background: var(--bg-3); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); font-size: .85em; }
+.tr-head { display: flex; align-items: center; gap: 8px; padding: 2px 8px; color: var(--fg-2); font-weight: 600; }
+.tr-head kbd { font-size: 10px; opacity: .6; font-weight: 400; }
+.tr-more { font: inherit; font-size: .9em; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0 4px; }
+.tr-list { display: flex; flex-direction: column; max-height: calc(4 * 1.9em); overflow-y: auto; }
+.tr-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font: inherit; color: var(--fg); background: none; border: 0; padding: 1px 8px; cursor: pointer; min-width: 0; white-space: nowrap; }
+.tr-row:hover { background: var(--bg-4); }
+.tr-mark { color: var(--fg-3); } .tr-key { font-family: ui-monospace, monospace; font-weight: 600; flex: none; }
+.tr-row .pill { flex: none; font-size: .85em; padding: 0 6px; } .tr-sum { color: var(--fg-2); flex: 1; }
