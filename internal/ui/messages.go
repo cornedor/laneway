@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -35,6 +36,21 @@ func (m *Model) logError(s string) {
 
 // statusIsErr is whether the status line shows an error.
 func (m *Model) statusIsErr() bool { return m.status != "" && m.status == m.statusErr }
+
+// noticeFor is how long a notice stays on the status line; the palette's
+// messages row keeps it after.
+const noticeFor = 8 * time.Second
+
+// shownStatus is the status line's message as drawn: a notice is gone once
+// it is older than noticeFor. Errors stay until the next one, and so do the
+// panel's key hint and a "… again …" asking to confirm.
+func (m *Model) shownStatus(now time.Time) string {
+	notice := !m.statusIsErr() && m.status != m.panelHint && !strings.Contains(m.status, " again ")
+	if notice && !m.statusAt.IsZero() && now.Sub(m.statusAt) > noticeFor {
+		return ""
+	}
+	return m.status
+}
 
 // logStatus keeps the status line's message when it is a new one.
 func (m *Model) logStatus() {

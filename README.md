@@ -312,7 +312,7 @@ also searches all of Jira (summary, description, comments) and the index
 (below); those hits come last, marked `⌕`, the index's with when they were read. Actions match common words too (`create`, `transition`,
 `worklog`). Over the roadmap, planning or charts it lists that screen's
 actions only. Its `messages` row lists the status line's last messages
-with their time (the line shows one, cut to the screen); `enter` copies one.
+with their time (the line shows one, cut to the screen; a notice leaves after 8s, an error stays); `enter` copies one.
 
 Started in a git branch named after an issue (`issue/ABC-12-fix`), laneway
 opens that issue; the header's `⎇ ABC-12` and the palette's first row open

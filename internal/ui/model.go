@@ -284,6 +284,7 @@ type Model struct {
 	// statusLogged is the last one kept.
 	statusLog     []statusEntry
 	statusLogged  string
+	statusAt      time.Time       // when the status line last changed
 	statusErr     string          // the status line's text when it is an error (fail)
 	lastDownload  string          // the attachment saved last, for the palette to open
 	warnings      []string        // the startup warnings
@@ -599,6 +600,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	out, cmd := m.update(msg)
 	if om, ok := out.(Model); ok {
 		om.logStatus()
+		if om.status != m.status {
+			om.statusAt = time.Now()
+		}
 		if _, tick := msg.(loadingTickMsg); !tick && om.jiraTab != nil && om.jiraTab.loading && !wasLoading {
 			cmd = tea.Batch(cmd, loadingTick()) // a load began: its elapsed time ticks
 		}
@@ -1182,7 +1186,7 @@ func (m Model) View() tea.View {
 	if m.statusIsErr() {
 		st = refErrStyle
 	}
-	status := st.Render(ansi.Truncate(" "+m.status, m.width, "…"))
+	status := st.Render(ansi.Truncate(" "+m.shownStatus(time.Now()), m.width, "…"))
 	screen, ok := joinVerticalLeft(body, status)
 	if !ok {
 		screen = lipgloss.JoinVertical(lipgloss.Left, body, status)
