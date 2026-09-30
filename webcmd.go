@@ -58,6 +58,10 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 		}
 		jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
 		opt.Site, opt.Jira = "demo", jc
+		opt.ConfigPath = filepath.Join(dir, "config.yaml")
+		if err := os.WriteFile(opt.ConfigPath, []byte("# demo config\n"), 0o600); err != nil {
+			return err
+		}
 		opt.Client = webClient(jc, config.UIConfig{})
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)
@@ -71,7 +75,7 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 		if opt, err = webSite(cfg, site, opt); err != nil {
 			return err
 		}
-		opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{}) }
+		opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
 		opt.Sites = cfg.SiteNames()
 	}
 	srv := web.New(ctx, opt)
