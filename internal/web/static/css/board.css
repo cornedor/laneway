@@ -10,8 +10,6 @@
 .fchip kbd { font-size: .714rem; padding: 0 .286rem; line-height: 1rem; }
 .bd-filter { width: 15.714rem; max-width: 40vw; }
 .bd-stats { font-size: .857rem; white-space: nowrap; }
-.bd-refresh.spin { animation: bd-spin .8s linear infinite; }
-@keyframes bd-spin { to { transform: rotate(360deg); } }
 
 .bd-main { flex: 1; min-height: 0; position: relative; }
 
@@ -111,7 +109,16 @@
 .bd.compact .c3 > :not(.cav):not(.cdue):not(.cpr) { display: none; }
 .bd.compact .bcw { padding-bottom: .214rem; }
 .fchip.term { padding-left: .643rem; font-family: var(--font-mono); font-size: .786rem; }
-.btn.ghost.on { color: var(--accent); background: var(--accent-bg); }
+.btn.ghost.on, .btn[aria-pressed=true] { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
+
+/* drop zones: a multi-status lane splits per status while dragging */
+.bd-zones { display: flex; flex-direction: column; gap: .429rem; padding: .429rem; border-bottom: 1px solid var(--border); }
+.bd-zone { --zc: var(--cat-indeterminate); display: flex; align-items: center; justify-content: space-between; gap: .571rem; min-height: 3.143rem; padding: .429rem .714rem; border: 2px dashed var(--border); border-left: 4px solid var(--zc); border-radius: 6px; background: var(--bg-3); font-size: .857rem; font-weight: 600; }
+.bd-zone.cat-new { --zc: var(--cat-new); } .bd-zone.cat-done { --zc: var(--cat-done); }
+.bd-zone.over { border-color: var(--accent); background: var(--accent-bg); }
+.bd-zone.no { opacity: .35; cursor: not-allowed; }
+.bd-zone.cur { border-style: solid; opacity: .6; }
+.bd-zone-tag { font-weight: 400; font-size: .786rem; color: var(--fg-3); }
 .l-name { margin-left: .286rem; }
 
 /* filter builder */
