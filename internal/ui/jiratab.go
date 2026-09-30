@@ -1370,7 +1370,7 @@ func (m Model) showJiraKey(key string) (tea.Model, tea.Cmd) {
 	m.refs = refs
 	m.refIdx = 0
 	m.focus = focusRef
-	m.status = m.refStatusHint(refs[0], 1)
+	m.setPanelHint(m.refStatusHint(refs[0], 1))
 	m.resize()
 	cmd := m.loadCurrentRef()
 	return m, cmd

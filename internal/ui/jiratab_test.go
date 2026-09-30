@@ -1711,3 +1711,19 @@ func TestCardsReloadDuringBoardLoad(t *testing.T) {
 		t.Errorf("reload superseded the board load: seq %d → %d", seq, m.jiraTab.seq)
 	}
 }
+
+// TestPanelHintLeavesWithPanel: the panel's key hint is gone from the status
+// line once esc closes it.
+func TestPanelHintLeavesWithPanel(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if !m.refOpen || !strings.Contains(m.status, "esc closes") {
+		t.Fatalf("enter: open %v, status %q", m.refOpen, m.status)
+	}
+	out, _ = m.handleKey(keyMsg(t, "esc"))
+	m = out.(Model)
+	if m.refOpen || m.status != "" {
+		t.Errorf("esc: open %v, status %q", m.refOpen, m.status)
+	}
+}
