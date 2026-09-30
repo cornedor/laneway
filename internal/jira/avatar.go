@@ -15,27 +15,26 @@ const maxAvatarBytes = 1 << 20
 // Avatar downloads an avatar image. The API credentials go only to the
 // instance itself, never to another host (Gravatar, Atlassian's avatar
 // CDN); Go drops them on a redirect elsewhere too. The URL comes from a
-// response, so only the instance and Atlassian's avatar hosts are fetched,
-// redirects included: never localhost or a cloud metadata address.
+// response, so only the instance and the fixed avatarPrefixes are fetched,
+// redirects included: never localhost or a cloud metadata address. The
+// request URL is a constant prefix plus a rebuilt, re-escaped path and query.
 func (c *Client) Avatar(ctx context.Context, avatarURL string) ([]byte, error) {
-	u, err := url.Parse(avatarURL)
-	if err != nil || !c.avatarHost(u) {
-		return nil, fmt.Errorf("avatar: bad url %q", avatarURL)
+	target, own, ok := c.avatarTarget(avatarURL)
+	if !ok {
+		return nil, fmt.Errorf("avatar: bad url")
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	// Rebuilt from the parsed, checked parts: no userinfo, fragment or opaque.
-	safe := url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path, RawPath: u.RawPath, RawQuery: u.RawQuery}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, safe.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return nil, err
 	}
-	if base, err := url.Parse(c.baseURL); err == nil && c.auth != "" && u.Host == base.Host {
+	if own && c.auth != "" {
 		req.Header.Set("Authorization", c.auth)
 	}
 	hc := *c.http
 	hc.CheckRedirect = func(r *http.Request, via []*http.Request) error {
-		if len(via) >= 5 || !c.avatarHost(r.URL) {
+		if _, _, ok := c.avatarTarget(r.URL.String()); len(via) >= 5 || !ok {
 			return fmt.Errorf("avatar: redirect to %s refused", r.URL.Host)
 		}
 		return nil
@@ -51,28 +50,70 @@ func (c *Client) Avatar(ctx context.Context, avatarURL string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(resp.Body, maxAvatarBytes))
 }
 
-// avatarHosts are the hosts, and their subdomains, Jira Cloud's avatar URLs
-// point at besides the instance: Gravatar, which falls back to Atlassian's
-// initials images, and Atlassian's avatar CDN.
-var avatarHosts = []string{"gravatar.com", "atl-paas.net", "atlassian.net", "atlassian.com"}
+// avatarPrefixes are the only external places avatars are fetched from:
+// Gravatar, which falls back to Atlassian's initials images, and Atlassian's
+// avatar CDN. https only, default port.
+var avatarPrefixes = []string{
+	"https://secure.gravatar.com/",
+	"https://www.gravatar.com/",
+	"https://gravatar.com/",
+	"https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/",
+	"https://avatar-management--avatars.server-location.prod.public.atl-paas.net/",
+	"https://i0.wp.com/",
+	"https://i1.wp.com/",
+	"https://i2.wp.com/",
+}
 
-// avatarHost is whether u may be fetched as an avatar: the instance itself,
-// or https to one of avatarHosts.
-func (c *Client) avatarHost(u *url.URL) bool {
-	if (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Opaque != "" {
-		return false
+const maxAvatarURL = 2048
+
+// avatarTarget maps raw onto the instance or one of avatarPrefixes: the
+// result is the matching constant prefix plus the path and query of raw
+// rebuilt from their parsed, unescaped form. own says it is the instance.
+func (c *Client) avatarTarget(raw string) (target string, own, ok bool) {
+	if len(raw) > maxAvatarURL {
+		return "", false, false
 	}
-	if base, err := url.Parse(c.baseURL); err == nil && base.Host != "" && u.Host == base.Host {
-		return true
+	prefixes := avatarPrefixes
+	if b := strings.TrimRight(c.baseURL, "/"); b != "" {
+		prefixes = append([]string{b + "/"}, prefixes...)
 	}
-	if u.Scheme != "https" || u.Port() != "" {
-		return false
-	}
-	h := strings.ToLower(u.Hostname())
-	for _, d := range avatarHosts {
-		if h == d || strings.HasSuffix(h, "."+d) {
-			return true
+	for i, prefix := range prefixes {
+		if !strings.HasPrefix(raw, prefix) {
+			continue
 		}
+		rest := raw[len(prefix):]
+		rawPath, rawQuery, _ := strings.Cut(rest, "?")
+		if strings.Contains(rest, "#") {
+			return "", false, false
+		}
+		var segs []string
+		for _, seg := range strings.Split(rawPath, "/") {
+			d, err := url.PathUnescape(seg)
+			if err != nil {
+				return "", false, false
+			}
+			for _, r := range d {
+				if r <= 0x20 || r >= 0x7f || r == '\\' || r == '/' {
+					return "", false, false
+				}
+			}
+			if d == "." || d == ".." || d == "" && seg != "" {
+				return "", false, false
+			}
+			segs = append(segs, url.PathEscape(d))
+		}
+		if strings.Contains(rawPath, "//") {
+			return "", false, false
+		}
+		target = prefix + strings.Join(segs, "/")
+		if rawQuery != "" {
+			q, err := url.ParseQuery(rawQuery)
+			if err != nil {
+				return "", false, false
+			}
+			target += "?" + q.Encode()
+		}
+		return target, own || i == 0 && strings.TrimRight(c.baseURL, "/") != "", true
 	}
-	return false
+	return "", false, false
 }

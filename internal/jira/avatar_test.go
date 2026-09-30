@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 )
 
@@ -32,24 +31,43 @@ func TestAvatarAuth(t *testing.T) {
 	}
 }
 
-// TestAvatarHosts: only the instance and Atlassian's avatar hosts.
+// TestAvatarHosts: only the instance and the fixed avatar prefixes, and the
+// outgoing URL is rebuilt from a constant prefix.
 func TestAvatarHosts(t *testing.T) {
 	c := New(Config{BaseURL: "https://x.atlassian.net", Email: "me@x.test", APIToken: "tok"})
-	for raw, want := range map[string]bool{
-		"https://x.atlassian.net/secure/useravatar":                                    true,
-		"https://secure.gravatar.com/avatar/abc?d=mm":                                  true,
-		"https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/a/b/48": true,
-		"http://secure.gravatar.com/avatar/abc":                                        false,
-		"https://atl-paas.net.evil.test/a":                                             false,
-		"https://evilatl-paas.net/a":                                                   false,
-		"https://secure.gravatar.com:8443/avatar/abc":                                  false,
-		"http://169.254.169.254/latest/meta-data":                                      false,
-		"http://localhost:8080/admin":                                                  false,
+	for raw, want := range map[string]string{
+		"https://x.atlassian.net/secure/useravatar":                                    "https://x.atlassian.net/secure/useravatar",
+		"https://secure.gravatar.com/avatar/abc?d=mm":                                  "https://secure.gravatar.com/avatar/abc?d=mm",
+		"https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/a/b/48": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/a/b/48",
+		"https://x.atlassian.net/a%2Bb?x=1&y=a+b":                                      "https://x.atlassian.net/a+b?x=1&y=a+b",
+		"http://secure.gravatar.com/avatar/abc":                                        "",
+		"https://atl-paas.net.evil.test/a":                                             "",
+		"https://evilatl-paas.net/a":                                                   "",
+		"https://secure.gravatar.com:8443/avatar/abc":                                  "",
+		"https://secure.gravatar.com@evil.test/avatar":                                 "",
+		"https://x.atlassian.net@evil.test/a":                                          "",
+		"https://user:pw@secure.gravatar.com/a":                                        "",
+		"https://SECURE.gravatar.com/avatar/abc":                                       "",
+		"https://secure.gravatar.com/../admin":                                         "",
+		"https://secure.gravatar.com/a/%2e%2e/b":                                       "",
+		"https://secure.gravatar.com/a//b":                                             "",
+		"https://secure.gravatar.com/a\\b":                                             "",
+		"https://secure.gravatar.com/a%5Cb":                                            "",
+		"https://secure.gravatar.com/a%2Fb":                                            "",
+		"https://secure.gravatar.com/a%0d%0a":                                          "",
+		"https://secure.gravatar.com/\uff0e\uff0e/b":                                   "",
+		"https://secure.gravatar.com/a#frag":                                           "",
+		"https://secure.gravatar.com.evil.test/a":                                      "",
+		"http://169.254.169.254/latest/meta-data":                                      "",
+		"http://localhost:8080/admin":                                                  "",
 	} {
-		u, _ := url.Parse(raw)
-		if got := c.avatarHost(u); got != want {
-			t.Errorf("avatarHost(%s) = %v, want %v", raw, got, want)
+		got, _, ok := c.avatarTarget(raw)
+		if want == "" && ok || want != "" && (!ok || got != want) {
+			t.Errorf("avatarTarget(%q) = %q, %v; want %q", raw, got, ok, want)
 		}
+	}
+	if _, own, _ := c.avatarTarget("https://secure.gravatar.com/a"); own {
+		t.Error("gravatar is not the instance")
 	}
 }
 

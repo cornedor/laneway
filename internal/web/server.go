@@ -333,46 +333,63 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
-// assets serves the embedded frontend. embed.FS has no modtime, so each file
-// gets an ETag from its content hash (computed once) and reloads answer 304.
+// asset is one embedded file, read and compressed once at startup.
+type asset struct {
+	plain, gz   []byte
+	etag, ctype string
+}
+
+// assets serves the embedded frontend from memory: the request path is only
+// a lookup key into what was walked at startup, never written back. embed.FS
+// has no modtime, so each file gets an ETag from its content hash and reloads
+// answer 304.
 func assets(root fs.FS) http.Handler {
-	etags := map[string]string{}
+	types := map[string]string{".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".webmanifest": "application/manifest+json", ".html": "text/html; charset=utf-8"}
+	files := map[string]*asset{}
 	_ = fs.WalkDir(root, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if b, err := fs.ReadFile(root, p); err == nil {
-			sum := sha256.Sum256(b)
-			etags["/"+p] = `"` + hex.EncodeToString(sum[:8]) + `"`
+		b, err := fs.ReadFile(root, p)
+		if err != nil {
+			return nil
 		}
+		sum := sha256.Sum256(b)
+		a := &asset{plain: b, etag: `"` + hex.EncodeToString(sum[:8]) + `"`, ctype: types[path.Ext(p)]}
+		if compressible("/" + p) {
+			var buf bytes.Buffer
+			zw := gzip.NewWriter(&buf)
+			_, _ = zw.Write(b)
+			_ = zw.Close()
+			a.gz = buf.Bytes()
+		}
+		files["/"+p] = a
 		return nil
 	})
-	etags["/"] = etags["/index.html"]
-	types := map[string]string{".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml", ".json": "application/json", ".webmanifest": "application/manifest+json", ".html": "text/html; charset=utf-8"}
-	fsrv := http.FileServer(http.FS(root))
+	files["/"] = files["/index.html"]
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a, ok := files[r.URL.Path]
+		if !ok || a == nil || r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.NotFound(w, r)
+			return
+		}
 		h := w.Header()
 		h.Set("Cache-Control", "no-cache")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'")
-		if t, ok := types[path.Ext(r.URL.Path)]; ok {
-			h.Set("Content-Type", t)
+		if a.ctype != "" {
+			h.Set("Content-Type", a.ctype)
 		}
-		gz := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && compressible(r.URL.Path)
-		if e, ok := etags[r.URL.Path]; ok {
-			if gz {
-				e = e[:len(e)-1] + `-gz"`
-			}
-			h.Set("Etag", e)
-		}
-		if gz {
+		body, etag := a.plain, a.etag
+		if a.gz != nil {
 			h.Set("Vary", "Accept-Encoding")
-			g := &gzw{ResponseWriter: w}
-			defer g.Close()
-			fsrv.ServeHTTP(g, r)
-			return
+			if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+				body, etag = a.gz, etag[:len(etag)-1]+`-gz"`
+				h.Set("Content-Encoding", "gzip")
+			}
 		}
-		fsrv.ServeHTTP(w, r)
+		h.Set("Etag", etag)
+		http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(body))
 	})
 }
 
@@ -383,33 +400,6 @@ func compressible(p string) bool {
 		}
 	}
 	return false
-}
-
-// gzw compresses 200 responses only; 304s and errors pass through untouched.
-type gzw struct {
-	http.ResponseWriter
-	gz *gzip.Writer
-}
-
-func (g *gzw) WriteHeader(c int) {
-	if c == http.StatusOK && g.Header().Get("Content-Encoding") == "" {
-		g.Header().Del("Content-Length")
-		g.Header().Set("Content-Encoding", "gzip")
-		g.gz = gzip.NewWriter(g.ResponseWriter)
-	}
-	g.ResponseWriter.WriteHeader(c)
-}
-func (g *gzw) Write(b []byte) (int, error) {
-	if g.gz == nil {
-		return g.ResponseWriter.Write(b)
-	}
-	return g.gz.Write(b)
-}
-func (g *gzw) Close() error {
-	if g.gz != nil {
-		return g.gz.Close()
-	}
-	return nil
 }
 
 // Serve listens on addr and serves until ctx ends. A wildcard or public
