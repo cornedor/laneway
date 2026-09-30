@@ -4,7 +4,7 @@
 // A missing module shows a "not built yet" page; nothing else breaks.
 export const routes = [
   { path: '/board/:project?/:board?', name: 'board', title: 'Board', key: 'b', load: () => import('./board.js') },
-  { path: '/issue/:key', name: 'issue', title: 'Issue', load: () => import('./issue_page.js') },
+  { path: '/issue/:key', name: 'issue', title: 'Issue', nav: false, load: () => import('./issue_page.js') },
   { path: '/planning/:project?/:board?', name: 'planning', title: 'Planning', key: 'p', load: () => import('./planning.js') },
   { path: '/reports/:kind?/:project?/:board?', name: 'reports', title: 'Reports', key: 'r', load: () => import('./reports.js') },
   { path: '/roadmap/:project?', name: 'roadmap', title: 'Roadmap', key: 'm', load: () => import('./roadmap.js') },
