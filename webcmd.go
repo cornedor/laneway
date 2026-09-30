@@ -174,6 +174,6 @@ func webClient(jc config.JiraConfig, uiCfg config.UIConfig) *jira.Client {
 	return jira.New(jira.Config{
 		BaseURL: jc.BaseURL, Email: jc.Email, APIToken: jc.APIToken, Projects: jc.Projects,
 		StoryPointsField: jc.StoryPointsField, CardLimit: uiCfg.CardLimit, Timeout: timeout,
-		CustomFields: uiCfg.CustomFields,
+		CustomFields: uiCfg.CustomFields, FlagValue: uiCfg.FlagValue,
 	})
 }

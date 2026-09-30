@@ -26,7 +26,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   if (!board) { el.append(noBoard('Planning', project)); return; }
 
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
-  let data = null, sections = [], cur = '', filter = '', velAvg = 0, columns = [];
+  let data = null, sections = [], cur = '', filter = '', velAvg = 0, velN = 0, columns = [];
   const sel = new Set(), folded = new Set();
   let rows = [], tops = [], total = 0, ROW = 32, drag = null, token = 0, writing = 0, lastWrite = 0;
 
@@ -62,14 +62,18 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     }
   }
   function loadVelocity() {
-    app.api.get('/reports/velocity/' + board.ID + '?n=3').then(v => {
+    app.api.get('/reports/velocity/' + board.ID).then(v => {
       if (!v || !v.length) return;
-      velAvg = v.reduce((a, x) => a + x.Done, 0) / v.length; relayout();
+      velAvg = v.reduce((a, x) => a + x.Done, 0) / v.length; velN = v.length; relayout();
     }).catch(() => {});
   }
 
   // ---- layout
-  const match = c => !filter || [c.Key, c.Summary, c.Assignee, c.Labels, c.Status, c.ParentSummary].some(f => f && String(f).toLowerCase().includes(filter));
+  // Every word of the filter somewhere in the key, summary, assignee, status or labels.
+  const match = c => {
+    const hay = [c.Key, c.Summary, c.Assignee, c.Status, c.Labels].filter(Boolean).join(' ').toLowerCase();
+    return filter.split(/\s+/).every(w => hay.includes(w));
+  };
   const shown = s => (filter ? s.cards.filter(match) : s.cards);
   const headH = s => ROW + px14(s.sprint ? 34 : 6);
 
@@ -126,7 +130,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (r.k === 'c') { const c = r.c; return [c.Key, c.Summary, c.Status, c.Assignee, c.Points, c.Flagged, c.Type, c.ParentSummary, c.Done, sel.has(c.Key)].join('|'); }
     if (r.k === 'e') return 'e' + (filter ? 'f' : '');
     const s = r.s;
-    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, filter,
+    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter,
       s.cards.map(c => c.Key + c.Points + c.Assignee + c.Done).join(',')].join('|');
   }
 
@@ -157,7 +161,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       dates && h('span.pl-dates', dates),
       sp && h('span.pl-goal', { title: sp.Goal || 'No goal' }, sp.Goal || ''),
       !sp || !sp.Goal ? h('span.spacer') : null,
-      h('span.pl-tot' + (over ? '.over' : ''), cs.length + (cs.length === 1 ? ' issue' : ' issues'), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && ` of ~${fmtP(velAvg)}p`),
+      h('span.pl-tot' + (over ? '.over' : ''), cs.length + (cs.length === 1 ? ' issue' : ' issues'), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && ` of ~${fmtP(velAvg)}p (avg last ${velN})`),
       sp && sp.State === 'future' && h('button.btn.pl-act', { dataset: { act: 'start' }, tabindex: -1 }, 'Start'),
       sp && sp.State === 'active' && h('button.btn.pl-act', { dataset: { act: 'close' }, tabindex: -1 }, 'Complete'),
       sp && h('button.btn.ghost.pl-act', { dataset: { act: 'edit' }, tabindex: -1, title: 'Edit sprint (E)' }, 'Edit'));

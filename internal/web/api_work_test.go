@@ -55,14 +55,14 @@ func TestWorkAndWorklogs(t *testing.T) {
 		t.Fatalf("my work = %+v", work)
 	}
 	key := work.Cards[0].Key
-	today := time.Now().Format(time.DateOnly)
+	start := time.Now().Add(-time.Hour)
+	from, started := start.Format(time.DateOnly), start.Format(time.RFC3339)
 	tomorrow := time.Now().AddDate(0, 0, 1).Format(time.DateOnly)
-	started := time.Now().Add(-time.Hour).Format(time.RFC3339)
 	if c := workCall(t, "POST", ts.URL+"/api/worklog/"+key, `{"Seconds":3600,"Started":"`+started+`","Comment":"tests","Left":"keep"}`, nil); c != 200 {
 		t.Fatalf("add worklog = %d", c)
 	}
 	var logs struct{ Worklogs []jira.Worklog }
-	workCall(t, "GET", ts.URL+"/api/worklogs?from="+today+"&to="+tomorrow, "", &logs)
+	workCall(t, "GET", ts.URL+"/api/worklogs?from="+from+"&to="+tomorrow, "", &logs)
 	if len(logs.Worklogs) == 0 {
 		t.Fatal("logged work not listed")
 	}

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -303,6 +304,14 @@ func sprintCount(r *http.Request, def int) int {
 	return def
 }
 
+// velocitySprints is ui.velocity_sprints, 8 when unset or out of range.
+func velocitySprints(ui config.UIConfig) int {
+	if n := ui.VelocitySprints; n >= 1 && n <= 50 {
+		return n
+	}
+	return 8
+}
+
 func boardPoints(ctx context.Context, s *Server, board int) string {
 	if cfg, err := s.Client().BoardConfiguration(ctx, board); err == nil {
 		return cfg.PointsField
@@ -315,7 +324,7 @@ func reportVelocity(ctx context.Context, s *Server, r *http.Request) (any, error
 	if err != nil {
 		return nil, err
 	}
-	n := sprintCount(r, max(s.UIConfig().VelocitySprints, 8))
+	n := sprintCount(r, velocitySprints(s.UIConfig()))
 	return s.Client().Velocity(ctx, id, n, boardPoints(ctx, s, id))
 }
 

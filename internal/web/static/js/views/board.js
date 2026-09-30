@@ -127,7 +127,11 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (isScrum()) {
       sprints().forEach(s => out.push({ id: String(s.ID), name: s.Name, info: s.State }));
       out.push({ id: 'backlog', name: 'Backlog' }, { id: 'all', name: 'Whole board' });
-    } else out.push({ id: 'active', name: 'Board' });
+    } else {
+      out.push({ id: 'active', name: 'Board' });
+      const cols = (S.bundle && S.bundle.config && S.bundle.config.Columns) || [];
+      if (cols.length && cols[0].Name.toLowerCase() === 'backlog') out.push({ id: 'backlog', name: 'Backlog' });
+    }
     ((app.session.ui && app.session.ui.Views) || []).forEach((v, i) => { if (v.Name && v.JQL) out.push({ id: 'view:' + i, name: v.Name, info: 'view', jql: v.JQL, kind: 'jql' }); });
     for (const f of S.saved) out.push({ id: 'filter:' + f.ID, name: f.Name, info: 'saved filter', jql: f.JQL, kind: 'filter' });
     return out;
@@ -135,7 +139,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   function scopeLabel() {
     if (S.closed) return S.closed.Name + ' (closed)';
     const it = viewItems().find(i => i.id === S.scope);
-    if (it && it.kind) return it.name;
+    if (it && (it.kind || !isScrum())) return it.name;
     if (S.scope === 'backlog') return 'Backlog';
     if (S.scope === 'all') return 'Whole board';
     const r = resolveScope();
@@ -198,8 +202,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (S.closed) return { sprint: S.closed.ID };
     const vi = viewItems().find(i => i.id === S.scope);
     if (vi && vi.kind) return { view: vi };
-    if (!isScrum() || S.scope === 'all') return {};
     if (S.scope === 'backlog') return { backlog: 1 };
+    if (!isScrum()) return { kanban: 1 };
+    if (S.scope === 'all') return {};
     if (S.scope === 'active') {
       const a = sps.find(s => s.State === 'active') || sps[0];
       return a ? { sprint: a.ID } : {};
@@ -210,6 +215,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const p = new URLSearchParams(), r = resolveScope();
     if (r.sprint) p.set('sprint', r.sprint);
     if (r.backlog) p.set('backlog', 1);
+    if (r.kanban) p.set('kanban', 1);
     const jql = qfs().filter(q => S.qf.has(q.ID)).map(q => '(' + q.JQL + ')').join(' AND ');
     if (r.view) {
       p.set('kind', r.view.kind); p.set('jql', r.view.jql);

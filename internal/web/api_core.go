@@ -1,9 +1,13 @@
 package web
 
 import (
+	"cmp"
 	"context"
+	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -118,17 +122,20 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	return out, nil
 }
 
-// boardCards: ?sprint=ID → that sprint, ?backlog=1 → backlog, else the
-// board; ?jql= narrows. The response is {cards, total}.
+// boardCards: ?sprint=ID → that sprint, ?backlog=1 → backlog, ?kanban=1 →
+// a kanban board as Jira shows it (old done work and its backlog column
+// left out), else the board; ?jql= narrows. The response is {cards, total}.
 func boardCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	id, err := boardID(r)
 	if err != nil {
 		return nil, err
 	}
 	c, jql, pf := s.Client(), Q(r, "jql"), Q(r, "points")
-	if pf == "" {
-		if cfg, e := c.BoardConfiguration(ctx, id); e == nil {
-			pf = cfg.PointsField
+	var cfg *jira.BoardConfig
+	if pf == "" || Q(r, "kanban") != "" {
+		if bc, e := c.BoardConfiguration(ctx, id); e == nil {
+			cfg = bc
+			pf = cmp.Or(pf, bc.PointsField)
 		}
 	}
 	var cards []jira.Card
@@ -142,6 +149,18 @@ func boardCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		cards, total, err = c.SprintIssues(ctx, id, sp, jql, pf)
 	case Q(r, "backlog") != "":
 		cards, total, err = c.BacklogIssues(ctx, id, jql, pf)
+	case Q(r, "kanban") != "":
+		cards, total, err = c.BoardIssues(ctx, id, andOrderedJQL(kanbanJQL(s.UIConfig().KanbanDoneDays), jql), pf)
+		if i := kanbanBacklog(cfg); i >= 0 && err == nil {
+			kept := cards[:0]
+			for _, cd := range cards {
+				if !slices.Contains(cfg.Columns[i].StatusIDs, cd.StatusID) {
+					kept = append(kept, cd)
+				}
+			}
+			total -= len(cards) - len(kept)
+			cards = kept
+		}
 	default:
 		cards, total, err = c.BoardIssues(ctx, id, jql, pf)
 	}
@@ -150,4 +169,22 @@ func boardCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	observeRules(s, r, cards)
 	return map[string]any{"cards": cards, "total": total}, nil
+}
+
+// kanbanJQL hides what Jira's own kanban board hides: work done more than
+// ui.kanban_done_days (two weeks by default) ago.
+func kanbanJQL(days int) string {
+	if days < 1 || days > 365 {
+		days = 14
+	}
+	return fmt.Sprintf("statusCategory != Done OR updated >= -%dd", days)
+}
+
+// kanbanBacklog is the index of a kanban board's backlog column (Jira names
+// it "Backlog" when the board has one), or -1.
+func kanbanBacklog(cfg *jira.BoardConfig) int {
+	if cfg != nil && len(cfg.Columns) > 0 && strings.EqualFold(cfg.Columns[0].Name, "backlog") {
+		return 0
+	}
+	return -1
 }
