@@ -4,6 +4,7 @@ import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
 import { ago, dateTime } from '../lib/fmt.js';
 import { render as md } from '../lib/md.js';
+import { mdEdit } from '../lib/mdedit.js';
 import { stateOf, latest, unreadCount, setBadge } from '../lib/inbox.js';
 import { dayStart, addDays, workdays } from '../lib/worktime.js';
 
@@ -20,24 +21,27 @@ export default function mount(el, { app, scope, toolbar }) {
 
   const now = () => Date.now();
   const st = t => stateOf(t, data.marks[t.Key], data.floor, now());
+  const TABS = [['inbox', 'Inbox'], ['mentions', 'Mentions'], ['all', 'All']];
+  const everMentioned = t => t.Entries.some(e => e.Mention || e.Assigned);
   const mentioned = t => t.Entries.some(e => (e.Mention || e.Assigned) && Date.parse(e.When) > (data.marks[t.Key]?.Read || data.floor));
   const cur = () => rows[sel] || null;
 
   function buildRows() {
     const keep = cur() && cur().Key;
     const n = now();
-    rows = data.threads.filter(t => { const s = st(t); return tab === 'all' || (!s.done && !s.snoozed); });
+    rows = data.threads.filter(t => { const s = st(t); return tab === 'all' || (!s.done && !s.snoozed && (tab !== 'mentions' || everMentioned(t))); });
     rows = rows.map((t, i) => ({ t, i })).sort((a, b) => (mentioned(b.t) - mentioned(a.t)) || (a.i - b.i)).map(x => x.t);
     if (keep) { const i = rows.findIndex(t => t.Key === keep); sel = i >= 0 ? i : Math.min(sel, rows.length - 1); }
     sel = Math.max(0, Math.min(sel, rows.length - 1));
     const hidden = data.threads.length - rows.length;
-    clear(head).append(h('div.itabs', [['inbox', 'Inbox'], ['all', 'All']].map(([k, name]) => h('button.btn' + (tab === k ? '.on' : '.ghost'), { onclick: () => setTab(k) }, name))),
-      h('span.spacer'), tab === 'inbox' && hidden > 0 ? hidden + ' done or snoozed' : '', h('span', unreadCount(data, n) + ' unread'));
+    const counts = { m: data.threads.filter(t => { const x = st(t); return !x.done && !x.snoozed && everMentioned(t); }).length };
+    clear(head).append(h('div.itabs', TABS.map(([k, name]) => h('button.btn' + (tab === k ? '.on' : '.ghost'), { onclick: () => setTab(k) }, name, k === 'mentions' && counts.m ? ' ' + counts.m : ''))),
+      h('span.spacer'), tab !== 'all' && hidden > 0 ? hidden + ' done or snoozed' : '', h('span', unreadCount(data, n) + ' unread'));
     setBadge(unreadCount(data, n));
     list.setCount(rows.length);
     list.refresh();
     empty.hidden = rows.length > 0;
-    empty.textContent = !loaded ? 'Loading…' : tab === 'inbox' && data.threads.length ? 'Inbox zero. Tab shows the rest.' : 'Nothing new on your issues.';
+    empty.textContent = !loaded ? 'Loading…' : tab === 'mentions' ? 'No one mentioned you.' : tab === 'inbox' && data.threads.length ? 'Inbox zero. Tab shows the rest.' : 'Nothing new on your issues.';
     if (rows.length) list.scrollTo(sel);
     showThread(false);
   }
@@ -127,6 +131,26 @@ export default function mount(el, { app, scope, toolbar }) {
     buildRows();
   }
 
+  // Comment or reply from the thread, without leaving the inbox.
+  function compose(reply) {
+    const t = cur(); if (!t) return;
+    let last = null;
+    if (reply) {
+      last = [...t.Entries].reverse().find(e => e.CommentID);
+      if (!last) return ui.toast('No comments to reply to');
+    }
+    const at = last && last.Who ? '@' + last.Who + ' ' : '';
+    const ment = last && last.WhoID ? [{ AccountID: last.WhoID, DisplayName: last.Who }] : [];
+    const ed = mdEdit(app, { value: at, rows: 3, issueKey: t.Key, label: reply ? 'Reply' : 'Comment', placeholder: 'Comment on ' + t.Key + '… (@ mentions, / formats)',
+      save: async (text, mentions) => {
+        await api.post('/issues/' + t.Key + '/comments', { Markdown: text, Mentions: [...ment.filter(m => text.includes('@' + m.DisplayName)), ...mentions] });
+        m.close(); ui.toast('Commented on ' + t.Key, { kind: 'ok' }); app.bus.emit('issue:changed', { key: t.Key }); load(true);
+      } });
+    const m = ui.modal(h('div.prompt', ed.el), { title: (reply ? 'Reply on ' : 'Comment on ') + t.Key + '  ' + t.Summary, wide: true });
+    m.scope.bind('ctrl+Enter', () => ed.el._save(), '', { input: true, hidden: true });
+    ed.focus();
+  }
+
   function setTab(t) { tab = t; app.prefs.set('inbox_tab', t); sel = 0; buildRows(); }
   function select(i) {
     if (i < 0 || i >= rows.length || i === sel) return;
@@ -156,8 +180,13 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('u', unread, 'mark unread', G);
   scope.bind('a', toggleRead, 'toggle read', G);
   scope.bind('r', () => { load(true); ui.toast('Refreshing'); }, 'refresh', G);
-  scope.bind('Tab', () => setTab(tab === 'inbox' ? 'all' : 'inbox'), 'inbox / all', { ...G, when: () => !app.panel.key });
-  scope.bind('A', () => setTab(tab === 'inbox' ? 'all' : 'inbox'), 'inbox / all', G);
+  const cycle = d => setTab(TABS[(TABS.findIndex(x => x[0] === tab) + d + TABS.length) % TABS.length][0]);
+  scope.bind('Tab', () => cycle(1), 'next tab: inbox, mentions, all', { ...G, when: () => !app.panel.key });
+  scope.bind('A', () => cycle(1), 'next tab: inbox, mentions, all', G);
+  scope.bind(['1', '2', '3'], e => setTab(TABS[+e.key - 1][0]), 'inbox / mentions / all', G);
+  scope.bind('c', () => compose(false), 'comment on the issue', G);
+  scope.bind('R', () => compose(true), 'reply to the latest comment', G);
+  scope.bind('y', () => { const t = cur(); if (t) navigator.clipboard.writeText(t.Key).then(() => ui.toast(t.Key + ' copied')).catch(() => {}); }, 'copy key', G);
   scope.bind('o', () => { const t = cur(); if (t && app.session.baseURL) window.open(app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key, '_blank', 'noopener'); }, 'open in Jira', G);
 
   const off = [app.bus.on('focus', reload)];

@@ -1,162 +1,191 @@
-// Standup: what I did since the previous workday, what's next, blockers; or the team's, per person.
+// Standup: what I did since the previous workday (with my commits), or the team's walking the board
+// right to left or by person. One card at a time (space), park a card for after (P, kept per sprint).
+// Rows come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
-import { duration } from '../lib/fmt.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
 
-const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
-const catOf = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
-
-// What happened on an issue, in one line: changes and comments, the logged work summed.
-function what(events) {
-  const parts = [];
-  let logged = 0;
-  for (const e of events) {
-    if (e.Logged) { logged += e.Logged; continue; }
-    const w = clip(e.What.replace(/\s+/g, ' '), 90);
-    if (!parts.includes(w)) parts.push(w);
-  }
-  if (logged) parts.push('logged ' + duration(logged));
-  return parts.join('; ');
-}
+const PARK = 'Parking lot';
 
 export default function mount(el, { app, scope, toolbar }) {
-  css('work');
+  css('work'); css('standup');
   const { api, ui, prefs } = app;
   const wd = workdays(app);
   const prevWorkday = d => { let x = addDays(d, -1); while (!wd.includes(x.getDay())) x = addDays(x, -1); return x; };
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
-  let since = prevWorkday(midnight), team = false, data = null, err = '', dead = false;
+  let since = prevWorkday(midnight), mode = 'mine', data = null, err = '', dead = false, single = false, seq = 0;
   let project = prefs.get('standup_project', (app.session.projects || [])[0] || '');
-  let items = [], sel = 0, text = '';
-  const me = (app.session.me && app.session.me.AccountID) || '';
+  let board = null, sprint = 0, lines = [], folded = [], sel = 0, parkedKeys = [];
 
   const root = h('div.standup');
   el.append(root);
 
-  function sections() {
-    const byKey = new Map(), cardOf = new Map((data.cards || []).map((c, i) => [c.Key, { c, i }]));
-    const loose = [];
-    for (const e of data.entries) {
-      if (!e.Key) { loose.push(e); continue; }
-      const s = byKey.get(e.Key) || byKey.set(e.Key, { key: e.Key, summary: e.Summary, card: cardOf.get(e.Key)?.c, rank: cardOf.get(e.Key)?.i ?? 1e6, events: [] }).get(e.Key);
-      s.events.push(e);
-    }
-    const sorted = [...byKey.values()].sort((a, b) => a.rank - b.rank);
-    if (team) {
-      const by = new Map();
-      for (const e of data.entries) (by.get(e.Who) || by.set(e.Who, new Map()).get(e.Who));
-      const out = [];
-      for (const who of by.keys()) {
-        const m = new Map();
-        for (const e of data.entries) if (e.Who === who && e.Key) (m.get(e.Key) || m.set(e.Key, { key: e.Key, summary: e.Summary, card: cardOf.get(e.Key)?.c, events: [] }).get(e.Key)).events.push(e);
-        out.push({ name: who, rows: [...m.values()] });
+  const team = () => mode !== 'mine';
+  const picks = l => !!(l.Key || l.Unfold);
+  const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + sprint;
+  const loadParked = () => { parkedKeys = (prefs.get(parkId(), '') || '').split(/\s+/).filter(Boolean); };
+
+  // The project's board and its active sprint, for the team walk and the parking lot.
+  async function resolveBoard() {
+    if (board || !project) return;
+    try {
+      const bs = await api.get('/projects/' + encodeURIComponent(project) + '/boards');
+      board = bs.find(b => /scrum/i.test(b.Type)) || bs[0] || null;
+      if (board) {
+        const b = await api.get('/boards/' + board.ID);
+        const a = (b.sprints || []).find(s => s.State === 'active');
+        sprint = a ? a.ID : 0;
       }
-      return out;
-    }
-    const mine = (data.cards || []).filter(c => c.AssigneeID === me && !c.Done);
-    const done = sorted.filter(s => s.card?.Done), doing = sorted.filter(s => s.card && !s.card.Done && s.card.InProgress), touched = sorted.filter(s => !s.card?.Done && !(s.card && s.card.InProgress));
-    for (const c of mine) if (c.InProgress && !byKey.has(c.Key)) doing.push({ key: c.Key, summary: c.Summary, card: c, events: [], quiet: true });
-    const next = mine.filter(c => !c.InProgress && !c.Flagged && !byKey.has(c.Key)).slice(0, 3).map(c => ({ key: c.Key, summary: c.Summary, card: c, events: [] }));
-    const blocked = mine.filter(c => c.Flagged).map(c => ({ key: c.Key, summary: c.Summary, card: c, events: [] }));
-    const out = [
-      { name: 'Done since ' + since.toLocaleDateString(undefined, { weekday: 'long' }), rows: done },
-      { name: 'In progress', rows: doing }, { name: 'Also touched', rows: touched }, { name: 'Next', rows: next }, { name: 'Blockers', rows: blocked },
-    ].filter(s => s.rows.length);
-    if (loose.length) out.push({ name: 'No ticket', rows: loose.map(e => ({ key: '', summary: e.What, events: [] })) });
-    out.done = done; out.doing = doing; out.touched = touched; out.next = next; out.blocked = blocked;
-    return out;
+    } catch (e) { /* no board: mine still works */ }
   }
 
-  function copyText(secs) {
-    const line = s => '- ' + (s.key ? s.key + ' ' + s.summary : s.summary);
-    if (team) return secs.map(s => s.name + '\n' + s.rows.map(r => line(r) + ': ' + what(r.events)).join('\n')).join('\n\n');
-    const y = [...secs.done, ...secs.doing, ...secs.touched].filter(s => s.events.length);
-    const t = [...secs.doing, ...secs.next].map(s => line(s));
-    return ['Yesterday', ...(y.length ? y.map(s => line(s) + ': ' + what(s.events)) : ['- nothing on record']), '', 'Today', ...t, '', 'Blockers', ...(secs.blocked.length ? secs.blocked.map(line) : ['- none'])].join('\n');
+  function build() {
+    const L = (data.Lines || []).filter(l => !l.Head || !l.Head.startsWith(PARK));
+    const all = [...L, ...(data.Folded || [])];
+    const byKey = new Map(all.filter(l => l.Key).map(l => [l.Key, l]));
+    const lot = parkedKeys.map(k => ({ ...(byKey.get(k) || { Key: k, Title: k }), Marks: '', parked: true }));
+    lines = L.map(l => (l.Key && parkedKeys.includes(l.Key) ? { ...l, Marks: [l.Marks, 'parked'].filter(Boolean).join(' · ') } : l));
+    folded = (data.Folded || []).map(l => (l.Key && parkedKeys.includes(l.Key) ? { ...l, Marks: [l.Marks, 'parked'].filter(Boolean).join(' · ') } : l));
+    if (lot.length) lines.push({ Head: PARK + ' (' + lot.length + ')' }, ...lot);
   }
+
+  const cells = l => [l.Who, l.Age, l.Marks].filter(Boolean);
+  const copyText = () => {
+    let t = data.Text || '';
+    const i = lines.findIndex(l => l.Head && l.Head.startsWith(PARK));
+    if (i >= 0) t += '\n\n' + PARK + '\n' + lines.slice(i + 1).map(l => '- ' + [l.Title, l.Who, l.Age, l.Marks, l.What].filter(Boolean).join(' · ')).join('\n');
+    return t.trim();
+  };
 
   function paint() {
     clear(root);
     const label = since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-    root.append(h('div.sthead', h('h2', team ? 'Team standup' : 'Standup'), h('span.dim', 'since ' + label), h('span.spacer'),
+    const title = mode === 'mine' ? 'Standup' : mode === 'team' ? 'Team standup' : 'Team standup by person';
+    root.append(h('div.sthead', h('h2', title), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
       h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, '‹ earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later ›'),
-      h('button.btn', { onclick: () => setTeam(!team), title: 'Tab / p' }, team ? 'Mine' : 'Team'), h('button.btn', { onclick: copy, title: 'y' }, 'Copy')));
+      h('button.btn', { onclick: () => setMode(team() ? 'mine' : 'team'), title: 'Tab' }, team() ? 'Mine' : 'Team'),
+      team() && h('button.btn', { onclick: () => setMode(mode === 'team' ? 'person' : 'team'), title: 'p' }, mode === 'team' ? 'By person' : 'Walk the board'),
+      h('button.btn', { onclick: () => { single = !single; paint(); }, title: 'space' }, single ? 'The list' : 'One by one'),
+      h('button.btn', { onclick: copy, title: 'y' }, 'Copy')));
     if (err) return root.append(h('div.empty', err));
     if (!data) return root.append(h('div.loading', 'Loading…'));
-    const secs = sections();
-    items = []; text = copyText(secs);
-    if (!secs.length) root.append(h('div.empty', 'Nothing on record since ' + label));
-    for (const s of secs) {
-      root.append(h('section.stsec', h('h3', s.name), s.rows.map(r => {
-        const i = items.push(r.key) - 1;
-        return h('div.strow' + (i === sel ? '.sel' : ''), { dataset: r.key ? { key: r.key, i } : { i } },
-          h('span.wkey.mono', r.key), h('div.main', h('span.wsum', r.summary), r.events.length ? h('span.what', what(r.events)) : r.quiet && h('span.what', 'no activity')),
-          r.card && ui.statusPill(r.card.Status, catOf(r.card)));
-      })));
-    }
-    sel = Math.min(sel, Math.max(items.length - 1, 0));
+    if (!lines.length) return root.append(h('div.empty', 'Nothing on record since ' + label));
+    sel = Math.max(0, Math.min(sel, lines.length - 1));
+    if (!picks(lines[sel])) stepSel(1);
+    if (single) return paintSingle();
+    let sec = null;
+    lines.forEach((l, i) => {
+      if (l.Head) {
+        sec = h('section.stsec', h('h3', l.Head, l.Unfold && h('button.btn.ghost.sm', { onclick: () => { sel = i; unfold(); } }, ' show (z)')));
+        if (l.Unfold) sec.dataset.i = i;
+        return root.append(sec);
+      }
+      (sec || root).append(rowEl(l, i));
+    });
+    const r = root.querySelector('.strow.sel'); if (r) r.scrollIntoView({ block: 'nearest' });
   }
 
-  function load() {
-    const path = '/standup?since=' + ymd(since) + (team ? '&ids=' + teamIds.join(',') : '');
-    if (team && !teamIds.length) { data = { entries: [], cards: [] }; return paint(); }
+  function rowEl(l, i) {
+    return h('div.strow' + (i === sel ? '.sel' : '') + (l.parked ? '.parked' : ''), { dataset: l.Key ? { key: l.Key, i } : { i } },
+      h('span.wkey.mono', l.Key), h('div.main', h('span.wsum', l.Key ? l.Title.slice(l.Key.length + 1) : l.Title),
+        h('span.what' + (l.What === 'no activity' ? '.quiet' : ''), l.What || '')),
+      h('span.stwho' + (/stale/.test(l.Age || '') ? '.stale' : ''), cells(l).join(' · ')));
+  }
+
+  function paintSingle() {
+    const l = lines[sel];
+    let section = '', n = 0, at = 0;
+    lines.forEach((x, i) => { if (x.Head && i < sel) section = x.Head; if (x.Key) { n++; if (i === sel) at = n; } });
+    root.append(h('div.stcard',
+      h('div.dim', section),
+      l.Unfold ? h('h2', 'Off the board') : [h('h2', h('span.mono', l.Key), ' ', l.Key ? l.Title.slice(l.Key.length + 1) : l.Title),
+        h('div.dim', cells(l).join(' · ')), h('p.what' + (l.What === 'no activity' ? '.quiet' : ''), l.What || '')],
+      h('div.dim', 'card ' + at + ' of ' + n + ' · j k next / previous · space the list · P park')));
+    if (l.Key && app.panel.key) app.panel.open(l.Key);
+  }
+
+  function stepSel(d) {
+    for (let i = sel + d; i >= 0 && i < lines.length; i += d) if (picks(lines[i])) { sel = i; return true; }
+    if (!picks(lines[sel]) && d > 0) return stepSel(-1);
+    return false;
+  }
+  function move(d) { if (stepSel(d)) { paint(); if (!single && app.panel.key && lines[sel].Key) app.panel.open(lines[sel].Key); } }
+
+  function unfold() {
+    const i = lines.findIndex(l => l.Unfold);
+    if (i < 0) return ui.toast('Nothing folded');
+    lines[i] = { ...lines[i], Unfold: false };
+    lines.splice(i + 1, 0, ...folded);
+    folded = []; data.Folded = [];
+    sel = i; stepSel(1); paint();
+  }
+
+  function park() {
+    const l = lines[sel];
+    if (!l || !l.Key) return ui.toast('No card to park');
+    const i = parkedKeys.indexOf(l.Key);
+    if (i >= 0) parkedKeys.splice(i, 1); else parkedKeys.push(l.Key);
+    prefs.set(parkId(), parkedKeys.join(' '));
+    const was = l.Key;
+    build();
+    sel = Math.max(0, lines.findIndex(x => x.Key === was && !x.parked));
+    ui.toast(was + (i >= 0 ? ' out of the parking lot' : ' parked for after the standup'));
+    paint();
+  }
+
+  async function load() {
+    const my = ++seq;
     data = null; err = ''; paint();
-    return api.swr(path, d => { if (dead || path !== '/standup?since=' + ymd(since) + (team ? '&ids=' + teamIds.join(',') : '')) return; data = d; paint(); })
-      .catch(e => { if (!dead) { err = e.message; paint(); } });
+    try {
+      await resolveBoard();
+      if (team() && !board) throw new Error('No board found for ' + (project || 'this site') + '. B picks a project.');
+      loadParked();
+      const q = 'since=' + ymd(since) + '&mode=' + mode + (board ? '&board=' + board.ID + '&sprint=' + sprint : '');
+      const d = await api.get('/standup/lines?' + q, { fresh: true });
+      if (dead || my !== seq) return;
+      data = d; build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
+    } catch (e) { if (dead || my !== seq) return; err = e.message; }
+    paint();
   }
-  let teamIds = [];
-  async function setTeam(on) {
-    team = on; sel = 0;
-    if (on) {
-      data = null; paint();
-      try {
-        const people = await api.get('/standup/people' + (project ? '?project=' + encodeURIComponent(project) : ''));
-        teamIds = people.map(p => p.ID);
-      } catch (e) { ui.errToast(e); team = false; }
-    }
-    load();
-  }
+
+  function setMode(m) { mode = m; sel = 0; load(); }
   function step(n) {
     if (n < 0) since = prevWorkday(since);
     else {
       let x = addDays(since, 1);
       while (!wd.includes(x.getDay())) x = addDays(x, 1);
-      if (x < midnight) since = x;
+      if (x < midnight) since = x; else return ui.toast('The previous workday is the latest to start from');
     }
     sel = 0; load();
   }
   function copy() {
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => ui.toast('Copied the standup'), e => ui.errToast(e));
+    if (!data) return;
+    navigator.clipboard.writeText(copyText()).then(() => ui.toast('Copied the standup'), e => ui.errToast(e));
   }
   async function setProject() {
     const ps = app.session.projects || [];
     if (!ps.length) return ui.toast('No projects configured');
-    const p = await ui.pick({ title: 'Team of project', items: ps, label: x => x });
-    if (p) { project = p; prefs.set('standup_project', p); if (team) setTeam(true); }
+    const p = await ui.pick({ title: 'Board of project', items: ps, label: x => x });
+    if (p) { project = p; prefs.set('standup_project', p); board = null; load(); }
   }
-  function move(d) {
-    const n = Math.min(Math.max(sel + d, 0), items.length - 1);
-    if (n === sel) return;
-    sel = n; paint();
-    const r = root.querySelector('.strow.sel'); if (r) r.scrollIntoView({ block: 'nearest' });
-    if (app.panel.key && items[sel]) app.panel.open(items[sel]);
-  }
+  const open = () => { const l = lines[sel]; if (!l) return; if (l.Unfold) unfold(); else if (l.Key) app.panel.open(l.Key); };
 
   delegate(root, 'click', '.strow', (e, row) => { sel = +row.dataset.i; paint(); if (row.dataset.key) app.panel.open(row.dataset.key); });
 
   const G = { group: 'Standup' };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next', G);
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
-  scope.bind('Enter', () => { if (items[sel]) app.panel.open(items[sel]); }, 'open issue', G);
+  scope.bind('Enter', open, 'open issue (or show Off the board)', G);
+  scope.bind('z', unfold, 'show Off the board', G);
+  scope.bind('Space', () => { single = !single; paint(); }, 'one card at a time / the list', G);
+  scope.bind('P', park, 'park the card for after the standup', G);
   scope.bind('[', () => step(-1), 'a workday further back', G);
   scope.bind(']', () => step(1), 'a workday forward', G);
-  scope.bind('Tab', () => setTeam(!team), 'mine / team', { ...G, when: () => !app.panel.key });
-  scope.bind('p', () => setTeam(!team), 'mine / team', G);
-  scope.bind('P', setProject, 'team of another project', G);
-  scope.bind('y', copy, 'copy as text', G);
-  scope.bind('r', () => { api.forget(); load(); }, 'refresh', G);
+  scope.bind('Tab', () => setMode(team() ? 'mine' : 'team'), 'mine / team', { ...G, when: () => !app.panel.key });
+  scope.bind('p', () => setMode(!team() ? 'team' : mode === 'team' ? 'person' : 'team'), 'team: by person / walk the board', G);
+  scope.bind('B', setProject, 'board of another project', G);
+  scope.bind('y', copy, 'copy as text, parking lot included', G);
+  scope.bind('r', load, 'refresh', G);
 
   clear(toolbar);
   load();
