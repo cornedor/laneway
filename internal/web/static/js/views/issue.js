@@ -1,9 +1,10 @@
 // The issue panel (right-hand aside) and full page. mountIssue(el, key, {app, full}) → cleanup.
 // One scroll, three tabs: Details (fields, description, children, links, files), Comments, History.
 // Renders from cache first, refetches, and patches sections rather than rebuilding them.
-import { h, clear, debounce, delegate } from '../lib/dom.js';
+import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { render as md } from '../lib/md.js';
+import { mdEdit } from '../lib/mdedit.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
@@ -407,74 +408,18 @@ export function mountIssue(el, key, { app, full }) {
   const changeText = c => (c.Field && /^description$/i.test(c.Field) ? h('span.dim', 'edited') : !c.Field ? h('span', c.To) : [
     c.From ? h('span.from', clip(c.From)) : h('span.faint', 'none'), h('span.arrow', '→'), c.To ? h('span.to', clip(c.To)) : h('span.faint', 'none')]);
 
-  // ---- editor (description, comment edit, composer): textarea + mention completion
-  function editor({ value = '', rows = 4, placeholder = '', label = 'Save', save, cancel, allowEmpty = false, mono = false, noCancel = false }) {
-    const mentions = [];
-    const ta = h('textarea.input.ed-ta' + (mono ? '.mono' : ''), { rows, placeholder, spellcheck: true });
-    ta.value = value;
-    const pop = h('div.mention-pop', { hidden: true, role: 'listbox' });
-    const go = h('button.btn.primary', { onclick: () => run() }, label);
-    const node = h('div.ed', ta, pop, h('div.ed-foot', h('span.dim.hint', 'ctrl+⏎ ' + label.toLowerCase() + (noCancel ? '' : ' · esc cancels')), h('span.spacer'),
-      !noCancel && cancel && h('button.btn.ghost', { onclick: () => cancel() }, 'Cancel'), go));
-    const size = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, window.innerHeight * 0.6) + 'px'; };
-    let busy = false;
-    async function run() {
-      if (busy || (!allowEmpty && !ta.value.trim())) return;
-      busy = true; go.disabled = true; ta.readOnly = true;
-      const text = ta.value;
-      try { await save(text, mentions.filter(m => text.includes('@' + m.DisplayName))); } catch (e) { fail(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
-    }
-    node._save = run;
-    node._cancel = () => { pop.hidden = true; if (noCancel || !cancel) ta.blur(); else cancel(); };
-    // mention popup
-    let items = [], sel = 0, from = -1;
-    const closePop = () => { pop.hidden = true; from = -1; };
-    node._escape = () => { if (pop.hidden) return false; closePop(); return true; };
-    const paint = () => {
-      clear(pop).append(...items.map((u, i) => h('div.mp' + (i === sel ? '.sel' : ''), { role: 'option', onmousedown: e => { e.preventDefault(); accept(i); } }, ui.avatar(u.DisplayName, null, 18), u.DisplayName)));
-      pop.hidden = !items.length;
-    };
-    function accept(i) {
-      const u = items[i]; if (!u) return;
-      const end = ta.selectionStart;
-      const name = '@' + u.DisplayName + ' ';
-      ta.value = ta.value.slice(0, from) + name + ta.value.slice(end);
-      ta.selectionStart = ta.selectionEnd = from + name.length;
-      if (u.AccountID && !mentions.some(m => m.AccountID === u.AccountID)) mentions.push({ AccountID: u.AccountID, DisplayName: u.DisplayName });
-      closePop(); ta.dispatchEvent(new Event('input'));
-    }
-    const lookup = debounce(async (q, at) => {
-      const local = [...people()].filter(([n]) => n.toLowerCase().includes(q.toLowerCase())).map(([n, id]) => ({ DisplayName: n, AccountID: id }));
-      let remote = [];
+  // ---- editor (description, comment edit, composer): lib/mdedit.js
+  function editor(o) { return mdEdit(app, { ...o, issueKey: key, people, mdOpts, onFiles: attachFiles }); }
+  async function attachFiles(list) {
+    for (const f of list) {
       try {
-        const r = await api.get('/users?issue=' + encodeURIComponent(key) + '&q=' + encodeURIComponent(q));
-        remote = (Array.isArray(r) ? r : r.Users || r.users || []).map(u => ({ DisplayName: u.DisplayName || u.displayName, AccountID: u.AccountID || u.accountId }));
-      } catch (e) { /* local names only */ }
-      if (from !== at) return;
-      const seen = new Set();
-      items = [...remote, ...local].filter(u => u.DisplayName && u.AccountID && !seen.has(u.AccountID) && seen.add(u.AccountID)).slice(0, 8);
-      sel = 0; paint();
-    }, 120);
-    ta.addEventListener('input', () => {
-      size();
-      const before = ta.value.slice(0, ta.selectionStart);
-      const m = /(?:^|[\s(])@([^\s@]{0,30})$/u.exec(before);
-      if (!m) return closePop();
-      from = before.length - m[1].length - 1;
-      lookup(m[1], from);
-    });
-    ta.addEventListener('keydown', e => {
-      if (pop.hidden || e.ctrlKey || e.metaKey) return;
-      const k = e.key;
-      if (k === 'ArrowDown' || (k === 'Tab' && !e.shiftKey)) sel = (sel + 1) % items.length;
-      else if (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) sel = (sel - 1 + items.length) % items.length;
-      else if (k === 'Enter') accept(sel);
-      else return;
-      e.preventDefault(); e.stopPropagation(); if (k !== 'Enter') paint();
-    });
-    ta.addEventListener('blur', () => setTimeout(closePop, 150));
-    requestAnimationFrame(size);
-    return { el: node, ta, mentions, size, focus: () => { ta.focus({ preventScroll: true }); ta.selectionStart = ta.selectionEnd = ta.value.length; size(); } };
+        const fd = new FormData(); fd.append('file', f, f.name || 'pasted-' + Date.now() + '.png');
+        const res = await fetch('/api/issues/' + key + '/attachments', { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || res.statusText);
+        ui.toast('Attached ' + (f.name || 'image'), { kind: 'ok' });
+      } catch (e) { fail(e); }
+    }
+    changed();
   }
   const mentionNode = m => ({ type: 'mention', attrs: { id: m.AccountID, text: '@' + m.DisplayName } });
 

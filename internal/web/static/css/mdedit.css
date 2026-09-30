@@ -1,0 +1,12 @@
+/* markdown editor */
+.ed-tools { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; padding: 2px 3px; background: var(--bg-3); border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
+.ed-tools .tb { background: none; border: 0; color: var(--fg-2); min-width: 24px; height: 22px; padding: 0 5px; border-radius: 3px; cursor: pointer; font: inherit; font-size: .88em; }
+.ed-tools .tb:hover { background: var(--bg-2); color: var(--fg); } .ed-tools .tb.on { background: var(--accent-bg); color: var(--accent); }
+.ed-tools .tb.b { font-weight: 700; } .ed-tools .tb.i { font-style: italic; } .ed-tools .tb.s { text-decoration: line-through; }
+.ed-tools .sep { width: 1px; height: 14px; background: var(--border); margin: 0 4px; }
+.ed .ed-ta { border-radius: 0 0 var(--radius) var(--radius); }
+.ed.drop .ed-ta { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-bg); }
+.ed-preview { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; margin-top: 6px; max-height: 40vh; overflow: auto; background: var(--bg-2); }
+.mp-g { font-size: 1.15em; width: 1.4em; text-align: center; }
+.mp b { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; }
+.ed-files { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
