@@ -5,8 +5,10 @@ const FILES = __FILES__;
 const CACHE = 'lw-' + VERSION;
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))));
 });
+// A new binary waits until the page asks ("Update ready"): one reload never mixes old and new modules.
+self.addEventListener('message', e => { if (e.data === 'skip') self.skipWaiting(); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('lw-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });

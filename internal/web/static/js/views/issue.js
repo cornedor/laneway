@@ -24,6 +24,7 @@ export function mountIssue(el, key, { app, full }) {
   if (expect !== key) trail.length = 0;
   expect = null;
   let dead = false;
+  const editors = new Set();
   const scope = app.keys.scope('issue');
   // Beside a board the panel's keys apply only while it has focus (Tab / click), so the board keeps j/k/c/e/s.
   if (!full) {
@@ -94,7 +95,7 @@ export function mountIssue(el, key, { app, full }) {
     const type = (i && i.Type) || (c && c.Type) || '';
     clear(head).append(
       h('div.iss-top',
-        type && h('span.chip', type),
+        ...(type ? [h('span.chip', type)] : []),
         h('button.iss-key.btn.link', { title: 'Copy key (y)', onclick: () => copy(key, key) }, key),
         h('button.btn.ghost.sm', { title: 'Copy link (Y)', onclick: () => copy(browseURL(), 'Link') }, 'Copy link'),
         h('button.btn.ghost.sm', { title: 'Subtask, clone, move, watchers… (A)', onclick: () => actions() }, 'Actions'),
@@ -102,10 +103,10 @@ export function mountIssue(el, key, { app, full }) {
         h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira ↗'),
         h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? '← Back' : '✕')),
       h('h1.iss-title', { title: 'Edit summary', onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
-      i && h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, ui.statusPill(i.Status, i.StatusCategory)),
-        c && c.Flagged && h('span.chip.flag', 'Flagged'),
-        app.agents && app.agents.chip(key),
-        h('span.dim', 'updated ' + ago(i.Updated))));
+      ...(i ? [h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, ui.statusPill(i.Status, i.StatusCategory)),
+        ...(c && c.Flagged ? [h('span.chip.flag', 'Flagged')] : []),
+        ...(app.agents ? [app.agents.chip(key)] : []),
+        h('span.dim', 'updated ' + ago(i.Updated)))] : []));
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';
   }
   function renderTabs() {
@@ -494,7 +495,7 @@ export function mountIssue(el, key, { app, full }) {
     c.From ? h('span.from', clip(c.From)) : h('span.faint', 'none'), h('span.arrow', '→'), c.To ? h('span.to', clip(c.To)) : h('span.faint', 'none')]);
 
   // ---- editor (description, comment edit, composer): lib/mdedit.js
-  function editor(o) { return mdEdit(app, { ...o, issueKey: key, people, mdOpts, onFiles: attachFiles }); }
+  function editor(o) { const e = mdEdit(app, { ...o, issueKey: key, people, mdOpts, onFiles: attachFiles }); editors.add(e); return e; }
   async function attachFiles(list) {
     for (const f of list) {
       try {
@@ -530,11 +531,20 @@ export function mountIssue(el, key, { app, full }) {
     renderHead(); renderTabs(); renderFields(); renderDesc(); renderChildren(); renderLinks(); renderFiles(); renderComments();
   }
 
+  function loadFailed(e) {
+    const gone = e && (e.status === 404 || /does not exist|not found|404/i.test(e.message || ''));
+    clear(box.fields).append(h('div.empty',
+      h('h2', gone ? key + ' not found' : 'Could not load ' + key),
+      h('p.dim', gone ? 'It does not exist, or you cannot see it.' : (e && e.message) || ''),
+      h('div', h('button.btn', { onclick: () => { clear(box.fields).append(h('div.loading', 'Loading ' + key + '…')); reload(true).then(() => { if (!st.issue && !dead) loadFailed(e); }); } }, 'Retry'),
+        ' ', h('button.btn.ghost', { onclick: goBack }, full ? '← Back' : 'Close'))));
+  }
+
   renderHead(); renderTabs(); setTab('details');
   clear(panes.history);
   box.fields.append(h('div.loading', 'Loading ' + key + '…'));
   api.swr('/issues/' + key, iss => { if (!dead) { st.issue = iss; if (!iss.Comments) iss.Comments = []; paint(); } }).then(() => { if (!dead) loadExtras(); })
-    .catch(e => { if (!dead && !st.issue) clear(box.fields).append(h('div.empty', 'Could not load ' + key + ': ' + e.message)); });
+    .catch(e => { if (!dead && !st.issue) loadFailed(e); });
   api.swr('/issues/' + key + '/card', c => { if (!dead) { st.card = c; renderFields(); renderHead(); } }).catch(() => {});
 
   const offChanged = bus.on('issue:changed', e => { if (e && e.key === key) reload(true); });
@@ -603,6 +613,7 @@ export function mountIssue(el, key, { app, full }) {
 
   return () => {
     dead = true; scope.dispose(); offChanged(); offFocus();
+    for (const e of editors) e.dispose();
     if (offNotes) offNotes();
     drafts.set(key, comp.ta.value);
     if (!full) document.title = 'laneway';

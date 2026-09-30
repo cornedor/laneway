@@ -1,5 +1,5 @@
-// Keyboard manager. Scopes stack up (global, the view's, a modal's); the newest
-// scope's binding wins, and a `modal` scope hides all below it.
+// Keyboard manager. Scopes stack by layer (global, view, panel, modal); the highest layer, then
+// the newest scope's binding wins, and a `modal` scope hides all below it.
 //
 //   const k = keys.scope('board');            // k.dispose() when the view goes
 //   k.bind('j', fn, 'next card');             // single key, typed character ("J" = shift+j, "?" as is)
@@ -26,6 +26,7 @@ function norm(e) {
   let k = e.key;
   if (k === ' ') k = 'Space';
   if (k.length === 1 && e.shiftKey && /[a-z]/i.test(k)) k = k.toUpperCase();
+  if (k === 'Tab' && e.shiftKey) k = 'shift+Tab';
   const mods = (e.ctrlKey ? 'ctrl+' : '') + (e.altKey ? 'alt+' : '') + (e.metaKey ? 'meta+' : '');
   if (['Shift', 'Control', 'Alt', 'Meta'].includes(k)) return null;
   return mods + k;
@@ -52,8 +53,12 @@ function remember(b) {
 }
 const inField = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 
-export function scope(name, { modal = false } = {}) {
-  const s = { name, modal, binds: [], disposed: false };
+// Layers decide who wins, not age: global 0 < view 1 < panel 2 < modal 3; within a layer the newer scope wins.
+const LAYER = { global: 0, chrome: 0, timer: 0, undo: 0, sites: 0, ask: 0, 'agents-global': 0, actions: 0, issue: 2, 'issue-notes': 2, refine: 2, mdedit: 3 };
+let seq = 0;
+export function scope(name, { modal = false, layer } = {}) {
+  if (layer == null) layer = modal ? 3 : name in LAYER ? LAYER[name] : 1;
+  const s = { name, modal, layer, seq: ++seq, binds: [], disposed: false };
   s.bind = (spec, fn, desc = '', opts = {}) => {
     for (const sp of [].concat(spec)) {
       const b = { fn, desc, input: !!opts.input, hidden: !!opts.hidden, help: !!opts.help, group: opts.group || name, def: sp, id: name + ':' + sp, action: actionFor(name, sp), when: opts.when, scope: name };
@@ -68,7 +73,7 @@ export function scope(name, { modal = false } = {}) {
 
 function visible() {
   const out = [];
-  for (let i = scopes.length - 1; i >= 0; i--) { out.push(scopes[i]); if (scopes[i].modal) break; }
+  for (const s of [...scopes].sort((a, b) => b.layer - a.layer || b.seq - a.seq)) { out.push(s); if (s.modal) break; }
   return out;
 }
 const match = (seq, buf) => buf.length <= seq.length && buf.every((k, i) => seq[i] === k);
@@ -82,6 +87,8 @@ function matches(b, buf) {
 function onKey(e) {
   if (e.isComposing) return;
   const k = norm(e); if (!k) return;
+  // Tab walks the bars like normal; only the page (view, panel) gives it a meaning.
+  if (k === 'Tab' && e.target.closest && e.target.closest('#top, #viewbar')) return;
   const field = inField(e.target);
   const buf = pending.concat(k);
   const vis = visible();

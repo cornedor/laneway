@@ -8,7 +8,7 @@ import { mdEdit } from '../lib/mdedit.js';
 import { stateOf, latest, unreadCount, setBadge } from '../lib/inbox.js';
 import { dayStart, addDays, workdays } from '../lib/worktime.js';
 
-export default function mount(el, { app, scope }) {
+export default function mount(el, { app, scope, toolbar }) {
   css('inbox');
   const { api, ui } = app;
   let data = { threads: [], marks: {}, floor: 0 };
@@ -16,8 +16,8 @@ export default function mount(el, { app, scope }) {
   let newFrom = 0; // entries after this were unread when the thread was selected
   let shown = '', hold = ''; // the detail's signature; a thread kept unread by u
 
-  const listEl = h('div.inbox-scroll'), detail = h('div.inbox-detail'), head = h('div.ihead'), empty = h('div.empty', { hidden: true });
-  el.append(h('div.inbox', h('div.inbox-list', head, listEl, empty), detail));
+  const listEl = h('div.inbox-scroll'), detail = h('div.inbox-detail'), empty = h('div.empty', { hidden: true });
+  el.append(h('div.inbox', h('div.inbox-list', listEl, empty), detail));
 
   const now = () => Date.now();
   const st = t => stateOf(t, data.marks[t.Key], data.floor, now());
@@ -35,8 +35,8 @@ export default function mount(el, { app, scope }) {
     sel = Math.max(0, Math.min(sel, rows.length - 1));
     const hidden = data.threads.length - rows.length;
     const counts = { m: data.threads.filter(t => { const x = st(t); return !x.done && !x.snoozed && everMentioned(t); }).length };
-    clear(head).append(h('div.itabs', TABS.map(([k, name]) => h('button.btn' + (tab === k ? '.on' : '.ghost'), { onclick: () => setTab(k) }, name, k === 'mentions' && counts.m ? ' ' + counts.m : ''))),
-      h('span.spacer'), tab !== 'all' && hidden > 0 ? hidden + ' done or snoozed' : '', h('span', unreadCount(data, n) + ' unread'));
+    clear(toolbar).append(h('div.seg', TABS.map(([k, name]) => h('button.btn' + (tab === k ? '.on' : ''), { onclick: () => setTab(k) }, name, k === 'mentions' && counts.m ? ' ' + counts.m : ''))),
+      h('span.spacer'), h('span.faint', (tab !== 'all' && hidden > 0 ? hidden + ' done or snoozed · ' : '') + unreadCount(data, n) + ' unread'));
     setBadge(unreadCount(data, n));
     list.setCount(rows.length);
     list.refresh();
@@ -89,7 +89,7 @@ export default function mount(el, { app, scope }) {
     const m = { ...(data.marks[t.Key] || {}), ...patch };
     data.marks[t.Key] = m;
     api.put('/inbox/state/' + t.Key, { Read: m.Read || 0, Done: m.Done || 0, Snooze: m.Snooze || 0 }).catch(e => { ui.errToast(e); load(true); });
-    if (quiet) { setBadge(unreadCount(data)); list.refresh(); const f = head.lastChild; if (f) f.textContent = unreadCount(data) + ' unread'; } else buildRows();
+    if (quiet) { setBadge(unreadCount(data)); list.refresh(); const f = toolbar.lastChild; if (f) f.textContent = unreadCount(data) + ' unread'; } else buildRows();
   }
   function done() {
     const t = cur(); if (!t) return;
@@ -146,7 +146,7 @@ export default function mount(el, { app, scope }) {
         await api.post('/issues/' + t.Key + '/comments', { Markdown: text, Mentions: [...ment.filter(m => text.includes('@' + m.DisplayName)), ...mentions] });
         m.close(); ui.toast('Commented on ' + t.Key, { kind: 'ok' }); app.bus.emit('issue:changed', { key: t.Key }); load(true);
       } });
-    const m = ui.modal(h('div.prompt', ed.el), { title: (reply ? 'Reply on ' : 'Comment on ') + t.Key + '  ' + t.Summary, wide: true });
+    const m = ui.modal(h('div.prompt', ed.el), { title: (reply ? 'Reply on ' : 'Comment on ') + t.Key + '  ' + t.Summary, wide: true, onClose: () => ed.dispose() });
     m.scope.bind('ctrl+Enter', () => ed.el._save(), '', { input: true, hidden: true });
     ed.focus();
   }

@@ -50,7 +50,7 @@ export async function openCreate(app, opts = {}) {
     extra, sprintRow, more, err,
     h('div.row.end', h('label.check', another, ' Create another'), h('span.spacer'), h('span.faint.form-hint', 'ctrl+⏎ creates'),
       h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), okBtn));
-  const m = app.ui.modal(form, { title: 'Create issue', wide: true, onClose: () => { if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
+  const m = app.ui.modal(form, { title: 'Create issue', wide: true, onClose: () => { ed.dispose(); if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
   m.scope.bind('ctrl+Enter', () => submit(), 'create', { input: true, hidden: true });
   summary.focus();
   count();
@@ -76,6 +76,7 @@ export async function openCreate(app, opts = {}) {
     try {
       const t = await app.api.get(`/projects/${project}/issuetypes`);
       if (my !== pseq) return;
+      err.textContent = '';
       const all = [...t.Types, ...(opts.parent ? t.Subtasks || [] : [])];
       if (!all.some(x => x.Name === type)) type = prefs.get('create.type.' + project, '');
       if (!all.some(x => x.Name === type)) type = (all.find(x => /^(task|story)$/i.test(x.Name)) || all[0] || {}).Name || '';
@@ -104,6 +105,7 @@ export async function openCreate(app, opts = {}) {
     try {
       const fs = await app.api.get(`/projects/${project}/createfields?type=${encodeURIComponent(type)}`);
       if (my !== fseq) return;
+      err.textContent = '';
       fields = fs.filter(f => !SKIP.has(f.ID) && f.Kind !== 'other' && f.Kind !== 'comment' && f.Kind !== 'sprint');
       widgets = new Map();
       const req = [], common = [], rest = [];
@@ -114,8 +116,8 @@ export async function openCreate(app, opts = {}) {
         widgets.set(f.ID, w);
         (f.Required ? req : COMMON.has(f.ID) ? common : rest).push(formRow(f.Name, w.el, f.Required));
       }
-      extra.replaceChildren(...req.flat(), ...common.flat());
-      more.lastChild.replaceChildren(...rest.flat());
+      extra.replaceChildren(...[...req.flat(), ...common.flat()].filter(Boolean));
+      more.lastChild.replaceChildren(...rest.flat().filter(Boolean));
       more.firstChild.textContent = `More fields (${rest.length})`;
       more.hidden = !rest.length;
     } catch (e) { err.textContent = e.message; }

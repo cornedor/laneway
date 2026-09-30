@@ -21,7 +21,7 @@ css('settings');
 const FIELDS = ['type', 'priority', 'status', 'points', 'assignee', 'parent'];
 const cycle = (list, cur, d) => list[(Math.max(0, list.indexOf(cur)) + d + list.length) % list.length];
 
-export default function mount(el, { app, scope }) {
+export default function mount(el, { app, scope, toolbar }) {
   const pref = (k, d) => app.prefs.get(k, d);
   const setPref = (k, v) => { app.prefs.set(k, v); app.bus.emit('prefs', { key: k, value: String(v) }); };
   const ui = (app.session && app.session.ui) || {};
@@ -36,7 +36,7 @@ export default function mount(el, { app, scope }) {
   const info = (name, value, section, desc = '') => ({ name, desc, section, render: () => h('span.st-val.mono', value) });
 
   const options = [
-    { name: 'Theme', desc: 'T cycles through them anywhere', section: 'Appearance',
+    { name: 'Theme', desc: 'g t cycles through them anywhere', section: 'Appearance',
       render: () => h('span.st-swatches', theme.presets.map(p => swatch(p))),
       change: d => { theme.set(cycle(theme.presets.map(p => p.id), theme.current, d)); refresh(); } },
     { name: 'Accent', desc: 'highlights, focus, primary buttons', section: 'Appearance',
@@ -114,7 +114,8 @@ export default function mount(el, { app, scope }) {
   const filter = h('input.input.st-filter', { type: 'search', placeholder: 'Filter settings  (/)', spellcheck: false, 'aria-label': 'Filter settings', oninput: e => { q = e.target.value.trim().toLowerCase(); sel = 0; draw(); } });
   const list = h('div.st-list');
   const foot = h('div.st-foot');
-  el.append(h('div.st', h('div.st-head', h('h2', 'Settings'), filter), list, foot));
+  toolbar.append(filter);
+  el.append(h('div.st', list, foot));
   const setFoot = () => { foot.textContent = 'j/k move · enter/space change · ←/→ cycle · del reset · / filter · esc leaves' + (cfg && cfg.path ? ' · ui: options write to ' + cfg.path : ''); };
   setFoot();
 

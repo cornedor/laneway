@@ -4,7 +4,6 @@ import { keys } from './keys.js';
 import { fuzzy } from './fuzzy.js';
 import { initials, hue } from './fmt.js';
 
-let lastFocus = null;
 
 // toast('Moved', {kind:'ok'|'err'|'info', action:{label, run}, ms})
 export function toast(msg, { kind = 'info', action, ms } = {}) {
@@ -20,7 +19,7 @@ export const errToast = e => toast(e && e.message ? e.message : String(e), { kin
 
 // modal(node, {title, wide, onClose}) → {close, el}. Esc closes; focus returns.
 export function modal(content, { title, wide = false, onClose, className = '' } = {}) {
-  lastFocus = document.activeElement;
+  const returnTo = document.activeElement; // per modal: a picker opened inside a modal returns to it
   const back = h('div.overlay', { onmousedown: e => { if (e.target === back) close(); } });
   const box = h('div.modal' + (wide ? '.wide' : '') + (className ? '.' + className : ''), { role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '' },
     title && h('div.modal-title', title), content);
@@ -32,9 +31,18 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
   function close(val) {
     if (closed) return; closed = true;
     k.dispose(); back.remove();
-    if (lastFocus && lastFocus.focus) lastFocus.focus();
+    if (returnTo && returnTo.isConnected && returnTo.focus) returnTo.focus();
     if (onClose) onClose(val);
   }
+  // Keep Tab inside the dialog; a modal above this one leaves the trap to it.
+  back.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || e.defaultPrevented) return;
+    const items = [...box.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')].filter(x => !x.disabled && x.tabIndex >= 0 && x.offsetParent !== null);
+    if (!items.length) { e.preventDefault(); return; }
+    const a = document.activeElement, i = items.indexOf(a);
+    if (e.shiftKey && (i <= 0)) { e.preventDefault(); items[items.length - 1].focus(); }
+    else if (!e.shiftKey && (i < 0 || i === items.length - 1)) { e.preventDefault(); items[0].focus(); }
+  });
   const first = box.querySelector('[autofocus],input,textarea,select,button');
   if (first) first.focus();
   return { close, el: box, scope: k };
@@ -89,7 +97,7 @@ export function pick(o) {
     const m = modal(h('div.pick', o.title && h('div.pick-title', o.title), input, list, o.multi && h('div.pick-foot', 'space toggles · enter confirms')), { className: 'pick-modal', onClose: () => finish(null) });
     const move = d => { if (!shown.length) return; sel = (sel + d + Math.min(shown.length, 200)) % Math.min(shown.length, 200); mark(); };
     m.scope.bind(['ArrowDown', 'ctrl+n', 'Tab'], () => move(1), '', { input: true, hidden: true });
-    m.scope.bind(['ArrowUp', 'ctrl+p'], () => move(-1), '', { input: true, hidden: true });
+    m.scope.bind(['ArrowUp', 'ctrl+p', 'shift+Tab'], () => move(-1), '', { input: true, hidden: true });
     m.scope.bind('Enter', () => { if (o.multi) finish(o.create && q && !shown.length ? [...chosen, o.create(q)] : [...chosen]); else choose(sel); }, '', { input: true, hidden: true });
     if (o.multi) m.scope.bind('ctrl+Space', () => choose(sel), '', { input: true, hidden: true });
     if (o.multi) input.addEventListener('keydown', e => { if (e.key === ' ' && !q) { e.preventDefault(); choose(sel); } });

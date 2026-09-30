@@ -1,5 +1,5 @@
 .st { max-width: 860px; margin: 0 auto; padding: calc(var(--pad) * 2); }
-.st-head { display: flex; align-items: center; gap: calc(var(--pad) * 2); margin-bottom: var(--pad); } .st-head h2 { margin: 0; } .st-filter { max-width: 300px; margin-left: auto; }
+.st-head { display: flex; align-items: center; gap: calc(var(--pad) * 2); margin-bottom: var(--pad); } .st-head h2 { margin: 0; } .st-filter { max-width: 300px; }
 .st-h { margin: calc(var(--pad) * 2) 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--fg-3); }
 .st-sec { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2); overflow: hidden; }
 .st-row { display: flex; align-items: center; gap: calc(var(--pad) * 2); padding: var(--pad) calc(var(--pad) * 1.5); min-height: var(--row); border-bottom: 1px solid var(--border); border-left: 3px solid transparent; }

@@ -359,7 +359,8 @@ export function openPalette(app, mode = '') {
   const k = modal.scope;
   k.bind(['ArrowDown', 'ctrl+n'], () => move(1), '', { input: true, hidden: true });
   k.bind(['ArrowUp', 'ctrl+p'], () => move(-1), '', { input: true, hidden: true });
-  k.bind('Tab', e => { if (e.shiftKey) move(-1); else if (!accept()) move(1); }, '', { input: true, hidden: true });
+  k.bind('Tab', () => { if (!accept()) move(1); }, '', { input: true, hidden: true });
+  k.bind('shift+Tab', () => move(-1), '', { input: true, hidden: true });
   k.bind('Enter', () => {
     if (cur === 'jql' && phase === 'edit') {
       const it = items[sel];

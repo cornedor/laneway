@@ -97,7 +97,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const boardBtn = app.chrome.crumb('Project and board  (B)', () => pickBoard());
   const sprintBtn = app.chrome.crumb('View: sprint, backlog, whole board, your views  (v, [ ])', () => pickSprint());
   const modeBtn = h('button.btn', { title: 'Lanes / list  (t)', onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
-  const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (S)', onclick: () => cycleSwim() });
+  const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (O)', onclick: () => cycleSwim() });
   const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, '▦ Columns');
   const compactBtn = h('button.btn.ghost', { title: 'One-line cards  (c)', onclick: () => setCompact(!S.compact) }, '≡');
   const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', onclick: () => refresh(true) }, '⟳');
@@ -735,7 +735,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const card = S.cards.find(c => c.Key === key); if (!card) return;
     const from = S.where.get(key);
     const same = from && from.p === pane;
-    if (swimming()) { if (same) return ui.toast('Ranking needs the swimlanes off  (S)'); return moveCol(card, pane.col, null); }
+    if (swimming()) { if (same) return ui.toast('Ranking needs the swimlanes off  (O)'); return moveCol(card, pane.col, null); }
     if (same && (idx === from.i || idx === from.i + 1)) return;
     const L = pane.cards.filter(c => c.Key !== key);
     let k = idx; if (same && from.i < idx) k--;
@@ -758,6 +758,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   const writable = () => { if (S.past) { ui.toast('The time machine only looks  ·  esc back to now'); return false; } return true; };
   const pushUndo = (what, run) => import('./fields.js').then(m => m.pushUndo(app, what, run));
+  // Undo one failed move: only this card goes back, other moves made meanwhile stay.
+  function revertCard(key, before) {
+    const orig = before.find(c => c.Key === key); if (!orig) return;
+    const rest = S.cards.filter(c => c.Key !== key);
+    const prev = before.slice(0, before.indexOf(orig)).reverse().find(c => rest.some(x => x.Key === c.Key));
+    rest.splice(prev ? rest.findIndex(c => c.Key === prev.Key) + 1 : 0, 0, orig);
+    S.cards = rest; layout();
+  }
   async function rankTo(card, at) {
     if (!at) return;
     const before = S.cards, i = before.findIndex(c => c.Key === card.Key);
@@ -767,7 +775,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       await api.post('/issues/' + card.Key + '/rank', { Other: at.other, After: at.after });
       if (back) pushUndo(card.Key + "'s rank", async () => { await api.post('/issues/' + card.Key + '/rank', { Other: back.other, After: back.after }); bus.emit('issue:changed', { key: card.Key }); });
       bus.emit('issue:changed', { key: card.Key });
-    } catch (e) { S.cards = before; layout(); ui.errToast(e); }
+    } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
   async function moveCol(card, to, at) {
     const col = columns()[to];
@@ -794,7 +802,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       if (at) await api.post('/issues/' + card.Key + '/rank', { Other: at.other, After: at.after }).catch(e => ui.errToast(e));
       bus.emit('issue:changed', { key: card.Key });
     } catch (e) {
-      S.cards = before; layout(); ui.toast('Could not move ' + card.Key + ': ' + e.message, { kind: 'err' });
+      revertCard(card.Key, before); ui.toast('Could not move ' + card.Key + ': ' + e.message, { kind: 'err' });
     }
   }
   function stepCol(d) {
@@ -806,7 +814,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   // d is -1/1, or -Infinity/Infinity for the top/bottom. A list sorted by anything but rank still ranks in rank order.
   function stepRank(d) {
     if (!writable()) return;
-    if (swimming()) return ui.toast('Ranking needs the swimlanes off  (S)');
+    if (swimming()) return ui.toast('Ranking needs the swimlanes off  (O)');
     const w = cur(), c = curCard(); if (!c) return;
     const L = S.mode === 'list' && !listRanks() ? S.base.filter(passes) : w.p.cards;
     const i = L.findIndex(x => x.Key === c.Key);
@@ -891,7 +899,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     ui.toast(v === 'none' ? 'No swimlanes' : 'Swimlanes by ' + v);
   }
   function foldBand(name) {
-    if (!swimming()) return ui.toast('Folding needs swimlanes  (S)');
+    if (!swimming()) return ui.toast('Folding needs swimlanes  (O)');
     const w = cur(), g = name != null ? name : w && groupName(w.p.cards[w.i]);
     if (g == null) return;
     S.fold.has(g) ? S.fold.delete(g) : S.fold.add(g);

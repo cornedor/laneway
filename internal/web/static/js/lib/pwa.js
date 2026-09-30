@@ -5,14 +5,29 @@ import { h } from './dom.js';
 const KEY = /^[A-Z][A-Z0-9_]*-\d+$/;
 
 export function install(app) {
-  worker();
+  worker(app);
   themeColor();
   cardMenu(app);
 }
 
-function worker() {
+function worker(app) {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('/sw.js').catch(() => {}); // needs localhost or https
+  const sw = navigator.serviceWorker;
+  let told = false;
+  const ready = w => {
+    if (told || !w) return; told = true;
+    app.ui.toast('Update ready', { ms: 3600000, action: { label: 'Reload', run: () => w.postMessage('skip') } });
+  };
+  let reloading = false;
+  sw.addEventListener('controllerchange', () => { if (!reloading && told) { reloading = true; location.reload(); } });
+  sw.register('/sw.js').then(reg => { // needs localhost or https
+    ready(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      if (w) w.addEventListener('statechange', () => { if (w.state === 'installed' && sw.controller) ready(w); });
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
 }
 
 // The browser chrome follows the theme: the header's colour, re-read when the theme or the OS scheme changes.

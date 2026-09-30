@@ -305,7 +305,7 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
   // A button-like control redrawn from state.
   const control = (render, choose) => {
     const box = h('div.field-btn');
-    const draw = () => { box.replaceChildren(...render(), h('button.btn', { type: 'button', onclick: async () => { await choose(); touch(); draw(); } }, 'Choose…')); };
+    const draw = () => { box.replaceChildren(...[render()].flat().filter(Boolean), h('button.btn', { type: 'button', onclick: async () => { await choose(); touch(); draw(); } }, 'Choose…')); };
     draw();
     return box;
   };

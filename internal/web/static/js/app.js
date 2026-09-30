@@ -48,12 +48,13 @@ export const app = {
         if (app.panel.key !== key) return;
         clear(el);
         app.panel.cleanup = m.mountIssue(el, key, { app, full: false }) || null;
-      } catch (e) { clear(el).append(h('div.empty', 'Issue panel not available: ' + e.message)); }
+      } catch (e) { if (reloadOnce(e)) return; clear(el).append(h('div.empty', 'Issue panel not available: ' + e.message)); }
       bus.emit('panel', { key });
     },
     close() {
       const el = $('#panel'); app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
       app.panel.key = null; el.hidden = true; clear(el); document.body.classList.remove('has-panel');
+      if (viewTitle) document.title = viewTitle;
       bus.emit('panel', { key: null });
     },
   },
@@ -82,7 +83,17 @@ const compile = r => {
   return { ...r, re, names };
 };
 const table = routes.map(compile);
-let current = null, viewToken = 0;
+let current = null, viewToken = 0, viewTitle = '';
+// A module that fails to load after a binary upgrade (old page, new files): reload once to get a matching set.
+function reloadOnce(e) {
+  try {
+    const at = +sessionStorage.getItem('lw:reloaded') || 0;
+    if (Date.now() - at < 30000) return false;
+    sessionStorage.setItem('lw:reloaded', String(Date.now()));
+  } catch (x) { return false; }
+  console.warn('reloading after a failed import', e);
+  location.reload(); return true;
+}
 
 async function navigate() {
   const hash = location.hash.slice(1) || '/board';
@@ -90,19 +101,28 @@ async function navigate() {
   let hit = null, params = {};
   for (const r of table) { const m = path.match(r.re); if (m) { hit = r; r.names.forEach((n, i) => { if (m[i + 1]) params[n] = decodeURIComponent(m[i + 1]); }); break; } }
   const view = $('#view');
-  if (!hit) { clear(view).append(h('div.empty', 'Nothing at ' + path)); return; }
   const token = ++viewToken;
   if (current && current.cleanup) { try { current.cleanup(); } catch (e) { console.error(e); } }
   if (current && current.scope) current.scope.dispose();
+  current = null;
   clear($('#toolbar')); clear($('#context'));
+  if (!hit) {
+    app.route = { name: '', params: {}, query: {} };
+    viewTitle = 'Not found · laneway'; document.title = viewTitle;
+    app.chrome.mark('');
+    clear(view).append(h('div.empty', h('h2', 'Nothing at ' + path), h('p', h('a', { href: '#/board' }, 'Back to the board'))));
+    bus.emit('route', app.route);
+    return;
+  }
   current = { name: hit.name, scope: keys.scope(hit.name) };
   app.route = { name: hit.name, params, query: Object.fromEntries(new URLSearchParams(qs || '')) };
-  document.title = hit.title + ' · laneway';
+  viewTitle = hit.title + ' · laneway'; document.title = viewTitle;
   app.chrome.mark(hit.name);
   clear(view).append(h('div.loading', 'Loading…'));
   let mod;
   try { mod = await hit.load(); } catch (e) {
     if (token !== viewToken) return;
+    if (reloadOnce(e)) return;
     clear(view).append(h('div.empty', h('h2', hit.title), h('p', 'This view is not built yet.'), h('pre.dim', String(e.message))));
     return;
   }
@@ -149,7 +169,6 @@ async function boot() {
   chrome(); globalKeys();
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/agents.js').then(m => m.install(app)).catch(e => console.error('agents', e));
-  import('./views/fields.js').then(m => m.installUndo(app)); // `u` undoes the last edit
   import('./views/plan_cmds.js').then(m => m.register(app));
   import('./lib/pwa.js').then(m => m.install(app)).catch(e => console.error('pwa', e));
   try {
