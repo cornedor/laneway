@@ -1,0 +1,230 @@
+// Development in the issue's Details tab (TUI: D): pull requests, deployments, builds, branches and
+// commits from Jira's dev-status (GET /api/issues/{key}/dev, jira.DevItem). Hidden when there is none.
+// mountDev(key, {app, el, full, card, details}) → {el, refresh, dispose}; `card()` is the issue's card
+// (its PR/Deploy say work exists before the list arrives), `details()` shows the Details tab.
+import { h, clear } from '../lib/dom.js';
+import { css } from '../lib/css.js';
+import { ago, dateTime, isZero, duration, plural } from '../lib/fmt.js';
+
+const COMMITS = 3;             // commits per repository while folded
+const PR = { OPEN: ['open', '⇄ Open'], MERGED: ['merged', '✓ Merged'], DECLINED: ['declined', '✕ Declined'], DRAFT: ['draft', '◌ Draft'] };
+// Build and deployment states → a tone and a word.
+const RUN = {
+  SUCCESSFUL: ['ok', 'passed'], FAILED: ['err', 'failed'], IN_PROGRESS: ['run', 'running'], PENDING: ['run', 'pending'],
+  CANCELLED: ['warn', 'cancelled'], ROLLED_BACK: ['warn', 'rolled back'], UNKNOWN: ['none', 'unknown'],
+};
+const ENV_RANK = { production: 0, staging: 1, testing: 2, development: 3 };
+const run = s => RUN[s] || RUN.UNKNOWN;
+const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
+const when = t => (isZero(t) ? null : h('time.dv-when', { datetime: t, title: dateTime(t) }, ago(t)));
+const prNo = u => { const m = /\/(?:pull|pull-requests|merge_requests)\/(\d+)/.exec(u || ''); return m ? (/merge_requests/.test(u) ? '!' : '#') + m[1] : ''; };
+const newest = (a, b) => (isZero(b.Updated) ? -1 : isZero(a.Updated) ? 1 : new Date(b.Updated) - new Date(a.Updated));
+
+// The header's one-liner, as the board card's chips: "1 PR merged · 2 branches · 5 commits · deployed to production".
+export function summary(items) {
+  const by = k => items.filter(d => d.Kind === k), parts = [];
+  const prs = by('pr');
+  if (prs.length) {
+    const n = s => prs.filter(p => p.Status === s).length;
+    const st = ['OPEN', 'MERGED', 'DECLINED', 'DRAFT'].filter(n);
+    parts.push([plural(prs.length, 'PR') + (st.length === 1 ? ' ' + PR[st[0]][0] : ': ' + st.map(s => n(s) + ' ' + PR[s][0]).join(', ')), 'pr-' + (st[0] || '').toLowerCase()]);
+  }
+  const br = by('branch').length;
+  if (br) parts.push([br + (br === 1 ? ' branch' : ' branches'), '']);
+  const cm = by('commit').length;
+  if (cm) parts.push([plural(cm, 'commit'), '']);
+  const builds = by('build');
+  if (builds.length) {
+    const has = s => builds.some(b => b.Status === s);
+    parts.push(has('FAILED') ? ['build failing', 'dvt-err'] : has('IN_PROGRESS') || has('PENDING') ? ['build running', 'dvt-run'] : has('SUCCESSFUL') ? ['build passing', 'dvt-ok'] : ['build ' + run(builds[0].Status)[1], '']);
+  }
+  const envs = topEnvs(by('deploy'));
+  const live = envs.find(d => d.Status === 'SUCCESSFUL');
+  if (live) parts.push(['deployed to ' + live.Branch, 'dvt-ok']);
+  else if (envs.length) parts.push(['deploy ' + run(envs[0].Status)[1] + ' to ' + envs[0].Branch, 'dvt-' + run(envs[0].Status)[0]]);
+  return parts;
+}
+
+// The newest deployment per environment, production first.
+function topEnvs(deploys) {
+  const m = new Map();
+  for (const d of deploys.slice().sort(newest)) if (!m.has(d.Branch)) m.set(d.Branch, d);
+  const rank = d => ENV_RANK[(d.EnvType || '').toLowerCase()] ?? 4;
+  return [...m.values()].sort((a, b) => rank(a) - rank(b));
+}
+
+export function mountDev(key, { app, el, full, card, details }) {
+  css('dev');
+  const { api, ui } = app;
+  const PREF = 'issue.devFold';
+  let items = null, dead = false, err = null, all = false, folded = !!app.prefs.get(PREF, false);
+  const id = 'dv-' + key.replace(/\W/g, '');
+  const root = h('section.dv', { hidden: true, 'aria-labelledby': id + '-h' });
+  const scope = app.keys.scope('issue-dev', { layer: 2 });
+  const inPanel = () => full || el.contains(document.activeElement);
+  const onRow = () => inPanel() && !!rowOf(document.activeElement);
+  const rowOf = n => n && n.closest && root.contains(n) ? n.closest('[data-row]') : null;
+  const hinted = () => { const c = card && card(); return !!(c && (c.PR || c.Deploy)); };
+  const avatar = (name, url, size = 18) => ui.avatar(name, url ? '/api/avatar?u=' + encodeURIComponent(url) : '', size);
+
+  async function copy(text, what) {
+    try { await navigator.clipboard.writeText(text); ui.toast(what + ' copied'); } catch (e) { ui.toast('Could not copy: ' + text, { kind: 'err' }); }
+  }
+
+  // ---- rows: every one is focusable (j/k), opens its link (enter, click) and copies (y)
+  const row = (tag, d, copyText, copyWhat, ...kids) => h(tag + '.dv-row', {
+    tabindex: -1, dataset: { row: '', url: safe(d.URL), copy: copyText || '', what: copyWhat || '' },
+    title: safe(d.URL) ? 'Enter opens' + (copyText ? ', y copies the ' + copyWhat.toLowerCase() : '') : '',
+  }, ...kids);
+  const title = (d, text) => (safe(d.URL) ? h('a.dv-title.clip', { href: safe(d.URL), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, text) : h('span.dv-title.clip', text));
+  const dot = (status, label) => { const [tone, word] = run(status); return h('span.dv-dot.dvt-' + tone, { role: 'img', 'aria-label': (label || 'build') + ' ' + word, title: (label || 'Build') + ' ' + word }); };
+  const mono = (t, cls = '') => h('code.dv-mono' + cls, t);
+  const sep = () => h('span.dv-sep', { 'aria-hidden': 'true' }, '·');
+  const group = (label, n, ...kids) => h('div.dv-group', { role: 'group', 'aria-label': label },
+    h('div.dv-gh', h('span', label), n > 1 ? h('span.dv-n', String(n)) : null), ...kids);
+
+  function prRow(p, builds) {
+    const [cls, text] = PR[p.Status] || [String(p.Status || '').toLowerCase(), p.Status || '?'];
+    const ci = builds.filter(b => b.Branch && b.Branch === p.Source).sort(newest)[0];
+    const revs = p.Reviewers || [];
+    const ok = revs.filter(r => r.Approved).length;
+    return row('li', p, p.Source, 'Branch',
+      h('div.dv-line',
+        h('span.dv-badge.pr-' + cls, text),
+        title(p, p.Name),
+        ci ? dot(ci.Status, 'CI') : null,
+        when(p.Updated)),
+      h('div.dv-meta',
+        p.Repo && h('span', p.Repo), prNo(p.URL) && h('span.dv-mono', prNo(p.URL)),
+        p.Source && h('span.dv-ref', mono(p.Source), h('span.dv-arrow', { 'aria-label': 'into' }, '→'), mono(p.Target)),
+        p.Author && h('span.dv-who', avatar(p.Author, p.AuthorAvatar, 16), p.Author),
+        revs.length ? h('span.dv-revs', { title: revs.map(r => r.Name + (r.Approved ? ' approved' : ' not yet approved')).join('\n'), 'aria-label': ok + ' of ' + revs.length + ' reviewers approved' },
+          revs.map(r => h('span.dv-rev' + (r.Approved ? '.ok' : ''), avatar(r.Name, r.Avatar, 16), r.Approved ? h('i.dv-tick', { 'aria-hidden': 'true' }, '✓') : null)),
+          h('span.dv-dim', ok + '/' + revs.length)) : null,
+        p.Comments ? h('span.dv-dim', { title: plural(p.Comments, 'comment') }, '💬 ' + p.Comments) : null));
+  }
+  function envChip(d) {
+    const [tone, word] = run(d.Status);
+    return h('a.dv-env.dvt-' + tone, {
+      href: safe(d.URL) || null, target: '_blank', rel: 'noopener noreferrer', tabindex: -1, dataset: { row: '', url: safe(d.URL), copy: d.Branch, what: 'Environment' },
+      title: [d.Name, word, d.Duration ? duration(d.Duration) : '', isZero(d.Updated) ? '' : dateTime(d.Updated)].filter(Boolean).join(' · '),
+    }, h('span.dv-dot.dvt-' + tone, { 'aria-hidden': 'true' }), h('b', d.Branch || '?'), h('span.dv-dim', word === 'passed' ? '' : word), when(d.Updated));
+  }
+  function buildRow(b) {
+    const [, word] = run(b.Status), t = b.Tests;
+    return row('li', b, b.Branch, 'Branch',
+      h('div.dv-line', dot(b.Status), h('span.dv-state.dvt-' + run(b.Status)[0], word), title(b, b.Name), when(b.Updated)),
+      (b.Branch || (t && t.Total)) ? h('div.dv-meta',
+        b.Branch && mono(b.Branch),
+        t && t.Total ? h('span.dv-tests', t.Passed + ' passed', t.Failed ? h('span.dvt-err', ' · ' + t.Failed + ' failed') : null, t.Skipped ? ' · ' + t.Skipped + ' skipped' : null) : null) : null);
+  }
+  function branchRow(b, prs) {
+    const pr = prs.find(p => p.Source === b.Name);
+    const [cls, text] = pr ? (PR[pr.Status] || ['', pr.Status]) : [];
+    return row('li', b, b.Name, 'Branch',
+      h('div.dv-line', h('span.dv-glyph', { 'aria-hidden': 'true' }, '⎇'), safe(b.URL) ? h('a.dv-title.clip.dv-mono', { href: safe(b.URL), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, b.Name) : mono(b.Name, '.dv-title.clip'),
+        pr ? h('span.dv-badge.sm.pr-' + cls, { title: pr.Name }, text + (prNo(pr.URL) ? ' ' + prNo(pr.URL) : ''))
+          : safe(b.CreatePR) ? h('a.dv-create', { href: safe(b.CreatePR), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, 'Create PR ↗') : null,
+        when(b.Updated)),
+      h('div.dv-meta', b.Repo && h('span', b.Repo),
+        b.ShortHash && h('span.dv-last', mono(b.ShortHash), h('span.clip', b.Message || ''), b.Author ? h('span.dv-dim', b.Author) : null)));
+  }
+  function commitRow(c) {
+    return row('li', c, c.Hash || c.ShortHash, 'Hash',
+      h('div.dv-line.dv-commit', mono((c.ShortHash || c.Hash || '').slice(0, 8), '.dv-hash'), title(c, c.Message || c.Name),
+        c.Author && avatar(c.Author, c.AuthorAvatar, 16), c.Author && h('span.dv-dim.dv-author', c.Author), when(c.Updated)));
+  }
+
+  function paint() {
+    const list = items || [];
+    if (!list.length && !(items == null && hinted()) && !(err && hinted())) { root.hidden = true; clear(root); return; }
+    root.hidden = false;
+    const parts = items ? summary(list) : [];
+    const toggle = h('button.dv-toggle', { 'aria-expanded': String(!folded), 'aria-controls': id + '-b', title: (folded ? 'Unfold' : 'Fold') + ' development', onclick: () => fold(!folded) },
+      h('span.dv-caret', { 'aria-hidden': 'true' }, '▸'), h('h3', { id: id + '-h' }, 'Development'));
+    const sum = h('span.dv-sum.clip', parts.map(([t, c], i) => [i ? sep() : null, h('span' + (c ? '.' + c : ''), t)]));
+    clear(root).append(h('div.sec-head.dv-head', toggle, sum, h('span.spacer'), h('kbd', { title: 'Focus development (D)' }, 'D')));
+    const body = h('div.dv-body', { id: id + '-b', hidden: folded });
+    root.append(body);
+    if (folded) return;
+    if (items == null && err) {
+      body.append(h('div.dv-err', { role: 'alert' }, 'Could not load development info: ' + (err.message || err), ' ', h('button.btn.ghost.sm', { onclick: () => load(true) }, 'Retry')));
+      return;
+    }
+    if (items == null) { body.append(skeleton()); return; }
+    const by = k => list.filter(d => d.Kind === k);
+    const prs = by('pr'), builds = by('build'), envs = topEnvs(by('deploy')), branches = by('branch'), commits = by('commit');
+    if (envs.length) body.append(h('div.dv-envs', { role: 'group', 'aria-label': 'Deployments' }, envs.map(envChip)));
+    if (prs.length) body.append(group('Pull requests', prs.length, h('ul.dv-list', prs.map(p => prRow(p, builds)))));
+    const shownBuilds = all ? builds : latestPerRef(builds);
+    if (builds.length) body.append(group('Builds', builds.length, h('ul.dv-list', shownBuilds.map(buildRow)), more(builds.length - shownBuilds.length, 'build')));
+    if (branches.length) body.append(group('Branches', branches.length, h('ul.dv-list', branches.map(b => branchRow(b, prs)))));
+    if (commits.length) {
+      const repos = new Map();
+      for (const c of commits) { if (!repos.has(c.Repo)) repos.set(c.Repo, []); repos.get(c.Repo).push(c); }
+      let hidden = 0;
+      const lists = [...repos].map(([repo, cs]) => {
+        cs = cs.slice().sort(newest);
+        const shown = all ? cs : cs.slice(0, COMMITS); hidden += cs.length - shown.length;
+        return [repos.size > 1 ? h('div.dv-repo', repo || 'Repository', h('span.dv-n', String(cs.length))) : null, h('ul.dv-list', shown.map(commitRow))];
+      });
+      body.append(group('Commits', commits.length, lists, more(hidden, 'commit')));
+    }
+  }
+  const more = (n, what) => (n > 0 ? h('button.btn.ghost.sm.dv-more', { onclick: () => { all = true; paint(); } }, 'Show ' + n + ' more ' + (n === 1 ? what : what + 's')) : null);
+  const latestPerRef = builds => { const m = new Map(); for (const b of builds.slice().sort(newest)) if (!m.has(b.Branch + '|' + b.Tool)) m.set(b.Branch + '|' + b.Tool, b); return [...m.values()]; };
+  const skeleton = () => h('div.dv-skel', { 'aria-busy': 'true', 'aria-label': 'Loading development info' },
+    [70, 55, 62].map(w => h('div.dv-skel-row', h('i.b'), h('i', { style: { width: w + '%' } }))));
+
+  function fold(v) {
+    folded = v; app.prefs.set(PREF, v ? 1 : '');
+    paint();
+  }
+
+  let gen = 0;
+  function load(fresh) {
+    const g = ++gen, path = '/issues/' + key + '/dev';
+    err = null;
+    if (fresh) { items = null; paint(); }
+    const got = d => { if (dead || g !== gen) return; items = d || []; paint(); };
+    (fresh ? api.get(path, { fresh: true }).then(got) : api.swr(path, got))
+      .catch(e => { if (dead || g !== gen || items) return; err = e; paint(); });
+  }
+
+  // ---- keys
+  const rows = () => [...root.querySelectorAll('[data-row]')];
+  const focusRow = n => { if (n) { n.focus({ preventScroll: true }); n.scrollIntoView({ block: 'nearest' }); } };
+  const step = d => { const rs = rows(), i = rs.indexOf(rowOf(document.activeElement)); focusRow(rs[Math.max(0, Math.min(rs.length - 1, i + d))]); };
+  function focusDev() {
+    if (details) details();
+    if (!items || !items.length) {
+      if (items == null && !err) { load(); return ui.toast('Loading development info…'); }
+      return ui.toast(err ? 'Could not load development info' : 'No development work linked to ' + key);
+    }
+    folded = false; all = true; paint();
+    root.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    focusRow(rows()[0]);
+  }
+  const G = 'Development';
+  scope.bind('D', focusDev, 'development: pull requests, builds, deploys, branches, commits', { group: 'Issue', when: inPanel });
+  scope.bind(['j', 'ArrowDown'], () => step(1), 'next row', { group: G, when: onRow });
+  scope.bind(['k', 'ArrowUp'], () => step(-1), 'previous row', { group: G, when: onRow });
+  scope.bind('Enter', () => { const r = rowOf(document.activeElement); if (r && r.dataset.url) window.open(r.dataset.url, '_blank', 'noopener'); else ui.toast('No link'); }, 'open in the browser', { group: G, when: onRow });
+  scope.bind('y', () => { const r = rowOf(document.activeElement); if (r && r.dataset.copy) copy(r.dataset.copy, r.dataset.what); else ui.toast('Nothing to copy'); }, 'copy branch or hash', { group: G, when: onRow });
+  scope.bind('Escape', () => { const s = el.querySelector('.iss-scroll'); if (s) s.focus({ preventScroll: true }); else document.activeElement.blur(); }, 'leave development', { group: G, when: onRow });
+
+  // Mouse: a click on a row (not on its own link) opens it, as enter does.
+  root.addEventListener('click', e => {
+    const r = e.target.closest('[data-row]');
+    if (!r || e.target.closest('a,button') || !r.dataset.url || (window.getSelection && String(window.getSelection()))) return;
+    window.open(r.dataset.url, '_blank', 'noopener');
+  });
+
+  load();
+  return {
+    el: root,
+    refresh: () => load(true),
+    hint: () => { if (items == null) paint(); },
+    dispose: () => { dead = true; scope.dispose(); },
+  };
+}

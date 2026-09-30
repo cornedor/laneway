@@ -1,11 +1,12 @@
 // The issue panel (right-hand aside) and full page. mountIssue(el, key, {app, full}) → cleanup.
-// One scroll, three tabs: Details (fields, description, children, links, files), Comments, History.
+// One scroll, three tabs: Details (fields, development, description, children, links, files), Comments, History.
 // Renders from cache first, refetches, and patches sections rather than rebuilding them.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
 import { issueActions } from './actions.js';
+import { mountDev } from './issue_dev.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
@@ -28,7 +29,7 @@ export function mountIssue(el, key, { app, full }) {
   css('issue');
   const { api, bus, ui } = app;
   const me = () => (app.session && app.session.me) || {};
-  const st = { issue: null, card: null, tab: 'details', children: null, weblinks: null, hist: null, tis: null, dev: null,
+  const st = { issue: null, card: null, tab: 'details', children: null, weblinks: null, hist: null, tis: null,
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
   if (expect !== key) trail.length = 0;
   expect = null;
@@ -55,7 +56,8 @@ export function mountIssue(el, key, { app, full }) {
     fields: h('div.fields'), desc: h('div.desc'), children: h('div.block.children'), links: h('div.block.links'), files: h('div.block.files'),
     list: h('div.cm-list'), more: h('div.cm-more'), composer: h('div.composer'),
   };
-  panes.details.append(box.fields, box.desc, box.children, box.links, box.files);
+  const dev = mountDev(key, { app, el, full, card: () => st.card, details: () => setTab('details') });
+  panes.details.append(box.fields, dev.el, box.desc, box.children, box.links, box.files);
   panes.comments.append(box.more, box.list, box.composer);
   let offNotes = null;
   import('./issue_notes.js').then(m => { if (!dead) offNotes = m.mountNotes(panes.details, key, { app, el, full }); });
@@ -485,15 +487,15 @@ export function mountIssue(el, key, { app, full }) {
     comp.el.scrollIntoView({ block: 'nearest' });
   }
 
-  // ---- history tab: changes, time in status, development
+  // ---- history tab: changes, time in status
   async function loadHistory() {
     if (st.hist) return;
     st.hist = 'loading';
     clear(panes.history).append(h('div.loading', 'Loading history…'));
-    const [log, tis, dev] = await Promise.all([
-      api.get('/issues/' + key + '/history').catch(e => e), api.get('/issues/' + key + '/timeinstatus').catch(() => null), api.get('/issues/' + key + '/dev').catch(() => null)]);
+    const [log, tis] = await Promise.all([
+      api.get('/issues/' + key + '/history').catch(e => e), api.get('/issues/' + key + '/timeinstatus').catch(() => null)]);
     if (dead) return;
-    st.hist = log instanceof Error ? null : log; st.tis = tis; st.dev = dev;
+    st.hist = log instanceof Error ? null : log; st.tis = tis;
     renderHistory(log instanceof Error ? log : null);
   }
   function renderHistory(err) {
@@ -505,11 +507,6 @@ export function mountIssue(el, key, { app, full }) {
       p.append(h('div.sec-head', h('h3', 'Time in status')), h('div.tis', tis.map(t => h('div.tis-row' + (t.Now ? '.now' : ''),
         h('span.name', t.Status), h('span.track', h('i', { style: { width: Math.max(2, Math.round(100 * t.Time / max)) + '%' } })),
         h('span.dim', duration(t.Time / 1e9) + (t.Visits > 1 ? ' · ' + t.Visits + '×' : ''))))));
-    }
-    const dev = st.dev || [];
-    if (dev.length) {
-      p.append(h('div.sec-head', h('h3', 'Development')), h('div.rows', dev.map(d => h(d.URL ? 'a.row-link' : 'div.row-link', d.URL ? { href: safeHref(d.URL), target: '_blank', rel: 'noopener noreferrer' } : null,
-        h('span.chip', d.Kind), h('span.clip', d.Name), d.Status && h('span.chip.st-' + d.Status.toLowerCase(), d.Status), d.Repo && h('span.dim.clip', d.Repo)))));
     }
     const log = (st.hist || []).slice().reverse();
     p.append(h('div.sec-head', h('h3', 'Changes'), h('span.dim', String(log.length))));
@@ -547,7 +544,7 @@ export function mountIssue(el, key, { app, full }) {
     try {
       const [iss, card] = await Promise.all([api.get('/issues/' + key + '?fresh=1', { fresh: true }), api.get('/issues/' + key + '/card', { fresh: true }).catch(() => st.card)]);
       if (dead || g !== gen) return;
-      st.issue = iss; if (!iss.Comments) iss.Comments = []; st.card = card; st.children = null; st.hist = null; st.weblinks = null; st.tis = null; st.dev = null;
+      st.issue = iss; if (!iss.Comments) iss.Comments = []; st.card = card; st.children = null; st.hist = null; st.weblinks = null; st.tis = null;
       paint(); loadExtras();
       if (st.tab === 'history') loadHistory();
     } catch (e) { if (!quiet) fail(e); }
@@ -576,7 +573,7 @@ export function mountIssue(el, key, { app, full }) {
   box.fields.append(h('div.loading', 'Loading ' + key + '…'));
   api.swr('/issues/' + key, iss => { if (!dead) { st.issue = iss; if (!iss.Comments) iss.Comments = []; paint(); } }).then(() => { if (!dead) loadExtras(); })
     .catch(e => { if (!dead && !st.issue) loadFailed(e); });
-  api.swr('/issues/' + key + '/card', c => { if (!dead) { st.card = c; renderFields(); renderHead(); } }).catch(() => {});
+  api.swr('/issues/' + key + '/card', c => { if (!dead) { st.card = c; renderFields(); renderHead(); dev.hint(); } }).catch(() => {});
 
   const offChanged = bus.on('issue:changed', e => { if (e && e.key === key) reload(true); });
   const offFocus = bus.on('focus', () => reload(true));
@@ -602,7 +599,7 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('p', () => edit('priority'), 'change priority', { group: G });
   scope.bind('P', () => edit('points'), 'set story points', { group: G });
   scope.bind('l', () => edit('labels'), 'edit labels', { group: G });
-  scope.bind('r', () => reload(true), 'refresh', { group: G });
+  scope.bind('r', () => { reload(true); dev.refresh(); }, 'refresh', { group: G });
   scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[(st.issue.Comments || []).length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
   scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, 'delete own comment', { group: G });
   scope.bind('L', addLink, 'link an issue', { group: G });
@@ -646,6 +643,7 @@ export function mountIssue(el, key, { app, full }) {
     dead = true; scope.dispose(); offChanged(); offFocus();
     for (const e of editors) e.dispose();
     if (offNotes) offNotes();
+    dev.dispose();
     drafts.set(key, comp.ta.value);
     if (here === me_) here = null;
     if (!full) document.title = 'laneway';

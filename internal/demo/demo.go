@@ -210,7 +210,7 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 	case "/rest/api/3/jql/autocompletedata/suggestions":
 		return map[string]any{"results": s.jqlValues(get("fieldName"), get("fieldValue"))}, true
 	case "/rest/dev-status/latest/issue/summary", "/rest/dev-status/latest/issue/detail":
-		return map[string]any{"detail": []any{}, "summary": map[string]any{}}, true
+		return s.devStatus(p, get), true
 	case "/rest/agile/1.0/board":
 		return map[string]any{"isLast": true, "total": 1, "values": []any{map[string]any{"id": boardID, "name": "DEMO board", "type": "scrum"}}}, true
 	}

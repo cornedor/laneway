@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestDevInfo(t *testing.T) {
@@ -66,5 +67,55 @@ func TestDevInfoPartial(t *testing.T) {
 	got, err := c.DevInfo(context.Background(), "A-1")
 	if err != nil || len(got) != 1 || got[0].Name != "issue/A-1" {
 		t.Errorf("got %+v, %v", got, err)
+	}
+}
+
+// TestDevInfoDetail: authors, reviewers, times, hashes and test summaries
+// come through for the web's development panel.
+func TestDevInfoDetail(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/A-1":
+			io.WriteString(w, `{"id":"1"}`)
+		case r.URL.Path == "/rest/dev-status/latest/issue/summary":
+			io.WriteString(w, `{"summary":{"pullrequest":{"byInstanceType":{"GitHub":{"count":1}}},"branch":{"byInstanceType":{"GitHub":{"count":1}}},"repository":{"byInstanceType":{"GitHub":{"count":1}}},"build":{"byInstanceType":{"cloud-providers":{"count":1}}},"deployment-environment":{"byInstanceType":{"cloud-providers":{"count":1}}}}}`)
+		case q.Get("dataType") == "pullrequest":
+			io.WriteString(w, `{"detail":[{"pullRequests":[{"name":"Fix","status":"OPEN","url":"u","repositoryName":"web","repositoryUrl":"https://g/web","source":{"branch":"b"},"destination":{"branch":"main"},
+			  "author":{"name":"Ada","avatar":"https://a/ada"},"reviewers":[{"name":"Bo","approved":true},{"name":"Cy"}],"commentCount":3,"lastUpdate":"2026-03-18T12:14:00.000+0100"}]}]}`)
+		case q.Get("dataType") == "branch":
+			io.WriteString(w, `{"detail":[{"branches":[{"name":"b","url":"u","createPullRequestUrl":"https://g/new","repository":{"name":"web"},
+			  "lastCommit":{"id":"abcdef1234","displayId":"abcdef1","message":"Tidy\n\nmore","authorTimestamp":1773832440000,"author":{"name":"Ada"}}}]}]}`)
+		case q.Get("dataType") == "repository":
+			io.WriteString(w, `{"detail":[{"repositories":[{"name":"web","url":"https://g/web","commits":[{"id":"abcdef1234","displayId":"abcdef1","message":"Tidy","url":"c","authorTimestamp":"2026-03-18T11:14:00Z","author":{"name":"Ada"}}]}]}]}`)
+		case q.Get("dataType") == "build":
+			io.WriteString(w, `{"detail":[{"builds":[{"displayName":"CI","state":"successful","lastUpdated":"2026-03-18T11:14:00Z","testSummary":{"totalNumber":10,"numberPassed":9,"numberFailed":0,"numberSkipped":1}}]}]}`)
+		case q.Get("dataType") == "deployment-environment":
+			io.WriteString(w, `{"detail":[{"deployments":[{"displayName":"D","state":"successful","duration":95,"lastUpdated":"2026-03-18T11:14:00Z","environment":{"displayName":"prod-eu","type":"production"}}]}]}`)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	got, err := c.DevInfo(context.Background(), "A-1")
+	if err != nil || len(got) != 5 {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	want := time.Date(2026, 3, 18, 11, 14, 0, 0, time.UTC)
+	pr, build, dep, br, cm := got[0], got[1], got[2], got[3], got[4]
+	if pr.Author != "Ada" || pr.AuthorAvatar != "https://a/ada" || len(pr.Reviewers) != 2 || !pr.Reviewers[0].Approved || pr.Reviewers[1].Approved ||
+		pr.Comments != 3 || pr.Source != "b" || pr.Target != "main" || pr.RepoURL != "https://g/web" || !pr.Updated.Equal(want) {
+		t.Errorf("pr = %+v", pr)
+	}
+	if build.Tests == nil || build.Tests.Passed != 9 || build.Tests.Skipped != 1 || !build.Updated.Equal(want) {
+		t.Errorf("build = %+v", build)
+	}
+	if dep.Duration != 95 || dep.EnvType != "production" || dep.Branch != "prod-eu" || !dep.Updated.Equal(want) {
+		t.Errorf("deploy = %+v", dep)
+	}
+	if br.Hash != "abcdef1234" || br.ShortHash != "abcdef1" || br.Message != "Tidy" || br.CreatePR != "https://g/new" || !br.Updated.Equal(want) {
+		t.Errorf("branch = %+v", br)
+	}
+	if cm.Hash != "abcdef1234" || cm.Message != "Tidy" || cm.Author != "Ada" || !cm.Updated.Equal(want) {
+		t.Errorf("commit = %+v", cm)
 	}
 }

@@ -69,6 +69,7 @@ func fieldsJSON() []any {
 		f(sprintField, "Sprint", "array", "com.pyxis.greenhopper.jira:gh-sprint"),
 		f(flagField, "Flagged", "array", "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"),
 		f(startField, "Start date", "date", ""),
+		f(devField, "Development", "any", "com.atlassian.jira.plugins.jira-development-integration-plugin:devsummarycf"),
 	}
 }
 
@@ -203,7 +204,7 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		"statuscategorychangedate": stamp(changed), "duedate": due, "description": adf(iss.description), "parent": parent,
 		"subtasks": subtasks, "issuelinks": s.linksJSON(iss.key), "attachment": []any{}, "fixVersions": fixVersions,
 		"project":   projectJSON(),
-		pointsField: points, sprintField: sp, flagField: flag, startField: start,
+		pointsField: points, sprintField: sp, flagField: flag, startField: start, devField: s.devSummary(iss.key),
 	}
 	if full {
 		var cs []any
