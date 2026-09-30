@@ -558,7 +558,8 @@ one. Without herdr none of this shows.
 - `ctrl+g` lists every agent on an issue, by state (waiting on you first),
   with the issue's summary and status, from whichever configured site has
   it; `tab` adds the worktrees without an agent. Beside the list, the
-  cursor's agent and what its terminal shows now. `enter` attaches, `v`
+  cursor's agent's own terminal, attached as `ui.agent_view: panel` does:
+  `enter` or a click types into it, `ctrl+\` goes back to the list. `v`
   opens the issue, `p` sends a prompt, `d` twice stops it. The header
   counts the agents waiting (`✋`) and working (`⚙`).
 

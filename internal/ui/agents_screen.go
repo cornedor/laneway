@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"os/exec"
 	"slices"
 	"strings"
 	"sync"
@@ -21,10 +22,11 @@ import (
 
 // ctrl+g swaps the board for the agents: every herdr agent on an issue, a
 // row each, grouped by state (waiting on you first); tab adds the
-// worktrees without one. Beside the list, when wide enough, the cursor's issue, its
-// agent and what its terminal shows now, read again on every agent poll.
-// An issue on another configured site says which; the lookup tries the
-// shown site first.
+// worktrees without one. Beside the list, when wide enough, the cursor's
+// agent's own terminal (herdr agent attach, as ui.agent_view: panel runs
+// it), attached once the cursor rests on it: enter or a click types into
+// it, agent_back (ctrl+\) goes back to the list. An issue on another
+// configured site says which; the lookup tries the shown site first.
 
 type agentsScreen struct {
 	rows    []agentRow
@@ -32,11 +34,14 @@ type agentsScreen struct {
 	top     int                   // the first list line shown
 	issues  map[string]agentIssue // by key; looked up once a screen
 	asking  bool
-	bare    bool              // the worktrees without an agent show too
-	screens map[string]string // pane → its terminal's text
-	stopAsk string            // the pane a first stop press was for
-	listW   int               // as last drawn, for a click
-	lineRow []int             // each list line's row, -1 for none
+	bare    bool   // the worktrees without an agent show too
+	stopAsk string // the pane a first stop press was for
+	termFor string // the pane the terminal is attached to
+	typing  bool   // keys go to the terminal
+	termSeq int    // the attach the cursor last asked for
+	termErr string // why the attach failed
+	listW   int    // as last drawn, for a click
+	lineRow []int  // each list line's row, -1 for none
 }
 
 // agentRow is one agent on key, or key's worktree when it has none.
@@ -56,7 +61,12 @@ type agentIssue struct {
 
 type agentIssuesMsg struct{ issues map[string]agentIssue }
 
-type agentScreenMsg struct{ pane, text string }
+// agentTermDueMsg attaches to the cursor's agent once it rests there.
+type agentTermDueMsg struct{ seq int }
+
+// agentTermWait is how long the cursor rests on a row before its agent is
+// attached: holding j does not start one attach a row.
+const agentTermWait = 150 * time.Millisecond
 
 // agentGroups name the list's groups, by agentGroup.
 var agentGroups = []string{"Waiting on you", "Working", "Done", "Idle", "Worktrees without an agent"}
@@ -93,14 +103,14 @@ func (m *Model) openAgents() tea.Cmd {
 		}
 		return nil
 	}
-	s := &agentsScreen{issues: map[string]agentIssue{}, screens: map[string]string{}, bare: len(m.agents) == 0}
+	s := &agentsScreen{issues: map[string]agentIssue{}, bare: len(m.agents) == 0}
 	m.jiraTab.agentsView = s
 	m.focus = focusJira
 	for _, c := range m.jiraTab.cards {
 		s.issues[c.Key] = agentIssue{card: c, site: m.site, url: m.jiraClient.BrowseURL(c.Key), found: true}
 	}
 	m.buildAgentRows()
-	return tea.Batch(m.lookUpAgentIssues(), m.readAgentScreen())
+	return tea.Batch(m.lookUpAgentIssues(), m.scheduleAgentTerm())
 }
 
 // buildAgentRows lists the agents by group, then key; the cursor stays on
@@ -206,29 +216,104 @@ func (m Model) handleAgentIssues(msg agentIssuesMsg) (tea.Model, tea.Cmd) {
 	return m, m.lookUpAgentIssues() // keys that showed up meanwhile
 }
 
-// readAgentScreen reads what the cursor's agent's terminal shows.
-func (m *Model) readAgentScreen() tea.Cmd {
-	s, c := m.jiraTab.agentsView, m.herdr
+// scheduleAgentTerm attaches to the cursor's agent after agentTermWait,
+// unless the terminal shows it already; a row without one detaches.
+func (m *Model) scheduleAgentTerm() tea.Cmd {
+	s := m.jiraTab.agentsView
 	pane := s.cursor().agent.PaneID
-	if c == nil || pane == "" || !m.agentsSplit() {
+	if pane != "" && pane == s.termFor && (m.agentsTermShown() || s.termErr != "") {
 		return nil
 	}
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		text, err := c.Read(ctx, pane)
-		if err != nil {
-			return nil
-		}
-		return agentScreenMsg{pane: pane, text: text}
+	s.termSeq++
+	if pane == "" || !m.agentsSplit() {
+		m.closeAgentsTerm()
+		return nil
+	}
+	seq := s.termSeq
+	return tea.Tick(agentTermWait, func(time.Time) tea.Msg { return agentTermDueMsg{seq: seq} })
+}
+
+func (m Model) handleAgentTermDue(msg agentTermDueMsg) (tea.Model, tea.Cmd) {
+	s := m.jiraTab.agentsView
+	if s == nil || msg.seq != s.termSeq {
+		return m, nil
+	}
+	r := s.cursor()
+	if r.agent.PaneID == "" || m.herdr == nil {
+		return m, nil
+	}
+	m.closeAgentPanel() // the one terminal, in the panel or here
+	s.termFor, s.termErr, s.typing = r.agent.PaneID, "", false
+	bin, err := exec.LookPath(herdrBin)
+	if err != nil {
+		s.termErr = "no herdr on PATH"
+		return m, nil
+	}
+	w, h := m.agentsTermSize()
+	t, err := startTerm(termSpec{
+		title: cmp.Or(r.agent.Name, r.agent.Agent),
+		argv:  []string{bin, "agent", "attach", r.agent.PaneID},
+		env:   []string{"HERDR_SOCKET_PATH=" + m.herdr.Path()},
+	}, w, h)
+	if err != nil {
+		s.termErr = err.Error()
+		return m, nil
+	}
+	m.agentTerm, m.agentTermKey, m.agentTermScreen = t, r.key, true
+	return m, waitTermOutput(t)
+}
+
+// agentsTermShown is whether the agents screen shows the terminal.
+func (m *Model) agentsTermShown() bool {
+	return m.agentTerm != nil && m.agentTermScreen && m.jiraTab.agentsView != nil
+}
+
+// closeAgentsTerm detaches the screen's terminal; the agent keeps running.
+func (m *Model) closeAgentsTerm() {
+	if m.agentTermScreen {
+		m.closeAgentPanel()
+	}
+	if s := m.jiraTab.agentsView; s != nil {
+		s.termFor, s.typing = "", false
 	}
 }
 
-func (m Model) handleAgentScreen(msg agentScreenMsg) (tea.Model, tea.Cmd) {
+// agentsTermExited says why the screen's terminal ended; moving off the
+// row and back attaches again.
+func (m Model) agentsTermExited(t *termSession) (tea.Model, tea.Cmd) {
+	why := t.exitStatus() + lastLine(t.view())
+	pane := ""
 	if s := m.jiraTab.agentsView; s != nil {
-		s.screens[msg.pane] = msg.text
+		pane = s.termFor
 	}
-	return m, nil
+	m.closeAgentsTerm()
+	if s := m.jiraTab.agentsView; s != nil {
+		s.termFor, s.termErr = pane, "detached · "+why
+	}
+	return m, m.fetchAgents()
+}
+
+// agentsListW is the list's width beside the detail, or all of width.
+func (m *Model) agentsListW(width int) int {
+	if !m.agentsSplit() {
+		return width
+	}
+	return min(max(width*2/5, 36), 64)
+}
+
+// agentsTermHead is the lines above the terminal: the issue, the agent.
+const agentsTermHead = 2
+
+// agentsTermSize is the terminal's size: the detail under its head.
+func (m *Model) agentsTermSize() (w, h int) {
+	v := m.jiraTab.view
+	return max(v.Width()-m.agentsListW(v.Width())-3, 10), max(v.Height()-agentsTermHead, 3)
+}
+
+// agentsTermOrigin is the screen cell of the terminal's top-left: past the
+// box's border, the list and its " │ ".
+func (m *Model) agentsTermOrigin() (x, y int) {
+	return 1 + m.agentsListW(m.jiraTab.view.Width()) + 3, jiraBodyTop + agentsTermHead
 }
 
 // agentsRefreshed rebuilds the open screen after an agent poll.
@@ -237,7 +322,7 @@ func (m *Model) agentsRefreshed() tea.Cmd {
 		return nil
 	}
 	m.buildAgentRows()
-	return tea.Batch(m.lookUpAgentIssues(), m.readAgentScreen())
+	return tea.Batch(m.lookUpAgentIssues(), m.scheduleAgentTerm())
 }
 
 // agentsSplit is whether the detail shows beside the list.
@@ -247,11 +332,19 @@ func (m *Model) moveAgents(d int) tea.Cmd {
 	s := m.jiraTab.agentsView
 	s.row = min(max(s.row+d, 0), max(len(s.rows)-1, 0))
 	s.stopAsk = ""
-	return m.readAgentScreen()
+	return m.scheduleAgentTerm()
 }
 
 func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	s, k := m.jiraTab.agentsView, m.keys
+	if s.typing && m.agentsTermShown() {
+		if key.Matches(msg, k.AgentBack) {
+			s.typing = false
+		} else {
+			m.agentTerm.sendKey(msg)
+		}
+		return m, nil
+	}
 	r := s.cursor()
 	is := s.issues[r.key]
 	here := !is.found || is.site == m.site
@@ -268,12 +361,13 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "ctrl+c":
 		return m.quit()
 	case msg.String() == "esc", key.Matches(msg, k.Quit), key.Matches(msg, k.Agents):
+		m.closeAgentsTerm()
 		m.jiraTab.agentsView = nil
 		m.renderJira()
 	case key.Matches(msg, k.Tab), key.Matches(msg, k.ShiftTab):
 		s.bare = !s.bare
 		m.buildAgentRows()
-		return m, tea.Batch(m.lookUpAgentIssues(), m.readAgentScreen())
+		return m, tea.Batch(m.lookUpAgentIssues(), m.scheduleAgentTerm())
 	case r.key == "":
 	case key.Matches(msg, k.Up):
 		return m, m.moveAgents(-1)
@@ -284,8 +378,14 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, k.End):
 		return m, m.moveAgents(len(s.rows))
 	case key.Matches(msg, k.OpenChannel):
-		if r.agent.PaneID != "" {
+		switch {
+		case r.agent.PaneID != "" && m.agentsTermShown() && s.termFor == r.agent.PaneID:
+			s.typing = true
+			return m, nil
+		case r.agent.PaneID != "" && !m.agentsSplit():
 			return m, m.attachAgentIn(r.key, r.agent.PaneID, here)
+		case r.agent.PaneID != "":
+			return m, nil // still attaching
 		}
 		fallthrough
 	case key.Matches(msg, k.OpenRef):
@@ -328,16 +428,25 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// clickAgents puts the cursor on the row clicked; a double click attaches.
-func (m Model) clickAgents(x, y, count int) (tea.Model, tea.Cmd) {
+// clickAgents puts the cursor on the row clicked, a double click acting
+// as enter; a click on the terminal types into it, the press reaching the
+// agent when it takes the mouse.
+func (m Model) clickAgents(msg tea.MouseClickMsg, count int) (tea.Model, tea.Cmd) {
 	s := m.jiraTab.agentsView
-	i := s.rowAt(x, y)
+	m.focus = focusJira
+	if x, y, ok := m.agentTermCell(msg.X, msg.Y); ok && m.agentsTermShown() {
+		s.typing = true
+		if m.agentTerm.wantsMouse() {
+			m.agentTermDrag = m.agentTerm.mouseEvent(termButton(msg.Mouse(), false), x, y, false)
+		}
+		return m, nil
+	}
+	i := s.rowAt(msg.X, msg.Y)
 	if i < 0 {
 		return m, nil
 	}
-	m.focus = focusJira
-	s.row = i
-	cmd := m.readAgentScreen()
+	s.row, s.typing = i, false
+	cmd := m.scheduleAgentTerm()
 	if count >= 2 {
 		out, c := m.handleAgentsKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 		return out, tea.Batch(cmd, c)
@@ -378,7 +487,7 @@ func (m *Model) agentsViewLine() string {
 	if s.bare {
 		show = "hides"
 	}
-	keys := fmt.Sprintf("  ·  %s %s ◌ · %s attach · %s issue · %s prompt · %s stop · %s browser · esc board",
+	keys := fmt.Sprintf("  ·  %s %s ◌ · %s type · %s issue · %s prompt · %s stop · %s browser · esc board",
 		helpKey(k.Tab), show, helpKey(k.OpenChannel), helpKey(k.OpenRef), helpKey(k.AgentPrompt), helpKey(k.AgentStop), helpKey(k.OpenAttach))
 	return parts[0] + jiraDimStyle.Render("  "+strings.Join(parts[1:], "  ")+keys)
 }
@@ -394,10 +503,7 @@ func (m *Model) renderAgentsScreen(width, height int) string {
 		}
 		return "\n  no agents or worktrees left · esc goes back to the board"
 	}
-	listW := width
-	if m.agentsSplit() {
-		listW = min(max(width*2/5, 36), 64)
-	}
+	listW := m.agentsListW(width)
 	s.listW = listW
 	list := m.renderAgentsList(listW, height)
 	if listW == width {
@@ -486,8 +592,8 @@ func (m *Model) renderAgentsList(width, height int) []string {
 	return out[s.top:min(len(out), s.top+height)]
 }
 
-// renderAgentDetail draws the cursor's issue and agent, then the bottom of
-// what its terminal shows.
+// renderAgentDetail draws the cursor's issue and agent over the agent's
+// terminal.
 func (m *Model) renderAgentDetail(width, height int) []string {
 	s := m.jiraTab.agentsView
 	r := s.cursor()
@@ -497,41 +603,41 @@ func (m *Model) renderAgentDetail(width, height int) []string {
 	is := s.issues[r.key]
 	fit := func(l string) string { return ansi.Truncate(l, width, "…") }
 	out := []string{fit(jiraKeyStyle.Render(r.key) + " " + titleStyle.Render(is.card.Summary))}
+	var facts []string
 	if is.found {
-		facts := []string{is.card.Status, cmp.Or(is.card.Assignee, "unassigned")}
+		facts = append(facts, is.card.Status, cmp.Or(is.card.Assignee, "unassigned"))
 		if is.site != m.site {
 			facts = append(facts, "on "+is.site)
 		}
-		out = append(out, refDimStyle.Render(fit(strings.Join(facts, " · "))))
 	}
-	out = append(out, "")
 	a := r.agent
 	if a.PaneID == "" {
-		out = append(out, "◌ "+refDimStyle.Render("a worktree, no agent in it"), refDimStyle.Render(fit("  "+homeShort(r.path))))
-		return out
+		facts = append(facts, "a worktree, no agent in it")
+		return append(out, refDimStyle.Render(fit(strings.Join(facts, " · "))), "", refDimStyle.Render(fit("◌ "+homeShort(r.path))))
 	}
-	who := cmp.Or(a.Name, a.Agent, a.PaneID)
-	if a.Agent != "" && a.Agent != who {
-		who += " · " + a.Agent
+	shown := m.agentsTermShown() && s.termFor == a.PaneID
+	switch {
+	case shown && s.typing:
+		facts = append(facts, "typing · "+helpKey(m.keys.AgentBack)+" back to the list")
+	case shown:
+		facts = append(facts, helpKey(m.keys.OpenChannel)+" or a click to type")
 	}
-	out = append(out, fit(statusMark(a.Status)+" "+who+refDimStyle.Render(" · "+agentState(a.Status))),
-		refDimStyle.Render(fit("  "+homeShort(a.CWD))))
-	if a.Title != "" {
-		out = append(out, refDimStyle.Render(fit("  "+safeterm.Line(a.Title))))
+	out = append(out, fit(statusMark(a.Status)+" "+agentState(a.Status)+refDimStyle.Render("  "+strings.Join(facts, " · "))))
+	switch {
+	case !shown && s.termErr != "" && s.termFor == a.PaneID:
+		return append(out, refDimStyle.Render(fit("  "+s.termErr)))
+	case !shown:
+		return append(out, refDimStyle.Render("  attaching…"))
 	}
-	room := height - len(out) - 2
-	text, ok := s.screens[a.PaneID]
-	if room < 3 {
-		return out
-	}
-	out = append(out, "", refDimStyle.Render(fit("── its terminal "+strings.Repeat("─", max(width-16, 0)))))
-	if !ok {
-		return append(out, refDimStyle.Render("  reading…"))
-	}
-	lines := strings.Split(strings.TrimRight(safeterm.Text(text), "\n \t"), "\n")
-	lines = lines[max(len(lines)-room, 0):]
-	for _, l := range lines {
-		out = append(out, fit(strings.TrimRight(l, " \r")))
+	w, h := m.agentsTermSize()
+	m.agentTerm.resize(w, h)
+	lines := strings.Split(m.agentTerm.view(), "\n")
+	for i := range min(h, height-len(out)) {
+		l := ""
+		if i < len(lines) {
+			l = ansi.Truncate(lines[i], width, "")
+		}
+		out = append(out, l)
 	}
 	return out
 }

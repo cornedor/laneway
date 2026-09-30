@@ -133,21 +133,3 @@ func TestWorktree(t *testing.T) {
 		t.Errorf("worktree = %+v", wt)
 	}
 }
-
-func TestRead(t *testing.T) {
-	var params map[string]any
-	c := fakeServer(t, func(method string, p json.RawMessage) []string {
-		if method != "pane.read" {
-			t.Errorf("method = %q", method)
-		}
-		_ = json.Unmarshal(p, &params)
-		return []string{`{"id":"x","result":{"type":"pane_read","read":{"pane_id":"w1:p1","text":"❯ hi\n"}}}`}
-	})
-	got, err := c.Read(context.Background(), "w1:p1")
-	if err != nil || got != "❯ hi\n" {
-		t.Fatalf("got %q, %v", got, err)
-	}
-	if params["pane_id"] != "w1:p1" || params["source"] != "visible" {
-		t.Errorf("params %v", params)
-	}
-}

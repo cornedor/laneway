@@ -181,3 +181,48 @@ func TestAgentPanelCloses(t *testing.T) {
 		t.Fatal("the attach did not end")
 	}
 }
+
+// TestAgentsScreenTerm: the agents screen attaches to the cursor's agent
+// once it rests there and shows its terminal beside the list; enter types
+// into it (":" too, not the palette), agent_back goes back to the list,
+// and moving to a row without an agent detaches.
+func TestAgentsScreenTerm(t *testing.T) {
+	t.Setenv("HERDR_ENV", "")
+	fakeHerdrBin(t)
+	m := jiraTabModel(t)
+	m.herdr = herdr.New("/h.sock")
+	out, _ := m.handleAgents(agentsMsg{agents: []herdr.Agent{{PaneID: "p1", Name: "jira-abc-2-a", Status: herdr.Blocked}},
+		worktrees: map[string]string{"ABC-1": "/wt/abc-1"}})
+	m = out.(Model)
+	m.openAgents()
+	s := m.jiraTab.agentsView
+	out, _ = m.handleAgentTermDue(agentTermDueMsg{seq: s.termSeq})
+	m = out.(Model)
+	if !m.agentsTermShown() || m.agentTermShown() {
+		t.Fatal("the terminal should show on the screen, not the panel")
+	}
+	waitScreen(t, m.agentTerm, "attached p1 via /h.sock")
+	if screen := ansi.Strip(m.View().Content); !strings.Contains(screen, "attached p1 via /h.sock") || !strings.Contains(screen, "enter or a click to type") {
+		t.Fatalf("screen:\n%s", screen)
+	}
+	out, _ = m.handleKey(keyStr("enter"))
+	m = out.(Model)
+	for _, k := range []string{":", "h", "i", "enter"} {
+		out, _ = m.handleKey(keyStr(k))
+		m = out.(Model)
+	}
+	if m.jiraPicker.active {
+		t.Fatal(": should reach the agent, not open the palette")
+	}
+	waitScreen(t, m.agentTerm, "got :hi")
+	out, _ = m.handleKey(keyStr("ctrl+\\"))
+	if m = out.(Model); m.jiraTab.agentsView.typing {
+		t.Fatal("agent_back should go back to the list")
+	}
+	out, _ = m.handleKey(keyStr("tab"))
+	m = out.(Model)
+	out, _ = m.handleKey(keyStr("j"))
+	if m = out.(Model); m.agentTerm != nil {
+		t.Fatal("a row without an agent should detach")
+	}
+}

@@ -370,10 +370,12 @@ type Model struct {
 	agentPane string
 	// agentTerm is the agent attached in the panel (agent_panel.go), for
 	// agentTermKey; agentTermDrag a drag the agent takes.
-	agentTerm     *termSession
-	agentTermKey  string
-	agentTermDrag bool
-	started       time.Time
+	agentTerm *termSession
+	// agentTermScreen: agentTerm shows on the agents screen, not the panel.
+	agentTermScreen bool
+	agentTermKey    string
+	agentTermDrag   bool
+	started         time.Time
 	// version is the running build's; upgradeCmd the command that updates
 	// it, "" for the release page; newRelease a newer release, once seen
 	// (update_check.go).
@@ -694,7 +696,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m.handleWheel(msg)
 	case tea.PasteMsg:
-		if m.agentTermShown() && m.focus == focusRef && !m.modalOpen() {
+		if m.agentTermTyping() && !m.modalOpen() {
 			m.agentTerm.paste(msg.Content)
 			return m, nil
 		}
@@ -802,8 +804,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleAgents(msg)
 	case agentIssuesMsg:
 		return m.handleAgentIssues(msg)
-	case agentScreenMsg:
-		return m.handleAgentScreen(msg)
+	case agentTermDueMsg:
+		return m.handleAgentTermDue(msg)
 	case agentAttachedMsg:
 		out, cmd := m.handleAgentAttached(msg)
 		return out, tea.Batch(cmd, resendImagesLater())
@@ -950,6 +952,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleJiraFormKey(msg)
 	case m.focus == focusRef && m.agentTermShown():
 		return m.handleAgentTermKey(msg)
+	case m.agentTermTyping() && m.agentsTermShown():
+		return m.handleAgentsKey(msg)
 	case m.focus == focusRef && m.refOpen:
 		return m.handleRefKey(msg)
 	case m.jiraTab.searching:
@@ -1083,7 +1087,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	case t.inbox != nil:
 		return m.clickInbox(msg.X, msg.Y, count)
 	case t.agentsView != nil:
-		return m.clickAgents(msg.X, msg.Y, count)
+		return m.clickAgents(msg, count)
 	case t.charts != nil, t.week != nil, t.standup != nil:
 		return m, nil
 	case t.empty.row >= 0 && msg.Y == jiraBodyTop+t.empty.row:
@@ -1095,7 +1099,7 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
-	if m.agentTermShown() && !m.modalOpen() && m.agentTermWheel(msg) {
+	if (m.agentTermShown() || m.agentsTermShown()) && !m.modalOpen() && m.agentTermWheel(msg) {
 		return m, nil
 	}
 	if m.pickerOnTop() {

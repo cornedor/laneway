@@ -217,8 +217,7 @@ func TestStartWorkForm(t *testing.T) {
 
 // TestAgentsScreen: ctrl+g lists each agent by state, waiting on you
 // first, with the issue's summary and status; tab adds the worktrees
-// without one. Beside it the cursor's agent and what its terminal shows.
-// d twice stops it; esc goes back.
+// without one. d twice stops the cursor's agent; esc goes back.
 func TestAgentsScreen(t *testing.T) {
 	m := jiraTabModel(t)
 	if m.openAgents() != nil || m.jiraTab.agentsView != nil {
@@ -257,11 +256,9 @@ func TestAgentsScreen(t *testing.T) {
 	if m = out.(Model); rowKeys() != "ABC-3 ABC-2 ABC-1" {
 		t.Fatalf("tab: rows %q", rowKeys())
 	}
-	out, _ = m.handleAgentScreen(agentScreenMsg{pane: "w1:p2", text: "Allow edit?\n❯ 1. Yes\n\n"})
-	m = out.(Model)
 	screen := ansi.Strip(m.View().Content)
 	for _, want := range []string{"Waiting on you", "✋ ABC-3 Third", "Working", "ABC-2 Second", "claude · Writing tests",
-		"Worktrees without an agent", "/wt/abc-1", "jira-abc-3-a · claude · waiting on you", "❯ 1. Yes"} {
+		"Worktrees without an agent", "/wt/abc-1", "✋ waiting on you  New · unassigned", "attaching…"} {
 		if !strings.Contains(screen, want) {
 			t.Errorf("no %q:\n%s", want, screen)
 		}

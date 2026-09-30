@@ -190,17 +190,6 @@ func (c *Client) Prompt(ctx context.Context, pane, text string) error {
 	return c.call(ctx, "agent.prompt", map[string]any{"target": pane, "text": text}, nil)
 }
 
-// Read is the text pane's terminal shows now, without colours.
-func (c *Client) Read(ctx context.Context, pane string) (string, error) {
-	var res struct {
-		Read struct {
-			Text string `json:"text"`
-		} `json:"read"`
-	}
-	err := c.call(ctx, "pane.read", map[string]any{"pane_id": pane, "source": "visible", "format": "text", "strip_ansi": true}, &res)
-	return res.Read.Text, err
-}
-
 // Workspace returns the id of the workspace labelled label, creating it at cwd
 // when there is none.
 func (c *Client) Workspace(ctx context.Context, label, cwd string) (string, error) {

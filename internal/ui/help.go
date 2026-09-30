@@ -47,7 +47,7 @@ func (m *Model) helpSections() []struct {
 			row(k.MyWork, "my work: yours in every project, by status"),
 			{join(k.Timer, k.Timesheet), "timer / today's worklogs"},
 			row(k.Inbox, "inbox: others' news on your issues, a thread each"),
-			row(k.Agents, "agents: every herdr agent by state, what its terminal shows"),
+			row(k.Agents, "agents: every herdr agent by state, its terminal beside the list"),
 			row(k.Standup, "standup: what you did since the last workday"),
 			row(k.Charts, "sprint charts (y copies the numbers)"),
 			row(k.TimeMachine, "time machine: ← → the board a day earlier / later, esc now"),
@@ -197,7 +197,8 @@ func (m *Model) helpSections() []struct {
 		}},
 		section{"Agents", []helpRow{
 			row(k.Tab, "the worktrees without an agent too / not"),
-			row(k.OpenChannel, "attach to the agent (a worktree: open its issue)"),
+			row(k.OpenChannel, "type into the agent's terminal beside the list (narrow: attach; a worktree: its issue)"),
+			row(k.AgentBack, "from the terminal back to the list"),
 			row(k.OpenRef, "open the issue in the panel (another site's in the browser)"),
 			row(k.AgentPrompt, "send the agent a prompt"),
 			row(k.AgentStop, "stop the agent, closing its tab (twice)"),

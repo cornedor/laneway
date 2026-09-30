@@ -53,22 +53,37 @@ func (m *Model) closeAgentPanel() {
 		return
 	}
 	m.agentTerm.stop()
-	m.agentTerm, m.agentTermKey, m.agentTermDrag = nil, "", false
+	m.agentTerm, m.agentTermKey, m.agentTermDrag, m.agentTermScreen = nil, "", false, false
 }
 
 // agentTermShown is whether the panel shows an agent's terminal.
 func (m *Model) agentTermShown() bool {
-	return m.agentTerm != nil && m.refOpen
+	return m.agentTerm != nil && m.refOpen && !m.agentTermScreen
+}
+
+// agentTermTyping is whether keys and pastes go to the terminal, in the
+// panel or on the agents screen.
+func (m *Model) agentTermTyping() bool {
+	if m.agentsTermShown() {
+		return m.jiraTab.agentsView.typing && m.focus == focusJira
+	}
+	return m.agentTermShown() && m.focus == focusRef
 }
 
 // agentTermSize is the terminal's width and height in the panel: under the
 // title and the issue's strip, above the bottom border.
 func (m *Model) agentTermSize() (w, h int) {
+	if m.agentTermScreen {
+		return m.agentsTermSize()
+	}
 	return max(m.refView.Width(), 10), max(m.bodyH()-3, 3)
 }
 
 // agentTermOrigin is the screen cell of the terminal's top-left.
 func (m *Model) agentTermOrigin() (x, y int) {
+	if m.agentTermScreen {
+		return m.agentsTermOrigin()
+	}
 	listW, _ := m.jiraListWidth(m.width)
 	return listW + 1, 2
 }
@@ -102,6 +117,13 @@ func (m Model) leaveAgentPanel() (tea.Model, tea.Cmd) {
 func (m Model) handleTermOutput(t *termSession, exited bool) (tea.Model, tea.Cmd) {
 	if t != m.agentTerm {
 		return m, nil // one closed already
+	}
+	if m.agentTermScreen && m.jiraTab.agentsView == nil {
+		m.closeAgentPanel() // the screen went away
+		return m, nil
+	}
+	if exited && m.agentTermScreen {
+		return m.agentsTermExited(t)
 	}
 	if exited {
 		failed := t.exitErr != nil
@@ -166,7 +188,7 @@ func (m *Model) agentTermWheel(msg tea.MouseWheelMsg) bool {
 // agents like Claude Code draw no caret, they park the real cursor.
 func (m *Model) agentTermCursor() (x, y int, ok bool) {
 	t := m.agentTerm
-	if !m.agentTermShown() || m.focus != focusRef || m.modalOpen() || t.exited() || t.cursorHidden.Load() {
+	if !m.agentTermTyping() || m.modalOpen() || t.exited() || t.cursorHidden.Load() {
 		return 0, 0, false
 	}
 	p := t.emu.CursorPosition()

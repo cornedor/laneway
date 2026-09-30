@@ -92,9 +92,9 @@ the same worktree.
 
 `ctrl+g` swaps the board for every agent on an issue, grouped by state,
 the ones waiting on you first, each with its issue's summary and status,
-whichever site it's on. Beside the list: the cursor's agent and what its
-terminal shows now, so you can see where it is without attaching. `enter`
-attaches, `v` opens the issue, `p` sends a prompt, `d` twice stops it.
+whichever site it's on. Beside the list: the cursor's agent's own
+terminal, live. `enter` or a click types into it, `ctrl+\` goes back to
+the list. `v` opens the issue, `p` sends a prompt, `d` twice stops it.
 `tab` adds the worktrees without an agent. The header counts the agents
 waiting (`✋1`) and working (`⚙2`); a click opens the list.
 
@@ -122,7 +122,7 @@ then `tab` lists every issue that still has one, across projects.
 - `jira.repos` maps a project to its checkout.
 - `ctrl+y` a branch name, `laneway hook install` keys in commits.
 - `S` starts an agent in a worktree, the card shows its state, `S` attaches.
-- `ctrl+g` all your agents by state, with what each terminal shows.
+- `ctrl+g` all your agents by state, each one's terminal beside the list.
 - `A` → pull request, `D` lists it, `ctrl+r` your reviews, `A` → remove
   the worktree.
 
