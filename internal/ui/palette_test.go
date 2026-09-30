@@ -44,7 +44,7 @@ func paletteLabels(m Model) []string {
 func TestPaletteRows(t *testing.T) {
 	m := typePalette(t, jiraTabModel(t), "")
 	all := strings.Join(paletteLabels(m), "\n")
-	for _, want := range []string{"roadmap  R", "view  Backlog", "filter  FE", "board  ABC board", "ABC-3  Third"} {
+	for _, want := range []string{"roadmap: epics on a timeline", "view  Backlog", "filter  FE", "board  ABC board", "ABC-3  Third"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("palette lacks %q", want)
 		}
@@ -250,5 +250,19 @@ func TestPaletteAliases(t *testing.T) {
 	m := typePalette(t, jiraTabModel(t), "create issue")
 	if got := paletteLabels(m); len(got) == 0 || !strings.HasPrefix(got[0], "new issue") || strings.Contains(got[0], "create") {
 		t.Errorf("create issue = %q", got)
+	}
+}
+
+// TestPaletteSaysWhatHelpSays: an action reads as the screen's ? help has
+// it, and is found by its words.
+func TestPaletteSaysWhatHelpSays(t *testing.T) {
+	if got := paletteLabels(typePalette(t, roadmapModel(t), "copy")); len(got) == 0 || !strings.HasPrefix(got[0], "copy the epics as a table") {
+		t.Errorf("roadmap y = %q", got)
+	}
+	if got := paletteLabels(typePalette(t, chartsModel(t), "copy")); len(got) == 0 || !strings.HasPrefix(got[0], "copy the numbers as a table") {
+		t.Errorf("charts y = %q", got)
+	}
+	if got := paletteLabels(typePalette(t, jiraTabModel(t), "swim")); len(got) == 0 || !strings.HasPrefix(got[0], "sort the list; lanes: swimlanes") {
+		t.Errorf("swim = %q", got)
 	}
 }

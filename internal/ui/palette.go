@@ -65,6 +65,23 @@ var paletteDesc = map[string]map[string]string{
 	"week":     {"quit": "close the week", "open": "log work in the cell", "prev_view": "previous week", "next_view": "next week"},
 }
 
+// helpDescs is what the ? help says each key does on scope's screen, by
+// its keys as help shows them: the palette labels an action the same way.
+func (m *Model) helpDescs(scope string) map[string]string {
+	out := map[string]string{}
+	for _, sec := range m.helpSections() {
+		if !strings.EqualFold(sec.title, scope) {
+			continue
+		}
+		for _, r := range sec.rows {
+			if _, ok := out[r.keys]; !ok {
+				out[r.keys] = r.desc
+			}
+		}
+	}
+	return out
+}
+
 // openPalette fills the picker with the palette's rows.
 func (m *Model) openPalette() {
 	m.paletteFocus = m.focus
@@ -92,6 +109,7 @@ func (m *Model) openPalette() {
 		}
 		items = append(items, jiraPickerItem{id: "i:" + p[0], label: label})
 	}
+	help := m.helpDescs(scope)
 	for _, s := range keyScopes {
 		if s.name != scope {
 			continue
@@ -101,11 +119,13 @@ func (m *Model) openPalette() {
 			if paletteSkip[name] || b == nil || len(b.Keys()) == 0 {
 				continue
 			}
-			desc := b.Help().Desc
+			desc, search := b.Help().Desc, paletteAliases[name]
 			if d, ok := paletteDesc[scope][name]; ok {
 				desc = d
+			} else if d, ok := help[keysLabel(*b)]; ok {
+				desc, search = d, strings.TrimSpace(search+" "+desc)
 			}
-			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: desc + "  " + keysLabel(*b), search: paletteAliases[name]})
+			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: desc + "  " + keysLabel(*b), search: search})
 		}
 	}
 	if scope == "board" {
