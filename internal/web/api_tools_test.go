@@ -168,16 +168,13 @@ func TestQueueAPI(t *testing.T) {
 	ts, opt := toolsServer(t, nil)
 	offline.To(opt.Store)(jira.PendingWrite{Method: "PUT", Path: "/rest/api/3/issue/DEMO-1", What: "summary", At: time.Now()})
 	offline.To(opt.Store)(jira.PendingWrite{Method: "PUT", Path: "/rest/api/3/issue/DEMO-2", What: "summary", At: time.Now()})
-	var q []struct {
-		Index int
-		Key   string
-	}
+	var q queueOut
 	workCall(t, "GET", ts.URL+"/api/queue", "", &q)
-	if len(q) != 2 || q[1].Key != "DEMO-2" {
+	if len(q.Items) != 2 || q.Items[1].Key != "DEMO-2" {
 		t.Fatalf("queue = %+v", q)
 	}
 	var left struct{ Left int }
-	if workCall(t, "DELETE", ts.URL+"/api/queue/0", "", &left) != 200 || left.Left != 1 {
+	if workCall(t, "DELETE", ts.URL+"/api/queue/"+q.Items[0].ID, "", &left) != 200 || left.Left != 1 {
 		t.Errorf("drop = %+v", left)
 	}
 }

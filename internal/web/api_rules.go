@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,7 +93,43 @@ type ruleRunner struct {
 	w    *rules.Watcher
 	log  string
 	mu   sync.Mutex
-	prev map[string][]jira.Card // board reads by view
+	prev *prevCache // board reads by view
+	q    *queueNotes
+}
+
+// prevCache keeps the last board read of the most recent views only.
+type prevCache struct {
+	cap   int
+	order []string // least recently used first
+	m     map[string][]jira.Card
+}
+
+func newPrevCache(n int) *prevCache { return &prevCache{cap: n, m: map[string][]jira.Card{}} }
+
+func (c *prevCache) len() int { return len(c.m) }
+
+func (c *prevCache) touch(k string) {
+	if i := slices.Index(c.order, k); i >= 0 {
+		c.order = slices.Delete(c.order, i, i+1)
+	}
+	c.order = append(c.order, k)
+}
+
+func (c *prevCache) get(k string) ([]jira.Card, bool) {
+	v, ok := c.m[k]
+	if ok {
+		c.touch(k)
+	}
+	return v, ok
+}
+
+func (c *prevCache) put(k string, v []jira.Card) {
+	c.m[k] = v
+	c.touch(k)
+	for len(c.order) > c.cap {
+		delete(c.m, c.order[0])
+		c.order = c.order[1:]
+	}
 }
 
 // ruleLogPath is rules.log beside the state file, as the TUI keeps it.
@@ -111,7 +148,8 @@ func (ss *siteSet) rulesOf(ctx context.Context, o Options) *ruleRunner {
 		return r
 	}
 	set, warn := rules.Compile(o.Rules)
-	r := &ruleRunner{opt: o, set: set, warn: warn, feed: &ruleFeed{}, log: ruleLogPath(o), prev: map[string][]jira.Card{}}
+	r := &ruleRunner{opt: o, set: set, warn: warn, feed: &ruleFeed{}, log: ruleLogPath(o), prev: newPrevCache(64)}
+	r.q = &queueNotes{feed: r.feed}
 	r.w = &rules.Watcher{C: o.Client, Set: set, Log: r.log, Fired: r.fired}
 	if ss.rules == nil {
 		ss.rules = map[string]*ruleRunner{}
@@ -120,7 +158,7 @@ func (ss *siteSet) rulesOf(ctx context.Context, o Options) *ruleRunner {
 	if len(set.Watches()) > 0 && o.Client != nil {
 		go r.w.Run(ctx)
 	}
-	go runQueue(ctx, o)
+	go runQueue(ctx, o, r.q)
 	return r
 }
 
@@ -139,8 +177,8 @@ func (r *ruleRunner) observe(ctx context.Context, view string, cards []jira.Card
 		return
 	}
 	r.mu.Lock()
-	prev, seen := r.prev[view]
-	r.prev[view] = cards
+	prev, seen := r.prev.get(view)
+	r.prev.put(view, cards)
 	r.mu.Unlock()
 	if seen {
 		go r.w.Fire(ctx, "", prev, cards)
@@ -150,7 +188,7 @@ func (r *ruleRunner) observe(ctx context.Context, view string, cards []jira.Card
 // observeRules is called by the board handler with the cards it read.
 func observeRules(s *Server, r *http.Request, cards []jira.Card) {
 	rr := s.sites.rulesOf(s.ctx, s.opt)
-	rr.observe(s.ctx, r.URL.Path+"?"+r.URL.RawQuery, cards)
+	rr.observe(s.ctx, r.URL.Path+"?"+r.URL.Query().Encode(), cards)
 }
 
 func init() {
@@ -164,7 +202,7 @@ func init() {
 			JQL   string
 			Every string
 		}
-		var ws []watch
+		ws := []watch{}
 		for _, w := range rr.set.Watches() {
 			ws = append(ws, watch{w.JQL, w.Every.String()})
 		}
@@ -173,7 +211,7 @@ func init() {
 			last = evs[len(evs)-1].ID
 		}
 		return map[string]any{
-			"Rules": rr.set.Rules(), "Warnings": rr.warn, "Watches": ws, "Counts": counts,
+			"Rules": rr.set.Rules(), "Warnings": nonNil(rr.warn), "Watches": ws, "Counts": counts,
 			"Test":  map[string]string{"Type": s.opt.RulesTest.Type, "Status": s.opt.RulesTest.Status},
 			"Kinds": []string{rules.New, rules.Status, rules.Assignee, rules.Priority, rules.Points, rules.Summary},
 			"Last":  last, "Running": len(ws) > 0, "Log": rr.log,
@@ -355,4 +393,11 @@ func describeFiring(f rules.Firing) string {
 		return "theme highlight"
 	}
 	return f.Text
+}
+
+func nonNil[T any](v []T) []T {
+	if v == nil {
+		return []T{}
+	}
+	return v
 }

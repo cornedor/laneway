@@ -7,7 +7,7 @@ import { ago } from './fmt.js';
 export function install(app) {
   css('ask');
   const { api, ui, bus } = app;
-  let list = [], timer = 0;
+  let list = [], timer = 0, seenFail = -1;
   const chip = app.chrome.add(h('button.queue-chip.warn', { hidden: true, onclick: () => open() }), 10);
 
   function paint() {
@@ -17,8 +17,13 @@ export function install(app) {
   }
   async function poll() {
     let next;
-    try { next = await api.get('/queue', { fresh: true }); } catch (e) { return; }
-    const gone = list.filter(w => !next.some(n => n.At === w.At && n.Path === w.Path));
+    let q;
+    try { q = await api.get('/queue', { fresh: true }); } catch (e) { return; }
+    next = q.Items || [];
+    const fails = q.Failed || [];
+    if (seenFail < 0) seenFail = Math.max(0, ...fails.map(f => f.ID));
+    for (const f of fails) if (f.ID > seenFail) { seenFail = f.ID; ui.toast('Queued write refused, dropped: ' + f.What + ': ' + f.Error, { kind: 'err' }); }
+    const gone = list.filter(w => !next.some(n => n.ID === w.ID));
     list = next; paint();
     if (gone.length) for (const k of new Set(gone.map(w => w.Key).filter(Boolean))) bus.emit('issue:changed', { key: k });
     if (gone.length && !next.length) ui.toast('Back online: queued writes sent');
@@ -41,7 +46,7 @@ export function install(app) {
         h('ul.queue-list', list.map(w => h('li', h('b', w.What), ' ', h('span.dim', w.Method + ' ' + w.Key), h('span.spacer'), h('span.dim', ago(w.At)),
           h('button.btn.ghost.sm', { title: 'Drop this write', onclick: async () => {
             if (!await ui.confirm({ title: 'Drop write', text: w.What + ' on ' + w.Key + ' will never be sent.', ok: 'Drop', danger: true })) return;
-            try { await api.del('/queue/' + w.Index); } catch (e) { return ui.errToast(e); }
+            try { await api.del('/queue/' + w.ID); } catch (e) { return ui.errToast(e); }
             await poll(); draw();
           } }, 'Drop')))),
         h('div.row.end',

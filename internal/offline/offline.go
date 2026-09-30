@@ -4,6 +4,8 @@ package offline
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -109,6 +111,28 @@ func Drop(st *store.Store, i int) int {
 	if i >= 0 && i < len(ws) {
 		ws = append(ws[:i], ws[i+1:]...)
 		Write(st, ws)
+	}
+	return len(ws)
+}
+
+// ID names a queued write by its content, so a drop still hits the same
+// write after the queue shifted (another front end sent the ones before it).
+func ID(w jira.PendingWrite) string {
+	sum := sha256.Sum256([]byte(w.Method + "\x00" + w.Path + "\x00" + w.What + "\x00" + string(w.Body) + "\x00" + w.At.UTC().Format(time.RFC3339Nano)))
+	return "w" + hex.EncodeToString(sum[:6])
+}
+
+// DropID removes the write with that ID, and says how many are left.
+func DropID(st *store.Store, id string) int {
+	mu.Lock()
+	defer mu.Unlock()
+	ws := Read(st)
+	for i, w := range ws {
+		if ID(w) == id {
+			ws = append(ws[:i], ws[i+1:]...)
+			Write(st, ws)
+			break
+		}
 	}
 	return len(ws)
 }

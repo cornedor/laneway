@@ -87,8 +87,7 @@ func have(bin string) bool { _, err := exec.LookPath(bin); return err == nil }
 
 var (
 	wtMu    sync.Mutex
-	wtAt    time.Time
-	wtCache map[string]string
+	wtCache = map[string]wtEntry{} // by site
 )
 
 // worktreesByKey maps issue keys to their linked worktrees in the
@@ -96,8 +95,8 @@ var (
 func worktreesByKey(s *Server) map[string]string {
 	wtMu.Lock()
 	defer wtMu.Unlock()
-	if wtCache != nil && time.Since(wtAt) < 5*time.Second {
-		return wtCache
+	if e, ok := wtCache[s.opt.Site]; ok && time.Since(e.at) < 5*time.Second {
+		return e.m
 	}
 	out := map[string]string{}
 	for _, repo := range s.opt.Jira.Repos {
@@ -107,11 +106,16 @@ func worktreesByKey(s *Server) map[string]string {
 			}
 		}
 	}
-	wtCache, wtAt = out, time.Now()
+	wtCache[s.opt.Site] = wtEntry{out, time.Now()}
 	return out
 }
 
-func forgetWorktrees() { wtMu.Lock(); wtCache = nil; wtMu.Unlock() }
+type wtEntry struct {
+	m  map[string]string
+	at time.Time
+}
+
+func forgetWorktrees() { wtMu.Lock(); clear(wtCache); wtMu.Unlock() }
 
 func toOut(as []herdr.Agent) []AgentOut {
 	out := make([]AgentOut, 0, len(as))
