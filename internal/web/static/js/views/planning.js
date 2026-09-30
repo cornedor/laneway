@@ -38,7 +38,7 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   el.append(h('div.pl', scroller));
 
   const boardBtn = h('button.btn.ghost.nw', { title: 'Board (b)', onclick: () => pickBoard() }, project + ' · ' + board.Name);
-  const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  /', 'aria-label': 'Filter issues', oninput: () => { filter = filterIn.value.trim().toLowerCase(); relayout(); } });
+  const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', oninput: () => { filter = filterIn.value.trim().toLowerCase(); relayout(); } });
   toolbar.append(filterIn, h('span.spacer'), h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'), boardBtn);
 
   // ---- data
@@ -379,7 +379,6 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   const G = { group: 'Planning' };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next', G);
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
-  scope.bind('g g', () => app.actions.jump(), 'jump to issue', { hidden: true });
   scope.bind('Home', () => setCur(stops()[0]), 'first', { ...G, hidden: true });
   scope.bind('End', () => setCur(stops().at(-1)), 'last', { ...G, hidden: true });
   scope.bind('J', () => rankStep(1), 'rank down', G);
@@ -389,7 +388,7 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   scope.bind('[', () => shift(-1), 'move to the previous sprint', G);
   scope.bind(['x', 'Space'], () => { const cc = curCard(); if (cc) { toggleSel(cc.c.Key); move(1); } else if (cur.startsWith('h:')) toggleFold(curSection()); }, 'select', G);
   scope.bind('Enter', () => { const cc = curCard(); if (cc) app.panel.open(cc.c.Key); else toggleFold(curSection()); }, 'open', G);
-  scope.bind('o', () => toggleFold(curSection()), 'fold or unfold the section', G);
+  scope.bind('z', () => toggleFold(curSection()), 'fold or unfold the section', G);
   scope.bind('P', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'points'); }, 'story points', G);
   scope.bind('a', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'assignee'); }, 'assignee', G);
   scope.bind('N', newSprint, 'new sprint', G);
@@ -398,7 +397,7 @@ export default async function mount(el, { app, params, scope, toolbar }) {
   scope.bind('E', editSprint, 'edit sprint name, goal, end', G);
   scope.bind('b', pickBoard, 'pick board', G);
   scope.bind('R', () => load(true), 'reload', G);
-  scope.bind('/', () => filterIn.focus(), 'filter', G);
+  scope.bind('f', () => filterIn.focus(), 'filter', G);
   scope.bind('Escape', () => {
     if (document.activeElement === filterIn) { filterIn.value = ''; filter = ''; filterIn.blur(); relayout(); return; }
     if (filter) { filterIn.value = ''; filter = ''; relayout(); return; }

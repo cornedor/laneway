@@ -22,7 +22,7 @@ export function mountIssue(el, key, { app, full }) {
   // Beside a board the panel's keys apply only while it has focus (Tab / click), so the board keeps j/k/c/e/s.
   if (!full) {
     const bind = scope.bind;
-    scope.bind = (spec, fn, desc, opts = {}) => bind(spec, fn, desc, { ...opts, when: opts.when || (() => el.contains(document.activeElement)) });
+    scope.bind = (spec, fn, desc, opts = {}) => bind(spec, fn, desc, { ...opts, help: true, when: opts.when || (() => el.contains(document.activeElement)) });
   }
 
   // ---- skeleton
@@ -143,7 +143,7 @@ export function mountIssue(el, key, { app, full }) {
     const body = h('div.md');
     if (sig && sig.trim()) body.append(md(sig, { ...mdOpts(), onTask: toggleTask }));
     else body.append(h('p.faint', 'No description. Press e to write one.'));
-    clear(box.desc).append(h('div.sec-head', h('h3', 'Description'), h('button.btn.ghost.sm', { title: 'Edit (e)', onclick: editDesc }, 'Edit')), body);
+    clear(box.desc).append(h('div.sec-head', h('h3', 'Description'), h('button.btn.ghost.sm', { title: 'Edit (E)', onclick: editDesc }, 'Edit')), body);
     box.desc.ondblclick = e => { if (!e.target.closest('a,input,img,summary')) editDesc(); };
   }
   let taskChain = Promise.resolve();
@@ -189,7 +189,7 @@ export function mountIssue(el, key, { app, full }) {
     const groups = new Map();
     for (const l of links) (groups.get(l.Rel) || groups.set(l.Rel, []).get(l.Rel)).push(l);
     fill(box.links,
-      h('div.sec-head', h('h3', 'Links'), h('button.btn.ghost.sm', { title: 'Link an issue (l)', onclick: addLink }, '+ Issue'), h('button.btn.ghost.sm', { onclick: addWebLink }, '+ Web')),
+      h('div.sec-head', h('h3', 'Links'), h('button.btn.ghost.sm', { title: 'Link an issue (L)', onclick: addLink }, '+ Issue'), h('button.btn.ghost.sm', { onclick: addWebLink }, '+ Web')),
       !links.length && !web.length && h('p.faint', 'No links.'),
       [...groups].map(([rel, ls]) => h('div.lgroup', h('div.rel', rel), ls.map(l => h('div.row-link', { dataset: { key: l.Key }, onclick: () => open(l.Key) },
         h('span.mono.k', l.Key), h('span.clip', l.Summary), l.Status && h('span.chip', l.Status),
@@ -258,7 +258,7 @@ export function mountIssue(el, key, { app, full }) {
     const act = (a, label, title) => h('button.btn.ghost.sm', { dataset: { act: a }, title }, label);
     const node = h('article.cm' + (reply ? '.reply' : '') + (mine ? '.mine' : '') + (c.pending ? '.pending' : ''), { dataset: { id: c.ID }, tabindex: -1 },
       h('header', ui.avatar(c.Author, null, 22), h('b', c.Author), h('time', { title: dateTime(c.Created) }, c.pending ? 'sending…' : ago(c.Created)),
-        h('span.spacer'), !c.pending && h('span.acts', act('reply', 'Reply', 'Reply (r)'), mine && act('edit', 'Edit', 'Edit (e)'), mine && act('del', 'Delete', 'Delete (d)'))),
+        h('span.spacer'), !c.pending && h('span.acts', act('reply', 'Reply', 'Reply (R)'), mine && act('edit', 'Edit', 'Edit (e)'), mine && act('del', 'Delete', 'Delete (d)'))),
       body);
     cmEls.set(c.ID, { el: node, sig });
     return node;
@@ -524,10 +524,16 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('ctrl+d', () => scroll.scrollBy({ top: scroll.clientHeight / 2 }), 'half page down', { group: G, hidden: true });
   scope.bind('ctrl+u', () => scroll.scrollBy({ top: -scroll.clientHeight / 2 }), 'half page up', { group: G, hidden: true });
   scope.bind('c', composeComment, 'write a comment', { group: G });
-  scope.bind('e', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) editComment(c); else editDesc(); }, 'edit description (or own focused comment)', { group: G });
-  scope.bind('r', () => { const c = focused() || (st.issue && st.issue.Comments[st.issue.Comments.length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
+  scope.bind('e', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) editComment(c); else edit('summary'); }, 'edit summary (or own focused comment)', { group: G });
+  scope.bind('E', editDesc, 'edit description', { group: G });
+  scope.bind('a', () => edit('assignee'), 'change assignee', { group: G });
+  scope.bind('p', () => edit('priority'), 'change priority', { group: G });
+  scope.bind('P', () => edit('points'), 'set story points', { group: G });
+  scope.bind('l', () => edit('labels'), 'edit labels', { group: G });
+  scope.bind('r', () => reload(true), 'refresh', { group: G });
+  scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[st.issue.Comments.length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
   scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, 'delete own comment', { group: G });
-  scope.bind('l', addLink, 'link an issue', { group: G });
+  scope.bind('L', addLink, 'link an issue', { group: G });
   scope.bind('[', () => bus.emit('issue:nav', { dir: -1, key }), 'previous issue in list', { group: G });
   scope.bind(']', () => bus.emit('issue:nav', { dir: 1, key }), 'next issue in list', { group: G });
   scope.bind('1', () => setTab('details'), 'details tab', { group: G });
@@ -536,7 +542,7 @@ export function mountIssue(el, key, { app, full }) {
   scope.bind('y', () => copy(key, key), 'copy key', { group: G });
   scope.bind('Y', () => copy(browseURL(), 'Link'), 'copy link', { group: G });
   scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), 'open in Jira', { group: G });
-  scope.bind('s', () => edit('status'), 'change status', { group: G, hidden: true });
+  scope.bind('s', () => edit('status'), 'change status', { group: G });
 
   // ---- resize (panel only)
   if (!full) {

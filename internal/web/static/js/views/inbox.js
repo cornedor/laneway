@@ -156,7 +156,8 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('u', unread, 'mark unread', G);
   scope.bind('a', toggleRead, 'toggle read', G);
   scope.bind('r', () => { load(true); ui.toast('Refreshing'); }, 'refresh', G);
-  scope.bind('Tab', () => setTab(tab === 'inbox' ? 'all' : 'inbox'), 'inbox / all', G);
+  scope.bind('Tab', () => setTab(tab === 'inbox' ? 'all' : 'inbox'), 'inbox / all', { ...G, when: () => !app.panel.key });
+  scope.bind('A', () => setTab(tab === 'inbox' ? 'all' : 'inbox'), 'inbox / all', G);
   scope.bind('o', () => { const t = cur(); if (t && app.session.baseURL) window.open(app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key, '_blank', 'noopener'); }, 'open in Jira', G);
 
   const off = [app.bus.on('focus', reload)];

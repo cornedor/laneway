@@ -1,4 +1,4 @@
-// The work timer: t starts it on the selected issue, stops it into the log-work dialog, or
+// The work timer: T starts it on the selected issue, stops it into the log-work dialog, or
 // switches it. It lives in localStorage (survives reloads, shared by tabs) and shows in the header.
 import { h, $ } from './dom.js';
 import { duration } from './fmt.js';
@@ -15,7 +15,7 @@ function save(t) {
   try { t ? localStorage.setItem(LS, JSON.stringify(t)) : localStorage.removeItem(LS); } catch (e) { /* private mode */ }
 }
 
-// The issue `t` acts on: the selected row of the view, else the open panel, else the route's issue.
+// The issue `T` and `w` act on: the selected row of the view, else the open panel, else the route's issue.
 export function target(app) {
   const row = document.querySelector('#view [data-key].sel, #view [data-key].selected, #view [data-key].focused, #view [data-key].cursor');
   if (row && row.dataset.key) return row.dataset.key;
@@ -70,13 +70,13 @@ export function install(app) {
   }
 
   function toggle(key) {
-    if (!timer) return key ? start(key) : app.ui.toast('No timer running · t on an issue starts one');
+    if (!timer) return key ? start(key) : app.ui.toast('No timer running · T on an issue starts one');
     if (!key || key === timer.key) return stop();
     return stop(key);
   }
 
   const k = app.keys.scope('timer');
-  k.bind('t', () => toggle(target(app)), 'start / stop timer', { group: 'Time', when: () => !!timer || !!target(app) });
+  k.bind('T', () => toggle(target(app)), 'start / stop timer', { group: 'Time', when: () => !!timer || !!target(app) });
   k.bind('w', () => { const key = target(app); key && logDialog(app, { key }); }, 'log work', { group: 'Time', when: () => !!target(app) });
 
   const cmd = (id, title, run, when) => app.commands.register({ id, group: 'Time', get title() { return title(); }, run, when });

@@ -173,7 +173,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
     cell.row = Math.min(cell.row, Math.max(weekRows.length - 1, 0));
     body.append(nav(s.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' – ' + addDays(s, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), duration(sum(logs)) + ' this week'));
     const tbl = h('table.wweek');
-    tbl.append(h('thead', h('tr', h('th.wissue', h('button.btn.link', { onclick: addRow, title: '#' }, '+ row')),
+    tbl.append(h('thead', h('tr', h('th.wissue', h('button.btn.link', { onclick: addRow, title: 'Add row (+)' }, '+ row')),
       days.map(d => h('th.wcol' + (wd.includes(d.getDay()) ? '' : '.off') + (ymd(d) === ymd(now) ? '.today' : ''), { onclick: () => openDay(d) },
         d.toLocaleDateString(undefined, { weekday: 'short' }), h('div.dim', d.getDate()))), h('th.wcol', 'Total'))));
     const tb = h('tbody');
@@ -283,7 +283,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind('1', () => setTab('issues'), 'issues', G);
   scope.bind('2', () => setTab('day'), 'worklogs of a day', G);
   scope.bind('3', () => setTab('week'), 'worklogs of a week', G);
-  scope.bind('w', () => setTab(tab === 'day' ? 'week' : 'day'), 'worklogs: day / week', G);
+  scope.bind('W', () => setTab(tab === 'day' ? 'week' : 'day'), 'worklogs: day / week', G);
   scope.bind('h', () => step(-1), 'previous day / week', { ...G, ...T });
   scope.bind('l', () => step(1), 'next day / week', { ...G, ...T });
   scope.bind('0', goToday, 'today / this week', { ...G, ...T });
@@ -301,7 +301,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind('ArrowLeft', () => moveCell(0, -1), 'previous day', { ...G, ...W });
   scope.bind('ArrowRight', () => moveCell(0, 1), 'next day', { ...G, ...W });
   scope.bind('Enter', cellEnter, 'log work in the cell, or open its day', { ...G, ...W });
-  scope.bind('#', addRow, 'add an issue row', { ...G, ...W });
+  scope.bind('+', addRow, 'add an issue row', { ...G, ...W });
   scope.bind('o', () => { const r = weekRows[cell.row]; if (r) app.panel.open(r.key); }, 'open issue', { ...G, ...W });
 
   const off = [bus.on('issue:changed', refreshSoon), bus.on('focus', refreshSoon), bus.on('timer', () => list && list.refresh())];

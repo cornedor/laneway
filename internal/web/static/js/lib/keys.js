@@ -29,7 +29,7 @@ const inField = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || 
 export function scope(name, { modal = false } = {}) {
   const s = { name, modal, binds: [], disposed: false };
   s.bind = (spec, fn, desc = '', opts = {}) => {
-    for (const sp of [].concat(spec)) s.binds.push({ seq: sp.split(' '), fn, desc, input: !!opts.input, hidden: !!opts.hidden, group: opts.group || name, spec: sp, when: opts.when });
+    for (const sp of [].concat(spec)) s.binds.push({ seq: sp.split(' '), fn, desc, input: !!opts.input, hidden: !!opts.hidden, help: !!opts.help, group: opts.group || name, spec: sp, when: opts.when, scope: name });
     return s;
   };
   s.dispose = () => { const i = scopes.indexOf(s); if (i >= 0) scopes.splice(i, 1); s.disposed = true; notify(); };
@@ -76,16 +76,20 @@ export const keys = {
   scope,
   pending: () => pending.join(' '),
   onChange: fn => { listeners.add(fn); return () => listeners.delete(fn); },
-  // Bindings a user can press now, newest scope first: [{group, spec, desc}]
+  // Bindings a user can press now, newest scope first: [{group, spec, desc, rank}].
+  // rank 0 view, 1 a panel waiting for focus, 2 global. `help: true` binds are listed while their `when` is false.
   active() {
     const out = [], seen = new Set();
     for (const s of visible()) for (const b of s.binds) {
       if (b.hidden || !b.desc) continue;
-      const id = b.spec; if (seen.has(id)) continue; seen.add(id);
-      out.push({ group: b.group, spec: b.spec, desc: b.desc });
+      const on = !b.when || b.when();
+      if (!on && !b.help) continue;
+      const id = b.spec + (on ? '' : '~'); if (seen.has(id)) continue; seen.add(id);
+      out.push({ group: on ? b.group : b.group + ' (Tab to focus)', spec: b.spec, desc: b.desc, rank: !on ? 1 : GLOBAL.has(s.name) ? 2 : 0 });
     }
     return out;
   },
 };
+const GLOBAL = new Set(['global', 'timer', 'undo']);
 export const kbd = spec => spec.split(' ').map(k => k.replace('ArrowUp', '↑').replace('ArrowDown', '↓').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace('Escape', 'esc').replace('Enter', '⏎').replace('Space', '␣').replace('ctrl+', '⌃').replace('alt+', '⌥').replace('meta+', '⌘'));
 export default keys;

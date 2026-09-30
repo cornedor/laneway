@@ -122,12 +122,13 @@ function globalKeys() {
   g.bind('/', () => app.actions.palette('/'), 'search issues', { group: 'Global' });
   g.bind('g g', () => app.actions.jump(), 'jump to issue by key', { group: 'Global' });
   g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global' });
-  g.bind('c', () => app.actions.create({ project: app.route && app.route.params.project }), 'create issue', { group: 'Global' });
-  g.bind('T', () => { const t = theme.next(); ui.toast('Theme: ' + t); }, 'next theme', { group: 'Global' });
+  g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), 'new issue', { group: 'Global' });
+  g.bind('#', () => app.actions.jump(), 'jump to issue by key', { group: 'Global', hidden: true });
+  g.bind('g t', () => { const t = theme.next(); ui.toast('Theme: ' + t); }, 'next theme', { group: 'Global' });
   g.bind('Tab', () => { const p = $('#panel'); if (p.contains(document.activeElement)) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, 'focus panel / view', { group: 'Global', when: () => app.panel.key });
   g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, 'close panel', { group: 'Global', hidden: true });
   for (const r of routes) if (r.key) g.bind('g ' + r.key, () => app.go('/' + r.name), 'go to ' + r.title.toLowerCase(), { group: 'Go' });
-  g.bind('g ,', () => app.go('/settings'), 'go to settings', { group: 'Go' });
+  g.bind(['g ,', ','], () => app.go('/settings'), 'go to settings', { group: 'Go' });
   for (const r of routes) commands.register({ id: 'go:' + r.name, title: 'Go to ' + r.title, group: 'Go', run: () => app.go('/' + r.name) });
   commands.register({ id: 'theme:next', title: 'Theme: next', group: 'Theme', run: () => ui.toast('Theme: ' + theme.next()) });
   for (const p of theme.presets) commands.register({ id: 'theme:' + p.id, title: 'Theme: ' + p.name, group: 'Theme', run: () => theme.set(p.id) });

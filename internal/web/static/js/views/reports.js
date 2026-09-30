@@ -241,7 +241,7 @@ export default async function mount(el, { app, params, query, scope, toolbar }) 
   function cycleView(list) {
     const now = Date.now(), from = now - weeks * 7 * DAY;
     const cyc = list.filter(i => i.Cycle > 0), cycD = cyc.map(i => toDays(i.Cycle)), leadD = list.map(i => toDays(i.Lead));
-    const weeksBtn = h('button.btn', { title: 'Weeks (w)', onclick: nextWeeks }, weeks + ' weeks');
+    const weeksBtn = h('button.btn', { title: 'Weeks (W)', onclick: nextWeeks }, weeks + ' weeks');
     if (!list.length) return h('div.rp-in', head('Cycle time', ''), h('div.empty', 'Nothing resolved in the last ' + weeks + ' weeks.'), weeksBtn);
     const p50 = percentile(cycD, 50), p85 = percentile(cycD, 85);
     const top = niceTicks(Math.max(...cycD, p85 * 1.2, 1));
@@ -319,7 +319,7 @@ export default async function mount(el, { app, params, query, scope, toolbar }) 
   KINDS.forEach(([id], i) => scope.bind(String(i + 1), () => go(id), 'report ' + (i + 1), { hidden: true }));
   scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports' });
   scope.bind('b', () => pickBoard(), 'pick board', { group: 'Reports' });
-  scope.bind('w', () => { if (kind === 'cycle') nextWeeks(); }, 'cycle time: weeks', { group: 'Reports' });
+  scope.bind('W', () => { if (kind === 'cycle') nextWeeks(); }, 'cycle time: weeks', { group: 'Reports' });
   scope.bind('R', () => load(true), 'reload', { group: 'Reports' });
   const move = d => { if (curItems.length) { cur = Math.min(Math.max(cur + d, 0), curItems.length - 1); mark(); } };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next item', { group: 'Reports' });

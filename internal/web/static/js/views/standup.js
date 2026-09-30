@@ -81,7 +81,7 @@ export default function mount(el, { app, scope, toolbar }) {
     const label = since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
     root.append(h('div.sthead', h('h2', team ? 'Team standup' : 'Standup'), h('span.dim', 'since ' + label), h('span.spacer'),
       h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, '‹ earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later ›'),
-      h('button.btn', { onclick: () => setTeam(!team), title: 'Tab' }, team ? 'Mine' : 'Team'), h('button.btn', { onclick: copy, title: 'y' }, 'Copy')));
+      h('button.btn', { onclick: () => setTeam(!team), title: 'Tab / p' }, team ? 'Mine' : 'Team'), h('button.btn', { onclick: copy, title: 'y' }, 'Copy')));
     if (err) return root.append(h('div.empty', err));
     if (!data) return root.append(h('div.loading', 'Loading…'));
     const secs = sections();
@@ -152,7 +152,8 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('Enter', () => { if (items[sel]) app.panel.open(items[sel]); }, 'open issue', G);
   scope.bind('[', () => step(-1), 'a workday further back', G);
   scope.bind(']', () => step(1), 'a workday forward', G);
-  scope.bind('Tab', () => setTeam(!team), 'mine / team', G);
+  scope.bind('Tab', () => setTeam(!team), 'mine / team', { ...G, when: () => !app.panel.key });
+  scope.bind('p', () => setTeam(!team), 'mine / team', G);
   scope.bind('P', setProject, 'team of another project', G);
   scope.bind('y', copy, 'copy as text', G);
   scope.bind('r', () => { api.forget(); load(); }, 'refresh', G);
