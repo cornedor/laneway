@@ -164,7 +164,10 @@ func TestMyWork(t *testing.T) {
 	m := jiraTabModel(t)
 	out, cmd := m.handleJiraKey(keyMsg(t, "O"))
 	m = out.(Model)
-	v := m.jiraTab.views[len(m.jiraTab.views)-1]
+	i := len(m.jiraTab.views) - 1
+	v := m.jiraTab.views[i]
+	out, _ = m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, viewIdx: i, cards: []jira.Card{{Key: "A-2", Status: "To Do"}}, total: 1})
+	m = out.(Model)
 	if cmd == nil || v.name != "Mine: my work" || v.jql != myWorkJQL || m.jiraTab.sort != jiraSortStatus {
 		t.Fatalf("view %+v, sort %v", v, m.jiraTab.sort)
 	}
@@ -176,6 +179,26 @@ func TestMyWork(t *testing.T) {
 	}
 	if g, ok := jiraGroupOf(jiraSortStatus, cards[2]); !ok || g != "Review" {
 		t.Errorf("group = %q", g)
+	}
+}
+
+// TestMyWorkSortStays: my work's status grouping stays with it; the backlog
+// is back in rank order.
+func TestMyWorkSortStays(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "O"))
+	m = out.(Model)
+	mine := len(m.jiraTab.views) - 1
+	out, _ = m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, viewIdx: mine, cards: []jira.Card{{Key: "A-2", Status: "To Do"}}, total: 1})
+	m = out.(Model)
+	out, _ = m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, viewIdx: 1, cards: []jira.Card{{Key: "ABC-5", Status: "New"}}, total: 1})
+	m = out.(Model)
+	if m.jiraTab.sort != jiraSortRank {
+		t.Fatalf("backlog after my work: sort %v, want rank", m.jiraTab.sort)
+	}
+	out, _ = m.handleJiraCards(jiraCardsMsg{seq: m.jiraTab.seq, viewIdx: mine, cards: []jira.Card{{Key: "A-2", Status: "To Do"}}, total: 1})
+	if s := out.(Model).jiraTab.sort; s != jiraSortStatus {
+		t.Errorf("my work again: sort %v, want status", s)
 	}
 }
 

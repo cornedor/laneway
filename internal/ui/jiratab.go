@@ -287,6 +287,9 @@ type jiraTabState struct {
 	closedFrom    int
 
 	sort jiraSort // the list's order; lanes keep the board's rank
+	// sorts is each view's sort by name, so one view's s (or my work's
+	// grouping) stays with it.
+	sorts map[string]jiraSort
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
 	// for none); swimTop is its first line on screen, swimAt each body
 	// line's card row per lane (-1 for none), for the mouse.
@@ -772,6 +775,9 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 	if !msg.cached && msg.err == nil {
 		t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(msg.viewIdx)
 	}
+	if msg.viewIdx != t.viewIdx && msg.viewIdx < len(t.views) {
+		t.sort = t.sorts[t.views[msg.viewIdx].name]
+	}
 	t.viewIdx = msg.viewIdx
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
 	if msg.note != "" {
@@ -787,6 +793,18 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 		return m, m.openTimeMachineAt(v.closed)
 	}
 	return m, m.runRules(msg.cards)
+}
+
+// setViewSort keeps sort as view i's.
+func (m *Model) setViewSort(i int, sort jiraSort) {
+	t := m.jiraTab
+	if i < 0 || i >= len(t.views) {
+		return
+	}
+	if t.sorts == nil {
+		t.sorts = map[string]jiraSort{}
+	}
+	t.sorts[t.views[i].name] = sort
 }
 
 // installJiraCards shows a fetched card list, keeping the selection on the
@@ -1142,6 +1160,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		keep := m.selectedJiraKey()
 		t.sort = (t.sort + 1) % jiraSortCount
+		m.setViewSort(t.viewIdx, t.sort)
 		m.buildJiraLanes()
 		m.selectJiraKey(keep)
 		m.renderJira()
