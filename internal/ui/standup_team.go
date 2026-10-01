@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // The team's standup (tab in U) walks the board right to left, as a team
@@ -254,7 +255,7 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 // deploy, and what happened since, or no activity.
 func teamRow(tc teamCard, who string, stale int, now time.Time) standupLine {
 	c := tc.card
-	l := standupLine{key: c.Key, title: cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), noTicket), who: who,
+	l := standupLine{key: c.Key, title: cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), work.NoTicket), who: who,
 		what: cmp.Or(standupWhat(tc.events), "no activity")}
 	if c.InProgress && !c.Since.IsZero() {
 		days := int(now.Sub(c.Since).Hours() / 24)

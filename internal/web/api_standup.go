@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // The standup as rows, like the TUI's (internal/ui/standup*.go): yours in
@@ -62,7 +63,7 @@ func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	entries = withCommits(entries, gitCommits(s.repos(), since))
+	entries = work.WithCommits(entries, work.Commits(work.Repos(s.opt.Jira.Repos), since))
 	var keys []string
 	for _, e := range entries {
 		if e.Key != "" && !slices.Contains(keys, e.Key) {
@@ -100,7 +101,7 @@ type standupIssue struct {
 }
 
 func (s standupIssue) title() string {
-	return cmp.Or(strings.TrimSpace(s.card.Key+" "+s.card.Summary), noTicket)
+	return cmp.Or(strings.TrimSpace(s.card.Key+" "+s.card.Summary), work.NoTicket)
 }
 
 func standupSections(entries []jira.InboxEntry, cards []jira.Card, me string) (done, doing, touched, next, blocked []standupIssue) {
@@ -519,7 +520,7 @@ func teamWalk(cols []teamColumn, entries []jira.InboxEntry, projects []string, b
 
 func teamRow(tc teamCard, who string, stale int, now time.Time) StandupRow {
 	c := tc.card
-	l := StandupRow{Key: c.Key, Title: cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), noTicket), Who: who,
+	l := StandupRow{Key: c.Key, Title: cmp.Or(strings.TrimSpace(c.Key+" "+c.Summary), work.NoTicket), Who: who,
 		What: cmp.Or(standupWhat(tc.events), "no activity")}
 	if c.InProgress && !c.Since.IsZero() {
 		days := int(now.Sub(c.Since).Hours() / 24)
@@ -573,10 +574,10 @@ func worklogProposals(ctx context.Context, s *Server, r *http.Request) (any, err
 	for _, w := range logs {
 		logged[w.Key] += w.Seconds
 	}
-	events := gitWork(s.repos(), d, d.AddDate(0, 0, 1))
-	more, failed := activityWork(s.UIConfig().Activity, d)
+	events := work.Git(work.Repos(s.opt.Jira.Repos), d, d.AddDate(0, 0, 1))
+	more, failed := work.Activity(s.UIConfig().Activity, d)
 	if failed == nil {
 		failed = []string{}
 	}
-	return map[string]any{"Items": proposeWork(append(events, more...), logged), "Failed": failed}, nil
+	return map[string]any{"Items": work.Propose(append(events, more...), logged), "Failed": failed}, nil
 }

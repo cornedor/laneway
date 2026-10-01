@@ -8,19 +8,8 @@ import (
 
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
-
-func TestProposeWork(t *testing.T) {
-	at := time.Date(2026, 9, 28, 9, 0, 0, 0, time.Local)
-	ev := []workEvent{{at, "AB-1", "commit"}, {at.Add(20 * time.Minute), "AB-1", "commit"}, {at.Add(25 * time.Minute), "", "git"}, {at.Add(3 * time.Hour), "AB-2", "git"}}
-	ps := proposeWork(ev, nil)
-	if len(ps) != 2 || ps[0].Key != "AB-1" || ps[0].Seconds != 1800 {
-		t.Fatalf("proposals: %+v", ps)
-	}
-	if ps := proposeWork(ev, map[string]int{"AB-1": 99999}); len(ps) != 1 || ps[0].Key != "AB-2" {
-		t.Errorf("logged work should come off: %+v", ps)
-	}
-}
 
 func TestTeamWalk(t *testing.T) {
 	now := time.Date(2026, 9, 30, 12, 0, 0, 0, time.Local)
@@ -57,7 +46,7 @@ func TestStandupLinesAndProposals(t *testing.T) {
 	if code := issueCall(t, "GET", ts.URL+"/api/standup/lines?since="+since, nil, &out); code != 200 {
 		t.Fatalf("lines: %d", code)
 	}
-	var pr struct{ Items []Proposal }
+	var pr struct{ Items []work.Proposal }
 	if code := issueCall(t, "GET", ts.URL+"/api/worklog/proposals?day="+time.Now().Format(time.DateOnly), nil, &pr); code != 200 {
 		t.Errorf("proposals: %d", code)
 	}

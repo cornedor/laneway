@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"image/color"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +14,7 @@ import (
 	"github.com/cornedor/laneway/internal/emoji"
 	"github.com/cornedor/laneway/internal/opener"
 	"github.com/cornedor/laneway/internal/textwidth"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // Helpers and styles lifted from matterbox's view/model code.
@@ -221,19 +220,7 @@ func inputPromptFunc(prompt string) func(visualLine int, focused bool) string {
 }
 
 // expandUserPath expands a leading "~" (or "~/") in p to the home directory.
-func expandUserPath(p string) string {
-	if p != "~" && !strings.HasPrefix(p, "~/") {
-		return p
-	}
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return p
-	}
-	if p == "~" {
-		return home
-	}
-	return filepath.Join(home, p[2:])
-}
+func expandUserPath(p string) string { return work.ExpandHome(p) }
 
 // openable is a URL o hands to the OS default handler.
 type openable struct {

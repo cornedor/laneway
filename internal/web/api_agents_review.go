@@ -7,19 +7,17 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
-	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // Waiting on my review: the issues named by the pull and merge requests gh
 // and glab say await you (the TUI's ctrl+r).
 
 type reviewRequest struct{ title, branch string }
-
-var commitIssueRe = regexp.MustCompile(`\b[A-Z][A-Z0-9_]*-[0-9]+\b`)
 
 // reviewRequests asks gh and glab; a tool that's missing or fails is left
 // out, an error only when both do.
@@ -84,7 +82,7 @@ func reviewKeys(reqs []reviewRequest, projects []jira.Project) []string {
 		}
 	}
 	for _, r := range reqs {
-		for _, k := range commitIssueRe.FindAllString(r.title, -1) {
+		for _, k := range work.KeyRe.FindAllString(r.title, -1) {
 			add(k)
 		}
 		add(branchKey(r.branch))

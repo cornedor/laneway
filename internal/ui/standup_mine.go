@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // Your standup (U) is one row per issue, not per event, in sections: done
@@ -36,7 +37,7 @@ type standupIssue struct {
 }
 
 func (s standupIssue) title() string {
-	return cmp.Or(strings.TrimSpace(s.card.Key+" "+s.card.Summary), noTicket)
+	return cmp.Or(strings.TrimSpace(s.card.Key+" "+s.card.Summary), work.NoTicket)
 }
 
 // standupSections sorts the activity and cards into the sections, each in

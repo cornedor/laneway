@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // ctrl+r shows the issues of the pull and merge requests waiting on your
@@ -86,7 +87,7 @@ func reviewKeys(reqs []reviewRequest, projects []jira.Project) []string {
 		}
 	}
 	for _, r := range reqs {
-		for _, k := range commitIssueRe.FindAllString(r.title, -1) {
+		for _, k := range work.KeyRe.FindAllString(r.title, -1) {
 			add(k)
 		}
 		add(branchKey(r.branch))

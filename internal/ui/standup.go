@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // Your standup: what you did since the previous workday, by issue, with
@@ -18,13 +19,13 @@ import (
 // loadMyStandup fetches your activity since since and the cards it needs.
 func (m *Model) loadMyStandup(seq int, since time.Time) tea.Cmd {
 	now := time.Now()
-	c, ctx, repos, me := m.jiraClient, m.ctx, m.standupRepos(), m.jiraClient.KnownMyself()
+	c, ctx, repos, me := m.jiraClient, m.ctx, work.Repos(m.jiraRepos), m.jiraClient.KnownMyself()
 	return func() tea.Msg {
 		entries, err := c.Standup(ctx, since)
 		if err != nil {
 			return standupMsg{seq: seq, err: err}
 		}
-		entries = withCommits(entries, gitCommits(repos, since))
+		entries = work.WithCommits(entries, work.Commits(repos, since))
 		var keys []string
 		for _, e := range entries {
 			if e.Key != "" && !slices.Contains(keys, e.Key) {
@@ -75,7 +76,7 @@ func standupText(entries []jira.InboxEntry) string {
 			return 0
 		})
 		for _, l := range lines {
-			fmt.Fprintf(&b, "- %s: %s\n", cmp.Or(strings.TrimSpace(l.key+" "+l.summary), noTicket), strings.Join(l.what, "; "))
+			fmt.Fprintf(&b, "- %s: %s\n", cmp.Or(strings.TrimSpace(l.key+" "+l.summary), work.NoTicket), strings.Join(l.what, "; "))
 		}
 		lines = nil
 	}

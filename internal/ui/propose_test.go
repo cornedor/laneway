@@ -14,45 +14,6 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// TestProposeWork: events close together are one session, the time up to
-// an event goes to its issue, a session's first event counts a quarter,
-// and what is logged comes off.
-func TestProposeWork(t *testing.T) {
-	at := func(hm string) time.Time {
-		v, _ := time.ParseInLocation("15:04", hm, time.Local)
-		return v
-	}
-	events := []workEvent{
-		{at: at("09:00"), key: "A-1", source: "commit"},
-		{at: at("09:20"), key: "A-1", source: "claude"},
-		{at: at("09:50"), key: "A-2", source: "git"},    // 30m: still the session
-		{at: at("11:00"), key: "A-2", source: "commit"}, // after a gap: a quarter
-		{at: at("11:05"), key: "", source: "claude"},    // no key: gone
-		{at: at("14:00"), key: "A-3", source: "commit"}, // logged already
-	}
-	got := proposeWork(events, map[string]int{"A-3": 3600})
-	if len(got) != 2 {
-		t.Fatalf("proposals %+v", got)
-	}
-	if p := got[0]; p.key != "A-1" || p.seconds != 30*60 || !p.start.Equal(at("08:45")) || p.sourcesText() != "1 claude, 1 commit" {
-		t.Errorf("A-1: %+v", p)
-	}
-	if p := got[1]; p.key != "A-2" || p.seconds != 45*60 {
-		t.Errorf("A-2: %d, want 45m", p.seconds)
-	}
-}
-
-func TestReflogWork(t *testing.T) {
-	log := "100\tcheckout: moving from main to issue/ABC-3-login\n200\tcommit: wip\n300\tcheckout: moving from issue/ABC-3-login to main\n400\tcommit: ABC-9 tidy\n"
-	var keys []string
-	for _, e := range reflogWork(log, time.Unix(1000, 0)) {
-		keys = append(keys, e.key)
-	}
-	if strings.Join(keys, " ") != "ABC-3 ABC-3  ABC-9" {
-		t.Errorf("keys %q", keys)
-	}
-}
-
 // TestProposals: g in the timesheet reads git and ui.activity, lists the
 // proposals, and enter on one opens the worklog input with its time.
 func TestProposals(t *testing.T) {
@@ -120,7 +81,7 @@ func TestProposals(t *testing.T) {
 	out, _ = m.applyJiraPick()
 	m = out.(Model)
 	if !m.jiraFieldActive || m.jiraFieldName != "worklog" || m.jiraFieldKey != "ABC-5" || !strings.HasPrefix(m.jiraFieldInput.Value(), "1h") ||
-		!m.worklogStart.Equal(nine.Add(-proposeLead).Truncate(time.Second)) {
+		!m.worklogStart.Equal(nine.Add(-15*time.Minute).Truncate(time.Second)) {
 		t.Errorf("input %q %q %q, start %v", m.jiraFieldName, m.jiraFieldKey, m.jiraFieldInput.Value(), m.worklogStart)
 	}
 }
