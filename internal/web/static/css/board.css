@@ -25,13 +25,6 @@
 .bd-lane.drop { border-color: var(--accent); background: var(--accent-bg); }
 .bd-lane-head { display: flex; align-items: center; gap: .571rem; padding: .5rem .714rem; border-bottom: 1px solid var(--border); border-top: 3px solid var(--cat-indeterminate); border-radius: 8px 8px 0 0; font-weight: 600; font-size: .92em; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-2); }
 .bd-lane-head.knew { border-top-color: var(--cat-new); } .bd-lane-head.kdone { border-top-color: var(--cat-done); }
-.confetti { position: fixed; width: 0; height: 0; z-index: 50; pointer-events: none; }
-.confetti i { position: absolute; left: 0; top: 0; opacity: 0; animation: lw-confetti 1.6s cubic-bezier(.2, .6, .4, 1) forwards; }
-@keyframes lw-confetti {
-  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
-  30% { transform: translate(calc(var(--dx) * .6), var(--up)) rotate(calc(var(--rot) * .3)); opacity: 1; }
-  100% { transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); opacity: 0; }
-}
 .bd-lane-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-count { font-weight: 500; font-size: .786rem; background: var(--bg-3); border-radius: 10px; padding: 0 .5rem; line-height: 1.286rem; color: var(--fg-2); }
 .bd-wip { font-size: .786rem; font-weight: 500; color: var(--fg-3); text-transform: none; letter-spacing: 0; margin-left: auto; }
