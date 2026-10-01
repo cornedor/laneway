@@ -1,6 +1,7 @@
 package jira
 
 import (
+	"cmp"
 	"encoding/json"
 	"regexp"
 	"slices"
@@ -116,6 +117,11 @@ func writeBlock(b *strings.Builder, n adfNode, indent string) {
 		if href, ok := n.Attrs["url"].(string); ok {
 			b.WriteString(indent + "<!-- card: " + mdHref(href) + " -->\n\n")
 		}
+	case "extension", "bodiedExtension":
+		// A macro (Confluence's, mostly): named where it stood, its body after.
+		name, _ := n.Attrs["extensionKey"].(string)
+		b.WriteString(indent + "_[" + cmp.Or(name, "macro") + " macro]_\n\n")
+		writeBlocks(b, n.Content, indent)
 	case "mediaGroup", "mediaSingle":
 		// Each media names its file in alt; toIssue resolves the name to an
 		// attachment id (see resolveMedia).

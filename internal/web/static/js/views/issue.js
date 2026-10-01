@@ -366,8 +366,16 @@ export function mountIssue(el, key, { app, full, card }) {
       [...groups].map(([rel, ls]) => h('div.lgroup', h('div.rel', rel), ls.map(l => h('div.row-link', { dataset: { key: l.Key }, onclick: () => open(l.Key) },
         h('span.mono.k', l.Key), h('span.clip', l.Summary), l.Status && h('span.chip', l.Status),
         l.LinkID && h('button.btn.ghost.sm.x', { title: 'Remove link', onclick: e => { e.stopPropagation(); removeLink(l); } }, '✕'))))),
-      web.length > 0 && h('div.lgroup', h('div.rel', 'Web'), web.map(w => h('a.row-link', { href: safeHref(w.URL), target: '_blank', rel: 'noopener noreferrer' },
+      web.length > 0 && h('div.lgroup', h('div.rel', 'Web'), web.map(w => h('a.row-link', { href: safeHref(w.URL), target: '_blank', rel: 'noopener noreferrer',
+        onclick: w.Page ? e => { if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); readPage(w); } } : null },
         h('span.clip', w.Title), w.App && h('span.chip', w.App)))));
+  }
+  // A Confluence page of this site, read in place (ctrl+click: in Confluence).
+  async function readPage(w) {
+    let p;
+    try { p = await api.get('/confluence/pages/' + w.Page); } catch (e) { return ui.errToast(e); }
+    ui.modal(h('div.page', h('div.md', md(p.Markdown, mdOpts())), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, 'Open in Confluence ↗'))),
+      { title: p.Title, wide: true });
   }
   const addLink = () => actions('link');
   const actions = only => issueActions(app, st, { key, changed, open, upload: attachFiles, reloadExtras: () => { st.weblinks = null; return loadExtras(); }, tab: setTab }, only);
@@ -419,11 +427,11 @@ export function mountIssue(el, key, { app, full, card }) {
     const i = st.issue; if (!i) return;
     const items = [...(i.Links || []).map(l => ({ k: l.Key, label: l.Key + '  ' + (l.Rel || '') + '  ' + (l.Summary || '') })),
       ...(st.children || []).filter(c => !(i.Links || []).some(l => l.Key === c.Key)).map(c => ({ k: c.Key, label: c.Key + '  child  ' + c.Summary })),
-      ...(st.weblinks || []).map(w => ({ url: w.URL, label: '↗ ' + (w.Title || w.URL) }))];
+      ...(st.weblinks || []).map(w => ({ url: w.URL, w, label: (w.Page ? '▤ ' : '↗ ') + (w.Title || w.URL) }))];
     if (!items.length) return ui.toast('No links');
     const it = await ui.pick({ title: 'Go to', items, label: x => x.label, placeholder: 'Linked issue…' });
     if (!it) return;
-    if (it.k) open(it.k); else window.open(safeHref(it.url), '_blank', 'noopener');
+    if (it.k) open(it.k); else if (it.w.Page) readPage(it.w); else window.open(safeHref(it.url), '_blank', 'noopener');
   }
 
   // Find in the issue: marks matches in all tabs; n / N (or enter) step, esc clears.

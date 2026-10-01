@@ -170,3 +170,6 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 @media (hover: none) { .fld-star .star { opacity: .6; } }
 .fld.ro { cursor: default; }
 .docs .doc { margin-top: calc(var(--pad) * 1.5); }
+/* a linked Confluence page read in place (readPage) */
+.page > .md { max-height: 70vh; overflow: auto; }
+.page > .modal-foot { display: flex; justify-content: flex-end; margin-top: calc(var(--pad) * 1.5); }

@@ -236,7 +236,20 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return s.Client().WebLinks(ctx, key)
+		ls, err := s.Client().WebLinks(ctx, key)
+		out := make([]webLink, len(ls))
+		for i, l := range ls {
+			out[i] = webLink{WebLink: l, Page: s.Client().PageID(l.URL)}
+		}
+		return out, err
+	})
+	// GET /confluence/pages/{id}: a page of this site's Confluence as markdown.
+	get("/confluence/pages/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		id := r.PathValue("id")
+		if id == "" || strings.Trim(id, "0123456789") != "" {
+			return nil, badRequest("bad page id")
+		}
+		return s.Client().ConfluencePage(ctx, id)
 	})
 	get("/linktypes", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return s.Client().LinkTypes(ctx)
@@ -371,4 +384,11 @@ func attachment(s *Server, w http.ResponseWriter, r *http.Request) {
 		h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	}
 	_, _ = w.Write(body)
+}
+
+// webLink is a remote link and, for a Confluence page on this site, its id
+// (Page), which the panel reads in place.
+type webLink struct {
+	jira.WebLink
+	Page string `json:",omitempty"`
 }

@@ -3,6 +3,7 @@ package demo
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -217,5 +218,24 @@ func TestDemoLinks(t *testing.T) {
 	}
 	if r, _ := rel("DEMO-1"); r != "" {
 		t.Errorf("link kept: %q", r)
+	}
+}
+
+// TestDemoConfluence: DEMO-4 links a Confluence page on the same site,
+// which reads as markdown.
+func TestDemoConfluence(t *testing.T) {
+	c, s := demoClient(t)
+	ctx := context.Background()
+	links, err := c.WebLinks(ctx, pageIssue)
+	if err != nil || len(links) != 1 || links[0].App != "Confluence" {
+		t.Fatalf("links %+v, %v", links, err)
+	}
+	id := c.PageID(links[0].URL)
+	p, err := c.ConfluencePage(ctx, id)
+	if err != nil || id != pageID || p.Title != pageTitle || !strings.Contains(p.Markdown, "## Flow") || !strings.Contains(p.Markdown, "_[toc macro]_") {
+		t.Errorf("page %q %+v, %v", id, p, err)
+	}
+	if len(s.Unhandled) > 0 {
+		t.Errorf("unanswered: %v", s.Unhandled)
 	}
 }

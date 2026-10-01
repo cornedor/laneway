@@ -29,6 +29,8 @@ type Server struct {
 	seq      int
 	links    []link
 	linkSeq  int
+	// base is where Start serves it, for links back to itself.
+	base string
 	// Unhandled are the requests no route answered, for tests.
 	Unhandled []string
 }
@@ -44,7 +46,10 @@ func (s *Server) Start() (baseURL string, stop func(), err error) {
 	}
 	srv := &http.Server{Handler: s, ReadHeaderTimeout: 5 * time.Second}
 	go srv.Serve(ln)
-	return "http://" + ln.Addr().String(), func() { srv.Close() }, nil
+	s.mu.Lock()
+	s.base = "http://" + ln.Addr().String()
+	s.mu.Unlock()
+	return s.base, func() { srv.Close() }, nil
 }
 
 var (
@@ -70,6 +75,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		jql, _ := body["jql"].(string)
 		expand, _ := body["expand"].(string)
 		send(map[string]any{"issues": s.list(s.search(jql), strings.Contains(expand, "changelog")), "isLast": true})
+		return
+	}
+	if r.Method == http.MethodGet && p == "/wiki/api/v2/pages/"+pageID {
+		doc, _ := json.Marshal(pageDoc())
+		send(map[string]any{"id": pageID, "title": pageTitle, "body": map[string]any{"atlas_doc_format": map[string]any{"value": string(doc)}},
+			"_links": map[string]any{"webui": "/spaces/SHOP/pages/" + pageID, "base": s.base + "/wiki"}})
 		return
 	}
 	if r.Method == http.MethodPost && p == "/rest/api/3/search/approximate-count" {
@@ -409,7 +420,11 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 	case "GET /votes":
 		return map[string]any{"votes": 0, "hasVoted": false}, true
 	case "GET /remotelink":
-		return []any{}, true
+		if iss.key != pageIssue {
+			return []any{}, true
+		}
+		return []any{map[string]any{"application": map[string]any{"name": "Confluence"},
+			"object": map[string]any{"url": s.base + "/wiki/spaces/SHOP/pages/" + pageID + "/Guest+checkout", "title": pageTitle}}}, true
 	}
 	return nil, false
 }
@@ -646,4 +661,26 @@ func (s *Server) linksJSON(key string) []any {
 		}
 	}
 	return out
+}
+
+// The Confluence page DEMO-4 links: the guest checkout's design.
+const (
+	pageIssue = "DEMO-4"
+	pageID    = "40961"
+	pageTitle = "Guest checkout: design"
+)
+
+func pageDoc() any {
+	text := func(t string) map[string]any { return map[string]any{"type": "text", "text": t} }
+	para := func(t string) map[string]any { return map[string]any{"type": "paragraph", "content": []any{text(t)}} }
+	item := func(t string) map[string]any { return map[string]any{"type": "listItem", "content": []any{para(t)}} }
+	return map[string]any{"type": "doc", "version": 1, "content": []any{
+		map[string]any{"type": "extension", "attrs": map[string]any{"extensionKey": "toc"}},
+		map[string]any{"type": "heading", "attrs": map[string]any{"level": 2}, "content": []any{text("Goal")}},
+		para("Let a shopper pay without making an account; offer one after the order, filled in from it."),
+		map[string]any{"type": "heading", "attrs": map[string]any{"level": 2}, "content": []any{text("Flow")}},
+		map[string]any{"type": "orderedList", "content": []any{item("Cart → Checkout as guest"), item("Address and e-mail, validated as typed"), item("Pay; the order page offers an account")}},
+		map[string]any{"type": "panel", "attrs": map[string]any{"panelType": "note"}, "content": []any{para("Behind the guest_checkout flag until the order page loads under 400 ms.")}},
+		map[string]any{"type": "mediaSingle", "content": []any{map[string]any{"type": "media", "attrs": map[string]any{"alt": "checkout-flow.png"}}}},
+	}}
 }
