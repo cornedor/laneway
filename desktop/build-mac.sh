@@ -7,6 +7,8 @@ version=${1:-0.0.0}
 app=dist/Laneway.app
 rm -rf dist
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+# Go's own floor; else cgo targets the build machine's macOS.
+export MACOSX_DEPLOYMENT_TARGET=13.0
 
 for arch in arm64 amd64; do
 	CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build -ldflags "-s -w" -o "dist/desktop-$arch" .
