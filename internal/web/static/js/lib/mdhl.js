@@ -219,7 +219,8 @@ function renumber(v, s, it, n) {
 
 // enter: a list item opens the next one (an empty one ends the list; the numbers
 // after it count on), a quote line continues the quote, a table row opens a row
-// of as many cells (an empty one ends the table), other lines keep their indent.
+// of as many cells (an empty one ends the table; under a header, past its
+// delimiter row, or with one added when it has none), other lines keep their indent.
 export function enter(v, a, b) {
   const [s, e] = lineAt(v, a);
   const line = v.slice(s, e);
@@ -243,6 +244,13 @@ export function enter(v, a, b) {
     const n = line.split(/(?<!\\)\|/).length - 2;
     if (!line.replace(/[|\s]/g, '')) return { from: s, to: e, text: '', a: s, b: s };
     const t = '\n' + indent + '|' + '  |'.repeat(Math.max(1, n));
+    const prev = s > 0 ? v.slice(...lineAt(v, s - 1)) : '';
+    if (!isRow(prev) && !isDelim(prev)) {
+      const [ns, ne] = e < v.length ? lineAt(v, e + 1) : [e, e];
+      if (isDelim(v.slice(ns, ne))) return { from: ne, to: ne, text: t, a: ne + indent.length + 3, b: ne + indent.length + 3 };
+      const d = '\n' + indent + '|' + ' --- |'.repeat(Math.max(1, n));
+      return { from: a, to: a, text: d + t, a: a + d.length + indent.length + 3, b: a + d.length + indent.length + 3 };
+    }
     return { from: a, to: a, text: t, a: a + indent.length + 3, b: a + indent.length + 3 };
   }
   return nl('\n' + indent.slice(0, a - s));

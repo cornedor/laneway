@@ -94,8 +94,15 @@ test('enter renumbers the list after it, opens a table row', () => {
   assert.equal(e.a, 8);
   v = '| a | b |';
   e = enter(v, 9, 9);
-  assert.equal(apply(v, e), '| a | b |\n|  |  |');
-  assert.equal(e.a, 12);
+  assert.equal(apply(v, e), '| a | b |\n| --- | --- |\n|  |  |'); // a header gets its delimiter row
+  assert.equal(e.a, 26);
+  v = '| a | b |\n| --- | --- |\n| 1 | 2 |';
+  e = enter(v, 9, 9);
+  assert.equal(apply(v, e), '| a | b |\n| --- | --- |\n|  |  |\n| 1 | 2 |'); // past the delimiter
+  assert.equal(e.a, 26);
+  e = enter(v, v.length, v.length);
+  assert.equal(apply(v, e), v + '\n|  |  |');
+  assert.equal(e.a, v.length + 3);
   v = '| a |\n|  |';
   assert.equal(apply(v, enter(v, 10, 10)), '| a |\n');
 });
