@@ -12,7 +12,8 @@ terminal.
 - Local search, JQL with completion, a command palette, jump to any issue by key
 - Issue panel with description (edited as markdown), comments, links, subtasks, an epic's children, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases; the board replayed day by day
-- Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git and your agents' activity
+- A home screen of your day: your work, inbox, sprint health, timer, reviews and saved searches
+- Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git, your agents' activity and your calendar
 - Inbox: a thread per issue others changed, on every site, each read, done or snoozed on its own; a standup of yours (commits too), or your team's walking the board
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to it
@@ -661,7 +662,8 @@ laneway web -addr 127.0.0.1:9000 -no-open
 
 `P` on a board with sprints shows the backlog beside a sprint (the first future
 one; `[` `]` pick another), each with its card count and points, the sprint
-also per assignee, against `ui.capacity` (red when over). `← →` switch side,
+also per assignee, against `ui.capacity` (red when over; yours less your
+`ui.calendar` meetings in the sprint). `← →` switch side,
 `x` marks cards, `M` or `space` moves the marked (or the selected) across,
 `K`/`J` rank it up or down, `y` copies the sprint as a markdown table. With the mouse, drag a card onto the other side
 (a marked one takes the marked along), or up or down its own to rank it. `S` starts the sprint on the right (today until

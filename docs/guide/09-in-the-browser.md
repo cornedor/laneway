@@ -40,11 +40,12 @@ Two bars on top and the issue panel on the right.
 
 | View | Key | |
 | --- | --- | --- |
+| Home | `g h` | your day on one screen, as the terminal's `~`; the start with `ui.home` |
 | Board | `g b` | lanes or list, filters, drag and drop |
 | Planning | `g p` | backlog and sprints, start and complete |
 | Reports | `g r` | burndown, burnup, cumulative flow, velocity, cycle time, retro, releases |
 | Roadmap | `g m` | epics on a timeline |
-| My work | `g w` | your issues, worklogs of a day or week, proposals from git |
+| My work | `g w` | your issues, worklogs of a day or week, proposals from git, `ui.activity` and your calendar |
 | Inbox | `g i` | threads on issues others changed, mentions |
 | Standup | `g s` | yours or the team's, one card at a time |
 | Review | `g R` | pull requests to review (needs `gh` or `glab`; hidden without both) |

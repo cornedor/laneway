@@ -1,8 +1,20 @@
 # 5. Your day
 
-**In this chapter:** log your time without a spreadsheet, have your standup
-written for you, and see what others did on your issues while you were
-busy.
+**In this chapter:** start the day on one screen, log your time without a
+spreadsheet, have your standup written for you, and see what others did on
+your issues while you were busy.
+
+## Home: `~`
+
+`~` shows your day on one screen: your open work, unread inbox threads, the
+sprint (done against the time gone, *behind* when it trails), the running
+timer, what waits on your review and a count per saved search. `enter`
+opens the row; on a heading, its own screen. To start every day there:
+
+```yaml
+ui:
+  home: [work, inbox, sprint, timer, reviews, filters]   # any of them, in your order
+```
 
 ## Log work
 
@@ -28,7 +40,10 @@ this one and starts timing that one.
 edits an entry, `d` twice deletes it, `y` copies the day as a table. `p`
 proposes what you forgot to log, from your commits and branch switches in
 `jira.repos` and whatever `ui.activity` commands report (agent logs, shell
-history); `enter` on one logs it.
+history); `enter` on one logs it. Point `ui.calendar` at your calendar (an
+`.ics` URL or file, or khal's vdir) and set `ui.meeting_key` to the issue you
+book meetings on, and each meeting that day is proposed too, its title as
+the comment.
 
 ![Today's worklogs](../screenshots/worklogs.png)
 
@@ -80,8 +95,9 @@ grouped by status. `ui.my_work_jql` changes what it asks.
 
 ## Recap
 
-- `w` logs work, `T` times it, `W` shows the day (`p` proposes the gaps),
-  `W` again the week.
+- `~` is your day on one screen; `ui.home` starts there.
+- `w` logs work, `T` times it, `W` shows the day (`p` proposes the gaps,
+  meetings included), `W` again the week.
 - `U` writes your standup, `tab` there the team's.
 - `I` shows what others did, `O` all your work.
 

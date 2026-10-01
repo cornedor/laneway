@@ -45,7 +45,9 @@ written behind.
 >   capacity: {Ada: 13, default: 10}
 > ```
 >
-> A person over capacity turns red and gets a `!` (`Ada 15/13!`).
+> A person over capacity turns red and gets a `!` (`Ada 15/13!`). With
+> `ui.calendar` set, your meetings in the sprint come off yours: a sprint
+> with a quarter of its hours in meetings leaves you three quarters.
 
 > **Try it:** open `P` before your next planning meeting, mark the top
 > backlog items with `x` until someone hits their limit, and `M` them into
