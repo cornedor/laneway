@@ -28,6 +28,7 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/offline"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/ui"
 	"github.com/cornedor/laneway/internal/web"
 )
 
@@ -391,16 +392,5 @@ func webSite(cfg config.Config, site string, opt web.Options) (web.Options, erro
 }
 
 func webClient(jc config.JiraConfig, uiCfg config.UIConfig) *jira.Client {
-	timeout, _ := jc.RequestTimeout()
-	inboxIssues := uiCfg.InboxIssues
-	if inboxIssues < 1 || inboxIssues > 200 { // as the TUI: out of range is its default
-		inboxIssues = 0
-	}
-	return jira.New(jira.Config{
-		BaseURL: jc.BaseURL, Email: jc.Email, APIToken: jc.APIToken, Projects: jc.Projects,
-		StoryPointsField: jc.StoryPointsField, CardLimit: uiCfg.CardLimit, Timeout: timeout,
-		CustomFields: uiCfg.CustomFields, FlagValue: uiCfg.FlagValue,
-		FlatReplies: strings.EqualFold(strings.TrimSpace(uiCfg.ThreadedReplies), "off"),
-		InboxIssues: inboxIssues,
-	})
+	return jira.New(ui.JiraConfig(jc, uiCfg))
 }

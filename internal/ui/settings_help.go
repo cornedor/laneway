@@ -68,3 +68,12 @@ func KeyActions() map[string][]string {
 	}
 	return out
 }
+
+// KeyScopes lists, per TUI screen, the actions live in it (ui.keys names).
+func KeyScopes() map[string][]string {
+	out := map[string][]string{}
+	for _, sc := range keyScopes {
+		out[sc.name] = slices.Clone(sc.actions)
+	}
+	return out
+}

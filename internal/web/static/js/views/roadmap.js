@@ -324,6 +324,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('>', () => shift(0, step()), 'end later', { group: 'Roadmap' });
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next row', { group: 'Roadmap' });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous row', { group: 'Roadmap' });
+  scope.bind('Home', () => move(-rows.length), 'first row', { group: 'Roadmap', hidden: true });
+  scope.bind('End', () => move(rows.length), 'last row', { group: 'Roadmap', hidden: true });
   scope.bind(['h', 'ArrowLeft'], () => pan(-1), 'scroll left', { group: 'Roadmap' });
   scope.bind(['l', 'ArrowRight'], () => pan(1), 'scroll right', { group: 'Roadmap' });
   scope.bind(['+', '='], () => setZoom(zoom + 1), 'zoom in', { group: 'Roadmap' });

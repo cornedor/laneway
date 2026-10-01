@@ -513,6 +513,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
   scope.bind('Home', () => setCur(stops()[0]), 'first', { ...G, hidden: true });
   scope.bind('End', () => setCur(stops().at(-1)), 'last', { ...G, hidden: true });
+  const page = () => Math.max(1, Math.floor((paneOf(cur) || left).scroller.clientHeight / rowPx()) - 1);
+  scope.bind('PageDown', () => move(page()), 'page down', { ...G, hidden: true });
+  scope.bind('PageUp', () => move(-page()), 'page up', { ...G, hidden: true });
   scope.bind('J', () => rankStep(1), 'rank down', G);
   scope.bind('K', () => rankStep(-1), 'rank up', G);
   scope.bind('m', moveTo, 'move to a sprint or the backlog', G);
@@ -521,6 +524,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('|', () => setSide(side == null ? defaultSide() : null), 'split: keep a sprint in view beside the list', G);
   scope.bind('>', toSide, 'move to the sprint kept in view (split)', { ...G, when: sideOn });
   scope.bind('Tab', otherPane, 'the other pane (split)', { ...G, when: sideOn });
+  scope.bind(['h', 'ArrowLeft', 'l', 'ArrowRight'], otherPane, 'the other pane (split)', { ...G, when: sideOn, hidden: true });
   scope.bind(['x', 'Space'], () => { const cc = curCard(); if (cc) { toggleSel(cc.c.Key); move(1); } else if (cur.startsWith('h:')) toggleFold(curSection()); }, 'select', G);
   scope.bind('Enter', () => { const cc = curCard(); if (cc) app.panel.open(cc.c.Key); else toggleFold(curSection()); }, 'open', G);
   scope.bind('z', () => toggleFold(curSection()), 'fold or unfold the section', G);

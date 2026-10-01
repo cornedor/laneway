@@ -182,6 +182,12 @@ export default function mount(el, { app, scope, toolbar }) {
   const G = { group: 'Inbox' };
   scope.bind(['j', 'ArrowDown'], () => select(sel + 1), 'next thread', G);
   scope.bind(['k', 'ArrowUp'], () => select(sel - 1), 'previous thread', G);
+  const to = i => select(Math.min(Math.max(i, 0), rows.length - 1));
+  const page = () => Math.max(1, Math.floor(listEl.clientHeight / Math.max(px14(34), rowPx())) - 1);
+  scope.bind('Home', () => to(0), 'first thread', { ...G, hidden: true });
+  scope.bind('End', () => to(rows.length - 1), 'last thread', { ...G, hidden: true });
+  scope.bind('PageDown', () => to(sel + page()), 'page down', { ...G, hidden: true });
+  scope.bind('PageUp', () => to(sel - page()), 'page up', { ...G, hidden: true });
   scope.bind('Enter', open, 'open issue', G);
   scope.bind('e', done, 'done until news / back to inbox', G);
   scope.bind('E', doneRead, 'all read threads done', G);

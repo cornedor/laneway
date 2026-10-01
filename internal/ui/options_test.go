@@ -29,6 +29,16 @@ func TestOptionsFrom(t *testing.T) {
 	}
 }
 
+func TestJiraConfig(t *testing.T) {
+	c := JiraConfig(config.JiraConfig{BaseURL: "https://x"}, config.UIConfig{CardLimit: 10, InboxIssues: 500, ThreadedReplies: "OFF"})
+	if c.CardLimit != 0 || c.InboxIssues != 0 || !c.FlatReplies {
+		t.Fatalf("out of range limits = %d %d, flat %v; want the defaults and flat", c.CardLimit, c.InboxIssues, c.FlatReplies)
+	}
+	if c := JiraConfig(config.JiraConfig{}, config.UIConfig{CardLimit: 300, InboxIssues: 50}); c.CardLimit != 300 || c.InboxIssues != 50 || c.FlatReplies {
+		t.Fatalf("limits = %d %d, flat %v", c.CardLimit, c.InboxIssues, c.FlatReplies)
+	}
+}
+
 func TestAutoRefreshOff(t *testing.T) {
 	m := jiraTabModel(t)
 	m.opts.autoRefresh = 0

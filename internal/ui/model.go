@@ -501,6 +501,26 @@ type Model struct {
 	dropdown *dropdownState
 }
 
+// JiraConfig is the Jira client the jira: and ui: options make, for the
+// terminal and the browser alike.
+func JiraConfig(cfg config.JiraConfig, ui config.UIConfig) jira.Config {
+	opts, _ := optionsFrom(ui)
+	timeout, _ := cfg.RequestTimeout()
+	return jira.Config{
+		BaseURL:          cfg.BaseURL,
+		Email:            cfg.Email,
+		APIToken:         cfg.APIToken,
+		Projects:         cfg.Projects,
+		StoryPointsField: cfg.StoryPointsField,
+		CardLimit:        opts.cardLimit,
+		FlagValue:        ui.FlagValue,
+		InboxIssues:      opts.inboxIssues,
+		Timeout:          timeout,
+		FlatReplies:      !opts.threaded,
+		CustomFields:     ui.CustomFields,
+	}
+}
+
 // New builds the app from the jira: config.
 func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []rules.Rule, rulesLog string, st *store.Store) Model {
 	opts, warn := optionsFrom(ui)
@@ -515,8 +535,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	warn = append(warn, ruleWarn...)
 	actions, actWarn := actionsFrom(ui.Actions, &keys)
 	warn = append(warn, actWarn...)
-	timeout, err := cfg.RequestTimeout()
-	if err != nil {
+	if _, err := cfg.RequestTimeout(); err != nil {
 		warn = append(warn, err.Error())
 	}
 	prompt := defaultJiraStartPrompt
@@ -524,23 +543,11 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		prompt = cfg.StartPrompt
 	}
 	m := Model{
-		ctx:       ctx,
-		store:     st,
-		keys:      keys,
-		pointerOn: opts.mouse && pointerOK(),
-		jiraClient: jira.New(jira.Config{
-			BaseURL:          cfg.BaseURL,
-			Email:            cfg.Email,
-			APIToken:         cfg.APIToken,
-			Projects:         cfg.Projects,
-			StoryPointsField: cfg.StoryPointsField,
-			CardLimit:        opts.cardLimit,
-			FlagValue:        ui.FlagValue,
-			InboxIssues:      opts.inboxIssues,
-			Timeout:          timeout,
-			FlatReplies:      !opts.threaded,
-			CustomFields:     ui.CustomFields,
-		}),
+		ctx:             ctx,
+		store:           st,
+		keys:            keys,
+		pointerOn:       opts.mouse && pointerOK(),
+		jiraClient:      jira.New(JiraConfig(cfg, ui)),
 		jiraProjects:    append([]string(nil), cfg.Projects...),
 		jiraRepos:       cfg.Repos,
 		jiraStartPrompt: prompt,

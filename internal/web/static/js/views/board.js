@@ -1428,6 +1428,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('Z', unfoldAll, 'unfold all swimlanes', { group: V });
     k.bind('c', () => setCompact(!S.compact), 'one-line cards', { group: V });
     k.bind('C', pickCols, 'list columns', { group: V });
+    k.bind('V', () => app.go('/reports/releases'), 'releases: versions and their progress', { group: V });
     k.bind('alt+t', openPast, 'time machine: the board on earlier days', { group: V });
     k.bind('alt+o', pickClosed, 'closed sprints: one as it ended', { group: V });
     k.bind('B', () => pickBoard(), 'switch board (same project)', { group: V });
