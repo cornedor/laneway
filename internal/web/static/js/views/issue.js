@@ -285,7 +285,7 @@ export function mountIssue(el, key, { app, full, card }) {
     st.editingDoc = f.ID;
     const sec = box.docs.querySelector('[data-field="' + CSS.escape(f.ID) + '"]') || box.docs.appendChild(h('div.desc.doc', { dataset: { field: f.ID } }));
     const done = () => { st.editingDoc = null; renderDocs(); };
-    const e = editor({ value: ed.Markdown, rows: 8, placeholder: f.Name + ' (markdown)…', allowEmpty: true, label: 'Save', mono: true, draft: 'doc:' + key + ':' + f.ID,
+    const e = editor({ value: ed.Markdown, rows: 8, placeholder: f.Name + ' (markdown)…', allowEmpty: true, label: 'Save', draft: 'doc:' + key + ':' + f.ID,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
         st.editingDoc = null; changed(key + ' ' + f.Name + ' updated'); ui.toast(f.Name + ' saved', { kind: 'ok' });
@@ -324,7 +324,7 @@ export function mountIssue(el, key, { app, full, card }) {
       return ui.toast('Edit this one in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err', action: { label: 'Open', run: () => window.open(browseURL(), '_blank', 'noopener') } });
     }
     st.editingDesc = true;
-    const e = editor({ value: ed.Markdown, rows: 10, placeholder: 'Description (markdown)…', allowEmpty: true, label: 'Save', mono: true, draft: 'desc:' + key,
+    const e = editor({ value: ed.Markdown, rows: 10, placeholder: 'Description (markdown)…', allowEmpty: true, label: 'Save', draft: 'desc:' + key,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/description', { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
         st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(key + ' description updated'); ui.toast('Description saved', { kind: 'ok' });

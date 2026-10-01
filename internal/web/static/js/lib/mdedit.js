@@ -1,6 +1,7 @@
-// Markdown editor: a textarea with a formatting toolbar, a `/` menu for Jira
-// formatting, `@` mentions, `:` emoji, ctrl+b/i/k, ctrl+p live preview and
-// pasted/dropped files.
+// Markdown editor: markdown drawn styled as it is typed (lib/mdarea.js,
+// lib/mdhl.js: enter continues a list or quote, tab nests a list item, a task box
+// clicks), a formatting toolbar, a `/` menu for Jira formatting, `@` mentions,
+// `:` emoji, ctrl+b/i/k, ctrl+p preview and pasted/dropped files.
 //
 //   const e = mdEdit(app, {value, rows, placeholder, mono, issueKey, project, label, save(text, mentions), cancel,
 //                          allowEmpty, noCancel, people() → Map(name → accountId), mdOpts() → render options, onFiles(files), hint,
@@ -9,6 +10,8 @@
 import { h, clear, debounce } from './dom.js';
 import { css } from './css.js';
 import { render as md } from './md.js';
+import { mdArea } from './mdarea.js';
+import { highlight, enter, indent, toggleTask, pasteLink } from './mdhl.js';
 
 css('mdedit');
 
@@ -46,19 +49,19 @@ export function mdEdit(app, o) {
   const { api, ui } = app;
   const mentions = [];
   const glyphs = new Map(); // emoji taken here → glyph, for the preview
-  const ta = h('textarea.input.ed-ta' + (o.mono ? '.mono' : ''), { rows: o.rows || 4, placeholder: o.placeholder || '', spellcheck: true });
-  ta.value = o.value || '';
+  // Longest first, so "@Ann Lee" wins over "@Ann".
+  const names = () => [...new Set([...mentions.map(m => m.DisplayName), ...(o.people ? [...o.people()] : []).map(([n]) => n)])].filter(Boolean).sort((a, b) => b.length - a.length);
+  const ta = mdArea('div.input.ed-ta' + (o.mono ? '.mono' : ''), { value: o.value, rows: o.rows || 4, placeholder: o.placeholder,
+    highlight: t => highlight(t, { names: names() }), enter, paste: pasteLink });
   const pop = h('div.mention-pop', { hidden: true, role: 'listbox' });
   const preview = h('div.md.ed-preview', { hidden: true });
   const fileIn = h('input', { type: 'file', multiple: true, hidden: true, onchange: () => { if (fileIn.files.length) files([...fileIn.files]); fileIn.value = ''; } });
   const go = h('button.btn.primary', { onclick: () => run() }, o.label || 'Save');
 
-  // ---- text operations (execCommand keeps the browser's undo)
-  const replace = (from, to, text, s0, s1) => {
+  // ---- text operations: each one undo step
+  const replace = (from, to, text, s0 = text.length, s1 = s0) => {
     ta.focus({ preventScroll: true });
-    ta.setSelectionRange(from, to);
-    if (!document.execCommand('insertText', false, text)) { ta.setRangeText(text, from, to, 'end'); ta.dispatchEvent(new Event('input')); }
-    if (s0 != null) ta.setSelectionRange(from + s0, from + (s1 == null ? s0 : s1));
+    ta.edit({ from, to, text, a: from + s0, b: from + s1 });
   };
   const sel = () => [ta.selectionStart, ta.selectionEnd];
   const lineStart = i => ta.value.lastIndexOf('\n', i - 1) + 1;
@@ -117,8 +120,8 @@ export function mdEdit(app, o) {
     closePop();
     if (k === 'mention') {
       const name = '@' + it.DisplayName + ' ';
-      replace(at, end, name, name.length);
       if (it.AccountID && !mentions.some(m => m.AccountID === it.AccountID)) mentions.push({ AccountID: it.AccountID, DisplayName: it.DisplayName });
+      replace(at, end, name, name.length);
     } else if (k === 'emoji') {
       const code = ':' + it.Name + ': ';
       replace(at, end, code, code.length);
@@ -216,7 +219,7 @@ export function mdEdit(app, o) {
   const node = h('div.ed', toolbar, ta, pop, preview, fileIn,
     h('div.ed-foot', h('span.dim.hint', o.hint || ('ctrl+⏎ ' + (o.label || 'Save').toLowerCase() + (o.noCancel ? '' : ' · esc cancels') + ' · / formats')), h('span.spacer'),
       !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => node._cancel() }, 'Cancel'), o.save && go));
-  const size = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, window.innerHeight * 0.6) + 'px'; };
+  const size = () => {}; // the field grows with its text (css: max-height)
   let busy = false;
   async function run() {
     if (busy || !o.save || (!o.allowEmpty && !ta.value.trim())) return;
@@ -254,7 +257,13 @@ export function mdEdit(app, o) {
 
   ta.addEventListener('input', () => { size(); trigger(); livePreview(); draft.save(); });
   ta.addEventListener('keydown', e => {
-    if (pop.hidden || e.ctrlKey || e.metaKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (pop.hidden) {
+      if (e.key !== 'Tab') return;
+      const ed = indent(ta.value, ta.selectionStart, ta.selectionEnd, e.shiftKey);
+      if (ed) { e.preventDefault(); ta.edit(ed); }
+      return;
+    }
     const k = e.key;
     if (k === 'ArrowDown' || (k === 'Tab' && !e.shiftKey)) pick = (pick + 1) % items.length;
     else if (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) pick = (pick - 1 + items.length) % items.length;
@@ -263,6 +272,10 @@ export function mdEdit(app, o) {
     e.preventDefault(); e.stopPropagation(); if (k !== 'Enter') paint();
   });
   ta.addEventListener('blur', () => setTimeout(closePop, 150));
+  ta.addEventListener('click', e => {
+    const box = e.target.closest && e.target.closest('.hl-box');
+    if (box && !ta.readOnly) ta.edit(toggleTask(ta.value, ta.offsetOf(box)));
+  });
   ta.addEventListener('paste', e => {
     const fs = [...(e.clipboardData ? e.clipboardData.files : [])];
     if (fs.length && o.onFiles) { e.preventDefault(); files(fs); }
@@ -289,6 +302,6 @@ export function mdEdit(app, o) {
   ta.addEventListener('blur', release);
 
   requestAnimationFrame(size);
-  return { el: node, ta, mentions, size, focus: () => { ta.focus({ preventScroll: true }); ta.selectionStart = ta.selectionEnd = ta.value.length; size(); },
+  return { el: node, ta, mentions, size, focus: () => { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length); },
     preview: togglePreview, dispose: release, dropDraft: () => draft.drop() };
 }

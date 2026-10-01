@@ -5,6 +5,31 @@
 .ed-tools .tb.b { font-weight: 700; } .ed-tools .tb.i { font-style: italic; } .ed-tools .tb.s { text-decoration: line-through; }
 .ed-tools .sep { width: 1px; height: 1rem; background: var(--border); margin: 0 .286rem; }
 .ed .ed-ta { border-radius: 0 0 var(--radius) var(--radius); }
+.ed-ta { white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto; max-height: 60vh; position: relative; cursor: text; tab-size: 4; }
+.ed-ta:empty::before { content: attr(data-placeholder); color: var(--fg-3); position: absolute; pointer-events: none; }
+.ed-ta[contenteditable="false"] { color: var(--fg-2); }
+/* the markdown as typed (lib/mdhl.js): markers dimmed, content by role */
+.ed-ta .mk { color: var(--fg-3); font-weight: 400; font-style: normal; text-decoration: none; }
+.ed-ta .hl-h { font-weight: 700; } .ed-ta .hl-h1 { font-size: 1.45em; } .ed-ta .hl-h2 { font-size: 1.25em; } .ed-ta .hl-h3 { font-size: 1.12em; }
+.ed-ta .hl-b, .ed-ta .hl-th { font-weight: 700; } .ed-ta .hl-i { font-style: italic; } .ed-ta .hl-s { text-decoration: line-through; } .ed-ta .hl-u { text-decoration: underline; }
+.ed-ta .hl-code, .ed-ta .hl-pre { font-family: var(--font-mono); font-size: .9em; background: var(--bg-3); border-radius: 3px; }
+.ed-ta .hl-tr { font-family: var(--font-mono); font-size: .9em; } /* bars line up */
+.ed-ta .hl-fence, .ed-ta .hl-tag { font-family: var(--font-mono); font-size: .85em; color: var(--fg-3); }
+.ed-ta .hl-tag { color: var(--info); }
+.ed-ta .hl-keep { font-family: var(--font-mono); font-size: .85em; color: var(--fg-2); background: var(--bg-4); border-radius: 3px; }
+.ed-ta .hl-q { color: var(--fg-2); font-style: italic; } .ed-ta .hl-q > .mk { color: var(--accent); font-style: normal; }
+.ed-ta .hl-li { color: var(--accent); font-weight: 600; }
+.ed-ta .hl-box { font-family: var(--font-mono); color: var(--accent); cursor: pointer; border-radius: 3px; } .ed-ta .hl-box:hover { background: var(--accent-bg); }
+.ed-ta .hl-done { color: var(--fg-3); text-decoration: line-through; }
+.ed-ta .hl-lt, .ed-ta .hl-key { color: var(--accent); } .ed-ta .hl-lt { text-decoration: underline; text-underline-offset: 2px; }
+.ed-ta .hl-url { color: var(--fg-3); }
+.ed-ta .hl-at { color: var(--accent); background: var(--accent-bg); border-radius: 3px; }
+.ed-ta .hl-emo { color: var(--warn); }
+.ed-ta .hl-hr { color: var(--fg-3); letter-spacing: .2em; }
+.ed-ta .hl-date { background: var(--bg-3); border-radius: 3px; }
+.ed-ta .hl-status { font-size: .85em; font-weight: 600; border-radius: 3px; background: var(--bg-3); color: var(--fg-2); --s: var(--fg-2); }
+.ed-ta .hl-status.c-green { --s: var(--ok); } .ed-ta .hl-status.c-red { --s: var(--err); } .ed-ta .hl-status.c-yellow { --s: var(--warn); } .ed-ta .hl-status.c-blue, .ed-ta .hl-status.c-purple { --s: var(--info); }
+.ed-ta .hl-status[class*="c-"] { color: var(--s); background: color-mix(in srgb, var(--s) 16%, transparent); }
 .ed.drop .ed-ta { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-bg); }
 .ed-preview { border: 1px solid var(--border); border-radius: var(--radius); padding: .429rem .714rem; margin-top: .429rem; max-height: 40vh; overflow: auto; background: var(--bg-2); }
 .mp-g { font-size: 1.15em; width: 1.4em; text-align: center; }
