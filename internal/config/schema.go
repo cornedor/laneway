@@ -101,7 +101,7 @@ var SettingDocs = map[string]string{
 	"keys":                 "rebinds actions by name: search: \"/\" or mine: [m, M]",
 	"default_mode":         "the board's mode before one is remembered",
 	"date_format":          "a Go time layout for the panel's dates",
-	"calendar":             "an iCalendar feed of your meetings (file, https or webcal URL): the timesheet proposes them as worklogs, planning takes them off your capacity",
+	"calendar":             "an iCalendar feed of your meetings (file, https or webcal URL, or a vdir directory): the timesheet proposes them as worklogs, planning takes them off your capacity",
 	"meeting_key":          "the issue meetings from ui.calendar are logged on",
 	"home":                 "the start screen's widgets, in order: work, inbox, sprint, timer, reviews, filters",
 	"card_fields":          "what cards show, in order: type, priority, status, points, assignee, parent",

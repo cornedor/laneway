@@ -1,5 +1,6 @@
 // Package calendar reads your meetings from an iCalendar feed (ui.calendar):
-// a file or an http(s)/webcal URL, as calendar apps export or publish them.
+// a file or an http(s)/webcal URL, as calendar apps export or publish them,
+// or a directory of .ics files (a vdir, as vdirsyncer keeps for khal).
 // Recurring meetings repeat by their rules, a moved or cancelled one as it
 // was changed; all-day events and ones marked free are no meetings.
 package calendar
@@ -10,10 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -60,7 +63,11 @@ func Read(ctx context.Context, source string, from, to time.Time) ([]Meeting, er
 		}
 		r = resp.Body
 	default:
-		f, err := os.Open(work.ExpandHome(source))
+		path := work.ExpandHome(source)
+		if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+			return readDir(path, from, to)
+		}
+		f, err := os.Open(path)
 		if err != nil {
 			return nil, err
 		}
@@ -68,6 +75,28 @@ func Read(ctx context.Context, source string, from, to time.Time) ([]Meeting, er
 		r = f
 	}
 	return parse(io.LimitReader(r, maxFeed), from, to)
+}
+
+// readDir reads every .ics file under dir, an event a file as a vdir has
+// them; one that does not parse is left out.
+func readDir(dir string, from, to time.Time) ([]Meeting, error) {
+	var out []Meeting
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.EqualFold(filepath.Ext(p), ".ics") {
+			return err
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return nil
+		}
+		defer f.Close()
+		if ms, err := parse(io.LimitReader(f, maxFeed), from, to); err == nil {
+			out = append(out, ms...)
+		}
+		return nil
+	})
+	slices.SortFunc(out, func(a, b Meeting) int { return cmp.Or(a.Start.Compare(b.Start), strings.Compare(a.Summary, b.Summary)) })
+	return out, err
 }
 
 // parse reads a feed's meetings in [from, to).

@@ -107,7 +107,7 @@ ui:
   card_colors: ribbon           # the board's own card colours as a bar on cards and rows; off
   mouse: on                     # clicks, drags and the wheel; off leaves the mouse to the terminal
   activity: [~/bin/claude-activity]  # p in W: commands printing "time<TAB>key" lines of a day's work
-  calendar: https://calendar.example.com/me.ics  # p in W also proposes your meetings, and P takes them off your capacity (a file, https or webcal URL)
+  calendar: https://calendar.example.com/me.ics  # p in W also proposes your meetings, and P takes them off your capacity (a file, https or webcal URL, or a vdir as khal reads)
   meeting_key: OPS-12           # the issue those meetings are logged on
   llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off

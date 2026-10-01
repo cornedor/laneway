@@ -123,7 +123,14 @@ func TestRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	from, to := day(t, "2026-10-01")
-	for _, src := range []string{path, srv.URL} {
+	vdir := filepath.Join(t.TempDir(), "work")
+	if err := os.MkdirAll(vdir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vdir, "standup.ics"), []byte(feed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, src := range []string{path, srv.URL, filepath.Dir(vdir)} {
 		if ms, err := Read(context.Background(), src, from, to); err != nil || len(ms) < 2 {
 			t.Errorf("%s: %d meetings, %v", src, len(ms), err)
 		}
