@@ -216,7 +216,21 @@ export function mountIssue(el, key, { app, full, card }) {
       cell('sprint', 'Sprint', c.Sprint),
       cell('due', 'Due', date(c.Due)),
       cell(null, 'Updated', ago(i.Updated)),
-      cell(null, 'Created', !isZero(c.Created) ? dateTime(c.Created) : null));
+      cell(null, 'Created', !isZero(c.Created) ? dateTime(c.Created) : null),
+      ...extraCells(cell));
+  }
+  // The rest of the edit screen (editmeta: components, custom fields), after the panel's own, as the TUI's
+  // panel_fields.go; a click edits one. ui.empty_fields: hide folds the empty ones behind a toggle.
+  const SHOWN = new Set(['parent', 'duedate']);
+  const valueText = v => (!v ? '' : v.Text ? (v.Text.length > 80 ? v.Text.slice(0, 80) + '…' : v.Text) : [...(v.Users || []).map(u => u.DisplayName), ...(v.Options || []).map(o => o.Name)].join(', '));
+  function extraCells(cell) {
+    const m = st.meta; if (!m) return [];
+    const fs = (m.Fields || []).filter(f => !SHOWN.has(f.ID) && f.Kind !== 'sprint');
+    const hide = String((app.session.ui && app.session.ui.EmptyFields) || '').toLowerCase() === 'hide' && !st.showEmpty;
+    const shown = hide ? fs.filter(f => valueText(m.Values[f.ID])) : fs;
+    const out = shown.map(f => cell(f.ID, f.Name, valueText(m.Values[f.ID])));
+    if (fs.length > shown.length) out.push(h('button.fld.more', { onclick: () => { st.showEmpty = true; renderFields(); } }, h('span.k', 'Empty fields'), h('span.v.dim', '+ ' + (fs.length - shown.length) + ' more')));
+    return out;
   }
   const parentLink = () => st.issue && (st.issue.Links || []).find(l => l.Rel === 'parent');
 
@@ -608,14 +622,16 @@ export function mountIssue(el, key, { app, full, card }) {
     try {
       const [iss, card] = await Promise.all([api.get('/issues/' + key + '?fresh=1', { fresh: true }), api.get('/issues/' + key + '/card', { fresh: true }).catch(() => st.card)]);
       if (dead || g !== gen) return;
-      st.issue = iss; if (!iss.Comments) iss.Comments = []; st.card = card; st.children = null; st.hist = null; st.weblinks = null; st.tis = null;
+      st.issue = iss; if (!iss.Comments) iss.Comments = []; st.card = card; st.children = null; st.hist = null; st.weblinks = null; st.tis = null; st.meta = null;
       paint(); loadExtras();
       if (st.tab === 'history') loadHistory();
     } catch (e) { if (!quiet) fail(e); }
   }
   async function loadExtras() {
-    const [kids, web] = await Promise.all([st.children ? null : api.get('/issues/' + key + '/children').catch(() => []), st.weblinks ? null : api.get('/issues/' + key + '/weblinks').catch(() => [])]);
+    const [kids, web, meta] = await Promise.all([st.children ? null : api.get('/issues/' + key + '/children').catch(() => []), st.weblinks ? null : api.get('/issues/' + key + '/weblinks').catch(() => []),
+      st.meta ? null : api.get('/issues/' + key + '/editmeta', { fresh: true }).catch(() => null)]);
     if (dead) return;
+    if (meta) { st.meta = meta; renderFields(); }
     if (kids) { st.children = kids; renderChildren(); }
     if (web) { st.weblinks = web; renderLinks(); }
   }

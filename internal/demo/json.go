@@ -2,6 +2,7 @@ package demo
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -213,7 +214,37 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		}
 		fields["comment"] = map[string]any{"comments": cs, "total": len(cs), "maxResults": len(cs), "startAt": 0}
 	}
+	comps := []any{}
+	for _, c := range iss.components {
+		comps = append(comps, map[string]any{"id": optionID(components, c), "name": c})
+	}
+	fields["components"] = comps
+	fields[teamField] = nil
+	if iss.team != "" {
+		fields[teamField] = map[string]any{"id": optionID(teams, iss.team), "value": iss.team}
+	}
 	return map[string]any{"id": numID(iss.key), "key": iss.key, "fields": fields}
+}
+
+// optionID is name's id among an edit screen field's options.
+func optionID(names []string, name string) string {
+	return strconv.Itoa(20000 + slices.Index(names, name))
+}
+
+// editMetaJSON is the edit screen's fields besides the panel's own: the
+// components and the team.
+func editMetaJSON() map[string]any {
+	opts := func(names []string, key string) []any {
+		out := []any{}
+		for _, n := range names {
+			out = append(out, map[string]any{"id": optionID(names, n), key: n})
+		}
+		return out
+	}
+	return map[string]any{"fields": map[string]any{
+		"components": map[string]any{"name": "Components", "schema": map[string]any{"type": "array", "items": "component", "system": "components"}, "allowedValues": opts(components, "name")},
+		teamField:    map[string]any{"name": "Team", "schema": map[string]any{"type": "option", "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select"}, "allowedValues": opts(teams, "value")},
+	}}
 }
 
 // versionsJSON is the project's versions, newest first, with their issues'

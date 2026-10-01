@@ -40,6 +40,14 @@ const (
 	sprintField = "customfield_10020"
 	flagField   = "customfield_10021"
 	startField  = "customfield_10015"
+	teamField   = "customfield_10030"
+)
+
+// components and teams are what the edit screen (editmeta) offers for the
+// fields of those names.
+var (
+	components = []string{"Checkout", "Payments", "Search"}
+	teams      = []string{"Web", "Platform"}
 )
 
 const (
@@ -104,6 +112,8 @@ type issue struct {
 	resolved          time.Time
 	start             string // an epic's start date
 	fixVersion        string // a version's id, "" for none
+	components        []string
+	team              string
 	comments          []comment
 	worklogs          []worklog
 	changes           []change

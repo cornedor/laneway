@@ -279,7 +279,11 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[string]any, q map[string][]string) (any, bool) {
 	switch method + " " + sub {
 	case "GET ":
-		return s.issueJSON(iss, true), true
+		out := s.issueJSON(iss, true)
+		if strings.Contains(firstOf(q["expand"]), "editmeta") {
+			out["editmeta"] = editMetaJSON()
+		}
+		return out, true
 	case "PUT ":
 		s.edit(iss, body)
 		return nil, true
@@ -420,6 +424,21 @@ func (s *Server) edit(iss *issue, body map[string]any) {
 			}
 		case "duedate":
 			iss.due, _ = v.(string)
+		case "components":
+			iss.components = nil
+			for _, c := range asSlice(v) {
+				m, _ := c.(map[string]any)
+				if i := slices.IndexFunc(components, func(n string) bool { return optionID(components, n) == m["id"] }); i >= 0 {
+					iss.components = append(iss.components, components[i])
+				}
+			}
+		case teamField:
+			iss.team = ""
+			if m, _ := v.(map[string]any); m != nil {
+				if i := slices.IndexFunc(teams, func(n string) bool { return optionID(teams, n) == m["id"] }); i >= 0 {
+					iss.team = teams[i]
+				}
+			}
 		case "parent":
 			iss.parent = ""
 			if m, _ := v.(map[string]any); m != nil {

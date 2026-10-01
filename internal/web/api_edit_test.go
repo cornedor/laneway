@@ -1,6 +1,7 @@
 package web
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -100,6 +101,23 @@ func TestEditRoutes(t *testing.T) {
 		if code, _ := put("estimate", edit{Text: bad}); code != 400 {
 			t.Errorf("estimate %q: %d", bad, code)
 		}
+	}
+	var em struct {
+		Fields []jira.FieldMeta
+		Values map[string]jira.Value
+	}
+	issueCall(t, "GET", iu+"/editmeta", nil, &em)
+	comps := slices.IndexFunc(em.Fields, func(f jira.FieldMeta) bool { return f.ID == "components" })
+	if comps < 0 || len(em.Fields[comps].Options) == 0 {
+		t.Fatalf("editmeta fields = %+v", em.Fields)
+	}
+	pick := em.Fields[comps].Options[:1]
+	if code, r := put("components", edit{Kind: em.Fields[comps].Kind, Value: jira.Value{Options: pick}}); code != 200 || r.Undo == nil {
+		t.Fatalf("components: %d %+v", code, r.Undo)
+	}
+	issueCall(t, "GET", iu+"/editmeta", nil, &em)
+	if v := em.Values["components"]; len(v.Options) != 1 || v.Options[0].ID != pick[0].ID {
+		t.Errorf("components after = %+v", v)
 	}
 	if code, _ := put("nonsense", edit{}); code != 400 {
 		t.Errorf("unknown field: %d", code)

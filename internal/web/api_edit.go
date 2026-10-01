@@ -296,7 +296,7 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		c.Invalidate(key)
 		return &edit{Field: "sprint", Sprint: &prev.ID}, nil
 	}
-	if !strings.HasPrefix(e.Field, "customfield_") && e.Field != "duedate" {
+	if !strings.HasPrefix(e.Field, "customfield_") && !slices.Contains(screenFields, e.Field) {
 		return nil, badRequest("unknown field " + e.Field)
 	}
 	v, ok, err := jira.EncodeValue(e.Kind, e.Value)
@@ -311,6 +311,10 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 	}
 	return &edit{Field: e.Field, Kind: e.Kind, Value: jira.DecodeValue(e.Kind, ic.Values[e.Field])}, nil
 }
+
+// screenFields are the system fields an edit screen offers that are written
+// from their kind, as custom fields are.
+var screenFields = []string{"duedate", "components", "fixVersions", "versions", "environment"}
 
 // currentSprint finds the open or future sprint among an issue's raw
 // fields: an array of objects holding a boardId and a state.
