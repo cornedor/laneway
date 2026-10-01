@@ -84,7 +84,7 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	return map[string]any{
 		"site": o.Site, "sites": o.Sites, "defaultName": o.DefaultName, "demo": o.Demo, "version": o.Version,
 		"baseURL": s.Client().BaseURL(), "me": me,
-		"projects": o.Jira.Projects, "ui": s.UIConfig(), "autostart": s.autostartInfo(),
+		"projects": o.Jira.Projects, "ui": s.UIConfig(), "autostart": s.autostartInfo(), "starred": starred(s),
 	}, nil
 }
 

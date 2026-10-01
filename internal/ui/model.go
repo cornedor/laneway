@@ -397,12 +397,14 @@ type Model struct {
 	branchKey     string         // the issue of the git branch laneway started in
 	webLinks      []jira.WebLink // webLinksKey's remote links
 	webLinksKey   string
-	children      []jira.Child    // webLinksKey's child issues, when it is an epic
-	showEmpty     bool            // the empty fields ui.empty_fields: hide folds, shown for the session
-	moreFields    bool            // the panel's More row open, for the session
-	starred       map[string]bool // editmeta field ids shown on every issue (jira.StarredMeta)
-	descOpen      map[string]bool // the description expands opened, by "KEY#n"; closed as in Jira
-	descTasks     []bool          // the action items the panel's description shows: done or not
+	children      []jira.Child // webLinksKey's child issues, when it is an epic
+	showEmpty     bool         // the empty fields ui.empty_fields: hide folds, shown for the session
+	moreFields    bool         // the panel's More row open, for the session
+	// panelExtraEarly: panelExtra is the remembered screen (earlyExtra), editmeta not in yet.
+	panelExtraEarly bool
+	starred         map[string]bool // editmeta field ids shown on every issue (jira.StarredMeta)
+	descOpen        map[string]bool // the description expands opened, by "KEY#n"; closed as in Jira
+	descTasks       []bool          // the action items the panel's description shows: done or not
 	// panelHits are the panel's clickable lines by content line: a field's
 	// index or a linked issue's key (panel_mouse.go); panelFieldLine is each
 	// field's line as the last render wrote it.

@@ -1406,3 +1406,26 @@ func TestStarredAndMoreFields(t *testing.T) {
 		t.Errorf("starred folded:\n%s", view)
 	}
 }
+
+// TestEarlyExtraFields: the remembered screen draws with the issue, before
+// editmeta; enter waits for it; editmeta then takes over.
+func TestEarlyExtraFields(t *testing.T) {
+	m := panelModel(t)
+	m.starred = map[string]bool{"c1": true}
+	m.jiraIssue.Screen = []jira.FieldMeta{{ID: "c1", Name: "Tester", Kind: jira.KindText}}
+	m.jiraIssue.ScreenValues = map[string]jira.Value{"c1": {Text: "Ada"}}
+	m.panelExtraKey = ""
+	m.earlyExtra()
+	m.renderRef()
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "★ Tester") || !strings.Contains(view, "Ada") {
+		t.Fatalf("early:\n%s", view)
+	}
+	m.fieldCursor, m.fieldCursorKey = len(panelFields), "ABC-1"
+	if out, _ := m.handleRefKey(keyMsg(t, "enter")); !strings.Contains(out.(Model).status, "a moment") {
+		t.Errorf("enter before editmeta: %q", out.(Model).status)
+	}
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", fields: []jiraFormField{{FieldMeta: jira.FieldMeta{ID: "c1", Name: "Tester", Kind: jira.KindText}, val: jira.Value{Text: "Ada"}}}})
+	if m = out.(Model); m.panelExtraEarly {
+		t.Error("editmeta did not take over")
+	}
+}

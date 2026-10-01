@@ -202,6 +202,12 @@ type Issue struct {
 	Comments     []Comment
 	CommentTotal int
 
+	// Screen is the rest of its edit screen as last seen for its project and
+	// type (layout.go), with ScreenValues: drawn before EditMeta answers
+	// (which then has the say); none until a screen was seen.
+	Screen       []FieldMeta      `json:",omitempty"`
+	ScreenValues map[string]Value `json:",omitempty"`
+
 	// IDs of the current selection, so the field pickers can mark the active
 	// row. Status needs none: its changes go through Transitions, not by id.
 	PriorityID        string
@@ -406,6 +412,10 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 	for _, f := range spFields {
 		fields += "," + f
 	}
+	project, _, _ := strings.Cut(key, "-")
+	for _, f := range c.projectFields(project) { // the screens seen: their values come along
+		fields += "," + f
+	}
 
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "?fields=" + url.QueryEscape(fields)
 	body, err := c.doRaw(ctx, http.MethodGet, path, key, nil)
@@ -434,6 +444,14 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 	}
 	iss := c.toIssue(decoded)
 	iss.StoryPoints = extractStoryPoints(body, spFields)
+	if t := decoded.Fields.IssueType; t != nil && c.layouts != nil {
+		var raw struct {
+			Fields map[string]json.RawMessage `json:"fields"`
+		}
+		if json.Unmarshal(body, &raw) == nil {
+			iss.Screen, iss.ScreenValues = c.screen(project, t.ID, raw.Fields)
+		}
+	}
 	return iss, nil
 }
 

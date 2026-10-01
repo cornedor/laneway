@@ -80,6 +80,21 @@ func (m *Model) fetchPanelExtra() tea.Cmd {
 	}
 }
 
+// earlyExtra draws the shown issue's other fields from the edit screen last
+// seen for its project and type (jira.Issue.Screen), till editmeta answers:
+// no jump when it does.
+func (m *Model) earlyExtra() {
+	iss := m.jiraIssue
+	if iss == nil || m.panelExtraKey == iss.Key || len(iss.Screen) == 0 {
+		return
+	}
+	fields := make([]jiraFormField, len(iss.Screen))
+	for i, fm := range iss.Screen {
+		fields[i] = jiraFormField{FieldMeta: fm, val: iss.ScreenValues[fm.ID]}
+	}
+	m.panelExtra, m.panelExtraKey, m.panelExtraEarly = fields, iss.Key, true
+}
+
 // handlePanelExtra installs the fields when they are still the shown issue's.
 // A failed fetch leaves the panel's own fields only.
 func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
@@ -89,10 +104,16 @@ func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
 	m.webLinks, m.webLinksKey = msg.webLinks, msg.key
 	m.children = msg.children
 	if msg.err != nil {
+		if m.panelExtraEarly { // the remembered screen stays, to read
+			for i := range m.panelExtra {
+				m.panelExtra[i].ReadOnly = true
+			}
+			m.panelExtraEarly = false
+		}
 		m.renderRef()
 		return m, nil
 	}
-	m.panelExtra, m.panelExtraKey, m.panelFacts = msg.fields, msg.key, msg.facts
+	m.panelExtra, m.panelExtraKey, m.panelFacts, m.panelExtraEarly = msg.fields, msg.key, msg.facts, false
 	m.renderRef()
 	return m, nil
 }
@@ -307,6 +328,10 @@ func (m *Model) editPanelField() tea.Cmd {
 		return nil
 	}
 	ff := *slot
+	if m.panelExtraEarly {
+		m.status = "a moment: asking Jira what can be edited…"
+		return nil
+	}
 	if ff.ReadOnly {
 		m.status = "Jira lets no one edit " + ff.Name + " on " + m.jiraIssue.Key + " now"
 		return nil

@@ -230,11 +230,15 @@ export function mountIssue(el, key, { app, full, card }) {
   // Read-only: the screen Jira last offered for this project and type, on an issue it lets no one edit now.
   const SHOWN = new Set(['parent', 'duedate']);
   const valueText = v => (!v ? '' : v.Text ? (v.Text.length > 80 ? v.Text.slice(0, 80) + '…' : v.Text) : [...(v.Users || []).map(u => u.DisplayName), ...(v.Options || []).map(o => o.Name)].join(', '));
-  const isDoc = f => f.Kind === 'doc' && !!valueText(st.meta.Values[f.ID]);
+  // editmeta once it answered; till then the screen last seen for the issue's project and type, which came
+  // with the issue (jira.Issue.Screen): the fields draw at once, no jump when editmeta lands.
+  const fieldMeta = () => st.meta || (st.issue && st.issue.Screen ? { Fields: st.issue.Screen, Values: st.issue.ScreenValues || {}, early: true } : null);
+  const starredIDs = () => (st.meta && st.meta.Starred) || app.session.starred || [];
+  const isDoc = f => f.Kind === 'doc' && !!valueText(fieldMeta().Values[f.ID]);
   function extraCells(cell) {
-    const m = st.meta; if (!m) return [];
+    const m = fieldMeta(); if (!m) return [];
     const fs = (m.Fields || []).filter(f => !SHOWN.has(f.ID) && f.Kind !== 'sprint' && !isDoc(f));
-    const star = new Set(m.Starred || []);
+    const star = new Set(starredIDs());
     const top = fs.filter(f => star.has(f.ID)), rest = fs.filter(f => !star.has(f.ID));
     const out = top.map(f => fieldCell(cell, f, true));
     if (!rest.length) return out;
@@ -249,7 +253,7 @@ export function mountIssue(el, key, { app, full, card }) {
     return out;
   }
   function fieldCell(cell, f, on) {
-    const v = valueText(st.meta.Values[f.ID]);
+    const v = valueText(fieldMeta().Values[f.ID]);
     let c;
     if (f.ReadOnly) { c = cell(null, f.Name, v); c.title = 'Jira lets no one edit this issue now'; }
     else if (f.Kind === 'doc') c = h('button.fld', { title: 'Write ' + f.Name.toLowerCase(), onclick: () => editDoc(f) }, h('span.k', f.Name), h('span.v', dash()));
@@ -257,13 +261,14 @@ export function mountIssue(el, key, { app, full, card }) {
     return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? 'Unstar: fold it under More' : 'Star: show it on every issue', 'aria-label': (on ? 'Unstar ' : 'Star ') + f.Name, 'aria-pressed': String(on), onclick: () => starField(f, !on) }, on ? '★' : '☆'));
   }
   async function starField(f, on) {
-    try { st.meta.Starred = await api.put('/fields/starred/' + encodeURIComponent(f.ID), { On: on }); } catch (e) { return fail(e); }
+    try { app.session.starred = await api.put('/fields/starred/' + encodeURIComponent(f.ID), { On: on }); } catch (e) { return fail(e); }
+    if (st.meta) st.meta.Starred = app.session.starred;
     renderFields();
   }
 
   // ---- rich-text fields: a filled one is a section like the description, edited the same way
   function renderDocs() {
-    const m = st.meta;
+    const m = fieldMeta();
     if (!m || st.editingDoc) return; // a reload keeps the last ones until editmeta answers: no jump
     const fs = (m.Fields || []).filter(isDoc);
     clear(box.docs).append(...fs.map(f => h('div.desc.doc', { dataset: { field: f.ID }, ondblclick: e => { if (!f.ReadOnly && !e.target.closest('a,input,img,summary')) editDoc(f); } },
@@ -699,15 +704,18 @@ export function mountIssue(el, key, { app, full, card }) {
   // ---- editor (description, comment edit, composer): lib/mdedit.js
   function editor(o) { const e = mdEdit(app, { ...o, issueKey: key, people, mdOpts, onFiles: attachFiles }); editors.add(e); return e; }
   async function attachFiles(list) {
+    const made = [];
     for (const f of list) {
       try {
         const fd = new FormData(); fd.append('file', f, f.name || 'pasted-' + Date.now() + '.png');
         const res = await fetch('/api/issues/' + key + '/attachments', { method: 'POST', body: fd });
         if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || res.statusText);
+        made.push(await res.json().catch(() => null));
         ui.toast('Attached ' + (f.name || 'image'), { kind: 'ok' });
-      } catch (e) { fail(e); }
+      } catch (e) { made.push(null); fail(e); }
     }
     changed();
+    return made;
   }
   const mentionNode = m => ({ type: 'mention', attrs: { id: m.AccountID, text: '@' + m.DisplayName } });
 
@@ -732,7 +740,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (web) { st.weblinks = web; renderLinks(); }
   }
   function paint() {
-    renderHead(); renderTabs(); renderFields(); renderDesc(); renderChildren(); renderLinks(); renderFiles(); renderComments();
+    renderHead(); renderTabs(); renderFields(); renderDesc(); renderDocs(); renderChildren(); renderLinks(); renderFiles(); renderComments();
   }
 
   function loadFailed(e) {
