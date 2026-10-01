@@ -1095,11 +1095,18 @@ func (c *Client) AddComment(ctx context.Context, key, text string, mention *Ment
 
 // AddCommentADF posts body, a comment as Jira stores it, on key.
 func (c *Client) AddCommentADF(ctx context.Context, key string, body json.RawMessage) error {
+	return c.AddCommentADFFor(ctx, key, body, Visibility{})
+}
+
+// AddCommentADFFor is AddCommentADF for who vis lets read it.
+func (c *Client) AddCommentADFFor(ctx context.Context, key string, body json.RawMessage, vis Visibility) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
+	req := map[string]any{"body": body}
+	vis.addTo(req)
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
-	if err := c.do(ctx, http.MethodPost, path, key, map[string]any{"body": body}, nil); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, key, req, nil); err != nil {
 		return err
 	}
 	c.Invalidate(key)
@@ -1111,6 +1118,17 @@ func (c *Client) AddCommentADF(ctx context.Context, key string, body json.RawMes
 type Visibility struct {
 	Internal bool
 	Role     string
+}
+
+// addTo puts v in a comment's request body: Service Desk's internal
+// property, or a role's visibility.
+func (v Visibility) addTo(body map[string]any) {
+	switch {
+	case v.Internal:
+		body["properties"] = []any{map[string]any{"key": "sd.public.comment", "value": map[string]any{"internal": true}}}
+	case v.Role != "":
+		body["visibility"] = map[string]string{"type": "role", "value": v.Role}
+	}
 }
 
 // Label is how the composer names it.
@@ -1162,12 +1180,7 @@ func (c *Client) AddCommentMentions(ctx context.Context, key, text string, menti
 	doc := textToADF(text, mention)
 	inlineMentions(doc, inline)
 	body := map[string]any{"body": doc}
-	switch {
-	case vis.Internal:
-		body["properties"] = []any{map[string]any{"key": "sd.public.comment", "value": map[string]any{"internal": true}}}
-	case vis.Role != "":
-		body["visibility"] = map[string]string{"type": "role", "value": vis.Role}
-	}
+	vis.addTo(body)
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
 	if err := c.do(ctx, http.MethodPost, path, key, body, nil); err != nil {
 		return err

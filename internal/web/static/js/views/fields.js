@@ -256,11 +256,18 @@ export function pickUser(app, { issue, project, title = 'Person', specials = fal
 }
 
 // pickLabels → Promise<string[] | null>: toggle suggestions, type to create a new one.
-export async function pickLabels(app, project, current = [], title = 'Labels') {
+// pickLabels: the issue's and the project's recent labels, and Jira's as you type (TUI label_suggest.go);
+// clause is a custom labels field's JQL name (cf[10050]).
+export async function pickLabels(app, project, current = [], title = 'Labels', clause = 'labels') {
   let recent = [];
   try { recent = (await app.api.get(`/projects/${project}/labels`)) || []; } catch (e) { /* suggestions are optional */ }
   const items = [...new Set([...current, ...recent])];
-  return app.ui.pick({ title, items, multi: true, selected: current, create: q => q.trim().replace(/\s+/g, '-'), placeholder: 'Filter or type a new label…', empty: 'No labels yet: type one' });
+  const search = async q => {
+    if (!q.trim()) return items;
+    const found = await app.api.get('/labels?q=' + encodeURIComponent(q.trim()) + '&field=' + encodeURIComponent(clause)).catch(() => []);
+    return [...new Set([...items, ...found])];
+  };
+  return app.ui.pick({ title, items, search, multi: true, selected: current, create: q => q.trim().replace(/\s+/g, '-'), placeholder: 'Filter or type a new label…', empty: 'No labels yet: type one' });
 }
 
 // ---- form widgets
@@ -322,10 +329,10 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
       break;
     }
     case 'strings':
-      if (fm.Clause === 'labels') {
+      if (fm.Clause) {
         let ls = (v.Text || '').split(/\s+/).filter(Boolean);
         w.el = control(() => [ls.length ? h('span.chips', ls.map(l => app.ui.chip(l))) : h('span.faint', 'none')], async () => {
-          const next = await pickLabels(app, project || projectOf(issue || ''), ls, fm.Name);
+          const next = await pickLabels(app, project || projectOf(issue || ''), ls, fm.Name, fm.Clause);
           if (next) ls = next;
         });
         w.get = () => ({ Text: ls.join(' ') }); w.empty = () => !ls.length;

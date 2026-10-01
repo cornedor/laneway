@@ -104,6 +104,13 @@ func TestIssuePanelRoutes(t *testing.T) {
 	if len(is.Comments) != n || is.Comments[n-1].Body != "edited" {
 		t.Errorf("comment not back: %+v", is.Comments)
 	}
+	var vis []jira.Visibility
+	if code := issueCall(t, "GET", ts.URL+"/api/projects/DEMO/commentvis", nil, &vis); code != 200 || len(vis) != 2 || vis[0].Role != "Administrators" {
+		t.Errorf("commentvis: %d %+v", code, vis)
+	}
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "devs only", "Visibility": jira.Visibility{Role: "Developers"}}, nil); code != 200 {
+		t.Errorf("role comment: %d", code)
+	}
 	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Raw": json.RawMessage(`{"type":"paragraph"}`)}, nil); code != 400 {
 		t.Errorf("not a doc: %d", code)
 	}

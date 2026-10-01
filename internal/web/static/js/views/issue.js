@@ -514,8 +514,9 @@ export function mountIssue(el, key, { app, full, card }) {
       st.pending.push(tmp); renderComments(); box.list.lastElementChild?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
       try {
-        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions });
+        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: st.vis });
         st.pending = st.pending.filter(p => p !== tmp);
+        st.vis = { Internal: false, Role: '' }; paintVis(); // the next one is for everyone again
         await reload(true); changed(key + ' comment added');
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
@@ -524,7 +525,25 @@ export function mountIssue(el, key, { app, full, card }) {
     } });
   comp.ta.addEventListener('input', () => drafts.set(key, comp.ta.value));
   const replyChip = h('div.reply-chip', { hidden: true });
-  box.composer.append(replyChip, comp.el);
+  // Who the comment is for: everyone, an internal note (Service Desk) or a project role; ctrl+o steps (TUI cycleCommentVis).
+  st.vis = { Internal: false, Role: '' };
+  const visLabel = v => (v.Internal ? 'internal note' : v.Role ? 'only ' + v.Role : 'everyone');
+  const visBtn = h('button.btn.ghost.sm.vis-chip', { title: 'Who sees it  (ctrl+o)', onclick: () => cycleVis() });
+  const paintVis = () => { visBtn.textContent = '👁 ' + visLabel(st.vis); visBtn.classList.toggle('on', st.vis.Internal || !!st.vis.Role); };
+  paintVis();
+  let visOpts = null;
+  async function cycleVis() {
+    if (!visOpts) {
+      try { visOpts = await api.get('/projects/' + encodeURIComponent(key.slice(0, key.lastIndexOf('-'))) + '/commentvis'); } catch (e) { return fail(e); }
+      if (!visOpts.length) return ui.toast('Comments here are for everyone: no roles to limit them to');
+    }
+    const all = [{ Internal: false, Role: '' }, ...visOpts];
+    const i = all.findIndex(v => !!v.Internal === st.vis.Internal && (v.Role || '') === st.vis.Role);
+    const n = all[(i + 1) % all.length];
+    st.vis = { Internal: !!n.Internal, Role: n.Role || '' };
+    paintVis();
+  }
+  box.composer.append(replyChip, h('div.vis-row', visBtn), comp.el);
   function setReply(c) {
     st.reply = c;
     replyChip.hidden = !c;
@@ -677,6 +696,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,select')) return document.activeElement.blur();
     goBack();
   }, full ? 'back' : 'close panel', { group: G, input: true });
+  scope.bind('ctrl+o', e => { if (e.target === comp.ta) cycleVis(); }, 'who sees the comment: everyone, an internal note, a role', { group: G, input: true });
   scope.bind('ctrl+Enter', e => { const ed = e.target.closest && e.target.closest('.ed'); if (ed && ed._save) ed._save(); }, 'save / send', { group: G, input: true });
   scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : st.tab === 'terminal' ? term.scroll(3) : scroll.scrollBy({ top: 80 })), 'next comment / scroll down', { group: G });
   scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), 'previous comment / scroll up', { group: G });

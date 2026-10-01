@@ -77,6 +77,8 @@ func init() {
 			Mentions []jira.Mention
 			// Raw posts a document as it is: a deleted comment's, to undo the delete.
 			Raw json.RawMessage
+			// Visibility limits who reads it: an internal note or a role.
+			Visibility jira.Visibility
 		}](r)
 		if err != nil {
 			return nil, err
@@ -98,7 +100,7 @@ func init() {
 			}
 		}
 		doc, _ := json.Marshal(jira.MarkdownToADFKept(b.Markdown, kept))
-		return nil, s.Client().AddCommentADF(ctx, key, doc)
+		return nil, s.Client().AddCommentADFFor(ctx, key, doc, b.Visibility)
 	})
 	get("/issues/{key}/comments/{id}/edit", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
@@ -145,6 +147,13 @@ func init() {
 			return nil, err
 		}
 		return map[string]any{"Raw": raw}, nil
+	})
+
+	// Who a comment in the project can be limited to (TUI ctrl+o): an internal
+	// note in a Service Desk project, then each project role.
+	get("/projects/{project}/commentvis", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		vis, err := s.Client().CommentVisibilities(ctx, r.PathValue("project"))
+		return nonNil(vis), err
 	})
 
 	get("/issues/{key}/history", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

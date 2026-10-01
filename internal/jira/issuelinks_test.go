@@ -108,3 +108,24 @@ func TestDeleteLinkAndVote(t *testing.T) {
 		t.Errorf("writes = %q", w)
 	}
 }
+
+func TestAddCommentADFFor(t *testing.T) {
+	c, writes := fakeJira(t, nil)
+	doc := json.RawMessage(`{"type":"doc","version":1,"content":[]}`)
+	ctx := context.Background()
+	for _, v := range []Visibility{{}, {Role: "Developers"}, {Internal: true}} {
+		if err := c.AddCommentADFFor(ctx, "ABC-1", doc, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := writes()
+	if len(w) != 3 || strings.Contains(w[0], "visibility") || strings.Contains(w[0], "properties") {
+		t.Fatalf("writes = %q", w)
+	}
+	if !strings.Contains(w[1], `"visibility":{"type":"role","value":"Developers"}`) {
+		t.Errorf("role = %s", w[1])
+	}
+	if !strings.Contains(w[2], `"sd.public.comment"`) || !strings.Contains(w[2], `"internal":true`) {
+		t.Errorf("internal = %s", w[2])
+	}
+}

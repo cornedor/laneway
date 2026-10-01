@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -49,6 +50,16 @@ func init() {
 			ls = []string{}
 		}
 		return ls, err
+	})
+	// Jira's labels starting with ?q=, as you type (TUI label_suggest.go);
+	// ?field= is a custom labels field's clause, cf[10050].
+	get("/labels", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		field := cmpOr(Q(r, "field"), "labels")
+		if field != "labels" && !labelClause.MatchString(field) {
+			return nil, badRequest("bad labels field")
+		}
+		ls, err := s.Client().JQLValues(ctx, field, strings.TrimSpace(Q(r, "q")))
+		return nonNil(ls), err
 	})
 	get("/projects/{project}/statuses", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return s.Client().ProjectStatuses(ctx, r.PathValue("project"))
@@ -311,6 +322,9 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 	}
 	return &edit{Field: e.Field, Kind: e.Kind, Value: jira.DecodeValue(e.Kind, ic.Values[e.Field])}, nil
 }
+
+// labelClause is a custom labels field's JQL name.
+var labelClause = regexp.MustCompile(`^cf\[[0-9]+\]$`)
 
 // screenFields are the system fields an edit screen offers that are written
 // from their kind, as custom fields are.

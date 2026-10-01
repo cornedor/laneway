@@ -119,6 +119,13 @@ func TestEditRoutes(t *testing.T) {
 	if v := em.Values["components"]; len(v.Options) != 1 || v.Options[0].ID != pick[0].ID {
 		t.Errorf("components after = %+v", v)
 	}
+	var ls []string
+	if code := issueCall(t, "GET", ts.URL+"/api/labels?q=front", nil, &ls); code != 200 || !slices.Contains(ls, "frontend") {
+		t.Errorf("labels: %d %v", code, ls)
+	}
+	if code := issueCall(t, "GET", ts.URL+"/api/labels?q=x&field=summary", nil, nil); code != 400 {
+		t.Errorf("labels of another field: %d", code)
+	}
 	if code, _ := put("nonsense", edit{}); code != 400 {
 		t.Errorf("unknown field: %d", code)
 	}

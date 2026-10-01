@@ -187,6 +187,9 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 			}
 		}
 		return out, true
+	case "/rest/api/3/project/" + project + "/role":
+		base := "/rest/api/3/project/" + project + "/role/"
+		return map[string]any{"Administrators": base + "10002", "Developers": base + "10001"}, true
 	case "/rest/api/3/project/" + project + "/version":
 		return map[string]any{"values": s.versionsJSON(), "isLast": true}, true
 	case "/rest/api/3/project/" + project + "/statuses":
