@@ -104,6 +104,31 @@ func TestDemoJQL(t *testing.T) {
 			t.Errorf("%s: %d issues, want %d", jql, got, want)
 		}
 	}
+	count := func(keep func(*issue) bool) (n int) {
+		for _, i := range s.search("") {
+			if keep(i) {
+				n++
+			}
+		}
+		return n
+	}
+	for jql, want := range map[string]int{
+		"priority = High":                   count(func(i *issue) bool { return i.priority == "High" }),
+		`priority in (Highest, "High")`:     count(func(i *issue) bool { return i.priority == "Highest" || i.priority == "High" }),
+		"priority not in (Medium)":          count(func(i *issue) bool { return i.priority != "Medium" }),
+		"priority > Medium":                 count(func(i *issue) bool { return i.priority == "Highest" || i.priority == "High" }),
+		"priority <= Medium":                count(func(i *issue) bool { return i.priority == "Medium" || i.priority == "Low" || i.priority == "Lowest" }),
+		`reporter = "Mira Jansen"`:          len(s.search("")),
+		"reporter != currentUser()":         len(s.search("")),
+		"priority = High AND reporter = me": 0,
+	} {
+		if got := len(s.search(jql)); got != want {
+			t.Errorf("%s: %d issues, want %d", jql, got, want)
+		}
+	}
+	if n := len(s.search("priority = High")); n == 0 || n == len(s.search("")) {
+		t.Errorf("priority = High keeps %d of %d", n, len(s.search("")))
+	}
 }
 
 // TestDemoReleases: V reads the versions with their progress, a release's

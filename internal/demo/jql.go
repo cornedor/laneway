@@ -126,6 +126,28 @@ func (s *Server) clause(c string) func(*issue) bool {
 		return func(i *issue) bool { return in(vals, i.parent) }
 	case "status":
 		return func(i *issue) bool { return in(vals, i.status.name) }
+	case "priority":
+		if op := strings.TrimSpace(strings.TrimPrefix(low, field)); strings.HasPrefix(op, ">") || strings.HasPrefix(op, "<") {
+			// Jira orders priorities by rank: > is more urgent, a lower index here.
+			v := strings.Trim(strings.TrimSpace(strings.TrimLeft(op, "<>=")), `"'`)
+			at := slices.IndexFunc(priorities, func(p string) bool { return strings.EqualFold(p, v) })
+			eq := strings.Contains(op, "=")
+			return func(i *issue) bool {
+				d := slices.Index(priorities, i.priority) - at
+				return at >= 0 && (eq && d == 0 || op[0] == '>' && d < 0 || op[0] == '<' && d > 0)
+			}
+		}
+		return func(i *issue) bool { return in(vals, i.priority) }
+	case "reporter":
+		if strings.Contains(low, "currentuser()") {
+			return func(i *issue) bool { return (i.reporter == me) != negate }
+		}
+		return func(i *issue) bool {
+			named := slices.ContainsFunc(vals, func(x string) bool {
+				return strings.EqualFold(x, i.reporter.id) || strings.EqualFold(x, i.reporter.name)
+			})
+			return named != negate
+		}
 	case "fixversion":
 		return func(i *issue) bool {
 			on := slices.ContainsFunc(s.versions, func(v version) bool {
