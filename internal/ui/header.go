@@ -188,7 +188,7 @@ func (m *Model) jiraFilterSegs() []headSeg {
 	}
 	who := "everyone"
 	if t.assignee.id != "" {
-		who = t.assignee.label
+		who = t.assignee.short()
 	}
 	segs = append(segs, plainSeg(dim(helpKey(m.keys.Assignee)+" assignee ("+helpKey(m.keys.Mine)+" me): ")),
 		headSeg{s: chip(t.assignee.id != "", who), kind: "assignee"})

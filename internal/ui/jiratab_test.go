@@ -325,6 +325,8 @@ func TestJiraFilterJQL(t *testing.T) {
 		{jiraAssignee{id: "me"}, nil, "assignee = currentUser()"},
 		{jiraAssignee{id: "none"}, map[int]bool{8: true}, "assignee is EMPTY AND (x = 1)"},
 		{jiraAssignee{id: "a1"}, map[int]bool{7: true}, `assignee = "a1" AND (labels = a OR labels = b)`},
+		{jiraAssignee{id: "me,a1"}, nil, `assignee in (currentUser(), "a1")`},
+		{jiraAssignee{id: "a1,none"}, nil, `(assignee = "a1" OR assignee is EMPTY)`},
 	} {
 		if got := jiraFilterJQL(c.a, quick, c.on); got != c.want {
 			t.Errorf("jiraFilterJQL(%+v, %v) = %q, want %q", c.a, c.on, got, c.want)
@@ -368,6 +370,47 @@ func TestJiraTabAssigneeFilter(t *testing.T) {
 	m = out.(Model)
 	if cmd == nil || m.jiraTab.assignee.id != "a1" || m.jiraTab.assignee.label != "Ada" {
 		t.Fatalf("assignee = %+v, want Ada and a refetch", m.jiraTab.assignee)
+	}
+}
+
+// TestJiraTabAssigneeSeveral: space ticks several people, enter filters by
+// all of them, and the picker opens with them ticked; enter without a tick
+// still picks the row.
+func TestJiraTabAssigneeSeveral(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "a"))
+	m = out.(Model)
+	for _, i := range []int{1, 3} { // Me, Ada
+		m.jiraPicker.idx = i
+		out, _ = m.handleJiraPickerKey(keyMsg(t, "space"))
+		m = out.(Model)
+	}
+	if m.jiraPicker.items[0].current || !m.jiraPicker.items[1].current || !m.jiraPicker.items[3].current {
+		t.Fatalf("ticks = %+v", m.jiraPicker.items)
+	}
+	out, cmd := m.handleJiraPickerKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if a := m.jiraTab.assignee; cmd == nil || a.id != "me,a1" || a.label != "Me, Ada" {
+		t.Fatalf("assignee = %+v, want Me and Ada and a refetch", a)
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "Me, Ada") {
+		t.Error("header lacks both names")
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "a"))
+	m = out.(Model)
+	if it := m.jiraPicker.items; !it[1].current || !it[3].current || it[0].current {
+		t.Fatalf("reopened ticks = %+v", it)
+	}
+	m.jiraPicker.idx = 2
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "enter"))
+	if a := out.(Model).jiraTab.assignee; a.id != "none" {
+		t.Errorf("enter without ticking = %+v, want only the row", a)
+	}
+	// m stays one toggle: it replaces the set with you.
+	m.jiraTab.assignee = jiraAssignee{id: "me,a1", label: "Me, Ada"}
+	out, _ = m.handleJiraKey(keyMsg(t, "m"))
+	if a := out.(Model).jiraTab.assignee; a.id != "me" {
+		t.Errorf("m on a set = %+v, want me", a)
 	}
 }
 

@@ -11,6 +11,7 @@ import { workdays } from '../lib/worktime.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
+import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
 
@@ -149,7 +150,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   function renderBar() {
     const kids = [];
     kids.push(h('button.fchip' + (S.mine ? '.on' : ''), { dataset: { act: 'mine' }, title: 'Assigned to me  (m)' }, h('kbd', 'm'), 'Mine'));
-    kids.push(h('button.fchip' + (S.who != null ? '.on' : ''), { dataset: { act: 'who' }, title: 'Assignee  (A)' }, h('kbd', 'A'), S.who == null ? 'Assignee' : whoName(S.who)));
+    kids.push(h('button.fchip' + (S.who != null ? '.on' : ''), { dataset: { act: 'who' }, title: 'Assignee  (A)' }, h('kbd', 'A'), S.who == null ? 'Assignee' : whoLabel(S.who, whoName)));
     qfs().slice(0, 9).forEach((q, i) => kids.push(h('button.fchip' + (S.qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)));
     cq.words(S.text).forEach((w, i) => kids.push(h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, ' ✕')));
     if (anyFilter()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: 'Clear filters  (0)' }, '✕ clear'));
@@ -325,7 +326,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   // ---- filtering and layout
   function passes(c) {
     if (S.mine && c.AssigneeID !== me) return false;
-    if (S.who != null && (S.who === '-' ? !!who(c) : who(c) !== S.who)) return false;
+    if (!passesWho(S.who, c)) return false;
     if (S.textFn && !S.textFn(c)) return false;
     return true;
   }
@@ -1120,10 +1121,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     for (const c of S.cards) if (who(c)) seen.set(who(c), c.Assignee);
     const show = () => { for (const [id, n] of S.people) if (!seen.has(id)) seen.set(id, n); };
     show(); await Promise.race([loadPeople(), new Promise(r => setTimeout(r, 400))]); show();
-    const items = [{ id: null, name: 'Anyone' }, { id: '-', name: 'Unassigned' }, ...[...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))];
-    const r = await ui.pick({ title: 'Assignee', items, label: i => i.name, render: i => h('span.pick-label', i.id ? ui.avatar(i.name, '', 18) : '', ' ', i.name) });
-    if (!r) return;
-    S.who = r.id; if (r.id != null) S.mine = false; layout(); renderBar();
+    const r = await pickPeople(app, seen, S.who);
+    if (r === undefined) return;
+    S.who = r; if (r) S.mine = false; layout(); renderBar();
   }
   function setSort(col, dir) {
     S.sort = col; S.dir = dir;

@@ -137,25 +137,59 @@ type jiraLane struct {
 	max       int // the column's WIP limit, 0 for none
 }
 
-// jiraAssignee is the board's assignee filter: id "" for everyone, "me",
-// "none" for unassigned, else an accountId.
+// jiraAssignee is the board's assignee filter: id "" for everyone, else
+// one or more (comma-joined, as the state file keeps it) of "me", "none"
+// for unassigned and accountIds; label is their names, ", "-joined.
 type jiraAssignee struct {
 	id    string
 	label string
 }
 
+func (a jiraAssignee) ids() []string {
+	if a.id == "" {
+		return nil
+	}
+	return strings.Split(a.id, ",")
+}
+
+// short is the label for the header: past two names, the first and how
+// many more.
+func (a jiraAssignee) short() string {
+	if names := strings.Split(a.label, ", "); len(names) > 2 {
+		return fmt.Sprintf("%s +%d", names[0], len(names)-1)
+	}
+	return a.label
+}
+
 // jiraFilterJQL is the JQL the filters narrow a view by: the assignee and
 // every quick filter that is on, all of which must hold (as on Jira's board).
 func jiraFilterJQL(a jiraAssignee, quick []jira.QuickFilter, on map[int]bool) string {
-	var parts []string
-	switch a.id {
-	case "":
-	case "me":
-		parts = append(parts, "assignee = currentUser()")
-	case "none":
+	var parts, in []string
+	none := false
+	for _, id := range a.ids() {
+		switch id {
+		case "me":
+			in = append(in, "currentUser()")
+		case "none":
+			none = true
+		default:
+			in = append(in, fmt.Sprintf("%q", id))
+		}
+	}
+	var who string
+	switch {
+	case len(in) == 1:
+		who = "assignee = " + in[0]
+	case len(in) > 1:
+		who = "assignee in (" + strings.Join(in, ", ") + ")"
+	}
+	switch {
+	case none && who != "":
+		parts = append(parts, "("+who+" OR assignee is EMPTY)")
+	case none:
 		parts = append(parts, "assignee is EMPTY")
-	default:
-		parts = append(parts, fmt.Sprintf("assignee = %q", a.id))
+	case who != "":
+		parts = append(parts, who)
 	}
 	for _, q := range quick {
 		if on[q.ID] {
@@ -1727,7 +1761,7 @@ func (m *Model) pickJiraBoard(kind jiraPickerKind, id string) tea.Cmd {
 // openJiraAssigneeFilter offers everyone, you, unassigned, the people seen
 // on the board, and the project's assignable people once they load (the
 // board's cards alone miss everyone a filter hides), in a filterable
-// picker.
+// picker where space ticks several.
 func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil {
@@ -1736,6 +1770,14 @@ func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 	}
 	gen := m.startJiraPicker(jiraPickBoardAssignee, "Assignee", true)
 	seen, cur := maps.Clone(t.people), t.assignee.id
+	m.jiraPicker.checked = map[string]string{}
+	ids, labels := t.assignee.ids(), strings.Split(t.assignee.label, ", ")
+	for i, id := range ids {
+		m.jiraPicker.checked[id] = id
+		if len(labels) == len(ids) { // a name with ", " in it: the rows name them
+			m.jiraPicker.checked[id] = labels[i]
+		}
+	}
 	m.setJiraPickerItems(boardAssigneeItems(seen, nil, cur))
 	c, ctx, project, seq := m.jiraClient, m.ctx, t.project, m.jiraPicker.fetchSeq
 	return func() tea.Msg {
@@ -1748,7 +1790,7 @@ func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 }
 
 // boardAssigneeItems are the assignee filter's rows: everyone, you,
-// unassigned, then seen and us by name, cur marked.
+// unassigned, then seen and us by name, cur's (comma-joined) ids marked.
 func boardAssigneeItems(seen map[string]string, us []jira.User, cur string) []jiraPickerItem {
 	names := maps.Clone(seen)
 	if names == nil {
@@ -1764,7 +1806,7 @@ func boardAssigneeItems(seen map[string]string, us []jira.User, cur string) []ji
 	slices.SortFunc(people, func(a, b jiraPickerItem) int { return strings.Compare(a.label, b.label) })
 	items := append([]jiraPickerItem{{id: "", label: "Everyone"}, {id: "me", label: "Me"}, {id: "none", label: "Unassigned"}}, people...)
 	for i := range items {
-		items[i].current = items[i].id == cur
+		items[i].current = items[i].id == cur || (items[i].id != "" && slices.Contains(strings.Split(cur, ","), items[i].id))
 	}
 	return items
 }

@@ -10,7 +10,8 @@ A sprint of sixty cards is a lot. Three ways to see fewer, from quick to
 precise.
 
 **Only yours.** `m` toggles "assigned to me". `a` picks anyone else, or
-Unassigned.
+Unassigned; `space` ticks several and `enter` shows the cards of any of
+them.
 
 **Quick filters.** The board's own quick filters sit in the header; `1`–`9`
 toggle them, `0` clears every filter at once. Add your own presets under

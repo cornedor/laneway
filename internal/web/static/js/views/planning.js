@@ -8,6 +8,7 @@ import { resolve, switcher, noBoard } from './plan_ctx.js';
 import { openFilterBuilder } from './board_filter.js';
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
+import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
 
 const pts = c => Number(c.Points) || 0;
 const fmtP = n => String(Math.round(n * 10) / 10);
@@ -130,23 +131,23 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (!data) return;
     openFilterBuilder({ app, cards: sections.flatMap(s => s.cards), env: env(), query: filter, apply: t => { filterIn.value = t; setFilter(t); } });
   }
-  // who: an AccountID, '-' for unassigned, null for anyone.
-  const whoOf = c => c.AssigneeID || c.Assignee || '';
+  // who: null for anyone, else a Set of AccountIDs ('-' unassigned), lib/who.js.
   const filtering = () => !!match || who != null;
-  const visible = c => (who == null || (who === '-' ? !whoOf(c) : whoOf(c) === who)) && (!match || match(c));
+  const visible = c => passesWho(who, c) && (!match || match(c));
   const shown = s => (filtering() ? s.cards.filter(visible) : s.cards);
-  function setWho(id, name) {
-    who = id;
-    whoBtn.textContent = id == null ? 'Assignee' : name;
-    whoBtn.classList.toggle('on', id != null);
+  const names = new Map();
+  function setWho(w) {
+    who = w;
+    whoBtn.textContent = w == null ? 'Assignee' : whoLabel(w, id => names.get(id) || id);
+    whoBtn.classList.toggle('on', w != null);
     relayout();
   }
   async function pickWho() {
     const seen = new Map();
     for (const s of sections) for (const c of s.cards) if (whoOf(c)) seen.set(whoOf(c), c.Assignee);
-    const items = [{ id: null, name: 'Anyone' }, { id: '-', name: 'Unassigned' }, ...[...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))];
-    const r = await app.ui.pick({ title: 'Assignee', items, label: i => i.name, render: i => h('span.pick-label', i.id ? app.ui.avatar(i.name, '', 18) : '', ' ', i.name) });
-    if (r) setWho(r.id, r.name);
+    for (const [id, n] of seen) names.set(id, n);
+    const r = await pickPeople(app, seen, who);
+    if (r !== undefined) setWho(r);
   }
   const headH = s => ROW + px14(s.sprint ? 34 : 6);
 
@@ -211,7 +212,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (r.k === 'c') { const c = r.c; return [c.Key, c.Summary, c.Status, c.Assignee, c.Points, c.Flagged, c.Type, c.ParentSummary, c.Done, sel.has(c.Key)].join('|'); }
     if (r.k === 'e') return 'e' + (filtering() ? 'f' : '');
     const s = r.s;
-    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter, who,
+    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter, whoKey(who),
       s.cards.map(c => c.Key + c.Points + c.Assignee + c.Done).join(',')].join('|');
   }
 

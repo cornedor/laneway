@@ -51,6 +51,7 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
 // pick({title, items, label(item), detail?(item), render?(item, match)→node, multi, selected, placeholder, create?, query?, current?})
 // → Promise<item | item[] | null>. Type to filter, ↑/↓ or ctrl+n/p, Enter picks, Esc cancels. `query` starts the filter
 // typed, `current` puts the cursor on that item.
+// With `multi`, `enterPicks` makes Enter pick the row under the cursor alone until space or a click ticks one.
 // With `create: q => item` and no match, Enter on typed text creates an item.
 // With `search: async q => items` the list is also fed by the server (debounced).
 // `items` may be a Promise: the picker opens at once, says Loading… and fills in (typing filters,
@@ -58,7 +59,7 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
 export function pick(o) {
   return new Promise(resolve => {
     const label = o.label || (x => String(x));
-    let loading = !!(o.items && typeof o.items.then === 'function'), status = '', enterLater = false;
+    let loading = !!(o.items && typeof o.items.then === 'function'), status = '', enterLater = false, ticked = false;
     let items = loading ? [] : o.items || [], shown = [], sel = o.query || o.current == null ? 0 : Math.max(0, items.indexOf(o.current)), q = o.query || '';
     const chosen = new Set(o.selected || []);
     const input = h('input.pick-input', { type: 'text', value: q, placeholder: o.placeholder || 'Filter…', autofocus: true, spellcheck: false, autocomplete: 'off' });
@@ -92,17 +93,17 @@ export function pick(o) {
     function choose(i) {
       const it = shown[i];
       if (it === undefined) { if (o.create && q) return finish(o.multi ? [...chosen, o.create(q)] : o.create(q)); return; }
-      if (o.multi) { chosen.has(it) ? chosen.delete(it) : chosen.add(it); render(); return; }
+      if (o.multi) { chosen.has(it) ? chosen.delete(it) : chosen.add(it); ticked = true; render(); return; }
       finish(it);
     }
     input.addEventListener('input', () => { q = input.value; sel = 0; render(); if (o.search) remote(q); });
     let rt = 0;
     const remote = q => { clearTimeout(rt); rt = setTimeout(async () => { try { const r = await o.search(q); if (input.value === q) { items = r; render(); } } catch (e) { /* keep list */ } }, 180); };
-    const m = modal(h('div.pick', o.title && h('div.pick-title', o.title), input, list, o.multi && h('div.pick-foot', 'space toggles · enter confirms')), { className: 'pick-modal', onClose: () => finish(null) });
+    const m = modal(h('div.pick', o.title && h('div.pick-title', o.title), input, list, o.multi && h('div.pick-foot', o.enterPicks ? 'space ticks several · enter applies' : 'space toggles · enter confirms')), { className: 'pick-modal', onClose: () => finish(null) });
     const move = d => { if (!shown.length) return; sel = (sel + d + Math.min(shown.length, 200)) % Math.min(shown.length, 200); mark(); };
     m.scope.bind(['ArrowDown', 'ctrl+n', 'Tab'], () => move(1), '', { input: true, hidden: true });
     m.scope.bind(['ArrowUp', 'ctrl+p', 'shift+Tab'], () => move(-1), '', { input: true, hidden: true });
-    const enter = () => { if (loading) { enterLater = true; return; } if (o.multi) finish(o.create && q && !shown.length ? [...chosen, o.create(q)] : [...chosen]); else choose(sel); };
+    const enter = () => { if (loading) { enterLater = true; return; } if (o.multi && o.enterPicks && !ticked) { if (shown[sel] !== undefined) finish([shown[sel]]); } else if (o.multi) finish(o.create && q && !shown.length ? [...chosen, o.create(q)] : [...chosen]); else choose(sel); };
     m.scope.bind('Enter', enter, '', { input: true, hidden: true });
     if (o.multi) m.scope.bind('ctrl+Space', () => choose(sel), '', { input: true, hidden: true });
     if (o.multi) input.addEventListener('keydown', e => { if (e.key === ' ' && !q) { e.preventDefault(); choose(sel); } });

@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -167,6 +168,11 @@ type jiraPickerState struct {
 	// inline is the panel row the list drops under (a panel field name or
 	// an extra field's id), "" for the modal.
 	inline string
+	// checked are the rows space ticked in a picker that takes several
+	// (the board's assignee filter), id to label; nil for one pick. ticked
+	// is whether space was used: enter then applies the ticks, else the row.
+	checked map[string]string
+	ticked  bool
 	// at is where a dropdown's corner goes (dropdown.go), nil for the modal;
 	// top its first row shown.
 	at  *point
@@ -447,11 +453,13 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 			chosen = m.jiraPicker.items[i].id
 		}
 		m.jiraPicker.all = msg.items
+		m.markChecked()
 		m.filterJiraPicker()
 		m.jiraPicker.idx = max(0, slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == chosen }))
 		return m, nil
 	}
 	m.setJiraPickerItems(msg.items)
+	m.markChecked()
 	return m, nil
 }
 
@@ -484,6 +492,58 @@ func (m *Model) setJiraPickerItems(items []jiraPickerItem) {
 			break
 		}
 	}
+}
+
+// markChecked shows a multi picker's ticks as its rows' ✓; the "" row
+// (everyone) has it while none are ticked.
+func (m *Model) markChecked() {
+	p := &m.jiraPicker
+	if p.checked == nil {
+		return
+	}
+	for _, l := range [][]jiraPickerItem{p.all, p.items} {
+		for i := range l {
+			_, on := p.checked[l[i].id]
+			l[i].current = on || (l[i].id == "" && len(p.checked) == 0)
+		}
+	}
+}
+
+// toggleChecked ticks or unticks the row under the cursor; the "" row
+// clears every tick.
+func (m *Model) toggleChecked() {
+	p := &m.jiraPicker
+	if p.idx >= len(p.items) {
+		return
+	}
+	it := p.items[p.idx]
+	switch _, on := p.checked[it.id]; {
+	case it.id == "":
+		clear(p.checked)
+	case on:
+		delete(p.checked, it.id)
+	default:
+		p.checked[it.id] = it.label
+	}
+	p.ticked = true
+	m.markChecked()
+}
+
+// checkedPick is a multi picker's ticks as one comma-joined id and label,
+// in the list's order (ticks not listed, as before the people load, last).
+func (p *jiraPickerState) checkedPick() (id, label string) {
+	var ids, labels []string
+	for _, it := range p.all {
+		if _, ok := p.checked[it.id]; ok && it.id != "" {
+			ids, labels = append(ids, it.id), append(labels, it.label)
+		}
+	}
+	for _, k := range slices.Sorted(maps.Keys(p.checked)) {
+		if !slices.Contains(ids, k) {
+			ids, labels = append(ids, k), append(labels, p.checked[k])
+		}
+	}
+	return strings.Join(ids, ","), strings.Join(labels, ", ")
 }
 
 // filterJiraPicker narrows a locally filtered picker to rows containing
@@ -574,6 +634,11 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		return m.applyJiraPick()
+	case "space":
+		if p := &m.jiraPicker; p.checked != nil && p.filter.Value() == "" {
+			m.toggleChecked()
+			return m, nil
+		}
 	case "left":
 		if !m.jiraPicker.filterable && m.backToMenu() {
 			return m, nil
@@ -954,8 +1019,12 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m.applyMessage(it)
 	}
 	if kind == jiraPickBoardAssignee {
+		id, label := it.id, it.label
+		if m.jiraPicker.ticked {
+			id, label = m.jiraPicker.checkedPick()
+		}
 		m.closeJiraPicker()
-		return m, m.setJiraAssignee(it.id, it.label)
+		return m, m.setJiraAssignee(id, label)
 	}
 	if kind == jiraPickFormUser || kind == jiraPickFormOption {
 		key := m.jiraPicker.issueKey
@@ -1269,6 +1338,9 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 		}
 	}
 	hint := "↵ apply · esc cancel"
+	if p.checked != nil {
+		hint = "space ticks several · " + hint
+	}
 	if p.filterable {
 		hint = "type to filter · " + hint
 	}
@@ -1393,8 +1465,11 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	}
 
 	hintTxt := "↑/↓ move · ↵ apply · esc cancel"
+	if m.jiraPicker.checked != nil {
+		hintTxt = "↑/↓ move · space ticks several · ↵ apply · esc cancel"
+	}
 	if m.jiraPicker.filterable {
-		hintTxt = "type to filter · ↑/↓ move · ↵ apply · esc cancel"
+		hintTxt = "type to filter · " + hintTxt
 	}
 	parts = append(parts, "", lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hintTxt))
 
