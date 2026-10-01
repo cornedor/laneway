@@ -68,7 +68,7 @@ export const app = {
   actions: {
     edit: (key, field, anchor) => import('./views/fields.js').then(m => m.editField(app, key, field, anchor)),       // field: status|priority|assignee|points|labels|summary|…
     transition: key => import('./views/fields.js').then(m => m.editField(app, key, 'status')),
-    create: opts => import('./views/create.js').then(m => m.openCreate(app, opts || {})),                          // {project, parent, type, summary}
+    create: opts => import('./views/create.js').then(m => m.openCreate(app, opts || {})),                          // {project, parent, type, summary, description, cloneOf}
     palette: (mode) => import('./views/palette.js').then(m => m.openPalette(app, mode)),                            // mode: '' | ':' commands | '/' search | 'g' goto
     jump: () => import('./views/palette.js').then(m => m.openPalette(app, 'g')),
     bulk: keysArr => import('./views/bulk.js').then(m => m.openBulk(app, keysArr)),

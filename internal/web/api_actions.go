@@ -71,14 +71,6 @@ func init() {
 		on, err := s.Client().ToggleVote(ctx, key)
 		return map[string]bool{"On": on}, err
 	})
-	post("/issues/{key}/clone", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
-		key, err := issueKey(r)
-		if err != nil {
-			return nil, err
-		}
-		nk, err := s.Client().Clone(ctx, key)
-		return map[string]string{"Key": nk}, err
-	})
 	get("/issues/{key}/types", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
 		if err != nil {

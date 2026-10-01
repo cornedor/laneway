@@ -42,9 +42,9 @@ export async function issueActions(app, st, hk, only) {
         return hk.reloadExtras();
       }
       case 'clone': {
-        const r = await api.post('/issues/' + key + '/clone');
-        app.bus.emit('issue:changed', { key: r.Key, created: true });
-        return ui.toast('Cloned as ' + r.Key, { kind: 'ok', ms: 6000, action: { label: 'Open', run: () => hk.open(r.Key) } });
+        // The create form, filled from the copy (TUI openJiraClone); creating links it as a clone.
+        const d = await api.get('/issues/' + key + '/clonedraft', { fresh: true });
+        return app.actions.create({ project: d.Project, type: d.Type, summary: d.Summary, description: d.Description, parent: d.Parent, cloneOf: key, note: d.Note });
       }
       case 'type': {
         const ts = await api.get('/issues/' + key + '/types?current=' + enc(iss.Type), { fresh: true });

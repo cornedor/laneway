@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -138,6 +139,33 @@ func TestEditMetaAndCreate(t *testing.T) {
 	}
 	if issueCall(t, "POST", ts.URL+"/api/issues", map[string]any{"Project": "DEMO"}, nil) == 200 {
 		t.Error("create without summary should fail")
+	}
+
+	var draft struct{ Project, Type, Summary, Description, Parent, Note string }
+	if issueCall(t, "GET", iu+"/clonedraft", nil, &draft) != 200 || !strings.HasPrefix(draft.Summary, "CLONE - ") || draft.Description == "" {
+		t.Fatalf("clonedraft: %+v", draft)
+	}
+	var orig, clone jira.Issue
+	issueCall(t, "GET", iu+"?fresh=1", nil, &orig)
+	clonePost := func(desc string) jira.Issue {
+		t.Helper()
+		var made struct{ Key string }
+		b := map[string]any{"Project": draft.Project, "Type": draft.Type, "Summary": draft.Summary, "Description": desc, "Parent": draft.Parent, "CloneOf": "DEMO-5"}
+		if code := issueCall(t, "POST", ts.URL+"/api/issues", b, &made); code != 200 || made.Key == "" {
+			t.Fatalf("clone: %d %+v", code, made)
+		}
+		var iss jira.Issue
+		issueCall(t, "GET", ts.URL+"/api/issues/"+made.Key+"?fresh=1", nil, &iss)
+		return iss
+	}
+	if clone = clonePost(draft.Description); clone.Description != orig.Description || clone.Summary != draft.Summary {
+		t.Errorf("untouched clone: %q / %q, want the original's %q", clone.Summary, clone.Description, orig.Description)
+	}
+	if clone = clonePost("Edited"); !strings.Contains(clone.Description, "Edited") {
+		t.Errorf("edited clone description = %q", clone.Description)
+	}
+	if issueCall(t, "POST", ts.URL+"/api/issues", map[string]any{"Project": "DEMO", "Type": "Task", "Summary": "x", "CloneOf": "bad"}, nil) != 400 {
+		t.Error("bad CloneOf should be 400")
 	}
 
 	var res struct {

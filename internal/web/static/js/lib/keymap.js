@@ -22,7 +22,7 @@ const TABLE = {
   terminal: { 'ctrl+\\': 'agent_back' },
   'agents-global': { S: 'start_work', 'ctrl+y': 'copy_branch', 'ctrl+\\': 'agent_back' },
   issue: { j: 'next_comment', ArrowDown: 'next_comment', k: 'prev_comment', ArrowUp: 'prev_comment', 'ctrl+d': 'page_down', 'ctrl+u': 'page_up', c: 'comment', R: 'reply', e: 'summary', E: 'description', a: 'assign', p: 'priority', P: 'points',
-    l: 'labels', r: 'refresh', d: 'delete_comment', G: 'linked_issue', A: 'issue_actions', Backspace: 'back', i: 'image', y: 'copy_key', Y: 'copy_url', o: 'browser', s: 'status', 'ctrl+\\': 'agent_back' },
+    l: 'labels', r: 'refresh', d: 'delete_comment', G: 'linked_issue', A: 'issue_actions', Backspace: 'back', i: 'image', y: 'copy_key', Y: 'copy_url', o: 'browser', s: 'status', '*': 'pin', '<': 'panel_wider', '>': 'panel_narrower', 'ctrl+\\': 'agent_back' },
   'issue-dev': { D: 'development' },
   'issue-notes': { N: 'notes' },
 };

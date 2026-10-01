@@ -20,7 +20,7 @@ h1,h2,h3 { margin: 0 0 .4em; line-height: 1.25; } h2 { font-size: 1.25em; } h3 {
 /* shell */
 #body { display: flex; min-height: 0; }
 #view { flex: 1; min-width: 0; overflow: auto; outline: none; contain: content; }
-#panel { width: var(--panel-w, 46%); min-width: 25.714rem; max-width: 70%; border-left: 1px solid var(--border); background: var(--bg-2); overflow: auto; position: relative; }
+#panel { width: var(--panel-w, 50%); min-width: 25.714rem; max-width: 80%; border-left: 1px solid var(--border); background: var(--bg-2); overflow: auto; position: relative; }
 .loading, .empty { padding: 2.286rem; color: var(--fg-2); text-align: center; }
 .empty h2 { color: var(--fg); }
 

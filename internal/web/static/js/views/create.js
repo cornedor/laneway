@@ -1,4 +1,5 @@
-// Create dialog: openCreate(app, {project, parent, type, summary, sprint}).
+// Create dialog: openCreate(app, {project, parent, type, summary, sprint}); a clone adds
+// {description, cloneOf, note} and starts from that issue's copy.
 // Several lines in the summary make several issues. ctrl+Enter creates.
 import { h } from '../lib/dom.js';
 import { css } from '../lib/css.js';
@@ -34,7 +35,7 @@ export async function openCreate(app, opts = {}) {
   const files = [];
   const fileBar = h('div.ed-files');
   const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || 'image', ' ', h('button.btn.ghost.sm', { type: 'button', onclick: () => { files.splice(i, 1); paintFiles(); } }, '✕'))));
-  const ed = mdEdit(app, { value: restore ? restore.description : '', rows: 5, placeholder: 'Description (markdown). / formats, @ mentions, drop files to attach', noCancel: true,
+  const ed = mdEdit(app, { value: opts.description || (restore ? restore.description : ''), rows: 5, placeholder: 'Description (markdown). / formats, @ mentions, drop files to attach', noCancel: true,
     hint: 'files attach after creating', project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
   const description = ed.ta;
   const sprintSel = h('select.input', h('option', { value: '' }, 'None (backlog)'));
@@ -47,11 +48,11 @@ export async function openCreate(app, opts = {}) {
   const okBtn = h('button.btn.primary', { type: 'submit' }, 'Create');
 
   const form = h('form.form-dialog', { onsubmit: e => { e.preventDefault(); submit(); } },
-    h('div.form', formRow('Project', projectSel), formRow('Type', typeSel), formRow('Summary', [summary, count$], true), formRow('Description', [ed.el, fileBar], true)),
+    h('div.form', formRow('Project', projectSel), formRow('Type', typeSel), formRow('Summary', [summary, count$], true), formRow('Description', [ed.el, fileBar, opts.note ? h('div.faint.form-hint', opts.note) : ''], true)),
     extra, sprintRow, more, err,
     h('div.row.end', h('label.check', another, ' Create another'), h('span.spacer'), h('span.faint.form-hint', 'ctrl+⏎ creates'),
       h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), okBtn));
-  const m = app.ui.modal(form, { title: 'Create issue', wide: true, onClose: () => { ed.dispose(); if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
+  const m = app.ui.modal(form, { title: opts.cloneOf ? 'Clone of ' + opts.cloneOf : 'Create issue', wide: true, onClose: () => { ed.dispose(); if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
   m.scope.bind('ctrl+Enter', () => submit(), 'create', { input: true, hidden: true });
   summary.focus();
   count();
@@ -152,7 +153,7 @@ export async function openCreate(app, opts = {}) {
     for (const [i, s] of sums.entries()) {
       okBtn.textContent = sums.length > 1 ? `Creating ${i + 1}/${sums.length}…` : 'Creating…';
       try {
-        const r = await app.api.post('/issues', { Project: project, Type: type, Summary: s, Description: description.value, Parent: parent, Sprint: Number(sprintSel.value) || 0, Fields });
+        const r = await app.api.post('/issues', { Project: project, Type: type, Summary: s, Description: description.value, Parent: parent, CloneOf: opts.cloneOf || '', Sprint: Number(sprintSel.value) || 0, Fields });
         made.push(r.Key);
         if (files.length) await attach(r.Key);
         if (r.Warning) warn.push(r.Warning);

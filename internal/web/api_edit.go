@@ -77,6 +77,7 @@ func init() {
 		return nil, s.Client().DeleteIssue(ctx, key, Q(r, "subtasks") != "")
 	})
 	post("/issues", createIssue)
+	get("/issues/{key}/clonedraft", cloneDraft)
 	post("/bulk", bulk)
 }
 
@@ -506,11 +507,36 @@ func transitionWith(ctx context.Context, s *Server, r *http.Request) (any, error
 	return map[string]any{"Undo": undo}, nil
 }
 
+// cloneDraft is the create form's start for a clone of key (TUI
+// openJiraClone): its project, type, "CLONE - " summary, parent and the
+// description as markdown; Note says when that can't be edited and is
+// copied as it is.
+func cloneDraft(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	key, err := issueKey(r)
+	if err != nil {
+		return nil, err
+	}
+	d, err := s.Client().CloneDraft(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{"Project": d.Project, "Type": d.Type, "Summary": d.Summary, "Parent": d.Parent}
+	if ed, err := jira.EditableDescription(d.DescriptionADF); err != nil {
+		out["Note"] = "The description is copied from " + key + " as it is."
+	} else {
+		out["Description"] = ed.Markdown
+	}
+	return out, nil
+}
+
 // createIssue makes one issue; the frontend calls it once per summary of a
 // batch. Fields are the create screen's own, written through EncodeValue.
+// CloneOf starts from that issue's copy (labels, priority, components, fix
+// versions, its description unless edited) and links the new one to it.
 func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	b, err := Body[struct {
 		Project, Type, Summary, Description, Parent string
+		CloneOf                                     string
 		Sprint                                      int
 		Fields                                      []fieldVal
 	}](r)
@@ -522,17 +548,62 @@ func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	c := s.Client()
-	key, err := c.CreateIssue(ctx, jira.NewIssue{Project: b.Project, Type: b.Type, Summary: b.Summary, Description: b.Description, Parent: b.Parent, Fields: fields})
+	in := jira.NewIssue{Description: b.Description}
+	if b.CloneOf != "" {
+		if !jira.ValidKey(b.CloneOf) {
+			return nil, badRequest("bad CloneOf key")
+		}
+		if in, err = cloneInput(ctx, c, b.CloneOf, b.Description); err != nil {
+			return nil, err
+		}
+	}
+	in.Project, in.Type, in.Summary, in.Parent = b.Project, b.Type, b.Summary, b.Parent
+	if in.Fields == nil {
+		in.Fields = map[string]any{}
+	}
+	for id, v := range fields {
+		in.Fields[id] = v
+	}
+	key, err := c.CreateIssue(ctx, in)
 	if err != nil {
 		return nil, err
 	}
 	out := map[string]any{"Key": key}
+	if b.CloneOf != "" {
+		if err := c.LinkClone(ctx, key, b.CloneOf); err != nil {
+			out["Warning"] = err.Error()
+		}
+	}
 	if b.Sprint > 0 {
 		if err := c.MoveToSprint(ctx, b.Sprint, key); err != nil {
 			out["Warning"] = "created, but not moved to the sprint: " + err.Error()
 		}
 	}
 	return out, nil
+}
+
+// cloneInput is key's copy with desc as its description: the original
+// document while desc is what cloneDraft offered (or that was unreadable and
+// desc is blank), else desc with the blocks markdown can't hold kept.
+func cloneInput(ctx context.Context, c *jira.Client, key, desc string) (jira.NewIssue, error) {
+	in, err := c.CloneDraft(ctx, key)
+	if err != nil {
+		return in, err
+	}
+	ed, err := jira.EditableDescription(in.DescriptionADF)
+	switch {
+	case err != nil && strings.TrimSpace(desc) == "":
+	case err == nil && desc == ed.Markdown:
+	case strings.TrimSpace(desc) == "":
+		in.DescriptionADF = nil
+	default:
+		raw, err := json.Marshal(jira.MarkdownToADFKept(desc, ed.Kept))
+		if err != nil {
+			return in, err
+		}
+		in.DescriptionADF = raw
+	}
+	return in, nil
 }
 
 // bulk applies the same edit to Keys, or Each's own edit per key (an undo),

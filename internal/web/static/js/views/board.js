@@ -10,6 +10,7 @@ import { isZero, date, shortDate, ago, localDate } from '../lib/fmt.js';
 import { workdays } from '../lib/worktime.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
+import * as pins from '../lib/pins.js';
 import { openFilterBuilder } from './board_filter.js';
 import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
 
@@ -48,15 +49,6 @@ function parseEvery(s) {
   if (s === 'off' || s === '0') return 0;
   const m = s.match(/^(\d+)\s*(s|m|h)$/);
   return m ? Number(m[1]) * { s: 1e3, m: 6e4, h: 36e5 }[m[2]] : 12e4;
-}
-
-// Pinned issues are palette commands, first in the list; they outlive the view.
-let pinCmds = [];
-function registerPins(app) {
-  pinCmds.forEach(u => u()); pinCmds = [];
-  let l = [];
-  try { l = JSON.parse(app.prefs.get('pins', '[]')); } catch (e) { l = []; }
-  for (const p of Array.isArray(l) ? l : []) if (Array.isArray(p) && p[0]) pinCmds.push(app.commands.register({ id: 'pin:' + p[0], title: '★ ' + p[0] + '  ' + (p[1] || ''), group: 'Pinned', run: () => app.panel.open(p[0]) }));
 }
 
 export default function mount(el, { app, params, query, scope, context, toolbar }) {
@@ -1251,21 +1243,11 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- pins (★, first in the palette), mark all, copy
   function loadPins() {
-    let l = [];
-    try { l = JSON.parse(app.prefs.get('pins', '[]')); } catch (e) { l = []; }
-    S.pinList = Array.isArray(l) ? l.filter(p => Array.isArray(p) && p[0]) : [];
-    S.pins = new Set(S.pinList.map(p => p[0]));
+    S.pins = new Set(pins.list(app).map(p => p[0]));
     if (S.textFn) S.textFn = cq.compile(S.text, env());
   }
-  function togglePin(c) {
-    if (!c) return;
-    const on = S.pins.has(c.Key);
-    const next = on ? S.pinList.filter(p => p[0] !== c.Key) : [...S.pinList, [c.Key, c.Summary]];
-    app.prefs.set('pins', JSON.stringify(next));
-    loadPins(); registerPins(app);
-    for (const p of S.panes) p.vl.refresh();
-    ui.toast(on ? 'Unpinned ' + c.Key : 'Pinned ' + c.Key + '  ·  first in the palette');
-  }
+  function togglePin(c) { if (c) pins.toggle(app, c.Key, c.Summary); }
+  offs.push(bus.on('pins:changed', () => { loadPins(); for (const p of S.panes) p.vl.refresh(); }));
   function markAll() {
     const w = cur();
     const list = S.mode === 'list' ? S.visible : w ? w.p.cards : S.panes.reduce((a, p) => a.concat(p.cards), []);
@@ -1526,7 +1508,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const sw = app.prefs.get('board.swim.' + S.board.ID, 'none'); S.swim = SWIMS.includes(sw) ? sw : 'none';
     S.compact = app.prefs.get('board.compact', '0') === '1';
     S.cols = listCols();
-    loadPins(); registerPins(app);
+    loadPins(); pins.register(app);
     renderToolbar(); renderBar();
     const savedP = UI.SavedFilters === 'off' ? Promise.resolve() : new Promise(res => {
       api.swr('/filters/favourite', d => { S.saved = d || []; renderToolbar(); res(); }).catch(() => res());

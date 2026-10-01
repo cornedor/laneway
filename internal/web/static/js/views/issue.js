@@ -10,6 +10,7 @@ import { issueActions } from './actions.js';
 import { mountDev } from './issue_dev.js';
 import { mountTerm } from './issue_term.js';
 import { GLYPH, LABEL } from '../lib/agents.js';
+import * as pins from '../lib/pins.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
@@ -652,26 +653,44 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });
   scope.bind('t', () => term.type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });
   scope.bind('y', () => copy(key, key), 'copy key', { group: G });
+  scope.bind('*', () => pins.toggle(app, key, st.issue && st.issue.Summary), 'pin / unpin issue (first in the palette)', { group: G });
   scope.bind('Y', () => copy(browseURL(), 'Link'), 'copy link', { group: G });
   scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), 'open in Jira', { group: G });
   scope.bind('s', () => edit('status'), 'change status', { group: G });
 
-  // ---- resize (panel only)
+  // ---- resize (panel only): ui.panel_width (50%) until a drag or < > picks another, 20–80%; near
+  // ui.panel_width a drag snaps to it and < > stop there on the way past (TUI panel_resize.go).
   if (!full) {
-    const w0 = app.prefs.get('panelW', '');
-    if (w0) document.documentElement.style.setProperty('--panel-w', w0 + 'px');
+    const pw = Number(app.session.ui && app.session.ui.PanelWidth);
+    const def = pw >= 20 && pw <= 80 ? pw : 50;
+    const clamp = p => Math.min(Math.max(Math.round(p), 20), 80);
+    const show = p => document.documentElement.style.setProperty('--panel-w', p + '%');
+    const keep = p => { pct = p; show(p); app.prefs.set('panelPct', p === def ? '' : String(p)); };
+    const px = Number(app.prefs.get('panelW', '')); // the width in pixels, before percentages
+    if (px) { app.prefs.set('panelW', ''); app.prefs.set('panelPct', String(clamp(px * 100 / window.innerWidth))); }
+    const saved = Number(app.prefs.get('panelPct', ''));
+    let pct = saved >= 20 && saved <= 80 ? saved : def;
+    show(pct);
     const grip = root.querySelector('.iss-grip');
     grip.addEventListener('pointerdown', e => {
       e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add('drag');
       const right = el.getBoundingClientRect().right;
-      const move = ev => { document.documentElement.style.setProperty('--panel-w', Math.round(Math.max(360, Math.min(right - ev.clientX, window.innerWidth * 0.7))) + 'px'); };
+      const move = ev => { let p = clamp((right - ev.clientX) * 100 / window.innerWidth); if (Math.abs(p - def) <= 3) p = def; pct = p; show(p); };
       const up = () => {
         grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); grip.classList.remove('drag');
-        app.prefs.set('panelW', Math.round(el.getBoundingClientRect().width));
+        keep(pct);
       };
       grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
     });
-    grip.addEventListener('dblclick', () => { document.documentElement.style.removeProperty('--panel-w'); app.prefs.set('panelW', ''); });
+    grip.addEventListener('dblclick', () => keep(def));
+    const stepWidth = d => {
+      let next = clamp(pct + d * 5);
+      if ((pct < def) !== (next < def) && pct !== def && next !== def) next = def;
+      keep(next);
+      ui.toast('Panel ' + next + '%' + (next === def ? ' (ui.panel_width)' : ''));
+    };
+    scope.bind('<', () => stepWidth(1), 'widen the panel', { group: G });
+    scope.bind('>', () => stepWidth(-1), 'narrow the panel', { group: G });
   }
   scroll.focus({ preventScroll: true });
   if (startTerm) openTerm(true);
