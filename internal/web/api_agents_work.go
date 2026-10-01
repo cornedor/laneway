@@ -117,6 +117,22 @@ func init() {
 	handle("POST /api/issues/{key}/work", startWorkRoute)
 	get("/issues/{key}/branch", issueBranchName)
 	post("/issues/{key}/pr", openPullRequest)
+	get("/branch", cwdBranchIssue)
+}
+
+// cwdBranchIssue is the issue of the git branch laneway web started in, as
+// the TUI's: first in the palette. It must exist: fix/utf-8 names none.
+func cwdBranchIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	branch, _ := runIn(ctx, "", "git", "branch", "--show-current")
+	key := branchKey(branch)
+	if key == "" {
+		return map[string]string{}, nil
+	}
+	iss, err := s.Client().Get(ctx, key)
+	if err != nil {
+		return map[string]string{}, nil
+	}
+	return map[string]string{"Key": iss.Key, "Summary": iss.Summary, "Branch": branch}, nil
 }
 
 // WorkSpot is where an issue's work already happens: a linked worktree of

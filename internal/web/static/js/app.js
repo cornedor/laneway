@@ -205,6 +205,7 @@ async function boot() {
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
   import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e)).finally(() => $('#top').classList.remove('boot'));
+  api.get('/branch').then(b => { if (b.Key) commands.register({ id: 'branch', title: '⎇ ' + b.Key + '  ' + (b.Summary || ''), group: 'Branch', run: () => app.panel.open(b.Key) }); }).catch(() => {}); // the cwd's, as the TUI: first in the palette
   $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');
   if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
   await import('./views/plan_ctx.js').then(m => m.sanitize(app)).catch(e => console.warn('ctx', e));

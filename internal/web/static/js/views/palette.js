@@ -169,7 +169,8 @@ export function openPalette(app, mode = '') {
       if (recent.length) { items.push({ type: 'hdr', text: 'Recent' }); recent.forEach(c => items.push({ type: 'cmd', cmd: c })); }
       const groups = new Map();
       for (const c of all) (groups.get(c.group || 'Other') || groups.set(c.group || 'Other', []).get(c.group || 'Other')).push(c);
-      for (const [g, cs] of [...groups].sort((x, y) => (y[0] === 'Pinned') - (x[0] === 'Pinned'))) { items.push({ type: 'hdr', text: g }); cs.forEach(c => items.push({ type: 'cmd', cmd: c })); }
+      const first = g => (g === 'Branch' ? 0 : g === 'Pinned' ? 1 : 2);
+      for (const [g, cs] of [...groups].sort((x, y) => first(x[0]) - first(y[0]))) { items.push({ type: 'hdr', text: g }); cs.forEach(c => items.push({ type: 'cmd', cmd: c })); }
       return;
     }
     const rows = [];

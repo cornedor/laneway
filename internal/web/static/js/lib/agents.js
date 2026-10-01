@@ -58,7 +58,7 @@ export function install(app) {
     const s = JSON.stringify(next);
     if (s === sig) return;
     const was = new Map(snap.Agents.map(a => [a.PaneID, a.Status]));
-    sig = s; snap = next; index(); paintAll();
+    sig = s; snap = next; index(); paintAll(); listAgents();
     if (!first) for (const a of snap.Agents) {
       if (a.Status === 'blocked' && was.get(a.PaneID) !== 'blocked' && a.Key) {
         const show = () => app.go('/agents?agent=' + encodeURIComponent(a.Key));
@@ -68,6 +68,16 @@ export function install(app) {
     }
     first = false;
     bus.emit('agents', snap);
+  }
+
+  // A palette row per running agent, as the TUI's.
+  let rows = [];
+  function listAgents() {
+    rows.forEach(u => u()); rows = [];
+    for (const a of [...snap.Agents].filter(a => a.Key).sort((x, y) => x.Key.localeCompare(y.Key))) {
+      rows.push(app.commands.register({ id: 'agent:' + a.PaneID, title: GLYPH[a.Status] + ' ' + a.Key + '  ' + (LABEL[a.Status] || a.Status) + '  ' + a.Name, group: 'Agents',
+        run: () => app.go('/agents?agent=' + encodeURIComponent(a.Key)) }));
+    }
   }
 
   // Server-Sent Events, with a poll while the stream is down.

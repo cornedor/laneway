@@ -481,3 +481,17 @@ func TestStartWorkErrorsSayHow(t *testing.T) {
 		t.Error(noRepo("DEMO"))
 	}
 }
+
+// The cwd's branch names the palette's first issue, only one that exists.
+func TestCwdBranchIssue(t *testing.T) {
+	ts := agentsServer(t, t.TempDir())
+	old := runIn
+	defer func() { runIn = old }()
+	for branch, want := range map[string]string{"issue/demo-5-fix": "DEMO-5", "fix/utf-8": "", "DEMO-9999-gone": "", "": ""} {
+		runIn = func(context.Context, string, string, ...string) (string, error) { return branch, nil }
+		var b map[string]string
+		if workCall(t, "GET", ts.URL+"/api/branch", "", &b) != 200 || b["Key"] != want || want != "" && b["Summary"] == "" {
+			t.Errorf("%q: branch = %v, want %q", branch, b, want)
+		}
+	}
+}
