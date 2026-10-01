@@ -10,6 +10,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/store"
 )
 
 // Once a day the latest GitHub release is looked up; a newer one than the
@@ -58,24 +60,64 @@ func (m *Model) checkRelease() tea.Cmd {
 		return nil
 	}
 	st, ctx := m.store, m.ctx
-	if st != nil {
-		if v, ok, _ := st.GetMeta(releaseMeta); ok {
-			at, tag, _ := strings.Cut(v, "\t")
-			if sec, err := strconv.ParseInt(at, 10, 64); err == nil && time.Since(time.Unix(sec, 0)) < 24*time.Hour {
-				return func() tea.Msg { return releaseMsg{tag} }
-			}
-		}
+	if tag, ok := keptRelease(st); ok {
+		return func() tea.Msg { return releaseMsg{tag} }
 	}
 	return func() tea.Msg {
-		tag, err := latestRelease(ctx)
+		tag, err := fetchRelease(ctx, st)
 		if err != nil {
 			return nil
 		}
-		if st != nil {
-			_ = st.SetMeta(releaseMeta, fmt.Sprintf("%d\t%s", time.Now().Unix(), tag))
-		}
 		return releaseMsg{tag}
 	}
+}
+
+// NewerRelease is the latest release's tag when it is newer than version,
+// "" otherwise: for laneway web, which shares the store's daily look. A dev
+// build never looks, and offline is no news.
+func NewerRelease(ctx context.Context, st *store.Store, version string) string {
+	if _, ok := parseSemver(version); !ok {
+		return ""
+	}
+	tag, ok := keptRelease(st)
+	if !ok {
+		var err error
+		if tag, err = fetchRelease(ctx, st); err != nil {
+			return ""
+		}
+	}
+	if newerSemver(tag, version) {
+		return tag
+	}
+	return ""
+}
+
+// ReleasePage is the latest release's page.
+const ReleasePage = releasePage
+
+// keptRelease is the tag looked up in the last day.
+func keptRelease(st *store.Store) (string, bool) {
+	if st == nil {
+		return "", false
+	}
+	v, ok, _ := st.GetMeta(releaseMeta)
+	if !ok {
+		return "", false
+	}
+	at, tag, _ := strings.Cut(v, "\t")
+	if sec, err := strconv.ParseInt(at, 10, 64); err == nil && time.Since(time.Unix(sec, 0)) < 24*time.Hour {
+		return tag, true
+	}
+	return "", false
+}
+
+// fetchRelease asks GitHub and keeps the answer for a day.
+func fetchRelease(ctx context.Context, st *store.Store) (string, error) {
+	tag, err := latestRelease(ctx)
+	if err == nil && st != nil {
+		_ = st.SetMeta(releaseMeta, fmt.Sprintf("%d\t%s", time.Now().Unix(), tag))
+	}
+	return tag, err
 }
 
 func latestRelease(ctx context.Context) (string, error) {

@@ -66,6 +66,8 @@ type Options struct {
 	Autostart *Autostart
 	// AddSite, when set, lets the site picker add a Jira site.
 	AddSite *SiteAdder
+	// UpgradeCmd updates this binary ("" when unknown: the release page).
+	UpgradeCmd string
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.

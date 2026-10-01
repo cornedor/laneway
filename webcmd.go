@@ -95,7 +95,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	end := webQuit
-	opt := web.Options{Version: version, Demo: demoMode, Token: token}
+	opt := web.Options{Version: version, Demo: demoMode, Token: token, UpgradeCmd: upgradeCmd()}
 	if demoMode {
 		baseURL, stopDemo, err := demo.New(time.Now()).Start()
 		if err != nil {

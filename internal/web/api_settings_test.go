@@ -2,13 +2,19 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/store"
 )
 
 func TestSettingsEdit(t *testing.T) {
@@ -88,5 +94,35 @@ func TestSettingsEdit(t *testing.T) {
 	raw, _ = os.ReadFile(path)
 	if strings.Contains(string(raw), "stale_days") {
 		t.Errorf("reset left it:\n%s", raw)
+	}
+}
+
+// TestUpdate: a newer release than the build (the store's daily look, as the
+// TUI keeps it) comes with the upgrade command; a dev build or
+// ui.update_check off says nothing.
+func TestUpdate(t *testing.T) {
+	st, _ := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	_ = st.SetMeta("release_latest", fmt.Sprintf("%d\tv9.9.9", time.Now().Unix()))
+	get := func(o Options) map[string]string {
+		o.Store = st
+		ts := httptest.NewServer(New(context.Background(), o))
+		defer ts.Close()
+		var u map[string]string
+		if c := workCall(t, "GET", ts.URL+"/api/update", "", &u); c != 200 {
+			t.Fatalf("update = %d", c)
+		}
+		return u
+	}
+	if u := get(Options{Version: "v0.4.0", UpgradeCmd: "brew upgrade laneway"}); u["Tag"] != "v9.9.9" || u["Command"] != "brew upgrade laneway" || u["Page"] == "" {
+		t.Errorf("newer = %v", u)
+	}
+	if u := get(Options{Version: "dev"}); len(u) != 0 {
+		t.Errorf("dev = %v", u)
+	}
+	if u := get(Options{Version: "v0.4.0", UI: config.UIConfig{UpdateCheck: "off"}}); len(u) != 0 {
+		t.Errorf("off = %v", u)
+	}
+	if u := get(Options{Version: "v9.9.9"}); len(u) != 0 {
+		t.Errorf("current = %v", u)
 	}
 }

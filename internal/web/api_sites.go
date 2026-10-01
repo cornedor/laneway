@@ -109,7 +109,7 @@ func (s *Server) openSite(name string) (Options, error) {
 	if err != nil {
 		return base, err
 	}
-	o.Open, o.Sites, o.DefaultName, o.Version, o.Demo = base.Open, base.Sites, base.DefaultName, base.Version, base.Demo
+	o.Open, o.Sites, o.DefaultName, o.Version, o.Demo, o.UpgradeCmd = base.Open, base.Sites, base.DefaultName, base.Version, base.Demo, base.UpgradeCmd
 	s.sites.open[name] = o
 	return o, nil
 }

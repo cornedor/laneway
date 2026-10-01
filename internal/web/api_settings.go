@@ -21,6 +21,20 @@ import (
 
 // UIConfig is the current ui: section (settings edits apply at once, for
 // every site).
+func init() {
+	// As the TUI's ↑ v1.2: the newer release, once a day, ui.update_check off stops it.
+	get("/update", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		if strings.EqualFold(strings.TrimSpace(s.UIConfig().UpdateCheck), "off") {
+			return map[string]string{}, nil
+		}
+		tag := ui.NewerRelease(ctx, s.opt.Store, s.opt.Version)
+		if tag == "" {
+			return map[string]string{}, nil
+		}
+		return map[string]string{"Tag": tag, "Command": s.opt.UpgradeCmd, "Page": ui.ReleasePage}, nil
+	})
+}
+
 func (s *Server) UIConfig() config.UIConfig {
 	if s.sites == nil {
 		return s.opt.UI
