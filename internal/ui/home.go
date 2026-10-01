@@ -57,6 +57,9 @@ func (m *Model) openHome() tea.Cmd {
 	}
 	slices.SortFunc(inbox, func(a, b inboxThread) int { return b.latest().Compare(a.latest()) })
 	timer, starred, timerKey, site := m.timerLabel(), m.jqlList(jqlSavedMeta), m.keys.Timer, m.site
+	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == m.timer.key }); timer != "" && i >= 0 {
+		timer += "  " + m.jiraTab.cards[i].Summary // the timed card's, when the board has it
+	}
 	return func() tea.Msg {
 		parts := map[string][]jiraPickerItem{}
 		var mu sync.Mutex

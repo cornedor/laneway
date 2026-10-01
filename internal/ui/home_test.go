@@ -25,6 +25,7 @@ func TestHome(t *testing.T) {
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: url, Email: "demo@example.com", APIToken: "demo"})
 	m.opts.home = []string{"sprint", "work", "reviews", "timer", "filters"}
+	m.timer = workTimer{key: "ABC-2", start: time.Now()}
 	m.setJQLList(jqlSavedMeta, []string{"priority = High"})
 
 	out, cmd := m.handleJiraKey(keyMsg(t, "~"))
@@ -48,6 +49,9 @@ func TestHome(t *testing.T) {
 	items := m.jiraPicker.items
 	if !strings.Contains(items[0].label, "Sprint 12") || !strings.Contains(items[1].label, "points done") {
 		t.Errorf("sprint rows %q, %q", items[0].label, items[1].label)
+	}
+	if i, ok := at[homeIssue+"ABC-2"]; !ok || !strings.Contains(items[i].label, "ABC-2 0m  Second") {
+		t.Errorf("timer row: %v", items)
 	}
 	if i, ok := at[homeJQL+"priority = High"]; !ok || !strings.HasSuffix(items[i].label, "·  3") {
 		t.Errorf("saved search row missing or miscounted: %v", items)
