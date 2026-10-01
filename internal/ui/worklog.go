@@ -34,19 +34,33 @@ func timerTick() tea.Cmd {
 	return tea.Tick(30*time.Second, func(time.Time) tea.Msg { return timerTickMsg{} })
 }
 
-// loadTimer restores a timer left running, with its tick.
-func (m *Model) loadTimer() tea.Cmd {
+// loadTimer reads the timer from the store: at start (a restart) and on
+// each tick, so one started or stopped in laneway web shows here. A stop
+// prompt being typed keeps the timer it was opened for. It reports a change.
+func (m *Model) loadTimer() bool {
+	if m.store == nil || m.worklogFromTimer {
+		return false
+	}
+	var t workTimer
+	v, _, _ := m.store.GetMeta(timerMeta)
+	key, unix, _ := strings.Cut(v, " ")
+	if sec, err := strconv.ParseInt(unix, 10, 64); key != "" && err == nil {
+		t = workTimer{key: key, start: time.Unix(sec, 0)}
+	}
+	if t.key == m.timer.key && t.start.Equal(m.timer.start) {
+		return false
+	}
+	m.timer = t
+	return true
+}
+
+// timerStart is Init's first tick: with a store the ticks run for good and
+// load the timer, without one they run while a timer does.
+func (m Model) timerStart() tea.Cmd {
 	if m.store == nil {
 		return nil
 	}
-	v, ok, _ := m.store.GetMeta(timerMeta)
-	key, unix, _ := strings.Cut(v, " ")
-	sec, err := strconv.ParseInt(unix, 10, 64)
-	if !ok || key == "" || err != nil {
-		return nil
-	}
-	m.timer = workTimer{key: key, start: time.Unix(sec, 0)}
-	return timerTick()
+	return func() tea.Msg { return timerTickMsg{} }
 }
 
 // saveTimer keeps the timer in the state file, for a restart.
@@ -62,10 +76,12 @@ func (m *Model) saveTimer() error {
 }
 
 func (m Model) handleTimerTick() (tea.Model, tea.Cmd) {
-	if m.timer.key == "" {
+	if m.loadTimer() || m.timer.key != "" {
+		m.redrawTimed()
+	}
+	if m.store == nil && m.timer.key == "" {
 		return m, nil
 	}
-	m.redrawTimed()
 	return m, timerTick()
 }
 
@@ -106,11 +122,14 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 	if key == "" {
 		return nil
 	}
-	m.timer = workTimer{key: key, start: time.Now()}
+	m.timer = workTimer{key: key, start: time.Unix(time.Now().Unix(), 0)} // as the store keeps it
 	m.redrawTimed()
 	m.status = "timer started on " + key + " · " + helpKey(m.keys.Timer) + " stops it"
 	if err := m.saveTimer(); err != nil {
 		m.fail("timer started on " + key + ", but a restart loses it: " + err.Error())
+	}
+	if m.store != nil {
+		return nil // the ticks run already
 	}
 	return timerTick()
 }

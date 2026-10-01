@@ -1,5 +1,6 @@
 // The work timer: T starts it on the selected issue, stops it into the log-work dialog, or
-// switches it. It lives in localStorage (survives reloads, shared by tabs) and shows in the header.
+// switches it. It lives in the state file where the TUI keeps its own (GET/PUT /api/timer), so either
+// stops what the other started; localStorage mirrors it for the first paint and other tabs.
 import { h } from './dom.js';
 import { duration } from './fmt.js';
 import { logDialog, parseDuration, hm } from './worktime.js';
@@ -14,6 +15,7 @@ function load() {
 function save(t) {
   try { store.set('timer', t ? JSON.stringify(t) : ''); } catch (e) { /* private mode */ }
 }
+const same = (a, b) => (a && a.key) === (b && b.key) && (a && a.start) === (b && b.start);
 
 // The issue `T` and `w` act on: the selected row of the view, else the open panel, else the route's issue.
 export function target(app) {
@@ -44,7 +46,31 @@ export function install(app) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && timer) chip.replaceChildren(...label()); arm(); });
   window.addEventListener('storage', e => { if (e.key === store.key('timer')) { timer = load(); paint(); app.bus.emit('timer', timer); } });
 
-  function set(t) { timer = t; save(t); paint(); app.bus.emit('timer', timer); }
+  function show(t) {
+    if (same(t, timer)) return;
+    timer = t; save(t); paint(); app.bus.emit('timer', timer);
+  }
+  let gen = 0; // a sync that started before a local change must not undo it
+  function set(t) {
+    gen++;
+    show(t);
+    app.api.put('/timer', t ? { Key: t.key, Start: new Date(t.start).toISOString() } : { Key: '' })
+      .catch(e => app.ui.toast('Timer kept in this browser only: ' + e.message, { kind: 'err' }));
+  }
+  // What the TUI (or another window) did: read on start, on coming back to the tab and twice a minute.
+  async function sync() {
+    const g = gen;
+    try {
+      const t = await app.api.get('/timer', { fresh: true });
+      if (g !== gen) return;
+      // A timer from before the state file kept it: hand it over once.
+      if (!(t && t.Key) && timer && !store.get('timer.shared')) { store.set('timer.shared', '1'); return set(timer); }
+      store.set('timer.shared', '1');
+      show(t && t.Key ? { key: t.Key, start: Date.parse(t.Start) } : null);
+    } catch (e) { /* offline: the mirror stands */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+  setInterval(() => { if (!document.hidden) sync(); }, 30000);
 
   function round(ms) {
     const step = parseDuration(String(app.prefs.get('timer_round', (app.session && app.session.ui && app.session.ui.TimerRound) || '')) || '');
@@ -53,7 +79,7 @@ export function install(app) {
   }
 
   function start(key) {
-    set({ key, start: Date.now() });
+    set({ key, start: Math.floor(Date.now() / 1000) * 1000 }); // the state file keeps seconds
     app.ui.toast('Timer started on ' + key);
   }
 
@@ -87,5 +113,6 @@ export function install(app) {
 
   app.timer = { get current() { return timer; }, toggle, start, stop, elapsed: () => (timer ? elapsed() : 0) };
   paint();
+  sync();
   installBadge(app);
 }

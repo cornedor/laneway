@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -74,7 +75,7 @@ func TestTimer(t *testing.T) {
 	worklogJira(t, &m, &bodies)
 	out, cmd := m.handleJiraKey(keyMsg(t, "T"))
 	m = out.(Model)
-	if m.timer.key != "ABC-1" || cmd == nil {
+	if m.timer.key != "ABC-1" {
 		t.Fatalf("timer = %+v", m.timer)
 	}
 	if !strings.Contains(ansi.Strip(m.View().Content), "⏱ ABC-1 0m") {
@@ -107,6 +108,30 @@ func TestTimer(t *testing.T) {
 	m = out.(Model)
 	if v, _, _ := m.store.GetMeta(timerMeta); m.timer.key != "" || v != "" {
 		t.Errorf("after the log: timer %+v, stored %q", m.timer, v)
+	}
+}
+
+// TestTimerShared: a timer laneway web starts or stops in the state file
+// shows here on the next tick.
+func TestTimerShared(t *testing.T) {
+	m := jiraTabModel(t)
+	if m.timerStart() == nil {
+		t.Fatal("no first tick with a store")
+	}
+	start := time.Now().Add(-10 * time.Minute)
+	_ = m.store.SetMeta(timerMeta, "ABC-2 "+strconv.FormatInt(start.Unix(), 10))
+	out, cmd := m.handleTimerTick()
+	m = out.(Model)
+	if m.timer.key != "ABC-2" || cmd == nil {
+		t.Fatalf("after web started it: timer %+v, tick %v", m.timer, cmd != nil)
+	}
+	if !strings.Contains(ansi.Strip(m.View().Content), "⏱ ABC-2 10m") {
+		t.Error("header lacks the web's timer")
+	}
+	_ = m.store.SetMeta(timerMeta, "")
+	out, cmd = m.handleTimerTick()
+	if m = out.(Model); m.timer.key != "" || cmd == nil {
+		t.Fatalf("after web stopped it: timer %+v, tick %v", m.timer, cmd != nil)
 	}
 }
 
@@ -202,8 +227,8 @@ func TestTimerOnStart(t *testing.T) {
 		t.Fatal("off by default")
 	}
 	m.opts.timerOnStart = true
-	out, cmd := m.handleJiraWork(jiraWorkMsg{key: "ABC-1", path: "/w"})
-	if m = out.(Model); m.timer.key != "ABC-1" || cmd == nil || !strings.Contains(m.status, "timer started") {
+	out, _ = m.handleJiraWork(jiraWorkMsg{key: "ABC-1", path: "/w"})
+	if m = out.(Model); m.timer.key != "ABC-1" || !strings.Contains(m.status, "timer started") {
 		t.Errorf("timer %+v, status %q", m.timer, m.status)
 	}
 }
