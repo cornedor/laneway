@@ -113,8 +113,9 @@ action.
 ## Phone and offline
 
 The page is an installable app (PWA): the shell is cached by a service
-worker, the API never is. A long press or right-click on a card opens its
-menu. Browser notifications for rules are off until you turn them on in
+worker, the API never is. A right-click on a card opens its menu at the
+pointer, with submenus for status, assignee, priority and sprint; a long
+press on a phone opens it as a sheet. Browser notifications for rules are off until you turn them on in
 Settings or with `N` in Rules. Writes that can't reach Jira wait in the
 queue (the `⇡` chip) and are retried; the server must still be running.
 

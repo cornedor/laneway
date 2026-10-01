@@ -63,3 +63,14 @@ kbd { font-size: .85em; background: var(--bg-3); border: 1px solid var(--border)
 .toast.err { background: var(--err); color: #fff; } .toast.ok { background: var(--ok); color: #fff; } .toast .btn.link { color: inherit; text-decoration: underline; }
 @keyframes fade { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* context menu at the pointer (lib/ctxmenu.js) */
+.ctx { position: fixed; z-index: 1000; min-width: 13rem; max-width: 24rem; max-height: 70vh; overflow: auto; padding: .286rem 0; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); font-size: .93em; outline: none; }
+.ctx-item { display: flex; align-items: center; gap: .429rem; padding: .357rem .714rem .357rem .429rem; cursor: default; user-select: none; }
+.ctx-item.sel { background: var(--accent-bg); }
+.ctx-item.off { color: var(--fg-3); }
+.ctx-check { width: 1.143rem; flex: none; text-align: center; color: var(--accent); }
+.ctx-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-hint { color: var(--fg-3); font-size: .9em; white-space: nowrap; max-width: 10rem; overflow: hidden; text-overflow: ellipsis; }
+.ctx-more { color: var(--fg-3); }
+.ctx-sep { border-top: 1px solid var(--border); margin: .286rem 0; }

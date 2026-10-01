@@ -203,14 +203,22 @@ async function status(app, key) {
   // Open at once; the moves fill in when Jira answers.
   const list = app.api.get(`/issues/${key}/transitions`, { fresh: true });
   const t = await app.ui.pick({ title: `Move ${key}`, items: list, label: t => t.Name, placeholder: 'Move to…', empty: 'No moves from here' });
-  if (!t) return;
+  if (t) await takeMove(app, key, t, metaP);
+}
+
+// takeMove takes move t of key: at once, or through its form when the workflow wants fields.
+export async function takeMove(app, key, t, metaP) {
+  installUndo(app);
   let meta;
-  try { meta = ((await metaP).Transitions || []).find(x => x.ID === t.ID); } catch (e) { meta = null; }
-  if (!meta || !meta.NeedsInput) {
-    await write(app, key, 'status', { ID: t.ID }, `${key} → ${t.Name}`, t.Name);
-    return;
-  }
+  try { meta = ((await (metaP || app.api.get(`/issues/${key}/transitionmeta`, { fresh: true }))).Transitions || []).find(x => x.ID === t.ID); } catch (e) { meta = null; }
+  if (!meta || !meta.NeedsInput) return write(app, key, 'status', { ID: t.ID }, `${key} → ${t.Name}`, t.Name);
   moveForm(app, key, meta);
+}
+
+// setField writes one field as the editors do: the card shows it at once, u undoes it.
+export function setField(app, key, field, body, what, patch) {
+  installUndo(app);
+  return write(app, key, field, body, what, patch);
 }
 
 export function moveForm(app, key, t) {

@@ -1340,8 +1340,11 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   app.menuItems = key => {
     const c = S.cards.find(x => x.Key === key);
     if (!c) return [];
-    const out = [[S.pins.has(key) ? 'Unpin  · pinned' : 'Pin', () => togglePin(c)]];
-    if (isScrum()) out.unshift(['Move to sprint' + (c.Sprint ? '  · ' + c.Sprint : '  · backlog'), () => { if (!writable()) return; select(key); pickSprintFor([key]); }]);
+    const out = [{ label: S.pins.has(key) ? 'Unpin' : 'Pin', hint: S.pins.has(key) ? 'pinned' : '', run: () => togglePin(c) }];
+    // The board's open sprints and the backlog, the card's own marked (TUI cardMenu); a move as M makes it.
+    if (isScrum()) out.unshift({ id: 'sprint', label: 'Sprint', hint: c.Sprint || 'backlog', sub: () => [...sprints().filter(sp => sp.State !== 'closed'), { ID: 0, Name: 'Backlog' }].map(sp => ({
+      label: sp.Name, hint: sp.State || '', current: sp.ID ? sp.Name === c.Sprint : !c.Sprint,
+      run: () => { if (!writable() || (sp.ID ? sp.Name === c.Sprint : !c.Sprint)) return; select(key); toSprint([key], sp); } })) });
     return out;
   };
   const bulkKeys = () => (S.marks.size ? [...S.marks] : S.sel ? [S.sel] : []);

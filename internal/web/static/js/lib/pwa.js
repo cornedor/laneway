@@ -54,36 +54,73 @@ const keyAt = el => {
 
 function cardMenu(app) {
   let opened = 0, press = 0, sx = 0, sy = 0, swallow = 0;
-  const open = key => {
+  const open = (key, at) => {
     if (Date.now() - opened < 800) return;
-    run(key);
+    run(key, at);
   };
-  app.actions.menu = run;
-  function run(key) {
-    opened = Date.now();
+  // E and the like: at the card when it shows, else the centred picker.
+  app.actions.menu = key => {
+    const el = document.querySelector('#view [data-key="' + CSS.escape(key) + '"]');
+    const r = el && el.getBoundingClientRect();
+    run(key, r && r.width ? { x: r.left + 12, y: Math.min(r.bottom - 4, window.innerHeight - 8) } : null);
+  };
+  const fields = () => import('../views/fields.js');
+  function items(key) {
     const url = () => app.session.baseURL.replace(/\/$/, '') + '/browse/' + key;
-    // The card's current values beside each field, when the view lists it (TUI quick edit).
+    // The card's current values, when the view lists it (TUI quick edit).
     const c = (app.listed && app.listed().find(x => x.Key === key)) || {};
-    const now = v => (v == null || v === '' || (Array.isArray(v) && !v.length) ? '' : '  · ' + (Array.isArray(v) ? v.join(' ') : v));
-    const items = [
-      ['Open', () => app.panel.open(key)],
-      ['Change status' + now(c.Status), () => app.actions.transition(key)],
-      ['Assign' + now(c.Assignee), () => app.actions.edit(key, 'assignee')],
-      ['Set priority' + now(c.Priority), () => app.actions.edit(key, 'priority')],
-      ['Set story points' + now(c.Points), () => app.actions.edit(key, 'points')],
-      ['Edit summary', () => app.actions.edit(key, 'summary')],
-      ['Edit labels' + now(c.Labels), () => app.actions.edit(key, 'labels')],
-      ...(app.menuItems ? app.menuItems(key) : []),
-      ['Copy key', () => navigator.clipboard && navigator.clipboard.writeText(key).then(() => app.ui.toast('Copied ' + key))],
-      ['Copy link', () => navigator.clipboard && navigator.clipboard.writeText(url()).then(() => app.ui.toast('Copied link'))],
-      ['Open in Jira', () => window.open(url(), '_blank', 'noopener')],
+    const list = v => (Array.isArray(v) ? v.join(' ') : v || '');
+    const extras = app.menuItems ? app.menuItems(key) : [];
+    const sprintSub = async () => {
+      const [s, m] = await Promise.all([app.api.get('/projects/' + encodeURIComponent(key.split('-')[0]) + '/sprints'), app.api.get('/issues/' + key + '/editmeta', { fresh: true })]);
+      const cur = m.Sprint && m.Sprint.ID ? m.Sprint.ID : 0;
+      return [...(s.Sprints || []), { ID: 0, Name: 'Backlog' }].map(sp => ({ label: sp.Name, hint: sp.State || '', current: sp.ID === cur,
+        run: () => sp.ID !== cur && fields().then(f => f.setField(app, key, 'sprint', { Sprint: sp.ID }, sp.ID ? key + ' → ' + sp.Name : key + ' → backlog', sp.Name)) }));
+    };
+    return [
+      { label: 'Open', run: () => app.panel.open(key) },
+      '-',
+      { label: 'Status', hint: c.Status, sub: async () => (await app.api.get('/issues/' + key + '/transitions', { fresh: true })).map(t => ({
+        label: t.Name, current: c.StatusID != null && String(t.StatusID) === String(c.StatusID), run: () => fields().then(f => f.takeMove(app, key, t)) })) },
+      { label: 'Assignee', hint: c.Assignee, sub: async () => {
+        const us = await app.api.get('/users?issue=' + key + '&q=');
+        const me = (app.session.me && app.session.me.AccountID) || '';
+        const set = u => fields().then(f => f.setField(app, key, 'assignee', { ID: u ? u.AccountID : '' }, u ? key + ' → ' + u.DisplayName : key + ' unassigned', u ? { AccountID: u.AccountID, DisplayName: u.DisplayName } : null));
+        const people = us.slice().sort((a, b) => (b.AccountID === me) - (a.AccountID === me)).slice(0, 15);
+        return [{ label: 'Unassigned', current: !!c.Key && !c.AssigneeID, run: () => set(null) }, ...people.map(u => ({ label: u.DisplayName + (u.AccountID === me ? ' (me)' : ''), current: u.AccountID === c.AssigneeID, run: () => set(u) })),
+          '-', { label: 'Someone else…', run: () => app.actions.edit(key, 'assignee') }];
+      } },
+      { label: 'Priority', hint: c.Priority, sub: async () => (await app.api.get('/priorities')).map(p => ({
+        label: p.Name, current: p.Name === c.Priority, run: () => fields().then(f => f.setField(app, key, 'priority', { ID: p.ID }, key + ' priority → ' + p.Name, p.Name)) })) },
+      extras.find(x => x.id === 'sprint') || { id: 'sprint', label: 'Sprint', hint: c.Sprint || '', sub: sprintSub },
+      { label: 'Story points…', hint: c.Points, run: () => app.actions.edit(key, 'points') },
+      { label: 'Labels…', hint: list(c.Labels), run: () => app.actions.edit(key, 'labels') },
+      { label: 'Summary…', run: () => app.actions.edit(key, 'summary') },
+      ...extras.filter(x => x.id !== 'sprint'),
+      '-',
+      { label: 'Copy key', run: () => navigator.clipboard && navigator.clipboard.writeText(key).then(() => app.ui.toast('Copied ' + key)) },
+      { label: 'Copy link', run: () => navigator.clipboard && navigator.clipboard.writeText(url()).then(() => app.ui.toast('Copied link')) },
+      { label: 'Open in Jira', run: () => window.open(url(), '_blank', 'noopener') },
     ];
-    app.ui.pick({ title: key, items, label: i => i[0], placeholder: 'Action…' }).then(r => r && r[1]());
+  }
+  // at: where the menu goes; none (a long press on a phone) keeps the picker, a submenu a second one.
+  function run(key, at) {
+    opened = Date.now();
+    const its = items(key);
+    if (at) return import('./ctxmenu.js').then(m => m.ctxMenu(its, at.x, at.y));
+    const flat = its.filter(it => it !== '-');
+    app.ui.pick({ title: key, items: flat, label: i => i.label + (i.hint ? '  · ' + i.hint : '') + (i.sub ? '  ▸' : ''), placeholder: 'Action…' }).then(async r => {
+      if (!r) return;
+      if (!r.sub) return r.run && r.run();
+      const sub = (await r.sub()).filter(it => it !== '-');
+      const s = await app.ui.pick({ title: key + ' ' + r.label.toLowerCase(), items: sub, label: i => (i.current ? '✓ ' : '') + i.label + (i.hint ? '  · ' + i.hint : '') });
+      if (s && s.run) s.run();
+    }).catch(e => app.ui.errToast(e));
   }
   document.addEventListener('contextmenu', e => {
     if (e.defaultPrevented || e.target.closest('input, textarea, a[href]')) return;
     const key = keyAt(e.target); if (!key) return;
-    e.preventDefault(); open(key);
+    e.preventDefault(); open(key, { x: e.clientX, y: e.clientY });
   });
   // iOS fires no contextmenu on a long press.
   document.addEventListener('touchstart', e => {
