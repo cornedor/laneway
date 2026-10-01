@@ -17,7 +17,7 @@ const toDays = ns => ns / (DAY * 1e6);
 // The sprint's issues as the charts count them: points, or one each when none is pointed.
 // The numbers a report shows, as a markdown table for y (TUI chartTable); pipes escaped.
 export function markdownTable(head, rows) {
-  const esc = x => String(x == null ? '' : x).replace(/\|/g, '\\|');
+  const esc = x => String(x == null ? '' : x).replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ');
   const line = r => '| ' + r.map(esc).join(' | ') + ' |';
   return [line(head), line(head.map(() => '---')), ...rows.map(line)].join('\n');
 }

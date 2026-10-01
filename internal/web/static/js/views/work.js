@@ -260,17 +260,21 @@ export default function mount(el, { app, scope, toolbar, query }) {
       bus.emit('issue:changed', { key: w.Key });
     } catch (e) { ui.errToast(e); }
   }
-  function copyText() {
+  // y: the day or week as the TUI copies it, a markdown table with a Total row.
+  async function copyText() {
+    const { markdownTable } = await import('./reports.js');
     let t;
     if (tab === 'week') {
-      const s = weekStart(day);
-      t = ['Issue\tSummary\t' + Array.from({ length: 7 }, (_, i) => addDays(s, i).toLocaleDateString(undefined, { weekday: 'short' })).join('\t') + '\tTotal',
-        ...weekRows.map(r => [r.key, r.summary, ...r.days.map(ws => (ws.length ? duration(sum(ws)) : '')), duration(sum(r.days.flat()))].join('\t'))].join('\n');
+      const s = weekStart(day), cell = ws => (ws.length ? duration(sum(ws)) : '·');
+      const totals = Array.from({ length: 7 }, (_, i) => weekRows.flatMap(r => r.days[i]));
+      t = markdownTable(['Issue', 'Summary', ...Array.from({ length: 7 }, (_, i) => addDays(s, i).toLocaleDateString(undefined, { weekday: 'short' }) + ' ' + addDays(s, i).getDate()), 'Total'],
+        [...weekRows.map(r => [r.key, r.summary, ...r.days.map(cell), duration(sum(r.days.flat()))]), ['', 'Total', ...totals.map(cell), duration(sum(totals.flat()))]]);
     } else {
       const ws = dayLogs(day);
-      t = [ymd(day), ...ws.map(w => [w.Key, w.Summary, duration(w.Seconds), w.Comment].join('\t')), 'Total\t\t' + duration(sum(ws))].join('\n');
+      t = markdownTable(['Started', 'Time', 'Issue', 'Summary', 'Comment'],
+        [...ws.map(w => [hm(new Date(w.Started)), duration(w.Seconds), w.Key, w.Summary, w.Comment || '']), ['', duration(sum(ws)), 'total', '', '']]);
     }
-    navigator.clipboard.writeText(t).then(() => ui.toast('Copied'), e => ui.errToast(e));
+    navigator.clipboard.writeText(t).then(() => ui.toast('Copied as a markdown table'), e => ui.errToast(e));
   }
   const refreshSoon = debounce(() => { if (dead) return; if (tab !== 'issues') loadLogs(); loadWork(); }, 150);
 
@@ -329,7 +333,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind('h', () => step(-1), 'previous day / week', { ...G, ...T });
   scope.bind('l', () => step(1), 'next day / week', { ...G, ...T });
   scope.bind('0', goToday, 'today / this week', { ...G, ...T });
-  scope.bind('y', copyText, 'copy as text', { ...G, ...T });
+  scope.bind('y', copyText, 'copy as a markdown table', { ...G, ...T });
   scope.bind('a', () => addLog(), 'log work', { ...G, ...T });
   scope.bind(['j', 'ArrowDown'], () => { wsel = Math.min(wsel + 1, dayLogs(day).length + dayProps().length - 1); paintTime(); }, 'next', { ...G, ...D });
   scope.bind(['k', 'ArrowUp'], () => { wsel = Math.max(wsel - 1, 0); paintTime(); }, 'previous', { ...G, ...D });
