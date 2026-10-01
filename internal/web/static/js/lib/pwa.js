@@ -56,22 +56,30 @@ function cardMenu(app) {
   let opened = 0, press = 0, sx = 0, sy = 0, swallow = 0;
   const open = key => {
     if (Date.now() - opened < 800) return;
+    run(key);
+  };
+  app.actions.menu = run;
+  function run(key) {
     opened = Date.now();
     const url = () => app.session.baseURL.replace(/\/$/, '') + '/browse/' + key;
+    // The card's current values beside each field, when the view lists it (TUI quick edit).
+    const c = (app.listed && app.listed().find(x => x.Key === key)) || {};
+    const now = v => (v == null || v === '' || (Array.isArray(v) && !v.length) ? '' : '  · ' + (Array.isArray(v) ? v.join(' ') : v));
     const items = [
       ['Open', () => app.panel.open(key)],
-      ['Change status', () => app.actions.transition(key)],
-      ['Assign', () => app.actions.edit(key, 'assignee')],
-      ['Set priority', () => app.actions.edit(key, 'priority')],
-      ['Set story points', () => app.actions.edit(key, 'points')],
+      ['Change status' + now(c.Status), () => app.actions.transition(key)],
+      ['Assign' + now(c.Assignee), () => app.actions.edit(key, 'assignee')],
+      ['Set priority' + now(c.Priority), () => app.actions.edit(key, 'priority')],
+      ['Set story points' + now(c.Points), () => app.actions.edit(key, 'points')],
       ['Edit summary', () => app.actions.edit(key, 'summary')],
-      ['Edit labels', () => app.actions.edit(key, 'labels')],
+      ['Edit labels' + now(c.Labels), () => app.actions.edit(key, 'labels')],
+      ...(app.menuItems ? app.menuItems(key) : []),
       ['Copy key', () => navigator.clipboard && navigator.clipboard.writeText(key).then(() => app.ui.toast('Copied ' + key))],
       ['Copy link', () => navigator.clipboard && navigator.clipboard.writeText(url()).then(() => app.ui.toast('Copied link'))],
       ['Open in Jira', () => window.open(url(), '_blank', 'noopener')],
     ];
     app.ui.pick({ title: key, items, label: i => i[0], placeholder: 'Action…' }).then(r => r && r[1]());
-  };
+  }
   document.addEventListener('contextmenu', e => {
     if (e.defaultPrevented || e.target.closest('input, textarea, a[href]')) return;
     const key = keyAt(e.target); if (!key) return;

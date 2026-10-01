@@ -7,6 +7,7 @@ import { vlist } from '../lib/vlist.js';
 import { onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
 import { isZero, date, shortDate, ago, localDate } from '../lib/fmt.js';
+import { workdays } from '../lib/worktime.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import { openFilterBuilder } from './board_filter.js';
@@ -87,8 +88,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   // ---- skeleton
   const filterIn = h('input.input.bd-filter', { type: 'text', placeholder: 'Filter  (f)', spellcheck: false, autocomplete: 'off', title: 'words, status:review,test  points>2  prio>=high  is:flagged  age>3d  due<7d  epic:  -negate  (F builds a query)' });
   const chips = h('div.bd-chips');
-  const stats = h('span.bd-stats.dim');
-  const bar = h('div.bd-bar', chips, h('span.sp'), filterIn, stats);
+  const stats = h('span.bd-stats.dim'), sprintEl = h('span.bd-sprint.dim');
+  const bar = h('div.bd-bar', chips, h('span.sp'), sprintEl, filterIn, stats);
   const banner = h('div.bd-banner', { hidden: true });
   const main = h('div.bd-main');
   const root = h('div.bd', bar, banner, main);
@@ -188,7 +189,35 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (e.key === 'Enter' || e.key === 'Escape') { e.stopPropagation(); if (e.key === 'Escape' && filterIn.value) { filterIn.value = ''; onText(); } filterIn.blur(); }
   });
 
+  // The sprint's share done (points, else issues), days and workdays left and goal (TUI jiraSprintBar, jiraSprintLine).
+  function renderSprint() {
+    const id = resolveScope().sprint, sp = S.closed || (id && sprints().find(s => s.ID === id));
+    if (!sp) { clear(sprintEl); return; }
+    const now = Date.now(), DAY = 864e5, start = date(sp.Start), end = date(sp.End), closed = date(sp.Complete);
+    const kids = [];
+    if (!S.closed) {
+      const pointed = S.cards.some(c => c.Points);
+      let done = 0, total = 0;
+      for (const c of S.cards) { const n = pointed ? Number(c.Points) || 0 : 1; total += n; if (c.Done) done += n; }
+      if (total) kids.push(h('span.bd-prog', { title: Math.round(done / total * 100) + '% done', style: { '--pct': done / total * 100 + '%' } }), (Math.round(done * 10) / 10) + '/' + (Math.round(total * 10) / 10) + (pointed ? 'p' : ''));
+    }
+    const left = end && Math.ceil((end.getTime() - now) / DAY);
+    let when = '';
+    if (closed) when = 'closed ' + shortDate(sp.Complete);
+    else if (start && start.getTime() > now) when = 'starts ' + shortDate(sp.Start);
+    else if (left > 0) {
+      const wd = workdays(app), last = new Date(end); last.setHours(0, 0, 0, 0);
+      let n = 0;
+      for (const d = new Date(now); d.setHours(0, 0, 0, 0) < last.getTime(); d.setDate(d.getDate() + 1)) if (wd.includes(d.getDay())) n++;
+      when = left + 'd left · ' + n + (n === 1 ? ' workday' : ' workdays');
+    } else if (end) when = 'ended ' + shortDate(sp.End);
+    if (when) kids.push(h('span', when));
+    const goal = (sp.Goal || '').trim().split(/\s+/).join(' ');
+    if (goal) kids.push(h('span.bd-goal', { title: goal }, goal));
+    clear(sprintEl).append(...kids);
+  }
   function renderStats() {
+    renderSprint();
     const vis = S.visible;
     let pts = 0;
     for (const c of vis) pts += Number(c.Points) || 0;
@@ -974,6 +1003,34 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       ui.toast(key + ' ' + field + ' repeated', { kind: 'ok' });
     } catch (e) { ui.errToast(e); bus.emit('issue:changed', { key }); }
   }
+  // M (TUI move_sprint): the marked cards, else the selected one, to an open sprint or the backlog.
+  async function moveSprint() {
+    if (!writable()) return;
+    if (!isScrum()) return ui.toast("Sprints are a scrum board's");
+    const ks = bulkKeys();
+    if (!ks.length) return ui.toast('Select a card first');
+    pickSprintFor(ks);
+  }
+  async function pickSprintFor(ks) {
+    const items = [...sprints().filter(s => s.State !== 'closed'), { ID: 0, Name: 'Backlog' }];
+    const o = await ui.pick({ title: (ks.length === 1 ? ks[0] : ks.length + ' issues') + ' → sprint', items, label: s => s.Name, detail: s => s.State || '' });
+    if (o) toSprint(ks, o);
+  }
+  async function toSprint(ks, o) {
+    S.lastEdit = { what: '→ ' + o.Name, run: key => toSprint([key], o) };
+    const from = new Map(ks.map(k => { const c = S.cards.find(x => x.Key === k), sp = c && sprints().find(s => s.Name === c.Sprint); return [k, c && !c.Sprint ? 0 : sp ? sp.ID : null]; }));
+    try {
+      await api.post('/plan/move', { Keys: ks, Sprint: o.ID });
+    } catch (e) { return ui.errToast(e); }
+    for (const k of ks) bus.emit('issue:changed', { key: k, what: k + ' → ' + o.Name });
+    // Undo puts each card back where it was, when that was the backlog or a sprint the board knows.
+    const back = ks.filter(k => from.get(k) != null);
+    const step = back.length && await pushUndo((ks.length === 1 ? ks[0] : ks.length + ' issues') + ' → ' + o.Name, async () => {
+      for (const id of new Set(back.map(k => from.get(k)))) await api.post('/plan/move', { Keys: back.filter(k => from.get(k) === id), Sprint: id });
+      for (const k of back) bus.emit('issue:changed', { key: k });
+    });
+    ui.toast((ks.length === 1 ? ks[0] : ks.length + ' issues') + ' → ' + o.Name, { kind: 'ok', action: step && { label: 'Undo', run: () => import('./fields.js').then(m => m.undo(app, step)) } });
+  }
   function repeat() {
     const c = curCard();
     if (!S.lastEdit) return ui.toast('Nothing to repeat yet');
@@ -1223,6 +1280,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const edit = field => needW(c => app.actions.edit(c.Key, field, cardEl(c.Key)));
   app.marked = () => [...S.marks];
   app.listed = () => S.visible || [];
+  // The card menu's board entries (lib/pwa.js), with their current values.
+  app.menuItems = key => {
+    const c = S.cards.find(x => x.Key === key);
+    if (!c) return [];
+    const out = [[S.pins.has(key) ? 'Unpin  · pinned' : 'Pin', () => togglePin(c)]];
+    if (isScrum()) out.unshift(['Move to sprint' + (c.Sprint ? '  · ' + c.Sprint : '  · backlog'), () => { if (!writable()) return; select(key); pickSprintFor([key]); }]);
+    return out;
+  };
   const bulkKeys = () => (S.marks.size ? [...S.marks] : S.sel ? [S.sel] : []);
   // Marks survive view and filter changes; after a bulk edit only the cards it did not change stay marked (TUI).
   async function bulk() {
@@ -1271,6 +1336,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('K', () => stepRank(-1), 'rank card up', { group: E });
     k.bind('alt+j', () => stepRank(Infinity), 'rank card to the bottom', { group: E });
     k.bind('alt+k', () => stepRank(-Infinity), 'rank card to the top', { group: E });
+    k.bind('M', moveSprint, 'move to a sprint or the backlog', { group: E });
+    k.bind('E', need(c => app.actions.menu && app.actions.menu(c.Key)), 'quick edit: status, assignee, priority, points, labels, sprint, pin', { group: E });
     k.bind('.', repeat, 'repeat the last change on this card', { group: E });
     k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, 'mark card (multi-select)', { group: E });
     k.bind('ctrl+a', markAll, 'mark all in the lane / list', { group: E });

@@ -110,7 +110,7 @@ async function navigate() {
   const token = ++viewToken;
   if (current && current.cleanup) { try { current.cleanup(); } catch (e) { console.error(e); } }
   if (current && current.scope) current.scope.dispose();
-  current = null; app.marked = app.listed = null;
+  current = null; app.marked = app.listed = app.menuItems = null;
   $('#viewbar').classList.toggle('hold', !!hit && hit.bar !== false);
   clear($('#toolbar')); clear($('#context'));
   if (!hit) {
