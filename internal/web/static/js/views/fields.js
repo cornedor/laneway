@@ -213,7 +213,7 @@ async function status(app, key) {
   moveForm(app, key, meta);
 }
 
-function moveForm(app, key, t) {
+export function moveForm(app, key, t) {
   const rows = t.Fields.map(f => ({ label: f.Name, required: f.Required && f.Kind !== 'other', widget: fieldInput(app, f, { issue: key, project: projectOf(key), value: f.Value, required: f.Required }) }));
   formDialog(app, {
     title: `Move ${key} → ${t.ToName}`, intro: t.Message, rows, ok: 'Move',

@@ -754,7 +754,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   // Transitions per issue and status: drag zones and H/L share them; a change or another status asks again.
   const trsCache = new Map(); // 'KEY status' -> Promise of its transitions
-  offs.push(bus.on('issue:changed', ({ key }) => { for (const k of trsCache.keys()) if (k.startsWith(key + ' ')) trsCache.delete(k); }));
+  const metaCache = new Map(); // 'KEY status' -> Promise of its moves' screens and required fields
+  offs.push(bus.on('issue:changed', ({ key }) => { for (const m of [trsCache, metaCache]) for (const k of m.keys()) if (k.startsWith(key + ' ')) m.delete(k); }));
+  function metaOf(card) {
+    const k = card.Key + ' ' + card.StatusID;
+    if (!metaCache.has(k)) metaCache.set(k, api.get('/issues/' + card.Key + '/transitionmeta').catch(e => { metaCache.delete(k); throw e; }));
+    return metaCache.get(k);
+  }
   function transitionsOf(card) {
     const k = card.Key + ' ' + card.StatusID;
     if (!trsCache.has(k)) trsCache.set(k, api.get('/issues/' + card.Key + '/transitions').catch(e => { trsCache.delete(k); throw e; }));
@@ -863,6 +869,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (!col || !writable()) return;
     S.lastEdit = { what: '→ ' + col.Name, run: key => { const c = S.cards.find(x => x.Key === key); return c && moveCol(c, to, null); } };
     let trs;
+    const metaP = metaOf(card); metaP.catch(() => {});
     try { trs = await transitionsOf(card); } catch (e) { return ui.errToast(e); }
     const names = (col.StatusIDs || []).map(id => (S.bundle.statusNames || {})[id]);
     let opts = trs.filter(t => (col.StatusIDs || []).includes(String(t.StatusID)) || names.includes(t.Name));
@@ -880,10 +887,18 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (at) reorder(next, at);
     layout();
     if (S.sel === card.Key) select(card.Key);
+    // A move the workflow wants fields for opens its form, as the TUI's (fields.js moveForm); the card goes back meanwhile.
+    let meta = null;
+    try { meta = ((await metaP).Transitions || []).find(x => x.ID === t.ID); } catch (e) { /* unknown: try the move, Jira says no if it must */ }
+    if (meta && meta.NeedsInput) {
+      revertCard(card.Key, before);
+      return import('./fields.js').then(m => m.moveForm(app, card.Key, meta));
+    }
     try {
       await api.post('/issues/' + card.Key + '/transition', { ID: t.ID });
       if (at) await api.post('/issues/' + card.Key + '/rank', { Other: at.other, After: at.after }).catch(e => ui.errToast(e));
-      bus.emit('issue:changed', { key: card.Key });
+      pushUndo(card.Key + ' → ' + t.Name, async () => { await api.put('/issues/' + card.Key + '/field/status', { To: card.Status }); bus.emit('issue:changed', { key: card.Key }); });
+      bus.emit('issue:changed', { key: card.Key, what: card.Key + ' → ' + t.Name });
     } catch (e) {
       revertCard(card.Key, before); ui.toast('Could not move ' + card.Key + ': ' + e.message, { kind: 'err' });
     }
