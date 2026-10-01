@@ -1,0 +1,23 @@
+name: Desktop spike
+
+# Temporary (LAN-583): builds Laneway.app from the spike/desktop branch.
+on:
+  push:
+    branches: [spike/desktop]
+
+permissions:
+  contents: read
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: desktop/build-mac.sh 0.0.0-spike
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Laneway-mac
+          path: desktop/dist/Laneway-mac.zip
