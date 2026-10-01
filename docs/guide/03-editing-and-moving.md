@@ -102,8 +102,8 @@ show styled as you type.
 ## Talk
 
 - `c` writes a comment after the thread. `ctrl+s` posts it; `enter` starts a new line.
-  In a Service Desk project, `ctrl+o` makes it an internal note, or for one
-  project role.
+  `ctrl+o` limits it to one project role or group you're in, or makes it an
+  internal note in a Service Desk project.
 - `R` replies to a comment, composed right under it.
 - `@` and a few letters list people; `tab` inserts a mention that notifies
   them.

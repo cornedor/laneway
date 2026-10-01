@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"regexp"
@@ -192,9 +193,14 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 			}
 		}
 		return out, true
-	case "/rest/api/3/project/" + project + "/role":
-		base := "/rest/api/3/project/" + project + "/role/"
-		return map[string]any{"Administrators": base + "10002", "Developers": base + "10001"}, true
+	case "/rest/api/3/project/" + project + "/roledetails":
+		return []any{map[string]any{"id": 10001, "name": "Developers"}, map[string]any{"id": 10002, "name": "Administrators"}}, true
+	case "/rest/api/3/user/groups":
+		out := []any{}
+		for _, id := range slices.Sorted(maps.Keys(demoGroups)) {
+			out = append(out, map[string]any{"name": demoGroups[id], "groupId": id})
+		}
+		return out, true
 	case "/rest/api/3/project/" + project + "/version":
 		return map[string]any{"values": s.versionsJSON(), "isLast": true}, true
 	case "/rest/api/3/project/" + project + "/statuses":
@@ -336,6 +342,13 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 		s.seq++
 		c := comment{id: strconv.Itoa(s.seq), author: me, body: adfText(body["body"]), created: time.Now()}
 		c.parent, _ = body["parentId"].(string)
+		if v, ok := body["visibility"].(map[string]any); ok {
+			// As Jira: a group posted by its ID comes back with its name too.
+			if id, _ := v["identifier"].(string); v["type"] == "group" && v["value"] == nil {
+				v["value"] = demoGroups[id]
+			}
+			c.vis = v
+		}
 		if c.parent != "" {
 			// As Jira: threads are one level deep, a reply's parent is a top-level comment.
 			i := slices.IndexFunc(iss.comments, func(o comment) bool { return o.id == c.parent })

@@ -227,6 +227,8 @@ type Comment struct {
 	AuthorID string
 	Body     string
 	Created  time.Time
+	// Visibility is who may read it; zero for everyone.
+	Visibility Visibility
 }
 
 // Mention names a user to ping in a comment. AddComment turns it into a real
@@ -303,6 +305,29 @@ type apiComment struct {
 	Author   *user           `json:"author"`
 	Body     json.RawMessage `json:"body"`
 	Created  string          `json:"created"`
+	// Visibility limits it to a role or group; JSDPublic false (Service
+	// Desk only) is an internal note.
+	Visibility *struct {
+		Type       string `json:"type"`
+		Value      string `json:"value"`
+		Identifier string `json:"identifier"`
+	} `json:"visibility"`
+	JSDPublic *bool `json:"jsdPublic"`
+}
+
+// visibility is who may read ac.
+func (ac apiComment) visibility() Visibility {
+	switch {
+	case ac.JSDPublic != nil && !*ac.JSDPublic:
+		return Visibility{Internal: true}
+	case ac.Visibility == nil:
+		return Visibility{}
+	case ac.Visibility.Type == "role":
+		return Visibility{Role: safeterm.Line(ac.Visibility.Value)}
+	case ac.Visibility.Type == "group":
+		return Visibility{Group: safeterm.Line(ac.Visibility.Value), GroupID: ac.Visibility.Identifier}
+	}
+	return Visibility{}
 }
 
 // looseID reads an id sent as a string or a number; "" for anything else.
@@ -704,7 +729,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	if a.Fields.Comment != nil {
 		iss.CommentTotal = a.Fields.Comment.Total
 		for _, ac := range a.Fields.Comment.Comments {
-			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfToMarkdown(ac.Body), iss.Attachments))}
+			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfToMarkdown(ac.Body), iss.Attachments)), Visibility: ac.visibility()}
 			if ac.Author != nil {
 				cm.Author = safeterm.Line(ac.Author.DisplayName)
 				cm.AuthorID = ac.Author.AccountID
@@ -1156,10 +1181,12 @@ func (c *Client) AddCommentADFFor(ctx context.Context, key string, body json.Raw
 }
 
 // Visibility is who may read a comment: everyone (zero), a Service Desk
-// internal note, or the members of a project role.
+// internal note, the members of a project role or of a group.
 type Visibility struct {
 	Internal bool
 	Role     string
+	Group    string
+	GroupID  string
 }
 
 // commentRequest is a comment's POST body. A reply names its parent
@@ -1176,13 +1203,20 @@ func commentRequest(doc any, vis Visibility, parentID string) map[string]any {
 }
 
 // addTo puts v in a comment's request body: Service Desk's internal
-// property, or a role's visibility.
+// property, or a role's or group's visibility.
 func (v Visibility) addTo(body map[string]any) {
 	switch {
 	case v.Internal:
 		body["properties"] = []any{map[string]any{"key": "sd.public.comment", "value": map[string]any{"internal": true}}}
 	case v.Role != "":
 		body["visibility"] = map[string]string{"type": "role", "value": v.Role}
+	case v.Group != "":
+		// Jira takes the group's ID or its name, never both.
+		if v.GroupID != "" {
+			body["visibility"] = map[string]string{"type": "group", "identifier": v.GroupID}
+		} else {
+			body["visibility"] = map[string]string{"type": "group", "value": v.Group}
+		}
 	}
 }
 
@@ -1193,12 +1227,15 @@ func (v Visibility) Label() string {
 		return "internal note"
 	case v.Role != "":
 		return "only " + v.Role
+	case v.Group != "":
+		return "only " + v.Group
 	}
 	return "everyone"
 }
 
-// CommentVisibilities are who a comment in project can be limited to:
-// an internal note in a Service Desk project, then each project role.
+// CommentVisibilities are who a comment in project can be limited to, as
+// Jira's own menu offers them: an internal note in a Service Desk project,
+// then each project role and each group the user is in.
 func (c *Client) CommentVisibilities(ctx context.Context, project string) ([]Visibility, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
@@ -1209,18 +1246,37 @@ func (c *Client) CommentVisibilities(ctx context.Context, project string) ([]Vis
 	if err := c.do(ctx, http.MethodGet, "/rest/api/3/project/"+url.PathEscape(project), project, nil, &p); err != nil {
 		return nil, err
 	}
-	var roles map[string]string
-	if err := c.do(ctx, http.MethodGet, "/rest/api/3/project/"+url.PathEscape(project)+"/role", project+" roles", nil, &roles); err != nil {
+	var roles []struct {
+		Name string `json:"name"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/project/"+url.PathEscape(project)+"/roledetails?currentMember=true", project+" roles", nil, &roles); err != nil {
+		return nil, err
+	}
+	me, err := c.Myself(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var groups []struct {
+		Name    string `json:"name"`
+		GroupID string `json:"groupId"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/user/groups?accountId="+url.QueryEscape(me.AccountID), "your groups", nil, &groups); err != nil {
 		return nil, err
 	}
 	var out []Visibility
 	if p.Type == "service_desk" {
 		out = append(out, Visibility{Internal: true})
 	}
-	for _, name := range slices.Sorted(maps.Keys(roles)) {
-		out = append(out, Visibility{Role: name})
+	var rs, gs []Visibility
+	for _, r := range roles {
+		rs = append(rs, Visibility{Role: r.Name})
 	}
-	return out, nil
+	for _, g := range groups {
+		gs = append(gs, Visibility{Group: g.Name, GroupID: g.GroupID})
+	}
+	slices.SortFunc(rs, func(a, b Visibility) int { return strings.Compare(a.Role, b.Role) })
+	slices.SortFunc(gs, func(a, b Visibility) int { return strings.Compare(a.Group, b.Group) })
+	return append(append(out, rs...), gs...), nil
 }
 
 // AddCommentMentions is AddComment where each "@Name" of inline in text

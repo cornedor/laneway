@@ -530,16 +530,20 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
 	}
 }
 
-// commentByline is a comment's first line: its author and time.
+// commentByline is a comment's first line: its author, time and, when
+// not everyone may read it, a lock with who may.
 func (m *Model) commentByline(c jira.Comment) string {
-	author := c.Author
-	if author == "" {
-		author = "Unknown"
+	line := c.Author
+	if line == "" {
+		line = "Unknown"
 	}
-	if c.Created.IsZero() {
-		return author
+	if !c.Created.IsZero() {
+		line += " · " + m.when(c.Created)
 	}
-	return author + " · " + m.when(c.Created)
+	if c.Visibility != (jira.Visibility{}) {
+		line += " · 🔒 " + c.Visibility.Label()
+	}
+	return line
 }
 
 // renderComment writes one comment: author and time, its body, and the

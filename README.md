@@ -458,8 +458,8 @@ In the `c` composer (`ctrl+s` posts, `enter` is a newline; `esc` asks once befor
 `esc` closes the list. `:` and two letters list emoji the same way, here and in the
 description editor: the best match first (`:smle` finds `:smile:`), the ones you use
 most above the rest; a `:shortcode:` posts as Jira's emoji. `ctrl+o` steps who
-the comment is for: everyone, an internal note (Service Desk projects) or one
-project role.
+the comment is for: everyone, an internal note (Service Desk projects), or one
+project role or group you're in, as Jira's own menu offers them.
 
 What you write in the composer or the editor is kept as a draft in the state
 file (a moment after each change, and on quit), so a crash doesn't lose it:

@@ -230,7 +230,8 @@ type commentVisMsg struct {
 }
 
 // cycleCommentVis steps who the comment is for: everyone, an internal
-// note (Service Desk), each project role. The first press asks Jira.
+// note (Service Desk), each role and group the user is in. The first
+// press asks Jira.
 func (m *Model) cycleCommentVis() tea.Cmd {
 	if m.replyParent() != "" {
 		m.status = "a reply is for whoever its comment is for"
@@ -263,7 +264,7 @@ func (m Model) handleCommentVis(msg commentVisMsg) (tea.Model, tea.Cmd) {
 	}
 	m.commentVis[msg.project] = msg.vis
 	if len(msg.vis) == 0 {
-		m.status = "comments in " + msg.project + " are for everyone: no roles to limit them to"
+		m.status = "comments in " + msg.project + " are for everyone: you're in no role or group to limit them to"
 		return m, nil
 	}
 	if m.jiraCommentActive && issueProject(m.jiraCommentKey) == msg.project {

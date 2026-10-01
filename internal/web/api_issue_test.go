@@ -120,11 +120,19 @@ func TestIssuePanelRoutes(t *testing.T) {
 		t.Errorf("reply under a reply: %d, want a refusal", code)
 	}
 	var vis []jira.Visibility
-	if code := issueCall(t, "GET", ts.URL+"/api/projects/DEMO/commentvis", nil, &vis); code != 200 || len(vis) != 2 || vis[0].Role != "Administrators" {
+	if code := issueCall(t, "GET", ts.URL+"/api/projects/DEMO/commentvis", nil, &vis); code != 200 || len(vis) != 4 || vis[0].Role != "Administrators" || vis[2].Group != "developers" {
 		t.Errorf("commentvis: %d %+v", code, vis)
 	}
 	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "devs only", "Visibility": jira.Visibility{Role: "Developers"}}, nil); code != 200 {
 		t.Errorf("role comment: %d", code)
+	}
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "group only", "Visibility": vis[2]}, nil); code != 200 {
+		t.Errorf("group comment: %d", code)
+	}
+	var back jira.Issue
+	if code := issueCall(t, "GET", iu+"?fresh=1", nil, &back); code != 200 || back.Comments[len(back.Comments)-1].Visibility != vis[2] ||
+		back.Comments[len(back.Comments)-2].Visibility != (jira.Visibility{Role: "Developers"}) {
+		t.Errorf("visibility read back: %d %+v", code, back.Comments)
 	}
 	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Raw": json.RawMessage(`{"type":"paragraph"}`)}, nil); code != 400 {
 		t.Errorf("not a doc: %d", code)

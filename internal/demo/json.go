@@ -133,6 +133,9 @@ func commentJSON(c comment) map[string]any {
 		n, _ := strconv.Atoi(c.parent) // Jira sends it as a number
 		m["parentId"] = n
 	}
+	if c.vis != nil {
+		m["visibility"] = c.vis
+	}
 	return m
 }
 

@@ -73,12 +73,16 @@ type version struct {
 	date     string // its release date, "" for none
 }
 
+// demoGroups are the demo user's groups, by ID.
+var demoGroups = map[string]string{"g1": "developers", "g2": "jira-software-users"}
+
 type comment struct {
 	id      string
 	parent  string // the comment it replies to
 	author  user
 	body    string
 	created time.Time
+	vis     map[string]any // the visibility it was posted with, nil for everyone
 }
 
 type worklog struct {

@@ -107,6 +107,7 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .cm:hover { background: var(--bg-3); } .cm.focus { border-color: var(--accent); background: var(--accent-bg); }
 .cm.pending { opacity: .6; }
 .cm > header { display: flex; align-items: center; gap: .571rem; margin-bottom: .286rem; } .cm > header time { color: var(--fg-3); font-size: .85em; }
+.cm-lock { flex: none; max-width: 45%; color: var(--warn); font-size: .85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cm .acts { display: flex; gap: .143rem; opacity: 0; } .cm:hover .acts, .cm.focus .acts { opacity: 1; }
 .composer { position: sticky; bottom: -2.857rem; margin: var(--pad) -.571rem 0; padding: var(--pad) .571rem 2.857rem; background: var(--bg-2); border-top: 1px solid var(--border); }
 .vis-row { display: flex; justify-content: flex-end; } .vis-chip { font-size: .85em; color: var(--fg-3); } .vis-chip.on { color: var(--warn); }

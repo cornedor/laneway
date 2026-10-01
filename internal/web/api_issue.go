@@ -110,7 +110,7 @@ func init() {
 			Mentions []jira.Mention
 			// Raw posts a document as it is: a deleted comment's, to undo the delete.
 			Raw json.RawMessage
-			// Visibility limits who reads it: an internal note or a role.
+			// Visibility limits who reads it: an internal note, a role or a group.
 			Visibility jira.Visibility
 			// Parent is the comment it replies to (which sets who reads it).
 			Parent string
@@ -188,7 +188,7 @@ func init() {
 	})
 
 	// Who a comment in the project can be limited to (TUI ctrl+o): an internal
-	// note in a Service Desk project, then each project role.
+	// note in a Service Desk project, then each role and group the user is in.
 	get("/projects/{project}/commentvis", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		vis, err := s.Client().CommentVisibilities(ctx, r.PathValue("project"))
 		return nonNil(vis), err

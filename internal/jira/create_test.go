@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -146,15 +147,25 @@ func TestCreateIssueMentions(t *testing.T) {
 	}
 }
 
-// TestCommentVisibility: an internal note and a role reach the comment.
+// TestCommentVisibility: an internal note, a role and a group reach the comment.
 func TestCommentVisibility(t *testing.T) {
 	var bodies []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/rest/api/3/project/SD":
 			io.WriteString(w, `{"projectTypeKey":"service_desk"}`)
-		case "/rest/api/3/project/SD/role":
-			io.WriteString(w, `{"Developers":"u1","Administrators":"u2"}`)
+		case "/rest/api/3/project/SD/roledetails":
+			if r.URL.Query().Get("currentMember") != "true" {
+				t.Errorf("roles of everyone asked: %s", r.URL)
+			}
+			io.WriteString(w, `[{"name":"Developers"},{"name":"Administrators"}]`)
+		case "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me"}`)
+		case "/rest/api/3/user/groups":
+			if r.URL.Query().Get("accountId") != "me" {
+				t.Errorf("groups of %s", r.URL)
+			}
+			io.WriteString(w, `[{"name":"jira-software-users","groupId":"g2"},{"name":"jira-developers","groupId":"g1"}]`)
 		default:
 			b, _ := io.ReadAll(r.Body)
 			bodies = append(bodies, string(b))
@@ -163,18 +174,22 @@ func TestCommentVisibility(t *testing.T) {
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	vis, err := c.CommentVisibilities(context.Background(), "SD")
-	if err != nil || len(vis) != 3 || !vis[0].Internal || vis[1].Role != "Administrators" {
+	want := []Visibility{{Internal: true}, {Role: "Administrators"}, {Role: "Developers"},
+		{Group: "jira-developers", GroupID: "g1"}, {Group: "jira-software-users", GroupID: "g2"}}
+	if err != nil || !slices.Equal(vis, want) {
 		t.Fatalf("visibilities %v %v", vis, err)
 	}
 	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[0], "")
 	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[2], "")
+	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[3], "")
 	// A reply names its parent and leaves the readers to it: Jira 400s a visibility on one.
 	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[2], "10363")
 	if !strings.Contains(bodies[0], `"sd.public.comment"`) || !strings.Contains(bodies[0], `"internal":true`) ||
-		!strings.Contains(bodies[1], `"visibility":{"type":"role","value":"Developers"}`) || strings.Contains(bodies[1], "parentId") {
+		!strings.Contains(bodies[1], `"visibility":{"type":"role","value":"Developers"}`) || strings.Contains(bodies[1], "parentId") ||
+		!strings.Contains(bodies[2], `"visibility":{"identifier":"g1","type":"group"}`) {
 		t.Errorf("bodies %q", bodies)
 	}
-	if !strings.Contains(bodies[2], `"parentId":"10363"`) || strings.Contains(bodies[2], "visibility") {
-		t.Errorf("reply body %q", bodies[2])
+	if !strings.Contains(bodies[3], `"parentId":"10363"`) || strings.Contains(bodies[3], "visibility") {
+		t.Errorf("reply body %q", bodies[3])
 	}
 }

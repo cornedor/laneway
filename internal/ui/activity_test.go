@@ -331,3 +331,14 @@ func TestHistoryDescriptionDiff(t *testing.T) {
 		t.Error("an unchanged line shows")
 	}
 }
+
+// TestCommentBylineLock: a comment not for everyone says who it is for.
+func TestCommentBylineLock(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	if got := m.commentByline(jira.Comment{Author: "Ann"}); got != "Ann" {
+		t.Errorf("everyone: %q", got)
+	}
+	if got := m.commentByline(jira.Comment{Author: "Ann", Visibility: jira.Visibility{Group: "devs"}}); got != "Ann · 🔒 only devs" {
+		t.Errorf("group: %q", got)
+	}
+}

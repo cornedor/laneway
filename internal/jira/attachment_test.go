@@ -130,3 +130,28 @@ func TestCommentParentID(t *testing.T) {
 		t.Errorf("flat = %q", got)
 	}
 }
+
+// TestCommentVisibilityRead: a comment's visibility comes through: a role,
+// a group, a Service Desk internal note; jsdPublic true is for everyone.
+func TestCommentVisibilityRead(t *testing.T) {
+	issue := `{"key":"ABC-1","fields":{"summary":"s","comment":{"total":4,"comments":[
+		{"id":"1","body":null,"jsdPublic":true},
+		{"id":"2","body":null,"visibility":{"type":"role","value":"Developers","identifier":"Developers"}},
+		{"id":"3","body":null,"visibility":{"type":"group","value":"devs","identifier":"g1"}},
+		{"id":"4","body":null,"jsdPublic":false}]}}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(issue))
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t", FlatReplies: true})
+	iss, err := c.Get(context.Background(), "ABC-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Visibility{{}, {Role: "Developers"}, {Group: "devs", GroupID: "g1"}, {Internal: true}}
+	for i, cm := range iss.Comments {
+		if cm.Visibility != want[i] {
+			t.Errorf("comment %s: %+v, want %+v", cm.ID, cm.Visibility, want[i])
+		}
+	}
+}

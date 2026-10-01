@@ -474,6 +474,8 @@ export function mountIssue(el, key, { app, full, card }) {
   }
 
   // ---- comments
+  // Who a comment is for, as the composer and a comment's lock name it.
+  const visLabel = v => (v.Internal ? 'internal note' : v.Role ? 'only ' + v.Role : v.Group ? 'only ' + v.Group : 'everyone');
   const order = () => {
     const cs = st.issue ? st.issue.Comments : [];
     const byId = new Map(cs.map(c => [c.ID, c]));
@@ -491,7 +493,8 @@ export function mountIssue(el, key, { app, full, card }) {
   const cmEls = new Map();
   function commentEl(c, reply) {
     const mine = !c.pending && c.AuthorID && c.AuthorID === me().AccountID;
-    const sig = [c.Body, c.Author, reply, mine, c.pending].join('\u0001');
+    const lock = c.Visibility && visLabel(c.Visibility) !== 'everyone' ? visLabel(c.Visibility) : '';
+    const sig = [c.Body, c.Author, reply, mine, c.pending, lock].join('\u0001');
     const hit = cmEls.get(c.ID);
     if (hit && hit.sig === sig) return hit.el;
     const body = h('div.md.cbody');
@@ -499,6 +502,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const act = (a, label, title) => h('button.btn.ghost.sm', { dataset: { act: a }, title }, label);
     const node = h('article.cm' + (reply ? '.reply' : '') + (mine ? '.mine' : '') + (c.pending ? '.pending' : ''), { dataset: { id: c.ID }, tabindex: -1 },
       h('header', ui.avatar(c.Author, null, 22), h('b', c.Author), h('time', { title: dateTime(c.Created) }, c.pending ? 'sending…' : ago(c.Created)),
+        lock && h('span.cm-lock', { title: 'Visible to ' + lock.replace(/^only /, '') }, '🔒 ' + lock.replace(/^only /, '')),
         h('span.spacer'), !c.pending && h('span.acts', act('reply', 'Reply', 'Reply (R)'), mine && act('edit', 'Edit', 'Edit (e)'), mine && act('del', 'Delete', 'Delete (d)'))),
       body);
     cmEls.set(c.ID, { el: node, sig });
@@ -583,9 +587,9 @@ export function mountIssue(el, key, { app, full, card }) {
       st.pending.push(tmp); renderComments(); box.list.lastElementChild?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
       try {
-        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: parent ? { Internal: false, Role: '' } : st.vis, Parent: parent });
+        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: parent ? everyone() : st.vis, Parent: parent });
         st.pending = st.pending.filter(p => p !== tmp);
-        st.vis = { Internal: false, Role: '' }; paintVis(); // the next one is for everyone again
+        st.vis = everyone(); paintVis(); // the next one is for everyone again
         await reload(true); changed(key + ' comment added');
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
@@ -604,23 +608,23 @@ export function mountIssue(el, key, { app, full, card }) {
   };
   // ui.threaded_replies (on by default): a reply goes under its comment in Jira's thread.
   const threaded = () => String((app.session.ui || {}).ThreadedReplies || 'on').trim().toLowerCase() !== 'off';
-  // Who the comment is for: everyone, an internal note (Service Desk) or a project role; ctrl+o steps (TUI cycleCommentVis).
-  st.vis = { Internal: false, Role: '' };
-  const visLabel = v => (v.Internal ? 'internal note' : v.Role ? 'only ' + v.Role : 'everyone');
+  // Who the comment is for: everyone, an internal note (Service Desk), a role or group the user is in; ctrl+o steps (TUI cycleCommentVis).
+  const everyone = () => ({ Internal: false, Role: '', Group: '', GroupID: '' });
+  st.vis = everyone();
   const visBtn = h('button.btn.ghost.sm.vis-chip', { title: 'Who sees it  (ctrl+o)', onclick: () => cycleVis() });
-  const paintVis = () => { visBtn.textContent = '👁 ' + visLabel(st.vis); visBtn.classList.toggle('on', st.vis.Internal || !!st.vis.Role); };
+  const paintVis = () => { visBtn.textContent = '👁 ' + visLabel(st.vis); visBtn.classList.toggle('on', visLabel(st.vis) !== 'everyone'); };
   paintVis();
   let visOpts = null;
   async function cycleVis() {
     if (st.reply && threaded()) return ui.toast('A reply is for whoever its comment is for');
     if (!visOpts) {
       try { visOpts = await api.get('/projects/' + encodeURIComponent(key.slice(0, key.lastIndexOf('-'))) + '/commentvis'); } catch (e) { return fail(e); }
-      if (!visOpts.length) return ui.toast('Comments here are for everyone: no roles to limit them to');
+      if (!visOpts.length) return ui.toast("Comments here are for everyone: you're in no role or group to limit them to");
     }
-    const all = [{ Internal: false, Role: '' }, ...visOpts];
-    const i = all.findIndex(v => !!v.Internal === st.vis.Internal && (v.Role || '') === st.vis.Role);
-    const n = all[(i + 1) % all.length];
-    st.vis = { Internal: !!n.Internal, Role: n.Role || '' };
+    const all = [everyone(), ...visOpts];
+    const visKey = v => [!!v.Internal, v.Role || '', v.Group || ''].join('\n');
+    const i = all.findIndex(v => visKey(v) === visKey(st.vis));
+    st.vis = { ...everyone(), ...all[(i + 1) % all.length] };
     paintVis();
   }
   box.composer.append(replyChip, h('div.vis-row', visBtn), comp.el);
@@ -789,7 +793,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,select')) return document.activeElement.blur();
     goBack();
   }, full ? 'back' : 'close panel', { group: G, input: true });
-  scope.bind('ctrl+o', e => { if (e.target === comp.ta) cycleVis(); }, 'who sees the comment: everyone, an internal note, a role', { group: G, input: true });
+  scope.bind('ctrl+o', e => { if (e.target === comp.ta) cycleVis(); }, 'who sees the comment: everyone, an internal note, a role or group', { group: G, input: true });
   scope.bind('ctrl+Enter', e => { const ed = e.target.closest && e.target.closest('.ed'); if (ed && ed._save) ed._save(); }, 'save / send', { group: G, input: true });
   scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : st.tab === 'terminal' ? term.scroll(3) : scroll.scrollBy({ top: 80 })), 'next comment / scroll down', { group: G });
   scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), 'previous comment / scroll up', { group: G });
