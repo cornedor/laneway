@@ -221,6 +221,9 @@ func (m *Model) undoSprintMove(keys []string) {
 // its body again, as you, under the comment it replied to.
 func (m *Model) undoDeleteComment(key string, cm jira.Comment) {
 	c, raw := m.jiraClient, json.RawMessage(cm.Raw)
+	if !m.opts.threaded {
+		cm.ParentID = ""
+	}
 	m.recordUndo("the deleted comment on "+key, func(ctx context.Context) error {
 		return c.AddCommentADFFor(ctx, key, raw, jira.Visibility{}, cm.ParentID)
 	})

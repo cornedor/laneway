@@ -168,3 +168,21 @@ func TestAttachmentProxy(t *testing.T) {
 		t.Errorf("bad id: %d, want 400", code)
 	}
 }
+
+// TestFlatReplies: with ui.threaded_replies off a reply is a new comment.
+func TestFlatReplies(t *testing.T) {
+	ts, _ := toolsServer(t, func(o *Options) { o.UI.ThreadedReplies = "off" })
+	iu := ts.URL + "/api/issues/DEMO-4"
+	var is jira.Issue
+	issueCall(t, "GET", iu, nil, &is)
+	if len(is.Comments) == 0 {
+		t.Fatal("no demo comments")
+	}
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "agreed", "Parent": is.Comments[0].ID}, nil); code != 200 {
+		t.Fatalf("reply: %d", code)
+	}
+	issueCall(t, "GET", iu+"?fresh=1", nil, &is)
+	if last := is.Comments[len(is.Comments)-1]; last.Body != "agreed" || last.ParentID != "" {
+		t.Errorf("flat reply = %+v", last)
+	}
+}

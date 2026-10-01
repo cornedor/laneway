@@ -169,7 +169,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	key := m.jiraCommentKey
 	text := strings.TrimSpace(m.jiraCommentInput.Value())
-	mention, inline, vis, parent := m.jiraCommentMention, m.jiraCommentMentions, m.jiraCommentVis, m.jiraCommentReplyID
+	mention, inline, vis, parent := m.jiraCommentMention, m.jiraCommentMentions, m.jiraCommentVis, m.replyParent()
 	m.saveOpenDrafts() // until Jira has it
 	m.closeJiraComment()
 	if text == "" && mention == nil {
@@ -185,6 +185,15 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 		err := client.AddCommentMentions(ctx, key, text, mention, inline, vis, parent)
 		return jiraMutatedMsg{key: key, field: "comment", err: err, text: text}
 	}
+}
+
+// replyParent is the comment a reply goes under in Jira's thread; "" for a
+// comment, or with ui.threaded_replies off (a new comment, quoting it).
+func (m *Model) replyParent() string {
+	if !m.opts.threaded {
+		return ""
+	}
+	return m.jiraCommentReplyID
 }
 
 // renderJiraCommentInput draws the modal composer, with a "replying to" line in
@@ -219,7 +228,7 @@ type commentVisMsg struct {
 // cycleCommentVis steps who the comment is for: everyone, an internal
 // note (Service Desk), each project role. The first press asks Jira.
 func (m *Model) cycleCommentVis() tea.Cmd {
-	if m.jiraCommentReplyID != "" {
+	if m.replyParent() != "" {
 		m.status = "a reply is for whoever its comment is for"
 		return nil
 	}

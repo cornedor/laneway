@@ -103,8 +103,9 @@ func TestCommentParentID(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
+	flat := false
 	parents := func() string {
-		c := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"})
+		c := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t", FlatReplies: flat})
 		iss, err := c.Get(context.Background(), "ABC-1")
 		if err != nil {
 			t.Fatal(err)
@@ -122,5 +123,10 @@ func TestCommentParentID(t *testing.T) {
 	fail = true
 	if got := parents(); got != "1:,2:,3:,4:" {
 		t.Errorf("without the endpoint = %q", got)
+	}
+	// ui.threaded_replies off: the issue's own list, no extra request.
+	fail, flat = false, true
+	if got := parents(); got != "1:,2:,3:,4:" {
+		t.Errorf("flat = %q", got)
 	}
 }

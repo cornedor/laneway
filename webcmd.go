@@ -354,5 +354,6 @@ func webClient(jc config.JiraConfig, uiCfg config.UIConfig) *jira.Client {
 		BaseURL: jc.BaseURL, Email: jc.Email, APIToken: jc.APIToken, Projects: jc.Projects,
 		StoryPointsField: jc.StoryPointsField, CardLimit: uiCfg.CardLimit, Timeout: timeout,
 		CustomFields: uiCfg.CustomFields, FlagValue: uiCfg.FlagValue,
+		FlatReplies: strings.EqualFold(strings.TrimSpace(uiCfg.ThreadedReplies), "off"),
 	})
 }

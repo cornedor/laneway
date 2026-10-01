@@ -328,4 +328,18 @@ func TestReplyPostsParent(t *testing.T) {
 	if !strings.Contains(posted, `"parentId":"10363"`) || strings.Contains(posted, "visibility") {
 		t.Errorf("posted = %s", posted)
 	}
+
+	// ui.threaded_replies: off: a new comment (quoting it), ctrl+o free.
+	m.opts.threaded = false
+	m.openJiraReply(m.jiraIssue.Comments[0])
+	if m.cycleCommentVis(); strings.Contains(m.status, "its comment") {
+		t.Errorf("ctrl+o refused with threads off: %q", m.status)
+	}
+	m.jiraCommentVis = jira.Visibility{}
+	m.jiraCommentInput.SetValue(m.jiraCommentInput.Value() + "yes")
+	_, cmd = m.applyJiraComment()
+	cmd()
+	if strings.Contains(posted, "parentId") {
+		t.Errorf("flat reply posted = %s", posted)
+	}
 }

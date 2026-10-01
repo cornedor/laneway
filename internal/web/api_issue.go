@@ -85,6 +85,9 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
+		if strings.EqualFold(strings.TrimSpace(s.UIConfig().ThreadedReplies), "off") {
+			b.Parent = "" // ui.threaded_replies: a new comment
+		}
 		if len(b.Raw) > 0 {
 			var doc struct{ Type string }
 			if json.Unmarshal(b.Raw, &doc) != nil || doc.Type != "doc" {

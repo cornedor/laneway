@@ -18,6 +18,7 @@ type options struct {
 	staleAfter      time.Duration
 	images          bool
 	delight         bool     // small celebrations (ui.delight)
+	threaded        bool     // replies in Jira's thread (ui.threaded_replies)
 	skinTone        string   // "_medium_skin_tone" and the like (ui.skin_tone), "" for none
 	updateCheck     bool     // a daily look for a newer release (ui.update_check)
 	llm             []string // the ask command (ui.llm), nil for the default
@@ -76,7 +77,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -324,6 +325,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.delight = false
 	default:
 		warn = append(warn, fmt.Sprintf("ui.delight: %q is not on or off", c.Delight))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.ThreadedReplies)) {
+	case "", "on":
+	case "off":
+		o.threaded = false
+	default:
+		warn = append(warn, fmt.Sprintf("ui.threaded_replies: %q is not on or off", c.ThreadedReplies))
 	}
 	switch t := strings.ToLower(strings.TrimSpace(c.SkinTone)); t {
 	case "", "none":

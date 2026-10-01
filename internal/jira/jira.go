@@ -62,6 +62,7 @@ type Config struct {
 	InboxIssues      int           // recently updated issues the inbox and standup read; 0: 30
 	Timeout          time.Duration // one request's limit; 0: DefaultTimeout
 	CustomFields     []string      // fields by name cards carry in Card.Extra
+	FlatReplies      bool          // read comments without who they reply to (ui.threaded_replies: off)
 }
 
 // Client fetches and caches issues for one instance. The zero value is not
@@ -75,6 +76,7 @@ type Client struct {
 	inboxCap   int           // issues the inbox and standup read
 	timeout    time.Duration // one request's limit
 	custom     []string      // Config.CustomFields
+	flat       bool          // Config.FlatReplies
 	http       *http.Client
 	// transfer is http without the whole-request limit, for attachment
 	// bodies that may take longer than timeout; stallGuard bounds them.
@@ -125,6 +127,7 @@ func New(cfg Config) *Client {
 		inboxCap:   cmp.Or(max(cfg.InboxIssues, 0), inboxIssues),
 		timeout:    cmp.Or(max(cfg.Timeout, 0), DefaultTimeout),
 		custom:     cfg.CustomFields,
+		flat:       cfg.FlatReplies,
 		cache:      map[string]cachedIssue{},
 		gens:       map[string]int{},
 	}
@@ -417,7 +420,12 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 	}
 	// Only the comment endpoint says which comment a reply answers
 	// (parentId); the issue's own list never does, and stops at 50.
-	if cm := decoded.Fields.Comment; cm != nil && cm.Total > 0 {
+	if cm := decoded.Fields.Comment; cm != nil && c.flat && cm.Total > len(cm.Comments) {
+		cm.Comments = append(cm.Comments, c.moreComments(ctx, key, len(cm.Comments), cm.Total)...)
+		for i := range cm.Comments {
+			cm.Comments[i].ParentID = nil // flat throughout, the paged-in ones too
+		}
+	} else if cm != nil && !c.flat && cm.Total > 0 {
 		if all := c.moreComments(ctx, key, 0, cm.Total); len(all) >= len(cm.Comments) {
 			cm.Comments = all
 		}

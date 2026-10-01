@@ -3,7 +3,7 @@ package config
 // What the settings screens (terminal and web) say about each ui: option.
 
 // SettingsRestart are options read once at startup.
-var SettingsRestart = map[string]bool{"images": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
+var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
 
 // SettingDefaults is each ui: option's default as the README shows it.
 var SettingDefaults = map[string]string{
@@ -29,6 +29,7 @@ var SettingDefaults = map[string]string{
 	"capacity":             "none",
 	"saved_filters":        "on",
 	"delight":              "on",
+	"threaded_replies":     "on",
 	"skin_tone":            "none",
 	"update_check":         "on",
 	"llm":                  "claude -p, when claude is on the PATH",
@@ -76,7 +77,7 @@ type SettingGroup struct {
 var SettingGroups = []SettingGroup{
 	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "custom_fields", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
 	{"Views and filters", []string{"quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
-	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme"}},
+	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity"}},
 	{"Start work and agents", []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
@@ -130,6 +131,7 @@ var SettingDocs = map[string]string{
 	"llm":                  "a command answering ctrl+a's questions about the issue, piped on stdin",
 	"delight":              "small celebrations: confetti on a card into done, a line on a completed sprint",
 	"skin_tone":            "the tone : completion offers for people and hands",
+	"threaded_replies":     "a reply goes under its comment in Jira's thread (and shows there); off: replies are new comments, quoted",
 	"update_check":         "once a day, whether a newer release exists; never on a dev build",
 	"double_click":         "how quickly a second click makes a double-click (100ms–2s)",
 	"icons":                "issue type icons: Nerd Font glyphs, or letters for fonts without them",
@@ -162,7 +164,7 @@ func SettingChoices(name string) []string {
 		return []string{"nerd", "plain"}
 	case "empty_fields":
 		return []string{"show", "hide"}
-	case "saved_filters", "mouse", "delight", "update_check":
+	case "saved_filters", "mouse", "delight", "update_check", "threaded_replies":
 		return []string{"on", "off"}
 	case "skin_tone":
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}

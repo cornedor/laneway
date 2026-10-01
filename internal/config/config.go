@@ -217,6 +217,9 @@ type UIConfig struct {
 	// Delight is "on" (small celebrations: confetti on a card into done, a
 	// line on a completed sprint) or "off".
 	Delight string `yaml:"delight"`
+	// ThreadedReplies is "on" (a reply goes under its comment in Jira's
+	// thread, and the panel draws replies under theirs) or "off" (flat).
+	ThreadedReplies string `yaml:"threaded_replies"`
 	// SkinTone is the tone ":" completion offers people and hands in:
 	// light, medium_light, medium, medium_dark or dark; "" for none.
 	SkinTone string `yaml:"skin_tone"`
