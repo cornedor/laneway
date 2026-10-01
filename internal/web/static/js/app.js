@@ -195,6 +195,7 @@ async function boot() {
   try {
     if (session instanceof Error) throw session;
     app.session = session;
+    theme.setDefault(session.ui && session.ui.Theme);
     api.setSite(app.session.site); store.setSite(app.session.site);
     api.swr('/emoji/table', emojiTable);
     const p = await api.get('/prefs'); app.prefs.data = p || {};

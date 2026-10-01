@@ -34,14 +34,26 @@ const root = document.documentElement;
 const get = (k, d) => { try { return localStorage.getItem('lw:' + k) || d; } catch (e) { return d; } };
 const set = (k, v) => { try { v == null ? localStorage.removeItem('lw:' + k) : localStorage.setItem('lw:' + k, v); } catch (e) { /* ignore */ } };
 
+// ui.theme (preset and accent) is the default until this browser picks its own; kept for boot.js's first paint.
+const dflt = () => get('theme-default', 'auto');
+const apply = id => { if (id === 'auto') delete root.dataset.theme; else root.dataset.theme = id; };
+const paintAccent = c => { if (c) root.style.setProperty('--accent', c); else root.style.removeProperty('--accent'); };
+
 export const theme = {
   presets, accents,
   // solarized was the light one before the dark variant came.
-  get current() { const t = get('theme', 'auto'); return t === 'solarized' ? 'solarized-light' : t; },
+  get current() { const t = get('theme', dflt()); return t === 'solarized' ? 'solarized-light' : t; },
   get accent() { return get('accent', ''); },
   get density() { return get('density', 'normal'); },
-  set(id) { if (id === 'auto') { delete root.dataset.theme; set('theme', null); } else { root.dataset.theme = id; set('theme', id); } },
-  setAccent(c) { if (c) root.style.setProperty('--accent', c); else root.style.removeProperty('--accent'); set('accent', c || null); },
+  set(id) { apply(id); set('theme', id === dflt() ? null : id); },
+  setAccent(c) { paintAccent(c || get('accent-default', '')); set('accent', c || null); },
+  // ui.theme: a preset name, or {preset, accent}; colours by name stay the TUI's.
+  setDefault(t) {
+    const p = t && presets.some(x => x.id === t.preset) ? t.preset : '', a = t && /^#[0-9a-f]{3,8}$/i.test(t.accent || '') ? t.accent : '';
+    set('theme-default', p || null); set('accent-default', a || null);
+    apply(theme.current);
+    if (!theme.accent) paintAccent(a);
+  },
   setDensity(d) { root.dataset.density = d; set('density', d === 'normal' ? null : d); changed('density'); },
   // Cycle to the next preset (command palette / key).
   next() { const i = presets.findIndex(p => p.id === theme.current); theme.set(presets[(i + 1) % presets.length].id); return theme.current; },
