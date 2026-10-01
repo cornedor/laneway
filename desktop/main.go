@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"runtime"
-	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -24,6 +24,9 @@ const addr = "127.0.0.1:8484"
 var notifyJS string
 
 func main() {
+	if f, err := logFile("desktop-app.log"); err == nil {
+		log.SetOutput(f) // started from the Finder, stderr goes nowhere
+	}
 	ns := notifications.New()
 	var win *application.WebviewWindow
 	origin := "http://" + addr
@@ -33,7 +36,8 @@ func main() {
 		Services: []application.Service{application.NewService(ns)},
 		Mac:      application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(_ application.Window, msg string, o *application.OriginInfo) {
-			if o == nil || !o.IsMainFrame || strings.TrimSuffix(o.Origin, "/") != origin {
+			if o == nil || !o.IsMainFrame || !sameOrigin(o.Origin, origin) {
+				log.Printf("message dropped: %+v", o)
 				return // only the laneway page may post
 			}
 			handle(ns, win, msg)
@@ -88,6 +92,13 @@ func main() {
 	}
 }
 
+// sameOrigin is whether page (a URL; macOS passes the page's whole URL) is
+// on origin.
+func sameOrigin(page, origin string) bool {
+	u, err := url.Parse(page)
+	return err == nil && u.Scheme+"://"+u.Host == origin
+}
+
 // handle is a message from notify.js: check or ask for permission, or show one.
 func handle(ns *notifications.NotificationService, win *application.WebviewWindow, msg string) {
 	var m struct{ Type, ID, Title, Body, Tag string }
@@ -101,6 +112,7 @@ func handle(ns *notifications.NotificationService, win *application.WebviewWindo
 			answer("granted")
 		}
 	case "permission":
+		log.Print("notifications: asking")
 		go func() { // waits on the user
 			ok, err := ns.RequestNotificationAuthorization()
 			if err != nil {
