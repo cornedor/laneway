@@ -3,10 +3,15 @@ package web
 import (
 	"context"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cornedor/laneway/internal/autostart"
+	"github.com/cornedor/laneway/internal/demo"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/store"
 )
 
 // TestSetupMode: a first-start server answers the session with the setup
@@ -58,5 +63,40 @@ func TestAutostartAPI(t *testing.T) {
 	}
 	if got := call("PUT", "/api/autostart", `{"On":false}`); !strings.Contains(got, `"enabled":false`) || sys.Enabled() {
 		t.Errorf("off = %s", got)
+	}
+}
+
+// TestAddSite: the session offers the form; POST /api/sites hands it to
+// Save with the name, and a refusal names its field.
+func TestAddSite(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	st, _ := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	var got SetupForm
+	var gotName string
+	opt := Options{Client: jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}}), Store: st,
+		AddSite: &SiteAdder{Keyring: true, Save: func(_ context.Context, name string, f SetupForm) (string, string, error) {
+			if name == "taken" {
+				return "", "", FieldError{"name", "There is a site taken already."}
+			}
+			got, gotName = f, name
+			return "Ada", "club", nil
+		}}}
+	ts := httptest.NewServer(New(context.Background(), opt))
+	t.Cleanup(ts.Close)
+	var sess struct{ AddSite map[string]any }
+	if workCall(t, "GET", ts.URL+"/api/session", "", &sess) != 200 || sess.AddSite["keyring"] != true {
+		t.Errorf("session addSite = %v", sess.AddSite)
+	}
+	var e struct{ Fields map[string]string }
+	if c := workCall(t, "POST", ts.URL+"/api/sites", `{"Name":"taken","Site":"x"}`, &e); c != 400 || e.Fields["name"] == "" {
+		t.Errorf("taken = %d %v", c, e)
+	}
+	var out map[string]string
+	if c := workCall(t, "POST", ts.URL+"/api/sites", `{"Name":"","Site":"club","Email":"a@b.c","Token":"t","Keyring":true,"Demo":true}`, &out); c != 200 || out["site"] != "club" || out["who"] != "Ada" || got.Site != "club" || !got.Keyring || got.Demo || gotName != "" {
+		t.Errorf("add = %d %v %+v", c, out, got)
 	}
 }

@@ -78,6 +78,51 @@ func TestWebSetupSave(t *testing.T) {
 	}
 }
 
+// TestWebAddSite: a taken or bad name and an address set up already are
+// refused before signing in; the added site is named after its address
+// and becomes the last site.
+func TestWebAddSite(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("JIRA_API_TOKEN", "")
+	jiraSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"accountId":"1","displayName":"Ada Lovelace"}`))
+	}))
+	defer jiraSrv.Close()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("jira:\n  base_url: https://acme.atlassian.net\n  email: a@acme.io\n  api_token: x\nsites:\n  work:\n    base_url: https://work.atlassian.net\n    email: a@work.io\n    api_token: y\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, _, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for _, c := range []struct {
+		name, site, field string
+	}{
+		{"", "acme", "site"},
+		{"x", "https://work.atlassian.net/", "site"},
+		{"Big Club", jiraSrv.URL, "name"},
+		{"work", jiraSrv.URL, "name"},
+	} {
+		var fe web.FieldError
+		if _, _, err := webAddSite(ctx, cfg, path, c.name, web.SetupForm{Site: c.site, Email: "a@b.c", Token: "t"}); !errors.As(err, &fe) || fe.Field != c.field {
+			t.Errorf("%s %s: %v, want a %s error", c.name, c.site, err, c.field)
+		}
+	}
+	who, name, err := webAddSite(ctx, cfg, path, " club ", web.SetupForm{Site: jiraSrv.URL, Email: "ada@club.io", Token: "t"})
+	if err != nil || who != "Ada Lovelace" || name != "club" {
+		t.Fatalf("add = %q %q %v", who, name, err)
+	}
+	cfg, _, _ = config.Load(path)
+	if j, err := cfg.Site("club"); err != nil || j.BaseURL != jiraSrv.URL || cfg.Jira.BaseURL != "https://acme.atlassian.net" {
+		t.Errorf("club = %+v %v", j, err)
+	}
+	if got := config.LastSite(cfg.SiteNames()); got != "club" {
+		t.Errorf("last site = %q", got)
+	}
+}
+
 // TestRunningWeb: only a laneway answering /api/session counts.
 func TestRunningWeb(t *testing.T) {
 	lw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

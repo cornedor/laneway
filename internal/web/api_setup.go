@@ -26,6 +26,15 @@ type Setup struct {
 	Save func(ctx context.Context, f SetupForm) (string, error)
 }
 
+// SiteAdder adds a Jira site to the config, as `laneway setup` does with a
+// site set up already: Save signs in, writes it under name ("" names it
+// after its address) and the server comes back on it. It answers whose
+// login it is and the name.
+type SiteAdder struct {
+	Keyring, EnvToken bool
+	Save              func(ctx context.Context, name string, f SetupForm) (who, site string, err error)
+}
+
 // SetupForm is what the setup screen sends.
 type SetupForm struct {
 	Site, Email, Token       string
@@ -47,6 +56,25 @@ func setupOnly(s *Server, w http.ResponseWriter, r *http.Request) bool {
 }
 
 func init() {
+	post("/sites", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		a := s.sites.base.AddSite
+		if a == nil || s.opt.Demo {
+			return nil, httpError{http.StatusNotImplemented, "adding a site needs the config file"}
+		}
+		f, err := Body[struct {
+			SetupForm
+			Name string
+		}](r)
+		if err != nil {
+			return nil, err
+		}
+		f.Demo, f.Autostart = false, false
+		who, site, err := a.Save(ctx, f.Name, f.SetupForm)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"who": who, "site": site}, nil
+	})
 	post("/setup", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		if s.opt.Setup == nil {
 			return nil, httpError{http.StatusConflict, "already set up"}
@@ -81,4 +109,13 @@ func setupSession(s *Server) map[string]any {
 			"tokenURL": config.TokenURL, "autostart": s.autostartInfo(),
 		},
 	}
+}
+
+// addSiteInfo is what the add site form needs, nil when it can't add one.
+func addSiteInfo(s *Server) map[string]any {
+	a := s.sites.base.AddSite
+	if a == nil || s.opt.Demo {
+		return nil
+	}
+	return map[string]any{"keyring": a.Keyring, "envToken": a.EnvToken, "tokenURL": config.TokenURL, "configPath": s.opt.ConfigPath}
 }

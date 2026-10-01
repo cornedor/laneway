@@ -64,6 +64,8 @@ type Options struct {
 	Setup *Setup
 	// Autostart, when set, offers starting laneway web at login.
 	Autostart *Autostart
+	// AddSite, when set, lets the site picker add a Jira site.
+	AddSite *SiteAdder
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.

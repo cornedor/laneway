@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -76,6 +77,9 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 			return err
 		}
 		open, demoMode = false, next == webDemo
+		if next == webAdded {
+			site = "" // the added one, the last site now
+		}
 	}
 }
 
@@ -84,6 +88,7 @@ const (
 	webQuit = iota
 	webSetUp
 	webDemo
+	webAdded // a site was added: start again on it
 )
 
 func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote, open, demoMode bool) (int, error) {
@@ -150,6 +155,15 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 				return end, err
 			}
 			opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
+			opt.AddSite = &web.SiteAdder{Keyring: keyringAvailable(), EnvToken: os.Getenv("JIRA_API_TOKEN") != "",
+				Save: func(ctx context.Context, name string, f web.SetupForm) (string, string, error) {
+					who, name, err := webAddSite(ctx, cfg, loaded, name, f)
+					if err == nil {
+						end = webAdded
+						time.AfterFunc(300*time.Millisecond, cancel) // after the answer is sent
+					}
+					return who, name, err
+				}}
 			opt.Sites = cfg.SiteNames()
 			opt.DefaultName = cfg.Jira.Name
 		}
@@ -237,6 +251,32 @@ func webSetup(cfg config.Config, path, site string, noConfig bool) (*web.Setup, 
 	}
 	st.Prefill = web.SetupForm{Site: j.BaseURL, Email: j.Email}
 	return st, true
+}
+
+// webAddSite writes another site from the site picker's form: a free name
+// ("" names it after its address) and an address no site has yet.
+func webAddSite(ctx context.Context, cfg config.Config, path, name string, f web.SetupForm) (who, site string, err error) {
+	base, err := config.BaseURL(f.Site)
+	if err != nil {
+		return "", "", web.FieldError{Field: "site", Msg: sentence(err.Error())}
+	}
+	for _, n := range cfg.SiteNames() {
+		if j, err := cfg.Site(n); err == nil && strings.TrimRight(j.BaseURL, "/") == strings.TrimRight(base, "/") {
+			return "", "", web.FieldError{Field: "site", Msg: base + " is the site " + siteName(n) + " already."}
+		}
+	}
+	name = cmp.Or(strings.TrimSpace(name), config.SiteName(base))
+	switch {
+	case !config.ValidSiteName(name):
+		return "", "", web.FieldError{Field: "name", Msg: "Lower-case letters, digits, - and _ only."}
+	case slices.Contains(cfg.SiteNames(), name):
+		return "", "", web.FieldError{Field: "name", Msg: "There is a site " + name + " already."}
+	}
+	if who, err = webSetupSave(ctx, path, name, f); err != nil {
+		return "", "", err
+	}
+	_ = config.SetLastSite(name)
+	return who, name, nil
 }
 
 // keyringAvailable is whether keyringFor finds a keyring tool.
