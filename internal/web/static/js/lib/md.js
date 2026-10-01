@@ -56,6 +56,8 @@ export function emojiTable(t) {
   glyphs = t || null;
   if (glyphs) for (const e of document.querySelectorAll('.md-emo')) { const g = glyphs[e.dataset.n]; if (g) e.textContent = g; }
 }
+// glyph: name's emoji, once the table is in.
+export const glyph = n => (glyphs && glyphs[n]) || '';
 const EMOJI = /:([a-z0-9_+-]{1,60}):/y;
 const SQUARE = /^(\d{1,2})_[a-z]+_square_(blue|green|orange|purple|red|yellow|teal)$/;
 function emojiAt(s, i) {

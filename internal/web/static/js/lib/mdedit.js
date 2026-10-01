@@ -1,7 +1,10 @@
-// Markdown editor: markdown drawn styled as it is typed (lib/mdarea.js,
-// lib/mdhl.js: enter continues a list or quote, tab nests a list item, a task box
-// clicks), a formatting toolbar, a `/` menu for Jira formatting, `@` mentions,
-// `:` emoji, ctrl+b/i/k, ctrl+p preview and pasted/dropped files.
+// Markdown editor: markdown drawn as rich text, its markers shown only on the
+// caret's line (lib/mdarea.js, lib/mdhl.js; Source shows them all): enter
+// continues a list, quote or table, tab nests a list item or steps through a
+// table's cells, a task box clicks, a marker typed over a selection wraps it,
+// pasted HTML comes in as markdown (lib/html2md.js), alt+↑↓ move lines, ctrl+click
+// follows a link; a formatting toolbar, a `/` menu for Jira formatting, `@`
+// mentions, `:` emoji, ctrl+b/i/k, ctrl+p preview, full screen and pasted/dropped files.
 //
 //   const e = mdEdit(app, {value, rows, placeholder, mono, issueKey, project, label, save(text, mentions), cancel,
 //                          allowEmpty, noCancel, people() → Map(name → accountId), mdOpts() → render options, onFiles(files), hint,
@@ -9,13 +12,16 @@
 //   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.ta, e.mentions, e.size(), e.focus()
 import { h, clear, debounce } from './dom.js';
 import { css } from './css.js';
-import { render as md } from './md.js';
+import { render as md, glyph } from './md.js';
 import { mdArea } from './mdarea.js';
-import { highlight, enter, indent, toggleTask, pasteLink } from './mdhl.js';
+import { lines, enter, indent, toggleTask, pasteLink, tableTab, tableArrow, moveLines, wrapWith, backspace, inFence as fenced } from './mdhl.js';
+import { htmlToMd, rich } from './html2md.js';
 
 css('mdedit');
 
 const today = () => new Date().toISOString().slice(0, 10);
+const MODE = 'laneway.editor.source'; // this browser shows the markdown as typed, not rendered
+const source = () => { try { return localStorage.getItem(MODE) === '1'; } catch (e) { return false; } };
 const PANELS = ['info', 'note', 'success', 'warning', 'error'];
 
 // Slash commands: apply(ctl) runs with the typed "/query" already removed.
@@ -51,8 +57,28 @@ export function mdEdit(app, o) {
   const glyphs = new Map(); // emoji taken here → glyph, for the preview
   // Longest first, so "@Ann Lee" wins over "@Ann".
   const names = () => [...new Set([...mentions.map(m => m.DisplayName), ...(o.people ? [...o.people()] : []).map(([n]) => n)])].filter(Boolean).sort((a, b) => b.length - a.length);
-  const ta = mdArea('div.input.ed-ta' + (o.mono ? '.mono' : ''), { value: o.value, rows: o.rows || 4, placeholder: o.placeholder,
-    highlight: t => highlight(t, { names: names() }), enter, paste: pasteLink });
+  const cache = new Map(); // a line → its HTML, while the names and the emoji table stay the same
+  let cacheSig = '';
+  // An attachment's picture, as the panel draws it (the page loads no other images).
+  const img = u => {
+    const m = u.startsWith('attachment:') && o.mdOpts && o.mdOpts();
+    return m && m.attachment ? m.attachment(u.slice(11)) : '';
+  };
+  // Pasted HTML (not a code editor's, not into a code block) comes in as markdown.
+  const paste = (v, a, b, t, html) => {
+    const link = t && pasteLink(v, a, b, t);
+    if (link) return link;
+    if (!html || !rich(html) || fenced(v, a)) return null;
+    const m = htmlToMd(new DOMParser().parseFromString(html, 'text/html').body);
+    if (!m || m.replace(/\s+/g, ' ').trim() === t.replace(/\s+/g, ' ').trim()) return null;
+    return { from: a, to: b, text: m, a: a + m.length, b: a + m.length };
+  };
+  const ta = mdArea('div.input.ed-ta' + (o.mono ? '.mono' : '') + (source() ? '' : '.live'), { value: o.value, rows: o.rows || 4, placeholder: o.placeholder,
+    lines: t => {
+      const ns = names(), sig = ns.join('\u0001') + (glyph('smile') ? '+' : '');
+      if (sig !== cacheSig) { cache.clear(); cacheSig = sig; }
+      return lines(t, { names: ns, emoji: glyph, img, cache });
+    }, enter, paste, type: wrapWith });
   const pop = h('div.mention-pop', { hidden: true, role: 'listbox' });
   const preview = h('div.md.ed-preview', { hidden: true });
   const fileIn = h('input', { type: 'file', multiple: true, hidden: true, onchange: () => { if (fileIn.files.length) files([...fileIn.files]); fileIn.value = ''; } });
@@ -109,9 +135,10 @@ export function mdEdit(app, o) {
         : kind === 'emoji' ? [h('span.mp-g', it.Glyph), ':' + it.Name + ':']
           : [h('b', '/' + it.name), h('span.dim', ' ' + it.label)])));
     pop.hidden = !items.length;
-    const r = ta.getBoundingClientRect(), room = r.top > 260;
-    Object.assign(pop.style, { position: 'fixed', left: Math.max(4, Math.min(r.left, window.innerWidth - 260)) + 'px', right: 'auto',
-      top: room ? 'auto' : r.bottom + 4 + 'px', bottom: room ? window.innerHeight - r.top + 4 + 'px' : 'auto' });
+    // At the caret: below it, above when there is no room.
+    const r = ta.caretRect(), below = window.innerHeight - r.bottom > 270 || r.top < 270;
+    Object.assign(pop.style, { position: 'fixed', left: Math.max(4, Math.min(r.left - 8, window.innerWidth - 270)) + 'px', right: 'auto',
+      top: below ? r.bottom + 4 + 'px' : 'auto', bottom: below ? 'auto' : window.innerHeight - r.top + 4 + 'px' });
     const s = pop.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'nearest' });
   };
   function accept(i) {
@@ -204,6 +231,18 @@ export function mdEdit(app, o) {
   // ---- toolbar
   const btn = (label, title, fn, cls = '') => h('button.tb' + cls, { type: 'button', title, tabindex: -1, onmousedown: e => e.preventDefault(), onclick: fn }, label);
   const bPrev = btn('Preview', 'Preview (ctrl+p)', togglePreview, '.txt');
+  const bSrc = btn('Source', 'Show the markdown everywhere, not only on the caret’s line', () => {
+    const on = ta.classList.toggle('live');
+    bSrc.classList.toggle('on', !on);
+    try { localStorage.setItem(MODE, on ? '0' : '1'); } catch (e) { /* this time only */ }
+    ta.focus({ preventScroll: true });
+  }, '.txt' + (source() ? '.on' : ''));
+  const full = () => {
+    const on = node.classList.toggle('full');
+    bFull.classList.toggle('on', on);
+    ta.focus({ preventScroll: true });
+  };
+  const bFull = btn('⤢', 'Full screen (esc leaves it)', full);
   const toolbar = h('div.ed-tools', { role: 'toolbar' },
     btn('B', 'Bold (ctrl+b)', () => ctl.wrap('**', '**', 'bold'), '.b'), btn('I', 'Italic (ctrl+i)', () => ctl.wrap('*', '*', 'italic'), '.i'),
     btn('S', 'Strikethrough', () => ctl.wrap('~~', '~~', 'text'), '.s'), btn('</>', 'Inline code', () => ctl.wrap('`', '`', 'code')),
@@ -212,7 +251,7 @@ export function mdEdit(app, o) {
     btn('☐', 'Task list', () => ctl.line('- [ ] ')), btn('❝', 'Quote', () => ctl.line('> ')), btn('{ }', 'Code block', () => ctl.block('```\n', '\n```', '')), h('i.sep'),
     btn('/', 'Insert… (type / in the text)', () => { ctl.insert('/'); trigger(); }), btn('@', 'Mention', () => { ctl.insert('@'); trigger(); }),
     btn('Attach', 'Attach files (or paste, or drop them)', () => fileIn.click(), '.txt'),
-    h('span.spacer'), bPrev);
+    h('span.spacer'), bSrc, bPrev, bFull);
   if (!o.onFiles) fileIn.remove();
 
   // ---- shell
@@ -253,14 +292,36 @@ export function mdEdit(app, o) {
       ui.toast('Draft restored', { action: { label: 'Drop it', run: () => { ta.value = o.value || ''; size(); draft.drop(); } } });
     }).catch(() => {});
   }
-  node._escape = () => { if (pop.hidden) return false; closePop(); return true; };
+  node._escape = () => {
+    if (!pop.hidden) { closePop(); return true; }
+    if (node.classList.contains('full')) { full(); return true; }
+    return false;
+  };
 
   ta.addEventListener('input', () => { size(); trigger(); livePreview(); draft.save(); });
   ta.addEventListener('keydown', e => {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && pop.hidden) {
+      const ed = moveLines(ta.value, ta.selectionStart, ta.selectionEnd, e.key === 'ArrowUp' ? -1 : 1);
+      e.preventDefault();
+      if (ed) ta.edit(ed);
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // Up and down in a table row stay in its column (the browser loses its way in a grid).
+    if (pop.hidden && !e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && ta.selectionStart === ta.selectionEnd) {
+      const to = tableArrow(ta.value, ta.selectionStart, e.key === 'ArrowUp' ? -1 : 1);
+      if (to != null) { e.preventDefault(); ta.setSelectionRange(to); }
+      return;
+    }
+    if (pop.hidden && e.key === 'Backspace' && !e.shiftKey) {
+      const ed = backspace(ta.value, ta.selectionStart, ta.selectionEnd);
+      if (ed) { e.preventDefault(); ta.edit(ed); }
+      return;
+    }
     if (pop.hidden) {
       if (e.key !== 'Tab') return;
-      const ed = indent(ta.value, ta.selectionStart, ta.selectionEnd, e.shiftKey);
+      const [a, b] = [ta.selectionStart, ta.selectionEnd];
+      const ed = indent(ta.value, a, b, e.shiftKey) || tableTab(ta.value, a, e.shiftKey);
       if (ed) { e.preventDefault(); ta.edit(ed); }
       return;
     }
@@ -273,8 +334,15 @@ export function mdEdit(app, o) {
   });
   ta.addEventListener('blur', () => setTimeout(closePop, 150));
   ta.addEventListener('click', e => {
-    const box = e.target.closest && e.target.closest('.hl-box');
-    if (box && !ta.readOnly) ta.edit(toggleTask(ta.value, ta.offsetOf(box)));
+    const t = e.target.closest ? e.target : e.target.parentElement;
+    const box = t.closest('.hl-box');
+    if (box && !ta.readOnly) return ta.edit(toggleTask(ta.value, ta.offsetOf(box)));
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const a = t.closest('[data-href]'), k = t.closest('[data-key]');
+    if (a) { e.preventDefault(); window.open(a.dataset.href, '_blank', 'noopener'); } else if (k) {
+      const m = o.mdOpts && o.mdOpts();
+      if (m && m.onKey) { e.preventDefault(); m.onKey(k.dataset.key); }
+    }
   });
   ta.addEventListener('paste', e => {
     const fs = [...(e.clipboardData ? e.clipboardData.files : [])];
@@ -296,6 +364,8 @@ export function mdEdit(app, o) {
     b('ctrl+b', () => ctl.wrap('**', '**', 'bold'), 'bold');
     b('ctrl+i', () => ctl.wrap('*', '*', 'italic'), 'italic');
     b('ctrl+k', () => ctl.link(), 'link');
+    b('ctrl+shift+x', () => ctl.wrap('~~', '~~', 'text'), 'strikethrough');
+    b('ctrl+e', () => ctl.wrap('`', '`', 'code'), 'inline code');
     b('ctrl+p', togglePreview, 'toggle preview');
   });
   const release = () => { draft.flush(); if (scope) { scope.dispose(); scope = null; } };
