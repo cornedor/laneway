@@ -330,8 +330,10 @@ func (m *Model) renderRef() {
 		return
 	}
 	r := m.currentRef()
-	if m.page != nil {
-		m.refView.SetContent(m.renderPage(m.refView.Width()))
+	if m.page != nil { // nothing on it clicks through to the issue under it
+		content := m.renderPage(m.refView.Width())
+		m.refView.SetContent(content)
+		m.panelHits, m.activityLine, m.panelPlain = nil, -1, plainLines(content)
 		return
 	}
 	switch {

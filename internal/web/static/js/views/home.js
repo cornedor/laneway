@@ -39,7 +39,7 @@ export default function mount(el, { app, scope }) {
       return {
         head: news.length + ' unread', more: () => app.go('/inbox'), note: 'All caught up.',
         rows: news.map(t => issueRow(t.Key, t.Summary, h('span.faint', ago(latest(t))),
-          () => (t.URL ? window.open(t.URL, '_blank', 'noopener') : app.panel.open(t.Key)))),
+          () => (t.Site !== d.site ? window.open(t.URL, '_blank', 'noopener') : app.panel.open(t.Key)))), // another site's opens in Jira
       };
     },
     async sprint() {
@@ -96,12 +96,13 @@ export default function mount(el, { app, scope }) {
     box.replaceChildren(head, body || h('div.hrows', ...rows.map(r => h('div.hrow', { dataset: { w } }, ...r.kids))));
     mark();
   }
-  function mark() {
+  // mark shows the selection; scroll brings it into view (a move, not a widget loading).
+  function mark(scroll) {
     const all = flat();
     sel = Math.max(0, Math.min(sel, all.length - 1));
     grid.querySelectorAll('.hrow.sel').forEach(r => r.classList.remove('sel'));
     const rows = grid.querySelectorAll('.hrow');
-    const r = rows[sel]; if (r) { r.classList.add('sel'); r.scrollIntoView({ block: 'nearest' }); }
+    const r = rows[sel]; if (r) { r.classList.add('sel'); if (scroll) r.scrollIntoView({ block: 'nearest' }); }
   }
   async function load(w) {
     try { state[w] = await loaders[w](); } catch (e) { state[w] = { error: e.message, rows: [] }; }
@@ -113,7 +114,7 @@ export default function mount(el, { app, scope }) {
   }
 
   const G = 'Home';
-  const move = d => { const n = flat().length; if (n) { sel = Math.max(0, Math.min(n - 1, sel + d)); mark(); } };
+  const move = d => { const n = flat().length; if (n) { sel = Math.max(0, Math.min(n - 1, sel + d)); mark(true); } };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next row', { group: G });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous row', { group: G });
   scope.bind('Enter', () => { const r = flat()[sel]; if (r) r.open(); }, 'open', { group: G });

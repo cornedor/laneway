@@ -74,3 +74,29 @@ func TestConfluencePage(t *testing.T) {
 		t.Errorf("PageImage = %q, %v", b, err)
 	}
 }
+
+// TestConfluencePageTableImage: an image the markdown leaves out (in a
+// table cell) does not shift the next one onto its file.
+func TestConfluencePageTableImage(t *testing.T) {
+	media := func(id, alt string) map[string]any {
+		return map[string]any{"type": "media", "attrs": map[string]any{"id": id, "alt": alt}}
+	}
+	cell := map[string]any{"type": "tableCell", "content": []any{map[string]any{"type": "mediaSingle", "content": []any{media("f1", "table.png")}}}}
+	doc, _ := json.Marshal(map[string]any{"type": "doc", "version": 1, "content": []any{
+		map[string]any{"type": "table", "content": []any{map[string]any{"type": "tableRow", "content": []any{cell}}}},
+		map[string]any{"type": "mediaSingle", "content": []any{media("f2", "after.png")}},
+	}})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/wiki/api/v2/pages/42/attachments" {
+			fmt.Fprint(w, `{"results":[{"id":"att1","title":"table.png","fileId":"f1","mediaType":"image/png"},{"id":"att2","title":"after.png","fileId":"f2","mediaType":"image/png"}]}`)
+			return
+		}
+		b, _ := json.Marshal(string(doc))
+		fmt.Fprintf(w, `{"id":"42","title":"T","body":{"atlas_doc_format":{"value":%s}}}`, b)
+	}))
+	defer srv.Close()
+	p, err := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"}).ConfluencePage(context.Background(), "42")
+	if err != nil || !strings.Contains(p.Markdown, "![after.png](confluence:2)") {
+		t.Errorf("markdown %q, %v", p.Markdown, err)
+	}
+}

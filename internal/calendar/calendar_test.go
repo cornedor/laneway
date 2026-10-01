@@ -175,3 +175,24 @@ func TestCapacity(t *testing.T) {
 		t.Errorf("no meetings: %v", left)
 	}
 }
+
+// TestParseHostile: a title can't carry terminal controls, and an RDATE of
+// several dates keeps the series.
+func TestParseHostile(t *testing.T) {
+	ics := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:a\r\nDTSTAMP:20260101T000000Z\r\n" +
+		"DTSTART:20260105T090000Z\r\nDTEND:20260105T093000Z\r\nRRULE:FREQ=WEEKLY;COUNT=3\r\nRDATE:20260107T090000Z,20260108T090000Z\r\n" +
+		"SUMMARY:Stand\\nup \x1b]52;c;aGk=\x07x\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	ms, err := parse(strings.NewReader(ics), from, from.AddDate(0, 1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ms) != 5 {
+		t.Errorf("%d meetings, want 5", len(ms))
+	}
+	for _, m := range ms {
+		if strings.ContainsAny(m.Summary, "\x1b\x07\n") {
+			t.Errorf("summary %q", m.Summary)
+		}
+	}
+}

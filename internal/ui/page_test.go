@@ -97,3 +97,24 @@ func drain(cmd tea.Cmd) []tea.Msg {
 	}
 	return out
 }
+
+// TestPageNoClickThrough: a page in the panel leaves no clickable line of
+// the issue under it.
+func TestPageNoClickThrough(t *testing.T) {
+	m := jiraTabModel(t)
+	m.panelHits = map[int]panelHit{3: {}}
+	m.refOpen = true
+	m.page = &panelPage{title: "P", page: jira.Page{Title: "P", Markdown: "- [ ] a task"}}
+	m.renderRef()
+	if m.panelHits != nil || m.activityLine != -1 {
+		t.Errorf("hits %v, activity line %d", m.panelHits, m.activityLine)
+	}
+}
+
+func TestProposalComment(t *testing.T) {
+	for in, want := range map[string]string{"Standup": "Standup", "2d offsite": "– 2d offsite", "left:2h": "– left:2h", "": ""} {
+		if got := proposalComment(in); got != want {
+			t.Errorf("proposalComment(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

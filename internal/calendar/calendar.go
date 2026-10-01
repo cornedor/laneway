@@ -24,6 +24,7 @@ import (
 	"github.com/emersion/go-ical"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/safeterm"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -147,6 +148,7 @@ func meetings(events []ical.Event, from, to time.Time) []Meeting {
 		summary := ""
 		if p := e.Props.Get(ical.PropSummary); p != nil {
 			summary, _ = p.Text()
+			summary = safeterm.Line(summary) // an invite's title, anyone's
 		}
 		long := end.Sub(start)
 		add := func(at time.Time) {
@@ -155,7 +157,10 @@ func meetings(events []ical.Event, from, to time.Time) []Meeting {
 			}
 		}
 		set, err := e.RecurrenceSet(time.Local)
-		if err != nil || set == nil || e.Props.Get(ical.PropRecurrenceID) != nil {
+		if err != nil {
+			continue // rules it cannot read: better none than its first only
+		}
+		if set == nil || e.Props.Get(ical.PropRecurrenceID) != nil {
 			add(start)
 			continue
 		}
@@ -190,20 +195,22 @@ func uid(e *ical.Event) string {
 
 // localZones drops a TZID Go does not know (Outlook writes Windows names,
 // "W. Europe Standard Time"), so the time reads as local: right for your
-// own calendar more often than not. An EXDATE of several dates becomes one
-// per date, as the decoder reads one.
+// own calendar more often than not. An EXDATE or RDATE of several dates
+// becomes one per date, as the decoder reads one.
 func localZones(e *ical.Event) {
-	var ex []ical.Prop
-	for _, p := range e.Props[ical.PropExceptionDates] {
-		for _, v := range strings.Split(p.Value, ",") {
-			q := p
-			q.Params = maps.Clone(p.Params)
-			q.Value = strings.TrimSpace(v)
-			ex = append(ex, q)
+	for _, name := range []string{ical.PropExceptionDates, ical.PropRecurrenceDates} {
+		var split []ical.Prop
+		for _, p := range e.Props[name] {
+			for _, v := range strings.Split(p.Value, ",") {
+				q := p
+				q.Params = maps.Clone(p.Params)
+				q.Value = strings.TrimSpace(v)
+				split = append(split, q)
+			}
 		}
-	}
-	if ex != nil {
-		e.Props[ical.PropExceptionDates] = ex
+		if split != nil {
+			e.Props[name] = split
+		}
 	}
 	for _, name := range []string{ical.PropDateTimeStart, ical.PropDateTimeEnd, ical.PropRecurrenceID, ical.PropExceptionDates, ical.PropRecurrenceDates} {
 		for i := range e.Props[name] {

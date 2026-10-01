@@ -251,9 +251,12 @@ func (m Model) applyHomePick(it jiraPickerItem) (tea.Model, tea.Cmd) {
 
 // startHome opens ui.home's screen once, when the first board is in.
 func (m *Model) startHome() tea.Cmd {
-	if m.homeShown || len(m.opts.home) == 0 || m.jiraPicker.active {
+	if m.homeShown || len(m.opts.home) == 0 {
 		return nil
 	}
-	m.homeShown = true
+	m.homeShown = true // the first board only: later ones must not open it over what you do
+	if m.jiraPicker.active || m.modalOpen() {
+		return nil
+	}
 	return m.openHome()
 }

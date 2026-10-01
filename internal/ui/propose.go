@@ -29,7 +29,7 @@ func proposalItems(ps []work.Proposal) []jiraPickerItem {
 		items = append(items, jiraPickerItem{
 			id:    proposalID + p.Key + "/" + strconv.FormatInt(p.Start.Unix(), 10),
 			label: fmt.Sprintf("≈ %s  %6s  %s — %s", p.Start.Local().Format("15:04"), jira.FormatDuration(p.Seconds), p.Key, cmp.Or(p.Comment, p.SourcesText())),
-			value: strings.TrimSpace(jira.FormatDuration(p.Seconds) + " " + p.Comment),
+			value: strings.TrimSpace(jira.FormatDuration(p.Seconds) + " " + proposalComment(p.Comment)),
 		})
 	}
 	return items
@@ -92,3 +92,13 @@ func (m Model) handleProposals(msg proposalsMsg) (tea.Model, tea.Cmd) {
 
 // proposalID prefixes a proposal row's id: "propose:KEY/unix".
 const proposalID = "propose:"
+
+// proposalComment is a proposal's comment as the worklog input reads it
+// after the time: one that starts like a time or left: ("2d offsite") is
+// set off with a dash, so it stays the comment.
+func proposalComment(c string) string {
+	if _, _, err := jira.ParseDuration(c); err == nil || strings.HasPrefix(strings.ToLower(c), "left:") {
+		return "– " + c
+	}
+	return c
+}

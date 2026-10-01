@@ -74,18 +74,24 @@ func (c *Client) ConfluencePage(ctx context.Context, id string) (Page, error) {
 	if len(media) > 0 {
 		atts, _ = c.pageAttachments(ctx, id) // without them, the images stand as their names
 	}
-	i := 0
+	// By the name the markdown carries: some images (in table cells) are
+	// not written at all, so their order does not line up.
+	byName := map[string]string{}
+	for _, m := range media {
+		for _, a := range atts {
+			n, ok := strings.CutPrefix(a.ID, "att")
+			if ok && (a.FileID == m.id && m.id != "" || a.Title == m.alt) && strings.Trim(n, "0123456789") == "" && strings.HasPrefix(a.MediaType, "image/") {
+				if name := escapeMediaAlt(m.alt); byName[name] == "" {
+					byName[name] = n
+				}
+				break
+			}
+		}
+	}
 	md := pageImageRe.ReplaceAllStringFunc(adfToMarkdown(raw), func(s string) string {
 		alt := pageImageRe.FindStringSubmatch(s)[1]
-		if i < len(media) {
-			m := media[i]
-			i++
-			for _, a := range atts {
-				n, ok := strings.CutPrefix(a.ID, "att")
-				if ok && (a.FileID == m.id && m.id != "" || a.Title == m.alt) && strings.Trim(n, "0123456789") == "" && strings.HasPrefix(a.MediaType, "image/") {
-					return "![" + alt + "](" + PageImageScheme + n + ")"
-				}
-			}
+		if n := byName[alt]; n != "" {
+			return "![" + alt + "](" + PageImageScheme + n + ")"
 		}
 		return "_[image: " + alt + "]_"
 	})
@@ -99,8 +105,7 @@ func (c *Client) ConfluencePage(ctx context.Context, id string) (Page, error) {
 // pageImageRe is an image of the page's: its name only.
 var pageImageRe = regexp.MustCompile(`!\[([^\]\n]*)\]\(` + mediaRef + `\)`)
 
-// pageMedium is a media node of a page: its file and name, in the order
-// adfToMarkdown writes their images.
+// pageMedium is a media node of a page: its file and name.
 type pageMedium struct{ id, alt string }
 
 func pageMedia(raw json.RawMessage) []pageMedium {
