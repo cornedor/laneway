@@ -374,7 +374,7 @@ export function mountIssue(el, key, { app, full, card }) {
   async function readPage(w) {
     let p;
     try { p = await api.get('/confluence/pages/' + w.Page); } catch (e) { return ui.errToast(e); }
-    ui.modal(h('div.page', h('div.md', md(p.Markdown, mdOpts())), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, 'Open in Confluence ↗'))),
+    ui.modal(h('div.page', h('div.md', md(p.Markdown, { ...mdOpts(), pageImage: id => '/api/confluence/images/' + encodeURIComponent(id) })), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, 'Open in Confluence ↗'))),
       { title: p.Title, wide: true });
   }
   const addLink = () => actions('link');

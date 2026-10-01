@@ -85,3 +85,32 @@ func TestSearchRoutes(t *testing.T) {
 		t.Errorf("save empty filter: %d, want 400", res.StatusCode)
 	}
 }
+
+// TestConfluenceRoutes: a demo page reads as markdown with its image, which
+// the server fetches; ids must be numbers.
+func TestConfluenceRoutes(t *testing.T) {
+	ts := searchDemo(t)
+	var links []struct{ URL, Page string }
+	if c := searchGet(t, ts.URL+"/api/issues/DEMO-4/weblinks", &links); c != 200 || len(links) != 1 || links[0].Page == "" {
+		t.Fatalf("weblinks %d %+v", c, links)
+	}
+	var p struct{ Title, Markdown string }
+	if c := searchGet(t, ts.URL+"/api/confluence/pages/"+links[0].Page, &p); c != 200 || !strings.Contains(p.Markdown, "](confluence:") {
+		t.Fatalf("page %d %+v", c, p)
+	}
+	id := p.Markdown[strings.Index(p.Markdown, "](confluence:")+len("](confluence:"):]
+	id = id[:strings.IndexByte(id, ')')]
+	res, err := http.Get(ts.URL + "/api/confluence/images/" + id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 200 || res.Header.Get("Content-Type") != "image/png" {
+		t.Errorf("image: %d %s", res.StatusCode, res.Header.Get("Content-Type"))
+	}
+	for _, bad := range []string{"/api/confluence/images/x1", "/api/confluence/pages/1;2"} {
+		if c := searchGet(t, ts.URL+bad, nil); c != 400 {
+			t.Errorf("%s: %d", bad, c)
+		}
+	}
+}

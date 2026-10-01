@@ -80,12 +80,19 @@ const (
 // OSC no terminal acts on, so width math reads it as zero-width. Other
 // targets get none: only a bare id is safe from the later inline passes.
 func imgMark(url string) string {
-	id, ok := strings.CutPrefix(url, jira.AttachmentScheme)
-	if !ok || id == "" || strings.Trim(id, "0123456789") != "" {
-		return ""
+	digits := func(id string) bool { return id != "" && strings.Trim(id, "0123456789") == "" }
+	if id, ok := strings.CutPrefix(url, jira.AttachmentScheme); ok && digits(id) {
+		return imgMarkPrefix + id + imgMarkEnd
 	}
-	return imgMarkPrefix + id + imgMarkEnd
+	if id, ok := strings.CutPrefix(url, jira.PageImageScheme); ok && digits(id) {
+		return imgMarkPrefix + pageImageKey(id) + imgMarkEnd
+	}
+	return ""
 }
+
+// pageImageKey holds a Confluence page's image apart from the issue's
+// attachments: c and its id.
+func pageImageKey(id string) string { return "c" + id }
 
 const imgMarkEnd = "\x1b\\"
 

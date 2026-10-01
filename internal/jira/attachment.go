@@ -70,9 +70,15 @@ func (c *Client) AttachmentContent(ctx context.Context, id string) ([]byte, erro
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
+	return c.download(ctx, "/rest/api/3/attachment/content/"+url.PathEscape(id), "attachment "+id)
+}
+
+// download fetches a file's bytes from path on the site, redirects followed,
+// up to maxAttachmentBytes.
+func (c *Client) download(ctx context.Context, path, what string) ([]byte, error) {
 	reqCtx, moved, stop := c.stallGuard(ctx)
 	defer stop()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, c.baseURL+"/rest/api/3/attachment/content/"+url.PathEscape(id), nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
@@ -87,10 +93,10 @@ func (c *Client) AttachmentContent(ctx context.Context, id string) ([]byte, erro
 		return nil, fmt.Errorf("read attachment: %w", stallCause(reqCtx, err))
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, statusError(resp.StatusCode, "attachment "+id, body, resp.Header.Get("Retry-After"))
+		return nil, statusError(resp.StatusCode, what, body, resp.Header.Get("Retry-After"))
 	}
 	if len(body) > maxAttachmentBytes {
-		return nil, fmt.Errorf("attachment %s is over %d MB", id, maxAttachmentBytes>>20)
+		return nil, fmt.Errorf("%s is over %d MB", what, maxAttachmentBytes>>20)
 	}
 	return body, nil
 }

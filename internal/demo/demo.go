@@ -4,8 +4,12 @@
 package demo
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"io"
 	"maps"
 	"net"
@@ -75,6 +79,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		jql, _ := body["jql"].(string)
 		expand, _ := body["expand"].(string)
 		send(map[string]any{"issues": s.list(s.search(jql), strings.Contains(expand, "changelog")), "isLast": true})
+		return
+	}
+	switch {
+	case r.Method == http.MethodGet && p == "/wiki/api/v2/pages/"+pageID+"/attachments":
+		send(map[string]any{"results": []any{map[string]any{"id": "att" + pageImageID, "title": "checkout-flow.png", "fileId": "f-flow", "mediaType": "image/png"}}})
+		return
+	case r.Method == http.MethodGet && p == "/wiki/api/v2/attachments/att"+pageImageID:
+		send(map[string]any{"id": "att" + pageImageID, "downloadLink": "/download/attachments/" + pageID + "/checkout-flow.png?api=v2"})
+		return
+	case r.Method == http.MethodGet && p == "/wiki/download/attachments/"+pageID+"/checkout-flow.png":
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(flowPNG())
 		return
 	}
 	if r.Method == http.MethodGet && p == "/wiki/api/v2/pages/"+pageID {
@@ -668,7 +684,27 @@ const (
 	pageIssue = "DEMO-4"
 	pageID    = "40961"
 	pageTitle = "Guest checkout: design"
+	// pageImageID is its one image's attachment.
+	pageImageID = "40962"
 )
+
+// flowPNG is the page's image: three steps, left to right.
+func flowPNG() []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 240, 80))
+	steps := []color.RGBA{{91, 141, 239, 255}, {59, 130, 196, 255}, {40, 128, 79, 255}}
+	for y := range 80 {
+		for x := range 240 {
+			c := color.RGBA{250, 250, 250, 255}
+			if i := x / 80; x%80 >= 10 && x%80 < 70 && y >= 20 && y < 60 {
+				c = steps[i]
+			}
+			img.Set(x, y, c)
+		}
+	}
+	var b bytes.Buffer
+	_ = png.Encode(&b, img)
+	return b.Bytes()
+}
 
 func pageDoc() any {
 	text := func(t string) map[string]any { return map[string]any{"type": "text", "text": t} }
@@ -681,6 +717,6 @@ func pageDoc() any {
 		map[string]any{"type": "heading", "attrs": map[string]any{"level": 2}, "content": []any{text("Flow")}},
 		map[string]any{"type": "orderedList", "content": []any{item("Cart → Checkout as guest"), item("Address and e-mail, validated as typed"), item("Pay; the order page offers an account")}},
 		map[string]any{"type": "panel", "attrs": map[string]any{"panelType": "note"}, "content": []any{para("Behind the guest_checkout flag until the order page loads under 400 ms.")}},
-		map[string]any{"type": "mediaSingle", "content": []any{map[string]any{"type": "media", "attrs": map[string]any{"alt": "checkout-flow.png"}}}},
+		map[string]any{"type": "mediaSingle", "content": []any{map[string]any{"type": "media", "attrs": map[string]any{"id": "f-flow", "alt": "checkout-flow.png"}}}},
 	}}
 }

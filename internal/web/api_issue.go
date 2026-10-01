@@ -306,6 +306,7 @@ func init() {
 	})
 
 	handle("GET /api/attachments/{id}", attachment)
+	handle("GET /api/confluence/images/{id}", pageImage)
 }
 
 type mdBody struct {
@@ -362,6 +363,26 @@ func attachment(s *Server, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	body, err := s.Client().AttachmentContent(ctx, id)
+	serveFile(w, r, body, err, "attachment-"+id)
+}
+
+// pageImage is an image of a Confluence page, through the server so the
+// token stays here.
+func pageImage(s *Server, w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" || len(id) > 20 || strings.Trim(id, "0123456789") != "" {
+		writeErr(w, badRequest("bad image id"))
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	body, err := s.Client().PageImage(ctx, id)
+	serveFile(w, r, body, err, "image-"+id)
+}
+
+// serveFile answers with a downloaded file: shown when the browser can show
+// it safely, else saved as ?name= (or fallback).
+func serveFile(w http.ResponseWriter, r *http.Request, body []byte, err error, fallback string) {
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -379,7 +400,7 @@ func attachment(s *Server, w http.ResponseWriter, r *http.Request) {
 		h.Set("Content-Type", "application/octet-stream")
 		name := strings.NewReplacer("/", "_", "\\", "_", "\r", "", "\n", "").Replace(Q(r, "name"))
 		if name == "" {
-			name = "attachment-" + id
+			name = fallback
 		}
 		h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
 	}

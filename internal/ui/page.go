@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmp"
+	"regexp"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -52,11 +53,37 @@ func (m Model) handlePage(msg pageMsg) (tea.Model, tea.Cmd) {
 	m.page.loading = false
 	if msg.err != nil {
 		m.page.err = msg.err.Error()
-	} else {
-		m.page.page = msg.page
+		m.renderRef()
+		return m, nil
 	}
+	m.page.page = msg.page
 	m.renderRef()
-	return m, nil
+	return m, m.fetchPageImages(msg.page.Markdown)
+}
+
+var pageImageRefRe = regexp.MustCompile(`\]\(` + jira.PageImageScheme + `(\d+)\)`)
+
+// fetchPageImages downloads the page's images not held yet, and sends back
+// those held but freed since (swapIssueImages frees all but the issue's).
+func (m *Model) fetchPageImages(md string) tea.Cmd {
+	ii := m.images
+	if ii == nil || !ii.on {
+		return nil
+	}
+	var cmds []tea.Cmd
+	var back strings.Builder
+	for _, sm := range pageImageRefRe.FindAllStringSubmatch(md, -1) {
+		key, id := pageImageKey(sm[1]), sm[1]
+		switch e := ii.byAtt[key]; {
+		case e == nil:
+			c, ctx := m.jiraClient, m.ctx
+			cmds = append(cmds, m.loadImage(key, func() ([]byte, error) { return c.PageImage(ctx, id) }))
+		case e.gone && e.state == imgReady:
+			back.WriteString(e.transmit())
+			e.gone = false
+		}
+	}
+	return tea.Batch(append(cmds, ii.send(back.String()))...)
 }
 
 // renderPage is the page as the panel draws it, w wide.
@@ -73,7 +100,7 @@ func (m *Model) renderPage(w int) string {
 	default:
 		b.WriteString(renderMarkdown(p.page.Markdown, m.emojiImg, nil, ""))
 	}
-	return wrapPanel(expandTables(b.String(), w), w)
+	return m.placeImages(wrapPanel(expandTables(b.String(), w), w))
 }
 
 // pageKey handles a key while a page shows; false leaves it to the panel.

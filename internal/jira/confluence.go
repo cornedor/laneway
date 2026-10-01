@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -40,8 +41,12 @@ func (c *Client) PageID(u string) string {
 	return ""
 }
 
-// ConfluencePage reads page id, its body as markdown. Its images stand as
-// their names: they are the page's attachments, not the issue's.
+// PageImageScheme marks an image of a Confluence page in its markdown:
+// ![name](confluence:123), the page attachment's id.
+const PageImageScheme = "confluence:"
+
+// ConfluencePage reads page id, its body as markdown; an image of its own
+// attachments as ![name](confluence:ID), any other by its name.
 func (c *Client) ConfluencePage(ctx context.Context, id string) (Page, error) {
 	if !c.Enabled() {
 		return Page{}, errNotConfigured
@@ -63,7 +68,27 @@ func (c *Client) ConfluencePage(ctx context.Context, id string) (Page, error) {
 	if err := c.do(ctx, http.MethodGet, path, "page "+id, nil, &resp); err != nil {
 		return Page{}, err
 	}
-	md := pageImageRe.ReplaceAllString(adfToMarkdown(json.RawMessage(resp.Body.ADF.Value)), "_[image: $1]_")
+	raw := json.RawMessage(resp.Body.ADF.Value)
+	media := pageMedia(raw)
+	var atts []pageAttachment
+	if len(media) > 0 {
+		atts, _ = c.pageAttachments(ctx, id) // without them, the images stand as their names
+	}
+	i := 0
+	md := pageImageRe.ReplaceAllStringFunc(adfToMarkdown(raw), func(s string) string {
+		alt := pageImageRe.FindStringSubmatch(s)[1]
+		if i < len(media) {
+			m := media[i]
+			i++
+			for _, a := range atts {
+				n, ok := strings.CutPrefix(a.ID, "att")
+				if ok && (a.FileID == m.id && m.id != "" || a.Title == m.alt) && strings.Trim(n, "0123456789") == "" && strings.HasPrefix(a.MediaType, "image/") {
+					return "![" + alt + "](" + PageImageScheme + n + ")"
+				}
+			}
+		}
+		return "_[image: " + alt + "]_"
+	})
 	base := strings.TrimSuffix(resp.Links.Base, "/")
 	if base == "" {
 		base = c.baseURL + "/wiki"
@@ -73,3 +98,58 @@ func (c *Client) ConfluencePage(ctx context.Context, id string) (Page, error) {
 
 // pageImageRe is an image of the page's: its name only.
 var pageImageRe = regexp.MustCompile(`!\[([^\]\n]*)\]\(` + mediaRef + `\)`)
+
+// pageMedium is a media node of a page: its file and name, in the order
+// adfToMarkdown writes their images.
+type pageMedium struct{ id, alt string }
+
+func pageMedia(raw json.RawMessage) []pageMedium {
+	var doc adfNode
+	if json.Unmarshal(raw, &doc) != nil {
+		return nil
+	}
+	var out []pageMedium
+	var walk func(n adfNode)
+	walk = func(n adfNode) {
+		if n.Type == "media" {
+			if alt, _ := n.Attrs["alt"].(string); alt != "" {
+				id, _ := n.Attrs["id"].(string)
+				out = append(out, pageMedium{id, alt})
+			}
+		}
+		for _, c := range n.Content {
+			walk(c)
+		}
+	}
+	walk(doc)
+	return out
+}
+
+// pageAttachment is a file attached to a page.
+type pageAttachment struct {
+	ID, Title, FileID, MediaType string
+	DownloadLink                 string
+}
+
+func (c *Client) pageAttachments(ctx context.Context, id string) ([]pageAttachment, error) {
+	var resp struct {
+		Results []pageAttachment `json:"results"`
+	}
+	err := c.do(ctx, http.MethodGet, "/wiki/api/v2/pages/"+url.PathEscape(id)+"/attachments?limit=250", "page "+id+" attachments", nil, &resp)
+	return resp.Results, err
+}
+
+// PageImage downloads page attachment id (the number of its att… id).
+func (c *Client) PageImage(ctx context.Context, id string) ([]byte, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var a pageAttachment
+	if err := c.do(ctx, http.MethodGet, "/wiki/api/v2/attachments/att"+url.PathEscape(id), "page image "+id, nil, &a); err != nil {
+		return nil, err
+	}
+	if !strings.HasPrefix(a.DownloadLink, "/") {
+		return nil, fmt.Errorf("page image %s: no download link", id)
+	}
+	return c.download(ctx, "/wiki"+a.DownloadLink, "page image "+id)
+}

@@ -96,6 +96,7 @@ export function inline(s, o = {}) {
       if (m) {
         i = m.end;
         if (m.href.startsWith('attachment:') && o.attachment) push(h('img.md-img', { src: o.attachment(m.href.slice(11)), alt: m.text, loading: 'lazy', dataset: { id: m.href.slice(11) } }));
+        else if (m.href.startsWith('confluence:') && o.pageImage) push(h('img.md-img', { src: o.pageImage(m.href.slice(11)), alt: m.text, loading: 'lazy' })); // a Confluence page's own
         else push(link(m.href, m.text || m.href));
         continue;
       }

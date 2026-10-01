@@ -165,27 +165,35 @@ func (m *Model) fetchIssueImages(iss *jira.Issue) tea.Cmd {
 	if ii == nil || !ii.on || iss == nil {
 		return nil
 	}
-	box := max(m.refView.Width()-4, 8)
 	var cmds []tea.Cmd
 	for _, a := range iss.Attachments {
 		if !a.IsImage() || ii.byAtt[a.ID] != nil || !issueShowsAttachment(iss, a.ID) {
 			continue
 		}
-		id := ii.nextID & 0xFFFFFF
-		ii.nextID++
-		ii.byAtt[a.ID] = &panelImage{state: imgLoading, id: id}
-		ctx, c, att, maxRows, cell := m.ctx, m.jiraClient, a.ID, ii.maxRows, ii.cell
-		cmds = append(cmds, func() tea.Msg {
-			b, err := c.AttachmentContent(ctx, att)
-			if err != nil {
-				return imageLoadedMsg{att: att, err: err}
-			}
-			seq, w, h, err := encodeKittyImage(id, b, imgMaxPx, box, maxRows, cell)
-			cols, rows := fitCells(w, h, box, maxRows, cell)
-			return imageLoadedMsg{att: att, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, raw: b, err: err}
-		})
+		ctx, c, att := m.ctx, m.jiraClient, a.ID
+		cmds = append(cmds, m.loadImage(att, func() ([]byte, error) { return c.AttachmentContent(ctx, att) }))
 	}
 	return tea.Batch(cmds...)
+}
+
+// loadImage downloads an image for the panel with get, held as key, sized
+// to the panel width.
+func (m *Model) loadImage(key string, get func() ([]byte, error)) tea.Cmd {
+	ii := m.images
+	box := max(m.refView.Width()-4, 8)
+	id := ii.nextID & 0xFFFFFF
+	ii.nextID++
+	ii.byAtt[key] = &panelImage{state: imgLoading, id: id}
+	maxRows, cell := ii.maxRows, ii.cell
+	return func() tea.Msg {
+		b, err := get()
+		if err != nil {
+			return imageLoadedMsg{att: key, err: err}
+		}
+		seq, w, h, err := encodeKittyImage(id, b, imgMaxPx, box, maxRows, cell)
+		cols, rows := fitCells(w, h, box, maxRows, cell)
+		return imageLoadedMsg{att: key, id: id, pxW: w, pxH: h, cols: cols, rows: rows, seq: seq, raw: b, err: err}
+	}
 }
 
 // issueShowsAttachment reports whether the description or a comment embeds
