@@ -1,5 +1,5 @@
 // The board's search language, the TUI's (internal/ui/jira_search.go), on loaded cards:
-//   login  "log in"  status:review,test  epic:  points>2  prio>=high  is:flagged
+//   login  "log in"  status:review,test  epic:  points>2  prio>=high  is:flagged  is:notes
 //   due<7d  age>3d  updated<1d  created<7d  reporter:ada  component:api  pr:open
 //   deploy:prod  sprint:4  "test type":e2e  -label:ui
 import { isZero } from './fmt.js';
@@ -81,6 +81,7 @@ function is(c, what, env) {
     case 'pr': return !!c.PR;
     case 'unassigned': return !c.Assignee;
     case 'pinned': return env.pins ? env.pins.has(c.Key) : false;
+    case 'notes': return env.notes ? env.notes.has(c.Key) : false;
     default: return false;
   }
 }
@@ -169,7 +170,7 @@ export function builderValues(cards, field, env) {
       case 'pr': add((c.PR || '').toLowerCase()); break;
       case 'deploy': add(c.Deploy); break;
       case 'epic': add(c.ParentKey, (c.ParentKey + ' ' + (c.ParentSummary || '')).trim()); break;
-      case 'is': for (const v of ['mine', 'overdue', 'flagged', 'done', 'pr', 'unassigned']) if (is(c, v, env)) add(v); break;
+      case 'is': for (const v of ['mine', 'overdue', 'flagged', 'done', 'pr', 'unassigned', 'notes']) if (is(c, v, env)) add(v); break;
       default:
     }
   }

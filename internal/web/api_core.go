@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -105,9 +106,8 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	out := map[string]any{"id": id, "config": cfg}
-	if qf, err := c.QuickFilters(ctx, id); err == nil {
-		out["quickFilters"] = qf
-	}
+	qf, _ := c.QuickFilters(ctx, id)
+	out["quickFilters"] = append(localQuick(s.UIConfig().QuickFilters), qf...)
 	if sp, err := c.Sprints(ctx, id); err == nil {
 		out["sprints"] = sp
 	}
@@ -120,6 +120,18 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		out["statusNames"] = names
 	}
 	return out, nil
+}
+
+// localQuick are ui.quick_filters, shown before every board's own, as the
+// TUI's (ids -1, -2, …); one without a name or JQL is left out.
+func localQuick(qs []config.QuickFilter) []jira.QuickFilter {
+	out := []jira.QuickFilter{}
+	for _, q := range qs {
+		if strings.TrimSpace(q.Name) != "" && strings.TrimSpace(q.JQL) != "" {
+			out = append(out, jira.QuickFilter{ID: -1 - len(out), Name: q.Name, JQL: q.JQL})
+		}
+	}
+	return out
 }
 
 // boardCards: ?sprint=ID → that sprint, ?backlog=1 → backlog, ?kanban=1 →

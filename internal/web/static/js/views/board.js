@@ -74,7 +74,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
     mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, cols: DEFAULT_COLS,
-    past: null, closed: null, pins: new Set(), colors: null, lastEdit: null,
+    past: null, closed: null, pins: new Set(), notes: new Set(), colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
     panes: [], where: new Map(), visible: [], built: '', rowH: 0,
     drag: null, dead: false,
@@ -182,7 +182,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     else if (b.dataset.act === 'who') pickWho();
     else clearFilters();
   });
-  const setText = t => { S.text = t; S.textFn = cq.compile(t, { me, pins: S.pins }); layout(); renderBar(); };
+  const env = () => ({ me, pins: S.pins, notes: S.notes, now: Date.now() });
+  const setText = t => { S.text = t; S.textFn = cq.compile(t, env()); layout(); renderBar(); };
   const onText = debounce(() => setText(filterIn.value), 70);
   filterIn.addEventListener('input', onText);
   filterIn.addEventListener('keydown', e => {
@@ -1133,7 +1134,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
 
   // ---- filter builder, named filters
-  const env = () => ({ me, pins: S.pins, now: Date.now() });
   function openBuilder() {
     if (!S.loaded) return;
     openFilterBuilder({ app, cards: S.base || S.cards, env: env(), query: S.text, apply: t => { filterIn.value = t; setText(t); } });
@@ -1225,7 +1225,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     try { l = JSON.parse(app.prefs.get('pins', '[]')); } catch (e) { l = []; }
     S.pinList = Array.isArray(l) ? l.filter(p => Array.isArray(p) && p[0]) : [];
     S.pins = new Set(S.pinList.map(p => p[0]));
-    if (S.textFn) S.textFn = cq.compile(S.text, { me, pins: S.pins });
+    if (S.textFn) S.textFn = cq.compile(S.text, env());
   }
   function togglePin(c) {
     if (!c) return;
@@ -1453,6 +1453,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const onChanged = debounce(() => refresh(false), 250);
   offs.push(bus.on('issue:changed', onChanged));
   offs.push(bus.on('panel', ({ key }) => { app.setQuery({ issue: key || null }); }));
+  // Keys with private notes, for is:notes.
+  const refilter = () => { if (S.textFn) { S.textFn = cq.compile(S.text, env()); layout(); } };
+  api.get('/notes').then(ks => { S.notes = new Set(ks || []); refilter(); }).catch(() => {});
+  offs.push(bus.on('notes:changed', ({ key, has }) => { has ? S.notes.add(key) : S.notes.delete(key); refilter(); }));
 
   function listCols() {
     const all = allCols(), want = app.prefs.get('board.cols', '');

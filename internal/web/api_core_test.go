@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
 )
@@ -59,5 +61,30 @@ func TestVelocitySprints(t *testing.T) {
 		if got := velocitySprints(config.UIConfig{VelocitySprints: n}); got != want {
 			t.Errorf("velocitySprints(%d) = %d, want %d", n, got, want)
 		}
+	}
+}
+
+func TestBoardLocalQuickFilters(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x"})
+	ui := config.UIConfig{QuickFilters: []config.QuickFilter{{Name: "Bugs", JQL: "type = Bug"}, {Name: "no jql"}}}
+	ts := httptest.NewServer(New(context.Background(), Options{Client: cl, UI: ui, Store: st, Site: "demo", Demo: true}))
+	t.Cleanup(ts.Close)
+
+	var out struct{ QuickFilters []jira.QuickFilter }
+	if code := issueCall(t, "GET", ts.URL+"/api/boards/1", nil, &out); code != 200 {
+		t.Fatalf("status %d", code)
+	}
+	q := out.QuickFilters
+	if len(q) < 2 || q[0] != (jira.QuickFilter{ID: -1, Name: "Bugs", JQL: "type = Bug"}) || q[1].ID < 0 {
+		t.Errorf("quick filters = %+v, want the preset first, then the board's", q)
 	}
 }

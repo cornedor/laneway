@@ -17,6 +17,7 @@ export function mountNotes(parent, key, { app, el, full }) {
   async function save(v) {
     try { await api.put('/issues/' + key + '/notes', { Text: v }); } catch (e) { return ui.errToast(e); }
     text = v.trim(); editing = false; paint();
+    app.bus.emit('notes:changed', { key, has: !!text });
     ui.toast(text ? 'Notes saved, on this machine only' : 'Notes removed');
   }
   function edit() {
