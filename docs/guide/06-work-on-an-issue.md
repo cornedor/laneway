@@ -47,7 +47,7 @@ issue's worktree opens as a herdr workspace with a coding agent in it. One
 form shows the agent (those on your `PATH`, `ui.work_agent` first), the
 branch and the prompt (`jira.start_prompt`), all filled in and editable;
 enter starts it. An empty prompt starts the agent without one. Without
-herdr, `S` isn't there.
+herdr, `S` in the terminal says it needs herdr; the browser hides it.
 
 Starting can do more, each off until you turn it on:
 
