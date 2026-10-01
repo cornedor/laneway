@@ -1042,7 +1042,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- filters
   function toggleQF(id) { S.qf.has(id) ? S.qf.delete(id) : S.qf.add(id); renderBar(); S.path === cardsPath() || loadCards(); }
-  function toggleMine() { S.mine = !S.mine; layout(); renderBar(); }
+  function toggleMine() { S.mine = !S.mine; if (S.mine) S.who = null; layout(); renderBar(); }
   function clearFilters() {
     const reload = S.qf.size > 0;
     S.mine = false; S.who = null; S.qf.clear(); S.text = ''; S.textFn = null; filterIn.value = '';
@@ -1057,7 +1057,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const items = [{ id: null, name: 'Anyone' }, { id: '-', name: 'Unassigned' }, ...[...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))];
     const r = await ui.pick({ title: 'Assignee', items, label: i => i.name, render: i => h('span.pick-label', i.id ? ui.avatar(i.name, '', 18) : '', ' ', i.name) });
     if (!r) return;
-    S.who = r.id; layout(); renderBar();
+    S.who = r.id; if (r.id != null) S.mine = false; layout(); renderBar();
   }
   function setSort(col, dir) {
     S.sort = col; S.dir = dir;

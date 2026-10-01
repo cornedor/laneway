@@ -1,13 +1,32 @@
 // Themes are CSS variable sets (css/themes.css) picked with data-theme on <html>.
 // `auto` follows prefers-color-scheme. The accent and density are overrides.
 export const presets = [
-  { id: 'auto', name: 'System' },
-  { id: 'light', name: 'Light' },
-  { id: 'dark', name: 'Dark' },
-  { id: 'nord', name: 'Nord' },
-  { id: 'gruvbox', name: 'Gruvbox' },
-  { id: 'solarized', name: 'Solarized' },
-  { id: 'mono', name: 'Mono' },
+  { id: 'auto', group: 'Basic', name: 'System' },
+  { id: 'light', group: 'Basic', name: 'Light' },
+  { id: 'dark', group: 'Basic', name: 'Dark' },
+  { id: 'mono', group: 'Basic', name: 'Mono' },
+  { id: 'nord', group: 'More dark', name: 'Nord' },
+  { id: 'dracula', group: 'More dark', name: 'Dracula' },
+  { id: 'monokai', group: 'More dark', name: 'Monokai' },
+  { id: 'gruvbox', group: 'Gruvbox', name: 'Gruvbox' },
+  { id: 'gruvbox-light', group: 'Gruvbox', name: 'Gruvbox Light' },
+  { id: 'solarized-dark', group: 'Solarized', name: 'Solarized Dark' },
+  { id: 'solarized-light', group: 'Solarized', name: 'Solarized Light' },
+  { id: 'tokyonight', group: 'Tokyo Night', name: 'Tokyo Night' },
+  { id: 'tokyonight-storm', group: 'Tokyo Night', name: 'Tokyo Night Storm' },
+  { id: 'tokyonight-day', group: 'Tokyo Night', name: 'Tokyo Night Day' },
+  { id: 'catppuccin', group: 'Catppuccin', name: 'Catppuccin Mocha' },
+  { id: 'catppuccin-macchiato', group: 'Catppuccin', name: 'Catppuccin Macchiato' },
+  { id: 'catppuccin-frappe', group: 'Catppuccin', name: 'Catppuccin Frappé' },
+  { id: 'catppuccin-latte', group: 'Catppuccin', name: 'Catppuccin Latte' },
+  { id: 'rosepine', group: 'Rosé Pine', name: 'Rosé Pine' },
+  { id: 'rosepine-moon', group: 'Rosé Pine', name: 'Rosé Pine Moon' },
+  { id: 'rosepine-dawn', group: 'Rosé Pine', name: 'Rosé Pine Dawn' },
+  { id: 'kanagawa', group: 'Kanagawa', name: 'Kanagawa Wave' },
+  { id: 'kanagawa-dragon', group: 'Kanagawa', name: 'Kanagawa Dragon' },
+  { id: 'kanagawa-lotus', group: 'Kanagawa', name: 'Kanagawa Lotus' },
+  { id: 'onedark', group: 'One', name: 'One Dark' },
+  { id: 'onelight', group: 'One', name: 'One Light' },
 ];
 export const accents = ['#5b8def', '#e5484d', '#f76b15', '#e0a100', '#30a46c', '#12a594', '#8e4ec6', '#d6409f'];
 import { changed } from './metrics.js';
@@ -17,7 +36,8 @@ const set = (k, v) => { try { v == null ? localStorage.removeItem('lw:' + k) : l
 
 export const theme = {
   presets, accents,
-  get current() { return get('theme', 'auto'); },
+  // solarized was the light one before the dark variant came.
+  get current() { const t = get('theme', 'auto'); return t === 'solarized' ? 'solarized-light' : t; },
   get accent() { return get('accent', ''); },
   get density() { return get('density', 'normal'); },
   set(id) { if (id === 'auto') { delete root.dataset.theme; set('theme', null); } else { root.dataset.theme = id; set('theme', id); } },

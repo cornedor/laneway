@@ -87,7 +87,7 @@ Everything has a key, the mouse works as well.
 
 `g ,` opens Settings; `/` filters its options.
 
-- **Theme:** system, light, dark, nord, gruvbox, solarized, mono. The
+- **Theme:** system, light, dark, nord, gruvbox, solarized, tokyonight, catppuccin, dracula, onedark, rosepine, kanagawa, monokai (most with light or dark variants), mono. The
   palette lists them as `Theme: …`.
 - **Accent, density** (compact, normal, roomy), **font size**, and
   **motion** (reduced turns animations off).

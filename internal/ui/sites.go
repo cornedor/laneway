@@ -7,8 +7,8 @@ import tea "charm.land/bubbletea/v2"
 
 // WithSites tells the model the configured sites ("" is jira:) and which
 // one it shows.
-func (m Model) WithSites(names []string, current string) Model {
-	m.sites, m.site = names, current
+func (m Model) WithSites(names []string, current, defaultName string) Model {
+	m.sites, m.site, m.defaultSiteName = names, current, defaultName
 	return m
 }
 
@@ -32,7 +32,7 @@ func (m *Model) openSitePicker() {
 	m.startJiraPicker(jiraPickSite, "Jira site", false)
 	items := make([]jiraPickerItem, 0, len(m.sites)+1)
 	for _, s := range m.sites {
-		items = append(items, jiraPickerItem{id: s, label: siteLabel(s), current: s == m.site})
+		items = append(items, jiraPickerItem{id: s, label: m.siteLabel(s), current: s == m.site})
 	}
 	items = append(items, jiraPickerItem{id: addSiteID, label: "+ add a Jira site", focus: len(m.sites) < 2})
 	m.setJiraPickerItems(items)
@@ -57,9 +57,12 @@ func (m Model) pickSite(site string) (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
-func siteLabel(s string) string {
-	if s == "" {
-		return "default (jira:)"
+func (m Model) siteLabel(s string) string {
+	if s != "" {
+		return s
 	}
-	return s
+	if m.defaultSiteName != "" {
+		return m.defaultSiteName
+	}
+	return "default (jira:)"
 }

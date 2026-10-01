@@ -188,7 +188,7 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).WithIndex(ix).WithVersion(version, upgradeCmd()).
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).WithIndex(ix).WithVersion(version, upgradeCmd()).
 		WithSiteClients(func(other string) (*jira.Client, error) {
 			j, err := cfg.Site(other)
 			if err != nil || j.Check(siteName(other)) != nil {

@@ -53,7 +53,7 @@ export default function mount(el, { app, scope, toolbar }) {
 
   const options = [
     { name: 'Theme', desc: 'g t cycles through them anywhere', section: 'Appearance',
-      render: () => h('span.st-swatches', theme.presets.map(p => swatch(p))),
+      render: themeGroups,
       change: d => { theme.set(cycle(theme.presets.map(p => p.id), theme.current, d)); refresh(); } },
     { name: 'Accent', desc: 'highlights, focus, primary buttons', section: 'Appearance',
       render: () => h('span.st-swatches',
@@ -90,6 +90,15 @@ export default function mount(el, { app, scope, toolbar }) {
   }
   function action(name, desc, section, run) {
     return { name, desc, section, render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: run }, 'Run')), change: run };
+  }
+  let allThemes = false;
+  function themeGroups() {
+    const groups = new Map();
+    for (const p of theme.presets) groups.set(p.group, [...(groups.get(p.group) || []), p]);
+    const cur = (theme.presets.find(p => p.id === theme.current) || theme.presets[0]).group;
+    const shown = allThemes ? [...groups] : [...groups].filter(([g]) => g === cur);
+    return h('div.st-themes', shown.map(([g, ps]) => h('div.st-tg', h('span.st-tg-name', g), h('span.st-swatches', ps.map(swatch)))),
+      h('button.btn', { tabindex: -1, onclick: () => { allThemes = !allThemes; refresh(); } }, allThemes ? 'Fewer themes' : 'More themes…'));
   }
   function swatch(p) {
     const t = theme.tokens(p.id);

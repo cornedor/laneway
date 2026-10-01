@@ -45,10 +45,12 @@ type Options struct {
 	Store      *store.Store
 	Site       string
 	Sites      []string
-	Demo       bool
-	Version    string
-	Rules      []rules.Rule
-	RulesTest  config.RulesTest
+	// DefaultName labels the default site (jira: name:) in the header.
+	DefaultName string
+	Demo        bool
+	Version     string
+	Rules       []rules.Rule
+	RulesTest   config.RulesTest
 	// Open builds the options of another site (nil: no switching).
 	Open func(site string) (Options, error)
 	// AllowedHosts are extra Host headers accepted besides loopback names: a

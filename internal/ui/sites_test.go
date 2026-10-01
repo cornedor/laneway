@@ -12,7 +12,7 @@ func TestSiteSwitch(t *testing.T) {
 		t.Fatalf("one site: only the add row, got %+v", m.jiraPicker.items)
 	}
 	m.closeJiraPicker()
-	m = m.WithSites([]string{"", "work"}, "")
+	m = m.WithSites([]string{"", "work"}, "", "")
 	out, _ = m.handleJiraKey(keyMsg(t, "@"))
 	m = out.(Model)
 	if !m.jiraPicker.active || len(m.jiraPicker.items) != 3 || !m.jiraPicker.items[0].current {
@@ -28,7 +28,7 @@ func TestSiteSwitch(t *testing.T) {
 
 // TestAddSite: the add row ends the app to add a site, not to switch.
 func TestAddSite(t *testing.T) {
-	m := jiraTabModel(t).WithSites([]string{"", "work"}, "")
+	m := jiraTabModel(t).WithSites([]string{"", "work"}, "", "")
 	out, _ := m.handleJiraKey(keyMsg(t, "@"))
 	m = out.(Model)
 	m.jiraPicker.idx = len(m.jiraPicker.items) - 1

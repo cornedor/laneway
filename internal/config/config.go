@@ -23,6 +23,9 @@ import (
 
 // JiraConfig is matterbox's jira: section.
 type JiraConfig struct {
+	// Name labels the default site (jira:) in the site pickers and the web
+	// header; sites: entries are labelled by their key.
+	Name     string `yaml:"name,omitempty"`
 	BaseURL  string `yaml:"base_url"`
 	Email    string `yaml:"email"`
 	APIToken string `yaml:"api_token"`

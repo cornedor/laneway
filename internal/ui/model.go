@@ -457,6 +457,8 @@ type Model struct {
 	// otherSites are the other configured sites' clients, for the inbox
 	// (inbox_sites.go).
 	otherSites *siteClients
+	// defaultSiteName is jira: name:, the default site's label.
+	defaultSiteName string
 	// actions are ui.actions, the usable ones (actions.go).
 	actions []config.Action
 	// queued counts the offline writes waiting (queue.go).

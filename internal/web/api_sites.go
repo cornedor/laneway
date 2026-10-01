@@ -67,7 +67,7 @@ func (s *Server) siteOptions(name string) (Options, error) {
 	if err != nil {
 		return base, err
 	}
-	o.Open, o.Sites, o.Version, o.Demo = base.Open, base.Sites, base.Version, base.Demo
+	o.Open, o.Sites, o.DefaultName, o.Version, o.Demo = base.Open, base.Sites, base.DefaultName, base.Version, base.Demo
 	s.sites.open[name] = o
 	go s.sites.rulesOf(s.ctx, o) // starts its rule watches
 	return o, nil

@@ -90,6 +90,7 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 		}
 		opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
 		opt.Sites = cfg.SiteNames()
+		opt.DefaultName = cfg.Jira.Name
 	}
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		opt.AllowedHosts = append(opt.AllowedHosts, allowedHosts(host)...)

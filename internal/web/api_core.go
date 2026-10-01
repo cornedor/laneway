@@ -78,7 +78,7 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	o := s.opt
 	me, _ := s.Client().Myself(ctx)
 	return map[string]any{
-		"site": o.Site, "sites": o.Sites, "demo": o.Demo, "version": o.Version,
+		"site": o.Site, "sites": o.Sites, "defaultName": o.DefaultName, "demo": o.Demo, "version": o.Version,
 		"baseURL": s.Client().BaseURL(), "me": me,
 		"projects": o.Jira.Projects, "ui": s.UIConfig(),
 	}, nil

@@ -16,7 +16,7 @@ func TestInboxAcrossSites(t *testing.T) {
 	m := jiraTabModel(t)
 	m.jiraClient = (&fakeInbox{issues: []string{"ABC-1 S"}, updated: time.Now()}).client(t)
 	club := (&fakeInbox{issues: []string{"CLB-7 S"}, updated: time.Now(), age: map[string]time.Duration{"CLB-7": time.Hour}}).client(t)
-	m = m.WithSites([]string{"", "club"}, "").WithSiteClients(func(site string) (*jira.Client, error) { return club, nil })
+	m = m.WithSites([]string{"", "club"}, "", "").WithSiteClients(func(site string) (*jira.Client, error) { return club, nil })
 	out, cmd := m.handleJiraKey(keyMsg(t, "I"))
 	m = syncInbox(t, out.(Model), cmd)
 	view := ansi.Strip(m.View().Content)

@@ -2,9 +2,8 @@
 // every site open and follows the lw_site cookie, so switching is a reload.
 import { h, $ } from './dom.js';
 
-const label = s => s || 'jira';
-
 export function install(app) {
+  const label = s => s || app.session.defaultName || 'jira';
   const sites = app.session.sites || [];
   if (sites.length < 2) return;
   const cur = app.session.site;

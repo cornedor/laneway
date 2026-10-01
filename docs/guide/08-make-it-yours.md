@@ -157,7 +157,7 @@ Start from a preset and change what you like:
 ```yaml
 ui:
   theme:
-    preset: tokyonight   # or catppuccin, gruvbox
+    preset: tokyonight   # or catppuccin, gruvbox, dracula, nord, solarized-dark, onedark, rosepine, kanagawa, monokai (also gruvbox-light, solarized-light, tokyonight-storm/-day, catppuccin-macchiato/-frappe/-latte, rosepine-moon/-dawn, kanagawa-dragon/-lotus, onelight)
     accent: "#7aa2f7"
     dim: "244"
 ```
