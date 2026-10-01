@@ -41,3 +41,24 @@ func TestDrafts(t *testing.T) {
 		}
 	}
 }
+
+func TestStarredJQL(t *testing.T) {
+	ts := issueServer(t, "http://127.0.0.1:1")
+	var on struct{ On bool }
+	var list []string
+	if issueCall(t, "POST", ts.URL+"/api/jql/starred", map[string]string{"JQL": " assignee = currentUser() "}, &on); !on.On {
+		t.Fatal("not starred")
+	}
+	if issueCall(t, "GET", ts.URL+"/api/jql/starred", nil, &list); len(list) != 1 || list[0] != "assignee = currentUser()" {
+		t.Fatalf("starred = %q", list)
+	}
+	if issueCall(t, "POST", ts.URL+"/api/jql/starred", map[string]string{"JQL": "assignee = currentUser()"}, &on); on.On {
+		t.Fatal("not unstarred")
+	}
+	if issueCall(t, "GET", ts.URL+"/api/jql/starred", nil, &list); list == nil || len(list) != 0 {
+		t.Errorf("after unstar = %q", list)
+	}
+	if issueCall(t, "POST", ts.URL+"/api/jql/starred", map[string]string{"JQL": " "}, nil) != 400 {
+		t.Error("blank query starred")
+	}
+}

@@ -158,9 +158,13 @@ func writeErr(w http.ResponseWriter, err error) {
 	case errors.As(err, &re):
 		code = http.StatusBadGateway
 	}
+	body := map[string]any{"error": err.Error()}
+	if re != nil && len(re.Fields) > 0 {
+		body["fields"] = re.Fields // Jira's reasons by field id, for the form to show under each
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // writeJSON encodes v, gzipped when the client takes it and the body is big.

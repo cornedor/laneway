@@ -40,7 +40,7 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 
 | Scope | Keys |
 | --- | --- |
-| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `M` all views, `g c` focus the view bar (`tab` on through it), `tab` panel/view focus, `esc` close panel; as in the TUI: `W` today's worklogs, `O` my work, `I` inbox, `U` standup, `ctrl+g` agents (a view's own key of the same name wins in it) |
+| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL (`ctrl+s` stars it as a view of every board, shared with the TUI; `ctrl+f` saves it as a Jira filter), `g g` jump to key (or a pasted Jira link), `n` new issue (on the board: into the sprint shown; `ui.templates` start its description; Jira's refusals show under their fields), `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `M` all views, `g c` focus the view bar (`tab` on through it), `tab` panel/view focus, `esc` close panel; as in the TUI: `W` today's worklogs, `O` my work, `I` inbox, `U` standup, `ctrl+g` agents (a view's own key of the same name wins in it) |
 | Editor (in any text box) | `/` formatting menu, `@` mention, `:` emoji, `ctrl+b` `ctrl+i` `ctrl+k`, `ctrl+p` preview, `ctrl+enter` save, paste or drop files to attach |
 | Global extra | `ctrl+e` refine: the view's issues one at a time in the panel, unestimated first (`J` `K`, `esc`) |
 | Go | `g b` board, `g p` planning, `g r` reports, `g m` roadmap, `g w` my work, `g i` inbox, `g s` standup, `g R` review, `g a` agents, `g ,` settings, `g t` next theme, `g l` rules, `@` switch Jira site, `ctrl+a` ask the LLM about the issue, your `ui.actions` keys |

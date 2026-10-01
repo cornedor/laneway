@@ -76,7 +76,8 @@ Everything has a key, the mouse works as well.
 - `?` lists the keys of the view you are in, as bound.
 - `:` (or `ctrl+k`) is the palette: actions, views, themes, issues. Start
   with `/` to search issues, `g` to jump to a key, `#` for JQL.
-- `g` then a letter goes to a view; `g g` jumps to an issue by key.
+- `g` then a letter goes to a view; `g g` jumps to an issue by key or a
+  pasted Jira link.
 - `tab` moves focus between the view and the panel. Panel keys apply only
   while the panel has focus; `esc` closes it.
 - `j` `k` `h` `l` or the arrows move, `enter` opens, `esc` backs out,

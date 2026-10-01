@@ -1,6 +1,9 @@
 package web
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -234,5 +237,25 @@ func TestEditMetaAndCreate(t *testing.T) {
 	}
 	if issueCall(t, "DELETE", ts.URL+"/api/issues/DEMO-7", nil, nil) != 200 {
 		t.Error("delete failed")
+	}
+}
+
+// TestCreateFieldErrors: Jira's reasons for refusing a create come back by
+// field, for the form to show under each.
+func TestCreateFieldErrors(t *testing.T) {
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, `{"errorMessages":[],"errors":{"summary":"Summary is too long","customfield_10030":"Team is required"}}`)
+	}))
+	t.Cleanup(fake.Close)
+	ts := issueServer(t, fake.URL)
+	var out struct {
+		Error  string
+		Fields map[string]string
+	}
+	code := issueCall(t, "POST", ts.URL+"/api/issues", map[string]any{"Project": "DEMO", "Type": "Task", "Summary": "x"}, &out)
+	if code == 200 || out.Fields["summary"] != "Summary is too long" || out.Fields["customfield_10030"] != "Team is required" {
+		t.Fatalf("%d %+v", code, out)
 	}
 }

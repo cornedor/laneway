@@ -32,6 +32,8 @@ bus.on('panel', ({ key }) => {
 });
 
 const KEY_RE = /^[A-Za-z][A-Za-z0-9]+-\d+$/;
+// The key in a pasted issue URL: …/browse/ABC-1, or a board's …?selectedIssue=ABC-1 (TUI jiraBrowseRe).
+const BROWSE_RE = /(?:\/browse\/|selectedIssue=)([A-Za-z][A-Za-z0-9_]*-[0-9]+)/;
 const cat = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 
 // ---- JQL completion (the TUI's rules, internal/ui/jql.go)
@@ -67,7 +69,7 @@ function jqlMatches(words, prefix) {
 const MODES = {
   search: { label: 'search', hint: 'Search issues…' },
   cmd: { label: 'command', hint: 'Run a command…' },
-  jump: { label: 'jump', hint: 'Issue key, e.g. ABC-123' },
+  jump: { label: 'jump', hint: 'Issue key (ABC-123), a number, or a pasted Jira link' },
   jql: { label: 'jql', hint: 'assignee = currentUser() AND resolution = Unresolved' },
 };
 const PREFIX = { ':': 'cmd', '/': 'search', '#': 'jql' };
@@ -142,7 +144,8 @@ export function openPalette(app, mode = '') {
       return;
     }
     const seen = new Set();
-    if (KEY_RE.test(v)) { seen.add(v.toUpperCase()); items.push({ type: 'jump', key: v.toUpperCase() }); }
+    const pasted = /^https?:\/\//i.test(v) && BROWSE_RE.exec(v);
+    if (KEY_RE.test(v) || pasted) { const k = (pasted ? pasted[1] : v).toUpperCase(); seen.add(k); items.push({ type: 'jump', key: k }); }
     const local = localMatches(v).filter(c => !seen.has(c.Key)).slice(0, 6);
     if (local.length) { items.push({ type: 'hdr', text: 'Recent' }); local.forEach(c => { seen.add(c.Key); items.push(issueItem(c)); }); }
     if (found && foundFor === v) {
@@ -183,6 +186,8 @@ export function openPalette(app, mode = '') {
   }
   function jumpKey(v) {
     if (/^\d+$/.test(v) && defaultProject()) return defaultProject().toUpperCase() + '-' + v;
+    const url = /^https?:\/\//i.test(v) && BROWSE_RE.exec(v);
+    if (url) return url[1].toUpperCase();
     return KEY_RE.test(v) ? v.toUpperCase() : '';
   }
   let peek = null;
@@ -204,7 +209,7 @@ export function openPalette(app, mode = '') {
   function buildJQL(v) {
     if (phase === 'results') {
       if (results.err) { items.push({ type: 'msg', text: results.err, err: true }); return; }
-      items.push({ type: 'hdr', text: results.cards.length + ' issue' + (results.cards.length === 1 ? '' : 's') + ' · ctrl+s saves as a filter' });
+      items.push({ type: 'hdr', text: results.cards.length + ' issue' + (results.cards.length === 1 ? '' : 's') + ' · ctrl+s stars as a view · ctrl+f saves as a filter' });
       results.cards.forEach(c => items.push(issueItem(c)));
       return;
     }
@@ -259,6 +264,16 @@ export function openPalette(app, mode = '') {
       build();
     });
   }
+  // ctrl+s stars the query as a view of every board, or unstars it (TUI toggleSavedJQL).
+  async function starQuery() {
+    const v = q.trim(); if (cur !== 'jql' || !v) return;
+    try {
+      const r = await api.post('/jql/starred', { JQL: v });
+      app.ui.toast(r.On ? 'Starred as a view of every board' : 'Unstarred', { kind: 'ok' });
+      app.bus.emit('jql:starred');
+    } catch (e) { app.ui.errToast(e); }
+    input.focus();
+  }
   async function saveFilter() {
     const v = q.trim(); if (cur !== 'jql' || !v) return;
     const name = await app.ui.prompt({ title: 'Save filter as', placeholder: 'Name', ok: 'Save' });
@@ -278,7 +293,7 @@ export function openPalette(app, mode = '') {
       search: '⏎ open · ⌃⏎ full page · ↑↓ move',
       cmd: '⏎ run · ↑↓ move',
       jump: '⏎ open · ⌃⏎ full page',
-      jql: phase === 'results' ? '⏎ open · ⌃⏎ full page · ⌃s save filter · type to edit' : 'tab completes · ⏎ runs · ⌃s save filter',
+      jql: phase === 'results' ? '⏎ open · ⌃⏎ full page · ⌃s star as a view · ⌃f save filter · type to edit' : 'tab completes · ⏎ runs · ⌃s star as a view · ⌃f save filter',
     };
     foot.textContent = hints[cur] + ' · esc closes';
   }
@@ -370,7 +385,8 @@ export function openPalette(app, mode = '') {
     activate();
   }, '', { input: true, hidden: true });
   k.bind('ctrl+Enter', () => activate(sel, true), '', { input: true, hidden: true });
-  k.bind('ctrl+s', saveFilter, '', { input: true, hidden: true });
+  k.bind('ctrl+s', starQuery, '', { input: true, hidden: true });
+  k.bind('ctrl+f', saveFilter, '', { input: true, hidden: true });
 
   active = { setMode };
   setMode(m0);

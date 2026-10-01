@@ -30,7 +30,7 @@ export async function openCreate(app, opts = {}) {
   const kept = new Map(); // values typed, kept across a type change
 
   const projectSel = h('select.input', { onchange: () => { project = projectSel.value; type = ''; loadProject(); } }, h('option', { value: project }, project || '…'));
-  const typeSel = h('select.input', { onchange: () => { type = typeSel.value; loadFields(); } });
+  const typeSel = h('select.input', { onchange: () => { type = typeSel.value; applyTemplate(); loadFields(); } });
   const summary = h('textarea.input', { rows: 2, placeholder: 'Summary. One per line makes several issues.', value: opts.summary || (restore && restore.summary) || '', oninput: count });
   const files = [];
   const fileBar = h('div.ed-files');
@@ -42,7 +42,7 @@ export async function openCreate(app, opts = {}) {
   const sprintRow = h('div.form-sprint', { hidden: true });
   const count$ = h('div.faint.form-hint');
   const extra = h('div.form');
-  const more = h('details.form-more', { hidden: true }, h('summary', 'More fields'), h('div.form'));
+  const more = h('details.form-more', { hidden: true, open: prefs.get('create.more', '') === '1', ontoggle: () => prefs.set('create.more', more.open ? '1' : '') }, h('summary', 'More fields'), h('div.form'));
   const err = h('div.form-err', { role: 'alert' });
   const another = h('input', { type: 'checkbox', checked: prefs.get('create.another', '') === '1', onchange: () => prefs.set('create.another', another.checked ? '1' : '0') });
   const okBtn = h('button.btn.primary', { type: 'submit' }, 'Create');
@@ -83,9 +83,20 @@ export async function openCreate(app, opts = {}) {
       if (!all.some(x => x.Name === type)) type = prefs.get('create.type.' + project, '');
       if (!all.some(x => x.Name === type)) type = (all.find(x => /^(task|story)$/i.test(x.Name)) || all[0] || {}).Name || '';
       typeSel.replaceChildren(...all.map(x => h('option', { value: x.Name, selected: x.Name === type }, x.Name)));
+      applyTemplate();
       loadFields();
       loadSprints();
     } catch (e) { err.textContent = e.message; }
+  }
+
+  // ui.templates: the description a type starts with; an untouched one follows a type change.
+  let template = '';
+  function applyTemplate() {
+    const ts = (app.session.ui && app.session.ui.Templates) || {};
+    const k = Object.keys(ts).find(t => t.toLowerCase() === String(type).toLowerCase());
+    const next = k ? ts[k] : '';
+    if (opts.cloneOf || (description.value.trim() && description.value !== template)) return;
+    description.value = next; template = next;
   }
 
   async function loadSprints() {
@@ -134,8 +145,24 @@ export async function openCreate(app, opts = {}) {
     paintFiles();
   }
 
+  // Jira's reasons go under the fields they are about (TUI formErrors); the rest, and the message, above.
+  function fieldErrors(e) {
+    for (const x of form.querySelectorAll('.field-err')) x.remove();
+    if (!e.fields) return e.message;
+    const at = { summary: summary, description: ed.el, project: projectSel, issuetype: typeSel };
+    const rest = [];
+    for (const [id, msg] of Object.entries(e.fields)) {
+      const el = at[id] || (widgets.get(id) && widgets.get(id).el);
+      if (!el) { rest.push(id + ': ' + msg); continue; }
+      if (more.contains(el)) more.open = true;
+      el.after(h('div.form-err.field-err', msg));
+    }
+    return rest.length ? rest.join('; ') : 'Jira refused it: see the fields marked';
+  }
+
   async function submit() {
     if (busy) return;
+    for (const x of form.querySelectorAll('.field-err')) x.remove();
     const sums = summaries(summary.value);
     if (!sums.length) { err.textContent = 'Summary is required'; summary.focus(); return; }
     const missing = fields.filter(f => f.Required && widgets.get(f.ID).empty()).map(f => f.Name);
@@ -168,12 +195,12 @@ export async function openCreate(app, opts = {}) {
       for (const w of warn) app.ui.toast(w, { kind: 'err' });
     }
     if (failed) {
-      err.textContent = (made.length ? `${made.length} created, then: ` : '') + failed.message;
+      err.textContent = (made.length ? `${made.length} created, then: ` : '') + fieldErrors(failed);
       return;
     }
     submitted = true; draft = null;
     if (another.checked) {
-      summary.value = ''; description.value = ''; count(); summary.focus(); submitted = false;
+      summary.value = ''; description.value = ''; applyTemplate(); count(); summary.focus(); submitted = false;
       return;
     }
     m.close();

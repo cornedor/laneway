@@ -66,7 +66,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
     mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, cols: DEFAULT_COLS,
-    past: null, closed: null, pins: new Set(), notes: new Set(), colors: null, lastEdit: null,
+    past: null, closed: null, pins: new Set(), notes: new Set(), starred: [], colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
     panes: [], where: new Map(), visible: [], built: '', rowH: 0,
     drag: null, dead: false,
@@ -127,6 +127,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     }
     ((app.session.ui && app.session.ui.Views) || []).forEach((v, i) => { if (v.Name && v.JQL) out.push({ id: 'view:' + i, name: v.Name, info: 'view', jql: v.JQL, kind: 'jql' }); });
     for (const f of S.saved) out.push({ id: 'filter:' + f.ID, name: f.Name, info: 'saved filter', jql: f.JQL, kind: 'filter' });
+    for (const q of S.starred) out.push({ id: 'star:' + q, name: '★ ' + (q.length > 30 ? q.slice(0, 29) + '…' : q), info: 'starred search', jql: q, kind: 'filter' });
     return out;
   }
   function scopeLabel() {
@@ -232,6 +233,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       return a ? { sprint: a.ID } : {};
     }
     return { sprint: Number(S.scope) };
+  }
+  // A new issue joins the open sprint the board shows (TUI createSprint).
+  function createOpts() {
+    const r = S.closed || S.past ? {} : resolveScope();
+    const sp = r.sprint && sprints().find(s => s.ID === r.sprint && s.State !== 'closed');
+    return { project: S.project, sprint: sp ? sp.ID : 0 };
   }
   function cardsPath() {
     const p = new URLSearchParams(), r = resolveScope();
@@ -1379,7 +1386,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, 'mark card (multi-select)', { group: E });
     k.bind('ctrl+a', markAll, 'mark all in the lane / list', { group: E });
     k.bind('X', bulk, 'bulk edit marked cards', { group: E });
-    k.bind('n', () => app.actions.create({ project: S.project }), 'new issue', { group: E });
+    k.bind('n', () => app.actions.create(createOpts()), 'new issue (into the sprint shown)', { group: E });
     k.bind('*', need(togglePin), 'pin / unpin issue (first in the palette)', { group: G });
     k.bind('o', need(c => window.open(app.session.baseURL + '/browse/' + c.Key, '_blank', 'noopener')), 'open in Jira', { group: G });
     k.bind('y', () => { if (S.marks.size) return copyTable(); const c = curCard(); if (c) copy(c.Key, c.Key); else ui.toast('Select a card first'); }, 'copy key (marked cards: as a table)', { group: G });
@@ -1425,7 +1432,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     C('switch', 'switch board', pickBoard);
     C('project', 'switch project', pickProjectCtx);
     C('sprint', 'pick a view: sprint, backlog, whole board', pickSprint);
-    C('new', 'new issue', () => app.actions.create({ project: S.project }));
+    C('new', 'new issue', () => app.actions.create(createOpts()));
     for (const s of SORTS) C('sort:' + s, 'sort list by ' + s, () => setSort(s, 1));
     for (const v of SWIMS) C('swim:' + v, v === 'none' ? 'no swimlanes' : 'swimlanes by ' + v, () => { if (S.mode !== 'lanes') setMode('lanes'); setSwim(v); });
     C('fold', 'fold the swimlane', () => foldBand());
@@ -1465,6 +1472,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const onChanged = debounce(() => refresh(false), 250);
   offs.push(bus.on('issue:changed', onChanged));
   offs.push(bus.on('panel', ({ key }) => { app.setQuery({ issue: key || null }); }));
+  // Searches starred in the palette (ctrl+s): views of every board, shared with the TUI.
+  const loadStarred = () => api.get('/jql/starred', { fresh: true }).then(l => { S.starred = l || []; renderToolbar(); }).catch(() => {});
+  const starredP = loadStarred();
+  offs.push(bus.on('jql:starred', loadStarred));
   // Keys with private notes, for is:notes.
   const refilter = () => { if (S.textFn) { S.textFn = cq.compile(S.text, env()); layout(); } };
   api.get('/notes').then(ks => { S.notes = new Set(ks || []); refilter(); }).catch(() => {});
@@ -1514,6 +1525,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       api.swr('/filters/favourite', d => { S.saved = d || []; renderToolbar(); res(); }).catch(() => res());
     });
     if (S.scope.startsWith('filter:')) await savedP;
+    if (S.scope.startsWith('star:')) await starredP;
     if (S.dead) return;
     if (!isScrum()) loadCards(); // kanban: no sprints to wait for
     setBusy(1);

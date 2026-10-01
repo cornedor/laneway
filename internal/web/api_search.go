@@ -2,7 +2,9 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -30,6 +32,30 @@ func init() {
 			cards = []jira.Card{}
 		}
 		return map[string]any{"cards": cards}, err
+	})
+	// Starred searches: views of every board, in the store as the TUI keeps
+	// them (jira_tab:jql_saved, a JSON list), so both front ends share them.
+	get("/jql/starred", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		return starredJQL(s), nil
+	})
+	post("/jql/starred", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		b, err := Body[struct{ JQL string }](r)
+		if err != nil {
+			return nil, err
+		}
+		q := strings.TrimSpace(b.JQL)
+		if q == "" {
+			return nil, badRequest("no query")
+		}
+		list := starredJQL(s)
+		on := !slices.Contains(list, q)
+		if on {
+			list = append(list, q)
+		} else {
+			list = slices.DeleteFunc(list, func(x string) bool { return x == q })
+		}
+		raw, _ := json.Marshal(list)
+		return map[string]bool{"On": on}, s.opt.Store.SetMeta(jqlStarredMeta, string(raw))
 	})
 	get("/jql/words", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return s.Client().JQLAutocomplete(ctx)
@@ -63,4 +89,14 @@ func init() {
 		}
 		return nil, s.Client().SaveFilter(ctx, b.Name, b.JQL)
 	})
+}
+
+const jqlStarredMeta = "jira_tab:jql_saved"
+
+func starredJQL(s *Server) []string {
+	out := []string{}
+	if v, ok, _ := s.opt.Store.GetMeta(jqlStarredMeta); ok {
+		_ = json.Unmarshal([]byte(v), &out)
+	}
+	return nonNil(out)
 }

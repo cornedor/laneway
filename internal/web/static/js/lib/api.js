@@ -5,7 +5,8 @@ const mem = new Map();
 let site = '';
 export const setSite = s => { site = s; };
 
-export class ApiError extends Error { constructor(msg, status) { super(msg); this.status = status; } }
+// fields: Jira's refusal reasons by field id, when it gave them.
+export class ApiError extends Error { constructor(msg, status, fields) { super(msg); this.status = status; this.fields = fields || null; } }
 
 // Go sends a nil slice as null; these fields are always lists. Keep in step
 // with sliceKeys in internal/web/server.go.
@@ -34,7 +35,7 @@ async function call(method, path, body, signal) {
   });
   let data = null;
   try { data = lists(await res.json()); } catch (e) { /* empty body */ }
-  if (!res.ok) throw new ApiError((data && data.error) || res.statusText, res.status);
+  if (!res.ok) throw new ApiError((data && data.error) || res.statusText, res.status, data && data.fields);
   if (res.status === 202) window.dispatchEvent(new CustomEvent('lw:queued')); // a write kept for when Jira is back
   return data;
 }
