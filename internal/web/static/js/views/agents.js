@@ -1,7 +1,7 @@
 // Agents: every herdr agent on an issue, grouped by state (waiting on you first), with its live terminal beside it
 // (lib/term.js: herdr agent attach over a WebSocket), attached once the cursor rests on a row, as in the TUI.
 // Enter or a click types into it, ctrl+\ goes back to the list, z full screen. Tab adds the worktrees that have
-// no agent. Live over /api/agents/events. /agents?agent=KEY selects KEY's agent, &type=1 types into it.
+// no agent. Live over /api/agents/events. /agents?agent=KEY selects KEY's agent (&pane=ID that one), &type=1 types into it.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { kbd } from '../lib/keys.js';
@@ -241,7 +241,7 @@ export default async function mount(el, { app, scope, query }) {
   build();
   const want = query && query.agent;
   if (want) {
-    const i = rows.findIndex(r => r.key === want);
+    const p = query.pane ? rows.findIndex(r => r.pane === query.pane) : -1, i = p >= 0 ? p : rows.findIndex(r => r.key === want);
     if (i >= 0) { sel = i; mark(); } else if (!bare && (snap().Worktrees || {})[want]) { bare = true; build(); sel = Math.max(0, rows.findIndex(r => r.key === want)); mark(); }
     if (query.type && cur() && cur().key === want && cur().agent) { if (app.panel.key) app.panel.close(); type(); }
   }

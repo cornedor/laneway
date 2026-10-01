@@ -118,6 +118,80 @@ func init() {
 	get("/issues/{key}/branch", issueBranchName)
 	post("/issues/{key}/pr", openPullRequest)
 	get("/branch", cwdBranchIssue)
+	del("/issues/{key}/worktree", removeWorktree)
+}
+
+// removeWorktree removes a done issue's worktree once its branch is merged
+// and it has no uncommitted changes (herdr's worktree.remove; the branch
+// stays), as the TUI's A menu does.
+func removeWorktree(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	key, err := validKey(r)
+	if err != nil {
+		return nil, err
+	}
+	repo := repoFor(s, key)
+	if repo == "" {
+		project, _, _ := strings.Cut(key, "-")
+		return nil, badRequest(noRepo(project))
+	}
+	c, err := needHerdr()
+	if err != nil {
+		return nil, err
+	}
+	iss, err := s.Client().Get(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	if iss.StatusCategory != "done" {
+		return nil, badRequest(key + " is not done yet")
+	}
+	path, branch := issueWorktree(repo, workConfigOf(s).Branch, key, iss.Type)
+	if path == "" {
+		return nil, badRequest(key + " has no worktree")
+	}
+	if why := worktreeKept(repo, path, branch, defaultBase(repo)); why != "" {
+		return nil, badRequest("keeping " + path + ": " + why)
+	}
+	wt, err := c.OpenWorktree(ctx, repo, branch)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.RemoveWorktree(ctx, wt.Workspace); err != nil {
+		return nil, err
+	}
+	forgetWorktrees()
+	return map[string]string{"Path": path, "Branch": branch}, nil
+}
+
+// issueWorktree is repo's linked worktree whose branch fits tmpl for the
+// issue: its path and branch, "" for none.
+func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
+	fits := branchPattern(tmpl, key, typ)
+	for p, b := range linkedWorktrees(repo) {
+		if fits.MatchString(b) {
+			return p, b
+		}
+	}
+	return "", ""
+}
+
+// worktreeKept is why the worktree at path on branch must stay, "" when it
+// can go: it has uncommitted changes, or branch is not in base.
+func worktreeKept(repo, path, branch, base string) string {
+	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
+	if err != nil {
+		return "git status: " + cliError(err)
+	}
+	if len(strings.TrimSpace(string(out))) > 0 {
+		return "it has uncommitted changes"
+	}
+	if base == "" {
+		base = "HEAD"
+	}
+	if exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", branch, base).Run() != nil {
+		return branch + " is not merged into " + base
+	}
+	return ""
 }
 
 // cwdBranchIssue is the issue of the git branch laneway web started in, as

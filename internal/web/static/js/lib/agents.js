@@ -151,6 +151,7 @@ export function install(app) {
   cmd('agents:terminal', () => 'Type into the agent of ' + target(app) + ' (its terminal in the panel)', need(typeInto), () => !demo() && !!target(app) && !!(stateFor(target(app)) || {}).count, 'ctrl+\\');
   cmd('agents:show', () => 'Show the agent of ' + target(app) + ' in Agents', need(key => app.go('/agents?agent=' + encodeURIComponent(key))), () => !demo() && !!target(app) && !!stateFor(target(app)));
   cmd('agents:branch', () => 'Copy branch name of ' + target(app), pick(copyBranch), () => !!target(app), 'ctrl+y');
-  cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && !!target(app));
+  const hasRepo = key => !!key && ((app.session && app.session.repos) || []).includes(key.slice(0, key.lastIndexOf('-'))); // as the TUI: jira.repos has it
+  cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && hasRepo(target(app)));
   app.agents.draftPR = demo() ? () => ui.toast('Not available in demo') : draftPR;
 }

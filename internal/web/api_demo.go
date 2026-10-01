@@ -10,7 +10,7 @@ import (
 // git repos, configured commands and the LLM are all off limits. An issue's
 // branch name is only its template filled in, so ctrl+y works.
 
-var demoIssueBlocked = regexp.MustCompile(`^/api/issues/[^/]+/(ask|work|pr)$`)
+var demoIssueBlocked = regexp.MustCompile(`^/api/issues/[^/]+/(ask|work|pr|worktree)$`)
 
 // demoGate answers the machine-touching routes in demo mode. It reports
 // whether the request was handled.

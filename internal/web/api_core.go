@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -85,6 +86,7 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		"site": o.Site, "sites": o.Sites, "defaultName": o.DefaultName, "demo": o.Demo, "version": o.Version,
 		"baseURL": s.Client().BaseURL(), "me": me,
 		"projects": o.Jira.Projects, "ui": s.UIConfig(), "autostart": s.autostartInfo(), "starred": starred(s),
+		"repos": slices.Sorted(maps.Keys(o.Jira.Repos)), // projects with a checkout: draft PR, removing a worktree
 	}, nil
 }
 

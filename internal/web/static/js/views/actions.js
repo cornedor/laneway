@@ -10,6 +10,34 @@ export async function issueActions(app, st, hk, only) {
   const project = key.slice(0, key.lastIndexOf('-'));
   const epic = /^epic$/i.test(iss.Type);
   const flagged = !!(st.card && st.card.Flagged);
+  const demo = !!(app.session && app.session.demo);
+  const repo = !demo && ((app.session && app.session.repos) || []).includes(project); // jira.repos has a checkout
+  const herdr = !demo && !!(app.agents && app.agents.available);
+  // As the TUI: type into, prompt and stop each of the issue's agents, and a new agent in each directory.
+  const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
+  const agents = herdr ? ((app.agents.stateFor(key) || {}).agents || []) : [];
+  function agentItems() {
+    const out = [], dirs = new Set();
+    for (const a of agents) {
+      out.push({ id: 'agent-type:' + a.PaneID, label: 'Type into agent ' + a.Name + ' (' + a.Status + ')' },
+        { id: 'agent-prompt:' + a.PaneID, label: 'Send agent ' + a.Name + ' a prompt' },
+        { id: 'agent-stop:' + a.PaneID, label: 'Stop agent ' + a.Name + ' (closes its tab)' });
+      if (a.CWD && !dirs.has(a.CWD)) { dirs.add(a.CWD); out.push({ id: 'agent-new:' + a.PaneID, label: 'New agent in ' + home(a.CWD) }); }
+    }
+    return out;
+  }
+  async function agentAction(what, pane) {
+    const a = agents.find(x => x.PaneID === pane); if (!a) return;
+    if (what === 'type') return app.go('/agents?agent=' + enc(key) + '&pane=' + enc(pane) + '&type=1');
+    if (what === 'new') return app.agents.start(key, { another: true, path: a.CWD });
+    if (what === 'prompt') {
+      const text = await ui.prompt({ title: 'Prompt for ' + a.Name, multiline: true, placeholder: 'What should it do next?', ok: 'Send' });
+      if (text && text.trim()) { await api.post('/agents/' + pane + '/prompt', { Text: text }); ui.toast('Prompt sent'); }
+      return;
+    }
+    if (!await ui.confirm({ title: 'Stop ' + a.Name, text: 'Stop the agent on ' + key + '? Its herdr tab closes.', ok: 'Stop', danger: true })) return;
+    await api.post('/agents/' + pane + '/stop'); ui.toast('Stopped ' + a.Name);
+  }
   const items = [
     { id: epic ? 'child' : 'subtask', label: epic ? 'New issue in this epic' : 'New subtask' },
     { id: 'link', label: 'Link to another issue' },
@@ -28,13 +56,24 @@ export async function issueActions(app, st, hk, only) {
     { id: 'unlink', label: 'Remove a link', skip: !(iss.Links || []).some(l => l.LinkID) },
     { id: 'delatt', label: 'Delete an attachment', skip: !(iss.Attachments || []).length },
     { id: 'history', label: 'Time in each status / history' },
+    ...agentItems(),
+    { id: 'worktree-remove', label: 'Remove its worktree (merged, no uncommitted changes)', skip: !(repo && herdr && iss.StatusCategory === 'done') },
+    { id: 'pr', label: 'Open a pull request (draft)', skip: !repo || demo },
   ].filter(x => !x.skip);
   const it = only ? { id: only } : await ui.pick({ title: 'Actions on ' + key, items, label: x => x.label, placeholder: 'Action…' });
   if (!it) return;
   try { await run(it.id); } catch (e) { ui.errToast(e); }
 
   async function run(id) {
+    const [what, pane] = id.split(':');
+    if (pane && what.startsWith('agent-')) return agentAction(what.slice(6), pane);
     switch (id) {
+      case 'pr': return app.agents.draftPR(key);
+      case 'worktree-remove': {
+        const close = ui.toast(key + ': removing its worktree…', { ms: 60000 });
+        try { const r = await api.del('/issues/' + key + '/worktree'); close(); ui.toast('Removed ' + home(r.Path) + ' (' + r.Branch + ' stays)', { kind: 'ok' }); app.agents.refresh(); } catch (e) { close(); throw e; }
+        return;
+      }
       case 'subtask': case 'child': return app.actions.create({ project, parent: key });
       case 'link': return link();
       case 'weblink': {

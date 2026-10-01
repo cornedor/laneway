@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -527,5 +528,35 @@ func TestAgentIssuesAcrossSites(t *testing.T) {
 	}
 	if len(out.Issues) != 2 {
 		t.Errorf("issues = %v", out.Issues)
+	}
+}
+
+// A done issue's worktree goes only when it is clean and merged; the branch stays.
+func TestRemoveWorktree(t *testing.T) {
+	f, c := newFakeHerdr(t)
+	f.open = true
+	old := herdrClient
+	herdrClient = func() *herdr.Client { return c }
+	defer func() { herdrClient = old }()
+	repo := gitRepo(t)
+	wt := filepath.Join(t.TempDir(), "demo-12")
+	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "-q", "-b", "issue/DEMO-12-drop", wt).CombinedOutput(); err != nil {
+		t.Skip("git worktree:", err, string(out))
+	}
+	ts := agentsServer(t, repo)
+	if c := workCall(t, "DELETE", ts.URL+"/api/issues/DEMO-5/worktree", "", nil); c != 400 {
+		t.Errorf("not done = %d", c)
+	}
+	if err := os.WriteFile(filepath.Join(wt, "wip"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var e map[string]string
+	if c := workCall(t, "DELETE", ts.URL+"/api/issues/DEMO-12/worktree", "", &e); c != 400 || !strings.Contains(e["error"], "uncommitted") || f.called("worktree.remove") {
+		t.Errorf("dirty = %d %v", c, e)
+	}
+	_ = os.Remove(filepath.Join(wt, "wip"))
+	var out map[string]string
+	if c := workCall(t, "DELETE", ts.URL+"/api/issues/DEMO-12/worktree", "", &out); c != 200 || out["Branch"] != "issue/DEMO-12-drop" || !f.called("worktree.remove") {
+		t.Errorf("clean = %d %v", c, out)
 	}
 }
