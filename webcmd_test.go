@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cornedor/laneway/internal/config"
@@ -74,5 +75,26 @@ func TestWebSetupSave(t *testing.T) {
 	cfg, _, err := config.Load(path)
 	if err != nil || cfg.Jira.BaseURL != jiraSrv.URL || cfg.Jira.Email != "ada@acme.io" || cfg.Jira.APIToken != "good" {
 		t.Errorf("config = %+v %v", cfg.Jira, err)
+	}
+}
+
+// TestRunningWeb: only a laneway answering /api/session counts.
+func TestRunningWeb(t *testing.T) {
+	lw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"version":"dev"}`))
+	}))
+	defer lw.Close()
+	other := httptest.NewServer(http.NotFoundHandler())
+	defer other.Close()
+	if !runningWeb(strings.TrimPrefix(lw.URL, "http://")) || runningWeb(strings.TrimPrefix(other.URL, "http://")) {
+		t.Error("runningWeb wrong")
+	}
+}
+
+// TestWebAutostartArgv: the same address and an absolute -config.
+func TestWebAutostartArgv(t *testing.T) {
+	a := webAutostart("c.yaml", "127.0.0.1:9000")
+	if a == nil || len(a.Argv) != 7 || !filepath.IsAbs(a.Argv[0]) || strings.Join(a.Argv[1:5], " ") != "web -no-open -addr 127.0.0.1:9000" || !filepath.IsAbs(a.Argv[6]) {
+		t.Errorf("argv = %+v", a)
 	}
 }

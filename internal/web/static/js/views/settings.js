@@ -75,6 +75,9 @@ export default function mount(el, { app, scope, toolbar }) {
     choice('Default mode', 'how the board opens (this browser)', 'Board (this browser)', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
     choice('Auto refresh', 'refetch an idle board', 'Board (this browser)', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
 
+    s.autostart && { name: 'Start at login', desc: 'runs laneway web in the background when you log in, on ' + location.host + ' (' + s.autostart.path + ')', section: 'App', meta: 'autostart startup boot service systemd launchd',
+      render: () => { const on = s.autostart.enabled; return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Start at login', tabindex: -1, onclick: () => toggleLogin() }, h('i')), h('span.st-state', on ? 'on' : 'off')); },
+      change: () => toggleLogin() },
     info('Site', s.site || '-', 'Data'), info('Jira', s.baseURL || '-', 'Data'),
     info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Data'), info('Version', s.version || 'dev', 'Data'),
     action('Clear cached data', 'the browser copy of API answers; reloaded on demand', 'Data', () => { api.forget(); app.ui.toast('Caches cleared', { kind: 'ok' }); }),
@@ -82,7 +85,14 @@ export default function mount(el, { app, scope, toolbar }) {
       try { for (const k of Object.keys(localStorage)) if (/^lw:(recent|jqlhist|cmdrecent):/.test(k)) localStorage.removeItem(k); } catch (e) { /* ignore */ }
       app.ui.toast('Recents cleared', { kind: 'ok' });
     }),
-  ];
+  ].filter(Boolean);
+  async function toggleLogin() {
+    try {
+      s.autostart = await api.put('/autostart', { On: !s.autostart.enabled });
+      app.ui.toast(s.autostart.enabled ? 'laneway web starts when you log in' : 'No longer starts at login; this one runs until you stop it', { kind: 'ok' });
+    } catch (e) { app.ui.errToast(e); }
+    refresh();
+  }
   async function toggleNotify() {
     const on = await notifier.setEnabled(!notifier.enabled());
     if (!on && notifier.permission() === 'denied') app.ui.toast('The browser blocks notifications for this site', { kind: 'err' });
@@ -154,7 +164,7 @@ export default function mount(el, { app, scope, toolbar }) {
   const shown = () => {
     const words = q.split(/\s+/).filter(Boolean);
     const vis = options.filter(o => { if (!words.length) return true; const t = hay(o); return words.every(w => t.includes(w)); });
-    const rank = o => (o.key ? 2 : o.cfg ? 4 : ({ Appearance: 0, Notifications: 1, Keyboard: 2, 'Board (this browser)': 3, Data: 5 })[o.section] ?? 4);
+    const rank = o => (o.key ? 2 : o.cfg ? 4 : ({ Appearance: 0, Notifications: 1, App: 1.5, Keyboard: 2, 'Board (this browser)': 3, Data: 5 })[o.section] ?? 4);
     // sections keep the order they first appear in; the fixed ones come first
     const seen = []; for (const o of vis) if (!seen.includes(o.section)) seen.push(o.section);
     const at = sec => rank(vis.find(o => o.section === sec)) * 1000 + seen.indexOf(sec);

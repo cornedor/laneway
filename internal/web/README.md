@@ -7,6 +7,7 @@
 - Themes: only CSS variables from `css/themes.css`; never raw colours. Density via `--pad --row --fs`.
 - Keyboard first: every action has a key, registered on a `keys.scope` so `?` lists it.
 - First start: without a usable site `webcmd.go` serves `Options.Setup` (`api_setup.go`): only `GET /api/session` (`{setup}`) and `POST /api/setup` answer, the rest 503. `app.js` mounts `views/setup.js` instead of the app; on a save the server is replaced by the app on the same address and the page reloads. `FieldError` refusals arrive as `fields` on the `ApiError`.
+- Start at login: `Options.Autostart` (`api_autostart.go`, `internal/autostart`: systemd user unit / LaunchAgent; enable installs for the next login, disable removes and leaves the running one) is set by `webcmd.go` except for `-demo` and `-remote`. `session.autostart` is `{enabled, path}` or null; `PUT /api/autostart {On}`; the setup form's `Autostart` turns it on after a save.
 
 ## Shell API (`js/app.js`, `window.laneway` in the console)
 

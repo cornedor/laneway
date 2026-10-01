@@ -28,8 +28,8 @@ type Setup struct {
 
 // SetupForm is what the setup screen sends.
 type SetupForm struct {
-	Site, Email, Token string
-	Keyring, Demo      bool
+	Site, Email, Token       string
+	Keyring, Demo, Autostart bool
 }
 
 // FieldError is a refusal of one form field ("site", "email", "token").
@@ -39,7 +39,7 @@ func (e FieldError) Error() string { return e.Msg }
 
 // setupOnly is the gate in setup mode: the setup screen's own calls pass.
 func setupOnly(s *Server, w http.ResponseWriter, r *http.Request) bool {
-	if s.opt.Setup == nil || r.URL.Path == "/api/session" || r.URL.Path == "/api/setup" {
+	if s.opt.Setup == nil || r.URL.Path == "/api/session" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/autostart" {
 		return false
 	}
 	writeErr(w, httpError{http.StatusServiceUnavailable, "laneway is not connected to Jira yet"})
@@ -59,7 +59,14 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"who": who, "configPath": s.opt.Setup.ConfigPath}, nil
+		// Saved: installed only now, and quickly, before this server is swapped for the app.
+		var startErr string
+		if f.Autostart && !f.Demo {
+			if err := s.setAutostart(true); err != nil {
+				startErr = err.Error()
+			}
+		}
+		return map[string]any{"who": who, "configPath": s.opt.Setup.ConfigPath, "autostartError": startErr}, nil
 	})
 }
 
@@ -71,7 +78,7 @@ func setupSession(s *Server) map[string]any {
 		"setup": map[string]any{
 			"name": st.Name, "site": st.Prefill.Site, "email": st.Prefill.Email,
 			"configPath": st.ConfigPath, "keyring": st.Keyring, "envToken": st.EnvToken,
-			"tokenURL": config.TokenURL,
+			"tokenURL": config.TokenURL, "autostart": s.autostartInfo(),
 		},
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/cornedor/laneway/internal/autostart"
 )
 
 // TestSetupMode: a first-start server answers the session with the setup
@@ -34,5 +36,27 @@ func TestSetupMode(t *testing.T) {
 	}
 	if code, body := call("POST", "/api/setup", `{"Site":"acme","Email":"a@b.c","Token":"good","Keyring":true}`); code != 200 || !strings.Contains(body, `"who":"Ada"`) || !got.Keyring || got.Site != "acme" {
 		t.Errorf("saved = %d %s %+v", code, body, got)
+	}
+}
+
+// TestAutostartAPI: the session says whether it is on; PUT turns it on and off.
+func TestAutostartAPI(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	sys := autostart.System{OS: "linux", Home: t.TempDir(), LookPath: func(string) (string, error) { return "systemctl", nil }, Run: func(string, ...string) error { return nil }}
+	srv := New(context.Background(), Options{AllowedHosts: []string{"example.com"}, Autostart: &Autostart{Sys: sys, Argv: []string{"/bin/laneway", "web"}},
+		Setup: &Setup{Save: func(context.Context, SetupForm) (string, error) { return "Ada", nil }}})
+	call := func(method, path, body string) string {
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, httptest.NewRequest(method, path, strings.NewReader(body)))
+		return rec.Body.String()
+	}
+	if got := call("GET", "/api/session", ""); !strings.Contains(got, `"autostart":{"enabled":false`) {
+		t.Errorf("session = %s", got)
+	}
+	if got := call("POST", "/api/setup", `{"Site":"acme","Autostart":true}`); !strings.Contains(got, `"autostartError":""`) || !sys.Enabled() {
+		t.Errorf("setup = %s, enabled %v", got, sys.Enabled())
+	}
+	if got := call("PUT", "/api/autostart", `{"On":false}`); !strings.Contains(got, `"enabled":false`) || sys.Enabled() {
+		t.Errorf("off = %s", got)
 	}
 }

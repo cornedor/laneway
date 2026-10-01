@@ -5,19 +5,23 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/cornedor/laneway/internal/autostart"
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
@@ -59,6 +63,15 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 	// address: the browser reloads into it.
 	for {
 		next, err := serveWeb(ctx, cfgPath, site, addr, token, remote, open, demoMode)
+		if errors.Is(err, syscall.EADDRINUSE) && runningWeb(addr) {
+			// Started at login, most likely: open that one.
+			url := "http://" + addr
+			fmt.Fprintln(os.Stderr, "laneway web already runs on", url)
+			if open {
+				openBrowser(url)
+			}
+			return nil
+		}
 		if err != nil || next == webQuit || ctx.Err() != nil {
 			return err
 		}
@@ -140,6 +153,9 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 			opt.DefaultName = cfg.Jira.Name
 		}
 	}
+	if !demoMode && !remote { // -remote's token changes each start: not for a login service
+		opt.Autostart = webAutostart(cfgPath, addr)
+	}
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		opt.AllowedHosts = append(opt.AllowedHosts, allowedHosts(host)...)
 	}
@@ -160,6 +176,49 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 		}
 	})
 	return end, err
+}
+
+// runningWeb is whether a laneway web answers on addr.
+func runningWeb(addr string) bool {
+	c := http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Get("http://" + addr + "/api/session")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var v struct {
+		Version string `json:"version"`
+	}
+	return resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(&v) == nil && v.Version != ""
+}
+
+// webAutostart is the login service for this laneway web: this binary (by
+// its PATH name when that is the same file, so an upgrade keeps working),
+// the same address and -config, and this shell's PATH for the tools it runs.
+func webAutostart(cfgPath, addr string) *web.Autostart {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil
+	}
+	if p, err := exec.LookPath("laneway"); err == nil && sameFile(p, exe) {
+		exe = p
+	}
+	if abs, err := filepath.Abs(exe); err == nil {
+		exe = abs
+	}
+	argv := []string{exe, "web", "-no-open", "-addr", addr}
+	if cfgPath != "" {
+		if abs, err := filepath.Abs(cfgPath); err == nil {
+			argv = append(argv, "-config", abs)
+		}
+	}
+	return &web.Autostart{Sys: autostart.Default(), Argv: argv, Path: os.Getenv("PATH")}
+}
+
+func sameFile(a, b string) bool {
+	fa, err1 := os.Stat(a)
+	fb, err2 := os.Stat(b)
+	return err1 == nil && err2 == nil && os.SameFile(fa, fb)
 }
 
 // webSetup is the setup screen for a start without a site to use: no

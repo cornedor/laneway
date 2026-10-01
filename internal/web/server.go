@@ -62,6 +62,8 @@ type Options struct {
 	// Setup, when set, makes this a first-start server: only the setup
 	// screen, no Jira yet.
 	Setup *Setup
+	// Autostart, when set, offers starting laneway web at login.
+	Autostart *Autostart
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.

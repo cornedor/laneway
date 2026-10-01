@@ -20,6 +20,7 @@ export function mountSetup(el, st) {
     placeholder: st.envToken ? 'empty: uses JIRA_API_TOKEN' : 'paste it here' });
   const show = h('button.btn.ghost.su-show', { type: 'button', onclick: () => { const on = token.type === 'password'; token.type = on ? 'text' : 'password'; show.textContent = on ? 'Hide' : 'Show'; } }, 'Show');
   const keyring = st.keyring ? h('input#su-keyring', { type: 'checkbox', checked: true }) : null;
+  const atLogin = st.autostart ? h('input#su-login', { type: 'checkbox', checked: st.autostart.enabled }) : null;
   const connect = h('button.btn.primary.su-go', { type: 'submit' }, 'Connect');
   const status = h('div.su-status', { role: 'status', 'aria-live': 'polite' });
   const tokenLink = h('a', { href: st.tokenURL, target: '_blank', rel: 'noopener' }, 'Atlassian\'s API token page');
@@ -37,6 +38,7 @@ export function mountSetup(el, st) {
         h('li', 'Click ', h('b', 'Copy'), ', come back to this tab and paste it below.')),
       st.envToken ? h('p.su-hint', 'JIRA_API_TOKEN is set: leave this empty to use it.') : null),
     keyring ? h('label.check.su-keyring', keyring, 'Keep the token in this computer\'s keyring instead of in the config file') : null,
+    atLogin ? h('label.check.su-keyring', atLogin, 'Start laneway when I log in, so this page is always there (Settings turns it off)') : null,
     h('div.su-actions', connect, status));
 
   clear(el).append(h('div.su-wrap', h('div.su-card',
@@ -57,9 +59,10 @@ export function mountSetup(el, st) {
     status.className = 'su-status dim';
     status.textContent = demo ? 'Starting the demo…' : 'Signing in to Jira…';
     try {
-      const r = await api.post('/setup', demo ? { Demo: true } : { Site: site.value, Email: email.value, Token: token.value, Keyring: !!(keyring && keyring.checked) });
+      const r = await api.post('/setup', demo ? { Demo: true } : { Site: site.value, Email: email.value, Token: token.value, Keyring: !!(keyring && keyring.checked), Autostart: !!(atLogin && atLogin.checked) });
       status.className = 'su-status ok';
       status.textContent = demo ? 'Opening the demo…' : `Signed in as ${r.who}. Opening your boards…`;
+      if (r.autostartError) { status.textContent += ' Starting at login did not work: ' + r.autostartError; await new Promise(res => setTimeout(res, 4000)); }
       await waitForApp();
     } catch (e) {
       busy = false; connect.disabled = false;
