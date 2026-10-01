@@ -410,7 +410,8 @@ func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
 		{"wide table", table(`"layout":"wide"`, ``), true},
 		{"sized column", table(`"layout":"default"`, `"colwidth":[240]`), true},
 		{"numbered", table(`"isNumberColumnEnabled":true`, ``), true},
-		{"link title", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"The Go site"}}]}]}]}`, true},
+		{"link title", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"The Go site"}}]}]}]}`, false},
+		{"link title with a quote", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"say \"hi\""}}]}]}]}`, true},
 	} {
 		ed, err := EditableDescription(json.RawMessage(tc.doc))
 		if err != nil {
@@ -445,5 +446,18 @@ func TestADFShowsWhatItCannotEdit(t *testing.T) {
 	}
 	if _, err := EditableDescription(json.RawMessage(doc)); err != nil {
 		t.Errorf("still editable around them: %v", err)
+	}
+}
+
+// TestLinkTitleRoundTrip: [text](url "title") edits and saves with its title.
+func TestLinkTitleRoundTrip(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev/a b","title":"The Go site"}}]}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil || ed.Markdown != `[Go](https://go.dev/a%20b "The Go site")` {
+		t.Fatalf("markdown %q, %v", ed.Markdown, err)
+	}
+	back, _ := json.Marshal(MarkdownToADFKept(ed.Markdown, ed.Kept))
+	if !strings.Contains(string(back), `"title":"The Go site"`) || !strings.Contains(string(back), `"href":"https://go.dev/a%20b"`) {
+		t.Errorf("saved %s", back)
 	}
 }

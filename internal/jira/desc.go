@@ -1318,7 +1318,11 @@ func parseInline(s string, marks []any) []any {
 				if close := strings.IndexByte(s[i+end:], ')'); close > 0 {
 					label, href := s[i+1:i+end], s[i+end+2:i+end+close]
 					emit()
-					link := map[string]any{"type": "link", "attrs": map[string]any{"href": href}}
+					attrs := map[string]any{"href": href}
+					if h, title, ok := strings.Cut(href, ` "`); ok && strings.HasSuffix(title, `"`) && !strings.Contains(h, " ") {
+						attrs["href"], attrs["title"] = h, strings.TrimSuffix(title, `"`) // [text](url "title")
+					}
+					link := map[string]any{"type": "link", "attrs": attrs}
 					out = append(out, parseInline(label, append(slices.Clone(marks), link))...)
 					i += end + close + 1
 					continue

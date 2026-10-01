@@ -396,7 +396,7 @@ func applyMarks(text string, marks []adfMark) string {
 	if strings.TrimSpace(text) == "" {
 		return text
 	}
-	var href string
+	var href, title string
 	marks = slices.Clone(marks) // in one order, whatever order Jira keeps them in
 	slices.SortStableFunc(marks, func(a, b adfMark) int { return markRank(a.Type) - markRank(b.Type) })
 	for _, mk := range marks {
@@ -427,10 +427,16 @@ func applyMarks(text string, marks []adfMark) string {
 			if h, ok := mk.Attrs["href"].(string); ok {
 				href = h
 			}
+			title, _ = mk.Attrs["title"].(string)
 		}
 	}
 	if href != "" {
-		text = "[" + text + "](" + mdHref(href) + ")"
+		if title != "" && !strings.ContainsAny(title, "\")\n") {
+			href = mdHref(href) + ` "` + title + `"` // [text](url "title"); a title it can't hold stays kept
+		} else {
+			href = mdHref(href)
+		}
+		text = "[" + text + "](" + href + ")"
 	}
 	return text
 }
