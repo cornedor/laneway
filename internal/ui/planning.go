@@ -817,13 +817,13 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	}
 	lines := []string{ansi.Truncate(head+headStyle.Render(drop), width, "…")}
 	if side == 1 {
-		caps, note := m.opts.capacity, ""
+		caps, notes, note := m.opts.capacity, map[string]string{}, ""
 		if sp := p.sprints[p.target]; p.me != "" && len(p.busy) > 0 {
-			caps, note = meetingCapacity(caps, p.me, p.busy, sp.start, sp.end, m.opts.workdays)
+			caps, notes[p.me] = meetingCapacity(caps, p.me, p.busy, sp.start, sp.end, m.opts.workdays)
 		} else if p.calErr != "" {
 			note = "ui.calendar: " + p.calErr
 		}
-		row := planByAssignee(cards, caps)
+		row := planByAssignee(cards, caps, notes)
 		if note != "" {
 			row += jiraDimStyle.Render("  ·  " + note)
 		}
@@ -888,7 +888,8 @@ func planPoints(cards []jira.Card) (string, float64) {
 
 // planByAssignee is the points per assignee, most first: "Ada 13 · — 5",
 // against their capacity when one is set ("Ada 13/10", red when over).
-func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
+// notes says more after a person's figure: yours, the meetings it takes off.
+func planByAssignee(cards []jira.Card, capacity map[string]float64, notes map[string]string) string {
 	by := map[string][]jira.Card{}
 	for _, c := range cards {
 		name := c.Assignee
@@ -930,6 +931,9 @@ func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
 		default:
 			parts[i] = jiraDimStyle.Render(fmt.Sprintf("%s %s/%s", s.name, s.s, chartNum(cp)))
 		}
+		if n := notes[s.name]; n != "" {
+			parts[i] += jiraDimStyle.Render(" (" + n + ")")
+		}
 	}
 	return strings.Join(parts, jiraDimStyle.Render(" · "))
 }
@@ -943,5 +947,5 @@ func meetingCapacity(caps map[string]float64, me string, busy []calendar.Meeting
 	}
 	out := maps.Clone(caps)
 	out[me] = left
-	return out, fmt.Sprintf("%s: %s of meetings", me, jira.FormatDuration(int(hours.Seconds())))
+	return out, jira.FormatDuration(int(hours.Seconds())) + " meetings off"
 }

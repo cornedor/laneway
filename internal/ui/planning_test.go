@@ -102,12 +102,15 @@ func TestPlanRank(t *testing.T) {
 
 func TestPlanCapacity(t *testing.T) {
 	cards := []jira.Card{{Assignee: "Ada", Points: "8"}, {Assignee: "Bob", Points: "3"}, {Points: "2"}}
-	got := planByAssignee(cards, map[string]float64{"Ada": 5, "default": 10})
+	got := planByAssignee(cards, map[string]float64{"Ada": 5, "default": 10}, nil)
 	if plain := ansi.Strip(got); plain != "Ada 8/5! · Bob 3/10 · unassigned 2" {
 		t.Errorf("plain = %q", plain)
 	}
 	if !strings.Contains(got, jiraOverStyle.Render("Ada 8/5!")) {
 		t.Error("over capacity should be marked")
+	}
+	if got := ansi.Strip(planByAssignee(cards, map[string]float64{"Ada": 5}, map[string]string{"Ada": "2h meetings off"})); !strings.HasPrefix(got, "Ada 8/5! (2h meetings off) · ") {
+		t.Errorf("with a note: %q", got)
 	}
 }
 
@@ -117,7 +120,7 @@ func TestPlanMeetingCapacity(t *testing.T) {
 	mon := time.Date(2026, 9, 28, 0, 0, 0, 0, time.Local)
 	busy := []calendar.Meeting{{Start: mon.Add(9 * time.Hour), End: mon.Add(17 * time.Hour)}} // a day of a 5-day week
 	caps, note := meetingCapacity(map[string]float64{"Ada": 5, "default": 10}, "Me", busy, mon, mon.AddDate(0, 0, 7), nil)
-	if caps["Me"] != 8 || caps["Ada"] != 5 || note != "Me: 8h of meetings" {
+	if caps["Me"] != 8 || caps["Ada"] != 5 || note != "8h meetings off" {
 		t.Errorf("caps %v, note %q", caps, note)
 	}
 	if caps, note = meetingCapacity(map[string]float64{"Ada": 5}, "Me", busy, mon, mon.AddDate(0, 0, 7), nil); len(caps) != 1 || note != "" {
