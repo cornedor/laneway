@@ -67,6 +67,10 @@ func TestEditRoutes(t *testing.T) {
 	if code != 200 || r.Undo == nil {
 		t.Fatalf("assignee: %d", code)
 	}
+	issueCall(t, "GET", iu+"?fresh=1", nil, &cur)
+	if cur.AssigneeAccountID != us[0].AccountID {
+		t.Errorf("assignee = %q, want %q", cur.AssigneeAccountID, us[0].AccountID)
+	}
 	code, r = put("labels", edit{Add: []string{"web-test"}})
 	if code != 200 || r.Undo == nil || len(r.Undo.Remove) != 1 {
 		t.Fatalf("labels: %d %+v", code, r.Undo)
@@ -76,6 +80,17 @@ func TestEditRoutes(t *testing.T) {
 	}
 	if code, _ := put("duedate", edit{Text: "nonsense"}); code != 400 {
 		t.Errorf("bad due date: %d", code)
+	}
+	code, r = put("parent", edit{Text: "DEMO-1"})
+	if code != 200 || r.Undo == nil || r.Undo.Field != "parent" {
+		t.Fatalf("parent: %d %+v", code, r.Undo)
+	}
+	// the undo's own undo is the parent just set
+	if code, r = put("parent", *r.Undo); code != 200 || r.Undo == nil || r.Undo.Text != "DEMO-1" {
+		t.Fatalf("parent undo: %d %+v", code, r.Undo)
+	}
+	if code, _ := put("parent", edit{Text: "not a key"}); code != 400 {
+		t.Errorf("bad parent: %d", code)
 	}
 	if code, _ := put("nonsense", edit{}); code != 400 {
 		t.Errorf("unknown field: %d", code)

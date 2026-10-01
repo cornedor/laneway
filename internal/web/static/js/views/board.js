@@ -476,7 +476,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
         band.head = h('div.bd-band-head', { dataset: { fold: g.name }, title: 'Fold / unfold  (z, Z)' }, band.caret, h('span.bd-band-name', g.name), band.count);
         const row = h('div.bd-band-row');
         names.forEach(n => {
-          const pane = { col: n.col, group: gi, name: n.name, cards: [], all: [], total: 0, rh: 0 };
+          const pane = { col: n.col, group: gi, band: g.cards[0], name: n.name, cards: [], all: [], total: 0, rh: 0 };
           pane.body = h('div.bd-lane-body.static');
           pane.el = h('section.bd-lane.cell', { dataset: { pane: S.panes.length } }, pane.body);
           pane.vl = plainList(pane.body, { create: buildCard, bind: (w, j) => fillCard(w, pane.cards[j]) });
@@ -851,7 +851,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const card = S.cards.find(c => c.Key === key); if (!card) return;
     const from = S.where.get(key);
     const same = from && from.p === pane;
-    if (swimming()) { if (same) return ui.toast('Ranking needs the swimlanes off  (O)'); return moveCol(card, pane.col, null); }
+    if (swimming()) {
+      if (same) return ui.toast('Ranking needs the swimlanes off  (O)');
+      if (from && from.p.group !== pane.group) setBand(card, pane.band);
+      if (from && from.p.col === pane.col) return;
+      return moveCol(S.cards.find(c => c.Key === key), pane.col, null);
+    }
     if (same && (idx === from.i || idx === from.i + 1)) return;
     const L = pane.cards.filter(c => c.Key !== key);
     let k = idx; if (same && from.i < idx) k--;
@@ -931,6 +936,25 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     } catch (e) {
       revertCard(card.Key, before); ui.toast('Could not move ' + card.Key + ': ' + e.message, { kind: 'err' });
     }
+  }
+  // A drop into another swimlane gives the card that band's assignee or epic, as Jira's board (TUI jiraSetBand).
+  async function setBand(card, band) {
+    if (!band || !writable()) return;
+    let field, body, patch;
+    if (S.swim === 'assignee' && (band.AssigneeID || '') !== (card.AssigneeID || '')) {
+      field = 'assignee'; body = { ID: band.AssigneeID || '' }; patch = { Assignee: band.Assignee || '', AssigneeID: band.AssigneeID || '' };
+    } else if (S.swim === 'epic' && (band.ParentKey || '') !== (card.ParentKey || '')) {
+      field = 'parent'; body = { Text: band.ParentKey || '' }; patch = { ParentKey: band.ParentKey || '', ParentSummary: band.ParentSummary || '' };
+    } else return;
+    const before = S.cards;
+    replaceCard(card, patch); layout();
+    if (S.sel === card.Key) select(card.Key);
+    try {
+      const r = await api.put('/issues/' + card.Key + '/field/' + field, body);
+      const u = r && r.Undo;
+      if (u) pushUndo(card.Key + ' back to its ' + field, async () => { await api.put('/issues/' + card.Key + '/field/' + u.Field, u); bus.emit('issue:changed', { key: card.Key }); });
+      bus.emit('issue:changed', { key: card.Key, what: card.Key + ' ' + field + ' → ' + (field === 'assignee' ? patch.Assignee || 'unassigned' : patch.ParentKey || 'no epic') });
+    } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
   function stepCol(d) {
     const c = curCard(); if (!c) return;
@@ -1076,6 +1100,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   function setSwim(v) {
     S.swim = v; S.fold.clear(); S.built = '';
     if (S.board) app.prefs.set('board.swim.' + S.board.ID, v);
+    renderToolbar();
     if (S.mode !== 'lanes') return;
     layout();
     ui.toast(v === 'none' ? 'No swimlanes' : 'Swimlanes by ' + v);

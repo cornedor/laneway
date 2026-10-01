@@ -283,6 +283,9 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 	case "PUT ":
 		s.edit(iss, body)
 		return nil, true
+	case "PUT /assignee":
+		s.edit(iss, map[string]any{"fields": map[string]any{"assignee": body}})
+		return nil, true
 	case "GET /transitions":
 		var out []any
 		for _, st := range statuses {
@@ -417,6 +420,11 @@ func (s *Server) edit(iss *issue, body map[string]any) {
 			}
 		case "duedate":
 			iss.due, _ = v.(string)
+		case "parent":
+			iss.parent = ""
+			if m, _ := v.(map[string]any); m != nil {
+				iss.parent, _ = m["key"].(string)
+			}
 		case flagField:
 			iss.flagged = len(asSlice(v)) > 0
 		}

@@ -82,7 +82,7 @@ func init() {
 
 // edit is one change to one field. Field is the path's: status, priority,
 // assignee, reporter, points, summary, labels, duedate, issuetype, flag,
-// sprint, or a field id written from Kind and Value (EncodeValue's shapes).
+// sprint, parent (Text is its key, "" clears), or a field id written from Kind and Value (EncodeValue's shapes).
 type edit struct {
 	Field  string
 	ID     string // priority, assignee, reporter, issuetype, status transition; "" unassigns
@@ -244,6 +244,20 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 			return nil, err
 		}
 		return &edit{Field: "duedate", Text: prev}, nil
+	case "parent":
+		var prev struct{ Key string }
+		_ = json.Unmarshal(ic.Values["parent"], &prev)
+		var v any // no parent: cleared
+		if k := strings.TrimSpace(e.Text); k != "" {
+			if !jira.ValidKey(k) {
+				return nil, badRequest("bad parent key")
+			}
+			v = map[string]string{"key": k}
+		}
+		if err := c.SetField(ctx, key, "parent", v); err != nil {
+			return nil, err
+		}
+		return &edit{Field: "parent", Text: prev.Key}, nil
 	case "issuetype":
 		if e.ID == "" {
 			return nil, badRequest("issuetype needs an ID")
