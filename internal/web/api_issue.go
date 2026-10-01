@@ -52,6 +52,39 @@ func init() {
 		}
 		return nil, s.Client().SetDescription(ctx, key, b.Markdown, b.Kept)
 	})
+	// A rich-text field (a custom textarea) as markdown to edit like the description.
+	get("/issues/{key}/doc/{field}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		key, err := issueKey(r)
+		if err != nil {
+			return nil, err
+		}
+		if !docField.MatchString(r.PathValue("field")) {
+			return nil, badRequest("not a rich-text field")
+		}
+		raw, err := s.Client().RawField(ctx, key, r.PathValue("field"))
+		if err != nil {
+			return nil, err
+		}
+		return editableOf(raw), nil
+	})
+	put("/issues/{key}/doc/{field}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		key, err := issueKey(r)
+		if err != nil {
+			return nil, err
+		}
+		if !docField.MatchString(r.PathValue("field")) {
+			return nil, badRequest("not a rich-text field")
+		}
+		b, err := Body[mdBody](r)
+		if err != nil {
+			return nil, err
+		}
+		var doc any // blank clears
+		if strings.TrimSpace(b.Markdown) != "" {
+			doc = jira.MarkdownToADFKept(b.Markdown, b.Kept)
+		}
+		return nil, s.Client().SetField(ctx, key, r.PathValue("field"), doc)
+	})
 	post("/issues/{key}/description/task", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
 		if err != nil {
@@ -294,6 +327,9 @@ func editableOf(raw json.RawMessage) editable {
 	}
 	return editable{Markdown: ed.Markdown, Kept: ed.Kept, Editable: true}
 }
+
+// docField is a field /doc edits: a custom one, or environment.
+var docField = regexp.MustCompile(`^(customfield_\d{1,10}|environment)$`)
 
 var attachmentID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 

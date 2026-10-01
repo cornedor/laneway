@@ -49,18 +49,22 @@ var cssColor = regexp.MustCompile(`^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$`)
 
 // Description fetches the issue's description as its ADF document.
 func (c *Client) Description(ctx context.Context, key string) (json.RawMessage, error) {
+	return c.RawField(ctx, key, "description")
+}
+
+// RawField fetches one field of the issue as Jira has it: a rich-text one
+// as its ADF document, null when empty.
+func (c *Client) RawField(ctx context.Context, key, id string) (json.RawMessage, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
 	var resp struct {
-		Fields struct {
-			Description json.RawMessage `json:"description"`
-		} `json:"fields"`
+		Fields map[string]json.RawMessage `json:"fields"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/rest/api/3/issue/"+url.PathEscape(key)+"?fields=description", key, nil, &resp); err != nil {
+	if err := c.do(ctx, http.MethodGet, "/rest/api/3/issue/"+url.PathEscape(key)+"?fields="+url.QueryEscape(id), key, nil, &resp); err != nil {
 		return nil, err
 	}
-	return resp.Fields.Description, nil
+	return resp.Fields[id], nil
 }
 
 // SetDescription writes markdown as the issue's description, placeholder

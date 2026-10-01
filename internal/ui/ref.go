@@ -200,6 +200,9 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.DevInfo):
 		return m, m.openDevInfo()
 	case key.Matches(msg, m.keys.Pin):
+		if m.toggleStar() { // on a selected editmeta field: its star
+			return m, nil
+		}
 		if m.jiraIssue != nil {
 			m.togglePin(m.jiraIssue.Key, m.jiraIssue.Summary)
 		}

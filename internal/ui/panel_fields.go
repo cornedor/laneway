@@ -14,7 +14,9 @@ import (
 // The panel's field cursor: tab / shift-tab walk the issue's editable fields,
 // enter edits the selected one with the same editor as its own key. After the
 // panel's own fields come the rest of the issue's edit screen (editmeta),
-// edited with the transition form's per-kind editors and written at once.
+// edited with the transition form's per-kind editors and written at once:
+// the starred ones (* on one, shared with the web) and filled rich text,
+// then a More row (enter opens it, for the session) over the others.
 
 // panelField is one editable field of the panel.
 type panelField struct {
@@ -95,16 +97,37 @@ func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// extraFields is the shown issue's editmeta fields, none until they load.
-func (m *Model) extraFields() []jiraFormField {
+// moreFieldsName is the More row's name for the field cursor.
+const moreFieldsName = "More fields"
+
+// splitExtra is the shown issue's editmeta fields, none until they load:
+// those always shown (starred, filled rich text) and the ones More folds.
+func (m *Model) splitExtra() (top, rest []jiraFormField) {
 	if m.jiraIssue == nil || m.panelExtraKey != m.jiraIssue.Key {
+		return nil, nil
+	}
+	for _, ff := range m.panelExtra {
+		if m.starred[ff.ID] || richField(ff) {
+			top = append(top, ff)
+		} else {
+			rest = append(rest, ff)
+		}
+	}
+	return top, rest
+}
+
+// foldedShown is the More fields an open More shows: all, or the filled
+// ones with ui.empty_fields: hide.
+func (m *Model) foldedShown() []jiraFormField {
+	_, rest := m.splitExtra()
+	if !m.moreFields {
 		return nil
 	}
 	if !m.opts.hideEmpty || m.showEmpty {
-		return m.panelExtra
+		return rest
 	}
 	var out []jiraFormField
-	for _, ff := range m.panelExtra {
+	for _, ff := range rest {
 		if !ff.val.Empty() {
 			out = append(out, ff)
 		}
@@ -112,15 +135,86 @@ func (m *Model) extraFields() []jiraFormField {
 	return out
 }
 
-// hiddenFields is how many empty fields ui.empty_fields: hide folds away.
-func (m *Model) hiddenFields() int {
-	if m.jiraIssue == nil || m.panelExtraKey != m.jiraIssue.Key {
-		return 0
-	}
-	return len(m.panelExtra) - len(m.extraFields())
+// extraFields are the editmeta fields the panel shows, in its order.
+func (m *Model) extraFields() []jiraFormField {
+	top, _ := m.splitExtra()
+	return append(top, m.foldedShown()...)
 }
 
-func (m *Model) panelFieldCount() int { return len(panelFields) + len(m.extraFields()) }
+// moreRow is whether the panel has a More row: fields to fold.
+func (m *Model) moreRow() bool {
+	_, rest := m.splitExtra()
+	return len(rest) > 0
+}
+
+// hiddenFields is how many empty fields ui.empty_fields: hide folds away
+// in an open More.
+func (m *Model) hiddenFields() int {
+	if !m.moreFields {
+		return 0
+	}
+	_, rest := m.splitExtra()
+	return len(rest) - len(m.foldedShown())
+}
+
+func (m *Model) panelFieldCount() int {
+	n := len(panelFields) + len(m.extraFields())
+	if m.moreRow() {
+		n++
+	}
+	return n
+}
+
+// panelSlot is what field cursor index i is on: an editmeta field, or the
+// More row (more); nil and false for the panel's own fields.
+func (m *Model) panelSlot(i int) (ff *jiraFormField, more bool) {
+	j := i - len(panelFields)
+	if j < 0 {
+		return nil, false
+	}
+	top, _ := m.splitExtra()
+	switch shown := m.foldedShown(); {
+	case j < len(top):
+		return &top[j], false
+	case j == len(top) && m.moreRow():
+		return nil, true
+	case j-len(top)-1 < len(shown):
+		return &shown[j-len(top)-1], false
+	}
+	return nil, false
+}
+
+// toggleStar stars the selected editmeta field, or takes its star off;
+// it reports whether one was selected.
+func (m *Model) toggleStar() bool {
+	ff, _ := m.panelSlot(m.panelFieldIdx())
+	if ff == nil || m.store == nil {
+		return false
+	}
+	ids, err := jira.SetStarred(m.store, ff.ID, !m.starred[ff.ID])
+	if err != nil {
+		m.fail("star not kept: " + err.Error())
+		return true
+	}
+	m.starred = map[string]bool{}
+	for _, id := range ids {
+		m.starred[id] = true
+	}
+	if m.starred[ff.ID] {
+		m.status = ff.Name + " starred: shown on every issue"
+	} else {
+		m.status = ff.Name + " unstarred: under " + moreFieldsName
+	}
+	// the cursor follows the field to where it moved
+	id := ff.ID
+	for i := len(panelFields); i < m.panelFieldCount(); i++ {
+		if f, _ := m.panelSlot(i); f != nil && f.ID == id {
+			m.fieldCursor = i
+		}
+	}
+	m.renderRef()
+	return true
+}
 
 // panelFieldIdx is the selected field's index (panelFields, then
 // extraFields), -1 when none or the cursor belongs to another issue.
@@ -140,7 +234,12 @@ func (m *Model) panelFieldSel() string {
 	case i < len(panelFields):
 		return panelFields[i].name
 	}
-	return m.extraFields()[i-len(panelFields)].Name
+	if ff, more := m.panelSlot(i); more {
+		return moreFieldsName
+	} else if ff != nil {
+		return ff.Name
+	}
+	return ""
 }
 
 // panelFieldRow is the index of the panel's own field name, -1 when none.
@@ -198,7 +297,20 @@ func (m *Model) editPanelField() tea.Cmd {
 	case i < len(panelFields):
 		return panelFields[i].edit(m)
 	}
-	ff := m.extraFields()[i-len(panelFields)]
+	slot, more := m.panelSlot(i)
+	if more {
+		m.moreFields = !m.moreFields
+		m.renderRef()
+		return nil
+	}
+	if slot == nil {
+		return nil
+	}
+	ff := *slot
+	if ff.ReadOnly {
+		m.status = "Jira lets no one edit " + ff.Name + " on " + m.jiraIssue.Key + " now"
+		return nil
+	}
 	m.panelEditID = ff.ID
 	switch ff.Kind {
 	case jira.KindDoc:

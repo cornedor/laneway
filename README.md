@@ -336,6 +336,10 @@ Board:
 
 Panel:
 - fields: `tab`/`shift+tab` walk them (custom ones too), `enter` edits one;
+  of the edit screen's other fields the starred ones show (`*` on one stars it, for every project of the
+  site, shared with the browser) and a filled rich-text one (test notes, say) reads as its own section under
+  the description; the rest fold under a More row (`enter` opens it). A closed issue Jira lets no one edit
+  shows the fields its project and type had last time, read-only;
   text, number and date fields edit in their row, status, priority, assignee, reporter
   and option fields drop a list under it;
   dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the

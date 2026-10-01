@@ -159,7 +159,7 @@ func defaultKeys() keyMap {
 		Standup:         bind("standup: what you did", "U"),
 		History:         bind("issue history", "H"),
 		DevInfo:         bind("pull requests and branches", "D"),
-		Pin:             bind("pin / unpin issue", "*"),
+		Pin:             bind("pin / unpin issue; on a panel field, star it", "*"),
 		Fold:            bind("fold the swimlane", "z"),
 		UnfoldAll:       bind("unfold every swimlane", "Z"),
 		JQL:             bind("JQL search", "Q"),
@@ -399,6 +399,8 @@ type Model struct {
 	webLinksKey   string
 	children      []jira.Child    // webLinksKey's child issues, when it is an epic
 	showEmpty     bool            // the empty fields ui.empty_fields: hide folds, shown for the session
+	moreFields    bool            // the panel's More row open, for the session
+	starred       map[string]bool // editmeta field ids shown on every issue (jira.StarredMeta)
 	descOpen      map[string]bool // the description expands opened, by "KEY#n"; closed as in Jira
 	descTasks     []bool          // the action items the panel's description shows: done or not
 	// panelHits are the panel's clickable lines by content line: a field's
@@ -563,6 +565,11 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		v, _, _ := m.store.GetMeta(createMoreMeta)
 		m.createMore = v == "true"
 		m.jiraClient.SetQueue(queueTo(m.store))
+		m.jiraClient.SetLayouts(m.store)
+		m.starred = map[string]bool{}
+		for _, id := range jira.Starred(m.store) {
+			m.starred[id] = true
+		}
 		m.queued = len(readQueue(m.store))
 	}
 	return m

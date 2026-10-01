@@ -66,6 +66,19 @@ func init() {
 	})
 	get("/projects/{project}/sprints", projectSprints)
 	get("/issues/{key}/editmeta", editMeta)
+	put("/fields/starred/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		b, err := Body[struct{ On bool }](r)
+		if err != nil {
+			return nil, err
+		}
+		if !fieldIDRe.MatchString(r.PathValue("id")) {
+			return nil, badRequest("bad field id")
+		}
+		if s.opt.Store == nil {
+			return nil, httpError{http.StatusNotImplemented, "no state file to keep stars in"}
+		}
+		return jira.SetStarred(s.opt.Store, r.PathValue("id"), b.On)
+	})
 	get("/issues/{key}/transitionmeta", transitionMeta)
 	post("/issues/{key}/transitionwith", transitionWith)
 	put("/issues/{key}/field/{field}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -384,6 +397,19 @@ func projectSprints(ctx context.Context, s *Server, r *http.Request) (any, error
 	return map[string]any{"Board": 0, "Sprints": []jira.Sprint{}}, nil
 }
 
+var fieldIDRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
+
+// starred are the starred field ids (shared with the terminal), never null.
+func starred(s *Server) []string {
+	if s.opt.Store == nil {
+		return []string{}
+	}
+	if ids := jira.Starred(s.opt.Store); ids != nil {
+		return ids
+	}
+	return []string{}
+}
+
 // editMeta is what editing an issue needs beyond the issue itself: the
 // fields its edit screen offers with their values, and the ones the panel
 // has no own editor for (due date, type, sprint, flag).
@@ -405,7 +431,7 @@ func editMeta(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	var typ struct{ ID, Name string }
 	_ = json.Unmarshal(raw["issuetype"], &typ)
 	sp, _ := currentSprint(raw)
-	out := map[string]any{"Fields": fields, "Values": values, "Due": due, "TypeID": typ.ID, "Type": typ.Name, "Sprint": sp}
+	out := map[string]any{"Fields": fields, "Values": values, "Due": due, "TypeID": typ.ID, "Type": typ.Name, "Sprint": sp, "Starred": starred(s)}
 	if fl, err := c.Flagged(ctx, key); err == nil {
 		out["Flagged"] = fl
 	}

@@ -453,6 +453,10 @@ func (s *Server) edit(iss *issue, body map[string]any) {
 					iss.components = append(iss.components, components[i])
 				}
 			}
+		case testField:
+			iss.testNotes = adfText(v)
+		case legacyField:
+			iss.legacy, _ = v.(string)
 		case teamField:
 			iss.team = ""
 			if m, _ := v.(map[string]any); m != nil {

@@ -1017,7 +1017,7 @@ func TestWorklogDay(t *testing.T) {
 // row; a click on it shows them.
 func TestHideEmptyFields(t *testing.T) {
 	m := panelModel(t)
-	m.opts.hideEmpty = true
+	m.opts.hideEmpty, m.moreFields = true, true // in an open More
 	full := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c1", Name: "Team", Kind: jira.KindText}, val: jira.Value{Text: "Web"}}
 	empty := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c2", Name: "Sprint goal note", Kind: jira.KindText}}
 	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", fields: []jiraFormField{full, empty}})
@@ -1366,5 +1366,43 @@ func TestPanelEpicChildren(t *testing.T) {
 	m.renderRef()
 	if m = clickText(t, m, "ABC-3 Pending"); m.currentRef().jiraKey != "ABC-3" {
 		t.Errorf("click opened %q", m.currentRef().jiraKey)
+	}
+}
+
+// TestStarredAndMoreFields: starred fields and filled rich text show, the
+// rest fold under More (enter on it opens them); * on a field stars it in
+// the state file; a read-only one says so instead of editing.
+func TestStarredAndMoreFields(t *testing.T) {
+	m := panelModel(t)
+	tester := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c1", Name: "Tester", Kind: jira.KindText}, val: jira.Value{Text: "Ada"}}
+	legacy := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c2", Name: "Legacy ref", Kind: jira.KindText, ReadOnly: true}, val: jira.Value{Text: "X-1"}}
+	notes := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c3", Name: "Test notes", Kind: jira.KindDoc}, val: jira.Value{Text: "check **it**"}}
+	out, _ := m.handlePanelExtra(panelExtraMsg{key: "ABC-1", fields: []jiraFormField{tester, legacy, notes}})
+	m = out.(Model)
+	view := ansi.Strip(m.View().Content)
+	if strings.Contains(view, "Tester") || strings.Contains(view, "Legacy ref") || !strings.Contains(view, "More fields") || !strings.Contains(view, "Test notes") {
+		t.Fatalf("folded:\n%s", view)
+	}
+	// the cursor: past the own fields, Test notes (filled rich text), then More
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+1, "ABC-1"
+	out, _ = m.handleRefKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	if !strings.Contains(ansi.Strip(m.View().Content), "Tester") {
+		t.Fatal("enter on More did not open it")
+	}
+	m.fieldCursor = len(panelFields) + 3 // Legacy ref (in the order given)
+	if out, _ = m.handleRefKey(keyMsg(t, "enter")); !strings.Contains(out.(Model).status, "no one edit") {
+		t.Errorf("read-only: %q", out.(Model).status)
+	}
+	m.fieldCursor = len(panelFields) + 2 // Tester
+	out, _ = m.handleRefKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if got := jira.Starred(m.store); len(got) != 1 || got[0] != "c1" || m.panelFieldSel() != "Tester" {
+		t.Fatalf("starred %v, cursor on %q", got, m.panelFieldSel())
+	}
+	m.moreFields = false
+	m.renderRef()
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "★ Tester") || strings.Contains(view, "Legacy ref") {
+		t.Errorf("starred folded:\n%s", view)
 	}
 }

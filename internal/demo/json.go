@@ -71,6 +71,8 @@ func fieldsJSON() []any {
 		f(flagField, "Flagged", "array", "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"),
 		f(startField, "Start date", "date", ""),
 		f(devField, "Development", "any", "com.atlassian.jira.plugins.jira-development-integration-plugin:devsummarycf"),
+		f(testField, "Test notes", "string", "com.atlassian.jira.plugin.system.customfieldtypes:textarea"),
+		f(legacyField, "Legacy ref", "string", "com.atlassian.jira.plugin.system.customfieldtypes:textfield"),
 	}
 }
 
@@ -228,6 +230,10 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		comps = append(comps, map[string]any{"id": optionID(components, c), "name": c})
 	}
 	fields["components"] = comps
+	fields[testField], fields[legacyField] = adf(iss.testNotes), nil
+	if iss.legacy != "" {
+		fields[legacyField] = iss.legacy
+	}
 	fields[teamField] = nil
 	if iss.team != "" {
 		fields[teamField] = map[string]any{"id": optionID(teams, iss.team), "value": iss.team}
@@ -252,6 +258,8 @@ func editMetaJSON() map[string]any {
 	}
 	return map[string]any{"fields": map[string]any{
 		"components": map[string]any{"name": "Components", "schema": map[string]any{"type": "array", "items": "component", "system": "components"}, "allowedValues": opts(components, "name")},
+		testField:    map[string]any{"name": "Test notes", "schema": map[string]any{"type": "string", "custom": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"}},
+		legacyField:  map[string]any{"name": "Legacy ref", "schema": map[string]any{"type": "string", "custom": "com.atlassian.jira.plugin.system.customfieldtypes:textfield"}},
 		teamField:    map[string]any{"name": "Team", "schema": map[string]any{"type": "option", "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select"}, "allowedValues": opts(teams, "value")},
 	}}
 }

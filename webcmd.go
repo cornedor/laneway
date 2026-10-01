@@ -122,6 +122,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 		opt.UI = uiCfg
 		opt.Client = webClient(jc, uiCfg)
 		opt.Client.SetQueue(offline.To(opt.Store))
+		opt.Client.SetLayouts(opt.Store)
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)
 		if err != nil && !errors.Is(err, config.ErrNoConfig) {
@@ -345,6 +346,7 @@ func webSite(cfg config.Config, site string, opt web.Options) (web.Options, erro
 	opt.Rules, opt.RulesTest = cfg.Rules, cfg.RulesTest
 	opt.Client = webClient(jc, cfg.UI)
 	opt.Client.SetQueue(offline.To(opt.Store))
+	opt.Client.SetLayouts(opt.Store)
 	return opt, nil
 }
 

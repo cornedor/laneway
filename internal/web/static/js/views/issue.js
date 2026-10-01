@@ -36,7 +36,7 @@ export function showTerminal(app, k) {
 }
 const drafts = new Map();    // unsent comment text by issue key
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
-const dash = h('span.faint', '—');
+const dash = () => h('span.faint', '—');
 
 export function mountIssue(el, key, { app, full, card }) {
   css('issue');
@@ -71,11 +71,11 @@ export function mountIssue(el, key, { app, full, card }) {
     history: h('section.pane.history'),
   };
   const box = {
-    fields: h('div.fields'), desc: h('div.desc'), children: h('div.block.children'), links: h('div.block.links'), files: h('div.block.files'),
+    fields: h('div.fields'), desc: h('div.desc'), docs: h('div.docs'), children: h('div.block.children'), links: h('div.block.links'), files: h('div.block.files'),
     list: h('div.cm-list'), more: h('div.cm-more'), composer: h('div.composer'),
   };
   const dev = mountDev(key, { app, el, full, card: () => st.card, details: () => setTab('details') });
-  panes.details.append(box.fields, dev.el, box.desc, box.children, box.links, box.files);
+  panes.details.append(box.fields, dev.el, box.desc, box.docs, box.children, box.links, box.files);
   panes.comments.append(box.more, box.list, box.composer);
   let offNotes = null;
   import('./issue_notes.js').then(m => { if (!dead) offNotes = m.mountNotes(panes.details, key, { app, el, full }); });
@@ -202,7 +202,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const i = st.issue; if (!i) return clear(box.fields);
     const c = st.card || {};
     const cell = (field, label, value) => {
-      const inner = [h('span.k', label), h('span.v', value == null || value === '' ? dash : value)];
+      const inner = [h('span.k', label), h('span.v', value == null || value === '' ? dash() : value)];
       return field ? h('button.fld', { dataset: { field }, title: 'Edit ' + label.toLowerCase(), onclick: e => edit(field, e.currentTarget) }, inner)
         : h('div.fld.ro', inner);
     };
@@ -224,17 +224,70 @@ export function mountIssue(el, key, { app, full, card }) {
       ...extraCells(cell));
   }
   // The rest of the edit screen (editmeta: components, custom fields), after the panel's own, as the TUI's
-  // panel_fields.go; a click edits one. ui.empty_fields: hide folds the empty ones behind a toggle.
+  // panel_fields.go; a click edits one. Starred fields (★, every issue of the site, shared with the TUI) show
+  // here, the others fold under More (the pref fields.more remembers it open); ui.empty_fields: hide folds
+  // their empty ones too. A filled rich-text field reads as a section under the description (renderDocs).
+  // Read-only: the screen Jira last offered for this project and type, on an issue it lets no one edit now.
   const SHOWN = new Set(['parent', 'duedate']);
   const valueText = v => (!v ? '' : v.Text ? (v.Text.length > 80 ? v.Text.slice(0, 80) + '…' : v.Text) : [...(v.Users || []).map(u => u.DisplayName), ...(v.Options || []).map(o => o.Name)].join(', '));
+  const isDoc = f => f.Kind === 'doc' && !!valueText(st.meta.Values[f.ID]);
   function extraCells(cell) {
     const m = st.meta; if (!m) return [];
-    const fs = (m.Fields || []).filter(f => !SHOWN.has(f.ID) && f.Kind !== 'sprint');
+    const fs = (m.Fields || []).filter(f => !SHOWN.has(f.ID) && f.Kind !== 'sprint' && !isDoc(f));
+    const star = new Set(m.Starred || []);
+    const top = fs.filter(f => star.has(f.ID)), rest = fs.filter(f => !star.has(f.ID));
+    const out = top.map(f => fieldCell(cell, f, true));
+    if (!rest.length) return out;
+    const open = app.prefs.get('fields.more', '') === 'open';
+    out.push(h('button.fld.more', { 'aria-expanded': String(open), onclick: () => { app.prefs.set('fields.more', open ? '' : 'open'); renderFields(); } },
+      h('span.k', top.length ? 'More fields' : 'Fields'), h('span.v.dim', (open ? '▾ ' : '▸ ') + rest.length + (open ? '' : ' · ☆ keeps one shown'))));
+    if (!open) return out;
     const hide = String((app.session.ui && app.session.ui.EmptyFields) || '').toLowerCase() === 'hide' && !st.showEmpty;
-    const shown = hide ? fs.filter(f => valueText(m.Values[f.ID])) : fs;
-    const out = shown.map(f => cell(f.ID, f.Name, valueText(m.Values[f.ID])));
-    if (fs.length > shown.length) out.push(h('button.fld.more', { onclick: () => { st.showEmpty = true; renderFields(); } }, h('span.k', 'Empty fields'), h('span.v.dim', '+ ' + (fs.length - shown.length) + ' more')));
+    const shown = hide ? rest.filter(f => valueText(m.Values[f.ID])) : rest;
+    out.push(...shown.map(f => fieldCell(cell, f, false)));
+    if (rest.length > shown.length) out.push(h('button.fld.more', { onclick: () => { st.showEmpty = true; renderFields(); } }, h('span.k', 'Empty fields'), h('span.v.dim', '+ ' + (rest.length - shown.length) + ' more')));
     return out;
+  }
+  function fieldCell(cell, f, on) {
+    const v = valueText(st.meta.Values[f.ID]);
+    let c;
+    if (f.ReadOnly) { c = cell(null, f.Name, v); c.title = 'Jira lets no one edit this issue now'; }
+    else if (f.Kind === 'doc') c = h('button.fld', { title: 'Write ' + f.Name.toLowerCase(), onclick: () => editDoc(f) }, h('span.k', f.Name), h('span.v', dash()));
+    else c = cell(f.ID, f.Name, v);
+    return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? 'Unstar: fold it under More' : 'Star: show it on every issue', 'aria-label': (on ? 'Unstar ' : 'Star ') + f.Name, 'aria-pressed': String(on), onclick: () => starField(f, !on) }, on ? '★' : '☆'));
+  }
+  async function starField(f, on) {
+    try { st.meta.Starred = await api.put('/fields/starred/' + encodeURIComponent(f.ID), { On: on }); } catch (e) { return fail(e); }
+    renderFields();
+  }
+
+  // ---- rich-text fields: a filled one is a section like the description, edited the same way
+  function renderDocs() {
+    const m = st.meta;
+    if (!m || st.editingDoc) return; // a reload keeps the last ones until editmeta answers: no jump
+    const fs = (m.Fields || []).filter(isDoc);
+    clear(box.docs).append(...fs.map(f => h('div.desc.doc', { dataset: { field: f.ID }, ondblclick: e => { if (!f.ReadOnly && !e.target.closest('a,input,img,summary')) editDoc(f); } },
+      h('div.sec-head', h('h3', f.Name), !f.ReadOnly && h('button.btn.ghost.sm', { title: 'Edit ' + f.Name, onclick: () => editDoc(f) }, 'Edit')),
+      h('div.md', md(m.Values[f.ID].Text, mdOpts())))));
+  }
+  async function editDoc(f) {
+    if (st.editingDoc) return;
+    setTab('details');
+    let ed;
+    try { ed = await api.get('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { fresh: true }); } catch (e) { return fail(e); }
+    if (dead) return;
+    if (!ed.Editable) return ui.toast('Edit this one in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err', action: { label: 'Open', run: () => window.open(browseURL(), '_blank', 'noopener') } });
+    st.editingDoc = f.ID;
+    const sec = box.docs.querySelector('[data-field="' + CSS.escape(f.ID) + '"]') || box.docs.appendChild(h('div.desc.doc', { dataset: { field: f.ID } }));
+    const done = () => { st.editingDoc = null; renderDocs(); };
+    const e = editor({ value: ed.Markdown, rows: 8, placeholder: f.Name + ' (markdown)…', allowEmpty: true, label: 'Save', mono: true, draft: 'doc:' + key + ':' + f.ID,
+      save: async (text, mentions) => {
+        await api.put('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
+        st.editingDoc = null; changed(key + ' ' + f.Name + ' updated'); ui.toast(f.Name + ' saved', { kind: 'ok' });
+      },
+      cancel: done });
+    clear(sec).append(h('div.sec-head', h('h3', f.Name)), e.el);
+    e.focus();
   }
   const parentLink = () => st.issue && (st.issue.Links || []).find(l => l.Rel === 'parent');
 
@@ -674,7 +727,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const [kids, web, meta] = await Promise.all([st.children ? null : api.get('/issues/' + key + '/children').catch(() => []), st.weblinks ? null : api.get('/issues/' + key + '/weblinks').catch(() => []),
       st.meta ? null : api.get('/issues/' + key + '/editmeta', { fresh: true }).catch(() => null)]);
     if (dead) return;
-    if (meta) { st.meta = meta; renderFields(); }
+    if (meta) { st.meta = meta; renderFields(); renderDocs(); }
     if (kids) { st.children = kids; renderChildren(); }
     if (web) { st.weblinks = web; renderLinks(); }
   }

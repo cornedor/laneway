@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -188,5 +189,37 @@ func TestFlatReplies(t *testing.T) {
 	issueCall(t, "GET", iu+"?fresh=1", nil, &is)
 	if last := is.Comments[len(is.Comments)-1]; last.Body != "agreed" || last.ParentID != "" {
 		t.Errorf("flat reply = %+v", last)
+	}
+}
+
+// TestStarsAndDocFields: a star is kept in the state file and comes with
+// editmeta; a rich-text field reads and writes as markdown.
+func TestStarsAndDocFields(t *testing.T) {
+	ts, _ := toolsServer(t, nil)
+	var ids []string
+	if code := issueCall(t, "PUT", ts.URL+"/api/fields/starred/customfield_10030", map[string]any{"On": true}, &ids); code != 200 || len(ids) != 1 {
+		t.Fatalf("star: %d %v", code, ids)
+	}
+	if code := issueCall(t, "PUT", ts.URL+"/api/fields/starred/bad%20id", map[string]any{"On": true}, nil); code != 400 {
+		t.Errorf("bad id: %d", code)
+	}
+	var meta struct{ Starred []string }
+	issueCall(t, "GET", ts.URL+"/api/issues/DEMO-4/editmeta", nil, &meta)
+	if len(meta.Starred) != 1 || meta.Starred[0] != "customfield_10030" {
+		t.Errorf("editmeta starred = %v", meta.Starred)
+	}
+	iu := ts.URL + "/api/issues/DEMO-4/doc/customfield_10040"
+	var ed editable
+	if code := issueCall(t, "GET", iu, nil, &ed); code != 200 || !ed.Editable || !strings.Contains(ed.Markdown, "Check:") {
+		t.Fatalf("doc: %d %+v", code, ed)
+	}
+	if code := issueCall(t, "PUT", iu, mdBody{Markdown: "new notes"}, nil); code != 200 {
+		t.Fatalf("set doc: %d", code)
+	}
+	if issueCall(t, "GET", iu, nil, &ed); ed.Markdown != "new notes" {
+		t.Errorf("after = %+v", ed)
+	}
+	if code := issueCall(t, "GET", ts.URL+"/api/issues/DEMO-4/doc/summary", nil, nil); code != 400 {
+		t.Errorf("summary as a doc: %d", code)
 	}
 }

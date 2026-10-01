@@ -41,6 +41,8 @@ const (
 	flagField   = "customfield_10021"
 	startField  = "customfield_10015"
 	teamField   = "customfield_10030"
+	testField   = "customfield_10040" // a rich-text field (textarea), as test notes often are
+	legacyField = "customfield_10041" // a one-line field no one fills any more
 )
 
 // components and teams are what the edit screen (editmeta) offers for the
@@ -115,6 +117,8 @@ type issue struct {
 	fixVersion        string // a version's id, "" for none
 	components        []string
 	team              string
+	testNotes         string // testField, markdown-ish text
+	legacy            string // legacyField
 	comments          []comment
 	worklogs          []worklog
 	changes           []change
@@ -185,6 +189,9 @@ func generate(now time.Time) *Server {
 		}
 		if sd.typ == "Epic" {
 			iss.start = date(-20 + 12*i)
+		}
+		if sd.st != todo && sd.typ == "Story" {
+			iss.testNotes = "Check: " + sd.summary + ".\n\nOn staging, as a guest and as a customer."
 		}
 		// A status history that walks the workflow up to where it is.
 		at := day(-6)

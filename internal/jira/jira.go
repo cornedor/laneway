@@ -85,6 +85,8 @@ type Client struct {
 	queue func(PendingWrite)
 	// index mirrors the cards and issues read (queue.go); nil keeps none.
 	index Indexer
+	// layouts keeps the edit screens seen (layout.go); nil keeps none.
+	layouts MetaStore
 	// people answers person searches (users.go); nil asks Jira each time.
 	// peopleTried are the projects synced this session, behind mu.
 	people      People

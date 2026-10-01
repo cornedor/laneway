@@ -1,6 +1,6 @@
 /* Development section of the issue (views/issue_dev.js). Tokens only (themes.css). */
 .dv { --dv-mono: var(--font-mono, ui-monospace, monospace); margin-top: calc(var(--pad) * 2); border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2); }
-.dv-head { margin: 0; padding: .286rem calc(var(--pad) * 1.25) .286rem .286rem; min-width: 0; }
+.dv .dv-head { margin: 0; padding: .286rem calc(var(--pad) * 1.25) .286rem .286rem; min-width: 0; }
 .dv-head kbd { font-size: .714rem; opacity: .6; }
 .dv-toggle { display: inline-flex; align-items: center; gap: .429rem; font: inherit; color: inherit; background: none; border: 0; border-radius: var(--radius); padding: .286rem .429rem; cursor: pointer; flex: none; }
 .dv-toggle:hover { background: var(--bg-3); }

@@ -51,6 +51,9 @@ type FieldMeta struct {
 	// Clause is the JQL name of a labels field (labels, cf[10050]), whose
 	// words complete from Jira's; "" for other fields.
 	Clause string
+	// ReadOnly is a field the issue's edit screen has, which Jira lets no
+	// one edit on this issue now (layout.go).
+	ReadOnly bool `json:",omitempty"`
 }
 
 // TransitionMeta is one move offered on an issue, with its screen's fields.

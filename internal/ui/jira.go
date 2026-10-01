@@ -128,29 +128,49 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 && m.jiraTab.cards[i].Deploy != "" {
 		refMeta(&b, "Deployed", m.jiraTab.cards[i].Deploy, 10)
 	}
-	if extra := m.extraFields(); len(extra) > 0 {
+	if top, rest := m.splitExtra(); len(top)+len(rest) > 0 {
 		w := 10
-		for _, ff := range extra {
+		for _, ff := range append(top, rest...) {
 			w = max(w, len(ff.Name)+2)
+			if m.starred[ff.ID] {
+				w = max(w, len(ff.Name)+4) // "★ "
+			}
 		}
 		b.WriteString("\n")
-		for i, ff := range extra {
+		idx := len(panelFields)
+		field := func(ff jiraFormField) {
 			line()
+			defer func() { idx++ }()
 			val := jiraValueText(ff.val)
 			if richField(ff) {
 				val = "↓ below"
 			}
+			name := ff.Name
+			if m.starred[ff.ID] {
+				name = "★ " + name
+			}
 			if m.fieldInlineOn(ff.ID) {
-				b.WriteString(refLabelStyle.Render(refMetaLabel(ff.Name, w)) + m.fieldInlineView(w, width) + "\n")
+				b.WriteString(refLabelStyle.Render(refMetaLabel(name, w)) + m.fieldInlineView(w, width) + "\n")
 				if ff.Clause != "" {
 					for _, l := range m.labelLines(w) {
 						b.WriteString(l + "\n")
 					}
 				}
-				continue
+				return
 			}
-			refField(&b, ff.Name, val, w, m.panelFieldIdx() == len(panelFields)+i)
+			refField(&b, name, val, w, m.panelFieldIdx() == idx)
 			m.inlinePickerUnder(&b, ff.ID, w, width)
+		}
+		for _, ff := range top {
+			field(ff)
+		}
+		if len(rest) > 0 {
+			line()
+			refField(&b, moreFieldsName, m.moreLabel(len(rest)), w, m.panelFieldIdx() == idx)
+			idx++
+			for _, ff := range m.foldedShown() {
+				field(ff)
+			}
 		}
 	}
 	if n := m.hiddenFields(); n > 0 {
@@ -606,6 +626,14 @@ func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
 		}
 		refMeta(b, "Time", t, 10)
 	}
+}
+
+// moreLabel is the More row's value: how many it folds, and how to open it.
+func (m *Model) moreLabel(n int) string {
+	if m.moreFields {
+		return fmt.Sprintf("▾ %d · %s stars one to keep it shown", n, helpKey(m.keys.Pin))
+	}
+	return fmt.Sprintf("▸ %d · ↵ shows them", n)
 }
 
 // emptyFieldsRow stands for the empty fields ui.empty_fields: hide folds;

@@ -105,7 +105,10 @@ func withExtra(t *testing.T, bodies *[]string) Model {
 			val: jira.Value{Options: []jira.Option{{ID: "7", Name: "Core"}}}},
 		{FieldMeta: jira.FieldMeta{ID: "customfield_5", Name: "Ticket ref", Kind: jira.KindText}},
 	}})
-	return out.(Model)
+	m = out.(Model)
+	m.moreFields = true // unstarred: under More, opened; the More row is len(panelFields)
+	m.renderRef()
+	return m
 }
 
 // TestPanelExtraFields: editmeta fields show after the panel's own, the
@@ -117,7 +120,7 @@ func TestPanelExtraFields(t *testing.T) {
 	if !strings.Contains(view, "Team:") || !strings.Contains(view, "Core") || !strings.Contains(view, "Ticket ref:") {
 		t.Fatal("extra fields not drawn")
 	}
-	for range len(panelFields) + 1 {
+	for range len(panelFields) + 2 {
 		out, _ := m.handleRefKey(keyMsg(t, "tab"))
 		m = out.(Model)
 	}
@@ -151,7 +154,7 @@ func TestPanelExtraFields(t *testing.T) {
 func TestPanelExtraText(t *testing.T) {
 	var bodies []string
 	m := withExtra(t, &bodies)
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+1, "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+2, "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	if !m.jiraFieldActive || m.jiraFieldName != "field" || strings.Contains(m.View().Content, "Edit Ticket ref") || !regexp.MustCompile(`Ticket ref: +❯`).MatchString(ansi.Strip(m.View().Content)) {
@@ -177,7 +180,7 @@ func TestPanelExtraDate(t *testing.T) {
 	var bodies []string
 	m := withExtra(t, &bodies)
 	m.panelExtra = append(m.panelExtra, jiraFormField{FieldMeta: jira.FieldMeta{ID: "duedate", Name: "Due date", Kind: jira.KindDate}})
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+2, "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+3, "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	m.jiraFieldInput.SetValue("soon")
@@ -203,7 +206,7 @@ func TestPanelExtraSprint(t *testing.T) {
 	m := withExtra(t, &bodies)
 	m.jiraTab.views = []jiraView{{kind: jiraViewSprint, name: "Sprint 9", sprint: 9}, {kind: jiraViewBacklog, name: "Backlog"}}
 	m.panelExtra = append(m.panelExtra, jiraFormField{FieldMeta: jira.FieldMeta{ID: "customfield_20", Name: "Sprint", Kind: jira.KindSprint}})
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+2, "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+3, "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	if !m.jiraPicker.active || len(m.jiraPicker.items) != 2 || m.jiraPicker.items[1].label != "Sprint 9" {
@@ -234,7 +237,7 @@ func TestRichFieldSection(t *testing.T) {
 	if i < 0 || !strings.Contains(view[i:], "open cart\n") || !strings.Contains(view[i:], "pay") {
 		t.Errorf("no section with the list:\n%s", view)
 	}
-	if strings.Count(view, "Notes") != 1 {
+	if strings.Count(view, "Notes") > 1 { // folded under More: no row, no section
 		t.Error("an empty rich field got a section")
 	}
 }

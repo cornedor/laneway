@@ -247,7 +247,8 @@ func TestEditDocField(t *testing.T) {
 		{FieldMeta: jira.FieldMeta{ID: "customfield_7", Name: "Notes", Kind: jira.KindDoc}, raw: raw},
 	}})
 	m = out.(Model)
-	m.fieldCursor, m.fieldCursorKey = len(panelFields), "ABC-1"
+	m.moreFields = true                                           // an empty one sits under More
+	m.fieldCursor, m.fieldCursorKey = len(panelFields)+1, "ABC-1" // past the More row
 	_, cmd := m.handleRefKey(keyMsg(t, "enter"))
 	loaded := cmd().(descLoadedMsg)
 	if loaded.field != "customfield_7" || loaded.md != "old notes" {
