@@ -242,3 +242,26 @@ func TestDemoConfluence(t *testing.T) {
 		t.Errorf("unanswered: %v", s.Unhandled)
 	}
 }
+
+// TestDemoInbox: others' changes and comments on your issues fill the
+// inbox, a mention of you among them.
+func TestDemoInbox(t *testing.T) {
+	c, _ := demoClient(t)
+	ctx := context.Background()
+	iss, err := c.InboxIssues(ctx, time.Now().AddDate(0, 0, -7))
+	if err != nil || len(iss) < 3 {
+		t.Fatalf("inbox issues %d, %v", len(iss), err)
+	}
+	entries, err := c.IssueInbox(ctx, "DEMO-9", "", time.Now().AddDate(0, 0, -7))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mention, priority bool
+	for _, e := range entries {
+		mention = mention || e.Mention && e.Who == sam.name
+		priority = priority || strings.Contains(e.What, "Highest") && e.Who == mira.name
+	}
+	if !mention || !priority {
+		t.Errorf("DEMO-9's inbox: mention %v, priority %v in %+v", mention, priority, entries)
+	}
+}

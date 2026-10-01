@@ -128,7 +128,7 @@ func collectText(n any, sb *strings.Builder) {
 // commentJSON is a comment as the comment endpoint has it; parentId only
 // there, as on Jira.
 func commentJSON(c comment) map[string]any {
-	m := map[string]any{"id": c.id, "author": userJSON(&c.author), "body": adf(c.body), "created": stamp(c.created), "updated": stamp(c.created)}
+	m := map[string]any{"id": c.id, "author": userJSON(&c.author), "body": mentions(adf(c.body)), "created": stamp(c.created), "updated": stamp(c.created)}
 	if c.parent != "" {
 		n, _ := strconv.Atoi(c.parent) // Jira sends it as a number
 		m["parentId"] = n
@@ -297,4 +297,38 @@ func (s *Server) release(id string, body map[string]any) {
 			s.versions[i].date = d
 		}
 	}
+}
+
+// mentions turns "@Name" of a demo user in doc's text into a mention, as
+// Jira stores one.
+func mentions(doc any) any {
+	d, _ := doc.(map[string]any)
+	if d == nil {
+		return doc
+	}
+	for _, p := range asSlice(d["content"]) {
+		para, _ := p.(map[string]any)
+		var out []any
+		for _, n := range asSlice(para["content"]) {
+			t, _ := n.(map[string]any)
+			text, _ := t["text"].(string)
+			for _, u := range users {
+				if before, after, ok := strings.Cut(text, "@"+u.name); ok && t["type"] == "text" {
+					if before != "" {
+						out = append(out, map[string]any{"type": "text", "text": before})
+					}
+					out = append(out, map[string]any{"type": "mention", "attrs": map[string]any{"id": u.id, "text": "@" + u.name}})
+					text = after
+				}
+			}
+			if text != "" || t["type"] != "text" {
+				if t["type"] == "text" {
+					n = map[string]any{"type": "text", "text": text}
+				}
+				out = append(out, n)
+			}
+		}
+		para["content"] = out
+	}
+	return doc
 }

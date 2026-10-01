@@ -226,6 +226,22 @@ func generate(now time.Time) *Server {
 	s.comment("DEMO-4", me, "Yes, after the order: it won't block paying.", day(-1))
 	s.comment("DEMO-6", sam, "Reproduced with a 3-way split of 10.00: one part gets 3.34.", day(-1))
 	s.comment("DEMO-7", priya, "Hit rate is 92% on staging.", now.Add(-3*time.Hour))
+	// Others on your issues this week, for the inbox, the standup and the
+	// history: a raised priority, a review note, a mention, a reply.
+	s.change("DEMO-9", mira, now.Add(-5*time.Hour), "priority", "High", "Highest")
+	s.comment("DEMO-9", sam, "@Jamie Rivers this hit two customers this morning; the logs are on the incident.", now.Add(-50*time.Minute))
+	s.comment("DEMO-13", priya, "Reviewed: one nit on the postcode pattern, otherwise good to go.", now.Add(-2*time.Hour))
+	s.change("DEMO-13", priya, now.Add(-2*time.Hour), "labels", "frontend", "frontend reviewed")
+	s.comment("DEMO-22", tomas, "Copy for the button: \"Continue as guest\".", day(-1).Add(15*time.Hour))
+	s.comment("DEMO-4", mira, "Ship it behind the flag; I'll tell support.", now.Add(-time.Hour))
+	for _, w := range []struct {
+		key  string
+		who  user
+		secs int
+		text string
+	}{{"DEMO-6", sam, 2 * 3600, "rounding per part"}, {"DEMO-7", priya, 5400, "cache keys per region"}, {"DEMO-8", mira, 3 * 3600, "lazy images"}, {"DEMO-4", tomas, 3600, "copy review"}} {
+		s.worklog(w.key, w.who, day(-1).Truncate(24*time.Hour).Add(13*time.Hour), w.secs, w.text)
+	}
 	for d, w := range []struct {
 		key  string
 		secs int
@@ -265,6 +281,21 @@ func (s *Server) comment(key string, who user, body string, at time.Time) {
 	iss := s.issues[key]
 	s.seq++
 	iss.comments = append(iss.comments, comment{id: fmt.Sprint(s.seq), author: who, body: body, created: at})
+	iss.updated = maxTime(iss.updated, at)
+}
+
+// change is who changing an issue's field at at, as its changelog has it.
+func (s *Server) change(key string, who user, at time.Time, field, from, to string) {
+	iss := s.issues[key]
+	iss.changes = append(iss.changes, change{author: who, at: at, field: field, from: from, to: to})
+	iss.updated = maxTime(iss.updated, at)
+}
+
+func maxTime(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 func (s *Server) worklog(key string, who user, at time.Time, secs int, text string) {
