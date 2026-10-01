@@ -224,6 +224,12 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	if q := strings.TrimSpace(c.MyWorkJQL); q != "" {
 		o.myWorkJQL = q
 	}
+	switch k := strings.TrimSpace(c.MeetingKey); {
+	case k != "" && !jira.ValidKey(k):
+		warn = append(warn, fmt.Sprintf("ui.meeting_key: %q is no issue key", c.MeetingKey))
+	case k == "" && strings.TrimSpace(c.Calendar) != "":
+		warn = append(warn, "ui.calendar: set ui.meeting_key, the issue meetings are logged on")
+	}
 	o.home = home.Pick(c.Home)
 	for _, w := range c.Home {
 		if len(home.Pick([]string{w})) == 0 {

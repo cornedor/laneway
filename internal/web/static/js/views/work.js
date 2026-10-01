@@ -153,14 +153,16 @@ export default function mount(el, { app, scope, toolbar, query }) {
     try {
       const r = await api.get('/worklog/proposals?day=' + ymd(d), { fresh: true });
       props = r.Items || []; propsDay = ymd(d);
-      ui.toast(props.length ? props.length + ' proposed' : 'Nothing to propose: every session is logged' + (r.Failed.length ? ' · ui.activity failed: ' + r.Failed.join(', ') : ''));
+      const failed = (r.Failed.length ? ' · ui.activity failed: ' + r.Failed.join(', ') : '') + (r.Calendar ? ' · ui.calendar: ' + r.Calendar : '');
+      ui.toast((props.length ? props.length + ' proposed' : 'Nothing to propose: every session is logged') + failed, failed ? { kind: 'err' } : undefined);
       wsel = dayLogs(d).length; paintTime();
     } catch (e) { ui.errToast(e); }
   }
+  const sources = p => Object.entries(p.Sources).map(([k, n]) => n + ' ' + k).join(', '); // "3 commit, 1 calendar"
   async function logProposal() {
     const p = curProp(); if (!p) return;
     const started = new Date(p.Start);
-    if (await logDialog(app, { key: p.Key, summary: (cards.find(c => c.Key === p.Key) || {}).Summary, seconds: p.Seconds, started, note: 'Proposed from ' + Object.entries(p.Sources).map(([k, n]) => n + ' ' + k).join(', ') }) === 'logged') {
+    if (await logDialog(app, { key: p.Key, summary: (cards.find(c => c.Key === p.Key) || {}).Summary, seconds: p.Seconds, started, comment: p.Comment || '', note: 'Proposed from ' + sources(p) }) === 'logged') {
       props = props.filter(x => x !== p); refreshSoon();
     }
   }
@@ -201,7 +203,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
       t.append(h('div.wprop-head.dim', 'Proposed · enter logs one'));
       ps.forEach((p, i) => t.append(h('div.wlog.wprop' + (ws.length + i === wsel ? '.sel' : ''), { dataset: { i: ws.length + i } },
         h('span.wtime.dim', '≈ ' + hm(new Date(p.Start))), h('span.wkey.mono', p.Key),
-        h('span.wsum.dim', Object.entries(p.Sources).map(([k, n]) => n + ' ' + k).join(', ')), h('span.wdur', duration(p.Seconds)))));
+        h('span.wsum.dim', p.Comment || sources(p)), h('span.wdur', duration(p.Seconds)))));
     }
     body.append(t);
   }

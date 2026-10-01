@@ -163,6 +163,11 @@ type UIConfig struct {
 	// Home is the start screen's widgets in order (work, inbox, sprint,
 	// timer, reviews, filters); empty: no start screen, the board first.
 	Home []string `yaml:"home"`
+	// Calendar is an iCalendar feed of your meetings, a file or an
+	// http(s)/webcal URL; MeetingKey the issue the timesheet proposes them
+	// on as worklogs.
+	Calendar   string `yaml:"calendar"`
+	MeetingKey string `yaml:"meeting_key"`
 	// TimerRound rounds the timer's logged time up to a step ("15m"); by
 	// default to the minute.
 	TimerRound string `yaml:"timer_round"`

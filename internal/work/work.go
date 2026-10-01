@@ -129,6 +129,7 @@ type Proposal struct {
 	Start   time.Time
 	Seconds int
 	Sources map[string]int // events per source
+	Comment string         // what the worklog says: a meeting's title
 }
 
 const (
@@ -172,6 +173,22 @@ func Propose(events []Event, logged map[string]int) []Proposal {
 	}
 	slices.SortFunc(out, func(a, b Proposal) int { return a.Start.Compare(b.Start) })
 	return out
+}
+
+// Day is day's proposals: git in repos and the activity commands' sessions,
+// less what logs has, and extra (a calendar's meetings), by start; failed
+// are the activity commands that failed.
+func Day(repos, activity []string, day time.Time, logs []jira.Worklog, extra []Proposal) (ps []Proposal, failed []string) {
+	logged := map[string]int{}
+	for _, w := range logs {
+		logged[w.Key] += w.Seconds
+	}
+	from := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	events := Git(repos, from, from.AddDate(0, 0, 1))
+	more, failed := Activity(activity, day)
+	ps = append(Propose(append(events, more...), logged), extra...)
+	slices.SortStableFunc(ps, func(a, b Proposal) int { return a.Start.Compare(b.Start) })
+	return ps, failed
 }
 
 // SourcesText is "3 commits, 2 claude".

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/work"
 )
@@ -570,14 +571,15 @@ func worklogProposals(ctx context.Context, s *Server, r *http.Request) (any, err
 	if err != nil {
 		return nil, err
 	}
-	logged := map[string]int{}
-	for _, w := range logs {
-		logged[w.Key] += w.Seconds
-	}
-	events := work.Git(work.Repos(s.opt.Jira.Repos), d, d.AddDate(0, 0, 1))
-	more, failed := work.Activity(s.UIConfig().Activity, d)
+	ui := s.UIConfig()
+	meetings, calErr := calendar.Day(ctx, ui.Calendar, strings.TrimSpace(ui.MeetingKey), d, logs)
+	ps, failed := work.Day(work.Repos(s.opt.Jira.Repos), ui.Activity, d, logs, meetings)
 	if failed == nil {
 		failed = []string{}
 	}
-	return map[string]any{"Items": work.Propose(append(events, more...), logged), "Failed": failed}, nil
+	out := map[string]any{"Items": ps, "Failed": failed}
+	if calErr != nil {
+		out["Calendar"] = calErr.Error()
+	}
+	return out, nil
 }

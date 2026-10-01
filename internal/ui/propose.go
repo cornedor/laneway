@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/work"
 )
@@ -26,8 +28,8 @@ func proposalItems(ps []work.Proposal) []jiraPickerItem {
 	for _, p := range ps {
 		items = append(items, jiraPickerItem{
 			id:    proposalID + p.Key + "/" + strconv.FormatInt(p.Start.Unix(), 10),
-			label: fmt.Sprintf("≈ %s  %6s  %s — %s", p.Start.Local().Format("15:04"), jira.FormatDuration(p.Seconds), p.Key, p.SourcesText()),
-			value: jira.FormatDuration(p.Seconds),
+			label: fmt.Sprintf("≈ %s  %6s  %s — %s", p.Start.Local().Format("15:04"), jira.FormatDuration(p.Seconds), p.Key, cmp.Or(p.Comment, p.SourcesText())),
+			value: strings.TrimSpace(jira.FormatDuration(p.Seconds) + " " + p.Comment),
 		})
 	}
 	return items
@@ -38,6 +40,7 @@ type proposalsMsg struct {
 	day    time.Time
 	items  []jiraPickerItem
 	failed []string
+	calErr error // ui.calendar could not be read
 	err    error
 }
 
@@ -45,20 +48,16 @@ type proposalsMsg struct {
 func (m *Model) loadProposals() tea.Cmd {
 	p := m.jiraPicker
 	gen, day, c, ctx, repos, acts := p.gen, p.day, m.jiraClient, m.ctx, work.Repos(m.jiraRepos), m.uiConfig.Activity
+	cal, meetingKey := m.uiConfig.Calendar, strings.TrimSpace(m.uiConfig.MeetingKey)
 	m.status = "reading git and ui.activity…"
 	return func() tea.Msg {
 		logs, err := c.MyWorklogs(ctx, day)
 		if err != nil {
 			return proposalsMsg{gen: gen, day: day, err: err}
 		}
-		logged := map[string]int{}
-		for _, w := range logs {
-			logged[w.Key] += w.Seconds
-		}
-		from := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
-		events := work.Git(repos, from, from.AddDate(0, 0, 1))
-		more, failed := work.Activity(acts, day)
-		return proposalsMsg{gen: gen, day: day, items: proposalItems(work.Propose(append(events, more...), logged)), failed: failed}
+		meetings, calErr := calendar.Day(ctx, cal, meetingKey, day, logs)
+		ps, failed := work.Day(repos, acts, day, logs, meetings)
+		return proposalsMsg{gen: gen, day: day, items: proposalItems(ps), failed: failed, calErr: calErr}
 	}
 }
 
@@ -84,6 +83,9 @@ func (m Model) handleProposals(msg proposalsMsg) (tea.Model, tea.Cmd) {
 	m.status = fmt.Sprintf("%s proposed", plural(len(msg.items)-1, "worklog"))
 	if len(msg.failed) > 0 {
 		m.status += " · ui.activity failed: " + strings.Join(msg.failed, ", ")
+	}
+	if msg.calErr != nil {
+		m.status += " · ui.calendar: " + msg.calErr.Error()
 	}
 	return m, nil
 }

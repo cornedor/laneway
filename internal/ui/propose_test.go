@@ -51,6 +51,14 @@ func TestProposals(t *testing.T) {
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	m.jiraRepos = map[string]string{"ABC": repo}
 	m.uiConfig.Activity = []string{script, filepath.Join(dir, "missing")}
+	ics := filepath.Join(dir, "cal.ics")
+	two := nine.Add(5 * time.Hour).UTC().Format("20060102T150405Z")
+	half := nine.Add(5*time.Hour + 30*time.Minute).UTC().Format("20060102T150405Z")
+	if err := os.WriteFile(ics, []byte("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:a\r\nDTSTAMP:"+two+"\r\nDTSTART:"+two+
+		"\r\nDTEND:"+half+"\r\nSUMMARY:Planning\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m.uiConfig.Calendar, m.uiConfig.MeetingKey = ics, "OPS-1"
 	out, _ := m.handleJiraKey(keyMsg(t, "W"))
 	m = out.(Model)
 	out, _ = m.handleJiraPickerKey(keyMsg(t, "["))
@@ -67,7 +75,7 @@ func TestProposals(t *testing.T) {
 		labels = append(labels, it.label)
 	}
 	all := strings.Join(labels, "\n")
-	if !strings.Contains(all, "≈ 08:45      1h  ABC-5 — 3 activity.sh") || strings.Contains(all, "ABC-2") {
+	if !strings.Contains(all, "≈ 08:45      1h  ABC-5 — 3 activity.sh") || !strings.Contains(all, "≈ 14:00     30m  OPS-1 — Planning") || strings.Contains(all, "ABC-2") {
 		t.Fatalf("rows:\n%s", all)
 	}
 	if !strings.Contains(m.status, "ui.activity failed: "+filepath.Join(dir, "missing")) { // the command as configured

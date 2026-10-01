@@ -107,6 +107,8 @@ ui:
   card_colors: ribbon           # the board's own card colours as a bar on cards and rows; off
   mouse: on                     # clicks, drags and the wheel; off leaves the mouse to the terminal
   activity: [~/bin/claude-activity]  # p in W: commands printing "time<TAB>key" lines of a day's work
+  calendar: https://calendar.example.com/me.ics  # p in W also proposes your meetings (a file, https or webcal URL)
+  meeting_key: OPS-12           # the issue those meetings are logged on
   llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off
   skin_tone: medium             # : completion's tone for people: light, medium_light, medium, medium_dark, dark
@@ -544,7 +546,9 @@ an entry's time and comment, `d` twice deletes it, `y` copies the day as a markd
 `jira.repos` repositories, plus the lines `ui.activity` commands print
 (`2026-09-28T09:10:00+02:00<TAB>ABC-12 what`, the day as their last argument:
 agent logs, shell history, herdr), make sessions (30 minutes idle ends one), each
-issue's time less what it has logged, rounded to a quarter; `enter` on one
+issue's time less what it has logged, rounded to a quarter; with
+`ui.calendar` and `ui.meeting_key`, each meeting that day too, on that issue with its title as
+the comment (recurring ones as they repeat; all-day and free ones left out); `enter` on one
 logs it from its start.
 `W` again shows the week: an issue per row, a day per column, the day and
 week totals and how far each past workday is short of 8h. `enter` on a cell
