@@ -92,8 +92,20 @@ func TestIssuePanelRoutes(t *testing.T) {
 	if code := issueCall(t, "PUT", iu+"/comments/"+id, mdBody{Markdown: "edited", Kept: ed.Kept}, nil); code != 200 {
 		t.Fatalf("edit comment: %d", code)
 	}
-	if code := issueCall(t, "DELETE", iu+"/comments/"+id, nil, nil); code != 200 {
-		t.Fatalf("delete comment: %d", code)
+	var del struct{ Raw json.RawMessage }
+	if code := issueCall(t, "DELETE", iu+"/comments/"+id, nil, &del); code != 200 || len(del.Raw) == 0 {
+		t.Fatalf("delete comment: %d %s", code, del.Raw)
+	}
+	n := len(is.Comments)
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Raw": del.Raw}, nil); code != 200 {
+		t.Fatalf("undo delete: %d", code)
+	}
+	issueCall(t, "GET", iu+"?fresh=1", nil, &is)
+	if len(is.Comments) != n || is.Comments[n-1].Body != "edited" {
+		t.Errorf("comment not back: %+v", is.Comments)
+	}
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Raw": json.RawMessage(`{"type":"paragraph"}`)}, nil); code != 400 {
+		t.Errorf("not a doc: %d", code)
 	}
 	for _, p := range []string{"/history", "/children", "/weblinks", "/timeinstatus", "/dev"} {
 		if code := issueCall(t, "GET", iu+p, nil, nil); code != 200 {

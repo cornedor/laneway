@@ -12,7 +12,8 @@ import { mountTerm } from './issue_term.js';
 import { GLYPH, LABEL } from '../lib/agents.js';
 import * as pins from '../lib/pins.js';
 import { lineDiff } from '../lib/linediff.js';
-import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
+import { ago, dateTime as localDateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
+import { goDate } from '../lib/godate.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
 const trail = [];            // issues left by following a link, oldest first: {key, summary, status, cat}
@@ -40,6 +41,9 @@ const dash = h('span.faint', '—');
 export function mountIssue(el, key, { app, full, card }) {
   css('issue');
   const { api, bus, ui } = app;
+  // ui.date_format (a Go layout) for the panel's dates, as the TUI's; else the browser's own.
+  const DF = (app.session.ui && app.session.ui.DateFormat) || '';
+  const dateTime = t => (DF ? goDate(t, DF) : localDateTime(t));
   const me = () => (app.session && app.session.me) || {};
   const st = { issue: null, card: card && card.Key === key ? card : null, tab: 'details', children: null, weblinks: null, hist: null, tis: null,
     focusId: null, reply: null, all: false, pending: [], descSig: null, editingDesc: false, editingComment: null };
@@ -495,7 +499,12 @@ export function mountIssue(el, key, { app, full, card }) {
   }
   async function deleteComment(c) {
     if (!await ui.confirm({ title: 'Delete comment', text: 'Delete this comment by ' + c.Author + '?', ok: 'Delete', danger: true })) return;
-    try { await api.del('/issues/' + key + '/comments/' + encodeURIComponent(c.ID)); st.issue.Comments = (st.issue.Comments || []).filter(x => x.ID !== c.ID); renderComments(); changed(); } catch (e) { fail(e); }
+    try {
+      const r = await api.del('/issues/' + key + '/comments/' + encodeURIComponent(c.ID));
+      st.issue.Comments = (st.issue.Comments || []).filter(x => x.ID !== c.ID); renderComments(); changed();
+      // u posts it again, as you (TUI undoDeleteComment)
+      if (r && r.Raw) import('./fields.js').then(m => m.pushUndo(app, 'the deleted comment on ' + key, async () => { await api.post('/issues/' + key + '/comments', { Raw: r.Raw }); bus.emit('issue:changed', { key }); }));
+    } catch (e) { fail(e); }
   }
 
   // composer

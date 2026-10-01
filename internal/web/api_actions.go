@@ -157,6 +157,16 @@ func projectOf(key string) string { return key[:strings.LastIndex(key, "-")] }
 
 type emojiHit struct{ Name, Glyph string }
 
+// skinTone is ui.skin_tone as an emoji name suffix ("_medium_skin_tone"),
+// "" for none or a value the TUI warns about.
+func skinTone(t string) string {
+	switch t = strings.ToLower(strings.TrimSpace(t)); t {
+	case "light", "medium_light", "medium", "medium_dark", "dark":
+		return "_" + t + "_skin_tone"
+	}
+	return ""
+}
+
 // emojiSearch ranks shortcodes for ?q=, the way the TUI's ":" completion does.
 func emojiSearch(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	q := strings.ToLower(strings.TrimSpace(Q(r, "q")))
@@ -173,11 +183,15 @@ func emojiSearch(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	var cands []cand
 	near := false
 	tones := strings.Contains(q, "skin") || strings.Contains(q, "tone")
+	tone := skinTone(s.UIConfig().SkinTone)
 	for _, n := range emoji.Names() {
 		if !tones && strings.HasSuffix(n, "skin_tone") {
 			continue
 		}
 		if band, score, ok := fuzzyScore(n, q); ok {
+			if !tones && tone != "" && emoji.Glyph(n+tone) != "" {
+				n += tone // ui.skin_tone, as the TUI's
+			}
 			cands = append(cands, cand{n, band, score})
 			near = near || band < 3
 		}

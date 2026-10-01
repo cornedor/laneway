@@ -34,7 +34,12 @@ const SLASH = [
   { name: 'emoji', label: 'Emoji', run: c => c.insert(':') },
   { name: 'link', label: 'Link', run: c => c.link() },
   { name: 'date', label: 'Today’s date', run: c => c.insert('<date>' + today() + '</date> ') },
-  { name: 'status', label: 'Status lozenge', run: c => c.insert('<status color="green">DONE</status> ') },
+  { name: 'decision', label: 'Decision', run: c => c.line('<> ') },
+  ...[['grey', 'neutral'], ['purple', 'purple'], ['blue', 'blue'], ['red', 'red'], ['yellow', 'yellow'], ['green', 'green']]
+    .map(([label, color]) => ({ name: 'status' + label, label: 'Status: ' + label, run: c => c.wrap('<status color="' + color + '">', '</status>', 'DONE') })),
+  { name: 'underline', label: 'Underline', run: c => c.wrap('<u>', '</u>', 'text') },
+  ...[['blue', '#0747a6'], ['teal', '#008da6'], ['green', '#006644'], ['orange', '#ff991f'], ['red', '#bf2600'], ['purple', '#403294'], ['grey', '#97a0af']]
+    .map(([label, hex]) => ({ name: 'colour' + label, label: 'Text colour: ' + label, run: c => c.wrap('<span style="color:' + hex + '">', '</span>', 'text') })),
 ];
 
 export function mdEdit(app, o) {

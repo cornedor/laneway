@@ -78,3 +78,19 @@ func TestActionsRoutes(t *testing.T) {
 		t.Errorf("no upload reached jira: %v", got)
 	}
 }
+
+func TestEmojiSkinTone(t *testing.T) {
+	ts, _ := toolsServer(t, func(o *Options) { o.UI.SkinTone = "medium" })
+	var hits []emojiHit
+	issueCall(t, "GET", ts.URL+"/api/emoji?q=thumbsup", nil, &hits)
+	if len(hits) == 0 || hits[0].Name != "thumbsup_medium_skin_tone" || hits[0].Glyph == "" {
+		t.Fatalf("toned = %+v", hits)
+	}
+	issueCall(t, "GET", ts.URL+"/api/emoji?q=thumbsup_dark_skin", nil, &hits)
+	if len(hits) == 0 || hits[0].Name != "thumbsup_dark_skin_tone" {
+		t.Errorf("asked tone = %+v", hits)
+	}
+	if skinTone("purple") != "" || skinTone(" Dark ") != "_dark_skin_tone" {
+		t.Error("skinTone")
+	}
+}

@@ -11,6 +11,7 @@ const TAGS = [
   [/<(u|sub|sup)>([\s\S]*?)<\/\1>/y, (m, o) => h(m[1] === 'u' ? 'u' : m[1], inline(m[2], o))],
   [/<date>(\d{4}-\d{2}-\d{2})<\/date>/y, m => h('span.md-date', fmtDate(m[1]))],
   [/<status color="([a-z-]*)">([\s\S]*?)<\/status>/y, m => h('span.md-status.c-' + m[1].replace(/[^a-z]/g, ''), m[2])],
+  [/<span style="(color|background-color):\s*(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?);?">([\s\S]*?)<\/span>/y, (m, o) => h('span', { style: { [m[1] === 'color' ? 'color' : 'backgroundColor']: m[2] } }, inline(m[3], o))],
   [/<span style="[^"]*">([\s\S]*?)<\/span>/y, (m, o) => h('span', inline(m[1], o))],
   [/<(https?:\/\/[^>\s]+)>/y, m => link(m[1], m[1])],
 ];

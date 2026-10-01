@@ -75,9 +75,18 @@ func init() {
 		b, err := Body[struct {
 			Markdown string
 			Mentions []jira.Mention
+			// Raw posts a document as it is: a deleted comment's, to undo the delete.
+			Raw json.RawMessage
 		}](r)
 		if err != nil {
 			return nil, err
+		}
+		if len(b.Raw) > 0 {
+			var doc struct{ Type string }
+			if json.Unmarshal(b.Raw, &doc) != nil || doc.Type != "doc" {
+				return nil, badRequest("Raw is not a document")
+			}
+			return nil, s.Client().AddCommentADF(ctx, key, b.Raw)
 		}
 		if strings.TrimSpace(b.Markdown) == "" {
 			return nil, badRequest("empty comment")
@@ -123,7 +132,19 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return nil, s.Client().DeleteComment(ctx, key, r.PathValue("id"))
+		// The answer holds the comment's document, which posted again undoes the delete.
+		var raw json.RawMessage
+		if iss, err := s.Client().Get(ctx, key); err == nil {
+			for _, c := range iss.Comments {
+				if c.ID == r.PathValue("id") {
+					raw = c.Raw
+				}
+			}
+		}
+		if err := s.Client().DeleteComment(ctx, key, r.PathValue("id")); err != nil {
+			return nil, err
+		}
+		return map[string]any{"Raw": raw}, nil
 	})
 
 	get("/issues/{key}/history", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
