@@ -24,7 +24,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   let cards = [], loaded = false, filter = null, group = prefs.get('work_group', 'status'), hideDone = prefs.get('work_hide_done', 'false') === 'true';
   let rows = [], sel = -1, list = null, empty = null;
   let day = today(), logs = [], logsPath = '', wsel = 0, cell = { row: 0, col: 0 }, weekRows = [];
-  const extra = new Set();
+  const extra = new Map(); // rows + added: key → summary
   let dead = false;
 
   const root = h('div.work');
@@ -175,7 +175,12 @@ export default function mount(el, { app, scope, toolbar, query }) {
       h('button.btn', { onclick: () => addLog(), title: 'a' }, 'Log work'),
       h('button.btn', { onclick: copyText, title: 'y' }, 'Copy'));
   }
-  const step = n => { day = addDays(day, tab === 'week' ? 7 * n : n); reload(); };
+  // As the TUI: nothing after today (day) or this week (week) to step to.
+  const step = n => {
+    const next = addDays(day, tab === 'week' ? 7 * n : n);
+    if (n > 0 && (tab === 'week' ? weekStart(next) > today() : next > today())) return ui.toast(tab === 'week' ? 'This week is the last to show' : 'Today is the last day to show');
+    day = next; reload();
+  };
   const goToday = () => { day = today(); reload(); };
   function reload() { logs = []; logsPath = ''; wsel = 0; paintTime(); loadLogs(); }
   function openDay(d) { day = d; tab = 'day'; paintToolbar(); reload(); }
@@ -209,7 +214,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
       const di = Math.round((new Date(w.at.getFullYear(), w.at.getMonth(), w.at.getDate()) - s) / 864e5);
       if (r.days[di]) r.days[di].push(w);
     }
-    for (const k of extra) if (!byKey.has(k)) byKey.set(k, { key: k, summary: (cards.find(c => c.Key === k) || {}).Summary || '', days: days.map(() => []) });
+    for (const k of extra.keys()) if (!byKey.has(k)) byKey.set(k, { key: k, summary: extra.get(k) || (cards.find(c => c.Key === k) || {}).Summary || '', days: days.map(() => []) });
     weekRows = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
     cell.row = Math.min(cell.row, Math.max(weekRows.length - 1, 0));
     body.append(nav(s.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' – ' + addDays(s, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), duration(sum(logs)) + ' this week'));
@@ -232,20 +237,31 @@ export default function mount(el, { app, scope, toolbar, query }) {
 
   async function pickIssue() {
     const c = await ui.pick({ title: 'Log work on', items: cards, label: c => c.Key + ' ' + c.Summary, placeholder: 'Issue key, or filter your work',
-      create: q => ({ Key: q.trim().toUpperCase(), Summary: '' }), empty: 'Type an issue key' });
+      create: q => ({ Key: q.trim().toUpperCase(), Summary: '' }), empty: 'Type an issue key',
+      first: q => { const k = q.trim().toUpperCase(); return KEY_RE.test(k) ? cards.find(c => c.Key === k) || { Key: k, Summary: '' } : null; } });
     if (!c) return null;
     if (!KEY_RE.test(c.Key)) { ui.toast('Not an issue key: ' + c.Key, { kind: 'err' }); return null; }
     return c;
   }
   async function addLog(key, d) {
-    const c = key ? { Key: key, Summary: (cards.find(x => x.Key === key) || {}).Summary } : await pickIssue();
+    const c = key ? { Key: key, Summary: extra.get(key) || (cards.find(x => x.Key === key) || {}).Summary } : await pickIssue();
     if (!c) return;
     const at = d || day;
     if (await logDialog(app, { key: c.Key, summary: c.Summary, started: ymd(at) === ymd(today()) ? undefined : dayStart(app, at) }) === 'logged') refreshSoon();
   }
+  // + : the issue's row, its summary looked up in Jira when it isn't one of yours; the cursor on it, in today's
+  // column when the week is this one.
   async function addRow() {
     const c = await pickIssue();
-    if (c) { extra.add(c.Key); paintTime(); }
+    if (!c) return;
+    let summary = c.Summary;
+    if (!summary) {
+      try { summary = (await api.get('/issues/' + c.Key + '/card')).Summary || ''; } catch (e) { return ui.errToast(e); }
+    }
+    extra.set(c.Key, summary); paintTime();
+    const d = Math.floor((today() - weekStart(day)) / 864e5);
+    cell = { row: Math.max(0, weekRows.findIndex(r => r.key === c.Key)), col: d >= 0 && d < 7 ? d : cell.col };
+    paintTime();
   }
   async function editLog() {
     const w = curLog(); if (!w) return;
@@ -281,7 +297,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   function cellEnter() {
     const r = weekRows[cell.row]; if (!r) return;
     const d = addDays(weekStart(day), cell.col);
-    r.days[cell.col].length ? openDay(d) : addLog(r.key, d);
+    addLog(r.key, d); // as the TUI: enter logs work, a day's head opens the day
   }
   function moveCell(dr, dc) {
     cell = { row: Math.min(Math.max(cell.row + dr, 0), Math.max(weekRows.length - 1, 0)), col: Math.min(Math.max(cell.col + dc, 0), 6) };

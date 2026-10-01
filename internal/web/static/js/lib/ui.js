@@ -53,6 +53,7 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
 // typed, `current` puts the cursor on that item.
 // With `multi`, `enterPicks` makes Enter pick the row under the cursor alone until a row is ticked: space (nothing
 // typed), Tab (clears what was typed, for the next name) or a click; the foot's Apply button takes the ticks.
+// `first: q => item | null` puts that item at the top for what is typed (an issue key typed in full).
 // With `create: q => item` and no match, Enter on typed text creates an item.
 // With `search: async q => items` the list is also fed by the server (debounced).
 // `items` may be a Promise: the picker opens at once, says Loading… and fills in (typing filters,
@@ -74,6 +75,8 @@ export function pick(o) {
         if (m) rows.push({ it, s: m.score, m });
       }
       if (q) rows.sort((a, b) => b.s - a.s);
+      const top = q && o.first && o.first(q);
+      if (top) { const i = rows.findIndex(r => r.it === top || label(r.it) === label(top)); if (i >= 0) rows.splice(i, 1); rows.unshift({ it: top, s: 0, m: { score: 0, idx: [] } }); }
       shown = rows.map(r => r.it);
       if (sel >= shown.length) sel = Math.max(0, shown.length - 1);
       clear(list);
