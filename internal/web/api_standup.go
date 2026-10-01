@@ -55,7 +55,8 @@ func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) 
 		if board == 0 {
 			return nil, badRequest("need a board")
 		}
-		return teamStandup(ctx, s, board, sprint, since, now, mode == "person", out)
+		v := standupView{sprint: sprint, backlog: Q(r, "backlog") != "", jql: Q(r, "jql"), filter: Q(r, "kind") == "filter"}
+		return teamStandup(ctx, s, board, v, since, now, mode == "person", out)
 	}
 	entries, err := c.Standup(ctx, since)
 	if err != nil {
@@ -310,17 +311,31 @@ type teamCard struct {
 	blockers []string
 }
 
-func teamStandup(ctx context.Context, s *Server, board, sprint int, since, now time.Time, byPerson bool, out map[string]any) (any, error) {
+// standupView is the board view a team standup walks, as the board shows
+// it: a sprint, the backlog, a query of the board (jql) or of all of Jira
+// (filter), else the whole board.
+type standupView struct {
+	sprint          int
+	backlog, filter bool
+	jql             string
+}
+
+func teamStandup(ctx context.Context, s *Server, board int, v standupView, since, now time.Time, byPerson bool, out map[string]any) (any, error) {
 	c := s.Client()
 	cfg, err := c.BoardConfiguration(ctx, board)
 	if err != nil {
 		return nil, err
 	}
 	var cards []jira.Card
-	if sprint > 0 {
-		cards, _, err = c.SprintIssues(ctx, board, sprint, "", cfg.PointsField)
-	} else {
-		cards, _, err = c.BoardIssues(ctx, board, "", cfg.PointsField)
+	switch {
+	case v.sprint > 0:
+		cards, _, err = c.SprintIssues(ctx, board, v.sprint, "", cfg.PointsField)
+	case v.backlog:
+		cards, _, err = c.BacklogIssues(ctx, board, "", cfg.PointsField)
+	case v.jql != "" && v.filter:
+		cards, err = c.SearchCards(ctx, v.jql)
+	default:
+		cards, _, err = c.BoardIssues(ctx, board, v.jql, cfg.PointsField)
 	}
 	if err != nil {
 		return nil, err
@@ -356,10 +371,10 @@ func teamStandup(ctx context.Context, s *Server, board, sprint int, since, now t
 	}
 	blockers, _ := c.Blockers(ctx, keys)
 	head := ""
-	if sprint > 0 {
+	if v.sprint > 0 {
 		if sps, err := c.Sprints(ctx, board); err == nil {
 			for _, sp := range sps {
-				if sp.ID != sprint {
+				if sp.ID != v.sprint {
 					continue
 				}
 				var parts []string

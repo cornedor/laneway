@@ -242,6 +242,15 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const sp = r.sprint && sprints().find(s => s.ID === r.sprint && s.State !== 'closed');
     return { project: S.project, sprint: sp ? sp.ID : 0 };
   }
+  // The view shown, for the team standup to walk (TUI: the standup walks the board's current view).
+  function rememberView() {
+    if (!S.board || S.past) return;
+    const r = resolveScope(), p = new URLSearchParams();
+    if (r.sprint) p.set('sprint', r.sprint);
+    else if (r.backlog) p.set('backlog', 1);
+    else if (r.view) { p.set('kind', r.view.kind); p.set('jql', r.view.jql); }
+    app.lastView = { board: S.board.ID, query: p.toString(), park: r.sprint ? String(r.sprint) : r.view ? r.view.name : r.backlog ? 'backlog' : '', name: scopeLabel() };
+  }
   function cardsPath() {
     const p = new URLSearchParams(), r = resolveScope();
     if (r.sprint) p.set('sprint', r.sprint);
@@ -262,6 +271,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   // Show cached data at once, then the fresh answer.
   function loadCards() {
     loadPeople().then(renderBar);
+    rememberView();
     const path = cardsPath();
     if (path === S.path) return;
     S.path = path;

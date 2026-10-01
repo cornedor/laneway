@@ -1,5 +1,5 @@
 // Standup: what I did since the previous workday (with my commits), or the team's walking the board
-// right to left or by person. One card at a time (space), park a card for after (P, kept per sprint).
+// right to left or by person, over the view the board showed last. One card at a time (space), park a card for after (P, kept per view).
 // Rows come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
@@ -23,7 +23,9 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   const team = () => mode !== 'mine';
   const picks = l => !!(l.Key || l.Unfold);
-  const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + sprint;
+  // The board view the team walk takes: the one the board showed last, else the active sprint; parked per view.
+  let view = null;
+  const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + (view ? view.park : sprint);
   const loadParked = () => { parkedKeys = (prefs.get(parkId(), '') || '').split(/\s+/).filter(Boolean); };
 
   // The project's board and its active sprint, for the team walk and the parking lot.
@@ -33,7 +35,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
       const bs = await boardsOf(app, project), last = lastBoard(app, project);
       board = bs.find(b => b.ID === last) || bs.find(b => /scrum/i.test(b.Type)) || bs[0] || null;
       if (board && !last) setCtx(app, project, board);
-      if (board) {
+      if (board && !(app.lastView && app.lastView.board === board.ID)) {
         const b = await api.get('/boards/' + board.ID);
         const a = (b.sprints || []).find(s => s.State === 'active');
         sprint = a ? a.ID : 0;
@@ -66,7 +68,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
     clear(root);
     const label = since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
     const title = mode === 'mine' ? 'Standup' : mode === 'team' ? 'Team standup' : 'Team standup by person';
-    root.append(h('div.sthead', h('h2', title), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
+    root.append(h('div.sthead', h('h2', title), team() && view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
       h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, '‹ earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later ›'),
       h('button.btn', { onclick: () => setMode(team() ? 'mine' : 'team'), title: 'Tab' }, team() ? 'Mine' : 'Team'),
       team() && h('button.btn', { onclick: () => setMode(mode === 'team' ? 'person' : 'team'), title: 'p' }, mode === 'team' ? 'By person' : 'Walk the board'),
@@ -145,8 +147,9 @@ export default function mount(el, { app, scope, context, toolbar }) {
       await resolveBoard();
       if (sw && !dead) sw.label(project, board);
       if (team() && !board) throw new Error('No board found for ' + (project || 'this site') + '. B picks a project.');
+      view = board && app.lastView && app.lastView.board === board.ID ? app.lastView : null;
       loadParked();
-      const q = 'since=' + ymd(since) + '&mode=' + mode + (board ? '&board=' + board.ID + '&sprint=' + sprint : '');
+      const q = 'since=' + ymd(since) + '&mode=' + mode + (board ? '&board=' + board.ID + '&' + (view ? view.query : 'sprint=' + sprint) : '');
       const d = await api.get('/standup/lines?' + q, { fresh: true });
       if (dead || my !== seq) return;
       data = d; build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
@@ -183,7 +186,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   scope.bind(']', () => step(1), 'a workday forward', G);
   scope.bind('Tab', () => setMode(team() ? 'mine' : 'team'), 'mine / team', { ...G, when: () => !app.panel.key });
   scope.bind('p', () => setMode(!team() ? 'team' : mode === 'team' ? 'person' : 'team'), 'team: by person / walk the board', G);
-  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; load(); } });
+  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; view = null; load(); } });
   scope.bind('y', copy, 'copy as text, parking lot included', G);
   scope.bind('r', load, 'refresh', G);
 

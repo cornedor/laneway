@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/url"
+	"slices"
 	"testing"
 	"time"
 
@@ -61,5 +63,26 @@ func TestStandupLinesAndProposals(t *testing.T) {
 	}
 	if code := issueCall(t, "GET", ts.URL+"/api/standup/lines?since="+since+"&mode=team", nil, nil); code != 400 {
 		t.Errorf("team without board: %d", code)
+	}
+	// The team walk takes the board's view: a sprint, the backlog, a query.
+	keys := func(q string) []string {
+		var r struct{ Lines, Folded []StandupRow }
+		if code := issueCall(t, "GET", ts.URL+"/api/standup/lines?since="+since+"&mode=team&board=1&"+q, nil, &r); code != 200 {
+			t.Fatalf("%s: %d", q, code)
+		}
+		var ks []string
+		for _, l := range append(r.Lines, r.Folded...) {
+			if l.Key != "" {
+				ks = append(ks, l.Key)
+			}
+		}
+		return ks
+	}
+	sprint, backlog, query := keys("sprint=12"), keys("backlog=1"), keys("kind=filter&jql="+url.QueryEscape("key = DEMO-4"))
+	if len(sprint) == 0 || slices.ContainsFunc(backlog, func(k string) bool { return slices.Contains(sprint, k) }) {
+		t.Errorf("sprint %v, backlog %v", sprint, backlog)
+	}
+	if !slices.Contains(query, "DEMO-4") || slices.Contains(query, "DEMO-8") { // Jamie's work, not Mira's
+		t.Errorf("query view = %v", query)
 	}
 }
