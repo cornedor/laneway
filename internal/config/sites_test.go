@@ -35,7 +35,9 @@ sites:
 }
 
 func TestSiteStatePath(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	home := t.TempDir() // HOME too: macOS keeps the config under it
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
 	def, _ := SiteStatePath("")
 	work, _ := SiteStatePath("work")
 	if filepath.Base(def) != "state.json" || filepath.Base(work) != "state-work.json" || filepath.Dir(def) != filepath.Dir(work) {
@@ -82,7 +84,9 @@ func TestSiteFor(t *testing.T) {
 }
 
 func TestLastSite(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	home := t.TempDir() // HOME too: macOS keeps the config under it
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
 	names := []string{"", "club", "work"}
 	if got := LastSite(names); got != "" {
 		t.Errorf("nothing picked yet = %q", got)

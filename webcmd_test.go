@@ -82,7 +82,9 @@ func TestWebSetupSave(t *testing.T) {
 // refused before signing in; the added site is named after its address
 // and becomes the last site.
 func TestWebAddSite(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	home := t.TempDir() // HOME too: macOS keeps the config under it
+	t.Setenv("XDG_CONFIG_HOME", home)
+	t.Setenv("HOME", home)
 	t.Setenv("JIRA_API_TOKEN", "")
 	jiraSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"accountId":"1","displayName":"Ada Lovelace"}`))
