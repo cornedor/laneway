@@ -6,7 +6,15 @@ import { initials, hue } from './fmt.js';
 
 
 // toast('Moved', {kind:'ok'|'err'|'info', action:{label, run}, ms})
+// The last toasts, oldest first, as the TUI's status line log: the palette's Messages row lists them.
+const LOG_MAX = 100;
+export const messages = [];
+
 export function toast(msg, { kind = 'info', action, ms } = {}) {
+  if (typeof msg === 'string' && msg && (!messages.length || messages[messages.length - 1].text !== msg)) {
+    messages.push({ at: new Date(), text: msg, err: kind === 'err' });
+    if (messages.length > LOG_MAX) messages.shift();
+  }
   const host = document.getElementById('toasts');
   const t = h('div.toast.' + kind, { role: kind === 'err' ? 'alert' : 'status' }, h('span', msg),
     action && h('button.btn.link', { onclick: () => { action.run(); close(); } }, action.label));

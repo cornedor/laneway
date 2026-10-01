@@ -172,12 +172,22 @@ function globalKeys() {
   commands.register({ id: 'create', title: 'Create issue', group: 'Issue', run: () => app.actions.create({}) });
   commands.register({ id: 'reload', title: 'Reload data (drop caches)', group: 'App', run: () => { api.forget(); navigate(); ui.toast('Reloaded'); } });
   commands.register({ id: 'help', title: 'Keyboard help', group: 'App', run: () => import('./views/help.js').then(m => m.openHelp(app)) });
+  commands.register({ id: 'messages', group: 'App', get title() { return 'Messages: the last ' + ui.messages.length + ' (enter copies one)'; }, run: openMessages });
 }
 
 function chrome() {
   chromeBars.install(app);
   $('#search-btn').addEventListener('click', () => app.actions.palette('/'));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) bus.emit('focus'); });
+}
+
+// The toasts so far, newest first; enter copies one whole (TUI: the palette's messages row).
+async function openMessages() {
+  if (!ui.messages.length) return ui.toast('No messages yet');
+  const pad = n => String(n).padStart(2, '0');
+  const at = d => pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  const m = await ui.pick({ title: 'Messages · enter copies one', items: [...ui.messages].reverse(), label: e => (e.err ? '✗ ' : '') + e.text, detail: e => at(e.at), placeholder: 'Filter messages…' });
+  if (m) navigator.clipboard.writeText(m.text).then(() => ui.toast('Copied the message'), () => ui.toast('Could not copy', { kind: 'err' }));
 }
 
 async function boot() {
