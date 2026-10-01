@@ -160,6 +160,9 @@ type UIConfig struct {
 	InboxEvery    string `yaml:"inbox_every"`
 	InboxLookback string `yaml:"inbox_lookback"`
 	InboxIssues   int    `yaml:"inbox_issues"`
+	// Home is the start screen's widgets in order (work, inbox, sprint,
+	// timer, reviews, filters); empty: no start screen, the board first.
+	Home []string `yaml:"home"`
 	// TimerRound rounds the timer's logged time up to a step ("15m"); by
 	// default to the minute.
 	TimerRound string `yaml:"timer_round"`

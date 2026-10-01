@@ -103,7 +103,7 @@ function reloadOnce(e) {
 }
 
 async function navigate() {
-  const hash = location.hash.slice(1) || '/board';
+  const hash = location.hash.slice(1) || (app.session.home && app.session.home.Start ? '/home' : '/board');
   const [path, qs] = hash.split('?');
   let hit = null, params = {};
   for (const r of table) { const m = path.match(r.re); if (m) { hit = r; r.names.forEach((n, i) => { if (m[i + 1]) params[n] = decodeURIComponent(m[i + 1]); }); break; } }

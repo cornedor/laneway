@@ -124,6 +124,19 @@ func (c *Client) searchUpTo(ctx context.Context, jql string, fields []string, ex
 	return out, nil
 }
 
+// Count is how many issues jql finds, by Jira's approximate count (exact for
+// all but recent changes); no issue is read.
+func (c *Client) Count(ctx context.Context, jql string) (int, error) {
+	if !c.Enabled() {
+		return 0, errNotConfigured
+	}
+	var resp struct {
+		Count int `json:"count"`
+	}
+	err := c.do(ctx, http.MethodPost, "/rest/api/3/search/approximate-count", "count", map[string]string{"jql": jql}, &resp)
+	return resp.Count, err
+}
+
 // FindIssues is a text search over every issue you can see: summary,
 // description and comments, words as typed prefixes; one page of n,
 // recently updated first.

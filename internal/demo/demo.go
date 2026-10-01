@@ -72,6 +72,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send(map[string]any{"issues": s.list(s.search(jql), strings.Contains(expand, "changelog")), "isLast": true})
 		return
 	}
+	if r.Method == http.MethodPost && p == "/rest/api/3/search/approximate-count" {
+		jql, _ := body["jql"].(string)
+		send(map[string]int{"count": len(s.search(jql))})
+		return
+	}
 	if m := issueRe.FindStringSubmatch(p); m != nil {
 		if iss := s.issues[m[1]]; iss != nil {
 			if v, ok := s.issueRoute(r.Method, iss, m[2], strings.TrimPrefix(m[3], "/"), body, q); ok {

@@ -17,6 +17,7 @@ var SettingDefaults = map[string]string{
 	"default_mode":         "lanes",
 	"date_format":          "2006-01-02 15:04",
 	"card_fields":          "all",
+	"home":                 "none",
 	"quick_filters":        "none",
 	"views":                "none",
 	"stale_days":           "5",
@@ -76,7 +77,7 @@ type SettingGroup struct {
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
 	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "custom_fields", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
-	{"Views and filters", []string{"quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
+	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
 	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity"}},
@@ -98,6 +99,7 @@ var SettingDocs = map[string]string{
 	"keys":                 "rebinds actions by name: search: \"/\" or mine: [m, M]",
 	"default_mode":         "the board's mode before one is remembered",
 	"date_format":          "a Go time layout for the panel's dates",
+	"home":                 "the start screen's widgets, in order: work, inbox, sprint, timer, reviews, filters",
 	"card_fields":          "what cards show, in order: type, priority, status, points, assignee, parent",
 	"quick_filters":        "JQL presets shown before every board's own",
 	"views":                "JQL-narrowed views of every board, after its own",

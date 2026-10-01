@@ -4,6 +4,7 @@
 // Hash routes: #/board/PROJECT/BOARDID?issue=KEY … (':x' are params).
 // A missing module shows a "not built yet" page; nothing else breaks.
 export const routes = [
+  { path: '/home', name: 'home', title: 'Home', key: 'h', bar: false, load: () => import('./home.js') },
   { path: '/board/:project?/:board?', name: 'board', title: 'Board', key: 'b', load: () => import('./board.js') },
   { path: '/issue/:key', name: 'issue', title: 'Issue', nav: false, bar: false, load: () => import('./issue_page.js') },
   { path: '/planning/:project?/:board?', name: 'planning', title: 'Planning', key: 'p', load: () => import('./planning.js') },

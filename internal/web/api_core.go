@@ -87,7 +87,7 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		"baseURL": s.Client().BaseURL(), "me": me,
 		"projects": o.Jira.Projects, "ui": s.UIConfig(), "autostart": s.autostartInfo(), "starred": starred(s),
 		"repos":   slices.Sorted(maps.Keys(o.Jira.Repos)), // projects with a checkout: draft PR, removing a worktree
-		"addSite": addSiteInfo(s),
+		"addSite": addSiteInfo(s), "home": homeInfo(s),
 	}, nil
 }
 

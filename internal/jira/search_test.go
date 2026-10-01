@@ -79,3 +79,20 @@ func TestValidKey(t *testing.T) {
 		}
 	}
 }
+
+// TestCount: Count asks the approximate count for the JQL and reads no issue.
+func TestCount(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ JQL string }
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if r.Method != http.MethodPost || r.URL.Path != "/rest/api/3/search/approximate-count" || body.JQL != "labels = x" {
+			t.Errorf("%s %s %q", r.Method, r.URL.Path, body.JQL)
+		}
+		fmt.Fprint(w, `{"count": 42}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	if n, err := c.Count(context.Background(), "labels = x"); n != 42 || err != nil {
+		t.Errorf("Count = %d, %v", n, err)
+	}
+}

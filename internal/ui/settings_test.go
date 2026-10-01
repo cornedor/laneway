@@ -173,13 +173,13 @@ func TestSettingsGroupsAndFilter(t *testing.T) {
 	m := jiraTabModel(t)
 	out, _ := m.handleKey(keyMsg(t, ","))
 	m = out.(Model)
-	for _, k := range []string{"/", "i", "n", "b", "o", "x", "enter"} {
+	for _, k := range []string{"/", "i", "n", "b", "o", "x", "_", "enter"} {
 		out, _ = m.handleKey(keyMsg(t, k))
 		m = out.(Model)
 	}
 	s := m.settings
 	if len(s.rows) != 3 || s.rows[0].group != "Inbox" || s.finding {
-		t.Fatalf("/inbox: %d rows %v", len(s.rows), s.rows)
+		t.Fatalf("/inbox_: %d rows %v", len(s.rows), s.rows)
 	}
 	view := ansi.Strip(m.View().Content)
 	if !strings.Contains(view, "Inbox") || !strings.Contains(view, "inbox_every") || strings.Contains(view, "auto_refresh") {

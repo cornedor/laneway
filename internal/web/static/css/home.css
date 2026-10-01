@@ -1,0 +1,20 @@
+/* Home: ui.home's widgets as a grid of panels (views/home.js). */
+.home { height: 100%; overflow: auto; padding: calc(var(--pad) * 2); display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr)); gap: calc(var(--pad) * 1.5); align-content: start; }
+.hw { min-width: 0; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.hhead { display: flex; align-items: center; gap: var(--pad); padding: 0 calc(var(--pad) * 1.5); min-height: 2.286rem; border-bottom: 1px solid var(--bg-3); font-size: .857rem; }
+.hhead .ht { font-weight: 600; color: var(--fg); font-size: 1rem; }
+.hnote { padding: calc(var(--pad) * 1.5); }
+.hrow { display: flex; align-items: center; gap: var(--pad); padding: .286rem calc(var(--pad) * 1.5); cursor: pointer; white-space: nowrap; min-height: var(--row); }
+.hrow + .hrow { border-top: 1px solid var(--bg-3); }
+.hrow:hover { background: var(--bg-3); } .hrow.sel { background: var(--accent-bg); box-shadow: inset 2px 0 0 var(--accent); }
+.hrow .hk { color: var(--fg-2); flex: none; } .hrow .hs { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hrow .hn { font-variant-numeric: tabular-nums; color: var(--fg-2); }
+.hrow .err, .hnote.err { color: var(--err); } .hrow .warn { color: var(--warn); font-weight: 600; } .hrow .accent { color: var(--accent); }
+.hsprint { flex: 1; min-width: 0; display: grid; gap: .286rem; padding: .286rem 0; white-space: normal; }
+.hline { display: flex; gap: var(--pad); align-items: baseline; font-size: .929rem; }
+.hgoal { font-size: .857rem; overflow-wrap: anywhere; }
+/* done so far, and a tick where the time has got to */
+.hbar { position: relative; height: .571rem; border-radius: 4px; background: var(--bg-3); }
+.hbar .done { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--cat-done); }
+.hbar.behind .done { background: var(--warn); }
+.hbar .time { position: absolute; top: -.214rem; bottom: -.214rem; width: 2px; margin-left: -1px; background: var(--fg-2); }
