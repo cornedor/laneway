@@ -64,15 +64,15 @@ func TestAttachmentSlowNotStalled(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for i := range 5 {
 			if stall && i == 2 {
-				time.Sleep(300 * time.Millisecond)
+				time.Sleep(900 * time.Millisecond)
 			}
 			io.WriteString(w, "chunk")
 			w.(http.Flusher).Flush()
-			time.Sleep(40 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond) // 500ms in all: past the timeout, each gap well inside it
 		}
 	}))
 	defer srv.Close()
-	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", Timeout: 100 * time.Millisecond})
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", Timeout: 300 * time.Millisecond})
 	path, err := c.DownloadAttachment(context.Background(), "1", "a.txt", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
