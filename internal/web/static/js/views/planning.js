@@ -106,6 +106,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     try {
       const d = await app.api.get('/plan/' + board.ID, { fresh });
       if (my !== token) return;
+      if (d.Calendar && !data) app.ui.toast('ui.calendar: ' + d.Calendar, { kind: 'err' });
       build(d); relayout(true);
     } catch (e) {
       if (my !== token) return;
@@ -213,7 +214,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (r.k === 'c') { const c = r.c; return [c.Key, c.Summary, c.Status, c.Assignee, c.Points, c.Flagged, c.Type, c.ParentSummary, c.Done, sel.has(c.Key), tmark(c.Key)].join('|'); }
     if (r.k === 'e') return 'e' + (filtering() ? 'f' : '');
     const s = r.s;
-    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter, whoKey(who),
+    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, s.sprint && s.sprint.Mine && s.sprint.Mine.Capacity, folded.has(s.id), velAvg, velN, filter, whoKey(who),
       s.cards.map(c => c.Key + c.Points + c.Assignee + c.Done).join(',')].join('|');
   }
 
@@ -251,22 +252,25 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       sp && sp.State === 'active' && h('button.btn.pl-act', { dataset: { act: 'close' }, tabindex: -1 }, 'Complete'),
       sp && h('button.btn.ghost.pl-act', { dataset: { act: 'edit' }, tabindex: -1, title: 'Edit sprint (E)' }, 'Edit'));
     const out = h('div.pl-row.pl-head', { style: { height: height + 'px' } }, h1);
-    if (sp) out.append(h('div.pl-h2', h('span.pl-prog', { title: fmtP(done) + 'p done', role: 'progressbar', 'aria-valuenow': sum ? Math.round(done / sum * 100) : 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: { width: (sum ? done / sum * 100 : 0) + '%' } })), capsNode(cs)));
+    if (sp) out.append(h('div.pl-h2', h('span.pl-prog', { title: fmtP(done) + 'p done', role: 'progressbar', 'aria-valuenow': sum ? Math.round(done / sum * 100) : 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: { width: (sum ? done / sum * 100 : 0) + '%' } })), capsNode(cs, sp)));
     return out;
   }
 
   const unest = cs => cs.filter(c => !c.Done && (c.Points === '' || c.Points == null)).length;
-  function capFor(name) {
+  // Yours comes less your meetings in ui.calendar when the server worked them out (sprint.Mine).
+  function capFor(name, sp) {
+    if (sp && sp.Mine && sp.Mine.Name === name) return sp.Mine.Capacity;
     if (name in caps) return caps[name];
     return name !== 'unassigned' && 'default' in caps ? caps.default : null;
   }
-  function capsNode(cs) {
+  function capsNode(cs, sp) {
     const by = new Map();
     for (const c of cs) by.set(c.Assignee || 'unassigned', (by.get(c.Assignee || 'unassigned') || 0) + pts(c));
     const list = [...by].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return h('div.pl-caps', list.map(([name, p]) => {
-      const cap = capFor(name), over = cap != null && p > cap;
-      return h('span.pl-cap' + (over ? '.over' : ''), { title: cap != null ? `${name}: ${fmtP(p)} of ${fmtP(cap)}p` : `${name}: ${fmtP(p)}p` },
+      const cap = capFor(name, sp), over = cap != null && p > cap;
+      const meet = sp && sp.Mine && sp.Mine.Name === name ? ` (${fmtP(sp.Mine.Hours)}h of meetings off)` : '';
+      return h('span.pl-cap' + (over ? '.over' : ''), { title: cap != null ? `${name}: ${fmtP(p)} of ${fmtP(cap)}p${meet}` : `${name}: ${fmtP(p)}p` },
         h('span', name), cap != null && h('span.bar', h('i', { style: { width: Math.min(p / (cap || 1), 1) * 100 + '%' } })), cap != null ? `${fmtP(p)}/${fmtP(cap)}${over ? '!' : ''}` : fmtP(p));
     }));
   }

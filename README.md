@@ -107,7 +107,7 @@ ui:
   card_colors: ribbon           # the board's own card colours as a bar on cards and rows; off
   mouse: on                     # clicks, drags and the wheel; off leaves the mouse to the terminal
   activity: [~/bin/claude-activity]  # p in W: commands printing "time<TAB>key" lines of a day's work
-  calendar: https://calendar.example.com/me.ics  # p in W also proposes your meetings (a file, https or webcal URL)
+  calendar: https://calendar.example.com/me.ics  # p in W also proposes your meetings, and P takes them off your capacity (a file, https or webcal URL)
   meeting_key: OPS-12           # the issue those meetings are logged on
   llm: claude -p                # ctrl+a's command: the question last, the issue on stdin (llm, ollama run llama3, …)
   delight: on                   # small celebrations: confetti on a card into done, a sprint's points against the last ones; off
@@ -120,7 +120,7 @@ ui:
   custom_fields: [Test type, Team]   # Jira fields by name on cards and rows, searchable
   filters:                      # named / queries, recalled from the : palette
     - {name: Stale review, query: "status:review age>3d"}
-  capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning
+  capacity: {Ada: 13, default: 10}   # sprint points per person, for P planning; ui.calendar meetings take their share off yours
   timer_on_start: on            # S (start work) also starts the timer (off)
   start_assigns: on             # S also assigns the issue to you (off)
   start_status: In Progress     # and moves it there, unless the move has a screen (none)

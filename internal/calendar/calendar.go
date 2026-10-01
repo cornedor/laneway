@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"net/http"
 	"os"
 	"slices"
@@ -214,4 +215,68 @@ func Day(ctx context.Context, source, key string, day time.Time, logs []jira.Wor
 		return nil, err
 	}
 	return Proposals(ms, key, logs), nil
+}
+
+// workday is the hours a workday has for meetings to take from.
+const workday = 8 * time.Hour
+
+// Capacity is points less the share of the work hours in [from, to) that
+// ms take, to the half point: 8 hours a day of workdays (Monday to Friday
+// when none), and meetings on them, overlaps once. busy is that time.
+func Capacity(points float64, ms []Meeting, from, to time.Time, workdays []time.Weekday) (left float64, busy time.Duration) {
+	if len(workdays) == 0 {
+		workdays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	}
+	works := func(t time.Time) bool { return slices.Contains(workdays, t.Weekday()) }
+	var work time.Duration
+	for d := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, from.Location()); d.Before(to); d = d.AddDate(0, 0, 1) {
+		if works(d) {
+			work += workday
+		}
+	}
+	ms = slices.Clone(ms)
+	slices.SortFunc(ms, func(a, b Meeting) int { return a.Start.Compare(b.Start) })
+	var upTo time.Time // the end of what is counted
+	for _, m := range ms {
+		s, e := maxTime(m.Start, from, upTo), minTime(m.End, to)
+		if e.After(s) && works(s) {
+			busy += e.Sub(s)
+		}
+		upTo = maxTime(upTo, e)
+	}
+	if work <= 0 {
+		return points, busy
+	}
+	left = points * max(0, 1-float64(busy)/float64(work))
+	return math.Round(left*2) / 2, busy
+}
+
+// Yours is your capacity in caps (me's, else its default) less what your
+// meetings take of [from, to), and that meeting time; false without one.
+func Yours(caps map[string]float64, me string, ms []Meeting, from, to time.Time, workdays []time.Weekday) (float64, time.Duration, bool) {
+	cp, ok := caps[me]
+	if !ok {
+		if cp, ok = caps["default"]; !ok {
+			return 0, 0, false
+		}
+	}
+	left, busy := Capacity(cp, ms, from, to, workdays)
+	return left, busy, true
+}
+
+func maxTime(ts ...time.Time) time.Time {
+	out := ts[0]
+	for _, t := range ts[1:] {
+		if t.After(out) {
+			out = t
+		}
+	}
+	return out
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }

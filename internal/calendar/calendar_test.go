@@ -142,3 +142,29 @@ func TestProposals(t *testing.T) {
 		t.Errorf("proposals %+v", ps)
 	}
 }
+
+// TestCapacity: two weeks of 80 work hours, 12 of them in meetings (an
+// overlap counted once, a Saturday and the time outside the sprint not at
+// all), take 15% off 10 points.
+func TestCapacity(t *testing.T) {
+	mon := time.Date(2026, 9, 28, 9, 0, 0, 0, time.Local) // a Monday
+	from, to := mon, mon.AddDate(0, 0, 14)
+	var ms []Meeting
+	for d := range 10 { // a 1h meeting each workday: 10h
+		day := mon.AddDate(0, 0, d+d/5*2)
+		ms = append(ms, Meeting{Start: day, End: day.Add(time.Hour)})
+	}
+	ms = append(ms,
+		Meeting{Start: mon.Add(30 * time.Minute), End: mon.Add(2 * time.Hour)},             // 1h more past the first one's end
+		Meeting{Start: mon.Add(26 * time.Hour), End: mon.Add(27 * time.Hour)},              // Tuesday 11:00: 1h
+		Meeting{Start: mon.AddDate(0, 0, 5), End: mon.AddDate(0, 0, 5).Add(3 * time.Hour)}, // Saturday
+		Meeting{Start: mon.Add(-2 * time.Hour), End: mon.Add(-time.Hour)},                  // before the sprint
+	)
+	left, busy := Capacity(10, ms, from, to, nil)
+	if busy != 12*time.Hour || left != 8.5 {
+		t.Errorf("Capacity = %v, %v; want 8.5, 12h", left, busy)
+	}
+	if left, _ := Capacity(10, nil, from, to, nil); left != 10 {
+		t.Errorf("no meetings: %v", left)
+	}
+}

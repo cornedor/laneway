@@ -2,10 +2,20 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/demo"
+	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/store"
 )
 
 func reportsPost(t *testing.T, url string, body any) int {
@@ -111,4 +121,54 @@ func TestReportsAndPlanning(t *testing.T) {
 func itoa(n int) string {
 	b, _ := json.Marshal(n)
 	return string(b)
+}
+
+// TestPlanMeetings: with ui.calendar and ui.capacity, each dated sprint
+// says your capacity less your meetings.
+func TestPlanMeetings(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	dir := t.TempDir()
+	ics := filepath.Join(dir, "cal.ics")
+	start := time.Now().AddDate(0, 0, -30).UTC().Format("20060102") + "T080000Z"
+	end := time.Now().AddDate(0, 0, -30).UTC().Format("20060102") + "T120000Z"
+	if err := os.WriteFile(ics, []byte("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:a\r\nDTSTAMP:"+start+"\r\nDTSTART:"+start+
+		"\r\nDTEND:"+end+"\r\nRRULE:FREQ=DAILY\r\nSUMMARY:Meetings\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(dir, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
+	ts := httptest.NewServer(New(context.Background(), Options{Client: cl, Store: st, Site: "demo", Demo: true,
+		UI: config.UIConfig{Calendar: ics, Capacity: map[string]float64{"default": 10}}}))
+	t.Cleanup(ts.Close)
+	var boards []struct{ ID int }
+	if searchGet(t, ts.URL+"/api/projects/DEMO/boards", &boards) != 200 || len(boards) == 0 {
+		t.Fatal("no boards")
+	}
+	var plan struct {
+		Sprints []struct {
+			State string
+			Mine  *planMine
+		}
+		Calendar string
+	}
+	if c := searchGet(t, ts.URL+"/api/plan/"+itoa(boards[0].ID), &plan); c != 200 || plan.Calendar != "" {
+		t.Fatalf("plan: %d %q", c, plan.Calendar)
+	}
+	for _, sp := range plan.Sprints {
+		if sp.State != "active" {
+			continue
+		}
+		if m := sp.Mine; m == nil || m.Name == "" || m.Hours <= 0 || m.Capacity <= 0 || m.Capacity >= 10 {
+			t.Errorf("active sprint: %+v", sp.Mine)
+		}
+		return
+	}
+	t.Error("no active sprint")
 }

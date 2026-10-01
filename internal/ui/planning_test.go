@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -106,6 +108,20 @@ func TestPlanCapacity(t *testing.T) {
 	}
 	if !strings.Contains(got, jiraOverStyle.Render("Ada 8/5!")) {
 		t.Error("over capacity should be marked")
+	}
+}
+
+// TestPlanMeetingCapacity: your meetings take their share off your
+// capacity (default's when you have none) and say how much; others' stays.
+func TestPlanMeetingCapacity(t *testing.T) {
+	mon := time.Date(2026, 9, 28, 0, 0, 0, 0, time.Local)
+	busy := []calendar.Meeting{{Start: mon.Add(9 * time.Hour), End: mon.Add(17 * time.Hour)}} // a day of a 5-day week
+	caps, note := meetingCapacity(map[string]float64{"Ada": 5, "default": 10}, "Me", busy, mon, mon.AddDate(0, 0, 7), nil)
+	if caps["Me"] != 8 || caps["Ada"] != 5 || note != "Me: 8h of meetings" {
+		t.Errorf("caps %v, note %q", caps, note)
+	}
+	if caps, note = meetingCapacity(map[string]float64{"Ada": 5}, "Me", busy, mon, mon.AddDate(0, 0, 7), nil); len(caps) != 1 || note != "" {
+		t.Errorf("no capacity of yours: %v %q", caps, note)
 	}
 }
 

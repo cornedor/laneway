@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -53,6 +54,17 @@ type planSprint struct {
 	jira.Sprint
 	Cards []jira.Card
 	Total int
+	// Mine is your capacity less your meetings in ui.calendar, with
+	// ui.capacity for you and the sprint's dates set.
+	Mine *planMine `json:",omitempty"`
+}
+
+// planMine is your capacity in a sprint: Capacity points after Hours of
+// meetings.
+type planMine struct {
+	Name     string
+	Capacity float64
+	Hours    float64
 }
 
 // planBundle is the planning view in one call: the board's open and future
@@ -90,16 +102,58 @@ func planBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		defer wg.Done()
 		backlog, btotal, errs[len(sprints)] = c.BacklogIssues(ctx, id, "", pf)
 	}()
+	// Your meetings over every dated sprint, read once.
+	var me jira.User
+	var meetings []calendar.Meeting
+	var calErr error
+	ui := s.UIConfig()
+	var from, to time.Time
+	for _, sp := range sprints {
+		if !sp.Start.IsZero() && sp.End.After(sp.Start) {
+			if from.IsZero() || sp.Start.Before(from) {
+				from = sp.Start
+			}
+			to = maxT(to, sp.End)
+		}
+	}
+	if cal := strings.TrimSpace(ui.Calendar); cal != "" && len(ui.Capacity) > 0 && !from.IsZero() {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if me, calErr = c.Myself(ctx); calErr == nil {
+				meetings, calErr = calendar.Read(ctx, cal, from, to)
+			}
+		}()
+	}
 	wg.Wait()
 	for _, e := range errs {
 		if e != nil {
 			return nil, e
 		}
 	}
-	return map[string]any{
+	for i, sp := range sprints {
+		if calErr != nil || me.DisplayName == "" || sp.Start.IsZero() || !sp.End.After(sp.Start) {
+			continue
+		}
+		if left, busy, ok := calendar.Yours(ui.Capacity, me.DisplayName, meetings, sp.Start, sp.End, workdays(s)); ok {
+			out[i].Mine = &planMine{Name: me.DisplayName, Capacity: left, Hours: busy.Hours()}
+		}
+	}
+	res := map[string]any{
 		"Sprints": out, "Backlog": map[string]any{"Cards": backlog, "Total": btotal},
 		"PointsField": pf, "Columns": cfg.Columns,
-	}, nil
+	}
+	if calErr != nil {
+		res["Calendar"] = calErr.Error()
+	}
+	return res, nil
+}
+
+func maxT(a, b time.Time) time.Time {
+	if b.After(a) {
+		return b
+	}
+	return a
 }
 
 // planMove puts keys in a sprint, or in the backlog when Sprint is 0.

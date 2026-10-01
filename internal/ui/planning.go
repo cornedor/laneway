@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -49,6 +51,11 @@ type planState struct {
 	// closed ones; velN 0 until read, -1 when there are none.
 	velocity float64
 	velN     int
+	// me and busy are your name and the sprint's meetings in ui.calendar,
+	// which take your share off ui.capacity; calErr why it was not read.
+	me     string
+	busy   []calendar.Meeting
+	calErr string
 }
 
 // planUndo is a move across: the cards, the side they went to and the
@@ -102,6 +109,9 @@ type planMsg struct {
 	errs        [2]error // per side
 	vel         []jira.SprintVelocity
 	velRead     bool
+	me          string
+	busy        []calendar.Meeting
+	calErr      error
 }
 
 // planWroteMsg is a move or rank answered.
@@ -141,10 +151,20 @@ func (m *Model) loadPlan() tea.Cmd {
 	p.loading = true
 	seq, ctx, c, board, cfg, sprint := p.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, p.sprints[p.target]
 	vel, n := p.velN == 0, m.opts.velocitySprints
+	cal := strings.TrimSpace(m.uiConfig.Calendar)
 	return func() tea.Msg {
 		var msg planMsg
 		var errL, errR error
 		var wg sync.WaitGroup
+		if cal != "" && !sprint.start.IsZero() && sprint.end.After(sprint.start) {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				me, _ := c.Myself(ctx)
+				msg.me = me.DisplayName
+				msg.busy, msg.calErr = calendar.Read(ctx, cal, sprint.start, sprint.end)
+			}()
+		}
 		if vel { // once a planning: the closed sprints don't change in it
 			wg.Add(1)
 			go func() {
@@ -188,6 +208,10 @@ func (m Model) handlePlan(msg planMsg) (tea.Model, tea.Cmd) {
 	}
 	p.err, p.sideErr = "", [2]string{}
 	p.sides = [2][]jira.Card{msg.left, msg.right}
+	p.me, p.busy, p.calErr = msg.me, msg.busy, ""
+	if msg.calErr != nil {
+		p.calErr = msg.calErr.Error()
+	}
 	for s, err := range msg.errs {
 		if err != nil { // the other side still shows
 			p.sideErr[s], p.sides[s] = err.Error(), nil
@@ -793,7 +817,17 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	}
 	lines := []string{ansi.Truncate(head+headStyle.Render(drop), width, "…")}
 	if side == 1 {
-		lines = append(lines, ansi.Truncate(planByAssignee(cards, m.opts.capacity), width, "…"))
+		caps, note := m.opts.capacity, ""
+		if sp := p.sprints[p.target]; p.me != "" && len(p.busy) > 0 {
+			caps, note = meetingCapacity(caps, p.me, p.busy, sp.start, sp.end, m.opts.workdays)
+		} else if p.calErr != "" {
+			note = "ui.calendar: " + p.calErr
+		}
+		row := planByAssignee(cards, caps)
+		if note != "" {
+			row += jiraDimStyle.Render("  ·  " + note)
+		}
+		lines = append(lines, ansi.Truncate(row, width, "…"))
 	} else {
 		lines = append(lines, "")
 	}
@@ -898,4 +932,16 @@ func planByAssignee(cards []jira.Card, capacity map[string]float64) string {
 		}
 	}
 	return strings.Join(parts, jiraDimStyle.Render(" · "))
+}
+
+// meetingCapacity is caps with yours less the share of the sprint your
+// meetings take (calendar.Yours), and a note of how many hours that is.
+func meetingCapacity(caps map[string]float64, me string, busy []calendar.Meeting, from, to time.Time, workdays []time.Weekday) (map[string]float64, string) {
+	left, hours, ok := calendar.Yours(caps, me, busy, from, to, workdays)
+	if !ok {
+		return caps, ""
+	}
+	out := maps.Clone(caps)
+	out[me] = left
+	return out, fmt.Sprintf("%s: %s of meetings", me, jira.FormatDuration(int(hours.Seconds())))
 }
