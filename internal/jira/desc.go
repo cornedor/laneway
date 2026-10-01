@@ -243,7 +243,8 @@ func editBlocks(b *strings.Builder, nodes []adfNode, raws []json.RawMessage, kep
 			continue
 		}
 		had := len(*kept)
-		if sub := keepInlines(n, kept); editableBlock(sub, vocab) {
+		// sub's ⟦N⟧ point into kept, the vocabulary after it as on save.
+		if sub := keepInlines(n, kept); editableWith(n, sub, append(slices.Clone(*kept), vocab...)) {
 			writeBlock(b, escapeTexts(sub), "")
 			continue
 		}
@@ -477,6 +478,20 @@ func editableBlock(n adfNode, vocab []json.RawMessage) bool {
 	return canon(adfNode{Type: "doc", Content: []adfNode{n}}) == canon(again)
 }
 
+// editableWith: sub, n with inline placeholders, written as markdown and
+// read back with list (the kept nodes they name, then the vocabulary) is n.
+func editableWith(n, sub adfNode, list []json.RawMessage) bool {
+	if unsupported(sub) != "" {
+		return false
+	}
+	var b strings.Builder
+	writeBlock(&b, escapeTexts(sub), "")
+	back, _ := json.Marshal(MarkdownToADFKept(b.String(), list))
+	var again adfNode
+	_ = json.Unmarshal(back, &again)
+	return canon(adfNode{Type: "doc", Content: []adfNode{n}}) == canon(again)
+}
+
 // escapeTexts is n with a backslash before each character of its text
 // that markdown would read as markup: *, ~, `, [, \ and a tag's < anywhere,
 // and what would start a block (#, >, -, +, <, |, 1.) at a line's start. Text a comment
@@ -696,6 +711,9 @@ func canon(n adfNode) string {
 	case "tableCell", "tableHeader":
 		bg, _ := n.Attrs["background"].(string)
 		b.WriteString(":" + strings.ToLower(bg))
+		b.WriteString(tableAttrs(n, "colwidth", "colspan", "rowspan"))
+	case "table":
+		b.WriteString(tableAttrs(n, "layout", "width", "isNumberColumnEnabled"))
 	}
 	b.WriteString("(")
 	content := n.Content
@@ -728,6 +746,9 @@ func canon(n adfNode) string {
 			m := mk.Type
 			if href, ok := mk.Attrs["href"].(string); ok && mk.Type == "link" {
 				m += "=" + mdHref(href)
+				if title, _ := mk.Attrs["title"].(string); title != "" {
+					m += " title=" + strconv.Quote(title) // markdown writes none: such a link is kept
+				}
 			} else {
 				for _, k := range slices.Sorted(maps.Keys(mk.Attrs)) {
 					m += fmt.Sprintf(" %s=%v", k, mk.Attrs[k])
@@ -1364,4 +1385,31 @@ func parseInline(s string, marks []any) []any {
 	}
 	emit()
 	return out
+}
+
+// tableAttrs are a table's or cell's layout attributes markdown can't
+// write, those away from Jira's defaults: a table with them is kept whole
+// rather than saved without them.
+func tableAttrs(n adfNode, names ...string) string {
+	var b strings.Builder
+	for _, k := range names {
+		switch v := n.Attrs[k].(type) {
+		case nil:
+		case bool:
+			if v {
+				fmt.Fprintf(&b, " %s=true", k)
+			}
+		case string:
+			if v != "" && v != "default" {
+				fmt.Fprintf(&b, " %s=%s", k, v)
+			}
+		case float64:
+			if v != 1 || k == "width" {
+				fmt.Fprintf(&b, " %s=%v", k, v)
+			}
+		default: // colwidth: a list of widths
+			fmt.Fprintf(&b, " %s=%v", k, v)
+		}
+	}
+	return b.String()
 }

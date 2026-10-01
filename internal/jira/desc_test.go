@@ -390,3 +390,44 @@ func TestBoldItalic(t *testing.T) {
 		t.Errorf("%s", s)
 	}
 }
+
+// TestEditableKeepsWhatMarkdownLoses: a sized or wide table and a link with
+// a title stand kept rather than saved without those; a default table
+// still edits. A mention elsewhere doesn't make an inline placeholder take
+// its paragraph.
+func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
+	cell := func(attrs string) string {
+		return `{"type":"tableCell","attrs":{` + attrs + `},"content":[{"type":"paragraph","content":[{"type":"text","text":"a"}]}]}`
+	}
+	table := func(attrs, cellAttrs string) string {
+		return `{"type":"doc","content":[{"type":"table","attrs":{` + attrs + `},"content":[{"type":"tableRow","content":[` + cell(cellAttrs) + `]}]}]}`
+	}
+	for _, tc := range []struct {
+		name, doc string
+		kept      bool
+	}{
+		{"default table", table(`"isNumberColumnEnabled":false,"layout":"default","localId":"x"`, `"colspan":1,"rowspan":1`), false},
+		{"wide table", table(`"layout":"wide"`, ``), true},
+		{"sized column", table(`"layout":"default"`, `"colwidth":[240]`), true},
+		{"numbered", table(`"isNumberColumnEnabled":true`, ``), true},
+		{"link title", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"The Go site"}}]}]}]}`, true},
+	} {
+		ed, err := EditableDescription(json.RawMessage(tc.doc))
+		if err != nil {
+			t.Errorf("%s: %v", tc.name, err)
+			continue
+		}
+		if kept := strings.Contains(ed.Markdown, "<!-- keep:"); kept != tc.kept {
+			t.Errorf("%s: kept %v, want %v:\n%s", tc.name, kept, tc.kept, ed.Markdown)
+		}
+	}
+	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"id":"a1","text":"@Ann"}}]},` +
+		`{"type":"paragraph","content":[{"type":"text","text":"see "},{"type":"mediaInline","attrs":{"id":"m1","type":"file"}}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(ed.Markdown, "<!-- keep:") || !strings.Contains(ed.Markdown, "see ⟦1") {
+		t.Errorf("the mediaInline paragraph should edit with ⟦1⟧:\n%s", ed.Markdown)
+	}
+}
