@@ -234,6 +234,10 @@ func generate(now time.Time) *Server {
 	s.change("DEMO-13", priya, now.Add(-2*time.Hour), "labels", "frontend", "frontend reviewed")
 	s.comment("DEMO-22", tomas, "Copy for the button: \"Continue as guest\".", day(-1).Add(15*time.Hour))
 	s.comment("DEMO-4", mira, "Ship it behind the flag; I'll tell support.", now.Add(-time.Hour))
+	// Your own yesterday, for the standup.
+	s.comment("DEMO-13", me, "Fixed: the postcode lookup no longer overwrites the house number.", day(-1).Add(16*time.Hour))
+	s.worklog("DEMO-13", me, day(-1).Truncate(24*time.Hour).Add(14*time.Hour), 5400, "house number fix")
+	s.worklog("DEMO-22", me, day(-1).Truncate(24*time.Hour).Add(10*time.Hour), 2*3600, "skip step")
 	for _, w := range []struct {
 		key  string
 		who  user
