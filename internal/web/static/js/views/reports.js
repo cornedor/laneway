@@ -15,6 +15,16 @@ const days = v => num(v / (DAY * 1e6)); // Go durations arrive as nanoseconds
 const toDays = ns => ns / (DAY * 1e6);
 
 // The sprint's issues as the charts count them: points, or one each when none is pointed.
+// The numbers a report shows, as a markdown table for y (TUI chartTable); pipes escaped.
+export function markdownTable(head, rows) {
+  const esc = x => String(x == null ? '' : x).replace(/\|/g, '\\|');
+  const line = r => '| ' + r.map(esc).join(' | ') + ' |';
+  return [line(head), line(head.map(() => '---')), ...rows.map(line)].join('\n');
+}
+const ymd = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+// Row i of a sprint chart's table is the sprint's first day plus i (TUI chartTable).
+const sampleDay = (start, i) => { const d = new Date(start); return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + i)); };
+
 function burnRows(issues) {
   const pointed = issues.some(i => i.Points > 0);
   return { unit: pointed ? 'p' : ' issues', rows: issues.map(i => ({ p: pointed ? i.Points : 1, added: ms(i.Added), res: ms(i.Resolved), i })) };
@@ -32,6 +42,7 @@ export default async function mount(el, { app, params, query, scope, context, to
   const sc = await resolve(app, params);
   let { project, board } = sc;
   let token = 0, charts = [], cur = 0, curItems = [], weeks = 8, sprintId = Number(query.sprint) || 0;
+  let table = null; // the shown report's numbers, for y
   const body = h('div.rp');
   el.append(body);
   const cleanupCharts = () => { charts.forEach(c => c.destroy()); charts = []; };
@@ -83,6 +94,7 @@ export default async function mount(el, { app, params, query, scope, context, to
   const get = (path, fresh) => app.api.get(path, { fresh });
 
   async function render(k, fresh) {
+    table = null;
     const b = board && board.ID;
     switch (k) {
       case 'burndown': case 'burnup': case 'cfd': {
@@ -142,6 +154,7 @@ export default async function mount(el, { app, params, query, scope, context, to
         pace && stat(pace, 'pace', d >= 0.5 ? 'bad' : d <= -0.5 ? 'ok' : ''), added > 0 && stat('+' + num(added) + unit, 'added after start', 'warn')),
       card('', wrap), h('p.rp-note', 'Counted by resolution date. Left/right arrows step through the days.'));
     charts.push(chart(wrap, spec));
+    table = { head: ['Day', unit === 'p' ? 'Points left' : 'Issues left'], rows: pts.map(([, v], i) => [sampleDay(start, i), num(v)]) };
     return view;
   }
 
@@ -168,6 +181,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       targets: data.map(d => ({ x: d[0], y: d[2], head: dayName(d[0]), rows: [{ color: 'var(--ok)', label: 'Done', value: num(d[2]) + unit, y: d[2] }, { color: 'var(--fg-3)', label: 'Scope', value: num(d[1]) + unit, y: d[1] }] })),
       legend: [{ name: 'Done', color: 'var(--ok)' }, { name: 'Scope', color: 'var(--fg-3)', dash: true }],
     }));
+    table = { head: ['Day', 'Scope', 'Done'], rows: data.map((d, i) => [sampleDay(start, i), num(d[1]), num(d[2])]) };
     return h('div.rp-in', sprintHead(sp), h('div.rp-stats', stat(num(dn) + unit, 'done'), stat(num(s) + unit, 'scope')), card('', wrap));
   }
 
@@ -207,6 +221,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       targets: data.map(d => ({ x: d[0], head: dayName(d[0]), rows: cols.map((c, k) => ({ color: color(k), label: c.Name, value: String(d[1][k]) })).reverse() })),
       legend: cols.map((c, k) => ({ name: c.Name, color: color(k) })).reverse(),
     }));
+    table = { head: ['Day', ...cols.map(c => c.Name)], rows: data.map((d, i) => [sampleDay(start, i), ...d[1]]) };
     return h('div.rp-in', sprintHead(sp), card('Issues per column', wrap));
   }
 
@@ -229,6 +244,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       legend: [{ name: 'Completed', color: 'var(--ok)' }, { name: 'Committed', color: 'var(--cat-new)' }, { name: 'Average', color: 'var(--accent)', dash: true }],
     }));
     const last = vel[vel.length - 1];
+    table = { head: ['Sprint', 'Committed', 'Done'], rows: vel.map(v => [v.Name, num(v.Committed), num(v.Done)]) };
     return h('div.rp-in', head('Velocity', 'last ' + vel.length + ' sprints'),
       h('div.rp-stats', stat(num(avg) + 'p', 'average completed'), stat(num(last.Done) + 'p', 'last sprint: ' + last.Name),
         stat(Math.round(vel.reduce((a, v) => a + v.Done, 0) / Math.max(vel.reduce((a, v) => a + v.Committed, 0), 1) * 100) + '%', 'of committed, completed')),
@@ -253,6 +269,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       targets: cyc.map(i => ({ x: +new Date(i.Resolved), y: toDays(i.Cycle), head: i.Key + ' ' + i.Summary.slice(0, 50), onclick: () => open(i.Key),
         rows: [{ label: 'Cycle', value: days(i.Cycle) + ' days', color: 'var(--accent)', y: toDays(i.Cycle) }, { label: 'Lead', value: days(i.Lead) + ' days' }, { label: 'Done', value: dayName(+new Date(i.Resolved)) }] })),
     }));
+    table = { head: ['Issue', 'Resolved', 'Cycle days', 'Lead days'], rows: list.map(i => [i.Key, ymd(+new Date(i.Resolved)), i.Cycle > 0 ? days(i.Cycle) : '', days(i.Lead)]) };
     const slow = cyc.slice().sort((a, b) => b.Cycle - a.Cycle).slice(0, 8);
     curItems = slow.map(i => i.Key);
     return h('div.rp-in', head('Cycle time', 'in progress to done'),
@@ -272,6 +289,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       return h('li', { dataset: { key: k }, onclick: () => open(k) }, h('span.key', k), h('span.sum', c.Summary || ''), c.Status && h('span.dim', c.Status));
     }))) : null;
     curItems = [...(last.Carried || []), ...(last.Done || [])];
+    table = { head: ['', ...rs.map(r => r.Name)], rows: metric.map(([label, f]) => [label, ...rs.map(f)]) };
     return h('div.rp-in', head('Retro: ' + last.Name, shortDate(last.Start) + ' – ' + shortDate(last.End)),
       card('', h('table', h('thead', h('tr', h('th', ''), rs.map(r => h('th.n', r.Name)))),
         h('tbody', metric.map(([label, f]) => h('tr', h('td', label), rs.map(r => h('td.n', f(r)))))))),
@@ -283,10 +301,11 @@ export default async function mount(el, { app, params, query, scope, context, to
     if (!list.length) return h('div.empty', h('h2', 'Releases'), h('p', project + ' has no versions.'));
     const open_ = list.filter(v => !v.Released), shipped = list.filter(v => v.Released);
     curItems = [...open_, ...shipped];
+    table = { head: ['Version', 'Release date', 'Released', 'Done', 'Issues'], rows: curItems.map(v => [v.Name, v.ReleaseDate || '', v.Released ? 'yes' : 'no', v.Done, v.Total]) };
     const row = v => {
       const pct = v.Total ? Math.round(v.Done / v.Total * 100) : 0;
       const today = new Date().toISOString().slice(0, 10), late = !v.Released && v.ReleaseDate && v.ReleaseDate < today;
-      return h('div.rp-ver' + (v.Released ? '.released' : ''), { role: 'listitem', dataset: { id: v.ID }, tabindex: -1, onclick: () => { cur = curItems.indexOf(v); mark(); } },
+      return h('div.rp-ver' + (v.Released ? '.released' : ''), { role: 'listitem', dataset: { id: v.ID }, tabindex: -1, title: 'Enter or double-click: its issues on the board', onclick: () => { cur = curItems.indexOf(v); mark(); }, ondblclick: () => openVersion(v) },
         h('span.name', v.Name), h('span' + (late ? '.dim' : '.faint'), { style: late ? { color: 'var(--err)' } : null }, v.ReleaseDate || (v.Released ? 'released' : 'no date')),
         h('div.rp-bar', { role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-label': v.Name + ' ' + pct + '% done' }, h('i', { style: { width: pct + '%' } })),
         h('span.cnt', v.Done + '/' + v.Total,
@@ -294,7 +313,7 @@ export default async function mount(el, { app, params, query, scope, context, to
     };
     const view = h('div.rp-in', head('Releases', project),
       card('Unreleased', h('div', { role: 'list' }, open_.length ? open_.map(row) : h('p.dim', 'Everything is released.'))),
-      shipped.length ? card('Released', h('div', { role: 'list' }, shipped.slice(0, 15).map(row))) : null);
+      shipped.length ? card('Released', h('div', { role: 'list' }, shipped.map(row))) : null);
     queueMicrotask(mark);
     return view;
   }
@@ -303,6 +322,11 @@ export default async function mount(el, { app, params, query, scope, context, to
     const k = curItems[cur];
     const n = k && (typeof k === 'string' ? body.querySelector(`.rp-list li[data-key="${k}"]`) : body.querySelector(`.rp-ver[data-id="${k.ID}"]`));
     if (n) { n.classList.add('cur'); n.scrollIntoView({ block: 'nearest' }); }
+  }
+  // A version's issues as a view of the board (TUI releases.go).
+  function openVersion(v) {
+    const q = new URLSearchParams({ sprint: 'jql:fixVersion = ' + v.ID + ' ORDER BY status, rank', vname: 'Release: ' + v.Name });
+    app.go('/board/' + encodeURIComponent(project) + '?' + q);
   }
   async function release(v) {
     if (!v || v.Released) return;
@@ -317,10 +341,14 @@ export default async function mount(el, { app, params, query, scope, context, to
   scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports' });
   scope.bind('W', () => { if (kind === 'cycle') nextWeeks(); }, 'cycle time: weeks', { group: 'Reports' });
   scope.bind('R', () => load(true), 'reload', { group: 'Reports' });
+  scope.bind('y', () => {
+    if (!table || !table.rows.length) return app.ui.toast('Nothing to copy here');
+    navigator.clipboard.writeText(markdownTable(table.head, table.rows)).then(() => app.ui.toast('Copied the numbers as a markdown table', { kind: 'ok' }), e => app.ui.errToast(e));
+  }, 'copy the numbers as a markdown table', { group: 'Reports' });
   const move = d => { if (curItems.length) { cur = Math.min(Math.max(cur + d, 0), curItems.length - 1); mark(); } };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next item', { group: 'Reports' });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous item', { group: 'Reports' });
-  scope.bind('Enter', () => { const k = curItems[cur]; if (typeof k === 'string') open(k); }, 'open issue', { group: 'Reports' });
+  scope.bind('Enter', () => { const k = curItems[cur]; if (typeof k === 'string') open(k); else if (k && kind === 'releases') openVersion(k); }, 'open issue (a release: its issues on the board)', { group: 'Reports' });
   scope.bind('r', () => { if (kind === 'releases') release(curItems[cur]); }, 'release the version', { group: 'Reports' });
 
   await load();

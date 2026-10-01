@@ -18,6 +18,19 @@ function nextSprintName(name) {
   return m ? m[1] + (Number(m[2]) + 1) + m[3] : '';
 }
 
+// sprintCheer is what a completed sprint adds to its toast with ui.delight: its points and how they rank
+// among the last closed sprints, oldest first (TUI sprintCheer); '' with too few.
+export function sprintCheer(vel) {
+  if (!vel || vel.length < 2) return '';
+  const last = vel[vel.length - 1];
+  if (!(last.Done > 0)) return '';
+  const rank = 1 + vel.slice(0, -1).filter(v => v.Done > last.Done).length;
+  const pts = String(Math.round(last.Done * 10) / 10);
+  if (rank === 1) return `${pts}p, best of the last ${vel.length}`;
+  if (rank <= 3) return `${pts}p, #${rank} of the last ${vel.length}`;
+  return pts + 'p done';
+}
+
 export default async function mount(el, { app, params, scope, context, toolbar }) {
   css('planning');
   const sc = await resolve(app, params);
@@ -163,7 +176,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       dates && h('span.pl-dates', dates),
       sp && h('span.pl-goal', { title: sp.Goal || 'No goal' }, sp.Goal || ''),
       !sp || !sp.Goal ? h('span.spacer') : null,
-      h('span.pl-tot' + (over ? '.over' : ''), cs.length + (cs.length === 1 ? ' issue' : ' issues'), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && ` of ~${fmtP(velAvg)}p (avg last ${velN})`),
+      h('span.pl-tot' + (over ? '.over' : ''), cs.length + (cs.length === 1 ? ' issue' : ' issues'), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && ` of ~${fmtP(velAvg)}p (avg last ${velN})`,
+        unest(cs) ? h('span.pl-unest', { title: 'Issues without story points' }, ' · ' + unest(cs) + ' unestimated') : null),
       sp && sp.State === 'future' && h('button.btn.pl-act', { dataset: { act: 'start' }, tabindex: -1 }, 'Start'),
       sp && sp.State === 'active' && h('button.btn.pl-act', { dataset: { act: 'close' }, tabindex: -1 }, 'Complete'),
       sp && h('button.btn.ghost.pl-act', { dataset: { act: 'edit' }, tabindex: -1, title: 'Edit sprint (E)' }, 'Edit'));
@@ -172,6 +186,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     return out;
   }
 
+  const unest = cs => cs.filter(c => !c.Done && (c.Points === '' || c.Points == null)).length;
   function capFor(name) {
     if (name in caps) return caps[name];
     return name !== 'unassigned' && 'default' in caps ? caps.default : null;
@@ -231,6 +246,16 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const crossing = order.filter(c => from.get(c.Key) !== to.id).map(c => c.Key);
     relayout();
     const names = order.map(c => c.Key);
+    if (crossing.length) {
+      // u moves them back to where each came from (TUI recordSprintUndo)
+      const back = new Map();
+      for (const k of crossing) back.set(from.get(k), [...(back.get(from.get(k)) || []), k]);
+      import('./fields.js').then(m => m.pushUndo(app, 'the move of ' + (crossing.length === 1 ? crossing[0] : crossing.length + ' issues') + ' to ' + to.name, async () => {
+        for (const [id, ks] of back) await app.api.post('/plan/move', { Keys: ks, Sprint: id });
+        for (const k of crossing) app.bus.emit('issue:changed', { key: k });
+        load(true);
+      }));
+    }
     enqueue(async () => {
       if (crossing.length) await app.api.post('/plan/move', { Keys: crossing, Sprint: to.id });
       if (anchor) { let prev = anchor, aft = after; for (const k of names) { await rank(k, prev, aft); prev = k; aft = true; } }
@@ -295,7 +320,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       open.length ? h('label', 'Move unfinished issues to', dest) : null],
     'Complete sprint', async f => {
       const r = await app.api.post('/plan/sprints/' + s.id + '/close', { Board: board.ID, MoveTo: Number(dest.value) || 0 });
-      app.ui.toast(`${s.name} completed` + (r && r.Moved ? `, ${r.Moved} moved` : ''), { kind: 'ok' });
+      const cheer = String((app.session.ui && app.session.ui.Delight) || '').toLowerCase() === 'off' ? '' : await app.api.get('/reports/velocity/' + board.ID, { fresh: true }).then(sprintCheer, () => '');
+      app.ui.toast(`${s.name} completed` + (r && r.Moved ? `, ${r.Moved} moved` : '') + (cheer ? ' · ' + cheer : ''), { kind: 'ok', ms: cheer ? 6000 : undefined });
     });
   }
   function editSprint() {
@@ -335,6 +361,14 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (e.target.closest('.pl-sel') || e.ctrlKey || e.metaKey) return toggleSel(r.c.Key);
     app.panel.open(r.c.Key);
   });
+  // y: the section under the cursor as a markdown table (TUI copy table).
+  function copyTable() {
+    const s = curSection(); if (!s) return;
+    const esc = x => String(x == null ? '' : x).replace(/\|/g, '\\|');
+    const rows = s.cards.map(c => `| ${c.Key} | ${esc(c.Summary)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
+    const text = ['| Key | Summary | Assignee | Points |', '| --- | --- | --- | --- |', ...rows].join('\n');
+    navigator.clipboard.writeText(text).then(() => app.ui.toast(`Copied ${s.name} (${s.cards.length} issues) as a markdown table`, { kind: 'ok' }), e => app.ui.errToast(e));
+  }
   function toggleFold(s) {
     if (!s) return;
     folded.has(s.id) ? folded.delete(s.id) : folded.add(s.id);
@@ -392,6 +426,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('z', () => toggleFold(curSection()), 'fold or unfold the section', G);
   scope.bind('P', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'points'); }, 'story points', G);
   scope.bind('a', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'assignee'); }, 'assignee', G);
+  scope.bind('e', () => { const cc = curCard(); if (cc && app.actions.menu) app.actions.menu(cc.c.Key); }, 'quick edit: status, assignee, priority, points, labels, sprint, pin', G);
+  scope.bind('X', () => { const ks = targets(); if (ks.length) app.actions.bulk(ks); }, 'bulk edit the marked issues (else the one under the cursor)', G);
+  scope.bind('o', () => { const cc = curCard(); if (cc) window.open(app.session.baseURL + '/browse/' + cc.c.Key, '_blank', 'noopener'); }, 'open in Jira', G);
+  scope.bind('y', copyTable, 'copy the section as a markdown table', G);
   scope.bind('N', newSprint, 'new sprint', G);
   scope.bind('Z', startSprint, 'start the sprint (S starts work on the issue)', G);
   scope.bind('C', closeSprint, 'complete the active sprint', G);

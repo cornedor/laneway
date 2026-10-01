@@ -127,6 +127,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     }
     ((app.session.ui && app.session.ui.Views) || []).forEach((v, i) => { if (v.Name && v.JQL) out.push({ id: 'view:' + i, name: v.Name, info: 'view', jql: v.JQL, kind: 'jql' }); });
     for (const f of S.saved) out.push({ id: 'filter:' + f.ID, name: f.Name, info: 'saved filter', jql: f.JQL, kind: 'filter' });
+    // A named query opened from elsewhere (a release's issues): ?sprint=jql:…&vname=…
+    if (String(query.sprint || '').startsWith('jql:') && !out.some(i => i.id === query.sprint)) out.push({ id: query.sprint, name: query.vname || 'JQL', info: 'query', jql: query.sprint.slice(4), kind: 'filter' });
     for (const q of S.starred) out.push({ id: 'star:' + q, name: '★ ' + (q.length > 30 ? q.slice(0, 29) + '…' : q), info: 'starred search', jql: q, kind: 'filter' });
     return out;
   }
