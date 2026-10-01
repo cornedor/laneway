@@ -197,7 +197,7 @@ function blocks(lines, o) {
       out.push(h('div.md-panel.p-' + PANEL.exec(l.trim())[1], blocks(lines.slice(i + 1, end), o))); i = end + 1;
     } else if ((m = EXPAND.exec(l.trim()))) {
       const end = closer(lines, i + 1);
-      out.push(h('details.md-expand', { open: true }, h('summary', m[1] || 'Details'), blocks(lines.slice(i + 1, end), o))); i = end + 1;
+      out.push(h('details.md-expand', h('summary', m[1] || 'Details'), blocks(lines.slice(i + 1, end), o))); i = end + 1;
     } else if (BLOCK.test(l.trim())) { i++; }
     else if (CLOSE.test(l.trim())) { i++; }
     else if ((m = CARD.exec(l.trim()))) { out.push(h('p', link(m[1], m[1]))); i++; }

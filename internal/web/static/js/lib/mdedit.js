@@ -3,7 +3,8 @@
 // pasted/dropped files.
 //
 //   const e = mdEdit(app, {value, rows, placeholder, mono, issueKey, project, label, save(text, mentions), cancel,
-//                          allowEmpty, noCancel, people() → Map(name → accountId), mdOpts() → render options, onFiles(files), hint})
+//                          allowEmpty, noCancel, people() → Map(name → accountId), mdOpts() → render options, onFiles(files), hint,
+//                          draft: an id ("comment:KEY", "desc:KEY", "desc:KEY:comment:ID") kept in the state file as the TUI's drafts})
 //   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.ta, e.mentions, e.size(), e.focus()
 import { h, clear, debounce } from './dom.js';
 import { css } from './css.js';
@@ -191,20 +192,44 @@ export function mdEdit(app, o) {
   // ---- shell
   const node = h('div.ed', toolbar, ta, pop, preview, fileIn,
     h('div.ed-foot', h('span.dim.hint', o.hint || ('ctrl+⏎ ' + (o.label || 'Save').toLowerCase() + (o.noCancel ? '' : ' · esc cancels') + ' · / formats')), h('span.spacer'),
-      !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => o.cancel() }, 'Cancel'), o.save && go));
+      !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => node._cancel() }, 'Cancel'), o.save && go));
   const size = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, window.innerHeight * 0.6) + 'px'; };
   let busy = false;
   async function run() {
     if (busy || !o.save || (!o.allowEmpty && !ta.value.trim())) return;
     busy = true; go.disabled = true; ta.readOnly = true;
     const text = ta.value;
-    try { await o.save(text, mentions.filter(m => text.includes('@' + m.DisplayName))); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
+    try { await o.save(text, mentions.filter(m => text.includes('@' + m.DisplayName))); draft.drop(); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
   }
   node._save = run;
-  node._cancel = () => { closePop(); if (o.noCancel || !o.cancel) ta.blur(); else o.cancel(); };
+  // Cancelling with changes asks first (TUI: esc in the description editor); it drops the draft too.
+  node._cancel = async () => {
+    closePop();
+    if (o.noCancel || !o.cancel) return ta.blur();
+    if (ta.value !== (o.value || '') && !await ui.confirm({ title: 'Discard your changes?', text: 'What you typed here is lost.', ok: 'Discard', danger: true })) return ta.focus();
+    draft.drop(); o.cancel();
+  };
+
+  // ---- drafts: what is typed is kept a moment after each change (TUI drafts.go: "unix\ntext" under jira_tab:draft:),
+  // so a reload or the terminal brings it back; saving or discarding drops it.
+  const draft = { save: () => {}, drop: () => {}, flush: () => {} };
+  if (o.draft) {
+    const path = '/drafts/' + encodeURIComponent(o.draft);
+    let typed = false;
+    const keep = () => (ta.value.trim() && ta.value !== (o.value || '') ? api.put(path, { Text: ta.value }) : api.del(path)).catch(() => {});
+    const later = debounce(() => { if (typed) keep(); }, 2000);
+    draft.save = () => { typed = true; later(); };
+    draft.drop = () => { typed = false; api.del(path).catch(() => {}); };
+    draft.flush = () => { if (typed) keep(); typed = false; };
+    api.get(path, { fresh: true }).then(d => {
+      if (!d || !d.Text || d.Text === ta.value || ta.value !== (o.value || '')) return;
+      ta.value = d.Text; size();
+      ui.toast('Draft restored', { action: { label: 'Drop it', run: () => { ta.value = o.value || ''; size(); draft.drop(); } } });
+    }).catch(() => {});
+  }
   node._escape = () => { if (pop.hidden) return false; closePop(); return true; };
 
-  ta.addEventListener('input', () => { size(); trigger(); livePreview(); });
+  ta.addEventListener('input', () => { size(); trigger(); livePreview(); draft.save(); });
   ta.addEventListener('keydown', e => {
     if (pop.hidden || e.ctrlKey || e.metaKey) return;
     const k = e.key;
@@ -237,10 +262,10 @@ export function mdEdit(app, o) {
     b('ctrl+k', () => ctl.link(), 'link');
     b('ctrl+p', togglePreview, 'toggle preview');
   });
-  const release = () => { if (scope) { scope.dispose(); scope = null; } };
+  const release = () => { draft.flush(); if (scope) { scope.dispose(); scope = null; } };
   ta.addEventListener('blur', release);
 
   requestAnimationFrame(size);
   return { el: node, ta, mentions, size, focus: () => { ta.focus({ preventScroll: true }); ta.selectionStart = ta.selectionEnd = ta.value.length; size(); },
-    preview: togglePreview, dispose: release };
+    preview: togglePreview, dispose: release, dropDraft: () => draft.drop() };
 }

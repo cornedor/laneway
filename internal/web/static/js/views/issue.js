@@ -262,7 +262,7 @@ export function mountIssue(el, key, { app, full, card }) {
       return ui.toast('Edit this one in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err', action: { label: 'Open', run: () => window.open(browseURL(), '_blank', 'noopener') } });
     }
     st.editingDesc = true;
-    const e = editor({ value: ed.Markdown, rows: 10, placeholder: 'Description (markdown)…', allowEmpty: true, label: 'Save', mono: true,
+    const e = editor({ value: ed.Markdown, rows: 10, placeholder: 'Description (markdown)…', allowEmpty: true, label: 'Save', mono: true, draft: 'desc:' + key,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/description', { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
         st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(key + ' description updated'); ui.toast('Description saved', { kind: 'ok' });
@@ -396,6 +396,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const m = find.marks[find.at]; m.classList.add('cur');
     const pane = Object.entries(panes).find(([, p]) => p.contains(m));
     if (pane && pane[0] !== st.tab) setTab(pane[0]);
+    for (let d = m.closest('details'); d; d = d.parentElement.closest('details')) d.open = true; // a folded expand opens to show it
     m.scrollIntoView({ block: 'center' });
     findCount.textContent = find.at + 1 + '/' + find.marks.length;
   }
@@ -484,7 +485,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!ed.Editable) return ui.toast('Edit this comment in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err' });
     st.editingComment = { id: c.ID };
     const body = art.querySelector('.cbody');
-    const e = editor({ value: ed.Markdown, rows: 4, label: 'Save',
+    const e = editor({ value: ed.Markdown, rows: 4, label: 'Save', draft: 'desc:' + key + ':comment:' + c.ID,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/comments/' + encodeURIComponent(c.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
         st.editingComment = null; cmEls.delete(c.ID); art.remove(); changed(key + ' comment edited');
@@ -498,7 +499,7 @@ export function mountIssue(el, key, { app, full, card }) {
   }
 
   // composer
-  const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: 'Write a comment… (@ to mention, markdown works)', label: 'Comment', noCancel: true,
+  const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: 'Write a comment… (@ to mention, markdown works)', label: 'Comment', noCancel: true, draft: 'comment:' + key,
     save: async (text, mentions) => {
       const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || 'You', AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
       st.pending.push(tmp); renderComments(); box.list.lastElementChild?.scrollIntoView({ block: 'nearest' });
