@@ -17,6 +17,8 @@ export async function issueActions(app, st, hk, only) {
     { id: 'clone', label: 'Clone' },
     { id: 'type', label: 'Change the issue type' },
     { id: 'move', label: 'Move to another project' },
+    { id: 'estimate', label: 'Set the original estimate' },
+    { id: 'deps', label: 'Dependency tree' },
     { id: 'delete', label: 'Delete the issue' },
     { id: 'watch', label: 'Watch / stop watching' },
     { id: 'watchers', label: 'Add or remove watchers' },
@@ -54,6 +56,15 @@ export async function issueActions(app, st, hk, only) {
         hk.changed(key + ' is now a ' + t.Name); return ui.toast(key + ' is now a ' + t.Name, { kind: 'ok' });
       }
       case 'move': return move();
+      case 'estimate': {
+        const v = await ui.prompt({ title: 'Original estimate of ' + key, placeholder: '2d 4h', ok: 'Set' });
+        if (!v || !v.trim()) return;
+        const r = await api.put('/issues/' + key + '/field/estimate', { Text: v.trim() });
+        const u = r && r.Undo;
+        if (u) import('./fields.js').then(m => m.pushUndo(app, key + ' estimate', async () => { await api.put('/issues/' + key + '/field/estimate', u); app.bus.emit('issue:changed', { key }); }));
+        hk.changed(key + ' estimate ' + v.trim()); return ui.toast(key + ' estimate ' + v.trim(), { kind: 'ok' });
+      }
+      case 'deps': return deps();
       case 'delete': {
         const n = (iss.Links || []).filter(l => l.Rel === 'subtask').length;
         const ok = await ui.confirm({ title: 'Delete ' + key, text: 'Delete ' + key + ' ' + iss.Summary + (n ? ' and its ' + (n === 1 ? 'subtask' : n + ' subtasks') : '') + '? This cannot be undone.', ok: 'Delete', danger: true });
@@ -89,6 +100,27 @@ export async function issueActions(app, st, hk, only) {
       }
       case 'history': return hk.tab('history');
     }
+  }
+
+  // What holds the issue up, through their own blockers, and what it holds up (TUI deps.go); a row opens its issue.
+  async function deps() {
+    const d = await api.get('/issues/' + key + '/deps', { fresh: true });
+    const items = [{ n: d.Root, pre: '' }];
+    let open = 0;
+    const walk = (ns, indent) => ns.forEach((n, i) => {
+      const last = i === ns.length - 1;
+      if (!n.Done && !n.Seen) open++;
+      items.push({ n, pre: indent + (last ? '└ ' : '├ ') });
+      walk(n.Kids || [], indent + (last ? '  ' : '│ '));
+    });
+    const section = (title, ns) => { items.push({ head: title + (ns.length ? '' : ': nothing') }); walk(ns, '  '); };
+    section('held up by', d.BlockedBy);
+    const by = open;
+    section('holds up', d.Blocks);
+    const label = x => x.head || x.pre + x.n.Key + ' ' + x.n.Summary + ' [' + x.n.Status + ']' + (x.n.Seen ? ' ↺' : x.n.Done ? ' ✓' : '');
+    const r = await ui.pick({ title: 'Dependencies — ' + key + (by ? ' · held up by ' + by + (by === 1 ? ' open issue' : ' open issues') : ''), items, label,
+      render: x => (x.head ? h('span.faint', x.head) : h('span.pick-label', { style: 'white-space:pre' }, label(x))) });
+    if (r && r.n && r.n.Key !== key) hk.open(r.n.Key);
   }
 
   async function link() {

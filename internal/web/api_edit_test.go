@@ -93,6 +93,14 @@ func TestEditRoutes(t *testing.T) {
 	if code, _ := put("parent", edit{Text: "not a key"}); code != 400 {
 		t.Errorf("bad parent: %d", code)
 	}
+	if code, _ := put("estimate", edit{Text: "2d 4h"}); code != 200 {
+		t.Errorf("estimate: %d", code)
+	}
+	for _, bad := range []string{"", "soon", "2h later"} {
+		if code, _ := put("estimate", edit{Text: bad}); code != 400 {
+			t.Errorf("estimate %q: %d", bad, code)
+		}
+	}
 	if code, _ := put("nonsense", edit{}); code != 400 {
 		t.Errorf("unknown field: %d", code)
 	}
@@ -166,6 +174,21 @@ func TestEditMetaAndCreate(t *testing.T) {
 	}
 	if issueCall(t, "POST", ts.URL+"/api/issues", map[string]any{"Project": "DEMO", "Type": "Task", "Summary": "x", "CloneOf": "bad"}, nil) != 400 {
 		t.Error("bad CloneOf should be 400")
+	}
+
+	// DEMO-6 blocks DEMO-5
+	if code := issueCall(t, "POST", iu+"/links", map[string]any{"Type": "Blocks", "Other": "DEMO-6", "Outward": false}, nil); code != 200 {
+		t.Fatalf("link: %d", code)
+	}
+	var deps struct {
+		Root              jira.DepNode
+		BlockedBy, Blocks []jira.DepNode
+	}
+	if code := issueCall(t, "GET", iu+"/deps", nil, &deps); code != 200 || deps.Root.Key != "DEMO-5" || deps.Blocks == nil {
+		t.Fatalf("deps: %d %+v", code, deps)
+	}
+	if len(deps.BlockedBy) != 1 || deps.BlockedBy[0].Key != "DEMO-6" {
+		t.Errorf("blocked by = %+v, want DEMO-6", deps.BlockedBy)
 	}
 
 	var res struct {

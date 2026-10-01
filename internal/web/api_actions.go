@@ -71,6 +71,19 @@ func init() {
 		on, err := s.Client().ToggleVote(ctx, key)
 		return map[string]bool{"On": on}, err
 	})
+	// The dependency tree (TUI deps.go): what holds key up, through their
+	// own blockers, and what it holds up.
+	get("/issues/{key}/deps", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		key, err := issueKey(r)
+		if err != nil {
+			return nil, err
+		}
+		root, by, blocks, err := s.Client().Dependencies(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"Root": root, "BlockedBy": nonNil(by), "Blocks": nonNil(blocks)}, nil
+	})
 	get("/issues/{key}/types", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
 		if err != nil {

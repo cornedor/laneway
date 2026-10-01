@@ -83,7 +83,7 @@ func init() {
 
 // edit is one change to one field. Field is the path's: status, priority,
 // assignee, reporter, points, summary, labels, duedate, issuetype, flag,
-// sprint, parent (Text is its key, "" clears), or a field id written from Kind and Value (EncodeValue's shapes).
+// sprint, parent (Text is its key, "" clears), estimate (the original, "2d 4h"), or a field id written from Kind and Value (EncodeValue's shapes).
 type edit struct {
 	Field  string
 	ID     string // priority, assignee, reporter, issuetype, status transition; "" unassigns
@@ -245,6 +245,18 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 			return nil, err
 		}
 		return &edit{Field: "duedate", Text: prev}, nil
+	case "estimate":
+		if secs, extra, err := jira.ParseDuration(e.Text); err != nil || secs == 0 || extra != "" {
+			return nil, badRequest("an estimate is a time: 2d 4h, 1.5h, 45m")
+		}
+		var prev struct {
+			Original string `json:"originalEstimate"`
+		}
+		_ = json.Unmarshal(ic.Values["timetracking"], &prev)
+		if err := c.SetEstimate(ctx, key, strings.TrimSpace(e.Text)); err != nil {
+			return nil, err
+		}
+		return undoIf(prev.Original != "", edit{Field: "estimate", Text: prev.Original}), nil
 	case "parent":
 		var prev struct{ Key string }
 		_ = json.Unmarshal(ic.Values["parent"], &prev)
