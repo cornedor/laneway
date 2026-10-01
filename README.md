@@ -639,7 +639,7 @@ laneway web -addr 127.0.0.1:9000 -no-open
 - `-remote` allows a non-loopback `-addr` and needs the launch token. The UI acts as you on Jira, and `ui.actions` and `ui.llm` run commands: never expose it publicly. `Host` and `Origin` are checked.
 - Keyboard first, like the terminal: `?` lists the keys of the view, `:` is the palette, `g` then a letter goes to a view (`g b` board, `g p` planning, `g w` my work; `M` lists them all), `tab` moves focus between view and panel. The mouse works too, drag and drop included.
 - Themes: light, dark, nord, gruvbox, solarized, tokyonight, catppuccin, dracula, onedark, rosepine, kanagawa, monokai (most with light or dark variants), mono or the system's; accent, density, font size and your own CSS tokens under `g ,` (settings). Look is stored in the browser; `ui:` options and key remaps are written to `config.yaml`.
-- Fast by design: views draw from the last answer first and refresh behind it, long lists are virtualised, edits show at once and roll back on an error.
+- Fast by design: views draw from the last answer first and refresh behind it, the issues around the board's cursor load ahead, long lists are virtualised, edits show at once and roll back on an error.
 - Also there: agents and review (herdr), `S` start work, rules, the offline queue (`⇡` chip), `ui.actions`, `ctrl+a` ask the LLM, private notes, several sites (`@`), notifications, installable as a PWA.
 - Not in the browser: terminal attach for agents, inline kitty images, the local index; the inbox covers one site. Where keys clash the browser moves its own: timer `T`, create `n`, reply `R`, description `E`, next theme `g t`.
 

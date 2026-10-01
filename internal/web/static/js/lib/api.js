@@ -70,6 +70,8 @@ export function swr(path, onData, { persist = true } = {}) {
   if (hit !== undefined) onData(hit, { cached: true });
   return get(path, { fresh: hit !== undefined }).then(d => { if (persist) writeLS(path, d); onData(d, { cached: false }); return d; });
 }
+// warm(path) loads path into the in-memory cache unless it is there or on its way, for a quick swr later.
+export function warm(path) { if (!mem.has(path) && !inflight.has(path)) get(path).catch(() => {}); }
 export function forget() { mem.clear(); try { for (const k of Object.keys(localStorage)) if (k.startsWith('lw:c:')) localStorage.removeItem(k); } catch (e) { /* ignore */ } }
-export const api = { get, post, put, del, swr, forget, setSite };
+export const api = { get, post, put, del, swr, warm, forget, setSite };
 export default api;

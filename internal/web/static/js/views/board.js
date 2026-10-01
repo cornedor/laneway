@@ -703,8 +703,15 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       const w = S.where.get(key);
       if (w) { if (row) S.rowMem = w.i; if (scroll) w.p.vl.scrollTo(w.i); w.p.vl.refresh(w.i); }
       openPanel();
+      prefetch();
     }
   }
+  // Once the cursor rests, the cards either side of it load, so opening one shows it at once (TUI prefetch.go).
+  const prefetch = debounce(() => {
+    const w = S.sel && S.where.get(S.sel);
+    if (!w || S.dead) return;
+    for (let d = 1; d <= 2; d++) for (const i of [w.i + d, w.i - d]) { const c = w.p.cards[i]; if (c) api.warm('/issues/' + c.Key); }
+  }, 300);
   const cur = () => S.where.get(S.sel);
   const curCard = () => (cur() ? cur().p.cards[cur().i] : null);
   const cardEl = key => { const w = S.where.get(key); const e = w && w.p.vl.rowEl(w.i); return e ? e.querySelector('.card') || e : null; };
