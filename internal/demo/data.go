@@ -73,6 +73,7 @@ type version struct {
 
 type comment struct {
 	id      string
+	parent  string // the comment it replies to
 	author  user
 	body    string
 	created time.Time

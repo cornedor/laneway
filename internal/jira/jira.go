@@ -415,8 +415,12 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 	if !ValidKey(decoded.Key) {
 		return nil, fmt.Errorf("jira: %s came back with a bad key %q", key, decoded.Key)
 	}
-	if cm := decoded.Fields.Comment; cm != nil && cm.Total > len(cm.Comments) {
-		cm.Comments = append(cm.Comments, c.moreComments(ctx, key, len(cm.Comments), cm.Total)...)
+	// Only the comment endpoint says which comment a reply answers
+	// (parentId); the issue's own list never does, and stops at 50.
+	if cm := decoded.Fields.Comment; cm != nil && cm.Total > 0 {
+		if all := c.moreComments(ctx, key, 0, cm.Total); len(all) >= len(cm.Comments) {
+			cm.Comments = all
+		}
 	}
 	iss := c.toIssue(decoded)
 	iss.StoryPoints = extractStoryPoints(body, spFields)
@@ -424,8 +428,8 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 }
 
 // moreComments pages in key's comments from start up to total (at most
-// 1000), which the issue itself leaves out on a long thread. A failure keeps
-// what came: the panel then says how many are missing.
+// 1000), oldest first. A failure keeps what came: the panel then says how
+// many are missing.
 func (c *Client) moreComments(ctx context.Context, key string, start, total int) []apiComment {
 	var out []apiComment
 	for start < min(total, 1000) {
@@ -1100,21 +1104,21 @@ func (c *Client) EditLabels(ctx context.Context, key string, add, remove []strin
 // non-nil the comment opens with a real @mention of that user, which is what a
 // reply uses to actually notify them.
 func (c *Client) AddComment(ctx context.Context, key, text string, mention *Mention) error {
-	return c.AddCommentMentions(ctx, key, text, mention, nil, Visibility{})
+	return c.AddCommentMentions(ctx, key, text, mention, nil, Visibility{}, "")
 }
 
 // AddCommentADF posts body, a comment as Jira stores it, on key.
 func (c *Client) AddCommentADF(ctx context.Context, key string, body json.RawMessage) error {
-	return c.AddCommentADFFor(ctx, key, body, Visibility{})
+	return c.AddCommentADFFor(ctx, key, body, Visibility{}, "")
 }
 
-// AddCommentADFFor is AddCommentADF for who vis lets read it.
-func (c *Client) AddCommentADFFor(ctx context.Context, key string, body json.RawMessage, vis Visibility) error {
+// AddCommentADFFor is AddCommentADF for who vis lets read it, as a reply
+// to the comment parentID ("" for none).
+func (c *Client) AddCommentADFFor(ctx context.Context, key string, body json.RawMessage, vis Visibility, parentID string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
-	req := map[string]any{"body": body}
-	vis.addTo(req)
+	req := commentRequest(body, vis, parentID)
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
 	if err := c.do(ctx, http.MethodPost, path, key, req, nil); err != nil {
 		return err
@@ -1128,6 +1132,19 @@ func (c *Client) AddCommentADFFor(ctx context.Context, key string, body json.Raw
 type Visibility struct {
 	Internal bool
 	Role     string
+}
+
+// commentRequest is a comment's POST body. A reply names its parent
+// (parentId: undocumented, but Jira threads it) and takes the parent's
+// readers: Jira refuses a visibility on it.
+func commentRequest(doc any, vis Visibility, parentID string) map[string]any {
+	req := map[string]any{"body": doc}
+	if parentID != "" {
+		req["parentId"] = parentID
+	} else {
+		vis.addTo(req)
+	}
+	return req
 }
 
 // addTo puts v in a comment's request body: Service Desk's internal
@@ -1179,8 +1196,9 @@ func (c *Client) CommentVisibilities(ctx context.Context, project string) ([]Vis
 }
 
 // AddCommentMentions is AddComment where each "@Name" of inline in text
-// becomes a real mention of that person too.
-func (c *Client) AddCommentMentions(ctx context.Context, key, text string, mention *Mention, inline []Mention, vis Visibility) error {
+// becomes a real mention of that person too, for vis, as a reply to the
+// comment parentID ("" for none).
+func (c *Client) AddCommentMentions(ctx context.Context, key, text string, mention *Mention, inline []Mention, vis Visibility, parentID string) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
@@ -1189,8 +1207,7 @@ func (c *Client) AddCommentMentions(ctx context.Context, key, text string, menti
 	}
 	doc := textToADF(text, mention)
 	inlineMentions(doc, inline)
-	body := map[string]any{"body": doc}
-	vis.addTo(body)
+	body := commentRequest(doc, vis, parentID)
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
 	if err := c.do(ctx, http.MethodPost, path, key, body, nil); err != nil {
 		return err

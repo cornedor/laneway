@@ -79,6 +79,8 @@ func init() {
 			Raw json.RawMessage
 			// Visibility limits who reads it: an internal note or a role.
 			Visibility jira.Visibility
+			// Parent is the comment it replies to (which sets who reads it).
+			Parent string
 		}](r)
 		if err != nil {
 			return nil, err
@@ -88,7 +90,7 @@ func init() {
 			if json.Unmarshal(b.Raw, &doc) != nil || doc.Type != "doc" {
 				return nil, badRequest("Raw is not a document")
 			}
-			return nil, s.Client().AddCommentADF(ctx, key, b.Raw)
+			return nil, s.Client().AddCommentADFFor(ctx, key, b.Raw, jira.Visibility{}, b.Parent)
 		}
 		if strings.TrimSpace(b.Markdown) == "" {
 			return nil, badRequest("empty comment")
@@ -100,7 +102,7 @@ func init() {
 			}
 		}
 		doc, _ := json.Marshal(jira.MarkdownToADFKept(b.Markdown, kept))
-		return nil, s.Client().AddCommentADFFor(ctx, key, doc, b.Visibility)
+		return nil, s.Client().AddCommentADFFor(ctx, key, doc, b.Visibility, b.Parent)
 	})
 	get("/issues/{key}/comments/{id}/edit", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)

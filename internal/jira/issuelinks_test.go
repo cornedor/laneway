@@ -114,7 +114,7 @@ func TestAddCommentADFFor(t *testing.T) {
 	doc := json.RawMessage(`{"type":"doc","version":1,"content":[]}`)
 	ctx := context.Background()
 	for _, v := range []Visibility{{}, {Role: "Developers"}, {Internal: true}} {
-		if err := c.AddCommentADFFor(ctx, "ABC-1", doc, v); err != nil {
+		if err := c.AddCommentADFFor(ctx, "ABC-1", doc, v, ""); err != nil {
 			t.Fatal(err)
 		}
 	}

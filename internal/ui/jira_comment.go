@@ -169,7 +169,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	key := m.jiraCommentKey
 	text := strings.TrimSpace(m.jiraCommentInput.Value())
-	mention, inline, vis := m.jiraCommentMention, m.jiraCommentMentions, m.jiraCommentVis
+	mention, inline, vis, parent := m.jiraCommentMention, m.jiraCommentMentions, m.jiraCommentVis, m.jiraCommentReplyID
 	m.saveOpenDrafts() // until Jira has it
 	m.closeJiraComment()
 	if text == "" && mention == nil {
@@ -182,7 +182,7 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	}
 	m.status = fmt.Sprintf("posting %s %s…", verb, key)
 	return m, func() tea.Msg {
-		err := client.AddCommentMentions(ctx, key, text, mention, inline, vis)
+		err := client.AddCommentMentions(ctx, key, text, mention, inline, vis, parent)
 		return jiraMutatedMsg{key: key, field: "comment", err: err, text: text}
 	}
 }
@@ -219,6 +219,10 @@ type commentVisMsg struct {
 // cycleCommentVis steps who the comment is for: everyone, an internal
 // note (Service Desk), each project role. The first press asks Jira.
 func (m *Model) cycleCommentVis() tea.Cmd {
+	if m.jiraCommentReplyID != "" {
+		m.status = "a reply is for whoever its comment is for"
+		return nil
+	}
 	project := issueProject(m.jiraCommentKey)
 	opts, ok := m.commentVis[project]
 	if !ok {

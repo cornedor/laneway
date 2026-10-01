@@ -327,6 +327,7 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 	case "POST /comment":
 		s.seq++
 		c := comment{id: strconv.Itoa(s.seq), author: me, body: adfText(body["body"]), created: time.Now()}
+		c.parent, _ = body["parentId"].(string)
 		iss.comments = append(iss.comments, c)
 		iss.updated = time.Now()
 		return commentJSON(c), true

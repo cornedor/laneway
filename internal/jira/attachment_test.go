@@ -81,25 +81,46 @@ func TestDownloadAttachmentPrivate(t *testing.T) {
 
 // TestCommentParentID: the undocumented parentId comes through as a string
 // or a number, and is "" when absent or of another shape.
+// TestCommentParentID: Jira's issue lists comments without parentId; the
+// comment endpoint has it (string, number, or neither), so that is read.
 func TestCommentParentID(t *testing.T) {
-	body := `{"key":"ABC-1","fields":{"summary":"s","comment":{"total":4,"comments":[
+	issue := `{"key":"ABC-1","fields":{"summary":"s","comment":{"total":4,"comments":[
+		{"id":"1","body":null},{"id":"2","body":null},{"id":"3","body":null},{"id":"4","body":null}]}}}`
+	endpoint := `{"total":4,"comments":[
 		{"id":"1","body":null},
 		{"id":"2","parentId":"1","body":null},
 		{"id":"3","parentId":1,"body":null},
-		{"id":"4","parentId":{"id":"1"},"body":null}]}}}`
+		{"id":"4","parentId":{"id":"1"},"body":null}]}`
+	fail := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(body))
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/ABC-1/comment" && fail:
+			w.WriteHeader(http.StatusInternalServerError)
+		case r.URL.Path == "/rest/api/3/issue/ABC-1/comment":
+			_, _ = w.Write([]byte(endpoint))
+		default:
+			_, _ = w.Write([]byte(issue))
+		}
 	}))
 	defer srv.Close()
-	iss, err := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"}).Get(context.Background(), "ABC-1")
-	if err != nil {
-		t.Fatal(err)
+	parents := func() string {
+		c := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"})
+		iss, err := c.Get(context.Background(), "ABC-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, c := range iss.Comments {
+			got = append(got, c.ID+":"+c.ParentID)
+		}
+		return strings.Join(got, ",")
 	}
-	var got []string
-	for _, c := range iss.Comments {
-		got = append(got, c.ParentID)
-	}
-	if strings.Join(got, ",") != ",1,1," {
+	if got := parents(); got != "1:,2:1,3:1,4:" {
 		t.Errorf("parent ids = %q", got)
+	}
+	// The endpoint failing keeps the issue's comments, flat.
+	fail = true
+	if got := parents(); got != "1:,2:,3:,4:" {
+		t.Errorf("without the endpoint = %q", got)
 	}
 }

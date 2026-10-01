@@ -218,8 +218,10 @@ func (m *Model) undoSprintMove(keys []string) {
 }
 
 // undoDeleteComment records the way back from deleting cm on key: posting
-// its body again, as you.
+// its body again, as you, under the comment it replied to.
 func (m *Model) undoDeleteComment(key string, cm jira.Comment) {
 	c, raw := m.jiraClient, json.RawMessage(cm.Raw)
-	m.recordUndo("the deleted comment on "+key, func(ctx context.Context) error { return c.AddCommentADF(ctx, key, raw) })
+	m.recordUndo("the deleted comment on "+key, func(ctx context.Context) error {
+		return c.AddCommentADFFor(ctx, key, raw, jira.Visibility{}, cm.ParentID)
+	})
 }

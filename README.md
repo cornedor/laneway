@@ -340,7 +340,7 @@ Panel:
   dates take `2026-10-01`, `today`, `+3d`, `fri`; date-times `fri 14:00`; the
   parent an issue key; the sprint a pick of the board's
 - edit: `s` status · `p` priority · `P` points · `e` summary · `E` description · `l` labels (existing ones suggested as you type: `↓` `tab`; custom labels fields and form rows too) · `a` assignee
-- talk: `c` comment (composed after the thread, `ctrl+s` posts) · `R` reply (under its comment) · `}` / `{` select a comment: `R` replies to it, `enter` edits your own (replies to others'), `delete` twice deletes it, `esc` lets go · `w` log work · `T` timer
+- talk: `c` comment (composed after the thread, `ctrl+s` posts) · `R` reply (a threaded reply in Jira, for whoever its comment is for) · `}` / `{` select a comment: `R` replies to it, `enter` edits your own (replies to others'), `delete` twice deletes it, `esc` lets go · `w` log work · `T` timer
 - ask: `ctrl+a` pipes the issue, its comments and history to `ui.llm` (default `claude -p` when on the PATH) to summarise the thread, draft acceptance criteria, split it into subtasks or suggest points; the answer opens in the comment composer, posted only on `ctrl+s`
 - notes: `N` opens private notes in `$EDITOR`, a plain file beside the state file (`notes/ABC-12.md`, `notes-<site>/` for another site); the panel shows them folded, `is:notes` finds them, `A` posts them as a comment
 - activity: `[`/`]` (or a click) switch its tabs: comments · history · work log · all

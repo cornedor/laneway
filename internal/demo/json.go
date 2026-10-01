@@ -123,8 +123,15 @@ func collectText(n any, sb *strings.Builder) {
 	}
 }
 
+// commentJSON is a comment as the comment endpoint has it; parentId only
+// there, as on Jira.
 func commentJSON(c comment) map[string]any {
-	return map[string]any{"id": c.id, "author": userJSON(&c.author), "body": adf(c.body), "created": stamp(c.created), "updated": stamp(c.created)}
+	m := map[string]any{"id": c.id, "author": userJSON(&c.author), "body": adf(c.body), "created": stamp(c.created), "updated": stamp(c.created)}
+	if c.parent != "" {
+		n, _ := strconv.Atoi(c.parent) // Jira sends it as a number
+		m["parentId"] = n
+	}
+	return m
 }
 
 func worklogJSON(w worklog) map[string]any {
@@ -210,7 +217,9 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 	if full {
 		var cs []any
 		for _, c := range iss.comments {
-			cs = append(cs, commentJSON(c))
+			cj := commentJSON(c)
+			delete(cj, "parentId") // Jira's issue never has it: the client must ask the endpoint
+			cs = append(cs, cj)
 		}
 		fields["comment"] = map[string]any{"comments": cs, "total": len(cs), "maxResults": len(cs), "startAt": 0}
 	}

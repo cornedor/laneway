@@ -866,10 +866,15 @@ func TestAssignableUsersInProject(t *testing.T) {
 func TestGetPagesComments(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rest/api/3/issue/ABC-1/comment" {
-			if r.URL.Query().Get("startAt") != "1" {
+			// Every page from the start: only these carry a reply's parentId.
+			switch r.URL.Query().Get("startAt") {
+			case "0":
+				_, _ = w.Write([]byte(`{"comments":[{"id":"1","body":{"type":"doc","content":[]}}]}`))
+			case "1":
+				_, _ = w.Write([]byte(`{"comments":[{"id":"2","body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"newest"}]}]}}]}`))
+			default:
 				t.Errorf("startAt = %s", r.URL.Query().Get("startAt"))
 			}
-			_, _ = w.Write([]byte(`{"comments":[{"id":"2","body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"newest"}]}]}}]}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"key":"ABC-1","fields":{"summary":"s","comment":{"total":2,"comments":[{"id":"1","body":{"type":"doc","content":[]}}]}}}`))

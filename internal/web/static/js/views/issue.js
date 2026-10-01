@@ -503,7 +503,7 @@ export function mountIssue(el, key, { app, full, card }) {
       const r = await api.del('/issues/' + key + '/comments/' + encodeURIComponent(c.ID));
       st.issue.Comments = (st.issue.Comments || []).filter(x => x.ID !== c.ID); renderComments(); changed();
       // u posts it again, as you (TUI undoDeleteComment)
-      if (r && r.Raw) import('./fields.js').then(m => m.pushUndo(app, 'the deleted comment on ' + key, async () => { await api.post('/issues/' + key + '/comments', { Raw: r.Raw }); bus.emit('issue:changed', { key }); }));
+      if (r && r.Raw) import('./fields.js').then(m => m.pushUndo(app, 'the deleted comment on ' + key, async () => { await api.post('/issues/' + key + '/comments', { Raw: r.Raw, Parent: c.ParentID || '' }); bus.emit('issue:changed', { key }); }));
     } catch (e) { fail(e); }
   }
 
@@ -511,15 +511,17 @@ export function mountIssue(el, key, { app, full, card }) {
   const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: 'Write a comment… (@ to mention, markdown works)', label: 'Comment', noCancel: true, draft: 'comment:' + key,
     save: async (text, mentions) => {
       const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || 'You', AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
+      const parent = st.reply ? st.reply.ID : ''; // a real reply in Jira's thread
       st.pending.push(tmp); renderComments(); box.list.lastElementChild?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
       try {
-        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: st.vis });
+        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: parent ? { Internal: false, Role: '' } : st.vis, Parent: parent });
         st.pending = st.pending.filter(p => p !== tmp);
         st.vis = { Internal: false, Role: '' }; paintVis(); // the next one is for everyone again
         await reload(true); changed(key + ' comment added');
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
+        if (parent && !st.reply) setReply(st.issue.Comments.find(c => c.ID === parent) || null);
         comp.ta.value = text; drafts.set(key, text); comp.size(); throw e;
       }
     } });
@@ -533,6 +535,7 @@ export function mountIssue(el, key, { app, full, card }) {
   paintVis();
   let visOpts = null;
   async function cycleVis() {
+    if (st.reply) return ui.toast('A reply is for whoever its comment is for');
     if (!visOpts) {
       try { visOpts = await api.get('/projects/' + encodeURIComponent(key.slice(0, key.lastIndexOf('-'))) + '/commentvis'); } catch (e) { return fail(e); }
       if (!visOpts.length) return ui.toast('Comments here are for everyone: no roles to limit them to');
@@ -548,6 +551,7 @@ export function mountIssue(el, key, { app, full, card }) {
     st.reply = c;
     replyChip.hidden = !c;
     clear(replyChip);
+    visBtn.disabled = !!c; visBtn.title = c ? 'A reply is for whoever its comment is for' : 'Who sees it  (ctrl+o)';
     if (c) replyChip.append(h('span', 'Replying to ', h('b', c.Author)), h('button.btn.ghost.sm', { onclick: () => { const t = '@' + c.Author + ' '; if (comp.ta.value.startsWith(t)) comp.ta.value = comp.ta.value.slice(t.length); setReply(null); } }, '✕'));
   }
   function replyTo(c) {

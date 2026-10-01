@@ -104,6 +104,16 @@ func TestIssuePanelRoutes(t *testing.T) {
 	if len(is.Comments) != n || is.Comments[n-1].Body != "edited" {
 		t.Errorf("comment not back: %+v", is.Comments)
 	}
+	// A reply comes back under its comment: read from the comment endpoint,
+	// as the issue's own list has no parentId (the demo mirrors Jira).
+	parent := is.Comments[n-1].ID
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "agreed", "Parent": parent}, nil); code != 200 {
+		t.Fatalf("reply: %d", code)
+	}
+	issueCall(t, "GET", iu+"?fresh=1", nil, &is)
+	if last := is.Comments[len(is.Comments)-1]; last.Body != "agreed" || last.ParentID != parent {
+		t.Errorf("reply = %+v, want parent %s", last, parent)
+	}
 	var vis []jira.Visibility
 	if code := issueCall(t, "GET", ts.URL+"/api/projects/DEMO/commentvis", nil, &vis); code != 200 || len(vis) != 2 || vis[0].Role != "Administrators" {
 		t.Errorf("commentvis: %d %+v", code, vis)

@@ -166,10 +166,15 @@ func TestCommentVisibility(t *testing.T) {
 	if err != nil || len(vis) != 3 || !vis[0].Internal || vis[1].Role != "Administrators" {
 		t.Fatalf("visibilities %v %v", vis, err)
 	}
-	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[0])
-	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[2])
+	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[0], "")
+	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[2], "")
+	// A reply names its parent and leaves the readers to it: Jira 400s a visibility on one.
+	_ = c.AddCommentMentions(context.Background(), "SD-1", "hi", nil, nil, vis[2], "10363")
 	if !strings.Contains(bodies[0], `"sd.public.comment"`) || !strings.Contains(bodies[0], `"internal":true`) ||
-		!strings.Contains(bodies[1], `"visibility":{"type":"role","value":"Developers"}`) {
+		!strings.Contains(bodies[1], `"visibility":{"type":"role","value":"Developers"}`) || strings.Contains(bodies[1], "parentId") {
 		t.Errorf("bodies %q", bodies)
+	}
+	if !strings.Contains(bodies[2], `"parentId":"10363"`) || strings.Contains(bodies[2], "visibility") {
+		t.Errorf("reply body %q", bodies[2])
 	}
 }

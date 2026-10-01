@@ -304,3 +304,28 @@ func TestMentionListModal(t *testing.T) {
 		t.Errorf("composer moved from row %d to %d", before, after)
 	}
 }
+
+// TestReplyPostsParent: a reply goes under its comment in Jira's thread
+// (parentId), and who sees it is the comment's, not ctrl+o's.
+func TestReplyPostsParent(t *testing.T) {
+	var posted string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		posted = string(b)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraIssue.Comments = []jira.Comment{{ID: "10363", Author: "Ann", AuthorID: "a1", Body: "ship it?"}}
+	m.openJiraReply(m.jiraIssue.Comments[0])
+	if m.cycleCommentVis(); m.jiraCommentVis != (jira.Visibility{}) || !strings.Contains(m.status, "its comment") {
+		t.Errorf("ctrl+o on a reply: %+v %q", m.jiraCommentVis, m.status)
+	}
+	m.jiraCommentInput.SetValue(m.jiraCommentInput.Value() + "yes")
+	_, cmd := m.applyJiraComment()
+	cmd()
+	if !strings.Contains(posted, `"parentId":"10363"`) || strings.Contains(posted, "visibility") {
+		t.Errorf("posted = %s", posted)
+	}
+}
