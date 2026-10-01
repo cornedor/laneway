@@ -32,6 +32,7 @@ type RuleEvent struct {
 	Title  string
 	Text   string
 	Key    string
+	Color  string // highlight: ANSI 0–255 or #rrggbb, "" for the theme's
 	Err    string
 }
 
@@ -150,7 +151,7 @@ func (ss *siteSet) rulesOf(ctx context.Context, o Options) *ruleRunner {
 	set, warn := rules.Compile(o.Rules)
 	r := &ruleRunner{opt: o, set: set, warn: warn, feed: &ruleFeed{}, log: ruleLogPath(o), prev: newPrevCache(64)}
 	r.q = &queueNotes{feed: r.feed}
-	r.w = &rules.Watcher{C: o.Client, Set: set, Log: r.log, Fired: r.fired}
+	r.w = &rules.Watcher{C: o.Client, Set: set, Log: r.log, Fired: r.fired, Highlight: r.highlight}
 	if ss.rules == nil {
 		ss.rules = map[string]*ruleRunner{}
 	}
@@ -160,6 +161,12 @@ func (ss *siteSet) rulesOf(ctx context.Context, o Options) *ruleRunner {
 	}
 	go runQueue(ctx, o, r.q)
 	return r
+}
+
+// highlight puts a highlight on the stream: the page marks the card ● until
+// it is opened, as the TUI does.
+func (r *ruleRunner) highlight(f rules.Firing) {
+	r.feed.add(RuleEvent{Rule: f.Rule, Action: f.Action, Key: f.Vars["Key"], Color: f.Color})
 }
 
 func (r *ruleRunner) fired(f rules.Firing, _ string, err error) {

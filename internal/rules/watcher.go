@@ -11,8 +11,8 @@ import (
 )
 
 // Watcher runs a Set over its watches' searches, like the TUI does while
-// it is open: log, notify, exec, transition and comment (highlight needs a
-// board and is skipped). Out and the log are shared by the watches.
+// it is open: log, notify, exec, transition and comment; highlight goes to
+// Highlight, for a board to mark. Out and the log are shared by the watches.
 type Watcher struct {
 	C   *jira.Client
 	Set *Set
@@ -23,7 +23,9 @@ type Watcher struct {
 	// Fired gets each action taken (not highlight) with its log line, and
 	// the error when it failed.
 	Fired func(f Firing, line string, err error)
-	mu    sync.Mutex
+	// Highlight gets each highlight firing; nil skips them.
+	Highlight func(Firing)
+	mu        sync.Mutex
 }
 
 // Run polls every watch until ctx ends.
@@ -91,6 +93,9 @@ func (w *Watcher) Fire(ctx context.Context, jql string, prev, cur []jira.Card) {
 			case "transition", "comment":
 				err = JiraAct(ctx, w.C, f)
 			case "highlight":
+				if w.Highlight != nil {
+					w.Highlight(f)
+				}
 				continue
 			}
 			if err != nil {

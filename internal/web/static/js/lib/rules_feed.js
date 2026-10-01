@@ -1,5 +1,6 @@
 // What the server's rules engine does, live: one event stream for the whole app.
-// notify actions become toasts, and browser notifications when the user opted in.
+// notify actions become toasts, and browser notifications when the user opted in; highlight marks the card ●
+// until it is opened (app.highlights: key → colour, bus 'highlights'), as in the TUI.
 import { notify, enabled, supported, permission, setEnabled } from './notify.js';
 
 const subs = new Set();
@@ -8,6 +9,8 @@ let es = null, last = 0, asked = false;
 export const onRuleEvent = fn => { subs.add(fn); return () => subs.delete(fn); };
 
 export async function install(app) {
+  app.highlights = new Map();
+  app.bus.on('panel', ({ key }) => { if (key && app.highlights.delete(key)) app.bus.emit('highlights'); });
   let info;
   try { info = await app.api.get('/rules'); } catch (e) { return; }
   last = info.Last || 0;
@@ -21,6 +24,7 @@ function connect(app) {
     let ev; try { ev = JSON.parse(m.data); } catch (e) { return; }
     last = Math.max(last, ev.ID);
     for (const fn of subs) fn(ev);
+    if (ev.Action === 'highlight') { if (ev.Key && ev.Key !== app.panel.key) { app.highlights.set(ev.Key, ev.Color || ''); app.bus.emit('highlights'); } return; }
     if (ev.Err) return app.ui.toast('Rule ' + (ev.Rule || '') + ': ' + ev.Err, { kind: 'err' });
     if (ev.Action !== 'notify') return;
     const title = ev.Title || 'laneway';

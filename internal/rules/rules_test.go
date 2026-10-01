@@ -189,3 +189,23 @@ func TestWatch(t *testing.T) {
 		t.Errorf("watches = %+v", ws)
 	}
 }
+
+// A highlight firing goes to Highlight, not Fired: the browser marks the card.
+func TestWatcherHighlight(t *testing.T) {
+	set, warn := compileYAML(t, `
+- name: doing
+  on: status
+  actions: [{type: highlight, color: "#ff0000"}, {type: notify, title: Hi}]
+`)
+	if len(warn) > 0 {
+		t.Fatal(warn)
+	}
+	var hl, fired []string
+	w := &Watcher{Set: set, Log: t.TempDir() + "/rules.log",
+		Highlight: func(f Firing) { hl = append(hl, f.Vars["Key"]+" "+f.Color) },
+		Fired:     func(f Firing, _ string, _ error) { fired = append(fired, f.Action) }}
+	w.Fire(t.Context(), "", []jira.Card{card("A-1", "To do", "")}, []jira.Card{card("A-1", "Doing", "")})
+	if strings.Join(hl, "|") != "A-1 #ff0000" || strings.Join(fired, "|") != "notify" {
+		t.Errorf("highlight = %q, fired = %q", hl, fired)
+	}
+}
