@@ -39,6 +39,12 @@ func TestDemoRefusesMachineRoutes(t *testing.T) {
 	if c, b := do("GET", "/api/worklog/proposals"); c != 200 || !strings.Contains(b, `"Items":[]`) {
 		t.Errorf("proposals: %d %s", c, b)
 	}
+	if c, b := do("GET", "/api/branch"); c != 200 || strings.TrimSpace(b) != "{}" {
+		t.Errorf("cwd branch: %d %s", c, b)
+	}
+	if c, b := do("GET", "/api/issues/DEMO-1/branch"); c != 200 || !strings.Contains(b, `"Name":"`) {
+		t.Errorf("branch name (ctrl+y): %d %s", c, b)
+	}
 	for _, rt := range [][2]string{{"POST", "/api/agents/x/prompt"}, {"POST", "/api/actions/0/run"}, {"POST", "/api/issues/DEMO-1/ask"}, {"POST", "/api/issues/DEMO-1/work"}, {"POST", "/api/issues/DEMO-1/pr"}} {
 		if c, b := do(rt[0], rt[1]); c != 503 || !strings.Contains(b, "not available in demo") {
 			t.Errorf("%v: %d %s", rt, c, b)

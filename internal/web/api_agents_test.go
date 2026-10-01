@@ -495,3 +495,37 @@ func TestCwdBranchIssue(t *testing.T) {
 		}
 	}
 }
+
+// An agent's issue is looked up on the shown site first, then the others;
+// a key no site has is not found.
+func TestAgentIssuesAcrossSites(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	gone := httptest.NewServer(http.NotFoundHandler()) // the shown site knows no issue
+	t.Cleanup(gone.Close)
+	st, _ := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	client := func(url string) *jira.Client {
+		return jira.New(jira.Config{BaseURL: url, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
+	}
+	other := Options{Client: client(base), Store: st, Site: "work"}
+	opt := Options{Client: client(gone.URL), Store: st, Site: "", Sites: []string{"", "work"},
+		Open: func(string) (Options, error) { return other, nil }}
+	ts := httptest.NewServer(New(context.Background(), opt))
+	t.Cleanup(ts.Close)
+	var out struct{ Issues map[string]AgentIssue }
+	if c := workCall(t, "GET", ts.URL+"/api/agents/issues?keys=demo-5,DEMO-9999,bad%20key", "", &out); c != 200 {
+		t.Fatalf("issues = %d", c)
+	}
+	if is := out.Issues["DEMO-5"]; !is.Found || is.Site != "work" || is.Card.Summary == "" || !strings.HasSuffix(is.URL, "/browse/DEMO-5") {
+		t.Errorf("DEMO-5 = %+v", is)
+	}
+	if is, ok := out.Issues["DEMO-9999"]; !ok || is.Found {
+		t.Errorf("DEMO-9999 = %+v %v", is, ok)
+	}
+	if len(out.Issues) != 2 {
+		t.Errorf("issues = %v", out.Issues)
+	}
+}

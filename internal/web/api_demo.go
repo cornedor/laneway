@@ -7,9 +7,10 @@ import (
 )
 
 // Demo mode has no business touching the user's machine: herdr agents,
-// git repos, configured commands and the LLM are all off limits.
+// git repos, configured commands and the LLM are all off limits. An issue's
+// branch name is only its template filled in, so ctrl+y works.
 
-var demoIssueBlocked = regexp.MustCompile(`^/api/issues/[^/]+/(ask|work|branch|pr)$`)
+var demoIssueBlocked = regexp.MustCompile(`^/api/issues/[^/]+/(ask|work|pr)$`)
 
 // demoGate answers the machine-touching routes in demo mode. It reports
 // whether the request was handled.
@@ -29,6 +30,8 @@ func demoGate(s *Server, w http.ResponseWriter, r *http.Request) bool {
 			empty = []any{}
 		case "/api/ask":
 			empty = map[string]any{"Available": false, "Command": "", "Asks": []any{}}
+		case "/api/branch":
+			empty = map[string]string{}
 		case "/api/worklog/proposals":
 			empty = map[string]any{"Items": []any{}, "Failed": []string{}}
 		}

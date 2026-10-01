@@ -19,7 +19,11 @@ export default async function mount(el, { app, scope, query }) {
   for (let i = 0; !app.agents && i < 60; i++) await new Promise(r => setTimeout(r, 50));
   const { api, ui, bus } = app;
   let rows = [], sel = 0, bare = app.prefs.get('agents_bare', 'false') === 'true', stopAsk = '';
-  const cards = new Map(); // key → card, looked up once
+  const issues = new Map(); // key → {Card, Site, URL, Found}, looked up once on every site, the shown one first
+  const card = key => (issues.get(key) || {}).Card;
+  const away = key => { const is = issues.get(key); return !!(is && is.Found && is.Site !== app.session.site); };
+  const siteName = key => issues.get(key).Site || app.session.defaultName || 'jira';
+  const openIssue = key => (away(key) ? window.open(issues.get(key).URL, '_blank', 'noopener') : app.panel.open(key));
   const asked = new Set();
   let dead = false;
 
@@ -50,14 +54,21 @@ export default async function mount(el, { app, scope, query }) {
   }
 
   async function lookUp() {
-    const miss = [...new Set(rows.map(r => r.key))].filter(k => !cards.has(k) && !asked.has(k));
+    const miss = [...new Set(rows.map(r => r.key))].filter(k => !issues.has(k) && !asked.has(k));
     if (!miss.length) return;
     miss.forEach(k => asked.add(k));
     try {
-      const r = await api.get('/search?jql=' + encodeURIComponent('key in (' + miss.join(', ') + ')'));
-      for (const c of r.cards || []) cards.set(c.Key, c);
+      const r = await api.get('/agents/issues?keys=' + encodeURIComponent(miss.join(',')));
+      for (const [k, is] of Object.entries(r.issues || {})) issues.set(k, is);
       if (!dead) { paintList(); paintDetail(); }
-    } catch (e) { /* summaries are optional; one unknown key fails the whole search */ }
+    } catch (e) { miss.forEach(k => asked.delete(k)); /* summaries are optional: asked again on the next change */ }
+  }
+  // As the TUI: … while looking, the site of another site's issue, or that none has it.
+  function summary(key) {
+    const is = issues.get(key);
+    if (!is) return '…';
+    if (!is.Found) return 'not found on any site';
+    return (away(key) ? '[' + siteName(key) + '] ' : '') + is.Card.Summary;
   }
 
   function paintList() {
@@ -69,9 +80,9 @@ export default async function mount(el, { app, scope, query }) {
     let g = '';
     rows.forEach((r, i) => {
       if (r.group !== g) { g = r.group; kids.push(h('div.ag-group.st-' + g, GROUP_NAME[g] || g)); }
-      const c = cards.get(r.key);
+      const c = card(r.key);
       kids.push(h('div.ag-row.st-' + r.group + (i === sel ? '.sel' : ''), { dataset: { key: r.key, i } },
-        h('span.g', GLYPH[r.group] || '?'), h('span.mono.ag-key', r.key), h('span.sum', c ? c.Summary : ''), h('span.name', r.agent ? r.agent.Agent : ''),
+        h('span.g', GLYPH[r.group] || '?'), h('span.mono.ag-key', r.key), h('span.sum', summary(r.key)), h('span.name', [r.agent && r.agent.Agent, c && c.Status].filter(Boolean).join(' · ')),
         h('span.sub', (r.agent && r.agent.Title ? r.agent.Title + ' · ' : '') + home(r.path))));
     });
     list.replaceChildren(...kids);
@@ -90,15 +101,16 @@ export default async function mount(el, { app, scope, query }) {
   // ---- detail
   function paintDetail() {
     const r = cur();
-    const c = r && cards.get(r.key), a = r && r.agent;
-    const sig = r ? (r.pane || r.key) + '|' + (a ? a.Status + a.Title : '') + '|' + (c ? c.Summary : '') : '';
+    const c = r && card(r.key), a = r && r.agent;
+    const sig = r ? (r.pane || r.key) + '|' + (a ? a.Status + a.Title : '') + '|' + summary(r.key) + (c ? c.Status + c.Assignee : '') : '';
     if (info._sig !== sig) {
       info._sig = sig;
       const btn = (label, key, fn, cls = '') => h('button.btn' + cls, { onclick: fn }, label, h('kbd', key));
       clear(info);
       if (r) info.append(
-        h('h2', h('a.issue-ref', { href: '#/issue/' + r.key, onclick: e => { e.preventDefault(); app.panel.open(r.key); } }, r.key), c ? ' ' + c.Summary : ''),
-        h('div.ag-meta', h('span.chip', (GLYPH[r.group] || '') + ' ' + (LABEL[r.group] || r.group)), a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
+        h('h2', h('a.issue-ref', { href: away(r.key) ? issues.get(r.key).URL : '#/issue/' + r.key, onclick: e => { e.preventDefault(); openIssue(r.key); } }, r.key), ' ' + summary(r.key)),
+        h('div.ag-meta', h('span.chip', (GLYPH[r.group] || '') + ' ' + (LABEL[r.group] || r.group)), c && h('span', c.Status + ' · ' + (c.Assignee || 'unassigned')), away(r.key) && h('span', 'on ' + siteName(r.key)),
+          a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',
           a && btn('Focus in herdr', 'f', () => act('focus')), a && btn('Prompt', 'p', () => act('prompt')), a && btn('New agent here', 'N', () => act('new')),
           btn(a ? 'Another agent' : 'Start agent', a ? 'alt+s' : 'S', () => app.agents.start(r.key, { another: !!a, path: a ? a.CWD : '' })),
@@ -135,7 +147,7 @@ export default async function mount(el, { app, scope, query }) {
   // Type into it: attach (again) where needed, full screen when the list leaves no room.
   async function type(o = {}) {
     const r = cur();
-    if (!r || !r.agent) return r && app.panel.open(r.key);
+    if (!r || !r.agent) return r && openIssue(r.key);
     if (!visible() && !full) setFull(true);
     const t = await ensure();
     if (!t || dead) return;
@@ -210,8 +222,8 @@ export default async function mount(el, { app, scope, query }) {
   scope.bind('z', () => { setFull(!full); if (full) type(); }, 'terminal full screen', { group: G });
   scope.bind('t', () => type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G });
   scope.bind('Escape', () => setFull(false), 'leave full screen', { group: G, when: () => full });
-  scope.bind('v', () => { const r = cur(); if (r) app.panel.open(r.key); }, 'open issue', { group: G });
-  scope.bind('o', () => { const r = cur(); if (r) window.open(app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
+  scope.bind('v', () => { const r = cur(); if (r) openIssue(r.key); }, 'open issue (another site\'s in Jira)', { group: G });
+  scope.bind('o', () => { const r = cur(); if (r) window.open(away(r.key) ? issues.get(r.key).URL : app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
   scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
   scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G });
   scope.bind('N', () => act('new'), 'new agent in its directory (the start form)', { group: G });
@@ -221,7 +233,7 @@ export default async function mount(el, { app, scope, query }) {
   scope.bind('r', () => { app.agents.refresh(); ui.toast('Refreshed'); }, 'refresh', { group: G });
 
   delegate(list, 'click', '.ag-row', (e, t) => { sel = +t.dataset.i; mark(); });
-  delegate(list, 'dblclick', '.ag-row', (e, t) => app.panel.open(t.dataset.key));
+  delegate(list, 'dblclick', '.ag-row', (e, t) => openIssue(t.dataset.key));
   hint.addEventListener('click', e => { if (e.target.closest('kbd')) return; type(); });
 
   const off = bus.on('agents', () => { if (!dead) build(); });

@@ -66,6 +66,30 @@ func (s *Server) siteOptions(name string) (Options, error) {
 	return o, nil
 }
 
+// SiteClient is a configured site's name and client.
+type SiteClient struct {
+	Site   string
+	Client *jira.Client
+}
+
+// siteClients are the shown site's client, then the other configured
+// sites' by name; one that fails to open is left out.
+func (s *Server) siteClients() []SiteClient {
+	out := []SiteClient{{s.opt.Site, s.Client()}}
+	if s.sites == nil {
+		return out
+	}
+	for _, name := range slices.Sorted(slices.Values(s.opt.Sites)) {
+		if name == s.opt.Site {
+			continue
+		}
+		if o, err := s.openSite(name); err == nil && o.Client != nil && o.Client.Enabled() {
+			out = append(out, SiteClient{name, o.Client})
+		}
+	}
+	return out
+}
+
 // openSite opens a site once and keeps it; the inbox reads every site
 // this way without running their rules.
 func (s *Server) openSite(name string) (Options, error) {

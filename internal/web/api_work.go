@@ -198,26 +198,16 @@ func inbox(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		look = time.Duration(days) * 24 * time.Hour
 	}
 	since := time.Now().Add(-look)
-	sites := map[string]*jira.Client{s.opt.Site: s.Client()}
-	if s.sites != nil {
-		for _, name := range s.opt.Sites {
-			if _, ok := sites[name]; ok {
-				continue
-			}
-			if o, err := s.openSite(name); err == nil && o.Client != nil && o.Client.Enabled() {
-				sites[name] = o.Client
-			}
-		}
-	}
 	var (
 		out     []InboxThread
 		mu      sync.Mutex
 		wg      sync.WaitGroup
 		shownEr error
 	)
-	for site, c := range sites {
+	for _, sc := range s.siteClients() {
+		site := sc.Site
 		wg.Go(func() {
-			ts, err := siteInbox(ctx, c, site, since)
+			ts, err := siteInbox(ctx, sc.Client, site, since)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil && site == s.opt.Site {

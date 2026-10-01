@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // Coding agents: every herdr agent, live over Server-Sent Events, with the
@@ -71,6 +72,58 @@ func init() {
 	post("/agents/{pane}/focus", agentFocus)
 	post("/agents/{pane}/stop", agentStop)
 	post("/agents/{pane}/new", agentNew)
+	get("/agents/issues", agentIssues)
+}
+
+// AgentIssue is an agent's issue on the first site that has it, the shown
+// one first; Found is false when none does.
+type AgentIssue struct {
+	Card      jira.Card
+	Site, URL string
+	Found     bool
+}
+
+// agentIssues: ?keys=A-1,B-2, as the TUI's lookup: one key at a time, since
+// a search naming a key a site lacks fails as a whole.
+func agentIssues(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	var keys []string
+	for k := range strings.SplitSeq(Q(r, "keys"), ",") {
+		if k = strings.ToUpper(strings.TrimSpace(k)); jira.ValidKey(k) && !slices.Contains(keys, k) {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) > 50 {
+		keys = keys[:50]
+	}
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	sites := s.siteClients()
+	got := make([][]AgentIssue, len(keys))
+	var wg sync.WaitGroup
+	for i, k := range keys {
+		got[i] = make([]AgentIssue, len(sites))
+		for j, sc := range sites {
+			wg.Go(func() {
+				if cards, err := sc.Client.SearchCards(ctx, "key = "+k); err == nil && len(cards) == 1 {
+					got[i][j] = AgentIssue{Card: cards[0], Site: sc.Site, URL: sc.Client.BrowseURL(k), Found: true}
+				}
+			})
+		}
+	}
+	wg.Wait()
+	out := map[string]AgentIssue{}
+	for i, k := range keys {
+		for _, is := range got[i] {
+			if is.Found {
+				out[k] = is
+				break
+			}
+		}
+		if !out[k].Found {
+			out[k] = AgentIssue{}
+		}
+	}
+	return map[string]any{"issues": out, "site": s.opt.Site}, nil
 }
 
 func agentsStatus(ctx context.Context, s *Server, r *http.Request) (any, error) {
