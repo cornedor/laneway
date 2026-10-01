@@ -56,6 +56,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const { api, bus, ui } = app;
   const me = (app.session.me && app.session.me.AccountID) || '';
   const UI = app.session.ui || {};
+  // ui.stale_after: how old the board may be when the tab comes back before it refetches; the TUI's minute unset.
+  const staleMs = /^\d+\s*[smh]$/i.test(String(UI.StaleAfter || '').trim()) ? parseEvery(UI.StaleAfter) : 6e4;
   const DF = UI.DateFormat || '';
   const CF = UI.CardFields && UI.CardFields.length ? new Set(UI.CardFields.map(x => String(x).toLowerCase().trim())) : null;
   const cf = name => !CF || CF.has(name);
@@ -1489,7 +1491,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     };
     autoT = later(tick, every);
   }
-  offs.push(bus.on('focus', () => { if (Date.now() - S.fetched > 30000) refresh(false); }));
+  offs.push(bus.on('focus', () => { if (Date.now() - S.fetched > staleMs) refresh(false); }));
   const onChanged = debounce(() => refresh(false), 250);
   offs.push(bus.on('issue:changed', onChanged));
   offs.push(bus.on('panel', ({ key }) => { app.setQuery({ issue: key || null }); }));
