@@ -15,7 +15,7 @@ const TABLE = {
   planning: { ...COMMON, J: 'rank_down', K: 'rank_up', m: 'move_sprint', x: 'mark', N: 'plan_new', Z: 'plan_start', C: 'plan_complete', E: 'plan_rename', P: 'points', b: 'board', Enter: 'open', R: 'refresh', e: 'quick_edit', X: 'bulk' },
   reports: { ...COMMON, R: 'refresh', Enter: 'open' },
   roadmap: { ...COMMON, h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', '+': 'zoom_in', '-': 'zoom_out', '.': 'today', Space: 'roadmap_fold', R: 'refresh', Enter: 'open',
-    H: 'move_left', L: 'move_right', '<': 'end_earlier', '>': 'end_later', e: 'roadmap_grip' },
+    H: 'move_left', L: 'move_right', '<': 'end_earlier', '>': 'end_later', e: 'roadmap_grip', f: 'roadmap_issues', E: 'roadmap_edit', Y: 'copy_url' },
   work: { ...COMMON, Enter: 'open', e: 'edit_entry', d: 'delete_entry', p: 'propose_work' },
   inbox: { ...COMMON, Enter: 'open', e: 'inbox_done', E: 'inbox_done_all', s: 'inbox_snooze', u: 'inbox_unread', c: 'comment', R: 'reply' },
   standup: { ...COMMON, Enter: 'open', p: 'standup_group', Space: 'standup_step', P: 'standup_park' },

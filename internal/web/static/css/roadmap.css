@@ -23,6 +23,7 @@
 .rm-bar { touch-action: pan-y; }
 .rm-bar::before, .rm-bar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; z-index: 1; } .rm-bar::before { left: 0; } .rm-bar::after { right: 0; }
 .rm-bar.grip-start { border-left: 3px solid var(--accent); } .rm-bar.grip-end { border-right: 3px solid var(--accent); }
+.rm-find { width: 13rem; flex: none; }
 .rm-said { font-size: .857rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rm-bar.c-indeterminate { --c: var(--cat-indeterminate); } .rm-bar.c-done { --c: var(--cat-done); }
 .rm-bar.soft { opacity: .6; border-style: dashed; }

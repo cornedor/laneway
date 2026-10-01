@@ -1,5 +1,6 @@
 // Roadmap: the project's epics as bars on a time axis. H/L move a bar, </> its end, e grips one end for
 // h/l, a drag moves it (its edges resize); the dates are written once the moves pause, u takes them back.
+// f shows the epic's issues as a board view, F filters by key or summary words.
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { remPx, onChange as onMetrics } from '../lib/metrics.js';
@@ -34,7 +35,14 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, '+'),
     h('button.btn', { title: 'Today (.)', onclick: () => today() }, 'Today'));
   const said = h('span.rm-said.dim', { role: 'status', 'aria-live': 'polite' });
-  toolbar.prepend(said);
+  let filter = '';
+  const find = h('input.input.rm-find', { type: 'search', placeholder: 'Filter (F)', spellcheck: false, 'aria-label': 'Filter epics by key or summary',
+    oninput: () => { filter = find.value.trim(); cur = 0; draw(); } });
+  find.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); if (find.value) { find.value = ''; filter = ''; draw(); } find.blur(); }
+    if (e.key === 'Enter') { e.stopPropagation(); find.blur(); }
+  });
+  toolbar.prepend(find, said);
 
   const ppd = () => ZOOMS[zoom] * remPx() / 14; // px per day, scales with the font size
   const xOf = t => (t - t0) / DAY * ppd();
@@ -69,6 +77,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (e == null) e = s + 7 * DAY;
     return [midnight(s), midnight(Math.max(e, s)) + DAY];
   };
+  const matches = it => { const t = (it.Key + ' ' + it.Summary).toLowerCase(); return filter.toLowerCase().split(/\s+/).every(w => t.includes(w)); };
   const cat = e => (e.Done ? 'done' : e.DoneChildren > 0 || /progress|review/i.test(e.Status) ? 'indeterminate' : 'new');
 
   function draw(reset) {
@@ -79,7 +88,13 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     t0 = addDays(midnight(lo), -21); t1 = addDays(midnight(hi), 28);
     const w = xOf(t1);
     rows = [];
-    for (const e of epics) { rows.push({ e }); if (open.has(e.Key)) for (const k of e.Kids || []) rows.push({ e: k, kid: true, parent: e }); }
+    for (const e of epics) {
+      // A filter keeps the epics it matches and those with issues it matches, those shown (TUI roadmapMatch).
+      const kids = filter ? (e.Kids || []).filter(k => matches(k)) : open.has(e.Key) ? e.Kids || [] : [];
+      if (filter && !kids.length && !matches(e)) continue;
+      rows.push({ e });
+      for (const k of kids) rows.push({ e: k, kid: true, parent: e });
+    }
     cur = Math.min(cur, Math.max(rows.length - 1, 0));
 
     const inner = h('div.rm-inner', { style: { width: labelW() + w + 'px', '--wk': 7 * ppd() + 'px', '--wko': xOf(mondayOnOrBefore(t0)) + 'px' } });
@@ -87,6 +102,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const list = h('div.rm-rows', { role: 'list' });
     rows.forEach((r, i) => list.append(rowEl(r, i, w)));
     if (!epics.length) list.append(h('div.empty', 'No epics in ' + project + '.'));
+    else if (!rows.length) list.append(h('div.empty', 'No epic matches ' + filter + '.'));
     inner.append(list);
     inner.append(h('div.rm-today', { style: { left: labelW() + xOf(midnight(now)) + ppd() / 2 + 'px' }, title: 'Today' }));
     clear(scroller).append(inner);
@@ -133,7 +149,21 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     return h('div.rm-row' + (kid ? '.kid' : ''), { role: 'listitem', dataset: { i } }, label, track);
   }
 
-  function select(i) { if (i !== cur) letGo(); cur = i; markCur(); }
+  function select(i) { if (i !== cur) letGo(); cur = i; markCur(); sayBlockers(); }
+  // TUI roadmapSayBlockers: landing on a blocked epic names its blockers.
+  function sayBlockers() {
+    const r = rows[cur];
+    if (r && !r.kid && r.e.BlockedBy && r.e.BlockedBy.length) said.textContent = r.e.Key + ' is blocked by ' + r.e.BlockedBy.join(', ');
+  }
+  const curKey = () => rows[cur] && rows[cur].e.Key;
+  // The epic's issues (a parent's for an issue row) as a view of the board (TUI RoadmapIssues).
+  function issuesView() {
+    const r = rows[cur]; if (!r) return;
+    const k = r.kid ? r.parent.Key : r.e.Key;
+    if (pending.size) save();
+    app.go('/board/' + encodeURIComponent(project) + '?' + new URLSearchParams({ sprint: 'jql:parent = ' + k + ' ORDER BY rank', vname: 'Epic: ' + k }));
+  }
+  const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => app.ui.toast('Copied ' + what), app.ui.errToast) : app.ui.toast('No clipboard here', { kind: 'err' }));
 
   // ---- dates. shift moves the row's start by ds days and its end by de (TUI shiftRoadmap); no dates: from today.
   const step = () => Math.max(1, Math.round(14 / ZOOMS[zoom])); // about a cell a press
@@ -239,13 +269,14 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     scroller.scrollLeft = Math.max(xOf(centre) - (scroller.clientWidth - labelW()) / 2, 0);
   }
   function today() { scroller.scrollTo({ left: Math.max(xOf(Date.now()) - (scroller.clientWidth - labelW()) / 2, 0), behavior: 'smooth' }); }
-  const move = d => { if (rows.length) { letGo(); cur = Math.min(Math.max(cur + d, 0), rows.length - 1); markCur(); } };
+  const move = d => { if (rows.length) { letGo(); cur = Math.min(Math.max(cur + d, 0), rows.length - 1); markCur(); sayBlockers(); } };
   const pan = d => scroller.scrollBy({ left: d * 120, behavior: 'smooth' });
 
   const held = () => !!grip;
   scope.bind(['h', 'ArrowLeft'], () => (grip === 'start' ? shift(-step(), 0) : shift(0, -step())), 'move the held end earlier', { group: 'Roadmap', when: held });
   scope.bind(['l', 'ArrowRight'], () => (grip === 'start' ? shift(step(), 0) : shift(0, step())), 'move the held end later', { group: 'Roadmap', when: held });
   scope.bind('Escape', letGo, 'let the bar go', { group: 'Roadmap', when: held });
+  scope.bind('Escape', () => { find.value = ''; filter = ''; cur = 0; draw(); said.textContent = 'Filter cleared'; }, 'clear the filter', { group: 'Roadmap', when: () => !grip && !!filter });
   scope.bind('e', cycleGrip, "grip the bar's start, end, let go", { group: 'Roadmap' });
   scope.bind('H', () => shift(-step(), -step()), 'move the bar earlier', { group: 'Roadmap' });
   scope.bind('L', () => shift(step(), step()), 'move the bar later', { group: 'Roadmap' });
@@ -261,6 +292,12 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('Space', toggle, 'fold epic issues', { group: 'Roadmap' });
   scope.bind('Enter', () => { const r = rows[cur]; if (r) app.panel.open(r.e.Key); }, 'open', { group: 'Roadmap' });
   scope.bind('R', () => load(true), 'reload', { group: 'Roadmap' });
+  scope.bind('f', issuesView, "the epic's issues as a board view", { group: 'Roadmap' });
+  scope.bind('F', () => find.focus(), 'filter by key or summary', { group: 'Roadmap' });
+  scope.bind('E', () => { const k = curKey(); if (k && app.actions.menu) app.actions.menu(k); }, 'quick edit the row\'s issue', { group: 'Roadmap' });
+  scope.bind('o', () => { const k = curKey(); if (k) window.open(app.session.baseURL + '/browse/' + k, '_blank', 'noopener'); }, 'open in Jira', { group: 'Roadmap' });
+  scope.bind('y', () => { const k = curKey(); if (k) copy(k, k); }, 'copy key', { group: 'Roadmap' });
+  scope.bind('Y', () => { const k = curKey(); if (k) copy(app.session.baseURL + '/browse/' + k, 'link'); }, 'copy link', { group: 'Roadmap' });
   scope.bind('n', () => app.actions.create({ project, type: app.session.ui.RoadmapEpicType || 'Epic' }), 'new epic', { group: 'Roadmap' });
   const offBus = app.bus.on('issue:changed', () => { if (!saving && !pending.size) load(true); });
   const offM = onMetrics(() => rows.length && draw());
