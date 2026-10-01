@@ -175,9 +175,27 @@ export function mdEdit(app, o) {
   const livePreview = debounce(renderPreview, 120);
   const togglePreview = () => { preview.hidden = !preview.hidden; bPrev.classList.toggle('on', !preview.hidden); renderPreview(); ta.focus({ preventScroll: true }); };
 
-  // ---- files
-  function files(list) {
-    if (o.onFiles) o.onFiles(list);
+  // ---- files: onFiles uploads them and answers each one's attachment ({ID, Filename}, or null).
+  // On an issue an image goes in the text where it was pasted: a line while it uploads, then ![name](attachment:ID).
+  let uploads = 0;
+  async function files(list) {
+    if (!o.onFiles) return;
+    const marks = list.map(f => o.issueKey && f.type.startsWith('image/') ? '![Uploading ' + (f.name || 'image') + ' ' + (++uploads) + '…]()' : '');
+    const shown = marks.filter(Boolean);
+    if (shown.length) {
+      const [a] = sel();
+      ctl.insert((a && ta.value[a - 1] !== '\n' ? '\n' : '') + shown.join('\n') + '\n');
+    }
+    const made = (await o.onFiles(list)) || [];
+    marks.forEach((m, i) => {
+      if (!m) return;
+      const at = ta.value.indexOf(m);
+      if (at < 0) return;
+      const att = made[i];
+      if (att && att.ID) ta.setRangeText('![' + att.Filename.replace(/[[\]\n]/g, ' ') + '](attachment:' + att.ID + ')', at, at + m.length, 'preserve');
+      else ta.setRangeText('', at, at + m.length + (ta.value[at + m.length] === '\n' ? 1 : 0), 'preserve');
+    });
+    if (shown.length) ta.dispatchEvent(new Event('input'));
   }
 
   // ---- toolbar

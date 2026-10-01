@@ -2,6 +2,7 @@ package jira
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -85,5 +86,31 @@ func TestAttachmentSlowNotStalled(t *testing.T) {
 	stall = true
 	if _, err := c.DownloadAttachment(context.Background(), "1", "b.txt", t.TempDir()); !errors.Is(err, errStalled) {
 		t.Errorf("stalled download: %v", err)
+	}
+}
+
+// TestEmbedImages: an image line at an attachment becomes a mediaSingle of
+// the media file its content redirect names; one in a code block, or one
+// without a media id, stays text.
+func TestEmbedImages(t *testing.T) {
+	const uuid = "c4684650-1111-2222-3333-444455556666"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/attachment/content/10" {
+			http.Redirect(w, r, "https://api.media.atlassian.com/file/"+uuid+"/binary?token=x", http.StatusSeeOther)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	md := c.EmbedImages(context.Background(), "Look:\n![shot.png](attachment:10)\n```\n![a](attachment:10)\n```\n![b](attachment:11)")
+	want := "Look:\n![shot.png](media:" + uuid + ")\n```\n![a](attachment:10)\n```\n![b](attachment:11)"
+	if md != want {
+		t.Fatalf("got %q", md)
+	}
+	doc := MarkdownToADF(md)
+	b, _ := json.Marshal(doc["content"].([]any)[1])
+	if got := string(b); got != `{"attrs":{"layout":"center"},"content":[{"attrs":{"alt":"shot.png","collection":"","id":"`+uuid+`","type":"file"},"type":"media"}],"type":"mediaSingle"}` {
+		t.Errorf("block %s", got)
 	}
 }

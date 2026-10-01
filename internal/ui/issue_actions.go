@@ -177,7 +177,8 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			if err != nil {
 				return err
 			}
-			return c.UploadAttachmentFrom(ctx, key, name, bytes.NewReader(img))
+			_, err = c.UploadAttachmentFrom(ctx, key, name, bytes.NewReader(img))
+			return err
 		})
 	case "screenshot":
 		m.status = "pick a region to attach to " + key + "…"
@@ -187,7 +188,8 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			if err != nil {
 				return err
 			}
-			return c.UploadAttachmentFrom(ctx, key, name, bytes.NewReader(img))
+			_, err = c.UploadAttachmentFrom(ctx, key, name, bytes.NewReader(img))
+			return err
 		})
 	case "download":
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {

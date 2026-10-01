@@ -75,7 +75,7 @@ func (c *Client) SetDescription(ctx context.Context, key, md string, kept []json
 	}
 	var doc any
 	if strings.TrimSpace(md) != "" {
-		doc = MarkdownToADFKept(md, kept)
+		doc = MarkdownToADFKept(c.EmbedImages(ctx, md), kept)
 	}
 	body := map[string]any{"fields": map[string]any{"description": doc}}
 	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
@@ -168,7 +168,7 @@ func (c *Client) SetComment(ctx context.Context, key, id, md string, kept []json
 	if strings.TrimSpace(md) == "" {
 		return fmt.Errorf("jira: empty comment")
 	}
-	body := map[string]any{"body": MarkdownToADFKept(md, kept)}
+	body := map[string]any{"body": MarkdownToADFKept(c.EmbedImages(ctx, md), kept)}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment/" + url.PathEscape(id)
 	if err := c.do(ctx, http.MethodPut, path, key, body, nil); err != nil {
 		return err
@@ -943,6 +943,11 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 		case mdCard.MatchString(strings.TrimSpace(ln)):
 			blocks = append(blocks, map[string]any{"type": "blockCard", "attrs": map[string]any{"url": mdCard.FindStringSubmatch(strings.TrimSpace(ln))[1]}})
 			i++
+		case mdMedia.MatchString(strings.TrimSpace(ln)):
+			m := mdMedia.FindStringSubmatch(strings.TrimSpace(ln))
+			blocks = append(blocks, map[string]any{"type": "mediaSingle", "attrs": map[string]any{"layout": "center"}, "content": []any{
+				map[string]any{"type": "media", "attrs": map[string]any{"type": "file", "id": m[2], "collection": "", "alt": m[1]}}}})
+			i++
 		case tableAt(lines, i):
 			var node any
 			node, i = parseMDTable(lines, i)
@@ -1009,12 +1014,15 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 // startsBlock reports whether ln opens a block other than a paragraph.
 func startsBlock(ln string) bool {
 	t := strings.TrimSpace(ln)
-	return keepLine.MatchString(t) || mdCard.MatchString(t) || opensContainer(t) || closesContainer(t) || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
+	return keepLine.MatchString(t) || mdCard.MatchString(t) || mdMedia.MatchString(t) || opensContainer(t) || closesContainer(t) || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
 		t == "---" || mdBullet.MatchString(ln) || mdOrdered.MatchString(ln) || mdDecision.MatchString(ln)
 }
 
 // mdCard is a card line, <!-- card: https://… -->.
 var mdCard = regexp.MustCompile(`^<!-- card: (\S+) -->$`)
+
+// mdMedia is an image line EmbedImages pointed at a media file.
+var mdMedia = regexp.MustCompile(`^!\[([^\]]*)\]\(` + mediaScheme + `([0-9a-fA-F-]{36})\)$`)
 
 // tableAt reports whether a pipe table starts at lines[i]: a row, then a
 // separator row.

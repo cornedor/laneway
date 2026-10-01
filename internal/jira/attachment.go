@@ -2,6 +2,7 @@ package jira
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -123,13 +125,15 @@ func (c *Client) UploadAttachment(ctx context.Context, key, path string) error {
 		return err
 	}
 	defer f.Close()
-	return c.UploadAttachmentFrom(ctx, key, filepath.Base(path), f)
+	_, err = c.UploadAttachmentFrom(ctx, key, filepath.Base(path), f)
+	return err
 }
 
-// UploadAttachmentFrom attaches what f holds to key as name.
-func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f io.Reader) error {
+// UploadAttachmentFrom attaches what f holds to key as name and returns the
+// attachment Jira made (zero when it names none).
+func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f io.Reader) (Attachment, error) {
 	if !c.Enabled() {
-		return errNotConfigured
+		return Attachment{}, errNotConfigured
 	}
 	reqCtx, moved, stop := c.stallGuard(ctx)
 	defer stop()
@@ -147,7 +151,7 @@ func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f i
 	}()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, c.baseURL+"/rest/api/3/issue/"+url.PathEscape(key)+"/attachments", pr)
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return Attachment{}, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Authorization", c.auth)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
@@ -156,16 +160,83 @@ func (c *Client) UploadAttachmentFrom(ctx context.Context, key, name string, f i
 	defer c.writing.Add(-1)
 	resp, err := c.transfer.Do(req)
 	if err != nil {
-		return fmt.Errorf("call jira: %w", stallCause(reqCtx, err))
+		return Attachment{}, fmt.Errorf("call jira: %w", stallCause(reqCtx, err))
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return statusError(resp.StatusCode, "upload to "+key, body, resp.Header.Get("Retry-After"))
+		return Attachment{}, statusError(resp.StatusCode, "upload to "+key, body, resp.Header.Get("Retry-After"))
 	}
 	c.Invalidate(key)
-	return nil
+	var made []apiAttachment
+	if json.Unmarshal(body, &made) != nil || len(made) == 0 {
+		return Attachment{}, nil
+	}
+	a := made[0]
+	return Attachment{ID: a.ID, Filename: a.Filename, MimeType: a.MimeType, Size: a.Size}, nil
 }
+
+// mediaFile finds the Media Services file id in where Jira sends an
+// attachment's content: …/file/<uuid>/binary?….
+var mediaFile = regexp.MustCompile(`/file/([0-9a-fA-F-]{36})/`)
+
+// MediaID is the Media Services file id an ADF media node needs to show
+// attachment id. Jira has no API for it; its content redirect names it.
+func (c *Client) MediaID(ctx context.Context, id string) (string, error) {
+	if !c.Enabled() {
+		return "", errNotConfigured
+	}
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/rest/api/3/attachment/content/"+url.PathEscape(id), nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Authorization", c.auth)
+	hc := *c.transfer
+	hc.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := hc.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("call jira: %w", err)
+	}
+	resp.Body.Close()
+	if m := mediaFile.FindStringSubmatch(resp.Header.Get("Location")); m != nil {
+		return m[1], nil
+	}
+	return "", fmt.Errorf("attachment %s: no media id (%s)", id, resp.Status)
+}
+
+// imageLine is a markdown image alone on its line pointing at an attachment.
+var imageLine = regexp.MustCompile(`^( *)!\[([^\]]*)\]\(` + AttachmentScheme + `(\d+)\)\s*$`)
+
+// EmbedImages points each image line at an attachment (![name](attachment:ID),
+// the web editor's pasted image) at its media file instead, so
+// MarkdownToADF makes it a picture in the document. One whose media id
+// can't be had stays as it is.
+func (c *Client) EmbedImages(ctx context.Context, md string) string {
+	if !strings.Contains(md, "]("+AttachmentScheme) {
+		return md
+	}
+	lines := strings.Split(md, "\n")
+	fence := false
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "```") {
+			fence = !fence
+		}
+		m := imageLine.FindStringSubmatch(ln)
+		if fence || m == nil {
+			continue
+		}
+		if id, err := c.MediaID(ctx, m[3]); err == nil {
+			lines[i] = m[1] + "![" + m[2] + "](" + mediaScheme + id + ")"
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// mediaScheme prefixes a Media Services file id in a markdown image target;
+// MarkdownToADF makes such a line a mediaSingle.
+const mediaScheme = "media:"
 
 // DownloadAttachment saves attachment id as name in dir, never over an
 // existing file ("a (1).png"), and returns the path written.

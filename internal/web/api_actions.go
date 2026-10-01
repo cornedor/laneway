@@ -133,7 +133,7 @@ func init() {
 		nk, err := s.Client().MoveIssue(ctx, key, b.Project, b.TypeID)
 		return map[string]string{"Key": nk}, err
 	})
-	// POST multipart, field "file": attaches it to the issue.
+	// POST multipart, field "file": attaches it to the issue; answers the attachment (ID blank when Jira named none).
 	post("/issues/{key}/attachments", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
 		if err != nil {
@@ -149,7 +149,7 @@ func init() {
 		if name == "" {
 			name = "file"
 		}
-		return nil, s.Client().UploadAttachmentFrom(ctx, key, name, f)
+		return s.Client().UploadAttachmentFrom(ctx, key, name, f)
 	})
 }
 

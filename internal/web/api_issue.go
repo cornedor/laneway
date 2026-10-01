@@ -81,7 +81,7 @@ func init() {
 		}
 		var doc any // blank clears
 		if strings.TrimSpace(b.Markdown) != "" {
-			doc = jira.MarkdownToADFKept(b.Markdown, b.Kept)
+			doc = jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, b.Markdown), b.Kept)
 		}
 		return nil, s.Client().SetField(ctx, key, r.PathValue("field"), doc)
 	})
@@ -137,7 +137,7 @@ func init() {
 				kept = append(kept, jira.MentionNode("mention", map[string]any{"id": m.AccountID, "text": "@" + m.DisplayName}))
 			}
 		}
-		doc, _ := json.Marshal(jira.MarkdownToADFKept(b.Markdown, kept))
+		doc, _ := json.Marshal(jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, b.Markdown), kept))
 		return nil, s.Client().AddCommentADFFor(ctx, key, doc, b.Visibility, b.Parent)
 	})
 	get("/issues/{key}/comments/{id}/edit", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
