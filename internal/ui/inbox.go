@@ -216,11 +216,15 @@ func (m Model) handleInboxSync(msg inboxSyncMsg) (tea.Model, tea.Cmd) {
 		d.err = msg.err.Error() // the threads before stay
 		return m, nil
 	}
+	first := !d.loaded
 	d.err, d.threads, d.loaded = "", msg.threads, true
 	m.setInboxUnread(m.inboxUnreadCount())
 	if m.jiraTab.inbox != nil {
 		m.buildInboxRows()
 		m.readInboxRow()
+	}
+	if first && m.jiraPicker.active && m.jiraPicker.kind == jiraPickHome && m.jiraPicker.idx == 0 {
+		return m, tea.Batch(m.notifyMentions(), m.openHome()) // home opened before the inbox was in
 	}
 	return m, m.notifyMentions()
 }

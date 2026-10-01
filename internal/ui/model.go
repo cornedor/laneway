@@ -557,6 +557,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		jiraStartPrompt: prompt,
 		jiraStartStatus: cfg.StartStatuses,
 		jiraTab:         newJiraTabState(),
+		inbox:           &inboxData{}, // Init syncs it on a copy: the pointer must be there already
 		images:          newPanelImages(opts.images, opts.imageMaxRows),
 		opts:            opts,
 		uiConfig:        ui,

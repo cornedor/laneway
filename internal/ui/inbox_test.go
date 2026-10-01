@@ -300,3 +300,18 @@ func TestInboxWhen(t *testing.T) {
 		}
 	}
 }
+
+// TestInboxFirstSyncLands: the sync Init starts (on a copy of the model)
+// is answered on the model itself.
+func TestInboxFirstSyncLands(t *testing.T) {
+	m := jiraTabModel(t)
+	_ = m.Init()
+	d := m.inboxData()
+	if d.seq == 0 {
+		t.Fatal("Init's sync should count on the model's inbox")
+	}
+	out, _ := m.handleInboxSync(inboxSyncMsg{seq: d.seq})
+	if om := out.(Model); !om.inboxData().loaded {
+		t.Error("the first sync was dropped")
+	}
+}

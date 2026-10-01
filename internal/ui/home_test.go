@@ -87,3 +87,20 @@ func TestHomeAtStart(t *testing.T) {
 		t.Error("home opened again on the next board")
 	}
 }
+
+// TestHomeInboxArrives: home open at start, before the first inbox sync,
+// reads again when it lands, cursor untouched.
+func TestHomeInboxArrives(t *testing.T) {
+	m := jiraTabModel(t)
+	m.opts.home = []string{"inbox"}
+	m.openHome()
+	d := m.inboxData()
+	out, cmd := m.handleInboxSync(inboxSyncMsg{seq: d.seq})
+	if m = out.(Model); cmd == nil || m.jiraPicker.kind != jiraPickHome || m.jiraPicker.gen < 1 {
+		t.Fatal("the first sync should read home again")
+	}
+	m.jiraPicker.idx = 1
+	if _, cmd = m.handleInboxSync(inboxSyncMsg{seq: m.inboxData().seq}); cmd != nil {
+		t.Error("a later sync should leave home as it is")
+	}
+}
