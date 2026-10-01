@@ -1,8 +1,10 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net/http"
 	"slices"
@@ -22,6 +24,8 @@ const defaultMyWorkJQL = "assignee = currentUser() AND (statusCategory != Done O
 const (
 	inboxMarksMeta = "jira_tab:inbox_marks"
 	inboxFloorMeta = "jira_tab:inbox_seen"
+	// inboxUnreadMeta is the unread count laneway prompt shows.
+	inboxUnreadMeta = "jira_tab:inbox_unread"
 )
 
 func init() {
@@ -152,11 +156,15 @@ func deleteWorklog(ctx context.Context, s *Server, r *http.Request) (any, error)
 
 // ---- inbox
 
-// InboxThread is an issue and what others did on it.
+// InboxThread is an issue and what others did on it. The inbox reads every
+// configured site: ID is site/key, URL opens another site's in Jira.
 type InboxThread struct {
 	jira.InboxIssue
-	Entries []jira.InboxEntry
+	ID, Site, URL string
+	Entries       []jira.InboxEntry
 }
+
+func (t InboxThread) latest() time.Time { return t.Entries[len(t.Entries)-1].When }
 
 // inboxMark mirrors the TUI's stored marks, Unix milliseconds.
 type inboxMark struct {
@@ -170,17 +178,74 @@ type InboxMark struct{ Read, Done, Snooze int64 }
 
 var (
 	inboxMu    sync.Mutex
-	inboxCache = map[string]InboxThread{} // by site/key, reused while the issue is not updated
+	inboxCache = map[string]InboxThread{}   // by site/key, reused while the issue is not updated
+	inboxLast  = map[string][]InboxThread{} // the last threads by shown site, to count the unread again
 )
 
-// inbox: ?days=N (default the TUI's week). Threads without news are left out.
-func inbox(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	days, _ := strconv.Atoi(Q(r, "days"))
-	if days < 1 || days > 90 {
-		days = 7
+// inboxLookback is ui.inbox_lookback, the TUI's week when unset.
+func inboxLookback(s *Server) time.Duration {
+	if d, err := time.ParseDuration(strings.TrimSpace(s.UIConfig().InboxLookback)); err == nil && d > 0 {
+		return d
 	}
-	since := time.Now().Add(-time.Duration(days) * 24 * time.Hour)
-	c := s.Client()
+	return 7 * 24 * time.Hour
+}
+
+// inbox: every site's threads with news, newest first; ?days=N overrides
+// ui.inbox_lookback. Another site failing only leaves it out.
+func inbox(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	look := inboxLookback(s)
+	if days, _ := strconv.Atoi(Q(r, "days")); days >= 1 && days <= 90 {
+		look = time.Duration(days) * 24 * time.Hour
+	}
+	since := time.Now().Add(-look)
+	sites := map[string]*jira.Client{s.opt.Site: s.Client()}
+	if s.sites != nil {
+		for _, name := range s.opt.Sites {
+			if _, ok := sites[name]; ok {
+				continue
+			}
+			if o, err := s.openSite(name); err == nil && o.Client != nil && o.Client.Enabled() {
+				sites[name] = o.Client
+			}
+		}
+	}
+	var (
+		out     []InboxThread
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+		shownEr error
+	)
+	for site, c := range sites {
+		wg.Go(func() {
+			ts, err := siteInbox(ctx, c, site, since)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil && site == s.opt.Site {
+				shownEr = err
+			}
+			out = append(out, ts...)
+		})
+	}
+	wg.Wait()
+	if shownEr != nil {
+		return nil, shownEr
+	}
+	slices.SortStableFunc(out, func(a, b InboxThread) int { return b.latest().Compare(a.latest()) })
+	marks := map[string]InboxMark{}
+	for id, m := range readMarks(s) {
+		marks[id] = InboxMark{m.R, m.D, m.S}
+	}
+	floor := inboxFloor(s)
+	inboxMu.Lock()
+	inboxLast[s.opt.Site] = out
+	inboxMu.Unlock()
+	setInboxUnread(s, out, floor)
+	return map[string]any{"threads": out, "marks": marks, "floor": floor, "lookback": int((look + 24*time.Hour - 1) / (24 * time.Hour)), "site": s.opt.Site}, nil
+}
+
+// siteInbox is one site's threads with news, those of issues not updated
+// since the last read reused.
+func siteInbox(ctx context.Context, c *jira.Client, site string, since time.Time) ([]InboxThread, error) {
 	issues, err := c.InboxIssues(ctx, since)
 	if err != nil {
 		return nil, err
@@ -190,45 +255,43 @@ func inbox(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 6)
 	for i, is := range issues {
-		out[i] = InboxThread{InboxIssue: is}
-		id := s.opt.Site + "/" + is.Key
+		out[i] = InboxThread{InboxIssue: is, ID: site + "/" + is.Key, Site: site, URL: c.BrowseURL(is.Key)}
 		inboxMu.Lock()
-		k, ok := inboxCache[id]
+		k, ok := inboxCache[out[i].ID]
 		inboxMu.Unlock()
 		if ok && k.Updated.Equal(is.Updated) {
 			out[i].Entries = slices.DeleteFunc(slices.Clone(k.Entries), func(e jira.InboxEntry) bool { return !e.When.After(since) })
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			out[i].Entries, errs[i] = c.IssueInbox(ctx, is.Key, is.Summary, since)
-		}()
+		})
 	}
 	wg.Wait()
-	for _, err := range errs {
-		if err != nil {
-			return nil, err
-		}
+	if err := errors.Join(errs...); err != nil {
+		return nil, err
 	}
 	inboxMu.Lock()
 	for _, t := range out {
-		inboxCache[s.opt.Site+"/"+t.Key] = t
+		inboxCache[t.ID] = t
 	}
 	inboxMu.Unlock()
-	out = slices.DeleteFunc(out, func(t InboxThread) bool { return len(t.Entries) == 0 })
-	slices.SortStableFunc(out, func(a, b InboxThread) int {
-		return b.Entries[len(b.Entries)-1].When.Compare(a.Entries[len(a.Entries)-1].When)
-	})
-	marks := map[string]InboxMark{}
-	for id, m := range readMarks(s) {
-		if site, key, ok := strings.Cut(id, "/"); ok && site == s.opt.Site {
-			marks[key] = InboxMark{m.R, m.D, m.S}
+	return slices.DeleteFunc(out, func(t InboxThread) bool { return len(t.Entries) == 0 }), nil
+}
+
+// setInboxUnread keeps the unread count, neither done nor snoozed, for
+// laneway prompt as the TUI's header does.
+func setInboxUnread(s *Server, threads []InboxThread, floor int64) {
+	marks, now, n := readMarks(s), time.Now().UnixMilli(), 0
+	for _, t := range threads {
+		m, at := marks[t.ID], t.latest().UnixMilli()
+		if at > cmp.Or(m.R, floor) && !(m.D != 0 && at <= m.D) && m.S <= now {
+			n++
 		}
 	}
-	return map[string]any{"threads": out, "marks": marks, "floor": inboxFloor(s), "lookback": days}, nil
+	_ = s.opt.Store.SetMeta(inboxUnreadMeta, strconv.Itoa(n))
 }
 
 func readMarks(s *Server) map[string]inboxMark {
@@ -252,24 +315,40 @@ func inboxFloor(s *Server) int64 {
 	return floor.UnixMilli()
 }
 
+// putInboxState: the body's Site is the thread's ("" the jira: block's),
+// the shown one when left out.
 func putInboxState(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	key, err := validKey(r)
 	if err != nil {
 		return nil, err
 	}
-	b, err := Body[InboxMark](r)
+	b, err := Body[struct {
+		InboxMark
+		Site *string
+	}](r)
 	if err != nil {
 		return nil, err
 	}
+	site := s.opt.Site
+	if b.Site != nil && *b.Site != site {
+		if !slices.Contains(s.opt.Sites, *b.Site) {
+			return nil, httpError{http.StatusBadRequest, "unknown site"}
+		}
+		site = *b.Site
+	}
 	inboxMu.Lock()
-	defer inboxMu.Unlock()
 	marks := readMarks(s)
-	id := s.opt.Site + "/" + key
-	marks[id] = inboxMark{b.Read, b.Done, b.Snooze}
-	old := time.Now().Add(-90 * 24 * time.Hour).UnixMilli()
+	marks[site+"/"+key] = inboxMark{b.Read, b.Done, b.Snooze}
+	old := time.Now().Add(-inboxLookback(s)).UnixMilli()
 	maps.DeleteFunc(marks, func(_ string, m inboxMark) bool { return max(m.R, m.D, m.S) < old })
 	raw, _ := json.Marshal(marks)
-	return nil, s.opt.Store.SetMeta(inboxMarksMeta, string(raw))
+	err = s.opt.Store.SetMeta(inboxMarksMeta, string(raw))
+	last := inboxLast[s.opt.Site]
+	inboxMu.Unlock()
+	if err == nil {
+		setInboxUnread(s, last, inboxFloor(s))
+	}
+	return nil, err
 }
 
 // ---- standup

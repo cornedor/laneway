@@ -23,11 +23,12 @@ type siteSet struct {
 	ui    config.UIConfig // the ui: section, shared by every site; settings edits replace it
 	base  Options         // the site the server started on
 	open  map[string]Options
+	ruled map[string]bool // sites whose rule watches run: those switched to
 	rules map[string]*ruleRunner
 }
 
 func newSiteSet(base Options) *siteSet {
-	return &siteSet{base: base, ui: base.UI, open: map[string]Options{}}
+	return &siteSet{base: base, ui: base.UI, open: map[string]Options{}, ruled: map[string]bool{}}
 }
 
 // at is s for the site r asks for.
@@ -49,8 +50,25 @@ func (s *Server) at(r *http.Request) *Server {
 // ClientFor is the Jira client for r's site.
 func (s *Server) ClientFor(r *http.Request) *jira.Client { return s.at(r).opt.Client }
 
-// siteOptions opens a site once and keeps it.
+// siteOptions opens a site once and keeps it, its rule watches started.
 func (s *Server) siteOptions(name string) (Options, error) {
+	o, err := s.openSite(name)
+	if err != nil || name == s.sites.base.Site {
+		return o, err
+	}
+	s.sites.mu.Lock()
+	start := !s.sites.ruled[name]
+	s.sites.ruled[name] = true
+	s.sites.mu.Unlock()
+	if start {
+		go s.sites.rulesOf(s.ctx, o)
+	}
+	return o, nil
+}
+
+// openSite opens a site once and keeps it; the inbox reads every site
+// this way without running their rules.
+func (s *Server) openSite(name string) (Options, error) {
 	base := s.sites.base
 	if name == base.Site {
 		return base, nil
@@ -69,7 +87,6 @@ func (s *Server) siteOptions(name string) (Options, error) {
 	}
 	o.Open, o.Sites, o.DefaultName, o.Version, o.Demo = base.Open, base.Sites, base.DefaultName, base.Version, base.Demo
 	s.sites.open[name] = o
-	go s.sites.rulesOf(s.ctx, o) // starts its rule watches
 	return o, nil
 }
 

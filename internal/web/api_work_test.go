@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -96,9 +97,73 @@ func TestInboxMarks(t *testing.T) {
 	if c := workCall(t, "PUT", ts.URL+"/api/inbox/state/DEMO-1", fmt.Sprintf(`{"Read":%d,"Done":%d}`, now, now+2), nil); c != 200 {
 		t.Fatalf("put state = %d", c)
 	}
+	if c := workCall(t, "PUT", ts.URL+"/api/inbox/state/DEMO-2", `{"Site":"elsewhere","Read":1}`, nil); c != 400 {
+		t.Fatalf("put on an unknown site = %d", c)
+	}
 	workCall(t, "GET", ts.URL+"/api/inbox", "", &in)
-	if m := in.Marks["DEMO-1"]; m.Read != now || m.Done != now+2 {
+	if m := in.Marks["demo/DEMO-1"]; m.Read != now || m.Done != now+2 {
 		t.Fatalf("marks = %+v", in.Marks)
+	}
+}
+
+// The inbox reads every configured site, marks each thread under its own
+// site and keeps the unread count for laneway prompt.
+func TestInboxEverySite(t *testing.T) {
+	site := func(name string) Options {
+		base, stop, err := demo.New(time.Now()).Start()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(stop)
+		st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
+		return Options{Client: cl, Store: st, Site: name}
+	}
+	opt, other := site(""), site("work")
+	opt.Sites = []string{"", "work"}
+	opt.Open = func(name string) (Options, error) { return other, nil }
+	ts := httptest.NewServer(New(context.Background(), opt))
+	t.Cleanup(ts.Close)
+
+	var in struct {
+		Threads []InboxThread
+		Site    string
+	}
+	if c := workCall(t, "GET", ts.URL+"/api/inbox", "", &in); c != 200 || len(in.Threads) == 0 {
+		t.Fatalf("inbox = %d %+v", c, in)
+	}
+	sites := map[string]int{}
+	for _, th := range in.Threads {
+		sites[th.Site]++
+		if th.ID != th.Site+"/"+th.Key || th.URL == "" {
+			t.Fatalf("thread = %+v", th)
+		}
+	}
+	if sites[""] == 0 || sites["work"] == 0 {
+		t.Fatalf("threads by site = %v", sites)
+	}
+	unread := func() string {
+		v, _, _ := opt.Store.GetMeta(inboxUnreadMeta)
+		return v
+	}
+	th := in.Threads[0]
+	put := func(read int64) {
+		t.Helper()
+		if c := workCall(t, "PUT", ts.URL+"/api/inbox/state/"+th.Key, fmt.Sprintf(`{"Site":%q,"Read":%d}`, th.Site, read), nil); c != 200 {
+			t.Fatalf("put state = %d", c)
+		}
+	}
+	put(1) // all of it unread
+	before, _ := strconv.Atoi(unread())
+	put(th.Entries[len(th.Entries)-1].When.UnixMilli())
+	if m := readMarks(&Server{opt: opt}); m[th.ID].R == 0 {
+		t.Fatalf("marks = %v", m)
+	}
+	if unread() != strconv.Itoa(before-1) {
+		t.Fatalf("inbox_unread = %s, was %d", unread(), before)
 	}
 }
 

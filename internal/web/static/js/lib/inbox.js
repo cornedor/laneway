@@ -12,7 +12,7 @@ export function stateOf(t, mark, floor, now = Date.now()) {
 }
 export function unreadCount(data, now = Date.now()) {
   let n = 0;
-  for (const t of data.threads) { const s = stateOf(t, data.marks[t.Key], data.floor, now); if (s.unread && !s.done && !s.snoozed) n++; }
+  for (const t of data.threads) { const s = stateOf(t, data.marks[t.ID], data.floor, now); if (s.unread && !s.done && !s.snoozed) n++; }
   return n;
 }
 
@@ -25,28 +25,55 @@ export function setBadge(n) {
   b.title = n + ' unread';
 }
 
-// Ping for threads that turned unread since the last look, while the tab is hidden.
-let seen = null;
-function pingNew(app, data, now = Date.now()) {
-  const cur = new Map();
-  for (const t of data.threads) { const s = stateOf(t, data.marks[t.Key], data.floor, now); if (s.unread && !s.done && !s.snoozed) cur.set(t.Key, s.at); }
-  const fresh = seen && document.hidden ? [...cur].filter(([k, at]) => !seen.has(k) || seen.get(k) < at) : [];
-  seen = cur;
-  if (!fresh.length || !enabled()) return;
-  const t = data.threads.find(x => x.Key === fresh[0][0]), e = t.Entries[t.Entries.length - 1];
-  const title = fresh.length === 1 ? t.Key + ' ' + t.Summary : fresh.length + ' issues have news';
-  notify(title, fresh.length === 1 ? (e.Who ? e.Who + ': ' : '') + (e.Body || e.What || 'updated') : fresh.map(([k]) => k).slice(0, 5).join(', '),
-    () => (fresh.length === 1 ? app.panel.open(t.Key) : app.go('/inbox')), 'inbox');
+const openThread = (app, data, t) => (t.Site !== data.site ? window.open(t.URL, '_blank', 'noopener') : app.panel.open(t.Key));
+
+// As the TUI: one notification per mention newer than the last notified; those from before the page loaded stay quiet.
+let mentionsSeen = Date.now();
+function pingMentions(app, data) {
+  const pinged = new Set();
+  let newest = mentionsSeen;
+  for (const t of data.threads) for (const e of t.Entries) {
+    const at = Date.parse(e.When);
+    if (!e.Mention || at <= mentionsSeen) continue;
+    newest = Math.max(newest, at);
+    pinged.add(t.ID);
+    notify(e.Who + ' mentioned you on ' + t.Key, t.Summary, () => openThread(app, data, t), 'mention:' + t.ID + ':' + at);
+  }
+  mentionsSeen = newest;
+  return pinged;
 }
 
-// Count unread threads now and every two minutes while the tab is visible.
+// Ping for the other threads that turned unread since the last look, while the tab is hidden.
+let seen = null;
+function pingNew(app, data, skip, now = Date.now()) {
+  const cur = new Map();
+  for (const t of data.threads) { const s = stateOf(t, data.marks[t.ID], data.floor, now); if (s.unread && !s.done && !s.snoozed) cur.set(t.ID, s.at); }
+  const fresh = seen && document.hidden ? [...cur].filter(([id, at]) => !skip.has(id) && (!seen.has(id) || seen.get(id) < at)) : [];
+  seen = cur;
+  if (!fresh.length || !enabled()) return;
+  const t = data.threads.find(x => x.ID === fresh[0][0]), e = t.Entries[t.Entries.length - 1];
+  const title = fresh.length === 1 ? t.Key + ' ' + t.Summary : fresh.length + ' issues have news';
+  notify(title, fresh.length === 1 ? (e.Who ? e.Who + ': ' : '') + (e.Body || e.What || 'updated') : fresh.map(([id]) => id.slice(id.indexOf('/') + 1)).slice(0, 5).join(', '),
+    () => (fresh.length === 1 ? openThread(app, data, t) : app.go('/inbox')), 'inbox');
+}
+
+// everyMs is ui.inbox_every ("5m", "off": 0), the TUI's five minutes when unset or unreadable.
+export function everyMs(s) {
+  s = String(s || '').trim().toLowerCase();
+  if (s === 'off' || s === '0') return 0;
+  const m = s.match(/^(\d+(?:\.\d+)?)(s|m|h)$/);
+  return m ? Math.max(Number(m[1]) * { s: 1e3, m: 6e4, h: 36e5 }[m[2]], 5e3) : 3e5;
+}
+
+// Count unread threads now and every ui.inbox_every; while the tab is hidden only with notifications on.
 export function installBadge(app) {
   css('inbox');
   let timer = 0;
-  const poll = () => app.api.get('/inbox', { fresh: true }).then(d => { setBadge(unreadCount(d)); pingNew(app, d); }).catch(() => {});
+  const poll = () => app.api.get('/inbox', { fresh: true }).then(d => { setBadge(unreadCount(d)); pingNew(app, d, pingMentions(app, d)); }).catch(() => {});
   const arm = () => {
     clearInterval(timer); timer = 0;
-    if (!document.hidden) { timer = setInterval(poll, 120000); } else if (enabled()) { timer = setInterval(poll, 300000); }
+    const every = everyMs(app.session && app.session.ui && app.session.ui.InboxEvery);
+    if (every && (!document.hidden || enabled())) timer = setInterval(poll, every);
   };
   document.addEventListener('visibilitychange', () => { arm(); if (!document.hidden) poll(); });
   arm(); poll();
