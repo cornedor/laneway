@@ -1,6 +1,7 @@
 // Roadmap: the project's epics as bars on a time axis. H/L move a bar, </> its end, e grips one end for
 // h/l, a drag moves it (its edges resize); the dates are written once the moves pause, u takes them back.
-// f shows the epic's issues as a board view, F filters by key or summary words.
+// f shows the epic's issues as a board view, F filters by key or summary words. Epics with a plan-level
+// parent (an initiative) sit under it, one foldable row whose bar spans them.
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { remPx, onChange as onMetrics } from '../lib/metrics.js';
@@ -24,7 +25,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   let { project } = sc;
   let canStart = true, grip = '', saveT = 0, saving = 0;
   const pending = new Map(); // key → {it, was: {Start, End, DatesFromSprints}} until written
-  let epics = [], zoom = Number(app.prefs.get('roadmap.zoom', 3)), cur = 0, open = new Set(), rows = [], token = 0;
+  let epics = [], zoom = Number(app.prefs.get('roadmap.zoom', 3)), cur = 0, open = new Set(), shut = new Set(), rows = [], token = 0;
   if (!(zoom >= 0 && zoom < ZOOMS.length)) zoom = 3;
   let t0 = 0, t1 = 0;
   const scroller = h('div.rm', { tabindex: -1 }); hwheel(scroller);
@@ -77,6 +78,26 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (e == null) e = s + 7 * DAY;
     return [midnight(s), midnight(Math.max(e, s)) + DAY];
   };
+  // TUI roadmapGroups + groupEpic: the parents in the order first met, each one bar from its epics' first
+  // start to last end, their progress summed; derived, so drawn soft.
+  function groups() {
+    const at = new Map();
+    for (const e of epics) {
+      if (!e.Parent) continue;
+      let g = at.get(e.Parent);
+      if (!g) at.set(e.Parent, g = { Key: e.Parent, Summary: e.ParentSummary || '', epics: [], Done: true, Children: 0, DoneChildren: 0, Points: 0, DonePoints: 0, DatesFromSprints: true, Start: iso(null), End: iso(null), Status: '' });
+      g.epics.push(e);
+      g.Done = g.Done && e.Done;
+      g.Children += e.Children || 0; g.DoneChildren += e.DoneChildren || 0; g.Points += e.Points || 0; g.DonePoints += e.DonePoints || 0;
+      for (const t of [ms(e.Start), ms(e.End)]) {
+        if (t == null) continue;
+        if (ms(g.Start) == null || t < ms(g.Start)) g.Start = iso(t);
+        if (ms(g.End) == null || t > ms(g.End)) g.End = iso(t);
+      }
+    }
+    for (const g of at.values()) g.Status = g.epics.length + (g.epics.length === 1 ? ' epic' : ' epics');
+    return [...at.values()];
+  }
   const matches = it => { const t = (it.Key + ' ' + it.Summary).toLowerCase(); return filter.toLowerCase().split(/\s+/).every(w => t.includes(w)); };
   const cat = e => (e.Done ? 'done' : e.DoneChildren > 0 || /progress|review/i.test(e.Status) ? 'indeterminate' : 'new');
 
@@ -88,12 +109,18 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     t0 = addDays(midnight(lo), -21); t1 = addDays(midnight(hi), 28);
     const w = xOf(t1);
     rows = [];
-    for (const e of epics) {
-      // A filter keeps the epics it matches and those with issues it matches, those shown (TUI roadmapMatch).
-      const kids = filter ? (e.Kids || []).filter(k => matches(k)) : open.has(e.Key) ? e.Kids || [] : [];
-      if (filter && !kids.length && !matches(e)) continue;
-      rows.push({ e });
-      for (const k of kids) rows.push({ e: k, kid: true, parent: e });
+    // A filter keeps the epics it matches and those with issues it matches, those shown (TUI roadmapMatch).
+    const shown = e => { const kids = filter ? (e.Kids || []).filter(k => matches(k)) : open.has(e.Key) ? e.Kids || [] : []; return filter && !kids.length && !matches(e) ? null : kids; };
+    const epicRows = (e, inGroup) => {
+      const kids = shown(e); if (!kids) return;
+      rows.push({ e, inGroup });
+      for (const k of kids) rows.push({ e: k, kid: true, parent: e, inGroup });
+    };
+    for (const e of epics) if (!e.Parent) epicRows(e);
+    for (const g of groups()) {
+      if (filter && !g.epics.some(shown)) continue;
+      rows.push({ e: g, group: true });
+      if (!shut.has(g.Key)) for (const e of g.epics) epicRows(e, true);
     }
     cur = Math.min(cur, Math.max(rows.length - 1, 0));
 
@@ -128,25 +155,26 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   function rowEl(r, i, w) {
-    const it = r.e, s = span(it), kid = r.kid, c = kid ? (it.Done ? 'done' : 'new') : cat(it);
-    const isOpen = !kid && open.has(it.Key);
-    const blocked = kid ? null : openBlockers(it), bad = blocked && blockConflict(it, blocked);
+    const it = r.e, s = span(it), kid = r.kid, grp = r.group, c = kid ? (it.Done ? 'done' : 'new') : cat(it);
+    const isOpen = grp ? !shut.has(it.Key) : !kid && open.has(it.Key);
+    const foldable = grp || (it.Kids && it.Kids.length);
+    const blocked = kid || grp ? null : openBlockers(it), bad = blocked && blockConflict(it, blocked);
     const pct = kid ? (it.Done ? 100 : 0) : it.Points > 0 ? Math.round(it.DonePoints / it.Points * 100) : it.Children ? Math.round(it.DoneChildren / it.Children * 100) : it.Done ? 100 : 0;
     const label = h('div.rm-label', { onclick: () => select(i) },
-      !kid ? h('button.rm-fold', { 'aria-label': isOpen ? 'Fold' : 'Unfold', 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, it.Kids && it.Kids.length ? (isOpen ? '▾' : '▸') : '') : h('span.rm-fold'),
+      !kid ? h('button.rm-fold', { 'aria-label': isOpen ? 'Fold' : 'Unfold', 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, foldable ? (isOpen ? '▾' : '▸') : '') : h('span.rm-fold'),
       h('span.rm-key', it.Key), h('span.rm-sum', { title: it.Summary }, it.Summary),
       blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: 'Blocked by ' + blocked.map(b => b.Key).join(', ') + (bad ? ', ending after this starts' : '') }, bad ? '⛔' : '⛓'),
-      !kid && it.Children > 0 && h('span.rm-cnt', it.DoneChildren + '/' + it.Children));
+      grp ? h('span.rm-cnt', { title: it.Status }, it.epics.length) : !kid && it.Children > 0 && h('span.rm-cnt', it.DoneChildren + '/' + it.Children));
     const track = h('div.rm-track', { style: { width: w + 'px' }, onclick: () => select(i) });
     if (s) {
       const when = shortDate(s[0]) + ' – ' + shortDate(s[1] - DAY) + (it.DatesFromSprints ? ' (from sprints)' : '');
       track.append(h('div.rm-bar.c-' + c + (it.DatesFromSprints ? '.soft' : '') + (grip && i === cur ? '.grip-' + grip : ''), {
-        dataset: { i }, onpointerdown: ev => dragStart(ev, i),
+        dataset: { i }, onpointerdown: grp ? null : ev => dragStart(ev, i),
         style: { left: xOf(s[0]) + 'px', width: Math.max(xOf(s[1]) - xOf(s[0]), 6) + 'px', '--pct': pct + '%' }, title: `${it.Key} ${it.Summary}\n${when}\n${it.Status}` + (kid ? '' : it.Points > 0 ? `, ${pct}% of ${it.Points} points` : `, ${pct}% of ${it.Children} issues`),
         onclick: ev => { ev.stopPropagation(); if (dragged) { dragged = false; return; } select(i); app.panel.open(it.Key); },
       }, h('span', it.Summary)));
     } else track.append(h('span.rm-nodate', 'no dates'));
-    return h('div.rm-row' + (kid ? '.kid' : ''), { role: 'listitem', dataset: { i } }, label, track);
+    return h('div.rm-row' + (kid ? '.kid' : '') + (grp ? '.group' : '') + (r.inGroup ? '.ingroup' : ''), { role: 'listitem', dataset: { i } }, label, track);
   }
 
   function select(i) { if (i !== cur) letGo(); cur = i; markCur(); sayBlockers(); }
@@ -161,7 +189,17 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const r = rows[cur]; if (!r) return;
     const k = r.kid ? r.parent.Key : r.e.Key;
     if (pending.size) save();
-    app.go('/board/' + encodeURIComponent(project) + '?' + new URLSearchParams({ sprint: 'jql:parent = ' + k + ' ORDER BY rank', vname: 'Epic: ' + k }));
+    app.go('/board/' + encodeURIComponent(project) + '?' + new URLSearchParams({ sprint: 'jql:parent = ' + k + ' ORDER BY rank', vname: (r.group ? 'Parent: ' : 'Epic: ') + k }));
+  }
+  // y: every epic as a markdown table (TUI roadmapTable), with the parent column when there are parents.
+  async function copyTable() {
+    if (!epics.length) return;
+    const { markdownTable } = await import('./reports.js');
+    const parents = epics.some(e => e.Parent), day = t => ymd(ms(t));
+    const head = ['Epic', 'Summary', 'Status', 'Start', 'End', 'Done'].concat(parents ? ['Parent'] : []);
+    const body = epics.map(e => [`[${e.Key}](${app.session.baseURL}/browse/${e.Key})`, e.Summary, e.Status, day(e.Start), day(e.End),
+      e.Points > 0 ? `${e.DonePoints}/${e.Points}p` : e.Children > 0 ? `${e.DoneChildren}/${e.Children}` : ''].concat(parents ? [e.Parent || ''] : []));
+    copy(markdownTable(head, body), `${epics.length} epics as a markdown table`);
   }
   const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => app.ui.toast('Copied ' + what), app.ui.errToast) : app.ui.toast('No clipboard here', { kind: 'err' }));
 
@@ -170,6 +208,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function shift(ds, de, { quiet } = {}) {
     const r = rows[cur]; if (!r) return false;
     const it = r.e;
+    if (r.group) { app.ui.toast('A parent spans its epics: move those'); return false; }
     if (ds && !canStart) { app.ui.toast('No start date field in Jira: < > move the end'); return false; }
     if (!pending.has(it.Key)) pending.set(it.Key, { it, was: { Start: it.Start, End: it.End, DatesFromSprints: it.DatesFromSprints } });
     let s = ms(it.Start), e = ms(it.End);
@@ -256,6 +295,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
   function toggle() {
     const r = rows[cur]; if (!r) return;
+    if (r.group) { shut.has(r.e.Key) ? shut.delete(r.e.Key) : shut.add(r.e.Key); draw(); return; }
     const e = r.kid ? r.parent : r.e;
     if (!(e.Kids && e.Kids.length)) return;
     open.has(e.Key) ? open.delete(e.Key) : open.add(e.Key);
@@ -296,7 +336,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('F', () => find.focus(), 'filter by key or summary', { group: 'Roadmap' });
   scope.bind('E', () => { const k = curKey(); if (k && app.actions.menu) app.actions.menu(k); }, 'quick edit the row\'s issue', { group: 'Roadmap' });
   scope.bind('o', () => { const k = curKey(); if (k) window.open(app.session.baseURL + '/browse/' + k, '_blank', 'noopener'); }, 'open in Jira', { group: 'Roadmap' });
-  scope.bind('y', () => { const k = curKey(); if (k) copy(k, k); }, 'copy key', { group: 'Roadmap' });
+  scope.bind('y', copyTable, 'copy the roadmap as a markdown table', { group: 'Roadmap' });
   scope.bind('Y', () => { const k = curKey(); if (k) copy(app.session.baseURL + '/browse/' + k, 'link'); }, 'copy link', { group: 'Roadmap' });
   scope.bind('n', () => app.actions.create({ project, type: app.session.ui.RoadmapEpicType || 'Epic' }), 'new epic', { group: 'Roadmap' });
   const offBus = app.bus.on('issue:changed', () => { if (!saving && !pending.size) load(true); });
