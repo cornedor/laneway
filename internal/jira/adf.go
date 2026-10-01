@@ -135,6 +135,11 @@ func writeBlock(b *strings.Builder, n adfNode, indent string) {
 		if !wrote {
 			b.WriteString(indent + "_[attachment]_\n\n")
 		}
+		for _, c := range n.Content {
+			if cap := strings.TrimSpace(inline(c.Content)); c.Type == "caption" && cap != "" {
+				b.WriteString(indent + "_" + cap + "_\n\n") // the image's caption, under it
+			}
+		}
 	default:
 		// Unknown block: recurse so nested text isn't lost.
 		if len(n.Content) > 0 {
@@ -319,6 +324,11 @@ func inline(nodes []adfNode) string {
 			}
 		case "emoji":
 			b.WriteString(emojiText(n))
+		case "mediaInline": // a file in the line: named, as it can't show
+			b.WriteString("_[file]_")
+		case "inlineExtension": // a macro in the line
+			name, _ := n.Attrs["extensionKey"].(string)
+			b.WriteString("_[" + cmp.Or(name, "macro") + " macro]_")
 		case "inlineCard": // <https://…>, a smart link
 			if href, ok := n.Attrs["url"].(string); ok {
 				b.WriteString("<" + mdHref(href) + ">")

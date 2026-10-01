@@ -431,3 +431,19 @@ func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
 		t.Errorf("the mediaInline paragraph should edit with ⟦1⟧:\n%s", ed.Markdown)
 	}
 }
+
+// TestADFShowsWhatItCannotEdit: an inline file and macro are named, an
+// image's caption shows under it, rather than vanishing from the panel.
+func TestADFShowsWhatItCannotEdit(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"see "},{"type":"mediaInline","attrs":{"id":"m1"}},{"type":"text","text":" and "},{"type":"inlineExtension","attrs":{"extensionKey":"jira-chart"}}]},` +
+		`{"type":"mediaSingle","content":[{"type":"media","attrs":{"alt":"shot.png"}},{"type":"caption","content":[{"type":"text","text":"The new flow"}]}]}]}`
+	md := adfToMarkdown(json.RawMessage(doc))
+	for _, want := range []string{"see _[file]_ and _[jira-chart macro]_", "![shot.png](attachment)", "_The new flow_"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("no %q in:\n%s", want, md)
+		}
+	}
+	if _, err := EditableDescription(json.RawMessage(doc)); err != nil {
+		t.Errorf("still editable around them: %v", err)
+	}
+}
