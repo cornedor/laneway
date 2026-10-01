@@ -777,7 +777,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 		m.fail(warn)
 	}
 	t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(t.viewIdx)
-	return m, m.runRules(msg.cards)
+	return m, tea.Batch(m.runRules(msg.cards), m.startHome())
 }
 
 func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
@@ -1106,6 +1106,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openInbox()
 	case key.Matches(msg, m.keys.Agents):
 		return m, m.openAgents()
+	case key.Matches(msg, m.keys.StartScreen):
+		return m, m.openHome()
 	case key.Matches(msg, m.keys.Standup):
 		return m, m.openStandup()
 	case key.Matches(msg, m.keys.Releases):

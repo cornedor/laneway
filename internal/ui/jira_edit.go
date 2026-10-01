@@ -120,6 +120,8 @@ const (
 	jiraPickQueue
 	// jiraPickAsk picks what to ask ui.llm about the issue (llm.go).
 	jiraPickAsk
+	// jiraPickHome is the start screen (home.go).
+	jiraPickHome
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -983,6 +985,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickReleases {
 		return m.applyRelease(it)
+	}
+	if kind == jiraPickHome {
+		return m.applyHomePick(it)
 	}
 	if kind == jiraPickQueue {
 		return m.applyQueuePick(it)

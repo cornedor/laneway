@@ -9,6 +9,7 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/home"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -49,6 +50,7 @@ type options struct {
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
 	epicType        string              // the roadmap's issue type
 	myWorkJQL       string              // O's query
+	home            []string            // the start screen's widgets, none: no start screen
 	workdays        []time.Weekday      // nil: Monday to Friday
 	inboxEvery      time.Duration       // 0: the inbox never syncs by itself
 	inboxLookback   time.Duration       // how far back the inbox reaches
@@ -221,6 +223,12 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	if q := strings.TrimSpace(c.MyWorkJQL); q != "" {
 		o.myWorkJQL = q
+	}
+	o.home = home.Pick(c.Home)
+	for _, w := range c.Home {
+		if len(home.Pick([]string{w})) == 0 {
+			warn = append(warn, fmt.Sprintf("ui.home: %q is none of %s", w, strings.Join(home.Widgets, ", ")))
+		}
 	}
 	if t := strings.TrimSpace(c.RoadmapEpicType); t != "" {
 		o.epicType = t

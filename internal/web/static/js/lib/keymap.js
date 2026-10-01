@@ -3,7 +3,7 @@
 const COMMON = { j: 'down', ArrowDown: 'down', k: 'up', ArrowUp: 'up', y: 'copy_key' };
 const TABLE = {
   global: { ':': 'palette', '/': 'search', 'g g': 'goto', '?': 'help', n: 'create', Q: 'jql', ',': 'settings', 'ctrl+e': 'refine',
-    W: 'timesheet', I: 'inbox', U: 'standup', O: 'my_work', 'ctrl+g': 'agents', 'g r': 'charts', 'g p': 'plan', 'g m': 'roadmap', 'g R': 'review' },
+    W: 'timesheet', I: 'inbox', U: 'standup', O: 'my_work', 'ctrl+g': 'agents', 'g r': 'charts', 'g p': 'plan', 'g m': 'roadmap', 'g R': 'review', 'g h': 'home' },
   timer: { T: 'timer', w: 'log_work' },
   undo: { u: 'undo' },
   sites: { '@': 'site' },

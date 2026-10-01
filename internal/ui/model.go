@@ -64,7 +64,7 @@ type keyMap struct {
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
-	ClosedSprint                       key.Binding
+	ClosedSprint, StartScreen          key.Binding
 	AgentBack                          key.Binding // out of the agent's terminal in the panel
 	Agents, AgentPrompt, AgentStop     key.Binding // the agents screen (agents_screen.go)
 
@@ -178,6 +178,7 @@ func defaultKeys() keyMap {
 		Ask:             bind("ask ui.llm about the issue", "ctrl+a"),
 		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
 		ClosedSprint:    bind("closed sprints: one as it ended", "ctrl+o"),
+		StartScreen:     bind("home: my work, inbox, sprint, timer, reviews, saved searches", "~"),
 		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
 		Agents:          bind("agents: every herdr agent and worktree, by state", "ctrl+g"),
 		AgentPrompt:     bind("agents: send the agent a prompt", "p"),
@@ -288,6 +289,7 @@ type Model struct {
 	statusErr     string          // the status line's text when it is an error (fail)
 	lastDownload  string          // the attachment saved last, for the palette to open
 	warnings      []string        // the startup warnings
+	homeShown     bool            // ui.home's start screen opened once
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
