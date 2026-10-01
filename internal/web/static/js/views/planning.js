@@ -1,10 +1,13 @@
 // Planning: the backlog and the open sprints as stacked, collapsible sections.
-// One scroller, rows of known height, only the visible ones in the DOM.
+// One scroller per pane, rows of known height, only the visible ones in the DOM; | splits off a second pane.
 import { h, clear, frame } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, switcher, noBoard } from './plan_ctx.js';
+import { openFilterBuilder } from './board_filter.js';
+import * as cq from '../lib/cardquery.js';
+import * as pins from '../lib/pins.js';
 
 const pts = c => Number(c.Points) || 0;
 const fmtP = n => String(Math.round(n * 10) / 10);
@@ -39,22 +42,40 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   if (!board) { el.append(noBoard('Planning', project)); return; }
 
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
-  let data = null, sections = [], cur = '', filter = '', velAvg = 0, velN = 0, columns = [];
+  let data = null, sections = [], cur = '', filter = '', who = null, velAvg = 0, velN = 0, columns = [];
   const sel = new Set(), folded = new Set();
   app.marked = () => [...sel];
-  app.listed = () => rows.filter(r => r.k === 'c').map(r => r.c);
-  let rows = [], tops = [], total = 0, ROW = 32, drag = null, token = 0, writing = 0, lastWrite = 0;
+  let ROW = 32, drag = null, token = 0, writing = 0, lastWrite = 0;
 
-  const scroller = h('div.pl-scroll', { tabindex: -1 });
-  const space = h('div.pl-space');
-  const live = new Map();
-  const dropEl = h('div.pl-drop', { hidden: true });
-  space.append(dropEl);
-  scroller.append(space);
-  el.append(h('div.pl', scroller));
+  // A pane is one virtual list of sections. The split (|) adds a second that keeps one section in
+  // view (side: its id, kept per board) and leaves it out of the first.
+  const sideKey = 'planning.split.' + board.ID;
+  let side = app.prefs.get(sideKey, '');
+  side = side === '' ? null : Number(side);
+  // A phone has no room for two panes: there the split waits, and the list shows every section.
+  const wide = matchMedia('(min-width: 800px)');
+  const sideOn = () => side != null && wide.matches;
+  function makePane(secs) {
+    const scroller = h('div.pl-scroll', { tabindex: -1 }), space = h('div.pl-space'), dropEl = h('div.pl-drop', { hidden: true });
+    space.append(dropEl); scroller.append(space);
+    const p = { scroller, space, dropEl, live: new Map(), rows: [], tops: [], total: 0, last: '', secs };
+    p.paint = frame(() => paintPane(p));
+    return p;
+  }
+  const left = makePane(() => sections.filter(s => !sideOn() || s.id !== side));
+  const right = makePane(() => sections.filter(s => sideOn() && s.id === side));
+  const panes = [left, right];
+  const allRows = () => panes.flatMap(p => p.rows);
+  app.listed = () => allRows().filter(r => r.k === 'c').map(r => r.c);
+  const sidePick = h('select.input.pl-side-pick', { 'aria-label': 'Section kept in view', onchange: () => setSide(Number(sidePick.value)) });
+  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, '✕')), right.scroller);
+  sideEl.hidden = !sideOn();
+  el.append(h('div.pl.pl-panes', left.scroller, sideEl));
 
-  const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', oninput: () => { filter = filterIn.value.trim().toLowerCase(); relayout(); } });
-  toolbar.append(filterIn, h('span.spacer'), h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'));
+  const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', title: 'words, status:review  points>2  is:mine  -label:ui  (F builds a query)', oninput: () => setFilter(filterIn.value) });
+  const whoBtn = h('button.btn.ghost', { title: 'Assignee (A)', onclick: () => pickWho() }, 'Assignee');
+  const splitBtn = h('button.btn.ghost.pl-split', { title: 'Keep a sprint in view beside the list (|)', onclick: () => setSide(side == null ? defaultSide() : null) }, 'Split');
+  toolbar.append(filterIn, whoBtn, h('span.spacer'), splitBtn, h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'));
 
   // ---- data
   const secOf = id => sections.find(s => s.id === id);
@@ -63,6 +84,21 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     sections = (d.Sprints || []).map(s => ({ id: s.ID, sprint: s, name: s.Name, cards: s.Cards || [] }));
     sections.push({ id: 0, sprint: null, name: 'Backlog', cards: (d.Backlog && d.Backlog.Cards) || [] });
     for (const k of [...sel]) if (!sections.some(s => s.cards.some(c => c.Key === k))) sel.delete(k);
+    if (side != null && !secOf(side)) side = defaultSide();
+    paintSide();
+  }
+  // The next sprint to plan: the first planned one, else the active one, else the backlog.
+  const defaultSide = () => (sections.find(s => s.sprint && s.sprint.State === 'future') || sections.find(s => s.sprint) || sections[sections.length - 1] || { id: 0 }).id;
+  function paintSide() {
+    sideEl.hidden = !sideOn();
+    splitBtn.classList.toggle('on', side != null);
+    clear(sidePick).append(...sections.map(s => h('option', { value: s.id, selected: s.id === side }, s.name)));
+  }
+  function setSide(id) {
+    side = id;
+    app.prefs.set(sideKey, id == null ? '' : String(id));
+    paintSide(); relayout();
+    if (id == null && paneOf(cur) !== left) setCur(left.last || stopsOf(left)[0] || '');
   }
   async function load(fresh) {
     const my = ++token;
@@ -72,7 +108,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       build(d); relayout(true);
     } catch (e) {
       if (my !== token) return;
-      if (!data) clear(scroller).append(h('div.empty', h('h2', 'Could not load'), h('p', e.message), h('button.btn', { onclick: () => load(true) }, 'Retry')));
+      if (!data) clear(left.scroller).append(h('div.empty', h('h2', 'Could not load'), h('p', e.message), h('button.btn', { onclick: () => load(true) }, 'Retry')));
       else app.ui.errToast(e);
     }
   }
@@ -84,43 +120,72 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   // ---- layout
-  // Every word of the filter somewhere in the key, summary, assignee, status or labels.
-  const match = c => {
-    const hay = [c.Key, c.Summary, c.Assignee, c.Status, c.Labels].filter(Boolean).join(' ').toLowerCase();
-    return filter.split(/\s+/).every(w => hay.includes(w));
-  };
-  const shown = s => (filter ? s.cards.filter(match) : s.cards);
+  // The board's query language; a plain word matches the key, summary, assignee, status or labels.
+  const text = c => [c.Key, c.Summary, c.Assignee, c.Status, c.Labels].filter(Boolean).join(' ').toLowerCase();
+  const me = (app.session.me && app.session.me.AccountID) || '';
+  const env = () => ({ me, pins: new Set(pins.list(app).map(p => p[0])), text });
+  let match = null;
+  function setFilter(t) { filter = t.trim(); match = cq.compile(filter, env()); relayout(); }
+  function openBuilder() {
+    if (!data) return;
+    openFilterBuilder({ app, cards: sections.flatMap(s => s.cards), env: env(), query: filter, apply: t => { filterIn.value = t; setFilter(t); } });
+  }
+  // who: an AccountID, '-' for unassigned, null for anyone.
+  const whoOf = c => c.AssigneeID || c.Assignee || '';
+  const filtering = () => !!match || who != null;
+  const visible = c => (who == null || (who === '-' ? !whoOf(c) : whoOf(c) === who)) && (!match || match(c));
+  const shown = s => (filtering() ? s.cards.filter(visible) : s.cards);
+  function setWho(id, name) {
+    who = id;
+    whoBtn.textContent = id == null ? 'Assignee' : name;
+    whoBtn.classList.toggle('on', id != null);
+    relayout();
+  }
+  async function pickWho() {
+    const seen = new Map();
+    for (const s of sections) for (const c of s.cards) if (whoOf(c)) seen.set(whoOf(c), c.Assignee);
+    const items = [{ id: null, name: 'Anyone' }, { id: '-', name: 'Unassigned' }, ...[...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))];
+    const r = await app.ui.pick({ title: 'Assignee', items, label: i => i.name, render: i => h('span.pick-label', i.id ? app.ui.avatar(i.name, '', 18) : '', ' ', i.name) });
+    if (r) setWho(r.id, r.name);
+  }
   const headH = s => ROW + px14(s.sprint ? 34 : 6);
 
-  function relayout(keepScroll) {
+  function relayout() {
     ROW = rowPx();
-    rows = [];
-    for (const s of sections) {
-      rows.push({ k: 'h', key: 'h:' + s.id, s, h: headH(s) });
-      if (folded.has(s.id)) continue;
-      const cs = shown(s);
-      if (!cs.length) rows.push({ k: 'e', key: 'e:' + s.id, s, h: ROW });
-      for (const c of cs) rows.push({ k: 'c', key: 'c:' + c.Key, s, c, h: ROW });
+    for (const p of panes) {
+      p.rows = [];
+      for (const s of p.secs()) {
+        p.rows.push({ k: 'h', key: 'h:' + s.id, s, h: headH(s) });
+        if (folded.has(s.id)) continue;
+        const cs = shown(s);
+        if (!cs.length) p.rows.push({ k: 'e', key: 'e:' + s.id, s, h: ROW });
+        for (const c of cs) p.rows.push({ k: 'c', key: 'c:' + c.Key, s, c, h: ROW });
+      }
+      p.tops = []; p.total = 0;
+      for (const r of p.rows) { p.tops.push(p.total); p.total += r.h; }
+      p.space.style.height = p.total + 'px';
+      for (const [k, n] of p.live) { n.remove(); p.live.delete(k); }
     }
-    tops = []; total = 0;
-    for (const r of rows) { tops.push(total); total += r.h; }
-    space.style.height = total + 'px';
-    if (!stops().includes(cur)) cur = stops()[0] || '';
-    for (const [k, n] of live) { n.remove(); live.delete(k); }
+    if (!paneOf(cur)) cur = stopsOf(left)[0] || stopsOf(right)[0] || '';
     paint();
   }
-  const stops = () => rows.filter(r => r.k !== 'e').map(r => (r.k === 'h' ? 'h:' + r.s.id : r.c.Key));
-  const rowAtY = y => {
-    let lo = 0, hi = rows.length - 1;
-    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (tops[mid] <= y) lo = mid; else hi = mid - 1; }
+  const idOf = r => (r.k === 'h' ? 'h:' + r.s.id : r.k === 'c' ? r.c.Key : '');
+  const stopsOf = p => p.rows.filter(r => r.k !== 'e').map(idOf);
+  const paneOf = id => (id ? panes.find(p => p.rows.some(r => r.k !== 'e' && idOf(r) === id)) : null);
+  const stops = () => stopsOf(paneOf(cur) || left);
+  const rowAtY = (p, y) => {
+    let lo = 0, hi = p.rows.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (p.tops[mid] <= y) lo = mid; else hi = mid - 1; }
     return lo;
   };
 
   // ---- paint the visible window
-  const paint = frame(() => {
+  const paint = () => { for (const p of panes) p.paint(); };
+  function paintPane(p) {
+    const { rows, tops, live, scroller, space } = p;
     if (!rows.length) return;
     const vt = scroller.scrollTop, vb = vt + scroller.clientHeight;
-    const a = Math.max(rowAtY(vt) - 6, 0), b = Math.min(rowAtY(vb) + 6, rows.length - 1);
+    const a = Math.max(rowAtY(p, vt) - 6, 0), b = Math.min(rowAtY(p, vb) + 6, rows.length - 1);
     const want = new Set();
     for (let i = a; i <= b; i++) {
       const r = rows[i]; want.add(r.key);
@@ -131,26 +196,27 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       n.style.transform = `translateY(${tops[i]}px)`; n.style.height = r.h + 'px';
       const inner = n.firstChild;
       if (inner) {
-        const id = r.k === 'h' ? 'h:' + r.s.id : r.k === 'c' ? r.c.Key : '';
-        inner.classList.toggle('cur', id === cur);
+        inner.classList.toggle('cur', idOf(r) === cur);
         if (r.k === 'c') inner.classList.toggle('picked', sel.has(r.c.Key));
       }
     }
     for (const [k, n] of live) if (!want.has(k) && !(drag && drag.keys.some(x => k === 'c:' + x))) { n.remove(); live.delete(k); }
-  });
-  scroller.addEventListener('scroll', () => paint(), { passive: true });
-  new ResizeObserver(() => paint()).observe(scroller);
+  }
+  for (const p of panes) {
+    p.scroller.addEventListener('scroll', () => p.paint(), { passive: true });
+    new ResizeObserver(() => p.paint()).observe(p.scroller);
+  }
 
   function sigOf(r) {
     if (r.k === 'c') { const c = r.c; return [c.Key, c.Summary, c.Status, c.Assignee, c.Points, c.Flagged, c.Type, c.ParentSummary, c.Done, sel.has(c.Key)].join('|'); }
-    if (r.k === 'e') return 'e' + (filter ? 'f' : '');
+    if (r.k === 'e') return 'e' + (filtering() ? 'f' : '');
     const s = r.s;
-    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter,
+    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter, who,
       s.cards.map(c => c.Key + c.Points + c.Assignee + c.Done).join(',')].join('|');
   }
 
   function rowNode(r) {
-    if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filter ? 'No matches' : r.s.sprint ? 'Drop issues here to plan them' : 'The backlog is empty');
+    if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filtering() ? 'No matches' : r.s.sprint ? 'Drop issues here to plan them' : 'The backlog is empty');
     if (r.k === 'h') return headNode(r.s, r.h);
     const c = r.c, t = typeClass(c.Type);
     return h('div.pl-row' + (c.Done ? '.done' : ''), { draggable: true, dataset: { key: c.Key }, style: { height: r.h + 'px' } },
@@ -205,21 +271,29 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   // ---- cursor and selection
   function setCur(id, scrollTo = true) {
     cur = id; paint();
+    const p = paneOf(id); if (!p) return;
+    p.last = id;
     if (!scrollTo) return;
-    const i = rows.findIndex(r => (r.k === 'h' ? 'h:' + r.s.id : r.k === 'c' ? r.c.Key : '') === id);
-    if (i < 0) return;
-    const top = tops[i], bot = top + rows[i].h, vt = scroller.scrollTop, vh = scroller.clientHeight;
-    if (top < vt) scroller.scrollTop = top; else if (bot > vt + vh) scroller.scrollTop = bot - vh;
+    const i = p.rows.findIndex(r => idOf(r) === id);
+    const top = p.tops[i], bot = top + p.rows[i].h, vt = p.scroller.scrollTop, vh = p.scroller.clientHeight;
+    if (top < vt) p.scroller.scrollTop = top; else if (bot > vt + vh) p.scroller.scrollTop = bot - vh;
+  }
+  // tab: the cursor to the other pane, where it was last
+  function otherPane() {
+    if (!sideOn()) return;
+    const p = paneOf(cur) === right ? left : right;
+    const st = stopsOf(p);
+    if (st.length) setCur(st.includes(p.last) ? p.last : st[0]);
   }
   const move = d => { const st = stops(); if (!st.length) return; setCur(st[Math.min(Math.max(st.indexOf(cur) + d, 0), st.length - 1)]); };
   const curCard = () => { for (const s of sections) { const c = s.cards.find(x => x.Key === cur); if (c) return { c, s }; } return null; };
   const curSection = () => { const cc = curCard(); if (cc) return cc.s; return cur.startsWith('h:') ? secOf(Number(cur.slice(2))) : sections[0]; };
   // the cards an action applies to, in display order
   function targets() {
-    if (sel.size) return rows.filter(r => r.k === 'c' && sel.has(r.c.Key)).map(r => r.c.Key);
+    if (sel.size) return allRows().filter(r => r.k === 'c' && sel.has(r.c.Key)).map(r => r.c.Key);
     const cc = curCard(); return cc ? [cc.c.Key] : [];
   }
-  function toggleSel(key) { sel.has(key) ? sel.delete(key) : sel.add(key); for (const k of ['c:' + key]) { const n = live.get(k); if (n) n._sig = ''; } paint(); }
+  function toggleSel(key) { sel.has(key) ? sel.delete(key) : sel.add(key); for (const p of panes) { const n = p.live.get('c:' + key); if (n) n._sig = ''; } paint(); }
 
   // ---- writes: optimistic, queued, reloaded from the server if one fails
   let queue = Promise.resolve(), settle = 0;
@@ -264,7 +338,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
 
   // J/K: swap with the neighbour
   function rankStep(d) {
-    const cc = curCard(); if (!cc || filter) return;
+    const cc = curCard(); if (!cc || filtering()) return;
     const cs = cc.s.cards, i = cs.indexOf(cc.c), j = i + d;
     if (j < 0 || j >= cs.length) return;
     const other = cs[j].Key;
@@ -277,6 +351,15 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const keysToMove = targets(); if (!keysToMove.length) return;
     const to = await app.ui.pick({ title: `Move ${keysToMove.length} to…`, items: sections, label: s => s.name, detail: s => s.cards.length + ' issues' });
     if (to) { moveCards(keysToMove, to, null, false); if (keysToMove.length === 1) cur = keysToMove[0]; sel.clear(); relayout(); setCur(cur); }
+  }
+  // >: to the sprint kept in view
+  function toSide() {
+    const to = sideOn() && secOf(side), ks = targets();
+    if (!to || !ks.length) return;
+    const p = paneOf(cur) || left, st = stopsOf(p), next = st.slice(st.indexOf(cur) + 1).find(id => !ks.includes(id));
+    moveCards(ks, to, null, false); sel.clear(); relayout();
+    setCur(next || stopsOf(p)[0] || '');
+    app.ui.toast(`${ks.length > 1 ? ks.length + ' issues' : ks[0]} to ${to.name}`);
   }
   function shift(d) {
     const cc = curCard(); if (!cc) return;
@@ -344,9 +427,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   document.addEventListener('plan:action', onAction);
 
   // ---- mouse
-  scroller.addEventListener('click', e => {
+  for (const p of panes) p.scroller.addEventListener('click', e => {
     const n = e.target.closest('.pl-row'); if (!n) return;
-    const holder = n.parentElement, r = rows.find(x => 'pl-abs' && live.get(x.key) === holder);
+    const holder = n.parentElement, r = p.rows.find(x => p.live.get(x.key) === holder);
     if (!r) return;
     const a = e.target.closest('[data-act]');
     if (r.k === 'h') {
@@ -376,39 +459,50 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   // ---- drag and drop
-  scroller.addEventListener('dragstart', e => {
-    const n = e.target.closest('.pl-row[data-key]'); if (!n) return;
-    const key = n.dataset.key;
-    const ks = sel.has(key) ? targets() : [key];
-    drag = { keys: ks };
-    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ks.join(','));
-    for (const k of ks) { const l = live.get('c:' + k); if (l && l.firstChild) l.firstChild.classList.add('dragging'); }
-  });
-  function dropAt(e) {
+  function dropAt(p, e) {
+    const { scroller, rows, tops, total } = p;
+    if (!rows.length) return null;
     const rect = scroller.getBoundingClientRect(), y = e.clientY - rect.top + scroller.scrollTop;
-    if (y >= total) { const s = sections[sections.length - 1]; return { s, anchor: null, after: false, y: total - 1 }; }
-    const i = rowAtY(Math.max(y, 0)), r = rows[i];
+    if (y >= total) { const s = rows[rows.length - 1].s; return { s, anchor: null, after: false, y: total - 1 }; }
+    const i = rowAtY(p, Math.max(y, 0)), r = rows[i];
     if (r.k === 'c') { const after = y - tops[i] > r.h / 2; return { s: r.s, anchor: r.c.Key, after, y: tops[i] + (after ? r.h : 0) }; }
     if (r.k === 'h') { const first = shown(r.s)[0]; return { s: r.s, anchor: first ? first.Key : null, after: false, y: tops[i] + r.h }; }
     return { s: r.s, anchor: null, after: false, y: tops[i] + 2 };
   }
-  scroller.addEventListener('dragover', e => {
-    if (!drag) return;
-    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-    const rect = scroller.getBoundingClientRect();
-    if (e.clientY < rect.top + 50) scroller.scrollTop -= 14; else if (e.clientY > rect.bottom - 50) scroller.scrollTop += 14;
-    const t = dropAt(e);
-    dropEl.hidden = false; dropEl.style.top = t.y - 1 + 'px';
-  });
-  scroller.addEventListener('dragleave', e => { if (!scroller.contains(e.relatedTarget)) dropEl.hidden = true; });
-  scroller.addEventListener('drop', e => {
-    if (!drag) return;
-    e.preventDefault();
-    const t = dropAt(e), ks = drag.keys;
-    dropEl.hidden = true; drag = null;
-    moveCards(ks, t.s, t.anchor, t.after);
-  });
-  scroller.addEventListener('dragend', () => { dropEl.hidden = true; drag = null; paint(); for (const n of live.values()) n.firstChild && n.firstChild.classList.remove('dragging'); });
+  const dragNodes = ks => panes.flatMap(p => ks.map(k => p.live.get('c:' + k))).filter(n => n && n.firstChild);
+  for (const p of panes) {
+    const { scroller, dropEl } = p;
+    scroller.addEventListener('dragstart', e => {
+      const n = e.target.closest('.pl-row[data-key]'); if (!n) return;
+      const key = n.dataset.key;
+      const ks = sel.has(key) ? targets() : [key];
+      drag = { keys: ks };
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ks.join(','));
+      for (const l of dragNodes(ks)) l.firstChild.classList.add('dragging');
+    });
+    scroller.addEventListener('dragover', e => {
+      if (!drag) return;
+      const t = dropAt(p, e); if (!t) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      const rect = scroller.getBoundingClientRect();
+      if (e.clientY < rect.top + 50) scroller.scrollTop -= 14; else if (e.clientY > rect.bottom - 50) scroller.scrollTop += 14;
+      dropEl.hidden = false; dropEl.style.top = t.y - 1 + 'px';
+    });
+    scroller.addEventListener('dragleave', e => { if (!scroller.contains(e.relatedTarget)) dropEl.hidden = true; });
+    scroller.addEventListener('drop', e => {
+      if (!drag) return;
+      const t = dropAt(p, e); if (!t) return;
+      e.preventDefault();
+      const ks = drag.keys;
+      dropEl.hidden = true; drag = null;
+      moveCards(ks, t.s, t.anchor, t.after);
+    });
+    scroller.addEventListener('dragend', () => {
+      for (const q of panes) q.dropEl.hidden = true;
+      for (const q of panes) for (const n of q.live.values()) n.firstChild && n.firstChild.classList.remove('dragging');
+      drag = null; paint();
+    });
+  }
 
   // ---- keys
   const G = { group: 'Planning' };
@@ -421,6 +515,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('m', moveTo, 'move to a sprint or the backlog', G);
   scope.bind(']', () => shift(1), 'move to the next sprint', G);
   scope.bind('[', () => shift(-1), 'move to the previous sprint', G);
+  scope.bind('|', () => setSide(side == null ? defaultSide() : null), 'split: keep a sprint in view beside the list', G);
+  scope.bind('>', toSide, 'move to the sprint kept in view (split)', { ...G, when: sideOn });
+  scope.bind('Tab', otherPane, 'the other pane (split)', { ...G, when: sideOn });
   scope.bind(['x', 'Space'], () => { const cc = curCard(); if (cc) { toggleSel(cc.c.Key); move(1); } else if (cur.startsWith('h:')) toggleFold(curSection()); }, 'select', G);
   scope.bind('Enter', () => { const cc = curCard(); if (cc) app.panel.open(cc.c.Key); else toggleFold(curSection()); }, 'open', G);
   scope.bind('z', () => toggleFold(curSection()), 'fold or unfold the section', G);
@@ -436,14 +533,18 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('E', editSprint, 'edit sprint name, goal, end', G);
   scope.bind('R', () => load(true), 'reload', G);
   scope.bind('f', () => filterIn.focus(), 'filter', G);
+  scope.bind('F', openBuilder, 'filter builder', G);
+  scope.bind('A', pickWho, 'filter by assignee', G);
   scope.bind('Escape', () => {
-    if (document.activeElement === filterIn) { filterIn.value = ''; filter = ''; filterIn.blur(); relayout(); return; }
-    if (filter) { filterIn.value = ''; filter = ''; relayout(); return; }
-    sel.clear(); for (const n of live.values()) n._sig = ''; paint();
-  }, 'clear filter and selection', { ...G, input: true, when: () => document.activeElement === filterIn || !!filter || sel.size > 0 });
+    if (document.activeElement === filterIn) { filterIn.value = ''; filterIn.blur(); setFilter(''); return; }
+    if (filtering()) { filterIn.value = ''; filter = ''; match = null; setWho(null); return; }
+    sel.clear(); for (const p of panes) for (const n of p.live.values()) n._sig = ''; paint();
+  }, 'clear filters and selection', { ...G, input: true, when: () => document.activeElement === filterIn || filtering() || sel.size > 0 });
 
   const offBus = app.bus.on('issue:changed', () => { if (writing || Date.now() - lastWrite < 1500) return; load(true); });
-  const off = () => { offBus(); offM(); };
+  const onWide = () => { paintSide(); relayout(); };
+  wide.addEventListener('change', onWide);
+  const off = () => { offBus(); offM(); wide.removeEventListener('change', onWide); };
   const offM = onMetrics(() => relayout(true));
 
   await load();

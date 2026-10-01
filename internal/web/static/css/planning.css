@@ -3,6 +3,13 @@
 .pl-space { position: relative; width: 100%; }
 .pl-abs { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
 .pl-filter { width: 15.714rem; flex: none; }
+.pl-panes { flex-direction: row; }
+.pl-panes > .pl-scroll { flex: 1; min-width: 0; }
+.pl-side { flex: 0 0 45%; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+.pl-side[hidden] { display: none; }
+.pl-side-bar { display: flex; gap: var(--pad); align-items: center; padding: calc(var(--pad) * .5) var(--pad); border-bottom: 1px solid var(--border); background: var(--bg-2); }
+.pl-side-pick { flex: 1; min-width: 0; }
+@media (max-width: 799px) { .pl-split { display: none; } }
 
 .pl-row { display: flex; align-items: center; gap: var(--pad); padding: 0 calc(var(--pad) * 1.5); border-bottom: 1px solid var(--border); background: var(--bg); cursor: default; min-width: 0; user-select: none; }
 .pl-row:hover { background: var(--bg-3); }

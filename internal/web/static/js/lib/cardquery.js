@@ -118,6 +118,7 @@ const HAVE = {
 function matchTerm(term, c, env) {
   if (!term.field) {
     const q = term.values[0];
+    if (env.text) return env.text(c).includes(q);
     return [c.Key, c.Summary, c.Assignee, c.ParentKey, c.ParentSummary].some(s => String(s || '').toLowerCase().includes(q));
   }
   if (term.field === 'is') return term.values.some(v => is(c, v, env));
@@ -130,7 +131,7 @@ function matchTerm(term, c, env) {
   return term.values.some(v => compare(term.field, term.op, have, v));
 }
 
-// compile(q, env) → card => bool; env {me, pins}.
+// compile(q, env) → card => bool; env {me, pins, notes, text}: text(card) is the lowercase haystack for plain words.
 export function compile(q, env = {}) {
   const terms = parse(q);
   if (!terms.length) return null;

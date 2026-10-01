@@ -5,6 +5,9 @@ import { vlist } from '../lib/vlist.js';
 import { rowPx, onChange as onMetrics } from '../lib/metrics.js';
 import { isZero, date as toDate, shortDate, duration } from '../lib/fmt.js';
 import { ymd, addDays, weekStart, hm, dayStart, targetSeconds, workdays, logDialog } from '../lib/worktime.js';
+import * as cq from '../lib/cardquery.js';
+import * as pins from '../lib/pins.js';
+import { openFilterBuilder } from './board_filter.js';
 
 const KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/;
 const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
@@ -18,7 +21,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   const { api, ui, bus, prefs } = app;
   let tab = ['issues', 'day', 'week'].includes(query.tab) ? query.tab : prefs.get('work_tab', 'issues');
   if (!['issues', 'day', 'week'].includes(tab)) tab = 'issues';
-  let cards = [], loaded = false, filter = '', group = prefs.get('work_group', 'status'), hideDone = prefs.get('work_hide_done', 'false') === 'true';
+  let cards = [], loaded = false, filter = null, group = prefs.get('work_group', 'status'), hideDone = prefs.get('work_hide_done', 'false') === 'true';
   let rows = [], sel = -1, list = null, empty = null;
   let day = today(), logs = [], logsPath = '', wsel = 0, cell = { row: 0, col: 0 }, weekRows = [];
   const extra = new Set();
@@ -36,7 +39,16 @@ export default function mount(el, { app, scope, toolbar, query }) {
   }
 
   // ---- toolbar
-  const filterIn = h('input.input.work-filter', { type: 'search', placeholder: 'Filter (f)', spellcheck: false, oninput: debounce(() => { filter = filterIn.value.trim().toLowerCase(); buildRows(); }, 80) });
+  // The board's query language; a plain word matches the key, summary or status.
+  const text = c => (c.Key + ' ' + c.Summary + ' ' + c.Status).toLowerCase();
+  const me = (app.session.me && app.session.me.AccountID) || '';
+  const env = () => ({ me, pins: new Set(pins.list(app).map(p => p[0])), text });
+  const setFilter = t => { filter = cq.compile(t, env()); buildRows(); };
+  const filterIn = h('input.input.work-filter', { type: 'search', placeholder: 'Filter (f)', spellcheck: false, title: 'words, status:review  prio>=high  is:overdue  -type:bug  (F builds a query)', oninput: debounce(() => setFilter(filterIn.value), 80) });
+  function openBuilder() {
+    if (!loaded) return;
+    openFilterBuilder({ app, cards, env: env(), query: filterIn.value.trim(), apply: t => { filterIn.value = t; setFilter(t); } });
+  }
   filterIn.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.stopPropagation(); filterIn.blur(); } });
   const groupSel = h('select.input.work-group', { title: 'Group by (v)', onchange: () => { group = groupSel.value; prefs.set('work_group', group); buildRows(); } },
     ['status', 'project', 'none'].map(g => h('option', { value: g, selected: g === group }, g === 'none' ? 'No grouping' : 'By ' + g)));
@@ -52,7 +64,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
 
   // ---- issues
   function buildRows() {
-    const shown = cards.filter(c => (!hideDone || !c.Done) && (!filter || (c.Key + ' ' + c.Summary + ' ' + c.Status).toLowerCase().includes(filter)));
+    const shown = cards.filter(c => (!hideDone || !c.Done) && (!filter || filter(c)));
     const by = new Map();
     for (const c of shown) {
       const g = group === 'status' ? c.Status : group === 'project' ? c.Key.split('-')[0] : '';
@@ -306,6 +318,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', { ...G, ...I });
   scope.bind('Enter', () => { const c = cur(); if (c) app.panel.open(c.Key); }, 'open issue', { ...G, ...I });
   scope.bind('f', () => filterIn.focus(), 'filter', { ...G, ...I });
+  scope.bind('F', openBuilder, 'filter builder', { ...G, ...I });
   scope.bind('v', () => { group = { status: 'project', project: 'none', none: 'status' }[group]; prefs.set('work_group', group); groupSel.value = group; buildRows(); }, 'group by status / project / none', { ...G, ...I });
   scope.bind('d', toggleDone, 'hide done', { ...G, ...I });
   scope.bind('r', () => { api.forget(); loadWork(); ui.toast('Refreshed'); }, 'refresh', { ...G, ...I });

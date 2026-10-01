@@ -5,8 +5,10 @@
 // join with a comma); the builder stays open for the next. ctrl+x drops the last term, esc closes.
 import { h, clear } from '../lib/dom.js';
 import * as cq from '../lib/cardquery.js';
+import { css } from '../lib/css.js';
 
 export function openFilterBuilder({ app, cards, env, query, apply }) {
+  css('board');
   let col = 0, q = query || '', typed = '';
   const idx = [0, 0, 0];
   const noValue = op => op === 'empty' || op === '-empty';
