@@ -1,4 +1,5 @@
-// Ask ui.llm about an issue (TUI: ctrl+a): canned questions or free text, the answer streams in.
+// Ask ui.llm about an issue (TUI: ctrl+a): canned questions or free text, the answer streams in. As the TUI,
+// the answer goes to the issue's comment composer to edit, so nothing is written until you post it.
 import { h, clear } from './dom.js';
 import { css } from './css.js';
 import { render } from './md.js';
@@ -46,10 +47,10 @@ export async function openAsk(app, key) {
   const status = h('span.dim');
   const free = h('input.input', { type: 'text', placeholder: 'Ask anything about ' + key + '…', autofocus: true, spellcheck: true });
   const copy = h('button.btn', { disabled: true, onclick: async () => { try { await navigator.clipboard.writeText(text); app.ui.toast('Copied'); } catch (e) { app.ui.toast('Could not copy', { kind: 'err' }); } } }, 'Copy');
-  const post = h('button.btn', { disabled: true, title: 'Add the answer as a comment', onclick: async () => {
-    if (!await app.ui.confirm({ title: 'Post as comment', text: 'Post this answer on ' + key + '?', ok: 'Post' })) return;
-    try { await app.api.post('/issues/' + key + '/comments', { Markdown: text }); app.bus.emit('issue:changed', { key }); app.ui.toast('Comment posted'); } catch (e) { app.ui.errToast(e); }
-  } }, 'Post as comment');
+  const post = h('button.btn.primary', { disabled: true, title: 'The answer in the comment composer, to edit and post (ctrl+enter)', onclick: () => {
+    m.close();
+    import('../views/issue.js').then(v => v.composeWith(app, key, text)).catch(e => app.ui.errToast(e));
+  } }, 'Edit as comment');
   const stop = h('button.btn', { hidden: true, onclick: () => abort && abort.abort() }, 'Stop');
 
   async function run(body, label) {

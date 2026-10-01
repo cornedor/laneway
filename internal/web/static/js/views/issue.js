@@ -34,6 +34,13 @@ export function showTerminal(app, k) {
   termWant = k;
   app.panel.open(k);
 }
+// composeWith: text in k's comment composer to edit before posting (an LLM answer, as the TUI's ctrl+a).
+let composeWant = null;
+export function composeWith(app, k, text) {
+  if (here && here.key === k && here.compose) return here.compose(text);
+  composeWant = { key: k, text };
+  app.panel.open(k);
+}
 const drafts = new Map();    // unsent comment text by issue key
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
 const dash = () => h('span.faint', '—');
@@ -51,6 +58,8 @@ export function mountIssue(el, key, { app, full, card }) {
   expect = null;
   const startTerm = termWant === key;
   termWant = '';
+  const startText = composeWant && composeWant.key === key ? composeWant.text : null;
+  composeWant = null;
   const me_ = here = { key, entry: () => ({ key, ...(meta.get(key) || {}) }), term: () => openTerm(true) };
   let dead = false;
   const editors = new Set();
@@ -636,6 +645,13 @@ export function mountIssue(el, key, { app, full, card }) {
     comp.focus();
     comp.el.scrollIntoView({ block: 'nearest' });
   }
+  me_.compose = text => {
+    setReply(null);
+    comp.ta.value = text; drafts.set(key, text);
+    comp.ta.dispatchEvent(new Event('input', { bubbles: true }));
+    comp.size(); composeComment();
+  };
+  if (startText != null) setTimeout(() => me_.compose(startText), 0);
 
   // ---- history tab: time in status, then Changes · Work log · All (comments, changes and work
   // interleaved), newest first, as the TUI's activity tabs; 3 again steps the view, the box filters.
