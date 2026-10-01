@@ -11,6 +11,7 @@ import { workdays } from '../lib/worktime.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
+import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
@@ -985,6 +986,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       if (at) await api.post('/issues/' + card.Key + '/rank', { Other: at.other, After: at.after }).catch(e => ui.errToast(e));
       pushUndo(card.Key + ' → ' + t.Name, async () => { await api.put('/issues/' + card.Key + '/field/status', { To: card.Status }); bus.emit('issue:changed', { key: card.Key }); });
       bus.emit('issue:changed', { key: card.Key, what: card.Key + ' → ' + t.Name });
+      if (done) confetti(app, [...main.querySelectorAll('.bd-lane-head.kdone')].find(e => e.querySelector('.bd-lane-name').textContent === col.Name));
     } catch (e) {
       revertCard(card.Key, before); ui.toast('Could not move ' + card.Key + ': ' + e.message, { kind: 'err' });
     }

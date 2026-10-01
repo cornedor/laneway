@@ -8,6 +8,7 @@ import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
 import { stateOf, latest, unreadCount, setBadge } from '../lib/inbox.js';
 import { dayStart, addDays, workdays } from '../lib/worktime.js';
+import { delightOn } from '../lib/delight.js';
 
 export default function mount(el, { app, scope, toolbar }) {
   css('inbox');
@@ -46,7 +47,7 @@ export default function mount(el, { app, scope, toolbar }) {
     list.setCount(rows.length);
     list.refresh();
     empty.hidden = rows.length > 0;
-    empty.textContent = !loaded ? 'Loading…' : tab === 'mentions' ? 'No one mentioned you.' : tab === 'inbox' && data.threads.length ? 'Inbox zero. Tab shows the rest.' : 'Nothing new on your issues.';
+    empty.textContent = !loaded ? 'Loading…' : tab === 'mentions' ? 'No one mentioned you.' : tab === 'inbox' && data.threads.length ? 'Inbox zero' + (delightOn(app) ? ', all caught up ✓' : '') + '. Tab shows the rest.' : 'Nothing new on your issues.';
     if (rows.length) list.scrollTo(sel);
     showThread(false);
   }
