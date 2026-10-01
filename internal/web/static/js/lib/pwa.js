@@ -45,10 +45,14 @@ function themeColor() {
   sync();
 }
 
+// The issue under el: its row's data-key, else the key text of its card (without an agent chip in it).
 const keyAt = el => {
-  const row = el.closest && el.closest('.card, .lrow, .pl-row, [data-key]');
-  if (!row) return '';
-  const k = (row.dataset && row.dataset.key) || (row.querySelector('.ckey, .l-key') || {}).textContent || '';
+  if (!el.closest) return '';
+  let k = (el.closest('[data-key]') || { dataset: {} }).dataset.key || '';
+  if (!k) {
+    const row = el.closest('.card, .lrow, .pl-row'), ke = row && row.querySelector('.ckey, .l-key');
+    k = ke ? [...ke.childNodes].filter(n => n.nodeType === Node.TEXT_NODE).map(n => n.nodeValue).join('') : '';
+  }
   return KEY.test(k.trim()) ? k.trim() : '';
 };
 
