@@ -28,14 +28,11 @@ func (s *server) start() error {
 	if err != nil {
 		return err
 	}
-	logPath := filepath.Join(os.TempDir(), "laneway-desktop.log")
-	if dir, err := os.UserCacheDir(); err == nil && os.MkdirAll(filepath.Join(dir, "laneway"), 0o700) == nil {
-		logPath = filepath.Join(dir, "laneway", "desktop.log")
-	}
-	logf, err := os.Create(logPath)
+	logf, err := logFile("desktop.log")
 	if err != nil {
 		return err
 	}
+	logPath := logf.Name()
 	s.cmd = exec.Command(exe, "web", "-no-open", "-addr", s.addr)
 	s.cmd.Stdout, s.cmd.Stderr = logf, logf
 	s.cmd.Env = append(os.Environ(), "PATH="+loginPath())
@@ -79,6 +76,19 @@ func (s *server) running() bool {
 		Version string `json:"version"`
 	}
 	return resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(&v) == nil && v.Version != ""
+}
+
+// logFile creates name in laneway's cache directory.
+func logFile(name string) (*os.File, error) {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		dir = os.TempDir()
+	}
+	dir = filepath.Join(dir, "laneway")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+	return os.Create(filepath.Join(dir, name))
 }
 
 // lanewayPath is the laneway binary in the app bundle, else on PATH.
