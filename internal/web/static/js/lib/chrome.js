@@ -102,10 +102,10 @@ export function install(app) {
   const net = () => { off.hidden = navigator.onLine; document.body.classList.toggle('is-offline', !navigator.onLine); };
   addEventListener('online', net); addEventListener('offline', net); net();
 
-  // Agents that wait on you (herdr). Working ones only as a quiet count.
+  // Agents on an issue that wait on you (herdr). Working ones only as a quiet count.
   const ag = add(h('a', { href: '#/agents', hidden: true }), 20);
   app.bus.on('agents', s => {
-    const as = (s && s.Available && s.Agents) || [];
+    const as = ((s && s.Available && s.Agents) || []).filter(a => a.Key);
     const blocked = as.filter(a => a.Status === 'blocked').length, working = as.filter(a => a.Status === 'working').length;
     ag.hidden = !blocked && !working;
     ag.className = 'ind' + (blocked ? ' warn' : ' quiet');

@@ -380,7 +380,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     for (const p of S.panes) p.cards = p.folded ? [] : p.all;
     S.where.clear();
     for (const p of S.panes) p.cards.forEach((c, i) => S.where.set(c.Key, { p, i }));
-    for (const k of [...S.marks]) if (!S.where.has(k)) S.marks.delete(k);
     if (S.sel && !S.where.has(S.sel)) S.sel = null;
     const rh = swim ? 0 : probeHeight(lanes);
     for (const p of S.panes) {
@@ -1207,7 +1206,19 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const need = fn => () => { const c = curCard(); if (c) fn(c); else ui.toast('Select a card first'); };
   const needW = fn => need(c => { if (writable()) fn(c); });
   const edit = field => needW(c => app.actions.edit(c.Key, field, cardEl(c.Key)));
+  app.marked = () => [...S.marks];
   const bulkKeys = () => (S.marks.size ? [...S.marks] : S.sel ? [S.sel] : []);
+  // Marks survive view and filter changes; after a bulk edit only the cards it did not change stay marked (TUI).
+  async function bulk() {
+    const ks = bulkKeys();
+    if (!writable() || !ks.length) return;
+    const res = await app.actions.bulk(ks);
+    if (!res) return;
+    const done = new Set(res.Done);
+    const was = [...S.marks];
+    S.marks = new Set(ks.filter(k => !done.has(k)));
+    new Set([...was, ...S.marks]).forEach(rebind);
+  }
   const cycleO = () => {
     if (S.mode === 'lanes') setSwim(SWIMS[(SWIMS.indexOf(S.swim) + 1) % SWIMS.length]);
     else setSort(SORTS[(SORTS.indexOf(S.sort) + 1) % SORTS.length], 1);
@@ -1247,7 +1258,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('.', repeat, 'repeat the last change on this card', { group: E });
     k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, 'mark card (multi-select)', { group: E });
     k.bind('ctrl+a', markAll, 'mark all in the lane / list', { group: E });
-    k.bind('X', () => { if (!writable()) return; const ks = bulkKeys(); if (ks.length) app.actions.bulk(ks); }, 'bulk edit marked cards', { group: E });
+    k.bind('X', bulk, 'bulk edit marked cards', { group: E });
     k.bind('n', () => app.actions.create({ project: S.project }), 'new issue', { group: E });
     k.bind('*', need(togglePin), 'pin / unpin issue (first in the palette)', { group: G });
     k.bind('o', need(c => window.open(app.session.baseURL + '/browse/' + c.Key, '_blank', 'noopener')), 'open in Jira', { group: G });

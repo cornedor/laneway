@@ -47,6 +47,13 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     }
   }
 
+  // The roadmap's open epics blocking it (TUI roadmapBlock): done or off-roadmap blockers don't count.
+  const openBlockers = it => {
+    const bs = (it.BlockedBy || []).map(k => epics.find(x => x.Key === k)).filter(b => b && !b.Done);
+    return bs.length ? bs : null;
+  };
+  // A blocker that ends after it starts.
+  const blockConflict = (it, bs) => { const s = ms(it.Start); return s != null && bs.some(b => { const e = ms(b.End); return e != null && e > s; }); };
   const span = it => {
     let s = ms(it.Start), e = ms(it.End);
     if (s == null && e == null) return null;
@@ -99,20 +106,18 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function rowEl(r, i, w) {
     const it = r.e, s = span(it), kid = r.kid, c = kid ? (it.Done ? 'done' : 'new') : cat(it);
     const isOpen = !kid && open.has(it.Key);
-    const blocked = !kid && (it.BlockedBy || []).length ? it.BlockedBy : null;
-    let bad = false;
-    if (blocked && s) for (const k of blocked) { const b = epics.find(x => x.Key === k); const bs = b && span(b); if (bs && bs[1] > s[0]) bad = true; }
-    const pct = kid ? (it.Done ? 100 : 0) : it.Children ? Math.round(it.DoneChildren / it.Children * 100) : it.Done ? 100 : 0;
+    const blocked = kid ? null : openBlockers(it), bad = blocked && blockConflict(it, blocked);
+    const pct = kid ? (it.Done ? 100 : 0) : it.Points > 0 ? Math.round(it.DonePoints / it.Points * 100) : it.Children ? Math.round(it.DoneChildren / it.Children * 100) : it.Done ? 100 : 0;
     const label = h('div.rm-label', { onclick: () => select(i) },
       !kid ? h('button.rm-fold', { 'aria-label': isOpen ? 'Fold' : 'Unfold', 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, it.Kids && it.Kids.length ? (isOpen ? '▾' : '▸') : '') : h('span.rm-fold'),
       h('span.rm-key', it.Key), h('span.rm-sum', { title: it.Summary }, it.Summary),
-      blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: 'Blocked by ' + blocked.join(', ') }, bad ? '⛔' : '⛓'),
+      blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: 'Blocked by ' + blocked.map(b => b.Key).join(', ') + (bad ? ', ending after this starts' : '') }, bad ? '⛔' : '⛓'),
       !kid && it.Children > 0 && h('span.rm-cnt', it.DoneChildren + '/' + it.Children));
     const track = h('div.rm-track', { style: { width: w + 'px' }, onclick: () => select(i) });
     if (s) {
       const when = shortDate(s[0]) + ' – ' + shortDate(s[1] - DAY) + (it.DatesFromSprints ? ' (from sprints)' : '');
       track.append(h('div.rm-bar.c-' + c + (it.DatesFromSprints ? '.soft' : ''), {
-        style: { left: xOf(s[0]) + 'px', width: Math.max(xOf(s[1]) - xOf(s[0]), 6) + 'px', '--pct': pct + '%' }, title: `${it.Key} ${it.Summary}\n${when}\n${it.Status}` + (kid ? '' : `, ${pct}% of ${it.Children} issues`),
+        style: { left: xOf(s[0]) + 'px', width: Math.max(xOf(s[1]) - xOf(s[0]), 6) + 'px', '--pct': pct + '%' }, title: `${it.Key} ${it.Summary}\n${when}\n${it.Status}` + (kid ? '' : it.Points > 0 ? `, ${pct}% of ${it.Points} points` : `, ${pct}% of ${it.Children} issues`),
         onclick: ev => { ev.stopPropagation(); select(i); app.panel.open(it.Key); },
       }, h('span', it.Summary)));
     } else track.append(h('span.rm-nodate', 'no dates'));

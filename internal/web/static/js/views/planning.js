@@ -28,6 +28,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
   let data = null, sections = [], cur = '', filter = '', velAvg = 0, velN = 0, columns = [];
   const sel = new Set(), folded = new Set();
+  app.marked = () => [...sel];
   let rows = [], tops = [], total = 0, ROW = 32, drag = null, token = 0, writing = 0, lastWrite = 0;
 
   const scroller = h('div.pl-scroll', { tabindex: -1 });

@@ -16,6 +16,7 @@ app.keys     scope(name) → {bind(spec, fn, desc, {input,hidden,group}), dispos
 app.ui       toast errToast modal pick prompt confirm avatar chip statusPill          (lib/ui.js)
 app.commands register({id,title,group,run,when}) → unregister                         (palette lists these)
 app.go('/board/ABC/1?issue=ABC-1'), app.query(), app.setQuery({issue})
+app.marked   () → keys the view has marked (x), set by the view in mount, null after a route change
 app.panel    open(key[, {card}]) / close()    the right-hand issue panel (js/views/issue.js: mountIssue(el, key, {app, full}) → cleanup)
 app.actions  edit(key, field[, anchor]) transition(key) create({project,parent,type}) palette(mode) jump() bulk(keys)
 app.prefs    get/set                per-site prefs on the server, mirrored to localStorage

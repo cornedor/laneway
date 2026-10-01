@@ -11,10 +11,16 @@ export async function install(app) {
   if (!list.length) return;
   const scope = app.keys.scope('actions');
   const taken = new Set(app.keys.registry().flatMap(r => r.specs));
-  const panel = () => !!(app.panel.key && document.getElementById('panel').contains(document.activeElement));
+  // Where the keys are: the panel or the view. A modal (the palette) keeps the last one.
+  let inPanel = false;
+  addEventListener('focusin', e => {
+    if (e.target.closest('#panel')) inPanel = true;
+    else if (e.target.closest('#view, #top, #viewbar')) inPanel = false;
+  });
+  const panel = () => !!(app.panel.key && inPanel);
   const applies = a => a.Where === '' || a.Where === 'both' || (a.Where === 'panel') === panel();
   const keysOf = () => {
-    const marked = [...document.querySelectorAll('#view [data-key].marked, #view [data-key].mark, #view [data-key][data-marked]')].map(e => e.dataset.key);
+    const marked = app.marked ? app.marked() : [];
     if (marked.length && !panel()) return marked;
     const k = panel() ? app.panel.key : target(app);
     return k ? [k] : [];
@@ -33,7 +39,7 @@ export async function install(app) {
     if (r.Refresh) for (const k of ks) app.bus.emit('issue:changed', { key: k });
   }
   for (const a of list) {
-    app.commands.register({ id: 'action:' + a.ID, title: a.Name, group: 'Actions', run: () => run(a) });
+    app.commands.register({ id: 'action:' + a.ID, title: a.Name, group: 'Actions', run: () => run(a), when: () => applies(a) });
     if (!a.Key) continue;
     if (taken.has(a.Key)) { console.warn('ui.actions.' + a.Name + ': ' + a.Key + ' is taken here; the action stays in the palette'); continue; }
     taken.add(a.Key);
