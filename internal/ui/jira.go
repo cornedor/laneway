@@ -382,7 +382,11 @@ func (m *Model) openJiraLinkPicker() {
 		items = append(items, jiraPickerItem{id: ch.Key, label: "child " + ch.Key + " " + ch.Summary})
 	}
 	for _, l := range web {
-		items = append(items, jiraPickerItem{id: l.URL, label: "web " + safeterm.Line(l.Title), value: "web"})
+		kind := "web " // opens in the browser; a page of this site's Confluence reads in the panel
+		if m.jiraClient.PageID(l.URL) != "" {
+			kind = "page "
+		}
+		items = append(items, jiraPickerItem{id: l.URL, label: kind + safeterm.Line(l.Title), value: "web"})
 	}
 	m.setJiraPickerItems(items)
 }

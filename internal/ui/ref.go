@@ -63,6 +63,7 @@ func (m *Model) loadCurrentRef() tea.Cmd {
 	m.refGen++
 	m.refLoading = true
 	m.refErr = nil
+	m.page = nil
 	m.jiraIssue = nil
 	m.panelSel = panelSel{} // its lines go with the issue
 	m.refView.GotoTop()
@@ -77,6 +78,7 @@ func (m *Model) closeRef() {
 		return
 	}
 	m.refOpen = false
+	m.page = nil
 	m.closeAgentPanel()
 	m.refs = nil
 	m.refBack = nil
@@ -122,6 +124,11 @@ func (m Model) openCurrentRefURL() (tea.Model, tea.Cmd) {
 // open-reference key close it, r refetches, o opens it in a browser, the
 // Jira keys edit it, and anything else scrolls the viewport.
 func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.page != nil {
+		if out, cmd, ok := m.pageKey(msg); ok {
+			return out, cmd
+		}
+	}
 	if cmd, ok := m.refineKey(msg); ok {
 		return m, cmd
 	}
@@ -323,6 +330,10 @@ func (m *Model) renderRef() {
 		return
 	}
 	r := m.currentRef()
+	if m.page != nil {
+		m.refView.SetContent(m.renderPage(m.refView.Width()))
+		return
+	}
 	switch {
 	case m.refErr != nil:
 		m.refView.SetContent(refErrStyle.Render(m.refErr.Error()))

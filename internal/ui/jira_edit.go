@@ -1056,6 +1056,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickLink && it.value == "web" {
 		m.closeJiraPicker()
+		if id := m.jiraClient.PageID(it.id); id != "" {
+			return m, m.openPage(id, strings.TrimPrefix(it.label, "page "))
+		}
 		m.status = "opening " + it.id + "…"
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}

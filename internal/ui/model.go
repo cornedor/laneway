@@ -117,7 +117,7 @@ func defaultKeys() keyMap {
 		JiraComment:  bind("add comment", "c"),
 		JiraReply:    bind("reply to comment", "R"),
 		JiraStart:    bind("start work: agent, branch and prompt, then a herdr worktree", "S"),
-		JiraLinks:    bind("go to linked issue or web link", "L"),
+		JiraLinks:    bind("go to linked issue or web link (a Confluence page reads in the panel)", "L"),
 		Back:         bind("previous issue", "backspace"),
 		Image:        bind("view images", "i"),
 
@@ -285,11 +285,13 @@ type Model struct {
 	// statusLogged is the last one kept.
 	statusLog     []statusEntry
 	statusLogged  string
-	statusAt      time.Time       // when the status line last changed
-	statusErr     string          // the status line's text when it is an error (fail)
-	lastDownload  string          // the attachment saved last, for the palette to open
-	warnings      []string        // the startup warnings
-	homeShown     bool            // ui.home's start screen opened once
+	statusAt      time.Time  // when the status line last changed
+	statusErr     string     // the status line's text when it is an error (fail)
+	lastDownload  string     // the attachment saved last, for the palette to open
+	warnings      []string   // the startup warnings
+	homeShown     bool       // ui.home's start screen opened once
+	page          *panelPage // a Confluence page the panel shows over its issue (page.go)
+	pageGen       int
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
@@ -949,6 +951,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleLoadingTick()
 	case startWritesMsg:
 		return m.handleStartWrites(msg)
+	case pageMsg:
+		return m.handlePage(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())
