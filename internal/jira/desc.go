@@ -713,7 +713,7 @@ func canon(n adfNode) string {
 		b.WriteString(":" + strings.ToLower(bg))
 		b.WriteString(tableAttrs(n, "colwidth", "colspan", "rowspan"))
 	case "table":
-		b.WriteString(tableAttrs(n, "layout", "width", "isNumberColumnEnabled"))
+		b.WriteString(tableAttrs(n, "layout", "width", "isNumberColumnEnabled", "displayMode"))
 	}
 	b.WriteString("(")
 	content := n.Content
@@ -1320,7 +1320,10 @@ func parseInline(s string, marks []any) []any {
 					emit()
 					attrs := map[string]any{"href": href}
 					if h, title, ok := strings.Cut(href, ` "`); ok && strings.HasSuffix(title, `"`) && !strings.Contains(h, " ") {
-						attrs["href"], attrs["title"] = h, strings.TrimSuffix(title, `"`) // [text](url "title")
+						attrs["href"] = h // [text](url "title")
+						if title = strings.TrimSuffix(title, `"`); title != "" {
+							attrs["title"] = title
+						}
 					}
 					link := map[string]any{"type": "link", "attrs": attrs}
 					out = append(out, parseInline(label, append(slices.Clone(marks), link))...)
@@ -1392,26 +1395,30 @@ func parseInline(s string, marks []any) []any {
 }
 
 // tableAttrs are a table's or cell's layout attributes markdown can't
-// write, those away from Jira's defaults: a table with them is kept whole
-// rather than saved without them.
+// write, those away from what Jira's editor writes by default (layout
+// center or default at 760px, numbers off, cells one wide): a table with
+// them is kept whole rather than saved without them.
 func tableAttrs(n adfNode, names ...string) string {
 	var b strings.Builder
 	for _, k := range names {
-		switch v := n.Attrs[k].(type) {
-		case nil:
-		case bool:
-			if v {
-				fmt.Fprintf(&b, " %s=true", k)
-			}
-		case string:
-			if v != "" && v != "default" {
-				fmt.Fprintf(&b, " %s=%s", k, v)
-			}
-		case float64:
-			if v != 1 || k == "width" {
-				fmt.Fprintf(&b, " %s=%v", k, v)
-			}
-		default: // colwidth: a list of widths
+		v, ok := n.Attrs[k]
+		if !ok || v == nil {
+			continue
+		}
+		plain := false
+		switch k {
+		case "layout":
+			plain = v == "" || v == "default" || v == "center"
+		case "width":
+			plain = v == float64(760)
+		case "isNumberColumnEnabled":
+			plain = v == false
+		case "displayMode":
+			plain = v == "" || v == "default"
+		case "colspan", "rowspan":
+			plain = v == float64(1)
+		}
+		if !plain {
 			fmt.Fprintf(&b, " %s=%v", k, v)
 		}
 	}

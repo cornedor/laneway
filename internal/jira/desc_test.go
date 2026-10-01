@@ -407,6 +407,10 @@ func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
 		kept      bool
 	}{
 		{"default table", table(`"isNumberColumnEnabled":false,"layout":"default","localId":"x"`, `"colspan":1,"rowspan":1`), false},
+		{"current editor's table", table(`"isNumberColumnEnabled":false,"layout":"center","width":760,"displayMode":"default","localId":"x"`, `"colspan":1,"rowspan":1,"colwidth":null`), false},
+		{"fixed table", table(`"layout":"center","displayMode":"fixed"`, ``), true},
+		{"aligned start", table(`"layout":"align-start"`, ``), true},
+		{"wider", table(`"layout":"center","width":1200`, ``), true},
 		{"wide table", table(`"layout":"wide"`, ``), true},
 		{"sized column", table(`"layout":"default"`, `"colwidth":[240]`), true},
 		{"numbered", table(`"isNumberColumnEnabled":true`, ``), true},
