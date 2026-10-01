@@ -414,6 +414,54 @@ func TestJiraTabAssigneeSeveral(t *testing.T) {
 	}
 }
 
+// TestJiraTabAssigneeOneHand: several people with the keyboard alone (tab
+// ticks the row a typed filter found) or the mouse alone (a click ticks,
+// a click on the hint applies).
+func TestJiraTabAssigneeOneHand(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "a"))
+	m = out.(Model)
+	for _, k := range []string{"A", "d", "a", "tab"} {
+		out, _ = m.handleJiraPickerKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	if m.jiraPicker.filter.Value() != "" || m.jiraPicker.checked["a1"] == "" {
+		t.Fatalf("tab after typing: filter %q, ticks %v", m.jiraPicker.filter.Value(), m.jiraPicker.checked)
+	}
+	m.jiraPicker.idx = 1
+	out, _ = m.handleJiraPickerKey(keyMsg(t, "tab"))
+	out, _ = out.(Model).handleJiraPickerKey(keyMsg(t, "enter"))
+	if a := out.(Model).jiraTab.assignee; a.id != "me,a1" {
+		t.Fatalf("keyboard: assignee %+v", a)
+	}
+
+	m = jiraTabModel(t)
+	out, _ = m.handleJiraKey(keyMsg(t, "a"))
+	m = out.(Model)
+	at := func(text string) (int, int) {
+		for y, l := range strings.Split(ansi.Strip(m.View().Content), "\n") {
+			if x := strings.Index(l, text); x >= 0 {
+				return len([]rune(l[:x])) + 1, y
+			}
+		}
+		t.Fatalf("%q not on screen", text)
+		return 0, 0
+	}
+	for _, name := range []string{"Me", "Ada"} {
+		x, y := at("  " + name)
+		out, _ = m.handleClick(tea.MouseClickMsg{X: x + 2, Y: y, Button: tea.MouseLeft})
+		m = out.(Model)
+	}
+	if !m.jiraPicker.active || len(m.jiraPicker.checked) != 2 {
+		t.Fatalf("clicks: open %v, ticks %v", m.jiraPicker.active, m.jiraPicker.checked)
+	}
+	x, y := at("↵ apply")
+	out, _ = m.handleClick(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+	if a := out.(Model).jiraTab.assignee; a.id != "me,a1" {
+		t.Fatalf("mouse: assignee %+v", a)
+	}
+}
+
 // TestJiraTabSearch: / narrows the board locally, enter keeps the query, esc
 // clears it.
 func TestJiraTabSearch(t *testing.T) {

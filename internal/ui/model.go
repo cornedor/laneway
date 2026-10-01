@@ -1034,6 +1034,13 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case outside:
 			return m.handleJiraPickerKey(keyPress("esc"))
+		case i == pickerApplyRow:
+			m.jiraPicker.ticked = true // the ticks as shown, even none
+			return m.handleJiraPickerKey(keyPress("enter"))
+		case i >= 0 && m.jiraPicker.checked != nil:
+			m.jiraPicker.idx = i // several at once: a click ticks
+			m.toggleChecked()
+			return m, nil
 		case i >= 0:
 			m.jiraPicker.idx = i
 			return m.handleJiraPickerKey(keyPress("enter"))

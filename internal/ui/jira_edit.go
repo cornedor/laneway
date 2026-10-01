@@ -634,9 +634,16 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "enter":
 		return m.applyJiraPick()
-	case "space":
-		if p := &m.jiraPicker; p.checked != nil && p.filter.Value() == "" {
+	case "space", "tab":
+		// space ticks while nothing is typed (names have spaces), tab
+		// always, clearing what was typed for the next name.
+		if p := &m.jiraPicker; p.checked != nil && (msg.String() == "tab" || p.filter.Value() == "") {
 			m.toggleChecked()
+			if p.filter.Value() != "" {
+				p.filter.SetValue("")
+				m.filterJiraPicker()
+				p.idx = max(0, slices.IndexFunc(p.items, func(it jiraPickerItem) bool { return it.current && it.id != "" }))
+			}
 			return m, nil
 		}
 	case "left":
@@ -1278,8 +1285,15 @@ func (m *Model) pickerRowAt(x, y int) (idx int, outside bool) {
 	if i := start + y - first; y >= first && i < end {
 		return i, false
 	}
+	if p.checked != nil && y == top+lipgloss.Height(m.renderJiraPicker(bodyH))-3 { // the hint, above padding and border
+		return pickerApplyRow, false
+	}
 	return -1, false
 }
+
+// pickerApplyRow is pickerRowAt's answer for a multi picker's hint line,
+// whose click applies the ticks.
+const pickerApplyRow = -2
 
 // pickerInline is whether the picker drops under its panel row rather than
 // drawing as a modal.
@@ -1339,7 +1353,7 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 	}
 	hint := "↵ apply · esc cancel"
 	if p.checked != nil {
-		hint = "space ticks several · " + hint
+		hint = "space/tab/click ticks · [ ↵ apply ] · esc cancel"
 	}
 	if p.filterable {
 		hint = "type to filter · " + hint
@@ -1466,7 +1480,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 
 	hintTxt := "↑/↓ move · ↵ apply · esc cancel"
 	if m.jiraPicker.checked != nil {
-		hintTxt = "↑/↓ move · space ticks several · ↵ apply · esc cancel"
+		hintTxt = "↑/↓ move · space/tab/click ticks · [ ↵ apply ] · esc cancel"
 	}
 	if m.jiraPicker.filterable {
 		hintTxt = "type to filter · " + hintTxt
