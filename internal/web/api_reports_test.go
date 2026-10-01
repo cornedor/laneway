@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -95,6 +96,12 @@ func TestReportsAndPlanning(t *testing.T) {
 	}
 	if c := reportsPost(t, at("/roadmap/"+rm.Epics[0].Key+"/dates"), map[string]any{"Start": "2030-01-01", "End": "2030-02-01"}); c != 200 {
 		t.Fatalf("dates: %d", c)
+	}
+	var after struct {
+		Epics []struct{ Key, Start, End string }
+	}
+	if c := searchGet(t, at("/roadmap/DEMO?fresh=1"), &after); c != 200 || !strings.HasPrefix(after.Epics[0].Start, "2030-01-01") || !strings.HasPrefix(after.Epics[0].End, "2030-02-01") {
+		t.Errorf("dates after: %d %+v", c, after.Epics[0])
 	}
 	if c := reportsPost(t, at("/roadmap/"+rm.Epics[0].Key+"/dates"), map[string]any{"End": "soon"}); c != 400 {
 		t.Fatalf("bad date: %d", c)

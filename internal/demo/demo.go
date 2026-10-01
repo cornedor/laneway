@@ -427,6 +427,8 @@ func (s *Server) edit(iss *issue, body map[string]any) {
 			}
 		case "duedate":
 			iss.due, _ = v.(string)
+		case startField:
+			iss.start, _ = v.(string)
 		case "components":
 			iss.components = nil
 			for _, c := range asSlice(v) {

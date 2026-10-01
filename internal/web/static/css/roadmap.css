@@ -20,6 +20,10 @@
 .rm-bar { --c: var(--cat-new); position: absolute; top: .429rem; bottom: .429rem; border-radius: 5px; border: 1px solid var(--c); overflow: hidden; cursor: pointer;
   background: linear-gradient(to right, color-mix(in srgb, var(--c) 55%, var(--bg-2)) var(--pct), color-mix(in srgb, var(--c) 16%, var(--bg-2)) var(--pct)); }
 .rm-bar:hover { filter: brightness(1.1); }
+.rm-bar { touch-action: pan-y; }
+.rm-bar::before, .rm-bar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 6px; cursor: ew-resize; z-index: 1; } .rm-bar::before { left: 0; } .rm-bar::after { right: 0; }
+.rm-bar.grip-start { border-left: 3px solid var(--accent); } .rm-bar.grip-end { border-right: 3px solid var(--accent); }
+.rm-said { font-size: .857rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .rm-bar.c-indeterminate { --c: var(--cat-indeterminate); } .rm-bar.c-done { --c: var(--cat-done); }
 .rm-bar.soft { opacity: .6; border-style: dashed; }
 .rm-bar span { position: absolute; inset: 0; padding: 0 .571rem; line-height: calc(var(--row) - .429rem); font-size: .857rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); pointer-events: none; }
