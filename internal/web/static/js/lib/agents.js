@@ -4,6 +4,7 @@
 import { h } from './dom.js';
 import { css } from './css.js';
 import { target } from './timer.js';
+import { notify } from './notify.js';
 
 export const GLYPH = { working: '⚙', blocked: '✋', done: '✓', idle: '○', unknown: '?', worktree: '◌' };
 export const LABEL = { working: 'working', blocked: 'waiting on you', done: 'done', idle: 'idle', unknown: 'unknown', worktree: 'worktree, no agent' };
@@ -60,7 +61,9 @@ export function install(app) {
     sig = s; snap = next; index(); paintAll();
     if (!first) for (const a of snap.Agents) {
       if (a.Status === 'blocked' && was.get(a.PaneID) !== 'blocked' && a.Key) {
-        ui.toast((a.Key) + ': the agent waits on you', { action: { label: 'Open', run: () => app.go('/agents') }, ms: 8000 });
+        const show = () => app.go('/agents?agent=' + encodeURIComponent(a.Key));
+        ui.toast(a.Key + ': the agent waits on you', { action: { label: 'Open', run: show }, ms: 8000 });
+        notify(a.Key + ': the agent waits on you', a.Name || '', show, 'agent:' + a.PaneID);
       }
     }
     first = false;
@@ -97,7 +100,9 @@ export function install(app) {
 
   // ---- keys and commands
   const demo = () => !!(app.session && app.session.demo);
-  const need = fn => () => { if (demo()) return ui.toast('Not available in demo'); const k = target(app); if (k) fn(k); else ui.toast('Select an issue first'); };
+  const pick = fn => () => { const k = target(app); if (k) fn(k); else ui.toast('Select an issue first'); };
+  const need = fn => () => (demo() ? ui.toast('Not available in demo') : pick(fn)());
+  const herdr = () => !demo() && snap.Available; // as the TUI: start work needs herdr
   const copyBranch = async key => {
     try {
       const { Name } = await api.get('/issues/' + key + '/branch');
@@ -124,18 +129,18 @@ export function install(app) {
     app.go('/agents?agent=' + encodeURIComponent(key));
   }, true);
   const k = app.keys.scope('agents-global');
-  k.bind('S', need(key => start(key)), 'start work: the form (agent, branch, prompt); focuses its agent if one runs', { group: 'Agents', when: () => !demo() });
-  k.bind('alt+s', need(key => start(key, { another: true })), 'start another agent in the issue\'s worktree', { group: 'Agents', when: () => !demo() });
-  k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: 'Agents', when: () => !demo() });
+  k.bind('S', need(key => start(key)), 'start work: the form (agent, branch, prompt); focuses its agent if one runs', { group: 'Agents', when: herdr });
+  k.bind('alt+s', need(key => start(key, { another: true })), 'start another agent in the issue\'s worktree', { group: 'Agents', when: herdr });
+  k.bind('ctrl+y', pick(copyBranch), 'copy branch name', { group: 'Agents' });
   // The issue's agent's terminal in the issue's Terminal tab, typing (ctrl+\ there goes back to the issue, as the TUI's agent_back).
   const typeInto = key => { const s = stateFor(key); if (!s || !s.count) return ui.toast(key + ' has no agent: S starts one'); import('../views/issue.js').then(m => m.showTerminal(app, key)).catch(e => ui.errToast(e)); };
   k.bind('ctrl+\\', need(typeInto), 'type into the issue\'s agent (its terminal in the panel)', { group: 'Agents', when: () => !demo() && snap.Available });
   const cmd = (id, title, run, when, keys) => app.commands.register({ id, group: 'Agents', get title() { return title(); }, keys, run, when });
-  cmd('agents:start', () => { const s = stateFor(target(app)); return (s && s.count ? 'Focus the agent of ' : 'Start work on ') + target(app); }, need(key => start(key)), () => !demo() && !!target(app), 'S');
-  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { another: true })), () => !demo() && !!target(app) && snap.Available, 'alt+s');
+  cmd('agents:start', () => { const s = stateFor(target(app)); return (s && s.count ? 'Focus the agent of ' : 'Start work on ') + target(app); }, need(key => start(key)), () => herdr() && !!target(app), 'S');
+  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { another: true })), () => herdr() && !!target(app), 'alt+s');
   cmd('agents:terminal', () => 'Type into the agent of ' + target(app) + ' (its terminal in the panel)', need(typeInto), () => !demo() && !!target(app) && !!(stateFor(target(app)) || {}).count, 'ctrl+\\');
   cmd('agents:show', () => 'Show the agent of ' + target(app) + ' in Agents', need(key => app.go('/agents?agent=' + encodeURIComponent(key))), () => !demo() && !!target(app) && !!stateFor(target(app)));
-  cmd('agents:branch', () => 'Copy branch name of ' + target(app), need(copyBranch), () => !demo() && !!target(app), 'ctrl+y');
+  cmd('agents:branch', () => 'Copy branch name of ' + target(app), pick(copyBranch), () => !!target(app), 'ctrl+y');
   cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && !!target(app));
   app.agents.draftPR = demo() ? () => ui.toast('Not available in demo') : draftPR;
 }
