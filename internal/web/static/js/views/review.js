@@ -1,4 +1,5 @@
-// Waiting on my review: the issues named by the pull and merge requests gh and glab list for you.
+// Waiting on my review: the issues named by the pull and merge requests gh and glab list for you. As the TUI,
+// their cards get a ⌥ for the rest of the session (app.reviewKeys) and b shows them as a board view.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 
@@ -21,10 +22,17 @@ export default function mount(el, { app, scope, toolbar }) {
       const r = await api.get('/review', { fresh: true });
       if (dead) return;
       cards = r.Cards || []; sel = Math.min(sel, Math.max(cards.length - 1, 0));
+      app.reviewKeys = new Set(cards.map(c => c.Key)); app.bus.emit('review:keys');
+      clear(toolbar).append(h('span.spacer'), cards.length ? h('button.btn.ghost.sm', { title: 'b', onclick: asView }, 'As a board view') : '');
       note.hidden = cards.length > 0;
       note.textContent = r.Requests ? 'Nothing waits on your review (no issue keys in the requests\' titles or branches).' : 'Nothing waits on your review.';
       paint();
     } catch (e) { if (!dead) { note.hidden = false; note.textContent = e.message; } }
+  }
+  // The TUI's ctrl+r view: the board, showing only these issues.
+  function asView() {
+    if (!cards.length) return ui.toast('Nothing waits on your review');
+    app.go('/board?' + new URLSearchParams({ sprint: 'jql:key in (' + cards.map(c => c.Key).join(', ') + ') ORDER BY updated DESC', vname: 'Review: waiting on me' }));
   }
   const move = d => { if (!cards.length) return; sel = Math.max(0, Math.min(cards.length - 1, sel + d)); paint(); };
   const G = 'Review';
@@ -34,6 +42,7 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('o', () => cards[sel] && window.open(app.session.baseURL + '/browse/' + cards[sel].Key, '_blank', 'noopener'), 'open in Jira', { group: G });
   scope.bind('y', () => cards[sel] && navigator.clipboard && navigator.clipboard.writeText(cards[sel].Key).then(() => ui.toast('Copied ' + cards[sel].Key)), 'copy key', { group: G });
   scope.bind('r', load, 'refresh', { group: G });
+  scope.bind('b', asView, 'as a board view', { group: G });
   delegate(list, 'click', '.rv-row', (e, t) => { sel = +t.dataset.i; paint(); app.panel.open(t.dataset.key); });
   const off = app.bus.on('issue:changed', () => {});
   load();
