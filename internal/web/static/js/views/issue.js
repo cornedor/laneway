@@ -129,7 +129,7 @@ export function mountIssue(el, key, { app, full, card }) {
       isKey: s => pre.has(s.slice(0, s.lastIndexOf('-'))), onKey: open };
   };
   const fail = e => ui.errToast(e);
-  const changed = () => bus.emit('issue:changed', { key });
+  const changed = what => bus.emit('issue:changed', { key, what });
   const edit = (field, anchor) => app.actions.edit(key, field, anchor);
 
   // ---- header + tabs
@@ -249,7 +249,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const e = editor({ value: ed.Markdown, rows: 10, placeholder: 'Description (markdown)…', allowEmpty: true, label: 'Save', mono: true,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/description', { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
-        st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(); ui.toast('Description saved', { kind: 'ok' });
+        st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(key + ' description updated'); ui.toast('Description saved', { kind: 'ok' });
       },
       cancel: () => { st.editingDesc = false; renderDesc(true); } });
     clear(box.desc).append(h('div.sec-head', h('h3', 'Description')), e.el);
@@ -471,7 +471,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const e = editor({ value: ed.Markdown, rows: 4, label: 'Save',
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/comments/' + encodeURIComponent(c.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
-        st.editingComment = null; cmEls.delete(c.ID); art.remove(); changed();
+        st.editingComment = null; cmEls.delete(c.ID); art.remove(); changed(key + ' comment edited');
       },
       cancel: () => { st.editingComment = null; body.hidden = false; e.el.remove(); } });
     body.hidden = true; body.after(e.el); e.focus();
@@ -490,7 +490,7 @@ export function mountIssue(el, key, { app, full, card }) {
       try {
         await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions });
         st.pending = st.pending.filter(p => p !== tmp);
-        await reload(true); changed();
+        await reload(true); changed(key + ' comment added');
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
         comp.ta.value = text; drafts.set(key, text); comp.size(); throw e;

@@ -11,12 +11,13 @@
 
 ```
 app.api      get/post/put/del/swr   (lib/api.js; swr(path, onData) answers from cache first)
-app.bus      on/emit                issue:changed {key} after ANY write (board/panel refetch), panel, route, focus
+app.bus      on/emit                issue:changed {key, what?} after ANY write (board/panel refetch; what: "ABC-1 → Done" for a change made, refine lists these), panel, route, focus
 app.keys     scope(name) → {bind(spec, fn, desc, {input,hidden,group}), dispose()}   (lib/keys.js)
 app.ui       toast errToast modal pick prompt confirm avatar chip statusPill          (lib/ui.js)
 app.commands register({id,title,group,run,when}) → unregister                         (palette lists these)
 app.go('/board/ABC/1?issue=ABC-1'), app.query(), app.setQuery({issue})
 app.marked   () → keys the view has marked (x), set by the view in mount, null after a route change
+app.listed   () → the cards the view shows, in order (refine queues them; without it, the keys drawn)
 app.panel    open(key[, {card}]) / close()    the right-hand issue panel (js/views/issue.js: mountIssue(el, key, {app, full}) → cleanup)
 app.actions  edit(key, field[, anchor]) transition(key) create({project,parent,type}) palette(mode) jump() bulk(keys)
 app.prefs    get/set                per-site prefs on the server, mirrored to localStorage

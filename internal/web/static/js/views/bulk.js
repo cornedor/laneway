@@ -94,7 +94,7 @@ async function run(app, keys, { edit, what }) {
     try {
       const r = await app.api.post('/bulk', { Keys: chunk, Edit: edit });
       res.Done.push(...r.Done); Object.assign(res.Undo, r.Undo); Object.assign(res.Failed, r.Failed);
-      for (const k of r.Done) app.bus.emit('issue:changed', { key: k });
+      for (const k of r.Done) app.bus.emit('issue:changed', { key: k, what: `${k}: ${what}` });
     } catch (e) { for (const k of chunk) res.Failed[k] = e.message; }
     n += chunk.length;
     bar.value = n; label.textContent = `${n} / ${keys.length}`;

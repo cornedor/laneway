@@ -1,5 +1,5 @@
 // The issue actions menu (TUI: A). issueActions(app, st, hooks) opens a picker of what else can be done with
-// the issue; st is the panel's state ({issue, card}), hooks {key, changed(), open(key), upload(files), reloadExtras()}.
+// the issue; st is the panel's state ({issue, card}), hooks {key, changed(what), open(key), upload(files), reloadExtras()}.
 import { h } from '../lib/dom.js';
 
 const enc = encodeURIComponent;
@@ -51,7 +51,7 @@ export async function issueActions(app, st, hk, only) {
         const t = await ui.pick({ title: key + ' is a ' + iss.Type + ': change to', items: ts, label: x => x.Name });
         if (!t) return;
         await api.post('/issues/' + key + '/type', { ID: t.ID });
-        hk.changed(); return ui.toast(key + ' is now a ' + t.Name, { kind: 'ok' });
+        hk.changed(key + ' is now a ' + t.Name); return ui.toast(key + ' is now a ' + t.Name, { kind: 'ok' });
       }
       case 'move': return move();
       case 'delete': {
@@ -72,7 +72,7 @@ export async function issueActions(app, st, hk, only) {
         const r = await api.post('/issues/' + key + '/vote');
         return ui.toast(r.On ? 'Voted for ' + key : 'Vote taken back', { kind: 'ok' });
       }
-      case 'flag': await api.put('/issues/' + key + '/field/flag', { On: !flagged }); return hk.changed();
+      case 'flag': await api.put('/issues/' + key + '/field/flag', { On: !flagged }); return hk.changed(key + (flagged ? ' unflagged' : ' flagged'));
       case 'upload': {
         const inp = h('input', { type: 'file', multiple: true, onchange: () => { if (inp.files.length) hk.upload([...inp.files]); } });
         return inp.click();

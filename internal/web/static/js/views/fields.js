@@ -43,7 +43,7 @@ async function write(app, key, field, body, what, patch) {
   app.bus.emit('issue:patch', { key, field, value: patch });
   try {
     const r = await app.api.put(`/issues/${key}/field/${field}`, body);
-    app.bus.emit('issue:changed', { key });
+    app.bus.emit('issue:changed', { key, what });
     const u = r && r.Undo;
     const step = u && pushUndo(app, what, async () => {
       await app.api.put(`/issues/${key}/field/${u.Field}`, u);
@@ -188,7 +188,7 @@ async function custom(app, key, id) {
     title: `${key} ${fm.Name}`, rows: [{ label: fm.Name, widget: w }],
     submit: async () => {
       const r = await app.api.put(`/issues/${key}/field/${fm.ID}`, { Kind: fm.Kind, Value: w.get() });
-      app.bus.emit('issue:changed', { key });
+      app.bus.emit('issue:changed', { key, what: `${key} ${fm.Name} changed` });
       const u = r && r.Undo;
       const step = u && pushUndo(app, `${key} ${fm.Name}`, async () => { await app.api.put(`/issues/${key}/field/${u.Field}`, u); app.bus.emit('issue:changed', { key }); });
       app.ui.toast(`${key} ${fm.Name} changed`, { kind: 'ok', action: step && undoAction(app, step) });
@@ -223,7 +223,7 @@ function moveForm(app, key, t) {
       app.bus.emit('issue:patch', { key, field: 'status', value: t.ToName });
       let r;
       try { r = await app.api.post(`/issues/${key}/transitionwith`, { ID: t.ID, Fields: out }); } catch (e) { app.bus.emit('issue:changed', { key }); throw e; }
-      app.bus.emit('issue:changed', { key });
+      app.bus.emit('issue:changed', { key, what: `${key} → ${t.ToName}` });
       const u = r && r.Undo;
       const step = u && pushUndo(app, `${key} → ${t.ToName}`, async () => { await app.api.put(`/issues/${key}/field/status`, u); app.bus.emit('issue:changed', { key }); });
       app.ui.toast(`${key} → ${t.ToName}`, { kind: 'ok', action: step && undoAction(app, step) });

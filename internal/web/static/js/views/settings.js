@@ -4,9 +4,8 @@
 //
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
-//   board.fields   comma list of type,priority,status,points,assignee,parent   (default: all)
 //   board.refresh  seconds between idle refetches, '0' = off (default 120)
-//   board.limit    cards fetched per view (default 500)
+// Card fields and the card limit are the config's ui.card_fields and ui.card_limit (below).
 // Changing one emits bus 'prefs' {key, value}.
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
@@ -20,7 +19,6 @@ import { fontOptions } from './settings_fonts.js';
 
 css('settings');
 
-const FIELDS = ['type', 'priority', 'status', 'points', 'assignee', 'parent'];
 const cycle = (list, cur, d) => list[(Math.max(0, list.indexOf(cur)) + d + list.length) % list.length];
 
 export default function mount(el, { app, scope, toolbar }) {
@@ -75,11 +73,7 @@ export default function mount(el, { app, scope, toolbar }) {
     action('Test notification', 'shows one now', 'Notifications', () => { if (!notifier.notify('laneway', 'Notifications work.')) app.ui.toast('Turn notifications on first', { kind: 'err' }); }),
 
     choice('Default mode', 'how the board opens (this browser)', 'Board (this browser)', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
-    { name: 'Card fields', desc: 'what cards and list rows show', section: 'Board (this browser)',
-      render: () => h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: editFields }, fields().join(', ') || 'none')),
-      change: () => editFields() },
     choice('Auto refresh', 'refetch an idle board', 'Board (this browser)', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
-    choice('Card limit', 'cards fetched per view', 'Board (this browser)', ['100', '200', '500', '1000'], () => pref('board.limit', '500'), v => { setPref('board.limit', v); refresh(); }),
 
     info('Site', s.site || '-', 'Data'), info('Jira', s.baseURL || '-', 'Data'),
     info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Data'), info('Version', s.version || 'dev', 'Data'),
@@ -93,11 +87,6 @@ export default function mount(el, { app, scope, toolbar }) {
     const on = await notifier.setEnabled(!notifier.enabled());
     if (!on && notifier.permission() === 'denied') app.ui.toast('The browser blocks notifications for this site', { kind: 'err' });
     refresh();
-  }
-  const fields = () => { const v = pref('board.fields', ''); return v ? v.split(',').filter(f => FIELDS.includes(f)) : FIELDS.slice(); };
-  async function editFields() {
-    const r = await app.ui.pick({ title: 'Card fields', items: FIELDS, multi: true, selected: fields(), placeholder: 'Toggle with space, confirm with enter' });
-    if (r) { setPref('board.fields', r.join(',')); refresh(); }
   }
   function action(name, desc, section, run) {
     return { name, desc, section, render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: run }, 'Run')), change: run };

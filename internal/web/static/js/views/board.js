@@ -1207,6 +1207,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const needW = fn => need(c => { if (writable()) fn(c); });
   const edit = field => needW(c => app.actions.edit(c.Key, field, cardEl(c.Key)));
   app.marked = () => [...S.marks];
+  app.listed = () => S.visible || [];
   const bulkKeys = () => (S.marks.size ? [...S.marks] : S.sel ? [S.sel] : []);
   // Marks survive view and filter changes; after a bulk edit only the cards it did not change stay marked (TUI).
   async function bulk() {
