@@ -36,7 +36,8 @@ func main() {
 		Services: []application.Service{application.NewService(ns)},
 		Mac:      application.MacOptions{ApplicationShouldTerminateAfterLastWindowClosed: false},
 		RawMessageHandler: func(_ application.Window, msg string, o *application.OriginInfo) {
-			if o == nil || !o.IsMainFrame || !sameOrigin(o.Origin, origin) {
+			// Only macOS tells frames apart; elsewhere Origin is the window's URL.
+			if o == nil || runtime.GOOS == "darwin" && !o.IsMainFrame || !sameOrigin(o.Origin, origin) {
 				log.Printf("message dropped: %+v", o)
 				return // only the laneway page may post
 			}
@@ -108,6 +109,7 @@ func handle(ns *notifications.NotificationService, win *application.WebviewWindo
 	answer := func(p string) { win.ExecJS(fmt.Sprintf("window.__lanewayDesktop?.permission(%q)", p)) }
 	switch m.Type {
 	case "check":
+		log.Print("notifications: page ready")
 		if ok, err := ns.CheckNotificationAuthorization(); err == nil && ok {
 			answer("granted")
 		}
