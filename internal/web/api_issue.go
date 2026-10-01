@@ -131,7 +131,16 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return s.Client().Changelog(ctx, key)
+		log, err := s.Client().Changelog(ctx, key)
+		return nonNil(log), err
+	})
+	get("/issues/{key}/worklogs", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		key, err := issueKey(r)
+		if err != nil {
+			return nil, err
+		}
+		logs, err := s.Client().IssueWorklogs(ctx, key)
+		return nonNil(logs), err
 	})
 	get("/issues/{key}/timeinstatus", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)

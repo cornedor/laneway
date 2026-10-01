@@ -11,6 +11,7 @@ import { mountDev } from './issue_dev.js';
 import { mountTerm } from './issue_term.js';
 import { GLYPH, LABEL } from '../lib/agents.js';
 import * as pins from '../lib/pins.js';
+import { lineDiff } from '../lib/linediff.js';
 import { ago, dateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
@@ -520,39 +521,69 @@ export function mountIssue(el, key, { app, full, card }) {
     comp.el.scrollIntoView({ block: 'nearest' });
   }
 
-  // ---- history tab: changes, time in status
+  // ---- history tab: time in status, then Changes · Work log · All (comments, changes and work
+  // interleaved), newest first, as the TUI's activity tabs; 3 again steps the view, the box filters.
+  const HIST = [['changes', 'Changes'], ['worklog', 'Work log'], ['all', 'All']];
+  st.histView = HIST.some(v => v[0] === app.prefs.get('issue.hist', '')) ? app.prefs.get('issue.hist', '') : 'changes';
+  st.histQ = '';
   async function loadHistory() {
     if (st.hist) return;
     st.hist = 'loading';
     clear(panes.history).append(h('div.loading', 'Loading history…'));
-    const [log, tis] = await Promise.all([
-      api.get('/issues/' + key + '/history').catch(e => e), api.get('/issues/' + key + '/timeinstatus').catch(() => null)]);
+    const [log, tis, logs] = await Promise.all([
+      api.get('/issues/' + key + '/history').catch(e => e), api.get('/issues/' + key + '/timeinstatus').catch(() => null),
+      api.get('/issues/' + key + '/worklogs').catch(() => [])]);
     if (dead) return;
-    st.hist = log instanceof Error ? null : log; st.tis = tis;
+    st.hist = log instanceof Error ? null : log; st.tis = tis; st.logs = logs || [];
     renderHistory(log instanceof Error ? log : null);
   }
+  function stepHist() {
+    const i = HIST.findIndex(v => v[0] === st.histView);
+    setHist(HIST[(i + 1) % HIST.length][0]);
+  }
+  function setHist(v) { st.histView = v; app.prefs.set('issue.hist', v === 'changes' ? '' : v); if (st.hist && st.hist !== 'loading') renderHistory(); }
   function renderHistory(err) {
     const p = clear(panes.history);
     if (err) return p.append(h('div.empty', 'Could not load history: ' + err.message, h('div', h('button.btn', { onclick: () => { st.hist = null; loadHistory(); } }, 'Retry'))));
     const tis = st.tis || [];
-    if (tis.length) {
+    if (tis.length && st.histView === 'changes') {
       const max = Math.max(...tis.map(t => t.Time), 1);
       p.append(h('div.sec-head', h('h3', 'Time in status')), h('div.tis', tis.map(t => h('div.tis-row' + (t.Now ? '.now' : ''),
         h('span.name', t.Status), h('span.track', h('i', { style: { width: Math.max(2, Math.round(100 * t.Time / max)) + '%' } })),
         h('span.dim', duration(t.Time / 1e9) + (t.Visits > 1 ? ' · ' + t.Visits + '×' : ''))))));
     }
-    const log = (st.hist || []).slice().reverse();
-    p.append(h('div.sec-head', h('h3', 'Changes'), h('span.dim', String(log.length))));
-    if (!log.length) p.append(h('p.faint', 'Nothing recorded.'));
-    const frag = document.createDocumentFragment();
-    for (const e of log) {
-      frag.append(h('div.chg', h('div.chg-head', ui.avatar(e.Who, null, 18), h('b', e.Who || 'Jira'), h('time.dim', { title: dateTime(e.When) }, ago(e.When))),
-        (e.Changes && e.Changes.length ? e.Changes : [{ Field: '', From: '', To: e.What }]).map(c => h('div.chg-line', c.Field && h('span.fname', c.Field), c.From || c.To ? changeText(c) : null))));
+    const counts = { changes: (st.hist || []).length, worklog: st.logs.length, all: (st.hist || []).length + st.logs.length + ((st.issue && st.issue.Comments) || []).length };
+    const filter = h('input.input.hist-q', { type: 'search', placeholder: 'Filter: who, field, words', value: st.histQ, oninput: () => { st.histQ = filter.value; paintList(); } });
+    p.append(h('div.hist-bar', h('span.seg', HIST.map(([id, label]) => h('button.btn.sm' + (st.histView === id ? '.on' : ''), { onclick: () => setHist(id), title: '3 steps through them' }, label, h('span.dim', ' ' + counts[id])))), filter));
+    const list = h('div.hist-list');
+    p.append(list);
+    paintList();
+    function paintList() {
+      const words = st.histQ.toLowerCase().split(/\s+/).filter(Boolean);
+      const items = histItems().filter(it => words.every(w => it.text.includes(w))).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+      const frag = document.createDocumentFragment();
+      for (const it of items) frag.append(it.el());
+      if (!items.length) frag.append(h('p.faint', words.length ? 'Nothing matches.' : st.histView === 'worklog' ? 'No work logged.' : 'Nothing recorded.'));
+      if (st.histView === 'worklog' && items.length) frag.append(h('p.dim', duration(items.reduce((n, it) => n + it.secs, 0)) + ' in all'));
+      clear(list).append(frag);
     }
-    p.append(frag);
   }
+  function histItems() {
+    const v = st.histView, out = [];
+    const low = (...xs) => xs.filter(Boolean).join(' ').toLowerCase();
+    if (v !== 'worklog') for (const e of st.hist || []) out.push({ at: e.When, text: low(e.Who, e.What, ...(e.Changes || []).flatMap(c => [c.Field, c.From, c.To])), el: () => changeEl(e) });
+    if (v !== 'changes') for (const w of st.logs) out.push({ at: w.Started, secs: w.Seconds, text: low(w.Author, 'logged', w.Comment), el: () => worklogEl(w) });
+    if (v === 'all') for (const c of (st.issue && st.issue.Comments) || []) out.push({ at: c.Created, text: low(c.Author, 'commented', c.Body), el: () => h('div.chg', chgHead(c.Author, c.Created, 'commented'), h('div.md.cbody.chg-body', md(c.Body, mdOpts()))) });
+    return out;
+  }
+  const chgHead = (who, at, what) => h('div.chg-head', ui.avatar(who, null, 18), h('b', who || 'Jira'), what && h('span.dim', what), h('time.dim', { title: dateTime(at) }, ago(at)));
+  const changeEl = e => h('div.chg', chgHead(e.Who, e.When),
+    (e.Changes && e.Changes.length ? e.Changes : [{ Field: '', From: '', To: e.What }]).map(c => (c.From.includes('\n') || c.To.includes('\n')
+      ? [h('div.chg-line', h('span.fname', c.Field), h('span.dim', 'changed')), h('div.chg-diff', lineDiff(c.From, c.To).map(l => h('div.' + (l[0] === '-' ? 'del' : l[0] === '+' ? 'add' : 'more'), l)))]
+      : h('div.chg-line', c.Field && h('span.fname', c.Field), c.From || c.To ? changeText(c) : null))));
+  const worklogEl = w => h('div.chg', chgHead(w.Author, w.Started, 'logged ' + duration(w.Seconds)), w.Comment && h('div.md.cbody.chg-body', md(w.Comment, mdOpts())));
   const clip = (s, n = 160) => (s.length > n ? s.slice(0, n) + '…' : s);
-  const changeText = c => (c.Field && /^description$/i.test(c.Field) ? h('span.dim', 'edited') : !c.Field ? h('span', c.To) : [
+  const changeText = c => (!c.Field ? h('span', c.To) : [
     c.From ? h('span.from', clip(c.From)) : h('span.faint', 'none'), h('span.arrow', '→'), c.To ? h('span.to', clip(c.To)) : h('span.faint', 'none')]);
 
   // ---- editor (description, comment edit, composer): lib/mdedit.js
@@ -647,7 +678,7 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('N', () => findStep(-1), 'previous match', { group: G, hidden: true, when: () => find.on && (full || el.contains(document.activeElement)) });
   scope.bind('1', () => setTab('details'), 'details tab', { group: G });
   scope.bind('2', () => setTab('comments'), 'comments tab', { group: G });
-  scope.bind('3', () => setTab('history'), 'history tab', { group: G });
+  scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), 'history tab (again: work log, all)', { group: G });
   scope.bind('4', () => openTerm(false), 'terminal tab: the issue\'s agent (again: the next agent)', { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || el.contains(document.activeElement)) });
   scope.bind('ctrl+\\', () => openTerm(true), 'type into the issue\'s agent (its terminal here; ctrl+\\ there back to the issue)', { group: G });
   scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });

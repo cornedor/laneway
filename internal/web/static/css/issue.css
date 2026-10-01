@@ -111,6 +111,12 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .chg-head { display: flex; align-items: center; gap: .571rem; font-size: .9em; }
 .chg-line { display: flex; gap: .571rem; align-items: baseline; padding: 1px 0 1px 1.857rem; flex-wrap: wrap; }
 .chg-line .fname { color: var(--fg-3); font-size: .85em; min-width: 5rem; } .chg-line .from { color: var(--fg-2); text-decoration: line-through; } .chg-line .arrow { color: var(--fg-3); }
+.hist-bar { display: flex; gap: .571rem; align-items: center; flex-wrap: wrap; margin: .857rem 0 .286rem; }
+.hist-bar .seg { display: inline-flex; gap: .143rem; } .hist-bar .seg .btn.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.hist-q { flex: 1; min-width: 8rem; max-width: 18rem; }
+.chg-diff { padding: .143rem 0 .143rem 1.857rem; font-family: var(--font-mono); font-size: .85em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chg-diff .del { color: var(--err); } .chg-diff .add { color: var(--ok); } .chg-diff .more { color: var(--fg-3); }
+.chg-body { padding-left: 1.857rem; }
 
 /* back trail */
 .iss-trail { margin: 0 0 .429rem; background: var(--bg-3); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius); font-size: .85em; }

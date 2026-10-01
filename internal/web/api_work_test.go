@@ -66,6 +66,10 @@ func TestWorkAndWorklogs(t *testing.T) {
 	if len(logs.Worklogs) == 0 {
 		t.Fatal("logged work not listed")
 	}
+	var issueLogs []jira.Worklog
+	if c := workCall(t, "GET", ts.URL+"/api/issues/"+key+"/worklogs", "", &issueLogs); c != 200 || len(issueLogs) == 0 || issueLogs[len(issueLogs)-1].Seconds != 3600 {
+		t.Fatalf("issue worklogs = %d %+v", c, issueLogs)
+	}
 	if c := workCall(t, "POST", ts.URL+"/api/worklog/"+key, `{"Seconds":10}`, nil); c == 200 {
 		t.Fatal("under a minute was accepted")
 	}
