@@ -406,6 +406,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       if (S.sort !== 'rank') { const f = CMP[S.sort]; l = vis.slice().sort((a, b) => f(a, b) * S.dir); }
       else if (S.dir < 0) l = vis.slice().reverse();
       S.panes[0].all = l; S.panes[0].total = base.length;
+      S.panes[0].heads = groupHeads(l);
     }
     for (const p of S.panes) p.cards = p.folded ? [] : p.all;
     S.where.clear();
@@ -413,7 +414,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (S.sel && !S.where.has(S.sel)) S.sel = null;
     const rh = swim ? 0 : probeHeight(lanes);
     for (const p of S.panes) {
-      if (rh !== p.rh) { p.rh = rh; p.vl.setRowHeight(rh); }
+      if (p.heads) { p.rh = rh; const gh = Math.round(rh * 0.85); p.body.style.setProperty('--gh', gh + 'px'); p.vl.setRowHeight(i => rh + (p.heads[i] ? gh : 0)); p.grouped = true; }
+      else if (rh !== p.rh || p.grouped) { p.rh = rh; p.grouped = false; p.vl.setRowHeight(rh); }
       p.vl.setCount(p.cards.length);
       if (!swim) paintHead(p);
     }
@@ -512,7 +514,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       pane.body = h('div.bd-lbody');
       pane.drop = h('div.bd-drop', { hidden: true });
       pane.body.append(pane.drop);
-      pane.vl = vlist(pane.body, { rowHeight: 32, create: buildRow, bind: (w, j) => fillRow(w, pane.cards[j]) });
+      pane.vl = vlist(pane.body, { rowHeight: 32, create: buildRow, bind: (w, j) => fillRow(w, pane.cards[j], pane.heads && pane.heads[j]) });
       S.panes.push(pane);
       const list = h('div.bd-list', pane.head, pane.body);
       list.style.setProperty('--lcols', S.cols.map(colWidth).join(' '));
@@ -552,6 +554,25 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       b.el.classList.toggle('folded', f);
     });
     for (const p of S.panes) p.body.classList.toggle('empty', !p.all.length);
+  }
+
+  // A list sorted by assignee, priority, epic or status heads each group with its name, count and points
+  // (TUI jiraGroupHeader); heads[i] is the header on row i, null when sorted otherwise.
+  const listGroup = {
+    assignee: c => c.Assignee || 'Unassigned', priority: c => c.Priority || 'No priority',
+    epic: c => c.ParentSummary || 'No epic', status: c => c.Status,
+  };
+  function groupHeads(l) {
+    const g = listGroup[S.sort];
+    if (!g) return null;
+    const heads = new Array(l.length).fill(null);
+    let at = -1;
+    l.forEach((c, i) => {
+      const name = g(c);
+      if (at < 0 || heads[at].name !== name) heads[at = i] = { name, n: 0, pts: 0 };
+      heads[at].n++; heads[at].pts = Math.round((heads[at].pts + Math.max(0, num(c))) * 100) / 100;
+    });
+    return heads;
   }
 
   // ---- cards
@@ -631,7 +652,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   function buildRow() {
     const r = {};
-    const w = h('div.lrow', { draggable: true }, S.cols.map(id => (r[id] = h('span', { class: 'l-' + id.replace(/\W+/g, '-') }))));
+    const w = h('div.lrow', { draggable: true }, S.cols.map(id => (r[id] = h('span', { class: 'l-' + id.replace(/\W+/g, '-') }))), r.ghead = h('div.l-ghead'));
     w._r = r;
     return w;
   }
@@ -651,14 +672,16 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     created: (e, c) => { e.textContent = ago(c.Created); e.title = fdate(c.Created, ''); },
     age: (e, c) => { e.textContent = ageText(c); },
   };
-  function fillRow(w, c) {
+  function fillRow(w, c, head) {
     if (!c) return;
-    const sig = sigOf(c);
+    const ht = head ? head.name + ' · ' + head.n + (head.pts > 0 ? ' · ' + head.pts + 'p' : '') : '';
+    const sig = sigOf(c) + '|' + ht;
     if (w._sig === sig) return;
     w._sig = sig;
     const r = w._r;
     w.dataset.key = c.Key;
-    w.className = 'vl-row lrow ' + catClass(c) + (S.sel === c.Key ? ' sel' : '') + (S.marks.has(c.Key) ? ' mark' : '') + (c.Flagged ? ' flagged' : '');
+    w.className = 'vl-row lrow ' + catClass(c) + (S.sel === c.Key ? ' sel' : '') + (S.marks.has(c.Key) ? ' mark' : '') + (c.Flagged ? ' flagged' : '') + (head ? ' ghead' : '');
+    if (head) r.ghead.replaceChildren(S.sort === 'assignee' && head.name !== 'Unassigned' ? ui.avatar(head.name, c.AvatarURL, 18) : '', h('span', ht));
     const rib = ribbonOf(c);
     if (rib) w.style.setProperty('--ribbon', rib); else w.style.removeProperty('--ribbon');
     w.classList.toggle('ribbon', !!rib);

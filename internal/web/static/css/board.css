@@ -74,6 +74,9 @@
 .lrow.sel { background: var(--accent-bg); box-shadow: inset 3px 0 var(--accent); }
 .lrow.done .l-sum { color: var(--fg-2); }
 .lrow > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-ghead { display: none; }
+.lrow.ghead { padding-top: var(--gh); }
+.lrow.ghead > .l-ghead { display: flex; align-items: center; gap: .429rem; position: absolute; top: 0; left: 0; right: 0; height: var(--gh); padding: 0 var(--pad); background: var(--bg-2); border-bottom: 1px solid var(--border); color: var(--accent); font-size: .857rem; font-weight: 600; cursor: default; }
 .l-mark { color: var(--err); } .l-key { font-family: var(--font-mono); color: var(--fg-2); }
 .l-status { justify-self: start; max-width: 100%; }
 .l-pts { text-align: right; color: var(--fg-2); }
