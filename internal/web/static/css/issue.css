@@ -14,6 +14,7 @@
 .iss-sub { display: flex; align-items: center; gap: var(--pad); font-size: .9em; padding-bottom: var(--pad); }
 .pill-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
 .chip.flag { background: var(--warn); color: var(--bg); }
+.chip.timer-mark { color: var(--accent); cursor: pointer; }
 
 .iss-tabs { display: flex; gap: .143rem; padding: 0 calc(var(--pad) * 2); border-bottom: 1px solid var(--border); flex: none; }
 .tab { font: inherit; color: var(--fg-2); background: none; border: 0; border-bottom: 2px solid transparent; padding: .429rem .714rem; cursor: pointer; display: flex; gap: .429rem; align-items: baseline; }

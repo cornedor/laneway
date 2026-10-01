@@ -132,6 +132,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     openFilterBuilder({ app, cards: sections.flatMap(s => s.cards), env: env(), query: filter, apply: t => { filterIn.value = t; setFilter(t); } });
   }
   // who: null for anyone, else a Set of AccountIDs ('-' unassigned), lib/who.js.
+  const tmark = key => (app.timer ? app.timer.mark(key) : '');
   const filtering = () => !!match || who != null;
   const visible = c => passesWho(who, c) && (!match || match(c));
   const shown = s => (filtering() ? s.cards.filter(visible) : s.cards);
@@ -209,7 +210,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   function sigOf(r) {
-    if (r.k === 'c') { const c = r.c; return [c.Key, c.Summary, c.Status, c.Assignee, c.Points, c.Flagged, c.Type, c.ParentSummary, c.Done, sel.has(c.Key)].join('|'); }
+    if (r.k === 'c') { const c = r.c; return [c.Key, c.Summary, c.Status, c.Assignee, c.Points, c.Flagged, c.Type, c.ParentSummary, c.Done, sel.has(c.Key), tmark(c.Key)].join('|'); }
     if (r.k === 'e') return 'e' + (filtering() ? 'f' : '');
     const s = r.s;
     return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, folded.has(s.id), velAvg, velN, filter, whoKey(who),
@@ -225,6 +226,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       h('span.pl-type.' + (t || 'x'), { title: c.Type }, (c.Type || '?')[0]),
       h('span.pl-key', c.Key), h('span.pl-sum', { title: c.Summary }, c.Summary),
       c.Flagged && h('span.pl-flag', { title: 'Flagged' }, '⚑'),
+      tmark(c.Key) && h('span.ctimer', { title: 'Timer running · T stops it' }, tmark(c.Key)),
       c.ParentSummary && h('span.chip.pl-epic', { title: c.ParentKey + ' ' + c.ParentSummary }, c.ParentSummary),
       app.ui.statusPill(c.Status, cat(c)),
       h('button.pl-pts' + (c.Points ? '' : '.none'), { dataset: { act: 'points' }, title: 'Story points (P)', tabindex: -1 }, c.Points || '–'),
@@ -542,10 +544,11 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     sel.clear(); for (const p of panes) for (const n of p.live.values()) n._sig = ''; paint();
   }, 'clear filters and selection', { ...G, input: true, when: () => document.activeElement === filterIn || filtering() || sel.size > 0 });
 
+  const offTimer = ['timer', 'timer:tick'].map(ev => app.bus.on(ev, paint));
   const offBus = app.bus.on('issue:changed', () => { if (writing || Date.now() - lastWrite < 1500) return; load(true); });
   const onWide = () => { paintSide(); relayout(); };
   wide.addEventListener('change', onWide);
-  const off = () => { offBus(); offM(); wide.removeEventListener('change', onWide); };
+  const off = () => { offBus(); offM(); offTimer.forEach(f => f()); wide.removeEventListener('change', onWide); };
   const offM = onMetrics(() => relayout(true));
 
   await load();

@@ -112,6 +112,7 @@
 
 /* cards: extras */
 .cpin { color: var(--warn); font-size: .786rem; }
+.ctimer { color: var(--accent); font-size: .786rem; white-space: nowrap; }
 .cextra { font-size: .786rem; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
 .card.ribbon { box-shadow: inset -5px 0 0 var(--ribbon); }
 .bd.compact .card { flex-direction: row; align-items: center; gap: .571rem; padding: .143rem .571rem; }

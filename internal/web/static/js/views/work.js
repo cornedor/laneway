@@ -107,7 +107,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
     elRow.replaceChildren(...kids([
       h('span.wkey.mono', c.Key),
       h('span.wsum', c.Summary),
-      t && t.key === c.Key && h('span.wtimer', { title: 'Timer running' }, '⏱'),
+      t && t.key === c.Key && h('span.wtimer', { title: 'Timer running · T stops it' }, app.timer.mark(c.Key)),
       c.Flagged && h('span.wflag', { title: 'Flagged' }, '⚑'),
       due && h('span.wdue' + (!c.Done && due < new Date() ? '.late' : ''), shortDate(c.Due)),
       c.Points && h('span.chip', c.Points),
@@ -347,7 +347,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
   scope.bind('+', addRow, 'add an issue row', { ...G, ...W });
   scope.bind('o', () => { const r = weekRows[cell.row]; if (r) app.panel.open(r.key); }, 'open issue', { ...G, ...W });
 
-  const off = [bus.on('issue:changed', refreshSoon), bus.on('focus', refreshSoon), bus.on('timer', () => list && list.refresh()), onMetrics(() => render())];
+  const off = [bus.on('issue:changed', refreshSoon), bus.on('focus', refreshSoon), bus.on('timer', () => list && list.refresh()), bus.on('timer:tick', () => list && list.refresh()), onMetrics(() => render())];
   paintToolbar();
   render();
   loadWork();

@@ -157,6 +157,7 @@ export function mountIssue(el, key, { app, full, card }) {
       h('h1.iss-title', { title: 'Edit summary', onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
       ...(i || c ? [h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, i ? ui.statusPill(i.Status, i.StatusCategory) : ui.statusPill(c.Status, catOf(c))),
         ...(c && c.Flagged ? [h('span.chip.flag', 'Flagged')] : []),
+        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: 'Timer running · T stops it', onclick: () => app.timer.toggle(key) }, app.timer.mark(key))] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
         h('span.dim', 'updated ' + ago((i || c).Updated)))] : []));
     learn(key, c); if (i) learn(key, { Summary: i.Summary, Status: i.Status, StatusCategory: i.StatusCategory });
@@ -761,6 +762,7 @@ export function mountIssue(el, key, { app, full, card }) {
 
   const offChanged = bus.on('issue:changed', e => { if (e && e.key === key) reload(true); });
   const offFocus = bus.on('focus', () => reload(true));
+  const offTimer = [bus.on('timer', () => { if (!dead) renderHead(); }), bus.on('timer:tick', () => { if (!dead && app.timer.mark(key)) renderHead(); })];
 
   // ---- keys
   const G = 'Issue';
@@ -848,7 +850,7 @@ export function mountIssue(el, key, { app, full, card }) {
   if (startTerm) openTerm(true);
 
   return () => {
-    dead = true; scope.dispose(); offChanged(); offFocus();
+    dead = true; scope.dispose(); offChanged(); offFocus(); offTimer.forEach(f => f());
     term.dispose(); el.classList.remove('term-on');
     for (const e of editors) e.dispose();
     if (offNotes) offNotes();

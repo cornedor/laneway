@@ -591,13 +591,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   function buildCard() {
     const r = {};
     const w = h('div.bcw', { role: 'listitem' }, h('div.card', { draggable: true },
-      h('div.c1', r.type = h('span.ctype'), r.key = h('span.ckey'), r.pin = h('span.cpin', { title: 'Pinned' }, '★'), r.flag = h('span.cflag', { title: 'Flagged' }, '⚑'), h('span.sp'), r.prio = h('span.cprio'), r.pts = h('span.cpts')),
+      h('div.c1', r.type = h('span.ctype'), r.key = h('span.ckey'), r.pin = h('span.cpin', { title: 'Pinned' }, '★'), r.flag = h('span.cflag', { title: 'Flagged' }, '⚑'), r.timer = h('span.ctimer', { title: 'Timer running · T stops it' }), h('span.sp'), r.prio = h('span.cprio'), r.pts = h('span.cpts')),
       r.sum = h('div.csum'),
       h('div.c3', r.parent = h('span.cparent'), r.sub = h('span.csub'), r.due = h('span.cdue'), r.pr = h('span.cpr'), r.dep = h('span.cdep'), r.extra = h('span.cextra'), r.labels = h('span.clabels'), h('span.sp'), r.age = h('span.cage'), r.av = h('span.cav'))));
     w._r = r;
     return w;
   }
   const hourTick = () => Math.floor(Date.now() / 36e5);
+  const tmark = key => (app.timer ? app.timer.mark(key) : '');
   const ribbonOf = c => {
     const cc = S.colors;
     if (!cc || !cc.By) return '';
@@ -606,7 +607,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const hit = v && (cc.Colors || []).find(x => x.Value.toLowerCase() === v.toLowerCase());
     return hit ? hit.Color : '';
   };
-  const sigOf = c => [c.Key, c.Summary, c.Type, c.Status, c.Priority, c.AssigneeID, c.AvatarURL, c.Points, c.ParentKey, c.Subtasks, c.SubtasksDone, c.Due, c.Done, c.Flagged, c.InProgress, c.PR, c.Deploy, c.Labels, c.Updated, c.Extra, S.sel === c.Key, S.marks.has(c.Key), S.pins.has(c.Key), ribbonOf(c), hourTick()].join('|');
+  const sigOf = c => [c.Key, c.Summary, c.Type, c.Status, c.Priority, c.AssigneeID, c.AvatarURL, c.Points, c.ParentKey, c.Subtasks, c.SubtasksDone, c.Due, c.Done, c.Flagged, c.InProgress, c.PR, c.Deploy, c.Labels, c.Updated, c.Extra, S.sel === c.Key, S.marks.has(c.Key), S.pins.has(c.Key), ribbonOf(c), hourTick(), tmark(c.Key)].join('|');
   function ageText(c) {
     if (c.Done) return '';
     const t = !isZero(c.Since) ? c.Since : c.Created;
@@ -638,6 +639,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     r.key.textContent = c.Key; app.agents && app.agents.stamp(r.key, c.Key);
     r.pin.hidden = !S.pins.has(c.Key);
     r.flag.hidden = !c.Flagged || !cf('flagged');
+    const tm = tmark(c.Key); r.timer.hidden = !tm; r.timer.textContent = tm;
     const po = prioOrd(c);
     r.prio.hidden = !c.Priority || !cf('priority');
     r.prio.className = 'cprio p' + po; r.prio.textContent = po < 5 ? PRIO_GLYPH[po] : (c.Priority || '').slice(0, 3); r.prio.title = c.Priority;
@@ -670,7 +672,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   const FILL = {
     mark: (e, c) => { e.textContent = S.marks.has(c.Key) ? '☑' : S.pins.has(c.Key) ? '★' : c.Flagged ? '⚑' : ''; },
-    key: (e, c) => { e.textContent = c.Key; app.agents && app.agents.stamp(e, c.Key); },
+    key: (e, c) => { e.textContent = c.Key; app.agents && app.agents.stamp(e, c.Key); const tm = tmark(c.Key); if (tm) e.append(h('span.ctimer', ' ' + tm)); },
     summary: (e, c) => { e.textContent = c.Summary; e.title = c.Summary; },
     status: (e, c) => { e.textContent = c.Status; e.className = 'l-status pill cat-' + (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new'); },
     priority: (e, c) => { const po = prioOrd(c); e.className = 'l-priority cprio p' + po; e.textContent = po < 5 ? PRIO_GLYPH[po] : ''; e.title = c.Priority; },
@@ -1267,6 +1269,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   function togglePin(c) { if (c) pins.toggle(app, c.Key, c.Summary); }
   offs.push(bus.on('pins:changed', () => { loadPins(); for (const p of S.panes) p.vl.refresh(); }));
+  for (const ev of ['timer', 'timer:tick']) offs.push(bus.on(ev, () => { for (const p of S.panes) p.vl.refresh(); }));
   function markAll() {
     const w = cur();
     const list = S.mode === 'list' ? S.visible : w ? w.p.cards : S.panes.reduce((a, p) => a.concat(p.cards), []);

@@ -42,8 +42,8 @@ export function workdays(app) {
   return out.length ? out : [1, 2, 3, 4, 5];
 }
 
-// logDialog(app, {key, summary?, seconds?, started?: Date, comment?, edit?: worklog id, discard?: bool, note?})
-// → Promise<'logged' | 'discard' | null>. Posts (or puts, when editing) before it resolves.
+// logDialog(app, {key, summary?, seconds?, started?: Date, comment?, edit?: worklog id, discard?: bool, move?: key, note?})
+// → Promise<'logged' | 'discard' | 'move' | null>. Posts (or puts, when editing) before it resolves.
 export function logDialog(app, o) {
   const { ui, api, bus } = app;
   return new Promise(resolve => {
@@ -87,7 +87,8 @@ export function logDialog(app, o) {
       o.note && h('div.dim.wl-note', o.note),
       row('Time', time), row('Date', date), row('Comment', comment),
       !o.edit && row('Remaining', left, leftVal), err,
-      h('div.row.end', o.discard && h('button.btn.ghost', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, 'Discard timer'), h('span.spacer'),
+      h('div.row.end', o.discard && h('button.btn.ghost', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, 'Discard timer'),
+        o.move && h('button.btn.ghost', { type: 'button', title: 'Its time goes along; nothing is logged', onclick: () => { result = 'move'; m.close(); } }, 'Move timer to ' + o.move), h('span.spacer'),
         h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), save));
     const title = (o.edit ? 'Edit work on ' : 'Log work on ') + o.key + (o.summary ? ' · ' + o.summary : '');
     const m = ui.modal(form, { title, onClose: () => resolve(result) });

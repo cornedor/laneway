@@ -41,7 +41,7 @@ export function install(app) {
   // Redraw while the tab is visible and a timer runs; nothing otherwise.
   function arm() {
     clearInterval(tick); tick = 0;
-    if (timer && !document.hidden) tick = setInterval(() => { chip.replaceChildren(...label()); }, 20000);
+    if (timer && !document.hidden) tick = setInterval(() => { chip.replaceChildren(...label()); app.bus.emit('timer:tick'); }, 20000);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && timer) chip.replaceChildren(...label()); arm(); });
   window.addEventListener('storage', e => { if (e.key === store.key('timer')) { timer = load(); paint(); app.bus.emit('timer', timer); } });
@@ -87,12 +87,20 @@ export function install(app) {
   async function stop(next) {
     if (!timer) return;
     const t = timer;
-    const res = await logDialog(app, { key: t.key, seconds: round(Date.now() - t.start), started: new Date(t.start), discard: true, note: next && 'Then the timer starts on ' + next });
+    const res = await logDialog(app, { key: t.key, seconds: round(Date.now() - t.start), started: new Date(t.start), discard: true, move: next, note: next && 'Then the timer starts on ' + next });
+    if (res === 'move') return move(next);
     if (res === 'discard') {
       if (Date.now() - t.start >= MIN5 && !(await app.ui.confirm({ title: 'Discard timer', text: duration(Math.floor((Date.now() - t.start) / 1000)) + ' on ' + t.key + ' will not be logged.', ok: 'Discard', danger: true }))) return;
     } else if (res !== 'logged') return;
     if (timer && timer.start === t.start) set(null);
     if (next) start(next);
+  }
+
+  // Move the running timer to key, its time along, nothing logged (the TUI's ctrl+t at the stop prompt).
+  function move(key) {
+    if (!timer || !key || key === timer.key) return;
+    set({ key, start: timer.start });
+    app.ui.toast('Timer moved to ' + key + ', ' + since() + ' on it');
   }
 
   function toggle(key) {
@@ -109,9 +117,12 @@ export function install(app) {
   cmd('timer:toggle', () => !timer ? 'Start timer on ' + target(app) : target(app) && target(app) !== timer.key ? 'Switch timer to ' + target(app) : 'Stop timer and log ' + timer.key,
     () => toggle(target(app)), () => !!timer || !!target(app));
   cmd('timer:stop', () => 'Stop timer on ' + timer.key, () => toggle(''), () => !!timer && !!target(app) && target(app) !== timer.key);
+  cmd('timer:move', () => 'Move timer to ' + target(app) + ' (' + since() + ', nothing logged)', () => move(target(app)), () => !!timer && !!target(app) && target(app) !== timer.key);
   cmd('worklog:add', () => 'Log work on ' + target(app), () => logDialog(app, { key: target(app) }), () => !!target(app));
 
-  app.timer = { get current() { return timer; }, toggle, start, stop, elapsed: () => (timer ? elapsed() : 0) };
+  // mark(key): "⏱ 12m" on the timed issue's card, row and panel, '' on any other. Redraw on bus 'timer' and 'timer:tick'.
+  const mark = key => (timer && timer.key === key ? '⏱ ' + since() : '');
+  app.timer = { get current() { return timer; }, toggle, start, stop, move, mark, elapsed: () => (timer ? elapsed() : 0) };
   paint();
   sync();
   installBadge(app);
