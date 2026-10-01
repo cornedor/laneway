@@ -40,7 +40,7 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 
 | Scope | Keys |
 | --- | --- |
-| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `M` all views, `g c` focus the view bar (`tab` on through it), `tab` panel/view focus, `esc` close panel |
+| Global | `:` or `ctrl+k` palette, `/` search, `Q` JQL, `g g` jump to key, `n` new issue, `T` start/stop timer, `w` log work, `u` undo last edit, `?` help, `,` settings, `M` all views, `g c` focus the view bar (`tab` on through it), `tab` panel/view focus, `esc` close panel; as in the TUI: `W` today's worklogs, `O` my work, `I` inbox, `U` standup, `ctrl+g` agents (a view's own key of the same name wins in it) |
 | Editor (in any text box) | `/` formatting menu, `@` mention, `:` emoji, `ctrl+b` `ctrl+i` `ctrl+k`, `ctrl+p` preview, `ctrl+enter` save, paste or drop files to attach |
 | Global extra | `ctrl+e` refine: the view's issues one at a time in the panel, unestimated first (`J` `K`, `esc`) |
 | Go | `g b` board, `g p` planning, `g r` reports, `g m` roadmap, `g w` my work, `g i` inbox, `g s` standup, `g R` review, `g a` agents, `g ,` settings, `g t` next theme, `g l` rules, `@` switch Jira site, `ctrl+a` ask the LLM about the issue, your `ui.actions` keys |
@@ -57,7 +57,7 @@ Scopes stack: global < view < panel (beside a board the panel's keys fire only w
 | Rules | `jk` rule, `t` try a change (form), `R` reload, `N` browser notifications |
 | Settings | `jk`, `enter`/`space` change or edit, `h`/`l` cycle, `del` reset to default, `/` filter, `esc` leave (enter on a Keyboard row captures a new key) |
 
-Moved because of a clash: standup project `P`->`B` (`P` parks),  board sort `S`->`O` (`S` starts work), planning start sprint `S`->`Z`, timer `t`->`T` (board `t` is lanes/list), create `c`->`n` (panel `c` is comment), next theme `T`->`g t`, My work day/week `w`->`W` (`w` logs work), cycle-time weeks `w`->`W`, planning filter `/`->`f` and fold `o`->`z` (`/` is search, `o` is Jira), week-view add row `#`->`+`, issue panel: link `l`->`L` (`l` is labels), reply `r`->`R`, description `e`->`E`, `r` refreshes.
+Moved because of a clash: standup project `P`->`B` (`P` parks),  board sort `S`->`O` (`S` starts work), planning start sprint `S`->`Z`, timer `t`->`T` (board `t` is lanes/list), create `c`->`n` (panel `c` is comment), next theme `T`->`g t`, My work day/week `w`->`W` (`w` logs work), cycle-time weeks `w`->`W`, planning filter `/`->`f` and fold `o`->`z` (`/` is search, `o` is Jira), week-view add row `#`->`+`, issue panel: link `l`->`L` (`l` is labels), reply `r`->`R`, description `e`->`E`, `r` refreshes. Board: `s` `a` `p` `P` `e` edit the card (status, assignee, priority, points, summary) as in the panel, so the TUI's sort, assignee filter, project, planning and quick edit are `O`, `A`, `alt+p`, `g p` and the palette; `v` picks a view (TUI: panel, here `enter`), `C` list columns (TUI charts: `g r`), `X` bulk (TUI: mark all, here `ctrl+a`; TUI bulk `B` switches the board here). The browser keeps `ctrl+r` (reload: review is `g R`), `ctrl+t` and `ctrl+o` (time machine and closed sprints are `alt+t`, `alt+o`). `ui.keys` remaps reach every binding with a TUI action (`lib/keymap.js`).
 
 ## Conventions
 

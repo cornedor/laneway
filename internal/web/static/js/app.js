@@ -158,6 +158,12 @@ function globalKeys() {
   g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, 'close panel', { group: 'Global', hidden: true });
   for (const r of routes) if (r.key) g.bind('g ' + r.key, () => app.go('/' + r.name), 'go to ' + r.title.toLowerCase(), { group: 'Go' });
   g.bind(['g ,', ','], () => app.go('/settings'), 'go to settings', { group: 'Go' });
+  // The TUI's own view keys; a view's key of the same name wins there (board O sorts, My work W switches day/week).
+  g.bind('W', () => app.go('/work?tab=day'), "today's worklogs", { group: 'Go' });
+  g.bind('O', () => app.go('/work?tab=issues'), 'my work, every project', { group: 'Go' });
+  g.bind('I', () => app.go('/inbox'), 'go to inbox', { group: 'Go' });
+  g.bind('U', () => app.go('/standup'), 'go to standup', { group: 'Go' });
+  g.bind('ctrl+g', () => app.go('/agents'), 'go to agents', { group: 'Go' });
   for (const r of routes) commands.register({ id: 'go:' + r.name, title: 'Go to ' + r.title, group: 'Go', run: () => app.go('/' + r.name) });
   commands.register({ id: 'theme:next', title: 'Theme: next', group: 'Theme', run: () => ui.toast('Theme: ' + theme.next()) });
   for (const p of theme.presets) commands.register({ id: 'theme:' + p.id, title: 'Theme: ' + p.name, group: 'Theme', run: () => theme.set(p.id) });

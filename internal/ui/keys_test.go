@@ -2,6 +2,7 @@ package ui
 
 import (
 	"charm.land/lipgloss/v2"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -147,5 +148,27 @@ func TestScreenKeys(t *testing.T) {
 	warn := k.applyKeys(map[string]config.KeyList{"plan_new": {"K"}})
 	if len(warn) != 1 || warn[0] != `ui.keys: "K" is both plan_new and rank_up on the planning` {
 		t.Errorf("warnings = %v", warn)
+	}
+}
+
+// The web's keymap (internal/web/static/js/lib/keymap.js) names TUI actions
+// so ui.keys remaps reach it; each must be one keys.go knows.
+func TestWebKeymapNamesTUIActions(t *testing.T) {
+	src, err := os.ReadFile("../web/static/js/lib/keymap.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := defaultKeys()
+	names := k.keyNames()
+	table := string(src[:strings.Index(string(src), "export const actionFor")])
+	found := 0
+	for _, m := range regexp.MustCompile(`:\s*'([a-z_]+)'`).FindAllStringSubmatch(table, -1) {
+		found++
+		if names[m[1]] == nil {
+			t.Errorf("keymap.js names %q, not a ui.keys action", m[1])
+		}
+	}
+	if found < 50 {
+		t.Fatalf("read %d actions from keymap.js, the pattern no longer fits", found)
 	}
 }
