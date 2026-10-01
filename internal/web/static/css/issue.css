@@ -65,6 +65,15 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .md hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
 .md-table { overflow-x: auto; margin: .6em 0; } .md table { border-collapse: collapse; font-size: .95em; }
 .md th, .md td { border: 1px solid var(--border); padding: .214rem .571rem; text-align: left; vertical-align: top; } .md th { background: var(--bg-3); }
+/* a coloured cell: Jira's colour on a light theme, a tint of it on a dark one */
+.md th.md-bg, .md td.md-bg { background: light-dark(var(--cell), color-mix(in srgb, var(--cell) 22%, var(--bg-2))); }
+/* Jira's text colours and highlights (md.js, the editor too): as they are on a light theme, toward the text colour on a dark one */
+.md-col { color: light-dark(var(--c), color-mix(in oklab, var(--c) 50%, var(--fg))); }
+.md-hi { background: light-dark(var(--c), color-mix(in srgb, var(--c) 30%, var(--bg-2))); border-radius: 2px; }
+/* Atlassian's numbered squares: data colours, as Jira draws them */
+.md-sq { display: inline-block; min-width: 1.35em; padding: 0 .2em; border-radius: 3px; text-align: center; font-weight: 700; font-size: .85em; line-height: 1.35; color: #fff; background: var(--sq, var(--fg-3)); vertical-align: .05em; }
+.md-sq.sq-blue { --sq: #1d7afc; } .md-sq.sq-green { --sq: #22a06b; } .md-sq.sq-orange { --sq: #e56910; } .md-sq.sq-purple { --sq: #8f7ee7; }
+.md-sq.sq-red { --sq: #e2483d; } .md-sq.sq-yellow { --sq: #cf9f02; } .md-sq.sq-teal { --sq: #1d9aaa; }
 .md img.md-img { max-width: 100%; max-height: 25.714rem; border-radius: var(--radius); cursor: zoom-in; display: block; margin: .4em 0; background: var(--bg-3); }
 .mention { color: var(--accent); background: var(--accent-bg); border-radius: 3px; padding: 0 .214rem; }
 .md-date { background: var(--bg-3); border-radius: 3px; padding: 0 .357rem; font-size: .92em; }

@@ -10,6 +10,7 @@ import * as ui from './lib/ui.js';
 import { routes } from './views/index.js';
 import * as chromeBars from './lib/chrome.js';
 import * as store from './lib/store.js';
+import { emojiTable } from './lib/md.js';
 
 // ---- commands: the palette lists these. register({id, title, keys?, group?, run, when?}) → unregister
 const cmds = new Map();
@@ -195,6 +196,7 @@ async function boot() {
     if (session instanceof Error) throw session;
     app.session = session;
     api.setSite(app.session.site); store.setSite(app.session.site);
+    api.swr('/emoji/table', emojiTable);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
     onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });
     theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});

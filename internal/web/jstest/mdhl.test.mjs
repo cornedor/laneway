@@ -20,6 +20,8 @@ test('highlight roles', () => {
   const h = s => highlight(s, { names: ['Ann Lee'] });
   assert.match(h('## Hi'), /class="hl-h hl-h2"><span class="mk">## <\/span>Hi/);
   assert.match(h('a **b** c'), /<span class="mk">\*\*<\/span><span class="hl-b">b<\/span><span class="mk">\*\*<\/span>/);
+  assert.match(h('***x***'), /^<span class="mk">\*\*\*<\/span><span class="hl-b hl-i">x<\/span><span class="mk">\*\*\*<\/span>$/);
+  assert.match(h('<span style="color:#0747a6">x</span>'), /class="md-col" style="--c:#0747a6">x/);
   assert.match(h('`**x**`'), /hl-code"><span class="mk">`<\/span>\*\*x\*\*/);
   assert.match(h('snake_case_word'), /^snake_case_word$/);
   assert.match(h('- [x] done'), /hl-box on">\[x\]<\/span> <span class="hl-done">done/);

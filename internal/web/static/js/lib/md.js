@@ -11,7 +11,7 @@ const TAGS = [
   [/<(u|sub|sup)>([\s\S]*?)<\/\1>/y, (m, o) => h(m[1] === 'u' ? 'u' : m[1], inline(m[2], o))],
   [/<date>(\d{4}-\d{2}-\d{2})<\/date>/y, m => h('span.md-date', fmtDate(m[1]))],
   [/<status color="([a-z-]*)">([\s\S]*?)<\/status>/y, m => h('span.md-status.c-' + m[1].replace(/[^a-z]/g, ''), m[2])],
-  [/<span style="(color|background-color):\s*(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?);?">([\s\S]*?)<\/span>/y, (m, o) => h('span', { style: { [m[1] === 'color' ? 'color' : 'backgroundColor']: m[2] } }, inline(m[3], o))],
+  [/<span style="(color|background-color):\s*(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?);?">([\s\S]*?)<\/span>/y, (m, o) => h(m[1] === 'color' ? 'span.md-col' : 'span.md-hi', { style: { '--c': m[2] } }, inline(m[3], o))],
   [/<span style="[^"]*">([\s\S]*?)<\/span>/y, (m, o) => h('span', inline(m[1], o))],
   [/<(https?:\/\/[^>\s]+)>/y, m => link(m[1], m[1])],
 ];
@@ -48,6 +48,27 @@ function linkAt(s, i) {
 
 const word = c => c !== undefined && /[\p{L}\p{N}]/u.test(c);
 
+// ---- emoji: :name: draws its glyph once the table (GET /api/emoji/table) is in;
+// those drawn before it get theirs when it arrives. Atlassian's numbered squares
+// (:1_one_square_blue:) have none: their number on their colour, as the TUI's.
+let glyphs = null;
+export function emojiTable(t) {
+  glyphs = t || null;
+  if (glyphs) for (const e of document.querySelectorAll('.md-emo')) { const g = glyphs[e.dataset.n]; if (g) e.textContent = g; }
+}
+const EMOJI = /:([a-z0-9_+-]{1,60}):/y;
+const SQUARE = /^(\d{1,2})_[a-z]+_square_(blue|green|orange|purple|red|yellow|teal)$/;
+function emojiAt(s, i) {
+  EMOJI.lastIndex = i;
+  const m = EMOJI.exec(s);
+  if (!m) return null;
+  const sq = SQUARE.exec(m[1]);
+  if (sq) return { len: m[0].length, node: h('span.md-sq.sq-' + sq[2], { title: m[0] }, sq[1]) };
+  const g = glyphs && glyphs[m[1]];
+  if (glyphs && !g) return null; // not an emoji: the text as it is
+  return { len: m[0].length, node: h('span.md-emo', { title: m[0], dataset: { n: m[1] } }, g || m[0]) };
+}
+
 function mentionAt(s, i, names) {
   const rest = s.slice(i + 1, i + 60);
   if (names) for (const n of names) if (rest.startsWith(n) && !word(rest[n.length])) return '@' + n;
@@ -79,6 +100,12 @@ export function inline(s, o = {}) {
     } else if (c === '[') {
       const m = linkAt(s, i);
       if (m) { push(SAFE_HREF.test(m.href) ? linkWith(m.href, inline(m.text, o)) : h('span', inline(m.text, o))); i = m.end; continue; }
+    } else if (c === '*' && s.startsWith('***', i) && s.indexOf('***', i + 3) > i + 3) {
+      const j = s.indexOf('***', i + 3);
+      push(h('strong', h('em', inline(s.slice(i + 3, j), o)))); i = j + 3; continue;
+    } else if (c === ':' && !word(s[i - 1])) {
+      const m = emojiAt(s, i);
+      if (m) { push(m.node); i += m.len; continue; }
     } else if (c === '*' || c === '~') {
       const d = s.startsWith(c + c, i) ? c + c : (c === '*' ? '*' : '');
       if (d) {
@@ -150,6 +177,19 @@ const SEP = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
 const isBlank = l => !l.trim();
 const indentOf = l => l.length - l.trimStart().length;
 
+// A cell's leading markers (adf.go cellTexts): <!-- bg:#rrggbb --> its
+// background, <!-- th --> a header cell off the header row.
+function cell(text, o, th) {
+  let bg = '', m;
+  for (;;) {
+    if ((m = /^<!-- bg:(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?) -->\s*/.exec(text))) bg = m[1];
+    else if ((m = /^<!-- th -->\s*/.exec(text))) th = true;
+    else break;
+    text = text.slice(m[0].length);
+  }
+  return h(th ? 'th' : 'td', bg && { class: 'md-bg', style: { '--cell': bg } }, inline(text, o));
+}
+
 function cells(line) {
   const t = line.trim().replace(/^\|/, '').replace(/\|$/, '');
   const out = []; let cur = '';
@@ -215,8 +255,8 @@ function blocks(lines, o) {
       const rows = [];
       while (i < lines.length && ROW.test(lines[i])) rows.push(cells(lines[i++]));
       const empty = head.every(c => !c);
-      out.push(h('div.md-table', h('table', !empty && h('thead', h('tr', head.map(c => h('th', inline(c, o))))),
-        h('tbody', rows.map(r => h('tr', r.map(c => h('td', inline(c, o)))))))));
+      out.push(h('div.md-table', h('table', !empty && h('thead', h('tr', head.map(c => cell(c, o, true)))),
+        h('tbody', rows.map(r => h('tr', r.map(c => cell(c, o, false))))))));
     } else if ((m = LIST.exec(l))) {
       i = list(lines, i, o, out);
     } else {

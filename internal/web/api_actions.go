@@ -22,6 +22,14 @@ const (
 func init() {
 	get("/emoji", emojiSearch)
 	post("/emoji/used", emojiUsed)
+	// Every shortcode's glyph, for drawing :name: in Jira text as the TUI does.
+	get("/emoji/table", func(context.Context, *Server, *http.Request) (any, error) {
+		m := make(map[string]string, len(emoji.Names()))
+		for _, n := range emoji.Names() {
+			m[n] = emoji.Glyph(n)
+		}
+		return m, nil
+	})
 	get("/issues/{key}/watchers", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
 		if err != nil {

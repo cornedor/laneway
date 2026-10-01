@@ -31,6 +31,14 @@ func TestEmojiSearch(t *testing.T) {
 	}
 }
 
+func TestEmojiTable(t *testing.T) {
+	ts := issueServer(t, "http://127.0.0.1:1")
+	var table map[string]string
+	if code := issueCall(t, "GET", ts.URL+"/api/emoji/table", nil, &table); code != 200 || table["smile"] == "" || len(table) < 1000 {
+		t.Fatalf("table: %d, %d names, smile %q", code, len(table), table["smile"])
+	}
+}
+
 func TestActionsRoutes(t *testing.T) {
 	var got []string
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
