@@ -13,14 +13,16 @@ const DRAG = 0.9;      // speed kept per frame
 const GRAVITY = 3;     // px a frame pulled down, on top of the flight
 const TOKENS = ['--accent', '--ok', '--warn', '--err', '--info', '--cat-done'];
 
-// burst: n pieces from (x, y), aimed up within spread degrees, at up to speed px a frame.
-export function burst(n, x, y, colors, { spread = 70, speed = 24, rnd = Math.random } = {}) {
-  const out = [], aim = -Math.PI / 2, half = spread * Math.PI / 360;
+// burst: n pieces from (x, y), aimed up within spread degrees, at up to speed px a frame. reach is how far
+// sideways the widest flies (px): the sideways speed is scaled to it, so a wide screen gets a wide burst as high.
+export function burst(n, x, y, colors, { spread = 70, speed = 24, reach = 140, rnd = Math.random } = {}) {
+  const out = [], half = spread * Math.PI / 360;
+  const wide = reach / (speed / (1 - DRAG) * Math.sin(half)); // a flight covers speed / (1 - DRAG) px
   for (let i = 0; i < n; i++) {
+    const a = (rnd() * 2 - 1) * half, v = speed * (0.5 + rnd() * 0.5);
     out.push({
       x, y, color: colors[i % colors.length],
-      angle: aim + (rnd() * 2 - 1) * half,
-      v: speed * (0.5 + rnd() * 0.5),
+      vx: Math.sin(a) * v * wide, vy: -Math.cos(a) * v,
       wobble: rnd() * 10, wobbleSpeed: 0.05 + rnd() * 0.06,
       tilt: (0.25 + rnd() * 0.5) * Math.PI, size: 2 + rnd(),
       round: rnd() < 0.25, tick: 0,
@@ -31,9 +33,9 @@ export function burst(n, x, y, colors, { spread = 70, speed = 24, rnd = Math.ran
 
 // step: one frame of physics; false once the piece is spent.
 export function step(p) {
-  p.x += Math.cos(p.angle) * p.v;
-  p.y += Math.sin(p.angle) * p.v + GRAVITY;
-  p.v *= DRAG;
+  p.x += p.vx;
+  p.y += p.vy + GRAVITY;
+  p.vx *= DRAG; p.vy *= DRAG;
   p.wobble += p.wobbleSpeed;
   p.tilt += 0.1;
   return ++p.tick < TICKS;
@@ -71,7 +73,8 @@ let layer = null; // {canvas, ctx, pieces, raf}: one canvas for every burst in f
 export function confetti(app, el) {
   if (!el || !delightOn(app) || still()) return;
   const r = el.getBoundingClientRect();
-  const pieces = burst(100, r.left + r.width / 2, r.top + r.height / 2, themeColors());
+  // From 20px under the head's middle, out to about a fifth of the screen each side.
+  const pieces = burst(100, r.left + r.width / 2, r.top + r.height / 2 + 20, themeColors(), { reach: Math.max(140, innerWidth * 0.22) });
   if (layer) { layer.pieces.push(...pieces); return; }
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');

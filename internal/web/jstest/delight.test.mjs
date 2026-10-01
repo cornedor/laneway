@@ -13,3 +13,16 @@ test('confetti rises over the lane head, then falls past it and is spent', () =>
   const xs = ps.map(p => p.x);
   assert.ok(Math.max(...xs) - Math.min(...xs) > 150, 'spread over a lane');
 });
+
+test('reach widens the burst, not its height', () => {
+  const fly = reach => {
+    let s = 5; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    const ps = burst(100, 0, 0, ['#f00'], { rnd, reach });
+    let top = 0;
+    for (let f = 0; f < 60; f++) { ps.forEach(step); if (f === 20) top = Math.min(...ps.map(p => p.y)); }
+    return { top, wide: Math.max(...ps.map(p => Math.abs(p.x))) };
+  };
+  const narrow = fly(140), wide = fly(400);
+  assert.equal(Math.round(wide.top), Math.round(narrow.top));
+  assert.ok(wide.wide > 2.5 * narrow.wide && wide.wide < 420, 'reach ' + wide.wide);
+});
