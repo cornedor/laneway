@@ -180,12 +180,20 @@ function chrome() {
 }
 
 async function boot() {
+  let session;
+  try { session = await api.get('/session'); } catch (e) { session = e; }
+  if (session && session.setup) { // no Jira site yet: only the setup screen
+    $('#top').classList.remove('boot');
+    import('./views/setup.js').then(m => m.mountSetup($('#view'), session.setup));
+    return;
+  }
   chrome(); globalKeys();
   import('./lib/agents.js').then(m => m.install(app)).catch(e => console.error('agents', e));
   import('./views/plan_cmds.js').then(m => m.register(app));
   import('./lib/pwa.js').then(m => m.install(app)).catch(e => console.error('pwa', e));
   try {
-    app.session = await api.get('/session');
+    if (session instanceof Error) throw session;
+    app.session = session;
     api.setSite(app.session.site); store.setSite(app.session.site);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
     onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });

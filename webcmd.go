@@ -1,9 +1,11 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/cornedor/laneway/internal/config"
@@ -44,32 +47,62 @@ func webCmd(args []string, cfgPath, site string, errOut io.Writer) int {
 func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	opt := web.Options{Version: version, Demo: demoMode}
+	token := ""
+	if remote {
+		b := make([]byte, 24)
+		if _, err := rand.Read(b); err != nil {
+			return err
+		}
+		token = hex.EncodeToString(b)
+	}
+	// The setup screen ends by serving the app in its place, on the same
+	// address: the browser reloads into it.
+	for {
+		next, err := serveWeb(ctx, cfgPath, site, addr, token, remote, open, demoMode)
+		if err != nil || next == webQuit || ctx.Err() != nil {
+			return err
+		}
+		open, demoMode = false, next == webDemo
+	}
+}
+
+// How a web server ended: stopped, or set up (to the site, or the demo).
+const (
+	webQuit = iota
+	webSetUp
+	webDemo
+)
+
+func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote, open, demoMode bool) (int, error) {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	end := webQuit
+	opt := web.Options{Version: version, Demo: demoMode, Token: token}
 	if demoMode {
 		baseURL, stopDemo, err := demo.New(time.Now()).Start()
 		if err != nil {
-			return err
+			return end, err
 		}
 		defer stopDemo()
 		dir, err := os.MkdirTemp("", "laneway-web-demo-")
 		if err != nil {
-			return err
+			return end, err
 		}
 		defer os.RemoveAll(dir)
 		if opt.Store, err = store.Open(filepath.Join(dir, "state.json")); err != nil {
-			return err
+			return end, err
 		}
 		jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
 		opt.Site, opt.Jira = "demo", jc
 		opt.ConfigPath = filepath.Join(dir, "config.yaml")
 		if err := os.WriteFile(opt.ConfigPath, []byte("# demo config\n"), 0o600); err != nil {
-			return err
+			return end, err
 		}
 		var uiCfg config.UIConfig
 		if cfgPath != "" { // as in the TUI's demo: the config's ui: and rules: apply, never its sites
 			cfg, _, err := config.Load(cfgPath)
 			if err != nil {
-				return err
+				return end, err
 			}
 			uiCfg, opt.Rules, opt.RulesTest = cfg.UI, cfg.Rules, cfg.RulesTest
 		}
@@ -78,41 +111,127 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 		opt.Client.SetQueue(offline.To(opt.Store))
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)
-		if err != nil {
-			return err
+		if err != nil && !errors.Is(err, config.ErrNoConfig) {
+			return end, err
 		}
 		opt.ConfigPath = loaded
 		if site == "" {
 			site = config.LastSite(cfg.SiteNames())
 		}
-		if opt, err = webSite(cfg, site, opt); err != nil {
-			return err
+		if st, ok := webSetup(cfg, loaded, site, err != nil); ok {
+			st.Save = func(ctx context.Context, f web.SetupForm) (string, error) {
+				who, err := webSetupSave(ctx, loaded, site, f)
+				if err == nil {
+					end = webSetUp
+					if f.Demo {
+						end = webDemo
+					}
+					time.AfterFunc(300*time.Millisecond, cancel) // after the answer is sent
+				}
+				return who, err
+			}
+			opt.Setup = st
+		} else {
+			if opt, err = webSite(cfg, site, opt); err != nil {
+				return end, err
+			}
+			opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
+			opt.Sites = cfg.SiteNames()
+			opt.DefaultName = cfg.Jira.Name
 		}
-		opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
-		opt.Sites = cfg.SiteNames()
-		opt.DefaultName = cfg.Jira.Name
 	}
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		opt.AllowedHosts = append(opt.AllowedHosts, allowedHosts(host)...)
 	}
-	if remote {
-		b := make([]byte, 24)
-		if _, err := rand.Read(b); err != nil {
-			return err
-		}
-		opt.Token = hex.EncodeToString(b)
-	}
 	srv := web.New(ctx, opt)
-	return web.Serve(ctx, addr, remote, srv, func(a net.Addr) {
+	err := web.Serve(ctx, addr, remote, srv, func(a net.Addr) {
 		url := "http://" + a.String()
 		if opt.Token != "" {
 			url += "/?token=" + opt.Token
 		}
-		fmt.Fprintln(os.Stderr, "laneway web on", url)
+		switch {
+		case opt.Setup != nil:
+			fmt.Fprintln(os.Stderr, "laneway web on", url, "· connect it to Jira there")
+		default:
+			fmt.Fprintln(os.Stderr, "laneway web on", url)
+		}
 		if open {
 			openBrowser(url)
 		}
 	})
+	return end, err
+}
+
+// webSetup is the setup screen for a start without a site to use: no
+// config (noConfig), no jira: and no site picked, or a site without its
+// email or token (filled in but those).
+func webSetup(cfg config.Config, path, site string, noConfig bool) (*web.Setup, bool) {
+	st := &web.Setup{Name: site, ConfigPath: path, EnvToken: os.Getenv("JIRA_API_TOKEN") != ""}
+	st.Keyring = keyringAvailable()
+	if noConfig || site == "" && strings.TrimSpace(cfg.Jira.BaseURL) == "" {
+		return st, true
+	}
+	j, err := cfg.Site(site)
+	if err != nil || j.Check(siteName(site)) == nil {
+		return nil, false // an unknown -site says so as before
+	}
+	st.Prefill = web.SetupForm{Site: j.BaseURL, Email: j.Email}
+	return st, true
+}
+
+// keyringAvailable is whether keyringFor finds a keyring tool.
+func keyringAvailable() bool {
+	store, _ := keyringFor("https://example.atlassian.net", "you@example.com")
+	return store != nil
+}
+
+// sentence capitalises msg and ends it with a full stop.
+func sentence(msg string) string {
+	if msg == "" {
+		return msg
+	}
+	return strings.ToUpper(msg[:1]) + strings.TrimSuffix(msg[1:], ".") + "."
+}
+
+// webSetupSave is the setup screen's Connect: as laneway setup, it signs in
+// to check the site, then writes it to the config at path as site ("" is
+// jira:), the token in the keyring when asked and one is there.
+func webSetupSave(ctx context.Context, path, site string, f web.SetupForm) (string, error) {
+	if f.Demo {
+		return "", nil
+	}
+	base, err := config.BaseURL(f.Site)
+	if err != nil {
+		return "", web.FieldError{Field: "site", Msg: sentence(err.Error())}
+	}
+	j := config.JiraConfig{BaseURL: base, Email: strings.TrimSpace(f.Email), APIToken: strings.TrimSpace(f.Token)}
+	if !strings.Contains(j.Email, "@") {
+		return "", web.FieldError{Field: "email", Msg: "Type the email address you sign in to Jira with."}
+	}
+	check := j
+	check.APIToken = cmp.Or(j.APIToken, os.Getenv("JIRA_API_TOKEN"))
+	if check.APIToken == "" {
+		return "", web.FieldError{Field: "token", Msg: "Paste the API token."}
+	}
+	who, err := signIn(ctx, check)
+	switch {
+	case err == nil:
+	case errors.Is(err, jira.ErrUnauthorized):
+		return "", web.FieldError{Field: "token", Msg: "Jira did not accept this email and token. Check the email is the one you sign in with, and copy the token again."}
+	case errors.Is(err, jira.ErrNotFound):
+		return "", web.FieldError{Field: "site", Msg: base + " answers, but not as Jira Cloud. Check the address."}
+	default:
+		return "", web.FieldError{Field: "site", Msg: "Could not reach " + base + ": " + err.Error()}
+	}
+	if f.Keyring && j.APIToken != "" {
+		if store, lookup := keyringFor(j.BaseURL, j.Email); store != nil && keyringStore(store, j.APIToken) == nil {
+			j.APIToken, j.APITokenCmd = "", lookup
+		}
+	}
+	if err := config.SetSite(path, site, j); err != nil {
+		return "", err
+	}
+	return who, nil
 }
 
 // allowedHosts are the Host headers a browser may use for a server bound to

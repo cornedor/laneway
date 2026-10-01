@@ -76,6 +76,9 @@ func init() {
 
 // session is what the frontend needs at start: who, where, defaults.
 func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	if s.opt.Setup != nil {
+		return setupSession(s), nil
+	}
 	o := s.opt
 	me, _ := s.Client().Myself(ctx)
 	return map[string]any{

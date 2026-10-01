@@ -6,6 +6,7 @@
 - Frontend: `internal/web/static`, plain ES modules, no build step, no dependencies, embedded in the binary. Go: `go build`. JS: edit and reload (run `go run . web -demo -no-open` and open http://127.0.0.1:8484; the `-demo` project needs no Jira).
 - Themes: only CSS variables from `css/themes.css`; never raw colours. Density via `--pad --row --fs`.
 - Keyboard first: every action has a key, registered on a `keys.scope` so `?` lists it.
+- First start: without a usable site `webcmd.go` serves `Options.Setup` (`api_setup.go`): only `GET /api/session` (`{setup}`) and `POST /api/setup` answer, the rest 503. `app.js` mounts `views/setup.js` instead of the app; on a save the server is replaced by the app on the same address and the page reloads. `FieldError` refusals arrive as `fields` on the `ApiError`.
 
 ## Shell API (`js/app.js`, `window.laneway` in the console)
 

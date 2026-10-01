@@ -527,6 +527,16 @@ type notFound struct{ what string }
 func (e notFound) Error() string   { return fmt.Sprintf("jira: %s not found (or no access)", e.what) }
 func (e notFound) Is(t error) bool { return t == ErrNotFound }
 
+// ErrUnauthorized is a 401 (a wrong email or token), for errors.Is.
+var ErrUnauthorized = errors.New("jira: not authorized")
+
+type unauthorized struct{ what string }
+
+func (e unauthorized) Error() string {
+	return fmt.Sprintf("jira: not authorized for %s · check email and api_token in the config", e.what)
+}
+func (e unauthorized) Is(t error) bool { return t == ErrUnauthorized }
+
 // statusError turns a non-2xx into a message the panel can show, saying
 // what to do where a user can: sign in, ask for permission, wait, raise a
 // limit. what labels the request (an issue key, or e.g. "priorities");
@@ -537,7 +547,7 @@ func statusError(code int, what string, body []byte, retryAfter string) error {
 	msg := safeterm.Line(jiraMessages(body))
 	switch code {
 	case http.StatusUnauthorized:
-		return fmt.Errorf("jira: not authorized for %s · check email and api_token in the config", what)
+		return unauthorized{what}
 	case http.StatusForbidden:
 		if msg != "" {
 			return fmt.Errorf("jira: no permission for %s: %s", what, msg)

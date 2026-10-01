@@ -636,6 +636,7 @@ laneway -site club web          # another site (-config works too)
 laneway web -addr 127.0.0.1:9000 -no-open
 ```
 
+- First start without a config (or a site missing its token): the browser shows a setup page instead, with the steps to make an API token. It signs in, writes the config as `laneway setup` does (token in the keyring if you tick it) and opens the app; *Try the demo* starts the generated project.
 - `-remote` allows a non-loopback `-addr` and needs the launch token. The UI acts as you on Jira, and `ui.actions` and `ui.llm` run commands: never expose it publicly. `Host` and `Origin` are checked.
 - Keyboard first, like the terminal: `?` lists the keys of the view, `:` is the palette, `g` then a letter goes to a view (`g b` board, `g p` planning, `g w` my work; `M` lists them all), `tab` moves focus between view and panel. The mouse works too, drag and drop included.
 - Themes: light, dark, nord, gruvbox, solarized, tokyonight, catppuccin, dracula, onedark, rosepine, kanagawa, monokai (most with light or dark variants), mono or the system's; accent, density, font size and your own CSS tokens under `g ,` (settings). Look is stored in the browser; `ui:` options and key remaps are written to `config.yaml`.

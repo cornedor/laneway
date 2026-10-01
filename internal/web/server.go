@@ -59,6 +59,9 @@ type Options struct {
 	// Token, when set, must be exchanged (?token=) for a cookie before any
 	// other request is served. Set with -remote.
 	Token string
+	// Setup, when set, makes this a first-start server: only the setup
+	// screen, no Jira yet.
+	Setup *Setup
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.
@@ -146,7 +149,10 @@ func writeErr(w http.ResponseWriter, err error) {
 	code := http.StatusBadGateway
 	var he httpError
 	var re *jira.RequestError
+	var fe FieldError
 	switch {
+	case errors.As(err, &fe):
+		code = http.StatusBadRequest
 	case errors.As(err, &he):
 		code = he.code
 	case errors.Is(err, jira.ErrQueued):
@@ -161,6 +167,9 @@ func writeErr(w http.ResponseWriter, err error) {
 	body := map[string]any{"error": err.Error()}
 	if re != nil && len(re.Fields) > 0 {
 		body["fields"] = re.Fields // Jira's reasons by field id, for the form to show under each
+	}
+	if fe.Field != "" {
+		body["fields"] = map[string]string{fe.Field: fe.Msg}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -235,13 +244,15 @@ func New(ctx context.Context, opt Options) *Server {
 	for _, rt := range routes {
 		h := rt.h
 		s.mux.HandleFunc(rt.pattern, func(w http.ResponseWriter, r *http.Request) {
-			if ss := s.at(r); !demoGate(ss, w, r) {
+			if ss := s.at(r); !setupOnly(ss, w, r) && !demoGate(ss, w, r) {
 				h(ss, w, r)
 			}
 		})
 	}
 	routesMu.Unlock()
-	s.sites.rulesOf(ctx, opt) // starts the rule watches
+	if opt.Setup == nil {
+		s.sites.rulesOf(ctx, opt) // starts the rule watches
+	}
 	sub, _ := fs.Sub(staticFS, "static")
 	s.mux.Handle("/", assets(sub))
 	return s

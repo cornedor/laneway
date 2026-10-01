@@ -1,0 +1,19 @@
+/* First-start setup screen (views/setup.js). */
+#app.setup-mode #site, #app.setup-mode #nav, #app.setup-mode #tray, #app.setup-mode #search-btn, #app.setup-mode #viewbar { display: none; }
+.su-wrap { min-height: 100%; display: flex; justify-content: center; align-items: flex-start; padding: 2.286rem 1.143rem; }
+.su-card { width: 100%; max-width: 36rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.714rem; box-shadow: var(--shadow); }
+.su-intro { margin: 0 0 1.143rem; }
+.su-form { display: flex; flex-direction: column; gap: 1.143rem; }
+.su-field { display: flex; flex-direction: column; gap: .286rem; }
+.su-label { font-weight: 600; }
+.su-hint { margin: 0; color: var(--fg-2); font-size: .929rem; }
+.su-steps { margin: .286rem 0 .429rem; padding-left: 1.429rem; color: var(--fg-2); font-size: .929rem; display: flex; flex-direction: column; gap: .214rem; }
+.su-steps b { color: var(--fg); font-weight: 600; }
+.su-token { display: flex; gap: .429rem; }
+.su-token .input { flex: 1; min-width: 0; }
+.su-field .form-err { min-height: 0; margin: 0; }
+.su-keyring { color: var(--fg-2); }
+.su-actions { display: flex; align-items: center; gap: var(--pad); flex-wrap: wrap; }
+.su-status.ok { color: var(--ok); } .su-status.err { color: var(--err); white-space: pre-wrap; }
+.su-demo { margin: 1.143rem 0 0; }
+.su-foot { margin: 1.143rem 0 0; font-size: .857rem; overflow-wrap: anywhere; }

@@ -1,0 +1,77 @@
+package web
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/cornedor/laneway/internal/config"
+)
+
+// Setup is the first start: no site to talk to yet. With Options.Setup set
+// the server serves only the setup screen (GET /api/session, POST
+// /api/setup); every other API answers 503.
+type Setup struct {
+	// Name is the site being set up ("" is jira:); Prefill its URL and email
+	// when the config has them, but no token.
+	Name    string
+	Prefill SetupForm
+	// ConfigPath is the file the site is written to.
+	ConfigPath string
+	// Keyring is whether a system keyring can keep the token; EnvToken that
+	// JIRA_API_TOKEN is set, so the token may be left empty.
+	Keyring, EnvToken bool
+	// Save signs in with f and writes the site (Demo: the generated board
+	// instead); the server is then replaced by the app on that site. It
+	// answers whose login it is.
+	Save func(ctx context.Context, f SetupForm) (string, error)
+}
+
+// SetupForm is what the setup screen sends.
+type SetupForm struct {
+	Site, Email, Token string
+	Keyring, Demo      bool
+}
+
+// FieldError is a refusal of one form field ("site", "email", "token").
+type FieldError struct{ Field, Msg string }
+
+func (e FieldError) Error() string { return e.Msg }
+
+// setupOnly is the gate in setup mode: the setup screen's own calls pass.
+func setupOnly(s *Server, w http.ResponseWriter, r *http.Request) bool {
+	if s.opt.Setup == nil || r.URL.Path == "/api/session" || r.URL.Path == "/api/setup" {
+		return false
+	}
+	writeErr(w, httpError{http.StatusServiceUnavailable, "laneway is not connected to Jira yet"})
+	return true
+}
+
+func init() {
+	post("/setup", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		if s.opt.Setup == nil {
+			return nil, httpError{http.StatusConflict, "already set up"}
+		}
+		f, err := Body[SetupForm](r)
+		if err != nil {
+			return nil, err
+		}
+		who, err := s.opt.Setup.Save(ctx, f)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"who": who, "configPath": s.opt.Setup.ConfigPath}, nil
+	})
+}
+
+// setupSession is /api/session in setup mode.
+func setupSession(s *Server) map[string]any {
+	st := s.opt.Setup
+	return map[string]any{
+		"version": s.opt.Version,
+		"setup": map[string]any{
+			"name": st.Name, "site": st.Prefill.Site, "email": st.Prefill.Email,
+			"configPath": st.ConfigPath, "keyring": st.Keyring, "envToken": st.EnvToken,
+			"tokenURL": config.TokenURL,
+		},
+	}
+}
