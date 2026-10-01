@@ -152,7 +152,23 @@ export const keys = {
     }
     return out;
   },
+  // The open screen's own bindings (view and panel, under any modal), for the palette's rows: [{id, group, spec, desc, run}].
+  // Moving the cursor is left out, as the TUI's palette does.
+  screen() {
+    const out = [], seen = new Set();
+    for (const s of [...scopes].sort((a, b) => b.layer - a.layer || b.seq - a.seq)) {
+      if (s.modal || s.layer < 1 || s.layer > 2) continue;
+      for (const b of s.binds) {
+        if (b.hidden || !b.desc || (b.when && !b.when()) || MOVES.test(b.spec) || seen.has(b.spec)) continue;
+        seen.add(b.spec);
+        const key = b.spec.split(' ').pop().replace(/^(ctrl|alt|meta)\+/, '');
+        out.push({ id: b.id, group: b.group, spec: b.spec, desc: b.desc, run: () => b.fn(new KeyboardEvent('keydown', { key })) });
+      }
+    }
+    return out;
+  },
 };
+const MOVES = /^(j|k|h|l|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|Escape|Tab|shift\+Tab|g g|G)$/;
 const GLOBAL = new Set(['global', 'timer', 'undo']);
 export const kbd = spec => spec.split(' ').map(k => k.replace('ArrowUp', '↑').replace('ArrowDown', '↓').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace('Escape', 'esc').replace('Enter', '⏎').replace('Space', '␣').replace('ctrl+', '⌃').replace('alt+', '⌥').replace('meta+', '⌘'));
 export default keys;

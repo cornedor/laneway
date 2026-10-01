@@ -4,7 +4,7 @@
 import { h, clear, debounce } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { fuzzy } from '../lib/fuzzy.js';
-import { kbd } from '../lib/keys.js';
+import { kbd, keys } from '../lib/keys.js';
 import bus from '../lib/bus.js';
 import api from '../lib/api.js';
 
@@ -90,6 +90,7 @@ export function openPalette(app, mode = '') {
 
   let cur = m0, q = '', items = [], sel = 0, phase = 'edit', seq = 0, ctl = null, busy = false;
   let words = null, sugg = [], results = null, cmdCache = [];
+  const screen = keys.screen(); // read before the palette's own modal hides them
   const badge = h('button.pal-mode', { type: 'button', title: 'Backspace on an empty input returns to search', onclick: () => setMode('search') });
   const input = h('input.pal-input', { type: 'text', spellcheck: false, autocomplete: 'off', autocapitalize: 'off', 'aria-label': 'Palette' });
   const list = h('div.pal-list', { role: 'listbox' });
@@ -350,9 +351,14 @@ export function openPalette(app, mode = '') {
     return false;
   }
   function setInput(v) { input.value = v; q = v; }
+  // As the TUI: the focused screen's actions are rows too, those a command does not cover already.
+  function withScreen(cmds) {
+    const taken = new Set(cmds.flatMap(c => [].concat(c.keys || [])));
+    return cmds.concat(screen.filter(b => !taken.has(b.spec)).map(b => ({ id: 'key:' + b.id, title: b.desc, group: b.group, keys: b.spec, run: b.run })));
+  }
   function setMode(mm) {
     cur = mm; phase = 'edit'; stopFetch(); setInput(''); found = null; peek = null; sugg = []; results = null;
-    if (mm === 'cmd') cmdCache = app.commands.list();
+    if (mm === 'cmd') cmdCache = withScreen(app.commands.list());
     if (mm === 'jql') wordsLoaded();
     badge.textContent = MODES[mm].label; badge.dataset.m = mm;
     input.placeholder = MODES[mm].hint;
