@@ -511,7 +511,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: 'Write a comment… (@ to mention, markdown works)', label: 'Comment', noCancel: true, draft: 'comment:' + key,
     save: async (text, mentions) => {
       const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || 'You', AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
-      const parent = st.reply && threaded() ? st.reply.ID : ''; // a real reply in Jira's thread
+      const parent = st.reply && threaded() ? threadRoot(st.reply) : ''; // a real reply in Jira's thread
       st.pending.push(tmp); renderComments(); box.list.lastElementChild?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
       try {
@@ -527,6 +527,13 @@ export function mountIssue(el, key, { app, full, card }) {
     } });
   comp.ta.addEventListener('input', () => drafts.set(key, comp.ta.value));
   const replyChip = h('div.reply-chip', { hidden: true });
+  // Jira's threads are one level deep: a reply to a reply goes under that one's parent (jira.ThreadRoot).
+  const threadRoot = c => {
+    const by = new Map((st.issue.Comments || []).map(x => [x.ID, x])), seen = new Set();
+    let id = c.ID;
+    while (!seen.has(id)) { seen.add(id); const p = by.get(id) && by.get(id).ParentID; if (!p) break; id = p; }
+    return id;
+  };
   // ui.threaded_replies (on by default): a reply goes under its comment in Jira's thread.
   const threaded = () => String((app.session.ui || {}).ThreadedReplies || 'on').trim().toLowerCase() !== 'off';
   // Who the comment is for: everyone, an internal note (Service Desk) or a project role; ctrl+o steps (TUI cycleCommentVis).

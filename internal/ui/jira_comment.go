@@ -187,11 +187,15 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	}
 }
 
-// replyParent is the comment a reply goes under in Jira's thread; "" for a
-// comment, or with ui.threaded_replies off (a new comment, quoting it).
+// replyParent is the comment a reply goes under in Jira's thread (a reply's
+// own parent: threads are one level deep); "" for a comment, or with
+// ui.threaded_replies off (a new comment, quoting it).
 func (m *Model) replyParent() string {
-	if !m.opts.threaded {
+	if !m.opts.threaded || m.jiraCommentReplyID == "" {
 		return ""
+	}
+	if m.jiraIssue != nil && m.jiraIssue.Key == m.jiraCommentKey {
+		return jira.ThreadRoot(m.jiraIssue.Comments, m.jiraCommentReplyID)
 	}
 	return m.jiraCommentReplyID
 }

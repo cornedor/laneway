@@ -328,6 +328,15 @@ func TestReplyPostsParent(t *testing.T) {
 	if !strings.Contains(posted, `"parentId":"10363"`) || strings.Contains(posted, "visibility") {
 		t.Errorf("posted = %s", posted)
 	}
+	// A reply to a reply goes under the thread's top: Jira's are one level deep.
+	m.jiraIssue.Comments = append(m.jiraIssue.Comments, jira.Comment{ID: "10364", ParentID: "10363", Author: "Bo", Body: "yes"})
+	m.openJiraReply(m.jiraIssue.Comments[1])
+	m.jiraCommentInput.SetValue(m.jiraCommentInput.Value() + "same")
+	_, cmd = m.applyJiraComment()
+	cmd()
+	if !strings.Contains(posted, `"parentId":"10363"`) {
+		t.Errorf("reply to a reply posted = %s", posted)
+	}
 
 	// ui.threaded_replies: off: a new comment (quoting it), ctrl+o free.
 	m.opts.threaded = false

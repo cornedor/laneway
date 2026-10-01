@@ -74,6 +74,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m := issueRe.FindStringSubmatch(p); m != nil {
 		if iss := s.issues[m[1]]; iss != nil {
 			if v, ok := s.issueRoute(r.Method, iss, m[2], strings.TrimPrefix(m[3], "/"), body, q); ok {
+				if no, refused := v.(refusal); refused {
+					w.WriteHeader(http.StatusBadRequest)
+					send(map[string]any{"errorMessages": []string{string(no)}})
+					return
+				}
 				if v == nil {
 					w.WriteHeader(http.StatusNoContent)
 					return
@@ -279,6 +284,9 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 }
 
 // issueRoute answers /issue/KEY[/sub[/id]]; nil with ok is a 204.
+// refusal is an issue route's 400, with Jira's message.
+type refusal string
+
 func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[string]any, q map[string][]string) (any, bool) {
 	switch method + " " + sub {
 	case "GET ":
@@ -328,6 +336,13 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 		s.seq++
 		c := comment{id: strconv.Itoa(s.seq), author: me, body: adfText(body["body"]), created: time.Now()}
 		c.parent, _ = body["parentId"].(string)
+		if c.parent != "" {
+			// As Jira: threads are one level deep, a reply's parent is a top-level comment.
+			i := slices.IndexFunc(iss.comments, func(o comment) bool { return o.id == c.parent })
+			if i < 0 || iss.comments[i].parent != "" {
+				return refusal("comment: Parent comment not found and no child comments exist. Cannot create new child comments."), true
+			}
+		}
 		iss.comments = append(iss.comments, c)
 		iss.updated = time.Now()
 		return commentJSON(c), true

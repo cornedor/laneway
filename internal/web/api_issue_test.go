@@ -114,6 +114,10 @@ func TestIssuePanelRoutes(t *testing.T) {
 	if last := is.Comments[len(is.Comments)-1]; last.Body != "agreed" || last.ParentID != parent {
 		t.Errorf("reply = %+v, want parent %s", last, parent)
 	}
+	// Under a reply Jira (and the demo) refuses: the client names the top comment.
+	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "nested", "Parent": is.Comments[len(is.Comments)-1].ID}, nil); code == 200 {
+		t.Errorf("reply under a reply: %d, want a refusal", code)
+	}
 	var vis []jira.Visibility
 	if code := issueCall(t, "GET", ts.URL+"/api/projects/DEMO/commentvis", nil, &vis); code != 200 || len(vis) != 2 || vis[0].Role != "Administrators" {
 		t.Errorf("commentvis: %d %+v", code, vis)
