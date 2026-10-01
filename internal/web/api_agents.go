@@ -8,15 +8,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/cli"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // Coding agents: every herdr agent, live over Server-Sent Events, with the
@@ -44,21 +45,11 @@ type AgentsSnapshot struct {
 	Worktrees map[string]string // issue key → its linked worktree
 }
 
-var branchIssueRe = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])([a-z][a-z0-9_]*-[0-9]+)`)
-
-// branchKey is the issue key a branch name holds, "" for none.
-func branchKey(branch string) string {
-	if m := branchIssueRe.FindStringSubmatch(branch); m != nil {
-		return strings.ToUpper(m[1])
-	}
-	return ""
-}
-
 func agentKey(a herdr.Agent) string {
-	if k := branchKey(a.Name); k != "" {
+	if k := work.BranchKey(a.Name); k != "" {
 		return k
 	}
-	return branchKey(filepath.Base(a.CWD))
+	return work.BranchKey(filepath.Base(a.CWD))
 }
 
 func init() {
@@ -131,12 +122,10 @@ func agentsStatus(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	return map[string]any{
 		"Available": herdrClient() != nil,
 		"CLI":       cliErr == nil,
-		"GH":        have("gh"),
-		"GLab":      have("glab"),
+		"GH":        cli.Have("gh"),
+		"GLab":      cli.Have("glab"),
 	}, nil
 }
-
-func have(bin string) bool { _, err := exec.LookPath(bin); return err == nil }
 
 var (
 	wtMu    sync.Mutex
@@ -154,7 +143,7 @@ func worktreesByKey(s *Server) map[string]string {
 	out := map[string]string{}
 	for _, repo := range s.opt.Jira.Repos {
 		for path, branch := range linkedWorktrees(expandUserPath(repo)) {
-			if k := branchKey(branch); k != "" {
+			if k := work.BranchKey(branch); k != "" {
 				out[k] = path
 			}
 		}
@@ -373,7 +362,7 @@ func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	cmd.Env = append(os.Environ(), "HERDR_SOCKET_PATH="+c.Path())
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("herdr pane read: %s", cliError(err))
+		return nil, fmt.Errorf("herdr pane read: %s", cli.Error(err))
 	}
 	return map[string]string{"Text": string(out)}, nil
 }
@@ -467,14 +456,4 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	return map[string]string{"Pane": pane}, nil
-}
-
-// cliError is a failed command's first stderr line, else its error.
-func cliError(err error) string {
-	if ee, ok := err.(*exec.ExitError); ok {
-		if line, _, _ := strings.Cut(strings.TrimSpace(string(ee.Stderr)), "\n"); line != "" {
-			return line
-		}
-	}
-	return err.Error()
 }

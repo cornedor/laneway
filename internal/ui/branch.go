@@ -2,26 +2,15 @@ package ui
 
 import (
 	"os/exec"
-	"regexp"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // The issue of the git branch laneway starts in: opened on start, a ⎇ chip
 // in the header and first in the palette.
-
-// branchIssueRe finds an issue key in a branch name: issue/ABC-12-fix,
-// abc-12, feature/ABC-12.
-var branchIssueRe = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])([a-z][a-z0-9_]*-[0-9]+)`)
-
-// branchKey is the issue key branch names, "" for none.
-func branchKey(branch string) string {
-	if m := branchIssueRe.FindStringSubmatch(branch); m != nil {
-		return strings.ToUpper(m[1])
-	}
-	return ""
-}
 
 // gitBranch is the working directory's git branch, "" outside a repo.
 var gitBranch = func() string {
@@ -43,7 +32,7 @@ func (m *Model) detectBranchIssue() tea.Cmd {
 		return nil
 	}
 	return func() tea.Msg {
-		key := branchKey(gitBranch())
+		key := work.BranchKey(gitBranch())
 		if key == "" {
 			return nil
 		}

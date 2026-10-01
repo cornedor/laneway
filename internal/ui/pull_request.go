@@ -8,6 +8,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/cli"
 )
 
 // A → Open a pull request: in the issue's jira.repos checkout, pushes its
@@ -20,7 +22,7 @@ var runIn = func(ctx context.Context, dir, name string, args ...string) (string,
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
-		return "", errors.New(name + ": " + cliError(err))
+		return "", errors.New(name + ": " + cli.Error(err))
 	}
 	return strings.TrimSpace(string(out)), nil
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/home"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/review"
 )
 
 // ~ is the start screen (ui.home, internal/home, as laneway web's): each
@@ -88,11 +89,11 @@ func (m *Model) openHome() tea.Cmd {
 					items = []jiraPickerItem{{label: "Timer"}, row}
 				case "reviews":
 					var cards []jira.Card
-					reqs, err := reviewRequests(ctx)
+					reqs, err := review.Requests(ctx)
 					if err == nil {
 						var projects []jira.Project
 						if projects, err = c.ListProjects(ctx); err == nil {
-							if keys := reviewKeys(reqs, projects); len(keys) > 0 {
+							if keys := review.Keys(reqs, projects); len(keys) > 0 {
 								cards, err = c.SearchCards(ctx, "key in ("+strings.Join(keys, ", ")+") ORDER BY updated DESC")
 							}
 						}

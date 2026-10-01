@@ -8,14 +8,15 @@ import (
 
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/review"
 )
 
 // TestHome: ~ lists ui.home's widgets in its order against the demo's
 // Jira, enter on an issue opens it, on a search runs it as a view.
 func TestHome(t *testing.T) {
-	old := reviewRequests
-	t.Cleanup(func() { reviewRequests = old })
-	reviewRequests = func(context.Context) ([]reviewRequest, error) { return nil, nil }
+	old := review.Requests
+	t.Cleanup(func() { review.Requests = old })
+	review.Requests = func(context.Context) ([]review.Request, error) { return nil, nil }
 	url, stop, err := demo.New(time.Now()).Start()
 	if err != nil {
 		t.Fatal(err)

@@ -16,11 +16,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cornedor/laneway/internal/cli"
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/review"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // fakeHerdr answers the socket calls the web API makes.
@@ -181,8 +184,8 @@ func TestBranchKey(t *testing.T) {
 	for in, want := range map[string]string{
 		"issue/ABC-12-fix": "ABC-12", "abc-12": "ABC-12", "jira-abc-12-x1y": "ABC-12", "fix/utf-8": "UTF-8", "main": "", "worktree-webui": "",
 	} {
-		if got := branchKey(in); got != want {
-			t.Errorf("branchKey(%q) = %q, want %q", in, got, want)
+		if got := work.BranchKey(in); got != want {
+			t.Errorf("work.BranchKey(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -345,21 +348,13 @@ func TestAgentEvents(t *testing.T) {
 	}
 }
 
-func TestReviewKeys(t *testing.T) {
-	reqs := []reviewRequest{{title: "DEMO-4 fix, see OTHER-1 and DEMO-4"}, {branch: "issue/demo-5-x"}, {title: "nothing"}}
-	got := strings.Join(reviewKeys(reqs, []jira.Project{{Key: "DEMO"}}), ",")
-	if got != "DEMO-4,DEMO-5" {
-		t.Errorf("keys = %q", got)
-	}
-}
-
 func TestReviewRoute(t *testing.T) {
-	if !have("gh") && !have("glab") {
+	if !cli.Have("gh") && !cli.Have("glab") {
 		t.Skip("no gh or glab")
 	}
-	old := reviewRequests
-	reviewRequests = func(context.Context) ([]reviewRequest, error) { return []reviewRequest{{title: "DEMO-4 x"}}, nil }
-	defer func() { reviewRequests = old }()
+	old := review.Requests
+	review.Requests = func(context.Context) ([]review.Request, error) { return []review.Request{{Title: "DEMO-4 x"}}, nil }
+	defer func() { review.Requests = old }()
 	ts := agentsServer(t, t.TempDir())
 	var out struct {
 		Keys  []string

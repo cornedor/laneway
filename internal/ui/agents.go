@@ -16,6 +16,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/rules"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // The herdr agents started on issues (S), live on their cards: ⚙ working,
@@ -65,7 +66,7 @@ func (m *Model) fetchAgents() tea.Cmd {
 		wts := map[string]string{}
 		for _, r := range repos {
 			for path, branch := range linkedWorktrees(r) {
-				if k := branchKey(branch); k != "" {
+				if k := work.BranchKey(branch); k != "" {
 					wts[k] = path
 				}
 			}
@@ -77,10 +78,10 @@ func (m *Model) fetchAgents() tea.Cmd {
 // agentKey is the issue an agent works on: from its name (jira-abc-12-…)
 // or its worktree's directory, "" for none.
 func agentKey(a herdr.Agent) string {
-	if k := branchKey(a.Name); k != "" {
+	if k := work.BranchKey(a.Name); k != "" {
 		return k
 	}
-	return branchKey(filepath.Base(a.CWD))
+	return work.BranchKey(filepath.Base(a.CWD))
 }
 
 // agentRank orders states worst first: the one that needs you leads.

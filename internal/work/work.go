@@ -29,6 +29,18 @@ const NoTicket = "no ticket"
 // "utf-8" names none.
 var KeyRe = regexp.MustCompile(`\b[A-Z][A-Z0-9_]*-[0-9]+\b`)
 
+// branchRe finds an issue key in a branch name: issue/ABC-12-fix, abc-12,
+// feature/ABC-12.
+var branchRe = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])([a-z][a-z0-9_]*-[0-9]+)`)
+
+// BranchKey is the issue key branch names, "" for none.
+func BranchKey(branch string) string {
+	if m := branchRe.FindStringSubmatch(branch); m != nil {
+		return strings.ToUpper(m[1])
+	}
+	return ""
+}
+
 // ExpandHome is p with a leading ~ as the home directory.
 func ExpandHome(p string) string {
 	if p != "~" && !strings.HasPrefix(p, "~/") {

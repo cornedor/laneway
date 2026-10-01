@@ -11,18 +11,19 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/review"
 )
 
 // TestReview: ctrl+r turns the requests' keys in known projects into a
 // view, and marks their cards ⌥.
 func TestReview(t *testing.T) {
-	old := reviewRequests
-	t.Cleanup(func() { reviewRequests = old })
-	reviewRequests = func(context.Context) ([]reviewRequest, error) {
-		return []reviewRequest{
-			{title: "ABC-2: fix login, UTF-8 paths"},
-			{title: "Tidy", branch: "issue/abc-3-tidy"},
-			{title: "ABC-2 again"},
+	old := review.Requests
+	t.Cleanup(func() { review.Requests = old })
+	review.Requests = func(context.Context) ([]review.Request, error) {
+		return []review.Request{
+			{Title: "ABC-2: fix login, UTF-8 paths"},
+			{Title: "Tidy", Branch: "issue/abc-3-tidy"},
+			{Title: "ABC-2 again"},
 		}, nil
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -52,13 +53,5 @@ func TestReview(t *testing.T) {
 	out, _ = m.Update(reviewMsg{})
 	if m = out.(Model); !strings.Contains(m.status, "nothing waits on your review") {
 		t.Errorf("status %q", m.status)
-	}
-}
-
-// TestReviewerMRsPath: a username can't add parameters to the query.
-func TestReviewerMRsPath(t *testing.T) {
-	got := reviewerMRsPath("a&scope=x#y")
-	if !strings.HasSuffix(got, "&reviewer_username=a%26scope%3Dx%23y") {
-		t.Errorf("path = %q", got)
 	}
 }

@@ -18,8 +18,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cornedor/laneway/internal/cli"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // Start work on an issue (the TUI's S): its worktree as a herdr workspace, an
@@ -180,7 +182,7 @@ func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
 func worktreeKept(repo, path, branch, base string) string {
 	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
 	if err != nil {
-		return "git status: " + cliError(err)
+		return "git status: " + cli.Error(err)
 	}
 	if len(strings.TrimSpace(string(out))) > 0 {
 		return "it has uncommitted changes"
@@ -198,7 +200,7 @@ func worktreeKept(repo, path, branch, base string) string {
 // the TUI's: first in the palette. It must exist: fix/utf-8 names none.
 func cwdBranchIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	branch, _ := runIn(ctx, "", "git", "branch", "--show-current")
-	key := branchKey(branch)
+	key := work.BranchKey(branch)
 	if key == "" {
 		return map[string]string{}, nil
 	}
@@ -261,7 +263,7 @@ func workSpots(repo, key string, running []AgentOut) []WorkSpot {
 		}
 	}
 	for p, b := range wts {
-		if branchKey(b) == key {
+		if work.BranchKey(b) == key {
 			idx(p)
 		}
 	}
@@ -304,7 +306,7 @@ func keyBranches(repo, key string) []string {
 		return out
 	}
 	for _, br := range strings.Fields(string(b)) {
-		if branchKey(br) == key {
+		if work.BranchKey(br) == key {
 			out = append(out, br)
 		}
 	}
@@ -328,11 +330,11 @@ func workForm(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		Agent: cfg.Agent, Agents: []string{cfg.Agent}, Missing: []string{}, Existing: []string{}, Template: cfg.Branch,
 		Actions: startActions(s, key, cfg), Problems: []string{}}
 	for _, k := range agentKinds {
-		if k != cfg.Agent && have(k) {
+		if k != cfg.Agent && cli.Have(k) {
 			f.Agents = append(f.Agents, k)
 		}
 	}
-	if !have(cfg.Agent) {
+	if !cli.Have(cfg.Agent) {
 		f.Missing = append(f.Missing, cfg.Agent)
 	}
 	if !f.Herdr {
@@ -704,7 +706,7 @@ var runIn = func(ctx context.Context, dir, name string, args ...string) (string,
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("%s: %s", name, cliError(err))
+		return "", fmt.Errorf("%s: %s", name, cli.Error(err))
 	}
 	return strings.TrimSpace(string(out)), nil
 }

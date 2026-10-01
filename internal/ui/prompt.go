@@ -12,6 +12,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // laneway prompt: a segment for a shell prompt or tmux status line, read
@@ -48,7 +49,7 @@ func ReadPrompt(st *store.Store, now time.Time) Prompt {
 // BranchIssue is the issue key the working directory's git branch names,
 // "" for none.
 func BranchIssue() string {
-	return branchKey(headBranch())
+	return work.BranchKey(headBranch())
 }
 
 // headBranch is the working directory's branch read from .git/HEAD, which

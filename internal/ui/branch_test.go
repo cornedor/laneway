@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 func TestBranchKey(t *testing.T) {
@@ -21,7 +22,7 @@ func TestBranchKey(t *testing.T) {
 		"main":                   "",
 		"":                       "",
 	} {
-		if got := branchKey(in); got != want {
+		if got := work.BranchKey(in); got != want {
 			t.Errorf("%q = %q, want %q", in, got, want)
 		}
 	}
