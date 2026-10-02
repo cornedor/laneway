@@ -18,6 +18,7 @@
           vendorHash = "sha256-nlg9Hb0yvUKxHjkUDicPbU7FWcN0ElWQCFluedgDxWQ=";
           env.CGO_ENABLED = 0;
           ldflags = [ "-s" "-w" "-X main.version=${version}" ];
+          subPackages = [ "." ];
           doCheck = false;
           meta = {
             description = "A terminal board for Jira";
