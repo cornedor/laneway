@@ -71,3 +71,25 @@
 .df-msg-row { display: flex; gap: .571rem; align-items: flex-start; } .df-msg-row + .df-msg-row { margin-top: .571rem; } .df-msg-row > div { flex: 1; min-width: 0; }
 .df-head .dv-caret { flex: none; align-self: center; } .df-sec:not(.folded) > .df-head .dv-caret { transform: rotate(90deg); }
 @media (max-width: 760px) { .mrp > .iss-tabs { flex-wrap: wrap; } .mrp-head .iss-top { flex-wrap: wrap; row-gap: .429rem; } .mrp-head .iss-top .mrp-issue { order: 9; flex-basis: 100%; } .mrp-acts { width: 100%; padding: .286rem 0; } .mrp-issue { max-width: 100%; margin-left: 0; } .mrp-cbar { flex-wrap: wrap; } }
+
+/* a CI job's log (views/mr.js, the server's ansiHTML): a terminal's dark in either theme, as GitLab's, a number a
+   line, ANSI colours as classes (a-c: colour, a-b: background), followed to the end while the job runs */
+.jl { position: relative; margin-top: var(--pad); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  --jl-bg: #16181d; --jl-fg: #d7dae0; --jl-dim: #7d8590; }
+.jl-head { display: flex; align-items: center; gap: .571rem; padding: .357rem .571rem .357rem .857rem; background: var(--bg-2); border-bottom: 1px solid var(--border); min-height: var(--bar-h); }
+.jl-head b { font-weight: 600; }
+.jl-live { display: inline-flex; align-items: center; gap: .357rem; color: var(--info); font-size: .86em; }
+.jl-live i { width: .5rem; height: .5rem; border-radius: 50%; background: var(--info); animation: dv-pulse 1.4s ease-in-out infinite; }
+.jl-body { max-height: min(32rem, 60vh); overflow: auto; padding: .571rem 0; background: var(--jl-bg); color: var(--jl-fg); counter-reset: jl;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: .8rem; line-height: 1.45; outline: none; }
+.jl-l { counter-increment: jl; white-space: pre-wrap; overflow-wrap: anywhere; padding: 0 .857rem 0 4rem; text-indent: -3.143rem; min-height: 1.45em; }
+.jl-l::before { content: counter(jl); display: inline-block; width: 2.429rem; margin-right: .714rem; text-indent: 0; text-align: right; color: var(--jl-dim); user-select: none; }
+.jl-l:hover { background: rgb(255 255 255 / .04); }
+.jl-cut { padding: 0 .857rem .286rem 4rem; color: var(--jl-dim); font-style: italic; }
+.jl-follow { position: absolute; right: 1.143rem; bottom: .857rem; box-shadow: 0 2px 8px rgb(0 0 0 / .35); }
+.a-bold { font-weight: 700; } .a-dim { opacity: .7; } .a-it { font-style: italic; } .a-ul { text-decoration: underline; }
+.a-c0 { color: #555b65; } .a-c1 { color: #f47067; } .a-c2 { color: #57ab5a; } .a-c3 { color: #c69026; } .a-c4 { color: #539bf5; } .a-c5 { color: #b083f0; } .a-c6 { color: #39c5cf; } .a-c7 { color: #d7dae0; }
+.a-c8 { color: #7d8590; } .a-c9 { color: #ff938a; } .a-c10 { color: #6bc46d; } .a-c11 { color: #daaa3f; } .a-c12 { color: #6cb6ff; } .a-c13 { color: #dcbdfb; } .a-c14 { color: #56d4dd; } .a-c15 { color: #ffffff; }
+.a-b0 { background: #555b65; } .a-b1 { background: #8e1519; } .a-b2 { background: #1b4721; } .a-b3 { background: #6c4a00; } .a-b4 { background: #143d79; } .a-b5 { background: #5d3c94; } .a-b6 { background: #0b5560; } .a-b7 { background: #adb5bf; color: #16181d; }
+.a-b8 { background: #7d8590; } .a-b9 { background: #c93c37; } .a-b10 { background: #347d39; } .a-b11 { background: #966600; } .a-b12 { background: #316dca; } .a-b13 { background: #8256d0; } .a-b14 { background: #1b7c83; } .a-b15 { background: #f0f3f6; color: #16181d; }
+@media (prefers-reduced-motion: reduce) { .jl-live i { animation: none; } }

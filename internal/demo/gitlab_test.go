@@ -78,3 +78,48 @@ func TestGitLab(t *testing.T) {
 		t.Errorf("after the review: threads %+v, drafts %d, approvals %+v", threads, len(ds), mr.Approvals)
 	}
 }
+
+// TestGitLabJobs: !87's pipeline deploys for deployRun from its first read,
+// deploy:staging's log growing; every job has an id and a log.
+func TestGitLabJobs(t *testing.T) {
+	s := New(time.Now())
+	base, stop, err := s.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	c := gitlab.New(gitlab.Config{BaseURL: base, Token: "demo"})
+	ctx := context.Background()
+	mr, err := c.Get(ctx, "acme/shop-api", 87)
+	if err != nil || mr.Checks.Status != forge.StatusRunning || mr.Mergeable {
+		t.Fatalf("a fresh pipeline: %+v, %v", mr.Checks, err)
+	}
+	var deploy forge.Job
+	for _, g := range mr.Checks.Groups {
+		for _, j := range g.Jobs {
+			if j.ID == 0 {
+				t.Errorf("job %s has no id", j.Name)
+			}
+			if l, err := c.JobLog(ctx, "acme/shop-api", j.ID); err != nil || !strings.Contains(l.Log, "Running with gitlab-runner") {
+				t.Errorf("%s's log: %v", j.Name, err)
+			}
+			if j.Name == "deploy:staging" {
+				deploy = j
+			}
+		}
+	}
+	l, _ := c.JobLog(ctx, "acme/shop-api", deploy.ID)
+	if deploy.Status != forge.StatusRunning || l.Done() || strings.Contains(l.Log, "Job succeeded") {
+		t.Errorf("deploy:staging while it runs: %s, %+v", deploy.Status, l.Job)
+	}
+	s.mu.Lock()
+	s.git.deployAt = time.Now().Add(-deployRun)
+	s.mu.Unlock()
+	if l, _ = c.JobLog(ctx, "acme/shop-api", deploy.ID); !l.Done() || !strings.Contains(l.Log, "smoke: 4/4 passed") {
+		t.Errorf("deploy:staging done: %+v", l.Job)
+	}
+	c.Invalidate("acme/shop-api", 87)
+	if mr, _ = c.Get(ctx, "acme/shop-api", 87); mr.Checks.Status != forge.StatusSuccess || !mr.Mergeable {
+		t.Errorf("the pipeline after: %+v", mr.Checks)
+	}
+}

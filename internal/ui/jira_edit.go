@@ -84,6 +84,8 @@ const (
 	jiraPickHistory
 	// jiraPickDev lists the issue's pull requests and branches (devinfo.go).
 	jiraPickDev
+	// jiraPickJob lists a merge request's pipeline jobs (joblog.go).
+	jiraPickJob
 	// jiraPickAttachment picks an attachment to download (issue_actions.go),
 	// jiraPickDeleteAttachment one to delete.
 	jiraPickAttachment
@@ -689,7 +691,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickHistory || k == jiraPickDev || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickHistory || k == jiraPickDev || k == jiraPickJob || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
 			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickClosedSprint || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
@@ -952,6 +954,14 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickAttachment {
 		m.closeJiraPicker()
 		return m, m.downloadAttachment(it.id)
+	}
+	if kind == jiraPickJob {
+		id, _ := strconv.Atoi(it.id)
+		m.closeJiraPicker()
+		if id == 0 || m.mr == nil {
+			return m, nil
+		}
+		return m, m.openJobLog(m.mr.c, m.mr.ref.Repo, id, it.value)
 	}
 	if kind == jiraPickDev {
 		if it.id == "" {
@@ -1493,6 +1503,9 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	hintTxt := "↑/↓ move · ↵ apply · esc cancel"
 	if m.jiraPicker.checked != nil {
 		hintTxt = "↑/↓ move · space/tab/click ticks · [ ↵ apply ] · esc cancel"
+	}
+	if m.jiraPicker.kind == jiraPickJob {
+		hintTxt = "↑/↓ move · ↵ its log · esc close"
 	}
 	if m.jiraPicker.kind == jiraPickDev {
 		hintTxt = "↵ open: GitLab here, the rest in the browser · " + helpKey(m.keys.CopyBranch) + " branch · esc close"

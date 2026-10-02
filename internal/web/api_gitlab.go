@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"net/http"
+	"strconv"
 
 	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
@@ -12,6 +13,15 @@ import (
 
 // The GitLab instances as settings shows them, each signed in to, and a
 // merge request read from its link (the development section's).
+
+// JobView is a CI job's log view: Done once nothing more will come.
+type JobView struct {
+	ID                          int
+	Name, Stage, Status, WebURL string
+	Duration                    int
+	HTML                        string
+	Truncated, Done             bool
+}
 
 // GitLabSite is one instance's check.
 type GitLabSite struct {
@@ -45,6 +55,25 @@ func init() {
 			ui.MRSeen(s.opt.Store, mr)
 		}
 		return mr, err
+	})
+	// ?url= a merge request's link, &job= one of its pipeline's jobs: its
+	// state and its log as HTML (ansiHTML), read fresh, so a page polling a
+	// running job sees its log grow.
+	get("/gitlab/job", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		id, _ := strconv.Atoi(r.URL.Query().Get("job"))
+		if id <= 0 {
+			return nil, FieldError{Field: "job", Msg: "a job id"}
+		}
+		j, err := c.JobLog(ctx, ref.Repo, id)
+		if err != nil {
+			return nil, err
+		}
+		return JobView{ID: j.ID, Name: j.Name, Stage: j.Stage, Status: j.Status, Duration: j.Duration, WebURL: j.WebURL,
+			HTML: ansiHTML(j.Log), Truncated: j.Truncated, Done: j.Done()}, nil
 	})
 	// The merge requests waiting on you, as the TUI's alt+m.
 	get("/gitlab/inbox", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

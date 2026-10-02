@@ -318,12 +318,7 @@ func mergeStatusText(a apiMR) string {
 // the end. A failure the job is allowed is a warning, as GitLab shows it.
 func (c *Client) pipelineGroups(ctx context.Context, projectID, pipelineID int) ([]forge.Group, error) {
 	path := fmt.Sprintf("/projects/%d/pipelines/%d/jobs?per_page=100", projectID, pipelineID)
-	var jobs []struct {
-		Name         string `json:"name"`
-		Stage        string `json:"stage"`
-		Status       string `json:"status"`
-		AllowFailure bool   `json:"allow_failure"`
-	}
+	var jobs []apiJob
 	if err := c.rest.Do(ctx, http.MethodGet, path, "pipeline jobs", nil, &jobs); err != nil {
 		return nil, err
 	}
@@ -333,17 +328,65 @@ func (c *Client) pipelineGroups(ctx context.Context, projectID, pipelineID int) 
 		if _, ok := byStage[j.Stage]; !ok {
 			order = append(order, j.Stage)
 		}
-		st := normStatus(j.Status)
-		if st == forge.StatusFailed && j.AllowFailure {
-			st = forge.StatusWarning
-		}
-		byStage[j.Stage] = append(byStage[j.Stage], forge.Job{Name: j.Name, Status: st})
+		byStage[j.Stage] = append(byStage[j.Stage], forge.Job{ID: j.ID, Name: j.Name, Status: j.status()})
 	}
 	groups := make([]forge.Group, 0, len(order))
 	for _, name := range order {
 		groups = append(groups, forge.Group{Name: name, Jobs: byStage[name]})
 	}
 	return groups, nil
+}
+
+// apiJob is a CI job as the API sends it.
+type apiJob struct {
+	ID           int     `json:"id"`
+	Name         string  `json:"name"`
+	Stage        string  `json:"stage"`
+	Status       string  `json:"status"`
+	AllowFailure bool    `json:"allow_failure"`
+	Duration     float64 `json:"duration"`
+	WebURL       string  `json:"web_url"`
+}
+
+// status is the job's status in the shared vocabulary: a failure it is
+// allowed a warning, as GitLab shows it.
+func (j apiJob) status() string {
+	st := normStatus(j.Status)
+	if st == forge.StatusFailed && j.AllowFailure {
+		st = forge.StatusWarning
+	}
+	return st
+}
+
+// jobLogMax is how much of a job's log JobLog keeps: its end, where a
+// failure is.
+const jobLogMax = 512 << 10
+
+// JobLog reads job id of project: its state and its log so far, never
+// cached, so a running job's grows on every call.
+func (c *Client) JobLog(ctx context.Context, project string, id int) (*forge.JobLog, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	base := fmt.Sprintf("/projects/%s/jobs/%d", encodePath(project), id)
+	var j apiJob
+	if err := c.rest.Do(ctx, http.MethodGet, base, "job", nil, &j); err != nil {
+		return nil, err
+	}
+	b, err := c.rest.DoRaw(ctx, http.MethodGet, base+"/trace", "job log", nil)
+	if err != nil {
+		return nil, err
+	}
+	out := &forge.JobLog{Job: forge.Job{ID: j.ID, Name: j.Name, Status: j.status()}, Stage: j.Stage,
+		Duration: int(j.Duration), WebURL: j.WebURL, Log: string(b)}
+	if len(b) > jobLogMax {
+		cut := len(b) - jobLogMax
+		if nl := strings.IndexByte(out.Log[cut:], '\n'); nl >= 0 {
+			cut += nl + 1
+		}
+		out.Log, out.Truncated = out.Log[cut:], true
+	}
+	return out, nil
 }
 
 // normStatus maps a GitLab job/pipeline status onto the shared vocabulary.

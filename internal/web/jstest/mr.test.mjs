@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { issueKeys, stageStatus } from '../static/js/lib/mr.js';
+import { issueKeys, stageStatus, nameParts } from '../static/js/lib/mr.js';
 
 test('the Jira keys a merge request names: title, branch, description, the session\'s projects only', () => {
   const m = { Title: 'DEMO-7: cache rates', SourceBranch: 'issue/demo-7-cache', Description: 'Also DEMO-9, and UTF-8 everywhere.' };
@@ -14,4 +14,11 @@ test('a stage shows as its worst job', () => {
   assert.equal(stageStatus({ Jobs: [{ Status: 'success' }, { Status: 'failed' }, { Status: 'running' }] }), 'failed');
   assert.equal(stageStatus({ Jobs: [{ Status: 'success' }] }), 'success');
   assert.equal(stageStatus({ Jobs: [] }), 'skipped');
+});
+
+test('a long job name splits into its start and its end, the end that tells a matrix apart', () => {
+  assert.deepEqual(nameParts('next/test'), ['next/test', '']);
+  const [, a] = nameParts('docker/build:branch: [., ./docker-bin/Dockerfile, registry.example/pme-legend/castiron, castiron]');
+  const [, b] = nameParts('docker/build:branch: [., ./docker-bin/Dockerfile, registry.example/pme-legend/vanguard, vanguard]');
+  assert.equal(a.length, 14); assert.notEqual(a, b);
 });

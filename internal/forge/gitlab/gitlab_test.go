@@ -191,3 +191,33 @@ func TestWaiting(t *testing.T) {
 		t.Fatalf("Waiting = %+v, %v", w, err)
 	}
 }
+
+// TestJobLog: a job's state and its log, read uncached; a log past the cap
+// keeps its end, from a line's start.
+func TestJobLog(t *testing.T) {
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		switch r.URL.Path {
+		case "/api/v4/projects/g/p/jobs/7":
+			w.Write([]byte(`{"id": 7, "name": "unit", "stage": "test", "status": "running", "duration": 12.5, "web_url": "https://x/-/jobs/7"}`))
+		case "/api/v4/projects/g/p/jobs/7/trace":
+			w.Write([]byte(strings.Repeat("old line\n", jobLogMax/9+10) + "the end\n"))
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	j, err := c.JobLog(context.Background(), "g/p", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j.Name != "unit" || j.Status != forge.StatusRunning || j.Done() || j.Duration != 12 || !j.Truncated ||
+		!strings.HasPrefix(j.Log, "old line\n") || !strings.HasSuffix(j.Log, "the end\n") || len(j.Log) > jobLogMax {
+		t.Errorf("job = %+v (log %d bytes)", j.Job, len(j.Log))
+	}
+	if _, err := c.JobLog(context.Background(), "g/p", 7); err != nil || calls != 4 {
+		t.Errorf("a second read: %v, %d calls (want 4: uncached)", err, calls)
+	}
+}

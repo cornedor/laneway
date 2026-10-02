@@ -45,20 +45,40 @@ export const stageStatus = g => (g.Jobs || []).map(j => j.Status).sort((a, b) =>
 
 // pipeline is the pipeline as its stages in order, joined left to right: each a node with its passed count, the
 // jobs that want a look named under it. A big pipeline's passed names (docker/build: [...]) are on hover only.
-export function pipeline(c) {
+// o.onJob(job): the jobs are buttons
+// (their log), o.job the one shown; o.onStage(name): a stage's passed count is a button, and a stage in o.open
+// lists its passed jobs too.
+export function pipeline(c, o = {}) {
   if (!c) return null;
   const head = h('div.pp-head', glyph(c.Status), ' ',
     safe(c.WebURL) ? h('a', { href: safe(c.WebURL), target: '_blank', rel: 'noopener noreferrer' }, 'Pipeline ' + (WORD[c.Status] || c.Label)) : 'Pipeline ' + (WORD[c.Status] || c.Label),
     c.Duration ? h('span.dv-dim', ' · ' + duration(c.Duration)) : null);
   const stages = (c.Groups || []).map(g => {
-    const jobs = g.Jobs || [], ok = jobs.filter(j => j.Status === 'success').length, look = jobs.filter(j => j.Status !== 'success' && j.Status !== 'skipped');
-    const [tone] = check(stageStatus(g));
+    const jobs = g.Jobs || [], passed = jobs.filter(j => j.Status === 'success' || j.Status === 'skipped'), ok = jobs.filter(j => j.Status === 'success').length;
+    const open = !!(o.open && o.open.has(g.Name)), look = jobs.filter(j => !passed.includes(j));
+    const [tone, mark] = check(stageStatus(g));
+    const node = h('div.pp-node', h('span.pp-dot', mark), h('b', g.Name), h('span.pp-n', ok + '/' + jobs.length));
+    const cls = j => (j.Status === 'success' || j.Status === 'skipped' ? '.quiet' : '') + (o.job === j.ID ? '.on' : '');
+    const job = j => (o.onJob && j.ID
+      ? h('button.pp-job' + cls(j), { title: j.Name + ': its log', onclick: () => o.onJob(j) }, glyph(j.Status), jobName(j.Name))
+      : h('span.pp-job' + cls(j), { title: j.Name }, glyph(j.Status), jobName(j.Name)));
+    const more = passed.length && o.onStage ? h('button.pp-job.pp-more' + (open ? '.open' : ''), { 'aria-expanded': String(open), title: (open ? 'Hide' : 'Show') + ' the passed jobs', onclick: () => o.onStage(g.Name) },
+      glyph('success'), h('span.clip', (look.length ? passed.length + ' more passed' : plural(passed.length, 'job') + ' passed')), h('span.dv-caret', icon('chevron-right'))) : null;
+    const rows = [...look.map(job), more, ...(open ? passed.map(job) : [])].filter(Boolean);
     return h('li.pp-stage.dvt-' + tone, { title: jobs.map(j => (WORD[j.Status] || j.Status) + ': ' + j.Name).join('\n') },
-      h('div.pp-node', h('span.pp-dot', check(stageStatus(g))[1]), h('b', g.Name), h('span.pp-n', ok + '/' + jobs.length)),
-      look.length ? h('ul.pp-jobs', look.map(j => h('li', glyph(j.Status), ' ', h('span', j.Name)))) : null);
+      node, rows.length ? h('ul.pp-jobs', rows.map(r => h('li', r))) : null);
   });
   return h('div.pp', head, stages.length ? h('ol.pp-flow', stages) : null);
 }
+
+// nameParts is a job name as its start and its end: a matrix job's names share their start (docker/build:branch:
+// [...]) and differ at their end, so the end always shows and the start gives way (CSS cuts it); the whole name is
+// on hover. A short name is all start.
+export const nameParts = (s, tail = 14) => (s.length <= 2 * tail ? [s, ''] : [s.slice(0, -tail), s.slice(-tail)]);
+const jobName = n => { const [a, b] = nameParts(n); return h('span.pp-name', h('span.clip', a), b ? h('span.pp-tail', b) : null); };
+
+// running is whether a pipeline or job status may still change.
+export const running = s => s === 'running' || s === 'pending';
 
 // pipelineMini is the pipeline in a line: its mark and a dot per stage.
 export function pipelineMini(c) {
@@ -95,6 +115,6 @@ export function mrBody(m, ui) {
     kv('Merge', merge, isZero(m.UpdatedAt) ? null : h('span.dv-dim', ' · updated ' + ago(m.UpdatedAt))),
     kv('Approvals', approvals(m, ui)),
     kv('Labels', (m.Labels || []).join(', ')),
-    m.Checks ? pipeline(m.Checks) : null,
+    m.Checks ? pipeline(m.Checks, { onJob: j => { location.hash = mrHref(m.WebURL) + '&job=' + j.ID; } }) : null,
     (m.Description || '').trim() ? h('div.dv-desc.md', md(m.Description)) : null);
 }

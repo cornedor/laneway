@@ -130,8 +130,25 @@ type Group struct {
 
 // Job is one CI job's name and normalized status.
 type Job struct {
+	ID     int // the forge's, for its log (0 when unknown)
 	Name   string
 	Status string
+}
+
+// JobLog is one CI job as its log view shows it: its state and its log so
+// far, ANSI colours and all. Truncated: only the log's end is here.
+type JobLog struct {
+	Job
+	Stage     string
+	Duration  int // seconds, 0 when unknown
+	WebURL    string
+	Log       string
+	Truncated bool
+}
+
+// Done reports whether the job has stopped: nothing more will come.
+func (j *JobLog) Done() bool {
+	return j.Status != StatusRunning && j.Status != StatusPending
 }
 
 // Approvals summarizes who has signed off. Required/Left are GitLab's approval

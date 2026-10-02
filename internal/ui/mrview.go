@@ -47,6 +47,7 @@ type mrMsg struct {
 	threads []forge.Thread
 	drafts  []forge.Draft
 	err     error
+	quiet   bool // the pipeline read again: the rest stays as shown
 }
 
 // gitlabMR is the client and reference for a merge request link, ok false
@@ -102,6 +103,13 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 	if m.mr == nil || m.mr.gen != msg.gen {
 		return m, nil
 	}
+	if msg.quiet {
+		if msg.err == nil {
+			m.mr.mr = msg.mr
+			m.renderRef()
+		}
+		return m, m.watchMRPipeline()
+	}
 	m.mr.loading = false
 	if msg.err != nil {
 		m.mr.err = msg.err.Error()
@@ -110,17 +118,22 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 		MRSeen(m.store, msg.mr)
 	}
 	m.renderRef()
+	watch := m.watchMRPipeline()
 	if m.mr.thenDiff && m.mr.mr != nil && m.diff == nil {
 		m.mr.thenDiff = false
-		return m.openDiffView()
+		out, cmd := m.openDiffView()
+		return out, tea.Batch(cmd, watch)
 	}
-	return m, nil
+	return m, watch
 }
 
 // mrHints are the merge request's keys, as the panel's hint line shows them:
 // its label and the key a click on it presses.
 func (m *Model) mrHints() [][2]string {
-	hints := [][2]string{{"d review the diff", "d"}, {"A approve", "A"}, {"C agent review", "C"}}
+	hints := [][2]string{{"d diff", "d"}, {"A approve", "A"}, {"C agent review", "C"}}
+	if p := m.mr; p != nil && p.mr != nil && p.mr.Checks != nil {
+		hints = append(hints, [2]string{"p jobs", "p"})
+	}
 	if p := m.mr; p != nil && p.mr != nil && len(m.refs) == 0 {
 		if k := mrIssueKey(p.mr); k != "" {
 			hints = append(hints, [2]string{"i " + k, "i"})
@@ -271,7 +284,7 @@ func (m *Model) mrBody(mr *forge.Change) string {
 		if c.Duration > 0 {
 			v += refDimStyle.Render(" · " + spanText(time.Duration(c.Duration)*time.Second))
 		}
-		row("Pipeline", v)
+		row("Pipeline", v+refDimStyle.Render(" · p jobs and logs"))
 		// A stage's jobs that want a look, by name; the passed ones counted, as a
 		// big pipeline's names (docker/build:branch: [...]) fill the panel.
 		stageW := 0
@@ -378,6 +391,8 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		m.mr = nil
 		out, cmd := m.showJiraKey(k)
 		return out, cmd, true
+	case msg.String() == "p" && m.mr.mr != nil:
+		return m, m.openJobPicker(), true
 	case msg.String() == "C" && m.mr.mr != nil:
 		return m, m.startMRReview(m.mr.mr, m.mr.ref), true
 	case msg.String() == "A" && m.mr.mr != nil:

@@ -44,7 +44,7 @@ func TestMRView(t *testing.T) {
 	out, _ = m.Update(cmd())
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"Fix login", "g/p!7", "d review the diff", "issue/ABC-1 → main", "1 of 2", "Grace", "✗ failed", "test", "✗ unit", "Fixes it."} {
+	for _, want := range []string{"Fix login", "g/p!7", "d diff · A approve", "issue/ABC-1 → main", "1 of 2", "Grace", "✗ failed", "test", "✗ unit", "Fixes it."} {
 		if !strings.Contains(view, want) {
 			t.Errorf("no %q:\n%s", want, view)
 		}

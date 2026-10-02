@@ -23,6 +23,7 @@ var (
 	mrRe     = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/merge_requests/(\d+)(/.*)?$`)
 	mrFileRe = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/repository/files/(.+)/raw$`)
 	jobsRe   = regexp.MustCompile(`^/api/v4/projects/\d+/pipelines/(\d+)/jobs$`)
+	jobRe    = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/jobs/(\d+)(/trace)?$`)
 )
 
 // gitlabState is what the demo's writes changed: notes added, drafts
@@ -34,6 +35,7 @@ type gitlabState struct {
 	resolved map[string]bool
 	approved map[int]bool
 	seq      int
+	deployAt time.Time // when #5521's deploy started (gitlab_jobs.go)
 }
 
 type gitlabThread struct {
@@ -131,8 +133,13 @@ func (s *Server) gitlabMRJSON(w *devWork, p *devPR) map[string]any {
 		"diff_refs":        map[string]any{"base_sha": "b4se0000", "start_sha": "b4se0000", "head_sha": headSHA(p.n, 2)},
 		"references":       map[string]any{"full": "acme/" + w.repo + "!" + strconv.Itoa(p.n)}}
 	if p.n == 87 {
-		mr["head_pipeline"] = map[string]any{"id": 5521, "status": "success", "duration": 271, "web_url": s.repoURL(w) + "/-/pipelines/5521",
-			"detailed_status": map[string]any{"label": "passed"}}
+		status, label := "success", "passed"
+		if s.pipelineRunning() {
+			status, label = "running", "running"
+			mr["detailed_merge_status"] = "ci_still_running"
+		}
+		mr["head_pipeline"] = map[string]any{"id": 5521, "status": status, "duration": 235 + int(min(s.deployElapsed(), deployRun)/time.Second), "web_url": s.repoURL(w) + "/-/pipelines/5521",
+			"detailed_status": map[string]any{"label": label}}
 	}
 	if p.status != "OPEN" {
 		mr["detailed_merge_status"] = "not_open"
@@ -196,13 +203,28 @@ func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[st
 		return true
 	}
 	if m := jobsRe.FindStringSubmatch(p); m != nil {
-		send([]any{ // newest first, as GitLab lists them
-			map[string]any{"name": "deploy:staging", "stage": "deploy", "status": "success"},
-			map[string]any{"name": "docker", "stage": "build", "status": "success"},
-			map[string]any{"name": "load-test", "stage": "test", "status": "failed", "allow_failure": true},
-			map[string]any{"name": "lint", "stage": "test", "status": "success"},
-			map[string]any{"name": "go test", "stage": "test", "status": "success"},
-		})
+		work, _ := s.gitlabMR(87)
+		jobs := s.gitlabJobs()
+		out := make([]any, 0, len(jobs))
+		for _, j := range slices.Backward(jobs) { // newest first, as GitLab lists them
+			out = append(out, j.json(s.repoURL(work)))
+		}
+		send(out)
+		return true
+	}
+	if m := jobRe.FindStringSubmatch(p); m != nil {
+		id, _ := strconv.Atoi(m[2])
+		j := s.gitlabJob(id)
+		switch {
+		case j == nil:
+			send(map[string]any{"message": "404 Job Not Found"})
+		case m[3] != "":
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			_, _ = w.Write([]byte(j.log))
+		default:
+			work, _ := s.gitlabMR(87)
+			send(j.json(s.repoURL(work)))
+		}
 		return true
 	}
 	if m := mrFileRe.FindStringSubmatch(p); m != nil {

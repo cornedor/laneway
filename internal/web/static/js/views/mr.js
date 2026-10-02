@@ -10,9 +10,9 @@
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { icon } from '../lib/icons.js';
-import { ago, isZero, plural } from '../lib/fmt.js';
+import { ago, isZero, plural, duration } from '../lib/fmt.js';
 import { render as md } from '../lib/md.js';
-import { stateBadge, issueKeys, pipeline, pipelineMini, approvals, mrHref } from '../lib/mr.js';
+import { stateBadge, issueKeys, pipeline, pipelineMini, approvals, mrHref, glyph, running } from '../lib/mr.js';
 
 const raw = s => { const t = document.createElement('template'); t.innerHTML = s; return t.content; };
 const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
@@ -22,7 +22,7 @@ export default function mount(el, { app, scope, query }) {
   css('issue'); css('diff'); css('dev');
   const { api, ui } = app;
   const url = query.url || '';
-  let mr = null, mrErr = null, data = null, dead = false, cur = 0, version = +query.version || 0, tab = query.tab === 'changes' ? 'changes' : 'overview';
+  let mr = null, mrErr = null, data = null, dead = false, cur = 0, version = +query.version || 0, tab = query.tab === 'changes' ? 'changes' : 'overview', jobId = +query.job || 0;
   const cards = new Map(); // a named issue's card, by key: {card} | {err}
   const folded = new Set();
   const whole = new Map(); // e: file index → that file with its unchanged lines filled in
@@ -84,35 +84,112 @@ export default function mount(el, { app, scope, query }) {
   function setTab(t) {
     tab = t;
     over.hidden = t !== 'overview'; changes.hidden = t !== 'changes';
-    history.replaceState(null, '', mrHref(url, t === 'changes' ? 'changes' : '') + (version ? '&version=' + version : ''));
+    syncURL();
     renderTabs();
   }
+  const syncURL = () => history.replaceState(null, '', mrHref(url, tab === 'changes' ? 'changes' : '') + (version ? '&version=' + version : '') + (jobId ? '&job=' + jobId : ''));
   function back() { if (history.length > 1) history.back(); else app.go('/mrs'); }
+
+  // ---- the pipeline, live: polled while it runs; a job's log under it, followed while the job runs
+  const openStages = new Set(); // the stages listing their passed jobs
+  const pipelineBox = () => pipeline(mr.Checks, { open: openStages, job: jobId, onJob: j => showJob(j.ID),
+    onStage: n => { if (!openStages.delete(n)) openStages.add(n); livePipeline(); } });
+  // livePipeline repaints what the pipeline moves (the head, the merge status, the pipeline) and leaves the rest,
+  // a comment being typed included, as it is.
+  function livePipeline() {
+    renderHead();
+    const box = over.querySelector('.mrp-pipeline'); if (box && mr.Checks) box.replaceChildren(pipelineBox());
+    const f = over.querySelector('.mrp-fields'); if (f) f.replaceWith(fieldsEl());
+  }
+  // refreshPipeline reads the merge request again, past the cache, for its pipeline.
+  async function refreshPipeline() {
+    try { mr = await api.get('/gitlab/mr?url=' + encodeURIComponent(url) + '&fresh=1', { fresh: true }); if (!dead) livePipeline(); } catch (e) { /* the next try */ }
+  }
+  let pipeTimer = 0, jobTimer = 0;
+  const later = (fn, ms) => setTimeout(() => { if (!dead) (document.hidden ? later(fn, ms) : fn()); }, ms);
+  function watchPipeline() {
+    clearTimeout(pipeTimer);
+    if (!mr || !mr.Checks || !running(mr.Checks.Status)) return;
+    pipeTimer = later(async () => { await refreshPipeline(); watchPipeline(); }, 5000);
+  }
+  // jobView is the log of the job jobId: its state, its lines (followed to the end while it runs), GitLab, close.
+  const jobView = (() => {
+    const headEl = h('div.jl-head'), bodyEl = h('div.jl-body', { tabindex: 0 }), followBtn = h('button.btn.sm.jl-follow', { hidden: true, onclick: () => { bodyEl.scrollTop = bodyEl.scrollHeight; followBtn.hidden = true; } }, icon('arrow-down'), 'Follow');
+    const el = h('section.jl', { 'aria-label': 'Job log' }, headEl, bodyEl, followBtn);
+    bodyEl.addEventListener('scroll', () => { followBtn.hidden = !el.dataset.live || bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < 24; });
+    return {
+      el,
+      loading() { headEl.replaceChildren(h('span.dim', 'Reading the job…')); bodyEl.replaceChildren(); },
+      error(e) { headEl.replaceChildren(h('span.dvt-err', e.message || String(e)), h('span.spacer'), closeBtn()); },
+      paint(j, first) {
+        const live = !j.Done, end = first || bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < 24;
+        el.dataset.live = live ? '1' : '';
+        headEl.replaceChildren(...[glyph(j.Status), h('b', j.Name), h('span.dim', j.Stage), h('span.dim', j.Status === 'success' ? 'passed' : j.Status),
+          j.Duration ? h('span.dim', duration(j.Duration)) : null, live ? h('span.jl-live', h('i'), 'following') : null, h('span.spacer'),
+          j.WebURL ? h('a.btn.ghost.sm', { href: j.WebURL, target: '_blank', rel: 'noopener noreferrer', title: 'The job in GitLab' }, 'GitLab', icon('external-link')) : null, closeBtn()].filter(Boolean));
+        bodyEl.replaceChildren(...[j.Truncated ? h('div.jl-cut', 'The log\'s start is cut: GitLab has all of it.') : null, raw(j.HTML || '')].filter(Boolean));
+        if (!j.HTML) bodyEl.append(h('div.jl-cut', live ? 'Waiting for output…' : 'No output.'));
+        if (end) bodyEl.scrollTop = bodyEl.scrollHeight;
+        followBtn.hidden = !live || end;
+      },
+    };
+  })();
+  const closeBtn = () => h('button.btn.ghost.sm', { title: 'Close the log (esc)', 'aria-label': 'Close the log', onclick: closeJob }, icon('x'));
+  async function showJob(id) {
+    const fresh = id !== jobId;
+    jobId = id; syncURL();
+    if (tab !== 'overview') setTab('overview');
+    clearTimeout(jobTimer);
+    if (fresh) jobView.loading();
+    const box = over.querySelector('.mrp-pipeline');
+    if (box) { box.replaceChildren(pipelineBox()); if (!jobView.el.isConnected) box.after(jobView.el); }
+    if (fresh) jobView.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    readJob(true);
+  }
+  async function readJob(first) {
+    const id = jobId;
+    let j;
+    try { j = await api.get('/gitlab/job?url=' + encodeURIComponent(url) + '&job=' + id, { fresh: true }); }
+    catch (e) { if (!dead && id === jobId) jobView.error(e); return; }
+    if (dead || id !== jobId) return;
+    jobView.paint(j, first);
+    if (!j.Done) jobTimer = later(() => readJob(false), 2000);
+    else if (!first) refreshPipeline().then(watchPipeline); // it just ended: the pipeline moved
+  }
+  function closeJob() {
+    jobId = 0; clearTimeout(jobTimer); syncURL();
+    jobView.el.remove();
+    const box = over.querySelector('.mrp-pipeline'); if (box && mr && mr.Checks) box.replaceChildren(pipelineBox());
+  }
 
   // ---- overview
   function renderOverview() {
-    const fld = (k, ...v) => (v.some(Boolean) ? h('div.fld.ro', h('span.k', k), h('span.v', ...v)) : null);
-    const people = list => (list && list.length ? list.map(p => h('span.who', ui.avatar(p, '', 18), p)) : null);
-    const ts = (data && data.Threads) || [], open = ts.filter(t => t.Resolvable && !t.Resolved).length, done = ts.filter(t => t.Resolved).length;
-    const fs = (data && data.Files) || [], add = fs.reduce((s, f) => s + (f.Add || 0), 0), del = fs.reduce((s, f) => s + (f.Del || 0), 0);
     const kids = [];
     if (drafts().length) kids.push(h('div.mrp-pending', icon('triangle-alert'), h('span', h('b', plural(drafts().length, 'pending note')), ': only you see them until you submit your review.')));
     if (mr) {
-      const merge = mr.State !== 'opened' ? null : mr.HasConflicts ? h('span.dvt-err', mr.MergeStatus) : mr.Mergeable ? h('span.dvt-ok', icon('check'), mr.MergeStatus) : mr.MergeStatus;
-      kids.push(h('div.fields',
-        fld('Merge', merge),
-        fld('Author', ...(people(mr.Author ? [mr.Author] : []) || [])),
-        fld('Reviewers', ...(people(mr.Reviewers) || [])),
-        fld('Assignees', ...(people(mr.Assignees) || [])),
-        fld('Approvals', approvals(mr, ui)),
-        fld('Changes', data ? h('span', plural(fs.length, 'file'), ' ', h('span.df-add', '+' + add), ' ', h('span.df-del', '−' + del)) : mr.ChangesCount && plural(+mr.ChangesCount || 0, 'file')),
-        fld('Threads', ts.length ? [open && open + ' open', done && done + ' resolved'].filter(Boolean).join(' · ') || plural(ts.length, 'comment') : null),
-        fld('Labels', (mr.Labels || []).length ? h('span.chips', mr.Labels.map(l => h('span.chip', l))) : null)));
-      if (mr.Checks) kids.push(h('div.sec-head', h('h3', 'Pipeline')), h('div.mrp-pipeline', pipeline(mr.Checks)));
+      kids.push(fieldsEl());
+      if (mr.Checks) kids.push(h('div.sec-head', h('h3', 'Pipeline'), h('span.dim', 'a job shows its log')), h('div.mrp-pipeline', pipelineBox()), jobId ? jobView.el : null);
       kids.push(h('div.sec-head', h('h3', 'Description')), (mr.Description || '').trim() ? h('div.md.mrp-desc', md(mr.Description)) : h('div.faint', 'No description.'));
     } else if (!mrErr) kids.push(h('div.df-msg', 'Loading the merge request…'));
     kids.push(...discussions());
     over.replaceChildren(h('div.mrp-page', kids));
+  }
+  // fieldsEl is the overview's grid: what the merge request is, as the issue page's fields.
+  function fieldsEl() {
+    const fld = (k, ...v) => (v.some(Boolean) ? h('div.fld.ro', h('span.k', k), h('span.v', ...v)) : null);
+    const people = list => (list && list.length ? list.map(p => h('span.who', ui.avatar(p, '', 18), p)) : null);
+    const ts = (data && data.Threads) || [], open = ts.filter(t => t.Resolvable && !t.Resolved).length, done = ts.filter(t => t.Resolved).length;
+    const fs = (data && data.Files) || [], add = fs.reduce((s, f) => s + (f.Add || 0), 0), del = fs.reduce((s, f) => s + (f.Del || 0), 0);
+    const merge = mr.State !== 'opened' ? null : mr.HasConflicts ? h('span.dvt-err', mr.MergeStatus) : mr.Mergeable ? h('span.dvt-ok', icon('check'), mr.MergeStatus) : mr.MergeStatus;
+    return h('div.fields.mrp-fields',
+      fld('Merge', merge),
+      fld('Author', ...(people(mr.Author ? [mr.Author] : []) || [])),
+      fld('Reviewers', ...(people(mr.Reviewers) || [])),
+      fld('Assignees', ...(people(mr.Assignees) || [])),
+      fld('Approvals', approvals(mr, ui)),
+      fld('Changes', data ? h('span', plural(fs.length, 'file'), ' ', h('span.df-add', '+' + add), ' ', h('span.df-del', '−' + del)) : mr.ChangesCount && plural(+mr.ChangesCount || 0, 'file')),
+      fld('Threads', ts.length ? [open && open + ' open', done && done + ' resolved'].filter(Boolean).join(' · ') || plural(ts.length, 'comment') : null),
+      fld('Labels', (mr.Labels || []).length ? h('span.chips', mr.Labels.map(l => h('span.chip', l))) : null));
   }
   // discussions are the threads on the merge request as a whole and the outdated ones, with your pending general
   // notes, then a comment of your own.
@@ -257,7 +334,7 @@ export default function mount(el, { app, scope, query }) {
     const gotMR = api.get('/gitlab/mr?url=' + q, { fresh: true }).then(m => { mr = m; mrErr = null; }, e => { mrErr = e; });
     const gotDiff = api.get('/gitlab/diff?url=' + q + (version ? '&version=' + version : ''), { fresh: true }).then(d => { data = d; whole.clear(); },
       e => { if (!dead) body.replaceChildren(h('div.df-msg', e.message, ' ', safe(url) ? h('a', { href: safe(url), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab') : null)); });
-    await gotMR; if (!dead) { renderHead(); renderOverview(); }
+    await gotMR; if (!dead) { renderHead(); renderOverview(); watchPipeline(); if (jobId && !jobView.el.dataset.read) { jobView.el.dataset.read = '1'; showJob(jobId); } }
     await gotDiff; if (!dead && data) { versionPick(); paint(); }
   }
   function go(i) {
@@ -296,7 +373,7 @@ export default function mount(el, { app, scope, query }) {
   }
   function pickVersion(v) {
     version = v;
-    history.replaceState(null, '', mrHref(url, 'changes') + (v ? '&version=' + v : ''));
+    syncURL();
     load(false);
   }
   // S: publish the pending review with a verdict and a summary; A: approve on its own.
@@ -332,7 +409,7 @@ export default function mount(el, { app, scope, query }) {
   scope.bind('A', () => review(true), 'approve', { group: G });
   scope.bind('o', () => safe(url) && window.open(url, '_blank', 'noopener'), 'open in GitLab', { group: G });
   scope.bind('r', () => load(true), 'reload', { group: G });
-  scope.bind('Escape', back, 'back', { group: G });
+  scope.bind('Escape', () => (jobId ? closeJob() : back()), 'close the job log, else back', { group: G });
   scope.bind(['j', ']'], () => go(cur + 1), 'next file', { group: D });
   scope.bind(['k', '['], () => go(cur - 1), 'previous file', { group: D });
   scope.bind('n', () => thread(1), 'next inline thread', { group: D, when: onChanges });
@@ -346,5 +423,5 @@ export default function mount(el, { app, scope, query }) {
   setTab(tab);
   renderHead();
   load(false);
-  return () => { dead = true; };
+  return () => { dead = true; clearTimeout(pipeTimer); clearTimeout(jobTimer); };
 }

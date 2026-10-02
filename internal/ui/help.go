@@ -222,9 +222,18 @@ func (m *Model) helpSections() []struct {
 			{"A", "approve"},
 			{"C", "an agent reviews it; its findings land in your review"},
 			{"i", "the Jira issue it names"},
+			{"p", "its pipeline's jobs: ↵ reads one's log"},
 			row(k.OpenAttach, "open in GitLab"),
 			row(k.Refresh, "read it again"),
 			{"esc / " + helpKey(k.Back), "back to the issue"},
+		}},
+		section{"Job log", []helpRow{
+			{"↑ ↓ / pgup pgdn / g", "scroll"},
+			{"G", "the end; a running job's log follows it"},
+			{"← →", "pan a wide line"},
+			{"o", "the job in GitLab"},
+			{"r", "read it again"},
+			{"esc / q", "close"},
 		}},
 		section{"Diff review", []helpRow{
 			{"↑ ↓ / pgup pgdn / g G", "move"},

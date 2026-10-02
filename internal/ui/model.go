@@ -299,8 +299,10 @@ type Model struct {
 	homeShown     bool       // ui.home's start screen opened once
 	page          *panelPage // a Confluence page the panel shows over its issue (page.go)
 	pageGen       int
-	mr            *panelMR   // a GitLab merge request the panel shows over its issue (mrview.go)
-	diff          *diffState // the merge request's diff over the body (diffview.go)
+	mr            *panelMR     // a GitLab merge request the panel shows over its issue (mrview.go)
+	diff          *diffState   // the merge request's diff over the body (diffview.go)
+	jobLog        *jobLogState // a CI job's log over the body (joblog.go)
+	jobLogGen     int
 	mrGen         int
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
@@ -973,6 +975,12 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMRInbox(msg)
 	case diffLoadedMsg:
 		return m.handleDiffLoaded(msg)
+	case jobLogMsg:
+		return m.handleJobLog(msg)
+	case jobLogTickMsg:
+		return m.handleJobLogTick(msg)
+	case mrPipelineTickMsg:
+		return m.handleMRPipelineTick(msg)
 	case diffExpandedMsg:
 		return m.handleDiffExpanded(msg)
 	case diffNotePostedMsg:
@@ -1002,6 +1010,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.cancelDrag()
 	}
 	switch {
+	case m.jobLog != nil && m.settings == nil && !m.helpOpen:
+		return m.handleJobLogKey(msg)
 	case m.diff != nil && m.settings == nil && !m.helpOpen:
 		return m.handleDiffKey(msg)
 	case m.settings != nil:
@@ -1059,7 +1069,7 @@ func (m *Model) modalOpen() bool {
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
-	if m.diff != nil { // keys only: nothing under it takes a click
+	if m.diff != nil || m.jobLog != nil { // keys only: nothing under it takes a click
 		return m, nil
 	}
 	if msg.Button == tea.MouseLeft && m.pickerInline() {
@@ -1187,6 +1197,15 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if j := m.jobLog; j != nil {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			j.scroll(-3)
+		case tea.MouseWheelDown:
+			j.scroll(3)
+		}
+		return m, nil
+	}
 	if d := m.diff; d != nil {
 		switch msg.Button {
 		case tea.MouseWheelUp:
@@ -1265,6 +1284,9 @@ func (m Model) View() tea.View {
 		if note := m.renderDiffNote(); note != "" {
 			body = m.overDiff(body, note)
 		}
+	}
+	if m.jobLog != nil {
+		body = lipgloss.PlaceHorizontal(m.width, lipgloss.Center, m.renderJobLog(bodyH))
 	}
 	if m.imageView {
 		body = m.renderImageView(m.width, bodyH)
