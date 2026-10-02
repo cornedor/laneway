@@ -5,7 +5,8 @@
 //   onState({state, text, typing})   state: connecting | open | retry | exited | taken | idle | closed | gone
 //
 // While it has focus a `terminal` key scope (modal) sits on top of everything: every key goes to the terminal
-// except LEAVE (ctrl+\, the TUI's agent_back), which calls onLeave. ctrl+shift+c copies the selection.
+// except LEAVE (ctrl+\, the TUI's agent_back), which calls onLeave. ctrl+shift+c copies the selection;
+// shift+enter sends ESC CR (alt+enter), a newline in Claude Code.
 import fonts from './fonts.js';
 
 export const LEAVE = 'ctrl+\\';
@@ -107,6 +108,10 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
       e.preventDefault(); return false;
     }
     if (e.ctrlKey && e.shiftKey && e.code === 'KeyV') return false; // the browser pastes (bracketed when the program asked)
+    if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) { // a newline in Claude Code and co: alt+enter
+      if (e.type === 'keydown') { term.input('\x1b\r'); e.preventDefault(); }
+      return false;
+    }
     return true;
   });
 
