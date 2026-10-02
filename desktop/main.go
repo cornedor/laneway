@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"runtime"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -34,6 +35,10 @@ type desktop struct {
 	win  *application.WebviewWindow
 	ns   *notifications.NotificationService
 	dock *dock.DockService
+
+	updates  bool         // the updater is set up: see initUpdates
+	checking atomic.Bool  // a check runs
+	declined atomic.Value // the version Not Now was given for
 }
 
 func main() {
@@ -121,6 +126,7 @@ func main() {
 		if mac {
 			d.offerMove()
 		}
+		d.initUpdates()
 		go func() {
 			if err := srv.start(); err != nil {
 				log.Print(err)
@@ -142,6 +148,7 @@ func (d *desktop) menu() *application.Menu {
 	m := application.NewMenu()
 	app := m.AddSubmenu("Laneway")
 	app.AddRole(application.About)
+	app.Add("Check for Updates…").OnClick(func(*application.Context) { go d.checkUpdate(true) })
 	app.AddSeparator()
 	app.Add("Settings…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) {
 		d.show()
@@ -223,6 +230,8 @@ func (d *desktop) handle(msg string) {
 		if err != nil {
 			log.Print("badge: ", err)
 		}
+	case "update":
+		go d.checkUpdate(true)
 	case "open":
 		if u, err := url.Parse(m.URL); err == nil && (u.Scheme == "http" || u.Scheme == "https" || u.Scheme == "mailto") {
 			if err := d.app.Browser.OpenURL(u.String()); err != nil {

@@ -34,6 +34,6 @@ jobs:
         with:
           go-version: stable
       - run: desktop/build-mac.sh "${GITHUB_REF_NAME#v}"
-      - run: gh release upload "$GITHUB_REF_NAME" desktop/dist/Laneway-mac.zip
+      - run: gh release upload "$GITHUB_REF_NAME" desktop/dist/Laneway-mac.zip desktop/dist/Laneway-mac.zip.sha256
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

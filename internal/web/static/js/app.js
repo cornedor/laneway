@@ -218,9 +218,11 @@ async function boot() {
   import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e)).finally(() => $('#top').classList.remove('boot'));
   api.get('/update').then(u => { // as the TUI's ↑ v1.2: a newer release, copy its command or open its page
     if (!u.Tag) return;
-    const up = () => (u.Command ? navigator.clipboard.writeText(u.Command).then(() => ui.toast('Copied ' + u.Command), () => ui.toast(u.Command)) : window.open(u.Page, '_blank', 'noopener'));
-    $('#site').append(h('button.site-chip', { type: 'button', title: 'laneway ' + u.Tag + ' is out · ' + (u.Command ? 'click copies ' + u.Command : 'click opens the release page'), onclick: up }, '↑ ' + u.Tag));
-    commands.register({ id: 'update', title: 'Update laneway to ' + u.Tag + ': ' + (u.Command || 'open the release page'), group: 'App', run: up });
+    const desk = window.__lanewayDesktop; // the desktop app updates itself
+    const up = () => desk ? desk.update() : (u.Command ? navigator.clipboard.writeText(u.Command).then(() => ui.toast('Copied ' + u.Command), () => ui.toast(u.Command)) : window.open(u.Page, '_blank', 'noopener'));
+    const what = desk ? 'update and restart' : u.Command || 'open the release page';
+    $('#site').append(h('button.site-chip', { type: 'button', title: 'laneway ' + u.Tag + ' is out · ' + (desk ? 'click updates the app' : u.Command ? 'click copies ' + u.Command : 'click opens the release page'), onclick: up }, '↑ ' + u.Tag));
+    commands.register({ id: 'update', title: 'Update laneway to ' + u.Tag + ': ' + what, group: 'App', run: up });
   }).catch(() => {});
   api.get('/branch').then(b => { if (b.Key) commands.register({ id: 'branch', title: '⎇ ' + b.Key + '  ' + (b.Summary || ''), group: 'Branch', run: () => app.panel.open(b.Key) }); }).catch(() => {}); // the cwd's, as the TUI: first in the palette
   $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');

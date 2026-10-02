@@ -79,6 +79,7 @@
   window.__lanewayDesktop = {
     permission(p) { perm = p; waiting.splice(0).forEach((r) => r(p)); },
     click(id) { const n = shown.get(id); shown.delete(id); n?.onclick?.(); },
+    update() { post({ type: 'update' }); },
     fullscreen(on) { if (on) root.dataset.fullscreen = ''; else delete root.dataset.fullscreen; },
   };
   // The page has no Wails runtime; without this, ExecJS (our answers) waits for it.

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds dist/Laneway-mac.zip: Laneway.app, universal, ad-hoc signed, with
+# Builds dist/Laneway-mac.zip (and its .sha256, for the app's updater): Laneway.app, universal, ad-hoc signed, with
 # the laneway binary inside. Run on macOS from desktop/: ./build-mac.sh 1.2.3
 set -eu
 cd "$(dirname "$0")"
@@ -11,7 +11,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 export MACOSX_DEPLOYMENT_TARGET=13.0
 
 for arch in arm64 amd64; do
-	CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build -ldflags "-s -w" -o "dist/desktop-$arch" .
+	CGO_ENABLED=1 GOOS=darwin GOARCH=$arch go build -ldflags "-s -w -X main.version=$version" -o "dist/desktop-$arch" .
 	(cd .. && CGO_ENABLED=0 GOOS=darwin GOARCH=$arch go build -ldflags "-s -w -X main.version=$version" -o "desktop/dist/laneway-$arch" .)
 done
 lipo -create -output "$app/Contents/MacOS/laneway-desktop" dist/desktop-arm64 dist/desktop-amd64
@@ -32,4 +32,6 @@ iconutil -c icns -o "$app/Contents/Resources/icon.icns" "$icons"
 codesign --force --sign - "$app/Contents/MacOS/laneway"
 codesign --force --sign - "$app"
 codesign --verify --verbose "$app"
-ditto -c -k --keepParent "$app" dist/Laneway-mac.zip
+# No xattrs or resource forks: unpacked by the updater they would be ._ files that break the seal.
+ditto -c -k --norsrc --noextattr --keepParent "$app" dist/Laneway-mac.zip
+(cd dist && shasum -a 256 Laneway-mac.zip > Laneway-mac.zip.sha256)
