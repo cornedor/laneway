@@ -254,19 +254,21 @@ type Model struct {
 	rules    *rules.Set
 	rulesLog string
 
-	jiraClient      *jira.Client
-	gitlab          *gitlab.Sites     // nil: none
-	gitlabRepos     map[string]string // checkouts by GitLab project path
-	mrReviewing     map[string]bool   // agent reviews starting, by group/project!iid
-	index           *index.Index      // nil: none
-	jiraProjects    []string
-	jiraRepos       map[string]string
-	jiraStartPrompt string
-	jiraStartStatus map[string]string // by project, over ui.start_status
-	jiraStarting    map[string]bool
-	herdr           *herdr.Client
-	demo            bool // laneway -demo (WithDemo)
-	emojiImg        *emojiImages
+	jiraClient *jira.Client
+	// eventRefreshPending: a change-stream refresh is armed (events.go).
+	eventRefreshPending bool
+	gitlab              *gitlab.Sites     // nil: none
+	gitlabRepos         map[string]string // checkouts by GitLab project path
+	mrReviewing         map[string]bool   // agent reviews starting, by group/project!iid
+	index               *index.Index      // nil: none
+	jiraProjects        []string
+	jiraRepos           map[string]string
+	jiraStartPrompt     string
+	jiraStartStatus     map[string]string // by project, over ui.start_status
+	jiraStarting        map[string]bool
+	herdr               *herdr.Client
+	demo                bool // laneway -demo (WithDemo)
+	emojiImg            *emojiImages
 
 	jiraTab  *jiraTabState
 	jiraForm *jiraFormState
@@ -613,7 +615,7 @@ func (m Model) WithIndex(ix *index.Index) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.queryCellSize(), m.startRuleWatches(), m.timerStart(), m.syncInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease(), resendImagesLater())
+	return tea.Batch(tea.RequestBackgroundColor, m.enterJiraTab(), m.jiraAutoRefreshTick(), m.followSiteEvents(), m.queryCellSize(), m.startRuleWatches(), m.timerStart(), m.syncInbox(), m.inboxTick(), loadingTick(), m.detectBranchIssue(), m.fetchAgents(), queueTick(), m.checkRelease(), resendImagesLater())
 }
 
 // bodyH is the rows above the status line.
@@ -940,6 +942,12 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleImageLoaded(msg)
 	case jiraAutoRefreshMsg:
 		return m.handleJiraAutoRefresh()
+	case jiraSiteChangeMsg:
+		return m.handleSiteChange(msg)
+	case jiraEventRefreshMsg:
+		return m.handleEventRefresh()
+	case jiraSiteEventsEndMsg:
+		return m, nil
 	case uv.CellSizeEvent:
 		return m.handleCellSize(msg)
 	case createFieldsMsg:
