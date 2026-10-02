@@ -795,13 +795,16 @@ func (c *Client) fetchStoryPointFieldIDs(ctx context.Context) ([]string, error) 
 	var fields []struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
+		// UntranslatedName is the English name when the site shows
+		// field names in the user's language.
+		UntranslatedName string `json:"untranslatedName"`
 	}
 	if err := c.do(ctx, http.MethodGet, "/rest/api/3/field", "field metadata", nil, &fields); err != nil {
 		return nil, err
 	}
 	var ids []string
 	for _, f := range fields {
-		if strings.Contains(strings.ToLower(f.Name), "story point") {
+		if strings.Contains(strings.ToLower(f.Name), "story point") || strings.Contains(strings.ToLower(f.UntranslatedName), "story point") {
 			ids = append(ids, f.ID)
 		}
 	}

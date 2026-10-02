@@ -54,6 +54,12 @@ type FieldMeta struct {
 	// ReadOnly is a field the issue's edit screen has, which Jira lets no
 	// one edit on this issue now (layout.go).
 	ReadOnly bool `json:",omitempty"`
+	// Hint is the screen's help text for the field (its description);
+	// Default the value it starts with when the issue has none
+	// (defaultValue). Jira rarely sends either; laneway-server's
+	// workflows do.
+	Hint    string          `json:",omitempty"`
+	Default json.RawMessage `json:",omitempty"`
 }
 
 // TransitionMeta is one move offered on an issue, with its screen's fields.
@@ -134,11 +140,17 @@ type rawFieldMeta struct {
 		Name  string `json:"name"`
 		Value string `json:"value"`
 	} `json:"allowedValues"`
+	Description     string          `json:"description"`
+	HasDefaultValue bool            `json:"hasDefaultValue"`
+	DefaultValue    json.RawMessage `json:"defaultValue"`
 }
 
 // meta is the field as a form fills it: its kind and options.
 func (f rawFieldMeta) meta(id string) FieldMeta {
-	fm := FieldMeta{ID: id, Name: f.Name}
+	fm := FieldMeta{ID: id, Name: f.Name, Hint: strings.TrimSpace(f.Description)}
+	if f.HasDefaultValue && len(f.DefaultValue) > 0 && string(f.DefaultValue) != "null" {
+		fm.Default = f.DefaultValue
+	}
 	for _, av := range f.AllowedValues {
 		label := av.Name
 		if label == "" {

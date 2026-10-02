@@ -55,9 +55,17 @@ type roadmapFieldIDs struct {
 func roadmapFieldsOf(fields []apiField) roadmapFieldIDs {
 	ids := roadmapFieldIDs{byName: map[string]string{}}
 	for _, f := range fields {
+		// The English name decides what a field is; a translated one
+		// (Jira's name in the user's language) is looked up too.
 		name := strings.ToLower(f.Name)
 		if _, ok := ids.byName[name]; !ok {
 			ids.byName[name] = f.ID
+		}
+		if f.UntranslatedName != "" {
+			name = strings.ToLower(f.UntranslatedName)
+			if _, ok := ids.byName[name]; !ok {
+				ids.byName[name] = f.ID
+			}
 		}
 		switch {
 		case name == "start date":
@@ -81,9 +89,10 @@ func roadmapFieldsOf(fields []apiField) roadmapFieldIDs {
 
 // apiField is one entry of /rest/api/3/field.
 type apiField struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Schema struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	UntranslatedName string `json:"untranslatedName"`
+	Schema           struct {
 		Custom string `json:"custom"`
 	} `json:"schema"`
 }

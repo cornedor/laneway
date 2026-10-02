@@ -199,8 +199,16 @@ func firstErr(errs ...error) error {
 func buildJiraForm(key string, t jira.TransitionMeta, rule jira.TransitionRule, ic jira.IssueContext) *jiraFormState {
 	f := &jiraFormState{key: key, transitionID: t.ID, to: t.ToName, message: rule.Message}
 	for _, fm := range t.Fields {
-		f.fields = append(f.fields, jiraFormField{FieldMeta: fm, required: slices.Contains(rule.Required, fm.ID),
-			val: jira.DecodeValue(fm.Kind, ic.Values[fm.ID])})
+		ff := jiraFormField{FieldMeta: fm, required: slices.Contains(rule.Required, fm.ID),
+			val: jira.DecodeValue(fm.Kind, ic.Values[fm.ID])}
+		// A field the issue leaves empty starts at the screen's default,
+		// sent with the move unless changed.
+		if ff.val.Empty() && len(fm.Default) > 0 {
+			if v := jira.DecodeValue(fm.Kind, fm.Default); !v.Empty() {
+				ff.val, ff.changed = v, true
+			}
+		}
+		f.fields = append(f.fields, ff)
 	}
 	for _, id := range rule.Required {
 		if slices.ContainsFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == id }) {
@@ -846,6 +854,9 @@ func (m *Model) renderJiraForm() string {
 		}
 		if fe, ok := f.create.errFor(ff); ok {
 			blocks[i] = append(blocks[i], strings.Repeat(" ", nameW+4)+refErrStyle.Render(ansi.Truncate(fe, max(inner-nameW-4, 1), "…")))
+		}
+		if ff.Hint != "" && i == f.idx {
+			blocks[i] = append(blocks[i], strings.Repeat(" ", nameW+4)+refDimStyle.Italic(true).Render(ansi.Truncate(ff.Hint, max(inner-nameW-4, 1), "…")))
 		}
 	}
 	if f.busy {
