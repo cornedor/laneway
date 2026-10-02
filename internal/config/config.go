@@ -61,7 +61,10 @@ type Config struct {
 	// Sites are more Jira instances by name, picked with -site or @ in the
 	// app; jira: is the default.
 	Sites map[string]JiraConfig `yaml:"sites"`
-	UI    UIConfig              `yaml:"ui"`
+	// GitLab are the GitLab instances merge requests are read from; a host
+	// none names uses glab's login there.
+	GitLab []GitLabConfig `yaml:"gitlab"`
+	UI     UIConfig       `yaml:"ui"`
 	// Rules fire on the changes a board refresh shows; see internal/rules.
 	Rules []rules.Rule `yaml:"rules"`
 	// RulesTest overrides the issue type and status `laneway rules test`
@@ -70,6 +73,27 @@ type Config struct {
 	// Unknown are warnings about keys the file has that no option reads
 	// (a typo), set by Load.
 	Unknown []string `yaml:"-"`
+}
+
+// GitLabConfig is one GitLab instance (internal/forge/gitlab).
+type GitLabConfig struct {
+	// BaseURL is the instance root: https://git.example.com.
+	BaseURL string `yaml:"base_url"`
+	// Token is a personal access token: read_api reads, api approves, merges
+	// and comments. Unset: token_cmd prints it, else glab's login for the
+	// host is used.
+	Token    string   `yaml:"token,omitempty"`
+	TokenCmd []string `yaml:"token_cmd,omitempty"`
+}
+
+// WithToken runs token_cmd for the token when token is unset.
+func (g GitLabConfig) WithToken() (GitLabConfig, error) {
+	if strings.TrimSpace(g.Token) != "" || len(g.TokenCmd) == 0 {
+		return g, nil
+	}
+	tok, err := runTokenCmd("gitlab token_cmd", g.TokenCmd)
+	g.Token = tok
+	return g, err
 }
 
 // RulesTest is `laneway rules test`'s defaults.
@@ -378,16 +402,23 @@ func (j JiraConfig) withToken() (JiraConfig, error) {
 	if strings.TrimSpace(j.APIToken) != "" || len(j.APITokenCmd) == 0 {
 		return j, nil
 	}
-	out, err := exec.Command(j.APITokenCmd[0], j.APITokenCmd[1:]...).Output()
+	tok, err := runTokenCmd("api_token_cmd", j.APITokenCmd)
+	j.APIToken = tok
+	return j, err
+}
+
+// runTokenCmd runs cmd for a token, its output trimmed; name labels the
+// error.
+func runTokenCmd(name string, cmd []string) (string, error) {
+	out, err := exec.Command(cmd[0], cmd[1:]...).Output()
 	if err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) && len(ee.Stderr) > 0 {
 			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(ee.Stderr)))
 		}
-		return j, fmt.Errorf("api_token_cmd %s: %w", j.APITokenCmd[0], err)
+		return "", fmt.Errorf("%s %s: %w", name, cmd[0], err)
 	}
-	j.APIToken = strings.TrimSpace(string(out))
-	return j, nil
+	return strings.TrimSpace(string(out)), nil
 }
 
 // SiteFor is the name of the site whose base_url is baseURL ("" is
@@ -509,8 +540,8 @@ func StatePath() (string, error) {
 }
 
 // unknownKeys warns about each key in raw no option reads: at the top, in
-// jira:, each sites: entry, ui: and rules_test:, with the nearest known
-// key when one is close.
+// jira:, each sites: and gitlab: entry, ui: and rules_test:, with the
+// nearest known key when one is close.
 func unknownKeys(raw []byte) []string {
 	var doc yaml.Node
 	if yaml.Unmarshal(raw, &doc) != nil || len(doc.Content) == 0 {
@@ -545,6 +576,12 @@ func unknownKeys(raw []byte) []string {
 			check("ui.", v, reflect.TypeFor[UIConfig]())
 		case "rules_test":
 			check("rules_test.", v, reflect.TypeFor[RulesTest]())
+		case "gitlab":
+			if v.Kind == yaml.SequenceNode {
+				for j, it := range v.Content {
+					check(fmt.Sprintf("gitlab[%d].", j), it, reflect.TypeFor[GitLabConfig]())
+				}
+			}
 		case "sites":
 			if v.Kind == yaml.MappingNode {
 				for j := 0; j+1 < len(v.Content); j += 2 {

@@ -74,13 +74,14 @@ func TestRequestTimeout(t *testing.T) {
 
 // TestUnknownKeys: a key no option reads warns, with the nearest known one.
 func TestUnknownKeys(t *testing.T) {
-	raw := []byte("jira:\n  base_url: x\n  emial: a@b\nui:\n  panel_widht: 40\n  card_colors: off\n  keys: {search: f}\nsites:\n  work:\n    api_tokn: t\nbogus: 1\n")
+	raw := []byte("jira:\n  base_url: x\n  emial: a@b\nui:\n  panel_widht: 40\n  card_colors: off\n  keys: {search: f}\nsites:\n  work:\n    api_tokn: t\ngitlab:\n  - base_url: x\n    tokn: t\nbogus: 1\n")
 	got := unknownKeys(raw)
 	want := []string{
 		"bogus: unknown option",
 		"jira.emial: unknown option, did you mean email?",
 		"ui.panel_widht: unknown option, did you mean panel_width?",
 		"sites.work.api_tokn: unknown option, did you mean api_token?",
+		"gitlab[0].tokn: unknown option, did you mean token?",
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -132,5 +133,8 @@ func TestAPITokenCmd(t *testing.T) {
 	}
 	if _, err := c.Site("bad"); err == nil || !strings.Contains(err.Error(), "api_token_cmd false") {
 		t.Errorf("a failing command: %v", err)
+	}
+	if g, err := (GitLabConfig{TokenCmd: []string{"echo", "gl-1"}}).WithToken(); err != nil || g.Token != "gl-1" {
+		t.Errorf("gitlab token_cmd: %q %v", g.Token, err)
 	}
 }
