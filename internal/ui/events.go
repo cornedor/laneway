@@ -24,6 +24,9 @@ type jiraSiteEventsEndMsg struct{}
 // jiraEventRefreshMsg is the debounced refresh a burst of changes asks for.
 type jiraEventRefreshMsg struct{}
 
+// jiraEventInboxMsg is the debounced inbox sync changes to issues ask for.
+type jiraEventInboxMsg struct{}
+
 func waitSiteEvent(src chan tea.Msg) tea.Cmd {
 	return func() tea.Msg { return <-src }
 }
@@ -51,6 +54,12 @@ func (m *Model) followSiteEvents() tea.Cmd {
 // project and keeps listening.
 func (m Model) handleSiteChange(msg jiraSiteChangeMsg) (tea.Model, tea.Cmd) {
 	next := waitSiteEvent(msg.src)
+	// Any issue or comment change may be news for the inbox: one sync for
+	// a burst, a little later so a run of edits lands together.
+	if (msg.ch.Kind == "issue" || msg.ch.Kind == "comment") && !m.eventInboxPending && m.opts.inboxEvery > 0 {
+		m.eventInboxPending = true
+		next = tea.Batch(next, tea.Tick(15*time.Second, func(time.Time) tea.Msg { return jiraEventInboxMsg{} }))
+	}
 	t := m.jiraTab
 	relevant := t.project != "" && (strings.HasPrefix(msg.ch.Key, t.project+"-") || msg.ch.Kind == "sprint" || msg.ch.Kind == "board")
 	if !relevant || m.eventRefreshPending {
@@ -67,4 +76,9 @@ func (m Model) handleEventRefresh() (tea.Model, tea.Cmd) {
 		return m, nil // the idle tick picks it up
 	}
 	return m, m.loadJiraDelta()
+}
+
+func (m Model) handleEventInbox() (tea.Model, tea.Cmd) {
+	m.eventInboxPending = false
+	return m, m.syncInbox()
 }

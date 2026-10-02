@@ -257,6 +257,7 @@ type Model struct {
 	jiraClient *jira.Client
 	// eventRefreshPending: a change-stream refresh is armed (events.go).
 	eventRefreshPending bool
+	eventInboxPending   bool              // a change-stream inbox sync is armed
 	gitlab              *gitlab.Sites     // nil: none
 	gitlabRepos         map[string]string // checkouts by GitLab project path
 	mrReviewing         map[string]bool   // agent reviews starting, by group/project!iid
@@ -946,6 +947,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleSiteChange(msg)
 	case jiraEventRefreshMsg:
 		return m.handleEventRefresh()
+	case jiraEventInboxMsg:
+		return m.handleEventInbox()
 	case jiraSiteEventsEndMsg:
 		return m, nil
 	case uv.CellSizeEvent:
