@@ -24,6 +24,10 @@ func TestDiffView(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/discussions"):
 			w.Write([]byte(`[{"id": "d1", "notes": [{"id": 1, "body": "Why 2?", "author": {"name": "Grace"},
 				"position": {"position_type": "text", "new_path": "main.go", "old_path": "main.go", "new_line": 2}}]}]`))
+		case strings.HasSuffix(r.URL.Path, "/versions"):
+			w.Write([]byte(`[{"id": 2, "head_commit_sha": "h2"}, {"id": 1, "head_commit_sha": "h1aaaaaaa"}]`))
+		case strings.HasSuffix(r.URL.Path, "/versions/1"):
+			w.Write([]byte(`{"id": 1, "head_commit_sha": "h1", "diffs": [{"old_path": "main.go", "new_path": "main.go", "diff": "@@ -1 +1 @@\n-var a = 1\n+var a = 3\n"}]}`))
 		case strings.HasSuffix(r.URL.Path, "/approvals"), strings.HasSuffix(r.URL.Path, "/jobs"):
 			w.Write([]byte(`{}`))
 		default:
@@ -51,6 +55,24 @@ func TestDiffView(t *testing.T) {
 			t.Errorf("no %q:\n%s", want, view)
 		}
 	}
+	out, _ = m.handleKey(keyMsg(t, "v"))
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !m.diff.picking || !strings.Contains(view, "version 2 (newest)") || !strings.Contains(view, "version 1") {
+		t.Fatalf("v: no versions:\n%s", view)
+	}
+	out, _ = m.handleKey(keyMsg(t, "down"))
+	out, cmd = out.(Model).handleKey(keyMsg(t, "enter"))
+	m = out.(Model)
+	out, _ = m.Update(cmd())
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "version 1 of 2") || !strings.Contains(view, "var a = 3") || strings.Contains(view, "Why 2?") || strings.Contains(view, "README.md") {
+		t.Fatalf("version 1: its own diff, no threads:\n%s", view)
+	}
+	out, _ = m.handleKey(keyMsg(t, "v"))
+	out, _ = out.(Model).handleKey(keyMsg(t, "up"))
+	out, cmd = out.(Model).handleKey(keyMsg(t, "enter"))
+	out, _ = out.(Model).Update(cmd())
+	m = out.(Model)
 	out, _ = m.handleKey(keyMsg(t, "z"))
 	m = out.(Model)
 	if !strings.Contains(ansi.Strip(m.View().Content), "lines folded") {

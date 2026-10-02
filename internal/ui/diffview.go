@@ -103,6 +103,14 @@ type diffState struct {
 	treeHScroll int
 	treeFocus   bool
 	treeH       int // rows the tree column had in the last frame
+
+	// versions are the pushes, newest first (read with the first diff);
+	// version the one shown, 0 for the newest. picking is v's list open,
+	// pick its cursor.
+	versions []forge.Version
+	version  int
+	picking  bool
+	pick     int
 }
 
 // diffHScrollStep is how far ←/→ pan a wide diff: a tab's worth of columns,
@@ -146,11 +154,12 @@ var (
 // diffLoadedMsg carries a finished diff fetch. gen guards a result the user has
 // already closed or refreshed past.
 type diffLoadedMsg struct {
-	gen     int
-	diff    *forge.Diff
-	threads []forge.Thread
-	built   diffBuild
-	err     error
+	gen      int
+	diff     *forge.Diff
+	threads  []forge.Thread
+	versions []forge.Version // nil when not asked
+	built    diffBuild
+	err      error
 }
 
 // openDiffView raises the review view for the merge request the panel is
@@ -195,14 +204,26 @@ func (m Model) fetchDiff() tea.Cmd {
 		return nil
 	}
 	c, ctx, gen := d.c, m.ctx, d.gen
-	repo, number := d.repo, d.number
+	repo, number, version, askVersions := d.repo, d.number, d.version, d.versions == nil
 	return func() tea.Msg {
 		msg := diffLoadedMsg{gen: gen}
-		msg.diff, msg.err = c.Diff(ctx, repo, number)
+		if version != 0 { // an older push: its threads are on the newest's lines
+			msg.diff, msg.err = c.VersionDiff(ctx, repo, number, version)
+		} else {
+			msg.diff, msg.err = c.Diff(ctx, repo, number)
+		}
 		if msg.err != nil {
 			return msg
 		}
-		msg.threads, _ = c.Threads(ctx, repo, number)
+		if version == 0 {
+			msg.threads, _ = c.Threads(ctx, repo, number)
+		}
+		if askVersions {
+			msg.versions, _ = c.Versions(ctx, repo, number)
+			if msg.versions == nil {
+				msg.versions = []forge.Version{}
+			}
+		}
 		// Parsed and highlighted here, off the UI goroutine: chroma costs
 		// milliseconds per file, and a merge request touching two hundred files
 		// would otherwise freeze the app for as long as it takes.
@@ -226,6 +247,9 @@ func (m Model) handleDiffLoaded(msg diffLoadedMsg) (tea.Model, tea.Cmd) {
 	}
 	anchor := d.cursorAnchor()
 	d.diff, d.threads = msg.diff, msg.threads
+	if msg.versions != nil {
+		d.versions = msg.versions
+	}
 	d.install(msg.built)
 	d.restoreCursor(anchor)
 	m.status = d.summary()
@@ -766,6 +790,9 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if d == nil {
 		return m, nil
 	}
+	if d.picking {
+		return m.handleDiffVersionKey(msg)
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()
@@ -782,6 +809,14 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m.refreshDiffView()
+	case "v":
+		if len(d.versions) < 2 {
+			m.status = "one version: nothing pushed since it opened"
+			return m, nil
+		}
+		d.picking = true
+		d.pick = max(slices.IndexFunc(d.versions, func(v forge.Version) bool { return v.ID == d.version }), 0)
+		return m, nil
 	case "o":
 		if d.webURL == "" {
 			return m, nil
@@ -793,6 +828,69 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleDiffTreeKey(msg)
 	}
 	return m.handleDiffCodeKey(msg)
+}
+
+// handleDiffVersionKey is v's list of versions: enter shows the one under
+// the cursor.
+func (m Model) handleDiffVersionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	d := m.diff
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "esc", "v", "q":
+		d.picking = false
+	case "up", "k":
+		d.pick = max(d.pick-1, 0)
+	case "down", "j":
+		d.pick = min(d.pick+1, len(d.versions)-1)
+	case "enter":
+		d.picking = false
+		id := 0
+		if d.pick > 0 {
+			id = d.versions[d.pick].ID
+		}
+		if id == d.version {
+			return m, nil
+		}
+		d.version, d.gen, d.loading, d.err = id, d.gen+1, true, nil
+		d.collapsed = nil
+		m.status = "loading " + d.versionName(d.pick) + "…"
+		return m, m.fetchDiff()
+	}
+	return m, nil
+}
+
+// versionName is version i as the list and the title name it: v3, the
+// newest the highest.
+func (d *diffState) versionName(i int) string {
+	return "version " + strconv.Itoa(len(d.versions)-i)
+}
+
+// versionLines are v's list, the cursor's row marked.
+func (d *diffState) versionLines(width int) []string {
+	lines := []string{refKeyStyle.Render("Versions") + refDimStyle.Render("  ↵ show · esc close")}
+	for i, v := range d.versions {
+		line := d.versionName(i)
+		if i == 0 {
+			line += " (newest)"
+		}
+		if !v.Created.IsZero() {
+			line += refDimStyle.Render(" · " + age(v.Created) + " ago")
+		}
+		if sha := v.Refs.HeadSHA; len(sha) >= 8 {
+			line += refDimStyle.Render(" · " + sha[:8])
+		}
+		mark := "  "
+		if v.ID == d.version || i == 0 && d.version == 0 {
+			mark = "✓ "
+		}
+		line = truncate(mark+line, width)
+		if i == d.pick {
+			line = selectedRow.Render(ansi.Strip(line))
+		}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // handleDiffTreeKey is the file panel: ↑/↓ walk the files (the diff follows),
@@ -948,6 +1046,17 @@ func (m *Model) renderDiffView(bodyH int) string {
 			body[i] = treeCol[i] + diffTreeDivider + body[i]
 		}
 	}
+	if d.picking { // over the diff's first rows
+		for i, l := range d.versionLines(codeW) {
+			if i < len(body) {
+				l = diffPaint(l, codeW, diffFileBg)
+				if treeW > 0 {
+					l = treeCol[i] + diffTreeDivider + l
+				}
+				body[i] = l
+			}
+		}
+	}
 	body = append(body, refDimStyle.Render(truncate(m.diffHint(), inner)))
 	return m.renderModalFrame(outerW, d.frameTitle(), d.scrollHint(), strings.Join(body, "\n"))
 }
@@ -980,10 +1089,14 @@ func (m *Model) renderModalFrame(outerW int, title, hint, body string) string {
 
 // frameTitle names the change request under review.
 func (d *diffState) frameTitle() string {
-	if d.title == "" {
-		return d.label
+	t := d.label
+	if d.title != "" {
+		t += " · " + d.title
 	}
-	return d.label + " · " + d.title
+	if i := slices.IndexFunc(d.versions, func(v forge.Version) bool { return v.ID == d.version }); d.version != 0 && i >= 0 {
+		t += " · " + d.versionName(i) + " of " + strconv.Itoa(len(d.versions))
+	}
+	return t
 }
 
 // scrollHint is the position counter beside the title: which file the cursor is
@@ -1020,7 +1133,11 @@ func (m *Model) diffHint() string {
 	if d.treeFocus {
 		return "↵ open · z/Z fold · ←/→ pan · " + tab + "esc close"
 	}
-	return "z/Z fold · ]/[ file · n/N thread · ←/→ pan · o GitLab · " + tab + "esc close"
+	v := ""
+	if len(d.versions) > 1 {
+		v = "v versions · "
+	}
+	return "z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
 }
 
 // renderRow draws one row to exactly width cells: the line-number gutter, the

@@ -14,7 +14,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
   css('diff'); css('dev');
   const { api, ui } = app;
   const url = query.url || '';
-  let data = null, dead = false, cur = 0;
+  let data = null, dead = false, cur = 0, version = +query.version || 0;
   const folded = new Set();
   const files = h('nav.df-files', { 'aria-label': 'Changed files' }), body = h('div.df-body');
   el.append(h('div.df', files, body));
@@ -66,8 +66,8 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
   async function load(fresh) {
     body.replaceChildren(h('div.df-msg', 'Loading the diff…'));
     try {
-      data = await api.get('/gitlab/diff?url=' + encodeURIComponent(url) + (fresh ? '&fresh=1' : ''), { fresh: true });
-      if (!dead) paint();
+      data = await api.get('/gitlab/diff?url=' + encodeURIComponent(url) + (version ? '&version=' + version : '') + (fresh ? '&fresh=1' : ''), { fresh: true });
+      if (!dead) { paint(); versionPick(); }
     } catch (e) { if (!dead) body.replaceChildren(h('div.df-msg', e.message, ' ', safe(url) ? h('a', { href: safe(url), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab') : null)); }
   }
   function go(i) {
@@ -95,7 +95,21 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
   scope.bind('Escape', () => (history.length > 1 ? history.back() : app.go('/mrs')), 'back', { group: G });
   delegate(files, 'click', '.df-file-link', (e, t) => go(+t.dataset.file));
   delegate(body, 'click', '.df-head', (e, t) => fold(+t.dataset.file));
-  clear(toolbar).append(h('span.spacer'), h('button.btn.ghost.sm', { title: 'o', onclick: () => safe(url) && window.open(url, '_blank', 'noopener') }, 'GitLab'), h('button.btn.ghost.sm', { title: 'r', onclick: () => load(true) }, 'Reload'));
+  // v: the versions, newest first; an older one shows as it was pushed, without the threads.
+  const picker = h('select.input.sm', { title: 'Version (v)', hidden: true, onchange: () => pickVersion(+picker.value) });
+  function versionPick() {
+    const vs = data.Versions || [];
+    picker.hidden = vs.length < 2;
+    picker.replaceChildren(...vs.map((v, i) => h('option', { value: i ? v.ID : 0, selected: (i ? v.ID : 0) === version },
+      'version ' + (vs.length - i) + (i ? '' : ' (newest)') + (isZero(v.Created) ? '' : ' · ' + ago(v.Created)) + ' · ' + (v.HeadSHA || '').slice(0, 8))));
+  }
+  function pickVersion(v) {
+    version = v;
+    history.replaceState(null, '', '#/mr?url=' + encodeURIComponent(url) + (v ? '&version=' + v : ''));
+    load(false);
+  }
+  scope.bind('v', () => { if (picker.hidden) return ui.toast('One version: nothing pushed since it opened'); picker.focus(); picker.showPicker && picker.showPicker(); }, 'pick a version', { group: G });
+  clear(toolbar).append(h('span.spacer'), picker, h('button.btn.ghost.sm', { title: 'o', onclick: () => safe(url) && window.open(url, '_blank', 'noopener') }, 'GitLab'), h('button.btn.ghost.sm', { title: 'r', onclick: () => load(true) }, 'Reload'));
   load(false);
   return () => { dead = true; };
 }

@@ -87,6 +87,14 @@ type Diff struct {
 	Truncated bool
 }
 
+// Version is one push of a change request: GitLab keeps a diff for each,
+// the newest first.
+type Version struct {
+	ID      int
+	Refs    DiffRefs
+	Created time.Time
+}
+
 // Note is one message in an inline conversation.
 type Note struct {
 	ID      string

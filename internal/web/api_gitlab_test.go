@@ -93,6 +93,10 @@ func TestGitLabDiff(t *testing.T) {
 			w.Write([]byte(`[{"old_path": "a.go", "new_path": "a.go", "diff": "@@ -1 +1 @@\n-var x = 1\n+var x = 2\n"}, {"new_path": "big.lock", "too_large": true}]`))
 		case strings.HasSuffix(r.URL.Path, "/discussions"):
 			w.Write([]byte(`[{"id": "d1", "notes": [{"id": 1, "body": "ok?", "author": {"name": "Grace"}, "position": {"position_type": "text", "new_path": "a.go", "new_line": 1}}]}]`))
+		case strings.HasSuffix(r.URL.Path, "/versions"):
+			w.Write([]byte(`[{"id": 2, "head_commit_sha": "h2"}, {"id": 1, "head_commit_sha": "h1"}]`))
+		case strings.HasSuffix(r.URL.Path, "/versions/1"):
+			w.Write([]byte(`{"id": 1, "head_commit_sha": "h1", "diffs": [{"new_path": "old.go", "diff": "@@ -1 +1 @@\n-a\n+b\n"}]}`))
 		default:
 			w.Write([]byte(`{"iid": 7, "title": "X", "diff_refs": {"head_sha": "h"}}`))
 		}
@@ -116,5 +120,15 @@ func TestGitLabDiff(t *testing.T) {
 	}
 	if len(got.Threads) != 1 || got.Threads[0].NewLine != 1 || got.Threads[0].Notes[0].Author != "Grace" {
 		t.Errorf("threads: %+v", got.Threads)
+	}
+	rec = call(s, "GET", "/api/gitlab/diff?version=1&url="+url.QueryEscape(gl.URL+"/g/p/-/merge_requests/7"), "", "")
+	var v struct {
+		Version  int
+		Versions []DiffVersion
+		Files    []DiffFile
+		Threads  []DiffThread
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil || v.Version != 1 || len(v.Versions) != 2 || len(v.Files) != 1 || v.Files[0].Path != "old.go" || len(v.Threads) != 0 {
+		t.Errorf("version 1: %s", rec.Body)
 	}
 }

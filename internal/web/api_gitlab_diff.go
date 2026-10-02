@@ -55,13 +55,22 @@ func init() {
 		if r.URL.Query().Get("fresh") == "1" {
 			c.Invalidate(ref.Repo, ref.Number)
 		}
-		d, err := c.Diff(ctx, ref.Repo, ref.Number)
+		// &version= an older push (as v in the TUI): its own diff, without the
+		// threads, which sit on the newest's lines.
+		version, _ := strconv.Atoi(r.URL.Query().Get("version"))
+		var d *forge.Diff
+		var threads []forge.Thread
+		if version != 0 {
+			d, err = c.VersionDiff(ctx, ref.Repo, ref.Number, version)
+		} else if d, err = c.Diff(ctx, ref.Repo, ref.Number); err == nil {
+			threads, _ = c.Threads(ctx, ref.Repo, ref.Number) // best-effort, as in the TUI
+		}
 		if err != nil {
 			return nil, err
 		}
-		threads, _ := c.Threads(ctx, ref.Repo, ref.Number) // best-effort, as in the TUI
+		versions, _ := c.Versions(ctx, ref.Repo, ref.Number)
 		out := map[string]any{"Label": ref.Repo + "!" + strconv.Itoa(ref.Number), "WebURL": c.WebURL(ref.Repo, ref.Number),
-			"Truncated": d.Truncated, "Files": diffFiles(d.Files), "Threads": diffThreads(threads)}
+			"Truncated": d.Truncated, "Files": diffFiles(d.Files), "Threads": diffThreads(threads), "Version": version, "Versions": diffVersions(versions)}
 		if mr, err := c.Get(ctx, ref.Repo, ref.Number); err == nil {
 			out["Title"] = mr.Title
 		}
@@ -103,6 +112,21 @@ func diffFiles(files []forge.FileDiff) []DiffFile {
 			}
 		}
 		out = append(out, df)
+	}
+	return out
+}
+
+// DiffVersion is one push, newest first.
+type DiffVersion struct {
+	ID      int
+	HeadSHA string
+	Created time.Time
+}
+
+func diffVersions(vs []forge.Version) []DiffVersion {
+	out := make([]DiffVersion, len(vs))
+	for i, v := range vs {
+		out[i] = DiffVersion{ID: v.ID, HeadSHA: v.Refs.HeadSHA, Created: v.Created}
 	}
 	return out
 }

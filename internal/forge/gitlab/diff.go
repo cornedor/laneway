@@ -300,3 +300,57 @@ func (c *Client) ResolveThread(ctx context.Context, project string, iid int, thr
 	}
 	return c.rest.Do(ctx, http.MethodPut, path, what, map[string]any{"resolved": resolved}, nil)
 }
+
+// Versions are the merge request's pushes, newest first: each its own diff,
+// read with VersionDiff.
+func (c *Client) Versions(ctx context.Context, project string, iid int) ([]forge.Version, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/versions?per_page=100", encodePath(project), iid)
+	var vs []apiVersion
+	if err := c.rest.Do(ctx, http.MethodGet, path, "versions", nil, &vs); err != nil {
+		return nil, err
+	}
+	out := make([]forge.Version, len(vs))
+	for i, v := range vs {
+		out[i] = v.toVersion()
+	}
+	return out, nil
+}
+
+// apiVersion is one entry of the versions endpoint; read one by its id and
+// it carries its diffs too.
+type apiVersion struct {
+	ID        int           `json:"id"`
+	HeadSHA   string        `json:"head_commit_sha"`
+	BaseSHA   string        `json:"base_commit_sha"`
+	StartSHA  string        `json:"start_commit_sha"`
+	CreatedAt string        `json:"created_at"`
+	Diffs     []apiFileDiff `json:"diffs"`
+}
+
+func (v apiVersion) toVersion() forge.Version {
+	fv := forge.Version{ID: v.ID, Refs: forge.DiffRefs{BaseSHA: v.BaseSHA, StartSHA: v.StartSHA, HeadSHA: v.HeadSHA}}
+	if t, err := time.Parse(time.RFC3339, v.CreatedAt); err == nil {
+		fv.Created = t
+	}
+	return fv
+}
+
+// VersionDiff is version id's diff, as it was pushed.
+func (c *Client) VersionDiff(ctx context.Context, project string, iid, id int) (*forge.Diff, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/versions/%d", encodePath(project), iid, id)
+	var v apiVersion
+	if err := c.rest.Do(ctx, http.MethodGet, path, "version", nil, &v); err != nil {
+		return nil, err
+	}
+	d := &forge.Diff{Refs: v.toVersion().Refs}
+	for _, a := range v.Diffs {
+		d.Files = append(d.Files, a.toFileDiff())
+	}
+	return d, nil
+}

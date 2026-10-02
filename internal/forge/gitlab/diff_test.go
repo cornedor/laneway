@@ -275,3 +275,29 @@ func TestResolveThread(t *testing.T) {
 		t.Error("resolving nothing was accepted")
 	}
 }
+
+// TestVersions: the pushes newest first, and one's own diff by its id.
+func TestVersions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v4/projects/g/p/merge_requests/42/versions":
+			w.Write([]byte(`[{"id": 9, "head_commit_sha": "h2", "base_commit_sha": "b", "start_commit_sha": "b", "created_at": "2026-09-30T13:43:56.496Z"},
+				{"id": 8, "head_commit_sha": "h1", "base_commit_sha": "b", "start_commit_sha": "b"}]`))
+		case "/api/v4/projects/g/p/merge_requests/42/versions/8":
+			w.Write([]byte(`{"id": 8, "head_commit_sha": "h1", "base_commit_sha": "b", "start_commit_sha": "b",
+				"diffs": [{"old_path": "a.go", "new_path": "a.go", "diff": "@@ -1 +1 @@\n-x\n+y\n"}]}`))
+		default:
+			t.Errorf("unexpected %s", r.URL.Path)
+		}
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	vs, err := c.Versions(context.Background(), "g/p", 42)
+	if err != nil || len(vs) != 2 || vs[0].ID != 9 || vs[0].Refs.HeadSHA != "h2" || vs[0].Created.IsZero() {
+		t.Fatalf("Versions = %+v, %v", vs, err)
+	}
+	d, err := c.VersionDiff(context.Background(), "g/p", 42, 8)
+	if err != nil || d.Refs.HeadSHA != "h1" || len(d.Files) != 1 || d.Files[0].Path() != "a.go" {
+		t.Errorf("VersionDiff = %+v, %v", d, err)
+	}
+}
