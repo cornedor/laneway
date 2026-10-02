@@ -80,7 +80,7 @@ func main() {
 				FullSizeContent:      true,
 				UseToolbar:           true,
 				HideToolbarSeparator: true,
-				ToolbarStyle:         application.MacToolbarStyleUnifiedCompact,
+				ToolbarStyle:         application.MacToolbarStyleUnified,
 			},
 		},
 	}
