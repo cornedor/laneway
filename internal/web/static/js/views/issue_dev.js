@@ -5,7 +5,7 @@
 // A GitLab merge request's row unfolds it (enter, a click): state, pipeline by stage, approvals and
 // description from GET /api/gitlab/mr (forge.Change), as the TUI's panel shows it; o opens any row's link.
 import { h, clear } from '../lib/dom.js';
-import { render as md } from '../lib/md.js';
+import { mrBody } from '../lib/mr.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { ago, dateTime, isZero, duration, plural } from '../lib/fmt.js';
@@ -23,9 +23,6 @@ const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 const when = t => (isZero(t) ? null : h('time.dv-when', { datetime: t, title: dateTime(t) }, ago(t)));
 const prNo = u => { const m = /\/(?:pull|pull-requests|merge_requests)\/(\d+)/.exec(u || ''); return m ? (/merge_requests/.test(u) ? '!' : '#') + m[1] : ''; };
 const isMR = u => /\/-\/merge_requests\/\d+/.test(u || '');
-// A forge.Change check status → a tone and a glyph.
-const CHECK = { success: ['ok', '✓'], failed: ['err', '✗'], running: ['run', '●'], pending: ['run', '○'], manual: ['none', '▶'], canceled: ['warn', '⊘'], skipped: ['none', '»'] };
-const check = s => CHECK[s] || CHECK.skipped;
 const newest = (a, b) => (isZero(b.Updated) ? -1 : isZero(a.Updated) ? 1 : new Date(b.Updated) - new Date(a.Updated));
 
 // The header's one-liner, as the board card's chips: "1 PR merged · 2 branches · 5 commits · deployed to production".
@@ -120,23 +117,8 @@ export function mountDev(key, { app, el, full, card, details }) {
   function mrDetail(u) {
     const st = mrs.get(u) || {};
     if (st.err) return h('div.dv-mr.dv-err', st.err.message || String(st.err), ' ', h('a', { href: safe(u), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab'));
-    const m = st.data;
-    if (!m) return h('div.dv-mr.dv-dim', 'Loading the merge request…');
-    const kv = (k, ...v) => (v.some(Boolean) ? h('div.dv-kv', h('span.dv-k', k), h('span', ...v)) : null);
-    const a = m.Approvals, c = m.Checks;
-    const approvals = a && [a.Approved ? h('b.dvt-ok', 'approved ') : null, a.Required ? (a.Required - a.Left) + ' of ' + a.Required : String((a.By || []).length),
-      (a.By || []).length ? h('span.dv-dim', ' · ' + a.By.join(', ')) : null];
-    const glyph = s => { const [tone, g] = check(s); return h('span.dv-check.dvt-' + tone, { title: s }, g); };
-    return h('div.dv-mr', { onclick: e => e.stopPropagation() },
-      kv('State', m.Draft ? 'draft' : m.State, isZero(m.UpdatedAt) ? null : h('span.dv-dim', ' · updated ' + ago(m.UpdatedAt))),
-      m.State === 'opened' ? kv('Merge', m.HasConflicts ? h('span.dvt-err', m.MergeStatus) : m.MergeStatus) : null,
-      kv('Changes', m.ChangesCount && m.ChangesCount + ' files'),
-      kv('Assignees', (m.Assignees || []).join(', ')), kv('Reviewers', (m.Reviewers || []).join(', ')),
-      approvals ? kv('Approvals', ...approvals) : null,
-      kv('Labels', (m.Labels || []).join(', ')),
-      c ? kv('Pipeline', glyph(c.Status), ' ', safe(c.WebURL) ? h('a', { href: safe(c.WebURL), target: '_blank', rel: 'noopener noreferrer' }, c.Label) : c.Label, c.Duration ? h('span.dv-dim', ' · ' + duration(c.Duration)) : null) : null,
-      c && (c.Groups || []).length ? h('div.dv-stages', c.Groups.map(g => h('div.dv-stage', h('span.dv-k', g.Name), (g.Jobs || []).map(j => h('span.dv-job', glyph(j.Status), ' ' + j.Name))))) : null,
-      (m.Description || '').trim() ? h('div.dv-desc.md', md(m.Description)) : null);
+    if (!st.data) return h('div.dv-mr.dv-dim', 'Loading the merge request…');
+    return mrBody(st.data);
   }
   function toggleMR(u, fresh) {
     if (openMR.has(u) && !fresh) { openMR.delete(u); paint(); return; }

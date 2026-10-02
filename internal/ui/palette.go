@@ -210,6 +210,8 @@ func (m *Model) paletteScope() string {
 		return "inbox"
 	case t.agentsView != nil:
 		return "agents"
+	case t.mrs != nil:
+		return "merge_requests"
 	}
 	return "board"
 }

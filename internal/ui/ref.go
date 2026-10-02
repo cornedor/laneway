@@ -199,6 +199,8 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openInbox()
 	case key.Matches(msg, m.keys.Agents):
 		return m, m.openAgents()
+	case key.Matches(msg, m.keys.MergeRequests):
+		return m, m.openMRs()
 	case key.Matches(msg, m.keys.Standup):
 		return m, m.openStandup()
 	case key.Matches(msg, m.keys.Undo):

@@ -51,3 +51,33 @@ func TestGitLabMR(t *testing.T) {
 		t.Errorf("another host: %d %s", rec.Code, rec.Body)
 	}
 }
+
+// TestGitLabInbox: /api/gitlab/inbox is ui.MRInbox's rows; none configured
+// says so.
+func TestGitLabInbox(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
+	gl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v4/user" {
+			w.Write([]byte(`{"username": "ada"}`))
+			return
+		}
+		if r.URL.Query().Get("scope") == "assigned_to_me" {
+			w.Write([]byte(`[{"iid": 5, "title": "Do it", "web_url": "http://` + r.Host + `/g/p/-/merge_requests/5"}]`))
+			return
+		}
+		w.Write([]byte(`[]`))
+	}))
+	defer gl.Close()
+	var got struct {
+		Rows       []struct{ Group string }
+		Configured bool
+	}
+	rec := call(New(context.Background(), Options{GitLab: gitlab.NewSites([]gitlab.Config{{BaseURL: gl.URL, Token: "tok"}})}), "GET", "/api/gitlab/inbox", "", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got.Rows) != 1 || got.Rows[0].Group != "Assigned to you" || !got.Configured {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	rec = call(New(context.Background(), Options{}), "GET", "/api/gitlab/inbox", "", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got.Configured || len(got.Rows) != 0 {
+		t.Errorf("none: %s", rec.Body)
+	}
+}

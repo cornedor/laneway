@@ -7,6 +7,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
+	"github.com/cornedor/laneway/internal/ui"
 )
 
 // The GitLab instances as settings shows them, each signed in to, and a
@@ -47,7 +48,19 @@ func init() {
 		if r.URL.Query().Get("fresh") == "1" {
 			c.Invalidate(ref.Repo, ref.Number)
 		}
-		return c.Get(ctx, ref.Repo, ref.Number)
+		mr, err := c.Get(ctx, ref.Repo, ref.Number)
+		if err == nil {
+			ui.MRSeen(s.opt.Store, mr)
+		}
+		return mr, err
+	})
+	// The merge requests waiting on you, as the TUI's alt+m.
+	get("/gitlab/inbox", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		rows, errs := ui.MRInbox(ctx, s.opt.GitLab, s.opt.Store)
+		if rows == nil {
+			rows = []ui.MRRow{}
+		}
+		return map[string]any{"Rows": rows, "Errs": errs, "Configured": s.opt.GitLab != nil}, nil
 	})
 }
 

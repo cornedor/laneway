@@ -78,7 +78,7 @@ func (m *Model) hoverAt(x, y int) hover {
 			return hover{pointer: pointerHand}
 		}
 		return hover{}
-	case t.charts != nil, t.week != nil, t.standup != nil:
+	case t.charts != nil, t.week != nil, t.standup != nil, t.mrs != nil:
 		return hover{}
 	case t.empty.row >= 0 && y == jiraBodyTop+t.empty.row:
 		if s, x0, x1 := segSpan(t.empty.segs, x, 1+t.empty.left); clickableSeg(s) {

@@ -3,6 +3,7 @@ package gitlab
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -156,5 +157,34 @@ func TestSearch(t *testing.T) {
 	got, err := newTestClient(srv).Search(context.Background(), "ABC-1")
 	if err != nil || len(got) != 1 || got[0].Repo != "g/sub/p" || got[0].Number != 3 || got[0].State != forge.StateMerged || got[0].WebURL == "" {
 		t.Fatalf("Search = %+v, %v", got, err)
+	}
+}
+
+// TestWaiting: review asked of the token's user, assigned, and its own,
+// each merge request once, in the first group it is in.
+func TestWaiting(t *testing.T) {
+	var srv *httptest.Server
+	mr := func(n int) string {
+		return fmt.Sprintf(`{"iid": %d, "title": "MR %d", "state": "opened", "web_url": "%s/g/p/-/merge_requests/%d"}`, n, n, srv.URL, n)
+	}
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case r.URL.Path == "/api/v4/user":
+			w.Write([]byte(`{"username": "ada"}`))
+		case q.Get("reviewer_username") == "ada":
+			w.Write([]byte("[" + mr(1) + "," + mr(2) + "]"))
+		case q.Get("scope") == "assigned_to_me":
+			w.Write([]byte("[" + mr(2) + "," + mr(3) + "]"))
+		case q.Get("scope") == "created_by_me":
+			w.Write([]byte("[" + mr(4) + "]"))
+		default:
+			t.Errorf("unexpected %s", r.URL)
+		}
+	}))
+	defer srv.Close()
+	w, err := newTestClient(srv).Waiting(context.Background())
+	if err != nil || len(w.Review) != 2 || len(w.Assigned) != 1 || w.Assigned[0].Number != 3 || len(w.Mine) != 1 || w.Mine[0].Repo != "g/p" {
+		t.Fatalf("Waiting = %+v, %v", w, err)
 	}
 }

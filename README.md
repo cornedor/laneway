@@ -189,7 +189,7 @@ Actions for `keys:`, by where they first apply:
   toggle_mode sort fold unfold_all compact empty_lanes move_sprint assignee_filter mine
   clear_filters mark mark_all undo bulk quick_edit pin palette jql
   filter_builder my_work review roadmap plan charts releases timer timesheet
-  inbox agents standup site settings panel_wider panel_narrower
+  inbox agents merge_requests standup site settings panel_wider panel_narrower
 - panel: status priority points summary labels assign description comment
   reply log_work start_work linked_issue back image issue_actions history
   development next_comment prev_comment delete_comment
@@ -340,7 +340,7 @@ Board:
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `~` home (my work, inbox, sprint health, timer, reviews, a count per saved search; `ui.home` starts on it) · `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out; from the list it shows lanes), `esc` back to now · `ctrl+o` a closed sprint as it closed: done, and what carried over to which sprint
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
-- you: `I` inbox · `ctrl+g` agents · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
+- you: `I` inbox · `ctrl+g` agents · `alt+m` merge requests waiting on you on every GitLab, Jira key or not (review asked, assigned, yours with comments you have not read; `enter` reads one in the panel, `o` GitLab, `r` again) · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts. What a click would act on is underlined under the pointer, which turns to a hand (where the terminal draws pointer shapes; in tmux with `allow-passthrough`)
 - right-click a card or row: its menu at the pointer, as big as its rows: status, priority, assignee and sprint open their list beside it (`→` or a click; `esc` or `←` back), labels and points ask, and open, browser, copy key and pin do what their key does. The row under the pointer is the chosen one; a click off the menu closes it
 - `q` quit; on the roadmap, planning, charts, the standup or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)

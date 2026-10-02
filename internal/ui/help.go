@@ -43,6 +43,7 @@ func (m *Model) helpSections() []struct {
 			row(k.ToggleMode, "lanes / list"),
 			row(k.Compact, "one-line cards / full"),
 			row(k.EmptyLanes, "hide / show empty lanes"),
+			row(k.MergeRequests, "merge requests waiting on you, every GitLab"),
 			row(k.Palette, "command palette"),
 			row(k.JQL, "JQL search with completion, as a view"),
 			row(k.StartScreen, "home: my work, inbox, sprint, timer, reviews, saved searches (ui.home starts on it)"),
@@ -208,6 +209,12 @@ func (m *Model) helpSections() []struct {
 			row(k.CopyKey, "copy the key"),
 			row(k.Refresh, "read the agents and issues again"),
 			{"esc / " + helpKey(k.Agents), "back to the board"},
+		}},
+		section{"Merge requests", []helpRow{
+			row(k.OpenChannel, "read it in the panel: pipeline, approvals, description"),
+			row(k.OpenAttach, "open in GitLab"),
+			row(k.Refresh, "read them again"),
+			{"esc / " + helpKey(k.MergeRequests), "back to the board"},
 		}},
 		section{"Week", []helpRow{
 			{join(k.PrevView, k.NextView), "previous / next week"},

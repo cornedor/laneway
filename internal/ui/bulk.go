@@ -248,7 +248,7 @@ func (m *Model) cardClickable(x, y int) bool {
 		}
 	}
 	return y < m.bodyH() && (menu || !m.modalOpen() && !m.pickerOnTop() && !m.pickerInline()) && (!m.refOpen || x < listW) &&
-		t.roadmap == nil && t.plan == nil && t.charts == nil && t.week == nil && t.standup == nil && t.inbox == nil && t.agentsView == nil
+		t.roadmap == nil && t.plan == nil && t.charts == nil && t.week == nil && t.standup == nil && t.inbox == nil && t.agentsView == nil && t.mrs == nil
 }
 
 // rightClickJira selects the card under h and opens its menu at x, y.

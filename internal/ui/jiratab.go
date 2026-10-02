@@ -413,6 +413,7 @@ type jiraTabState struct {
 	inbox   *inboxScreen  // inbox.go
 	// agentsView is the agents screen (agents_screen.go).
 	agentsView *agentsScreen
+	mrs        *mrScreen // mr_screen.go
 	// planSeq and chartsSeq outlive a close, so a reply for a view since
 	// closed never matches the one reopened.
 	planSeq, chartsSeq int
@@ -1065,6 +1066,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if t.agentsView != nil {
 		return m.handleAgentsKey(msg)
 	}
+	if t.mrs != nil {
+		return m.handleMRsKey(msg)
+	}
 	if t.past != nil {
 		return m.handleTimeMachineKey(msg)
 	}
@@ -1152,6 +1156,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openInbox()
 	case key.Matches(msg, m.keys.Agents):
 		return m, m.openAgents()
+	case key.Matches(msg, m.keys.MergeRequests):
+		return m, m.openMRs()
 	case key.Matches(msg, m.keys.StartScreen):
 		return m, m.openHome()
 	case key.Matches(msg, m.keys.Standup):
@@ -3212,6 +3218,10 @@ func (m *Model) renderJiraPane(height, width int) string {
 		viewLine = ansi.Truncate(m.agentsViewLine(), max(boxW-2, 1), "…")
 		filterLine = ""
 		body = m.renderAgentsScreen(t.view.Width(), t.view.Height())
+	case t.mrs != nil:
+		viewLine = ansi.Truncate(m.mrsViewLine(), max(boxW-2, 1), "…")
+		filterLine = ""
+		body = m.renderMRs(t.view.Width(), t.view.Height())
 	case t.plan != nil:
 		viewLine = ansi.Truncate(m.planLine(), max(boxW-2, 1), "…")
 		filterLine = ""

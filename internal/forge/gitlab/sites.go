@@ -122,6 +122,34 @@ func (s *Sites) Search(ctx context.Context, key string) []*forge.Change {
 	return slices.Concat(found...)
 }
 
+// SiteWaiting is one instance's merge requests waiting on you, or why
+// they could not be read.
+type SiteWaiting struct {
+	Host string
+	Waiting
+	Err error
+}
+
+// Waiting reads every instance with a token's merge requests waiting on
+// you, in the order of hosts.
+func (s *Sites) Waiting(ctx context.Context) []SiteWaiting {
+	var clients []*Client
+	var hosts []string
+	for _, h := range s.hosts() {
+		if c := s.For("https://" + h); c != nil {
+			clients, hosts = append(clients, c), append(hosts, h)
+		}
+	}
+	out := make([]SiteWaiting, len(clients))
+	var wg sync.WaitGroup
+	for i, c := range clients {
+		out[i].Host = hosts[i]
+		wg.Go(func() { out[i].Waiting, out[i].Err = c.Waiting(ctx) })
+	}
+	wg.Wait()
+	return out
+}
+
 // hosts are the configured hosts, then glab's others.
 func (s *Sites) hosts() []string {
 	hosts := slices.Clone(s.configured)

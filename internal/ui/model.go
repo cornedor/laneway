@@ -64,7 +64,7 @@ type keyMap struct {
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
-	EmptyLanes                         key.Binding
+	EmptyLanes, MergeRequests          key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
 	ClosedSprint, StartScreen          key.Binding
 	AgentBack                          key.Binding // out of the agent's terminal in the panel
@@ -184,6 +184,7 @@ func defaultKeys() keyMap {
 		StartScreen:     bind("home: my work, inbox, sprint, timer, reviews, saved searches", "~"),
 		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
 		Agents:          bind("agents: every herdr agent and worktree, by state", "ctrl+g"),
+		MergeRequests:   bind("merge requests waiting on you, every GitLab", "alt+m"),
 		AgentPrompt:     bind("agents: send the agent a prompt", "p"),
 		AgentStop:       bind("agents: stop the agent (twice)", "d"),
 		PlanStart:       bind("start the sprint / move its end", "S"),
@@ -965,6 +966,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePage(msg)
 	case mrMsg:
 		return m.handleMR(msg)
+	case mrInboxMsg:
+		return m.handleMRInbox(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())
@@ -1017,7 +1020,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	before := m.selectedJiraKey()
 	out, cmd := m.handleJiraKey(msg)
-	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil && om.jiraTab.standup == nil && om.jiraTab.inbox == nil && om.jiraTab.agentsView == nil {
+	if om, ok := out.(Model); ok && om.jiraTab.roadmap == nil && om.jiraTab.plan == nil && om.jiraTab.charts == nil && om.jiraTab.week == nil && om.jiraTab.standup == nil && om.jiraTab.inbox == nil && om.jiraTab.agentsView == nil && om.jiraTab.mrs == nil {
 		if after := om.selectedJiraKey(); after != "" && after != before {
 			return om, tea.Batch(cmd, om.schedulePrefetch())
 		}
@@ -1151,6 +1154,8 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m.clickInbox(msg.X, msg.Y, count)
 	case t.agentsView != nil:
 		return m.clickAgents(msg, count)
+	case t.mrs != nil:
+		return m, nil
 	case t.charts != nil, t.week != nil, t.standup != nil:
 		return m, nil
 	case t.empty.row >= 0 && msg.Y == jiraBodyTop+t.empty.row:

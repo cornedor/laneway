@@ -147,6 +147,7 @@ type apiMR struct {
 	Description         string    `json:"description"`
 	WebURL              string    `json:"web_url"`
 	UpdatedAt           string    `json:"updated_at"`
+	UserNotesCount      int       `json:"user_notes_count"`
 	Author              *apiUser  `json:"author"`
 	Assignees           []apiUser `json:"assignees"`
 	Reviewers           []apiUser `json:"reviewers"`
@@ -234,6 +235,7 @@ func toChange(a apiMR, project string) *forge.Change {
 		TargetBranch: a.TargetBranch,
 		Labels:       a.Labels,
 		ChangesCount: a.ChangesCount,
+		Notes:        a.UserNotesCount,
 		HasConflicts: a.HasConflicts,
 		Description:  a.Description,
 		Mergeable:    a.DetailedMergeStatus == "mergeable",
@@ -412,4 +414,47 @@ func (c *Client) Search(ctx context.Context, key string) ([]*forge.Change, error
 		out = append(out, ch)
 	}
 	return out, nil
+}
+
+// Waiting are the open merge requests that wait on the token's account, by
+// why: a review asked of it, assigned to it, or its own. One in several
+// shows in the first.
+type Waiting struct {
+	Review, Assigned, Mine []*forge.Change
+}
+
+// Waiting lists the open merge requests waiting on the token's account,
+// newest first, across every project.
+func (c *Client) Waiting(ctx context.Context) (Waiting, error) {
+	me, err := c.Me(ctx)
+	if err != nil {
+		return Waiting{}, err
+	}
+	const open = "/merge_requests?state=opened&per_page=50&order_by=updated_at"
+	var w Waiting
+	seen := map[string]bool{}
+	for _, q := range []struct {
+		query string
+		into  *[]*forge.Change
+	}{
+		{open + "&scope=all&reviewer_username=" + url.QueryEscape(me.Username), &w.Review},
+		{open + "&scope=assigned_to_me", &w.Assigned},
+		{open + "&scope=created_by_me", &w.Mine},
+	} {
+		var found []apiMR
+		if err := c.rest.Do(ctx, http.MethodGet, q.query, "merge requests", nil, &found); err != nil {
+			return Waiting{}, err
+		}
+		for _, a := range found {
+			r, ok := c.Parse(a.WebURL)
+			if !ok || seen[a.WebURL] {
+				continue
+			}
+			seen[a.WebURL] = true
+			ch := toChange(a, r.Repo)
+			ch.WebURL = a.WebURL
+			*q.into = append(*q.into, ch)
+		}
+	}
+	return w, nil
 }

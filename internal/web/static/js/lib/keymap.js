@@ -3,7 +3,7 @@
 const COMMON = { j: 'down', ArrowDown: 'down', k: 'up', ArrowUp: 'up', y: 'copy_key' };
 const TABLE = {
   global: { ':': 'palette', '/': 'search', 'g g': 'goto', '?': 'help', n: 'create', Q: 'jql', ',': 'settings', 'ctrl+e': 'refine',
-    W: 'timesheet', I: 'inbox', U: 'standup', O: 'my_work', 'ctrl+g': 'agents', 'g r': 'charts', 'g p': 'plan', 'g m': 'roadmap', 'g R': 'review', 'g h': 'home' },
+    W: 'timesheet', I: 'inbox', U: 'standup', O: 'my_work', 'ctrl+g': 'agents', 'g r': 'charts', 'g p': 'plan', 'g m': 'roadmap', 'g R': 'review', 'g M': 'merge_requests', 'g h': 'home' },
   timer: { T: 'timer', w: 'log_work' },
   undo: { u: 'undo' },
   sites: { '@': 'site' },
@@ -20,6 +20,7 @@ const TABLE = {
   inbox: { ...COMMON, Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', r: 'refresh', o: 'browser', Enter: 'open', e: 'inbox_done', E: 'inbox_done_all', s: 'inbox_snooze', u: 'inbox_unread', c: 'comment', R: 'reply' },
   standup: { ...COMMON, r: 'refresh', z: 'fold', '[': 'prev_view', ']': 'next_view', Enter: 'open', p: 'standup_group', Space: 'standup_step', P: 'standup_park' },
   agents: { ...COMMON, Home: 'top', End: 'bottom', r: 'refresh', o: 'browser', Enter: 'open', v: 'toggle_panel', p: 'agent_prompt', d: 'agent_stop', S: 'start_work', 'ctrl+\\': 'agent_back' },
+  mrs: { j: 'down', ArrowDown: 'down', k: 'up', ArrowUp: 'up', Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', r: 'refresh', o: 'browser', Enter: 'open' },
   terminal: { 'ctrl+\\': 'agent_back' },
   'agents-global': { S: 'start_work', 'ctrl+y': 'copy_branch', 'ctrl+\\': 'agent_back' },
   issue: { j: 'next_comment', ArrowDown: 'next_comment', k: 'prev_comment', ArrowUp: 'prev_comment', 'ctrl+d': 'page_down', 'ctrl+u': 'page_up', c: 'comment', R: 'reply', e: 'summary', E: 'description', a: 'assign', p: 'priority', P: 'points',

@@ -98,6 +98,8 @@ func keyMsg(t *testing.T, name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}
 	case "alt+e":
 		return tea.KeyPressMsg{Code: 'e', Mod: tea.ModAlt}
+	case "alt+m":
+		return tea.KeyPressMsg{Code: 'm', Mod: tea.ModAlt}
 	}
 	if r := []rune(name); len(r) == 1 {
 		return tea.KeyPressMsg{Code: r[0], Text: name}

@@ -15,6 +15,7 @@ export const routes = [
   { path: '/standup', name: 'standup', title: 'Standup', key: 's', load: () => import('./standup.js') },
   { path: '/agents', name: 'agents', title: 'Agents', key: 'a', bar: false, load: () => import('./agents.js') },
   { path: '/review', name: 'review', title: 'Review', key: 'R', bar: false, load: () => import('./review.js') },
+  { path: '/mrs', name: 'mrs', title: 'Merge requests', key: 'M', bar: false, load: () => import('./mrs.js') },
   { path: '/rules', name: 'rules', title: 'Rules', key: 'l', nav: false, load: () => import('./rules.js') },
   { path: '/settings', name: 'settings', title: 'Settings', key: ',', nav: false, load: () => import('./settings.js') },
 ];

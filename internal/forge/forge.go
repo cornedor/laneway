@@ -95,6 +95,7 @@ type Change struct {
 	Reviewers    []string
 	Labels       []string
 	ChangesCount string // "44", or "44+" when the forge caps it
+	Notes        int    // the people's comments, system notes left out
 	// Mergeable is whether the forge would accept a merge right now — the gate
 	// for offering the merge action. MergeStatus is the human phrase shown
 	// either way ("mergeable", "ci still running", "conflicts").

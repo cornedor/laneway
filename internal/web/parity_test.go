@@ -123,6 +123,7 @@ var screens = map[string][]string{
 	"board": {"board"}, "panel": {"issue", "issue-dev", "issue-notes"}, "planning": {"planning"},
 	"roadmap": {"roadmap"}, "charts": {"reports"}, "timesheet": {"work"}, "week": {"work"},
 	"standup": {"standup"}, "inbox": {"inbox"}, "agents": {"agents", "terminal"},
+	"merge_requests": {"mrs"},
 }
 
 // everywhere are the web scopes live on every screen.

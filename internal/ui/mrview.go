@@ -70,6 +70,17 @@ func (m *Model) openMR(c *gitlab.Client, r forge.Ref, link, title string, fresh 
 	}
 }
 
+// showMR opens the panel on the merge request alone, no issue under it
+// (the merge requests screen).
+func (m *Model) showMR(c *gitlab.Client, r forge.Ref, link, title string) tea.Cmd {
+	m.closeAgentPanel()
+	m.refOpen, m.refs, m.refIdx, m.refBack = true, nil, 0, nil
+	m.jiraIssue = nil
+	m.focus = focusRef
+	m.resize()
+	return m.openMR(c, r, link, title, false)
+}
+
 func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 	if m.mr == nil || m.mr.gen != msg.gen {
 		return m, nil
@@ -79,6 +90,7 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 		m.mr.err = msg.err.Error()
 	} else {
 		m.mr.mr = msg.mr
+		MRSeen(m.store, msg.mr)
 	}
 	m.renderRef()
 	return m, nil
@@ -197,6 +209,12 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	case msg.String() == "esc", key.Matches(msg, m.keys.Back):
 		m.mr = nil
 		m.status = ""
+		if len(m.refs) == 0 { // opened alone: back to the screen
+			m.closeRef()
+			m.focus = focusJira
+			m.resize()
+			return m, nil, true
+		}
 		m.refView.GotoTop()
 		m.renderRef()
 		return m, nil, true

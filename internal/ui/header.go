@@ -222,7 +222,7 @@ func (m *Model) headerHit(x, y int) headSeg {
 // headerSpan is headerHit and the columns the segment covers.
 func (m *Model) headerSpan(x, y int) (headSeg, int, int) {
 	t := m.jiraTab
-	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil || t.standup != nil || t.inbox != nil || t.agentsView != nil
+	other := t.roadmap != nil || t.plan != nil || t.charts != nil || t.week != nil || t.standup != nil || t.inbox != nil || t.agentsView != nil || t.mrs != nil
 	var segs []headSeg
 	switch {
 	case y == 0 && !other:
@@ -231,7 +231,7 @@ func (m *Model) headerSpan(x, y int) (headSeg, int, int) {
 		segs = m.roadmapSegs()
 	case y == jiraBodyTop-2 && t.charts != nil:
 		segs = m.chartsSegs()
-	case y == jiraBodyTop-2 && (t.week != nil || t.standup != nil || t.inbox != nil || t.agentsView != nil):
+	case y == jiraBodyTop-2 && (t.week != nil || t.standup != nil || t.inbox != nil || t.agentsView != nil || t.mrs != nil):
 		return headSeg{}, 0, 0
 	case y == jiraBodyTop-2 && t.plan != nil:
 		segs = m.planSegs()
