@@ -27,9 +27,47 @@
 .df-acts { display: flex; gap: .429rem; align-items: center; margin-top: .286rem; }
 .df-compose { grid-column: 1 / -1; margin: .286rem .571rem .286rem 4rem; font-family: var(--font-ui, inherit); white-space: normal; }
 .df-compose textarea { width: 100%; }
-.df-row .df-no[title^="Comment"] { cursor: pointer; } .df-row .df-no[title^="Comment"]:hover { color: var(--accent); }
+/* a line a note can go on: hovered, it lights up and a + shows at the gutter's edge */
+.df-row.can .df-no { cursor: pointer; } .df-row.can > .df-no:nth-child(2) { position: relative; }
+.df-row.can:hover > span { background-image: linear-gradient(color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 10%, transparent)); }
+.df-row.can:hover .df-no { color: var(--accent); }
+.df-plus { position: absolute; right: -1.143rem; top: 50%; transform: translateY(-50%); z-index: 1; width: 1.143rem; height: 1.143rem; padding: 0; display: none; place-items: center;
+  border: 0; border-radius: 4px; background: var(--accent); color: var(--accent-fg); cursor: pointer; box-shadow: 0 1px 3px rgb(0 0 0 / .25); }
+.df-plus .ico { width: .857rem; height: .857rem; stroke-width: 3; }
+.df-row.can:hover .df-plus, .df-plus:focus-visible { display: grid; } .df-plus:hover { transform: translateY(-50%) scale(1.12); }
 .df-msg { padding: .429rem .571rem; color: var(--fg-3); font-style: italic; font-family: var(--font-ui, inherit); }
 .df-msg a { color: var(--accent); }
 .hl-k { color: var(--accent); } .hl-t { color: var(--info); } .hl-n { color: var(--warn); } .hl-g { color: var(--accent); }
 .hl-s { color: var(--ok); } .hl-m { color: var(--warn); } .hl-c { color: var(--fg-3); font-style: italic; } .hl-o { color: var(--fg-2); }
 @media (max-width: 760px) { .df { grid-template-columns: 1fr; } .df-files { display: none; } }
+
+/* the merge request's page: a head as the issue page's, then Overview and Changes */
+.mrp { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.mrp-title { cursor: default; } .mrp-title:hover { background: none; }
+.mrp-sub { flex-wrap: wrap; row-gap: .429rem; }
+.mrp-flow { color: var(--fg-2); min-width: 0; } .mrp-flow b { color: var(--fg); font-weight: 500; } .mrp-flow code { overflow-wrap: anywhere; }
+.mrp-acts { display: flex; gap: .429rem; padding-bottom: .214rem; }
+.mrp-link { background: none; border: 0; padding: .143rem .286rem; margin: 0 -.286rem; border-radius: var(--radius); font: inherit; color: inherit; cursor: pointer; } .mrp-link:hover { background: var(--bg-3); }
+.mrp-issue { display: inline-flex; align-items: center; gap: .429rem; min-width: 0; max-width: 30rem; margin-left: .286rem; padding: 1px .571rem; font: inherit; font-size: .9em; color: var(--fg);
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+.mrp-issue:hover { border-color: var(--accent); } .mrp-ikey { font-family: var(--font-mono); font-weight: 600; color: var(--accent); flex: none; }
+/* the head and tabs line up with the overview's column; the diff below takes the width */
+.mrp-head { width: 100%; max-width: 70rem; margin: 0 auto; } .mrp-head .iss-key { white-space: nowrap; }
+.mrp > .iss-tabs { align-items: center; padding-inline: max(calc(var(--pad) * 2), calc((100% - 70rem) / 2 + var(--pad) * 2)); }
+.mrp-flow .dv-mono { font-size: .86em; }
+.mrp-page .dvt-ok { display: inline-flex; align-items: center; gap: .286rem; }
+.mrp-over { flex: 1; min-height: 0; overflow-y: auto; } .mrp-over[hidden], .mrp-changes[hidden] { display: none; }
+.mrp-page { max-width: 70rem; margin: 0 auto; padding: var(--pad) calc(var(--pad) * 2) 2.857rem; }
+.mrp-changes { flex: 1; min-height: 0; display: flex; flex-direction: column; } .mrp-changes > .df { flex: 1; min-height: 0; height: auto; }
+.mrp-cbar > * { flex: none; white-space: nowrap; } .mrp-cbar > .spacer { flex: 1; } .mrp-cbar select.input { width: auto; max-width: 22rem; }
+.mrp-cbar { flex: none; display: flex; align-items: center; gap: var(--pad); padding: .214rem calc(var(--pad) * 1.5); border-bottom: 1px solid var(--border); font-size: .9em; min-height: var(--bar-h); }
+.mrp-pending { display: flex; align-items: center; gap: .571rem; padding: .571rem .857rem; margin: var(--pad) 0; border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 10%, var(--bg-2)); }
+.mrp-pending > .ico { color: var(--warn); flex: none; }
+.mrp-pipeline { padding: .571rem .857rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-2); }
+.mrp-desc { padding: 0 .286rem; }
+.mrp-threads { display: flex; flex-direction: column; gap: .571rem; } .mrp-threads .df-note, .mrp-threads .df-compose { margin: 0; }
+.mrp-threads .df-note { border-radius: 0 var(--radius) var(--radius) 0; background: var(--bg-2); padding: .571rem .857rem; }
+.df-msg-row { display: flex; gap: .571rem; align-items: flex-start; } .df-msg-row + .df-msg-row { margin-top: .571rem; } .df-msg-row > div { flex: 1; min-width: 0; }
+.df-head .dv-caret { flex: none; align-self: center; } .df-sec:not(.folded) > .df-head .dv-caret { transform: rotate(90deg); }
+@media (max-width: 760px) { .mrp > .iss-tabs { flex-wrap: wrap; } .mrp-head .iss-top { flex-wrap: wrap; row-gap: .429rem; } .mrp-head .iss-top .mrp-issue { order: 9; flex-basis: 100%; } .mrp-acts { width: 100%; padding: .286rem 0; } .mrp-issue { max-width: 100%; margin-left: 0; } .mrp-cbar { flex-wrap: wrap; } }

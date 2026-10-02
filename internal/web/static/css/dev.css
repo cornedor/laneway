@@ -81,12 +81,32 @@ a.dv-title:hover { color: var(--accent); }
 .dv-err { font-size: .9em; color: var(--err); padding: .286rem .429rem; }
 
 /* an unfolded GitLab merge request under its row */
-.dv-mr { display: flex; flex-direction: column; gap: .214rem; margin: .286rem 0 .143rem .143rem; padding: .429rem .571rem; border-left: 2px solid var(--border); font-size: .86em; cursor: auto; }
+.dv-mr { display: flex; flex-direction: column; gap: .214rem; min-width: 0; margin: .286rem 0 .143rem .143rem; padding: .429rem .571rem; border-left: 2px solid var(--border); font-size: .86em; cursor: auto; }
+.dv-kv > :last-child { min-width: 0; overflow-wrap: anywhere; } .dv-desc pre { overflow-x: auto; }
 .dv-kv, .dv-stage { display: flex; gap: .571rem; min-width: 0; }
 .dv-k { flex: none; width: 6.4rem; color: var(--fg-3); }
 .dv-stages { display: flex; flex-direction: column; gap: .143rem; padding-left: .571rem; }
-.dv-stage { flex-wrap: wrap; }
-.dv-job { white-space: nowrap; margin-right: .571rem; }
+/* the pipeline: its stages left to right, each a node with its passed count, the jobs that want a look under it */
+.pp { display: flex; flex-direction: column; gap: .571rem; min-width: 0; }
+.pp-head { font-weight: 500; } .pp-head a { color: inherit; }
+.pp-flow { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: flex-start; gap: .571rem 1.714rem; }
+.pp-stage { position: relative; display: flex; flex-direction: column; gap: .286rem; min-width: 0; max-width: 24rem; }
+.pp-stage + .pp-stage::before { content: ''; position: absolute; left: -1.429rem; top: .857rem; width: 1.143rem; height: 2px; background: var(--border); }
+.pp-node { align-self: flex-start; display: inline-flex; align-items: center; gap: .429rem; padding: .214rem .714rem .214rem .286rem; border-radius: 999px; white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--dv-tone) 40%, var(--border)); background: color-mix(in srgb, var(--dv-tone) 10%, var(--bg-2)); }
+.pp-dot { width: 1.286rem; height: 1.286rem; border-radius: 50%; display: grid; place-items: center; background: var(--dv-tone); color: var(--bg); font-size: .75em; font-weight: 700; }
+.pp-n { color: var(--fg-3); font-size: .85em; font-variant-numeric: tabular-nums; }
+.pp-jobs { list-style: none; margin: 0; padding: 0 0 0 .714rem; display: flex; flex-direction: column; gap: .143rem; font-size: .9em; }
+.pp-jobs li { min-width: 0; overflow-wrap: anywhere; }
+.pp-mini { display: inline-flex; align-items: center; gap: .286rem; } .pp-mini .dv-dot { width: .5rem; height: .5rem; }
+.pp-mini .dv-dot:first-of-type { margin-left: .214rem; }
+/* approvals: the reviewers, ticked once they approve, then the count */
+.ap { display: inline-flex; align-items: center; gap: .571rem; flex-wrap: wrap; min-width: 0; } .ap .dv-revs > .dv-rev + .dv-rev { margin-left: -.429rem; }
+.ap .dv-rev { box-shadow: 0 0 0 2px var(--bg); } .ap-ok { font-weight: 600; color: var(--ok); }
+/* a merge request row: its caret says a click unfolds it, its buttons do the rest */
+[data-mr] > .dv-line .dv-caret { flex: none; } [data-mr][aria-expanded="true"] > .dv-line .dv-caret { transform: rotate(90deg); }
+.dv-acts { flex: none; display: flex; gap: .286rem; } .dv-acts .ico { width: .9em; height: .9em; } .dv-acts a.btn:hover { text-decoration: none; }
+@media (max-width: 760px) { [data-mr] > .dv-line { flex-wrap: wrap; } [data-mr] > .dv-line .dv-acts { order: 1; flex-basis: 100%; } }
 .dv-check { color: var(--dv-tone); font-weight: 600; }
 .dv-desc { margin-top: .429rem; }
 @media (prefers-reduced-motion: reduce) { .dv-dot.dvt-run, .dv-skel-row i { animation: none; } .dv-caret { transition: none; } }

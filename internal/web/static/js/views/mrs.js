@@ -1,33 +1,30 @@
 // Merge requests waiting on you, across GitLab instances and projects, Jira key or not (TUI: alt+m): review
 // asked, assigned, and yours with comments since you last opened them (GET /api/gitlab/inbox, ui.MRInbox).
-// Enter unfolds one as the development section does (lib/mr.js), o opens it in GitLab, r reads them again.
+// Enter (or a click) opens one's page (views/mr.js), d on its changes; i shows the Jira issue it names beside,
+// o opens it in GitLab, r reads them again.
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { ago, isZero } from '../lib/fmt.js';
-import { mrBody, glyph, diffHref } from '../lib/mr.js';
+import { glyph, mrHref, diffHref, mrButtons, issueKeys } from '../lib/mr.js';
 
 export default function mount(el, { app, scope }) {
   css('agents'); css('dev');
   const { api, ui } = app;
   let rows = [], sel = 0, dead = false;
-  const open = new Set(), mrs = new Map(); // unfolded links, and each one's read: {data} | {err} | {}
   const list = h('div.review-list'), note = h('div.empty');
   el.append(h('div.review', note, list));
+  const keysOf = m => issueKeys(m, app.session && app.session.projects);
 
-  function detail(u) {
-    const st = mrs.get(u) || {};
-    if (st.err) return h('div.dv-mr.dv-err', st.err.message || String(st.err));
-    return st.data ? mrBody(st.data) : h('div.dv-mr.dv-dim', 'Loading the merge request…');
-  }
   function paint() {
     const kids = [];
     rows.forEach((r, i) => {
       const m = r.MR;
       if (!i || r.Group !== rows[i - 1].Group) kids.push(h('div.mr-group', r.Group));
-      kids.push(h('div.rv-row.mr-row' + (i === sel ? '.sel' : ''), { dataset: { i }, 'aria-expanded': String(open.has(m.WebURL)) },
+      kids.push(h('div.rv-row.mr-row' + (i === sel ? '.sel' : ''), { dataset: { i } },
         h('div.mr-line', m.Checks ? glyph(m.Checks.Status) : h('span.dv-check'), h('span.mono', m.Repo + '!' + m.Number), h('span.sum', m.Title),
-          h('span.dim', [m.Draft && 'draft', m.Author, m.Notes && m.Notes + ' comments', !isZero(m.UpdatedAt) && ago(m.UpdatedAt)].filter(Boolean).join(' · '))),
-        open.has(m.WebURL) ? detail(m.WebURL) : null));
+          keysOf(m).slice(0, 2).map(k => h('button.mr-key', { title: 'Show ' + k + ' beside (i)', dataset: { key: k } }, k)),
+          h('span.dim', [m.Draft && 'draft', m.Author, m.Notes && m.Notes + ' comments', !isZero(m.UpdatedAt) && ago(m.UpdatedAt)].filter(Boolean).join(' · ')),
+          mrButtons(m.WebURL))));
     });
     list.replaceChildren(...kids);
     const s = list.querySelector('.sel'); if (s) s.scrollIntoView({ block: 'nearest' });
@@ -44,17 +41,7 @@ export default function mount(el, { app, scope }) {
       paint();
     } catch (e) { if (!dead) { note.hidden = false; note.textContent = e.message; } }
   }
-  function toggle(i) {
-    const m = rows[i] && rows[i].MR; if (!m) return;
-    if (open.has(m.WebURL)) { open.delete(m.WebURL); paint(); return; }
-    open.add(m.WebURL);
-    if (!mrs.has(m.WebURL)) {
-      mrs.set(m.WebURL, {});
-      api.get('/gitlab/mr?url=' + encodeURIComponent(m.WebURL), { fresh: true })
-        .then(data => { mrs.set(m.WebURL, { data }); if (!dead) paint(); }, err => { mrs.set(m.WebURL, { err }); if (!dead) paint(); });
-    }
-    paint();
-  }
+  const cur = () => rows[sel] && rows[sel].MR;
   const move = d => { if (!rows.length) return; sel = Math.max(0, Math.min(rows.length - 1, sel + d)); paint(); };
   const G = 'Merge requests';
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next', { group: G });
@@ -63,11 +50,13 @@ export default function mount(el, { app, scope }) {
   scope.bind('End', () => move(rows.length), 'last', { group: G });
   scope.bind('PageDown', () => move(10), 'page down', { group: G });
   scope.bind('PageUp', () => move(-10), 'page up', { group: G });
-  scope.bind('Enter', () => toggle(sel), 'unfold: pipeline, approvals, description', { group: G });
-  scope.bind('o', () => rows[sel] && window.open(rows[sel].MR.WebURL, '_blank', 'noopener'), 'open in GitLab', { group: G });
-  scope.bind('d', () => { if (rows[sel]) location.hash = diffHref(rows[sel].MR.WebURL); }, 'its diff', { group: G });
-  scope.bind('r', () => { mrs.clear(); load(); }, 'refresh', { group: G });
-  delegate(list, 'click', '.mr-row', (e, t) => { if (e.target.closest('a')) return; sel = +t.dataset.i; toggle(sel); });
+  scope.bind('Enter', () => { if (cur()) location.hash = mrHref(cur().WebURL); }, 'open it: overview, pipeline, discussions', { group: G });
+  scope.bind('d', () => { if (cur()) location.hash = diffHref(cur().WebURL); }, 'its changes', { group: G });
+  scope.bind('i', () => { const k = cur() && keysOf(cur())[0]; if (k) app.panel.open(k); else ui.toast('It names no Jira issue'); }, 'the Jira issue it names, beside', { group: G });
+  scope.bind('o', () => cur() && window.open(cur().WebURL, '_blank', 'noopener'), 'open in GitLab', { group: G });
+  scope.bind('r', load, 'refresh', { group: G });
+  delegate(list, 'click', '.mr-key', (e, t) => { e.stopPropagation(); app.panel.open(t.dataset.key); });
+  delegate(list, 'click', '.mr-row', (e, t) => { if (e.target.closest('a,button')) return; sel = +t.dataset.i; location.hash = mrHref(rows[sel].MR.WebURL); });
   load();
   return () => { dead = true; };
 }
