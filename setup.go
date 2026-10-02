@@ -161,15 +161,15 @@ func setupSite(ctx context.Context, cfgPath, site string, p prompter, verify fun
 		break
 	}
 	if j.APIToken != "" {
-		if store, lookup := keyringFor(j.BaseURL, j.Email); store != nil {
+		if k := keyringFor(j.BaseURL, j.Email); k != nil {
 			if yes, err := p.ask("Keep the token in the system keyring instead of the config file? [Y/n]", ""); err != nil {
 				return "", err
 			} else if yes == "" || strings.HasPrefix(strings.ToLower(yes), "y") {
-				if err := keyringStore(store, j.APIToken); err != nil {
+				if err := k.put(j.APIToken); err != nil {
 					fmt.Fprintln(p.out, "  the keyring refused it ("+err.Error()+"); keeping it in the file")
 				} else {
-					j.APIToken, j.APITokenCmd = "", lookup
-					fmt.Fprintln(p.out, "  in the keyring; the config runs "+strings.Join(lookup, " ")+" for it")
+					j.APIToken, j.APITokenCmd = "", k.lookup
+					fmt.Fprintln(p.out, "  in the keyring; the config runs "+strings.Join(k.lookup, " ")+" for it")
 				}
 			}
 		}
