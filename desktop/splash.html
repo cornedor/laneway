@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; --bg: #fafafa; --fg: #5b6470; --accent: #5b8def; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #14161a; --fg: #a2aab5; --accent: #5b8def; } }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 14px system-ui, sans-serif; display: grid; place-items: center; -webkit-user-select: none; user-select: none; }
+  main { display: grid; justify-items: center; gap: 14px; }
+  svg { width: 56px; height: 56px; animation: breathe 1.6s ease-in-out infinite; }
+  svg rect { fill: var(--accent); } svg path { fill: none; stroke: #fff; stroke-width: 2; }
+  @keyframes breathe { 50% { opacity: .55; transform: scale(.94); } }
+  @media (prefers-reduced-motion: reduce) { svg { animation: none; } }
+</style>
+<main>
+  <svg viewBox="0 0 16 16" aria-hidden="true"><rect width="16" height="16" rx="4"/><path d="M5 3.5v8.5h7"/></svg>
+  <div>Starting laneway…</div>
+</main>

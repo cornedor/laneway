@@ -17,6 +17,7 @@ export function unreadCount(data, now = Date.now()) {
 }
 
 export function setBadge(n) {
+  if (navigator.setAppBadge) (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); // installed app, desktop app's dock
   const a = $('#nav a[data-name=inbox]'); if (!a) return;
   let b = a.querySelector('.nav-badge');
   if (!n) { if (b) b.remove(); return; }
@@ -43,12 +44,12 @@ function pingMentions(app, data) {
   return pinged;
 }
 
-// Ping for the other threads that turned unread since the last look, while the tab is hidden.
+// Ping for the other threads that turned unread since the last look, while the tab is hidden or the window is behind another.
 let seen = null;
 function pingNew(app, data, skip, now = Date.now()) {
   const cur = new Map();
   for (const t of data.threads) { const s = stateOf(t, data.marks[t.ID], data.floor, now); if (s.unread && !s.done && !s.snoozed) cur.set(t.ID, s.at); }
-  const fresh = seen && document.hidden ? [...cur].filter(([id, at]) => !skip.has(id) && (!seen.has(id) || seen.get(id) < at)) : [];
+  const fresh = seen && (document.hidden || !document.hasFocus()) ? [...cur].filter(([id, at]) => !skip.has(id) && (!seen.has(id) || seen.get(id) < at)) : [];
   seen = cur;
   if (!fresh.length || !enabled()) return;
   const t = data.threads.find(x => x.ID === fresh[0][0]), e = t.Entries[t.Entries.length - 1];

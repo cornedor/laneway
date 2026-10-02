@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,7 +22,8 @@ type server struct {
 }
 
 func (s *server) start() error {
-	if s.running() {
+	if v := s.version(); v != "" {
+		log.Printf("using the laneway web %s already on %s", v, s.addr)
 		return nil
 	}
 	exe, err := lanewayPath()
@@ -48,7 +50,8 @@ func (s *server) start() error {
 			return fmt.Errorf("laneway web stopped (%v); see %s", err, logPath)
 		case <-time.After(200 * time.Millisecond):
 		}
-		if s.running() {
+		if v := s.version(); v != "" {
+			log.Printf("started laneway web %s (%s) on %s", v, exe, s.addr)
 			return nil
 		}
 	}
@@ -64,18 +67,21 @@ func (s *server) stop() {
 	time.AfterFunc(3*time.Second, func() { _ = s.cmd.Process.Kill() })
 }
 
-// running is whether a laneway web answers on addr.
-func (s *server) running() bool {
+// version is that of the laneway web answering on addr, "" when none does.
+func (s *server) version() string {
 	c := http.Client{Timeout: time.Second}
 	resp, err := c.Get("http://" + s.addr + "/api/session")
 	if err != nil {
-		return false
+		return ""
 	}
 	defer resp.Body.Close()
 	var v struct {
 		Version string `json:"version"`
 	}
-	return resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(&v) == nil && v.Version != ""
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&v) != nil {
+		return ""
+	}
+	return v.Version
 }
 
 // logFile creates name in laneway's cache directory.
