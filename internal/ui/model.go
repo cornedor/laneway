@@ -977,6 +977,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDiffNotePosted(msg)
 	case diffResolvedMsg:
 		return m.handleDiffResolved(msg)
+	case diffReviewedMsg:
+		return m.handleDiffReviewed(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())

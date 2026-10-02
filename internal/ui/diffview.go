@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"image/color"
 	"maps"
@@ -59,6 +60,7 @@ type diffRow struct {
 	text     string
 	thread   int  // index into diffState.threads for a note row, -1 otherwise
 	noteHead bool // the first row of a conversation — the one naming an author
+	draft    int  // 1 + the index into diffState.drafts for a pending note's row, 0 otherwise
 }
 
 // diffState is the whole view, hung off Model by pointer: it is far too big to
@@ -118,6 +120,11 @@ type diffState struct {
 	full map[int][]string
 
 	note diffNoteState // the composer (diffnote.go)
+	// drafts are your pending review's notes; verdicts S's list open, verdict
+	// its cursor.
+	drafts   []forge.Draft
+	verdicts bool
+	verdict  int
 }
 
 // diffHScrollStep is how far ←/→ pan a wide diff: a tab's worth of columns,
@@ -164,6 +171,7 @@ type diffLoadedMsg struct {
 	gen      int
 	diff     *forge.Diff
 	threads  []forge.Thread
+	drafts   []forge.Draft
 	versions []forge.Version // nil when not asked
 	built    diffBuild
 	err      error
@@ -224,6 +232,7 @@ func (m Model) fetchDiff() tea.Cmd {
 		}
 		if version == 0 {
 			msg.threads, _ = c.Threads(ctx, repo, number)
+			msg.drafts, _ = c.Drafts(ctx, repo, number)
 		}
 		if askVersions {
 			msg.versions, _ = c.Versions(ctx, repo, number)
@@ -234,7 +243,7 @@ func (m Model) fetchDiff() tea.Cmd {
 		// Parsed and highlighted here, off the UI goroutine: chroma costs
 		// milliseconds per file, and a merge request touching two hundred files
 		// would otherwise freeze the app for as long as it takes.
-		msg.built = buildDiff(msg.diff, msg.threads, full)
+		msg.built = buildDiff(msg.diff, msg.threads, msg.drafts, full)
 		return msg
 	}
 }
@@ -253,7 +262,7 @@ func (m Model) handleDiffLoaded(msg diffLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	anchor := d.cursorAnchor()
-	d.diff, d.threads = msg.diff, msg.threads
+	d.diff, d.threads, d.drafts = msg.diff, msg.threads, msg.drafts
 	if msg.versions != nil {
 		d.versions = msg.versions
 	}
@@ -410,7 +419,7 @@ func (d *diffState) hiddenRows(fi int) int {
 // it is the expensive half of loading a diff (chroma over every file), and the
 // UI thread must not wait on it. Everything it produces is width-independent,
 // so it survives every resize.
-func buildDiff(d *forge.Diff, threads []forge.Thread, full map[int][]string) diffBuild {
+func buildDiff(d *forge.Diff, threads []forge.Thread, drafts []forge.Draft, full map[int][]string) diffBuild {
 	b := diffBuild{gutter: 3}
 	if d == nil {
 		return b
@@ -459,6 +468,8 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, full map[int][]string) dif
 			}
 			b.gutter = max(b.gutter, diffDigits(max(l.OldLine, l.NewLine)))
 			notes := noteRowsFor(byLine, threads, f, l, fi)
+			notes = withDraftReplies(notes, threads, drafts)
+			notes = append(notes, draftRowsOn(drafts, f, l, fi)...)
 			open, done := countThreadHeads(notes, threads)
 			stats[fi].threads += open
 			stats[fi].resolved += done
@@ -477,8 +488,20 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, full map[int][]string) dif
 				}
 				b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: -1, thread: -1, text: "outdated · " + where})
 			}
-			b.rows = append(b.rows, diffThreadRows(t, ti, -1)...)
+			b.rows = append(b.rows, withDraftReplies(diffThreadRows(t, ti, -1), threads, drafts)...)
 		}
+	}
+	var general []diffRow // pending notes on the merge request as a whole
+	for di, dr := range drafts {
+		if dr.ReplyTo == "" && dr.Path == "" {
+			general = append(general, draftRows(dr, di, -1)...)
+		}
+	}
+	if len(general) > 0 {
+		if len(rest) == 0 {
+			b.rows = append(b.rows, diffRow{kind: diffRowFile, file: -1, thread: -1, text: "Discussions"})
+		}
+		b.rows = append(b.rows, general...)
 	}
 	if d.Truncated {
 		b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: -1, thread: -1,
@@ -600,6 +623,50 @@ func noteRowsFor(idx map[string][]int, threads []forge.Thread, f forge.FileDiff,
 			old = f.Path()
 		}
 		add(diffThreadKey(old, false, l.OldLine))
+	}
+	return out
+}
+
+// draftRows draws a pending note, marked as such: only you see it until the
+// review is submitted.
+func draftRows(dr forge.Draft, di, fi int) []diffRow {
+	out := []diffRow{{kind: diffRowNote, file: fi, thread: -1, draft: di + 1, text: "✎ you (pending)", noteHead: true}}
+	for _, ln := range strings.Split(strings.TrimRight(dr.Body, "\n"), "\n") {
+		out = append(out, diffRow{kind: diffRowNote, file: fi, thread: -1, draft: di + 1, text: "  " + ln})
+	}
+	return out
+}
+
+// draftRowsOn are the pending notes that start a thread on line l.
+func draftRowsOn(drafts []forge.Draft, f forge.FileDiff, l forge.DiffLine, fi int) []diffRow {
+	var out []diffRow
+	for di, dr := range drafts {
+		switch {
+		case dr.ReplyTo != "":
+		case l.NewLine > 0 && dr.NewLine == l.NewLine && dr.Path == f.Path(),
+			l.NewLine == 0 && l.OldLine > 0 && dr.NewLine == 0 && dr.OldLine == l.OldLine && cmp.Or(dr.OldPath, dr.Path) == cmp.Or(f.OldPath, f.Path()):
+			out = append(out, draftRows(dr, di, fi)...)
+		}
+	}
+	return out
+}
+
+// withDraftReplies is a run of thread rows with each thread's pending
+// replies after it.
+func withDraftReplies(rows []diffRow, threads []forge.Thread, drafts []forge.Draft) []diffRow {
+	if len(drafts) == 0 || len(rows) == 0 {
+		return rows
+	}
+	var out []diffRow
+	for i, r := range rows {
+		out = append(out, r)
+		if last := i == len(rows)-1 || rows[i+1].thread != r.thread; last && r.thread >= 0 && r.thread < len(threads) {
+			for di, dr := range drafts {
+				if dr.ReplyTo == threads[r.thread].ID {
+					out = append(out, draftRows(dr, di, r.file)...)
+				}
+			}
+		}
 	}
 	return out
 }
@@ -833,6 +900,9 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if d.note.active {
 		return m.handleDiffNoteKey(msg)
 	}
+	if d.verdicts {
+		return m.handleDiffVerdictKey(msg)
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()
@@ -849,6 +919,11 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m.refreshDiffView()
+	case "S":
+		d.verdicts, d.verdict = true, 0
+		return m, nil
+	case "A":
+		return m, m.approveMR(d.c, d.repo, d.number)
 	case "v":
 		if len(d.versions) < 2 {
 			m.status = "one version: nothing pushed since it opened"
@@ -1013,6 +1088,8 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.openDiffNote()
 	case "R":
 		return m.toggleDiffResolve()
+	case "x":
+		return m.deleteDiffDraft()
 	case "z":
 		d.toggleCollapse(d.cursorFile())
 		d.syncTreeToCursor()
@@ -1055,7 +1132,7 @@ func (m *Model) expandDiffFile(fi int) tea.Cmd {
 	default:
 		m.status = "reading " + f.Path() + "…"
 	}
-	c, ctx, gen, diff, threads, repo, ref := d.c, m.ctx, d.gen, d.diff, d.threads, d.repo, d.diff.Refs.HeadSHA
+	c, ctx, gen, diff, threads, drafts, repo, ref := d.c, m.ctx, d.gen, d.diff, d.threads, d.drafts, d.repo, d.diff.Refs.HeadSHA
 	return func() tea.Msg {
 		if !expanded {
 			text, err := c.File(ctx, repo, f.NewPath, ref)
@@ -1064,7 +1141,7 @@ func (m *Model) expandDiffFile(fi int) tea.Cmd {
 			}
 			full[fi] = text
 		}
-		return diffExpandedMsg{gen: gen, full: full, built: buildDiff(diff, threads, full)}
+		return diffExpandedMsg{gen: gen, full: full, built: buildDiff(diff, threads, drafts, full)}
 	}
 }
 
@@ -1167,8 +1244,15 @@ func (m *Model) renderDiffView(bodyH int) string {
 			body[i] = treeCol[i] + diffTreeDivider + body[i]
 		}
 	}
-	if d.picking { // over the diff's first rows
-		for i, l := range d.versionLines(codeW) {
+	over := []string(nil)
+	switch {
+	case d.picking:
+		over = d.versionLines(codeW)
+	case d.verdicts:
+		over = d.verdictLines(codeW)
+	}
+	if over != nil { // over the diff's first rows
+		for i, l := range over {
 			if i < len(body) {
 				l = diffPaint(l, codeW, diffFileBg)
 				if treeW > 0 {
@@ -1259,6 +1343,13 @@ func (m *Model) diffHint() string {
 		v = "v versions · "
 	}
 	note, resolve := "c note · ", ""
+	if r := d.rows[min(d.cursor, max(len(d.rows)-1, 0))]; len(d.rows) > 0 && r.draft > 0 {
+		resolve = "x drop it · "
+	}
+	review := "S submit · A approve · "
+	if n := len(d.drafts); n > 0 {
+		review = "S submit " + plural(n, "pending note") + " · A approve · "
+	}
 	if ti := d.threadAtCursor(); ti >= 0 {
 		if d.rows[d.cursor].kind == diffRowNote {
 			note = "c reply · "
@@ -1270,7 +1361,7 @@ func (m *Model) diffHint() string {
 			resolve = "R resolve · "
 		}
 	}
-	return note + resolve + "e whole file · z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
+	return note + resolve + review + "e whole file · z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
 }
 
 // renderRow draws one row to exactly width cells: the line-number gutter, the

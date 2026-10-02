@@ -20,6 +20,7 @@
 .df-row.hunk > span { color: var(--info); background: var(--bg-3); }
 .df-row.meta > span { color: var(--fg-3); font-style: italic; }
 .df-note { grid-column: 1 / -1; margin: .286rem .571rem .286rem 4rem; padding: .357rem .571rem; border-left: 2px solid var(--warn); background: var(--bg); font-family: var(--font-ui, inherit); white-space: normal; }
+.df-note.pending { border-left-style: dashed; border-left-color: var(--accent); }
 .df-note.resolved { border-left-color: var(--fg-3); opacity: .75; }
 .df-note .df-who { font-weight: 600; margin-right: .429rem; } .df-note .df-when { color: var(--fg-3); font-size: .85em; }
 .df-note p { margin: .143rem 0; }

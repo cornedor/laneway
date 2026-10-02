@@ -171,6 +171,23 @@ type NewNote struct {
 	NewLine int // 0 = the line does not exist on the new side
 }
 
+// Draft is a note in the pending review, seen only by its writer until the
+// review is submitted: a reply to ReplyTo, or a new thread on its line.
+type Draft struct {
+	ID               int
+	Body             string
+	ReplyTo          string
+	Path, OldPath    string
+	OldLine, NewLine int
+}
+
+// A submitted review's verdict.
+const (
+	VerdictComment = "comment"
+	VerdictApprove = "approve"
+	VerdictChanges = "changes" // request changes
+)
+
 // DiffLineKind classifies one row of a parsed diff.
 type DiffLineKind uint8
 

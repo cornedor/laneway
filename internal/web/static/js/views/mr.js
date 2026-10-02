@@ -33,6 +33,12 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     }
     return m;
   }
+  // A pending note of your review: only you see it until the review is submitted.
+  const pending = d => h('div.df-note.pending', h('div', h('span.df-who', 'you'), h('span.df-when', 'pending'), h('div.md', md(d.Body))),
+    h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => dropDraft(d) }, 'Drop')));
+  async function dropDraft(d) {
+    try { await api.del('/gitlab/draft?url=' + encodeURIComponent(url) + '&draft=' + d.ID); load(false); } catch (e) { ui.errToast(e); }
+  }
   const note = t => {
     const el = h('div.df-note' + (t.Resolved ? '.resolved' : ''), { dataset: { thread: t.ID } },
       t.Outdated ? h('div.df-when', 'outdated · ' + t.Path + ':' + (t.NewLine || t.OldLine) + (t.NewLine ? '' : ' (removed)')) : null,
@@ -40,6 +46,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
       h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => el.append(composer({ ReplyTo: t.ID }, 'Reply…')) }, 'Reply'),
         t.Resolvable || t.Resolved ? h('button.btn.ghost.sm', { onclick: () => resolve(t) }, t.Resolved ? 'Reopen' : 'Resolve') : null,
         t.Resolved ? h('span.df-when', 'resolved') : null));
+    for (const d of (data.Drafts || [])) if (d.ReplyTo === t.ID) el.append(pending(d));
     return el;
   };
   // composer posts form (a reply, or a new thread's position) with the text typed; ctrl+enter posts, esc drops it.
@@ -47,7 +54,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     const ta = h('textarea.input', { rows: 3, placeholder });
     const post = async () => {
       const body = ta.value.trim(); if (!body) return box.remove();
-      try { await api.post('/gitlab/note?url=' + encodeURIComponent(url), { ...form, Body: body }); ui.toast(form.ReplyTo ? 'Reply added' : 'Note added', { kind: 'ok' }); load(false); }
+      try { await api.post('/gitlab/note?url=' + encodeURIComponent(url), { ...form, Body: body }); ui.toast('In your review: Submit review publishes it', { kind: 'ok' }); load(false); }
       catch (e) { ui.errToast(e); }
     };
     ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); post(); } else if (e.key === 'Escape') { e.stopPropagation(); box.remove(); } });
@@ -79,6 +86,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
       rows.append(row);
       const ts = (l.N && at.get('n' + l.N)) || (l.K === '-' && l.O && at.get('o' + l.O));
       if (ts && l.K !== '@') { for (const t of ts) rows.append(note(t)); at.delete(l.N ? 'n' + l.N : 'o' + l.O); }
+      if (l.K !== '@') for (const d of (data.Drafts || [])) if (!d.ReplyTo && d.Path === f.Path && (l.K === '-' ? !d.NewLine && d.OldLine === l.O : d.NewLine && d.NewLine === l.N)) rows.append(pending(d));
     }
     sec.append(rows);
     return sec;
@@ -89,9 +97,10 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     files.replaceChildren(...(data.Files || []).map((f, i) => h('div.df-file-link' + (i === cur ? '.cur' : ''), { dataset: { file: i }, title: f.Path },
       h('span.df-path', f.Path), h('span.df-add', '+' + f.Add), h('span.df-del', '−' + f.Del))));
     const secs = (data.Files || []).map((f, i) => section(whole.get(i) || f, i));
-    const rest = (data.Threads || []).filter(t => !t.Inline);
-    if (rest.length) secs.push(h('section.df-sec', h('div.df-head', h('b', 'Discussions'), h('span.spacer'), h('span.df-dim', rest.length + (rest.length === 1 ? ' thread' : ' threads'))),
-      h('div.df-rows', rest.map(note))));
+    const rest = (data.Threads || []).filter(t => !t.Inline), general = (data.Drafts || []).filter(d => !d.ReplyTo && !d.Path);
+    if (rest.length || general.length) secs.push(h('section.df-sec', h('div.df-head', h('b', 'Discussions'), h('span.spacer'), h('span.df-dim', rest.length + (rest.length === 1 ? ' thread' : ' threads'))),
+      h('div.df-rows', rest.map(note), general.map(pending))));
+    reviewBtn.textContent = (data.Drafts || []).length ? 'Submit review (' + data.Drafts.length + ')…' : 'Submit review…';
     if (data.Truncated) secs.push(h('div.df-msg', 'GitLab truncated this diff: the rest is only on ', h('a', { href: safe(data.WebURL) + '/diffs', target: '_blank', rel: 'noopener noreferrer' }, 'GitLab')));
     if (!secs.length) secs.push(h('div.df-msg', 'This merge request has no diff.'));
     body.replaceChildren(...secs);
@@ -155,7 +164,26 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     load(false);
   }
   scope.bind('v', () => { if (picker.hidden) return ui.toast('One version: nothing pushed since it opened'); picker.focus(); picker.showPicker && picker.showPicker(); }, 'pick a version', { group: G });
-  clear(toolbar).append(h('span.spacer'), picker, h('button.btn.ghost.sm', { title: 'o', onclick: () => safe(url) && window.open(url, '_blank', 'noopener') }, 'GitLab'), h('button.btn.ghost.sm', { title: 'r', onclick: () => load(true) }, 'Reload'));
+  // S: publish the pending review with a verdict and a summary; A: approve on its own.
+  const VERDICT = { comment: 'Comment', approve: 'Approve', changes: 'Request changes' };
+  async function review(only) {
+    let verdict = 'approve', summary = '';
+    if (!only) {
+      verdict = await ui.pick({ title: 'Submit your review' + ((data && data.Drafts || []).length ? ': ' + data.Drafts.length + ' pending' : ''), items: Object.keys(VERDICT), label: v => VERDICT[v] });
+      if (!verdict) return;
+      summary = await ui.prompt({ title: VERDICT[verdict] + ': a summary (or nothing)', multiline: true, ok: 'Submit' });
+      if (summary == null) return;
+    }
+    try {
+      await api.post('/gitlab/review?url=' + encodeURIComponent(url), { Verdict: verdict, Summary: summary, Only: !!only });
+      ui.toast(only ? 'Approved' : { comment: 'Review submitted', approve: 'Review submitted, approved', changes: 'Review submitted, changes requested' }[verdict], { kind: 'ok' });
+      load(false);
+    } catch (e) { ui.errToast(e); }
+  }
+  const reviewBtn = h('button.btn.sm', { title: 'S', onclick: () => review(false) }, 'Submit review…');
+  scope.bind('S', () => review(false), 'submit your review', { group: G });
+  scope.bind('A', () => review(true), 'approve', { group: G });
+  clear(toolbar).append(h('span.spacer'), reviewBtn, h('button.btn.ghost.sm', { title: 'A', onclick: () => review(true) }, 'Approve'), picker, h('button.btn.ghost.sm', { title: 'o', onclick: () => safe(url) && window.open(url, '_blank', 'noopener') }, 'GitLab'), h('button.btn.ghost.sm', { title: 'r', onclick: () => load(true) }, 'Reload'));
   load(false);
   return () => { dead = true; };
 }

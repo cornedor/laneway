@@ -8,13 +8,15 @@ import (
 	"sync"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 )
 
 // TestDiffDiscussions: a general thread and an outdated one show under
-// Discussions, the outdated one marked; c on one replies, R resolves it.
+// Discussions, the outdated one marked; c on one replies into the pending
+// review, x drops it, S submits with a verdict and summary, A approves.
 func TestDiffDiscussions(t *testing.T) {
 	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
 	var mu sync.Mutex
@@ -37,6 +39,15 @@ func TestDiffDiscussions(t *testing.T) {
 					"position": {"position_type": "text", "new_path": "a.go", "new_line": 9, "head_sha": "older"}}]}]`))
 		case strings.HasSuffix(r.URL.Path, "/versions"):
 			w.Write([]byte(`[]`))
+		case strings.HasSuffix(r.URL.Path, "/draft_notes"):
+			mu.Lock()
+			n := len(writes)
+			mu.Unlock()
+			if n == 0 {
+				w.Write([]byte(`[]`))
+			} else { // after the reply: it is pending
+				w.Write([]byte(`[{"id": 5, "note": "Thanks", "discussion_id": "g1"}]`))
+			}
 		default:
 			w.Write([]byte(`{"iid": 7, "title": "T", "state": "opened", "diff_refs": {"base_sha": "b", "start_sha": "s", "head_sha": "h"}}`))
 		}
@@ -71,15 +82,72 @@ func TestDiffDiscussions(t *testing.T) {
 		t.Fatalf("c: not a reply to g1: %+v", m.diff.note)
 	}
 	m.diff.note.input.SetValue("Thanks")
-	out, cmd = m.handleKey(keyMsg(t, "enter"))
-	out, _ = out.(Model).Update(cmd())
+	m = pressAll(t, m, keyMsg(t, "enter"))
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "✎ you (pending)") || !strings.Contains(view, "S submit 1 pending note") {
+		t.Errorf("the reply is not pending:\n%s", view)
+	}
+	for i, row := range m.diff.rows { // onto the pending reply: x drops it
+		if row.draft > 0 {
+			m.diff.setPos(m.diff.visPos[i])
+			break
+		}
+	}
+	m = pressAll(t, m, keyMsg(t, "x"))
+	out, _ = m.handleKey(keyMsg(t, "S"))
+	out, _ = out.(Model).handleKey(keyMsg(t, "down")) // Approve
+	out, _ = out.(Model).handleKey(keyMsg(t, "enter"))
 	m = out.(Model)
-	out, cmd = m.handleKey(keyMsg(t, "R"))
-	out.(Model).Update(cmd())
+	if !m.diffNoteActive() || m.diff.note.submit != "approve" {
+		t.Fatalf("S: no summary for approve: %+v", m.diff.note)
+	}
+	m.diff.note.input.SetValue("LGTM")
+	m = pressAll(t, m, keyMsg(t, "enter"))
+	pressAll(t, m, keyMsg(t, "A"))
 	mu.Lock()
 	defer mu.Unlock()
-	if len(writes) != 2 || !strings.HasPrefix(writes[0], "POST /api/v4/projects/g/p/merge_requests/7/discussions/g1/notes") || !strings.Contains(writes[0], "Thanks") ||
-		!strings.HasPrefix(writes[1], "PUT /api/v4/projects/g/p/merge_requests/7/discussions/g1") || !strings.Contains(writes[1], `"resolved":true`) {
-		t.Errorf("writes:\n%s", strings.Join(writes, "\n"))
+	want := []string{
+		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes",
+		"DELETE /api/v4/projects/g/p/merge_requests/7/draft_notes/5",
+		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes/bulk_publish",
+		"POST /api/v4/projects/g/p/merge_requests/7/approve",
+		"POST /api/v4/projects/g/p/merge_requests/7/approve",
 	}
+	if len(writes) != len(want) {
+		t.Fatalf("writes:\n%s", strings.Join(writes, "\n"))
+	}
+	for i, w := range want {
+		if !strings.HasPrefix(writes[i], w+" ") {
+			t.Errorf("write %d: %s, want %s", i, writes[i], w)
+		}
+	}
+	if !strings.Contains(writes[0], `"in_reply_to_discussion_id":"g1"`) || !strings.Contains(writes[0], "Thanks") ||
+		!strings.Contains(writes[2], `"note":"LGTM"`) || !strings.Contains(writes[2], `"reviewer_state":"reviewed"`) {
+		t.Errorf("bodies:\n%s", strings.Join(writes, "\n"))
+	}
+}
+
+// pressAll presses key and runs what it starts, and what that starts, to the
+// end (a batch's commands one by one).
+func pressAll(t *testing.T, m Model, key tea.KeyPressMsg) Model {
+	t.Helper()
+	out, cmd := m.handleKey(key)
+	m = out.(Model)
+	queue := []tea.Cmd{cmd}
+	for len(queue) > 0 {
+		c := queue[0]
+		queue = queue[1:]
+		if c == nil {
+			continue
+		}
+		switch msg := c().(type) {
+		case tea.BatchMsg:
+			queue = append(queue, msg...)
+		case nil:
+		default:
+			out, next := m.Update(msg)
+			m = out.(Model)
+			queue = append(queue, next)
+		}
+	}
+	return m
 }

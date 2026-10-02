@@ -63,17 +63,21 @@ func init() {
 		version, _ := strconv.Atoi(r.URL.Query().Get("version"))
 		var d *forge.Diff
 		var threads []forge.Thread
+		drafts := []forge.Draft{}
 		if version != 0 {
 			d, err = c.VersionDiff(ctx, ref.Repo, ref.Number, version)
 		} else if d, err = c.Diff(ctx, ref.Repo, ref.Number); err == nil {
 			threads, _ = c.Threads(ctx, ref.Repo, ref.Number) // best-effort, as in the TUI
+			if ds, err := c.Drafts(ctx, ref.Repo, ref.Number); err == nil {
+				drafts = ds
+			}
 		}
 		if err != nil {
 			return nil, err
 		}
 		versions, _ := c.Versions(ctx, ref.Repo, ref.Number)
 		out := map[string]any{"Label": ref.Repo + "!" + strconv.Itoa(ref.Number), "WebURL": c.WebURL(ref.Repo, ref.Number),
-			"Truncated": d.Truncated, "Files": diffFiles(d.Files), "Threads": diffThreads(threads, d.Refs.HeadSHA), "Version": version, "Versions": diffVersions(versions)}
+			"Truncated": d.Truncated, "Files": diffFiles(d.Files), "Threads": diffThreads(threads, d.Refs.HeadSHA), "Drafts": drafts, "Version": version, "Versions": diffVersions(versions)}
 		if mr, err := c.Get(ctx, ref.Repo, ref.Number); err == nil {
 			out["Title"] = mr.Title
 		}
@@ -195,7 +199,7 @@ type NoteForm struct {
 }
 
 func init() {
-	// ?url= the merge request (TUI: c in its diff).
+	// ?url= the merge request: into your pending review (TUI: c in its diff).
 	post("/gitlab/note", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		c, ref, err := gitlabLink(s, r)
 		if err != nil {
@@ -216,7 +220,40 @@ func init() {
 			}
 			n.Refs = d.Refs
 		}
-		return map[string]bool{"OK": true}, c.AddNote(ctx, ref.Repo, ref.Number, n)
+		return map[string]bool{"OK": true}, c.AddDraft(ctx, ref.Repo, ref.Number, n)
+	})
+	// ?url= and &draft=: drops a pending note (TUI: x).
+	del("/gitlab/draft", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		id, _ := strconv.Atoi(r.URL.Query().Get("draft"))
+		return map[string]bool{"OK": true}, c.DeleteDraft(ctx, ref.Repo, ref.Number, id)
+	})
+	// ?url=: {Verdict, Summary} publishes the pending review (TUI: S); a
+	// Verdict of "approve" alone, with Only, approves without it (TUI: A).
+	post("/gitlab/review", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		b, err := Body[struct {
+			Verdict, Summary string
+			Only             bool
+		}](r)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case b.Only && b.Verdict == forge.VerdictApprove:
+			err = c.Approve(ctx, ref.Repo, ref.Number)
+		case b.Verdict == forge.VerdictComment, b.Verdict == forge.VerdictApprove, b.Verdict == forge.VerdictChanges:
+			err = c.SubmitReview(ctx, ref.Repo, ref.Number, b.Summary, b.Verdict)
+		default:
+			return nil, FieldError{Field: "Verdict", Msg: "comment, approve or changes"}
+		}
+		return map[string]bool{"OK": true}, err
 	})
 	// ?url= and &thread=: {Resolved} resolves it or reopens it (TUI: R).
 	put("/gitlab/resolve", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

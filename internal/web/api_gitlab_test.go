@@ -141,8 +141,9 @@ func TestGitLabDiff(t *testing.T) {
 	}
 }
 
-// TestGitLabNoteResolve: a new note is anchored to the diff's commits, a
-// reply is not; resolve PUTs the thread.
+// TestGitLabNoteResolve: notes go into the pending review, a new one anchored
+// to the diff's commits; resolve PUTs the thread; a pending note is dropped,
+// the review submitted with its verdict, an approval given alone.
 func TestGitLabNoteResolve(t *testing.T) {
 	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
 	var writes []string
@@ -174,8 +175,31 @@ func TestGitLabNoteResolve(t *testing.T) {
 	if rec := call(s, "POST", "/api/gitlab/note"+q, `{"Body": " "}`, ""); rec.Code != 400 {
 		t.Errorf("empty note: %d", rec.Code)
 	}
-	if len(writes) != 3 || !strings.Contains(writes[0], `"head_sha":"h"`) || !strings.Contains(writes[0], `"new_line":3`) ||
-		!strings.HasSuffix(strings.Fields(writes[1])[1], "/discussions/d1/notes") || !strings.Contains(writes[2], `"resolved":true`) {
-		t.Errorf("writes:\n%s", strings.Join(writes, "\n"))
+	for _, c := range []struct{ method, path, body string }{
+		{"DELETE", "/api/gitlab/draft" + q + "&draft=4", ""},
+		{"POST", "/api/gitlab/review" + q, `{"Verdict": "changes", "Summary": "see notes"}`},
+		{"POST", "/api/gitlab/review" + q, `{"Verdict": "approve", "Only": true}`},
+	} {
+		if rec := call(s, c.method, c.path, c.body, ""); rec.Code != 200 {
+			t.Fatalf("%s %s: %d %s", c.method, c.path, rec.Code, rec.Body)
+		}
+	}
+	if rec := call(s, "POST", "/api/gitlab/review"+q, `{"Verdict": "lgtm"}`, ""); rec.Code != 400 {
+		t.Errorf("an unknown verdict: %d", rec.Code)
+	}
+	want := []string{"POST /api/v4/projects/g/p/merge_requests/7/draft_notes", "POST /api/v4/projects/g/p/merge_requests/7/draft_notes",
+		"PUT /api/v4/projects/g/p/merge_requests/7/discussions/d1", "DELETE /api/v4/projects/g/p/merge_requests/7/draft_notes/4",
+		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes/bulk_publish", "POST /api/v4/projects/g/p/merge_requests/7/approve"}
+	if len(writes) != len(want) {
+		t.Fatalf("writes:\n%s", strings.Join(writes, "\n"))
+	}
+	for i, w := range want {
+		if !strings.HasPrefix(writes[i], w+" ") {
+			t.Errorf("write %d: %s, want %s", i, writes[i], w)
+		}
+	}
+	if !strings.Contains(writes[0], `"head_sha":"h"`) || !strings.Contains(writes[0], `"new_line":3`) || !strings.Contains(writes[1], `"in_reply_to_discussion_id":"d1"`) ||
+		!strings.Contains(writes[4], `"reviewer_state":"requested_changes"`) || !strings.Contains(writes[4], `"note":"see notes"`) {
+		t.Errorf("bodies:\n%s", strings.Join(writes, "\n"))
 	}
 }

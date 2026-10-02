@@ -316,3 +316,35 @@ func TestFile(t *testing.T) {
 		t.Errorf("File = %q, %v", got, err)
 	}
 }
+
+// TestDrafts: the pending review read, a note added on a line, and a review
+// requesting changes published without an approval.
+func TestDrafts(t *testing.T) {
+	var writes []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Write([]byte(`[{"id": 3, "note": "nit", "position": {"position_type": "text", "new_path": "a.go", "old_path": "a.go", "new_line": 4}}]`))
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		writes = append(writes, r.Method+" "+r.URL.Path+" "+string(b))
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c, ctx := newTestClient(srv), context.Background()
+	ds, err := c.Drafts(ctx, "g/p", 42)
+	if err != nil || len(ds) != 1 || ds[0].ID != 3 || ds[0].Path != "a.go" || ds[0].NewLine != 4 {
+		t.Fatalf("Drafts = %+v, %v", ds, err)
+	}
+	if err := c.AddDraft(ctx, "g/p", 42, forge.NewNote{Body: "why?", NewPath: "a.go", OldPath: "a.go", NewLine: 4, Refs: forge.DiffRefs{HeadSHA: "h"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SubmitReview(ctx, "g/p", 42, "", forge.VerdictChanges); err != nil {
+		t.Fatal(err)
+	}
+	if len(writes) != 2 || !strings.Contains(writes[0], `"head_sha":"h"`) || !strings.Contains(writes[0], `"note":"why?"`) ||
+		!strings.HasPrefix(writes[1], "POST /api/v4/projects/g/p/merge_requests/42/draft_notes/bulk_publish") ||
+		!strings.Contains(writes[1], `"reviewer_state":"requested_changes"`) || strings.Contains(writes[1], `"note"`) {
+		t.Errorf("writes:\n%s", strings.Join(writes, "\n"))
+	}
+}

@@ -10,13 +10,15 @@ import (
 
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/forge"
+	"github.com/cornedor/laneway/internal/forge/gitlab"
 )
 
 // The inline note: the write half of the diff view. c on a line takes a
-// paragraph of markdown and posts it as a conversation anchored to that line,
-// as clicking a line in GitLab does; on a conversation it replies to it. R
-// resolves the conversation at the cursor, or reopens it. Notes post one at a
-// time, at once.
+// paragraph of markdown into your pending review (GitLab's draft notes) as a
+// conversation anchored to that line; on a conversation it replies to it. x
+// drops a pending note, S submits the review with a verdict and a summary, A
+// approves on its own. R resolves the conversation at the cursor, or reopens
+// it.
 //
 // Ported from matterbox's internal/ui/diffnote.go.
 
@@ -37,6 +39,8 @@ type diffNoteState struct {
 	// context is the line the note is about, shown above the editor so you can
 	// see what you are commenting on while you type it.
 	context string
+	// submit is a review's verdict (forge.Verdict*): the text is its summary.
+	submit string
 }
 
 // diffNotePostedMsg carries the result of posting an inline note.
@@ -151,6 +155,9 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 	n := d.note
 	text := strings.TrimSpace(n.input.Value())
 	m.closeDiffNote()
+	if n.submit != "" {
+		return m, m.submitReview(n.submit, text)
+	}
 	if text == "" {
 		return m, nil
 	}
@@ -166,13 +173,9 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 	}
 	ctx, repo, number, gen := m.ctx, d.repo, d.number, d.gen
 	reply := n.replyTo != ""
-	if reply {
-		m.status = "posting reply…"
-	} else {
-		m.status = "posting note on " + n.context + "…"
-	}
+	m.status = "adding to your review…"
 	return m, func() tea.Msg {
-		return diffNotePostedMsg{gen: gen, reply: reply, err: rv.AddNote(ctx, repo, number, note)}
+		return diffNotePostedMsg{gen: gen, reply: reply, err: rv.AddDraft(ctx, repo, number, note)}
 	}
 }
 
@@ -185,14 +188,10 @@ func (m Model) handleDiffNotePosted(msg diffNotePostedMsg) (tea.Model, tea.Cmd) 
 		return m, nil
 	}
 	if m.diff == nil || msg.gen != m.diff.gen {
-		m.status = "note added"
+		m.status = "in your review"
 		return m, nil
 	}
-	if msg.reply {
-		m.status = "reply added"
-	} else {
-		m.status = "note added"
-	}
+	m.status = "in your review: S submits it"
 	return m, m.reloadDiffThreads()
 }
 
@@ -203,15 +202,18 @@ func (m *Model) renderDiffNote() string {
 		return ""
 	}
 	n := &m.diff.note
-	title := "Note — " + m.diff.label
-	if n.replyTo != "" {
+	title, hint := "Note — "+m.diff.label, "↵ add to your review · alt+↵ newline · esc cancel"
+	switch {
+	case n.submit != "":
+		title, hint = "Submit review — "+m.diff.label, "↵ submit (empty: no summary) · alt+↵ newline · esc cancel"
+	case n.replyTo != "":
 		title = "Reply — " + m.diff.label
 	}
 	var above []string
 	if n.context != "" {
 		above = append(above, lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(n.context))
 	}
-	return m.renderModalComposer(title, above, "↵ post · alt+↵ newline · esc cancel", &n.input)
+	return m.renderModalComposer(title, above, hint, &n.input)
 }
 
 // diffNoteCursor places the terminal cursor in the composer, drawn as box.
@@ -302,4 +304,114 @@ func (m Model) handleDiffResolved(msg diffResolvedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, m.reloadDiffThreads()
+}
+
+// --- the review ------------------------------------------------------------
+
+// reviewVerdicts are S's choices, in order.
+var reviewVerdicts = []struct{ id, label string }{
+	{forge.VerdictComment, "Comment"},
+	{forge.VerdictApprove, "Approve"},
+	{forge.VerdictChanges, "Request changes"},
+}
+
+// verdictLines are S's list, the cursor's row marked.
+func (d *diffState) verdictLines(width int) []string {
+	head := "Submit your review"
+	if n := len(d.drafts); n > 0 {
+		head += ": " + plural(n, "pending note")
+	}
+	lines := []string{refKeyStyle.Render(head) + refDimStyle.Render("  ↵ pick, then a summary · esc close")}
+	for i, v := range reviewVerdicts {
+		line := truncate("  "+v.label, width)
+		if i == d.verdict {
+			line = selectedRow.Render(line)
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+// handleDiffVerdictKey is S's list: enter asks for the summary.
+func (m Model) handleDiffVerdictKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	d := m.diff
+	switch msg.String() {
+	case "ctrl+c":
+		return m.quit()
+	case "esc", "q", "S":
+		d.verdicts = false
+	case "up", "k":
+		d.verdict = max(d.verdict-1, 0)
+	case "down", "j":
+		d.verdict = min(d.verdict+1, len(reviewVerdicts)-1)
+	case "enter":
+		d.verdicts = false
+		v := reviewVerdicts[d.verdict]
+		d.note = diffNoteState{active: true, input: newModalComposer("a summary, or nothing"), submit: v.id,
+			context: v.label + " · " + plural(len(d.drafts), "pending note")}
+	}
+	return m, nil
+}
+
+// diffReviewedMsg is a review submitted, or an approval given.
+type diffReviewedMsg struct {
+	gen  int
+	what string
+	err  error
+}
+
+// submitReview publishes the pending notes with summary and verdict.
+func (m *Model) submitReview(verdict, summary string) tea.Cmd {
+	d := m.diff
+	c, ctx, repo, number, gen := d.c, m.ctx, d.repo, d.number, d.gen
+	m.status = "submitting your review…"
+	what := map[string]string{forge.VerdictComment: "review submitted", forge.VerdictApprove: "review submitted, approved",
+		forge.VerdictChanges: "review submitted, changes requested"}[verdict]
+	return func() tea.Msg {
+		return diffReviewedMsg{gen: gen, what: what, err: c.SubmitReview(ctx, repo, number, summary, verdict)}
+	}
+}
+
+// approveMR approves the merge request on its own, notes pending or not.
+func (m *Model) approveMR(c *gitlab.Client, repo string, number int) tea.Cmd {
+	gen := 0
+	if m.diff != nil {
+		gen = m.diff.gen
+	}
+	ctx := m.ctx
+	m.status = "approving " + repo + "!" + strconv.Itoa(number) + "…"
+	return func() tea.Msg {
+		return diffReviewedMsg{gen: gen, what: "approved", err: c.Approve(ctx, repo, number)}
+	}
+}
+
+func (m Model) handleDiffReviewed(msg diffReviewedMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.status = "review failed: " + msg.err.Error()
+		return m, nil
+	}
+	m.status = msg.what
+	var cmds []tea.Cmd
+	if p := m.mr; p != nil && p.mr != nil { // the panel's merge request: its approvals moved
+		cmds = append(cmds, m.openMR(p.c, p.ref, p.link, p.title, true))
+	}
+	if m.diff != nil && msg.gen == m.diff.gen {
+		cmds = append(cmds, m.reloadDiffThreads())
+	}
+	return m, tea.Batch(cmds...)
+}
+
+// deleteDiffDraft drops the pending note under the cursor.
+func (m Model) deleteDiffDraft() (tea.Model, tea.Cmd) {
+	d := m.diff
+	if d == nil || d.cursor >= len(d.rows) || d.rows[d.cursor].draft == 0 {
+		m.status = "no pending note here"
+		return m, nil
+	}
+	dr := d.drafts[d.rows[d.cursor].draft-1]
+	c, ctx, repo, number, gen := d.c, m.ctx, d.repo, d.number, d.gen
+	m.status = "dropping the pending note…"
+	return m, func() tea.Msg {
+		return diffReviewedMsg{gen: gen, what: "pending note dropped", err: c.DeleteDraft(ctx, repo, number, dr.ID)}
+	}
 }

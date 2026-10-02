@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -265,6 +266,12 @@ func (c *Client) AddNote(ctx context.Context, project string, iid int, n forge.N
 		body := map[string]any{"body": n.Body}
 		return c.rest.Do(ctx, http.MethodPost, base+"/"+n.ReplyTo+"/notes", "reply", body, nil)
 	}
+	body := map[string]any{"body": n.Body, "position": position(n)}
+	return c.rest.Do(ctx, http.MethodPost, base, "note", body, nil)
+}
+
+// position anchors n to its line of the diff at n.Refs.
+func position(n forge.NewNote) map[string]any {
 	pos := map[string]any{
 		"base_sha":      n.Refs.BaseSHA,
 		"start_sha":     n.Refs.StartSHA,
@@ -281,8 +288,86 @@ func (c *Client) AddNote(ctx context.Context, project string, iid int, n forge.N
 	if n.NewLine > 0 {
 		pos["new_line"] = n.NewLine
 	}
-	body := map[string]any{"body": n.Body, "position": pos}
-	return c.rest.Do(ctx, http.MethodPost, base, "note", body, nil)
+	return pos
+}
+
+// The pending review: GitLab's draft notes, which only their writer sees until
+// SubmitReview publishes them together.
+
+// Drafts are the token's account's pending notes on the merge request.
+func (c *Client) Drafts(ctx context.Context, project string, iid int) ([]forge.Draft, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/draft_notes", encodePath(project), iid)
+	var ds []struct {
+		ID           int          `json:"id"`
+		Note         string       `json:"note"`
+		DiscussionID string       `json:"discussion_id"`
+		Position     *apiPosition `json:"position"`
+	}
+	if err := c.rest.Do(ctx, http.MethodGet, path, "pending review", nil, &ds); err != nil {
+		return nil, err
+	}
+	out := make([]forge.Draft, 0, len(ds))
+	for _, d := range ds {
+		fd := forge.Draft{ID: d.ID, Body: d.Note, ReplyTo: d.DiscussionID}
+		if p := d.Position; p != nil && p.PositionType == "text" {
+			fd.Path, fd.OldPath, fd.OldLine, fd.NewLine = cmp.Or(p.NewPath, p.OldPath), p.OldPath, p.OldLine, p.NewLine
+		}
+		out = append(out, fd)
+	}
+	return out, nil
+}
+
+// AddDraft puts n in the pending review: a reply when ReplyTo names a
+// discussion, else a new one on its line.
+func (c *Client) AddDraft(ctx context.Context, project string, iid int, n forge.NewNote) error {
+	if !c.Enabled() {
+		return forge.ErrNotConfigured
+	}
+	body := map[string]any{"note": n.Body}
+	if n.ReplyTo != "" {
+		body["in_reply_to_discussion_id"] = n.ReplyTo
+	} else if n.NewPath != "" || n.OldPath != "" {
+		body["position"] = position(n)
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/draft_notes", encodePath(project), iid)
+	return c.rest.Do(ctx, http.MethodPost, path, "pending note", body, nil)
+}
+
+// DeleteDraft takes pending note id out of the review.
+func (c *Client) DeleteDraft(ctx context.Context, project string, iid, id int) error {
+	if !c.Enabled() {
+		return forge.ErrNotConfigured
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/draft_notes/%d", encodePath(project), iid, id)
+	return c.rest.Do(ctx, http.MethodDelete, path, "pending note", nil, nil)
+}
+
+// SubmitReview publishes the pending notes with summary (may be empty) and
+// the verdict: forge.VerdictComment, VerdictApprove or VerdictChanges. An
+// approve is GitLab's approval too, after the notes.
+func (c *Client) SubmitReview(ctx context.Context, project string, iid int, summary, verdict string) error {
+	if !c.Enabled() {
+		return forge.ErrNotConfigured
+	}
+	body := map[string]any{"reviewer_state": "reviewed"}
+	if verdict == forge.VerdictChanges {
+		body["reviewer_state"] = "requested_changes"
+	}
+	if strings.TrimSpace(summary) != "" {
+		body["note"] = summary
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/draft_notes/bulk_publish", encodePath(project), iid)
+	if err := c.rest.Do(ctx, http.MethodPost, path, "review", body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(project, iid)
+	if verdict == forge.VerdictApprove {
+		return c.Approve(ctx, project, iid)
+	}
+	return nil
 }
 
 // ResolveThread resolves or reopens an inline conversation. GitLab only accepts
