@@ -68,7 +68,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   const id = 'dv-' + key.replace(/\W/g, '');
   const root = h('section.dv', { hidden: true, 'aria-labelledby': id + '-h' });
   const scope = app.keys.scope('issue-dev', { layer: 2 });
-  const inPanel = () => full || el.contains(document.activeElement);
+  const inPanel = () => full || app.panel.focused();
   const onRow = () => inPanel() && !!rowOf(document.activeElement);
   const rowOf = n => n && n.closest && root.contains(n) ? n.closest('[data-row]') : null;
   const hinted = () => { const c = card && card(); return !!(c && (c.PR || c.Deploy)); };

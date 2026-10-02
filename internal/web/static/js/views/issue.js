@@ -64,11 +64,11 @@ export function mountIssue(el, key, { app, full, card }) {
   const me_ = here = { key, entry: () => ({ key, ...(meta.get(key) || {}) }), term: () => openTerm(true) };
   let dead = false;
   const editors = new Set();
-  const scope = app.keys.scope('issue');
+  const scope = app.keys.scope('issue', { covers: full ? null : app.panel.focused });
   // Beside a board the panel's keys apply only while it has focus (Tab / click), so the board keeps j/k/c/e/s.
   if (!full) {
     const bind = scope.bind;
-    scope.bind = (spec, fn, desc, opts = {}) => bind(spec, fn, desc, { ...opts, help: true, when: opts.when || (() => el.contains(document.activeElement)) });
+    scope.bind = (spec, fn, desc, opts = {}) => bind(spec, fn, desc, { ...opts, help: true, when: opts.when || app.panel.focused });
   }
 
   // ---- skeleton
@@ -826,15 +826,15 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('G', linked, 'go to a linked issue, child or web link', { group: G });
   scope.bind('i', () => gallery(0), 'view images', { group: G });
   scope.bind('/', () => findOpen(), 'find in the issue (n / N next, previous)', { group: G });
-  scope.bind('n', () => findStep(1), 'next match', { group: G, hidden: true, when: () => find.on && (full || el.contains(document.activeElement)) });
-  scope.bind('N', () => findStep(-1), 'previous match', { group: G, hidden: true, when: () => find.on && (full || el.contains(document.activeElement)) });
+  scope.bind('n', () => findStep(1), 'next match', { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
+  scope.bind('N', () => findStep(-1), 'previous match', { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
   scope.bind('1', () => setTab('details'), 'details tab', { group: G });
   scope.bind('2', () => setTab('comments'), 'comments tab', { group: G });
   scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), 'history tab (again: work log, all)', { group: G });
-  scope.bind('4', () => openTerm(false), 'terminal tab: the issue\'s agent (again: the next agent)', { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || el.contains(document.activeElement)) });
+  scope.bind('4', () => openTerm(false), 'terminal tab: the issue\'s agent (again: the next agent)', { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || app.panel.focused()) });
   scope.bind('ctrl+\\', () => openTerm(true), 'type into the issue\'s agent (its terminal here; ctrl+\\ there back to the issue)', { group: G });
-  scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });
-  scope.bind('t', () => term.type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G, when: () => st.tab === 'terminal' && (full || el.contains(document.activeElement)) });
+  scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
+  scope.bind('t', () => term.type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
   scope.bind('y', () => copy(key, key), 'copy key', { group: G });
   scope.bind('*', () => pins.toggle(app, key, st.issue && st.issue.Summary), 'pin / unpin issue (first in the palette)', { group: G });
   scope.bind('Y', () => copy(browseURL(), 'Link'), 'copy link', { group: G });

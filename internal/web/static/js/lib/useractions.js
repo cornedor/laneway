@@ -12,12 +12,7 @@ export async function install(app) {
   const scope = app.keys.scope('actions');
   const taken = new Set(app.keys.registry().flatMap(r => r.specs));
   // Where the keys are: the panel or the view. A modal (the palette) keeps the last one.
-  let inPanel = false;
-  addEventListener('focusin', e => {
-    if (e.target.closest('#panel')) inPanel = true;
-    else if (e.target.closest('#view, #top, #viewbar')) inPanel = false;
-  });
-  const panel = () => !!(app.panel.key && inPanel);
+  const panel = () => !!(app.panel.key && app.panel.focused());
   const applies = a => a.Where === '' || a.Where === 'both' || (a.Where === 'panel') === panel();
   const keysOf = () => {
     const marked = app.marked ? app.marked() : [];

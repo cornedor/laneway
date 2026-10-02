@@ -17,8 +17,10 @@ function save(t) {
 }
 const same = (a, b) => (a && a.key) === (b && b.key) && (a && a.start) === (b && b.start);
 
-// The issue `T` and `w` act on: the selected row of the view, else the open panel, else the route's issue.
+// The issue `T` and `w` act on: the panel's while it has the focus, else the selected row of the view, else the
+// open panel, else the route's issue.
 export function target(app) {
+  if (app.panel.key && app.panel.focused()) return app.panel.key;
   const row = document.querySelector('#view [data-key].sel, #view [data-key].selected, #view [data-key].focused, #view [data-key].cursor, #view [data-key] > .sel, #view [data-key].cur');
   const k = row && row.closest('[data-key]').dataset.key;
   if (k) return k;

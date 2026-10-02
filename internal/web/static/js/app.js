@@ -23,6 +23,12 @@ const commands = {
 // Look-and-feel prefs are mirrored unscoped (boot.js and fonts.js read them before the site is known); the rest per site.
 const GLOBAL_PREF = /^(font|terminal)\./;
 
+// Where the focus or a press last landed, in the panel or not (app.panel.focused); a modal over them changes neither.
+let panelFocus = false;
+const focusAt = e => { const t = e.target; if (t && t.closest && !t.closest('.overlay')) panelFocus = !!t.closest('#panel'); };
+document.addEventListener('focusin', focusAt, true);
+document.addEventListener('pointerdown', focusAt, true);
+
 export const app = {
   api, bus, keys, ui, theme, commands, routes,
   session: null,
@@ -46,6 +52,7 @@ export const app = {
     async open(key, opts = {}) {
       const el = $('#panel'); if (!key) return app.panel.close();
       if (app.panel.key === key && !el.hidden && !opts.force) return;
+      panelFocus = app.panel.focused(); // another issue from inside the panel keeps it
       app.panel.key = key; el.hidden = false; el.dataset.key = key;
       document.body.classList.add('has-panel');
       app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
@@ -61,8 +68,16 @@ export const app = {
     close() {
       const el = $('#panel'); app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
       app.panel.key = null; el.hidden = true; clear(el); document.body.classList.remove('has-panel');
+      panelFocus = false;
       if (viewTitle) document.title = viewTitle;
       bus.emit('panel', { key: null });
+    },
+    // Whether the panel has the focus. Kept while the focus falls to nowhere (the focused node re-rendered or
+    // hidden away, an input blurred), so its keys don't drop through to the view; lost to a focus or press elsewhere.
+    focused() {
+      const el = $('#panel'), a = document.activeElement;
+      if (el.hidden) return false;
+      return !a || a === document.body || a.closest('.overlay') ? panelFocus : el.contains(a);
     },
   },
   // Lazy entry points owned by the editing module (views/fields.js, views/create.js).
@@ -155,7 +170,7 @@ function globalKeys() {
   g.bind('Q', () => app.actions.palette('#'), 'JQL search', { group: 'Global' });
   g.bind('ctrl+e', () => import('./views/refine.js').then(m => m.startRefine(app)), 'refine: the view\'s issues one at a time', { group: 'Global' });
   g.bind('g t', () => { const t = theme.next(); ui.toast('Theme: ' + t); }, 'next theme', { group: 'Global' });
-  g.bind('Tab', () => { const p = $('#panel'); if (p.contains(document.activeElement)) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, 'focus panel / view', { group: 'Global', when: () => app.panel.key });
+  g.bind('Tab', () => { const p = $('#panel'); if (app.panel.focused()) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, 'focus panel / view', { group: 'Global', when: () => app.panel.key });
   g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, 'close panel', { group: 'Global', hidden: true });
   for (const r of routes) if (r.key) g.bind('g ' + r.key, () => app.go('/' + r.name), 'go to ' + r.title.toLowerCase(), { group: 'Go' });
   g.bind(['g ,', ','], () => app.go('/settings'), 'go to settings', { group: 'Go' });

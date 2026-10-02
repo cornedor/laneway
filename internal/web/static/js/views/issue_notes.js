@@ -11,7 +11,7 @@ export function mountNotes(parent, key, { app, el, full }) {
   parent.append(box);
   let text = '', dead = false, editing = false, open = false;
   const scope = app.keys.scope('issue-notes');
-  const inPanel = () => full || el.contains(document.activeElement);
+  const inPanel = () => full || app.panel.focused();
   scope.bind('N', () => edit(), 'edit your private notes', { group: 'Issue', when: () => inPanel() && !el.querySelector('.iss-find:not([hidden])') });
 
   async function save(v) {

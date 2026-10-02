@@ -1,5 +1,6 @@
 // Keyboard manager. Scopes stack by layer (global, view, panel, modal); the highest layer, then
-// the newest scope's binding wins, and a `modal` scope hides all below it.
+// the newest scope's binding wins, and a `modal` scope hides all below it. `covers` (a function) hides the view
+// layers below a scope while it returns true: the issue panel with the focus owns its keys, as the TUI's.
 //
 //   const k = keys.scope('board');            // k.dispose() when the view goes
 //   k.bind('j', fn, 'next card');             // single key, typed character ("J" = shift+j, "?" as is)
@@ -56,9 +57,9 @@ const inField = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || 
 // Layers decide who wins, not age: global 0 < view 1 < panel 2 < modal 3; within a layer the newer scope wins.
 const LAYER = { global: 0, chrome: 0, timer: 0, undo: 0, sites: 0, ask: 0, 'agents-global': 0, actions: 0, issue: 2, 'issue-notes': 2, refine: 2, mdedit: 3 };
 let seq = 0;
-export function scope(name, { modal = false, layer } = {}) {
+export function scope(name, { modal = false, layer, covers } = {}) {
   if (layer == null) layer = modal ? 3 : name in LAYER ? LAYER[name] : 1;
-  const s = { name, modal, layer, seq: ++seq, binds: [], disposed: false };
+  const s = { name, modal, layer, covers, seq: ++seq, binds: [], disposed: false };
   s.bind = (spec, fn, desc = '', opts = {}) => {
     for (const sp of [].concat(spec)) {
       const b = { fn, desc, input: !!opts.input, hidden: !!opts.hidden, help: !!opts.help, group: opts.group || name, def: sp, id: name + ':' + sp, action: actionFor(name, sp), when: opts.when, scope: name };
@@ -71,9 +72,15 @@ export function scope(name, { modal = false, layer } = {}) {
   return s;
 }
 
+const byRank = () => [...scopes].sort((a, b) => b.layer - a.layer || b.seq - a.seq);
+// A covered scope: a view layer under a scope whose covers() holds. Global ones (layer 0) stay.
+function covered(sorted) {
+  const c = sorted.find(s => s.covers && s.covers());
+  return s => !!c && s.layer > 0 && s.layer < c.layer;
+}
 function visible() {
-  const out = [];
-  for (const s of [...scopes].sort((a, b) => b.layer - a.layer || b.seq - a.seq)) { out.push(s); if (s.modal) break; }
+  const out = [], sorted = byRank(), under = covered(sorted);
+  for (const s of sorted) { if (under(s)) continue; out.push(s); if (s.modal) break; }
   return out;
 }
 const match = (seq, buf) => buf.length <= seq.length && buf.every((k, i) => seq[i] === k);
@@ -155,9 +162,9 @@ export const keys = {
   // The open screen's own bindings (view and panel, under any modal), for the palette's rows: [{id, group, spec, desc, run}].
   // Moving the cursor is left out, as the TUI's palette does.
   screen() {
-    const out = [], seen = new Set();
-    for (const s of [...scopes].sort((a, b) => b.layer - a.layer || b.seq - a.seq)) {
-      if (s.modal || s.layer < 1 || s.layer > 2) continue;
+    const out = [], seen = new Set(), sorted = byRank(), under = covered(sorted);
+    for (const s of sorted) {
+      if (s.modal || s.layer < 1 || s.layer > 2 || under(s)) continue;
       for (const b of s.binds) {
         if (b.hidden || !b.desc || (b.when && !b.when()) || MOVES.test(b.spec) || seen.has(b.spec)) continue;
         seen.add(b.spec);
