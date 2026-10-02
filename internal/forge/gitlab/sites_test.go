@@ -1,6 +1,14 @@
 package gitlab
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/cornedor/laneway/internal/forge"
+)
 
 // TestSites: a configured token wins; a configured instance without one,
 // or a host none names, takes glab's, asked once; no token anywhere is nil.
@@ -33,5 +41,33 @@ func TestSites(t *testing.T) {
 	}
 	if asked["git.example.com"] != 0 || asked["gitlab.com"] != 1 || asked["nowhere.example"] != 1 {
 		t.Errorf("glab asked %v, want once per host without a token", asked)
+	}
+}
+
+// TestSitesCheck: every configured host, then glab's others, each with its
+// token's source and account; a host without a token says so.
+func TestSitesCheck(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"username": "ada"}`))
+	}))
+	defer srv.Close()
+	host := forge.HostOf(srv.URL)
+	s := NewSites([]Config{{BaseURL: srv.URL, Token: "cfg"}, {BaseURL: "https://none.example"}})
+	s.glab = func(string) string { return "" }
+	s.glabHosts = func() []string { return []string{host, "glab.example"} }
+	got := s.Check(context.Background())
+	if len(got) != 3 || got[0].Host != host || got[0].From != "config" || got[0].User.Username != "ada" || got[0].Err != nil {
+		t.Fatalf("configured: %+v", got)
+	}
+	for _, st := range got[1:] {
+		if !errors.Is(st.Err, forge.ErrNotConfigured) || st.From != "" {
+			t.Errorf("no token: %+v", st)
+		}
+	}
+	if s := got[0].Summary(); s != "signed in as ada, token from config" {
+		t.Errorf("summary %q", s)
+	}
+	if got[2].Host != "glab.example" {
+		t.Errorf("glab's hosts after the configured: %+v", got)
 	}
 }

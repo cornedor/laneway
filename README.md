@@ -82,7 +82,13 @@ jira:
   start_prompt: "Start on {key}."        # what S hands the agent; {key} is the issue; none: no prompt
 sites:                    # more Jira instances: laneway -site club, or @ in the app (remembered)
   club: {base_url: https://club.atlassian.net, email: you@example.com, api_token: ...}
+gitlab:                   # GitLab instances for merge requests; a host not listed uses glab's login
+  - base_url: https://git.example.com
+    token: ...            # read_api; api to approve, merge and comment. Or token_cmd: [...]
 ```
+
+`,` (settings, also in the browser) signs in to each GitLab instance, the
+listed ones and those `glab auth login` knows, and says as whom.
 
 Create a token at <https://id.atlassian.com/manage-profile/security/api-tokens>.
 laneway only reads your Jira until you act: moving a card, editing a field or

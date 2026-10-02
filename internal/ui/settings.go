@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"reflect"
 	"slices"
@@ -29,6 +30,9 @@ var (
 type settingRow struct {
 	name, value, def string // value "" when the file leaves it unset
 	group            string
+	// info is a row only shown (a GitLab instance), doc its help line.
+	info bool
+	doc  string
 }
 
 // settingRows lists the ui: options by group, each group in its order.
@@ -93,8 +97,10 @@ func settingValue(f reflect.Value) string {
 type settingsView struct {
 	all  []settingRow // every option; rows those the filter keeps
 	rows []settingRow
-	idx  int
-	top  int // the first row shown
+	// gitlab are the GitLab group's rows, once checked.
+	gitlab []settingRow
+	idx    int
+	top    int // the first row shown
 	// filter narrows the rows by name and help text (/); finding is while
 	// it is typed.
 	filter  string
@@ -150,9 +156,13 @@ func (s *settingsView) rowAtLine(first, n int) int {
 	return -1
 }
 
-func (m *Model) openSettings() {
+func (m *Model) openSettings() tea.Cmd {
 	all := settingRows(m.uiConfig)
+	if m.gitlab != nil {
+		all = append(all, settingRow{name: "checking…", group: "GitLab", info: true, doc: "signing in to each GitLab instance"})
+	}
 	m.settings = &settingsView{all: all, rows: all}
+	return m.checkGitLab()
 }
 
 // applySettingsFilter keeps the options whose name or help has the filter's
@@ -161,7 +171,7 @@ func (s *settingsView) applySettingsFilter() {
 	words := strings.Fields(strings.ToLower(s.filter))
 	s.rows = nil
 	for _, r := range s.all {
-		hay := strings.ToLower(r.name + " " + strings.ReplaceAll(r.name, "_", " ") + " " + settingDocs[r.name] + " " + r.group)
+		hay := strings.ToLower(r.name + " " + strings.ReplaceAll(r.name, "_", " ") + " " + settingDocs[r.name] + " " + r.doc + " " + r.group)
 		if !slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(hay, w) }) {
 			s.rows = append(s.rows, r)
 		}
@@ -252,6 +262,10 @@ func editable(f reflect.Value) bool {
 func (m *Model) editSetting() {
 	s := m.settings
 	r := s.rows[s.idx]
+	if r.info {
+		s.err = "set in the gitlab: list of your config file, or with glab auth login"
+		return
+	}
 	if choices := settingChoices(r.name); choices != nil {
 		s.choices, s.err = choices, ""
 		s.choice = max(slices.IndexFunc(choices, func(c string) bool { return strings.EqualFold(c, r.value) }), 0)
@@ -375,7 +389,7 @@ func (m *Model) saveSetting(name, text string) string {
 	plainIcons = opts.plainIcons
 	setCodeTheme(opts.codeTheme)
 	idx := m.settings.idx
-	m.settings.all = settingRows(next)
+	m.settings.all = append(settingRows(next), m.settings.gitlab...)
 	m.settings.applySettingsFilter() // the saved value in the filtered rows too
 	m.settings.idx = min(idx, max(len(m.settings.rows)-1, 0))
 	m.jiraTab.rows = nil
@@ -469,7 +483,7 @@ func (m *Model) renderSettings(height int) string {
 	if s.idx < len(s.rows) {
 		r = s.rows[s.idx]
 	}
-	if doc := settingDocs[r.name]; doc != "" {
+	if doc := cmp.Or(r.doc, settingDocs[r.name]); doc != "" {
 		lines = append(lines, "", jiraDimStyle.Render(truncate(r.name+": "+doc, width)))
 	}
 	if full := settingFull(m.uiConfig, r.name); r.name != "" && full != "" {

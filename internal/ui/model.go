@@ -17,6 +17,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/forge/gitlab"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
@@ -253,7 +254,8 @@ type Model struct {
 	rulesLog string
 
 	jiraClient      *jira.Client
-	index           *index.Index // nil: none
+	gitlab          *gitlab.Sites // nil: none
+	index           *index.Index  // nil: none
 	jiraProjects    []string
 	jiraRepos       map[string]string
 	jiraStartPrompt string
@@ -820,6 +822,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJQLValues(msg)
 	case inboxTickMsg:
 		return m.handleInboxTick()
+	case gitlabCheckMsg:
+		return m.handleGitLabCheck(msg)
 	case inboxSyncMsg:
 		return m.handleInboxSync(msg)
 	case draftSaveMsg:

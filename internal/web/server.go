@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/forge/gitlab"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
@@ -68,6 +69,8 @@ type Options struct {
 	AddSite *SiteAdder
 	// UpgradeCmd updates this binary ("" when unknown: the release page).
 	UpgradeCmd string
+	// GitLab are the GitLab instances (nil: none, as in the demo).
+	GitLab *gitlab.Sites
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.

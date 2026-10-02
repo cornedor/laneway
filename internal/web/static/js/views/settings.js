@@ -1,6 +1,6 @@
 // Settings: topic headings, `/` filters by name. j/k move, enter/space/→ change, ← back, del resets, esc leaves.
 // Sections: Appearance and Board (this browser), Notifications, Keyboard (remaps, settings_keys.js), then every
-// ui: option of the config file by topic (settings_config.js), shared with the terminal app.
+// ui: option of the config file by topic (settings_config.js), shared with the terminal app, and GitLab.
 //
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
@@ -228,6 +228,12 @@ export default function mount(el, { app, scope, toolbar }) {
     for (const w of c.warnings) options.push(info('Config warning', w, 'Data'));
     setFoot(); draw();
   }).catch(e => app.ui.errToast(e));
+  // Each GitLab instance (the gitlab: config's, then glab's logins), signed in to.
+  api.get('/gitlab', { fresh: true }).then(list => {
+    if (dead || !list.length) return;
+    options.push(...list.map(g => info(g.Host, g.OK ? g.User + ' (' + g.From + ')' : g.From ? 'fails' : 'no token', 'GitLab', g.Summary)));
+    draw();
+  }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
   const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(); } });
   return () => { dead = true; offMetrics(); editor = null; editing = null; };

@@ -1218,7 +1218,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Help):
 		m.helpOpen = true
 	case key.Matches(msg, m.keys.Settings):
-		m.openSettings()
+		return m, m.openSettings()
 	case key.Matches(msg, m.keys.Sort):
 		if lanes {
 			keep := m.selectedJiraKey()

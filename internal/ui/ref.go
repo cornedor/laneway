@@ -221,8 +221,7 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openHelp("Panel")
 		return m, nil
 	case key.Matches(msg, m.keys.Settings):
-		m.openSettings()
-		return m, nil
+		return m, m.openSettings()
 	case key.Matches(msg, m.keys.PanelWider):
 		m.stepPanel(1)
 		return m, nil

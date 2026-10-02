@@ -2,9 +2,11 @@ package gitlab
 
 import (
 	"context"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,27 +49,41 @@ func TokenFromGlab(host string) string {
 // an entry at all — a keyring login leaves an entry with no token (and
 // use_keyring set).
 func tokenFromGlabConfig(host string) (token string, loggedIn bool) {
-	path := glabConfigPath()
-	if path == "" {
-		return "", false
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", false
-	}
-	var cfg struct {
-		Hosts map[string]struct {
-			Token string `yaml:"token"`
-		} `yaml:"hosts"`
-	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return "", false
-	}
-	entry, ok := cfg.Hosts[host]
+	entry, ok := glabConfigHosts()[host]
 	if !ok {
 		return "", false
 	}
 	return strings.TrimSpace(entry.Token), true
+}
+
+// glabHost is one hosts: entry of glab's config.
+type glabHost struct {
+	Token string `yaml:"token"`
+}
+
+// glabConfigHosts are the hosts glab's config has a login for, nil without
+// a config.
+func glabConfigHosts() map[string]glabHost {
+	path := glabConfigPath()
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var cfg struct {
+		Hosts map[string]glabHost `yaml:"hosts"`
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+	return cfg.Hosts
+}
+
+// GlabHosts are the hosts glab is logged in to, sorted.
+func GlabHosts() []string {
+	return slices.Sorted(maps.Keys(glabConfigHosts()))
 }
 
 // glabConfigPath resolves glab's config file location, honoring

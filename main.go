@@ -188,7 +188,8 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(cfg.Unknown).WithIndex(ix).WithVersion(version, upgradeCmd()).
+	gl, glWarn := gitlabSites(cfg)
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(append(cfg.Unknown, glWarn...)).WithIndex(ix).WithVersion(version, upgradeCmd()).WithGitLab(gl).
 		WithSiteClients(func(other string) (*jira.Client, error) {
 			j, err := cfg.Site(other)
 			if err != nil || j.Check(siteName(other)) != nil {
