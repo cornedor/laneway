@@ -2,7 +2,10 @@
 // commits from Jira's dev-status (GET /api/issues/{key}/dev, jira.DevItem). Hidden when there is none.
 // mountDev(key, {app, el, full, card, details}) → {el, refresh, dispose}; `card()` is the issue's card
 // (its PR/Deploy say work exists before the list arrives), `details()` shows the Details tab.
+// A GitLab merge request's row unfolds it (enter, a click): state, pipeline by stage, approvals and
+// description from GET /api/gitlab/mr (forge.Change), as the TUI's panel shows it; o opens any row's link.
 import { h, clear } from '../lib/dom.js';
+import { render as md } from '../lib/md.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { ago, dateTime, isZero, duration, plural } from '../lib/fmt.js';
@@ -19,6 +22,10 @@ const run = s => RUN[s] || RUN.UNKNOWN;
 const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 const when = t => (isZero(t) ? null : h('time.dv-when', { datetime: t, title: dateTime(t) }, ago(t)));
 const prNo = u => { const m = /\/(?:pull|pull-requests|merge_requests)\/(\d+)/.exec(u || ''); return m ? (/merge_requests/.test(u) ? '!' : '#') + m[1] : ''; };
+const isMR = u => /\/-\/merge_requests\/\d+/.test(u || '');
+// A forge.Change check status → a tone and a glyph.
+const CHECK = { success: ['ok', '✓'], failed: ['err', '✗'], running: ['run', '●'], pending: ['run', '○'], manual: ['none', '▶'], canceled: ['warn', '⊘'], skipped: ['none', '»'] };
+const check = s => CHECK[s] || CHECK.skipped;
 const newest = (a, b) => (isZero(b.Updated) ? -1 : isZero(a.Updated) ? 1 : new Date(b.Updated) - new Date(a.Updated));
 
 // The header's one-liner, as the board card's chips: "1 PR merged · 2 branches · 5 commits · deployed to production".
@@ -59,6 +66,8 @@ export function mountDev(key, { app, el, full, card, details }) {
   const { api, ui } = app;
   const PREF = 'issue.devFold';
   let items = null, dead = false, err = null, all = false, folded = !!app.prefs.get(PREF, false);
+  // Unfolded merge requests by link, and each one's read: {data} | {err} | {} while loading.
+  const openMR = new Set(), mrs = new Map();
   const id = 'dv-' + key.replace(/\W/g, '');
   const root = h('section.dv', { hidden: true, 'aria-labelledby': id + '-h' });
   const scope = app.keys.scope('issue-dev', { layer: 2 });
@@ -89,7 +98,8 @@ export function mountDev(key, { app, el, full, card, details }) {
     const ci = builds.filter(b => b.Branch && b.Branch === p.Source).sort(newest)[0];
     const revs = p.Reviewers || [];
     const ok = revs.filter(r => r.Approved).length;
-    return row('li', p, p.Source, 'Branch',
+    const mr = isMR(p.URL), open = mr && openMR.has(p.URL);
+    const li = row('li', p, p.Source, 'Branch',
       h('div.dv-line',
         h('span.dv-badge.pr-' + cls, ic && icon(ic), ic ? ' ' + text : text),
         title(p, p.Name),
@@ -102,7 +112,47 @@ export function mountDev(key, { app, el, full, card, details }) {
         revs.length ? h('span.dv-revs', { title: revs.map(r => r.Name + (r.Approved ? ' approved' : ' not yet approved')).join('\n'), 'aria-label': ok + ' of ' + revs.length + ' reviewers approved' },
           revs.map(r => h('span.dv-rev' + (r.Approved ? '.ok' : ''), avatar(r.Name, r.Avatar, 16), r.Approved ? h('i.dv-tick', icon('check')) : null)),
           h('span.dv-dim', ok + '/' + revs.length)) : null,
-        p.Comments ? h('span.dv-dim', { title: plural(p.Comments, 'comment') }, icon('message-square'), ' ' + p.Comments) : null));
+        p.Comments ? h('span.dv-dim', { title: plural(p.Comments, 'comment') }, icon('message-square'), ' ' + p.Comments) : null),
+      open ? mrDetail(p.URL) : null);
+    if (mr) { li.dataset.mr = ''; li.setAttribute('aria-expanded', String(open)); li.title = 'Enter unfolds it, o opens it in GitLab'; }
+    return li;
+  }
+  function mrDetail(u) {
+    const st = mrs.get(u) || {};
+    if (st.err) return h('div.dv-mr.dv-err', st.err.message || String(st.err), ' ', h('a', { href: safe(u), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab'));
+    const m = st.data;
+    if (!m) return h('div.dv-mr.dv-dim', 'Loading the merge request…');
+    const kv = (k, ...v) => (v.some(Boolean) ? h('div.dv-kv', h('span.dv-k', k), h('span', ...v)) : null);
+    const a = m.Approvals, c = m.Checks;
+    const approvals = a && [a.Approved ? h('b.dvt-ok', 'approved ') : null, a.Required ? (a.Required - a.Left) + ' of ' + a.Required : String((a.By || []).length),
+      (a.By || []).length ? h('span.dv-dim', ' · ' + a.By.join(', ')) : null];
+    const glyph = s => { const [tone, g] = check(s); return h('span.dv-check.dvt-' + tone, { title: s }, g); };
+    return h('div.dv-mr', { onclick: e => e.stopPropagation() },
+      kv('State', m.Draft ? 'draft' : m.State, isZero(m.UpdatedAt) ? null : h('span.dv-dim', ' · updated ' + ago(m.UpdatedAt))),
+      m.State === 'opened' ? kv('Merge', m.HasConflicts ? h('span.dvt-err', m.MergeStatus) : m.MergeStatus) : null,
+      kv('Changes', m.ChangesCount && m.ChangesCount + ' files'),
+      kv('Assignees', (m.Assignees || []).join(', ')), kv('Reviewers', (m.Reviewers || []).join(', ')),
+      approvals ? kv('Approvals', ...approvals) : null,
+      kv('Labels', (m.Labels || []).join(', ')),
+      c ? kv('Pipeline', glyph(c.Status), ' ', safe(c.WebURL) ? h('a', { href: safe(c.WebURL), target: '_blank', rel: 'noopener noreferrer' }, c.Label) : c.Label, c.Duration ? h('span.dv-dim', ' · ' + duration(c.Duration)) : null) : null,
+      c && (c.Groups || []).length ? h('div.dv-stages', c.Groups.map(g => h('div.dv-stage', h('span.dv-k', g.Name), (g.Jobs || []).map(j => h('span.dv-job', glyph(j.Status), ' ' + j.Name))))) : null,
+      (m.Description || '').trim() ? h('div.dv-desc.md', md(m.Description)) : null);
+  }
+  function toggleMR(u, fresh) {
+    if (openMR.has(u) && !fresh) { openMR.delete(u); paint(); return; }
+    openMR.add(u);
+    if (fresh || !mrs.has(u)) {
+      mrs.set(u, {});
+      api.get('/gitlab/mr?url=' + encodeURIComponent(u) + (fresh ? '&fresh=1' : ''), { fresh: true })
+        .then(data => { mrs.set(u, { data }); if (!dead) repaintKeep(); }, e => { mrs.set(u, { err: e }); if (!dead) repaintKeep(); });
+    }
+    repaintKeep();
+  }
+  // paint, keeping the focused row focused.
+  function repaintKeep() {
+    const u = (rowOf(document.activeElement) || {}).dataset?.url;
+    paint();
+    if (u) focusRow(rows().find(r => r.dataset.url === u));
   }
   function envChip(d) {
     const [tone, word] = run(d.Status);
@@ -210,15 +260,18 @@ export function mountDev(key, { app, el, full, card, details }) {
   scope.bind('D', focusDev, 'development: pull requests, builds, deploys, branches, commits', { group: 'Issue', when: inPanel });
   scope.bind(['j', 'ArrowDown'], () => step(1), 'next row', { group: G, when: onRow });
   scope.bind(['k', 'ArrowUp'], () => step(-1), 'previous row', { group: G, when: onRow });
-  scope.bind('Enter', () => { const r = rowOf(document.activeElement); if (r && r.dataset.url) window.open(r.dataset.url, '_blank', 'noopener'); else ui.toast('No link'); }, 'open in the browser', { group: G, when: onRow });
+  const openLink = r => { if (r && r.dataset.url) window.open(r.dataset.url, '_blank', 'noopener'); else ui.toast('No link'); };
+  scope.bind('Enter', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) toggleMR(r.dataset.url); else openLink(r); }, 'open in the browser; a GitLab merge request unfolds', { group: G, when: onRow });
+  scope.bind('o', () => openLink(rowOf(document.activeElement)), 'open in the browser', { group: G, when: onRow });
+  scope.bind('r', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset && openMR.has(r.dataset.url)) toggleMR(r.dataset.url, true); else load(true); }, 'reload', { group: G, when: onRow });
   scope.bind('y', () => { const r = rowOf(document.activeElement); if (r && r.dataset.copy) copy(r.dataset.copy, r.dataset.what); else ui.toast('Nothing to copy'); }, 'copy branch or hash', { group: G, when: onRow });
   scope.bind('Escape', () => { const s = el.querySelector('.iss-scroll'); if (s) s.focus({ preventScroll: true }); else document.activeElement.blur(); }, 'leave development', { group: G, when: onRow });
 
-  // Mouse: a click on a row (not on its own link) opens it, as enter does.
+  // Mouse: a click on a row (not on its own link) does what enter does.
   root.addEventListener('click', e => {
     const r = e.target.closest('[data-row]');
     if (!r || e.target.closest('a,button') || !r.dataset.url || (window.getSelection && String(window.getSelection()))) return;
-    window.open(r.dataset.url, '_blank', 'noopener');
+    if ('mr' in r.dataset) { r.focus({ preventScroll: true }); toggleMR(r.dataset.url); } else window.open(r.dataset.url, '_blank', 'noopener');
   });
 
   load();

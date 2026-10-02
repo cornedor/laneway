@@ -80,5 +80,14 @@ a.dv-title:hover { color: var(--accent); }
 .dv-skel-row i.b { width: 3.857rem; height: 1.143rem; border-radius: 8px; flex: none; }
 .dv-err { font-size: .9em; color: var(--err); padding: .286rem .429rem; }
 
+/* an unfolded GitLab merge request under its row */
+.dv-mr { display: flex; flex-direction: column; gap: .214rem; margin: .286rem 0 .143rem .143rem; padding: .429rem .571rem; border-left: 2px solid var(--border); font-size: .86em; cursor: auto; }
+.dv-kv, .dv-stage { display: flex; gap: .571rem; min-width: 0; }
+.dv-k { flex: none; width: 6.4rem; color: var(--fg-3); }
+.dv-stages { display: flex; flex-direction: column; gap: .143rem; padding-left: .571rem; }
+.dv-stage { flex-wrap: wrap; }
+.dv-job { white-space: nowrap; margin-right: .571rem; }
+.dv-check { color: var(--dv-tone); font-weight: 600; }
+.dv-desc { margin-top: .429rem; }
 @media (prefers-reduced-motion: reduce) { .dv-dot.dvt-run, .dv-skel-row i { animation: none; } .dv-caret { transition: none; } }
 @media (max-width: 600px) { .dv-author { display: none; } .dv-ref code { max-width: 14ch; } }
