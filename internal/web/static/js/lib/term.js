@@ -69,7 +69,9 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
   const X = await load();
   await faces();
   const pal = palette();
+  const openLink = (e, uri) => { if (/^https?:/i.test(uri)) window.open(uri, '_blank', 'noopener'); };
   const term = new X.Terminal({
+    linkHandler: { activate: openLink }, // OSC 8 links: xterm's own asks with confirm() first
     fontFamily: fonts.terminalStack(), fontSize: size(), lineHeight: 1, fontWeightBold: 700,
     theme: pal.theme, minimumContrastRatio: pal.dark ? 1 : 3,
     scrollback: 5000, cursorBlink: true, allowProposedApi: true, macOptionIsMeta: true, rescaleOverlappingGlyphs: true,
@@ -78,7 +80,7 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
   term.loadAddon(fit);
   term.loadAddon(new X.Unicode11Addon());
   term.unicode.activeVersion = '11';
-  term.loadAddon(new X.WebLinksAddon((e, uri) => { if (/^https?:/i.test(uri)) window.open(uri, '_blank', 'noopener'); }));
+  term.loadAddon(new X.WebLinksAddon(openLink));
   term.open(host);
   let gl = null, dead = false;
   import(V + 'addon-webgl.js').then(m => {
