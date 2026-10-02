@@ -176,13 +176,11 @@ type semver struct {
 	pre bool
 }
 
-// parseSemver reads vMAJOR.MINOR.PATCH[-pre][+build].
+// parseSemver reads [v]MAJOR.MINOR.PATCH[-pre][+build]: a release build's
+// version has no v, its tag does.
 func parseSemver(v string) (semver, bool) {
 	var s semver
-	rest, ok := strings.CutPrefix(v, "v")
-	if !ok {
-		return s, false
-	}
+	rest := strings.TrimPrefix(v, "v")
 	rest, _, _ = strings.Cut(rest, "+")
 	rest, pre, hasPre := strings.Cut(rest, "-")
 	s.pre = hasPre && pre != ""

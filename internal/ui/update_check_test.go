@@ -22,6 +22,8 @@ func TestNewerSemver(t *testing.T) {
 		{"v1.2.0", "v1.2.0-rc1", true},
 		{"v0.1.0", "v0.0.0-20260928101500-ba0922aaf6ea", true}, // a pseudo-version
 		{"v1.3.0-rc1", "v1.2.0", false},                        // not a release
+		{"v0.5.0", "0.4.0", true},                              // a release build's version: no v
+		{"v0.4.0", "0.4.0", false},
 		{"v1.3.0", "dev", false},
 		{"nonsense", "v1.2.0", false},
 	} {
