@@ -1175,7 +1175,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     }
   }
   function unfoldAll() { S.fold.clear(); layout(); }
-  function setCompact(v) { S.compact = v; app.prefs.set('board.compact', v ? '1' : '0'); layout(); }
+  function setCompact(v) { S.compact = v; app.prefs.set('board.compact', v ? '1' : '0'); renderToolbar(); layout(); }
   function setCols(list) {
     S.cols = ['mark', 'key', 'summary', ...list.filter(c => !['mark', 'key', 'summary'].includes(c))];
     app.prefs.set('board.cols', S.cols.join(','));
