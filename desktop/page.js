@@ -40,7 +40,11 @@
     } catch { return null; }
   };
   const open = (u) => post({ type: 'open', url: u.href });
-  window.open = (href) => { const u = outward(href ?? ''); if (u) open(u); return null; };
+  window.open = (href) => {
+    if (href) { const u = outward(href); if (u) open(u); return null; }
+    // open() first, location after (xterm does): a window that only takes a location.
+    return { opener: null, close() {}, location: { set href(v) { const u = outward(v); if (u) open(u); } } };
+  };
   // Last in line, so links the page handles itself (preventDefault) stay in.
   const onLink = (e) => {
     if (e.defaultPrevented || e.button > 1) return;
