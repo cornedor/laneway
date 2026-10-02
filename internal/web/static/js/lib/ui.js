@@ -10,12 +10,17 @@ import { initials, hue } from './fmt.js';
 // The last toasts, oldest first, as the TUI's status line log: the palette's Messages row lists them.
 const LOG_MAX = 100;
 export const messages = [];
+// A plain message (text, no action) goes to the key bar when it shows (lib/keybar.js): line(msg, kind, ms) → close, or null.
+let line = null;
+export const statusLine = fn => { line = fn; };
 
 export function toast(msg, { kind = 'info', action, ms } = {}) {
   if (typeof msg === 'string' && msg && (!messages.length || messages[messages.length - 1].text !== msg)) {
     messages.push({ at: new Date(), text: msg, err: kind === 'err' });
     if (messages.length > LOG_MAX) messages.shift();
   }
+  const inLine = line && typeof msg === 'string' && !action && line(msg, kind, ms || (kind === 'err' ? 6000 : 2800));
+  if (inLine) return inLine;
   const host = document.getElementById('toasts');
   const t = h('div.toast.' + kind, { role: kind === 'err' ? 'alert' : 'status' }, h('span', msg),
     action && h('button.btn.link', { onclick: () => { action.run(); close(); } }, action.label));

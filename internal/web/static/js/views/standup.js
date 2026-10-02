@@ -179,16 +179,16 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const G = { group: 'Standup' };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next', G);
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
-  scope.bind('Enter', open, 'open issue (or show Off the board)', G);
+  scope.bind('Enter', open, 'open issue (or show Off the board)', { ...G, bar: 'open' });
   scope.bind('z', unfold, 'show Off the board', G);
-  scope.bind('Space', () => { single = !single; paint(); }, 'one card at a time / the list', G);
-  scope.bind('P', park, 'park the card for after the standup', G);
-  scope.bind('[', () => step(-1), 'a workday further back', G);
-  scope.bind(']', () => step(1), 'a workday forward', G);
-  scope.bind('Tab', () => setMode(team() ? 'mine' : 'team'), 'mine / team', { ...G, when: () => !app.panel.key });
+  scope.bind('Space', () => { single = !single; paint(); }, 'one card at a time / the list', { ...G, bar: 'one / all' });
+  scope.bind('P', park, 'park the card for after the standup', { ...G, bar: 'park' });
+  scope.bind('[', () => step(-1), 'a workday further back', { ...G, bar: 'day' });
+  scope.bind(']', () => step(1), 'a workday forward', { ...G, bar: 'day' });
+  scope.bind('Tab', () => setMode(team() ? 'mine' : 'team'), 'mine / team', { ...G, when: () => !app.panel.key, bar: 'mine / team' });
   scope.bind('p', () => setMode(!team() ? 'team' : mode === 'team' ? 'person' : 'team'), 'team: by person / walk the board', G);
   sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; view = null; load(); } });
-  scope.bind('y', copy, 'copy as text, parking lot included', G);
+  scope.bind('y', copy, 'copy as text, parking lot included', { ...G, bar: 'copy' });
   scope.bind('r', load, 'refresh', G);
 
   clear(toolbar);

@@ -67,6 +67,7 @@ export default function mount(el, { app, scope, toolbar }) {
     fontSize,
     ...fontOptions(app, () => refresh()),
     choice('Motion', 'animations and transitions', 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? 'reduced' : 'system')),
+    choice('Key bar', 'the main keys here at the bottom, a click presses one; messages show in it', 'Appearance', ['show', 'hide'], () => pref('keybar', 'show'), v => { setPref('keybar', v); refresh(); }),
     { name: 'Custom tokens', desc: 'CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies', section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
 
     { name: 'Browser notifications', desc: 'inbox news while this tab is in the background; the browser asks when you turn them on', section: 'Notifications',
@@ -205,12 +206,12 @@ export default function mount(el, { app, scope, toolbar }) {
 
   scope.bind(['j', 'ArrowDown'], () => go(1), 'next option', { group: 'Settings' });
   scope.bind(['k', 'ArrowUp'], () => go(-1), 'previous option', { group: 'Settings' });
-  scope.bind(['Enter', 'Space'], activate, 'change option', { group: 'Settings' });
+  scope.bind(['Enter', 'Space'], activate, 'change option', { group: 'Settings', bar: 'change' });
   scope.bind(['ArrowRight', 'l'], () => change(1), 'next value', { group: 'Settings' });
   scope.bind(['ArrowLeft', 'h'], () => change(-1), 'previous value', { group: 'Settings' });
-  scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, 'reset to the default', { group: 'Settings' });
-  scope.bind('/', () => { filter.focus(); filter.select(); }, 'filter settings', { group: 'Settings' });
-  scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else history.length > 1 ? history.back() : app.go('/board'); }, 'leave settings', { group: 'Settings' });
+  scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, 'reset to the default', { group: 'Settings', bar: 'reset' });
+  scope.bind('/', () => { filter.focus(); filter.select(); }, 'filter settings', { group: 'Settings', bar: 'filter' });
+  scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else history.length > 1 ? history.back() : app.go('/board'); }, 'leave settings', { group: 'Settings', bar: 'leave' });
   scope.bind('Escape', () => { if (editing) editing.cancel(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true });
   scope.bind('Enter', () => { if (editing) editing.commit(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true, when: () => !(editing && editing.multi) });
   scope.bind('ctrl+Enter', () => { if (editing) editing.commit(); }, '', { input: true, hidden: true });

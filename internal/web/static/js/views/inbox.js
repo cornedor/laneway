@@ -188,19 +188,19 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind('End', () => to(rows.length - 1), 'last thread', { ...G, hidden: true });
   scope.bind('PageDown', () => to(sel + page()), 'page down', { ...G, hidden: true });
   scope.bind('PageUp', () => to(sel - page()), 'page up', { ...G, hidden: true });
-  scope.bind('Enter', open, 'open issue', G);
-  scope.bind('e', done, 'done until news / back to inbox', G);
+  scope.bind('Enter', open, 'open issue', { ...G, bar: 'open' });
+  scope.bind('e', done, 'done until news / back to inbox', { ...G, bar: 'done' });
   scope.bind('E', doneRead, 'all read threads done', G);
-  scope.bind('s', snooze, 'snooze / unsnooze', G);
+  scope.bind('s', snooze, 'snooze / unsnooze', { ...G, bar: 'snooze' });
   scope.bind('u', unread, 'mark unread', G);
   scope.bind('a', toggleRead, 'toggle read', G);
   scope.bind('r', () => { load(true); ui.toast('Refreshing'); }, 'refresh', G);
   const cycle = d => setTab(TABS[(TABS.findIndex(x => x[0] === tab) + d + TABS.length) % TABS.length][0]);
   scope.bind('Tab', () => cycle(1), 'next tab: inbox, mentions, all', { ...G, when: () => !app.panel.key });
-  scope.bind('A', () => cycle(1), 'next tab: inbox, mentions, all', G);
+  scope.bind('A', () => cycle(1), 'next tab: inbox, mentions, all', { ...G, bar: 'tab' });
   scope.bind(['1', '2', '3'], e => setTab(TABS[+e.key - 1][0]), 'inbox / mentions / all', G);
-  scope.bind('c', () => compose(false), 'comment on the issue', G);
-  scope.bind('R', () => compose(true), 'reply to the latest comment', G);
+  scope.bind('c', () => compose(false), 'comment on the issue', { ...G, bar: 'comment' });
+  scope.bind('R', () => compose(true), 'reply to the latest comment', { ...G, bar: 'reply' });
   scope.bind('y', () => { const t = cur(); if (t) navigator.clipboard.writeText(t.Key).then(() => ui.toast(t.Key + ' copied')).catch(() => {}); }, 'copy key', G);
   scope.bind('o', () => { const t = cur(); if (t && (away(t) || app.session.baseURL)) browse(t); }, 'open in Jira', G);
 

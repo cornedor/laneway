@@ -218,18 +218,18 @@ export default async function mount(el, { app, scope, query }) {
   scope.bind('Home', () => move(-rows.length), 'first', { group: G, hidden: true });
   scope.bind('End', () => move(rows.length), 'last', { group: G, hidden: true });
   scope.bind('Tab', toggleBare, 'show / hide worktrees without an agent', { group: G, when: () => !app.panel.key });
-  scope.bind('Enter', () => type(), 'type into the agent\'s terminal (' + LEAVE + ' back to the list; a worktree: open the issue)', { group: G });
+  scope.bind('Enter', () => type(), 'type into the agent\'s terminal (' + LEAVE + ' back to the list; a worktree: open the issue)', { group: G, bar: 'type' });
   scope.bind(LEAVE, () => type(), 'type into the terminal / back to the list', { group: G });
-  scope.bind('z', () => { setFull(!full); if (full) type(); }, 'terminal full screen', { group: G });
+  scope.bind('z', () => { setFull(!full); if (full) type(); }, 'terminal full screen', { group: G, bar: 'full screen' });
   scope.bind('t', () => type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G });
   scope.bind('Escape', () => setFull(false), 'leave full screen', { group: G, when: () => full });
-  scope.bind('v', () => { const r = cur(); if (r) openIssue(r.key); }, 'open issue (another site\'s in Jira)', { group: G });
+  scope.bind('v', () => { const r = cur(); if (r) openIssue(r.key); }, 'open issue (another site\'s in Jira)', { group: G, bar: 'issue' });
   scope.bind('o', () => { const r = cur(); if (r) window.open(away(r.key) ? issues.get(r.key).URL : app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
   scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
-  scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G });
-  scope.bind('N', () => act('new'), 'new agent in its directory (the start form)', { group: G });
-  scope.bind('S', () => { const r = cur(); if (r) app.agents.start(r.key, { another: !!r.agent, path: r.agent ? r.agent.CWD : '' }); }, 'start work on the issue (the start form; with an agent: another one beside it)', { group: G });
-  scope.bind('d', () => act('stop'), 'stop the agent (twice)', { group: G });
+  scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G, bar: 'prompt' });
+  scope.bind('N', () => act('new'), 'new agent in its directory (the start form)', { group: G, bar: 'new agent' });
+  scope.bind('S', () => { const r = cur(); if (r) app.agents.start(r.key, { another: !!r.agent, path: r.agent ? r.agent.CWD : '' }); }, 'start work on the issue (the start form; with an agent: another one beside it)', { group: G, bar: 'start work' });
+  scope.bind('d', () => act('stop'), 'stop the agent (twice)', { group: G, bar: 'stop' });
   scope.bind('y', () => { const r = cur(); if (r && navigator.clipboard) navigator.clipboard.writeText(r.key).then(() => ui.toast('Copied ' + r.key)); }, 'copy key', { group: G });
   scope.bind('r', () => { app.agents.refresh(); ui.toast('Refreshed'); }, 'refresh', { group: G });
 

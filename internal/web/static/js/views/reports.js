@@ -338,7 +338,7 @@ export default async function mount(el, { app, params, query, scope, context, to
   scope.bind(['l', ']', 'ArrowRight'], () => step(1), 'next report', { group: 'Reports' });
   scope.bind(['h', '[', 'ArrowLeft'], () => step(-1), 'previous report', { group: 'Reports' });
   KINDS.forEach(([id], i) => scope.bind(String(i + 1), () => go(id), 'report ' + (i + 1), { hidden: true }));
-  scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports' });
+  scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports', bar: 'sprint' });
   scope.bind('W', () => { if (kind === 'cycle') nextWeeks(); }, 'cycle time: weeks', { group: 'Reports' });
   scope.bind('R', () => load(true), 'reload', { group: 'Reports' });
   scope.bind('y', () => {
@@ -348,7 +348,7 @@ export default async function mount(el, { app, params, query, scope, context, to
   const move = d => { if (curItems.length) { cur = Math.min(Math.max(cur + d, 0), curItems.length - 1); mark(); } };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next item', { group: 'Reports' });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous item', { group: 'Reports' });
-  scope.bind('Enter', () => { const k = curItems[cur]; if (typeof k === 'string') open(k); else if (k && kind === 'releases') openVersion(k); }, 'open issue (a release: its issues on the board)', { group: 'Reports' });
+  scope.bind('Enter', () => { const k = curItems[cur]; if (typeof k === 'string') open(k); else if (k && kind === 'releases') openVersion(k); }, 'open issue (a release: its issues on the board)', { group: 'Reports', bar: 'open' });
   scope.bind('r', () => { if (kind === 'releases') release(curItems[cur]); }, 'release the version', { group: 'Reports' });
 
   await load();

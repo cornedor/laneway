@@ -1,0 +1,40 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+// keys.js listens on the document when loaded.
+globalThis.document = { addEventListener() {} };
+globalThis.KeyboardEvent = class { constructor(type, o) { Object.assign(this, { type }, o); } };
+const { keys } = await import('../static/js/lib/keys.js');
+const { barHints } = await import('../static/js/lib/keybar.js');
+
+const shown = () => barHints(keys.active()).map(x => x.keys.map(k => k.spec).join(' ') + ' ' + x.label);
+
+test('the view\'s labelled keys, then the global ones; aliases show the first, a shared label is one hint', () => {
+  const g = keys.scope('global'), v = keys.scope('board');
+  g.bind('?', () => {}, 'show keys', { bar: 'keys' });
+  g.bind('/', () => {}, 'search', { bar: 'search' });
+  v.bind('/', () => {}, 'filter', { bar: 'filter' });
+  v.bind(['Enter', 'o'], () => {}, 'open', { bar: 'open' });
+  v.bind('H', () => {}, 'left', { bar: 'move' });
+  v.bind('L', () => {}, 'right', { bar: 'move' });
+  v.bind('r', () => {}, 'refresh');
+  assert.deepEqual(shown(), ['/ filter', 'Enter open', 'H L move', '? keys']);
+  v.dispose(); g.dispose();
+});
+
+test('a panel waiting for focus has no hints; remapped keys show as bound; a click presses', () => {
+  let focused = false, pressed = '';
+  const v = keys.scope('board'), p = keys.scope('issue', { covers: () => focused });
+  v.bind('s', () => {}, 'status', { bar: 'status' });
+  p.bind('c', e => { pressed = e.key; }, 'comment', { bar: 'comment', help: true, when: () => focused });
+  assert.deepEqual(shown(), ['s status']);
+  focused = true;
+  assert.deepEqual(shown(), ['c comment']);
+  keys.configure({ user: { 'issue:c': 'C' } });
+  const [h] = barHints(keys.active());
+  assert.equal(h.keys[0].spec, 'C');
+  h.keys[0].run();
+  assert.equal(pressed, 'C');
+  keys.configure({ user: {} });
+  p.dispose(); v.dispose();
+});

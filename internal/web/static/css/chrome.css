@@ -86,9 +86,24 @@
 #whichkey dl.two { grid-template-columns: auto auto auto auto; column-gap: .714rem; } #whichkey dl.two dt:nth-of-type(2n+1) { padding-left: 0; } #whichkey dl.two dt:nth-of-type(2n) { padding-left: 1rem; }
 #whichkey dt { text-align: right; } #whichkey dd { margin: 0; color: var(--fg-2); }
 
+/* ---- key bar (js/lib/keybar.js): the main keys here, or the last message */
+:root { --kb-h: calc(var(--row) * .8 + .286rem); }
+#keybar { flex: none; display: flex; align-items: center; gap: calc(var(--pad) * 1.5); height: var(--kb-h); padding: 0 calc(var(--pad) * 1.5); overflow: hidden; white-space: nowrap;
+  background: var(--bg-2); border-top: 1px solid var(--border); font-size: .857rem; color: var(--fg-3); }
+#keybar[hidden] { display: none; }
+#keybar button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap; }
+.kb-hint { flex: none; display: inline-flex; align-items: center; gap: .286rem; }
+.kb-hint .kb-key + .kb-key { margin-left: .143rem; }
+#keybar button:hover, #keybar button:hover kbd { color: var(--fg); }
+.kb-global { margin-left: auto; } .kb-global ~ .kb-global { margin-left: 0; }
+.kb-msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--fg-2); }
+.kb-msg.ok { color: var(--ok); } .kb-msg.err { color: var(--err); }
+body.has-keybar #whichkey { bottom: calc(var(--kb-h) + .857rem); }
+body.has-keybar #toasts { bottom: calc(var(--kb-h) + .857rem); }
+
 /* ---- narrow */
 @media (max-width: 1100px) { .pal-btn { min-width: 0; } .pal-text { display: none; } }
-@media (max-width: 900px) { #panel { position: fixed; inset: var(--top-h) 0 0 0; width: auto; min-width: 0; max-width: none; z-index: 20; } }
+@media (max-width: 900px) { #panel { position: fixed; inset: var(--top-h) 0 0 0; width: auto; min-width: 0; max-width: none; z-index: 20; } body.has-keybar #panel { bottom: var(--kb-h); } }
 @media (max-width: 700px) {
   #top { gap: var(--pad); }
   .brand-name { display: none; }

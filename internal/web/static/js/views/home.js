@@ -117,9 +117,9 @@ export default function mount(el, { app, scope }) {
   const move = d => { const n = flat().length; if (n) { sel = Math.max(0, Math.min(n - 1, sel + d)); mark(true); } };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next row', { group: G });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous row', { group: G });
-  scope.bind('Enter', () => { const r = flat()[sel]; if (r) r.open(); }, 'open', { group: G });
-  scope.bind('Escape', () => app.go('/board'), 'to the board', { group: G });
-  scope.bind('r', loadAll, 'refresh', { group: G });
+  scope.bind('Enter', () => { const r = flat()[sel]; if (r) r.open(); }, 'open', { group: G, bar: 'open' });
+  scope.bind('Escape', () => app.go('/board'), 'to the board', { group: G, bar: 'board' });
+  scope.bind('r', loadAll, 'refresh', { group: G, bar: 'refresh' });
   delegate(grid, 'click', '.hrow', (e, t) => { sel = [...grid.querySelectorAll('.hrow')].indexOf(t); mark(); const r = flat()[sel]; if (r) r.open(); });
 
   const offs = [

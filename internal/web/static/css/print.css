@@ -1,7 +1,7 @@
 /* Print: the issue (panel or page) as a plain document. */
 :root { --bg: #fff; --bg-2: #fff; --bg-3: #f0f0f0; --bg-4: #e4e4e4; --fg: #000; --fg-2: #222; --fg-3: #444; --border: #999; --accent: #003a8c; --shadow: none; }
 html, body, #app, #body { height: auto !important; overflow: visible !important; display: block; background: var(--bg); }
-#top, #viewbar, #whichkey, #toasts, .skip, .overlay, .iss-tabs, .iss-grip, .composer, .btn, .iss-top .sp, #nav { display: none !important; }
+#top, #viewbar, #whichkey, #keybar, #toasts, .skip, .overlay, .iss-tabs, .iss-grip, .composer, .btn, .iss-top .sp, #nav { display: none !important; }
 #view, #panel { position: static !important; overflow: visible !important; contain: none !important; width: auto !important; max-width: none !important; min-width: 0 !important; border: 0; }
 body.has-panel #view { display: none; }
 .iss, .iss.full { display: block; height: auto; max-width: none; }

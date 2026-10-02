@@ -38,11 +38,11 @@ export default function mount(el, { app, scope, toolbar }) {
   const G = 'Review';
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next', { group: G });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', { group: G });
-  scope.bind('Enter', () => cards[sel] && app.panel.open(cards[sel].Key), 'open issue', { group: G });
-  scope.bind('o', () => cards[sel] && window.open(app.session.baseURL + '/browse/' + cards[sel].Key, '_blank', 'noopener'), 'open in Jira', { group: G });
+  scope.bind('Enter', () => cards[sel] && app.panel.open(cards[sel].Key), 'open issue', { group: G, bar: 'open' });
+  scope.bind('o', () => cards[sel] && window.open(app.session.baseURL + '/browse/' + cards[sel].Key, '_blank', 'noopener'), 'open in Jira', { group: G, bar: 'Jira' });
   scope.bind('y', () => cards[sel] && navigator.clipboard && navigator.clipboard.writeText(cards[sel].Key).then(() => ui.toast('Copied ' + cards[sel].Key)), 'copy key', { group: G });
   scope.bind('r', load, 'refresh', { group: G });
-  scope.bind('b', asView, 'as a board view', { group: G });
+  scope.bind('b', asView, 'as a board view', { group: G, bar: 'board view' });
   delegate(list, 'click', '.rv-row', (e, t) => { sel = +t.dataset.i; paint(); app.panel.open(t.dataset.key); });
   const off = app.bus.on('issue:changed', () => {});
   load();

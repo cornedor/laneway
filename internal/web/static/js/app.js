@@ -23,13 +23,13 @@ const commands = {
 // Look-and-feel prefs are mirrored unscoped (boot.js and fonts.js read them before the site is known); the rest per site.
 const GLOBAL_PREF = /^(font|terminal)\./;
 
-// Where the focus or a press last landed, in the panel or not (app.panel.focused); a modal over them changes neither.
+// Where the focus or a press last landed, in the panel or not (app.panel.focused); a modal over them, or the key bar, changes neither.
 // body.panel-focus shows it: the panel's edge lit, the view's cursor muted.
 let panelFocus = false;
 const paintFocus = () => document.body.classList.toggle('panel-focus', app.panel.focused());
 const focusAt = e => {
   const t = e.target;
-  if (!t || !t.closest || t.closest('.overlay')) return;
+  if (!t || !t.closest || t.closest('.overlay, #keybar')) return;
   panelFocus = !!t.closest('#panel');
   setTimeout(paintFocus); // after the press has moved the focus
 };
@@ -169,11 +169,11 @@ async function navigate() {
 // ---- global keys
 function globalKeys() {
   const g = keys.scope('global');
-  g.bind(':', () => app.actions.palette(':'), 'command palette', { group: 'Global' });
+  g.bind(':', () => app.actions.palette(':'), 'command palette', { group: 'Global', bar: 'commands' });
   g.bind('ctrl+k', () => app.actions.palette(':'), 'command palette', { group: 'Global', input: true, hidden: true });
-  g.bind('/', () => app.actions.palette('/'), 'search issues', { group: 'Global' });
+  g.bind('/', () => app.actions.palette('/'), 'search issues', { group: 'Global', bar: 'search' });
   g.bind('g g', () => app.actions.jump(), 'jump to issue by key', { group: 'Global' });
-  g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global' });
+  g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global', bar: 'keys' });
   g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), 'new issue', { group: 'Global' });
   g.bind('Q', () => app.actions.palette('#'), 'JQL search', { group: 'Global' });
   g.bind('ctrl+e', () => import('./views/refine.js').then(m => m.startRefine(app)), 'refine: the view\'s issues one at a time', { group: 'Global' });
@@ -236,6 +236,7 @@ async function boot() {
     theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
   } catch (e) { $('#top').classList.remove('boot'); $('#viewbar').classList.remove('hold'); clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
+  import('./lib/keybar.js').then(m => m.install(app)).catch(e => console.error('keybar', e));
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
   import('./lib/sites.js').then(m => m.install(app)).catch(e => console.error('sites', e)).finally(() => $('#top').classList.remove('boot'));

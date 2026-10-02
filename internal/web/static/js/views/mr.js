@@ -401,21 +401,21 @@ export default function mount(el, { app, scope, query }) {
   }
 
   const G = 'Merge request', D = 'Changes', onChanges = () => tab === 'changes';
-  scope.bind('1', () => setTab('overview'), 'overview', { group: G });
-  scope.bind('2', () => setTab('changes'), 'changes', { group: G });
+  scope.bind('1', () => setTab('overview'), 'overview', { group: G, bar: 'tabs' });
+  scope.bind('2', () => setTab('changes'), 'changes', { group: G, bar: 'tabs' });
   scope.bind('i', () => { const k = keys()[0]; if (k) app.panel.open(k); else ui.toast('It names no Jira issue'); }, 'the Jira issue it names, beside', { group: G });
-  scope.bind('C', agentReview, 'an agent reviews it', { group: G });
-  scope.bind('S', () => review(false), 'submit your review', { group: G });
-  scope.bind('A', () => review(true), 'approve', { group: G });
+  scope.bind('C', agentReview, 'an agent reviews it', { group: G, bar: 'agent review' });
+  scope.bind('S', () => review(false), 'submit your review', { group: G, bar: 'review' });
+  scope.bind('A', () => review(true), 'approve', { group: G, bar: 'approve' });
   scope.bind('o', () => safe(url) && window.open(url, '_blank', 'noopener'), 'open in GitLab', { group: G });
   scope.bind('r', () => load(true), 'reload', { group: G });
-  scope.bind('Escape', () => (jobId ? closeJob() : back()), 'close the job log, else back', { group: G });
+  scope.bind('Escape', () => (jobId ? closeJob() : back()), 'close the job log, else back', { group: G, bar: 'back' });
   scope.bind(['j', ']'], () => go(cur + 1), 'next file', { group: D });
   scope.bind(['k', '['], () => go(cur - 1), 'previous file', { group: D });
-  scope.bind('n', () => thread(1), 'next inline thread', { group: D, when: onChanges });
-  scope.bind('N', () => thread(-1), 'previous inline thread', { group: D, when: onChanges });
+  scope.bind('n', () => thread(1), 'next inline thread', { group: D, when: onChanges, bar: 'thread' });
+  scope.bind('N', () => thread(-1), 'previous inline thread', { group: D, when: onChanges, bar: 'thread' });
   scope.bind('z', () => fold(cur), 'fold the file', { group: D, when: onChanges });
-  scope.bind('e', () => expand(cur), 'the whole file / the changes only', { group: D, when: onChanges });
+  scope.bind('e', () => expand(cur), 'the whole file / the changes only', { group: D, when: onChanges, bar: 'whole file' });
   scope.bind('Z', foldAll, 'fold / unfold every file', { group: D, when: onChanges });
   scope.bind('v', () => { setTab('changes'); if (picker.hidden) return ui.toast('One version: nothing pushed since it opened'); picker.focus(); picker.showPicker && picker.showPicker(); }, 'pick a version', { group: D });
   delegate(files, 'click', '.df-file-link', (e, t) => go(+t.dataset.file));

@@ -37,6 +37,9 @@ Two bars on top and the issue panel on the right.
 - **Context bar** (under it): where you are (project, board, sprint) and
   how you look at it (filters, modes). Views without controls have none.
 - After `g` a hint lists the keys that can follow.
+- **Key bar** (at the bottom): the main keys of what has the focus, the
+  panel's or the view's, as bound; a click presses one. Messages show in
+  it. Hidden on phones; Settings > Appearance turns it off.
 
 | View | Key | |
 | --- | --- | --- |

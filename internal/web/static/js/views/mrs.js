@@ -50,10 +50,10 @@ export default function mount(el, { app, scope }) {
   scope.bind('End', () => move(rows.length), 'last', { group: G });
   scope.bind('PageDown', () => move(10), 'page down', { group: G });
   scope.bind('PageUp', () => move(-10), 'page up', { group: G });
-  scope.bind('Enter', () => { if (cur()) location.hash = mrHref(cur().WebURL); }, 'open it: overview, pipeline, discussions', { group: G });
-  scope.bind('d', () => { if (cur()) location.hash = diffHref(cur().WebURL); }, 'its changes', { group: G });
-  scope.bind('i', () => { const k = cur() && keysOf(cur())[0]; if (k) app.panel.open(k); else ui.toast('It names no Jira issue'); }, 'the Jira issue it names, beside', { group: G });
-  scope.bind('o', () => cur() && window.open(cur().WebURL, '_blank', 'noopener'), 'open in GitLab', { group: G });
+  scope.bind('Enter', () => { if (cur()) location.hash = mrHref(cur().WebURL); }, 'open it: overview, pipeline, discussions', { group: G, bar: 'open' });
+  scope.bind('d', () => { if (cur()) location.hash = diffHref(cur().WebURL); }, 'its changes', { group: G, bar: 'changes' });
+  scope.bind('i', () => { const k = cur() && keysOf(cur())[0]; if (k) app.panel.open(k); else ui.toast('It names no Jira issue'); }, 'the Jira issue it names, beside', { group: G, bar: 'issue' });
+  scope.bind('o', () => cur() && window.open(cur().WebURL, '_blank', 'noopener'), 'open in GitLab', { group: G, bar: 'GitLab' });
   scope.bind('r', load, 'refresh', { group: G });
   delegate(list, 'click', '.mr-key', (e, t) => { e.stopPropagation(); app.panel.open(t.dataset.key); });
   delegate(list, 'click', '.mr-row', (e, t) => { if (e.target.closest('a,button')) return; sel = +t.dataset.i; location.hash = mrHref(rows[sel].MR.WebURL); });

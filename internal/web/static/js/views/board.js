@@ -1420,28 +1420,28 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('End', () => edge(true), 'last card in lane', { group: G });
     k.bind('PageDown', () => page(1), 'page down', { group: G, hidden: true });
     k.bind('PageUp', () => page(-1), 'page up', { group: G, hidden: true });
-    k.bind('Enter', need(c => openIssue(c.Key)), 'open issue', { group: G });
+    k.bind('Enter', need(c => openIssue(c.Key)), 'open issue', { group: G, bar: 'open' });
     k.bind('Escape', () => {
       if (S.past) leavePast();
       else if (app.panel.key) app.panel.close();
       else if (S.marks.size) { const ks = [...S.marks]; S.marks.clear(); ks.forEach(rebind); }
       else if (S.sel) { const o = S.sel; S.sel = null; rebind(o); }
     }, 'leave time machine / close panel / clear selection', { group: G });
-    k.bind('s', needW(c => app.actions.transition(c.Key)), 'change status', { group: E });
+    k.bind('s', needW(c => app.actions.transition(c.Key)), 'change status', { group: E, bar: 'status' });
     k.bind('e', edit('summary'), 'edit summary', { group: E });
-    k.bind('a', edit('assignee'), 'assign', { group: E });
+    k.bind('a', edit('assignee'), 'assign', { group: E, bar: 'assign' });
     k.bind('p', edit('priority'), 'set priority', { group: E });
     k.bind('P', edit('points'), 'set points', { group: E });
-    k.bind('H', () => { if (writable()) stepCol(-1); }, 'move card to previous column', { group: E });
-    k.bind('L', () => { if (writable()) stepCol(1); }, 'move card to next column', { group: E });
+    k.bind('H', () => { if (writable()) stepCol(-1); }, 'move card to previous column', { group: E, bar: 'move' });
+    k.bind('L', () => { if (writable()) stepCol(1); }, 'move card to next column', { group: E, bar: 'move' });
     k.bind('J', () => stepRank(1), 'rank card down', { group: E });
     k.bind('K', () => stepRank(-1), 'rank card up', { group: E });
     k.bind('alt+j', () => stepRank(Infinity), 'rank card to the bottom', { group: E });
     k.bind('alt+k', () => stepRank(-Infinity), 'rank card to the top', { group: E });
     k.bind('M', moveSprint, 'move to a sprint or the backlog', { group: E });
-    k.bind('E', need(c => app.actions.menu && app.actions.menu(c.Key)), 'quick edit: status, assignee, priority, points, labels, sprint, pin', { group: E });
+    k.bind('E', need(c => app.actions.menu && app.actions.menu(c.Key)), 'quick edit: status, assignee, priority, points, labels, sprint, pin', { group: E, bar: 'edit' });
     k.bind('.', repeat, 'repeat the last change on this card', { group: E });
-    k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, 'mark card (multi-select)', { group: E });
+    k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, 'mark card (multi-select)', { group: E, bar: 'mark' });
     k.bind('ctrl+a', markAll, 'mark all in the lane / list', { group: E });
     k.bind('X', bulk, 'bulk edit marked cards', { group: E });
     k.bind('n', () => app.actions.create(createOpts()), 'new issue (into the sprint shown)', { group: E });
@@ -1451,7 +1451,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('Y', need(c => copy(app.session.baseURL + '/browse/' + c.Key, 'link')), 'copy link', { group: G });
     k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: G });
     k.bind('r', () => refresh(true), 'refresh', { group: G });
-    k.bind('t', () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'), 'lanes / list', { group: V });
+    k.bind('t', () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'), 'lanes / list', { group: V, bar: 'lanes / list' });
     k.bind('O', cycleO, 'lanes: cycle swimlanes · list: cycle sort', { group: V });
     k.bind('z', () => foldBand(), 'fold the swimlane', { group: V });
     k.bind('Z', unfoldAll, 'unfold all swimlanes', { group: V });
@@ -1463,12 +1463,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('alt+o', pickClosed, 'closed sprints: one as it ended', { group: V });
     k.bind('B', () => pickBoard(), 'switch board (same project)', { group: V });
     k.bind('alt+p', () => pickProjectCtx(), 'switch project (its last board)', { group: V });
-    k.bind('v', () => pickSprint(), 'pick a view: sprint, backlog, your views', { group: V });
+    k.bind('v', () => pickSprint(), 'pick a view: sprint, backlog, your views', { group: V, bar: 'view' });
     k.bind('[', () => cycleScope(-1), 'previous view', { group: V });
     k.bind(']', () => cycleScope(1), 'next view', { group: V });
-    k.bind('f', () => { filterIn.focus(); filterIn.select(); }, 'filter cards', { group: F });
+    k.bind('f', () => { filterIn.focus(); filterIn.select(); }, 'filter cards', { group: F, bar: 'filter' });
     k.bind('F', openBuilder, 'filter builder', { group: F });
-    k.bind('m', () => toggleMine(), 'only my cards', { group: F });
+    k.bind('m', () => toggleMine(), 'only my cards', { group: F, bar: 'mine' });
     k.bind('A', () => pickWho(), 'filter by assignee', { group: F });
     k.bind('0', () => clearFilters(), 'clear filters', { group: F });
     for (let i = 1; i <= 9; i++) k.bind(String(i), () => { const q = qfs()[i - 1]; if (q) toggleQF(q.ID); }, i === 1 ? 'toggle quick filter 1-9' : '', { group: F, hidden: i > 1 });

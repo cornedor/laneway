@@ -808,10 +808,10 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), 'previous comment / scroll up', { group: G });
   scope.bind('ctrl+d', () => scroll.scrollBy({ top: scroll.clientHeight / 2 }), 'half page down', { group: G, hidden: true });
   scope.bind('ctrl+u', () => scroll.scrollBy({ top: -scroll.clientHeight / 2 }), 'half page up', { group: G, hidden: true });
-  scope.bind('c', composeComment, 'write a comment', { group: G });
+  scope.bind('c', composeComment, 'write a comment', { group: G, bar: 'comment' });
   scope.bind('e', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) editComment(c); else edit('summary'); }, 'edit summary (or own focused comment)', { group: G });
-  scope.bind('E', editDesc, 'edit description', { group: G });
-  scope.bind('a', () => edit('assignee'), 'change assignee', { group: G });
+  scope.bind('E', editDesc, 'edit description', { group: G, bar: 'description' });
+  scope.bind('a', () => edit('assignee'), 'change assignee', { group: G, bar: 'assign' });
   scope.bind('p', () => edit('priority'), 'change priority', { group: G });
   scope.bind('P', () => edit('points'), 'set story points', { group: G });
   scope.bind('l', () => edit('labels'), 'edit labels', { group: G });
@@ -819,18 +819,18 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[(st.issue.Comments || []).length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
   scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, 'delete own comment', { group: G });
   scope.bind('L', addLink, 'link an issue', { group: G });
-  scope.bind('A', () => actions(), 'issue actions: subtask, clone, move, watchers…', { group: G });
-  scope.bind('[', () => step(-1), 'previous issue in the list', { group: G });
-  scope.bind(']', () => step(1), 'next issue in the list', { group: G });
+  scope.bind('A', () => actions(), 'issue actions: subtask, clone, move, watchers…', { group: G, bar: 'actions' });
+  scope.bind('[', () => step(-1), 'previous issue in the list', { group: G, bar: 'issue' });
+  scope.bind(']', () => step(1), 'next issue in the list', { group: G, bar: 'issue' });
   scope.bind('Backspace', back, 'back along the trail of followed issues', { group: G });
   scope.bind('G', linked, 'go to a linked issue, child or web link', { group: G });
   scope.bind('i', () => gallery(0), 'view images', { group: G });
   scope.bind('/', () => findOpen(), 'find in the issue (n / N next, previous)', { group: G });
   scope.bind('n', () => findStep(1), 'next match', { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
   scope.bind('N', () => findStep(-1), 'previous match', { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
-  scope.bind('1', () => setTab('details'), 'details tab', { group: G });
-  scope.bind('2', () => setTab('comments'), 'comments tab', { group: G });
-  scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), 'history tab (again: work log, all)', { group: G });
+  scope.bind('1', () => setTab('details'), 'details tab', { group: G, bar: 'tabs' });
+  scope.bind('2', () => setTab('comments'), 'comments tab', { group: G, bar: 'tabs' });
+  scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), 'history tab (again: work log, all)', { group: G, bar: 'tabs' });
   scope.bind('4', () => openTerm(false), 'terminal tab: the issue\'s agent (again: the next agent)', { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || app.panel.focused()) });
   scope.bind('ctrl+\\', () => openTerm(true), 'type into the issue\'s agent (its terminal here; ctrl+\\ there back to the issue)', { group: G });
   scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
@@ -838,8 +838,8 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('y', () => copy(key, key), 'copy key', { group: G });
   scope.bind('*', () => pins.toggle(app, key, st.issue && st.issue.Summary), 'pin / unpin issue (first in the palette)', { group: G });
   scope.bind('Y', () => copy(browseURL(), 'Link'), 'copy link', { group: G });
-  scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), 'open in Jira', { group: G });
-  scope.bind('s', () => edit('status'), 'change status', { group: G });
+  scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), 'open in Jira', { group: G, bar: 'Jira' });
+  scope.bind('s', () => edit('status'), 'change status', { group: G, bar: 'status' });
 
   // ---- resize (panel only): ui.panel_width (50%) until a drag or < > picks another, 20–80%; near
   // ui.panel_width a drag snaps to it and < > stop there on the way past (TUI panel_resize.go).

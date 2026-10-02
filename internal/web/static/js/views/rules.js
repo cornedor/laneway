@@ -130,9 +130,9 @@ export default function mount(el, { app, scope, toolbar }) {
   const move = d => { if (!info || !info.Rules.length) return; sel = (sel + d + info.Rules.length) % info.Rules.length; paintList(); };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next rule', { group: 'Rules' });
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous rule', { group: 'Rules' });
-  scope.bind('t', () => { const f = F.Key; f && f.focus(); }, 'try a change (form)', { group: 'Rules' });
+  scope.bind('t', () => { const f = F.Key; f && f.focus(); }, 'try a change (form)', { group: 'Rules', bar: 'try' });
   scope.bind('R', () => load(), 'reload', { group: 'Rules' });
-  scope.bind('N', async () => { paintNotify(); await setEnabled(!enabled()); paintNotify(); }, 'toggle browser notifications', { group: 'Rules' });
+  scope.bind('N', async () => { paintNotify(); await setEnabled(!enabled()); paintNotify(); }, 'toggle browser notifications', { group: 'Rules', bar: 'notifications' });
   scope.bind('Escape', () => { if (document.activeElement && root.contains(document.activeElement)) document.activeElement.blur(); }, '', { input: true, hidden: true });
   load();
   return () => { dead = true; off(); clearTimeout(logTimer); };

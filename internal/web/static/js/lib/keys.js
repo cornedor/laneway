@@ -7,6 +7,8 @@
 //   k.bind('g b', fn, 'go to board');         // chord: keys in sequence
 //   k.bind('ctrl+Enter', fn, 'save', {input: true});   // also fires inside inputs
 //   k.bind(['j','ArrowDown'], fn, 'down');    // aliases
+//   k.bind('Enter', fn, 'open issue', {bar: 'open'});   // also in the key bar at the bottom (lib/keybar.js), as "⏎ open";
+//                                                       // aliases show the first key, binds sharing a label one hint ("H L move")
 //
 // Named keys: Enter Escape Tab ArrowUp ArrowDown ArrowLeft ArrowRight Backspace Delete Home End PageUp PageDown Space.
 // Modifiers: ctrl+ alt+ meta+ (shift is implied by the character).
@@ -62,9 +64,10 @@ export function scope(name, { modal = false, layer, covers } = {}) {
   const s = { name, modal, layer, covers, seq: ++seq, binds: [], disposed: false };
   s.bind = (spec, fn, desc = '', opts = {}) => {
     for (const sp of [].concat(spec)) {
-      const b = { fn, desc, input: !!opts.input, hidden: !!opts.hidden, help: !!opts.help, group: opts.group || name, def: sp, id: name + ':' + sp, action: actionFor(name, sp), when: opts.when, scope: name };
+      const b = { fn, desc, input: !!opts.input, hidden: !!opts.hidden, help: !!opts.help, bar: (sp === [].concat(spec)[0] && opts.bar) || '', group: opts.group || name, def: sp, id: name + ':' + sp, action: actionFor(name, sp), when: opts.when, scope: name };
       resolve(b); s.binds.push(b); remember(b);
     }
+    notify();
     return s;
   };
   s.dispose = () => { const i = scopes.indexOf(s); if (i >= 0) scopes.splice(i, 1); s.disposed = true; notify(); };
@@ -146,7 +149,7 @@ export const keys = {
     }
     return null;
   },
-  // Bindings a user can press now, newest scope first: [{group, spec, desc, rank}].
+  // Bindings a user can press now, newest scope first: [{group, spec, desc, bar, rank, run}].
   // rank 0 view, 1 a panel waiting for focus, 2 global. `help: true` binds are listed while their `when` is false.
   active() {
     const out = [], seen = new Set();
@@ -155,7 +158,7 @@ export const keys = {
       const on = !b.when || b.when();
       if (!on && !b.help) continue;
       const id = b.spec + (on ? '' : '~'); if (seen.has(id)) continue; seen.add(id);
-      out.push({ group: on ? b.group : b.group + ' (Tab to focus)', spec: b.spec, specs: b.specs, desc: b.desc, rank: !on ? 1 : GLOBAL.has(s.name) ? 2 : 0 });
+      out.push({ group: on ? b.group : b.group + ' (Tab to focus)', spec: b.spec, specs: b.specs, desc: b.desc, bar: b.bar, rank: !on ? 1 : GLOBAL.has(s.name) ? 2 : 0, run: () => press(b) });
     }
     return out;
   },
@@ -168,13 +171,14 @@ export const keys = {
       for (const b of s.binds) {
         if (b.hidden || !b.desc || (b.when && !b.when()) || MOVES.test(b.spec) || seen.has(b.spec)) continue;
         seen.add(b.spec);
-        const key = b.spec.split(' ').pop().replace(/^(ctrl|alt|meta)\+/, '');
-        out.push({ id: b.id, group: b.group, spec: b.spec, desc: b.desc, run: () => b.fn(new KeyboardEvent('keydown', { key })) });
+        out.push({ id: b.id, group: b.group, spec: b.spec, desc: b.desc, run: () => press(b) });
       }
     }
     return out;
   },
 };
+// Runs a bind as its key would, for a click on a palette row or a key bar hint.
+const press = b => b.fn(new KeyboardEvent('keydown', { key: b.spec.split(' ').pop().replace(/^(ctrl|alt|meta)\+/, '') }));
 const MOVES = /^(j|k|h|l|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|Escape|Tab|shift\+Tab|g g|G)$/;
 const GLOBAL = new Set(['global', 'timer', 'undo']);
 export const kbd = spec => spec.split(' ').map(k => k.replace('ArrowUp', '↑').replace('ArrowDown', '↓').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace('Escape', 'esc').replace('Enter', '⏎').replace('Space', '␣').replace('ctrl+', '⌃').replace('alt+', '⌥').replace('meta+', '⌘'));
