@@ -9,6 +9,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
@@ -107,6 +108,8 @@ func checkGlyph(status string) string {
 		return laneMark["indeterminate"].Render("●")
 	case forge.StatusPending:
 		return laneMark["indeterminate"].Render("○")
+	case forge.StatusWarning:
+		return mdPanelStyles["warning"].Render("!")
 	case forge.StatusManual:
 		return refDimStyle.Render("▶")
 	case forge.StatusCanceled:
@@ -165,7 +168,7 @@ func (m *Model) mrBody(mr *forge.Change) string {
 	row("Author", mr.Author)
 	row("Assignees", strings.Join(mr.Assignees, ", "))
 	row("Reviewers", strings.Join(mr.Reviewers, ", "))
-	if a := mr.Approvals; a != nil {
+	if a := mr.Approvals; a != nil && (a.Approved || a.Required > 0 || len(a.By) > 0) { // none: no rules, no one
 		v := "none"
 		switch {
 		case a.Required > 0:
@@ -188,12 +191,29 @@ func (m *Model) mrBody(mr *forge.Change) string {
 			v += refDimStyle.Render(" · " + spanText(time.Duration(c.Duration)*time.Second))
 		}
 		row("Pipeline", v)
+		// A stage's jobs that want a look, by name; the passed ones counted, as a
+		// big pipeline's names (docker/build:branch: [...]) fill the panel.
+		stageW := 0
 		for _, g := range c.Groups {
-			jobs := make([]string, len(g.Jobs))
-			for i, j := range g.Jobs {
-				jobs[i] = checkGlyph(j.Status) + " " + j.Name
+			stageW = max(stageW, ansi.StringWidth(g.Name))
+		}
+		for _, g := range c.Groups {
+			var jobs []string
+			passed := 0
+			for _, j := range g.Jobs {
+				if j.Status == forge.StatusSuccess {
+					passed++
+					continue
+				}
+				jobs = append(jobs, checkGlyph(j.Status)+" "+j.Name)
 			}
-			b.WriteString("  " + refDimStyle.Render(fmt.Sprintf("%-8s", g.Name)) + " " + strings.Join(jobs, "  ") + "\n")
+			switch {
+			case passed > 0 && len(jobs) == 0:
+				jobs = append(jobs, checkGlyph(forge.StatusSuccess)+" "+plural(passed, "job")+" passed")
+			case passed > 0:
+				jobs = append(jobs, checkGlyph(forge.StatusSuccess)+" "+strconv.Itoa(passed)+" more passed")
+			}
+			b.WriteString("  " + refDimStyle.Render(g.Name+strings.Repeat(" ", stageW-ansi.StringWidth(g.Name))) + " " + strings.Join(jobs, "  ") + "\n")
 		}
 	}
 	if d := strings.TrimSpace(mr.Description); d != "" {

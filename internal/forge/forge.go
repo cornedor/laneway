@@ -44,6 +44,7 @@ const (
 	StatusCanceled = "canceled"
 	StatusSkipped  = "skipped"
 	StatusManual   = "manual"
+	StatusWarning  = "warning" // failed, but allowed to
 )
 
 // Provider is one forge instance laneway reads change requests from.

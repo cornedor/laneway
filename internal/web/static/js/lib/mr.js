@@ -6,7 +6,7 @@ import { ago, isZero, duration } from './fmt.js';
 
 const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 // A check status → a tone and a glyph.
-const CHECK = { success: ['ok', '✓'], failed: ['err', '✗'], running: ['run', '●'], pending: ['run', '○'], manual: ['none', '▶'], canceled: ['warn', '⊘'], skipped: ['none', '»'] };
+const CHECK = { success: ['ok', '✓'], failed: ['err', '✗'], warning: ['warn', '!'], running: ['run', '●'], pending: ['run', '○'], manual: ['none', '▶'], canceled: ['warn', '⊘'], skipped: ['none', '»'] };
 const check = s => CHECK[s] || CHECK.skipped;
 
 // diffHref is the browser's diff view of the merge request at link (views/mr.js).

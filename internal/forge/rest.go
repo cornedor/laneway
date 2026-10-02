@@ -183,13 +183,14 @@ func APIMessage(body []byte) string {
 
 // WorstStatus collapses a set of jobs into one status, worst-wins, so a group
 // header reflects a failing or running job even when it's below the collapsed
-// cut. Severity: failed > running > pending > success > manual > canceled >
-// skipped; no jobs at all reports success.
+// cut. Severity: failed > running > pending > warning > success > manual >
+// canceled > skipped; no jobs at all reports success.
 func WorstStatus(jobs []Job) string {
 	rank := map[string]int{
-		StatusFailed:   7,
-		StatusRunning:  6,
-		StatusPending:  5,
+		StatusFailed:   8,
+		StatusRunning:  7,
+		StatusPending:  6,
+		StatusWarning:  5,
 		StatusSuccess:  4,
 		StatusManual:   3,
 		StatusCanceled: 2,

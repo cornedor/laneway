@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -288,24 +289,30 @@ func mergeStatusText(a apiMR) string {
 }
 
 // pipelineGroups fetches the pipeline's jobs and groups them by stage, in the
-// order the stages first appear in the response.
+// pipeline's order: GitLab lists the newest job first, so the walk runs from
+// the end. A failure the job is allowed is a warning, as GitLab shows it.
 func (c *Client) pipelineGroups(ctx context.Context, projectID, pipelineID int) ([]forge.Group, error) {
 	path := fmt.Sprintf("/projects/%d/pipelines/%d/jobs?per_page=100", projectID, pipelineID)
 	var jobs []struct {
-		Name   string `json:"name"`
-		Stage  string `json:"stage"`
-		Status string `json:"status"`
+		Name         string `json:"name"`
+		Stage        string `json:"stage"`
+		Status       string `json:"status"`
+		AllowFailure bool   `json:"allow_failure"`
 	}
 	if err := c.rest.Do(ctx, http.MethodGet, path, "pipeline jobs", nil, &jobs); err != nil {
 		return nil, err
 	}
 	var order []string
 	byStage := map[string][]forge.Job{}
-	for _, j := range jobs {
+	for _, j := range slices.Backward(jobs) {
 		if _, ok := byStage[j.Stage]; !ok {
 			order = append(order, j.Stage)
 		}
-		byStage[j.Stage] = append(byStage[j.Stage], forge.Job{Name: j.Name, Status: normStatus(j.Status)})
+		st := normStatus(j.Status)
+		if st == forge.StatusFailed && j.AllowFailure {
+			st = forge.StatusWarning
+		}
+		byStage[j.Stage] = append(byStage[j.Stage], forge.Job{Name: j.Name, Status: st})
 	}
 	groups := make([]forge.Group, 0, len(order))
 	for _, name := range order {

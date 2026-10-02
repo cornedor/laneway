@@ -41,7 +41,9 @@ func TestGet(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/merge_requests/42/approvals"):
 			w.Write([]byte(`{"approved": false, "approvals_required": 2, "approvals_left": 1, "approved_by": [{"user": {"name": "Grace Hopper"}}]}`))
 		case strings.HasSuffix(r.URL.Path, "/projects/220/pipelines/9/jobs"):
-			w.Write([]byte(`[{"name": "build", "stage": "build", "status": "success"}, {"name": "unit", "stage": "test", "status": "failed"}, {"name": "lint", "stage": "test", "status": "created"}]`))
+			// newest first, as GitLab lists them
+			w.Write([]byte(`[{"name": "lint", "stage": "test", "status": "created"}, {"name": "dockerlint", "stage": "test", "status": "failed", "allow_failure": true},
+				{"name": "unit", "stage": "test", "status": "failed"}, {"name": "build", "stage": "build", "status": "success"}]`))
 		case strings.HasSuffix(r.URL.Path, "/merge_requests/42"):
 			if !strings.Contains(r.RequestURI, "/projects/g%2Fsub%2Fp/") {
 				t.Errorf("project path not encoded: %s", r.RequestURI)
@@ -63,7 +65,8 @@ func TestGet(t *testing.T) {
 	if mr.WebURL != srv.URL+"/g/sub/p/-/merge_requests/42" {
 		t.Errorf("web url %q", mr.WebURL)
 	}
-	if mr.Checks == nil || mr.Checks.Status != forge.StatusRunning || len(mr.Checks.Groups) != 2 || mr.Checks.Groups[1].Jobs[1].Status != forge.StatusPending {
+	if c := mr.Checks; c == nil || c.Status != forge.StatusRunning || len(c.Groups) != 2 || c.Groups[0].Name != "build" ||
+		c.Groups[1].Jobs[0].Status != forge.StatusFailed || c.Groups[1].Jobs[1].Status != forge.StatusWarning || c.Groups[1].Jobs[2].Status != forge.StatusPending {
 		t.Errorf("checks = %+v", mr.Checks)
 	}
 	if mr.Approvals == nil || mr.Approvals.Left != 1 || len(mr.Approvals.By) != 1 {
