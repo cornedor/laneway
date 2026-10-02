@@ -3,7 +3,7 @@
 (() => {
   if (window.__lanewayDesktop) return;
   const post = (m) => {
-    const s = JSON.stringify(m);
+    const s = typeof m === 'string' ? m : JSON.stringify(m);
     if (window.chrome?.webview) window.chrome.webview.postMessage(s);
     else window.webkit?.messageHandlers?.external?.postMessage(s);
   };
@@ -27,5 +27,7 @@
     click(id) { const n = shown.get(id); shown.delete(id); n?.onclick?.(); },
   };
   window.Notification = DesktopNotification;
+  // The page has no Wails runtime; without this, ExecJS (our answers) waits for it.
+  post('wails:runtime:ready');
   post({ type: 'check' });
 })();
