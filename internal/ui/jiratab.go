@@ -95,6 +95,42 @@ func (m *Model) toggleCompact() {
 	m.renderJira()
 }
 
+const jiraEmptyLanesMeta = jiraMetaPrefix + "empty_lanes"
+
+// jiraHidesEmpty is whether the board hides its empty lanes: as last
+// toggled, else ui.empty_lanes.
+func (m *Model) jiraHidesEmpty() bool {
+	if v := m.jiraTab.emptyLanes; v != "" {
+		return v == "hide"
+	}
+	return m.opts.hideLanes
+}
+
+// toggleEmptyLanes hides the board's empty lanes or shows them again,
+// remembered.
+func (m *Model) toggleEmptyLanes() {
+	t := m.jiraTab
+	keep := m.selectedJiraKey()
+	if m.jiraHidesEmpty() {
+		t.emptyLanes = "show"
+	} else {
+		t.emptyLanes = "hide"
+	}
+	if m.store != nil {
+		_ = m.store.SetMeta(jiraEmptyLanesMeta, t.emptyLanes)
+	}
+	m.buildJiraLanes()
+	m.selectJiraKey(keep)
+	m.status = "empty lanes: shown"
+	if t.emptyLanes == "hide" {
+		m.status = "empty lanes: hidden"
+		if n := len(t.cols) - len(t.lanes); n > 0 {
+			m.status = fmt.Sprintf("empty lanes: %d hidden", n)
+		}
+	}
+	m.renderJira()
+}
+
 // jiraBodyTop is the screen row of the first body line: the title row, its
 // rule, the view selector and the filter line.
 const jiraBodyTop = 4
@@ -135,6 +171,7 @@ type jiraLane struct {
 	statusIDs []string
 	cards     []int
 	max       int // the column's WIP limit, 0 for none
+	col       int // its index in cols
 }
 
 // jiraAssignee is the board's assignee filter: id "" for everyone, else
@@ -295,7 +332,12 @@ type jiraTabState struct {
 	cards []jira.Card
 	total int
 	lanes []jiraLane
-	order []int // the list mode's row order, indexes into cards
+	// cols are every column, lanes the ones shown: all, or with empty
+	// lanes hidden (emptyLanes "hide", else ui.empty_lanes) those holding
+	// a card. Moves address cols, so H and L reach a hidden lane.
+	cols       []jiraLane
+	emptyLanes string
+	order      []int // the list mode's row order, indexes into cards
 	// rows caches the list mode's unselected rows, per order, for rowsFor;
 	// buildJiraLanes drops it.
 	rows    []string
@@ -882,7 +924,7 @@ func (m *Model) installJiraCards(cards []jira.Card, total int, err error, keep s
 // on a board, rank order on a list-only view.
 func (m *Model) buildJiraLanes() {
 	t := m.jiraTab
-	t.lanes = nil
+	t.lanes, t.cols = nil, nil
 	t.order = t.order[:0]
 	t.rows = nil
 	v, ok := m.jiraCurrentView()
@@ -900,9 +942,9 @@ func (m *Model) buildJiraLanes() {
 			continue
 		}
 		for _, id := range c.StatusIDs {
-			col[id] = len(t.lanes)
+			col[id] = len(t.cols)
 		}
-		t.lanes = append(t.lanes, jiraLane{name: c.Name, statusIDs: c.StatusIDs, max: c.Max})
+		t.cols = append(t.cols, jiraLane{name: c.Name, statusIDs: c.StatusIDs, max: c.Max, col: len(t.cols)})
 	}
 	var asOf time.Time
 	if t.past != nil && !t.past.loading {
@@ -919,8 +961,12 @@ func (m *Model) buildJiraLanes() {
 			}
 		}
 		if l, ok := col[cd.StatusID]; ok {
-			t.lanes[l].cards = append(t.lanes[l].cards, i)
+			t.cols[l].cards = append(t.cols[l].cards, i)
 		}
+	}
+	t.lanes = t.cols
+	if m.jiraHidesEmpty() && slices.ContainsFunc(t.cols, func(l jiraLane) bool { return len(l.cards) > 0 }) {
+		t.lanes = slices.DeleteFunc(slices.Clone(t.cols), func(l jiraLane) bool { return len(l.cards) == 0 })
 	}
 	if v.lanes {
 		for _, l := range t.lanes {
@@ -1160,6 +1206,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openQuickEdit()
 	case key.Matches(msg, m.keys.MyWork):
 		return m, m.openMyWork()
+	case key.Matches(msg, m.keys.EmptyLanes) && m.jiraShowsLanes():
+		m.toggleEmptyLanes()
+		return m, nil
 	case key.Matches(msg, m.keys.Compact):
 		m.toggleCompact()
 	case key.Matches(msg, m.keys.PanelWider):
@@ -1539,9 +1588,11 @@ func (m Model) handleJiraRanked(msg jiraRankedMsg) (tea.Model, tea.Cmd) {
 func (m *Model) moveJiraCardBy(delta int) tea.Cmd {
 	t := m.jiraTab
 	c, ok := m.selectedJiraCard()
-	from := t.lane
-	if !m.jiraShowsLanes() { // the list: the column of the card's status
-		from = slices.IndexFunc(t.lanes, func(l jiraLane) bool { return slices.Contains(l.statusIDs, c.StatusID) })
+	from := -1
+	if m.jiraShowsLanes() && t.lane < len(t.lanes) {
+		from = t.lanes[t.lane].col
+	} else if !m.jiraShowsLanes() { // the list: the column of the card's status
+		from = slices.IndexFunc(t.cols, func(l jiraLane) bool { return slices.Contains(l.statusIDs, c.StatusID) })
 	}
 	to := from + delta
 	switch {
@@ -1553,11 +1604,11 @@ func (m *Model) moveJiraCardBy(delta int) tea.Cmd {
 	case to < 0:
 		m.status = c.Key + " is in the first lane already"
 		return nil
-	case to >= len(t.lanes):
+	case to >= len(t.cols):
 		m.status = c.Key + " is in the last lane already"
 		return nil
 	}
-	if len(t.lanes[to].statusIDs) > 1 {
+	if len(t.cols[to].statusIDs) > 1 {
 		m.openJiraLaneStatusPicker(c, to)
 		return nil
 	}
@@ -1572,10 +1623,10 @@ func (m *Model) jiraStatusName(id string) string {
 	return id
 }
 
-// openJiraLaneStatusPicker asks which of lane to's statuses card goes to.
+// openJiraLaneStatusPicker asks which of column to's statuses card goes to.
 func (m *Model) openJiraLaneStatusPicker(c jira.Card, to int) {
 	t := m.jiraTab
-	lane := t.lanes[to]
+	lane := t.cols[to]
 	m.startJiraPicker(jiraPickLaneStatus, c.Key+" → "+lane.name, false)
 	items := make([]jiraPickerItem, len(lane.statusIDs))
 	for i, id := range lane.statusIDs {
@@ -1591,17 +1642,17 @@ func (m *Model) pickJiraLaneStatus(statusID string) tea.Cmd {
 	return m.moveJiraCard(pm.key, pm.lane, statusID)
 }
 
-// moveJiraCard moves the card to lane to: to status statusID, or with ""
-// to whichever of the lane's statuses the workflow reaches first. The card
-// moves on screen at once, the cursor with it; the move itself may need the
+// moveJiraCard moves the card to column to (an index into cols): to status
+// statusID, or with "" to whichever of the lane's statuses the workflow
+// reaches first. The card moves on screen at once, the cursor with it; the move itself may need the
 // transition form (jira_transition.go), and the board refetches once Jira
 // answers.
 func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	t := m.jiraTab
-	if to < 0 || to >= len(t.lanes) {
+	if to < 0 || to >= len(t.cols) {
 		return nil
 	}
-	lane := t.lanes[to]
+	lane := t.cols[to]
 	ci := slices.IndexFunc(t.cards, func(c jira.Card) bool { return c.Key == key })
 	if ci < 0 || len(lane.statusIDs) == 0 {
 		return nil
@@ -1614,7 +1665,7 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 		t.undoneMove = key
 	}
 	m.pushUndo(key+" back to "+m.jiraStatusName(cur), func(m *Model) tea.Cmd {
-		to := slices.IndexFunc(m.jiraTab.lanes, func(l jiraLane) bool { return slices.Contains(l.statusIDs, cur) })
+		to := slices.IndexFunc(m.jiraTab.cols, func(l jiraLane) bool { return slices.Contains(l.statusIDs, cur) })
 		if to < 0 {
 			m.status = key + ": its old status is not on this board"
 			return nil
@@ -3044,19 +3095,19 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 	default:
 		head = jiraLaneStyle.Render(head)
 	}
-	return laneMark[m.laneCategory(l)].Render("▍") + " " + jiraDimStyle.Render(before) + head + jiraDimStyle.Render(after)
+	return laneMark[m.laneCategory(lane.col)].Render("▍") + " " + jiraDimStyle.Render(before) + head + jiraDimStyle.Render(after)
 }
 
 // laneMark colours a lane head's mark by its status category, as the
 // panel's lozenges do. Set by applyTheme.
 var laneMark map[string]lipgloss.Style
 
-// laneCategory is lane l's status category (new, indeterminate, done): its
-// statuses' as the loaded cards show them, else by place, first to do and
-// last done.
+// laneCategory is column l's (an index into cols) status category (new,
+// indeterminate, done): its statuses' as the loaded cards show them, else
+// by place, first to do and last done.
 func (m *Model) laneCategory(l int) string {
 	t := m.jiraTab
-	for _, id := range t.lanes[l].statusIDs {
+	for _, id := range t.cols[l].statusIDs {
 		for _, c := range t.cards {
 			if c.StatusID != id {
 				continue
@@ -3073,7 +3124,7 @@ func (m *Model) laneCategory(l int) string {
 	switch l {
 	case 0:
 		return "new"
-	case len(t.lanes) - 1:
+	case len(t.cols) - 1:
 		return "done"
 	}
 	return "indeterminate"
@@ -3502,8 +3553,9 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 		m.renderJira()
 		return m, nil
 	}
-	status := ""
+	status, to := "", -1
 	if d.over >= 0 && d.over < len(t.lanes) {
+		to = t.lanes[d.over].col
 		if ids := t.lanes[d.over].statusIDs; len(ids) > 1 && d.zone >= 0 && d.zone < len(ids) {
 			status = ids[d.zone]
 		}
@@ -3518,7 +3570,7 @@ func (m Model) dropJira() (tea.Model, tea.Cmd) {
 		m.renderJira()
 		return m, band
 	}
-	if cmd := m.moveJiraCard(d.key, d.over, status); cmd != nil {
+	if cmd := m.moveJiraCard(d.key, to, status); cmd != nil {
 		if d.slotOK {
 			cmd = tea.Batch(cmd, m.rankJiraDrop(d))
 		}

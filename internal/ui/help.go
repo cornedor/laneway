@@ -42,6 +42,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.PrevView, k.NextView), "previous / next view"},
 			row(k.ToggleMode, "lanes / list"),
 			row(k.Compact, "one-line cards / full"),
+			row(k.EmptyLanes, "hide / show empty lanes"),
 			row(k.Palette, "command palette"),
 			row(k.JQL, "JQL search with completion, as a view"),
 			row(k.StartScreen, "home: my work, inbox, sprint, timer, reviews, saved searches (ui.home starts on it)"),

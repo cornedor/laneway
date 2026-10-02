@@ -65,6 +65,7 @@ type options struct {
 	doubleClick     time.Duration       // a second click within this is a double-click
 	plainIcons      bool                // issue types as letters (ui.icons: plain)
 	hideEmpty       bool                // empty extra fields fold (ui.empty_fields: hide)
+	hideLanes       bool                // empty board columns hide (ui.empty_lanes: hide)
 	roadmapDoneDays int                 // resolved epics older than this leave the roadmap
 	codeTheme       string              // chroma style for code blocks
 }
@@ -125,6 +126,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.hideEmpty = true
 	default:
 		warn = append(warn, fmt.Sprintf("ui.empty_fields: %q is not show or hide", c.EmptyFields))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.EmptyLanes)) {
+	case "", "show":
+	case "hide":
+		o.hideLanes = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.empty_lanes: %q is not show or hide", c.EmptyLanes))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Icons)) {
 	case "", "nerd":

@@ -70,7 +70,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     cards: [], total: 0, loaded: false, path: '', fetched: 0, busy: 0,
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
-    mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, cols: DEFAULT_COLS,
+    mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS,
     past: null, closed: null, pins: new Set(), notes: new Set(), starred: [], colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
     panes: [], where: new Map(), visible: [], built: '', rowH: 0,
@@ -101,9 +101,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (O)', onclick: () => cycleSwim() });
   const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, icon('columns-3'), 'Columns');
   const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
+  const emptyBtn = h('button.btn', { title: 'Hide / show empty lanes  (alt+e)', 'aria-pressed': 'false', onclick: () => setHideEmpty(!S.hideEmpty) });
   const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
   context.append(projectBtn, boardBtn, sprintBtn);
-  toolbar.append(h('span.spacer'), swimBtn, colsBtn, compactBtn, modeBtn, refreshBtn);
+  toolbar.append(h('span.spacer'), swimBtn, colsBtn, emptyBtn, compactBtn, modeBtn, refreshBtn);
 
   function renderToolbar() {
     app.chrome.label(projectBtn, S.project || '…');
@@ -112,10 +113,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     sprintBtn.textContent = sp;
     sprintBtn.hidden = !isScrum() && !viewItems().some(i => i.id.includes(':') && !i.id.startsWith('closed'));
     if (S.mode === 'lanes') setIcon(modeBtn, 'kanban', 'Lanes'); else setIcon(modeBtn, 'list', 'List');
-    swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes';
+    swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes'; emptyBtn.hidden = S.mode !== 'lanes';
     setIcon(swimBtn, 'rows-3', S.swim === 'none' ? 'Swimlanes' : 'by ' + S.swim);
     if (S.compact) setIcon(compactBtn, 'fold-vertical', 'Compact'); else setIcon(compactBtn, 'unfold-vertical', 'Full');
     compactBtn.setAttribute('aria-pressed', S.compact ? 'true' : 'false');
+    setIcon(emptyBtn, S.hideEmpty ? 'eye-off' : 'eye', S.hideEmpty ? (S.hidden ? S.hidden + ' empty hidden' : 'Empty hidden') : 'Empty shown');
+    emptyBtn.setAttribute('aria-pressed', S.hideEmpty ? 'true' : 'false');
   }
   const isScrum = () => !!S.board && S.board.Type !== 'kanban';
   const sprints = () => (S.bundle && S.bundle.sprints) || [];
@@ -436,7 +439,30 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       if (!swim) paintHead(p);
     }
     if (swim) paintSwim(groups);
+    hideEmptyLanes(swim);
     renderStats(); renderBanner();
+  }
+
+  // Columns the filters left without a card hide (alt+e, ui.empty_lanes:
+  // hide), unless every one is; a card moved into one shows it again.
+  function hideEmptyLanes(swim) {
+    const was = S.hidden;
+    const used = new Set(S.mode === 'lanes' ? S.panes.filter(p => p.all.length).map(p => p.col) : []);
+    const off = col => S.hideEmpty && used.size > 0 && !used.has(col);
+    for (const p of S.panes) if (S.mode === 'lanes') p.el.hidden = off(p.col);
+    const n = swim ? S.ncols : S.mode === 'lanes' ? S.panes.length : 0;
+    S.hidden = 0;
+    for (let col = 0; col < n; col++) if (off(col)) S.hidden++;
+    if (swim) {
+      S.heads.forEach((hd, i) => { hd.el.hidden = off(i); });
+      main.querySelector('.bd-swim').style.setProperty('--ncols', n - S.hidden);
+    }
+    if (S.hidden !== was) renderToolbar();
+  }
+  function setHideEmpty(v) {
+    S.hideEmpty = v; app.prefs.set('board.empty_lanes', v ? 'hide' : 'show');
+    layout(); renderToolbar();
+    ui.toast(v ? (S.hidden ? S.hidden + (S.hidden === 1 ? ' empty lane' : ' empty lanes') + ' hidden' : 'Empty lanes hide once a filter leaves one') : 'Empty lanes shown');
   }
 
   // Row height is measured from a real card, so density and fonts decide it.
@@ -1430,6 +1456,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     k.bind('z', () => foldBand(), 'fold the swimlane', { group: V });
     k.bind('Z', unfoldAll, 'unfold all swimlanes', { group: V });
     k.bind('c', () => setCompact(!S.compact), 'one-line cards', { group: V });
+    k.bind('alt+e', () => { if (S.mode === 'lanes') setHideEmpty(!S.hideEmpty); }, 'hide / show empty lanes', { group: V });
     k.bind('C', pickCols, 'list columns', { group: V });
     k.bind('V', () => app.go('/reports/releases'), 'releases: versions and their progress', { group: V });
     k.bind('alt+t', openPast, 'time machine: the board on earlier days', { group: V });
@@ -1471,6 +1498,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     C('fold', 'fold the swimlane', () => foldBand());
     C('unfold', 'unfold all swimlanes', unfoldAll);
     C('compact', 'one-line cards', () => setCompact(!S.compact));
+    C('empty_lanes', 'hide / show empty lanes', () => { if (S.mode !== 'lanes') setMode('lanes'); setHideEmpty(!S.hideEmpty); });
     C('columns', 'list columns', pickCols);
     C('builder', 'filter builder', openBuilder);
     C('past', 'time machine: the board on earlier days', openPast);
@@ -1551,6 +1579,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     S.sort = SORTS.includes(sort) || allCols().includes(sort) ? sort : 'rank'; S.dir = dir === '-1' ? -1 : 1;
     const sw = app.prefs.get('board.swim.' + S.board.ID, 'none'); S.swim = SWIMS.includes(sw) ? sw : 'none';
     S.compact = app.prefs.get('board.compact', '0') === '1';
+    const el = String((app.session.ui && app.session.ui.EmptyLanes) || '').toLowerCase() === 'hide' ? 'hide' : 'show';
+    S.hideEmpty = app.prefs.get('board.empty_lanes', el) === 'hide';
     S.cols = listCols();
     loadPins(); pins.register(app);
     renderToolbar(); renderBar();

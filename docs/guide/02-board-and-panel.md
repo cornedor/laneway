@@ -45,6 +45,9 @@ terms get specific, and every term must hold:
   Sorting by assignee, priority, epic or status groups the rows.
 - In lanes, `s` groups them into swimlanes by assignee, epic or priority.
   `z` folds the band under the cursor, `Z` unfolds them all.
+- `alt+e` hides lanes the filters leave empty, so the rest get the room;
+  the header counts them. `H` and `L` still move a card into one, which
+  shows it again. `ui.empty_lanes: hide` starts that way.
 
 laneway remembers the mode and swimlanes per board.
 

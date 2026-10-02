@@ -63,6 +63,7 @@ type keyMap struct {
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Review, Repeat  key.Binding
+	EmptyLanes                         key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
 	ClosedSprint, StartScreen          key.Binding
 	AgentBack                          key.Binding // out of the agent's terminal in the panel
@@ -170,6 +171,7 @@ func defaultKeys() keyMap {
 		QuickEdit:       bind("quick edit the card", "e"),
 		MyWork:          bind("my work, every project", "O"),
 		Compact:         bind("one-line cards", "c"),
+		EmptyLanes:      bind("hide / show empty lanes", "alt+e"),
 		Releases:        bind("releases: versions and their progress", "V"),
 		Review:          bind("waiting on my review (gh, glab)", "ctrl+r"),
 		Repeat:          bind("do the last change again on the selected card", "."),
@@ -576,6 +578,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 	m.loadPanelWidth()
 	if m.store != nil {
 		_, m.jiraTab.compact, _ = m.store.GetMeta(jiraCompactMeta)
+		m.jiraTab.emptyLanes, _, _ = m.store.GetMeta(jiraEmptyLanesMeta)
 		v, _, _ := m.store.GetMeta(createMoreMeta)
 		m.createMore = v == "true"
 		m.jiraClient.SetQueue(queueTo(m.store))

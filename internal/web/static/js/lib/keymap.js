@@ -11,7 +11,7 @@ const TABLE = {
   board: { ...COMMON, Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', r: 'refresh', o: 'browser', h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Enter: 'open', s: 'status', e: 'summary', a: 'assign', p: 'priority', P: 'points',
     H: 'move_left', L: 'move_right', J: 'rank_down', K: 'rank_up', 'alt+k': 'rank_top', 'alt+j': 'rank_bottom', x: 'mark', 'ctrl+a': 'mark_all', X: 'bulk', t: 'toggle_mode', O: 'sort',
     B: 'board', 'alt+p': 'project', '[': 'prev_view', ']': 'next_view', m: 'mine', A: 'assignee_filter', 0: 'clear_filters', F: 'filter_builder', Y: 'copy_url', 'ctrl+y': 'copy_branch',
-    '*': 'pin', z: 'fold', Z: 'unfold_all', c: 'compact', '.': 'repeat', 'alt+t': 'time_machine', 'alt+o': 'closed_sprint', M: 'move_sprint', E: 'quick_edit', V: 'releases' },
+    '*': 'pin', z: 'fold', Z: 'unfold_all', c: 'compact', 'alt+e': 'empty_lanes', '.': 'repeat', 'alt+t': 'time_machine', 'alt+o': 'closed_sprint', M: 'move_sprint', E: 'quick_edit', V: 'releases' },
   planning: { ...COMMON, h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', o: 'browser', J: 'rank_down', K: 'rank_up', m: 'move_sprint', x: 'mark', N: 'plan_new', Z: 'plan_start', C: 'plan_complete', E: 'plan_rename', P: 'points', B: 'board', 'alt+p': 'project', Enter: 'open', R: 'refresh', e: 'quick_edit', X: 'bulk' },
   reports: { ...COMMON, R: 'refresh', Enter: 'open', '[': 'prev_view', ']': 'next_view' },
   roadmap: { ...COMMON, Home: 'top', End: 'bottom', o: 'browser', h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', '+': 'zoom_in', '-': 'zoom_out', '.': 'today', Space: 'roadmap_fold', R: 'refresh', Enter: 'open',

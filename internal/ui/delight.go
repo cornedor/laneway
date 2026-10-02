@@ -66,8 +66,8 @@ func (m *Model) celebrateMove(key string) tea.Cmd {
 		return nil
 	}
 	ci := slices.IndexFunc(t.cards, func(c jira.Card) bool { return c.Key == key })
-	for l, lane := range t.lanes {
-		if ci >= 0 && slices.Contains(lane.cards, ci) && m.laneCategory(l) == "done" {
+	for _, lane := range t.lanes {
+		if ci >= 0 && slices.Contains(lane.cards, ci) && m.laneCategory(lane.col) == "done" {
 			t.confetti = confetti{lane: lane.name, seq: t.confetti.seq + 1}
 			m.renderJira()
 			return confettiTick(t.confetti.seq)

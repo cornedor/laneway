@@ -194,6 +194,9 @@ type UIConfig struct {
 	// EmptyFields is "show" (default: every editable field in the panel)
 	// or "hide" (empty ones fold behind a row that shows them).
 	EmptyFields string `yaml:"empty_fields"`
+	// EmptyLanes is "show" (default) or "hide": board columns without a
+	// card after the filters make way for the rest, until toggled.
+	EmptyLanes string `yaml:"empty_lanes"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
 	CustomFields []string `yaml:"custom_fields"`

@@ -126,6 +126,43 @@ func TestJiraTabMoveCard(t *testing.T) {
 	}
 }
 
+// TestJiraTabEmptyLanes: alt+e hides lanes the filters leave empty and
+// says how many; L still reaches a hidden lane, which shows again; a board
+// with no card keeps every lane.
+func TestJiraTabEmptyLanes(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.cards[1].StatusID = "1" // In progress empties
+	m.buildJiraLanes()
+	out, _ := m.handleJiraKey(keyMsg(t, "alt+e"))
+	m = out.(Model)
+	if n := len(m.jiraTab.lanes); n != 2 || m.jiraTab.lanes[1].name != "Done" {
+		t.Fatalf("%d lanes, want To do and Done", n)
+	}
+	if s := ansi.Strip(m.View().Content); !strings.Contains(s, "1 empty hidden") {
+		t.Errorf("header does not count the hidden lane:\n%s", s)
+	}
+	if v, _, _ := m.store.GetMeta(jiraEmptyLanesMeta); v != "hide" {
+		t.Errorf("remembered %q, want hide", v)
+	}
+	m.selectJiraKey("ABC-1")
+	out, _ = m.handleJiraKey(keyMsg(t, "L"))
+	m = out.(Model)
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || len(m.jiraTab.lanes) != 3 || m.jiraTab.lanes[m.jiraTab.lane].name != "In progress" {
+		t.Fatalf("cursor on %q in %d lanes, want ABC-1 in In progress shown again", c.Key, len(m.jiraTab.lanes))
+	}
+	for i := range m.jiraTab.cards {
+		m.jiraTab.cards[i].StatusID = "9" // in no column
+	}
+	m.buildJiraLanes()
+	if n := len(m.jiraTab.lanes); n != 3 {
+		t.Errorf("an empty board shows %d lanes, want all 3", n)
+	}
+	out, _ = m.handleJiraKey(keyMsg(t, "alt+e"))
+	if m = out.(Model); m.jiraHidesEmpty() {
+		t.Error("alt+e again should show empty lanes")
+	}
+}
+
 // TestJiraTabDragDrop: dragging a card onto another lane moves it there.
 func TestJiraTabDragDrop(t *testing.T) {
 	m := jiraTabModel(t)

@@ -5,6 +5,7 @@
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
 //   board.refresh  seconds between idle refetches, '0' = off (default 120)
+//   board.empty_lanes  'show' | 'hide'               (default: session.ui.EmptyLanes or 'show'; alt+e)
 // Card fields and the card limit are the config's ui.card_fields and ui.card_limit (below).
 // Changing one emits bus 'prefs' {key, value}.
 import { h, clear } from '../lib/dom.js';
@@ -74,6 +75,7 @@ export default function mount(el, { app, scope, toolbar }) {
     action('Test notification', 'shows one now', 'Notifications', () => { if (!notifier.notify('laneway', 'Notifications work.')) app.ui.toast('Turn notifications on first', { kind: 'err' }); }),
 
     choice('Default mode', 'how the board opens (this browser)', 'Board (this browser)', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
+    choice('Empty lanes', 'columns the filters leave without a card (alt+e)', 'Board (this browser)', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
     choice('Auto refresh', 'refetch an idle board', 'Board (this browser)', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
 
     s.autostart && { name: 'Start at login', desc: 'runs laneway web in the background when you log in, on ' + location.host + ' (' + s.autostart.path + ')', section: 'App', meta: 'autostart startup boot service systemd launchd',

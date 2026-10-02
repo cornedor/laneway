@@ -21,6 +21,7 @@
 
 /* lanes */
 .bd-lanes { position: absolute; inset: 0; display: flex; gap: var(--pad); padding: var(--pad); overflow-x: auto; }
+.bd-lane[hidden], .bd-lane-head[hidden] { display: none; }
 .bd-lane { flex: 1 1 0; min-width: 17.857rem; display: flex; flex-direction: column; min-height: 0; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; }
 .bd-lane.drop { border-color: var(--accent); background: var(--accent-bg); }
 .bd-lane-head { display: flex; align-items: center; gap: .571rem; padding: .5rem .714rem; border-bottom: 1px solid var(--border); border-top: 3px solid var(--cat-indeterminate); border-radius: 8px 8px 0 0; font-weight: 600; font-size: .92em; text-transform: uppercase; letter-spacing: .04em; color: var(--fg-2); }

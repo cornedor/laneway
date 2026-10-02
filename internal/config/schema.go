@@ -57,6 +57,7 @@ var SettingDefaults = map[string]string{
 	"double_click":         "400ms",
 	"icons":                "nerd",
 	"empty_fields":         "show",
+	"empty_lanes":          "show",
 	"custom_fields":        "none",
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
@@ -78,7 +79,7 @@ type SettingGroup struct {
 // SettingGroups are the settings screen's headings and their options, in
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
-	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "custom_fields", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
+	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
 	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
 	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
@@ -142,6 +143,7 @@ var SettingDocs = map[string]string{
 	"double_click":         "how quickly a second click makes a double-click (100ms–2s)",
 	"icons":                "issue type icons: Nerd Font glyphs, or letters for fonts without them",
 	"empty_fields":         "every editable field in the panel, or empty ones folded behind a row",
+	"empty_lanes":          "board columns with no card after the filters: shown, or hidden for the rest's room; the board's toggle is remembered over it",
 	"custom_fields":        "Jira fields by name that cards show and / searches",
 	"flag_value":           "the Flagged field's option flagging sets",
 	"work_agent":           "the herdr agent kind S launches",
@@ -168,7 +170,7 @@ func SettingChoices(name string) []string {
 		return []string{"fullscreen", "panel"}
 	case "icons":
 		return []string{"nerd", "plain"}
-	case "empty_fields":
+	case "empty_fields", "empty_lanes":
 		return []string{"show", "hide"}
 	case "saved_filters", "mouse", "delight", "update_check", "threaded_replies":
 		return []string{"on", "off"}
