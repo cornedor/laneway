@@ -208,8 +208,8 @@ func TestGitLabNoteResolve(t *testing.T) {
 	}
 }
 
-// TestGitLabDraftEditAgent: a pending note reworded; an agent review without
-// herdr says so.
+// TestGitLabDraftEditAgent: a pending note reworded, kept on its line; an agent
+// review without herdr says so.
 func TestGitLabDraftEditAgent(t *testing.T) {
 	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
 	old := herdrClient
@@ -217,6 +217,10 @@ func TestGitLabDraftEditAgent(t *testing.T) {
 	t.Cleanup(func() { herdrClient = old })
 	var writes []string
 	gl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet { // the note's own, read to keep its position
+			w.Write([]byte(`{"id": 4, "note": "worded", "position": {"position_type": "text", "new_path": "a.go", "new_line": 3}}`))
+			return
+		}
 		b, _ := io.ReadAll(r.Body)
 		writes = append(writes, r.Method+" "+r.URL.Path+" "+string(b))
 		w.Write([]byte(`{}`))
@@ -227,7 +231,7 @@ func TestGitLabDraftEditAgent(t *testing.T) {
 	if rec := call(s, "PUT", "/api/gitlab/draft"+q+"&draft=4", `{"Body": "reworded"}`, ""); rec.Code != 200 {
 		t.Fatalf("edit: %d %s", rec.Code, rec.Body)
 	}
-	if len(writes) != 1 || !strings.HasPrefix(writes[0], "PUT /api/v4/projects/g/p/merge_requests/7/draft_notes/4 ") || !strings.Contains(writes[0], `"note":"reworded"`) {
+	if len(writes) != 1 || !strings.HasPrefix(writes[0], "PUT /api/v4/projects/g/p/merge_requests/7/draft_notes/4 ") || !strings.Contains(writes[0], `"note":"reworded"`) || !strings.Contains(writes[0], `"new_line":3`) {
 		t.Errorf("writes: %q", writes)
 	}
 	if rec := call(s, "POST", "/api/gitlab/agent-review"+q, `{}`, ""); rec.Code != http.StatusServiceUnavailable {

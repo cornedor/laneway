@@ -348,3 +348,36 @@ func TestDrafts(t *testing.T) {
 		t.Errorf("writes:\n%s", strings.Join(writes, "\n"))
 	}
 }
+
+// TestEditDraft: the new text goes with the note's own position, which a PUT
+// without it would clear; a reply, without one, sends none.
+func TestEditDraft(t *testing.T) {
+	var puts []string
+	pos := `{"base_sha":"b","start_sha":"s","head_sha":"h","position_type":"text","new_path":"a.go","old_path":"a.go","new_line":4,"line_range":{"start":{"line_code":"x_1_3","type":"new","new_line":3},"end":{"line_code":"x_1_4","type":"new","new_line":4}}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			if strings.HasSuffix(r.URL.Path, "/draft_notes/3") {
+				w.Write([]byte(`{"id": 3, "note": "nit", "position": ` + pos + `}`))
+			} else {
+				w.Write([]byte(`{"id": 4, "note": "yes", "discussion_id": "d1", "position": null}`))
+			}
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		puts = append(puts, r.Method+" "+r.URL.Path+" "+string(b))
+		w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	c, ctx := newTestClient(srv), context.Background()
+	if err := c.EditDraft(ctx, "g/p", 42, 3, "nit: rename"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.EditDraft(ctx, "g/p", 42, 4, "yes, later"); err != nil {
+		t.Fatal(err)
+	}
+	if len(puts) != 2 || !strings.HasPrefix(puts[0], "PUT /api/v4/projects/g/p/merge_requests/42/draft_notes/3 ") ||
+		!strings.Contains(puts[0], `"note":"nit: rename"`) || !strings.Contains(puts[0], `"position":`+pos) ||
+		!strings.Contains(puts[1], `"note":"yes, later"`) || strings.Contains(puts[1], `"position"`) {
+		t.Errorf("puts:\n%s", strings.Join(puts, "\n"))
+	}
+}

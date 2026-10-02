@@ -65,16 +65,27 @@ func TestGitLab(t *testing.T) {
 	if err := c.AddDraft(ctx, ref.Repo, ref.Number, forge.NewNote{Body: "why?", ReplyTo: threads[0].ID}); err != nil {
 		t.Fatal(err)
 	}
-	if ds, _ := c.Drafts(ctx, ref.Repo, ref.Number); len(ds) != 1 {
+	// One on a line, edited: it stays on its line, as GitLab keeps a position sent back.
+	if err := c.AddDraft(ctx, ref.Repo, ref.Number, forge.NewNote{Body: "nit", NewPath: "internal/shipping/shipping.go", OldPath: "internal/shipping/shipping.go", NewLine: 3, Refs: d.Refs}); err != nil {
+		t.Fatal(err)
+	}
+	ds, _ := c.Drafts(ctx, ref.Repo, ref.Number)
+	if len(ds) != 2 || ds[1].NewLine != 3 {
 		t.Fatalf("Drafts = %+v", ds)
+	}
+	if err := c.EditDraft(ctx, ref.Repo, ref.Number, ds[1].ID, "nit: rename"); err != nil {
+		t.Fatal(err)
+	}
+	if ds, _ = c.Drafts(ctx, ref.Repo, ref.Number); len(ds) != 2 || ds[1].Body != "nit: rename" || ds[1].Path != "internal/shipping/shipping.go" || ds[1].NewLine != 3 {
+		t.Fatalf("after the edit: Drafts = %+v", ds)
 	}
 	if err := c.SubmitReview(ctx, ref.Repo, ref.Number, "", forge.VerdictApprove); err != nil {
 		t.Fatal(err)
 	}
 	threads, _ = c.Threads(ctx, ref.Repo, ref.Number)
-	ds, _ := c.Drafts(ctx, ref.Repo, ref.Number)
+	ds, _ = c.Drafts(ctx, ref.Repo, ref.Number)
 	mr, _ = c.Get(ctx, ref.Repo, ref.Number)
-	if len(threads) != 2 || len(threads[0].Notes) != 2 || len(ds) != 0 || !mr.Approvals.Approved {
+	if len(threads) != 3 || len(threads[0].Notes) != 2 || len(ds) != 0 || !mr.Approvals.Approved {
 		t.Errorf("after the review: threads %+v, drafts %d, approvals %+v", threads, len(ds), mr.Approvals)
 	}
 }

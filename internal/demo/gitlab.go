@@ -56,6 +56,15 @@ type gitlabDraft struct {
 	pos     map[string]any
 }
 
+// json is d as GitLab's draft_notes answer it.
+func (d gitlabDraft) json() map[string]any {
+	dj := map[string]any{"id": d.id, "note": d.body, "discussion_id": d.replyTo}
+	if d.pos != nil {
+		dj["position"] = d.pos
+	}
+	return dj
+}
+
 // The merge request with something to review.
 const (
 	shippingOld  = "package shipping\n\nimport \"net/http\"\n\n// Rates answers the shipping rates for a cart.\nfunc Rates(w http.ResponseWriter, r *http.Request) {\n\tregion := r.URL.Query().Get(\"region\")\n\tband := weightBand(r)\n\trate, err := carrier.Lookup(region, band)\n\tif err != nil {\n\t\thttp.Error(w, err.Error(), http.StatusBadGateway)\n\t\treturn\n\t}\n\twriteJSON(w, rate)\n}\n"
@@ -300,11 +309,7 @@ func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[st
 	case sub == "/draft_notes" && r.Method == http.MethodGet:
 		out := []any{}
 		for _, d := range s.git.drafts[iid] {
-			dj := map[string]any{"id": d.id, "note": d.body, "discussion_id": d.replyTo}
-			if d.pos != nil {
-				dj["position"] = d.pos
-			}
-			out = append(out, dj)
+			out = append(out, d.json())
 		}
 		send(out)
 	case sub == "/draft_notes" && r.Method == http.MethodPost:
@@ -329,10 +334,14 @@ func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[st
 		i := slices.IndexFunc(ds, func(d gitlabDraft) bool { return d.id == id })
 		switch {
 		case i < 0:
+		case r.Method == http.MethodGet:
+			send(ds[i].json())
+			return true
 		case r.Method == http.MethodDelete:
 			s.git.drafts[iid] = slices.Delete(ds, i, i+1)
-		case r.Method == http.MethodPut:
+		case r.Method == http.MethodPut: // as GitLab: a position not sent is cleared
 			ds[i].body, _ = body["note"].(string)
+			ds[i].pos, _ = body["position"].(map[string]any)
 		}
 		send(map[string]any{})
 	default:

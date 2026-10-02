@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/sha1"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -360,13 +361,24 @@ func (c *Client) AddDraft(ctx context.Context, project string, iid int, n forge.
 	return c.rest.Do(ctx, http.MethodPost, path, "pending note", body, nil)
 }
 
-// EditDraft replaces pending note id's text.
+// EditDraft replaces pending note id's text. GitLab's PUT clears a position
+// it is not sent, so the note's own is read and sent back: it stays on its lines.
 func (c *Client) EditDraft(ctx context.Context, project string, iid, id int, body string) error {
 	if !c.Enabled() {
 		return forge.ErrNotConfigured
 	}
 	path := fmt.Sprintf("/projects/%s/merge_requests/%d/draft_notes/%d", encodePath(project), iid, id)
-	return c.rest.Do(ctx, http.MethodPut, path, "pending note", map[string]any{"note": body}, nil)
+	var d struct {
+		Position json.RawMessage `json:"position"`
+	}
+	if err := c.rest.Do(ctx, http.MethodGet, path, "pending note", nil, &d); err != nil {
+		return err
+	}
+	req := map[string]any{"note": body}
+	if p := d.Position; len(p) > 0 && string(p) != "null" {
+		req["position"] = p
+	}
+	return c.rest.Do(ctx, http.MethodPut, path, "pending note", req, nil)
 }
 
 // DeleteDraft takes pending note id out of the review.
