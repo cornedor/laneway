@@ -138,3 +138,23 @@ func TestMeApproveMerge(t *testing.T) {
 		t.Errorf("calls:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
 	}
 }
+
+// TestSearch: merge requests whose title names the key; ABC-12 is not
+// ABC-1, and the project comes from the link.
+func TestSearch(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if r.URL.Path != "/api/v4/merge_requests" || q.Get("search") != "ABC-1" || q.Get("scope") != "all" || q.Get("in") != "title" {
+			t.Errorf("search %s", r.URL)
+		}
+		w.Write([]byte(`[
+			{"iid": 3, "title": "ABC-1: fix login", "state": "merged", "source_branch": "issue/ABC-1-login", "target_branch": "main", "web_url": "` + srv.URL + `/g/sub/p/-/merge_requests/3"},
+			{"iid": 4, "title": "ABC-12 other", "state": "opened", "web_url": "` + srv.URL + `/g/p/-/merge_requests/4"}]`))
+	}))
+	defer srv.Close()
+	got, err := newTestClient(srv).Search(context.Background(), "ABC-1")
+	if err != nil || len(got) != 1 || got[0].Repo != "g/sub/p" || got[0].Number != 3 || got[0].State != forge.StateMerged || got[0].WebURL == "" {
+		t.Fatalf("Search = %+v, %v", got, err)
+	}
+}

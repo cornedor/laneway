@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -385,4 +386,30 @@ func (c *Client) Merge(ctx context.Context, project string, iid int) error {
 // slashes into %2F (e.g. group/project → group%2Fproject) as GitLab requires.
 func encodePath(project string) string {
 	return strings.ReplaceAll(project, "/", "%2F")
+}
+
+// Search returns the merge requests whose title names key (an issue key),
+// on every project the token sees, newest first. GitLab's search matches
+// words loosely, so a title must hold key itself: ABC-1 is not ABC-12.
+func (c *Client) Search(ctx context.Context, key string) ([]*forge.Change, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	path := "/merge_requests?scope=all&state=all&in=title&per_page=20&order_by=updated_at&search=" + url.QueryEscape(key)
+	var found []apiMR
+	if err := c.rest.Do(ctx, http.MethodGet, path, "merge request search", nil, &found); err != nil {
+		return nil, err
+	}
+	named := regexp.MustCompile(`(?i)(^|[^A-Za-z0-9])` + regexp.QuoteMeta(key) + `($|[^0-9])`)
+	var out []*forge.Change
+	for _, a := range found {
+		r, ok := c.Parse(a.WebURL)
+		if !ok || !named.MatchString(a.Title) && !named.MatchString(a.SourceBranch) {
+			continue
+		}
+		ch := toChange(a, r.Repo)
+		ch.WebURL = a.WebURL
+		out = append(out, ch)
+	}
+	return out, nil
 }

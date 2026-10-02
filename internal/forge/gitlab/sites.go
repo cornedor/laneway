@@ -81,12 +81,7 @@ type Status struct {
 // Check signs in to every instance: the configured ones, then the hosts
 // glab is logged in to.
 func (s *Sites) Check(ctx context.Context) []Status {
-	hosts := slices.Clone(s.configured)
-	for _, h := range s.glabHosts() {
-		if !slices.Contains(hosts, h) {
-			hosts = append(hosts, h)
-		}
-	}
+	hosts := s.hosts()
 	out := make([]Status, len(hosts))
 	var wg sync.WaitGroup
 	for i, h := range hosts {
@@ -103,6 +98,39 @@ func (s *Sites) Check(ctx context.Context) []Status {
 	}
 	wg.Wait()
 	return out
+}
+
+// Search finds the merge requests naming key on every instance with a
+// token; gitlab.com only when configured, as all of it is too wide to
+// search. An instance that fails is left out.
+func (s *Sites) Search(ctx context.Context, key string) []*forge.Change {
+	var clients []*Client
+	for _, h := range s.hosts() {
+		if h == "gitlab.com" && !slices.Contains(s.configured, h) {
+			continue
+		}
+		if c := s.For("https://" + h); c != nil {
+			clients = append(clients, c)
+		}
+	}
+	found := make([][]*forge.Change, len(clients))
+	var wg sync.WaitGroup
+	for i, c := range clients {
+		wg.Go(func() { found[i], _ = c.Search(ctx, key) })
+	}
+	wg.Wait()
+	return slices.Concat(found...)
+}
+
+// hosts are the configured hosts, then glab's others.
+func (s *Sites) hosts() []string {
+	hosts := slices.Clone(s.configured)
+	for _, h := range s.glabHosts() {
+		if !slices.Contains(hosts, h) {
+			hosts = append(hosts, h)
+		}
+	}
+	return hosts
 }
 
 // Summary is the status in a line, for both settings screens.

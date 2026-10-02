@@ -105,7 +105,8 @@ titled with the key and summary and linking the issue: `gh` for a GitHub
 origin, `glab` otherwise. `D` in the panel lists it, with its builds,
 deployments, branches and commits; `enter` on a GitLab merge request
 reads it in the panel, pipeline and approvals included (`gitlab:` in the
-config, or a `glab auth login`). Cards show the state (`pr` in
+config, or a `glab auth login`). Without Jira's GitLab integration, `D`
+finds the merge requests whose title names the issue's key. Cards show the state (`pr` in
 `ui.card_fields`), and `/pr:open` finds the ones with an open one.
 
 ## Reviews waiting on you: `ctrl+r`

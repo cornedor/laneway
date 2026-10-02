@@ -71,3 +71,22 @@ func TestSitesCheck(t *testing.T) {
 		t.Errorf("glab's hosts after the configured: %+v", got)
 	}
 }
+
+// TestSitesSearch: every instance with a token is searched; gitlab.com
+// only when configured.
+func TestSitesSearch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`[{"iid": 1, "title": "ABC-1 fix", "web_url": "http://` + r.Host + `/g/p/-/merge_requests/1"}]`))
+	}))
+	defer srv.Close()
+	s := NewSites([]Config{{BaseURL: srv.URL, Token: "tok"}})
+	var asked []string
+	s.glab = func(h string) string { asked = append(asked, h); return "tok" }
+	s.glabHosts = func() []string { return []string{"gitlab.com"} }
+	if got := s.Search(context.Background(), "ABC-1"); len(got) != 1 || got[0].Number != 1 {
+		t.Errorf("Search = %+v", got)
+	}
+	if len(asked) != 0 {
+		t.Errorf("asked glab for %v: gitlab.com unconfigured is not searched", asked)
+	}
+}

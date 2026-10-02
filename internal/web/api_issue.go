@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/ui"
 )
 
 // Routes for the issue panel: description and comment editing, history,
@@ -222,7 +223,11 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return s.Client().DevInfo(ctx, key)
+		items, err := s.Client().DevInfo(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		return ui.DevWithGitLab(ctx, items, s.opt.GitLab, key), nil
 	})
 	get("/issues/{key}/children", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
