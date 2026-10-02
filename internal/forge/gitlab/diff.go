@@ -3,6 +3,7 @@ package gitlab
 import (
 	"cmp"
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"net/http"
@@ -288,7 +289,30 @@ func position(n forge.NewNote) map[string]any {
 	if n.NewLine > 0 {
 		pos["new_line"] = n.NewLine
 	}
+	if r := n.Range; r != nil {
+		file := cmp.Or(n.NewPath, n.OldPath)
+		pos["line_range"] = map[string]any{"start": rangeEnd(file, r.Start), "end": rangeEnd(file, r.End)}
+	}
 	return pos
+}
+
+// rangeEnd is one end of a line_range: GitLab names the line by its code,
+// sha1(path)_old_new over the counters, and says which side it is on.
+func rangeEnd(file string, p forge.LinePos) map[string]any {
+	e := map[string]any{"line_code": fmt.Sprintf("%x_%d_%d", sha1.Sum([]byte(file)), p.OldPos, p.NewPos)}
+	switch {
+	case p.NewLine > 0 && p.OldLine == 0:
+		e["type"] = "new"
+	case p.OldLine > 0 && p.NewLine == 0:
+		e["type"] = "old"
+	}
+	if p.OldLine > 0 {
+		e["old_line"] = p.OldLine
+	}
+	if p.NewLine > 0 {
+		e["new_line"] = p.NewLine
+	}
+	return e
 }
 
 // The pending review: GitLab's draft notes, which only their writer sees until

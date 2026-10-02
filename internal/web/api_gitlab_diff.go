@@ -27,11 +27,14 @@ type DiffFile struct {
 }
 
 // DiffLine is one row: K is " " context, "+", "-", "@" a hunk header, "\\"
-// a note; O and N its numbers (0 for none), H its HTML.
+// a note; O and N its numbers (0 for none), H its HTML, T its text and OP,
+// NP its counters (forge.DiffLine's OldPos, NewPos), for suggestions and
+// multi-line notes.
 type DiffLine struct {
-	K    string
-	O, N int
-	H    string
+	K      string
+	O, N   int
+	H, T   string
+	OP, NP int
 }
 
 // DiffThread is a conversation: Inline on a line of this head's diff, or
@@ -142,7 +145,7 @@ func diffFile(f forge.FileDiff, lines []forge.DiffLine) DiffFile {
 	df := DiffFile{Path: f.Path(), OldPath: f.OldPath, New: f.New, Deleted: f.Deleted, Renamed: f.Renamed, Binary: f.Binary, Generated: f.Generated, TooLarge: f.TooLarge,
 		Lines: make([]DiffLine, len(lines))}
 	for i, l := range lines {
-		df.Lines[i] = DiffLine{K: diffKinds[l.Kind], O: l.OldLine, N: l.NewLine}
+		df.Lines[i] = DiffLine{K: diffKinds[l.Kind], O: l.OldLine, N: l.NewLine, T: l.Text, OP: l.OldPos, NP: l.NewPos}
 		switch l.Kind {
 		case forge.DiffAdd:
 			df.Add++
@@ -196,6 +199,9 @@ type NoteForm struct {
 	Body, ReplyTo    string
 	OldPath, NewPath string
 	OldLine, NewLine int
+	// Range makes it a note on the lines Range.Start to Range.End, which
+	// is its line.
+	Range *forge.LineRange
 }
 
 func init() {
@@ -212,7 +218,7 @@ func init() {
 		if strings.TrimSpace(f.Body) == "" {
 			return nil, FieldError{Field: "Body", Msg: "a note needs text"}
 		}
-		n := forge.NewNote{Body: f.Body, ReplyTo: f.ReplyTo, OldPath: f.OldPath, NewPath: f.NewPath, OldLine: f.OldLine, NewLine: f.NewLine}
+		n := forge.NewNote{Body: f.Body, ReplyTo: f.ReplyTo, OldPath: f.OldPath, NewPath: f.NewPath, OldLine: f.OldLine, NewLine: f.NewLine, Range: f.Range}
 		if f.ReplyTo == "" { // a position is anchored to the diff's commits
 			d, err := c.Diff(ctx, ref.Repo, ref.Number)
 			if err != nil {

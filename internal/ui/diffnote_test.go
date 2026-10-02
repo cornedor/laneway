@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -150,4 +152,63 @@ func pressAll(t *testing.T, m Model, key tea.KeyPressMsg) Model {
 		}
 	}
 	return m
+}
+
+// TestDiffRangeSuggestion: V and moving mark lines; c notes them with a
+// line_range GitLab names by line code; s opens a suggestion of the new
+// side's lines.
+func TestDiffRangeSuggestion(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
+	var mu sync.Mutex
+	var writes []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			b, _ := io.ReadAll(r.Body)
+			mu.Lock()
+			writes = append(writes, string(b))
+			mu.Unlock()
+			w.Write([]byte(`{}`))
+			return
+		}
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/diffs"):
+			w.Write([]byte(`[{"old_path": "a.go", "new_path": "a.go", "diff": "@@ -1,2 +1,3 @@\n keep\n-old\n+new1\n+\tnew2\n"}]`))
+		case strings.HasSuffix(r.URL.Path, "/discussions"), strings.HasSuffix(r.URL.Path, "/draft_notes"), strings.HasSuffix(r.URL.Path, "/versions"):
+			w.Write([]byte(`[]`))
+		default:
+			w.Write([]byte(`{"iid": 7, "title": "T", "state": "opened", "diff_refs": {"base_sha": "b", "start_sha": "s", "head_sha": "h"}}`))
+		}
+	}))
+	defer srv.Close()
+	m := loadedJiraModel(t).WithGitLab(gitlab.NewSites([]gitlab.Config{{BaseURL: srv.URL, Token: "tok"}}))
+	link := srv.URL + "/g/p/-/merge_requests/7"
+	c, r, _ := m.gitlabMR(link)
+	out, _ := m.Update(m.showMR(c, r, link, "T")())
+	m = pressAll(t, out.(Model), keyMsg(t, "d"))
+	at := func(text string) {
+		for i, row := range m.diff.rows {
+			if row.raw == text && row.kind.commentable() {
+				m.diff.setPos(m.diff.visPos[i])
+				return
+			}
+		}
+		t.Fatalf("no row %q", text)
+	}
+	at("new1")
+	out, _ = m.handleKey(keyMsg(t, "V"))
+	m = out.(Model)
+	at("\tnew2")
+	out, _ = m.handleKey(keyMsg(t, "s"))
+	m = out.(Model)
+	if v := m.diff.note.input.Value(); v != "```suggestion:-1+0\nnew1\n⇥new2\n```" || m.diff.note.lines == nil {
+		t.Fatalf("suggestion %q, range %+v", v, m.diff.note.lines)
+	}
+	m = pressAll(t, m, keyMsg(t, "enter"))
+	mu.Lock()
+	defer mu.Unlock()
+	code := fmt.Sprintf("%x", sha1.Sum([]byte("a.go")))
+	if len(writes) != 1 || !strings.Contains(writes[0], `"line_code":"`+code+`_3_2"`) || !strings.Contains(writes[0], `"line_code":"`+code+`_3_3"`) ||
+		!strings.Contains(writes[0], `"type":"new"`) || !strings.Contains(writes[0], `"new_line":3`) || !strings.Contains(writes[0], `suggestion:-1+0\nnew1\n\tnew2`) {
+		t.Errorf("writes:\n%s", strings.Join(writes, "\n"))
+	}
 }

@@ -61,6 +61,10 @@ type diffRow struct {
 	thread   int  // index into diffState.threads for a note row, -1 otherwise
 	noteHead bool // the first row of a conversation — the one naming an author
 	draft    int  // 1 + the index into diffState.drafts for a pending note's row, 0 otherwise
+	// raw is a code row's text as it is, and oldPos, newPos its counters
+	// (forge.DiffLine's): what a suggestion and a range note are made of.
+	raw            string
+	oldPos, newPos int
 }
 
 // diffState is the whole view, hung off Model by pointer: it is far too big to
@@ -120,6 +124,9 @@ type diffState struct {
 	full map[int][]string
 
 	note diffNoteState // the composer (diffnote.go)
+	// mark is where V began a range of lines for c or s, 0 for none (1 + the
+	// row).
+	mark int
 	// drafts are your pending review's notes; verdicts S's list open, verdict
 	// its cursor.
 	drafts   []forge.Draft
@@ -458,7 +465,7 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, drafts []forge.Draft, full
 		for i, l := range lines {
 			b.rows = append(b.rows, diffRow{
 				kind: rowKindFor(l.Kind), file: fi, old: l.OldLine, new: l.NewLine,
-				text: code[i], thread: -1,
+				text: code[i], thread: -1, raw: l.Text, oldPos: l.OldPos, newPos: l.NewPos,
 			})
 			switch l.Kind {
 			case forge.DiffAdd:
@@ -907,6 +914,11 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m.quit()
 	case "esc", "q":
+		if d.mark > 0 { // the range first
+			d.mark = 0
+			m.status = ""
+			return m, nil
+		}
 		m.closeDiffView()
 		return m, nil
 	case "tab", "shift+tab":
@@ -1086,6 +1098,10 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.expandDiffFile(d.cursorFile())
 	case "c":
 		return m.openDiffNote()
+	case "s":
+		return m.openDiffSuggestion()
+	case "V":
+		return m.toggleDiffMark()
 	case "R":
 		return m.toggleDiffResolve()
 	case "x":
@@ -1342,7 +1358,10 @@ func (m *Model) diffHint() string {
 	if len(d.versions) > 1 {
 		v = "v versions · "
 	}
-	note, resolve := "c note · ", ""
+	note, resolve := "c note · s suggest · V range · ", ""
+	if d.mark > 0 {
+		note = "c note the range · s suggest · esc drop it · "
+	}
 	if r := d.rows[min(d.cursor, max(len(d.rows)-1, 0))]; len(d.rows) > 0 && r.draft > 0 {
 		resolve = "x drop it · "
 	}
@@ -1369,7 +1388,7 @@ func (m *Model) diffHint() string {
 // scroll and tinted by what kind of line it is.
 func (d *diffState) renderRow(i, width int, cursor bool) string {
 	r := d.rows[i]
-	bg := diffRowBG(r.kind, cursor)
+	bg := diffRowBG(r.kind, cursor || d.inMark(i))
 	switch r.kind {
 	case diffRowFile:
 		// The caret is the fold state, and a folded file says what it is

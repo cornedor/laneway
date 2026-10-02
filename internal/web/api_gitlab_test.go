@@ -166,6 +166,8 @@ func TestGitLabNoteResolve(t *testing.T) {
 	for _, c := range []struct{ method, path, body string }{
 		{"POST", "/api/gitlab/note" + q, `{"Body": "why?", "NewPath": "a.go", "OldPath": "a.go", "NewLine": 3}`},
 		{"POST", "/api/gitlab/note" + q, `{"Body": "ok", "ReplyTo": "d1"}`},
+		{"POST", "/api/gitlab/note" + q, `{"Body": "both", "NewPath": "a.go", "OldPath": "a.go", "NewLine": 4,
+			"Range": {"Start": {"NewLine": 3, "OldPos": 3, "NewPos": 3}, "End": {"NewLine": 4, "OldPos": 3, "NewPos": 4}}}`},
 		{"PUT", "/api/gitlab/resolve" + q + "&thread=d1", `{"Resolved": true}`},
 	} {
 		if rec := call(s, c.method, c.path, c.body, ""); rec.Code != 200 {
@@ -188,7 +190,7 @@ func TestGitLabNoteResolve(t *testing.T) {
 		t.Errorf("an unknown verdict: %d", rec.Code)
 	}
 	want := []string{"POST /api/v4/projects/g/p/merge_requests/7/draft_notes", "POST /api/v4/projects/g/p/merge_requests/7/draft_notes",
-		"PUT /api/v4/projects/g/p/merge_requests/7/discussions/d1", "DELETE /api/v4/projects/g/p/merge_requests/7/draft_notes/4",
+		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes", "PUT /api/v4/projects/g/p/merge_requests/7/discussions/d1", "DELETE /api/v4/projects/g/p/merge_requests/7/draft_notes/4",
 		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes/bulk_publish", "POST /api/v4/projects/g/p/merge_requests/7/approve"}
 	if len(writes) != len(want) {
 		t.Fatalf("writes:\n%s", strings.Join(writes, "\n"))
@@ -199,7 +201,8 @@ func TestGitLabNoteResolve(t *testing.T) {
 		}
 	}
 	if !strings.Contains(writes[0], `"head_sha":"h"`) || !strings.Contains(writes[0], `"new_line":3`) || !strings.Contains(writes[1], `"in_reply_to_discussion_id":"d1"`) ||
-		!strings.Contains(writes[4], `"reviewer_state":"requested_changes"`) || !strings.Contains(writes[4], `"note":"see notes"`) {
+		!strings.Contains(writes[2], `"line_range":{"end":{"line_code":"`) || !strings.Contains(writes[2], `_3_4","new_line":4,"type":"new"}`) ||
+		!strings.Contains(writes[5], `"reviewer_state":"requested_changes"`) || !strings.Contains(writes[5], `"note":"see notes"`) {
 		t.Errorf("bodies:\n%s", strings.Join(writes, "\n"))
 	}
 }

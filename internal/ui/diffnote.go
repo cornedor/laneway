@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -41,6 +42,8 @@ type diffNoteState struct {
 	context string
 	// submit is a review's verdict (forge.Verdict*): the text is its summary.
 	submit string
+	// lines is the range a multi-line note covers (V), ending on its line.
+	lines *forge.LineRange
 }
 
 // diffNotePostedMsg carries the result of posting an inline note.
@@ -96,6 +99,9 @@ func (m Model) openDiffNote() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	d.note = note
+	if r.kind.commentable() {
+		d.withMark()
+	}
 	return m, nil
 }
 
@@ -153,7 +159,7 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	n := d.note
-	text := strings.TrimSpace(n.input.Value())
+	text := strings.TrimSpace(strings.ReplaceAll(n.input.Value(), suggestTab, "\t"))
 	m.closeDiffNote()
 	if n.submit != "" {
 		return m, m.submitReview(n.submit, text)
@@ -170,6 +176,7 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 		NewPath: n.newPath,
 		OldLine: n.oldLine,
 		NewLine: n.newLine,
+		Range:   n.lines,
 	}
 	ctx, repo, number, gen := m.ctx, d.repo, d.number, d.gen
 	reply := n.replyTo != ""
@@ -414,4 +421,97 @@ func (m Model) deleteDiffDraft() (tea.Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		return diffReviewedMsg{gen: gen, what: "pending note dropped", err: c.DeleteDraft(ctx, repo, number, dr.ID)}
 	}
+}
+
+// --- ranges and suggestions ------------------------------------------------
+
+// toggleDiffMark starts a range of lines at the cursor (V), or drops it: c
+// then notes the lines from there to the cursor, s suggests a change to them.
+func (m Model) toggleDiffMark() (tea.Model, tea.Cmd) {
+	d := m.diff
+	switch {
+	case d.mark > 0:
+		d.mark = 0
+		m.status = ""
+	case d.cursor < len(d.rows) && d.rows[d.cursor].kind.commentable():
+		d.mark = d.cursor + 1
+		m.status = "a range from here: move to its end, c notes it, s suggests, esc drops it"
+	default:
+		m.status = "V on a line of the diff starts a range"
+	}
+	return m, nil
+}
+
+// markRange is the marked range's first and last row, ok false without one
+// or across files.
+func (d *diffState) markRange() (from, to int, ok bool) {
+	if d.mark == 0 || d.cursor >= len(d.rows) {
+		return 0, 0, false
+	}
+	from, to = min(d.mark-1, d.cursor), max(d.mark-1, d.cursor)
+	if d.rows[from].file != d.rows[to].file || !d.rows[from].kind.commentable() || !d.rows[to].kind.commentable() {
+		return 0, 0, false
+	}
+	return from, to, true
+}
+
+// inMark is whether row i is in the marked range.
+func (d *diffState) inMark(i int) bool {
+	from, to, ok := d.markRange()
+	return ok && i >= from && i <= to
+}
+
+// linePos is row r as a range end.
+func linePos(r diffRow) forge.LinePos {
+	return forge.LinePos{OldLine: r.old, NewLine: r.new, OldPos: r.oldPos, NewPos: r.newPos}
+}
+
+// withMark anchors the note being opened to the marked range, ending on its
+// last line, and says so in its context line.
+func (d *diffState) withMark() {
+	from, to, ok := d.markRange()
+	if !ok || from == to {
+		return
+	}
+	end := d.rows[to]
+	d.note.oldLine, d.note.newLine = end.old, end.new
+	d.note.lines = &forge.LineRange{Start: linePos(d.rows[from]), End: linePos(end)}
+	f := d.diff.Files[end.file]
+	d.note.context = fmt.Sprintf("%s:%s–%s", f.Path(), lineLabel(d.rows[from]), lineLabel(end))
+	d.mark = 0
+}
+
+// suggestTab stands for a tab in a suggestion while it is edited: the
+// composer turns tabs into spaces, and a suggestion has to keep them.
+const suggestTab = "⇥"
+
+// openDiffSuggestion opens the composer on a suggested change to the line,
+// or the marked range: its new side's text in a suggestion block to edit.
+func (m Model) openDiffSuggestion() (tea.Model, tea.Cmd) {
+	d := m.diff
+	from, to, ok := d.markRange()
+	if !ok {
+		from, to = d.cursor, d.cursor
+	}
+	if from >= len(d.rows) || !d.rows[from].kind.commentable() {
+		m.status = "s on a line of the diff suggests a change to it"
+		return m, nil
+	}
+	var lines []string
+	for i := from; i <= to; i++ {
+		switch r := d.rows[i]; {
+		case r.kind == diffRowDel:
+			m.status = "a suggestion replaces new lines: leave the removed ones out of the range"
+			return m, nil
+		case r.kind.commentable():
+			lines = append(lines, strings.ReplaceAll(r.raw, "\t", suggestTab))
+		}
+	}
+	out, cmd := m.openDiffNote()
+	m = out.(Model)
+	if !m.diffNoteActive() {
+		return m, cmd
+	}
+	m.diff.note.input.SetValue(fmt.Sprintf("```suggestion:-%d+0\n%s\n```", len(lines)-1, strings.Join(lines, "\n")))
+	return m, cmd
 }

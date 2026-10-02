@@ -43,24 +43,45 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     const el = h('div.df-note' + (t.Resolved ? '.resolved' : ''), { dataset: { thread: t.ID } },
       t.Outdated ? h('div.df-when', 'outdated · ' + t.Path + ':' + (t.NewLine || t.OldLine) + (t.NewLine ? '' : ' (removed)')) : null,
       (t.Notes || []).map(n => h('div', h('span.df-who', n.Author), isZero(n.Created) ? null : h('span.df-when', ago(n.Created)), h('div.md', md(n.Body)))),
-      h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => el.append(composer({ ReplyTo: t.ID }, 'Reply…')) }, 'Reply'),
+      h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => { const c = composer({ ReplyTo: t.ID }, 'Reply…'); c.classList.add('reply'); el.append(c); } }, 'Reply'),
         t.Resolvable || t.Resolved ? h('button.btn.ghost.sm', { onclick: () => resolve(t) }, t.Resolved ? 'Reopen' : 'Resolve') : null,
         t.Resolved ? h('span.df-when', 'resolved') : null));
     for (const d of (data.Drafts || [])) if (d.ReplyTo === t.ID) el.append(pending(d));
     return el;
   };
   // composer posts form (a reply, or a new thread's position) with the text typed; ctrl+enter posts, esc drops it.
-  function composer(form, placeholder) {
+  function composer(form, placeholder, lines) {
     const ta = h('textarea.input', { rows: 3, placeholder });
+    // Suggest: the lines' new side in a suggestion block to edit (a removed line has none).
+    const suggest = lines && lines.every(l => l.K !== '-') ? h('button.btn.ghost.sm', { onclick: () => {
+      ta.value = '```suggestion:-' + (lines.length - 1) + '+0\n' + lines.map(l => l.T).join('\n') + '\n```'; ta.focus();
+    } }, 'Suggest') : null;
     const post = async () => {
       const body = ta.value.trim(); if (!body) return box.remove();
       try { await api.post('/gitlab/note?url=' + encodeURIComponent(url), { ...form, Body: body }); ui.toast('In your review: Submit review publishes it', { kind: 'ok' }); load(false); }
       catch (e) { ui.errToast(e); }
     };
     ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); post(); } else if (e.key === 'Escape') { e.stopPropagation(); box.remove(); } });
-    const box = h('div.df-compose', ta, h('div.df-acts', h('button.btn.sm', { onclick: post }, form.ReplyTo ? 'Reply' : 'Add note'), h('button.btn.ghost.sm', { onclick: () => box.remove() }, 'Cancel'), h('span.df-when', 'ctrl+enter posts · esc drops it')));
+    const box = h('div.df-compose', ta, h('div.df-acts', h('button.btn.sm', { onclick: post }, form.ReplyTo ? 'Reply' : 'Add to review'), suggest, h('button.btn.ghost.sm', { onclick: () => box.remove() }, 'Cancel'),
+      h('span.df-when', 'ctrl+enter adds it' + (form.Range ? '' : form.ReplyTo ? '' : ' · shift+click another line number: a range'))));
     setTimeout(() => ta.focus());
     return box;
+  }
+  // A click on a line's number: a note on it; with shift, on the range from the line clicked last (same file).
+  let lastAt = null;
+  const lpos = l => ({ OldLine: l.K === '+' ? 0 : l.O, NewLine: l.K === '-' ? 0 : l.N, OldPos: l.OP, NewPos: l.NP });
+  function openAt(shift, fi, f, l, at_, row) {
+    for (const c of body.querySelectorAll('.df-compose:not(.reply)')) c.remove();
+    let form = at_, lines = [l], where = 'line ' + (l.N || l.O);
+    if (shift && lastAt && lastAt.fi === fi && lastAt.l !== l) {
+      const ls = f.Lines || [], a = ls.indexOf(lastAt.l), b = ls.indexOf(l), from = Math.min(a, b), to = Math.max(a, b);
+      lines = ls.slice(from, to + 1).filter(x => x.K !== '@' && x.K !== '\\');
+      const end = ls[to];
+      form = { OldPath: at_.OldPath, NewPath: at_.NewPath, OldLine: end.K === '+' ? 0 : end.O, NewLine: end.K === '-' ? 0 : end.N, Range: { Start: lpos(ls[from]), End: lpos(end) } };
+      where = 'lines ' + (ls[from].N || ls[from].O) + '–' + (end.N || end.O);
+      row = body.querySelector('#df-' + fi + ' .df-row[data-line="' + to + '"]') || row;
+    } else lastAt = { fi, l };
+    row.after(composer(form, 'Note on ' + where + '…', lines));
   }
   async function resolve(t) {
     try { await api.put('/gitlab/resolve?url=' + encodeURIComponent(url) + '&thread=' + encodeURIComponent(t.ID), { Resolved: !t.Resolved }); ui.toast(t.Resolved ? 'Thread reopened' : 'Thread resolved', { kind: 'ok' }); load(false); }
@@ -81,8 +102,8 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
       const cls = l.K === '+' ? '.add' : l.K === '-' ? '.del' : l.K === '@' ? '.hunk' : l.K === '\\' ? '.meta' : '';
       const code = h('span.df-code'); code.append(raw(l.H || ''));
       const at_ = l.K === '@' || l.K === '\\' ? null : { OldPath: f.OldPath || f.Path, NewPath: f.Path, OldLine: l.K === '+' ? 0 : l.O, NewLine: l.K === '-' ? 0 : l.N };
-      const row = h('div.df-row' + cls, h('span.df-no', { title: at_ && version === 0 ? 'Comment on this line' : '' }, l.O || ''), h('span.df-no', l.N || ''), h('span.df-mk', l.K === '+' || l.K === '-' ? l.K : ' '), code);
-      if (at_ && version === 0) for (const no of row.querySelectorAll('.df-no')) no.addEventListener('click', () => row.after(composer(at_, 'Note on line ' + (l.N || l.O) + '…')));
+      const row = h('div.df-row' + cls, { dataset: { line: (f.Lines || []).indexOf(l) } }, h('span.df-no', { title: at_ && version === 0 ? 'Comment on this line (shift: a range from the last one)' : '' }, l.O || ''), h('span.df-no', l.N || ''), h('span.df-mk', l.K === '+' || l.K === '-' ? l.K : ' '), code);
+      if (at_ && version === 0) for (const no of row.querySelectorAll('.df-no')) no.addEventListener('click', e => openAt(e.shiftKey, i, f, l, at_, row));
       rows.append(row);
       const ts = (l.N && at.get('n' + l.N)) || (l.K === '-' && l.O && at.get('o' + l.O));
       if (ts && l.K !== '@') { for (const t of ts) rows.append(note(t)); at.delete(l.N ? 'n' + l.N : 'o' + l.O); }

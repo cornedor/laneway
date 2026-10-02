@@ -169,6 +169,19 @@ type NewNote struct {
 	NewPath string
 	OldLine int // 0 = the line does not exist on the old side
 	NewLine int // 0 = the line does not exist on the new side
+	// Range, when set, makes it a note on the lines Range.Start to the line
+	// above (which is Range.End).
+	Range *LineRange
+}
+
+// LineRange is a multi-line note's first and last line.
+type LineRange struct{ Start, End LinePos }
+
+// LinePos is one line of the diff: its numbers on each side (0 for none),
+// and its counters (DiffLine.OldPos, NewPos).
+type LinePos struct {
+	OldLine, NewLine int
+	OldPos, NewPos   int
 }
 
 // Draft is a note in the pending review, seen only by its writer until the
@@ -207,6 +220,10 @@ type DiffLine struct {
 	Text    string
 	OldLine int
 	NewLine int
+	// OldPos and NewPos are the two sides' counters at the line, as GitLab's
+	// line codes number it: an added line's OldPos is the old line it comes
+	// before, a removed line's NewPos the new one.
+	OldPos, NewPos int
 }
 
 // ParseUnifiedDiff turns a unified diff body into rows with line numbers on
@@ -248,19 +265,19 @@ func ParseUnifiedDiff(diff string) []DiffLine {
 			// A context line whose single leading space was stripped somewhere
 			// along the way. Treated as the empty line it is, so the numbering
 			// downstream stays aligned with the file.
-			out = append(out, DiffLine{Kind: DiffContext, OldLine: oldNo, NewLine: newNo})
+			out = append(out, DiffLine{Kind: DiffContext, OldLine: oldNo, NewLine: newNo, OldPos: oldNo, NewPos: newNo})
 			oldNo++
 			newNo++
 		case ln[0] == '+':
-			out = append(out, DiffLine{Kind: DiffAdd, Text: ln[1:], NewLine: newNo})
+			out = append(out, DiffLine{Kind: DiffAdd, Text: ln[1:], NewLine: newNo, OldPos: oldNo, NewPos: newNo})
 			newNo++
 		case ln[0] == '-':
-			out = append(out, DiffLine{Kind: DiffDel, Text: ln[1:], OldLine: oldNo})
+			out = append(out, DiffLine{Kind: DiffDel, Text: ln[1:], OldLine: oldNo, OldPos: oldNo, NewPos: newNo})
 			oldNo++
 		case ln[0] == '\\': // "\ No newline at end of file"
 			out = append(out, DiffLine{Kind: DiffMeta, Text: ln})
 		default: // ' ' and anything else: context
-			out = append(out, DiffLine{Kind: DiffContext, Text: ln[1:], OldLine: oldNo, NewLine: newNo})
+			out = append(out, DiffLine{Kind: DiffContext, Text: ln[1:], OldLine: oldNo, NewLine: newNo, OldPos: oldNo, NewPos: newNo})
 			oldNo++
 			newNo++
 		}
@@ -278,7 +295,7 @@ func ExpandDiff(lines []DiffLine, file []string) []DiffLine {
 	nextOld, nextNew := 1, 1
 	fill := func(done func() bool) {
 		for ; !done() && nextNew <= len(file); nextNew, nextOld = nextNew+1, nextOld+1 {
-			out = append(out, DiffLine{Kind: DiffContext, Text: file[nextNew-1], OldLine: nextOld, NewLine: nextNew})
+			out = append(out, DiffLine{Kind: DiffContext, Text: file[nextNew-1], OldLine: nextOld, NewLine: nextNew, OldPos: nextOld, NewPos: nextNew})
 		}
 	}
 	first := true // the next code line opens a hunk
