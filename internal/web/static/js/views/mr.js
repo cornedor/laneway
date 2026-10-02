@@ -1,7 +1,9 @@
 // A GitLab merge request's diff (TUI: d on one in the panel): the changed files beside it, every file's lines
 // highlighted (GET /api/gitlab/diff?url=, parsed and highlighted by the server) with the inline threads under
-// their lines. j/k or ]/[ next/previous file, n/N next/previous thread, z folds the file, Z all, o GitLab,
-// r reload, esc back. #/mr?url=LINK, reached from an unfolded merge request (d, or its Diff button).
+// their lines; the ones on the merge request as a whole, and outdated ones, under Discussions at the end.
+// Reply and Resolve on a thread, a click on a line's number starts one there (POST /api/gitlab/note,
+// PUT /api/gitlab/resolve). j/k or ]/[ next/previous file, n/N next/previous thread, z folds the file, Z all,
+// o GitLab, r reload, esc back. #/mr?url=LINK, reached from an unfolded merge request (d, or its Diff button).
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { ago, isZero } from '../lib/fmt.js';
@@ -24,16 +26,39 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
 
   function threadsAt(path) {
     const m = new Map();
-    for (const t of (data.Threads || [])) if (t.Path === path) {
+    for (const t of (data.Threads || [])) if (t.Inline && t.Path === path) {
       const k = t.NewLine ? 'n' + t.NewLine : 'o' + t.OldLine;
       if (!m.has(k)) m.set(k, []);
       m.get(k).push(t);
     }
     return m;
   }
-  const note = t => h('div.df-note' + (t.Resolved ? '.resolved' : ''), { dataset: { thread: t.ID } },
-    (t.Notes || []).map(n => h('div', h('span.df-who', n.Author), isZero(n.Created) ? null : h('span.df-when', ago(n.Created)), h('div.md', md(n.Body)))),
-    t.Resolved ? h('div.df-when', 'resolved') : null);
+  const note = t => {
+    const el = h('div.df-note' + (t.Resolved ? '.resolved' : ''), { dataset: { thread: t.ID } },
+      t.Outdated ? h('div.df-when', 'outdated · ' + t.Path + ':' + (t.NewLine || t.OldLine) + (t.NewLine ? '' : ' (removed)')) : null,
+      (t.Notes || []).map(n => h('div', h('span.df-who', n.Author), isZero(n.Created) ? null : h('span.df-when', ago(n.Created)), h('div.md', md(n.Body)))),
+      h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => el.append(composer({ ReplyTo: t.ID }, 'Reply…')) }, 'Reply'),
+        t.Resolvable || t.Resolved ? h('button.btn.ghost.sm', { onclick: () => resolve(t) }, t.Resolved ? 'Reopen' : 'Resolve') : null,
+        t.Resolved ? h('span.df-when', 'resolved') : null));
+    return el;
+  };
+  // composer posts form (a reply, or a new thread's position) with the text typed; ctrl+enter posts, esc drops it.
+  function composer(form, placeholder) {
+    const ta = h('textarea.input', { rows: 3, placeholder });
+    const post = async () => {
+      const body = ta.value.trim(); if (!body) return box.remove();
+      try { await api.post('/gitlab/note?url=' + encodeURIComponent(url), { ...form, Body: body }); ui.toast(form.ReplyTo ? 'Reply added' : 'Note added', { kind: 'ok' }); load(false); }
+      catch (e) { ui.errToast(e); }
+    };
+    ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); post(); } else if (e.key === 'Escape') { e.stopPropagation(); box.remove(); } });
+    const box = h('div.df-compose', ta, h('div.df-acts', h('button.btn.sm', { onclick: post }, form.ReplyTo ? 'Reply' : 'Add note'), h('button.btn.ghost.sm', { onclick: () => box.remove() }, 'Cancel'), h('span.df-when', 'ctrl+enter posts · esc drops it')));
+    setTimeout(() => ta.focus());
+    return box;
+  }
+  async function resolve(t) {
+    try { await api.put('/gitlab/resolve?url=' + encodeURIComponent(url) + '&thread=' + encodeURIComponent(t.ID), { Resolved: !t.Resolved }); ui.toast(t.Resolved ? 'Thread reopened' : 'Thread resolved', { kind: 'ok' }); load(false); }
+    catch (e) { ui.errToast(e); }
+  }
 
   function section(f, i) {
     const at = threadsAt(f.Path), n = [...at.values()].reduce((s, l) => s + l.length, 0);
@@ -48,7 +73,10 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     for (const l of f.Lines || []) {
       const cls = l.K === '+' ? '.add' : l.K === '-' ? '.del' : l.K === '@' ? '.hunk' : l.K === '\\' ? '.meta' : '';
       const code = h('span.df-code'); code.append(raw(l.H || ''));
-      rows.append(h('div.df-row' + cls, h('span.df-no', l.O || ''), h('span.df-no', l.N || ''), h('span.df-mk', l.K === '+' || l.K === '-' ? l.K : ' '), code));
+      const at_ = l.K === '@' || l.K === '\\' ? null : { OldPath: f.OldPath || f.Path, NewPath: f.Path, OldLine: l.K === '+' ? 0 : l.O, NewLine: l.K === '-' ? 0 : l.N };
+      const row = h('div.df-row' + cls, h('span.df-no', { title: at_ && version === 0 ? 'Comment on this line' : '' }, l.O || ''), h('span.df-no', l.N || ''), h('span.df-mk', l.K === '+' || l.K === '-' ? l.K : ' '), code);
+      if (at_ && version === 0) for (const no of row.querySelectorAll('.df-no')) no.addEventListener('click', () => row.after(composer(at_, 'Note on line ' + (l.N || l.O) + '…')));
+      rows.append(row);
       const ts = (l.N && at.get('n' + l.N)) || (l.K === '-' && l.O && at.get('o' + l.O));
       if (ts && l.K !== '@') { for (const t of ts) rows.append(note(t)); at.delete(l.N ? 'n' + l.N : 'o' + l.O); }
     }
@@ -61,6 +89,9 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     files.replaceChildren(...(data.Files || []).map((f, i) => h('div.df-file-link' + (i === cur ? '.cur' : ''), { dataset: { file: i }, title: f.Path },
       h('span.df-path', f.Path), h('span.df-add', '+' + f.Add), h('span.df-del', '−' + f.Del))));
     const secs = (data.Files || []).map((f, i) => section(whole.get(i) || f, i));
+    const rest = (data.Threads || []).filter(t => !t.Inline);
+    if (rest.length) secs.push(h('section.df-sec', h('div.df-head', h('b', 'Discussions'), h('span.spacer'), h('span.df-dim', rest.length + (rest.length === 1 ? ' thread' : ' threads'))),
+      h('div.df-rows', rest.map(note))));
     if (data.Truncated) secs.push(h('div.df-msg', 'GitLab truncated this diff: the rest is only on ', h('a', { href: safe(data.WebURL) + '/diffs', target: '_blank', rel: 'noopener noreferrer' }, 'GitLab')));
     if (!secs.length) secs.push(h('div.df-msg', 'This merge request has no diff.'));
     body.replaceChildren(...secs);

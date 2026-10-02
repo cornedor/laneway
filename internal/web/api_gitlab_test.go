@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -137,5 +138,44 @@ func TestGitLabDiff(t *testing.T) {
 	var f DiffFile
 	if err := json.Unmarshal(rec.Body.Bytes(), &f); err != nil || rec.Code != 200 || len(f.Lines) != 3 || f.Lines[2].N != 2 || f.Lines[2].O != 2 || f.Lines[2].K != " " {
 		t.Errorf("whole file: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// TestGitLabNoteResolve: a new note is anchored to the diff's commits, a
+// reply is not; resolve PUTs the thread.
+func TestGitLabNoteResolve(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
+	var writes []string
+	gl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			b, _ := io.ReadAll(r.Body)
+			writes = append(writes, r.Method+" "+r.URL.Path+" "+string(b))
+			w.Write([]byte(`{}`))
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, "/diffs") {
+			w.Write([]byte(`[]`))
+			return
+		}
+		w.Write([]byte(`{"iid": 7, "diff_refs": {"base_sha": "b", "start_sha": "s", "head_sha": "h"}}`))
+	}))
+	defer gl.Close()
+	s := New(context.Background(), Options{GitLab: gitlab.NewSites([]gitlab.Config{{BaseURL: gl.URL, Token: "tok"}})})
+	q := "?url=" + url.QueryEscape(gl.URL+"/g/p/-/merge_requests/7")
+	for _, c := range []struct{ method, path, body string }{
+		{"POST", "/api/gitlab/note" + q, `{"Body": "why?", "NewPath": "a.go", "OldPath": "a.go", "NewLine": 3}`},
+		{"POST", "/api/gitlab/note" + q, `{"Body": "ok", "ReplyTo": "d1"}`},
+		{"PUT", "/api/gitlab/resolve" + q + "&thread=d1", `{"Resolved": true}`},
+	} {
+		if rec := call(s, c.method, c.path, c.body, ""); rec.Code != 200 {
+			t.Fatalf("%s %s: %d %s", c.method, c.path, rec.Code, rec.Body)
+		}
+	}
+	if rec := call(s, "POST", "/api/gitlab/note"+q, `{"Body": " "}`, ""); rec.Code != 400 {
+		t.Errorf("empty note: %d", rec.Code)
+	}
+	if len(writes) != 3 || !strings.Contains(writes[0], `"head_sha":"h"`) || !strings.Contains(writes[0], `"new_line":3`) ||
+		!strings.HasSuffix(strings.Fields(writes[1])[1], "/discussions/d1/notes") || !strings.Contains(writes[2], `"resolved":true`) {
+		t.Errorf("writes:\n%s", strings.Join(writes, "\n"))
 	}
 }

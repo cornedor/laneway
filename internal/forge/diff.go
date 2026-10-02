@@ -116,6 +116,17 @@ type Thread struct {
 	NewLine  int
 	Resolved bool
 	Notes    []Note
+	// HeadSHA is the head its position is on; one the change request has
+	// moved past is outdated.
+	HeadSHA string
+	// Resolvable is false for a plain comment, which has nothing to resolve.
+	Resolvable bool
+}
+
+// Outdated reports whether an inline conversation sits on an older head than
+// head: its line is not in the diff any more as it was.
+func (t Thread) Outdated(head string) bool {
+	return t.Inline() && t.HeadSHA != "" && head != "" && t.HeadSHA != head
 }
 
 // Inline reports whether the conversation hangs off a line of the diff. The

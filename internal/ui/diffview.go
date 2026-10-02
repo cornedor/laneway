@@ -116,6 +116,8 @@ type diffState struct {
 	// full are the files e expanded, by index: their text at the head, which
 	// fills in the lines around the hunks.
 	full map[int][]string
+
+	note diffNoteState // the composer (diffnote.go)
 }
 
 // diffHScrollStep is how far ←/→ pan a wide diff: a tab's worth of columns,
@@ -209,7 +211,7 @@ func (m Model) fetchDiff() tea.Cmd {
 		return nil
 	}
 	c, ctx, gen := d.c, m.ctx, d.gen
-	repo, number, version, askVersions := d.repo, d.number, d.version, d.versions == nil
+	repo, number, version, askVersions, full := d.repo, d.number, d.version, d.versions == nil, maps.Clone(d.full)
 	return func() tea.Msg {
 		msg := diffLoadedMsg{gen: gen}
 		if version != 0 { // an older push: its threads are on the newest's lines
@@ -232,7 +234,7 @@ func (m Model) fetchDiff() tea.Cmd {
 		// Parsed and highlighted here, off the UI goroutine: chroma costs
 		// milliseconds per file, and a merge request touching two hundred files
 		// would otherwise freeze the app for as long as it takes.
-		msg.built = buildDiff(msg.diff, msg.threads, nil)
+		msg.built = buildDiff(msg.diff, msg.threads, full)
 		return msg
 	}
 }
@@ -251,7 +253,7 @@ func (m Model) handleDiffLoaded(msg diffLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	anchor := d.cursorAnchor()
-	d.diff, d.threads, d.full = msg.diff, msg.threads, nil
+	d.diff, d.threads = msg.diff, msg.threads
 	if msg.versions != nil {
 		d.versions = msg.versions
 	}
@@ -415,7 +417,19 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, full map[int][]string) dif
 	}
 	b.fileHead = make([]int, len(d.Files))
 	stats := make([]diffFileStat, len(d.Files))
-	byLine := diffThreadIndex(threads)
+	// On the lines: the inline conversations on this head. The others (on the
+	// change request as a whole, or outdated) go to Discussions at the end.
+	var onLines []forge.Thread
+	var rest []int
+	for i, t := range threads {
+		if t.Inline() && !t.Outdated(d.Refs.HeadSHA) {
+			onLines = append(onLines, t)
+		} else {
+			onLines = append(onLines, forge.Thread{}) // keeps the indexes
+			rest = append(rest, i)
+		}
+	}
+	byLine := diffThreadIndex(onLines)
 	for fi, f := range d.Files {
 		b.fileHead[fi] = len(b.rows)
 		b.rows = append(b.rows, diffRow{kind: diffRowFile, file: fi, thread: -1, text: fileHeaderText(f)})
@@ -449,6 +463,21 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, full map[int][]string) dif
 			stats[fi].threads += open
 			stats[fi].resolved += done
 			b.rows = append(b.rows, notes...)
+		}
+	}
+	if len(rest) > 0 {
+		b.rows = append(b.rows, diffRow{kind: diffRowFile, file: -1, thread: -1, text: "Discussions"})
+		for _, ti := range rest {
+			t := threads[ti]
+			if t.Inline() {
+				n, old := t.Line()
+				where := t.Path + ":" + strconv.Itoa(n)
+				if old {
+					where += " (removed)"
+				}
+				b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: -1, thread: -1, text: "outdated · " + where})
+			}
+			b.rows = append(b.rows, diffThreadRows(t, ti, -1)...)
 		}
 	}
 	if d.Truncated {
@@ -801,6 +830,9 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if d.picking {
 		return m.handleDiffVersionKey(msg)
 	}
+	if d.note.active {
+		return m.handleDiffNoteKey(msg)
+	}
 	switch msg.String() {
 	case "ctrl+c":
 		return m.quit()
@@ -861,7 +893,7 @@ func (m Model) handleDiffVersionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		d.version, d.gen, d.loading, d.err = id, d.gen+1, true, nil
-		d.collapsed = nil
+		d.collapsed, d.full = nil, nil
 		m.status = "loading " + d.versionName(d.pick) + "…"
 		return m, m.fetchDiff()
 	}
@@ -934,6 +966,8 @@ func (m Model) handleDiffTreeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "Z":
 		d.setAllCollapsed(!d.allCollapsed())
+	case "R":
+		return m.toggleDiffResolve()
 	}
 	return m, nil
 }
@@ -975,6 +1009,10 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "e":
 		return m, m.expandDiffFile(d.cursorFile())
+	case "c":
+		return m.openDiffNote()
+	case "R":
+		return m.toggleDiffResolve()
 	case "z":
 		d.toggleCollapse(d.cursorFile())
 		d.syncTreeToCursor()
@@ -1060,6 +1098,17 @@ func (m Model) refreshDiffView() (tea.Model, tea.Cmd) {
 	d.err = nil
 	m.status = "reloading diff…"
 	return m, m.fetchDiff()
+}
+
+// reloadDiffThreads refetches without dropping the client's cached diff: after
+// a note the diff is unchanged, the conversation on it is not. The diff call
+// is a cache hit, so this costs one request.
+func (m Model) reloadDiffThreads() tea.Cmd {
+	if m.diff == nil {
+		return nil
+	}
+	m.diff.gen++
+	return m.fetchDiff()
 }
 
 // --- rendering -------------------------------------------------------------
@@ -1209,7 +1258,19 @@ func (m *Model) diffHint() string {
 	if len(d.versions) > 1 {
 		v = "v versions · "
 	}
-	return "e whole file · z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
+	note, resolve := "c note · ", ""
+	if ti := d.threadAtCursor(); ti >= 0 {
+		if d.rows[d.cursor].kind == diffRowNote {
+			note = "c reply · "
+		}
+		switch t := d.threads[ti]; {
+		case t.Resolved:
+			resolve = "R reopen · "
+		case t.Resolvable:
+			resolve = "R resolve · "
+		}
+	}
+	return note + resolve + "e whole file · z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
 }
 
 // renderRow draws one row to exactly width cells: the line-number gutter, the

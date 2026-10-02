@@ -27,6 +27,7 @@ type panelMR struct {
 	c           *gitlab.Client
 	ref         forge.Ref
 	mr          *forge.Change
+	threads     []forge.Thread
 	loading     bool
 	err         string
 	gen         int
@@ -34,9 +35,10 @@ type panelMR struct {
 
 // mrMsg is a merge request read.
 type mrMsg struct {
-	gen int
-	mr  *forge.Change
-	err error
+	gen     int
+	mr      *forge.Change
+	threads []forge.Thread
+	err     error
 }
 
 // gitlabMR is the client and reference for a merge request link, ok false
@@ -67,7 +69,11 @@ func (m *Model) openMR(c *gitlab.Client, r forge.Ref, link, title string, fresh 
 	}
 	return func() tea.Msg {
 		mr, err := c.Get(ctx, r.Repo, r.Number)
-		return mrMsg{gen: gen, mr: mr, err: err}
+		var threads []forge.Thread
+		if err == nil {
+			threads, _ = c.Threads(ctx, r.Repo, r.Number) // best-effort: the counts
+		}
+		return mrMsg{gen: gen, mr: mr, threads: threads, err: err}
 	}
 }
 
@@ -90,7 +96,7 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.mr.err = msg.err.Error()
 	} else {
-		m.mr.mr = msg.mr
+		m.mr.mr, m.mr.threads = msg.mr, msg.threads
 		MRSeen(m.store, msg.mr)
 	}
 	m.renderRef()
@@ -185,6 +191,25 @@ func (m *Model) mrBody(mr *forge.Change) string {
 		row("Approvals", v)
 	}
 	row("Labels", strings.Join(mr.Labels, ", "))
+	if ts := m.mr.threads; len(ts) > 0 {
+		open, done := 0, 0
+		for _, t := range ts {
+			switch {
+			case t.Resolved:
+				done++
+			case t.Resolvable:
+				open++
+			}
+		}
+		v := plural(len(ts), "thread")
+		if open+done > 0 {
+			v = fmt.Sprintf("%d open · %d resolved", open, done)
+			if n := len(ts) - open - done; n > 0 {
+				v += " · " + plural(n, "comment")
+			}
+		}
+		row("Threads", v+refDimStyle.Render(" · d to read and reply"))
+	}
 	if c := mr.Checks; c != nil {
 		v := checkGlyph(c.Status) + " " + c.Label
 		if c.Duration > 0 {

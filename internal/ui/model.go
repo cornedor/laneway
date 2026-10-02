@@ -973,6 +973,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDiffLoaded(msg)
 	case diffExpandedMsg:
 		return m.handleDiffExpanded(msg)
+	case diffNotePostedMsg:
+		return m.handleDiffNotePosted(msg)
+	case diffResolvedMsg:
+		return m.handleDiffResolved(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())
@@ -1252,6 +1256,9 @@ func (m Model) View() tea.View {
 	body := m.renderJiraPane(bodyH, m.width)
 	if m.diff != nil {
 		body = lipgloss.PlaceHorizontal(m.width, lipgloss.Center, m.renderDiffView(bodyH))
+		if note := m.renderDiffNote(); note != "" {
+			body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, note)
+		}
 	}
 	if m.imageView {
 		body = m.renderImageView(m.width, bodyH)
@@ -1276,7 +1283,9 @@ func (m Model) View() tea.View {
 		screen = underline(screen, m.hoverAt(m.mouseX, m.mouseY))
 	}
 	v.SetContent(screen)
-	if cx, cy, ok := m.agentTermCursor(); ok {
+	if cx, cy, ok := m.diffNoteCursor(m.renderDiffNote()); ok {
+		v.Cursor = tea.NewCursor(cx, cy)
+	} else if cx, cy, ok := m.agentTermCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)
 	} else if cx, cy, ok := m.inlineEditorCursor(); ok {
 		v.Cursor = tea.NewCursor(cx, cy)

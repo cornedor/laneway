@@ -23,6 +23,10 @@
 .df-note.resolved { border-left-color: var(--fg-3); opacity: .75; }
 .df-note .df-who { font-weight: 600; margin-right: .429rem; } .df-note .df-when { color: var(--fg-3); font-size: .85em; }
 .df-note p { margin: .143rem 0; }
+.df-acts { display: flex; gap: .429rem; align-items: center; margin-top: .286rem; }
+.df-compose { grid-column: 1 / -1; margin: .286rem .571rem .286rem 4rem; font-family: var(--font-ui, inherit); white-space: normal; }
+.df-compose textarea { width: 100%; }
+.df-row .df-no[title^="Comment"] { cursor: pointer; } .df-row .df-no[title^="Comment"]:hover { color: var(--accent); }
 .df-msg { padding: .429rem .571rem; color: var(--fg-3); font-style: italic; font-family: var(--font-ui, inherit); }
 .df-msg a { color: var(--accent); }
 .hl-k { color: var(--accent); } .hl-t { color: var(--info); } .hl-n { color: var(--warn); } .hl-g { color: var(--accent); }

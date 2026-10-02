@@ -172,17 +172,19 @@ type apiPosition struct {
 	NewPath      string `json:"new_path"`
 	OldLine      int    `json:"old_line"`
 	NewLine      int    `json:"new_line"`
+	HeadSHA      string `json:"head_sha"`
 }
 
 // apiNote is one note of a discussion.
 type apiNote struct {
-	ID        int64        `json:"id"`
-	Body      string       `json:"body"`
-	System    bool         `json:"system"`
-	Resolved  bool         `json:"resolved"`
-	CreatedAt string       `json:"created_at"`
-	Author    *apiUser     `json:"author"`
-	Position  *apiPosition `json:"position"`
+	ID         int64        `json:"id"`
+	Body       string       `json:"body"`
+	System     bool         `json:"system"`
+	Resolved   bool         `json:"resolved"`
+	Resolvable bool         `json:"resolvable"`
+	CreatedAt  string       `json:"created_at"`
+	Author     *apiUser     `json:"author"`
+	Position   *apiPosition `json:"position"`
 }
 
 // Threads returns the merge request's conversations — the inline ones and the
@@ -223,10 +225,10 @@ func toThread(id string, notes []apiNote) (forge.Thread, bool) {
 	if len(notes) == 0 {
 		return forge.Thread{}, false
 	}
-	t := forge.Thread{ID: id, Resolved: notes[0].Resolved}
+	t := forge.Thread{ID: id, Resolved: notes[0].Resolved, Resolvable: notes[0].Resolvable}
 	if pos := notes[0].Position; pos != nil && pos.PositionType == "text" {
 		t.Path, t.OldPath = pos.NewPath, pos.OldPath
-		t.OldLine, t.NewLine = pos.OldLine, pos.NewLine
+		t.OldLine, t.NewLine, t.HeadSHA = pos.OldLine, pos.NewLine, pos.HeadSHA
 		if t.Path == "" {
 			t.Path = pos.OldPath
 		}

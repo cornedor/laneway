@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cornedor/laneway/internal/forge"
@@ -33,12 +34,13 @@ type DiffLine struct {
 	H    string
 }
 
-// DiffThread is an inline conversation.
+// DiffThread is a conversation: Inline on a line of this head's diff, or
+// on the merge request as a whole, or Outdated (on a line of an earlier push).
 type DiffThread struct {
-	ID, Path         string
-	OldLine, NewLine int
-	Resolved         bool
-	Notes            []DiffNote
+	ID, Path, OldPath                      string
+	OldLine, NewLine                       int
+	Inline, Outdated, Resolved, Resolvable bool
+	Notes                                  []DiffNote
 }
 
 // DiffNote is one message of it.
@@ -71,7 +73,7 @@ func init() {
 		}
 		versions, _ := c.Versions(ctx, ref.Repo, ref.Number)
 		out := map[string]any{"Label": ref.Repo + "!" + strconv.Itoa(ref.Number), "WebURL": c.WebURL(ref.Repo, ref.Number),
-			"Truncated": d.Truncated, "Files": diffFiles(d.Files), "Threads": diffThreads(threads), "Version": version, "Versions": diffVersions(versions)}
+			"Truncated": d.Truncated, "Files": diffFiles(d.Files), "Threads": diffThreads(threads, d.Refs.HeadSHA), "Version": version, "Versions": diffVersions(versions)}
 		if mr, err := c.Get(ctx, ref.Repo, ref.Number); err == nil {
 			out["Title"] = mr.Title
 		}
@@ -170,14 +172,62 @@ func diffVersions(vs []forge.Version) []DiffVersion {
 	return out
 }
 
-func diffThreads(ts []forge.Thread) []DiffThread {
+func diffThreads(ts []forge.Thread, head string) []DiffThread {
 	out := []DiffThread{}
-	for _, t := range forge.InlineThreads(ts) {
-		dt := DiffThread{ID: t.ID, Path: t.Path, OldLine: t.OldLine, NewLine: t.NewLine, Resolved: t.Resolved}
+	for _, t := range ts {
+		dt := DiffThread{ID: t.ID, Path: t.Path, OldPath: t.OldPath, OldLine: t.OldLine, NewLine: t.NewLine, Resolved: t.Resolved, Resolvable: t.Resolvable,
+			Outdated: t.Outdated(head)}
+		dt.Inline = t.Inline() && !dt.Outdated
 		for _, n := range t.Notes {
 			dt.Notes = append(dt.Notes, DiffNote{Author: n.Author, Body: n.Body, Created: n.Created})
 		}
 		out = append(out, dt)
 	}
 	return out
+}
+
+// NoteForm is a note to post: a reply to ReplyTo, else a new conversation on
+// the line OldLine / NewLine of OldPath / NewPath (0: not on that side).
+type NoteForm struct {
+	Body, ReplyTo    string
+	OldPath, NewPath string
+	OldLine, NewLine int
+}
+
+func init() {
+	// ?url= the merge request (TUI: c in its diff).
+	post("/gitlab/note", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		f, err := Body[NoteForm](r)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(f.Body) == "" {
+			return nil, FieldError{Field: "Body", Msg: "a note needs text"}
+		}
+		n := forge.NewNote{Body: f.Body, ReplyTo: f.ReplyTo, OldPath: f.OldPath, NewPath: f.NewPath, OldLine: f.OldLine, NewLine: f.NewLine}
+		if f.ReplyTo == "" { // a position is anchored to the diff's commits
+			d, err := c.Diff(ctx, ref.Repo, ref.Number)
+			if err != nil {
+				return nil, err
+			}
+			n.Refs = d.Refs
+		}
+		return map[string]bool{"OK": true}, c.AddNote(ctx, ref.Repo, ref.Number, n)
+	})
+	// ?url= and &thread=: {Resolved} resolves it or reopens it (TUI: R).
+	put("/gitlab/resolve", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		b, err := Body[struct{ Resolved bool }](r)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]bool{"OK": true}, c.ResolveThread(ctx, ref.Repo, ref.Number, r.URL.Query().Get("thread"), b.Resolved)
+	})
 }
