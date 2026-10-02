@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -391,9 +392,10 @@ func TestBoldItalic(t *testing.T) {
 	}
 }
 
-// TestEditableKeepsWhatMarkdownLoses: a sized or wide table and a link with
-// a title stand kept rather than saved without those; a default table
-// still edits. A mention elsewhere doesn't make an inline placeholder take
+// TestEditableKeepsWhatMarkdownLoses: a sized or wide table edits under a
+// <!-- table:N --> marker keeping its layout, a link whose title markdown
+// can't write stands kept, rather than saved without those; a default
+// table edits plain. A mention elsewhere doesn't make an inline placeholder take
 // its paragraph.
 func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
 	cell := func(attrs string) string {
@@ -404,26 +406,26 @@ func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name, doc string
-		kept      bool
+		marker    string // "" when it edits plain
 	}{
-		{"default table", table(`"isNumberColumnEnabled":false,"layout":"default","localId":"x"`, `"colspan":1,"rowspan":1`), false},
-		{"current editor's table", table(`"isNumberColumnEnabled":false,"layout":"center","width":760,"displayMode":"default","localId":"x"`, `"colspan":1,"rowspan":1,"colwidth":null`), false},
-		{"fixed table", table(`"layout":"center","displayMode":"fixed"`, ``), true},
-		{"aligned start", table(`"layout":"align-start"`, ``), true},
-		{"wider", table(`"layout":"center","width":1200`, ``), true},
-		{"wide table", table(`"layout":"wide"`, ``), true},
-		{"sized column", table(`"layout":"default"`, `"colwidth":[240]`), true},
-		{"numbered", table(`"isNumberColumnEnabled":true`, ``), true},
-		{"link title", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"The Go site"}}]}]}]}`, false},
-		{"link title with a quote", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"say \"hi\""}}]}]}]}`, true},
+		{"default table", table(`"isNumberColumnEnabled":false,"layout":"default","localId":"x"`, `"colspan":1,"rowspan":1`), ""},
+		{"current editor's table", table(`"isNumberColumnEnabled":false,"layout":"center","width":760,"displayMode":"default","localId":"x"`, `"colspan":1,"rowspan":1,"colwidth":null`), ""},
+		{"fixed table", table(`"layout":"center","displayMode":"fixed"`, ``), "<!-- table:1 layout -->"},
+		{"aligned start", table(`"layout":"align-start"`, ``), "<!-- table:1 layout -->"},
+		{"wider", table(`"layout":"center","width":1200`, ``), "<!-- table:1 layout -->"},
+		{"wide table", table(`"layout":"wide"`, ``), "<!-- table:1 layout -->"},
+		{"sized column", table(`"layout":"default"`, `"colwidth":[240]`), "<!-- table:1 column widths -->"},
+		{"numbered", table(`"isNumberColumnEnabled":true`, ``), "<!-- table:1 numbered -->"},
+		{"link title", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"The Go site"}}]}]}]}`, ""},
+		{"link title with a quote", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Go","marks":[{"type":"link","attrs":{"href":"https://go.dev","title":"say \"hi\""}}]}]}]}`, "<!-- keep:1"},
 	} {
 		ed, err := EditableDescription(json.RawMessage(tc.doc))
 		if err != nil {
 			t.Errorf("%s: %v", tc.name, err)
 			continue
 		}
-		if kept := strings.Contains(ed.Markdown, "<!-- keep:"); kept != tc.kept {
-			t.Errorf("%s: kept %v, want %v:\n%s", tc.name, kept, tc.kept, ed.Markdown)
+		if got := strings.Contains(ed.Markdown, "<!--"); got != (tc.marker != "") || !strings.Contains(ed.Markdown, tc.marker) {
+			t.Errorf("%s: want %q:\n%s", tc.name, tc.marker, ed.Markdown)
 		}
 	}
 	doc := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"id":"a1","text":"@Ann"}}]},` +
@@ -434,6 +436,64 @@ func TestEditableKeepsWhatMarkdownLoses(t *testing.T) {
 	}
 	if strings.Contains(ed.Markdown, "<!-- keep:") || !strings.Contains(ed.Markdown, "see ⟦1") {
 		t.Errorf("the mediaInline paragraph should edit with ⟦1⟧:\n%s", ed.Markdown)
+	}
+}
+
+// TestEditTableShell: a numbered, sized table edits as a pipe table under
+// its marker; saved, it keeps its attributes and widths, the widths dropped
+// once a column is added, all of it with the marker deleted.
+func TestEditTableShell(t *testing.T) {
+	cell := func(text string, w int) string {
+		return `{"type":"tableCell","attrs":{"colwidth":[` + strconv.Itoa(w) + `]},"content":[{"type":"paragraph","content":[{"type":"text","text":"` + text + `"}]}]}`
+	}
+	doc := `{"type":"doc","content":[{"type":"table","attrs":{"isNumberColumnEnabled":true,"layout":"wide","localId":"t1"},"content":[` +
+		`{"type":"tableRow","content":[` + cell("a", 120) + `,` + cell("b", 300) + `]},` +
+		`{"type":"tableRow","content":[` + cell("c", 120) + `,` + cell("d", 300) + `]}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<!-- table:1 numbered, column widths, layout -->\n|  |  |\n| --- | --- |\n| a | b |\n| c | d |"
+	if ed.Markdown != want {
+		t.Fatalf("markdown:\n%s", ed.Markdown)
+	}
+	save := func(md string) string {
+		out, _ := json.Marshal(MarkdownToADFKept(md, ed.Kept))
+		return string(out)
+	}
+	s := save(strings.Replace(ed.Markdown, "| c | d |", "| c | d |\n| e | f |", 1))
+	if strings.Count(s, `"colwidth":[300]`) != 3 || !strings.Contains(s, `"isNumberColumnEnabled":true`) || !strings.Contains(s, `"layout":"wide"`) || !strings.Contains(s, `"text":"f"`) {
+		t.Errorf("a row added: %s", s)
+	}
+	s = save(strings.NewReplacer("|  |  |", "|  |  |  |", "| --- | --- |", "| --- | --- | --- |", "| a | b |", "| a | b | x |").Replace(ed.Markdown))
+	if strings.Contains(s, "colwidth") || !strings.Contains(s, `"isNumberColumnEnabled":true`) {
+		t.Errorf("a column added: %s", s)
+	}
+	s = save(strings.SplitN(ed.Markdown, "\n", 2)[1])
+	if strings.Contains(s, "colwidth") || strings.Contains(s, "isNumberColumnEnabled") {
+		t.Errorf("marker deleted: %s", s)
+	}
+	if s := save("<!-- table:1 numbered -->\n\ntext"); strings.Contains(s, "table") || !strings.Contains(s, `"text":"text"`) {
+		t.Errorf("table deleted: %s", s)
+	}
+}
+
+// TestEditTableCellLines: a cell's line breaks edit as <br>, its
+// paragraphs as <br><br>, and save as they were; an escaped \<br> is text.
+func TestEditTableCellLines(t *testing.T) {
+	doc := `{"type":"doc","content":[{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableCell","content":[` +
+		`{"type":"paragraph","content":[{"type":"text","text":"one"},{"type":"hardBreak"},{"type":"text","text":"two"}]},` +
+		`{"type":"paragraph","content":[{"type":"text","text":"three <br> four"}]}]}]}]}]}`
+	ed, err := EditableDescription(json.RawMessage(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `| one<br>two<br><br>three \<br> four |`; !strings.Contains(ed.Markdown, want) || strings.Contains(ed.Markdown, "<!-- keep:") {
+		t.Fatalf("want %q in:\n%s", want, ed.Markdown)
+	}
+	out, _ := json.Marshal(MarkdownToADFKept(ed.Markdown, ed.Kept))
+	if s := string(out); strings.Count(s, `"type":"paragraph"`) != 2 || strings.Count(s, `"hardBreak"`) != 1 || !strings.Contains(s, `"text":"three \u003cbr\u003e four"`) {
+		t.Errorf("saved = %s", s)
 	}
 }
 

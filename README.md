@@ -447,7 +447,10 @@ superscript and colour are `<u>`, `<sub>`, `<sup>` and
 `<span style="color:#ff5630">`; a mention is `@Ada Lovelace`, a date
 `<date>2026-09-30</date>`, a status `<status color="green">DONE</status>`,
 a smart link `<https://…>`, a link card `<!-- card: https://… -->`, a
-cell's colour `<!-- bg:#deebff -->`. `/` at a line's start lists all of
+cell's colour `<!-- bg:#deebff -->`, a line break in a cell `<br>` (a
+paragraph `<br><br>`). A numbered or sized table edits under a
+`<!-- table:1 numbered, column widths -->` line that keeps its layout, and
+its widths while the column count stays. `/` at a line's start lists all of
 these to insert (`/warn`, `/todo`, `/green`), and `@` lists people. What
 else sits inside text stands as `⟦2 …⟧`: edit around it, delete it to
 drop it. A block markdown can't keep as it is — an image, a table with

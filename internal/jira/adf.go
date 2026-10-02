@@ -253,8 +253,24 @@ func cellTexts(row adfNode, header bool) []string {
 // statusColor is a status lozenge's colour name.
 var statusColor = regexp.MustCompile(`^(neutral|purple|blue|red|yellow|green)$`)
 
-// cellText flattens a cell's blocks onto one line.
+// cellText writes a cell's blocks on one line: a line break as <br>, the
+// next paragraph after <br><br>; what else a cell holds flattened.
 func cellText(nodes []adfNode) string {
+	var parts []string
+	for _, n := range nodes {
+		s := flatText([]adfNode{n})
+		if n.Type == "paragraph" {
+			s = strings.ReplaceAll(strings.Trim(inline(n.Content), " \n"), "\n", "<br>")
+		}
+		if s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, "<br><br>")
+}
+
+// flatText flattens blocks onto one line.
+func flatText(nodes []adfNode) string {
 	var parts []string
 	for _, n := range nodes {
 		var s string
@@ -266,13 +282,31 @@ func cellText(nodes []adfNode) string {
 		case "codeBlock":
 			s = "`" + codeText(n.Content) + "`"
 		default:
-			s = cellText(n.Content)
+			s = flatText(n.Content)
 		}
 		if s = strings.TrimSpace(strings.ReplaceAll(s, "\n", " ")); s != "" {
 			parts = append(parts, s)
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+// CellLines is a table cell's text split on its unescaped <br>s; an empty
+// line between two starts a paragraph.
+func CellLines(s string) []string {
+	var out []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		switch {
+		case s[i] == '\\':
+			i++
+		case strings.HasPrefix(s[i:], "<br>"):
+			out = append(out, s[start:i])
+			i += len("<br>") - 1
+			start = i + 1
+		}
+	}
+	return append(out, s[start:])
 }
 
 // writeListItem renders one listItem: its first paragraph on the marker line,

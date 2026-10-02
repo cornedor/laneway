@@ -249,6 +249,10 @@ func editBlocks(b *strings.Builder, nodes []adfNode, raws []json.RawMessage, kep
 			continue
 		}
 		*kept = (*kept)[:had]
+		if md, ok := keptTable(n, raws[i], kept, vocab); ok {
+			b.WriteString(md)
+			continue
+		}
 		inner := childRaws(raws[i])
 		if slices.Contains(containerTypes, n.Type) && len(n.Content) > 0 && len(inner) == len(n.Content) {
 			*kept = append(*kept, shell(raws[i]))
@@ -259,6 +263,109 @@ func editBlocks(b *strings.Builder, nodes []adfNode, raws []json.RawMessage, kep
 		}
 		*kept = append(*kept, raws[i])
 		fmt.Fprintf(b, "<!-- keep:%d %s: move or delete this line -->\n\n", len(*kept), blockName(n))
+	}
+}
+
+// keptTable is table n, whose layout markdown can't write (a number
+// column, column widths, a width), as a pipe table under a marker line,
+// <!-- table:N numbered, column widths -->, raw appended to kept: on save
+// the table takes its attributes back, and its widths while it has as many
+// columns (see shapeTable). ok is false, kept as it was, when the table
+// doesn't come back as it was even so.
+func keptTable(n adfNode, raw json.RawMessage, kept *[]json.RawMessage, vocab []json.RawMessage) (string, bool) {
+	if n.Type != "table" {
+		return "", false
+	}
+	label := tableLabel(n)
+	if label == "" {
+		return "", false
+	}
+	had := len(*kept)
+	*kept = append(*kept, raw)
+	plain := plainTable(n)
+	for _, sub := range []adfNode{plain, keepInlines(plain, kept)} {
+		var b strings.Builder
+		fmt.Fprintf(&b, "<!-- table:%d %s -->\n", had+1, label)
+		writeBlock(&b, escapeTexts(sub), "")
+		if unsupported(sub) == "" && roundTrips(n, b.String(), append(slices.Clone(*kept), vocab...)) {
+			return b.String(), true
+		}
+	}
+	*kept = (*kept)[:had]
+	return "", false
+}
+
+// tableLabel names what of table n's layout markdown can't write; "" for
+// none.
+func tableLabel(n adfNode) string {
+	var what []string
+	if tableAttrs(n, "isNumberColumnEnabled") != "" {
+		what = append(what, "numbered")
+	}
+	if slices.ContainsFunc(n.Content, func(row adfNode) bool {
+		return slices.ContainsFunc(row.Content, func(c adfNode) bool { return tableAttrs(c, "colwidth") != "" })
+	}) {
+		what = append(what, "column widths")
+	}
+	if tableAttrs(n, "layout", "width", "displayMode") != "" {
+		what = append(what, "layout")
+	}
+	return strings.Join(what, ", ")
+}
+
+// plainTable is table n without the layout tableLabel names.
+func plainTable(n adfNode) adfNode {
+	out := n
+	out.Attrs = nil
+	out.Content = slices.Clone(n.Content)
+	for r, row := range out.Content {
+		row.Content = slices.Clone(row.Content)
+		for c, cell := range row.Content {
+			cell.Attrs = maps.Clone(cell.Attrs)
+			delete(cell.Attrs, "colwidth")
+			row.Content[c] = cell
+		}
+		out.Content[r] = row
+	}
+	return out
+}
+
+// shapeTable gives table, read from markdown, the layout of was, the table
+// it was kept as: its attributes, and its first row's column widths while
+// it has as many columns.
+func shapeTable(table map[string]any, was json.RawMessage) {
+	var old struct {
+		Attrs   map[string]any `json:"attrs"`
+		Content []struct {
+			Content []struct {
+				Attrs map[string]any `json:"attrs"`
+			} `json:"content"`
+		} `json:"content"`
+	}
+	if json.Unmarshal(was, &old) != nil {
+		return
+	}
+	if old.Attrs != nil {
+		table["attrs"] = old.Attrs
+	}
+	rows, _ := table["content"].([]any)
+	if len(old.Content) == 0 || len(rows) == 0 || len(rows[0].(map[string]any)["content"].([]any)) != len(old.Content[0].Content) {
+		return
+	}
+	for _, row := range rows {
+		for c, cell := range row.(map[string]any)["content"].([]any) {
+			w, ok := old.Content[0].Content[c].Attrs["colwidth"]
+			if !ok {
+				continue
+			}
+			cell := cell.(map[string]any)
+			attrs, _ := cell["attrs"].(map[string]any)
+			if attrs == nil {
+				attrs = map[string]any{}
+				cell["attrs"] = attrs
+			}
+			attrs["colwidth"] = w
+		}
 	}
 }
 
@@ -472,10 +579,7 @@ func editableBlock(n adfNode, vocab []json.RawMessage) bool {
 	}
 	var b strings.Builder
 	writeBlock(&b, escapeTexts(n), "")
-	back, _ := json.Marshal(MarkdownToADFKept(b.String(), vocab))
-	var again adfNode
-	_ = json.Unmarshal(back, &again)
-	return canon(adfNode{Type: "doc", Content: []adfNode{n}}) == canon(again)
+	return roundTrips(n, b.String(), vocab)
 }
 
 // editableWith: sub, n with inline placeholders, written as markdown and
@@ -486,7 +590,12 @@ func editableWith(n, sub adfNode, list []json.RawMessage) bool {
 	}
 	var b strings.Builder
 	writeBlock(&b, escapeTexts(sub), "")
-	back, _ := json.Marshal(MarkdownToADFKept(b.String(), list))
+	return roundTrips(n, b.String(), list)
+}
+
+// roundTrips reports whether md, read back with kept, is block n.
+func roundTrips(n adfNode, md string, kept []json.RawMessage) bool {
+	back, _ := json.Marshal(MarkdownToADFKept(md, kept))
 	var again adfNode
 	_ = json.Unmarshal(back, &again)
 	return canon(adfNode{Type: "doc", Content: []adfNode{n}}) == canon(again)
@@ -521,8 +630,9 @@ func escapeTexts(n adfNode) adfNode {
 // placeholder.
 var mdBlockStart = regexp.MustCompile(`^(#|>|-|\+|<|\||[0-9]+\.)`)
 
-// mdTagStart is an inline tag parseInline reads, at a string's start.
-var mdTagStart = regexp.MustCompile(`^(?:</?(?:u|sub|sup|span|status|date)[\s>]|<https?://)`)
+// mdTagStart is an inline tag parseInline reads, or a table cell (<br>), at a
+// string's start.
+var mdTagStart = regexp.MustCompile(`^(?:</?(?:u|sub|sup|span|status|date)[\s>]|<br>|<https?://)`)
 
 // escapeMD escapes s's markup characters; start is whether it begins a
 // line.
@@ -631,8 +741,7 @@ func unsupported(n adfNode) string {
 }
 
 // tableUnsupported names what a pipe table can't hold of table n: a
-// number column, a header column, colours, merged cells, a cell of more
-// than one line.
+// number column, colours, merged cells, a cell with more than paragraphs.
 func tableUnsupported(n adfNode) string {
 	if n.Attrs["isNumberColumnEnabled"] == true {
 		return "a numbered table"
@@ -657,17 +766,10 @@ func tableUnsupported(n adfNode) string {
 					return "a table with merged cells"
 				}
 			}
-			lines := 0
 			for _, c := range cell.Content {
-				if c.Type != "paragraph" || slices.ContainsFunc(c.Content, func(x adfNode) bool { return x.Type == "hardBreak" }) {
-					return "a table cell with more than a line"
+				if c.Type != "paragraph" {
+					return "a table cell with more than text"
 				}
-				if len(trimEnds(c.Content)) > 0 {
-					lines++
-				}
-			}
-			if lines > 1 {
-				return "a table cell with more than a line"
 			}
 		}
 	}
@@ -969,8 +1071,19 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 			blocks = append(blocks, map[string]any{"type": "mediaSingle", "attrs": map[string]any{"layout": "center"}, "content": []any{
 				map[string]any{"type": "media", "attrs": map[string]any{"type": "file", "id": m[2], "collection": "", "alt": m[1]}}}})
 			i++
+		case tableShell.MatchString(strings.TrimSpace(ln)):
+			n, _ := strconv.Atoi(tableShell.FindStringSubmatch(strings.TrimSpace(ln))[1])
+			if i++; !tableAt(lines, i) { // its table gone: the marker goes too
+				break
+			}
+			var node map[string]any
+			node, i = parseMDTable(lines, i)
+			if n >= 1 && n <= len(kept) {
+				shapeTable(node, kept[n-1])
+			}
+			blocks = append(blocks, node)
 		case tableAt(lines, i):
-			var node any
+			var node map[string]any
 			node, i = parseMDTable(lines, i)
 			blocks = append(blocks, node)
 		case mdDecision.MatchString(ln):
@@ -1035,7 +1148,7 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 // startsBlock reports whether ln opens a block other than a paragraph.
 func startsBlock(ln string) bool {
 	t := strings.TrimSpace(ln)
-	return keepLine.MatchString(t) || mdCard.MatchString(t) || mdMedia.MatchString(t) || opensContainer(t) || closesContainer(t) || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
+	return keepLine.MatchString(t) || tableShell.MatchString(t) || mdCard.MatchString(t) || mdMedia.MatchString(t) || opensContainer(t) || closesContainer(t) || strings.HasPrefix(ln, "```") || strings.HasPrefix(ln, ">") || mdHeading.MatchString(ln) ||
 		t == "---" || mdBullet.MatchString(ln) || mdOrdered.MatchString(ln) || mdDecision.MatchString(ln)
 }
 
@@ -1044,6 +1157,10 @@ var mdCard = regexp.MustCompile(`^<!-- card: (\S+) -->$`)
 
 // mdMedia is an image line EmbedImages pointed at a media file.
 var mdMedia = regexp.MustCompile(`^!\[([^\]]*)\]\(` + mediaScheme + `([0-9a-fA-F-]{36})\)$`)
+
+// tableShell is the marker line above a table edited as markdown, kept
+// for its layout (see keptTable).
+var tableShell = regexp.MustCompile(`^<!-- table:(\d+)\b.*-->$`)
 
 // tableAt reports whether a pipe table starts at lines[i]: a row, then a
 // separator row.
@@ -1054,7 +1171,7 @@ func tableAt(lines []string, i int) bool {
 
 // parseMDTable reads the pipe table at lines[i] and returns it and the
 // next line. An empty header row stands for a table without one.
-func parseMDTable(lines []string, i int) (any, int) {
+func parseMDTable(lines []string, i int) (map[string]any, int) {
 	header := splitCells(lines[i])
 	var body [][]string
 	for i += 2; i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), "|"); i++ {
@@ -1082,7 +1199,7 @@ func parseMDTable(lines []string, i int) (any, int) {
 					break
 				}
 			}
-			cell["content"] = []any{map[string]any{"type": "paragraph", "content": inlineContent(text)}}
+			cell["content"] = cellBlocks(text)
 			out = append(out, cell)
 		}
 		return map[string]any{"type": "tableRow", "content": out}
@@ -1095,6 +1212,21 @@ func parseMDTable(lines []string, i int) (any, int) {
 		rows = append(rows, row(r, "tableCell"))
 	}
 	return map[string]any{"type": "table", "content": rows}, i
+}
+
+// cellBlocks is a cell's text as its paragraphs: <br> breaks a line, an
+// empty line between two (<br><br>) starts the next paragraph.
+func cellBlocks(text string) []any {
+	var paras []any
+	var lines []string
+	for _, ln := range CellLines(text) {
+		if ln == "" && len(lines) > 0 {
+			paras, lines = append(paras, paragraph(lines)), nil
+			continue
+		}
+		lines = append(lines, ln)
+	}
+	return append(paras, paragraph(lines))
 }
 
 // mdCellBG is a cell's background marker, <!-- bg:#deebff -->.

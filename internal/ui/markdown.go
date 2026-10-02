@@ -593,10 +593,13 @@ func parseTable(lines []string, i int, ei *emojiImages, mr changeInlineFn, self 
 		for c := 0; c < n; c++ {
 			if c < len(cells) {
 				text, bg, header := cellBackground(strings.TrimSpace(cells[c]))
-				row[c] = renderInline(text, ei, mr, self)
-				if header {
-					row[c] = tableHeaderStyle.Render(row[c])
+				lines := jira.CellLines(text)
+				for k, ln := range lines {
+					if lines[k] = renderInline(ln, ei, mr, self); header {
+						lines[k] = tableHeaderStyle.Render(lines[k])
+					}
 				}
+				row[c] = strings.Join(lines, tableBreak)
 				if bg != "" {
 					row[c] = tableBGStart + bg + tableBGEnd + row[c]
 				}

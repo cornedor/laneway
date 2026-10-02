@@ -90,7 +90,10 @@ show styled as you type.
     `<!-- expand: Title -->` and `<!-- /expand -->`
   - an action item `- [ ] ` (`- [x] ` done), a decision `<> `
   - a table as `| a | b |` rows; a cell's colour leads it as
-    `<!-- bg:#deebff -->`, a header cell outside the first row as `<!-- th -->`
+    `<!-- bg:#deebff -->`, a header cell outside the first row as `<!-- th -->`;
+    `<br>` breaks a line in a cell, `<br><br>` starts a paragraph. A numbered
+    or sized table has a `<!-- table:1 numbered, column widths -->` line above
+    it: it keeps its layout, and its widths while the column count stays
   - underline, sub and superscript, colour: `<u>`, `<sub>`, `<sup>`,
     `<span style="color:#ff5630">`, `<span style="background-color:#fff0b3">`
 - Things markdown can't hold, like an image or a table with merged

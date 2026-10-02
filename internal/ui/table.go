@@ -40,6 +40,7 @@ const (
 	tableCellSep  = "\x00C"
 	tableBGStart  = "\x00B" // a cell's background opener follows, up to tableBGEnd
 	tableBGEnd    = "\x00E"
+	tableBreak    = "\x00L" // a line break in a cell (<br>)
 )
 
 var (
@@ -165,8 +166,8 @@ func renderTableBox(t *mdTable, width int) []string {
 	for _, row := range t.rows {
 		for c := 0; c < n; c++ {
 			if c < len(row) {
-				if w := textwidth.Width(row[c]); w > natural[c] {
-					natural[c] = w
+				for _, ln := range strings.Split(row[c], tableBreak) {
+					natural[c] = max(natural[c], textwidth.Width(ln))
 				}
 			}
 		}
@@ -264,16 +265,21 @@ func renderTableRow(row, bgs []string, cols []int, aligns []tableAlign, header b
 	return lines
 }
 
-// wrapCell hard-wraps a styled cell to width cells per line (ANSI-aware), always
-// returning at least one line. A style open at a line's end closes there and
-// opens again on the next, so it can't run into the border.
+// wrapCell hard-wraps a styled cell to width cells per line (ANSI-aware), a
+// line break starting a line, always returning at least one line. A style
+// open at a line's end closes there and opens again on the next, so it
+// can't run into the border.
 func wrapCell(cell string, width int) []string {
 	if width < 1 || cell == "" {
 		return []string{""}
 	}
-	parts := strings.Split(ansi.Wrap(cell, width, ""), "\n")
-	carryStyle(parts)
-	return parts
+	var out []string
+	for _, ln := range strings.Split(cell, tableBreak) {
+		parts := strings.Split(ansi.Wrap(ln, width, ""), "\n")
+		carryStyle(parts)
+		out = append(out, parts...)
+	}
+	return out
 }
 
 // padCell pads (or, defensively, truncates) a single wrapped cell line to
@@ -369,7 +375,7 @@ func tablePlainFallback(t *mdTable, width int) []string {
 		cells := make([]string, len(t.aligns))
 		for c := range cells {
 			if c < len(row) {
-				cells[c] = row[c]
+				cells[c] = strings.ReplaceAll(row[c], tableBreak, " ")
 			}
 		}
 		out = append(out, wrapBodyLine("  "+strings.Join(cells, sep), width)...)

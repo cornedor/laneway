@@ -76,6 +76,22 @@ func TestLozenges(t *testing.T) {
 	}
 }
 
+// TestRenderTableCellLines: a cell's <br> starts a line in its cell; a
+// pane too narrow for a box draws them as text.
+func TestRenderTableCellLines(t *testing.T) {
+	applyTheme(defaultTheme())
+	md := "| h | i |\n| --- | --- |\n| one<br>longer two | 1 |"
+	got := ansi.Strip(expandTables(renderMarkdown(md, nil, nil, ""), 60))
+	for _, want := range []string{"│ one        │ 1 │", "│ longer two │   │"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("lacks %q:\n%s", want, got)
+		}
+	}
+	if got := ansi.Strip(expandTables(renderMarkdown(md, nil, nil, ""), 8)); !strings.Contains(got, "two") || strings.Contains(got, "<br>") || strings.Contains(got, "\x00") {
+		t.Errorf("narrow:\n%s", got)
+	}
+}
+
 // TestRenderJiraInline: a date draws as a lozenge, a smart link without
 // its brackets, a card as its link, a header cell off the header row
 // without its marker.

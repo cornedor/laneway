@@ -14,6 +14,7 @@ const TAGS = [
   [/<span style="(color|background-color):\s*(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?);?">([\s\S]*?)<\/span>/y, (m, o) => h(m[1] === 'color' ? 'span.md-col' : 'span.md-hi', { style: { '--c': m[2] } }, inline(m[3], o))],
   [/<span style="[^"]*">([\s\S]*?)<\/span>/y, (m, o) => h('span', inline(m[1], o))],
   [/<(https?:\/\/[^>\s]+)>/y, m => link(m[1], m[1])],
+  [/<br>/y, () => h('br')], // a line break in a table cell
 ];
 
 function fmtDate(iso) {
@@ -173,6 +174,7 @@ const PANEL = /^<!-- panel:([a-z]+) -->$/;
 const EXPAND = /^<!-- expand(?::\s*(.*?))? -->$/;
 const CLOSE = /^<!-- \/(panel|expand|block) -->$/;
 const BLOCK = /^<!-- block:\d+.*-->$/;
+const SHELL = /^<!-- table:\d+.*-->$/; // a kept table's layout, above it
 const CARD = /^<!-- card: (.*?) -->$/;
 const ROW = /^\s*\|.*\|\s*$/;
 const SEP = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
@@ -242,7 +244,7 @@ function blocks(lines, o) {
     } else if ((m = EXPAND.exec(l.trim()))) {
       const end = closer(lines, i + 1);
       out.push(h('details.md-expand', h('summary', m[1] || 'Details'), blocks(lines.slice(i + 1, end), o))); i = end + 1;
-    } else if (BLOCK.test(l.trim())) { i++; }
+    } else if (BLOCK.test(l.trim()) || SHELL.test(l.trim())) { i++; }
     else if (CLOSE.test(l.trim())) { i++; }
     else if ((m = CARD.exec(l.trim()))) { out.push(h('p', link(m[1], m[1]))); i++; }
     else if (/^>/.test(l)) {
