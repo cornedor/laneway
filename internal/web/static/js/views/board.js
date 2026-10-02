@@ -1307,6 +1307,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   function togglePin(c) { if (c) pins.toggle(app, c.Key, c.Summary); }
   offs.push(bus.on('pins:changed', () => { loadPins(); for (const p of S.panes) p.vl.refresh(); }));
+  // The site's change stream: a change in this project refreshes the board
+  // quietly, once for a burst.
+  let siteTimer = 0;
+  offs.push(bus.on('site:change', ch => {
+    if (!S.project || siteTimer) return;
+    if (!(String(ch.key || '').startsWith(S.project + '-') || ch.kind === 'sprint' || ch.kind === 'board')) return;
+    siteTimer = setTimeout(() => { siteTimer = 0; if (!document.hidden) refresh(false); }, 1000);
+  }));
   offs.push(bus.on('review:keys', () => { for (const p of S.panes) p.vl.refresh(); }));
   offs.push(bus.on('highlights', () => { for (const p of S.panes) p.vl.refresh(); }));
   for (const ev of ['timer', 'timer:tick']) offs.push(bus.on(ev, () => { for (const p of S.panes) p.vl.refresh(); }));

@@ -78,4 +78,21 @@ export function installBadge(app) {
   };
   document.addEventListener('visibilitychange', () => { arm(); if (!document.hidden) poll(); });
   arm(); poll();
+  followSite(app, poll);
+}
+
+// followSite listens to the site's change stream (laneway-server; Jira has
+// none and says so once): each change goes out on the bus as
+// 'site:change' for the views, and a burst of them syncs the inbox once.
+function followSite(app, poll) {
+  if (!window.EventSource) return;
+  let pending = 0;
+  const es = new EventSource('/api/site/events');
+  es.addEventListener('none', () => es.close());
+  es.addEventListener('change', e => {
+    let ch;
+    try { ch = JSON.parse(e.data); } catch { return; }
+    app.bus.emit('site:change', ch);
+    if ((ch.kind === 'issue' || ch.kind === 'comment') && !pending) pending = setTimeout(() => { pending = 0; poll(); }, 15000);
+  });
 }
