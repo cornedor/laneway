@@ -103,7 +103,9 @@ waiting (`✋1`) and working (`⚙2`); a click opens the list.
 `A` → *Open a pull request* pushes the issue's branch and opens a draft,
 titled with the key and summary and linking the issue: `gh` for a GitHub
 origin, `glab` otherwise. `D` in the panel lists it, with its builds,
-deployments, branches and commits. Cards show the state (`pr` in
+deployments, branches and commits; `enter` on a GitLab merge request
+reads it in the panel, pipeline and approvals included (`gitlab:` in the
+config, or a `glab auth login`). Cards show the state (`pr` in
 `ui.card_fields`), and `/pr:open` finds the ones with an open one.
 
 ## Reviews waiting on you: `ctrl+r`

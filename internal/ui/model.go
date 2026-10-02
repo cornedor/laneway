@@ -296,6 +296,8 @@ type Model struct {
 	homeShown     bool       // ui.home's start screen opened once
 	page          *panelPage // a Confluence page the panel shows over its issue (page.go)
 	pageGen       int
+	mr            *panelMR // a GitLab merge request the panel shows over its issue (mrview.go)
+	mrGen         int
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
 	descEdit      *descEdit       // the in-app editor on a description, field or comment (description.go)
@@ -961,6 +963,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleStartWrites(msg)
 	case pageMsg:
 		return m.handlePage(msg)
+	case mrMsg:
+		return m.handleMR(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())

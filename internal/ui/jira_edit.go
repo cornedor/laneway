@@ -959,6 +959,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.closeJiraPicker()
+		if c, r, ok := m.gitlabMR(it.id); ok {
+			m.focus = focusRef
+			return m, m.openMR(c, r, it.id, it.label, false)
+		}
 		m.status = "opening " + it.id + "…"
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}

@@ -63,7 +63,7 @@ func (m *Model) loadCurrentRef() tea.Cmd {
 	m.refGen++
 	m.refLoading = true
 	m.refErr = nil
-	m.page = nil
+	m.page, m.mr = nil, nil
 	m.jiraIssue = nil
 	m.panelSel = panelSel{} // its lines go with the issue
 	m.refView.GotoTop()
@@ -78,7 +78,7 @@ func (m *Model) closeRef() {
 		return
 	}
 	m.refOpen = false
-	m.page = nil
+	m.page, m.mr = nil, nil
 	m.closeAgentPanel()
 	m.refs = nil
 	m.refBack = nil
@@ -126,6 +126,11 @@ func (m Model) openCurrentRefURL() (tea.Model, tea.Cmd) {
 func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.page != nil {
 		if out, cmd, ok := m.pageKey(msg); ok {
+			return out, cmd
+		}
+	}
+	if m.mr != nil {
+		if out, cmd, ok := m.mrKey(msg); ok {
 			return out, cmd
 		}
 	}
@@ -329,6 +334,12 @@ func (m *Model) renderRef() {
 		return
 	}
 	r := m.currentRef()
+	if m.mr != nil { // like a page: nothing on it clicks through
+		content := m.renderMR(m.refView.Width())
+		m.refView.SetContent(content)
+		m.panelHits, m.activityLine, m.panelPlain = nil, -1, plainLines(content)
+		return
+	}
 	if m.page != nil { // nothing on it clicks through to the issue under it
 		content := m.renderPage(m.refView.Width())
 		m.refView.SetContent(content)
