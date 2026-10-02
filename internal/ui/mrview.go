@@ -124,7 +124,7 @@ func (m *Model) renderMR(w int) string {
 		title = p.mr.Title
 	}
 	b.WriteString(refKeyStyle.Render(title) + "\n")
-	b.WriteString(refDimStyle.Render("GitLab "+p.ref.Repo+"!"+strconv.Itoa(p.ref.Number)+" · "+helpKey(m.keys.OpenAttach)+" opens it · esc back") + "\n\n")
+	b.WriteString(refDimStyle.Render("GitLab "+p.ref.Repo+"!"+strconv.Itoa(p.ref.Number)+" · d diff · "+helpKey(m.keys.OpenAttach)+" opens it · esc back") + "\n\n")
 	switch {
 	case p.err != "":
 		b.WriteString(refErrStyle.Render(p.err))
@@ -228,6 +228,9 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	case key.Matches(msg, m.keys.Refresh):
 		p := m.mr
 		return m, m.openMR(p.c, p.ref, p.link, p.title, true), true
+	case msg.String() == "d" && m.mr.mr != nil:
+		out, cmd := m.openDiffView()
+		return out, cmd, true
 	case msg.String() == "ctrl+c", key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Help):
 		return m, nil, false
 	}

@@ -297,7 +297,8 @@ type Model struct {
 	homeShown     bool       // ui.home's start screen opened once
 	page          *panelPage // a Confluence page the panel shows over its issue (page.go)
 	pageGen       int
-	mr            *panelMR // a GitLab merge request the panel shows over its issue (mrview.go)
+	mr            *panelMR   // a GitLab merge request the panel shows over its issue (mrview.go)
+	diff          *diffState // the merge request's diff over the body (diffview.go)
 	mrGen         int
 	settings      *settingsView   // the , overlay (settings.go)
 	filterBuilder *filterBuilder  // the F overlay (filter_builder.go)
@@ -968,6 +969,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMR(msg)
 	case mrInboxMsg:
 		return m.handleMRInbox(msg)
+	case diffLoadedMsg:
+		return m.handleDiffLoaded(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())
@@ -987,6 +990,8 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.cancelDrag()
 	}
 	switch {
+	case m.diff != nil && m.settings == nil && !m.helpOpen:
+		return m.handleDiffKey(msg)
 	case m.settings != nil:
 		return m.handleSettingsKey(msg)
 	case m.filterBuilder != nil:
@@ -1042,6 +1047,9 @@ func (m *Model) modalOpen() bool {
 }
 
 func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
+	if m.diff != nil { // keys only: nothing under it takes a click
+		return m, nil
+	}
 	if msg.Button == tea.MouseLeft && m.pickerInline() {
 		return m.clickInlinePicker(msg.X, msg.Y)
 	}
@@ -1167,6 +1175,15 @@ func (m Model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
+	if d := m.diff; d != nil {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			d.move(-3)
+		case tea.MouseWheelDown:
+			d.move(3)
+		}
+		return m, nil
+	}
 	if (m.agentTermShown() || m.agentsTermShown()) && !m.modalOpen() && m.agentTermWheel(msg) {
 		return m, nil
 	}
@@ -1231,6 +1248,9 @@ func (m Model) View() tea.View {
 	}
 	bodyH := m.bodyH()
 	body := m.renderJiraPane(bodyH, m.width)
+	if m.diff != nil {
+		body = lipgloss.PlaceHorizontal(m.width, lipgloss.Center, m.renderDiffView(bodyH))
+	}
 	if m.imageView {
 		body = m.renderImageView(m.width, bodyH)
 	}
