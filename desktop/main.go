@@ -118,6 +118,9 @@ func main() {
 	d.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		restore(d.app, d.win, p)
 		d.win.Show()
+		if mac {
+			d.offerMove()
+		}
 		go func() {
 			if err := srv.start(); err != nil {
 				log.Print(err)
