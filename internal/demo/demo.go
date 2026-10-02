@@ -35,6 +35,7 @@ type Server struct {
 	linkSeq  int
 	// base is where Start serves it, for links back to itself.
 	base string
+	git  gitlabState // the GitLab's writes (gitlab.go)
 	// Unhandled are the requests no route answered, for tests.
 	Unhandled []string
 }
@@ -74,6 +75,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	send := func(v any) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(v)
+	}
+	if s.serveGitLab(w, r, body, send) {
+		return
 	}
 	if r.Method == http.MethodPost && p == "/rest/api/3/search/jql" {
 		jql, _ := body["jql"].(string)

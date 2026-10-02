@@ -109,7 +109,14 @@ func (s *Server) devWork(key string) *devWork {
 	return nil
 }
 
-func (w *devWork) repoURL() string { return "https://code.example.com/acme/" + w.repo }
+// repoURL is w's repository: on the demo's own GitLab (gitlab.go) for a
+// GitLab one, so its merge requests open in the views.
+func (s *Server) repoURL(w *devWork) string {
+	if w.tool == "GitLab" && s.base != "" {
+		return s.base + "/acme/" + w.repo
+	}
+	return "https://code.example.com/acme/" + w.repo
+}
 
 // devSummary is the Development field as Jira sends it, nil for none.
 func (s *Server) devSummary(key string) any {
@@ -163,7 +170,7 @@ func (s *Server) devStatus(p string, get func(string) string) any {
 	commit := func(c devCommit, i int) map[string]any {
 		id := fmt.Sprintf("%x", fakeHash(w.repo+c.msg))
 		return map[string]any{"id": id, "displayId": id[:7], "message": c.msg, "author": person(c.author),
-			"authorTimestamp": stamp(c.at), "url": w.repoURL() + "/commit/" + id, "fileCount": 1 + i%4}
+			"authorTimestamp": stamp(c.at), "url": s.repoURL(w) + "/commit/" + id, "fileCount": 1 + i%4}
 	}
 	switch dataType {
 	case "pullrequest":
@@ -173,27 +180,27 @@ func (s *Server) devStatus(p string, get func(string) string) any {
 			for i, r := range p.reviewers {
 				revs = append(revs, map[string]any{"name": r.name, "approved": i < len(p.approved) && p.approved[i]})
 			}
-			prs = append(prs, map[string]any{"id": fmt.Sprint(p.n), "name": p.title, "status": p.status, "url": w.prURL(p.n),
+			prs = append(prs, map[string]any{"id": fmt.Sprint(p.n), "name": p.title, "status": p.status, "url": s.prURL(w, p.n),
 				"source": map[string]any{"branch": p.src}, "destination": map[string]any{"branch": p.dst},
-				"repositoryName": w.repo, "repositoryUrl": w.repoURL(), "author": person(p.author), "reviewers": revs,
+				"repositoryName": w.repo, "repositoryUrl": s.repoURL(w), "author": person(p.author), "reviewers": revs,
 				"commentCount": p.comments, "lastUpdate": stamp(p.updated)})
 		}
 		detail["pullRequests"] = prs
 	case "branch":
 		last := commit(w.commits[len(w.commits)-1], len(w.commits)-1)
-		detail["branches"] = []any{map[string]any{"name": w.branch, "url": w.repoURL() + "/tree/" + w.branch,
-			"createPullRequestUrl": w.repoURL() + "/compare/" + w.branch, "repository": map[string]any{"name": w.repo, "url": w.repoURL()}, "lastCommit": last}}
+		detail["branches"] = []any{map[string]any{"name": w.branch, "url": s.repoURL(w) + "/tree/" + w.branch,
+			"createPullRequestUrl": s.repoURL(w) + "/compare/" + w.branch, "repository": map[string]any{"name": w.repo, "url": s.repoURL(w)}, "lastCommit": last}}
 	case "repository":
 		var cs []any
 		for i := len(w.commits) - 1; i >= 0; i-- { // newest first, as Jira lists them
 			cs = append(cs, commit(w.commits[i], i))
 		}
-		detail["repositories"] = []any{map[string]any{"name": w.repo, "url": w.repoURL(), "commits": cs}}
+		detail["repositories"] = []any{map[string]any{"name": w.repo, "url": s.repoURL(w), "commits": cs}}
 	case "build":
 		var bs []any
 		for _, b := range w.builds {
 			bs = append(bs, map[string]any{"name": "CI", "displayName": w.repo + " CI", "buildNumber": b.n, "state": b.state,
-				"url": w.repoURL() + "/pipelines/" + fmt.Sprint(b.n), "lastUpdated": stamp(b.at),
+				"url": s.repoURL(w) + "/pipelines/" + fmt.Sprint(b.n), "lastUpdated": stamp(b.at),
 				"testSummary": map[string]any{"totalNumber": b.passed + b.failed + b.skipped, "numberPassed": b.passed, "numberFailed": b.failed, "numberSkipped": b.skipped},
 				"references":  []any{map[string]any{"ref": map[string]any{"name": b.ref}}}})
 		}
@@ -202,7 +209,7 @@ func (s *Server) devStatus(p string, get func(string) string) any {
 		var ds []any
 		for _, d := range w.deploys {
 			ds = append(ds, map[string]any{"displayName": fmt.Sprintf("Deploy #%d", d.n), "state": d.state, "duration": d.secs,
-				"url": w.repoURL() + "/deployments/" + fmt.Sprint(d.n), "lastUpdated": stamp(d.at),
+				"url": s.repoURL(w) + "/deployments/" + fmt.Sprint(d.n), "lastUpdated": stamp(d.at),
 				"environment": map[string]any{"displayName": d.env, "type": d.typ}, "pipeline": map[string]any{"displayName": w.repo + " deploy"}})
 		}
 		detail["deployments"] = ds
@@ -210,11 +217,11 @@ func (s *Server) devStatus(p string, get func(string) string) any {
 	return map[string]any{"detail": []any{detail}}
 }
 
-func (w *devWork) prURL(n int) string {
+func (s *Server) prURL(w *devWork, n int) string {
 	if w.tool == "GitLab" {
-		return w.repoURL() + "/-/merge_requests/" + fmt.Sprint(n)
+		return s.repoURL(w) + "/-/merge_requests/" + fmt.Sprint(n)
 	}
-	return w.repoURL() + "/pull/" + fmt.Sprint(n)
+	return s.repoURL(w) + "/pull/" + fmt.Sprint(n)
 }
 
 // fakeHash is a stable made-up commit hash.

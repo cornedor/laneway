@@ -39,6 +39,13 @@ func NewSites(cfgs []Config) *Sites {
 	return s
 }
 
+// WithoutGlab is s without glab's logins: the configured instances only.
+func (s *Sites) WithoutGlab() *Sites {
+	s.glab = func(string) string { return "" }
+	s.glabHosts = func() []string { return nil }
+	return s
+}
+
 // For is the client for the instance link points at, nil without a token
 // for it.
 func (s *Sites) For(link string) *Client {

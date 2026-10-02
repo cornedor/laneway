@@ -113,6 +113,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 		}
 		jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
 		opt.Site, opt.Jira = "demo", jc
+		opt.GitLab = demoGitLab(baseURL)
 		opt.ConfigPath = filepath.Join(dir, "config.yaml")
 		if err := os.WriteFile(opt.ConfigPath, []byte("# demo config\n"), 0o600); err != nil {
 			return end, err

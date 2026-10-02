@@ -8,6 +8,12 @@ import (
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 )
 
+// demoGitLab is the demo's GitLab, on its own server: glab's logins stay
+// out of it.
+func demoGitLab(baseURL string) *gitlab.Sites {
+	return gitlab.NewSites([]gitlab.Config{{BaseURL: baseURL, Token: "demo"}}).WithoutGlab()
+}
+
 // gitlabRepos are every gitlab: instance's checkouts by project path.
 func gitlabRepos(cfg config.Config) map[string]string {
 	out := map[string]string{}

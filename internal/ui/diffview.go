@@ -1369,7 +1369,7 @@ func (m *Model) diffHint() string {
 	if d.mark > 0 {
 		note = "c note the range · s suggest · esc drop it · "
 	}
-	if r := d.rows[min(d.cursor, max(len(d.rows)-1, 0))]; len(d.rows) > 0 && r.draft > 0 {
+	if d.cursor < len(d.rows) && d.rows[d.cursor].draft > 0 {
 		resolve = "E edit · x drop it · "
 	}
 	review := "S submit · A approve · "

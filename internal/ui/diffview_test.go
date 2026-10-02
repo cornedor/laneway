@@ -49,6 +49,9 @@ func TestDiffView(t *testing.T) {
 	if m.diff == nil || cmd == nil {
 		t.Fatal("d did not open the diff")
 	}
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "loading diff") { // drawn before it lands
+		t.Errorf("loading:\n%s", view)
+	}
 	out, _ = m.Update(cmd())
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)

@@ -248,7 +248,7 @@ func runDemo(cfgPath string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
-	m := ui.New(ctx, jc, uiCfg, nil, filepath.Join(dir, "rules.log"), st).WithVersion(version, "").WithDemo()
+	m := ui.New(ctx, jc, uiCfg, nil, filepath.Join(dir, "rules.log"), st).WithVersion(version, "").WithDemo().WithGitLab(demoGitLab(baseURL))
 	final, err := newProgram(m).Run()
 	if fm, ok := final.(ui.Model); ok {
 		fmt.Fprint(os.Stdout, fm.ReleasePointer())
