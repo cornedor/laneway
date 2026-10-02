@@ -282,8 +282,7 @@ func webAddSite(ctx context.Context, cfg config.Config, path, name string, f web
 
 // keyringAvailable is whether keyringFor finds a keyring tool.
 func keyringAvailable() bool {
-	store, _ := keyringFor("https://example.atlassian.net", "you@example.com")
-	return store != nil
+	return keyringFor("https://example.atlassian.net", "you@example.com") != nil
 }
 
 // sentence capitalises msg and ends it with a full stop.
@@ -325,8 +324,8 @@ func webSetupSave(ctx context.Context, path, site string, f web.SetupForm) (stri
 		return "", web.FieldError{Field: "site", Msg: "Could not reach " + base + ": " + err.Error()}
 	}
 	if f.Keyring && j.APIToken != "" {
-		if store, lookup := keyringFor(j.BaseURL, j.Email); store != nil && keyringStore(store, j.APIToken) == nil {
-			j.APIToken, j.APITokenCmd = "", lookup
+		if k := keyringFor(j.BaseURL, j.Email); k != nil && k.put(j.APIToken) == nil {
+			j.APIToken, j.APITokenCmd = "", k.lookup
 		}
 	}
 	if err := config.SetSite(path, site, j); err != nil {
