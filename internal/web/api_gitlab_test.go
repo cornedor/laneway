@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/cornedor/laneway/internal/forge/gitlab"
@@ -79,5 +80,41 @@ func TestGitLabInbox(t *testing.T) {
 	rec = call(New(context.Background(), Options{}), "GET", "/api/gitlab/inbox", "", "")
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got.Configured || len(got.Rows) != 0 {
 		t.Errorf("none: %s", rec.Body)
+	}
+}
+
+// TestGitLabDiff: /api/gitlab/diff is every file's lines, numbered and
+// highlighted, a too-large one flagged, and the inline threads.
+func TestGitLabDiff(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
+	gl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/diffs"):
+			w.Write([]byte(`[{"old_path": "a.go", "new_path": "a.go", "diff": "@@ -1 +1 @@\n-var x = 1\n+var x = 2\n"}, {"new_path": "big.lock", "too_large": true}]`))
+		case strings.HasSuffix(r.URL.Path, "/discussions"):
+			w.Write([]byte(`[{"id": "d1", "notes": [{"id": 1, "body": "ok?", "author": {"name": "Grace"}, "position": {"position_type": "text", "new_path": "a.go", "new_line": 1}}]}]`))
+		default:
+			w.Write([]byte(`{"iid": 7, "title": "X", "diff_refs": {"head_sha": "h"}}`))
+		}
+	}))
+	defer gl.Close()
+	s := New(context.Background(), Options{GitLab: gitlab.NewSites([]gitlab.Config{{BaseURL: gl.URL, Token: "tok"}})})
+	rec := call(s, "GET", "/api/gitlab/diff?url="+url.QueryEscape(gl.URL+"/g/p/-/merge_requests/7"), "", "")
+	var got struct {
+		Label, Title string
+		Files        []DiffFile
+		Threads      []DiffThread
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if got.Label != "g/p!7" || got.Title != "X" || len(got.Files) != 2 || got.Files[0].Add != 1 || got.Files[0].Del != 1 || !got.Files[1].TooLarge {
+		t.Errorf("diff: %+v", got)
+	}
+	if l := got.Files[0].Lines; len(l) != 3 || l[1].K != "-" || l[1].O != 1 || l[2].K != "+" || l[2].N != 1 || !strings.Contains(l[2].H, `<span class="hl-k">var</span>`) {
+		t.Errorf("lines: %+v", got.Files[0].Lines)
+	}
+	if len(got.Threads) != 1 || got.Threads[0].NewLine != 1 || got.Threads[0].Notes[0].Author != "Grace" {
+		t.Errorf("threads: %+v", got.Threads)
 	}
 }

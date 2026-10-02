@@ -4,7 +4,7 @@
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { ago, isZero } from '../lib/fmt.js';
-import { mrBody, glyph } from '../lib/mr.js';
+import { mrBody, glyph, diffHref } from '../lib/mr.js';
 
 export default function mount(el, { app, scope }) {
   css('agents'); css('dev');
@@ -65,6 +65,7 @@ export default function mount(el, { app, scope }) {
   scope.bind('PageUp', () => move(-10), 'page up', { group: G });
   scope.bind('Enter', () => toggle(sel), 'unfold: pipeline, approvals, description', { group: G });
   scope.bind('o', () => rows[sel] && window.open(rows[sel].MR.WebURL, '_blank', 'noopener'), 'open in GitLab', { group: G });
+  scope.bind('d', () => { if (rows[sel]) location.hash = diffHref(rows[sel].MR.WebURL); }, 'its diff', { group: G });
   scope.bind('r', () => { mrs.clear(); load(); }, 'refresh', { group: G });
   delegate(list, 'click', '.mr-row', (e, t) => { if (e.target.closest('a')) return; sel = +t.dataset.i; toggle(sel); });
   load();

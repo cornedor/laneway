@@ -5,7 +5,7 @@
 // A GitLab merge request's row unfolds it (enter, a click): state, pipeline by stage, approvals and
 // description from GET /api/gitlab/mr (forge.Change), as the TUI's panel shows it; o opens any row's link.
 import { h, clear } from '../lib/dom.js';
-import { mrBody } from '../lib/mr.js';
+import { mrBody, diffHref } from '../lib/mr.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { ago, dateTime, isZero, duration, plural } from '../lib/fmt.js';
@@ -245,6 +245,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   const openLink = r => { if (r && r.dataset.url) window.open(r.dataset.url, '_blank', 'noopener'); else ui.toast('No link'); };
   scope.bind('Enter', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) toggleMR(r.dataset.url); else openLink(r); }, 'open in the browser; a GitLab merge request unfolds', { group: G, when: onRow });
   scope.bind('o', () => openLink(rowOf(document.activeElement)), 'open in the browser', { group: G, when: onRow });
+  scope.bind('d', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) location.hash = diffHref(r.dataset.url); else ui.toast('Not a GitLab merge request'); }, 'a merge request\'s diff', { group: G, when: onRow });
   scope.bind('r', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset && openMR.has(r.dataset.url)) toggleMR(r.dataset.url, true); else load(true); }, 'reload', { group: G, when: onRow });
   scope.bind('y', () => { const r = rowOf(document.activeElement); if (r && r.dataset.copy) copy(r.dataset.copy, r.dataset.what); else ui.toast('Nothing to copy'); }, 'copy branch or hash', { group: G, when: onRow });
   scope.bind('Escape', () => { const s = el.querySelector('.iss-scroll'); if (s) s.focus({ preventScroll: true }); else document.activeElement.blur(); }, 'leave development', { group: G, when: onRow });

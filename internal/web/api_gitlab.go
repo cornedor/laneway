@@ -33,17 +33,9 @@ func init() {
 	// ?url= a merge request's link; &fresh=1 past the cache. 404: no
 	// instance with a token has it.
 	get("/gitlab/mr", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
-		link := r.URL.Query().Get("url")
-		var c *gitlab.Client
-		if s.opt.GitLab != nil {
-			c = s.opt.GitLab.For(link)
-		}
-		ref, ok := forge.Ref{}, false
-		if c != nil {
-			ref, ok = c.Parse(link)
-		}
-		if !ok {
-			return nil, httpError{http.StatusNotFound, "no GitLab token for " + cmp.Or(forge.HostOf(link), "this link")}
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
 		}
 		if r.URL.Query().Get("fresh") == "1" {
 			c.Invalidate(ref.Repo, ref.Number)
@@ -66,4 +58,20 @@ func init() {
 
 func gitlabSite(st gitlab.Status) GitLabSite {
 	return GitLabSite{Host: st.Host, BaseURL: st.BaseURL, From: st.From, User: st.User.Username, Summary: st.Summary(), OK: st.Err == nil}
+}
+
+// gitlabLink is the client and merge request for ?url=, a 404 when no
+// instance with a token has it.
+func gitlabLink(s *Server, r *http.Request) (*gitlab.Client, forge.Ref, error) {
+	link := r.URL.Query().Get("url")
+	var c *gitlab.Client
+	if s.opt.GitLab != nil {
+		c = s.opt.GitLab.For(link)
+	}
+	if c != nil {
+		if ref, ok := c.Parse(link); ok {
+			return c, ref, nil
+		}
+	}
+	return nil, forge.Ref{}, httpError{http.StatusNotFound, "no GitLab token for " + cmp.Or(forge.HostOf(link), "this link")}
 }

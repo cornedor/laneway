@@ -64,6 +64,8 @@ type FileDiff struct {
 	// vendored code). Shown collapsed-by-default would be a reasonable next
 	// step; for now it is only a label.
 	Generated bool
+	// TooLarge is a file the forge kept its diff back for: only on the web.
+	TooLarge bool
 }
 
 // Path is the file's name for display and for anchoring a note: the new path,

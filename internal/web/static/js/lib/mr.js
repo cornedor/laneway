@@ -9,6 +9,9 @@ const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 const CHECK = { success: ['ok', '✓'], failed: ['err', '✗'], running: ['run', '●'], pending: ['run', '○'], manual: ['none', '▶'], canceled: ['warn', '⊘'], skipped: ['none', '»'] };
 const check = s => CHECK[s] || CHECK.skipped;
 
+// diffHref is the browser's diff view of the merge request at link (views/mr.js).
+export const diffHref = link => '#/mr?url=' + encodeURIComponent(link);
+
 // glyph is a check status as its coloured mark.
 export const glyph = s => { const [tone, g] = check(s); return h('span.dv-check.dvt-' + tone, { title: s }, g); };
 
@@ -26,5 +29,6 @@ export function mrBody(m) {
     kv('Labels', (m.Labels || []).join(', ')),
     c ? kv('Pipeline', glyph(c.Status), ' ', safe(c.WebURL) ? h('a', { href: safe(c.WebURL), target: '_blank', rel: 'noopener noreferrer' }, c.Label) : c.Label, c.Duration ? h('span.dv-dim', ' · ' + duration(c.Duration)) : null) : null,
     c && (c.Groups || []).length ? h('div.dv-stages', c.Groups.map(g => h('div.dv-stage', h('span.dv-k', g.Name), (g.Jobs || []).map(j => h('span.dv-job', glyph(j.Status), ' ' + j.Name))))) : null,
-    (m.Description || '').trim() ? h('div.dv-desc.md', md(m.Description)) : null);
+    (m.Description || '').trim() ? h('div.dv-desc.md', md(m.Description)) : null,
+    safe(m.WebURL) ? h('div.dv-kv', h('a.btn.ghost.sm', { href: diffHref(m.WebURL), title: 'd' }, 'Diff')) : null);
 }

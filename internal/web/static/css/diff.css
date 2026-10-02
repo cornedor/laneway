@@ -1,0 +1,30 @@
+/* A merge request's diff (views/mr.js). Tokens only (themes.css). */
+.df { display: grid; grid-template-columns: minmax(12rem, 18rem) 1fr; height: 100%; min-height: 0; }
+.df-files { overflow: auto; border-right: 1px solid var(--border); padding: var(--pad) 0; font-size: .86em; }
+.df-file-link { display: flex; gap: .429rem; align-items: baseline; padding: .214rem var(--pad); cursor: pointer; color: var(--fg-2); }
+.df-file-link:hover { background: var(--bg-3); } .df-file-link.cur { background: var(--accent-bg); color: var(--fg); }
+.df-file-link .df-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.df-add { color: var(--ok); } .df-del { color: var(--err); } .df-threads { color: var(--warn); }
+.df-body { overflow: auto; min-width: 0; padding: var(--pad); font-family: var(--font-mono, ui-monospace, monospace); font-size: .857rem; }
+.df-sec { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: var(--pad); background: var(--bg-2); }
+.df-head { position: sticky; top: calc(var(--pad) * -1); z-index: 1; display: flex; gap: .571rem; align-items: baseline; padding: .357rem .571rem; background: var(--bg-3); border-radius: var(--radius) var(--radius) 0 0; cursor: pointer; font-family: var(--font-ui, inherit); }
+.df-head b { font-weight: 600; } .df-head .df-dim { color: var(--fg-3); }
+.df-sec.folded .df-rows, .df-sec.folded .df-msg { display: none; }
+.df-rows { display: grid; grid-template-columns: auto auto auto 1fr; overflow-x: auto; }
+.df-row { display: contents; }
+.df-row > span { padding: 0 .429rem; white-space: pre; line-height: 1.5; }
+.df-row .df-no { color: var(--fg-3); text-align: right; user-select: none; min-width: 2.5em; }
+.df-row .df-mk { user-select: none; padding: 0 .143rem; }
+.df-row.add > span { background: color-mix(in srgb, var(--ok) 14%, transparent); } .df-row.add .df-mk { color: var(--ok); }
+.df-row.del > span { background: color-mix(in srgb, var(--err) 14%, transparent); } .df-row.del .df-mk { color: var(--err); }
+.df-row.hunk > span { color: var(--info); background: var(--bg-3); }
+.df-row.meta > span { color: var(--fg-3); font-style: italic; }
+.df-note { grid-column: 1 / -1; margin: .286rem .571rem .286rem 4rem; padding: .357rem .571rem; border-left: 2px solid var(--warn); background: var(--bg); font-family: var(--font-ui, inherit); white-space: normal; }
+.df-note.resolved { border-left-color: var(--fg-3); opacity: .75; }
+.df-note .df-who { font-weight: 600; margin-right: .429rem; } .df-note .df-when { color: var(--fg-3); font-size: .85em; }
+.df-note p { margin: .143rem 0; }
+.df-msg { padding: .429rem .571rem; color: var(--fg-3); font-style: italic; font-family: var(--font-ui, inherit); }
+.df-msg a { color: var(--accent); }
+.hl-k { color: var(--accent); } .hl-t { color: var(--info); } .hl-n { color: var(--warn); } .hl-g { color: var(--accent); }
+.hl-s { color: var(--ok); } .hl-m { color: var(--warn); } .hl-c { color: var(--fg-3); font-style: italic; } .hl-o { color: var(--fg-2); }
+@media (max-width: 760px) { .df { grid-template-columns: 1fr; } .df-files { display: none; } }

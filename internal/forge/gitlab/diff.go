@@ -103,6 +103,8 @@ type apiFileDiff struct {
 	RenamedFile bool   `json:"renamed_file"`
 	DeletedFile bool   `json:"deleted_file"`
 	Generated   bool   `json:"generated_file"`
+	TooLarge    bool   `json:"too_large"`
+	Collapsed   bool   `json:"collapsed"`
 }
 
 func (a apiFileDiff) toFileDiff() forge.FileDiff {
@@ -114,6 +116,7 @@ func (a apiFileDiff) toFileDiff() forge.FileDiff {
 		Deleted:   a.DeletedFile,
 		Renamed:   a.RenamedFile,
 		Generated: a.Generated,
+		TooLarge:  a.TooLarge || a.Collapsed && a.Diff == "",
 		// GitLab has no binary flag: a binary file arrives as git's own notice
 		// in place of a hunk, which is also exactly what we want to show.
 		Binary: strings.HasPrefix(a.Diff, "Binary files") || strings.HasPrefix(a.Diff, "GIT binary patch"),

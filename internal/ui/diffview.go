@@ -394,6 +394,10 @@ func buildDiff(d *forge.Diff, threads []forge.Thread) diffBuild {
 			b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: fi, thread: -1, text: "binary file — not shown"})
 			continue
 		}
+		if f.TooLarge {
+			b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: fi, thread: -1, text: "too large for GitLab to send — o opens it there"})
+			continue
+		}
 		lines := forge.ParseUnifiedDiff(f.Diff)
 		code := highlightDiffFile(f, lines)
 		for i, l := range lines {
