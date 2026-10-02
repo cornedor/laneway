@@ -16,6 +16,9 @@ h1,h2,h3 { margin: 0 0 .4em; line-height: 1.25; } h2 { font-size: 1.25em; } h3 {
 ::selection { background: var(--accent-bg); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 * { scrollbar-width: thin; scrollbar-color: var(--bg-4) transparent; }
+/* icons (lib/icons.js): Lucide line icons at the text's size and colour */
+.ico { width: 1em; height: 1em; flex: none; vertical-align: -.125em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ico.fill { fill: currentColor; }
 
 /* shell */
 #body { display: flex; min-height: 0; }

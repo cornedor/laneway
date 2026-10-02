@@ -2,11 +2,14 @@
 // that start work. app.agents.stateFor(key) → {status, count, agents, worktree} | null; bus 'agents' fires on change.
 // Everything hides itself while herdr isn't running.
 import { h } from './dom.js';
+import { setIcon } from './icons.js';
 import { css } from './css.js';
 import { target } from './timer.js';
 import { notify } from './notify.js';
 
 export const GLYPH = { working: '⚙', blocked: '✋', done: '✓', idle: '○', unknown: '?', worktree: '◌' };
+// ICON: the same states drawn (lib/icons.js); GLYPH stays for plain-text labels (palette rows).
+export const ICON = { working: 'cog', blocked: 'hand', done: 'circle-check', idle: 'circle', unknown: 'circle-help', worktree: 'circle-dashed' };
 export const LABEL = { working: 'working', blocked: 'waiting on you', done: 'done', idle: 'idle', unknown: 'unknown', worktree: 'worktree, no agent' };
 export const RANK = { blocked: 0, working: 1, done: 2, idle: 3, unknown: 4 };
 
@@ -27,13 +30,13 @@ export function install(app) {
     return snap.Worktrees && snap.Worktrees[key] ? { status: 'worktree', count: 0, agents: [], worktree: snap.Worktrees[key] } : null;
   }
 
-  // One chip: glyph, a count beyond one; title says which agents.
+  // One chip: icon, a count beyond one; title says which agents.
   function paintChip(el, key) {
     const s = stateFor(key);
     el.hidden = !s;
     if (!s) return;
     el.className = 'agent-chip st-' + s.status;
-    el.textContent = GLYPH[s.status] + (s.count > 1 ? s.count : '');
+    setIcon(el, ICON[s.status] || ICON.unknown, s.count > 1 ? String(s.count) : '');
     el.title = (s.count ? s.agents.map(a => a.Name + ': ' + (LABEL[a.Status] || a.Status)).join('\n') : LABEL.worktree + ' ' + s.worktree) + '\nclick: show in Agents';
   }
   const chip = key => { const el = h('span.agent-chip', { dataset: { agentKey: key } }); paintChip(el, key); return el; };

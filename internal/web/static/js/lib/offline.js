@@ -1,6 +1,7 @@
 // Writes that never reached Jira wait on the server (TUI: ⇡3). A header chip counts them;
 // click or the palette lists them: send now, or drop one. The server retries on its own.
 import { h, clear } from './dom.js';
+import { icon } from './icons.js';
 import { css } from './css.js';
 import { ago } from './fmt.js';
 
@@ -12,7 +13,7 @@ export function install(app) {
 
   function paint() {
     chip.hidden = !list.length;
-    chip.textContent = '⇡' + list.length;
+    chip.replaceChildren(icon('cloud-upload'), ' ' + list.length);
     chip.title = list.length + ' write' + (list.length === 1 ? '' : 's') + ' waiting to reach Jira';
   }
   async function poll() {

@@ -1,5 +1,6 @@
 // My work: what's assigned to me, and the time I logged (day and week).
 import { h, clear, delegate, debounce } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
 import { rowPx, onChange as onMetrics } from '../lib/metrics.js';
@@ -107,8 +108,8 @@ export default function mount(el, { app, scope, toolbar, query }) {
     elRow.replaceChildren(...kids([
       h('span.wkey.mono', c.Key),
       h('span.wsum', c.Summary),
-      t && t.key === c.Key && h('span.wtimer', { title: 'Timer running · T stops it' }, app.timer.mark(c.Key)),
-      c.Flagged && h('span.wflag', { title: 'Flagged' }, '⚑'),
+      t && t.key === c.Key && h('span.wtimer', { title: 'Timer running · T stops it' }, icon('timer'), ' ' + app.timer.mark(c.Key)),
+      c.Flagged && h('span.wflag', { title: 'Flagged' }, icon('flag', true)),
       due && h('span.wdue' + (!c.Done && due < new Date() ? '.late' : ''), shortDate(c.Due)),
       c.Points && h('span.chip', c.Points),
       group !== 'status' && ui.statusPill(c.Status, catOf(c)),
@@ -169,9 +170,9 @@ export default function mount(el, { app, scope, toolbar, query }) {
   function paintTime() { clear(body); tab === 'week' ? paintWeek() : paintDay(); }
   function nav(label, sub) {
     return h('div.time-head',
-      h('button.btn.ghost', { onclick: () => step(-1), title: 'Previous (h)' }, '‹'),
+      h('button.btn.ghost', { onclick: () => step(-1), title: 'Previous (h)', 'aria-label': 'Previous' }, icon('chevron-left')),
       h('div.time-title', h('h2', label), h('div.dim', sub)),
-      h('button.btn.ghost', { onclick: () => step(1), title: 'Next (l)' }, '›'),
+      h('button.btn.ghost', { onclick: () => step(1), title: 'Next (l)', 'aria-label': 'Next' }, icon('chevron-right')),
       h('button.btn', { onclick: goToday, title: '0' }, 'Today'),
       h('span.spacer'),
       h('button.btn', { onclick: () => addLog(), title: 'a' }, 'Log work'),

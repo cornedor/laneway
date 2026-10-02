@@ -3,6 +3,7 @@
 // f shows the epic's issues as a board view, F filters by key or summary words. Epics with a plan-level
 // parent (an initiative) sit under it, one foldable row whose bar spans them.
 import { h, clear } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { remPx, onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
@@ -32,8 +33,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   el.append(scroller);
   switcher(app, { scope, context, project, boards: false, group: 'Roadmap', onPick: r => { project = r.project; epics = []; history.replaceState(null, '', '#/roadmap/' + project); load(); } });
   toolbar.append(h('span.spacer'),
-    h('button.btn', { title: 'Zoom out (-)', 'aria-label': 'Zoom out', onclick: () => setZoom(zoom - 1) }, '−'),
-    h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, '+'),
+    h('button.btn', { title: 'Zoom out (-)', 'aria-label': 'Zoom out', onclick: () => setZoom(zoom - 1) }, icon('minus')),
+    h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, icon('plus')),
     h('button.btn', { title: 'Today (.)', onclick: () => today() }, 'Today'));
   const said = h('span.rm-said.dim', { role: 'status', 'aria-live': 'polite' });
   let filter = '';
@@ -161,9 +162,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const blocked = kid || grp ? null : openBlockers(it), bad = blocked && blockConflict(it, blocked);
     const pct = kid ? (it.Done ? 100 : 0) : it.Points > 0 ? Math.round(it.DonePoints / it.Points * 100) : it.Children ? Math.round(it.DoneChildren / it.Children * 100) : it.Done ? 100 : 0;
     const label = h('div.rm-label', { onclick: () => select(i) },
-      !kid ? h('button.rm-fold', { 'aria-label': isOpen ? 'Fold' : 'Unfold', 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, foldable ? (isOpen ? '▾' : '▸') : '') : h('span.rm-fold'),
+      !kid ? h('button.rm-fold', { 'aria-label': isOpen ? 'Fold' : 'Unfold', 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, foldable ? icon(isOpen ? 'chevron-down' : 'chevron-right') : '') : h('span.rm-fold'),
       h('span.rm-key', it.Key), h('span.rm-sum', { title: it.Summary }, it.Summary),
-      blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: 'Blocked by ' + blocked.map(b => b.Key).join(', ') + (bad ? ', ending after this starts' : '') }, bad ? '⛔' : '⛓'),
+      blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: 'Blocked by ' + blocked.map(b => b.Key).join(', ') + (bad ? ', ending after this starts' : '') }, icon(bad ? 'ban' : 'link')),
       grp ? h('span.rm-cnt', { title: it.Status }, it.epics.length) : !kid && it.Children > 0 && h('span.rm-cnt', it.DoneChildren + '/' + it.Children));
     const track = h('div.rm-track', { style: { width: w + 'px' }, onclick: () => select(i) });
     if (s) {

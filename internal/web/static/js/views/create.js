@@ -2,6 +2,7 @@
 // {description, cloneOf, note} and starts from that issue's copy.
 // Several lines in the summary make several issues. ctrl+Enter creates.
 import { h } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { fieldInput, formRow } from './fields.js';
 import { mdEdit } from '../lib/mdedit.js';
@@ -34,7 +35,7 @@ export async function openCreate(app, opts = {}) {
   const summary = h('textarea.input', { rows: 2, placeholder: 'Summary. One per line makes several issues.', value: opts.summary || (restore && restore.summary) || '', oninput: count });
   const files = [];
   const fileBar = h('div.ed-files');
-  const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || 'image', ' ', h('button.btn.ghost.sm', { type: 'button', onclick: () => { files.splice(i, 1); paintFiles(); } }, '✕'))));
+  const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || 'image', ' ', h('button.btn.ghost.sm', { type: 'button', title: 'Remove', onclick: () => { files.splice(i, 1); paintFiles(); } }, icon('x')))));
   const ed = mdEdit(app, { value: opts.description || (restore ? restore.description : ''), rows: 5, placeholder: 'Description (markdown). / formats, @ mentions, drop files to attach', noCancel: true,
     hint: 'files attach after creating', project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
   const description = ed.ta;

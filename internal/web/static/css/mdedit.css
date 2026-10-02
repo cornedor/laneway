@@ -2,7 +2,7 @@
 .ed-tools { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; padding: .143rem .214rem; background: var(--bg-3); border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; }
 .ed-tools .tb { background: none; border: 0; color: var(--fg-2); min-width: 1.714rem; height: 1.571rem; padding: 0 .357rem; border-radius: 3px; cursor: pointer; font: inherit; font-size: .88em; }
 .ed-tools .tb:hover { background: var(--bg-2); color: var(--fg); } .ed-tools .tb.on { background: var(--accent-bg); color: var(--accent); }
-.ed-tools .tb.b { font-weight: 700; } .ed-tools .tb.i { font-style: italic; } .ed-tools .tb.s { text-decoration: line-through; }
+.ed-tools .tb { display: inline-flex; align-items: center; justify-content: center; } .ed-tools .tb .ico { width: 1.143em; height: 1.143em; }
 .ed-tools .sep { width: 1px; height: 1rem; background: var(--border); margin: 0 .286rem; }
 .ed .ed-ta { border-radius: 0 0 var(--radius) var(--radius); }
 .ed-ta { white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto; max-height: 60vh; position: relative; cursor: text; tab-size: 4; line-height: 1.5; }

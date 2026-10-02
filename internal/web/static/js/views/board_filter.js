@@ -4,6 +4,7 @@
 // compare that needs none), adds the term to the board's query (more values of the same field
 // join with a comma); the builder stays open for the next. ctrl+x drops the last term, esc closes.
 import { h, clear } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import * as cq from '../lib/cardquery.js';
 import { css } from '../lib/css.js';
 
@@ -42,7 +43,7 @@ export function openFilterBuilder({ app, cards, env, query, apply }) {
       const s = el.querySelector('.sel'); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' });
     });
     const ws = cq.words(q);
-    clear(query_).append(ws.length ? h('span.fb-slash', '/') : 'no filter yet', ...ws.map((w, i) => h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, ' ✕')));
+    clear(query_).append(ws.length ? h('span.fb-slash', '/') : 'no filter yet', ...ws.map((w, i) => h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, icon('x'))));
     const t = term();
     adds.textContent = t ? 'adds  ' + t : 'pick a value';
   };

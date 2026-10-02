@@ -11,6 +11,7 @@
 //                          draft: an id ("comment:KEY", "desc:KEY", "desc:KEY:comment:ID") kept in the state file as the TUI's drafts})
 //   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.ta, e.mentions, e.size(), e.focus()
 import { h, clear, debounce } from './dom.js';
+import { icon } from './icons.js';
 import { css } from './css.js';
 import { render as md, glyph } from './md.js';
 import { mdArea } from './mdarea.js';
@@ -242,15 +243,15 @@ export function mdEdit(app, o) {
     bFull.classList.toggle('on', on);
     ta.focus({ preventScroll: true });
   };
-  const bFull = btn('⤢', 'Full screen (esc leaves it)', full);
+  const bFull = btn(icon('maximize-2'), 'Full screen (esc leaves it)', full);
   const toolbar = h('div.ed-tools', { role: 'toolbar' },
-    btn('B', 'Bold (ctrl+b)', () => ctl.wrap('**', '**', 'bold'), '.b'), btn('I', 'Italic (ctrl+i)', () => ctl.wrap('*', '*', 'italic'), '.i'),
-    btn('S', 'Strikethrough', () => ctl.wrap('~~', '~~', 'text'), '.s'), btn('</>', 'Inline code', () => ctl.wrap('`', '`', 'code')),
-    btn('Link', 'Link (ctrl+k)', () => ctl.link(), '.txt'), h('i.sep'),
-    btn('H', 'Heading (/h2)', () => ctl.line('## ')), btn('•', 'Bulleted list', () => ctl.line('- ')), btn('1.', 'Numbered list', () => ctl.line('1. ')),
-    btn('☐', 'Task list', () => ctl.line('- [ ] ')), btn('❝', 'Quote', () => ctl.line('> ')), btn('{ }', 'Code block', () => ctl.block('```\n', '\n```', '')), h('i.sep'),
-    btn('/', 'Insert… (type / in the text)', () => { ctl.insert('/'); trigger(); }), btn('@', 'Mention', () => { ctl.insert('@'); trigger(); }),
-    btn('Attach', 'Attach files (or paste, or drop them)', () => fileIn.click(), '.txt'),
+    btn(icon('bold'), 'Bold (ctrl+b)', () => ctl.wrap('**', '**', 'bold')), btn(icon('italic'), 'Italic (ctrl+i)', () => ctl.wrap('*', '*', 'italic')),
+    btn(icon('strikethrough'), 'Strikethrough', () => ctl.wrap('~~', '~~', 'text')), btn(icon('code'), 'Inline code', () => ctl.wrap('`', '`', 'code')),
+    btn(icon('link'), 'Link (ctrl+k)', () => ctl.link()), h('i.sep'),
+    btn(icon('heading'), 'Heading (/h2)', () => ctl.line('## ')), btn(icon('list'), 'Bulleted list', () => ctl.line('- ')), btn(icon('list-ordered'), 'Numbered list', () => ctl.line('1. ')),
+    btn(icon('list-todo'), 'Task list', () => ctl.line('- [ ] ')), btn(icon('quote'), 'Quote', () => ctl.line('> ')), btn(icon('square-code'), 'Code block', () => ctl.block('```\n', '\n```', '')), h('i.sep'),
+    btn('/', 'Insert… (type / in the text)', () => { ctl.insert('/'); trigger(); }), btn(icon('at-sign'), 'Mention', () => { ctl.insert('@'); trigger(); }),
+    btn(icon('paperclip'), 'Attach files (or paste, or drop them)', () => fileIn.click()),
     h('span.spacer'), bSrc, bPrev, bFull);
   if (!o.onFiles) fileIn.remove();
 

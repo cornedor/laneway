@@ -3,11 +3,12 @@
 // mountDev(key, {app, el, full, card, details}) → {el, refresh, dispose}; `card()` is the issue's card
 // (its PR/Deploy say work exists before the list arrives), `details()` shows the Details tab.
 import { h, clear } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { ago, dateTime, isZero, duration, plural } from '../lib/fmt.js';
 
 const COMMITS = 3;             // commits per repository while folded
-const PR = { OPEN: ['open', '⇄ Open'], MERGED: ['merged', '✓ Merged'], DECLINED: ['declined', '✕ Declined'], DRAFT: ['draft', '◌ Draft'] };
+const PR = { OPEN: ['open', 'Open', 'git-pull-request'], MERGED: ['merged', 'Merged', 'git-merge'], DECLINED: ['declined', 'Declined', 'git-pull-request-closed'], DRAFT: ['draft', 'Draft', 'git-pull-request-draft'] };
 // Build and deployment states → a tone and a word.
 const RUN = {
   SUCCESSFUL: ['ok', 'passed'], FAILED: ['err', 'failed'], IN_PROGRESS: ['run', 'running'], PENDING: ['run', 'pending'],
@@ -84,13 +85,13 @@ export function mountDev(key, { app, el, full, card, details }) {
     h('div.dv-gh', h('span', label), n > 1 ? h('span.dv-n', String(n)) : null), ...kids);
 
   function prRow(p, builds) {
-    const [cls, text] = PR[p.Status] || [String(p.Status || '').toLowerCase(), p.Status || '?'];
+    const [cls, text, ic] = PR[p.Status] || [String(p.Status || '').toLowerCase(), p.Status || '?'];
     const ci = builds.filter(b => b.Branch && b.Branch === p.Source).sort(newest)[0];
     const revs = p.Reviewers || [];
     const ok = revs.filter(r => r.Approved).length;
     return row('li', p, p.Source, 'Branch',
       h('div.dv-line',
-        h('span.dv-badge.pr-' + cls, text),
+        h('span.dv-badge.pr-' + cls, ic && icon(ic), ic ? ' ' + text : text),
         title(p, p.Name),
         ci ? dot(ci.Status, 'CI') : null,
         when(p.Updated)),
@@ -99,9 +100,9 @@ export function mountDev(key, { app, el, full, card, details }) {
         p.Source && h('span.dv-ref', mono(p.Source), h('span.dv-arrow', { 'aria-label': 'into' }, '→'), mono(p.Target)),
         p.Author && h('span.dv-who', avatar(p.Author, p.AuthorAvatar, 16), p.Author),
         revs.length ? h('span.dv-revs', { title: revs.map(r => r.Name + (r.Approved ? ' approved' : ' not yet approved')).join('\n'), 'aria-label': ok + ' of ' + revs.length + ' reviewers approved' },
-          revs.map(r => h('span.dv-rev' + (r.Approved ? '.ok' : ''), avatar(r.Name, r.Avatar, 16), r.Approved ? h('i.dv-tick', { 'aria-hidden': 'true' }, '✓') : null)),
+          revs.map(r => h('span.dv-rev' + (r.Approved ? '.ok' : ''), avatar(r.Name, r.Avatar, 16), r.Approved ? h('i.dv-tick', icon('check')) : null)),
           h('span.dv-dim', ok + '/' + revs.length)) : null,
-        p.Comments ? h('span.dv-dim', { title: plural(p.Comments, 'comment') }, '💬 ' + p.Comments) : null));
+        p.Comments ? h('span.dv-dim', { title: plural(p.Comments, 'comment') }, icon('message-square'), ' ' + p.Comments) : null));
   }
   function envChip(d) {
     const [tone, word] = run(d.Status);
@@ -120,11 +121,11 @@ export function mountDev(key, { app, el, full, card, details }) {
   }
   function branchRow(b, prs) {
     const pr = prs.find(p => p.Source === b.Name);
-    const [cls, text] = pr ? (PR[pr.Status] || ['', pr.Status]) : [];
+    const [cls, text, ic] = pr ? (PR[pr.Status] || ['', pr.Status]) : [];
     return row('li', b, b.Name, 'Branch',
-      h('div.dv-line', h('span.dv-glyph', { 'aria-hidden': 'true' }, '⎇'), safe(b.URL) ? h('a.dv-title.clip.dv-mono', { href: safe(b.URL), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, b.Name) : mono(b.Name, '.dv-title.clip'),
-        pr ? h('span.dv-badge.sm.pr-' + cls, { title: pr.Name }, text + (prNo(pr.URL) ? ' ' + prNo(pr.URL) : ''))
-          : safe(b.CreatePR) ? h('a.dv-create', { href: safe(b.CreatePR), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, 'Create PR ↗') : null,
+      h('div.dv-line', h('span.dv-glyph', icon('git-branch')), safe(b.URL) ? h('a.dv-title.clip.dv-mono', { href: safe(b.URL), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, b.Name) : mono(b.Name, '.dv-title.clip'),
+        pr ? h('span.dv-badge.sm.pr-' + cls, { title: pr.Name }, ic && icon(ic), (ic ? ' ' : '') + text + (prNo(pr.URL) ? ' ' + prNo(pr.URL) : ''))
+          : safe(b.CreatePR) ? h('a.dv-create', { href: safe(b.CreatePR), target: '_blank', rel: 'noopener noreferrer', tabindex: -1 }, 'Create PR ', icon('external-link')) : null,
         when(b.Updated)),
       h('div.dv-meta', b.Repo && h('span', b.Repo),
         b.ShortHash && h('span.dv-last', mono(b.ShortHash), h('span.clip', b.Message || ''), b.Author ? h('span.dv-dim', b.Author) : null)));
@@ -141,7 +142,7 @@ export function mountDev(key, { app, el, full, card, details }) {
     root.hidden = false;
     const parts = items ? summary(list) : [];
     const toggle = h('button.dv-toggle', { 'aria-expanded': String(!folded), 'aria-controls': id + '-b', title: (folded ? 'Unfold' : 'Fold') + ' development', onclick: () => fold(!folded) },
-      h('span.dv-caret', { 'aria-hidden': 'true' }, '▸'), h('h3', { id: id + '-h' }, 'Development'));
+      h('span.dv-caret', icon('chevron-right')), h('h3', { id: id + '-h' }, 'Development'));
     const sum = h('span.dv-sum.clip', parts.map(([t, c], i) => [i ? sep() : null, h('span' + (c ? '.' + c : ''), t)]));
     clear(root).append(h('div.sec-head.dv-head', toggle, sum, h('span.spacer'), h('kbd', { title: 'Focus development (D)' }, 'D')));
     const body = h('div.dv-body', { id: id + '-b', hidden: folded });

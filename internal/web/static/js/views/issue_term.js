@@ -6,8 +6,9 @@
 //   const t = mountTerm(key, {app, back, repaint});   t.el · t.has() · t.show() · t.hide() · t.type({takeover})
 //   t.next() (several agents: the next one) · t.scroll(lines) · t.status() · t.dispose()
 import { h } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { kbd } from '../lib/keys.js';
-import { GLYPH, LABEL } from '../lib/agents.js';
+import { ICON, LABEL } from '../lib/agents.js';
 import { terminal, LEAVE } from '../lib/term.js';
 
 const LIVE = ['open', 'connecting', 'retry']; // terminal states that keep keys in it
@@ -62,7 +63,7 @@ export function mountTerm(key, { app, back, repaint }) {
     }
     // Which agent: a line for one, buttons for several (4 again steps through them).
     meta.replaceChildren(...as.map(x => h('button.it-agent.st-' + x.Status + (x.PaneID === pane ? '.on' : ''), { title: x.Name + (x.Title ? ' · ' + x.Title : ''), onclick: () => pick(x.PaneID), disabled: as.length === 1 },
-      h('span.g', GLYPH[x.Status] || '?'), h('span', x.Agent + ' · ' + (LABEL[x.Status] || x.Status)), x.Title ? h('span.dim.clip', x.Title) : '')),
+      h('span.g', icon(ICON[x.Status] || ICON.unknown)), h('span', x.Agent + ' · ' + (LABEL[x.Status] || x.Status)), x.Title ? h('span.dim.clip', x.Title) : '')),
       as.length > 1 ? h('span.dim.it-more', K('4'), ' next agent') : '');
     const s = ts, parts = [];
     const add = (...xs) => { if (parts.length) parts.push(h('span.dim', ' · ')); parts.push(...xs); };

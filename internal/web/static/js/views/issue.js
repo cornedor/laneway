@@ -3,13 +3,14 @@
 // a fourth, Terminal, while a herdr agent works on the issue (views/issue_term.js).
 // Renders from cache first, refetches, and patches sections rather than rebuilding them.
 import { h, clear, delegate } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
 import { issueActions } from './actions.js';
 import { mountDev } from './issue_dev.js';
 import { mountTerm } from './issue_term.js';
-import { GLYPH, LABEL } from '../lib/agents.js';
+import { ICON, LABEL } from '../lib/agents.js';
 import * as pins from '../lib/pins.js';
 import { lineDiff } from '../lib/linediff.js';
 import { ago, dateTime as localDateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
@@ -122,7 +123,7 @@ export function mountIssue(el, key, { app, full, card }) {
       h('div.tr-list', trail.slice(from).map((e, j) => {
         const d = meta.get(e.key) || e;
         return h('button.tr-row', { title: e.key + ' ' + (d.summary || ''), onclick: () => jumpTo(from + j) },
-          h('span.tr-mark', '↰'), h('span.tr-key', e.key), d.status ? ui.statusPill(d.status, d.cat) : null, h('span.tr-sum.clip', d.summary || ''));
+          h('span.tr-mark', icon('corner-left-up')), h('span.tr-key', e.key), d.status ? ui.statusPill(d.status, d.cat) : null, h('span.tr-sum.clip', d.summary || ''));
       })));
   }
   const viewKeys = () => [...new Set([...document.querySelectorAll('#view [data-key]')].map(e => e.dataset.key).filter(k => /^[A-Z][A-Z0-9]*-\d+$/.test(k)))];
@@ -161,12 +162,12 @@ export function mountIssue(el, key, { app, full, card }) {
         app.agents && app.agents.available && !(app.session && app.session.demo) &&
           h('button.btn.ghost.sm', { title: 'Start work: worktree and agent (S) · another agent (alt+s)', onclick: () => app.agents.start(key) }, (app.agents.stateFor(key) || {}).count ? 'Agent' : 'Start work'),
         h('span.spacer'),
-        h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira ↗'),
-        h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? '← Back' : '✕')),
+        h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira', icon('external-link')),
+        h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? [icon('arrow-left'), 'Back'] : icon('x'))),
       h('h1.iss-title', { title: 'Edit summary', onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
       ...(i || c ? [h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, i ? ui.statusPill(i.Status, i.StatusCategory) : ui.statusPill(c.Status, catOf(c))),
         ...(c && c.Flagged ? [h('span.chip.flag', 'Flagged')] : []),
-        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: 'Timer running · T stops it', onclick: () => app.timer.toggle(key) }, app.timer.mark(key))] : []),
+        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: 'Timer running · T stops it', onclick: () => app.timer.toggle(key) }, icon('timer'), ' ' + app.timer.mark(key))] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
         h('span.dim', 'updated ' + ago((i || c).Updated)))] : []));
     learn(key, c); if (i) learn(key, { Summary: i.Summary, Status: i.Status, StatusCategory: i.StatusCategory });
@@ -180,7 +181,7 @@ export function mountIssue(el, key, { app, full, card }) {
     clear(tabs).append(...ts.map(([id, label, k]) => {
       const s = id === 'terminal' && term.status();
       return h('button.tab' + (st.tab === id ? '.on' : ''), { role: 'tab', 'aria-selected': st.tab === id, onclick: () => (id !== 'terminal' ? setTab(id) : st.tab !== 'terminal' && openTerm(false)) },
-        s ? h('span.it-st.st-' + s, { title: 'agent ' + (LABEL[s] || s) }, GLYPH[s] || '?') : null, label, h('kbd', k));
+        s ? h('span.it-st.st-' + s, { title: 'agent ' + (LABEL[s] || s) }, icon(ICON[s] || ICON.unknown)) : null, label, h('kbd', k));
     }));
   }
   function setTab(t) {
@@ -254,7 +255,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!rest.length) return out;
     const open = app.prefs.get('fields.more', '') === 'open';
     out.push(h('button.fld.more', { 'aria-expanded': String(open), onclick: () => { app.prefs.set('fields.more', open ? '' : 'open'); renderFields(); } },
-      h('span.k', top.length ? 'More fields' : 'Fields'), h('span.v.dim', (open ? '▾ ' : '▸ ') + rest.length + (open ? '' : ' · ☆ keeps one shown'))));
+      h('span.k', top.length ? 'More fields' : 'Fields'), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('star'), ' keeps one shown'])));
     if (!open) return out;
     const hide = String((app.session.ui && app.session.ui.EmptyFields) || '').toLowerCase() === 'hide' && !st.showEmpty;
     const shown = hide ? rest.filter(f => valueText(m.Values[f.ID])) : rest;
@@ -268,7 +269,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (f.ReadOnly) { c = cell(null, f.Name, v); c.title = 'Jira lets no one edit this issue now'; }
     else if (f.Kind === 'doc') c = h('button.fld', { title: 'Write ' + f.Name.toLowerCase(), onclick: () => editDoc(f) }, h('span.k', f.Name), h('span.v', dash()));
     else c = cell(f.ID, f.Name, v);
-    return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? 'Unstar: fold it under More' : 'Star: show it on every issue', 'aria-label': (on ? 'Unstar ' : 'Star ') + f.Name, 'aria-pressed': String(on), onclick: () => starField(f, !on) }, on ? '★' : '☆'));
+    return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? 'Unstar: fold it under More' : 'Star: show it on every issue', 'aria-label': (on ? 'Unstar ' : 'Star ') + f.Name, 'aria-pressed': String(on), onclick: () => starField(f, !on) }, icon('star', on)));
   }
   async function starField(f, on) {
     try { app.session.starred = await api.put('/fields/starred/' + encodeURIComponent(f.ID), { On: on }); } catch (e) { return fail(e); }
@@ -365,7 +366,7 @@ export function mountIssue(el, key, { app, full, card }) {
       !links.length && !web.length && h('p.faint', 'No links.'),
       [...groups].map(([rel, ls]) => h('div.lgroup', h('div.rel', rel), ls.map(l => h('div.row-link', { dataset: { key: l.Key }, onclick: () => open(l.Key) },
         h('span.mono.k', l.Key), h('span.clip', l.Summary), l.Status && h('span.chip', l.Status),
-        l.LinkID && h('button.btn.ghost.sm.x', { title: 'Remove link', onclick: e => { e.stopPropagation(); removeLink(l); } }, '✕'))))),
+        l.LinkID && h('button.btn.ghost.sm.x', { title: 'Remove link', onclick: e => { e.stopPropagation(); removeLink(l); } }, icon('x')))))),
       web.length > 0 && h('div.lgroup', h('div.rel', 'Web'), web.map(w => h('a.row-link', { href: safeHref(w.URL), target: '_blank', rel: 'noopener noreferrer',
         onclick: w.Page ? e => { if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); readPage(w); } } : null },
         h('span.clip', w.Title), w.App && h('span.chip', w.App)))));
@@ -374,7 +375,7 @@ export function mountIssue(el, key, { app, full, card }) {
   async function readPage(w) {
     let p;
     try { p = await api.get('/confluence/pages/' + w.Page); } catch (e) { return ui.errToast(e); }
-    ui.modal(h('div.page', h('div.md', md(p.Markdown, { ...mdOpts(), pageImage: id => '/api/confluence/images/' + encodeURIComponent(id) })), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, 'Open in Confluence ↗'))),
+    ui.modal(h('div.page', h('div.md', md(p.Markdown, { ...mdOpts(), pageImage: id => '/api/confluence/images/' + encodeURIComponent(id) })), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, 'Open in Confluence', icon('external-link')))),
       { title: p.Title, wide: true });
   }
   const addLink = () => actions('link');
@@ -415,7 +416,7 @@ export function mountIssue(el, key, { app, full, card }) {
     let i = src ? Math.max(0, list.findIndex(x => x.src === src)) : at;
     const img = h('img.lightbox'), cap = h('div.lb-cap');
     const show = d => { i = (i + d + list.length) % list.length; img.src = list[i].src; img.alt = list[i].name; cap.textContent = list[i].name + (list.length > 1 ? '  ' + (i + 1) + '/' + list.length : ''); };
-    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: 'Previous (←)' }, '‹'), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: 'Next (→)' }, '›'), cap), { wide: true });
+    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: 'Previous (←)', 'aria-label': 'Previous' }, icon('chevron-left')), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: 'Next (→)', 'aria-label': 'Next' }, icon('chevron-right')), cap), { wide: true });
     m.scope.bind(['ArrowRight', 'l', 'n'], () => show(1), '', { hidden: true });
     m.scope.bind(['ArrowLeft', 'h', 'N'], () => show(-1), '', { hidden: true });
     show(0);
@@ -439,7 +440,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const findBar = h('div.iss-find', { hidden: true });
   const findIn = h('input.input', { type: 'text', placeholder: 'Find in this issue…', spellcheck: false, oninput: () => findRun(findIn.value) });
   const findCount = h('span.dim');
-  findBar.append(findIn, findCount, h('button.btn.ghost.sm', { onclick: () => findStep(-1), title: 'Previous (N)' }, '↑'), h('button.btn.ghost.sm', { onclick: () => findStep(1), title: 'Next (n)' }, '↓'), h('button.btn.ghost.sm', { onclick: () => findClose() }, '✕'));
+  findBar.append(findIn, findCount, h('button.btn.ghost.sm', { onclick: () => findStep(-1), title: 'Previous (N)', 'aria-label': 'Previous' }, icon('arrow-up')), h('button.btn.ghost.sm', { onclick: () => findStep(1), title: 'Next (n)', 'aria-label': 'Next' }, icon('arrow-down')), h('button.btn.ghost.sm', { onclick: () => findClose(), title: 'Close (esc)', 'aria-label': 'Close' }, icon('x')));
   findIn.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); findStep(e.shiftKey ? -1 : 1); findIn.blur(); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); findClose(); }
@@ -510,7 +511,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const act = (a, label, title) => h('button.btn.ghost.sm', { dataset: { act: a }, title }, label);
     const node = h('article.cm' + (reply ? '.reply' : '') + (mine ? '.mine' : '') + (c.pending ? '.pending' : ''), { dataset: { id: c.ID }, tabindex: -1 },
       h('header', ui.avatar(c.Author, null, 22), h('b', c.Author), h('time', { title: dateTime(c.Created) }, c.pending ? 'sending…' : ago(c.Created)),
-        lock && h('span.cm-lock', { title: 'Visible to ' + lock.replace(/^only /, '') }, '🔒 ' + lock.replace(/^only /, '')),
+        lock && h('span.cm-lock', { title: 'Visible to ' + lock.replace(/^only /, '') }, icon('lock'), ' ' + lock.replace(/^only /, '')),
         h('span.spacer'), !c.pending && h('span.acts', act('reply', 'Reply', 'Reply (R)'), mine && act('edit', 'Edit', 'Edit (e)'), mine && act('del', 'Delete', 'Delete (d)'))),
       body);
     cmEls.set(c.ID, { el: node, sig });
@@ -620,7 +621,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const everyone = () => ({ Internal: false, Role: '', Group: '', GroupID: '' });
   st.vis = everyone();
   const visBtn = h('button.btn.ghost.sm.vis-chip', { title: 'Who sees it  (ctrl+o)', onclick: () => cycleVis() });
-  const paintVis = () => { visBtn.textContent = '👁 ' + visLabel(st.vis); visBtn.classList.toggle('on', visLabel(st.vis) !== 'everyone'); };
+  const paintVis = () => { visBtn.replaceChildren(icon('eye'), ' ' + visLabel(st.vis)); visBtn.classList.toggle('on', visLabel(st.vis) !== 'everyone'); };
   paintVis();
   let visOpts = null;
   async function cycleVis() {
@@ -642,7 +643,7 @@ export function mountIssue(el, key, { app, full, card }) {
     clear(replyChip);
     const locked = !!c && threaded();
     visBtn.disabled = locked; visBtn.title = locked ? 'A reply is for whoever its comment is for' : 'Who sees it  (ctrl+o)';
-    if (c) replyChip.append(h('span', 'Replying to ', h('b', c.Author)), h('button.btn.ghost.sm', { onclick: () => { const t = '@' + c.Author + ' '; if (comp.ta.value.startsWith(t)) comp.ta.value = comp.ta.value.slice(t.length); setReply(null); } }, '✕'));
+    if (c) replyChip.append(h('span', 'Replying to ', h('b', c.Author)), h('button.btn.ghost.sm', { title: 'Not a reply', onclick: () => { const t = '@' + c.Author + ' '; if (comp.ta.value.startsWith(t)) comp.ta.value = comp.ta.value.slice(t.length); setReply(null); } }, icon('x')));
   }
   function replyTo(c) {
     setTab('comments');

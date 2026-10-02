@@ -1,6 +1,7 @@
 // Planning: the backlog and the open sprints as stacked, collapsible sections.
 // One scroller per pane, rows of known height, only the visible ones in the DOM; | splits off a second pane.
 import { h, clear, frame } from '../lib/dom.js';
+import { icon, TYPE_ICON } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
 import { isZero, shortDate } from '../lib/fmt.js';
@@ -69,7 +70,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const allRows = () => panes.flatMap(p => p.rows);
   app.listed = () => allRows().filter(r => r.k === 'c').map(r => r.c);
   const sidePick = h('select.input.pl-side-pick', { 'aria-label': 'Section kept in view', onchange: () => setSide(Number(sidePick.value)) });
-  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, '✕')), right.scroller);
+  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, icon('x'))), right.scroller);
   sideEl.hidden = !sideOn();
   el.append(h('div.pl.pl-panes', left.scroller, sideEl));
 
@@ -223,11 +224,11 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (r.k === 'h') return headNode(r.s, r.h);
     const c = r.c, t = typeClass(c.Type);
     return h('div.pl-row' + (c.Done ? '.done' : ''), { draggable: true, dataset: { key: c.Key }, style: { height: r.h + 'px' } },
-      h('span.pl-sel', sel.has(c.Key) ? '☑' : '☐'),
-      h('span.pl-type.' + (t || 'x'), { title: c.Type }, (c.Type || '?')[0]),
+      h('span.pl-sel', icon(sel.has(c.Key) ? 'square-check' : 'square')),
+      h('span.pl-type.' + (t || 'x'), { title: c.Type }, TYPE_ICON[t] ? icon(TYPE_ICON[t]) : (c.Type || '?')[0]),
       h('span.pl-key', c.Key), h('span.pl-sum', { title: c.Summary }, c.Summary),
-      c.Flagged && h('span.pl-flag', { title: 'Flagged' }, '⚑'),
-      tmark(c.Key) && h('span.ctimer', { title: 'Timer running · T stops it' }, tmark(c.Key)),
+      c.Flagged && h('span.pl-flag', { title: 'Flagged' }, icon('flag', true)),
+      tmark(c.Key) && h('span.ctimer', { title: 'Timer running · T stops it' }, icon('timer'), ' ' + tmark(c.Key)),
       c.ParentSummary && h('span.chip.pl-epic', { title: c.ParentKey + ' ' + c.ParentSummary }, c.ParentSummary),
       app.ui.statusPill(c.Status, cat(c)),
       h('button.pl-pts' + (c.Points ? '' : '.none'), { dataset: { act: 'points' }, title: 'Story points (P)', tabindex: -1 }, c.Points || '–'),
@@ -240,7 +241,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const over = sp && velAvg > 0 && sum > velAvg * 1.001;
     const dates = sp && !isZero(sp.Start) ? shortDate(sp.Start) + ' – ' + shortDate(sp.End) : '';
     const h1 = h('div.pl-h1',
-      h('button.pl-fold', { tabindex: -1, 'aria-label': open ? 'Fold ' + s.name : 'Unfold ' + s.name, 'aria-expanded': open, dataset: { act: 'fold' } }, open ? '▾' : '▸'),
+      h('button.pl-fold', { tabindex: -1, 'aria-label': open ? 'Fold ' + s.name : 'Unfold ' + s.name, 'aria-expanded': open, dataset: { act: 'fold' } }, icon(open ? 'chevron-down' : 'chevron-right')),
       h('span.pl-name', s.name),
       sp && h('span.pill.cat-' + (sp.State === 'active' ? 'indeterminate' : 'new'), sp.State === 'active' ? 'active' : 'planned'),
       dates && h('span.pl-dates', dates),

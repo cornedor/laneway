@@ -3,9 +3,10 @@
 // Enter or a click types into it, ctrl+\ goes back to the list, z full screen. Tab adds the worktrees that have
 // no agent. Live over /api/agents/events. /agents?agent=KEY selects KEY's agent (&pane=ID that one), &type=1 types into it.
 import { h, clear, delegate } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { kbd } from '../lib/keys.js';
-import { GLYPH, LABEL } from '../lib/agents.js';
+import { ICON, LABEL } from '../lib/agents.js';
 import { terminal, LEAVE } from '../lib/term.js';
 
 const GROUPS = ['blocked', 'working', 'done', 'idle', 'worktree'];
@@ -82,7 +83,7 @@ export default async function mount(el, { app, scope, query }) {
       if (r.group !== g) { g = r.group; kids.push(h('div.ag-group.st-' + g, GROUP_NAME[g] || g)); }
       const c = card(r.key);
       kids.push(h('div.ag-row.st-' + r.group + (i === sel ? '.sel' : ''), { dataset: { key: r.key, i } },
-        h('span.g', GLYPH[r.group] || '?'), h('span.mono.ag-key', r.key), h('span.sum', summary(r.key)), h('span.name', [r.agent && r.agent.Agent, c && c.Status].filter(Boolean).join(' · ')),
+        h('span.g', icon(ICON[r.group] || ICON.unknown)), h('span.mono.ag-key', r.key), h('span.sum', summary(r.key)), h('span.name', [r.agent && r.agent.Agent, c && c.Status].filter(Boolean).join(' · ')),
         h('span.sub', (r.agent && r.agent.Title ? r.agent.Title + ' · ' : '') + home(r.path))));
     });
     list.replaceChildren(...kids);
@@ -109,7 +110,7 @@ export default async function mount(el, { app, scope, query }) {
       clear(info);
       if (r) info.append(
         h('h2', h('a.issue-ref', { href: away(r.key) ? issues.get(r.key).URL : '#/issue/' + r.key, onclick: e => { e.preventDefault(); openIssue(r.key); } }, r.key), ' ' + summary(r.key)),
-        h('div.ag-meta', h('span.chip', (GLYPH[r.group] || '') + ' ' + (LABEL[r.group] || r.group)), c && h('span', c.Status + ' · ' + (c.Assignee || 'unassigned')), away(r.key) && h('span', 'on ' + siteName(r.key)),
+        h('div.ag-meta', h('span.chip', icon(ICON[r.group] || ICON.unknown), ' ' + (LABEL[r.group] || r.group)), c && h('span', c.Status + ' · ' + (c.Assignee || 'unassigned')), away(r.key) && h('span', 'on ' + siteName(r.key)),
           a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',
           a && btn('Focus in herdr', 'f', () => act('focus')), a && btn('Prompt', 'p', () => act('prompt')), a && btn('New agent here', 'N', () => act('new')),

@@ -120,8 +120,8 @@ export function install(app) {
   cmd('timer:move', () => 'Move timer to ' + target(app) + ' (' + since() + ', nothing logged)', () => move(target(app)), () => !!timer && !!target(app) && target(app) !== timer.key);
   cmd('worklog:add', () => 'Log work on ' + target(app), () => logDialog(app, { key: target(app) }), () => !!target(app));
 
-  // mark(key): "⏱ 12m" on the timed issue's card, row and panel, '' on any other. Redraw on bus 'timer' and 'timer:tick'.
-  const mark = key => (timer && timer.key === key ? '⏱ ' + since() : '');
+  // mark(key): "12m" (beside a timer icon) on the timed issue's card, row and panel, '' on any other. Redraw on bus 'timer' and 'timer:tick'.
+  const mark = key => (timer && timer.key === key ? since() : '');
   app.timer = { get current() { return timer; }, toggle, start, stop, move, mark, elapsed: () => (timer ? elapsed() : 0) };
   paint();
   sync();

@@ -8,6 +8,7 @@
 // Card fields and the card limit are the config's ui.card_fields and ui.card_limit (below).
 // Changing one emits bus 'prefs' {key, value}.
 import { h, clear } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import theme from '../lib/theme.js';
 import { onChange as onMetrics } from '../lib/metrics.js';
@@ -36,9 +37,9 @@ export default function mount(el, { app, scope, toolbar }) {
     render: () => {
       const eff = Math.round(theme.effectiveFontSize), auto = !theme.fontSize;
       return h('span.st-val.st-step',
-        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Smaller', disabled: !auto && theme.fontSize <= FS_MIN, onclick: () => stepSize(-1) }, '−'),
+        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Smaller', disabled: !auto && theme.fontSize <= FS_MIN, onclick: () => stepSize(-1) }, icon('minus')),
         h('span.st-num.mono', { title: auto ? 'from the density' : 'fixed' }, auto ? 'auto · ' + eff + 'px (from density)' : eff + 'px'),
-        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Larger', disabled: !auto && theme.fontSize >= FS_MAX, onclick: () => stepSize(1) }, '+'),
+        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Larger', disabled: !auto && theme.fontSize >= FS_MAX, onclick: () => stepSize(1) }, icon('plus')),
         h('button.btn.ghost' + (auto ? '.on' : ''), { tabindex: -1, title: 'Follow the density', onclick: () => setSize(0) }, 'auto'));
     },
     change: stepSize, reset: () => setSize(0),
@@ -57,7 +58,7 @@ export default function mount(el, { app, scope, toolbar }) {
       change: d => { theme.set(cycle(theme.presets.map(p => p.id), theme.current, d)); refresh(); } },
     { name: 'Accent', desc: 'highlights, focus, primary buttons', section: 'Appearance',
       render: () => h('span.st-swatches',
-        h('button.st-dot.none', { tabindex: -1, title: 'Theme default', class: theme.accent ? '' : 'on', onclick: () => { theme.setAccent(''); refresh(); } }, '∅'),
+        h('button.st-dot.none', { tabindex: -1, title: 'Theme default', class: theme.accent ? '' : 'on', onclick: () => { theme.setAccent(''); refresh(); } }, icon('ban')),
         theme.accents.map(c => h('button.st-dot', { tabindex: -1, title: c, class: theme.accent === c ? 'on' : '', style: { background: c }, onclick: () => { theme.setAccent(c); refresh(); } })),
         h('input.st-color', { type: 'color', title: 'Custom colour', value: /^#[0-9a-f]{6}$/i.test(theme.accent) ? theme.accent : '#5b8def', tabindex: -1, oninput: e => { theme.setAccent(e.target.value); }, onchange: refresh })),
       change: d => { const l = ['', ...theme.accents]; theme.setAccent(cycle(l, theme.accent, d)); refresh(); } },

@@ -1,6 +1,7 @@
 // Rules: the config's rules, a dry run (TUI: laneway rules test) and the firing log, live.
 // The engine runs in the server, so it fires whether or not this page is open.
 import { h, clear } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { onRuleEvent } from '../lib/rules_feed.js';
 import { enabled, supported, permission, setEnabled } from '../lib/notify.js';
@@ -88,7 +89,7 @@ export default function mount(el, { app, scope, toolbar }) {
     if (!res || !res.length) return resEl.append(h('div.dim', 'No rules.'));
     for (const r of res) {
       resEl.append(h('div.rt-row' + (r.Fires ? '.fires' : ''),
-        h('span.rt-mark', r.Fires ? '✓' : '✗'), h('b', r.Rule || '(unnamed)'),
+        h('span.rt-mark', icon(r.Fires ? 'check' : 'x')), h('b', r.Rule || '(unnamed)'),
         r.Fires ? h('span.rt-acts', r.Actions.map(a => h('div.rt-act', h('span.chip', a.Type), ' ', a.Note ? h('span.dim', a.Note) : a.Text)))
           : h('span.dim', r.Why)));
     }

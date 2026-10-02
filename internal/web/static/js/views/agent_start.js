@@ -5,11 +5,12 @@
 // enter starts as filled in. The server streams each step; a failure stays in the modal with its fix.
 // S on an issue whose agent runs focuses that agent, as the TUI attaches to it.
 import { h, clear } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { LABEL } from '../lib/agents.js';
 
 const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
-const GLYPH = { run: '◌', ok: '✓', warn: '!', err: '✗' };
+const ICON = { run: 'circle-dashed', ok: 'check', warn: 'triangle-alert', err: 'x' };
 let openFor = '';
 
 // refProblem is why git would refuse a branch name (git check-ref-format --branch), '' when it takes it.
@@ -101,9 +102,9 @@ function form(app, key, f, { another, path, notice }) {
   const cur = () => where[at];
   function paint() {
     const w = cur();
-    clear(agentBtn).append(h('span.sw-val', kind), h('span.sw-caret', '▾'));
+    clear(agentBtn).append(h('span.sw-val', kind), h('span.sw-caret', icon('chevron-down')));
     agentHint.textContent = f.Missing.includes(kind) ? kind + ' is not on PATH here: herdr may not find it' : '';
-    clear(whereBtn).append(h('span.sw-val', w.label), h('span.sw-detail', w.detail), h('span.sw-caret', '▾'));
+    clear(whereBtn).append(h('span.sw-val', w.label), h('span.sw-detail', w.detail), h('span.sw-caret', icon('chevron-down')));
     const fixed = w.id === 'in' || w.id === 'another';
     branch.readOnly = fixed;
     if (fixed) branch.value = w.branch || '';
@@ -212,7 +213,7 @@ function form(app, key, f, { another, path, notice }) {
     let li = stepEls.get(s.Step);
     if (!li) { li = h('li.sw-step'); stepEls.set(s.Step, li); steps.append(li); }
     li.className = 'sw-step st-' + s.State;
-    clear(li).append(h('span.sw-g', { 'aria-hidden': 'true' }, GLYPH[s.State] || '·'), h('span', s.Text));
+    clear(li).append(h('span.sw-g', ICON[s.State] ? icon(ICON[s.State]) : '·'), h('span', s.Text));
   }
   function lock(on) {
     busy = on;

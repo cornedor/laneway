@@ -5,6 +5,7 @@
 //             (how: filters, modes). It hides itself while both are empty.
 // Plus the chord hint: after `g` (or any chord prefix) a small card lists what can follow.
 import { h, clear, $ } from './dom.js';
+import { icon } from './icons.js';
 import { kbd } from './keys.js';
 
 // Most used first: a narrow bar folds the tail into More. The open view always stays.
@@ -109,7 +110,7 @@ export function install(app) {
     const blocked = as.filter(a => a.Status === 'blocked').length, working = as.filter(a => a.Status === 'working').length;
     ag.hidden = !blocked && !working;
     ag.className = 'ind' + (blocked ? ' warn' : ' quiet');
-    ag.textContent = blocked ? '✋ ' + blocked + ' waiting' : working + (working === 1 ? ' agent' : ' agents');
+    if (blocked) ag.replaceChildren(icon('hand'), ' ' + blocked + ' waiting'); else ag.textContent = working + (working === 1 ? ' agent' : ' agents');
     ag.title = blocked ? blocked + (blocked === 1 ? ' agent waits' : ' agents wait') + ' on you' + (working ? ', ' + working + ' working' : '') : working + ' agent' + (working === 1 ? '' : 's') + ' working';
     ag.setAttribute('aria-label', ag.title);
   });

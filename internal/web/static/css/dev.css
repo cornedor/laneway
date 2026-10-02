@@ -52,7 +52,8 @@ a.dv-title:hover { color: var(--accent); }
 .dv-rev { position: relative; display: inline-flex; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg-2); }
 .dv-row:hover .dv-rev { box-shadow: 0 0 0 2px var(--bg-3); } .dv-row:focus .dv-rev { box-shadow: 0 0 0 2px var(--accent-bg); }
 .dv-rev:not(.ok) .avatar { opacity: .55; }
-.dv-tick { position: absolute; right: -.214rem; bottom: -.214rem; width: .714rem; height: .714rem; border-radius: 50%; background: var(--ok); color: var(--bg-2); font-size: .5rem; font-style: normal; font-weight: 700; line-height: .714rem; text-align: center; }
+.dv-tick { position: absolute; right: -.214rem; bottom: -.214rem; width: .714rem; height: .714rem; border-radius: 50%; background: var(--ok); color: var(--bg-2); font-size: .5rem; display: grid; place-items: center; }
+.dv-tick .ico { stroke-width: 3.5; }
 
 /* run states: builds, deployments */
 .dvt-ok { --dv-tone: var(--ok); } .dvt-err { --dv-tone: var(--err); } .dvt-run { --dv-tone: var(--info); } .dvt-warn { --dv-tone: var(--warn); } .dvt-none { --dv-tone: var(--fg-3); }

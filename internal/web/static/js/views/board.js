@@ -2,6 +2,7 @@
 // navigation, drag and drop, and quiet refreshes. Cards render through lib/vlist.js
 // so a lane or list of thousands stays smooth.
 import { h, clear, delegate, debounce } from '../lib/dom.js';
+import { icon, setIcon, TYPE_ICON } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
 import { onChange as onMetrics } from '../lib/metrics.js';
@@ -20,9 +21,9 @@ css('board');
 
 const DAY = 864e5;
 const PRIO_ORD = { blocker: 0, highest: 0, critical: 0, high: 1, major: 1, medium: 2, normal: 2, low: 3, minor: 3, lowest: 4, trivial: 4 };
-const PRIO_GLYPH = ['▲▲', '▲', '●', '▼', '▼▼'];
+const PRIO_ICON = ['chevrons-up', 'chevron-up', 'equal', 'chevron-down', 'chevrons-down'];
 const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
-const PR_TEXT = { OPEN: '⇄ open', MERGED: '✓ merged', DECLINED: '✕ declined' };
+const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
 const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created'];
 // List columns: id, header, width, class of the cell.
 const COLS = {
@@ -98,9 +99,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const sprintBtn = app.chrome.crumb('View: sprint, backlog, whole board, your views  (v, [ ])', () => pickSprint());
   const modeBtn = h('button.btn', { title: 'Lanes / list  (t)', onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
   const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (O)', onclick: () => cycleSwim() });
-  const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, '▦ Columns');
+  const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, icon('columns-3'), 'Columns');
   const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
-  const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, '⟳'));
+  const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
   context.append(projectBtn, boardBtn, sprintBtn);
   toolbar.append(h('span.spacer'), swimBtn, colsBtn, compactBtn, modeBtn, refreshBtn);
 
@@ -110,10 +111,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const sp = scopeLabel();
     sprintBtn.textContent = sp;
     sprintBtn.hidden = !isScrum() && !viewItems().some(i => i.id.includes(':') && !i.id.startsWith('closed'));
-    modeBtn.textContent = S.mode === 'lanes' ? '▥ Lanes' : '☰ List';
+    if (S.mode === 'lanes') setIcon(modeBtn, 'kanban', 'Lanes'); else setIcon(modeBtn, 'list', 'List');
     swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes';
-    swimBtn.textContent = S.swim === 'none' ? '☰ Swimlanes' : '☰ by ' + S.swim;
-    compactBtn.textContent = S.compact ? '▭ Compact' : '▤ Full';
+    setIcon(swimBtn, 'rows-3', S.swim === 'none' ? 'Swimlanes' : 'by ' + S.swim);
+    if (S.compact) setIcon(compactBtn, 'fold-vertical', 'Compact'); else setIcon(compactBtn, 'unfold-vertical', 'Full');
     compactBtn.setAttribute('aria-pressed', S.compact ? 'true' : 'false');
   }
   const isScrum = () => !!S.board && S.board.Type !== 'kanban';
@@ -155,8 +156,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     kids.push(h('button.fchip' + (S.mine ? '.on' : ''), { dataset: { act: 'mine' }, title: 'Assigned to me  (m)' }, h('kbd', 'm'), 'Mine'));
     kids.push(h('button.fchip' + (S.who != null ? '.on' : ''), { dataset: { act: 'who' }, title: 'Assignee  (A)' }, h('kbd', 'A'), S.who == null ? 'Assignee' : whoLabel(S.who, whoName)));
     qfs().slice(0, 9).forEach((q, i) => kids.push(h('button.fchip' + (S.qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)));
-    cq.words(S.text).forEach((w, i) => kids.push(h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, ' ✕')));
-    if (anyFilter()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: 'Clear filters  (0)' }, '✕ clear'));
+    cq.words(S.text).forEach((w, i) => kids.push(h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, icon('x'))));
+    if (anyFilter()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: 'Clear filters  (0)' }, icon('x'), 'clear'));
     clear(chips).append(...kids);
   }
   const whoName = id => {
@@ -540,10 +541,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const sortable = id => id !== 'mark' && id !== 'age' && !id.startsWith('x:') && id !== 'labels' && id !== 'reporter';
   const colLabel = id => (id.startsWith('x:') ? id.slice(2) : (COLS[id] || ['', ''])[0]);
   const colWidth = id => (COLS[id] ? COLS[id][1] : '8.571rem');
-  const sortMark = id => (S.sort === id ? (S.dir > 0 ? ' ▲' : ' ▼') : '');
+  const sortMark = id => (S.sort === id ? [' ', icon(S.dir > 0 ? 'arrow-up' : 'arrow-down')] : []);
   function paintHead(p) {
     if (S.mode !== 'lanes') {
-      for (const s of p.head.children) s.textContent = colLabel(s.className.replace('lh-', '')) + sortMark(s.dataset.sort);
+      for (const s of p.head.children) s.replaceChildren(colLabel(s.className.replace('lh-', '')), ...sortMark(s.dataset.sort));
       return;
     }
     const filtered = p.all.length !== p.total;
@@ -564,7 +565,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     });
     S.bands.forEach((b, gi) => {
       const f = S.fold.has(b.name);
-      b.caret.textContent = f ? '▸' : '▾';
+      setIcon(b.caret, f ? 'chevron-right' : 'chevron-down');
       b.count.textContent = groups[gi].cards.length;
       b.el.classList.toggle('folded', f);
     });
@@ -594,7 +595,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   function buildCard() {
     const r = {};
     const w = h('div.bcw', { role: 'listitem' }, h('div.card', { draggable: true },
-      h('div.c1', r.type = h('span.ctype'), r.key = h('span.ckey'), r.pin = h('span.cpin', { title: 'Pinned' }, '★'), r.rev = h('span.cpin', { title: 'Waiting on your review' }, '⌥'), r.hl = h('span.chl', { title: 'A rule highlighted it; opening it clears the mark' }, '●'), r.flag = h('span.cflag', { title: 'Flagged' }, '⚑'), r.timer = h('span.ctimer', { title: 'Timer running · T stops it' }), h('span.sp'), r.prio = h('span.cprio'), r.pts = h('span.cpts')),
+      h('div.c1', r.type = h('span.ctype'), r.key = h('span.ckey'), r.pin = h('span.cpin', { title: 'Pinned' }, icon('pin')), r.rev = h('span.cpin', { title: 'Waiting on your review' }, icon('glasses')), r.hl = h('span.chl', { title: 'A rule highlighted it; opening it clears the mark' }, icon('circle', true)), r.flag = h('span.cflag', { title: 'Flagged' }, icon('flag', true)), r.timer = h('span.ctimer', { title: 'Timer running · T stops it' }), h('span.sp'), r.prio = h('span.cprio'), r.pts = h('span.cpts')),
       r.sum = h('div.csum'),
       h('div.c3', r.parent = h('span.cparent'), r.sub = h('span.csub'), r.due = h('span.cdue'), r.pr = h('span.cpr'), r.dep = h('span.cdep'), r.extra = h('span.cextra'), r.labels = h('span.clabels'), h('span.sp'), r.age = h('span.cage'), r.av = h('span.cav'))));
     w._r = r;
@@ -639,18 +640,20 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     card.className = 'card ' + catClass(c) + (c.Flagged && cf('flagged') ? ' flagged' : '') + (S.sel === c.Key ? ' sel' : '') + (S.marks.has(c.Key) ? ' mark' : '') + (rib ? ' ribbon' : '');
     if (rib) card.style.setProperty('--ribbon', rib); else card.style.removeProperty('--ribbon');
     r.type.hidden = !cf('type');
-    r.type.className = 'ctype ' + (TYPE_CLS[(c.Type || '').toLowerCase()] || 't-other');
-    r.type.textContent = (c.Type || '?')[0].toUpperCase(); r.type.title = c.Type;
+    const tc = TYPE_CLS[(c.Type || '').toLowerCase()] || 't-other';
+    r.type.className = 'ctype ' + tc;
+    if (TYPE_ICON[tc.slice(2)]) setIcon(r.type, TYPE_ICON[tc.slice(2)]); else setIcon(r.type, '', (c.Type || '?')[0].toUpperCase());
+    r.type.title = c.Type;
     r.key.textContent = c.Key; app.agents && app.agents.stamp(r.key, c.Key);
     r.pin.hidden = !S.pins.has(c.Key);
     r.rev.hidden = !rv(c.Key);
     const hl = hlOf(c.Key);
     r.hl.hidden = hl === null; r.hl.style.color = hl && hl.startsWith('#') ? hl : '';
     r.flag.hidden = !c.Flagged || !cf('flagged');
-    const tm = tmark(c.Key); r.timer.hidden = !tm; r.timer.textContent = tm;
+    const tm = tmark(c.Key); r.timer.hidden = !tm; if (tm) setIcon(r.timer, 'timer', tm);
     const po = prioOrd(c);
     r.prio.hidden = !c.Priority || !cf('priority');
-    r.prio.className = 'cprio p' + po; r.prio.textContent = po < 5 ? PRIO_GLYPH[po] : (c.Priority || '').slice(0, 3); r.prio.title = c.Priority;
+    r.prio.className = 'cprio p' + po; if (po < 5) setIcon(r.prio, PRIO_ICON[po]); else setIcon(r.prio, '', (c.Priority || '').slice(0, 3)); r.prio.title = c.Priority;
     r.pts.hidden = c.Points === '' || c.Points == null || !cf('points'); r.pts.textContent = c.Points;
     r.sum.textContent = c.Summary; r.sum.title = c.Summary;
     r.parent.hidden = !c.ParentKey || !cf('parent'); r.parent.textContent = c.ParentKey ? c.ParentSummary || c.ParentKey : '';
@@ -660,8 +663,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     const due = date(c.Due);
     r.due.hidden = !due || !cf('due');
     if (due) { r.due.textContent = fdate(c.Due, shortDate(c.Due)); r.due.className = 'cdue' + (!c.Done && due.getTime() < startOfToday() ? ' overdue' : ''); r.due.title = 'Due ' + localDate(due); }
-    r.pr.hidden = !c.PR || !cf('pr'); r.pr.textContent = PR_TEXT[c.PR] || c.PR; r.pr.className = 'cpr pr-' + (c.PR || '').toLowerCase();
-    r.dep.hidden = !c.Deploy || !cf('deploy'); r.dep.textContent = '↑ ' + c.Deploy;
+    r.pr.hidden = !c.PR || !cf('pr'); if (PR_ICON[c.PR]) setIcon(r.pr, ...PR_ICON[c.PR]); else setIcon(r.pr, '', c.PR || ''); r.pr.className = 'cpr pr-' + (c.PR || '').toLowerCase();
+    r.dep.hidden = !c.Deploy || !cf('deploy'); setIcon(r.dep, 'rocket', c.Deploy || '');
     const ev = extraValues(c);
     r.extra.hidden = !ev.length; r.extra.textContent = ev.join(' · '); r.extra.title = ev.length ? c.Extra.split(SEP).join(', ') : '';
     const ls = c.Labels ? c.Labels.split(' ') : [];
@@ -679,11 +682,11 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     return w;
   }
   const FILL = {
-    mark: (e, c) => { e.textContent = S.marks.has(c.Key) ? '☑' : hlOf(c.Key) !== null ? '●' : S.pins.has(c.Key) ? '★' : rv(c.Key) ? '⌥' : c.Flagged ? '⚑' : ''; },
-    key: (e, c) => { e.textContent = c.Key; app.agents && app.agents.stamp(e, c.Key); const tm = tmark(c.Key); if (tm) e.append(h('span.ctimer', ' ' + tm)); },
+    mark: (e, c) => { const hl = hlOf(c.Key); setIcon(e, S.marks.has(c.Key) ? 'square-check' : hl !== null ? 'circle' : S.pins.has(c.Key) ? 'pin' : rv(c.Key) ? 'glasses' : c.Flagged ? 'flag' : '', '', hl !== null || (!S.marks.has(c.Key) && c.Flagged)); },
+    key: (e, c) => { e.textContent = c.Key; app.agents && app.agents.stamp(e, c.Key); const tm = tmark(c.Key); if (tm) e.append(h('span.ctimer', ' ', icon('timer'), ' ' + tm)); },
     summary: (e, c) => { e.textContent = c.Summary; e.title = c.Summary; },
     status: (e, c) => { e.textContent = c.Status; e.className = 'l-status pill cat-' + (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new'); },
-    priority: (e, c) => { const po = prioOrd(c); e.className = 'l-priority cprio p' + po; e.textContent = po < 5 ? PRIO_GLYPH[po] : ''; e.title = c.Priority; },
+    priority: (e, c) => { const po = prioOrd(c); e.className = 'l-priority cprio p' + po; setIcon(e, po < 5 ? PRIO_ICON[po] : ''); e.title = c.Priority; },
     points: (e, c) => { e.textContent = c.Points; },
     assignee: (e, c) => setAvatar(e, c, true),
     epic: (e, c) => { e.textContent = c.ParentSummary || ''; e.title = c.ParentKey ? c.ParentKey + ' ' + c.ParentSummary : ''; },
@@ -1266,9 +1269,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (!p) return;
     const day = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     let t;
-    if (S.closed) t = '⏲ ' + S.closed.Name + ', ' + (p.loading ? 'reading history…' : 'as it closed ' + day(p.at) + '  ·  ' + closedLine() + '  ·  esc leaves it');
-    else t = p.loading ? '⏲ reading the board’s history…  ·  esc cancels' : '⏲ as of ' + day(asOf(p) - 60000) + '  ·  ← earlier  ·  → later  ·  esc back to now';
-    banner.textContent = t;
+    if (S.closed) t = S.closed.Name + ', ' + (p.loading ? 'reading history…' : 'as it closed ' + day(p.at) + '  ·  ' + closedLine() + '  ·  esc leaves it');
+    else t = p.loading ? 'reading the board’s history…  ·  esc cancels' : 'as of ' + day(asOf(p) - 60000) + '  ·  ← earlier  ·  → later  ·  esc back to now';
+    setIcon(banner, 'rotate-ccw-clock', t);
   }
 
   // ---- pins (★, first in the palette), mark all, copy

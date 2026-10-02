@@ -5,6 +5,7 @@
 //
 // A submenu's items load when it opens; `current` marks the value the issue has.
 import { h } from './dom.js';
+import { icon } from './icons.js';
 
 let shown = null;
 
@@ -40,7 +41,7 @@ export function ctxMenu(items, x, y) {
     lv.el.replaceChildren(...lv.items.map((it, i) => (it === '-' ? h('div.ctx-sep', { role: 'separator' })
       : h('div.ctx-item' + (i === lv.sel ? '.sel' : '') + (it.disabled ? '.off' : ''), { role: 'menuitem', 'aria-haspopup': it.sub ? 'menu' : null, dataset: { i },
         onpointerenter: () => hover(lv, i), onclick: e => { e.stopPropagation(); activate(lv, i, false); } },
-      h('span.ctx-check', it.current ? '✓' : ''), h('span.ctx-label', it.label), it.hint ? h('span.ctx-hint', it.hint) : null, it.sub ? h('span.ctx-more', '▸') : null))));
+      h('span.ctx-check', it.current ? icon('check') : ''), h('span.ctx-label', it.label), it.hint ? h('span.ctx-hint', it.hint) : null, it.sub ? h('span.ctx-more', icon('chevron-right')) : null))));
   }
   function place(el, px, py, parent) {
     const r = el.getBoundingClientRect(), W = window.innerWidth, H = window.innerHeight, m = 4;

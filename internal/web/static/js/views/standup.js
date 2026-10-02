@@ -2,6 +2,7 @@
 // right to left or by person, over the view the board showed last. One card at a time (space), park a card for after (P, kept per view).
 // Rows come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { projectOf, boardsOf, lastBoard, setCtx, switcher, recover } from './plan_ctx.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
@@ -69,7 +70,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
     const label = since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
     const title = mode === 'mine' ? 'Standup' : mode === 'team' ? 'Team standup' : 'Team standup by person';
     root.append(h('div.sthead', h('h2', title), team() && view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
-      h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, '‹ earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later ›'),
+      h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, icon('chevron-left'), 'earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later', icon('chevron-right')),
       h('button.btn', { onclick: () => setMode(team() ? 'mine' : 'team'), title: 'Tab' }, team() ? 'Mine' : 'Team'),
       team() && h('button.btn', { onclick: () => setMode(mode === 'team' ? 'person' : 'team'), title: 'p' }, mode === 'team' ? 'By person' : 'Walk the board'),
       h('button.btn', { onclick: () => { single = !single; paint(); }, title: 'space' }, single ? 'The list' : 'One by one'),

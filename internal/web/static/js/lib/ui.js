@@ -1,5 +1,6 @@
 // Shared widgets: toast, modal, pick (fuzzy list picker), prompt, confirm, avatar, chip.
 import { h, clear } from './dom.js';
+import { icon } from './icons.js';
 import { keys } from './keys.js';
 import { fuzzy } from './fuzzy.js';
 import { initials, hue } from './fmt.js';
@@ -91,7 +92,7 @@ export function pick(o) {
       const frag = document.createDocumentFragment();
       rows.slice(0, 200).forEach((r, i) => {
         const row = h('div.pick-row' + (i === sel ? '.sel' : ''), { role: 'option', dataset: { i }, onmousemove: () => { if (sel !== i) { sel = i; mark(); } }, onclick: () => choose(i) },
-          o.multi && h('span.check', chosen.has(r.it) ? '☑' : '☐'),
+          o.multi && h('span.check', icon(chosen.has(r.it) ? 'square-check' : 'square')),
           o.render ? o.render(r.it, r.m) : h('span.pick-label', label(r.it)),
           o.detail && !o.render && h('span.pick-detail', o.detail(r.it)));
         frag.append(row);
