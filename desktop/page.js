@@ -63,7 +63,8 @@
     css.textContent = `
       :root[data-desktop=mac] { --top-h: 52px; } /* a macOS toolbar's height: the window buttons centre in it */
       :root[data-desktop=mac] .pal-btn { height: 28px; }
-      :root[data-desktop=mac]:not([data-fullscreen]) #top { padding-left: 84px; }
+      :root[data-desktop=mac] #top { padding-top: 2px; } /* the logo's middle on the buttons' */
+      :root[data-desktop=mac]:not([data-fullscreen]) #top { padding-left: 96px; }
       :root[data-desktop=mac] #top { -webkit-user-select: none; user-select: none; }`;
     root.append(css);
     // As the Wails runtime does: a press on bare header, then a move, drags.
