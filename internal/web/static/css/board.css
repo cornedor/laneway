@@ -12,10 +12,17 @@
 .fchip kbd { font-size: .714rem; padding: 0 .286rem; line-height: 1rem; }
 .bd-filter { flex: 0 1 15.714rem; min-width: 7rem; max-width: 40vw; }
 .bd-stats { flex: none; font-size: .857rem; white-space: nowrap; }
-.bd-sprint { display: flex; align-items: center; gap: .5rem; min-width: 0; font-size: .857rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* the sprint line, beside its crumb: it takes what the toolbar leaves, the goal giving way first, then the days left;
+   short of its minimum the toolbar wraps under it */
+#viewbar:has(> #context > .bd-sprint:not(:empty)) { flex-wrap: wrap; row-gap: .214rem; }
+#viewbar:has(> #context > .bd-sprint:not(:empty)) > #toolbar { flex: none; margin-left: auto; }
+#context:has(> .bd-sprint:not(:empty)) { flex: 1 1 auto; }
+#context:has(> .bd-sprint:not(:empty)) > .crumb { flex: none; }
+.bd-sprint { display: flex; align-items: center; gap: .5rem; flex: 1 1 0; width: 0; min-width: 9rem; margin-left: var(--pad); overflow: hidden; font-size: .857rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .bd-sprint:empty { display: none; }
 .bd-prog { flex: none; width: 4rem; height: .4rem; border-radius: .2rem; background: linear-gradient(to right, var(--ok) var(--pct), var(--bg-3) var(--pct)); }
-.bd-goal { min-width: 0; max-width: 24rem; overflow: hidden; text-overflow: ellipsis; color: var(--fg-2); }
+.bd-when { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bd-goal { flex: 1 1 0; min-width: 0; max-width: 24rem; overflow: hidden; text-overflow: ellipsis; color: var(--fg-2); }
 
 .bd-main { flex: 1; min-height: 0; position: relative; }
 
@@ -153,3 +160,8 @@
 .fb-none { padding: .214rem .571rem; color: var(--fg-3); font-style: italic; }
 .fb-query { display: flex; flex-wrap: wrap; gap: .286rem; align-items: center; }
 @media (max-width: 760px) { .bd-goal { display: none; } }
+@media (max-width: 700px) {
+  /* a phone: the sprint line under the crumbs */
+  #context:has(> .bd-sprint:not(:empty)) { flex-basis: 100%; flex-wrap: wrap; }
+  .bd-sprint { flex-basis: 100%; width: auto; margin-left: .429rem; }
+}

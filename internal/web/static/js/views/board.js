@@ -86,7 +86,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const filterIn = h('input.input.bd-filter', { type: 'text', placeholder: 'Filter  (f)', spellcheck: false, autocomplete: 'off', title: 'words, status:review,test  points>2  prio>=high  is:flagged  age>3d  due<7d  epic:  -negate  (F builds a query)' });
   const chips = h('div.bd-chips');
   const stats = h('span.bd-stats.dim'), sprintEl = h('span.bd-sprint.dim');
-  const bar = h('div.bd-bar', chips, h('span.sp'), sprintEl, filterIn, stats);
+  const bar = h('div.bd-bar', chips, h('span.sp'), filterIn, stats);
   const banner = h('div.bd-banner', { hidden: true });
   const main = h('div.bd-main');
   const root = h('div.bd', bar, banner, main);
@@ -103,7 +103,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
   const emptyBtn = h('button.btn', { title: 'Hide / show empty lanes  (alt+e)', 'aria-pressed': 'false', onclick: () => setHideEmpty(!S.hideEmpty) });
   const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
-  context.append(projectBtn, boardBtn, sprintBtn);
+  context.append(projectBtn, boardBtn, sprintBtn, sprintEl);
   toolbar.append(h('span.spacer'), swimBtn, colsBtn, emptyBtn, compactBtn, modeBtn, refreshBtn);
 
   function renderToolbar() {
@@ -215,7 +215,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       for (const d = new Date(now); d.setHours(0, 0, 0, 0) < last.getTime(); d.setDate(d.getDate() + 1)) if (wd.includes(d.getDay())) n++;
       when = left + 'd left · ' + n + (n === 1 ? ' workday' : ' workdays');
     } else if (end) when = 'ended ' + shortDate(sp.End);
-    if (when) kids.push(h('span', when));
+    if (when) kids.push(h('span.bd-when', when));
     const goal = (sp.Goal || '').trim().split(/\s+/).join(' ');
     if (goal) kids.push(h('span.bd-goal', { title: goal }, goal));
     clear(sprintEl).append(...kids);
