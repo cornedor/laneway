@@ -971,6 +971,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMRInbox(msg)
 	case diffLoadedMsg:
 		return m.handleDiffLoaded(msg)
+	case diffExpandedMsg:
+		return m.handleDiffExpanded(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())

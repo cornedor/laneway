@@ -1,6 +1,10 @@
 package forge
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 const sampleDiff = `@@ -1,4 +1,5 @@
  package main
@@ -128,5 +132,23 @@ func TestStore(t *testing.T) {
 	s.Invalidate("g/p", 1)
 	if _, ok := s.Get("g/p", 1); ok {
 		t.Error("invalidated entry still there")
+	}
+}
+
+// TestExpandDiff: the file around and between the hunks, numbered on both
+// sides, a deletion-only hunk and an addition at the end included.
+func TestExpandDiff(t *testing.T) {
+	// old: a b c d e f g h ; new: a B c d f g h i (b→B, e deleted, i added)
+	diff := "@@ -1,3 +1,3 @@\n a\n-b\n+B\n c\n@@ -4,3 +4,2 @@\n d\n-e\n f\n@@ -8 +7,2 @@\n h\n+i\n"
+	file := []string{"a", "B", "c", "d", "f", "g", "h", "i"}
+	got := ExpandDiff(ParseUnifiedDiff(diff), file)
+	var b strings.Builder
+	for _, l := range got {
+		mark := map[DiffLineKind]string{DiffContext: " ", DiffAdd: "+", DiffDel: "-", DiffMeta: "\\"}[l.Kind]
+		fmt.Fprintf(&b, "%d %d %s%s\n", l.OldLine, l.NewLine, mark, l.Text)
+	}
+	want := "1 1  a\n2 0 -b\n0 2 +B\n3 3  c\n4 4  d\n5 0 -e\n6 5  f\n7 6  g\n8 7  h\n0 8 +i\n"
+	if b.String() != want {
+		t.Errorf("got\n%s\nwant\n%s", b.String(), want)
 	}
 }

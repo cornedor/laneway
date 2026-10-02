@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -111,6 +112,10 @@ type diffState struct {
 	version  int
 	picking  bool
 	pick     int
+
+	// full are the files e expanded, by index: their text at the head, which
+	// fills in the lines around the hunks.
+	full map[int][]string
 }
 
 // diffHScrollStep is how far ←/→ pan a wide diff: a tab's worth of columns,
@@ -227,7 +232,7 @@ func (m Model) fetchDiff() tea.Cmd {
 		// Parsed and highlighted here, off the UI goroutine: chroma costs
 		// milliseconds per file, and a merge request touching two hundred files
 		// would otherwise freeze the app for as long as it takes.
-		msg.built = buildDiff(msg.diff, msg.threads)
+		msg.built = buildDiff(msg.diff, msg.threads, nil)
 		return msg
 	}
 }
@@ -246,7 +251,7 @@ func (m Model) handleDiffLoaded(msg diffLoadedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	anchor := d.cursorAnchor()
-	d.diff, d.threads = msg.diff, msg.threads
+	d.diff, d.threads, d.full = msg.diff, msg.threads, nil
 	if msg.versions != nil {
 		d.versions = msg.versions
 	}
@@ -403,7 +408,7 @@ func (d *diffState) hiddenRows(fi int) int {
 // it is the expensive half of loading a diff (chroma over every file), and the
 // UI thread must not wait on it. Everything it produces is width-independent,
 // so it survives every resize.
-func buildDiff(d *forge.Diff, threads []forge.Thread) diffBuild {
+func buildDiff(d *forge.Diff, threads []forge.Thread, full map[int][]string) diffBuild {
 	b := diffBuild{gutter: 3}
 	if d == nil {
 		return b
@@ -423,6 +428,9 @@ func buildDiff(d *forge.Diff, threads []forge.Thread) diffBuild {
 			continue
 		}
 		lines := forge.ParseUnifiedDiff(f.Diff)
+		if text, ok := full[fi]; ok {
+			lines = forge.ExpandDiff(lines, text)
+		}
 		code := highlightDiffFile(f, lines)
 		for i, l := range lines {
 			b.rows = append(b.rows, diffRow{
@@ -965,6 +973,8 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if !d.moveThread(-1) {
 			m.status = "no earlier inline threads"
 		}
+	case "e":
+		return m, m.expandDiffFile(d.cursorFile())
 	case "z":
 		d.toggleCollapse(d.cursorFile())
 		d.syncTreeToCursor()
@@ -972,6 +982,68 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		d.setAllCollapsed(!d.allCollapsed())
 		d.syncTreeToCursor()
 	}
+	return m, nil
+}
+
+// diffExpandedMsg is a file's lines filled in, or taken back out.
+type diffExpandedMsg struct {
+	gen   int
+	full  map[int][]string
+	built diffBuild
+	err   error
+}
+
+// expandDiffFile fills in file fi's unchanged lines from its text at the
+// head, or, expanded already, folds it back to its hunks. The text is read
+// and the rows rebuilt off the UI goroutine, as a load is.
+func (m *Model) expandDiffFile(fi int) tea.Cmd {
+	d := m.diff
+	if d == nil || d.diff == nil || fi < 0 || fi >= len(d.diff.Files) {
+		return nil
+	}
+	f := d.diff.Files[fi]
+	full := maps.Clone(d.full)
+	if full == nil {
+		full = map[int][]string{}
+	}
+	_, expanded := full[fi]
+	switch {
+	case expanded:
+		delete(full, fi)
+		m.status = f.Path() + ": the changes only"
+	case f.Deleted, f.New, f.Binary, f.TooLarge:
+		m.status = f.Path() + ": nothing more to show here"
+		return nil
+	default:
+		m.status = "reading " + f.Path() + "…"
+	}
+	c, ctx, gen, diff, threads, repo, ref := d.c, m.ctx, d.gen, d.diff, d.threads, d.repo, d.diff.Refs.HeadSHA
+	return func() tea.Msg {
+		if !expanded {
+			text, err := c.File(ctx, repo, f.NewPath, ref)
+			if err != nil {
+				return diffExpandedMsg{gen: gen, err: err}
+			}
+			full[fi] = text
+		}
+		return diffExpandedMsg{gen: gen, full: full, built: buildDiff(diff, threads, full)}
+	}
+}
+
+func (m Model) handleDiffExpanded(msg diffExpandedMsg) (tea.Model, tea.Cmd) {
+	d := m.diff
+	if d == nil || msg.gen != d.gen {
+		return m, nil
+	}
+	if msg.err != nil {
+		m.status = "expand failed: " + msg.err.Error()
+		return m, nil
+	}
+	anchor := d.cursorAnchor()
+	d.full = msg.full
+	d.install(msg.built)
+	d.restoreCursor(anchor)
+	m.status = d.summary()
 	return m, nil
 }
 
@@ -1137,7 +1209,7 @@ func (m *Model) diffHint() string {
 	if len(d.versions) > 1 {
 		v = "v versions · "
 	}
-	return "z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
+	return "e whole file · z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
 }
 
 // renderRow draws one row to exactly width cells: the line-number gutter, the

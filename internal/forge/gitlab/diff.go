@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -353,4 +354,19 @@ func (c *Client) VersionDiff(ctx context.Context, project string, iid, id int) (
 		d.Files = append(d.Files, a.toFileDiff())
 	}
 	return d, nil
+}
+
+// File is the file at path as it is at ref (a commit), a line each, for
+// filling in a diff's unchanged lines (forge.ExpandDiff).
+func (c *Client) File(ctx context.Context, project, path, ref string) ([]string, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	p := fmt.Sprintf("/projects/%s/repository/files/%s/raw?ref=%s", encodePath(project),
+		strings.ReplaceAll(url.PathEscape(path), "/", "%2F"), url.QueryEscape(ref))
+	b, err := c.rest.DoRaw(ctx, http.MethodGet, p, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(strings.TrimSuffix(string(b), "\n"), "\n"), nil
 }

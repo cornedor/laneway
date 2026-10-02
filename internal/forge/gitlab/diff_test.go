@@ -301,3 +301,18 @@ func TestVersions(t *testing.T) {
 		t.Errorf("VersionDiff = %+v, %v", d, err)
 	}
 }
+
+// TestFile: the raw file at a commit, its path encoded whole, a line each.
+func TestFile(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.RequestURI, "/projects/g%2Fp/repository/files/pm2%2Fa%20b.js/raw?ref=abc") {
+			t.Errorf("request %s", r.RequestURI)
+		}
+		w.Write([]byte("one\ntwo\n"))
+	}))
+	defer srv.Close()
+	got, err := newTestClient(srv).File(context.Background(), "g/p", "pm2/a b.js", "abc")
+	if err != nil || len(got) != 2 || got[1] != "two" {
+		t.Errorf("File = %q, %v", got, err)
+	}
+}

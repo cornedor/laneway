@@ -24,6 +24,8 @@ func TestDiffView(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/discussions"):
 			w.Write([]byte(`[{"id": "d1", "notes": [{"id": 1, "body": "Why 2?", "author": {"name": "Grace"},
 				"position": {"position_type": "text", "new_path": "main.go", "old_path": "main.go", "new_line": 2}}]}]`))
+		case strings.Contains(r.URL.Path, "/repository/files/"):
+			w.Write([]byte("package main\n\nvar a = 2\nvar b = 9\n"))
 		case strings.HasSuffix(r.URL.Path, "/versions"):
 			w.Write([]byte(`[{"id": 2, "head_commit_sha": "h2"}, {"id": 1, "head_commit_sha": "h1aaaaaaa"}]`))
 		case strings.HasSuffix(r.URL.Path, "/versions/1"):
@@ -73,6 +75,20 @@ func TestDiffView(t *testing.T) {
 	out, cmd = out.(Model).handleKey(keyMsg(t, "enter"))
 	out, _ = out.(Model).Update(cmd())
 	m = out.(Model)
+	m.diff.setPos(1) // in main.go
+	out, cmd = m.handleKey(keyMsg(t, "e"))
+	m = out.(Model)
+	out, _ = m.Update(cmd())
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "var b = 9") || strings.Contains(view, "@@ -1,3 +1,3 @@") {
+		t.Fatalf("e: not the whole file:\n%s", view)
+	}
+	out, cmd = m.handleKey(keyMsg(t, "e"))
+	out, _ = out.(Model).Update(cmd())
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); strings.Contains(view, "var b = 9") {
+		t.Fatalf("e again: still whole:\n%s", view)
+	}
 	out, _ = m.handleKey(keyMsg(t, "z"))
 	m = out.(Model)
 	if !strings.Contains(ansi.Strip(m.View().Content), "lines folded") {

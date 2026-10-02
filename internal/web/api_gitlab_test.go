@@ -93,6 +93,8 @@ func TestGitLabDiff(t *testing.T) {
 			w.Write([]byte(`[{"old_path": "a.go", "new_path": "a.go", "diff": "@@ -1 +1 @@\n-var x = 1\n+var x = 2\n"}, {"new_path": "big.lock", "too_large": true}]`))
 		case strings.HasSuffix(r.URL.Path, "/discussions"):
 			w.Write([]byte(`[{"id": "d1", "notes": [{"id": 1, "body": "ok?", "author": {"name": "Grace"}, "position": {"position_type": "text", "new_path": "a.go", "new_line": 1}}]}]`))
+		case strings.Contains(r.URL.Path, "/repository/files/a.go/raw"):
+			w.Write([]byte("var x = 2\nvar y = 3\n"))
 		case strings.HasSuffix(r.URL.Path, "/versions"):
 			w.Write([]byte(`[{"id": 2, "head_commit_sha": "h2"}, {"id": 1, "head_commit_sha": "h1"}]`))
 		case strings.HasSuffix(r.URL.Path, "/versions/1"):
@@ -130,5 +132,10 @@ func TestGitLabDiff(t *testing.T) {
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil || v.Version != 1 || len(v.Versions) != 2 || len(v.Files) != 1 || v.Files[0].Path != "old.go" || len(v.Threads) != 0 {
 		t.Errorf("version 1: %s", rec.Body)
+	}
+	rec = call(s, "GET", "/api/gitlab/diff/file?path=a.go&url="+url.QueryEscape(gl.URL+"/g/p/-/merge_requests/7"), "", "")
+	var f DiffFile
+	if err := json.Unmarshal(rec.Body.Bytes(), &f); err != nil || rec.Code != 200 || len(f.Lines) != 3 || f.Lines[2].N != 2 || f.Lines[2].O != 2 || f.Lines[2].K != " " {
+		t.Errorf("whole file: %d %s", rec.Code, rec.Body)
 	}
 }

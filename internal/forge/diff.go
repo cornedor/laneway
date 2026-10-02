@@ -240,6 +240,49 @@ func ParseUnifiedDiff(diff string) []DiffLine {
 	return out
 }
 
+// ExpandDiff is lines (ParseUnifiedDiff's) with the unchanged lines around
+// and between its hunks filled in from file, the new side's text a line
+// each: the whole file, the changes in place, the hunk headers dropped. A
+// gap's two sides move together, so the numbers come from the code lines
+// either side of it, never from a header's counts.
+func ExpandDiff(lines []DiffLine, file []string) []DiffLine {
+	out := make([]DiffLine, 0, len(file)+len(lines))
+	nextOld, nextNew := 1, 1
+	fill := func(done func() bool) {
+		for ; !done() && nextNew <= len(file); nextNew, nextOld = nextNew+1, nextOld+1 {
+			out = append(out, DiffLine{Kind: DiffContext, Text: file[nextNew-1], OldLine: nextOld, NewLine: nextNew})
+		}
+	}
+	first := true // the next code line opens a hunk
+	for _, l := range lines {
+		switch l.Kind {
+		case DiffHunk:
+			first = true
+			continue
+		case DiffMeta:
+			out = append(out, l)
+			continue
+		}
+		if first {
+			if l.OldLine > 0 {
+				fill(func() bool { return nextOld >= l.OldLine })
+			} else {
+				fill(func() bool { return nextNew >= l.NewLine })
+			}
+			first = false
+		}
+		out = append(out, l)
+		if l.OldLine > 0 {
+			nextOld = l.OldLine + 1
+		}
+		if l.NewLine > 0 {
+			nextNew = l.NewLine + 1
+		}
+	}
+	fill(func() bool { return false })
+	return out
+}
+
 // parseHunkHeader reads the starting line numbers out of "@@ -12,7 +14,9 @@ …".
 // The counts are ignored: we number lines as we walk them, so a header that
 // lies about its length (or omits the count, as a one-line hunk does) costs

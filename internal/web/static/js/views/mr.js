@@ -16,6 +16,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
   const url = query.url || '';
   let data = null, dead = false, cur = 0, version = +query.version || 0;
   const folded = new Set();
+  const whole = new Map(); // e: file index → that file with its unchanged lines filled in
   const files = h('nav.df-files', { 'aria-label': 'Changed files' }), body = h('div.df-body');
   el.append(h('div.df', files, body));
   const title = h('span.clip');
@@ -38,7 +39,8 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     const at = threadsAt(f.Path), n = [...at.values()].reduce((s, l) => s + l.length, 0);
     const head = h('div.df-head', { dataset: { file: i } }, h('b.clip', f.Path), f.Renamed && f.OldPath !== f.Path ? h('span.df-dim', '← ' + f.OldPath) : null,
       f.New ? h('span.df-dim', 'new') : null, f.Deleted ? h('span.df-dim', 'deleted') : null, f.Generated ? h('span.df-dim', 'generated') : null,
-      h('span.spacer'), n ? h('span.df-threads', n + (n === 1 ? ' thread' : ' threads')) : null, h('span.df-add', '+' + f.Add), h('span.df-del', '−' + f.Del));
+      h('span.spacer'), n ? h('span.df-threads', n + (n === 1 ? ' thread' : ' threads')) : null, h('span.df-add', '+' + f.Add), h('span.df-del', '−' + f.Del),
+      f.New || f.Deleted || f.Binary || f.TooLarge ? null : h('button.btn.ghost.sm', { title: 'e', onclick: e => { e.stopPropagation(); expand(i); } }, whole.has(i) ? 'Changes only' : 'Whole file'));
     const sec = h('section.df-sec' + (folded.has(i) ? '.folded' : ''), { id: 'df-' + i }, head);
     if (f.Binary) { sec.append(h('div.df-msg', 'binary file, not shown')); return sec; }
     if (f.TooLarge) { sec.append(h('div.df-msg', 'too large for GitLab to send: ', h('a', { href: safe(data.WebURL) + '/diffs', target: '_blank', rel: 'noopener noreferrer' }, 'open it in GitLab'))); return sec; }
@@ -58,7 +60,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     title.textContent = data.Label + (data.Title ? ' · ' + data.Title : '');
     files.replaceChildren(...(data.Files || []).map((f, i) => h('div.df-file-link' + (i === cur ? '.cur' : ''), { dataset: { file: i }, title: f.Path },
       h('span.df-path', f.Path), h('span.df-add', '+' + f.Add), h('span.df-del', '−' + f.Del))));
-    const secs = (data.Files || []).map(section);
+    const secs = (data.Files || []).map((f, i) => section(whole.get(i) || f, i));
     if (data.Truncated) secs.push(h('div.df-msg', 'GitLab truncated this diff: the rest is only on ', h('a', { href: safe(data.WebURL) + '/diffs', target: '_blank', rel: 'noopener noreferrer' }, 'GitLab')));
     if (!secs.length) secs.push(h('div.df-msg', 'This merge request has no diff.'));
     body.replaceChildren(...secs);
@@ -67,6 +69,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     body.replaceChildren(h('div.df-msg', 'Loading the diff…'));
     try {
       data = await api.get('/gitlab/diff?url=' + encodeURIComponent(url) + (version ? '&version=' + version : '') + (fresh ? '&fresh=1' : ''), { fresh: true });
+      whole.clear();
       if (!dead) { paint(); versionPick(); }
     } catch (e) { if (!dead) body.replaceChildren(h('div.df-msg', e.message, ' ', safe(url) ? h('a', { href: safe(url), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab') : null)); }
   }
@@ -75,6 +78,17 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     cur = Math.max(0, Math.min(n - 1, i));
     for (const l of files.children) l.classList.toggle('cur', +l.dataset.file === cur);
     const s = body.querySelector('#df-' + cur); if (s) s.scrollIntoView({ block: 'start' });
+  }
+  async function expand(i) {
+    const f = data && data.Files && data.Files[i]; if (!f) return;
+    if (whole.has(i)) whole.delete(i);
+    else {
+      if (f.New || f.Deleted || f.Binary || f.TooLarge) return ui.toast(f.Path + ': nothing more to show');
+      try { whole.set(i, await api.get('/gitlab/diff/file?url=' + encodeURIComponent(url) + '&path=' + encodeURIComponent(f.Path) + (version ? '&version=' + version : ''))); }
+      catch (e) { return ui.errToast(e); }
+      if (dead) return;
+    }
+    const old = body.querySelector('#df-' + i); if (old) old.replaceWith(section(whole.get(i) || f, i));
   }
   function fold(i, v) { if (v ?? !folded.has(i)) folded.add(i); else folded.delete(i); const s = body.querySelector('#df-' + i); if (s) s.classList.toggle('folded', folded.has(i)); }
   function thread(d) {
@@ -89,6 +103,7 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
   scope.bind('n', () => thread(1), 'next inline thread', { group: G });
   scope.bind('N', () => thread(-1), 'previous inline thread', { group: G });
   scope.bind('z', () => fold(cur), 'fold the file', { group: G });
+  scope.bind('e', () => expand(cur), 'the whole file / the changes only', { group: G });
   scope.bind('Z', () => { const all = (data && data.Files || []).every((_, i) => folded.has(i)); (data && data.Files || []).forEach((_, i) => fold(i, !all)); }, 'fold / unfold every file', { group: G });
   scope.bind('o', () => safe(url) && window.open(url, '_blank', 'noopener'), 'open in GitLab', { group: G });
   scope.bind('r', () => load(true), 'reload', { group: G });
