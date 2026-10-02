@@ -49,6 +49,7 @@
 .card.done .csum { color: var(--fg-2); }
 .card.mark { background: var(--accent-bg); }
 .card.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+body.panel-focus .card.sel { outline-color: var(--fg-3); } /* the keys are the panel's */
 .card.dragging { opacity: .4; }
 .card.flagged { border-top-color: var(--err); border-right-color: var(--err); border-bottom-color: var(--err); }
 .c1, .c3 { display: flex; align-items: center; gap: .429rem; min-width: 0; line-height: 1.429rem; height: 1.429rem; flex: none; white-space: nowrap; font-size: .857rem; color: var(--fg-2); }
@@ -80,6 +81,7 @@
 .lrow.mark { background: var(--accent-bg); }
 .lrow.ribbon { box-shadow: inset -4px 0 0 var(--ribbon); }
 .lrow.sel { background: var(--accent-bg); box-shadow: inset 3px 0 var(--accent); }
+body.panel-focus .lrow.sel { background: var(--bg-3); box-shadow: inset 3px 0 var(--fg-3); }
 .lrow.done .l-sum { color: var(--fg-2); }
 .lrow > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .l-ghead { display: none; }

@@ -24,8 +24,15 @@ const commands = {
 const GLOBAL_PREF = /^(font|terminal)\./;
 
 // Where the focus or a press last landed, in the panel or not (app.panel.focused); a modal over them changes neither.
+// body.panel-focus shows it: the panel's edge lit, the view's cursor muted.
 let panelFocus = false;
-const focusAt = e => { const t = e.target; if (t && t.closest && !t.closest('.overlay')) panelFocus = !!t.closest('#panel'); };
+const paintFocus = () => document.body.classList.toggle('panel-focus', app.panel.focused());
+const focusAt = e => {
+  const t = e.target;
+  if (!t || !t.closest || t.closest('.overlay')) return;
+  panelFocus = !!t.closest('#panel');
+  setTimeout(paintFocus); // after the press has moved the focus
+};
 document.addEventListener('focusin', focusAt, true);
 document.addEventListener('pointerdown', focusAt, true);
 
@@ -53,6 +60,7 @@ export const app = {
       const el = $('#panel'); if (!key) return app.panel.close();
       if (app.panel.key === key && !el.hidden && !opts.force) return;
       panelFocus = app.panel.focused(); // another issue from inside the panel keeps it
+      setTimeout(paintFocus);
       app.panel.key = key; el.hidden = false; el.dataset.key = key;
       document.body.classList.add('has-panel');
       app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
@@ -68,7 +76,7 @@ export const app = {
     close() {
       const el = $('#panel'); app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
       app.panel.key = null; el.hidden = true; clear(el); document.body.classList.remove('has-panel');
-      panelFocus = false;
+      panelFocus = false; paintFocus();
       if (viewTitle) document.title = viewTitle;
       bus.emit('panel', { key: null });
     },
