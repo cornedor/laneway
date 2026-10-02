@@ -214,8 +214,9 @@ func (m Model) handleDiffNotePosted(msg diffNotePostedMsg) (tea.Model, tea.Cmd) 
 	return m, m.reloadDiffThreads()
 }
 
-// renderDiffNote draws the composer over the diff view, in the same box the
-// Jira comment composer uses.
+// renderDiffNote draws the composer, in the same box the Jira comment
+// composer uses. It sits over the foot of the diff (diffNoteTop), the line
+// it is about kept in sight above it.
 func (m *Model) renderDiffNote() string {
 	if !m.diffNoteActive() {
 		return ""
@@ -246,7 +247,19 @@ func (m *Model) diffNoteCursor(box string) (col, row int, ok bool) {
 	if m.diff.note.context != "" {
 		above = 1
 	}
-	return m.modalComposerCursor(above, &m.diff.note.input, box)
+	return m.modalComposerCursorAt(above, &m.diff.note.input, box, m.diffNoteTop(box))
+}
+
+// diffNoteTop is the body row the composer box starts on: low in the diff
+// view, its last row on the diff's last, above the view's hint and border.
+func (m *Model) diffNoteTop(box string) int {
+	return max(m.bodyH()-2-lipgloss.Height(box), 0)
+}
+
+// overDiff draws the composer box over the diff view body.
+func (m *Model) overDiff(body, box string) string {
+	x := placeOffset(m.width, lipgloss.Width(box))
+	return lipgloss.NewCompositor(lipgloss.NewLayer(body), lipgloss.NewLayer(box).X(x).Y(m.diffNoteTop(box)).Z(1)).Render()
 }
 
 // --- resolving -------------------------------------------------------------

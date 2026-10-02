@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ func (m *Model) openDevInfo() tea.Cmd {
 			label := fmt.Sprintf("branch  %s", d.Name)
 			switch d.Kind {
 			case "pr":
-				label = fmt.Sprintf("%-8s %s  (%s)", d.Status, d.Name, d.Branch)
+				label = fmt.Sprintf("%-8s %s%s  (%s)", d.Status, prNumber(d.URL), d.Name, d.Branch)
 			case "build":
 				label = fmt.Sprintf("%-8s build %s", d.Status, d.Name)
 				if d.Branch != "" {
@@ -64,6 +65,22 @@ func (m *Model) openDevInfo() tea.Cmd {
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickDev, items: rows, err: err}
 	}
+}
+
+// prNumberRe finds a pull or merge request's number in its link.
+var prNumberRe = regexp.MustCompile(`/(-/merge_requests|pull|pull-requests)/(\d+)`)
+
+// prNumber is "!87 " for a merge request's link, "#12 " for a pull
+// request's, "" for neither.
+func prNumber(link string) string {
+	m := prNumberRe.FindStringSubmatch(link)
+	switch {
+	case m == nil:
+		return ""
+	case m[1] == "-/merge_requests":
+		return "!" + m[2] + " "
+	}
+	return "#" + m[2] + " "
 }
 
 // gitlabSearchTimeout bounds the GitLab search for an issue's merge requests.

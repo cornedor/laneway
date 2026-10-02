@@ -59,7 +59,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mr.Title != "Fix the widget" || mr.Author != "Ada Lovelace" || mr.Mergeable || mr.MergeStatus != "ci still running · conflicts" {
+	if mr.Title != "Fix the widget" || mr.Author != "Ada Lovelace" || mr.Mergeable || mr.MergeStatus != "pipeline still running · conflicts" {
 		t.Errorf("change = %+v", mr)
 	}
 	if mr.WebURL != srv.URL+"/g/sub/p/-/merge_requests/42" {

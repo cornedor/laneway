@@ -271,16 +271,41 @@ func toChange(a apiMR, project string) *forge.Change {
 	return ch
 }
 
-// mergeStatusText is the merge-readiness phrase: "mergeable", or the humanized
-// blocking reason (ci_still_running → "ci still running") plus an explicit
-// conflicts note when GitLab flags one that the reason doesn't mention.
+// mergeStatusPhrase is GitLab's detailed_merge_status in words: what stands
+// between the merge request and a merge.
+var mergeStatusPhrase = map[string]string{
+	"mergeable":                  "ready to merge",
+	"not_approved":               "needs approval",
+	"requested_changes":          "changes requested",
+	"ci_must_pass":               "pipeline must pass",
+	"ci_still_running":           "pipeline still running",
+	"discussions_not_resolved":   "threads to resolve",
+	"draft_status":               "draft",
+	"conflict":                   "conflicts",
+	"need_rebase":                "needs a rebase",
+	"not_open":                   "not open",
+	"merge_request_blocked":      "blocked by another merge request",
+	"jira_association_missing":   "needs a Jira key",
+	"status_checks_must_pass":    "status checks must pass",
+	"security_policy_violations": "security policy violated",
+	"checking":                   "checking",
+	"unchecked":                  "checking",
+	"preparing":                  "checking",
+	"approvals_syncing":          "checking",
+}
+
+// mergeStatusText is the merge-readiness phrase: "ready to merge", or the
+// blocking reason in words (ci_still_running → "pipeline still running"),
+// plus an explicit conflicts note when GitLab flags one the reason doesn't
+// mention.
 func mergeStatusText(a apiMR) string {
-	if a.DetailedMergeStatus == "mergeable" {
-		return "mergeable"
-	}
-	txt := strings.ReplaceAll(a.DetailedMergeStatus, "_", " ")
-	if txt == "" {
+	txt, ok := mergeStatusPhrase[a.DetailedMergeStatus]
+	switch {
+	case ok:
+	case a.DetailedMergeStatus == "":
 		txt = "not mergeable"
+	default:
+		txt = strings.ReplaceAll(a.DetailedMergeStatus, "_", " ")
 	}
 	if a.HasConflicts && !strings.Contains(txt, "conflict") {
 		txt += " · conflicts"

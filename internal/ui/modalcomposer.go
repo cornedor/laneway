@@ -88,17 +88,24 @@ func (m *Model) renderModalComposer(title string, above []string, hint string, i
 // composer drawn with above context lines, centred in the body. Mirrors
 // renderModalComposer's layout: change one and you change the other.
 func (m *Model) modalComposerCursor(above int, input *editor.Model, box string) (col, row int, ok bool) {
+	if box == "" {
+		return 0, 0, false
+	}
+	// Measured, not counted: the hint wraps on a narrow screen.
+	return m.modalComposerCursorAt(above, input, box, placeOffset(m.bodyH(), lipgloss.Height(box)))
+}
+
+// modalComposerCursorAt is modalComposerCursor for a box drawn boxTop rows
+// down the body, centred across it.
+func (m *Model) modalComposerCursorAt(above int, input *editor.Model, box string, boxTop int) (col, row int, ok bool) {
 	cx, cy, okPos := input.CursorViewPos()
-	bodyH := m.bodyH()
-	if !okPos || bodyH <= 0 || box == "" {
+	if !okPos || m.bodyH() <= 0 || box == "" {
 		return 0, 0, false
 	}
 	// Rows stacked above the editor inside the box: the title + its blank, then
 	// each context line + its blank.
 	aboveEditor := 2 + 2*above
-	// Measured, not counted: the hint wraps on a narrow screen.
 	boxLeft := placeOffset(m.width, lipgloss.Width(box))
-	boxTop := placeOffset(bodyH, lipgloss.Height(box))
 	// Editor origin inside the box: left border (1) + left padding (3); top
 	// border (1) + top padding (1) + the rows above it.
 	return boxLeft + 4 + cx, boxTop + 2 + aboveEditor + cy, true

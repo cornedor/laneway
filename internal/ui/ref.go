@@ -336,10 +336,16 @@ func (m *Model) renderRef() {
 		return
 	}
 	r := m.currentRef()
-	if m.mr != nil { // like a page: nothing on it clicks through
+	if m.mr != nil { // like a page: only its key line clicks
 		content := m.renderMR(m.refView.Width())
 		m.refView.SetContent(content)
 		m.panelHits, m.activityLine, m.panelPlain = nil, -1, plainLines(content)
+		for i, l := range strings.Split(content, "\n") {
+			if strings.TrimSpace(ansi.Strip(l)) == m.mrHintLine() {
+				m.panelHits = map[int]panelHit{i: {field: -1, keys: m.mrHints()}}
+				break
+			}
+		}
 		return
 	}
 	if m.page != nil { // nothing on it clicks through to the issue under it
@@ -523,6 +529,9 @@ func (m *Model) crumbAt(y int) int {
 
 // refPaneTitle is the pane's heading.
 func (m *Model) refPaneTitle() string {
+	if m.mr != nil {
+		return "GitLab"
+	}
 	if m.refLoading && m.jiraIssue == nil {
 		return "Jira (loading…)"
 	}

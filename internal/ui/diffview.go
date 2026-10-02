@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -207,13 +208,25 @@ func (m Model) openDiffView() (tea.Model, tea.Cmd) {
 
 // closeDiffView tears the view down. The generation bump is what makes an
 // in-flight fetch land on nothing.
+//
+// Pending notes are easy to forget: only you see them until the review is
+// submitted, so leaving with some says so, and the panel's merge request
+// takes them over.
 func (m *Model) closeDiffView() {
-	if m.diff == nil {
+	d := m.diff
+	if d == nil {
 		return
 	}
-	m.diff.gen++
+	d.gen++
 	m.diff = nil
 	m.status = ""
+	if p := m.mr; p != nil && p.ref.Repo == d.repo && p.ref.Number == d.number && d.diff != nil {
+		p.drafts = d.drafts
+		m.renderRef()
+	}
+	if n := len(d.drafts); n > 0 && d.version == 0 {
+		m.status = plural(n, "pending note") + " unpublished: d, then S submits your review"
+	}
 }
 
 // fetchDiff fetches the diff and the inline conversations in the background.
@@ -687,8 +700,11 @@ func diffThreadRows(t forge.Thread, ti, fi int) []diffRow {
 		if i > 0 {
 			head = "↳ " + n.Author
 		}
+		if !n.Created.IsZero() {
+			head += " · " + age(n.Created) + " ago"
+		}
 		if t.Resolved && i == 0 {
-			head += " (resolved)"
+			head += " · resolved"
 		}
 		out = append(out, diffRow{kind: diffRowNote, file: fi, thread: ti, text: head, noteHead: true})
 		for _, ln := range strings.Split(strings.TrimRight(n.Body, "\n"), "\n") {
@@ -909,6 +925,10 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	if d.verdicts {
 		return m.handleDiffVerdictKey(msg)
+	}
+	if key.Matches(msg, m.keys.Help) {
+		m.openHelp("Diff review")
+		return m, nil
 	}
 	switch msg.String() {
 	case "ctrl+c":
@@ -1228,8 +1248,13 @@ func (m *Model) renderDiffView(bodyH int) string {
 	// Body height: the frame's border (2), its title row and rule (2), and the
 	// hint row at the foot of the body.
 	h := max(3, bodyH-5)
+	// Under the composer: the line it is about stays in sight above it.
 	d.viewH = h
+	if note := m.renderDiffNote(); note != "" {
+		d.viewH = max(h-lipgloss.Height(note), 1)
+	}
 	d.clampCursor()
+	d.viewH = h
 
 	// The tree takes a column off the left, when there is room for one. Its
 	// rows and the code's are rendered to exact widths and stitched per row, so
@@ -1343,34 +1368,35 @@ func (d *diffState) scrollHint() string {
 }
 
 // diffHint is the key line at the foot of the view: the keys of the panel that
-// has them, and only the ones that do something here. Reload, browser and the
-// paging keys are left to the footer and the cheatsheet — this line has to fit
-// on a laptop terminal, and it is the review keys people need in front of them.
+// has them, and only the ones that do something at the cursor. The rest
+// (whole file, fold, pan, versions, reload, browser) are on ?: this line has
+// to fit on a laptop terminal, and it is the review keys people need in
+// front of them.
 func (m *Model) diffHint() string {
 	d := m.diff
 	if d == nil {
 		return ""
 	}
+	if d.note.active { // the composer has its own
+		return ""
+	}
+	keys := helpKey(m.keys.Help) + " keys · esc close"
 	tab := ""
 	if m.diffTreeShown() {
-		tab = "tab diff · "
-		if !d.treeFocus {
-			tab = "tab files · "
+		tab = "tab files · "
+		if d.treeFocus {
+			tab = "tab diff · "
 		}
 	}
 	if d.treeFocus {
-		return "↵ open · z/Z fold · ←/→ pan · " + tab + "esc close"
-	}
-	v := ""
-	if len(d.versions) > 1 {
-		v = "v versions · "
+		return "↑/↓ file · z/Z fold · " + tab + keys
 	}
 	note, resolve := "c note · s suggest · V range · ", ""
 	if d.mark > 0 {
 		note = "c note the range · s suggest · esc drop it · "
 	}
 	if d.cursor < len(d.rows) && d.rows[d.cursor].draft > 0 {
-		resolve = "E edit · x drop it · "
+		note, resolve = "", "E edit · x drop · "
 	}
 	review := "S submit · A approve · "
 	if n := len(d.drafts); n > 0 {
@@ -1387,7 +1413,7 @@ func (m *Model) diffHint() string {
 			resolve = "R resolve · "
 		}
 	}
-	return note + resolve + review + "e whole file · z/Z fold · ]/[ file · n/N thread · ←/→ pan · " + v + "o GitLab · " + tab + "esc close"
+	return note + resolve + review + "]/[ file · n/N thread · " + tab + keys
 }
 
 // renderRow draws one row to exactly width cells: the line-number gutter, the

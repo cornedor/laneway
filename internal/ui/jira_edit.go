@@ -1494,6 +1494,9 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	if m.jiraPicker.checked != nil {
 		hintTxt = "↑/↓ move · space/tab/click ticks · [ ↵ apply ] · esc cancel"
 	}
+	if m.jiraPicker.kind == jiraPickDev {
+		hintTxt = "↵ open: GitLab here, the rest in the browser · " + helpKey(m.keys.CopyBranch) + " branch · esc close"
+	}
 	if m.jiraPicker.filterable {
 		hintTxt = "type to filter · " + hintTxt
 	}

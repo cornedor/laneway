@@ -1263,7 +1263,7 @@ func (m Model) View() tea.View {
 	if m.diff != nil {
 		body = lipgloss.PlaceHorizontal(m.width, lipgloss.Center, m.renderDiffView(bodyH))
 		if note := m.renderDiffNote(); note != "" {
-			body = lipgloss.Place(m.width, bodyH, lipgloss.Center, lipgloss.Center, note)
+			body = m.overDiff(body, note)
 		}
 	}
 	if m.imageView {

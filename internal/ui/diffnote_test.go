@@ -60,7 +60,7 @@ func TestDiffDiscussions(t *testing.T) {
 	c, r, _ := m.gitlabMR(link)
 	out, _ := m.Update(m.showMR(c, r, link, "T")())
 	m = out.(Model)
-	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "2 open · 0 resolved") {
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Threads    2 open") {
 		t.Errorf("panel: no thread counts:\n%s", view)
 	}
 	out, cmd := m.handleKey(keyMsg(t, "d"))

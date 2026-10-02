@@ -13,8 +13,9 @@ import (
 )
 
 // alt+m swaps the board for the merge requests waiting on you (MRInbox):
-// a row each, grouped by why. enter reads one in the panel, as D does; o
-// opens it in GitLab, r reads them again, esc goes back to the board.
+// a row each, grouped by why. enter reads one in the panel, as D does; d
+// goes straight to its diff, o opens it in GitLab, r reads them again, esc
+// goes back to the board.
 
 type mrScreen struct {
 	rows    []MRRow
@@ -82,7 +83,7 @@ func (m *Model) mrsViewLine() string {
 	default:
 		line += fmt.Sprintf(" · %d", len(s.rows))
 	}
-	return jiraViewActive.Render(line) + jiraDimStyle.Render("  "+helpKey(m.keys.OpenChannel)+" read · "+helpKey(m.keys.OpenAttach)+" GitLab · esc board")
+	return jiraViewActive.Render(line) + jiraDimStyle.Render("  "+helpKey(m.keys.OpenChannel)+" read · d review the diff · "+helpKey(m.keys.OpenAttach)+" GitLab · esc board")
 }
 
 // mrRowLine is one merge request's row, w wide.
@@ -169,7 +170,7 @@ func (m Model) handleMRsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.helpOpen = true
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadMRs()
-	case key.Matches(msg, m.keys.OpenChannel):
+	case key.Matches(msg, m.keys.OpenChannel), msg.String() == "d":
 		if cur == nil {
 			return m, nil
 		}
@@ -177,7 +178,9 @@ func (m Model) handleMRsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			return m, m.openOpenable(openable{name: cur.Title, url: cur.WebURL})
 		}
-		return m, m.showMR(c, r, cur.WebURL, cur.Title)
+		cmd := m.showMR(c, r, cur.WebURL, cur.Title)
+		m.mr.thenDiff = msg.String() == "d"
+		return m, cmd
 	case key.Matches(msg, m.keys.OpenAttach):
 		if cur == nil {
 			return m, nil

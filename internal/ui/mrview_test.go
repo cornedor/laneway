@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 )
 
@@ -43,7 +44,7 @@ func TestMRView(t *testing.T) {
 	out, _ = m.Update(cmd())
 	m = out.(Model)
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"Fix login", "GitLab g/p!7", "issue/ABC-1 → main", "1 of 2", "Grace", "✗ failed", "test", "✗ unit", "Fixes it."} {
+	for _, want := range []string{"Fix login", "g/p!7", "d review the diff", "issue/ABC-1 → main", "1 of 2", "Grace", "✗ failed", "test", "✗ unit", "Fixes it."} {
 		if !strings.Contains(view, want) {
 			t.Errorf("no %q:\n%s", want, view)
 		}
@@ -59,5 +60,53 @@ func TestMRView(t *testing.T) {
 	out, _ = out.(Model).applyJiraPick()
 	if m = out.(Model); m.mr != nil || !strings.Contains(m.status, "opening https://elsewhere.test/pr/1") {
 		t.Errorf("another forge's link: mr %v, status %q", m.mr != nil, m.status)
+	}
+}
+
+// TestApprovalsText: who approved, and the reviewers still to; no row
+// without rules or approvers.
+func TestApprovalsText(t *testing.T) {
+	mr := &forge.Change{Reviewers: []string{"Sam", "Jamie"}, Approvals: &forge.Approvals{Required: 2, Left: 1, By: []string{"Sam"}}}
+	if got := ansi.Strip(approvalsText(mr)); got != "1 of 2 · Sam · waiting on Jamie" {
+		t.Errorf("open: %q", got)
+	}
+	mr.Approvals = &forge.Approvals{Approved: true, Required: 1, By: []string{"Sam"}}
+	if got := ansi.Strip(approvalsText(mr)); got != "approved · 1 of 1 · Sam" {
+		t.Errorf("approved: %q", got)
+	}
+	if mr.Approvals = (&forge.Approvals{}); approvalsText(mr) != "" {
+		t.Error("no rules, no one: a row")
+	}
+}
+
+// TestDiffPendingOnClose: leaving the diff with pending notes says they are
+// unpublished, and the panel's merge request takes them over; ? opens the
+// diff's keys.
+func TestDiffPendingOnClose(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.mr = &panelMR{ref: forge.Ref{Repo: "g/p", Number: 7}, mr: &forge.Change{Title: "T"}}
+	m.diff = &diffState{repo: "g/p", number: 7, diff: &forge.Diff{}, drafts: []forge.Draft{{ID: 1, Body: "hm"}}}
+	out, _ := m.handleKey(keyMsg(t, "?"))
+	if m = out.(Model); !m.helpOpen {
+		t.Fatal("? in the diff: no help")
+	}
+	m.helpOpen = false
+	m.closeDiffView()
+	if !strings.Contains(m.status, "1 pending note unpublished") || len(m.mr.drafts) != 1 {
+		t.Errorf("status %q, panel drafts %d", m.status, len(m.mr.drafts))
+	}
+}
+
+// TestMRIssueKey: the Jira key a merge request names, in its title or its
+// branch.
+func TestMRIssueKey(t *testing.T) {
+	for _, c := range []struct{ title, branch, want string }{
+		{"Cache rates", "issue/DEMO-7-cache", "DEMO-7"},
+		{"ABC-12: fix it", "main", "ABC-12"},
+		{"No key", "feature/x", ""},
+	} {
+		if got := mrIssueKey(&forge.Change{Title: c.title, SourceBranch: c.branch}); got != c.want {
+			t.Errorf("%q %q: %q, want %q", c.title, c.branch, got, c.want)
+		}
 	}
 }
