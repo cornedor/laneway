@@ -1,9 +1,9 @@
 name: Desktop spike
 
-# Temporary (LAN-583): builds Laneway.app from the spike/desktop branch.
+# Temporary (LAN-583): builds Laneway.app from the spike/desktop branches.
 on:
   push:
-    branches: [spike/desktop]
+    branches: [spike/desktop, "spike/desktop-*"]
 
 permissions:
   contents: read
