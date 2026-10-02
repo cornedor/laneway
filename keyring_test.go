@@ -22,10 +22,15 @@ func TestSetupKeyring(t *testing.T) {
 	oldLook, oldRun := lookPath, runKeyring
 	t.Cleanup(func() { lookPath, runKeyring = oldLook, oldRun })
 	lookPath = func(string) (string, error) { return "/usr/bin/tool", nil }
+	// stored is what the store read: the token (secret-tool) or the
+	// security -i command holding it (macOS); a lookup reads no input.
 	var stored string
 	runKeyring = func(cmd []string, input string) (string, error) {
-		if cmd[1] == "lookup" {
-			return stored + "\n", nil
+		if input == "" {
+			if strings.Contains(stored, "tok-9") {
+				return "tok-9\n", nil
+			}
+			return "\n", nil
 		}
 		stored = input
 		return "", nil
@@ -37,7 +42,7 @@ func TestSetupKeyring(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(path)
-	if stored != "tok-9" || strings.Contains(string(b), "tok-9") || !strings.Contains(string(b), "api_token_cmd:") {
+	if !strings.Contains(stored, "tok-9") || strings.Contains(string(b), "tok-9") || !strings.Contains(string(b), "api_token_cmd:") {
 		t.Errorf("stored %q, config:\n%s", stored, b)
 	}
 }
