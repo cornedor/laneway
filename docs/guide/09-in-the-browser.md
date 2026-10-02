@@ -49,6 +49,7 @@ Two bars on top and the issue panel on the right.
 | Inbox | `g i` | threads on issues others changed, mentions |
 | Standup | `g s` | yours or the team's, one card at a time |
 | Review | `g R` | pull requests to review (needs `gh` or `glab`; hidden without both) |
+| Merge requests | `g M` | the ones waiting on you on your GitLabs; a page each with its pipeline, discussions and diff |
 | Agents | `g a` | coding agents and worktrees, each agent's live terminal (needs herdr; hidden without it) |
 | Rules | `g l` | your rules, a live feed, try a change |
 | Settings | `g ,` | every `ui:` option, appearance, keys |

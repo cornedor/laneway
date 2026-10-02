@@ -16,6 +16,7 @@ terminal.
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git, your agents' activity and your calendar
 - Inbox: a thread per issue others changed, on every site, each read, done or snoozed on its own; a standup of yours (commits too), or your team's walking the board
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
+- GitLab merge requests: the ones waiting on you, their pipeline and job logs, a diff to review line by line with notes, suggestions and a pending review to submit or approve; or a coding agent reviews it for you
 - Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to it
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key

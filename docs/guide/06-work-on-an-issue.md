@@ -109,10 +109,35 @@ config, or a `glab auth login`). Without Jira's GitLab integration, `D`
 finds the merge requests whose title names the issue's key. Cards show the state (`pr` in
 `ui.card_fields`), and `/pr:open` finds the ones with an open one.
 
-## Reviews waiting on you: `ctrl+r`
+## Review a merge request
 
-`ctrl+r` shows the issues whose pull or merge requests wait on your review
-as a view, their cards marked `⌥`.
+`alt+m` lists the merge requests waiting on you on every GitLab you're
+signed in to: review asked, assigned, or yours with comments you haven't
+read, Jira key or not. `enter` reads one in the panel: state, pipeline by
+stage, approvals and who they wait on, your pending notes. `i` opens the
+Jira issue it names, `p` its pipeline's jobs (`enter` a job's log, followed
+while it runs). `ctrl+r` instead shows the issues whose pull or merge
+requests wait on you, as a view, their cards marked `⌥`.
+
+`d` opens the diff over the screen: files on the left, threads under their
+lines.
+
+![A merge request's diff with a thread under its line](../screenshots/review.png)
+
+- `c` writes a note on the line, or a reply on a thread. `V` marks a range
+  first, `s` suggests a change.
+- Notes go into your pending review, which only you see. `E` rewords one,
+  `x` drops it.
+- `S` submits the review: comment, approve or request changes, with a
+  summary. `A` just approves.
+- `C` hands the review to your `ui.work_agent`, in a worktree of the source
+  branch. Its findings land in your pending review, for you to edit, drop
+  or submit.
+- `n`/`N` step through threads, `R` resolves one, `]`/`[` change file, `e`
+  shows the whole file, `v` an earlier push. `?` lists the rest.
+
+Leaving with unsubmitted notes says so. In the browser, `g M` lists the
+same merge requests, and their page has the diff under **Changes**.
 
 ## Clean up
 
@@ -126,8 +151,9 @@ then `tab` lists every issue that still has one, across projects.
 - `ctrl+y` a branch name, `laneway hook install` keys in commits.
 - `S` starts an agent in a worktree, the card shows its state, `S` attaches.
 - `ctrl+g` all your agents by state, each one's terminal beside the list.
-- `A` → pull request, `D` lists it, `ctrl+r` your reviews, `A` → remove
-  the worktree.
+- `A` → pull request, `D` lists it, `A` → remove the worktree.
+- `alt+m` merge requests waiting on you, `d` the diff, `c` notes, `S`
+  submits the review.
 
 Previous: [Your day](05-your-day.md) · Next:
 [From the shell](07-from-the-shell.md)

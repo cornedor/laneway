@@ -22,7 +22,8 @@ By the last chapter you will:
 - **See where it's going.** Epics on a timeline, burndown and velocity charts.
 - **Track your day.** A timer, work logs, and a standup that writes itself.
 - **Ship code.** A branch and commits that name the issue, a coding agent in
-  its own worktree, a draft pull request.
+  its own worktree, a draft pull request, a merge request reviewed line by
+  line.
 - **Script it.** Your issues in scripts and your prompt; offline, laneway
   keeps working.
 - **Make it yours.** Rules that notify or act on changes, your own cards,
@@ -39,7 +40,7 @@ By the last chapter you will:
 3. [Editing and moving](03-editing-and-moving.md): move cards, change fields, write, create, edit many at once
 4. [Planning and reporting](04-planning-and-reporting.md): fill a sprint, epics on a timeline, burndown, releases
 5. [Your day](05-your-day.md): log time, a timer, your standup, the inbox
-6. [Work on an issue](06-work-on-an-issue.md): branches, commit keys, coding agents, pull requests
+6. [Work on an issue](06-work-on-an-issue.md): branches, commit keys, coding agents, pull requests, reviewing a merge request
 7. [From the shell](07-from-the-shell.md): scripts, completion, your prompt, working offline
 8. [Make it yours](08-make-it-yours.md): JQL, rules, cards, keys, themes, when something looks off
 9. [In the browser](09-in-the-browser.md): `laneway web`, the layout, themes, what differs
