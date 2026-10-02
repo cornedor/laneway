@@ -386,6 +386,7 @@ func webSite(cfg config.Config, site string, opt web.Options) (web.Options, erro
 	opt.Rules, opt.RulesTest = cfg.Rules, cfg.RulesTest
 	opt.Client = webClient(jc, cfg.UI)
 	opt.GitLab, _ = gitlabSites(cfg)
+	opt.GitLabRepos = gitlabRepos(cfg)
 	opt.Client.SetQueue(offline.To(opt.Store))
 	opt.Client.SetLayouts(opt.Store)
 	return opt, nil

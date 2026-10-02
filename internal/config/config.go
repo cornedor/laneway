@@ -84,6 +84,10 @@ type GitLabConfig struct {
 	// host is used.
 	Token    string   `yaml:"token,omitempty"`
 	TokenCmd []string `yaml:"token_cmd,omitempty"`
+	// Repos are checkouts by project path ({group/project: ~/src/p}), for
+	// an agent's review (C); a project not here is looked for among
+	// jira.repos by its origin.
+	Repos map[string]string `yaml:"repos,omitempty"`
 }
 
 // WithToken runs token_cmd for the token when token is unset.

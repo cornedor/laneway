@@ -44,6 +44,8 @@ type diffNoteState struct {
 	submit string
 	// lines is the range a multi-line note covers (V), ending on its line.
 	lines *forge.LineRange
+	// edit is the pending note being changed (E), 0 for a new one.
+	edit int
 }
 
 // diffNotePostedMsg carries the result of posting an inline note.
@@ -164,6 +166,16 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 	if n.submit != "" {
 		return m, m.submitReview(n.submit, text)
 	}
+	if n.edit != 0 {
+		if text == "" {
+			return m, nil
+		}
+		c, ctx, repo, number, gen := d.c, m.ctx, d.repo, d.number, d.gen
+		m.status = "changing the pending note…"
+		return m, func() tea.Msg {
+			return diffReviewedMsg{gen: gen, what: "pending note changed", err: c.EditDraft(ctx, repo, number, n.edit, text)}
+		}
+	}
 	if text == "" {
 		return m, nil
 	}
@@ -211,6 +223,8 @@ func (m *Model) renderDiffNote() string {
 	n := &m.diff.note
 	title, hint := "Note — "+m.diff.label, "↵ add to your review · alt+↵ newline · esc cancel"
 	switch {
+	case n.edit != 0:
+		title, hint = "Pending note — "+m.diff.label, "↵ save · alt+↵ newline · esc cancel"
 	case n.submit != "":
 		title, hint = "Submit review — "+m.diff.label, "↵ submit (empty: no summary) · alt+↵ newline · esc cancel"
 	case n.replyTo != "":
@@ -406,6 +420,20 @@ func (m Model) handleDiffReviewed(msg diffReviewedMsg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.reloadDiffThreads())
 	}
 	return m, tea.Batch(cmds...)
+}
+
+// editDiffDraft opens the composer on the pending note under the cursor (E),
+// an agent's finding to reword before the review goes out.
+func (m Model) editDiffDraft() (tea.Model, tea.Cmd) {
+	d := m.diff
+	if d == nil || d.cursor >= len(d.rows) || d.rows[d.cursor].draft == 0 {
+		m.status = "no pending note here"
+		return m, nil
+	}
+	dr := d.drafts[d.rows[d.cursor].draft-1]
+	d.note = diffNoteState{active: true, input: newModalComposer("note…"), edit: dr.ID, context: "✎ your pending note"}
+	d.note.input.SetValue(strings.ReplaceAll(dr.Body, "\t", suggestTab))
+	return m, nil
 }
 
 // deleteDiffDraft drops the pending note under the cursor.

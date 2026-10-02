@@ -360,6 +360,15 @@ func (c *Client) AddDraft(ctx context.Context, project string, iid int, n forge.
 	return c.rest.Do(ctx, http.MethodPost, path, "pending note", body, nil)
 }
 
+// EditDraft replaces pending note id's text.
+func (c *Client) EditDraft(ctx context.Context, project string, iid, id int, body string) error {
+	if !c.Enabled() {
+		return forge.ErrNotConfigured
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d/draft_notes/%d", encodePath(project), iid, id)
+	return c.rest.Do(ctx, http.MethodPut, path, "pending note", map[string]any{"note": body}, nil)
+}
+
 // DeleteDraft takes pending note id out of the review.
 func (c *Client) DeleteDraft(ctx context.Context, project string, iid, id int) error {
 	if !c.Enabled() {

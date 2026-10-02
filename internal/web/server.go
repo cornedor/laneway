@@ -69,8 +69,10 @@ type Options struct {
 	AddSite *SiteAdder
 	// UpgradeCmd updates this binary ("" when unknown: the release page).
 	UpgradeCmd string
-	// GitLab are the GitLab instances (nil: none, as in the demo).
-	GitLab *gitlab.Sites
+	// GitLab are the GitLab instances (nil: none, as in the demo), and
+	// GitLabRepos their projects' checkouts by path (gitlab: repos:).
+	GitLab      *gitlab.Sites
+	GitLabRepos map[string]string
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.

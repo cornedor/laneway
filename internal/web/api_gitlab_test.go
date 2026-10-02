@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cornedor/laneway/internal/forge/gitlab"
+	"github.com/cornedor/laneway/internal/herdr"
 )
 
 // TestGitLabSites: /api/gitlab is each instance signed in to; none (the
@@ -204,5 +205,32 @@ func TestGitLabNoteResolve(t *testing.T) {
 		!strings.Contains(writes[2], `"line_range":{"end":{"line_code":"`) || !strings.Contains(writes[2], `_3_4","new_line":4,"type":"new"}`) ||
 		!strings.Contains(writes[5], `"reviewer_state":"requested_changes"`) || !strings.Contains(writes[5], `"note":"see notes"`) {
 		t.Errorf("bodies:\n%s", strings.Join(writes, "\n"))
+	}
+}
+
+// TestGitLabDraftEditAgent: a pending note reworded; an agent review without
+// herdr says so.
+func TestGitLabDraftEditAgent(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir()) // no glab logins
+	old := herdrClient
+	herdrClient = func() *herdr.Client { return nil }
+	t.Cleanup(func() { herdrClient = old })
+	var writes []string
+	gl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		writes = append(writes, r.Method+" "+r.URL.Path+" "+string(b))
+		w.Write([]byte(`{}`))
+	}))
+	defer gl.Close()
+	s := New(context.Background(), Options{GitLab: gitlab.NewSites([]gitlab.Config{{BaseURL: gl.URL, Token: "tok"}})})
+	q := "?url=" + url.QueryEscape(gl.URL+"/g/p/-/merge_requests/7")
+	if rec := call(s, "PUT", "/api/gitlab/draft"+q+"&draft=4", `{"Body": "reworded"}`, ""); rec.Code != 200 {
+		t.Fatalf("edit: %d %s", rec.Code, rec.Body)
+	}
+	if len(writes) != 1 || !strings.HasPrefix(writes[0], "PUT /api/v4/projects/g/p/merge_requests/7/draft_notes/4 ") || !strings.Contains(writes[0], `"note":"reworded"`) {
+		t.Errorf("writes: %q", writes)
+	}
+	if rec := call(s, "POST", "/api/gitlab/agent-review"+q, `{}`, ""); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("no herdr: %d %s", rec.Code, rec.Body)
 	}
 }

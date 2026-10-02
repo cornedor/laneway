@@ -2,10 +2,20 @@ package main
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 )
+
+// gitlabRepos are every gitlab: instance's checkouts by project path.
+func gitlabRepos(cfg config.Config) map[string]string {
+	out := map[string]string{}
+	for _, g := range cfg.GitLab {
+		maps.Copy(out, g.Repos)
+	}
+	return out
+}
 
 // gitlabSites are the gitlab: instances with token_cmd run; one whose
 // command fails warns and falls back to glab's login.

@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"html"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -227,6 +228,47 @@ func init() {
 			n.Refs = d.Refs
 		}
 		return map[string]bool{"OK": true}, c.AddDraft(ctx, ref.Repo, ref.Number, n)
+	})
+	// ?url= and &draft=: {Body} rewords a pending note (TUI: E).
+	put("/gitlab/draft", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		b, err := Body[struct{ Body string }](r)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(b.Body) == "" {
+			return nil, FieldError{Field: "Body", Msg: "a note needs text"}
+		}
+		id, _ := strconv.Atoi(r.URL.Query().Get("draft"))
+		return map[string]bool{"OK": true}, c.EditDraft(ctx, ref.Repo, ref.Number, id, b.Body)
+	})
+	// ?url=: the work agent reviewing it in a worktree of its source branch,
+	// leaving its findings in your pending review (TUI: C).
+	post("/gitlab/agent-review", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		c, ref, err := gitlabLink(s, r)
+		if err != nil {
+			return nil, err
+		}
+		h := herdrClient()
+		if h == nil {
+			return nil, httpError{http.StatusServiceUnavailable, "herdr is not running"}
+		}
+		mr, err := c.Get(ctx, ref.Repo, ref.Number)
+		if err != nil {
+			return nil, err
+		}
+		if mr.State != forge.StateOpen {
+			return nil, httpError{http.StatusConflict, ref.Repo + "!" + strconv.Itoa(ref.Number) + " is " + mr.State}
+		}
+		w := workConfigOf(s)
+		path, pane, running, err := ui.StartMRReview(ctx, h, s.opt.GitLabRepos, slices.Collect(maps.Values(s.opt.Jira.Repos)), mr, ref, w.Agent, w.Args, w.Create)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"Path": path, "Pane": pane, "Running": running, "Agent": w.Agent}, nil
 	})
 	// ?url= and &draft=: drops a pending note (TUI: x).
 	del("/gitlab/draft", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

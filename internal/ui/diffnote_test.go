@@ -94,6 +94,19 @@ func TestDiffDiscussions(t *testing.T) {
 			break
 		}
 	}
+	out, _ = m.handleKey(keyMsg(t, "E"))
+	m = out.(Model)
+	if !m.diffNoteActive() || m.diff.note.edit != 5 || m.diff.note.input.Value() != "Thanks" {
+		t.Fatalf("E: not the pending note: %+v", m.diff.note)
+	}
+	m.diff.note.input.SetValue("Thanks a lot")
+	m = pressAll(t, m, keyMsg(t, "enter"))
+	for i, row := range m.diff.rows {
+		if row.draft > 0 {
+			m.diff.setPos(m.diff.visPos[i])
+			break
+		}
+	}
 	m = pressAll(t, m, keyMsg(t, "x"))
 	out, _ = m.handleKey(keyMsg(t, "S"))
 	out, _ = out.(Model).handleKey(keyMsg(t, "down")) // Approve
@@ -109,6 +122,7 @@ func TestDiffDiscussions(t *testing.T) {
 	defer mu.Unlock()
 	want := []string{
 		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes",
+		"PUT /api/v4/projects/g/p/merge_requests/7/draft_notes/5",
 		"DELETE /api/v4/projects/g/p/merge_requests/7/draft_notes/5",
 		"POST /api/v4/projects/g/p/merge_requests/7/draft_notes/bulk_publish",
 		"POST /api/v4/projects/g/p/merge_requests/7/approve",
@@ -123,7 +137,8 @@ func TestDiffDiscussions(t *testing.T) {
 		}
 	}
 	if !strings.Contains(writes[0], `"in_reply_to_discussion_id":"g1"`) || !strings.Contains(writes[0], "Thanks") ||
-		!strings.Contains(writes[2], `"note":"LGTM"`) || !strings.Contains(writes[2], `"reviewer_state":"reviewed"`) {
+		!strings.Contains(writes[1], `"note":"Thanks a lot"`) ||
+		!strings.Contains(writes[3], `"note":"LGTM"`) || !strings.Contains(writes[3], `"reviewer_state":"reviewed"`) {
 		t.Errorf("bodies:\n%s", strings.Join(writes, "\n"))
 	}
 }

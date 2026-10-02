@@ -34,8 +34,22 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
     return m;
   }
   // A pending note of your review: only you see it until the review is submitted.
-  const pending = d => h('div.df-note.pending', h('div', h('span.df-who', 'you'), h('span.df-when', 'pending'), h('div.md', md(d.Body))),
-    h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => dropDraft(d) }, 'Drop')));
+  const pending = d => {
+    const el = h('div.df-note.pending', h('div', h('span.df-who', 'you'), h('span.df-when', 'pending'), h('div.md', md(d.Body))),
+      h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => editDraft(d, el) }, 'Edit'), h('button.btn.ghost.sm', { onclick: () => dropDraft(d) }, 'Drop')));
+    return el;
+  };
+  // Edit: the pending note's text in place, an agent's finding to reword before the review goes out.
+  function editDraft(d, el) {
+    const ta = h('textarea.input', { rows: 4 }); ta.value = d.Body;
+    const save = async () => {
+      if (!ta.value.trim()) return;
+      try { await api.put('/gitlab/draft?url=' + encodeURIComponent(url) + '&draft=' + d.ID, { Body: ta.value }); load(false); } catch (e) { ui.errToast(e); }
+    };
+    ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } else if (e.key === 'Escape') { e.stopPropagation(); paint(); } });
+    el.replaceChildren(ta, h('div.df-acts', h('button.btn.sm', { onclick: save }, 'Save'), h('button.btn.ghost.sm', { onclick: () => paint() }, 'Cancel')));
+    ta.focus();
+  }
   async function dropDraft(d) {
     try { await api.del('/gitlab/draft?url=' + encodeURIComponent(url) + '&draft=' + d.ID); load(false); } catch (e) { ui.errToast(e); }
   }
@@ -201,10 +215,18 @@ export default function mount(el, { app, scope, query, toolbar, context }) {
       load(false);
     } catch (e) { ui.errToast(e); }
   }
+  // C: the work agent reviews it in a worktree of its branch; its findings come back as pending notes (r reloads).
+  async function agentReview() {
+    try {
+      const r = await api.post('/gitlab/agent-review?url=' + encodeURIComponent(url), {});
+      ui.toast((r.Running ? 'Already reviewing in ' : r.Agent + ' reviewing in ') + r.Path + ': its notes come here as pending, r reloads', { kind: 'ok', ms: 8000 });
+    } catch (e) { ui.errToast(e); }
+  }
+  scope.bind('C', agentReview, 'an agent reviews it', { group: G });
   const reviewBtn = h('button.btn.sm', { title: 'S', onclick: () => review(false) }, 'Submit review…');
   scope.bind('S', () => review(false), 'submit your review', { group: G });
   scope.bind('A', () => review(true), 'approve', { group: G });
-  clear(toolbar).append(h('span.spacer'), reviewBtn, h('button.btn.ghost.sm', { title: 'A', onclick: () => review(true) }, 'Approve'), picker, h('button.btn.ghost.sm', { title: 'o', onclick: () => safe(url) && window.open(url, '_blank', 'noopener') }, 'GitLab'), h('button.btn.ghost.sm', { title: 'r', onclick: () => load(true) }, 'Reload'));
+  clear(toolbar).append(h('span.spacer'), h('button.btn.ghost.sm', { title: 'C', onclick: agentReview }, 'Agent review'), reviewBtn, h('button.btn.ghost.sm', { title: 'A', onclick: () => review(true) }, 'Approve'), picker, h('button.btn.ghost.sm', { title: 'o', onclick: () => safe(url) && window.open(url, '_blank', 'noopener') }, 'GitLab'), h('button.btn.ghost.sm', { title: 'r', onclick: () => load(true) }, 'Reload'));
   load(false);
   return () => { dead = true; };
 }

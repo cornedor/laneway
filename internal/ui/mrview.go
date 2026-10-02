@@ -133,7 +133,7 @@ func (m *Model) renderMR(w int) string {
 		title = p.mr.Title
 	}
 	b.WriteString(refKeyStyle.Render(title) + "\n")
-	b.WriteString(refDimStyle.Render("GitLab "+p.ref.Repo+"!"+strconv.Itoa(p.ref.Number)+" · d diff and review · A approve · "+helpKey(m.keys.OpenAttach)+" opens it · esc back") + "\n\n")
+	b.WriteString(refDimStyle.Render("GitLab "+p.ref.Repo+"!"+strconv.Itoa(p.ref.Number)+" · d diff and review · C agent review · A approve · "+helpKey(m.keys.OpenAttach)+" opens it · esc back") + "\n\n")
 	switch {
 	case p.err != "":
 		b.WriteString(refErrStyle.Render(p.err))
@@ -273,6 +273,8 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	case key.Matches(msg, m.keys.Refresh):
 		p := m.mr
 		return m, m.openMR(p.c, p.ref, p.link, p.title, true), true
+	case msg.String() == "C" && m.mr.mr != nil:
+		return m, m.startMRReview(m.mr.mr, m.mr.ref), true
 	case msg.String() == "A" && m.mr.mr != nil:
 		return m, m.approveMR(m.mr.c, m.mr.ref.Repo, m.mr.ref.Number), true
 	case msg.String() == "d" && m.mr.mr != nil:

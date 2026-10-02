@@ -255,8 +255,10 @@ type Model struct {
 	rulesLog string
 
 	jiraClient      *jira.Client
-	gitlab          *gitlab.Sites // nil: none
-	index           *index.Index  // nil: none
+	gitlab          *gitlab.Sites     // nil: none
+	gitlabRepos     map[string]string // checkouts by GitLab project path
+	mrReviewing     map[string]bool   // agent reviews starting, by group/project!iid
+	index           *index.Index      // nil: none
 	jiraProjects    []string
 	jiraRepos       map[string]string
 	jiraStartPrompt string
@@ -979,6 +981,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDiffResolved(msg)
 	case diffReviewedMsg:
 		return m.handleDiffReviewed(msg)
+	case mrReviewMsg:
+		return m.handleMRReview(msg)
 	case openedMsg:
 		if msg.err != nil {
 			m.fail("open " + msg.name + ": " + msg.err.Error())

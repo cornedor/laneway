@@ -91,6 +91,8 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 		return hookCmd(append([]string{args[1]}, append(global, args[2:]...)...), out, errOut)
 	case "index":
 		return indexCmd(args[1:], site, out, errOut)
+	case "mr":
+		return mrCmd(args[1:], out, errOut)
 	case "web", "serve":
 		return webCmd(args[1:], cfgPath, site, errOut)
 	case "completion":
@@ -189,7 +191,7 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
 	gl, glWarn := gitlabSites(cfg)
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(append(cfg.Unknown, glWarn...)).WithIndex(ix).WithVersion(version, upgradeCmd()).WithGitLab(gl).
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(append(cfg.Unknown, glWarn...)).WithIndex(ix).WithVersion(version, upgradeCmd()).WithGitLab(gl).WithGitLabRepos(gitlabRepos(cfg)).
 		WithSiteClients(func(other string) (*jira.Client, error) {
 			j, err := cfg.Site(other)
 			if err != nil || j.Check(siteName(other)) != nil {

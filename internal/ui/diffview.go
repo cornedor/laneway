@@ -936,6 +936,11 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "A":
 		return m, m.approveMR(d.c, d.repo, d.number)
+	case "C":
+		if m.mr == nil || m.mr.mr == nil {
+			return m, nil
+		}
+		return m, m.startMRReview(m.mr.mr, m.mr.ref)
 	case "v":
 		if len(d.versions) < 2 {
 			m.status = "one version: nothing pushed since it opened"
@@ -1106,6 +1111,8 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.toggleDiffResolve()
 	case "x":
 		return m.deleteDiffDraft()
+	case "E":
+		return m.editDiffDraft()
 	case "z":
 		d.toggleCollapse(d.cursorFile())
 		d.syncTreeToCursor()
@@ -1363,7 +1370,7 @@ func (m *Model) diffHint() string {
 		note = "c note the range · s suggest · esc drop it · "
 	}
 	if r := d.rows[min(d.cursor, max(len(d.rows)-1, 0))]; len(d.rows) > 0 && r.draft > 0 {
-		resolve = "x drop it · "
+		resolve = "E edit · x drop it · "
 	}
 	review := "S submit · A approve · "
 	if n := len(d.drafts); n > 0 {
