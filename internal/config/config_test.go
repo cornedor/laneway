@@ -138,3 +138,39 @@ func TestAPITokenCmd(t *testing.T) {
 		t.Errorf("gitlab token_cmd: %q %v", g.Token, err)
 	}
 }
+
+// TestBadValues: a value of the wrong type is skipped with a warning, the
+// rest still loads, and a lone value where a list goes is a list of one.
+func TestBadValues(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.yaml")
+	raw := "jira:\n  base_url: https://x.test\n  projects: ABC\nui:\n  home: work\n  card_limit: lots\n  panel_width: 40\n  keys: {search: [f, {x: 1}]}\n  card_styles:\n    - when: a\n      fade: maybe\ngitlab:\n  base_url: https://g.test\nsites:\n  w:\n    projects: [A, B]\n    timeout: [1]\nrules:\n  - name: r\n    on: status\n"
+	if err := os.WriteFile(p, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, _, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(c.Jira.Projects, []string{"ABC"}) || !slices.Equal(c.UI.Home, []string{"work"}) || !slices.Equal(c.Sites["w"].Projects, []string{"A", "B"}) {
+		t.Errorf("lone values: %q %q %q", c.Jira.Projects, c.UI.Home, c.Sites["w"].Projects)
+	}
+	if c.Jira.BaseURL != "https://x.test" || c.UI.PanelWidth != 40 || c.UI.CardLimit != 0 || len(c.GitLab) != 0 || len(c.Rules) != 1 || len(c.UI.CardStyles) != 1 || c.UI.CardStyles[0].When != "a" {
+		t.Errorf("the rest: %+v %+v %+v", c.Jira, c.UI, c.GitLab)
+	}
+	want := []string{
+		`ui.card_limit: wants a number, not "lots"; ignored`,
+		`ui.keys.search: wants a list of text, not a list; ignored`,
+		`ui.card_styles[0].fade: wants true or false, not "maybe"; ignored`,
+		`gitlab: wants a list, not key: value pairs; ignored`,
+		`sites.w.timeout: wants text, not a list; ignored`,
+	}
+	if !slices.Equal(c.Warnings, want) {
+		t.Errorf("got %q\nwant %q", c.Warnings, want)
+	}
+	if err := os.WriteFile(p, []byte("ui: [unclosed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Load(p); err == nil {
+		t.Error("YAML that does not parse loaded")
+	}
+}

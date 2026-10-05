@@ -202,7 +202,7 @@ more than a line (`templates`, `views`, `keys`) shows its whole value.
 
 A bad value keeps its default and is reported on the status line, as is a key
 bound to two actions on one screen (board, panel, planning, roadmap, charts,
-timesheet).
+timesheet). One value where a list goes (`projects: ABC`) is a list of one.
 
 Actions for `keys:`, by where they first apply:
 

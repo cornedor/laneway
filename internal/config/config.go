@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,9 +71,9 @@ type Config struct {
 	// RulesTest overrides the issue type and status `laneway rules test`
 	// assumes, else read from the project.
 	RulesTest RulesTest `yaml:"rules_test"`
-	// Unknown are warnings about keys the file has that no option reads
-	// (a typo), set by Load.
-	Unknown []string `yaml:"-"`
+	// Warnings are about options Load skipped: keys no option reads (a
+	// typo) and values of the wrong type.
+	Warnings []string `yaml:"-"`
 }
 
 // GitLabConfig is one GitLab instance (internal/forge/gitlab).
@@ -407,11 +408,11 @@ func Load(path string) (Config, string, error) {
 				Jira JiraConfig `yaml:"jira"`
 				UI   UIConfig   `yaml:"ui"`
 			}
-			err = yaml.Unmarshal(raw, &mb)
+			c.Warnings, err = decode(raw, &mb)
 			c.Jira, c.UI = mb.Jira, mb.UI
 		} else {
-			err = yaml.Unmarshal(raw, &c)
-			c.Unknown = unknownKeys(raw)
+			c.Warnings, err = decode(raw, &c)
+			c.Warnings = append(unknownKeys(raw), c.Warnings...)
 		}
 		if err != nil {
 			return Config{}, p, fmt.Errorf("%s: %w", p, err)
@@ -422,6 +423,124 @@ func Load(path string) (Config, string, error) {
 		return c, p, nil
 	}
 	return Config{}, candidates[0], fmt.Errorf("%w; run `laneway setup`, or create %s with:\n\n%s\nA token: %s", ErrNoConfig, candidates[0], starterConfig, TokenURL)
+}
+
+// decode reads raw into v, skipping each value of the wrong type with a
+// warning so the option keeps its default; a lone value where a list goes
+// is a list of one. Only a file that is not YAML fails.
+func decode(raw []byte, v any) ([]string, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(raw, &doc); err != nil || len(doc.Content) == 0 {
+		return nil, err
+	}
+	warn, _ := fit("", doc.Content[0], reflect.TypeOf(v).Elem())
+	var te *yaml.TypeError
+	if err := doc.Decode(v); errors.As(err, &te) {
+		warn = append(warn, te.Errors...)
+	} else if err != nil {
+		return warn, err
+	}
+	return warn, nil
+}
+
+// fit makes n decode into t: a scalar where a list of strings goes becomes
+// that list, and a value that cannot decode is dropped from its mapping or
+// list with a warning (ok false for n itself). path names n in warnings.
+func fit(path string, n *yaml.Node, t reflect.Type) (warn []string, ok bool) {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	sub := func(k string) string {
+		if path == "" {
+			return k
+		}
+		return path + "." + k
+	}
+	custom := reflect.PointerTo(t).Implements(reflect.TypeFor[yaml.Unmarshaler]())
+	switch {
+	case n.Kind == yaml.AliasNode || n.Tag == "!!null":
+	case custom:
+	case t.Kind() == reflect.Struct && n.Kind == yaml.MappingNode:
+		fields := map[string]reflect.Type{}
+		for i := range t.NumField() {
+			if name, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ","); name != "" && name != "-" {
+				fields[name] = t.Field(i).Type
+			}
+		}
+		kept := n.Content[:0]
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			k, v := n.Content[i], n.Content[i+1]
+			if ft, known := fields[k.Value]; known {
+				w, ok := fit(sub(k.Value), v, ft)
+				warn = append(warn, w...)
+				if !ok {
+					continue
+				}
+			}
+			kept = append(kept, k, v)
+		}
+		n.Content = kept
+		return warn, true
+	case t.Kind() == reflect.Map && n.Kind == yaml.MappingNode:
+		kept := n.Content[:0]
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			k, v := n.Content[i], n.Content[i+1]
+			w, ok := fit(sub(k.Value), v, t.Elem())
+			warn = append(warn, w...)
+			if ok {
+				kept = append(kept, k, v)
+			}
+		}
+		n.Content = kept
+		return warn, true
+	case t.Kind() == reflect.Slice && n.Kind == yaml.ScalarNode && t.Elem().Kind() == reflect.String:
+		*n = yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Line: n.Line, Column: n.Column, Content: []*yaml.Node{{Kind: yaml.ScalarNode, Tag: n.Tag, Value: n.Value, Style: n.Style, Line: n.Line, Column: n.Column}}}
+		return nil, true
+	case t.Kind() == reflect.Slice && n.Kind == yaml.SequenceNode:
+		kept := n.Content[:0]
+		for i, it := range n.Content {
+			w, ok := fit(fmt.Sprintf("%s[%d]", path, i), it, t.Elem())
+			warn = append(warn, w...)
+			if ok {
+				kept = append(kept, it)
+			}
+		}
+		n.Content = kept
+		return warn, true
+	}
+	if err := n.Decode(reflect.New(t).Interface()); err != nil {
+		return []string{fmt.Sprintf("%s: wants %s, not %s; ignored", path, wants(t), got(n))}, false
+	}
+	return nil, true
+}
+
+// wants says what t takes, for a warning.
+func wants(t reflect.Type) string {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int64, reflect.Float64:
+		return "a number"
+	case reflect.Bool:
+		return "true or false"
+	case reflect.String:
+		return "text"
+	case reflect.Slice:
+		if t.Elem().Kind() == reflect.String {
+			return "a list of text"
+		}
+		return "a list"
+	}
+	return "key: value pairs"
+}
+
+// got says what n is, for a warning.
+func got(n *yaml.Node) string {
+	switch n.Kind {
+	case yaml.SequenceNode:
+		return "a list"
+	case yaml.MappingNode:
+		return "key: value pairs"
+	}
+	return strconv.Quote(n.Value)
 }
 
 // ErrNoConfig is Load finding no config file; the path it returns with it
