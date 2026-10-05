@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "laneway redirect",
+  "version": "0.1.0",
+  "description": "Opens Jira links in laneway web. laneway's own Open in Jira links stay in Jira.",
+  "icons": { "192": "icon-192.png" },
+  "action": { "default_icon": { "192": "icon-192.png" } },
+  "background": { "service_worker": "background.js", "scripts": ["background.js"], "type": "module" },
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "permissions": ["declarativeNetRequestWithHostAccess", "storage", "cookies"],
+  "host_permissions": ["https://*.atlassian.net/*", "http://127.0.0.1/*", "http://localhost/*"],
+  "optional_host_permissions": ["*://*/*"],
+  "web_accessible_resources": [{ "resources": ["go.html", "go.js", "map.js", "settings.js"], "matches": ["*://*/*"] }],
+  "browser_specific_settings": { "gecko": { "id": "laneway-redirect@cornedor.github.io", "strict_min_version": "142.0", "data_collection_permissions": { "required": ["none"] } } }
+}
