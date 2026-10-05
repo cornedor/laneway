@@ -19,7 +19,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
   let since = null, data = null, err = '', dead = false, seq = 0, opened = false, loading = false;
   let project = projectOf(app, {});
-  let sw = null, board = null, sprint = 0, lines = [], folded = [], sel = 0, parkedKeys = [];
+  let sw = null, board = null, sprint = null, lines = [], folded = [], sel = 0, parkedKeys = [];
   // The round: the stops in the order gone round, the one shown, who was heard; the timer (ms, 0 unset).
   let stops = [], at = 0, shuffled = false, started = 0, turn = 0, paused = 0;
   const heard = new Set();
@@ -31,7 +31,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const person = () => (stops[at] && stops[at].Person) || {};
   // The board view the walk takes: the one the board showed last, else the active sprint; parked per view.
   let view = null;
-  const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + (view ? view.park : sprint);
+  const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + (view ? view.park : sprint || 0);
   const loadParked = () => { parkedKeys = (prefs.get(parkId(), '') || '').split(/\s+/).filter(Boolean); };
   // Who takes part, by account, kept per board; none: everyone.
   let inPeople = [];
@@ -40,17 +40,23 @@ export default function mount(el, { app, scope, context, toolbar }) {
   // turnMs is each person's turn: the timebox, else the length split over who takes part.
   const turnMs = () => { const s = data.Settings, n = stops.length - 1; return 1000 * (s.Timebox || (n ? Math.floor(s.Length / n) : 0)); };
 
-  // The project's board and its active sprint, for the walk and the parking lot.
+  // The project's board and its active sprint (sprint null till looked up), for the walk and the parking lot: a
+  // board picked here gets its sprint as one opened with the page does, not the whole board.
   async function resolveBoard() {
-    if (board || !project) return;
+    if (!project) return;
     try {
-      const bs = await boardsOf(app, project), last = lastBoard(app, project);
-      board = bs.find(b => b.ID === last) || bs.find(b => /scrum/i.test(b.Type)) || bs[0] || null;
-      if (board && !last) setCtx(app, project, board);
-      if (board && !(app.lastView && app.lastView.board === board.ID)) {
-        const b = await api.get('/boards/' + board.ID);
-        const a = (b.sprints || []).find(s => s.State === 'active');
-        sprint = a ? a.ID : 0;
+      if (!board) {
+        const bs = await boardsOf(app, project), last = lastBoard(app, project);
+        board = bs.find(b => b.ID === last) || bs.find(b => /scrum/i.test(b.Type)) || bs[0] || null;
+        if (board && !last) setCtx(app, project, board);
+      }
+      if (board && sprint === null) {
+        sprint = 0;
+        if (!(app.lastView && app.lastView.board === board.ID)) {
+          const b = await api.get('/boards/' + board.ID);
+          const a = (b.sprints || []).find(s => s.State === 'active');
+          sprint = a ? a.ID : 0;
+        }
       }
     } catch (e) {
       // A project this site lacks (remembered on another): forget it, take the default.
@@ -265,7 +271,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
       if (!board) throw new Error('No board found for ' + (project || 'this site') + '. alt+p picks a project.');
       view = app.lastView && app.lastView.board === board.ID ? app.lastView : null;
       loadParked(); loadPeople();
-      const q = (since ? 'since=' + ymd(since) + '&' : '') + 'board=' + board.ID + '&' + (view ? view.query : 'sprint=' + sprint);
+      const q = (since ? 'since=' + ymd(since) + '&' : '') + 'board=' + board.ID + '&' + (view ? view.query : 'sprint=' + (sprint || 0));
       const d = await api.get('/standup/lines?' + q, { fresh: true });
       if (dead || my !== seq) return;
       const who = person().ID;
@@ -317,7 +323,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   scope.bind('P', park, 'park the card for after the standup', { ...G, bar: 'park' });
   scope.bind('[', () => step(-1), 'a workday further back', { ...G, bar: 'day' });
   scope.bind(']', () => step(1), 'a workday forward', { ...G, bar: 'day' });
-  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; view = null; reset(); load(); } });
+  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = null; view = null; reset(); load(); } });
   scope.bind('y', copy, 'copy the stop as text, parking lot included', { ...G, bar: 'copy' });
   scope.bind('r', load, 'refresh', G);
 
