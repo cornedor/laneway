@@ -163,6 +163,7 @@ ui:
   standup_length: 15m           # the whole standup, split over the people for each turn
   standup_timebox: 2m           # each person's turn instead of the split (default none)
   standup_shuffle: off          # "on": go round in a random order, not the board's
+  standup_timer: off            # "on": a timer for each turn and the whole standup
   timer_round: 15m              # T's logged time rounded up to this (to the minute)
   clipboard_image: wl-paste --type image/png  # prints the clipboard's PNG (probed by default)
   open: wslview                 # opens URLs and attachments (xdg-open / open by default)
@@ -537,8 +538,9 @@ the `jira.repos` repositories. *Off the board*, folded until `z` or
 `enter`, has what was done on the board's projects' other issues
 (comments, work, moves; bulk field edits left out).
 
-The timer starts with the first person (or `space`): each turn counts down
-`ui.standup_length` (15m) split over those taking part, or `ui.standup_timebox`,
+With `ui.standup_timer: on`, a timer starts with the first person (or
+`space`): each turn counts down `ui.standup_length` (15m) split over those
+taking part, or `ui.standup_timebox`,
 red and flashing once it runs out, beside the whole standup's time; it
 never moves on by itself, and `←` `→` start the next turn. `space` pauses
 it. `P` parks a card for after the standup: the *Parking lot* comes last on

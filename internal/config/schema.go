@@ -52,6 +52,7 @@ var SettingDefaults = map[string]string{
 	"standup_length":       "15m",
 	"standup_timebox":      "none: the length split",
 	"standup_shuffle":      "off",
+	"standup_timer":        "off",
 	"timer_round":          "to the minute",
 	"clipboard_image":      "wl-paste, xclip or pngpaste",
 	"open":                 "xdg-open, open or rundll32",
@@ -92,7 +93,7 @@ var SettingGroups = []SettingGroup{
 	{"Start work and agents", []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
 	{"Planning, roadmap and charts", []string{"velocity_sprints", "roadmap_epic_type", "roadmap_done_days"}},
 	{"Inbox", []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
-	{"Standup", []string{"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle"}},
+	{"Standup", []string{"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer"}},
 	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "delight", "skin_tone"}},
 	{"System", []string{"open", "clipboard_image", "download_dir", "update_check"}},
 }
@@ -139,6 +140,7 @@ var SettingDocs = map[string]string{
 	"standup_length":       "the whole standup, split over the people for each one's timer",
 	"standup_timebox":      "each person's turn instead of the split (2m)",
 	"standup_shuffle":      "go round the people in a random order, not the board's",
+	"standup_timer":        "a timer for each turn and the whole standup",
 	"timer_round":          "rounds the timer's logged time up to a step (15m)",
 	"clipboard_image":      "a command printing the clipboard's PNG",
 	"open":                 "a command that opens URLs and files",
@@ -187,7 +189,7 @@ func SettingChoices(name string) []string {
 		return []string{"on", "off"}
 	case "skin_tone":
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}
-	case "timer_on_start", "start_assigns", "standup_shuffle":
+	case "timer_on_start", "start_assigns", "standup_shuffle", "standup_timer":
 		return []string{"off", "on"}
 	case "standup_start":
 		return []string{"everyone", "first"}

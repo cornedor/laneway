@@ -50,7 +50,7 @@ func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) 
 		return nil, err
 	}
 	return map[string]any{"Stops": stops, "Head": head, "Since": since.Format(time.DateOnly), "Settings": map[string]any{
-		"First": set.First, "Shuffle": set.Shuffle, "Length": set.Length.Seconds(), "Timebox": set.Timebox.Seconds(),
+		"First": set.First, "Shuffle": set.Shuffle, "Timer": set.Timer, "Length": set.Length.Seconds(), "Timebox": set.Timebox.Seconds(),
 	}}, nil
 }
 

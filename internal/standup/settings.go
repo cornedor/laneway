@@ -15,9 +15,11 @@ type Settings struct {
 	Length   time.Duration // the whole standup, split over the people
 	Timebox  time.Duration // each person's turn instead, 0 for the split
 	Shuffle  bool          // the people in a random order, not the board's
+	Timer    bool          // the turn and standup timer shown
 }
 
-// Defaults: everyone first, since the previous workday, 15 minutes.
+// Defaults: everyone first, since the previous workday, 15 minutes, no
+// timer.
 var Defaults = Settings{Lookback: 1, Length: 15 * time.Minute}
 
 // Parse reads c's standup options over Defaults, warning of bad ones.
@@ -56,6 +58,13 @@ func Parse(c config.UIConfig) (Settings, []string) {
 		s.Shuffle = true
 	default:
 		warn = append(warn, fmt.Sprintf("ui.standup_shuffle: %q is not on or off", v))
+	}
+	switch v := strings.TrimSpace(c.StandupTimer); v {
+	case "", "off":
+	case "on":
+		s.Timer = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.standup_timer: %q is not on or off", v))
 	}
 	return s, warn
 }

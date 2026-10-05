@@ -46,7 +46,7 @@ var sharedOptions = []string{
 	"empty_fields", "empty_lanes", "custom_fields", "filters", "flag_value", "work_agent", "work_args",
 	"work_create", "theme", "actions", "delight", "threaded_replies", "skin_tone",
 	"update_check", "llm", "activity", "home", "calendar", "meeting_key",
-	"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle",
+	"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer",
 }
 
 var terminalOnly = map[string]string{

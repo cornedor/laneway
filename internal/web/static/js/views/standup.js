@@ -1,6 +1,6 @@
 // Standup: a strip that goes round the people (← →), Everyone first with the board walked right to left, then each
-// person's cards and what they did, those heard ticked; a timer beside it, each turn counting down (ui.standup_length
-// split, or ui.standup_timebox) and the whole standup's time; below, the stop's rows, over the view the board showed last.
+// person's cards and what they did, those heard ticked; with ui.standup_timer on, a timer beside it, each turn counting
+// down (ui.standup_length split, or ui.standup_timebox) and the whole standup's time; below, the stop's rows, over the view the board showed last.
 // A picks who takes part, kept per board. Park a card for after (P, kept per view): Everyone's parking lot comes last.
 // Beside it, past a grip like the issue panel's, the board view itself on the same view, filtered to the person shown.
 // Stops come from /standup/lines, built like the TUI's.
@@ -116,6 +116,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const clock = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   let tick = 0;
   function run() { clearInterval(tick); tick = setInterval(paintTimer, 1000); }
+  const timerOn = () => !!(data && data.Settings.Timer);
   function pause() {
     const t = now();
     if (!started) { started = t; run(); ui.toast("The standup's timer runs"); }
@@ -148,7 +149,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
     turn = 0;
     if (at !== 0) {
       turn = paused || now();
-      if (!started) { started = turn; run(); }
+      if (!started && timerOn()) { started = turn; run(); }
     }
     build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
     paint();
@@ -212,7 +213,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
           h('span.dim', ' · ' + (at ? at + ' of ' + (stops.length - 1) : 'the board'))),
         h('button.btn.ghost.sm', { onclick: pickPeople, title: 'A' }, "Who's in ", h('span.stnum.stcount', (stops.length - 1) + '/' + all)),
         h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), 'Shuffle'),
-        timerEl));
+        timerOn() && timerEl));
   }
 
   // seePerson keeps the people's scroll across a repaint, moved only as far as shows the one shown.
@@ -365,7 +366,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
   scope.bind(['l', 'ArrowRight'], () => go(at + 1), 'next person', { ...G, bar: 'person' });
   scope.bind(['h', 'ArrowLeft'], () => go(at - 1), 'previous person', G);
-  scope.bind('Space', pause, 'start / pause the timer', { ...G, bar: 'timer' });
+  scope.bind('Space', pause, 'start / pause the timer', { ...G, bar: 'timer', when: timerOn });
   scope.bind('A', pickPeople, 'who takes part', { ...G, bar: "who's in" });
   scope.bind('s', shuffle, 'a random order / the board\'s', G);
   scope.bind('Enter', open, 'open issue (or show Off the board)', { ...G, bar: 'open' });

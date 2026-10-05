@@ -21,7 +21,8 @@ import (
 // on top goes round the people (← →): Everyone first, the board walked
 // right to left, then each person's cards and what they did, the people
 // already heard ticked. A picks who takes part, kept per board: on a big
-// project the board's assignees are more than the team. Beside it a timer: each person's turn counting down
+// project the board's assignees are more than the team. With
+// ui.standup_timer on, beside it a timer: each person's turn counting down
 // (ui.standup_length split over them, or ui.standup_timebox), red when it
 // runs out, and the whole standup's time; space pauses it. Below it the
 // stop's table, its activity wrapped rather than cut, since it is read out
@@ -164,7 +165,7 @@ func (m *Model) standupGo(d int) tea.Cmd {
 	if !s.paused.IsZero() {
 		s.turn = s.paused // a full turn once it runs again
 	}
-	if s.started.IsZero() {
+	if s.started.IsZero() && m.opts.standup.Timer {
 		s.started = now
 		return s.startTick()
 	}
@@ -434,6 +435,10 @@ func (m Model) handleStandupKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, k.Fold):
 		s.unfold()
 	case key.Matches(msg, k.StandupPause):
+		if !m.opts.standup.Timer {
+			m.status = "no timer: ui.standup_timer is off"
+			break
+		}
 		var cmd tea.Cmd
 		m.status, cmd = s.pause(time.Now())
 		return m, cmd
@@ -502,8 +507,12 @@ func (m *Model) standupViewLine() string {
 	if s.shuf {
 		order = "board order"
 	}
-	keys := fmt.Sprintf("  ·  ← → person · %s who's in · %s timer · %s %s · %s park · %s %s workday · %s copy · esc board",
-		helpKey(k.Assignee), helpKey(k.StandupPause), helpKey(k.StandupShuffle), order, helpKey(k.StandupPark),
+	timer := ""
+	if m.opts.standup.Timer {
+		timer = helpKey(k.StandupPause) + " timer · "
+	}
+	keys := fmt.Sprintf("  ·  ← → person · %s who's in · %s%s %s · %s park · %s %s workday · %s copy · esc board",
+		helpKey(k.Assignee), timer, helpKey(k.StandupShuffle), order, helpKey(k.StandupPark),
 		helpKey(k.PrevView), helpKey(k.NextView), helpKey(k.CopyKey))
 	return line + jiraDimStyle.Render(keys)
 }
@@ -546,6 +555,9 @@ func (m *Model) standupStrip(now time.Time, width int) string {
 		who += jiraDimStyle.Render(fmt.Sprintf(" · %d of %d in", len(s.stops)-1, len(s.board)-1))
 	}
 	left := strings.Join(parts, "") + "  " + who
+	if !m.opts.standup.Timer {
+		return ansi.Truncate(left, width, "…")
+	}
 
 	total, rest, inTurn := s.clock(now, m.opts.standup.Turn(len(s.stops)-1))
 	turn := jiraDimStyle.Render(fmt.Sprintf("%6s left", standupClock(m.opts.standup.Turn(len(s.stops)-1)))) // a turn's length till one runs

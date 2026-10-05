@@ -17,9 +17,10 @@ import (
 )
 
 // TestStandupRound: U opens on Everyone, the board walked with what was
-// done on each card; → goes to each person in turn, starting the timer and
-// ticking off the one left, a person without activity says so, and the
-// round comes back to Everyone; esc goes back to the board.
+// done on each card; → goes to each person in turn, starting the timer
+// (ui.standup_timer on) and ticking off the one left, a person without
+// activity says so, and the round comes back to Everyone; esc goes back to
+// the board.
 func TestStandupRound(t *testing.T) {
 	now := time.Now()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +41,7 @@ func TestStandupRound(t *testing.T) {
 	defer srv.Close()
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.opts.standup.Timer = true
 	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Summary: "Fifth", StatusID: "3", InProgress: true, Assignee: "Bo Ek", AssigneeID: "b2"})
 	m.buildJiraLanes()
 	press := func(k tea.KeyPressMsg) {
@@ -222,6 +224,7 @@ func TestStandupStripSteady(t *testing.T) {
 	}
 	s := &standupState{board: stops, stops: stops, heard: map[string]bool{}}
 	m.jiraTab.standup = s
+	m.opts.standup.Timer = true
 	at := func() (int, int) {
 		v := ansi.Strip(m.standupStrip(t0.Add(90*time.Second), 120))
 		if w := ansi.StringWidth(v); w != 120 {
@@ -242,5 +245,24 @@ func TestStandupStripSteady(t *testing.T) {
 		if c, tm := at(); c != chips || tm != timer {
 			t.Errorf("moved: chips end %d (was %d), timer at %d (was %d)", c, chips, tm, timer)
 		}
+	}
+}
+
+// TestStandupTimerOff: by default the strip has no timer, → starts none
+// and space says why.
+func TestStandupTimerOff(t *testing.T) {
+	m := jiraTabModel(t)
+	stops := []standup.Stop{{}, {Person: standup.Person{ID: "a", Name: "Ann"}}}
+	s := &standupState{board: stops, stops: stops, heard: map[string]bool{}}
+	m.jiraTab.standup = s
+	if cmd := m.standupGo(1); cmd != nil || !s.started.IsZero() {
+		t.Errorf("→ started the timer: %v", s.started)
+	}
+	if v := ansi.Strip(m.standupStrip(time.Now(), 120) + m.standupViewLine()); strings.Contains(v, "⏱") || strings.Contains(v, "timer") {
+		t.Errorf("a timer shows: %q", v)
+	}
+	out, _ := m.handleKey(keyStr("space"))
+	if m = out.(Model); !s.started.IsZero() || !strings.Contains(m.status, "ui.standup_timer") {
+		t.Errorf("space: started %v, status %q", s.started, m.status)
 	}
 }

@@ -122,12 +122,12 @@ func TestSettings(t *testing.T) {
 	if s != Defaults || warn != nil || s.Turn(5) != 3*time.Minute {
 		t.Errorf("defaults %+v %v, turn %v", s, warn, s.Turn(5))
 	}
-	s, warn = Parse(config.UIConfig{StandupStart: "first", StandupLookback: 2, StandupLength: "10m", StandupTimebox: "90s", StandupShuffle: "on"})
-	if !s.First || s.Lookback != 2 || s.Length != 10*time.Minute || s.Turn(5) != 90*time.Second || !s.Shuffle || warn != nil {
+	s, warn = Parse(config.UIConfig{StandupStart: "first", StandupLookback: 2, StandupLength: "10m", StandupTimebox: "90s", StandupShuffle: "on", StandupTimer: "on"})
+	if !s.First || s.Lookback != 2 || s.Length != 10*time.Minute || s.Turn(5) != 90*time.Second || !s.Shuffle || !s.Timer || warn != nil {
 		t.Errorf("set %+v %v", s, warn)
 	}
-	s, warn = Parse(config.UIConfig{StandupStart: "me", StandupLookback: 11, StandupLength: "1s", StandupShuffle: "yes"})
-	if s != Defaults || len(warn) != 4 {
+	s, warn = Parse(config.UIConfig{StandupStart: "me", StandupLookback: 11, StandupLength: "1s", StandupShuffle: "yes", StandupTimer: "1"})
+	if s != Defaults || len(warn) != 5 {
 		t.Errorf("bad values kept %+v, warned %v", s, warn)
 	}
 }
