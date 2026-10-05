@@ -10,6 +10,7 @@ import { openFilterBuilder } from './board_filter.js';
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
 import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
+import { comparators, sortCards } from '../lib/cardsort.js';
 
 const pts = c => Number(c.Points) || 0;
 const fmtP = n => String(Math.round(n * 10) / 10);
@@ -17,6 +18,9 @@ const isoDay = t => { const d = new Date(t); return d.getFullYear() + '-' + Stri
 const plusDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return isoDay(d); };
 const cat = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 const typeClass = t => { t = (t || '').toLowerCase(); return t.includes('sub') ? 'sub' : ['bug', 'story', 'task', 'epic'].find(x => t.includes(x)) || ''; };
+// The row's columns: id, header ('' for none), title; an id with a comparator sorts on a click.
+const COLS = [['sel', ''], ['type', ''], ['key', 'Key'], ['summary', 'Summary'], ['epic', 'Epic'], ['status', 'Status'], ['points', 'Pts', 'Story points'], ['assignee', () => icon('user'), 'Assignee']];
+const colLabel = l => (typeof l === 'function' ? l() : l);
 
 function nextSprintName(name) {
   const m = (name || '').match(/^(.*?)(\d+)(\D*)$/);
@@ -60,19 +64,29 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function makePane(secs) {
     const scroller = h('div.pl-scroll', { tabindex: -1 }), space = h('div.pl-space'), dropEl = h('div.pl-drop', { hidden: true });
     space.append(dropEl); scroller.append(space);
-    const p = { scroller, space, dropEl, live: new Map(), rows: [], tops: [], total: 0, last: '', secs };
+    const head = h('div.pl-cols', COLS.map(([id, label, title]) => h('span.pc-' + id, { dataset: { sort: CMP[id] ? id : '' }, title }, colLabel(label))));
+    const el = h('div.pl-pane', head, scroller);
+    const p = { el, head, scroller, space, dropEl, live: new Map(), rows: [], tops: [], total: 0, last: '', sb: -1, secs };
     p.paint = frame(() => paintPane(p));
     return p;
   }
+  // sort: 'rank' (the board's order, which J/K and dropping between issues change) or a column, within each section
+  const sortKey = 'planning.sort.' + board.ID;
+  let [sort, dir] = String(app.prefs.get(sortKey, 'rank:1')).split(':');
+  dir = dir === '-1' ? -1 : 1;
+  let statusAt = new Map();
+  const CMP = comparators(c => { const i = statusAt.get(String(c.StatusID)); return i == null ? columns.length : i; });
+  if (sort !== 'rank' && !CMP[sort]) sort = 'rank';
+  const sorted = () => sort !== 'rank';
   const left = makePane(() => sections.filter(s => !sideOn() || s.id !== side));
   const right = makePane(() => sections.filter(s => sideOn() && s.id === side));
   const panes = [left, right];
   const allRows = () => panes.flatMap(p => p.rows);
   app.listed = () => allRows().filter(r => r.k === 'c').map(r => r.c);
   const sidePick = h('select.input.pl-side-pick', { 'aria-label': 'Section kept in view', onchange: () => setSide(Number(sidePick.value)) });
-  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, icon('x'))), right.scroller);
+  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, icon('x'))), right.el);
   sideEl.hidden = !sideOn();
-  el.append(h('div.pl.pl-panes', left.scroller, sideEl));
+  el.append(h('div.pl.pl-panes', left.el, sideEl));
 
   const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', title: 'words, status:review  points>2  is:mine  -label:ui  (F builds a query)', oninput: () => setFilter(filterIn.value) });
   const whoBtn = h('button.btn.ghost', { title: 'Assignee (A)', onclick: () => pickWho() }, 'Assignee');
@@ -83,6 +97,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const secOf = id => sections.find(s => s.id === id);
   function build(d) {
     data = d; columns = d.Columns || [];
+    statusAt = new Map();
+    columns.forEach((c, i) => (c.StatusIDs || []).forEach(id => statusAt.set(String(id), i)));
     sections = (d.Sprints || []).map(s => ({ id: s.ID, sprint: s, name: s.Name, cards: s.Cards || [] }));
     sections.push({ id: 0, sprint: null, name: 'Backlog', cards: (d.Backlog && d.Backlog.Cards) || [] });
     for (const k of [...sel]) if (!sections.some(s => s.cards.some(c => c.Key === k))) sel.delete(k);
@@ -137,7 +153,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const tmark = key => (app.timer ? app.timer.mark(key) : '');
   const filtering = () => !!match || who != null;
   const visible = c => passesWho(who, c) && (!match || match(c));
-  const shown = s => (filtering() ? s.cards.filter(visible) : s.cards);
+  const shown = s => sortCards(filtering() ? s.cards.filter(visible) : s.cards, CMP, sort, dir);
   const names = new Map();
   function setWho(w) {
     who = w;
@@ -152,6 +168,22 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const r = await pickPeople(app, seen, who);
     if (r !== undefined) setWho(r);
   }
+  function paintCols() {
+    for (const p of panes) for (const n of p.head.children) {
+      const id = n.dataset.sort; if (!id) continue;
+      n.classList.toggle('on', sort === id);
+      n.replaceChildren(colLabel(COLS.find(c => c[0] === id)[1]), ...(sort === id ? [' ', icon(dir > 0 ? 'arrow-up' : 'arrow-down')] : []));
+      n.setAttribute('aria-sort', sort === id ? (dir > 0 ? 'ascending' : 'descending') : 'none');
+    }
+  }
+  // A click sorts by the column, again reverses it, a third time goes back to the rank.
+  function setSort(id) {
+    if (sort !== id) { sort = id; dir = 1; } else if (dir > 0) dir = -1; else { sort = 'rank'; dir = 1; }
+    app.prefs.set(sortKey, sort + ':' + dir);
+    paintCols(); relayout();
+  }
+  for (const p of panes) p.head.addEventListener('click', e => { const t = e.target.closest('[data-sort]'); if (t && t.dataset.sort) setSort(t.dataset.sort); });
+  paintCols();
   const headH = s => ROW + px14(s.sprint ? 34 : 6);
 
   function relayout() {
@@ -187,6 +219,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const paint = () => { for (const p of panes) p.paint(); };
   function paintPane(p) {
     const { rows, tops, live, scroller, space } = p;
+    const sb = scroller.offsetWidth - scroller.clientWidth;
+    if (sb !== p.sb) { p.sb = sb; p.head.style.paddingRight = `calc(var(--pad) * 1.5 + ${sb}px)`; }
     if (!rows.length) return;
     const vt = scroller.scrollTop, vb = vt + scroller.clientHeight;
     const a = Math.max(rowAtY(p, vt) - 6, 0), b = Math.min(rowAtY(p, vb) + 6, rows.length - 1);
@@ -223,16 +257,17 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filtering() ? 'No matches' : r.s.sprint ? 'Drop issues here to plan them' : 'The backlog is empty');
     if (r.k === 'h') return headNode(r.s, r.h);
     const c = r.c, t = typeClass(c.Type);
-    return h('div.pl-row' + (c.Done ? '.done' : ''), { draggable: true, dataset: { key: c.Key }, style: { height: r.h + 'px' } },
+    return h('div.pl-row.pl-card' + (c.Done ? '.done' : ''), { draggable: true, dataset: { key: c.Key }, style: { height: r.h + 'px' } },
       h('span.pl-sel', icon(sel.has(c.Key) ? 'square-check' : 'square')),
       h('span.pl-type.' + (t || 'x'), { title: c.Type }, TYPE_ICON[t] ? icon(TYPE_ICON[t]) : (c.Type || '?')[0]),
-      h('span.pl-key', c.Key), h('span.pl-sum', { title: c.Summary }, c.Summary),
-      c.Flagged && h('span.pl-flag', { title: 'Flagged' }, icon('flag', true)),
-      tmark(c.Key) && h('span.ctimer', { title: 'Timer running · T stops it' }, icon('timer'), ' ' + tmark(c.Key)),
-      c.ParentSummary && h('span.chip.pl-epic', { title: c.ParentKey + ' ' + c.ParentSummary }, c.ParentSummary),
-      app.ui.statusPill(c.Status, cat(c)),
-      h('button.pl-pts' + (c.Points ? '' : '.none'), { dataset: { act: 'points' }, title: 'Story points (P)', tabindex: -1 }, c.Points || '–'),
-      app.ui.avatar(c.Assignee, c.AvatarURL, 20));
+      h('span.pl-key', c.Key),
+      h('span.pl-sumc', h('span.pl-sum', { title: c.Summary }, c.Summary),
+        c.Flagged && h('span.pl-flag', { title: 'Flagged' }, icon('flag', true)),
+        tmark(c.Key) && h('span.ctimer', { title: 'Timer running · T stops it' }, icon('timer'), ' ' + tmark(c.Key))),
+      h('span.pl-epicc', c.ParentSummary && h('span.chip.pl-epic', { title: c.ParentKey + ' ' + c.ParentSummary }, c.ParentSummary)),
+      h('span.pl-st', app.ui.statusPill(c.Status, cat(c))),
+      h('span.pl-ptsc', h('button.pl-pts' + (c.Points ? '' : '.none'), { dataset: { act: 'points' }, title: 'Story points (P)', tabindex: -1 }, c.Points || '–')),
+      h('span.pl-av', app.ui.avatar(c.Assignee, c.AvatarURL, 20)));
   }
 
   function headNode(s, height) {
@@ -347,6 +382,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   // J/K: swap with the neighbour
   function rankStep(d) {
     const cc = curCard(); if (!cc || filtering()) return;
+    if (sorted()) { app.ui.toast(`Sorted by ${sort}: J and K rank in the rank order, a click on the header brings it back`); return; }
     const cs = cc.s.cards, i = cs.indexOf(cc.c), j = i + d;
     if (j < 0 || j >= cs.length) return;
     const other = cs[j].Key;
@@ -456,7 +492,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function copyTable() {
     const s = curSection(); if (!s) return;
     const esc = x => String(x == null ? '' : x).replace(/\|/g, '\\|');
-    const rows = s.cards.map(c => `| ${c.Key} | ${esc(c.Summary)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
+    const rows = sortCards(s.cards, CMP, sort, dir).map(c => `| ${c.Key} | ${esc(c.Summary)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
     const text = ['| Key | Summary | Assignee | Points |', '| --- | --- | --- | --- |', ...rows].join('\n');
     navigator.clipboard.writeText(text).then(() => app.ui.toast(`Copied ${s.name} (${s.cards.length} issues) as a markdown table`, { kind: 'ok' }), e => app.ui.errToast(e));
   }
@@ -473,6 +509,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const rect = scroller.getBoundingClientRect(), y = e.clientY - rect.top + scroller.scrollTop;
     if (y >= total) { const s = rows[rows.length - 1].s; return { s, anchor: null, after: false, y: total - 1 }; }
     const i = rowAtY(p, Math.max(y, 0)), r = rows[i];
+    if (sorted()) { const at = rows.findLastIndex(x => x.s === r.s); return { s: r.s, anchor: null, after: false, y: tops[at] + rows[at].h }; }
     if (r.k === 'c') { const after = y - tops[i] > r.h / 2; return { s: r.s, anchor: r.c.Key, after, y: tops[i] + (after ? r.h : 0) }; }
     if (r.k === 'h') { const first = shown(r.s)[0]; return { s: r.s, anchor: first ? first.Key : null, after: false, y: tops[i] + r.h }; }
     return { s: r.s, anchor: null, after: false, y: tops[i] + 2 };
@@ -503,6 +540,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       e.preventDefault();
       const ks = drag.keys;
       dropEl.hidden = true; drag = null;
+      if (sorted() && ks.every(k => t.s.cards.some(c => c.Key === k))) return;
       moveCards(ks, t.s, t.anchor, t.after);
     });
     scroller.addEventListener('dragend', () => {
@@ -545,7 +583,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('E', editSprint, 'edit sprint name, goal, end', G);
   scope.bind('R', () => load(true), 'reload', G);
   scope.bind('f', () => filterIn.focus(), 'filter', { ...G, bar: 'filter' });
-  scope.bind('F', openBuilder, 'filter builder', G);
+  scope.bind('F', openBuilder, 'filter builder', { ...G, bar: 'filter builder' });
   scope.bind('A', pickWho, 'filter by assignee', G);
   scope.bind('Escape', () => {
     if (document.activeElement === filterIn) { filterIn.value = ''; filterIn.blur(); setFilter(''); return; }

@@ -15,12 +15,12 @@ import * as pins from '../lib/pins.js';
 import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
+import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
 import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
 
 css('board');
 
 const DAY = 864e5;
-const PRIO_ORD = { blocker: 0, highest: 0, critical: 0, high: 1, major: 1, medium: 2, normal: 2, low: 3, minor: 3, lowest: 4, trivial: 4 };
 const PRIO_ICON = ['chevrons-up', 'chevron-up', 'equal', 'chevron-down', 'chevrons-down'];
 const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
 const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
@@ -36,9 +36,6 @@ const FIELD_COL = { type: null, priority: 'priority', status: 'status', points: 
 const SWIMS = ['none', 'assignee', 'epic', 'priority'];
 const SEP = '\x1f';
 
-const prioOrd = c => { const v = PRIO_ORD[(c.Priority || '').toLowerCase()]; return v == null ? 5 : v; };
-const time = t => (isZero(t) ? Infinity : Date.parse(t));
-const num = c => (c.Points === '' || c.Points == null ? -1 : Number(c.Points) || 0);
 const who = c => c.AssigneeID || c.Assignee || '';
 const catClass = c => (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo');
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -340,18 +337,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (S.textFn && !S.textFn(c)) return false;
     return true;
   }
-  const CMP = {
-    key: (a, b) => a.Key.localeCompare(b.Key, undefined, { numeric: true }),
-    summary: (a, b) => a.Summary.localeCompare(b.Summary),
-    status: (a, b) => colIndexOf(a) - colIndexOf(b),
-    priority: (a, b) => prioOrd(a) - prioOrd(b),
-    points: (a, b) => num(b) - num(a),
-    assignee: (a, b) => (!a.Assignee) - (!b.Assignee) || a.Assignee.localeCompare(b.Assignee),
-    epic: (a, b) => (!a.ParentSummary) - (!b.ParentSummary) || a.ParentSummary.localeCompare(b.ParentSummary),
-    updated: (a, b) => time(b.Updated) - time(a.Updated) || 0,
-    created: (a, b) => time(b.Created) - time(a.Created) || 0,
-    due: (a, b) => (time(a.Due) === time(b.Due) ? 0 : time(a.Due) < time(b.Due) ? -1 : 1),
-  };
+  const CMP = comparators(c => colIndexOf(c));
   function columns() { return (S.bundle && S.bundle.config && S.bundle.config.Columns) || []; }
   function statusCol() {
     const m = new Map();
@@ -424,9 +410,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       for (const c of base) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].total++;
       for (const c of vis) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].all.push(c);
     } else {
-      let l = vis;
-      if (S.sort !== 'rank') { const f = CMP[S.sort]; l = vis.slice().sort((a, b) => f(a, b) * S.dir); }
-      else if (S.dir < 0) l = vis.slice().reverse();
+      const l = sortCards(vis, CMP, S.sort, S.dir);
       S.panes[0].all = l; S.panes[0].total = base.length;
       S.panes[0].heads = groupHeads(l);
     }
@@ -1481,7 +1465,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     k.bind('[', () => cycleScope(-1), 'previous view', { group: V });
     k.bind(']', () => cycleScope(1), 'next view', { group: V });
     k.bind('f', () => { filterIn.focus(); filterIn.select(); }, 'filter cards', { group: F, bar: 'filter' });
-    k.bind('F', openBuilder, 'filter builder', { group: F });
+    k.bind('F', openBuilder, 'filter builder', { group: F, bar: 'filter builder' });
     k.bind('m', () => toggleMine(), 'only my cards', { group: F, bar: 'mine' });
     k.bind('A', () => pickWho(), 'filter by assignee', { group: F });
     k.bind('0', () => clearFilters(), 'clear filters', { group: F });
