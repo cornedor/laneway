@@ -524,7 +524,9 @@ Monday; `ui.standup_lookback` reaches further), over the sprint goal and
 the workdays left. A strip on top goes round the people with `←` `→`:
 *Everyone* first, then each assignee on the board in the order the walk
 meets them (`s` shuffles, and back), the one shown named, those heard
-ticked, someone without activity marked *no changes*. Everyone walks the
+ticked, someone without activity marked *no changes*. `a` (`A` in the
+browser) picks who takes part, kept per board: on a big project the board's
+assignees are more than the team; Everyone still walks the whole board. Everyone walks the
 board right to left, closest to done first: per column, each card in
 progress with who has it, how long (*stale* past `ui.stale_days`), a flag,
 what blocks it, its pull request or deploy, and what happened since (`To Do
@@ -536,7 +538,7 @@ the `jira.repos` repositories. *Off the board*, folded until `z` or
 (comments, work, moves; bulk field edits left out).
 
 The timer starts with the first person (or `space`): each turn counts down
-`ui.standup_length` (15m) split over the people, or `ui.standup_timebox`,
+`ui.standup_length` (15m) split over those taking part, or `ui.standup_timebox`,
 red and flashing once it runs out, beside the whole standup's time; it
 never moves on by itself, and `←` `→` start the next turn. `space` pauses
 it. `P` parks a card for after the standup: the *Parking lot* comes last on

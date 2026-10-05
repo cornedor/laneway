@@ -18,7 +18,7 @@ const TABLE = {
     H: 'move_left', L: 'move_right', '<': 'end_earlier', '>': 'end_later', e: 'roadmap_grip', f: 'roadmap_issues', E: 'roadmap_edit', Y: 'copy_url' },
   work: { ...COMMON, r: 'refresh', o: 'browser', h: 'prev_view', l: 'next_view', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'open', e: 'edit_entry', d: 'delete_entry', p: 'propose_work' },
   inbox: { ...COMMON, Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', r: 'refresh', o: 'browser', Enter: 'open', e: 'inbox_done', E: 'inbox_done_all', s: 'inbox_snooze', u: 'inbox_unread', c: 'comment', R: 'reply' },
-  standup: { ...COMMON, r: 'refresh', z: 'fold', '[': 'prev_view', ']': 'next_view', Enter: 'open', h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Space: 'standup_pause', s: 'standup_shuffle', P: 'standup_park' },
+  standup: { ...COMMON, r: 'refresh', z: 'fold', '[': 'prev_view', ']': 'next_view', Enter: 'open', h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Space: 'standup_pause', s: 'standup_shuffle', P: 'standup_park', A: 'assignee_filter' },
   agents: { ...COMMON, Home: 'top', End: 'bottom', r: 'refresh', o: 'browser', Enter: 'open', v: 'toggle_panel', p: 'agent_prompt', d: 'agent_stop', S: 'start_work', 'ctrl+\\': 'agent_back' },
   mrs: { j: 'down', ArrowDown: 'down', k: 'up', ArrowUp: 'up', Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', r: 'refresh', o: 'browser', Enter: 'open' },
   terminal: { 'ctrl+\\': 'agent_back' },

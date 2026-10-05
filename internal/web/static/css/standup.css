@@ -3,7 +3,12 @@
 .stwho.stale { color: var(--warn); }
 /* The strip: the people to go round, then the timer. */
 .ststrip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pad); padding: var(--pad); margin-bottom: calc(var(--pad) * 1.5); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
-.stpeople { display: flex; flex-wrap: wrap; align-items: center; gap: .286rem; flex: 1; min-width: 0; }
+.sthead { flex-wrap: nowrap; align-items: flex-start; }
+.sttitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--pad); flex: 1; min-width: 0; }
+.stbtns { display: flex; gap: .286rem; flex: none; }
+.stround { display: flex; align-items: center; gap: .286rem; flex: 1 1 20rem; min-width: 0; }
+.stpeople { display: flex; flex-wrap: wrap; align-items: center; gap: .286rem; min-width: 0; }
+.sttools { display: flex; gap: .286rem; flex: none; }
 .stchip { display: inline-flex; align-items: center; gap: .429rem; padding: .214rem .429rem; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
 .stchip:hover { background: var(--bg-3); }
 .stchip.cur { background: var(--accent-bg); border-color: var(--accent); }
@@ -12,7 +17,8 @@
 .stchip .stall { padding: 0 .286rem; font-weight: 600; }
 .stchip .stname { font-weight: 600; white-space: nowrap; }
 .stchip .sttick { color: var(--ok); font-size: .857rem; }
-.sttimer { display: flex; align-items: center; gap: var(--pad); margin-left: auto; font-variant-numeric: tabular-nums; }
+.sttimer { display: flex; align-items: center; gap: var(--pad); margin-left: auto; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stleft, .sttotal { font-family: var(--font-mono); }
 .stleft { font-size: 1.571rem; font-weight: 700; }
 .stleft .dim { font-size: .857rem; font-weight: 400; }
 .sttotal { color: var(--fg-2); }

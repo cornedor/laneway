@@ -27,7 +27,8 @@ func init() {
 // standupLines: ?board=ID and its view (?sprint=ID, ?backlog=1, ?jql= with
 // ?kind=filter for all of Jira; else the board's cards), ?since=DAY or
 // ui.standup_lookback workdays back. Since is the day it starts from,
-// Settings the ui.standup_* options with each person's Turn, in seconds.
+// Settings the ui.standup_* options, durations in seconds; the browser
+// splits Length over who takes part, as standup.Settings.Turn does.
 func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	now := time.Now()
 	set, _ := standup.Parse(s.UIConfig())
@@ -48,9 +49,8 @@ func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	people := max(len(stops)-1, 0)
 	return map[string]any{"Stops": stops, "Head": head, "Since": since.Format(time.DateOnly), "Settings": map[string]any{
-		"First": set.First, "Shuffle": set.Shuffle, "Length": set.Length.Seconds(), "Turn": set.Turn(people).Seconds(),
+		"First": set.First, "Shuffle": set.Shuffle, "Length": set.Length.Seconds(), "Timebox": set.Timebox.Seconds(),
 	}}, nil
 }
 

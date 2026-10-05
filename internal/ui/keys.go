@@ -85,7 +85,7 @@ var keyScopes = []struct {
 	}},
 	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts"}},
 	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "propose_work", "timesheet"}},
-	{"standup", []string{"up", "down", "left", "right", "open", "fold", "standup_pause", "standup_shuffle", "standup_park", "prev_view", "next_view", "copy_key", "refresh", "help", "quit", "standup"}},
+	{"standup", []string{"up", "down", "left", "right", "open", "fold", "assignee_filter", "standup_pause", "standup_shuffle", "standup_park", "prev_view", "next_view", "copy_key", "refresh", "help", "quit", "standup"}},
 	{"inbox", []string{"up", "down", "top", "bottom", "page_up", "page_down", "open", "browser", "comment", "reply", "inbox_done", "inbox_done_all", "inbox_unread", "inbox_snooze", "copy_key", "refresh", "help", "quit", "inbox"}},
 	{"agents", []string{"up", "down", "top", "bottom", "open", "toggle_panel", "browser", "agent_prompt", "agent_stop", "copy_key", "refresh", "help", "quit", "agents"}},
 	{"merge_requests", []string{"up", "down", "top", "bottom", "page_up", "page_down", "open", "browser", "refresh", "help", "quit", "merge_requests"}},

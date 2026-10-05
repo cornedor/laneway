@@ -1,7 +1,7 @@
 // Standup: a strip that goes round the people (← →), Everyone first with the board walked right to left, then each
 // person's cards and what they did, those heard ticked; a timer beside it, each turn counting down (ui.standup_length
 // split, or ui.standup_timebox) and the whole standup's time; below, the stop's rows, over the view the board showed last.
-// Park a card for after (P, kept per view): Everyone's parking lot comes last. Stops come from /standup/lines, built like the TUI's.
+// A picks who takes part, kept per board. Park a card for after (P, kept per view): Everyone's parking lot comes last. Stops come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
@@ -17,7 +17,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const wd = workdays(app);
   const prevWorkday = d => { let x = addDays(d, -1); while (!wd.includes(x.getDay())) x = addDays(x, -1); return x; };
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
-  let since = null, data = null, err = '', dead = false, seq = 0, opened = false;
+  let since = null, data = null, err = '', dead = false, seq = 0, opened = false, loading = false;
   let project = projectOf(app, {});
   let sw = null, board = null, sprint = 0, lines = [], folded = [], sel = 0, parkedKeys = [];
   // The round: the stops in the order gone round, the one shown, who was heard; the timer (ms, 0 unset).
@@ -33,6 +33,12 @@ export default function mount(el, { app, scope, context, toolbar }) {
   let view = null;
   const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + (view ? view.park : sprint);
   const loadParked = () => { parkedKeys = (prefs.get(parkId(), '') || '').split(/\s+/).filter(Boolean); };
+  // Who takes part, by account, kept per board; none: everyone.
+  let inPeople = [];
+  const peopleId = () => 'standup_people.' + (board ? board.ID : 0);
+  const loadPeople = () => { inPeople = (prefs.get(peopleId(), '') || '').split(/\s+/).filter(Boolean); };
+  // turnMs is each person's turn: the timebox, else the length split over who takes part.
+  const turnMs = () => { const s = data.Settings, n = stops.length - 1; return 1000 * (s.Timebox || (n ? Math.floor(s.Length / n) : 0)); };
 
   // The project's board and its active sprint, for the walk and the parking lot.
   async function resolveBoard() {
@@ -55,7 +61,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   // order lays the stops out, Everyone first: the board's order, or shuffled (again when reshuffle, else as gone round
   // so far, so a reload keeps it), and stays on who.
   function order(who, reshuffle) {
-    const people = (data.Stops || []).slice(1), prev = stops.map(s => s.Person.ID);
+    const people = (data.Stops || []).slice(1).filter(s => !inPeople.length || inPeople.includes(s.Person.ID)), prev = stops.map(s => s.Person.ID);
     if (shuffled) for (let i = people.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [people[i], people[j]] = [people[j], people[i]]; }
     const was = s => { const i = prev.indexOf(s.Person.ID); return i < 0 ? prev.length : i; }; // someone new goes last
     if (shuffled && !reshuffle && prev.length) people.sort((a, b) => was(a) - was(b));
@@ -111,8 +117,8 @@ export default function mount(el, { app, scope, context, toolbar }) {
       return;
     }
     const t = paused || now(), total = t - started;
-    if (turn && s.Turn) {
-      const left = s.Turn * 1000 - (t - turn);
+    if (turn && turnMs()) {
+      const left = turnMs() - (t - turn);
       timerEl.append(left < 0
         ? h('span.stleft.over' + (paused ? '' : '.flash'), '+' + clock(-left) + ' over')
         : h('span.stleft', clock(left + 999), h('span.dim', ' left')));
@@ -148,19 +154,21 @@ export default function mount(el, { app, scope, context, toolbar }) {
         p.ID && cur && st.Quiet && h('span.dim', 'no changes'),
         p.ID && heard.has(p.ID) && h('span.sttick', '✓'));
     });
+    // The arrows stay beside the chips, which wrap between them; the tools and the timer keep to one line each.
     return h('div.ststrip',
-      h('div.stpeople', h('button.btn.ghost.sm', { onclick: () => go(at - 1), title: '←' }, icon('chevron-left')), ...chips,
+      h('div.stround', h('button.btn.ghost.sm', { onclick: () => go(at - 1), title: '←' }, icon('chevron-left')), h('div.stpeople', ...chips),
         h('button.btn.ghost.sm', { onclick: () => go(at + 1), title: '→' }, icon('chevron-right'))),
-      h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), shuffled ? 'Shuffled' : 'Board order'),
+      h('div.sttools', h('button.btn.ghost.sm', { onclick: pickPeople, title: 'A' }, inPeople.length ? (stops.length - 1) + ' of ' + ((data.Stops || []).length - 1) : "Who's in"),
+        h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), shuffled ? 'Shuffled' : 'Board order')),
       timerEl);
   }
 
   function paint() {
     clear(root);
     const label = since ? since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }) : '…';
-    root.append(h('div.sthead', h('h2', 'Standup'), view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
-      h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, icon('chevron-left'), 'earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later', icon('chevron-right')),
-      h('button.btn', { onclick: copy, title: 'y' }, 'Copy')));
+    root.append(h('div.sthead', h('div.sttitle', h('h2', 'Standup'), view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), loading && data && h('span.dim', 'loading…')),
+      h('div.stbtns', h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, icon('chevron-left'), 'earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later', icon('chevron-right')),
+        h('button.btn', { onclick: copy, title: 'y' }, 'Copy'))));
     if (err) return root.append(h('div.empty', err));
     if (!data) return root.append(h('div.loading', 'Loading…'));
     root.append(strip());
@@ -215,6 +223,20 @@ export default function mount(el, { app, scope, context, toolbar }) {
     paint();
   }
 
+  async function pickPeople() {
+    const all = (data && data.Stops || []).slice(1).map(s => s.Person);
+    if (!all.length) return ui.toast('No one is assigned a card on the board');
+    const everyone = { ID: '', Name: 'Everyone on the board' };
+    const r = await ui.pick({ title: 'Who takes part', items: [everyone, ...all], multi: true, enterPicks: true, selected: all.filter(p => inPeople.includes(p.ID)), label: p => p.Name, placeholder: 'People…' });
+    if (!r || dead) return;
+    inPeople = r.includes(everyone) ? [] : r.map(p => p.ID);
+    prefs.set(peopleId(), inPeople.join(' '));
+    order(person().ID, false);
+    build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
+    ui.toast(inPeople.length ? (stops.length - 1) + (stops.length === 2 ? ' person takes' : ' people take') + ' part' : 'Everyone on the board takes part');
+    paint();
+  }
+
   function shuffle() {
     shuffled = !shuffled;
     if (data) { order(person().ID, true); build(); }
@@ -224,13 +246,13 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   async function load() {
     const my = ++seq;
-    err = ''; paint();
+    err = ''; loading = true; paint();
     try {
       await resolveBoard();
       if (sw && !dead) sw.label(project, board);
-      if (!board) throw new Error('No board found for ' + (project || 'this site') + '. B picks a project.');
+      if (!board) throw new Error('No board found for ' + (project || 'this site') + '. alt+p picks a project.');
       view = app.lastView && app.lastView.board === board.ID ? app.lastView : null;
-      loadParked();
+      loadParked(); loadPeople();
       const q = (since ? 'since=' + ymd(since) + '&' : '') + 'board=' + board.ID + '&' + (view ? view.query : 'sprint=' + sprint);
       const d = await api.get('/standup/lines?' + q, { fresh: true });
       if (dead || my !== seq) return;
@@ -242,7 +264,14 @@ export default function mount(el, { app, scope, context, toolbar }) {
       if (!opened && d.Settings.First && stops.length > 1) { opened = true; return go(1); }
       opened = true;
     } catch (e) { if (dead || my !== seq) return; err = e.message; }
+    loading = false;
     paint();
+  }
+
+  // reset starts the standup over, for another board: its people, unheard, the timer stopped.
+  function reset() {
+    data = null; stops = []; at = 0; lines = []; folded = []; sel = 0; heard.clear();
+    started = turn = paused = 0; clearInterval(tick); opened = false; since = null;
   }
 
   function step(n) {
@@ -269,13 +298,14 @@ export default function mount(el, { app, scope, context, toolbar }) {
   scope.bind(['l', 'ArrowRight'], () => go(at + 1), 'next person', { ...G, bar: 'person' });
   scope.bind(['h', 'ArrowLeft'], () => go(at - 1), 'previous person', G);
   scope.bind('Space', pause, 'start / pause the timer', { ...G, bar: 'timer' });
+  scope.bind('A', pickPeople, 'who takes part', { ...G, bar: "who's in" });
   scope.bind('s', shuffle, 'a random order / the board\'s', G);
   scope.bind('Enter', open, 'open issue (or show Off the board)', { ...G, bar: 'open' });
   scope.bind('z', unfold, 'show Off the board', G);
   scope.bind('P', park, 'park the card for after the standup', { ...G, bar: 'park' });
   scope.bind('[', () => step(-1), 'a workday further back', { ...G, bar: 'day' });
   scope.bind(']', () => step(1), 'a workday forward', { ...G, bar: 'day' });
-  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; view = null; load(); } });
+  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; view = null; reset(); load(); } });
   scope.bind('y', copy, 'copy the stop as text, parking lot included', { ...G, bar: 'copy' });
   scope.bind('r', load, 'refresh', G);
 

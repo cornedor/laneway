@@ -50,6 +50,9 @@ const (
 	// jiraPickBoardAssignee filters the Jira tab's board by assignee; it
 	// filters locally too.
 	jiraPickBoardAssignee
+	// jiraPickStandupPeople ticks who takes part in the standup
+	// (standup_screen.go), filtered locally.
+	jiraPickStandupPeople
 	// jiraPickFormUser and jiraPickFormOption fill a row of the transition
 	// form (jira_transition.go): a person searched server-side like the
 	// assignee, or one of the field's options, filtered locally.
@@ -691,7 +694,7 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.jiraPicker.filter.Value() == before {
 			return m, cmd
 		}
-		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickHistory || k == jiraPickDev || k == jiraPickJob || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
+		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickStandupPeople || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickHistory || k == jiraPickDev || k == jiraPickJob || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
 			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickClosedSprint || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
@@ -1043,6 +1046,15 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickMessages {
 		m.closeJiraPicker()
 		return m.applyMessage(it)
+	}
+	if kind == jiraPickStandupPeople {
+		id := it.id
+		if m.jiraPicker.ticked {
+			id, _ = m.jiraPicker.checkedPick()
+		}
+		m.closeJiraPicker()
+		m.setStandupPeople(strings.Split(id, ","))
+		return m, nil
 	}
 	if kind == jiraPickBoardAssignee {
 		id, label := it.id, it.label

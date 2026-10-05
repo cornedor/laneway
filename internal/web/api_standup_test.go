@@ -22,13 +22,13 @@ func TestStandupLinesAndProposals(t *testing.T) {
 	var out struct {
 		Stops    []standup.Stop
 		Since    string
-		Settings struct{ Length, Turn float64 }
+		Settings struct{ Length, Timebox float64 }
 	}
 	if code := issueCall(t, "GET", ts.URL+"/api/standup/lines?board=1&sprint=12", nil, &out); code != 200 {
 		t.Fatalf("lines: %d", code)
 	}
 	if len(out.Stops) < 2 || out.Stops[0].Person.ID != "" || out.Stops[1].Person.Name == "" || out.Since == "" ||
-		out.Settings.Length != 900 || out.Settings.Turn != 900/float64(len(out.Stops)-1) {
+		out.Settings.Length != 900 || out.Settings.Timebox != 0 {
 		t.Errorf("stops %+v since %q settings %+v", out.Stops, out.Since, out.Settings)
 	}
 	var pr struct{ Items []work.Proposal }

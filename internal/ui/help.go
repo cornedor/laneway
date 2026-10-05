@@ -176,6 +176,7 @@ func (m *Model) helpSections() []struct {
 		}},
 		section{"Standup", []helpRow{
 			{"← →", "previous / next person, Everyone first: the board walked right to left"},
+			row(k.Assignee, "who takes part, kept for the board: the timer splits the length over them"),
 			row(k.StandupPause, "start / pause the timer (a turn each, and the whole standup)"),
 			row(k.StandupShuffle, "the people in a random order / the board's"),
 			{join(k.PrevView, k.NextView), "a workday further back / later"},

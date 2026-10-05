@@ -165,3 +165,48 @@ func TestStandupPark(t *testing.T) {
 		t.Errorf("unparked: %+v", s.lines)
 	}
 }
+
+// TestStandupPeople: a ticks who takes part, kept for the board; the round
+// and the turns are theirs, Everyone still the whole board.
+func TestStandupPeople(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraTab.standup = &standupState{seq: 1, heard: map[string]bool{}}
+	stops := []standup.Stop{{Rows: []standup.Row{{Key: "ABC-1", Title: "ABC-1 One"}}}}
+	for _, p := range []string{"a", "b", "c"} {
+		stops = append(stops, standup.Stop{Person: standup.Person{ID: p, Name: strings.ToUpper(p)}})
+	}
+	out, _ := m.handleStandup(standupMsg{seq: 1, stops: stops})
+	m = out.(Model)
+	press := func(k tea.KeyPressMsg) {
+		t.Helper()
+		out, _ := m.handleKey(k)
+		m = out.(Model)
+	}
+	press(keyStr("a"))
+	if !m.jiraPicker.active || m.jiraPicker.kind != jiraPickStandupPeople || len(m.jiraPicker.items) != 4 {
+		t.Fatalf("picker: %+v", m.jiraPicker)
+	}
+	press(keyMsg(t, "down")) // A
+	press(keyMsg(t, "tab"))
+	press(keyMsg(t, "down")) // B
+	press(keyMsg(t, "down")) // C
+	press(keyMsg(t, "tab"))
+	press(keyMsg(t, "enter"))
+	s := m.jiraTab.standup
+	if m.jiraPicker.active || len(s.stops) != 3 || s.stops[1].Person.ID != "a" || s.stops[2].Person.ID != "c" || m.status != "2 people take part" {
+		t.Fatalf("after the pick: %+v, %q", s.stops, m.status)
+	}
+	if got := m.standupPeople(); !slices.Equal(got, []string{"a", "c"}) {
+		t.Errorf("kept %v", got)
+	}
+	if v := ansi.Strip(m.standupStrip(time.Now())); !strings.Contains(v, "2 of 3") {
+		t.Errorf("strip: %s", v)
+	}
+	if m.opts.standup.Turn(len(s.stops)-1) != 450*time.Second {
+		t.Errorf("turn over two: %v", m.opts.standup.Turn(len(s.stops)-1))
+	}
+	m.setStandupPeople([]string{""})
+	if len(m.jiraTab.standup.stops) != 4 || len(m.standupPeople()) != 0 {
+		t.Errorf("everyone again: %+v", m.jiraTab.standup.stops)
+	}
+}

@@ -20,7 +20,8 @@ import (
 // U opens the standup in place of the board, as W does the week. A strip
 // on top goes round the people (← →): Everyone first, the board walked
 // right to left, then each person's cards and what they did, the people
-// already heard ticked. Beside it a timer: each person's turn counting down
+// already heard ticked. A picks who takes part, kept per board: on a big
+// project the board's assignees are more than the team. Beside it a timer: each person's turn counting down
 // (ui.standup_length split over them, or ui.standup_timebox), red when it
 // runs out, and the whole standup's time; space pauses it. Below it the
 // stop's table, its activity wrapped rather than cut, since it is read out
@@ -35,6 +36,7 @@ type standupState struct {
 	stops []standup.Stop  // the same in the order gone round
 	at    int             // the stop shown, an index into stops
 	heard map[string]bool // the people already heard, by account
+	in    []string        // who takes part, by account; none: everyone
 	shuf  bool
 
 	lines   []standup.Row // the stop's rows, and the parking lot on Everyone's
@@ -64,7 +66,7 @@ type standupTickMsg struct{ n int }
 // workdays back.
 func (m *Model) openStandup() tea.Cmd {
 	set := m.opts.standup
-	m.jiraTab.standup = &standupState{since: standup.Since(time.Now(), m.opts.workdays, set.Lookback), heard: map[string]bool{}, shuf: set.Shuffle}
+	m.jiraTab.standup = &standupState{since: standup.Since(time.Now(), m.opts.workdays, set.Lookback), heard: map[string]bool{}, shuf: set.Shuffle, in: m.standupPeople()}
 	m.focus = focusJira // from the panel too
 	return m.loadStandup()
 }
@@ -105,12 +107,14 @@ func (s *standupState) person() standup.Person {
 	return standup.Person{}
 }
 
-// order lays the stops out, Everyone first: the board's order, or shuffled
-// (again when reshuffle, else as gone round so far, so a reload keeps it),
-// and stays on who.
+// order lays the stops out, Everyone first and then those taking part:
+// the board's order, or shuffled (again when reshuffle, else as gone round
+// so far, so a reload keeps it), and stays on who.
 func (s *standupState) order(who string, reshuffle bool) {
 	prev := s.stops
-	s.stops = slices.Clone(s.board)
+	s.stops = slices.DeleteFunc(slices.Clone(s.board), func(st standup.Stop) bool {
+		return st.Person.ID != "" && len(s.in) > 0 && !slices.Contains(s.in, st.Person.ID)
+	})
 	if s.shuf && len(s.stops) > 2 {
 		people := s.stops[1:]
 		rand.Shuffle(len(people), func(i, j int) { people[i], people[j] = people[j], people[i] })
@@ -216,6 +220,62 @@ func (s *standupState) clock(now time.Time, turn time.Duration) (total, left tim
 		return total, 0, false
 	}
 	return total, turn - now.Sub(s.turn), true
+}
+
+// standupPeopleMeta keeps who takes part per board.
+func (m *Model) standupPeopleMeta() string {
+	return jiraMetaPrefix + "standup:people:" + strconv.Itoa(m.jiraBoardID())
+}
+
+func (m *Model) standupPeople() []string {
+	if m.store == nil {
+		return nil
+	}
+	raw, _, _ := m.store.GetMeta(m.standupPeopleMeta())
+	return strings.Fields(raw)
+}
+
+// openStandupPeople ticks who takes part: none ticked is everyone.
+func (m *Model) openStandupPeople() {
+	s := m.jiraTab.standup
+	if len(s.board) < 2 {
+		m.status = "no one is assigned a card on the board"
+		return
+	}
+	m.startJiraPicker(jiraPickStandupPeople, "Who takes part", true)
+	m.jiraPicker.checked = map[string]string{}
+	items := []jiraPickerItem{{id: "", label: "Everyone on the board"}}
+	for _, st := range s.board[1:] {
+		items = append(items, jiraPickerItem{id: st.Person.ID, label: st.Person.Name})
+		if slices.Contains(s.in, st.Person.ID) {
+			m.jiraPicker.checked[st.Person.ID] = st.Person.Name
+		}
+	}
+	m.setJiraPickerItems(items)
+	m.markChecked()
+}
+
+// setStandupPeople keeps ids as who takes part ("" alone: everyone) and
+// goes round them; the timer splits the length over them.
+func (m *Model) setStandupPeople(ids []string) {
+	s := m.jiraTab.standup
+	if s == nil {
+		return
+	}
+	s.in = slices.DeleteFunc(ids, func(id string) bool { return id == "" })
+	if m.store != nil {
+		_ = m.store.SetMeta(m.standupPeopleMeta(), strings.Join(s.in, " "))
+	}
+	s.order(s.person().ID, false)
+	m.showStop()
+	m.status = "everyone on the board takes part"
+	switch n := len(s.stops) - 1; {
+	case len(s.in) == 0:
+	case n == 1:
+		m.status = "1 person takes part"
+	default:
+		m.status = strconv.Itoa(n) + " people take part"
+	}
 }
 
 // parkHead heads the parking lot, Everyone's last section.
@@ -377,6 +437,8 @@ func (m Model) handleStandupKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.status, cmd = s.pause(time.Now())
 		return m, cmd
+	case key.Matches(msg, k.Assignee):
+		m.openStandupPeople()
 	case key.Matches(msg, k.StandupShuffle):
 		s.shuf = !s.shuf
 		s.order(s.person().ID, true)
@@ -440,8 +502,8 @@ func (m *Model) standupViewLine() string {
 	if s.shuf {
 		order = "board order"
 	}
-	keys := fmt.Sprintf("  ·  ← → person · %s timer · %s %s · %s park · %s %s workday · %s copy · esc board",
-		helpKey(k.StandupPause), helpKey(k.StandupShuffle), order, helpKey(k.StandupPark),
+	keys := fmt.Sprintf("  ·  ← → person · %s who's in · %s timer · %s %s · %s park · %s %s workday · %s copy · esc board",
+		helpKey(k.Assignee), helpKey(k.StandupPause), helpKey(k.StandupShuffle), order, helpKey(k.StandupPark),
 		helpKey(k.PrevView), helpKey(k.NextView), helpKey(k.CopyKey))
 	return line + jiraDimStyle.Render(keys)
 }
@@ -477,6 +539,9 @@ func (m *Model) standupStrip(now time.Time) string {
 		parts = append(parts, chip)
 	}
 	parts = append(parts, jiraDimStyle.Render("›"))
+	if len(s.in) > 0 {
+		parts = append(parts, jiraDimStyle.Render(fmt.Sprintf("%d of %d", len(s.stops)-1, len(s.board)-1)))
+	}
 	strip := strings.Join(parts, " ")
 
 	total, left, inTurn := s.clock(now, m.opts.standup.Turn(len(s.stops)-1))
