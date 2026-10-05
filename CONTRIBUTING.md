@@ -24,6 +24,10 @@ Tests never talk to a real Jira: use `httptest` servers for the client and
 the model harness in `internal/ui/harness_test.go` for the UI. The docs'
 screenshots are shot from `laneway -demo` by `scripts/screenshots`.
 
+`internal/contract` holds the demo's answers against a recording of a real
+Jira's (key paths and types, no values). Re-record, reads only:
+`go test ./internal/contract -run TestRecord -record <site> -project <key>`.
+
 ## Pull requests
 
 - One change per PR, with a test that fails without it.

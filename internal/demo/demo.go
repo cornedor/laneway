@@ -82,7 +82,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost && p == "/rest/api/3/search/jql" {
 		jql, _ := body["jql"].(string)
 		expand, _ := body["expand"].(string)
-		send(map[string]any{"issues": s.list(s.search(jql), strings.Contains(expand, "changelog")), "isLast": true})
+		var want []string
+		if fs, ok := body["fields"].([]any); ok {
+			for _, f := range fs {
+				if f, ok := f.(string); ok {
+					want = append(want, f)
+				}
+			}
+		}
+		send(map[string]any{"issues": s.list(s.search(jql), strings.Contains(expand, "changelog"), want), "isLast": true})
 		return
 	}
 	switch {
@@ -112,6 +120,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if iss := s.issues[m[1]]; iss != nil {
 			if v, ok := s.issueRoute(r.Method, iss, m[2], strings.TrimPrefix(m[3], "/"), body, q); ok {
 				if no, refused := v.(refusal); refused {
+					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusBadRequest)
 					send(map[string]any{"errorMessages": []string{string(no)}})
 					return
@@ -124,6 +133,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
 			send(map[string]any{"errorMessages": []string{"Issue does not exist or you do not have permission to see it."}})
 			return
@@ -136,7 +146,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		send(s.page(s.filter(s.board(func(i *issue) bool { return i.sprint == id }), q.Get("jql"))))
+		send(s.page(s.filter(s.board(func(i *issue) bool { return i.sprint == id }), q.Get("jql")), q.Get("fields")))
 		return
 	}
 	switch {
@@ -157,6 +167,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case r.Method == http.MethodPost && p == "/rest/api/3/issueLink":
 		if !s.addLink(body) {
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			send(map[string]any{"errorMessages": []string{"unknown link type or issue"}})
 			return
@@ -178,6 +189,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Unhandled = append(s.Unhandled, r.Method+" "+p)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 	send(map[string]any{"errorMessages": []string{"the demo has no " + p}})
 }
@@ -254,7 +266,7 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		for _, name := range []string{"Story", "Task", "Bug", "Epic"} {
 			out = append(out, map[string]any{"id": types[name], "name": name, "subtask": false})
 		}
-		return map[string]any{"issueTypes": out, "values": out, "isLast": true}, true
+		return map[string]any{"issueTypes": out, "maxResults": len(out), "startAt": 0, "total": len(out)}, true
 	case "/rest/api/3/jql/autocompletedata":
 		return jqlWordsJSON(), true
 	case "/rest/api/3/jql/autocompletedata/suggestions":
@@ -268,7 +280,7 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		return map[string]any{"fields": []any{
 			map[string]any{"fieldId": "summary", "name": "Summary", "required": true, "schema": map[string]any{"type": "string"}},
 			map[string]any{"fieldId": "description", "name": "Description", "required": false, "schema": map[string]any{"type": "string"}},
-		}, "values": []any{}, "isLast": true}, true
+		}, "maxResults": 2, "startAt": 0, "total": 2}, true
 	}
 	b := "/rest/agile/1.0/board/" + strconv.Itoa(boardID)
 	switch p {
@@ -306,9 +318,9 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		}
 		return map[string]any{"values": out, "isLast": true}, true
 	case b + "/backlog":
-		return s.page(s.filter(s.board(func(i *issue) bool { return i.sprint == 0 && i.typ != "Sub-task" }), get("jql"))), true
+		return s.page(s.filter(s.board(func(i *issue) bool { return i.sprint == 0 && i.typ != "Sub-task" }), get("jql")), get("fields")), true
 	case b + "/issue":
-		return s.page(s.filter(s.board(func(*issue) bool { return true }), get("jql"))), true
+		return s.page(s.filter(s.board(func(*issue) bool { return true }), get("jql")), get("fields")), true
 	case b + "/features":
 		return map[string]any{"features": []any{}}, true
 	case b + "/epic":
@@ -612,14 +624,22 @@ func (s *Server) board(keep func(*issue) bool) []*issue {
 	return out
 }
 
-func (s *Server) page(issues []*issue) map[string]any {
-	return map[string]any{"startAt": 0, "maxResults": len(issues), "total": len(issues), "issues": s.list(issues, false), "isLast": true}
+// page is an Agile API page of issues with the fields asked for, comma
+// separated.
+func (s *Server) page(issues []*issue, fields string) map[string]any {
+	var want []string
+	if fields != "" {
+		want = strings.Split(fields, ",")
+	}
+	return map[string]any{"startAt": 0, "maxResults": len(issues), "total": len(issues), "issues": s.list(issues, false, want)}
 }
 
-func (s *Server) list(issues []*issue, changelog bool) []any {
+// list is issues with the fields in want, all of them for none.
+func (s *Server) list(issues []*issue, changelog bool, want []string) []any {
 	out := []any{}
 	for _, iss := range issues {
 		j := s.issueJSON(iss, false)
+		onlyFields(j, want)
 		if changelog {
 			var hs []any
 			for _, c := range iss.changes {
@@ -723,4 +743,18 @@ func pageDoc() any {
 		map[string]any{"type": "panel", "attrs": map[string]any{"panelType": "note"}, "content": []any{para("Behind the guest_checkout flag until the order page loads under 400 ms.")}},
 		map[string]any{"type": "mediaSingle", "content": []any{map[string]any{"type": "media", "attrs": map[string]any{"id": "f-flow", "alt": "checkout-flow.png"}}}},
 	}}
+}
+
+// onlyFields keeps the fields of issue j that want asks for, as Jira does;
+// no want, *all or *navigable keeps them all.
+func onlyFields(j map[string]any, want []string) {
+	if len(want) == 0 || slices.Contains(want, "*all") || slices.Contains(want, "*navigable") {
+		return
+	}
+	f, _ := j["fields"].(map[string]any)
+	for k := range f {
+		if !slices.Contains(want, k) {
+			delete(f, k)
+		}
+	}
 }

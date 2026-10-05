@@ -43,6 +43,23 @@ func projectJSON() map[string]any {
 	return map[string]any{"id": "10000", "key": project, "name": "Demo Shop", "projectTypeKey": "software", "style": "classic"}
 }
 
+// sprintFieldJSON is sp as an issue's Sprint field has it, which names
+// the board boardId where the Agile API says originBoardId.
+// issueProjectJSON is the project as an issue's fields name it: Jira
+// leaves out its style there.
+func issueProjectJSON() map[string]any {
+	j := projectJSON()
+	delete(j, "style")
+	return j
+}
+
+func sprintFieldJSON(sp sprint) map[string]any {
+	j := sprintJSON(sp)
+	j["boardId"] = j["originBoardId"]
+	delete(j, "originBoardId")
+	return j
+}
+
 func sprintJSON(sp sprint) map[string]any {
 	j := map[string]any{"id": sp.id, "name": sp.name, "state": sp.state, "goal": sp.goal, "originBoardId": boardID}
 	if !sp.start.IsZero() {
@@ -69,7 +86,8 @@ func fieldsJSON() []any {
 		f(pointsField, "Story Points", "number", "com.atlassian.jira.plugin.system.customfieldtypes:float"),
 		f(sprintField, "Sprint", "array", "com.pyxis.greenhopper.jira:gh-sprint"),
 		f(flagField, "Flagged", "array", "com.atlassian.jira.plugin.system.customfieldtypes:multicheckboxes"),
-		f(startField, "Start date", "date", ""),
+		f(startField, "Start date", "date", "com.atlassian.jira.plugin.system.customfieldtypes:datepicker"),
+		f(teamField, "Team", "option", "com.atlassian.jira.plugin.system.customfieldtypes:select"),
 		f(devField, "Development", "any", "com.atlassian.jira.plugins.jira-development-integration-plugin:devsummarycf"),
 		f(testField, "Test notes", "string", "com.atlassian.jira.plugin.system.customfieldtypes:textarea"),
 		f(legacyField, "Legacy ref", "string", "com.atlassian.jira.plugin.system.customfieldtypes:textfield"),
@@ -169,7 +187,7 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 	var sp any
 	for _, x := range s.sprints {
 		if x.id == iss.sprint {
-			sp = []any{sprintJSON(x)}
+			sp = []any{sprintFieldJSON(x)}
 		}
 	}
 	var flag any
@@ -216,7 +234,7 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		"labels": labels, "created": stamp(iss.created), "updated": stamp(iss.updated), "resolutiondate": stamp(iss.resolved),
 		"statuscategorychangedate": stamp(changed), "duedate": due, "description": adf(iss.description), "parent": parent,
 		"subtasks": subtasks, "issuelinks": s.linksJSON(iss.key), "attachment": []any{}, "fixVersions": fixVersions,
-		"project":   projectJSON(),
+		"project":   issueProjectJSON(),
 		pointsField: points, sprintField: sp, flagField: flag, startField: start, devField: s.devSummary(iss.key),
 	}
 	if full {
