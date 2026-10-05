@@ -14,7 +14,7 @@ terminal.
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases; the board replayed day by day
 - A home screen of your day: your work, inbox, sprint health, timer, reviews and saved searches
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git, your agents' activity and your calendar
-- Inbox: a thread per issue others changed, on every site, each read, done or snoozed on its own; a standup of yours (commits too), or your team's walking the board
+- Inbox: a thread per issue others changed, on every site, each read, done or snoozed on its own; a standup that goes round the team with a timer, walking the board
 - Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
 - GitLab merge requests: the ones waiting on you, their pipeline and job logs, a diff to review line by line with notes, suggestions and a pending review to submit or approve; or a coding agent reviews it for you
 - Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to it
@@ -158,6 +158,11 @@ ui:
   inbox_every: 5m               # inbox sync, for the header's ✉ count; "off"
   inbox_lookback: 168h          # how far back the inbox reaches
   inbox_issues: 30              # recently updated issues the inbox and standup read
+  standup_start: everyone       # U opens on everyone, or "first": the first person
+  standup_lookback: 1           # workdays back the standup starts (a Monday covers Friday)
+  standup_length: 15m           # the whole standup, split over the people for each turn
+  standup_timebox: 2m           # each person's turn instead of the split (default none)
+  standup_shuffle: off          # "on": go round in a random order, not the board's
   timer_round: 15m              # T's logged time rounded up to this (to the minute)
   clipboard_image: wl-paste --type image/png  # prints the clipboard's PNG (probed by default)
   open: wslview                 # opens URLs and attachments (xdg-open / open by default)
@@ -207,6 +212,7 @@ Actions for `keys:`, by where they first apply:
 - timesheet: edit_entry delete_entry propose_work
 - inbox: inbox_done inbox_done_all inbox_unread inbox_snooze
 - agents: agent_prompt agent_stop
+- standup: standup_pause standup_shuffle standup_park
 
 Colours: accent dim selection_fg selection_bg selection_idle error mention link
 code attachment over_limit drop_fg priority_highest priority_high priority_low
@@ -348,7 +354,7 @@ Board:
   mark · `B` edit marked · `e` quick edit the card (status, priority, assignee, labels, points, sprint) · `*` pin (★) · `o` browser · `y`/`Y` copy key/URL (list with marks: `y` copies them as a markdown table) · `ctrl+y` copy branch name
 - views: `~` home (my work, inbox, sprint health, timer, reviews, a count per saved search; `ui.home` starts on it) · `Q` JQL search · `O` my work (assigned to you in every project, open or done this week, by status) · `ctrl+r` waiting on my review (see [Git](#git-and-your-shell)) · `R` roadmap · `P` planning · `C` charts · `V` releases · `ctrl+t` time machine: `←` `→` replay the lanes a day at a time from the status changelog (cards made later drop out; from the list it shows lanes), `esc` back to now · `ctrl+o` a closed sprint as it closed: done, and what carried over to which sprint
 - refine: `ctrl+e` steps through the view's open issues (done ones skipped) one at a time in a wide panel, the unestimated first, to set points, priority, labels, status or split them (`A`): `J` next, `K` back, `esc` ends and copies what changed as a list
-- you: `I` inbox · `ctrl+g` agents · `alt+m` merge requests waiting on you on every GitLab, Jira key or not (review asked, assigned, yours with comments you have not read; `enter` reads one in the panel, `d` its diff, `o` GitLab, `r` again) · `U` standup (`tab` the team's) · `T` timer · `W` today's worklogs (`W` again: the week)
+- you: `I` inbox · `ctrl+g` agents · `alt+m` merge requests waiting on you on every GitLab, Jira key or not (review asked, assigned, yours with comments you have not read; `enter` reads one in the panel, `d` its diff, `o` GitLab, `r` again) · `U` standup · `T` timer · `W` today's worklogs (`W` again: the week)
 - mouse: a click selects, a second opens; drag a card to another lane, or up and down its own to rank it; it lands where its ghost shows, in a lane of one status with the swimlanes off (`esc` cancels a drag, anywhere); a band's header folds it. Most of the header clicks: views, filters, chips, key hints, the timer, `✉`, the sprint bar opens the charts. What a click would act on is underlined under the pointer, which turns to a hand (where the terminal draws pointer shapes; in tmux with `allow-passthrough`)
 - right-click a card or row: its menu at the pointer, as big as its rows: status, priority, assignee and sprint open their list beside it (`→` or a click; `esc` or `←` back), labels and points ask, and open, browser, copy key and pin do what their key does. The row under the pointer is the chosen one; a click off the menu closes it
 - `q` quit; on the roadmap, planning, charts, the standup or the week it closes them (asks once while writes are still sending or you have an unsaved edit or comment)
@@ -513,28 +519,31 @@ desktop notification (OSC 777: kitty, Ghostty, WezTerm, foot).
 
 ![What you did since Friday](docs/screenshots/standup.png)
 
-`U` swaps the board for your standup since the previous workday (Friday on
-a Monday), a table of one row per issue with its status now and what changed (`To Do → Done, logged
-2h, 2 comments`), in sections: *Done since*, *In progress* (your in-progress
-cards without activity too, with how long they sat), *Also touched*, *Next*
-(your top to-dos in the open sprints by rank) and *Blockers* (flagged).
-Activity is status and field changes, comments, logged work, and your
-commits in the `jira.repos` repositories (every branch) under the key their
-subject names, keyless ones as *no ticket*, the activity wrapped rather than
-cut. `y` puts it on the clipboard as Yesterday / Today / Blockers, ready to
-paste; `[` reaches a workday further back, `]` a workday later again; `enter`
-opens the issue in the panel; `esc` (or `U`) goes back to the board.
-`tab` is the team's standup, walking the board right to left for whoever runs it,
-under the sprint goal and the workdays left: per column, each card in
+`U` swaps the board for the standup since the previous workday (Friday on a
+Monday; `ui.standup_lookback` reaches further), over the sprint goal and
+the workdays left. A strip on top goes round the people with `←` `→`:
+*Everyone* first, then each assignee on the board in the order the walk
+meets them (`s` shuffles, and back), the one shown named, those heard
+ticked, someone without activity marked *no changes*. Everyone walks the
+board right to left, closest to done first: per column, each card in
 progress with who has it, how long (*stale* past `ui.stale_days`), a flag,
-what blocks it, its pull request or deploy, and what happened since, or *no activity*;
-done and to-do cards only when something happened on them or they are blocked. *Off the board*,
-folded until `z` or `enter`, has what the team did on the board's projects'
-other issues (comments, work, moves; bulk field edits left out). `p` groups
-the same cards per person with the time each logged, for teams that go
-round, and back; `tab` again is yours. `space` shows one card at a time
-(`↑` `↓` step), and back; `P` parks a card for after the standup: the
-*Parking lot* comes last, and in what `y` copies, kept for the sprint.
+what blocks it, its pull request or deploy, and what happened since (`To Do
+→ Done, logged 2h, 2 comments`), or *no activity*; done and to-do cards
+only when something happened on them or they are blocked. A person's stop
+is their cards and those they did something on; yours adds your commits in
+the `jira.repos` repositories. *Off the board*, folded until `z` or
+`enter`, has what was done on the board's projects' other issues
+(comments, work, moves; bulk field edits left out).
+
+The timer starts with the first person (or `space`): each turn counts down
+`ui.standup_length` (15m) split over the people, or `ui.standup_timebox`,
+red and flashing once it runs out, beside the whole standup's time; it
+never moves on by itself, and `←` `→` start the next turn. `space` pauses
+it. `P` parks a card for after the standup: the *Parking lot* comes last on
+Everyone, kept for the sprint. `y` copies the stop as text, `[` `]` step a
+workday back and forward, `enter` opens the issue in the panel, `esc` (or
+`U`) goes back to the board. `ui.standup_start: first` opens on the first
+person instead.
 
 ## Releases
 

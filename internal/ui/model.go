@@ -77,8 +77,8 @@ type keyMap struct {
 	RankTop, RankBottom                 key.Binding
 	NextComment, PrevComment            key.Binding
 	DeleteComment                       key.Binding
-	StandupGroup                        key.Binding
-	StandupStep, StandupPark            key.Binding
+	StandupPause, StandupShuffle        key.Binding
+	StandupPark                         key.Binding
 	InboxDone, InboxDoneAll             key.Binding
 	InboxUnread, InboxSnooze            key.Binding
 	RoadmapGrip, RoadmapFold            key.Binding
@@ -158,7 +158,7 @@ func defaultKeys() keyMap {
 		Inbox:           bind("inbox", "I"),
 		IssueActions:    bind("subtask, link, clone, watch", "A"),
 		Site:            bind("switch or add a Jira site", "@"),
-		Standup:         bind("standup: what you did", "U"),
+		Standup:         bind("standup: go round the team", "U"),
 		History:         bind("issue history", "H"),
 		DevInfo:         bind("pull requests and branches", "D"),
 		Pin:             bind("pin / unpin issue; on a panel field, star it", "*"),
@@ -199,8 +199,8 @@ func defaultKeys() keyMap {
 		NextComment:     bind("next comment", "}"),
 		PrevComment:     bind("previous comment", "{"),
 		DeleteComment:   bind("delete the comment (twice)", "delete"),
-		StandupGroup:    bind("standup: by person / walk the board", "p"),
-		StandupStep:     bind("standup: one card at a time / the list", "space"),
+		StandupPause:    bind("standup: start / pause the timer", "space"),
+		StandupShuffle:  bind("standup: a random order / the board's", "s"),
 		StandupPark:     bind("standup: park the card for after", "P"),
 		InboxDone:       bind("inbox: done, until something new", "e"),
 		InboxDoneAll:    bind("inbox: every read thread done", "E"),
@@ -888,6 +888,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleTimerTick()
 	case standupMsg:
 		return m.handleStandup(msg)
+	case standupTickMsg:
+		return m.handleStandupTick(msg)
 	case weekAddMsg:
 		return m.handleWeekAdd(msg)
 	case weekMsg:

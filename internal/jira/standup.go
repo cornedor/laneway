@@ -90,7 +90,7 @@ func (c *Client) activity(ctx context.Context, since time.Time, accountIDs []str
 				what += ": " + w.Comment
 			}
 			mu.Lock()
-			out = append(out, InboxEntry{Key: w.Key, Summary: w.Summary, When: w.Started, Who: w.Author, What: what, Logged: w.Seconds})
+			out = append(out, InboxEntry{Key: w.Key, Summary: w.Summary, When: w.Started, Who: w.Author, WhoID: w.AuthorID, What: what, Logged: w.Seconds})
 			mu.Unlock()
 		}
 	}()

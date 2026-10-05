@@ -6,6 +6,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/standup"
 )
 
 // Drafts: a comment or description being written is kept in the state
@@ -98,7 +100,7 @@ func (m Model) handleDraftSave() (tea.Model, tea.Cmd) {
 
 // draftWhen is "15:04" today, "Mon 2 Jan 15:04" before.
 func draftWhen(t, now time.Time) string {
-	if standupDay(t, now) == "Today" {
+	if standup.Day(t, now) == "Today" {
 		return t.Local().Format("15:04")
 	}
 	return t.Local().Format("Mon 2 Jan 15:04")

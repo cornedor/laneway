@@ -188,6 +188,16 @@ type UIConfig struct {
 	InboxEvery    string `yaml:"inbox_every"`
 	InboxLookback string `yaml:"inbox_lookback"`
 	InboxIssues   int    `yaml:"inbox_issues"`
+	// StandupStart is where U opens: "everyone" (default) or "first", the
+	// first person; StandupLookback how many workdays back it starts (1, so
+	// a Monday covers Friday); StandupLength the whole standup ("15m"),
+	// split over the people unless StandupTimebox gives each a fixed turn
+	// ("2m"); StandupShuffle "on" to go round in a random order.
+	StandupStart    string `yaml:"standup_start"`
+	StandupLookback int    `yaml:"standup_lookback"`
+	StandupLength   string `yaml:"standup_length"`
+	StandupTimebox  string `yaml:"standup_timebox"`
+	StandupShuffle  string `yaml:"standup_shuffle"`
 	// Home is the start screen's widgets in order (work, inbox, sprint,
 	// timer, reviews, filters); empty: no start screen, the board first.
 	Home []string `yaml:"home"`

@@ -1,5 +1,23 @@
 .strow.parked .wsum { color: var(--fg-3); }
 .strow .what.quiet { color: var(--warn); }
 .stwho.stale { color: var(--warn); }
-.stcard { padding: calc(var(--pad) * 3) calc(var(--pad) * 2); max-width: 51.429rem; }
-.stcard h2 { margin: .3em 0; } .stcard .what { font-size: 1.1em; line-height: 1.5; white-space: pre-wrap; } .stcard .what.quiet { color: var(--warn); }
+/* The strip: the people to go round, then the timer. */
+.ststrip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pad); padding: var(--pad); margin-bottom: calc(var(--pad) * 1.5); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.stpeople { display: flex; flex-wrap: wrap; align-items: center; gap: .286rem; flex: 1; min-width: 0; }
+.stchip { display: inline-flex; align-items: center; gap: .429rem; padding: .214rem .429rem; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
+.stchip:hover { background: var(--bg-3); }
+.stchip.cur { background: var(--accent-bg); border-color: var(--accent); }
+.stchip.heard:not(.cur) .avatar { opacity: .45; }
+.stchip.quiet:not(.cur) .avatar { filter: grayscale(1); }
+.stchip .stall { padding: 0 .286rem; font-weight: 600; }
+.stchip .stname { font-weight: 600; white-space: nowrap; }
+.stchip .sttick { color: var(--ok); font-size: .857rem; }
+.sttimer { display: flex; align-items: center; gap: var(--pad); margin-left: auto; font-variant-numeric: tabular-nums; }
+.stleft { font-size: 1.571rem; font-weight: 700; }
+.stleft .dim { font-size: .857rem; font-weight: 400; }
+.sttotal { color: var(--fg-2); }
+.stleft.over, .sttotal.over { color: var(--err); }
+.stleft.flash { animation: st-flash 1s steps(1) infinite; }
+@keyframes st-flash { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .stleft.flash { animation: none; } }
+@media (max-width: 640px) { .sttimer { margin-left: 0; width: 100%; } }

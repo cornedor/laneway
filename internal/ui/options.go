@@ -11,6 +11,7 @@ import (
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/home"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/standup"
 )
 
 // options are the config's ui: section with defaults filled in.
@@ -41,6 +42,7 @@ type options struct {
 	templates       map[string]string   // new issue descriptions by type, lower-cased
 	velocitySprints int                 // closed sprints in the velocity chart
 	staleDays       int                 // in progress longer than this shows red
+	standup         standup.Settings    // the ui.standup_* options
 	branchTemplate  string              // copy_branch's name
 	workBranch      string              // start work's new branch
 	workAgent       string              // the herdr agent kind start work launches
@@ -80,7 +82,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, delight: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, standup: standup.Defaults, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -213,6 +215,8 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	default:
 		o.staleDays = n
 	}
+	sw, swarn := standup.Parse(c)
+	o.standup, warn = sw, append(warn, swarn...)
 	switch n := c.KanbanDoneDays; {
 	case n == 0:
 	case n < 1 || n > 365:

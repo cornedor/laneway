@@ -59,7 +59,7 @@ type Setting struct {
 	YAML    string `json:",omitempty"` // the value as YAML, for type yaml
 }
 
-var durations = map[string]bool{"auto_refresh": true, "stale_after": true, "full_refresh": true, "inbox_every": true, "inbox_lookback": true, "double_click": true, "timer_round": true}
+var durations = map[string]bool{"auto_refresh": true, "stale_after": true, "full_refresh": true, "inbox_every": true, "inbox_lookback": true, "double_click": true, "timer_round": true, "standup_length": true, "standup_timebox": true}
 
 func init() {
 	get("/settings", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

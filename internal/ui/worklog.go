@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/standup"
 )
 
 // Time tracking: w logs work on the panel's issue ("1h 30m what you did"),
@@ -370,7 +371,7 @@ func (m *Model) openTimesheet() tea.Cmd {
 // openTimesheetDay lists day's worklogs of yours. [ ] step a day, d twice
 // deletes the entry under the cursor, y copies the day as a markdown table.
 func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
-	gen := m.startJiraPicker(jiraPickTimesheet, standupDay(day, time.Now()), false)
+	gen := m.startJiraPicker(jiraPickTimesheet, standup.Day(day, time.Now()), false)
 	m.jiraPicker.day = day
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, k := m.jiraClient, m.ctx, m.keys
@@ -397,7 +398,7 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 		}
 		rows = append(rows, []string{"", jira.FormatDuration(total), "total", "", ""})
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickTimesheet, items: items, err: err,
-			title: standupDay(day, time.Now()) + " — " + jira.FormatDuration(total) + hint,
+			title: standup.Day(day, time.Now()) + " — " + jira.FormatDuration(total) + hint,
 			text:  markdownTable([]string{"Started", "Time", "Issue", "Summary", "Comment"}, rows)}
 	}
 }

@@ -107,6 +107,7 @@ type Worklog struct {
 	ID           string
 	Key, Summary string
 	Author       string
+	AuthorID     string
 	Seconds      int
 	Started      time.Time
 	Comment      string
@@ -175,7 +176,7 @@ func (c *Client) worklogsBetween(ctx context.Context, from, to time.Time, accoun
 				if !slices.Contains(accountIDs, w.Author.AccountID) || started.Before(from) || !started.Before(to) {
 					continue
 				}
-				wl := Worklog{ID: w.ID, Key: is.Key, Summary: summary, Author: w.Author.DisplayName, Seconds: w.TimeSpentSeconds, Started: started}
+				wl := Worklog{ID: w.ID, Key: is.Key, Summary: summary, Author: w.Author.DisplayName, AuthorID: w.Author.AccountID, Seconds: w.TimeSpentSeconds, Started: started}
 				if len(w.Comment) > 0 && string(w.Comment) != "null" {
 					wl.Comment = strings.TrimSpace(adfToMarkdown(w.Comment))
 				}

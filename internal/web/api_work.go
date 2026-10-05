@@ -16,7 +16,7 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// Personal views: my work, time tracking, the inbox and the standup.
+// Personal views: my work, time tracking and the inbox.
 
 const defaultMyWorkJQL = "assignee = currentUser() AND (statusCategory != Done OR resolved >= -7d) ORDER BY updated DESC"
 
@@ -36,8 +36,6 @@ func init() {
 	del("/worklog/{key}/{id}", deleteWorklog)
 	get("/inbox", inbox)
 	put("/inbox/state/{key}", putInboxState)
-	get("/standup", standup)
-	get("/standup/people", standupPeople)
 }
 
 func validKey(r *http.Request) (string, error) {
@@ -339,76 +337,6 @@ func putInboxState(ctx context.Context, s *Server, r *http.Request) (any, error)
 		setInboxUnread(s, last, inboxFloor(s))
 	}
 	return nil, err
-}
-
-// ---- standup
-
-const standupNext = "(assignee = currentUser() AND statusCategory != Done AND sprint in openSprints())"
-
-// standup: ?since=DAY; ?ids=a,b for the team's. The client sorts the
-// activity and cards into sections.
-func standup(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	since, err := day(r, "since")
-	if err != nil {
-		return nil, err
-	}
-	c := s.Client()
-	var entries []jira.InboxEntry
-	if ids := Q(r, "ids"); ids != "" {
-		entries, err = c.TeamStandup(ctx, since, strings.Split(ids, ","))
-	} else {
-		entries, err = c.Standup(ctx, since)
-	}
-	if err != nil {
-		return nil, err
-	}
-	var keys []string
-	for _, e := range entries {
-		if e.Key != "" && !slices.Contains(keys, e.Key) {
-			keys = append(keys, e.Key)
-		}
-	}
-	jql := standupNext + " ORDER BY Rank"
-	if len(keys) > 0 {
-		jql = "key in (" + strings.Join(keys, ",") + ") OR " + standupNext + " ORDER BY Rank"
-	}
-	cards, err := c.SearchCards(ctx, jql)
-	if err != nil && len(keys) > 0 { // a deleted key fails the whole search
-		cards, _ = c.SearchCards(ctx, standupNext+" ORDER BY Rank")
-	}
-	if entries == nil {
-		entries = []jira.InboxEntry{}
-	}
-	if cards == nil {
-		cards = []jira.Card{}
-	}
-	return map[string]any{"entries": entries, "cards": cards, "previous": jira.PreviousWorkday(time.Now(), workdays(s))}, nil
-}
-
-// standupPeople are who holds the project's issues in the open sprints.
-func standupPeople(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	project := Q(r, "project")
-	jql := "sprint in openSprints()"
-	if project != "" {
-		if !jira.ValidKey(project + "-1") {
-			return nil, badRequest("bad project")
-		}
-		jql = "project = " + project + " AND " + jql
-	}
-	cards, err := s.Client().SearchCards(ctx, jql)
-	if err != nil {
-		return nil, err
-	}
-	type person struct{ ID, Name string }
-	seen := map[string]bool{}
-	out := []person{}
-	for _, cd := range cards {
-		if cd.AssigneeID != "" && !seen[cd.AssigneeID] {
-			seen[cd.AssigneeID] = true
-			out = append(out, person{cd.AssigneeID, cd.Assignee})
-		}
-	}
-	return out, nil
 }
 
 // workdays are ui.workdays as weekdays, nil for the default.

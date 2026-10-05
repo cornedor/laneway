@@ -3208,7 +3208,7 @@ func (m *Model) renderJiraPane(height, width int) string {
 		body = m.renderWeek(t.view.Width(), t.view.Height())
 	case t.standup != nil:
 		viewLine = ansi.Truncate(m.standupViewLine(), max(boxW-2, 1), "…")
-		filterLine = ""
+		filterLine = ansi.Truncate(m.standupStrip(time.Now()), max(boxW-2, 1), "…")
 		body = m.renderStandup(t.view.Width(), t.view.Height())
 	case t.inbox != nil:
 		viewLine = ansi.Truncate(m.inboxViewLine(), max(boxW-2, 1), "…")

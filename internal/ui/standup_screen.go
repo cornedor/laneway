@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,67 +14,57 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/standup"
 )
 
-// U opens the standup in place of the board, as W does the week: a table
-// of issues in sections, the activity wrapped rather than cut, since it is
-// read out in a meeting, often on a shared screen. tab switches between
-// yours and the team's, [ ] step a workday, y copies it as text. space
-// shows one card at a time; P parks a card for after the standup, in a
-// parking lot kept per sprint that comes last.
+// U opens the standup in place of the board, as W does the week. A strip
+// on top goes round the people (← →): Everyone first, the board walked
+// right to left, then each person's cards and what they did, the people
+// already heard ticked. Beside it a timer: each person's turn counting down
+// (ui.standup_length split over them, or ui.standup_timebox), red when it
+// runs out, and the whole standup's time; space pauses it. Below it the
+// stop's table, its activity wrapped rather than cut, since it is read out
+// in a meeting, often on a shared screen. [ ] step a workday, y copies the
+// stop as text, P parks a card in a parking lot kept per sprint, which
+// Everyone shows last.
 
 type standupState struct {
-	team, byPerson bool
-	since          time.Time
-	head           string // the sprint goal and workdays left, for the team
-	lines          []standupLine
-	folded         []standupLine // Off the board, until z or enter shows it
-	text           string
-	row            int // the cursor, an index into lines
-	top            int // the first screen line shown
-	loading        bool
-	err            string
-	seq            int
-	single         bool // one card at a time
-}
+	since time.Time
+	head  string          // the sprint goal and workdays left
+	board []standup.Stop  // everyone, then the people in the board's order
+	stops []standup.Stop  // the same in the order gone round
+	at    int             // the stop shown, an index into stops
+	heard map[string]bool // the people already heard, by account
+	shuf  bool
 
-// standupLine is a row of the standup: a section's heading, or an issue
-// and its cells.
-type standupLine struct {
-	head   string // a section's name: the row is its heading
-	unfold bool   // the heading of rows kept folded
-	key    string
-	title  string // key and summary, or "no ticket"
-	who    string // the assignee, a status or a column
-	age    string // how long in progress
-	marks  string // flag, pull request, deploy
-	what   string // what happened since, or no activity
-}
+	lines   []standup.Row // the stop's rows, and the parking lot on Everyone's
+	folded  []standup.Row // Off the board, until z or enter shows it
+	row     int           // the cursor, an index into lines
+	top     int           // the first screen line shown
+	loading bool
+	err     string
+	seq     int
 
-// picks is whether the cursor stops on l.
-func (l standupLine) picks() bool { return l.key != "" || l.unfold }
-
-// text is the line as copied: its cells joined.
-func (l standupLine) text() string {
-	var parts []string
-	for _, s := range []string{l.title, l.who, l.age, l.marks, l.what} {
-		if s != "" {
-			parts = append(parts, s)
-		}
-	}
-	return strings.Join(parts, " · ")
+	// The timer starts with the first person's turn: the standup's start,
+	// the turn's (zero on Everyone), when it was paused (zero running).
+	started, turn, paused time.Time
+	tick                  int // the running tick's number, so one runs
 }
 
 type standupMsg struct {
-	seq           int
-	lines, folded []standupLine
-	head, text    string
-	err           error
+	seq   int
+	stops []standup.Stop
+	head  string
+	err   error
 }
 
-// openStandup swaps the board for your standup since the previous workday.
+type standupTickMsg struct{ n int }
+
+// openStandup swaps the board for the standup since ui.standup_lookback
+// workdays back.
 func (m *Model) openStandup() tea.Cmd {
-	m.jiraTab.standup = &standupState{since: jira.PreviousWorkday(time.Now(), m.opts.workdays)}
+	set := m.opts.standup
+	m.jiraTab.standup = &standupState{since: standup.Since(time.Now(), m.opts.workdays, set.Lookback), heard: map[string]bool{}, shuf: set.Shuffle}
 	m.focus = focusJira // from the panel too
 	return m.loadStandup()
 }
@@ -82,10 +73,7 @@ func (m *Model) loadStandup() tea.Cmd {
 	s := m.jiraTab.standup
 	s.seq++
 	s.loading = true
-	if s.team {
-		return m.loadTeamStandup(s.seq, s.since, s.byPerson)
-	}
-	return m.loadMyStandup(s.seq, s.since)
+	return m.loadTeamStandup(s.seq, s.since)
 }
 
 func (m Model) handleStandup(msg standupMsg) (tea.Model, tea.Cmd) {
@@ -98,14 +86,139 @@ func (m Model) handleStandup(msg standupMsg) (tea.Model, tea.Cmd) {
 		s.err = msg.err.Error()
 		return m, nil
 	}
-	s.err, s.lines, s.folded, s.head, s.text = "", msg.lines, msg.folded, msg.head, msg.text
-	s.row, s.top = 0, 0
-	s.parkLot(m.parkedKeys())
-	s.step(1) // onto the first issue
+	first := s.board == nil
+	who := s.person().ID
+	s.err, s.board, s.head = "", msg.stops, msg.head
+	s.order(who, false)
+	if first && m.opts.standup.First && len(s.stops) > 1 {
+		return m, m.standupGo(1)
+	}
+	m.showStop()
 	return m, nil
 }
 
-// parkHead heads the parking lot, the standup's last section.
+// person is the shown stop's person, the zero one on Everyone.
+func (s *standupState) person() standup.Person {
+	if s.at < len(s.stops) {
+		return s.stops[s.at].Person
+	}
+	return standup.Person{}
+}
+
+// order lays the stops out, Everyone first: the board's order, or shuffled
+// (again when reshuffle, else as gone round so far, so a reload keeps it),
+// and stays on who.
+func (s *standupState) order(who string, reshuffle bool) {
+	prev := s.stops
+	s.stops = slices.Clone(s.board)
+	if s.shuf && len(s.stops) > 2 {
+		people := s.stops[1:]
+		rand.Shuffle(len(people), func(i, j int) { people[i], people[j] = people[j], people[i] })
+		if !reshuffle && len(prev) > 0 {
+			was := func(st standup.Stop) int {
+				i := slices.IndexFunc(prev, func(p standup.Stop) bool { return p.Person.ID == st.Person.ID })
+				return cmp.Or(i+1, len(prev)+1) // someone new goes last
+			}
+			slices.SortStableFunc(people, func(a, b standup.Stop) int { return was(a) - was(b) })
+		}
+	}
+	s.at = max(slices.IndexFunc(s.stops, func(st standup.Stop) bool { return st.Person.ID == who }), 0)
+}
+
+// showStop puts the shown stop's rows on screen, the cursor on its first
+// card.
+func (m *Model) showStop() {
+	s := m.jiraTab.standup
+	s.lines, s.folded, s.row, s.top = nil, nil, 0, 0
+	if s.at < len(s.stops) {
+		st := s.stops[s.at]
+		s.lines, s.folded = slices.Clone(st.Rows), slices.Clone(st.Folded)
+	}
+	s.parkLot(m.parkedKeys())
+	s.step(1)
+}
+
+// standupGo moves d stops round, marking the person left heard; a turn
+// starts on a person's stop, the timer with the first.
+func (m *Model) standupGo(d int) tea.Cmd {
+	s := m.jiraTab.standup
+	if len(s.stops) < 2 {
+		m.status = "no one is assigned a card on the board"
+		return nil
+	}
+	if p := s.person(); p.ID != "" {
+		s.heard[p.ID] = true
+	}
+	s.at = (s.at + d + len(s.stops)) % len(s.stops)
+	m.showStop()
+	now := time.Now()
+	s.turn = time.Time{}
+	if s.at == 0 {
+		return nil
+	}
+	s.turn = now
+	if !s.paused.IsZero() {
+		s.turn = s.paused // a full turn once it runs again
+	}
+	if s.started.IsZero() {
+		s.started = now
+		return s.startTick()
+	}
+	return nil
+}
+
+// startTick runs the timer's tick, stopping one already running.
+func (s *standupState) startTick() tea.Cmd {
+	s.tick++
+	n := s.tick
+	return tea.Tick(time.Second, func(time.Time) tea.Msg { return standupTickMsg{n} })
+}
+
+func (m Model) handleStandupTick(msg standupTickMsg) (tea.Model, tea.Cmd) {
+	s := m.jiraTab.standup
+	if s == nil || msg.n != s.tick || !s.paused.IsZero() {
+		return m, nil
+	}
+	return m, tea.Tick(time.Second, func(time.Time) tea.Msg { return standupTickMsg{msg.n} })
+}
+
+// pause stops the timer, or runs it again with the pause left out; before
+// the first turn it starts the standup's time.
+func (s *standupState) pause(now time.Time) (string, tea.Cmd) {
+	switch {
+	case s.started.IsZero():
+		s.started = now
+		return "the standup's timer runs", s.startTick()
+	case s.paused.IsZero():
+		s.paused = now
+		return "the timer is paused", nil
+	}
+	away := now.Sub(s.paused)
+	s.started = s.started.Add(away)
+	if !s.turn.IsZero() {
+		s.turn = s.turn.Add(away)
+	}
+	s.paused = time.Time{}
+	return "the timer runs again", s.startTick()
+}
+
+// clock reads the timer at now: the standup's time, and on a person's
+// stop what is left of the turn (below zero when over).
+func (s *standupState) clock(now time.Time, turn time.Duration) (total, left time.Duration, inTurn bool) {
+	if s.started.IsZero() {
+		return 0, 0, false
+	}
+	if !s.paused.IsZero() {
+		now = s.paused
+	}
+	total = now.Sub(s.started)
+	if s.turn.IsZero() || turn == 0 {
+		return total, 0, false
+	}
+	return total, turn - now.Sub(s.turn), true
+}
+
+// parkHead heads the parking lot, Everyone's last section.
 const parkHead = "Parking lot"
 
 // parkMeta keeps the parked keys per board and sprint (or view).
@@ -144,51 +257,66 @@ func (m *Model) togglePark(key string) {
 	m.jiraTab.standup.parkLot(parked)
 }
 
-// parkLot marks the parked rows and puts them again in the parking lot,
-// after the rest; a parked card no longer on the standup shows by its key.
+// parkLot marks the parked rows and, on Everyone's stop, puts them again
+// in the parking lot after the rest; a parked card no longer on the
+// standup shows by its key.
 func (s *standupState) parkLot(parked []string) {
-	if i := slices.IndexFunc(s.lines, func(l standupLine) bool { return strings.HasPrefix(l.head, parkHead) }); i >= 0 {
+	if i := slices.IndexFunc(s.lines, func(l standup.Row) bool { return strings.HasPrefix(l.Head, parkHead) }); i >= 0 {
 		s.lines = s.lines[:i]
 	}
-	mark := func(l *standupLine, on bool) {
-		ms := slices.DeleteFunc(strings.Split(l.marks, " · "), func(x string) bool { return x == "" || x == "parked" })
+	mark := func(l *standup.Row, on bool) {
+		ms := slices.DeleteFunc(strings.Split(l.Marks, " · "), func(x string) bool { return x == "" || x == "parked" })
 		if on {
 			ms = append(ms, "parked")
 		}
-		l.marks = strings.Join(ms, " · ")
+		l.Marks = strings.Join(ms, " · ")
 	}
-	for _, rows := range [][]standupLine{s.lines, s.folded} {
+	for _, rows := range [][]standup.Row{s.lines, s.folded} {
 		for i := range rows {
-			if rows[i].key != "" {
-				mark(&rows[i], slices.Contains(parked, rows[i].key))
+			if rows[i].Key != "" {
+				mark(&rows[i], slices.Contains(parked, rows[i].Key))
 			}
 		}
 	}
-	var lot []standupLine
-	all := slices.Concat(s.lines, s.folded)
+	if s.at != 0 || len(s.stops) == 0 {
+		s.row = min(s.row, max(len(s.lines)-1, 0))
+		return
+	}
+	var lot []standup.Row
+	all := slices.Concat(s.stops[0].Rows, s.stops[0].Folded)
 	for _, k := range parked {
-		l := standupLine{key: k, title: k}
-		if i := slices.IndexFunc(all, func(l standupLine) bool { return l.key == k }); i >= 0 {
+		l := standup.Row{Key: k, Title: k}
+		if i := slices.IndexFunc(all, func(l standup.Row) bool { return l.Key == k }); i >= 0 {
 			l = all[i]
 		}
 		mark(&l, false)
 		lot = append(lot, l)
 	}
 	if len(lot) > 0 {
-		s.lines = append(s.lines, standupLine{head: fmt.Sprintf("%s (%d)", parkHead, len(lot))})
+		s.lines = append(s.lines, standup.Row{Head: fmt.Sprintf("%s (%d)", parkHead, len(lot))})
 		s.lines = append(s.lines, lot...)
 	}
 	s.row = min(s.row, max(len(s.lines)-1, 0))
 }
 
-// copyText is the standup as copied: its text, then the parking lot.
+// copyText is the shown stop as copied: whose it is, its text, then the
+// parking lot.
 func (s *standupState) copyText() string {
-	text := s.text
+	if s.at >= len(s.stops) {
+		return ""
+	}
+	st := s.stops[s.at]
+	text := st.Text
+	if st.Person.ID != "" {
+		text = st.Person.Name + "\n\n" + text
+	} else if s.head != "" {
+		text = s.head + "\n\n" + text
+	}
 	for i, l := range s.lines {
-		if strings.HasPrefix(l.head, parkHead) {
+		if strings.HasPrefix(l.Head, parkHead) {
 			text += "\n\n" + parkHead + "\n"
 			for _, p := range s.lines[i+1:] {
-				text += "- " + p.text() + "\n"
+				text += "- " + p.Text() + "\n"
 			}
 			text = strings.TrimSuffix(text, "\n")
 		}
@@ -196,27 +324,30 @@ func (s *standupState) copyText() string {
 	return text
 }
 
+// picks is whether the cursor stops on l.
+func picks(l standup.Row) bool { return l.Key != "" || l.Unfold }
+
 // step moves the cursor to the next issue row d (1 or -1) away; it stays
 // when there is none.
 func (s *standupState) step(d int) {
 	for i := s.row + d; i >= 0 && i < len(s.lines); i += d {
-		if s.lines[i].picks() {
+		if picks(s.lines[i]) {
 			s.row = i
 			return
 		}
 	}
-	if s.row < len(s.lines) && !s.lines[s.row].picks() && d > 0 {
+	if s.row < len(s.lines) && !picks(s.lines[s.row]) && d > 0 {
 		s.step(-1)
 	}
 }
 
 // unfold puts the folded rows under their heading.
 func (s *standupState) unfold() {
-	i := slices.IndexFunc(s.lines, func(l standupLine) bool { return l.unfold })
+	i := slices.IndexFunc(s.lines, func(l standup.Row) bool { return l.Unfold })
 	if i < 0 {
 		return
 	}
-	s.lines[i].unfold = false
+	s.lines[i].Unfold = false
 	s.lines = slices.Insert(s.lines, i+1, s.folded...)
 	s.folded = nil
 	s.row = i
@@ -236,41 +367,39 @@ func (m Model) handleStandupKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		s.step(-1)
 	case key.Matches(msg, k.Down):
 		s.step(1)
+	case key.Matches(msg, k.Left):
+		return m, m.standupGo(-1)
+	case key.Matches(msg, k.Right):
+		return m, m.standupGo(1)
 	case key.Matches(msg, k.Fold):
 		s.unfold()
-	case key.Matches(msg, k.StandupStep):
-		s.single = !s.single
-		s.top = 0
+	case key.Matches(msg, k.StandupPause):
+		var cmd tea.Cmd
+		m.status, cmd = s.pause(time.Now())
+		return m, cmd
+	case key.Matches(msg, k.StandupShuffle):
+		s.shuf = !s.shuf
+		s.order(s.person().ID, true)
+		m.status = "the board's order"
+		if s.shuf {
+			m.status = "a random order"
+		}
 	case key.Matches(msg, k.StandupPark):
-		if s.row >= len(s.lines) || s.lines[s.row].key == "" {
+		if s.row >= len(s.lines) || s.lines[s.row].Key == "" {
 			m.status = "no card to park"
 			break
 		}
-		m.togglePark(s.lines[s.row].key)
+		m.togglePark(s.lines[s.row].Key)
 	case key.Matches(msg, k.OpenChannel):
 		if s.row >= len(s.lines) {
 			break
 		}
 		switch l := s.lines[s.row]; {
-		case l.unfold:
+		case l.Unfold:
 			s.unfold()
-		case l.key != "":
-			return m.openJiraKey(l.key)
+		case l.Key != "":
+			return m.openJiraKey(l.Key)
 		}
-	case key.Matches(msg, k.Tab):
-		if !s.team && len(m.teamPeople()) == 0 {
-			m.status = "no one is assigned a card on the board"
-			break
-		}
-		s.team = !s.team
-		return m, m.loadStandup()
-	case key.Matches(msg, k.StandupGroup):
-		if !s.team {
-			s.team = true
-		} else {
-			s.byPerson = !s.byPerson
-		}
-		return m, m.loadStandup()
 	case key.Matches(msg, k.PrevView):
 		s.since = jira.PreviousWorkday(s.since, m.opts.workdays)
 		return m, m.loadStandup()
@@ -284,7 +413,7 @@ func (m Model) handleStandupKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, k.Refresh):
 		return m, m.loadStandup()
 	case key.Matches(msg, k.CopyKey):
-		if s.loading || s.err != "" || strings.TrimSpace(s.text) == "" {
+		if s.loading || s.err != "" || strings.TrimSpace(s.copyText()) == "" {
 			m.status = "nothing to copy yet"
 			break
 		}
@@ -296,19 +425,10 @@ func (m Model) handleStandupKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// standupViewLine is the view line: whose standup, since when, the goal
-// and the keys.
+// standupViewLine is the view line: since when, the goal and the keys.
 func (m *Model) standupViewLine() string {
 	s := m.jiraTab.standup
-	now := time.Now()
-	name := "Your standup"
-	if s.team {
-		name = "Team standup"
-		if s.byPerson {
-			name += " by person"
-		}
-	}
-	line := jiraViewActive.Render(name) + jiraDimStyle.Render(" · since "+standupDay(s.since, now))
+	line := jiraViewActive.Render("Standup") + jiraDimStyle.Render(" · since "+standup.Day(s.since, time.Now()))
 	if s.head != "" {
 		line += jiraDimStyle.Render(" · " + s.head)
 	}
@@ -316,56 +436,116 @@ func (m *Model) standupViewLine() string {
 		line += jiraDimStyle.Render(" · loading…")
 	}
 	k := m.keys
-	other, group := "team", "by person"
-	if s.team {
-		other = "yours"
-		if s.byPerson {
-			group = "walk the board"
-		}
+	order := "shuffle"
+	if s.shuf {
+		order = "board order"
 	}
-	step := "one by one"
-	if s.single {
-		step = "the list"
-	}
-	keys := fmt.Sprintf("  ·  %s %s · %s %s · %s %s · %s park · %s %s workday · %s copy · esc board",
-		helpKey(k.Tab), other, helpKey(k.StandupGroup), group, helpKey(k.StandupStep), step, helpKey(k.StandupPark),
+	keys := fmt.Sprintf("  ·  ← → person · %s timer · %s %s · %s park · %s %s workday · %s copy · esc board",
+		helpKey(k.StandupPause), helpKey(k.StandupShuffle), order, helpKey(k.StandupPark),
 		helpKey(k.PrevView), helpKey(k.NextView), helpKey(k.CopyKey))
 	return line + jiraDimStyle.Render(keys)
 }
 
-// renderStandup draws the standup's table into width × height: an issue
-// per row, its activity wrapped in the last column.
+// standupStrip is the line under it: the people to go round, the shown
+// one lit and named, those heard ticked, and the timer.
+func (m *Model) standupStrip(now time.Time) string {
+	s := m.jiraTab.standup
+	if len(s.stops) == 0 {
+		return ""
+	}
+	parts := []string{jiraDimStyle.Render("‹")}
+	for i, st := range s.stops {
+		p := st.Person
+		var chip string
+		switch {
+		case p.ID == "":
+			chip = "Everyone"
+			if i == s.at {
+				chip = selectedRow.Render(" Everyone ")
+			}
+		case i == s.at:
+			chip = jiraAvatar(p.Name) + " " + titleStyle.Render(p.Name)
+			if st.Quiet {
+				chip += jiraDimStyle.Render(" · no changes")
+			}
+		default:
+			chip = jiraAvatar(p.Name)
+		}
+		if s.heard[p.ID] {
+			chip += jiraDimStyle.Render("✓")
+		}
+		parts = append(parts, chip)
+	}
+	parts = append(parts, jiraDimStyle.Render("›"))
+	strip := strings.Join(parts, " ")
+
+	total, left, inTurn := s.clock(now, m.opts.standup.Turn(len(s.stops)-1))
+	var timer string
+	switch {
+	case s.started.IsZero():
+		timer = jiraDimStyle.Render(helpKey(m.keys.StandupPause) + " or → starts the timer")
+	case inTurn && left < 0:
+		timer = "+" + standupClock(-left) + " over"
+		if now.Second()%2 == 0 || !s.paused.IsZero() {
+			timer = jiraOverStyle.Render(timer)
+		} else {
+			timer = jiraOverStyle.Reverse(true).Render(timer)
+		}
+	case inTurn:
+		timer = titleStyle.Render(standupClock(left+time.Second-1)) + jiraDimStyle.Render(" left") // counting down, a second shows till it is gone
+	}
+	of := standupClock(total) + " of " + standupClock(m.opts.standup.Length)
+	if timer == "" {
+		timer = jiraDimStyle.Render(of)
+	} else if !s.started.IsZero() {
+		timer += jiraDimStyle.Render(" · " + of)
+	}
+	if !s.paused.IsZero() {
+		timer += jiraDimStyle.Render(" · paused")
+	}
+	if total > m.opts.standup.Length {
+		timer = strings.Replace(timer, jiraDimStyle.Render(of), jiraOverStyle.Render(of), 1)
+	}
+	return strip + "   ⏱ " + timer
+}
+
+// standupClock is d as m:ss.
+func standupClock(d time.Duration) string {
+	d = d.Truncate(time.Second)
+	return fmt.Sprintf("%d:%02d", int(d.Minutes()), int(d.Seconds())%60)
+}
+
+// renderStandup draws the stop's table into width × height: an issue per
+// row, its activity wrapped in the last column.
 func (m *Model) renderStandup(width, height int) string {
 	s := m.jiraTab.standup
 	switch {
 	case s.err != "":
 		out, _ := jiraErrorState(s.err, width, height, m.screenErrHints()...)
 		return out
-	case s.loading && s.lines == nil:
+	case s.loading && s.stops == nil:
 		return refDimStyle.Render("loading…")
 	case len(s.lines) == 0:
-		return refDimStyle.Render("nothing since " + standupDay(s.since, time.Now()))
-	case s.single:
-		return m.renderStandupCard(width, height)
+		return refDimStyle.Render("no changes since " + standup.Day(s.since, time.Now()))
 	}
 	// Columns as wide as their widest cell, capped; activity takes the rest.
-	widest := func(cell func(standupLine) string, limit int) int {
+	widest := func(cell func(standup.Row) string, limit int) int {
 		w := 0
 		for _, l := range slices.Concat(s.lines, s.folded) {
 			w = max(w, ansi.StringWidth(cell(l)))
 		}
 		return min(w, limit)
 	}
-	whoW := widest(func(l standupLine) string { return l.who }, 22)
-	ageW := widest(func(l standupLine) string { return l.age }, 10)
-	marksW := widest(func(l standupLine) string { return l.marks }, 26)
+	whoW := widest(func(l standup.Row) string { return l.Who }, 22)
+	ageW := widest(func(l standup.Row) string { return l.Age }, 10)
+	marksW := widest(func(l standup.Row) string { return l.Marks }, 26)
 	fixed := 0
 	for _, w := range []int{whoW, ageW, marksW} {
 		if w > 0 {
 			fixed += w + 2
 		}
 	}
-	titleW := min(widest(func(l standupLine) string { return l.title }, 60), max((width-fixed)/2, 20))
+	titleW := min(widest(func(l standup.Row) string { return l.Title }, 60), max((width-fixed)/2, 20))
 	whatW := max(width-2-titleW-2-fixed, 16)
 	pad := func(s string, w int) string {
 		if w == 0 {
@@ -378,12 +558,12 @@ func (m *Model) renderStandup(width, height int) string {
 	var out []string
 	cursor := 0 // the cursor row's first line
 	for i, l := range s.lines {
-		if l.head != "" {
+		if l.Head != "" {
 			if len(out) > 0 {
 				out = append(out, "")
 			}
-			head := l.head
-			if l.unfold {
+			head := l.Head
+			if l.Unfold {
 				head += "  " + helpKey(m.keys.Fold) + " shows them"
 			}
 			st := titleStyle
@@ -393,14 +573,14 @@ func (m *Model) renderStandup(width, height int) string {
 			out = append(out, st.Render(head))
 			continue
 		}
-		what := cmp.Or(l.what, " ")
+		what := cmp.Or(l.What, " ")
 		wrapped := strings.Split(ansi.Wrap(what, whatW, " "), "\n")
-		key, rest, _ := strings.Cut(l.title, " ")
+		key, rest, _ := strings.Cut(l.Title, " ")
 		title := jiraKeyStyle.Render(key) + " " + rest
-		if l.key == "" {
-			title = l.title
+		if l.Key == "" {
+			title = l.Title
 		}
-		first := "  " + pad(title, titleW) + pad(l.who, whoW) + pad(l.age, ageW) + pad(l.marks, marksW)
+		first := "  " + pad(title, titleW) + pad(l.Who, whoW) + pad(l.Age, ageW) + pad(l.Marks, marksW)
 		indent := strings.Repeat(" ", ansi.StringWidth(ansi.Strip(first)))
 		if i == s.row {
 			cursor = len(out)
@@ -410,11 +590,11 @@ func (m *Model) renderStandup(width, height int) string {
 			if j == 0 {
 				line = first + w
 			}
-			if l.what == "no activity" {
+			if l.What == "no activity" {
 				line = strings.TrimSuffix(line, w) + jiraOverStyle.Render(w)
 			}
-			if strings.Contains(l.age, "stale") && j == 0 {
-				line = strings.Replace(line, l.age, jiraOverStyle.Render(l.age), 1)
+			if strings.Contains(l.Age, "stale") && j == 0 {
+				line = strings.Replace(line, l.Age, jiraOverStyle.Render(l.Age), 1)
 			}
 			if i == s.row {
 				line = selectedRow.Render(ansi.Strip(line) + strings.Repeat(" ", max(width-ansi.StringWidth(ansi.Strip(line)), 0)))
@@ -433,51 +613,14 @@ func (m *Model) renderStandup(width, height int) string {
 	return strings.Join(out[s.top:min(len(out), s.top+height)], "\n")
 }
 
-// renderStandupCard draws the cursor's card alone, for a step-through: its
-// section, the card, its cells, what happened wrapped to the width, and
-// where it is in the walk.
-func (m *Model) renderStandupCard(width, height int) string {
-	s := m.jiraTab.standup
-	if s.row >= len(s.lines) || !s.lines[s.row].picks() {
-		return refDimStyle.Render("no card here")
+// nextWorkday is the first workday after day.
+func nextWorkday(day time.Time, workdays []time.Weekday) time.Time {
+	if len(workdays) == 0 {
+		workdays = []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
 	}
-	l := s.lines[s.row]
-	section, n, at := "", 0, 0
-	for i, x := range s.lines {
-		if x.head != "" && i < s.row {
-			section = x.head
-		}
-		if x.key != "" {
-			n++
-			if i == s.row {
-				at = n
-			}
-		}
+	d := day.AddDate(0, 0, 1)
+	for !slices.Contains(workdays, d.Weekday()) {
+		d = d.AddDate(0, 0, 1)
 	}
-	w := max(width-4, 20)
-	out := []string{jiraDimStyle.Render(section), ""}
-	if l.unfold {
-		out = append(out, titleStyle.Render(l.head), "", refDimStyle.Render(helpKey(m.keys.Fold)+" shows them"))
-	} else {
-		key, rest, _ := strings.Cut(l.title, " ")
-		out = append(out, jiraKeyStyle.Render(key)+" "+titleStyle.Render(ansi.Truncate(rest, w, "…")), "")
-		var cells []string
-		for _, c := range []string{l.who, l.age, l.marks} {
-			if c != "" {
-				cells = append(cells, c)
-			}
-		}
-		out = append(out, ansi.Wrap(strings.Join(cells, " · "), w, " "), "")
-		what := ansi.Wrap(cmp.Or(l.what, " "), w, " ")
-		if l.what == "no activity" {
-			what = jiraOverStyle.Render(what)
-		}
-		out = append(out, strings.Split(what, "\n")...)
-	}
-	out = append(out, "", jiraDimStyle.Render(fmt.Sprintf("card %d of %d · %s %s next / previous · %s the list",
-		at, n, helpKey(m.keys.Up), helpKey(m.keys.Down), helpKey(m.keys.StandupStep))))
-	for i := range out {
-		out[i] = "  " + out[i]
-	}
-	return strings.Join(out[:min(len(out), height)], "\n")
+	return d
 }

@@ -1,9 +1,11 @@
-// Standup: what I did since the previous workday (with my commits), or the team's walking the board
-// right to left or by person, over the view the board showed last. One card at a time (space), park a card for after (P, kept per view).
-// Rows come from /standup/lines, built like the TUI's.
+// Standup: a strip that goes round the people (← →), Everyone first with the board walked right to left, then each
+// person's cards and what they did, those heard ticked; a timer beside it, each turn counting down (ui.standup_length
+// split, or ui.standup_timebox) and the whole standup's time; below, the stop's rows, over the view the board showed last.
+// Park a card for after (P, kept per view): Everyone's parking lot comes last. Stops come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
+import { avatar } from '../lib/ui.js';
 import { projectOf, boardsOf, lastBoard, setCtx, switcher, recover } from './plan_ctx.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
 
@@ -15,21 +17,24 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const wd = workdays(app);
   const prevWorkday = d => { let x = addDays(d, -1); while (!wd.includes(x.getDay())) x = addDays(x, -1); return x; };
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
-  let since = prevWorkday(midnight), mode = 'mine', data = null, err = '', dead = false, single = false, seq = 0;
+  let since = null, data = null, err = '', dead = false, seq = 0, opened = false;
   let project = projectOf(app, {});
   let sw = null, board = null, sprint = 0, lines = [], folded = [], sel = 0, parkedKeys = [];
+  // The round: the stops in the order gone round, the one shown, who was heard; the timer (ms, 0 unset).
+  let stops = [], at = 0, shuffled = false, started = 0, turn = 0, paused = 0;
+  const heard = new Set();
 
   const root = h('div.standup');
   el.append(root);
 
-  const team = () => mode !== 'mine';
   const picks = l => !!(l.Key || l.Unfold);
-  // The board view the team walk takes: the one the board showed last, else the active sprint; parked per view.
+  const person = () => (stops[at] && stops[at].Person) || {};
+  // The board view the walk takes: the one the board showed last, else the active sprint; parked per view.
   let view = null;
   const parkId = () => 'standup_park.' + (board ? board.ID : 0) + '.' + (view ? view.park : sprint);
   const loadParked = () => { parkedKeys = (prefs.get(parkId(), '') || '').split(/\s+/).filter(Boolean); };
 
-  // The project's board and its active sprint, for the team walk and the parking lot.
+  // The project's board and its active sprint, for the walk and the parking lot.
   async function resolveBoard() {
     if (board || !project) return;
     try {
@@ -47,45 +52,126 @@ export default function mount(el, { app, scope, context, toolbar }) {
     }
   }
 
+  // order lays the stops out, Everyone first: the board's order, or shuffled (again when reshuffle, else as gone round
+  // so far, so a reload keeps it), and stays on who.
+  function order(who, reshuffle) {
+    const people = (data.Stops || []).slice(1), prev = stops.map(s => s.Person.ID);
+    if (shuffled) for (let i = people.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [people[i], people[j]] = [people[j], people[i]]; }
+    const was = s => { const i = prev.indexOf(s.Person.ID); return i < 0 ? prev.length : i; }; // someone new goes last
+    if (shuffled && !reshuffle && prev.length) people.sort((a, b) => was(a) - was(b));
+    stops = [...(data.Stops || []).slice(0, 1), ...people];
+    at = Math.max(0, stops.findIndex(s => (s.Person.ID || '') === (who || '')));
+  }
+
+  // build puts the shown stop's rows up, parked rows marked, and on Everyone's the parking lot last.
   function build() {
-    const L = (data.Lines || []).filter(l => !l.Head || !l.Head.startsWith(PARK));
-    const all = [...L, ...(data.Folded || [])];
+    const st = stops[at] || { Rows: [], Folded: [] };
+    const mark = l => (l.Key && parkedKeys.includes(l.Key) ? { ...l, Marks: [l.Marks, 'parked'].filter(Boolean).join(' · ') } : l);
+    lines = (st.Rows || []).map(mark);
+    folded = (st.Folded || []).map(mark);
+    if (at !== 0) return;
+    const all = [...(st.Rows || []), ...(st.Folded || [])];
     const byKey = new Map(all.filter(l => l.Key).map(l => [l.Key, l]));
-    const lot = parkedKeys.map(k => ({ ...(byKey.get(k) || { Key: k, Title: k }), Marks: '', parked: true }));
-    lines = L.map(l => (l.Key && parkedKeys.includes(l.Key) ? { ...l, Marks: [l.Marks, 'parked'].filter(Boolean).join(' · ') } : l));
-    folded = (data.Folded || []).map(l => (l.Key && parkedKeys.includes(l.Key) ? { ...l, Marks: [l.Marks, 'parked'].filter(Boolean).join(' · ') } : l));
+    const lot = parkedKeys.map(k => ({ ...(byKey.get(k) || { Key: k, Title: k }), parked: true }));
     if (lot.length) lines.push({ Head: PARK + ' (' + lot.length + ')' }, ...lot);
   }
 
   const cells = l => [l.Who, l.Age, l.Marks].filter(Boolean);
+  const rowText = l => [l.Title, l.Who, l.Age, l.Marks, l.What].filter(Boolean).join(' · ');
   const copyText = () => {
-    let t = data.Text || '';
+    const st = stops[at];
+    if (!st) return '';
+    let t = st.Person.ID ? st.Person.Name + '\n\n' + st.Text : (data.Head ? data.Head + '\n\n' : '') + st.Text;
     const i = lines.findIndex(l => l.Head && l.Head.startsWith(PARK));
-    if (i >= 0) t += '\n\n' + PARK + '\n' + lines.slice(i + 1).map(l => '- ' + [l.Title, l.Who, l.Age, l.Marks, l.What].filter(Boolean).join(' · ')).join('\n');
+    if (i >= 0) t += '\n\n' + PARK + '\n' + lines.slice(i + 1).map(l => '- ' + rowText(l)).join('\n');
     return t.trim();
   };
 
+  // ---- the timer
+
+  const now = () => Date.now();
+  const clock = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  let tick = 0;
+  function run() { clearInterval(tick); tick = setInterval(paintTimer, 1000); }
+  function pause() {
+    const t = now();
+    if (!started) { started = t; run(); ui.toast("The standup's timer runs"); }
+    else if (!paused) { paused = t; clearInterval(tick); ui.toast('The timer is paused'); }
+    else { const away = t - paused; started += away; if (turn) turn += away; paused = 0; run(); ui.toast('The timer runs again'); }
+    paintTimer();
+  }
+  const timerEl = h('div.sttimer');
+  function paintTimer() {
+    clear(timerEl);
+    const s = data && data.Settings;
+    if (!s) return;
+    const length = s.Length * 1000;
+    if (!started) {
+      timerEl.append(h('span.dim', 'space or → starts the timer'), h('button.btn.ghost.sm', { onclick: pause, title: 'space' }, icon('play'), 'Start'));
+      return;
+    }
+    const t = paused || now(), total = t - started;
+    if (turn && s.Turn) {
+      const left = s.Turn * 1000 - (t - turn);
+      timerEl.append(left < 0
+        ? h('span.stleft.over' + (paused ? '' : '.flash'), '+' + clock(-left) + ' over')
+        : h('span.stleft', clock(left + 999), h('span.dim', ' left')));
+    }
+    timerEl.append(...[h('span.sttotal' + (total > length ? '.over' : ''), clock(total) + ' of ' + clock(length)),
+      paused && h('span.dim', 'paused'),
+      h('button.btn.ghost.sm', { onclick: pause, title: 'space' }, icon(paused ? 'play' : 'pause'), paused ? 'Resume' : 'Pause')].filter(Boolean));
+  }
+
+  // go moves to stop i, marking the person left heard; a turn starts on a person's stop, the timer with the first.
+  function go(i) {
+    if (stops.length < 2) return ui.toast('No one is assigned a card on the board');
+    if (person().ID) heard.add(person().ID);
+    at = (i + stops.length) % stops.length;
+    turn = 0;
+    if (at !== 0) {
+      turn = paused || now();
+      if (!started) { started = turn; run(); }
+    }
+    build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
+    paint();
+  }
+
+  // ---- painting
+
+  function strip() {
+    const chips = stops.map((st, i) => {
+      const p = st.Person, cur = i === at;
+      const cls = 'button.stchip' + (cur ? '.cur' : '') + (p.ID && heard.has(p.ID) ? '.heard' : '') + (st.Quiet ? '.quiet' : '');
+      return h(cls, { onclick: () => go(i), title: p.ID ? p.Name + (st.Quiet ? ' · no changes' : '') : 'Everyone: the board walked right to left' },
+        p.ID ? avatar(p.Name, p.Avatar, 26) : h('span.stall', 'Everyone'),
+        p.ID && cur && h('span.stname', p.Name),
+        p.ID && cur && st.Quiet && h('span.dim', 'no changes'),
+        p.ID && heard.has(p.ID) && h('span.sttick', '✓'));
+    });
+    return h('div.ststrip',
+      h('div.stpeople', h('button.btn.ghost.sm', { onclick: () => go(at - 1), title: '←' }, icon('chevron-left')), ...chips,
+        h('button.btn.ghost.sm', { onclick: () => go(at + 1), title: '→' }, icon('chevron-right'))),
+      h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), shuffled ? 'Shuffled' : 'Board order'),
+      timerEl);
+  }
+
   function paint() {
     clear(root);
-    const label = since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-    const title = mode === 'mine' ? 'Standup' : mode === 'team' ? 'Team standup' : 'Team standup by person';
-    root.append(h('div.sthead', h('h2', title), team() && view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
+    const label = since ? since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }) : '…';
+    root.append(h('div.sthead', h('h2', 'Standup'), view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), h('span.spacer'),
       h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, icon('chevron-left'), 'earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later', icon('chevron-right')),
-      h('button.btn', { onclick: () => setMode(team() ? 'mine' : 'team'), title: 'Tab' }, team() ? 'Mine' : 'Team'),
-      team() && h('button.btn', { onclick: () => setMode(mode === 'team' ? 'person' : 'team'), title: 'p' }, mode === 'team' ? 'By person' : 'Walk the board'),
-      h('button.btn', { onclick: () => { single = !single; paint(); }, title: 'space' }, single ? 'The list' : 'One by one'),
       h('button.btn', { onclick: copy, title: 'y' }, 'Copy')));
     if (err) return root.append(h('div.empty', err));
     if (!data) return root.append(h('div.loading', 'Loading…'));
-    if (!lines.length) return root.append(h('div.empty', 'Nothing on record since ' + label));
+    root.append(strip());
+    paintTimer();
+    if (!lines.length) return root.append(h('div.empty', 'No changes since ' + label));
     sel = Math.max(0, Math.min(sel, lines.length - 1));
     if (!picks(lines[sel])) stepSel(1);
-    if (single) return paintSingle();
     let sec = null;
     lines.forEach((l, i) => {
       if (l.Head) {
         sec = h('section.stsec', h('h3', l.Head, l.Unfold && h('button.btn.ghost.sm', { onclick: () => { sel = i; unfold(); } }, ' show (z)')));
-        if (l.Unfold) sec.dataset.i = i;
         return root.append(sec);
       }
       (sec || root).append(rowEl(l, i));
@@ -100,31 +186,19 @@ export default function mount(el, { app, scope, context, toolbar }) {
       h('span.stwho' + (/stale/.test(l.Age || '') ? '.stale' : ''), cells(l).join(' · ')));
   }
 
-  function paintSingle() {
-    const l = lines[sel];
-    let section = '', n = 0, at = 0;
-    lines.forEach((x, i) => { if (x.Head && i < sel) section = x.Head; if (x.Key) { n++; if (i === sel) at = n; } });
-    root.append(h('div.stcard',
-      h('div.dim', section),
-      l.Unfold ? h('h2', 'Off the board') : [h('h2', h('span.mono', l.Key), ' ', l.Key ? l.Title.slice(l.Key.length + 1) : l.Title),
-        h('div.dim', cells(l).join(' · ')), h('p.what' + (l.What === 'no activity' ? '.quiet' : ''), l.What || '')],
-      h('div.dim', 'card ' + at + ' of ' + n + ' · j k next / previous · space the list · P park')));
-    if (l.Key && app.panel.key) app.panel.open(l.Key);
-  }
-
   function stepSel(d) {
     for (let i = sel + d; i >= 0 && i < lines.length; i += d) if (picks(lines[i])) { sel = i; return true; }
     if (!picks(lines[sel]) && d > 0) return stepSel(-1);
     return false;
   }
-  function move(d) { if (stepSel(d)) { paint(); if (!single && app.panel.key && lines[sel].Key) app.panel.open(lines[sel].Key); } }
+  function move(d) { if (stepSel(d)) { paint(); if (app.panel.key && lines[sel].Key) app.panel.open(lines[sel].Key); } }
 
   function unfold() {
     const i = lines.findIndex(l => l.Unfold);
     if (i < 0) return ui.toast('Nothing folded');
     lines[i] = { ...lines[i], Unfold: false };
     lines.splice(i + 1, 0, ...folded);
-    folded = []; data.Folded = [];
+    folded = [];
     sel = i; stepSel(1); paint();
   }
 
@@ -141,25 +215,38 @@ export default function mount(el, { app, scope, context, toolbar }) {
     paint();
   }
 
+  function shuffle() {
+    shuffled = !shuffled;
+    if (data) { order(person().ID, true); build(); }
+    ui.toast(shuffled ? 'A random order' : "The board's order");
+    paint();
+  }
+
   async function load() {
     const my = ++seq;
-    data = null; err = ''; paint();
+    err = ''; paint();
     try {
       await resolveBoard();
       if (sw && !dead) sw.label(project, board);
-      if (team() && !board) throw new Error('No board found for ' + (project || 'this site') + '. B picks a project.');
-      view = board && app.lastView && app.lastView.board === board.ID ? app.lastView : null;
+      if (!board) throw new Error('No board found for ' + (project || 'this site') + '. B picks a project.');
+      view = app.lastView && app.lastView.board === board.ID ? app.lastView : null;
       loadParked();
-      const q = 'since=' + ymd(since) + '&mode=' + mode + (board ? '&board=' + board.ID + '&' + (view ? view.query : 'sprint=' + sprint) : '');
+      const q = (since ? 'since=' + ymd(since) + '&' : '') + 'board=' + board.ID + '&' + (view ? view.query : 'sprint=' + sprint);
       const d = await api.get('/standup/lines?' + q, { fresh: true });
       if (dead || my !== seq) return;
-      data = d; build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
+      const who = person().ID;
+      data = d; since = new Date(d.Since + 'T00:00:00');
+      if (!opened) shuffled = !!d.Settings.Shuffle;
+      order(who, false);
+      build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
+      if (!opened && d.Settings.First && stops.length > 1) { opened = true; return go(1); }
+      opened = true;
     } catch (e) { if (dead || my !== seq) return; err = e.message; }
     paint();
   }
 
-  function setMode(m) { mode = m; sel = 0; load(); }
   function step(n) {
+    if (!since) return;
     if (n < 0) since = prevWorkday(since);
     else {
       let x = addDays(since, 1);
@@ -179,19 +266,20 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const G = { group: 'Standup' };
   scope.bind(['j', 'ArrowDown'], () => move(1), 'next', G);
   scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
+  scope.bind(['l', 'ArrowRight'], () => go(at + 1), 'next person', { ...G, bar: 'person' });
+  scope.bind(['h', 'ArrowLeft'], () => go(at - 1), 'previous person', G);
+  scope.bind('Space', pause, 'start / pause the timer', { ...G, bar: 'timer' });
+  scope.bind('s', shuffle, 'a random order / the board\'s', G);
   scope.bind('Enter', open, 'open issue (or show Off the board)', { ...G, bar: 'open' });
   scope.bind('z', unfold, 'show Off the board', G);
-  scope.bind('Space', () => { single = !single; paint(); }, 'one card at a time / the list', { ...G, bar: 'one / all' });
   scope.bind('P', park, 'park the card for after the standup', { ...G, bar: 'park' });
   scope.bind('[', () => step(-1), 'a workday further back', { ...G, bar: 'day' });
   scope.bind(']', () => step(1), 'a workday forward', { ...G, bar: 'day' });
-  scope.bind('Tab', () => setMode(team() ? 'mine' : 'team'), 'mine / team', { ...G, when: () => !app.panel.key, bar: 'mine / team' });
-  scope.bind('p', () => setMode(!team() ? 'team' : mode === 'team' ? 'person' : 'team'), 'team: by person / walk the board', G);
   sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = 0; view = null; load(); } });
-  scope.bind('y', copy, 'copy as text, parking lot included', { ...G, bar: 'copy' });
+  scope.bind('y', copy, 'copy the stop as text, parking lot included', { ...G, bar: 'copy' });
   scope.bind('r', load, 'refresh', G);
 
   clear(toolbar);
   load();
-  return () => { dead = true; };
+  return () => { dead = true; clearInterval(tick); };
 }

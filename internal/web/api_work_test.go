@@ -166,19 +166,3 @@ func TestInboxEverySite(t *testing.T) {
 		t.Fatalf("inbox_unread = %s, was %d", unread(), before)
 	}
 }
-
-func TestStandup(t *testing.T) {
-	ts := workServer(t)
-	var su struct {
-		Entries []jira.InboxEntry
-		Cards   []jira.Card
-	}
-	since := time.Now().AddDate(0, 0, -3).Format(time.DateOnly)
-	if c := workCall(t, "GET", ts.URL+"/api/standup?since="+since, "", &su); c != 200 {
-		t.Fatalf("standup = %d", c)
-	}
-	var people []struct{ ID, Name string }
-	if c := workCall(t, "GET", ts.URL+"/api/standup/people", "", &people); c != 200 {
-		t.Fatalf("people = %d", c)
-	}
-}
