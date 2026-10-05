@@ -1,4 +1,4 @@
-// Create dialog: openCreate(app, {project, parent, type, summary, sprint}); a clone adds
+// Create dialog: openCreate(app, {project, parent, subtask, type, summary, sprint}); a clone adds
 // {description, cloneOf, note} and starts from that issue's copy.
 // Several lines in the summary make several issues. ctrl+Enter creates.
 import { h } from '../lib/dom.js';
@@ -80,7 +80,8 @@ export async function openCreate(app, opts = {}) {
       const t = await app.api.get(`/projects/${project}/issuetypes`);
       if (my !== pseq) return;
       err.textContent = '';
-      const all = [...t.Types, ...(opts.parent ? t.Subtasks || [] : [])];
+      // A subtask offers only the subtask types, as the TUI's.
+      const all = opts.subtask && (t.Subtasks || []).length ? t.Subtasks : [...t.Types, ...(opts.parent ? t.Subtasks || [] : [])];
       if (!all.some(x => x.Name === type)) type = prefs.get('create.type.' + project, '');
       if (!all.some(x => x.Name === type)) type = (all.find(x => /^(task|story)$/i.test(x.Name)) || all[0] || {}).Name || '';
       typeSel.replaceChildren(...all.map(x => h('option', { value: x.Name, selected: x.Name === type }, x.Name)));

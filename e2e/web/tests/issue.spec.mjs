@@ -1,6 +1,5 @@
-import { test, expect } from '../fixtures.mjs';
+import { test, expect, inLane } from '../fixtures.mjs';
 
-const lane = (page, name) => page.locator('.bd-lane', { has: page.locator('.bd-lane-name', { hasText: name }) });
 const panel = page => page.locator('.iss');
 
 test.beforeEach(async ({ page, app }) => {
@@ -31,7 +30,7 @@ test('s moves it to Done, on the board too', async ({ page }) => {
   await page.locator('.pick-input').fill('Done');
   await page.keyboard.press('Enter');
   await expect(panel(page).locator('.iss-sub')).toContainText('Done');
-  await expect(lane(page, 'DONE')).toContainText('DEMO-4');
+  await expect(inLane(page, 'DONE', 'DEMO-4')).toBeVisible();
 });
 
 test('e renames it', async ({ page }) => {

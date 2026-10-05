@@ -115,6 +115,7 @@ type issue struct {
 	flagged           bool
 	labels            []string
 	description       string
+	descDoc           any // the description as last written, nil: description's paragraphs
 	created, updated  time.Time
 	resolved          time.Time
 	start             string // an epic's start date
@@ -122,10 +123,19 @@ type issue struct {
 	components        []string
 	team              string
 	testNotes         string // testField, markdown-ish text
+	testDoc           any    // testNotes as last written, as descDoc
 	legacy            string // legacyField
 	comments          []comment
 	worklogs          []worklog
+	attachments       []attachment
 	changes           []change
+}
+
+// attachment is a file uploaded to an issue.
+type attachment struct {
+	id, name, mime string
+	data           []byte
+	created        time.Time
 }
 
 // seed is one issue of the generated project.

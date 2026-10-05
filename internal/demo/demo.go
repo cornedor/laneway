@@ -5,6 +5,7 @@ package demo
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -12,8 +13,11 @@ import (
 	"image/png"
 	"io"
 	"maps"
+	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -71,13 +75,16 @@ var (
 	sprintIssues = regexp.MustCompile(`^/rest/agile/1\.0/(?:board/\d+/)?sprint/(\d+)/issue$`)
 	sprintRe     = regexp.MustCompile(`^/rest/agile/1\.0/sprint/(\d+)$`)
 	versionRe    = regexp.MustCompile(`^/rest/api/3/version/(\d+)$`)
+	attachRe     = regexp.MustCompile(`^/rest/api/3/issue/([A-Z]+-\d+)/attachments$`)
+	attachmentRe = regexp.MustCompile(`^/rest/api/3/attachment/content/(\d+)$`)
 )
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var body map[string]any
-	if raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20)); len(raw) > 0 {
+	raw, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &body)
 	}
 	p, q := r.URL.Path, r.URL.Query()
@@ -125,6 +132,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send(map[string]int{"count": len(s.search(jql))})
 		return
 	}
+	if m := attachRe.FindStringSubmatch(p); m != nil && r.Method == http.MethodPost && s.issues[m[1]] != nil {
+		send(s.attach(s.issues[m[1]], r.Header.Get("Content-Type"), raw))
+		return
+	}
+	if m := attachmentRe.FindStringSubmatch(p); m != nil && r.Method == http.MethodGet {
+		if a := s.attachment(m[1]); a != nil {
+			w.Header().Set("Content-Type", a.mime)
+			_, _ = w.Write(a.data)
+			return
+		}
+	}
 	if m := issueRe.FindStringSubmatch(p); m != nil {
 		if iss := s.issues[m[1]]; iss != nil {
 			if v, ok := s.issueRoute(r.Method, iss, m[2], strings.TrimPrefix(m[3], "/"), body, q); ok {
@@ -165,6 +183,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && p == "/rest/agile/1.0/backlog/issue":
 		s.moveTo(0, body)
 		w.WriteHeader(http.StatusNoContent)
+		return
+	case r.Method == http.MethodPost && p == "/rest/agile/1.0/sprint":
+		send(s.newSprint(body))
+		return
+	case r.Method == http.MethodPost && sprintRe.MatchString(p):
+		id, _ := strconv.Atoi(sprintRe.FindStringSubmatch(p)[1])
+		if sp := s.editSprint(id, body); sp != nil {
+			send(sp)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		send(map[string]any{"errorMessages": []string{"Sprint does not exist"}})
 		return
 	case r.Method == http.MethodPut && versionRe.MatchString(p):
 		s.release(versionRe.FindStringSubmatch(p)[1], body)
@@ -274,8 +305,8 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		return out, true
 	case "/rest/api/3/issue/createmeta/" + project + "/issuetypes":
 		var out []any
-		for _, name := range []string{"Story", "Task", "Bug", "Epic"} {
-			out = append(out, map[string]any{"id": types[name], "name": name, "subtask": false})
+		for _, name := range []string{"Story", "Task", "Bug", "Epic", "Sub-task"} {
+			out = append(out, map[string]any{"id": types[name], "name": name, "subtask": name == "Sub-task"})
 		}
 		return map[string]any{"issueTypes": out, "maxResults": len(out), "startAt": 0, "total": len(out)}, true
 	case "/rest/api/3/jql/autocompletedata":
@@ -489,13 +520,22 @@ func firstOf(v []string) string {
 // edit applies a PUT's fields: summary, description, assignee, priority,
 // points, labels, due date, flag.
 func (s *Server) edit(iss *issue, body map[string]any) {
+	before := tracked(iss)
+	defer func() { // the changelog has each field that changed, as Jira's does
+		after := tracked(iss)
+		for _, name := range slices.Sorted(maps.Keys(after)) {
+			if after[name] != before[name] {
+				iss.changes = append(iss.changes, change{author: me, at: time.Now(), field: name, from: before[name], to: after[name]})
+			}
+		}
+	}()
 	f, _ := body["fields"].(map[string]any)
 	for k, v := range f {
 		switch k {
 		case "summary":
 			iss.summary, _ = v.(string)
 		case "description":
-			iss.description = adfText(v)
+			iss.description, iss.descDoc = adfText(v), written(v)
 		case "assignee":
 			iss.assignee = nil
 			if m, _ := v.(map[string]any); m != nil {
@@ -537,7 +577,7 @@ func (s *Server) edit(iss *issue, body map[string]any) {
 				}
 			}
 		case testField:
-			iss.testNotes = adfText(v)
+			iss.testNotes, iss.testDoc = adfText(v), written(v)
 		case legacyField:
 			iss.legacy, _ = v.(string)
 		case teamField:
@@ -570,6 +610,20 @@ func (s *Server) edit(iss *issue, body map[string]any) {
 	iss.updated = time.Now()
 }
 
+// tracked is the fields an edit's changelog entry names, by the
+// changelog's field name, as text.
+func tracked(iss *issue) map[string]string {
+	who, pts := "", ""
+	if iss.assignee != nil {
+		who = iss.assignee.name
+	}
+	if iss.points > 0 {
+		pts = strconv.FormatFloat(iss.points, 'f', -1, 64)
+	}
+	return map[string]string{"summary": iss.summary, "assignee": who, "priority": iss.priority, "Story Points": pts,
+		"labels": strings.Join(iss.labels, " "), "duedate": iss.due, "Legacy ref": iss.legacy, "Team": iss.team}
+}
+
 func asSlice(v any) []any {
 	s, _ := v.([]any)
 	return s
@@ -585,7 +639,7 @@ func (s *Server) create(body map[string]any) any {
 	}
 	iss := &issue{key: key, typ: "Task", status: todo, priority: "Medium", reporter: me, created: time.Now(), updated: time.Now()}
 	iss.summary, _ = f["summary"].(string)
-	iss.description = adfText(f["description"])
+	iss.description, iss.descDoc = adfText(f["description"]), written(f["description"])
 	if t, _ := f["issuetype"].(map[string]any); t != nil {
 		for name, id := range types {
 			if t["id"] == id || t["name"] == name {
@@ -608,6 +662,58 @@ func (s *Server) moveTo(id int, body map[string]any) {
 			iss.sprint = id
 		}
 	}
+}
+
+// newSprint adds a future sprint named as the body says.
+func (s *Server) newSprint(body map[string]any) map[string]any {
+	id := 0
+	for _, sp := range s.sprints {
+		id = max(id, sp.id)
+	}
+	name, _ := body["name"].(string)
+	sp := sprint{id: id + 1, name: name, state: "future"}
+	s.sprints = append(s.sprints, sp)
+	return sprintJSON(sp)
+}
+
+// editSprint applies a sprint update: name, goal, dates, and state. A
+// closed sprint's open issues go to the backlog and its done ones off the
+// board, as Jira does. nil for no such sprint.
+func (s *Server) editSprint(id int, body map[string]any) map[string]any {
+	i := slices.IndexFunc(s.sprints, func(sp sprint) bool { return sp.id == id })
+	if i < 0 {
+		return nil
+	}
+	sp := &s.sprints[i]
+	if v, ok := body["name"].(string); ok {
+		sp.name = v
+	}
+	if v, ok := body["goal"].(string); ok {
+		sp.goal = v
+	}
+	for k, t := range map[string]*time.Time{"startDate": &sp.start, "endDate": &sp.end} {
+		if v, ok := body[k].(string); ok {
+			if at, err := time.Parse(time.RFC3339, v); err == nil {
+				*t = at
+			}
+		}
+	}
+	if v, ok := body["state"].(string); ok {
+		sp.state = v
+	}
+	if sp.state == "closed" {
+		for _, k := range slices.Clone(s.order) {
+			if iss := s.issues[k]; iss.sprint == id {
+				if iss.status == done {
+					s.order = slices.DeleteFunc(s.order, func(o string) bool { return o == k })
+					s.hidden = append(s.hidden, k)
+				} else {
+					iss.sprint = 0
+				}
+			}
+		}
+	}
+	return sprintJSON(*sp)
 }
 
 // rank moves the body's issues before rankBeforeIssue, or after
@@ -775,4 +881,44 @@ func onlyFields(j map[string]any, want []string) {
 			delete(f, k)
 		}
 	}
+}
+
+// attach keeps the files of a multipart upload on iss, as Jira's
+// /issue/KEY/attachments does, and answers with them.
+func (s *Server) attach(iss *issue, contentType string, raw []byte) []any {
+	out := []any{}
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return out
+	}
+	mr := multipart.NewReader(bytes.NewReader(raw), params["boundary"])
+	for {
+		part, err := mr.NextPart()
+		if err != nil {
+			break
+		}
+		if part.FileName() == "" {
+			continue
+		}
+		data, _ := io.ReadAll(part)
+		s.seq++
+		a := attachment{id: fmt.Sprint(20000 + s.seq), name: part.FileName(), data: data, created: time.Now(),
+			mime: cmp.Or(mime.TypeByExtension(filepath.Ext(part.FileName())), "application/octet-stream")}
+		iss.attachments = append(iss.attachments, a)
+		out = append(out, s.attachmentJSON(a))
+	}
+	iss.updated = time.Now()
+	return out
+}
+
+// attachment is the upload with id, nil for none.
+func (s *Server) attachment(id string) *attachment {
+	for _, iss := range s.issues {
+		for i := range iss.attachments {
+			if iss.attachments[i].id == id {
+				return &iss.attachments[i]
+			}
+		}
+	}
+	return nil
 }

@@ -74,7 +74,8 @@ export async function issueActions(app, st, hk, only) {
         try { const r = await api.del('/issues/' + key + '/worktree'); close(); ui.toast('Removed ' + home(r.Path) + ' (' + r.Branch + ' stays)', { kind: 'ok' }); app.agents.refresh(); } catch (e) { close(); throw e; }
         return;
       }
-      case 'subtask': case 'child': return app.actions.create({ project, parent: key });
+      case 'subtask': return app.actions.create({ project, parent: key, subtask: true });
+      case 'child': return app.actions.create({ project, parent: key });
       case 'link': return link();
       case 'weblink': {
         const url = await ui.prompt({ title: 'Link a web page', placeholder: 'https://…', ok: 'Add' });

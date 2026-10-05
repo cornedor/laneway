@@ -106,6 +106,23 @@ func adf(text string) any {
 	return map[string]any{"type": "doc", "version": 1, "content": content}
 }
 
+// written is a written rich-text value kept as Jira keeps it: an
+// Atlassian document; nil for anything else.
+func written(v any) any {
+	if m, ok := v.(map[string]any); ok && m["type"] == "doc" {
+		return m
+	}
+	return nil
+}
+
+// docOr is doc, the value as written, or else text as paragraphs.
+func docOr(doc any, text string) any {
+	if doc != nil {
+		return doc
+	}
+	return adf(text)
+}
+
 // adfText is the text of a document the app sent, its paragraphs apart by
 // a blank line; a plain string stays as it is.
 func adfText(v any) string {
@@ -230,10 +247,10 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 	}
 	fields := map[string]any{
 		"summary": iss.summary, "status": statusJSON(iss.status), "issuetype": typeJSON(iss.typ),
-		"priority": map[string]any{"id": "3", "name": iss.priority}, "assignee": userJSON(iss.assignee), "reporter": userJSON(&iss.reporter),
+		"priority": map[string]any{"id": strconv.Itoa(slices.Index(priorities, iss.priority) + 1), "name": iss.priority}, "assignee": userJSON(iss.assignee), "reporter": userJSON(&iss.reporter),
 		"labels": labels, "created": stamp(iss.created), "updated": stamp(iss.updated), "resolutiondate": stamp(iss.resolved),
-		"statuscategorychangedate": stamp(changed), "duedate": due, "description": adf(iss.description), "parent": parent,
-		"subtasks": subtasks, "issuelinks": s.linksJSON(iss.key), "attachment": []any{}, "fixVersions": fixVersions,
+		"statuscategorychangedate": stamp(changed), "duedate": due, "description": docOr(iss.descDoc, iss.description), "parent": parent,
+		"subtasks": subtasks, "issuelinks": s.linksJSON(iss.key), "attachment": s.attachmentsJSON(iss), "fixVersions": fixVersions,
 		"project":   issueProjectJSON(),
 		pointsField: points, sprintField: sp, flagField: flag, startField: start, devField: s.devSummary(iss.key),
 	}
@@ -251,7 +268,7 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 		comps = append(comps, map[string]any{"id": optionID(components, c), "name": c})
 	}
 	fields["components"] = comps
-	fields[testField], fields[legacyField] = adf(iss.testNotes), nil
+	fields[testField], fields[legacyField] = docOr(iss.testDoc, iss.testNotes), nil
 	if iss.legacy != "" {
 		fields[legacyField] = iss.legacy
 	}
@@ -363,4 +380,17 @@ func (s *Server) workflowJSON() map[string]any {
 			"rules": map[string]any{"validators": []any{}, "postFunctions": []any{}}})
 	}
 	return map[string]any{"id": map[string]any{"name": workflowName, "entityId": "demo-workflow"}, "description": "", "transitions": trs}
+}
+
+func (s *Server) attachmentsJSON(iss *issue) []any {
+	out := []any{}
+	for _, a := range iss.attachments {
+		out = append(out, s.attachmentJSON(a))
+	}
+	return out
+}
+
+func (s *Server) attachmentJSON(a attachment) map[string]any {
+	return map[string]any{"self": s.base + "/rest/api/3/attachments/" + a.id, "id": a.id, "filename": a.name, "author": userJSON(&me),
+		"created": stamp(a.created), "size": len(a.data), "mimeType": a.mime, "content": s.base + "/rest/api/3/attachment/content/" + a.id}
 }

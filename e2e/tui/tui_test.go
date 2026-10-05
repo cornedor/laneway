@@ -53,6 +53,7 @@ func start(t *testing.T) *term {
 	if testing.Short() {
 		t.Skip("e2e")
 	}
+	t.Parallel() // each has its own tmux server and demo
 	home := t.TempDir()
 	// A named socket: a path under the temp dir can pass the 104 bytes a
 	// socket's may have on macOS.
@@ -123,6 +124,24 @@ func (s *term) screen() string {
 func (s *term) wait(want string) string {
 	s.t.Helper()
 	return s.until(func(scr string) bool { return strings.Contains(scr, want) }, "no "+want)
+}
+
+// lane is the board's lane i (0 first) as text, a line per screen row; it
+// holds with the panel closed.
+func lane(scr string, i int) string {
+	var b strings.Builder
+	for _, line := range strings.Split(scr, "\n") {
+		if parts := strings.Split(line, "│"); len(parts) >= i+3 {
+			b.WriteString(parts[i+1] + "\n")
+		}
+	}
+	return b.String()
+}
+
+// waitLane returns the screen once lane i shows want.
+func (s *term) waitLane(i int, want string) string {
+	s.t.Helper()
+	return s.until(func(scr string) bool { return strings.Contains(lane(scr, i), want) }, fmt.Sprintf("no %s in lane %d", want, i))
 }
 
 // gone returns the screen once it no longer shows what.

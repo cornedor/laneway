@@ -50,6 +50,8 @@ export const test = base.extend({
     try {
       const url = await server.url;
       await use({ url, errors });
+      // The page first: one still loading would fail on the server gone.
+      await page.close();
     } finally {
       await server.stop();
     }
@@ -69,6 +71,47 @@ export async function palette(page, key, text, pick = text) {
   await input.pressSequentially(text);
   await expect(page.getByRole('option', { name: pick }).first()).toBeVisible();
   return page.getByRole('option', { name: pick }).first();
+}
+
+// inLane is key's card shown in the lane named lane. A lane keeps hidden
+// rows from its virtual list, so a lane's text is no proof.
+export function inLane(page, lane, key) {
+  return page.locator('.bd-lane', { has: page.locator('.bd-lane-name', { hasText: lane }) })
+    .locator('.card:visible', { has: page.locator('.ckey', { hasText: new RegExp('^' + key + '$') }) });
+}
+
+// selectCard puts the board's cursor on key: a click opens it in the
+// panel, esc (once it is open) gives the keys back to the board.
+export async function selectCard(page, key) {
+  await page.locator('.bd-lanes .card:visible', { has: page.locator('.ckey', { hasText: new RegExp('^' + key + '$') }) }).click();
+  await expect(page.locator('.iss .iss-key')).toHaveText(key);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.iss')).toHaveCount(0);
+}
+
+// openIssue loads the board and opens key in the panel.
+export async function openIssue(page, app, key) {
+  await page.goto(app.url);
+  await page.locator('.card', { hasText: key }).click();
+  await expect(page.locator('.iss .iss-key')).toHaveText(key);
+  await expect(page.locator('.iss .fld[data-field="status"]')).toBeVisible(); // its keys are bound by now
+}
+
+// pick waits for a picker's input to have the focus, types text and clicks
+// the option named name (text itself without one).
+export async function pick(page, text, name = text) {
+  const input = page.locator('.pick-input');
+  await expect(input).toBeFocused();
+  await input.fill(text);
+  await page.getByRole('option', { name }).first().click();
+}
+
+// prompt fills the focused input of a one-field dialog and presses enter.
+export async function prompt(page, value) {
+  const input = page.getByRole('dialog').locator('input');
+  await expect(input).toBeFocused();
+  await input.fill(value);
+  await input.press('Enter');
 }
 
 export { expect };

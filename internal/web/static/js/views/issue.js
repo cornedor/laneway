@@ -297,7 +297,7 @@ export function mountIssue(el, key, { app, full, card }) {
     st.editingDoc = f.ID;
     const sec = box.docs.querySelector('[data-field="' + CSS.escape(f.ID) + '"]') || box.docs.appendChild(h('div.desc.doc', { dataset: { field: f.ID } }));
     const done = () => { st.editingDoc = null; renderDocs(); };
-    const e = editor({ value: ed.Markdown, rows: 8, placeholder: f.Name + ' (markdown)…', allowEmpty: true, label: 'Save', draft: 'doc:' + key + ':' + f.ID,
+    const e = editor({ value: ed.Markdown, rows: 8, placeholder: f.Name + ' (markdown)…', allowEmpty: true, label: 'Save', draft: 'desc:' + key + ':field:' + f.ID,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
         st.editingDoc = null; changed(key + ' ' + f.Name + ' updated'); ui.toast(f.Name + ' saved', { kind: 'ok' });
@@ -864,7 +864,8 @@ export function mountIssue(el, key, { app, full, card }) {
     scope.bind('<', () => stepWidth(1), 'widen the panel', { group: G });
     scope.bind('>', () => stepWidth(-1), 'narrow the panel', { group: G });
   }
-  scroll.focus({ preventScroll: true });
+  // A dialog opened while the panel loaded keeps the focus.
+  if (!document.querySelector('[aria-modal="true"]')) scroll.focus({ preventScroll: true });
   if (startTerm) openTerm(true);
 
   return () => {
