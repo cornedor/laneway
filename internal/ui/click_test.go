@@ -789,7 +789,7 @@ func TestNarrowBoxes(t *testing.T) {
 		"create": func(m *Model) {
 			m.openCreateForm(createSpec{in: jira.NewIssue{Project: "ABC"}, types: []string{"Task"}})
 		},
-		"builder":  func(m *Model) { m.openFilterBuilder() },
+		"builder":  func(m *Model) { m.openFilterBuilder(false) },
 		"settings": func(m *Model) { m.openSettings(); m.settings.idx = 3; m.editSetting() },
 		"palette":  func(m *Model) { m.openPalette() },
 	}

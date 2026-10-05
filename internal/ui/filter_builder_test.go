@@ -40,6 +40,9 @@ func TestFilterBuilder(t *testing.T) {
 			press(string(r))
 		}
 	}
+	if bar := ansi.Strip(joinSegs(m.jiraFilterSegs())); !strings.Contains(bar, "F filter") {
+		t.Errorf("the filters row lacks F: %s", bar)
+	}
 	press("F")
 	if m.filterBuilder == nil {
 		t.Fatal("F did not open the builder")

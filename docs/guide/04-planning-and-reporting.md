@@ -31,7 +31,8 @@ when it is more).
 | `R` / `E` | rename it / edit its goal |
 | `C` twice | complete the active sprint; unfinished work moves to the next one |
 | `y` | copy the sprint as a markdown table |
-| `/` | filter both sides; `esc` clears it |
+| `/` | filter both sides, in the board's query language; `esc` clears it |
+| `F` | filter builder: field, compare, value → the filter |
 | `e` / `B` | quick edit the card (points, status, assignee…) / the marked ones |
 | `u` | undo the last move across |
 

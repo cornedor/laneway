@@ -40,9 +40,12 @@ type planState struct {
 	// closing is set by a first C: a second completes the active sprint.
 	closing bool
 	drag    planDrag
-	// filter narrows both sides to the cards it matches (/); find is its
-	// input while typed.
+	// filter narrows both sides to the cards it matches (/, F), in the
+	// board's query language; terms is it parsed, env what it compares
+	// against. find is its input while typed.
 	filter  string
+	terms   []jiraTerm
+	env     jiraQueryEnv
 	find    textinput.Model
 	finding bool
 	// undo is the last move across, for u to take back.
@@ -73,23 +76,17 @@ func (p *planState) view(side int) []jira.Card {
 	}
 	var out []jira.Card
 	for _, c := range p.sides[side] {
-		if planMatch(c, p.filter) {
+		if jiraCardMatches(c, p.terms, p.env) {
 			out = append(out, c)
 		}
 	}
 	return out
 }
 
-// planMatch reports whether every word of filter is in the card's key,
-// summary, assignee, status or labels.
-func planMatch(c jira.Card, filter string) bool {
-	hay := strings.ToLower(strings.Join([]string{c.Key, c.Summary, c.Assignee, c.Status, c.Labels}, " "))
-	for _, w := range strings.Fields(strings.ToLower(filter)) {
-		if !strings.Contains(hay, w) {
-			return false
-		}
-	}
-	return true
+// setFilter narrows both sides to q, the cursors back to the top.
+func (p *planState) setFilter(q string, env jiraQueryEnv) {
+	p.filter, p.terms, p.env = q, jiraParseQuery(strings.ToLower(strings.TrimSpace(q))), env
+	p.idx, p.top = [2]int{}, [2]int{}
 }
 
 // planDrag is a card held by the mouse: armed on the press, active once
@@ -257,7 +254,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "ctrl+c":
 		return m.quit()
 	case msg.String() == "esc" && p.filter != "":
-		p.filter, p.idx = "", [2]int{}
+		p.setFilter("", m.jiraQueryEnv())
 		m.status = "filter cleared"
 	case msg.String() == "esc", key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Plan): // q closes, as on every screen over the board
 		t.plan = nil
@@ -347,12 +344,14 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Search):
 		p.find = textinput.New()
 		p.find.Prompt = "/"
-		p.find.Placeholder = "words in the key, summary, assignee, status or labels"
+		p.find.Placeholder = "text, status:review points>2 -label:ui"
 		p.find.SetWidth(40)
 		p.find.SetValue(p.filter)
 		p.find.CursorEnd()
 		p.find.Focus()
 		p.finding = true
+	case key.Matches(msg, m.keys.FilterBuilder):
+		m.openFilterBuilder(true)
 	case key.Matches(msg, m.keys.QuickEdit):
 		if c, ok := p.planCard(); ok {
 			m.openQuickEditKey(c.Key)
@@ -457,8 +456,8 @@ func (m Model) handlePlanFindKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m.quit()
 	case "esc":
-		p.finding, p.filter = false, ""
-		p.idx = [2]int{}
+		p.finding = false
+		p.setFilter("", m.jiraQueryEnv())
 		return m, nil
 	case "enter":
 		p.finding = false
@@ -467,7 +466,7 @@ func (m Model) handlePlanFindKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	p.find, cmd = p.find.Update(msg)
 	if v := p.find.Value(); v != p.filter {
-		p.filter, p.idx, p.top = v, [2]int{}, [2]int{}
+		p.setFilter(v, m.jiraQueryEnv())
 	}
 	return m, cmd
 }

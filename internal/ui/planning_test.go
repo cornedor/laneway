@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -459,5 +460,45 @@ func TestPlanVelocity(t *testing.T) {
 	m.jiraTab.plan.velocity = 10
 	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "7p of ~10p (avg last 2)") || strings.Contains(view, "(avg last 2) over") {
 		t.Errorf("under the average:\n%s", view)
+	}
+}
+
+// TestPlanFilterBuilder: F builds planning's filter from both sides' cards,
+// in the board's query language, and leaves the board's search alone.
+func TestPlanFilterBuilder(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	if !strings.Contains(ansi.Strip(m.planLine()), "F filter") {
+		t.Errorf("planning's bar lacks F: %s", ansi.Strip(m.planLine()))
+	}
+	out, _ := m.Update(keyStr("F"))
+	m = out.(Model)
+	if m.filterBuilder == nil || !m.filterBuilder.plan {
+		t.Fatal("F did not open planning's builder")
+	}
+	b := m.filterBuilder
+	b.idx[0] = slices.IndexFunc(m.builderRows(0), func(it jiraPickerItem) bool { return it.id == "assignee" })
+	if got := m.builderRows(2); len(got) != 1 || got[0].id != "Ada" {
+		t.Fatalf("assignee values = %v, want Ada from the sprint side", got)
+	}
+	b.col = 2
+	out, _ = m.Update(keyMsg(t, "enter"))
+	m = out.(Model)
+	p := m.jiraTab.plan
+	if p.filter != "assignee:Ada" || m.jiraTab.search.Value() != "" {
+		t.Fatalf("filter %q, board search %q", p.filter, m.jiraTab.search.Value())
+	}
+	if len(p.view(0)) != 0 || len(p.view(1)) != 1 || p.view(1)[0].Key != "ABC-1" {
+		t.Errorf("filtered: %v / %v", p.view(0), p.view(1))
+	}
+	out, _ = m.Update(keyMsg(t, "ctrl+x"))
+	m = out.(Model)
+	if p.filter != "" || len(p.view(0)) != 2 {
+		t.Errorf("ctrl+x left %q", p.filter)
+	}
+	// A typed query takes field terms; plain words still match.
+	p.setFilter("points>2 sev", m.jiraQueryEnv())
+	if v := p.view(0); len(v) != 1 || v[0].Key != "ABC-7" || len(p.view(1)) != 0 {
+		t.Errorf("points>2 sev: %v / %v", v, p.view(1))
 	}
 }

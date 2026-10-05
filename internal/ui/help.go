@@ -146,6 +146,7 @@ func (m *Model) helpSections() []struct {
 			row(k.PlanNew, "new sprint"),
 			row(k.PlanComplete, "complete the active sprint (twice)"),
 			row(k.Search, "filter both sides (esc clears)"),
+			row(k.FilterBuilder, "filter builder: field, compare, value side by side → filter"),
 			row(k.QuickEdit, "quick edit: status, priority, assignee, points…"),
 			row(k.Bulk, "edit the marked cards"),
 			row(k.Undo, "undo the last move across"),

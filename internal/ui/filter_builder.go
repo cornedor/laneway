@@ -35,15 +35,16 @@ type filterBuilder struct {
 	col    int    // 0 field, 1 compare, 2 value
 	idx    [3]int // cursor per column, into its narrowed rows
 	filter textinput.Model
+	plan   bool // building planning's filter, not the board's search
 }
 
-func (m *Model) openFilterBuilder() {
+func (m *Model) openFilterBuilder(plan bool) {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
 	ti.Placeholder = "type to narrow"
 	ti.SetWidth(30)
 	ti.Focus()
-	m.filterBuilder = &filterBuilder{filter: ti}
+	m.filterBuilder = &filterBuilder{filter: ti, plan: plan}
 }
 
 // filterOps are the ways to compare field.
@@ -66,7 +67,7 @@ func opNoValue(op string) bool { return op == "empty" || op == "-empty" }
 // filterValueItems are field's values on the loaded cards with their
 // counts, most common first (priorities by rank).
 func (m *Model) filterValueItems(field string) []jiraPickerItem {
-	counts, labels := filterValues(m.jiraTab.cards, field, m.jiraQueryEnv())
+	counts, labels := filterValues(m.builderCards(), field, m.jiraQueryEnv())
 	values := slices.Collect(maps.Keys(counts))
 	slices.SortFunc(values, func(x, y string) int {
 		if field == "prio" {
@@ -175,7 +176,10 @@ func (m Model) handleFilterBuilderKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		move(b.col - 1)
 		return m, nil
 	case msg.String() == "ctrl+x":
-		m.removeSearchTerm(len(jiraQueryWords(m.jiraTab.search.Value())) - 1)
+		words := jiraQueryWords(m.builderQuery())
+		if len(words) > 0 {
+			m.setBuilderQuery(strings.Join(words[:len(words)-1], " "))
+		}
 		return m, nil
 	default:
 		rows := m.builderRows(b.col)
@@ -248,7 +252,7 @@ func (m *Model) renderFilterBuilder(height int) string {
 	} else {
 		term = jiraKeyStyle.Render(term)
 	}
-	query := jiraDimStyle.Render("/" + m.jiraTab.search.Value())
+	query := jiraDimStyle.Render("/" + m.builderQuery())
 	bodyW := widths[0] + widths[1] + widths[2] + 4
 	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate("↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close", bodyW))
 	query = ansi.Truncate(query, bodyW, "…")
@@ -316,8 +320,7 @@ func (m *Model) addFilterTerm(term string) {
 		}
 		prefix, v = term[:j], term[j:]
 	}
-	t := m.jiraTab
-	words := jiraQueryWords(t.search.Value())
+	words := jiraQueryWords(m.builderQuery())
 	merged := false
 	for i, w := range words {
 		if !strings.HasPrefix(strings.ToLower(w), prefix) {
@@ -337,9 +340,40 @@ func (m *Model) addFilterTerm(term string) {
 	if !merged {
 		words = append(words, prefix+v)
 	}
-	t.search.SetValue(strings.Join(words, " "))
+	m.setBuilderQuery(strings.Join(words, " "))
+	m.status = "/" + m.builderQuery() + " · esc clears"
+}
+
+// builderCards are the cards the builder counts values over: the board's,
+// or both planning sides.
+func (m *Model) builderCards() []jira.Card {
+	if p := m.jiraTab.plan; m.filterBuilder.plan && p != nil {
+		return slices.Concat(p.sides[0], p.sides[1])
+	}
+	return m.jiraTab.cards
+}
+
+// builderQuery is the query the builder adds to: the board's / search or
+// planning's filter.
+func (m *Model) builderQuery() string {
+	if p := m.jiraTab.plan; m.filterBuilder.plan && p != nil {
+		return p.filter
+	}
+	return m.jiraTab.search.Value()
+}
+
+// setBuilderQuery applies q where builderQuery reads it.
+func (m *Model) setBuilderQuery(q string) {
+	if p := m.jiraTab.plan; m.filterBuilder.plan && p != nil {
+		p.setFilter(q, m.jiraQueryEnv())
+		return
+	}
+	if q == "" {
+		m.clearJiraSearch()
+		return
+	}
+	m.jiraTab.search.SetValue(q)
 	m.applyJiraSearch()
-	m.status = "/" + t.search.Value() + " · esc clears"
 }
 
 func filterLabel(field string) string {

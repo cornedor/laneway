@@ -1207,7 +1207,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Search):
 		m.startJiraSearch()
 	case key.Matches(msg, m.keys.FilterBuilder):
-		m.openFilterBuilder()
+		m.openFilterBuilder(false)
 	case key.Matches(msg, m.keys.QuickEdit):
 		m.openQuickEdit()
 	case key.Matches(msg, m.keys.MyWork):

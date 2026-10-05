@@ -207,8 +207,12 @@ func (m *Model) jiraFilterSegs() []headSeg {
 	if t.sort != jiraSortRank && !m.jiraShowsLanes() {
 		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(helpKey(m.keys.Sort)+" sort: ")+chip(true, t.sort.String()), m.keys.Sort))
 	}
-	if !t.searching && t.jiraSearchQuery() == "" {
-		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(helpKey(m.keys.Search)+" search"), m.keys.Search))
+	if !t.searching {
+		segs = append(segs, plainSeg(dim("  ·  ")))
+		if t.jiraSearchQuery() == "" {
+			segs = append(segs, keySeg(dim(helpKey(m.keys.Search)+" search"), m.keys.Search), plainSeg(dim("  ")))
+		}
+		segs = append(segs, keySeg(dim(helpKey(m.keys.FilterBuilder)+" filter"), m.keys.FilterBuilder))
 	}
 	return segs
 }
@@ -420,6 +424,9 @@ func (m *Model) planSegs() []headSeg {
 	segs = append(segs, plainSeg(dim("  ·")))
 	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "side"},
 		hint{helpKey(k.PrevView), firstKey(k.PrevView), helpKey(k.NextView), firstKey(k.NextView), "sprint"})...)
+	if !p.finding {
+		segs = append(segs, plainSeg(dim("  ")), keySeg(dim(helpKey(k.FilterBuilder)+" filter"), k.FilterBuilder))
+	}
 	segs = append(segs, plainSeg(dim(fmt.Sprintf("  %s/space move across  %s %s rank  %s goal  %s rename  %s new  %s start/end  %s %s complete",
 		helpKey(k.MoveSprint), helpKey(k.RankUp), helpKey(k.RankDown), helpKey(k.PlanGoal), helpKey(k.PlanRename), helpKey(k.PlanNew),
 		helpKey(k.PlanStart), helpKey(k.PlanComplete), helpKey(k.PlanComplete)))))
