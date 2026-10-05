@@ -1,29 +1,40 @@
 .strow.parked .wsum { color: var(--fg-3); }
 .strow .what.quiet { color: var(--warn); }
 .stwho.stale { color: var(--warn); }
-/* The strip: the people to go round, then the timer. */
-.ststrip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--pad); padding: var(--pad); margin-bottom: calc(var(--pad) * 1.5); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
+/* The strip. Nothing in it changes size with what it shows, so stepping round never moves or re-wraps a thing:
+   row one the people, every chip one size (the shown one ringed, a badge on those heard), wrapping by their number
+   alone between the arrows; row two the one shown (cut, never wrapped), the tools and the timer in fixed slots. */
+.ststrip { display: flex; flex-direction: column; gap: calc(var(--pad) * .75); padding: var(--pad); margin-bottom: calc(var(--pad) * 1.5); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
 .sthead { flex-wrap: nowrap; align-items: flex-start; }
 .sttitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--pad); flex: 1; min-width: 0; }
 .stbtns { display: flex; gap: .286rem; flex: none; }
-.stround { display: flex; align-items: center; gap: .286rem; flex: 1 1 20rem; min-width: 0; }
-.stpeople { display: flex; flex-wrap: wrap; align-items: center; gap: .286rem; min-width: 0; }
-.sttools { display: flex; gap: .286rem; flex: none; }
-.stchip { display: inline-flex; align-items: center; gap: .429rem; padding: .214rem .429rem; border: 1px solid transparent; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
+.stround { display: flex; align-items: center; gap: .286rem; }
+.stround > .btn { flex: none; }
+.stpeople { display: flex; flex-wrap: wrap; align-items: center; gap: .286rem; flex: 1; min-width: 0; }
+.stchip { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; height: 2.286rem; min-width: 2.286rem; padding: 0 .143rem; border: 2px solid transparent; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
 .stchip:hover { background: var(--bg-3); }
-.stchip.cur { background: var(--accent-bg); border-color: var(--accent); }
+.stchip.cur { border-color: var(--accent); background: var(--accent-bg); }
 .stchip.heard:not(.cur) .avatar { opacity: .45; }
 .stchip.quiet:not(.cur) .avatar { filter: grayscale(1); }
-.stchip .stall { padding: 0 .286rem; font-weight: 600; }
-.stchip .stname { font-weight: 600; white-space: nowrap; }
-.stchip .sttick { color: var(--ok); font-size: .857rem; }
-.sttimer { display: flex; align-items: center; gap: var(--pad); margin-left: auto; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.stleft, .sttotal { font-family: var(--font-mono); }
+.stchip .stall { padding: 0 .429rem; font-weight: 600; }
+.stchip .sttick { position: absolute; right: -.143rem; bottom: -.143rem; width: .929rem; height: .929rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--ok); color: var(--bg-2); font-size: .643rem; line-height: 1; pointer-events: none; }
+.stbar { display: flex; align-items: center; gap: var(--pad); white-space: nowrap; }
+.stbar > * { flex: none; }
+.stbar > .stwhom { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stwhom .stname { font-weight: 600; }
+.stnum { font-family: var(--font-mono); font-variant-numeric: tabular-nums; display: inline-block; text-align: right; }
+.stcount { min-width: 5ch; text-align: left; }
+.sttimer { display: flex; align-items: center; gap: var(--pad); }
 .stleft { font-size: 1.571rem; font-weight: 700; }
-.stleft .dim { font-size: .857rem; font-weight: 400; }
+.stleft .stnum { min-width: 6ch; }
+.stleft .dim { font-size: .857rem; font-weight: 400; display: inline-block; min-width: 4ch; margin-left: .286rem; }
+.stleft.idle .stnum { color: var(--fg-3); }
 .sttotal { color: var(--fg-2); }
+.sttotal .stnum { min-width: 5ch; }
 .stleft.over, .sttotal.over { color: var(--err); }
 .stleft.flash { animation: st-flash 1s steps(1) infinite; }
+.stgo { min-width: 6.5rem; justify-content: center; }
 @keyframes st-flash { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .stleft.flash { animation: none; } }
-@media (max-width: 640px) { .sttimer { margin-left: 0; width: 100%; } }
+/* A phone: the timer goes under the one shown. */
+@media (max-width: 640px) { .stbar { flex-wrap: wrap; } .stbar > .stwhom { flex-basis: 100%; } .sttimer { margin-left: auto; } }

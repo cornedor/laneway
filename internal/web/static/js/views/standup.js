@@ -106,26 +106,21 @@ export default function mount(el, { app, scope, context, toolbar }) {
     else { const away = t - paused; started += away; if (turn) turn += away; paused = 0; run(); ui.toast('The timer runs again'); }
     paintTimer();
   }
+  // The timer's parts keep their width whatever it shows, so nothing beside them moves: the turn and the total in
+  // fixed mono slots (a turn's length, dim, before one runs), one button that starts, pauses or resumes.
   const timerEl = h('div.sttimer');
   function paintTimer() {
     clear(timerEl);
     const s = data && data.Settings;
     if (!s) return;
-    const length = s.Length * 1000;
-    if (!started) {
-      timerEl.append(h('span.dim', 'space or → starts the timer'), h('button.btn.ghost.sm', { onclick: pause, title: 'space' }, icon('play'), 'Start'));
-      return;
-    }
-    const t = paused || now(), total = t - started;
-    if (turn && turnMs()) {
-      const left = turnMs() - (t - turn);
-      timerEl.append(left < 0
-        ? h('span.stleft.over' + (paused ? '' : '.flash'), '+' + clock(-left) + ' over')
-        : h('span.stleft', clock(left + 999), h('span.dim', ' left')));
-    }
-    timerEl.append(...[h('span.sttotal' + (total > length ? '.over' : ''), clock(total) + ' of ' + clock(length)),
-      paused && h('span.dim', 'paused'),
-      h('button.btn.ghost.sm', { onclick: pause, title: 'space' }, icon(paused ? 'play' : 'pause'), paused ? 'Resume' : 'Pause')].filter(Boolean));
+    const length = s.Length * 1000, t = paused || now(), total = started ? t - started : 0;
+    const left = started && turn && turnMs() ? turnMs() - (t - turn) : null;
+    timerEl.append(
+      h('span.stleft' + (left !== null && left < 0 ? '.over' + (paused ? '' : '.flash') : '') + (left === null ? '.idle' : ''),
+        h('span.stnum', left === null ? clock(turnMs()) : left < 0 ? '+' + clock(-left) : clock(left + 999)), h('span.dim', left !== null && left < 0 ? 'over' : 'left')),
+      h('span.sttotal' + (total > length ? '.over' : ''), h('span.stnum', clock(total)), ' of ', h('span.stnum', clock(length))),
+      h('button.btn.ghost.sm.stgo' + (paused ? '.on' : ''), { onclick: pause, title: started ? 'space' : 'space or → starts the timer' },
+        icon(!started || paused ? 'play' : 'pause'), !started ? 'Start' : paused ? 'Resume' : 'Pause'));
   }
 
   // go moves to stop i, marking the person left heard; a turn starts on a person's stop, the timer with the first.
@@ -144,23 +139,27 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   // ---- painting
 
+  // strip is the round: on its own line the people, each chip the same size whoever is shown (a ring marks them, a
+  // badge those heard), so the chips wrap by their number alone with the arrows beside them; under them the one
+  // shown, the tools and the timer, on one line.
   function strip() {
     const chips = stops.map((st, i) => {
-      const p = st.Person, cur = i === at;
-      const cls = 'button.stchip' + (cur ? '.cur' : '') + (p.ID && heard.has(p.ID) ? '.heard' : '') + (st.Quiet ? '.quiet' : '');
+      const p = st.Person;
+      const cls = 'button.stchip' + (i === at ? '.cur' : '') + (p.ID && heard.has(p.ID) ? '.heard' : '') + (st.Quiet ? '.quiet' : '');
       return h(cls, { onclick: () => go(i), title: p.ID ? p.Name + (st.Quiet ? ' · no changes' : '') : 'Everyone: the board walked right to left' },
         p.ID ? avatar(p.Name, p.Avatar, 26) : h('span.stall', 'Everyone'),
-        p.ID && cur && h('span.stname', p.Name),
-        p.ID && cur && st.Quiet && h('span.dim', 'no changes'),
         p.ID && heard.has(p.ID) && h('span.sttick', '✓'));
     });
-    // The arrows stay beside the chips, which wrap between them; the tools and the timer keep to one line each.
+    const st = stops[at] || { Person: {} }, all = (data.Stops || []).length - 1;
     return h('div.ststrip',
       h('div.stround', h('button.btn.ghost.sm', { onclick: () => go(at - 1), title: '←' }, icon('chevron-left')), h('div.stpeople', ...chips),
         h('button.btn.ghost.sm', { onclick: () => go(at + 1), title: '→' }, icon('chevron-right'))),
-      h('div.sttools', h('button.btn.ghost.sm', { onclick: pickPeople, title: 'A' }, inPeople.length ? (stops.length - 1) + ' of ' + ((data.Stops || []).length - 1) : "Who's in"),
-        h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), shuffled ? 'Shuffled' : 'Board order')),
-      timerEl);
+      h('div.stbar',
+        h('div.stwhom', st.Person.ID ? [h('span.stname', st.Person.Name), st.Quiet && h('span.dim', ' · no changes')] : h('span.stname', 'Everyone'),
+          h('span.dim', ' · ' + (at ? at + ' of ' + (stops.length - 1) : 'the board'))),
+        h('button.btn.ghost.sm', { onclick: pickPeople, title: 'A' }, "Who's in ", h('span.stnum.stcount', (stops.length - 1) + '/' + all)),
+        h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), 'Shuffle'),
+        timerEl));
   }
 
   function paint() {

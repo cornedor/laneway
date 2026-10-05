@@ -53,7 +53,7 @@ func TestStandupRound(t *testing.T) {
 	}
 	press(keyStr("U"))
 	view := ansi.Strip(m.View().Content)
-	for _, want := range []string{"Standup · since", "Everyone", "To do (1)", "ABC-1 First", "Ada", "logged 2h", "starts the timer"} {
+	for _, want := range []string{"Standup · since", "Everyone", "To do (1)", "ABC-1 First", "Ada", "logged 2h", "space starts"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("no %q:\n%s", want, view)
 		}
@@ -72,7 +72,7 @@ func TestStandupRound(t *testing.T) {
 		t.Errorf("→ to Bo: at %d, started %v", s.at, s.started)
 	}
 	view = ansi.Strip(m.View().Content)
-	for _, want := range []string{"Bo Ek · no changes", "ABC-5 Fifth", "7:30 left · 0:00 of 15:00"} {
+	for _, want := range []string{"Bo Ek · 1 of 2 · no changes", "ABC-5 Fifth", "7:30 left ·  0:00 of 15:00"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("Bo's stop: no %q:\n%s", want, view)
 		}
@@ -199,7 +199,7 @@ func TestStandupPeople(t *testing.T) {
 	if got := m.standupPeople(); !slices.Equal(got, []string{"a", "c"}) {
 		t.Errorf("kept %v", got)
 	}
-	if v := ansi.Strip(m.standupStrip(time.Now())); !strings.Contains(v, "2 of 3") {
+	if v := ansi.Strip(m.standupStrip(time.Now(), 160)); !strings.Contains(v, "2 of 3 in") {
 		t.Errorf("strip: %s", v)
 	}
 	if m.opts.standup.Turn(len(s.stops)-1) != 450*time.Second {
@@ -208,5 +208,39 @@ func TestStandupPeople(t *testing.T) {
 	m.setStandupPeople([]string{""})
 	if len(m.jiraTab.standup.stops) != 4 || len(m.standupPeople()) != 0 {
 		t.Errorf("everyone again: %+v", m.jiraTab.standup.stops)
+	}
+}
+
+// TestStandupStripSteady: the strip keeps its layout however the round and
+// the timer go: as wide as given, the chips and the timer where they were.
+func TestStandupStripSteady(t *testing.T) {
+	m := jiraTabModel(t)
+	t0 := time.Date(2026, 10, 5, 9, 0, 0, 0, time.Local)
+	stops := []standup.Stop{{}}
+	for _, p := range []string{"Ann Lee", "Bo", "Cy Dee-Longname"} {
+		stops = append(stops, standup.Stop{Person: standup.Person{ID: p, Name: p}, Quiet: p == "Bo"})
+	}
+	s := &standupState{board: stops, stops: stops, heard: map[string]bool{}}
+	m.jiraTab.standup = s
+	at := func() (int, int) {
+		v := ansi.Strip(m.standupStrip(t0.Add(90*time.Second), 120))
+		if w := ansi.StringWidth(v); w != 120 {
+			t.Errorf("strip %d wide: %q", w, v)
+		}
+		chips := strings.Index(v, "›")
+		return ansi.StringWidth(v[:chips]), ansi.StringWidth(v[:strings.Index(v, "⏱")])
+	}
+	chips, timer := at()
+	for _, step := range []func(){
+		func() { s.at, s.started, s.turn = 1, t0, t0 },                  // a turn runs
+		func() { s.heard["Ann Lee"], s.at = true, 3 },                   // over a long name, Ann heard
+		func() { s.at, s.turn = 2, t0.Add(-10*time.Minute) },            // Bo over time, quiet
+		func() { s.paused = t0.Add(time.Minute) },                       // paused
+		func() { s.at, s.turn, s.paused = 0, time.Time{}, time.Time{} }, // back on Everyone
+	} {
+		step()
+		if c, tm := at(); c != chips || tm != timer {
+			t.Errorf("moved: chips end %d (was %d), timer at %d (was %d)", c, chips, tm, timer)
+		}
 	}
 }

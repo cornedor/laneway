@@ -508,9 +508,12 @@ func (m *Model) standupViewLine() string {
 	return line + jiraDimStyle.Render(keys)
 }
 
-// standupStrip is the line under it: the people to go round, the shown
-// one lit and named, those heard ticked, and the timer.
-func (m *Model) standupStrip(now time.Time) string {
+// standupStrip is the line under it, width wide: the people to go round,
+// then the one shown and the timer, right-aligned. Nothing changes width
+// with what it shows, so stepping round moves nothing: each chip is the
+// same size (brackets mark the one shown, a tick those heard) and the
+// timer's fields are padded.
+func (m *Model) standupStrip(now time.Time, width int) string {
 	s := m.jiraTab.standup
 	if len(s.stops) == 0 {
 		return ""
@@ -518,60 +521,67 @@ func (m *Model) standupStrip(now time.Time) string {
 	parts := []string{jiraDimStyle.Render("‹")}
 	for i, st := range s.stops {
 		p := st.Person
-		var chip string
-		switch {
-		case p.ID == "":
-			chip = "Everyone"
-			if i == s.at {
-				chip = selectedRow.Render(" Everyone ")
-			}
-		case i == s.at:
-			chip = jiraAvatar(p.Name) + " " + titleStyle.Render(p.Name)
-			if st.Quiet {
-				chip += jiraDimStyle.Render(" · no changes")
-			}
-		default:
-			chip = jiraAvatar(p.Name)
+		body, open, shut, tick := "Everyone", " ", " ", " "
+		if p.ID != "" {
+			body = jiraAvatar(p.Name)
+		}
+		if i == s.at {
+			open, shut = jiraViewActive.Render("["), jiraViewActive.Render("]")
 		}
 		if s.heard[p.ID] {
-			chip += jiraDimStyle.Render("✓")
+			tick = jiraDimStyle.Render("✓")
 		}
-		parts = append(parts, chip)
+		parts = append(parts, open+body+shut+tick)
 	}
 	parts = append(parts, jiraDimStyle.Render("›"))
-	if len(s.in) > 0 {
-		parts = append(parts, jiraDimStyle.Render(fmt.Sprintf("%d of %d", len(s.stops)-1, len(s.board)-1)))
+	st := s.stops[min(s.at, len(s.stops)-1)]
+	who := titleStyle.Render("Everyone") + jiraDimStyle.Render(" · the board")
+	if st.Person.ID != "" {
+		who = titleStyle.Render(st.Person.Name) + jiraDimStyle.Render(fmt.Sprintf(" · %d of %d", s.at, len(s.stops)-1))
+		if st.Quiet {
+			who += jiraDimStyle.Render(" · no changes")
+		}
 	}
-	strip := strings.Join(parts, " ")
+	if len(s.in) > 0 {
+		who += jiraDimStyle.Render(fmt.Sprintf(" · %d of %d in", len(s.stops)-1, len(s.board)-1))
+	}
+	left := strings.Join(parts, "") + "  " + who
 
-	total, left, inTurn := s.clock(now, m.opts.standup.Turn(len(s.stops)-1))
-	var timer string
+	total, rest, inTurn := s.clock(now, m.opts.standup.Turn(len(s.stops)-1))
+	turn := jiraDimStyle.Render(fmt.Sprintf("%6s left", standupClock(m.opts.standup.Turn(len(s.stops)-1)))) // a turn's length till one runs
 	switch {
-	case s.started.IsZero():
-		timer = jiraDimStyle.Render(helpKey(m.keys.StandupPause) + " or → starts the timer")
-	case inTurn && left < 0:
-		timer = "+" + standupClock(-left) + " over"
+	case inTurn && rest < 0:
+		turn = fmt.Sprintf("%6s over", "+"+standupClock(-rest))
 		if now.Second()%2 == 0 || !s.paused.IsZero() {
-			timer = jiraOverStyle.Render(timer)
+			turn = jiraOverStyle.Render(turn)
 		} else {
-			timer = jiraOverStyle.Reverse(true).Render(timer)
+			turn = jiraOverStyle.Reverse(true).Render(turn)
 		}
 	case inTurn:
-		timer = titleStyle.Render(standupClock(left+time.Second-1)) + jiraDimStyle.Render(" left") // counting down, a second shows till it is gone
+		turn = titleStyle.Render(fmt.Sprintf("%6s", standupClock(rest+time.Second-1))) + jiraDimStyle.Render(" left") // counting down, a second shows till it is gone
 	}
-	of := standupClock(total) + " of " + standupClock(m.opts.standup.Length)
-	if timer == "" {
-		timer = jiraDimStyle.Render(of)
-	} else if !s.started.IsZero() {
-		timer += jiraDimStyle.Render(" · " + of)
-	}
-	if !s.paused.IsZero() {
-		timer += jiraDimStyle.Render(" · paused")
-	}
+	of := fmt.Sprintf("%5s of %5s", standupClock(total), standupClock(m.opts.standup.Length))
 	if total > m.opts.standup.Length {
-		timer = strings.Replace(timer, jiraDimStyle.Render(of), jiraOverStyle.Render(of), 1)
+		of = jiraOverStyle.Render(of)
+	} else {
+		of = jiraDimStyle.Render(of)
 	}
-	return strip + "   ⏱ " + timer
+	starts := helpKey(m.keys.StandupPause) + " starts"
+	state := ""
+	switch {
+	case s.started.IsZero():
+		state = starts
+	case !s.paused.IsZero():
+		state = "paused"
+	}
+	state = jiraDimStyle.Render(fmt.Sprintf("%-*s", max(ansi.StringWidth(starts), len("paused")), state))
+	timer := "⏱ " + turn + jiraDimStyle.Render(" · ") + of + "  " + state
+	room := width - ansi.StringWidth(timer) - 2
+	if room < 1 {
+		return ansi.Truncate(left, width, "…")
+	}
+	left = ansi.Truncate(left, room, "…")
+	return left + strings.Repeat(" ", width-ansi.StringWidth(left)-ansi.StringWidth(timer)) + timer
 }
 
 // standupClock is d as m:ss.
