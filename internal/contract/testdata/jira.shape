@@ -1,5 +1,6 @@
 # Jira Cloud's answers to the app's reads: key paths and types, no values.
-# Re-record: go test ./internal/contract -run TestRecord -record <site> -project <key>
+# Re-record: go test ./internal/contract -run TestRecord -record <site> -project <keys>
+# Projects: LAN,LWC.
 # Recorded 2026-10-05.
 
 GET /rest/agile/1.0/board 200
@@ -33,8 +34,13 @@ GET /rest/agile/1.0/board/{id}/backlog 200
 	issues[].fields object
 	issues[].fields.assignee null
 	issues[].fields.components array
+	issues[].fields.components[] object
+	issues[].fields.components[].id string
+	issues[].fields.components[].name string
+	issues[].fields.components[].self string
 	issues[].fields.created string
 	issues[].fields.customfield[devsummarycf] string
+	issues[].fields.customfield[float] number|null
 	issues[].fields.customfield[gh-sprint] null
 	issues[].fields.customfield[jsw-story-points] null
 	issues[].fields.customfield[multicheckboxes] null
@@ -130,6 +136,7 @@ GET /rest/agile/1.0/board/{id}/configuration 200
 	columnConfig object
 	columnConfig.columns array
 	columnConfig.columns[] object
+	columnConfig.columns[].max number
 	columnConfig.columns[].name string
 	columnConfig.columns[].statuses array
 	columnConfig.columns[].statuses[] object
@@ -196,8 +203,13 @@ GET /rest/agile/1.0/board/{id}/issue 200
 	issues[].fields.assignee.self string
 	issues[].fields.assignee.timeZone string
 	issues[].fields.components array
+	issues[].fields.components[] object
+	issues[].fields.components[].id string
+	issues[].fields.components[].name string
+	issues[].fields.components[].self string
 	issues[].fields.created string
 	issues[].fields.customfield[devsummarycf] string
+	issues[].fields.customfield[float] number|null
 	issues[].fields.customfield[gh-sprint] array|null
 	issues[].fields.customfield[gh-sprint][] object
 	issues[].fields.customfield[gh-sprint][].boardId number
@@ -209,8 +221,12 @@ GET /rest/agile/1.0/board/{id}/issue 200
 	issues[].fields.customfield[gh-sprint][].startDate string
 	issues[].fields.customfield[gh-sprint][].state string
 	issues[].fields.customfield[jsw-story-points] number|null
-	issues[].fields.customfield[multicheckboxes] null
-	issues[].fields.duedate null
+	issues[].fields.customfield[multicheckboxes] array|null
+	issues[].fields.customfield[multicheckboxes][] object
+	issues[].fields.customfield[multicheckboxes][].id string
+	issues[].fields.customfield[multicheckboxes][].self string
+	issues[].fields.customfield[multicheckboxes][].value string
+	issues[].fields.duedate string|null
 	issues[].fields.issuetype object
 	issues[].fields.issuetype.avatarId number
 	issues[].fields.issuetype.description string
@@ -288,6 +304,38 @@ GET /rest/agile/1.0/board/{id}/issue 200
 	issues[].fields.status.statusCategory.self string
 	issues[].fields.statuscategorychangedate string
 	issues[].fields.subtasks array
+	issues[].fields.subtasks[] object
+	issues[].fields.subtasks[].fields object
+	issues[].fields.subtasks[].fields.issuetype object
+	issues[].fields.subtasks[].fields.issuetype.avatarId number
+	issues[].fields.subtasks[].fields.issuetype.description string
+	issues[].fields.subtasks[].fields.issuetype.hierarchyLevel number
+	issues[].fields.subtasks[].fields.issuetype.iconUrl string
+	issues[].fields.subtasks[].fields.issuetype.id string
+	issues[].fields.subtasks[].fields.issuetype.name string
+	issues[].fields.subtasks[].fields.issuetype.self string
+	issues[].fields.subtasks[].fields.issuetype.subtask bool
+	issues[].fields.subtasks[].fields.priority object
+	issues[].fields.subtasks[].fields.priority.iconUrl string
+	issues[].fields.subtasks[].fields.priority.id string
+	issues[].fields.subtasks[].fields.priority.name string
+	issues[].fields.subtasks[].fields.priority.self string
+	issues[].fields.subtasks[].fields.status object
+	issues[].fields.subtasks[].fields.status.description string
+	issues[].fields.subtasks[].fields.status.iconUrl string
+	issues[].fields.subtasks[].fields.status.id string
+	issues[].fields.subtasks[].fields.status.name string
+	issues[].fields.subtasks[].fields.status.self string
+	issues[].fields.subtasks[].fields.status.statusCategory object
+	issues[].fields.subtasks[].fields.status.statusCategory.colorName string
+	issues[].fields.subtasks[].fields.status.statusCategory.id number
+	issues[].fields.subtasks[].fields.status.statusCategory.key string
+	issues[].fields.subtasks[].fields.status.statusCategory.name string
+	issues[].fields.subtasks[].fields.status.statusCategory.self string
+	issues[].fields.subtasks[].fields.summary string
+	issues[].fields.subtasks[].id string
+	issues[].fields.subtasks[].key string
+	issues[].fields.subtasks[].self string
 	issues[].fields.summary string
 	issues[].fields.updated string
 	issues[].id string
@@ -304,6 +352,13 @@ GET /rest/agile/1.0/board/{id}/quickfilter 200
 	startAt number
 	total number
 	values array
+	values[] object
+	values[].boardId number
+	values[].description string
+	values[].id number
+	values[].jql string
+	values[].name string
+	values[].position number
 
 GET /rest/agile/1.0/board/{id}/sprint 200
 	. object
@@ -331,10 +386,27 @@ GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200
 	issues[] object
 	issues[].expand string
 	issues[].fields object
-	issues[].fields.assignee null
+	issues[].fields.assignee object|null
+	issues[].fields.assignee.accountId string
+	issues[].fields.assignee.accountType string
+	issues[].fields.assignee.active bool
+	issues[].fields.assignee.avatarUrls object
+	issues[].fields.assignee.avatarUrls.16x16 string
+	issues[].fields.assignee.avatarUrls.24x24 string
+	issues[].fields.assignee.avatarUrls.32x32 string
+	issues[].fields.assignee.avatarUrls.48x48 string
+	issues[].fields.assignee.displayName string
+	issues[].fields.assignee.emailAddress string
+	issues[].fields.assignee.self string
+	issues[].fields.assignee.timeZone string
 	issues[].fields.components array
+	issues[].fields.components[] object
+	issues[].fields.components[].id string
+	issues[].fields.components[].name string
+	issues[].fields.components[].self string
 	issues[].fields.created string
 	issues[].fields.customfield[devsummarycf] string
+	issues[].fields.customfield[float] number|null
 	issues[].fields.customfield[gh-sprint] array
 	issues[].fields.customfield[gh-sprint][] object
 	issues[].fields.customfield[gh-sprint][].boardId number
@@ -345,8 +417,12 @@ GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200
 	issues[].fields.customfield[gh-sprint][].startDate string
 	issues[].fields.customfield[gh-sprint][].state string
 	issues[].fields.customfield[jsw-story-points] null
-	issues[].fields.customfield[multicheckboxes] null
-	issues[].fields.duedate null
+	issues[].fields.customfield[multicheckboxes] array|null
+	issues[].fields.customfield[multicheckboxes][] object
+	issues[].fields.customfield[multicheckboxes][].id string
+	issues[].fields.customfield[multicheckboxes][].self string
+	issues[].fields.customfield[multicheckboxes][].value string
+	issues[].fields.duedate string|null
 	issues[].fields.issuetype object
 	issues[].fields.issuetype.avatarId number
 	issues[].fields.issuetype.description string
@@ -358,6 +434,39 @@ GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200
 	issues[].fields.issuetype.self string
 	issues[].fields.issuetype.subtask bool
 	issues[].fields.labels array
+	issues[].fields.labels[] string
+	issues[].fields.parent object
+	issues[].fields.parent.fields object
+	issues[].fields.parent.fields.issuetype object
+	issues[].fields.parent.fields.issuetype.avatarId number
+	issues[].fields.parent.fields.issuetype.description string
+	issues[].fields.parent.fields.issuetype.hierarchyLevel number
+	issues[].fields.parent.fields.issuetype.iconUrl string
+	issues[].fields.parent.fields.issuetype.id string
+	issues[].fields.parent.fields.issuetype.name string
+	issues[].fields.parent.fields.issuetype.self string
+	issues[].fields.parent.fields.issuetype.subtask bool
+	issues[].fields.parent.fields.priority object
+	issues[].fields.parent.fields.priority.iconUrl string
+	issues[].fields.parent.fields.priority.id string
+	issues[].fields.parent.fields.priority.name string
+	issues[].fields.parent.fields.priority.self string
+	issues[].fields.parent.fields.status object
+	issues[].fields.parent.fields.status.description string
+	issues[].fields.parent.fields.status.iconUrl string
+	issues[].fields.parent.fields.status.id string
+	issues[].fields.parent.fields.status.name string
+	issues[].fields.parent.fields.status.self string
+	issues[].fields.parent.fields.status.statusCategory object
+	issues[].fields.parent.fields.status.statusCategory.colorName string
+	issues[].fields.parent.fields.status.statusCategory.id number
+	issues[].fields.parent.fields.status.statusCategory.key string
+	issues[].fields.parent.fields.status.statusCategory.name string
+	issues[].fields.parent.fields.status.statusCategory.self string
+	issues[].fields.parent.fields.summary string
+	issues[].fields.parent.id string
+	issues[].fields.parent.key string
+	issues[].fields.parent.self string
 	issues[].fields.priority object
 	issues[].fields.priority.iconUrl string
 	issues[].fields.priority.id string
@@ -373,6 +482,7 @@ GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200
 	issues[].fields.reporter.avatarUrls.32x32 string
 	issues[].fields.reporter.avatarUrls.48x48 string
 	issues[].fields.reporter.displayName string
+	issues[].fields.reporter.emailAddress string
 	issues[].fields.reporter.self string
 	issues[].fields.reporter.timeZone string
 	issues[].fields.status object
@@ -389,6 +499,38 @@ GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200
 	issues[].fields.status.statusCategory.self string
 	issues[].fields.statuscategorychangedate string
 	issues[].fields.subtasks array
+	issues[].fields.subtasks[] object
+	issues[].fields.subtasks[].fields object
+	issues[].fields.subtasks[].fields.issuetype object
+	issues[].fields.subtasks[].fields.issuetype.avatarId number
+	issues[].fields.subtasks[].fields.issuetype.description string
+	issues[].fields.subtasks[].fields.issuetype.hierarchyLevel number
+	issues[].fields.subtasks[].fields.issuetype.iconUrl string
+	issues[].fields.subtasks[].fields.issuetype.id string
+	issues[].fields.subtasks[].fields.issuetype.name string
+	issues[].fields.subtasks[].fields.issuetype.self string
+	issues[].fields.subtasks[].fields.issuetype.subtask bool
+	issues[].fields.subtasks[].fields.priority object
+	issues[].fields.subtasks[].fields.priority.iconUrl string
+	issues[].fields.subtasks[].fields.priority.id string
+	issues[].fields.subtasks[].fields.priority.name string
+	issues[].fields.subtasks[].fields.priority.self string
+	issues[].fields.subtasks[].fields.status object
+	issues[].fields.subtasks[].fields.status.description string
+	issues[].fields.subtasks[].fields.status.iconUrl string
+	issues[].fields.subtasks[].fields.status.id string
+	issues[].fields.subtasks[].fields.status.name string
+	issues[].fields.subtasks[].fields.status.self string
+	issues[].fields.subtasks[].fields.status.statusCategory object
+	issues[].fields.subtasks[].fields.status.statusCategory.colorName string
+	issues[].fields.subtasks[].fields.status.statusCategory.id number
+	issues[].fields.subtasks[].fields.status.statusCategory.key string
+	issues[].fields.subtasks[].fields.status.statusCategory.name string
+	issues[].fields.subtasks[].fields.status.statusCategory.self string
+	issues[].fields.subtasks[].fields.summary string
+	issues[].fields.subtasks[].id string
+	issues[].fields.subtasks[].key string
+	issues[].fields.subtasks[].self string
 	issues[].fields.summary string
 	issues[].fields.updated string
 	issues[].id string
@@ -449,6 +591,7 @@ GET /rest/api/3/issue/createmeta/{project}/issuetypes/{id} 200
 	fields[] object
 	fields[].allowedValues array
 	fields[].allowedValues[] object
+	fields[].allowedValues[].archived bool
 	fields[].allowedValues[].avatarId number
 	fields[].allowedValues[].avatarUrls object
 	fields[].allowedValues[].avatarUrls.16x16 string
@@ -462,10 +605,17 @@ GET /rest/api/3/issue/createmeta/{project}/issuetypes/{id} 200
 	fields[].allowedValues[].id string
 	fields[].allowedValues[].key string
 	fields[].allowedValues[].name string
+	fields[].allowedValues[].overdue bool
+	fields[].allowedValues[].projectId number
 	fields[].allowedValues[].projectTypeKey string
+	fields[].allowedValues[].releaseDate string
+	fields[].allowedValues[].released bool
 	fields[].allowedValues[].self string
 	fields[].allowedValues[].simplified bool
+	fields[].allowedValues[].startDate string
 	fields[].allowedValues[].subtask bool
+	fields[].allowedValues[].userReleaseDate string
+	fields[].allowedValues[].userStartDate string
 	fields[].allowedValues[].value string
 	fields[].autoCompleteUrl string
 	fields[].defaultValue object
@@ -516,6 +666,21 @@ GET /rest/api/3/issue/{key} 200
 	editmeta.fields.attachment.schema.items string
 	editmeta.fields.attachment.schema.system string
 	editmeta.fields.attachment.schema.type string
+	editmeta.fields.components object
+	editmeta.fields.components.allowedValues array
+	editmeta.fields.components.allowedValues[] object
+	editmeta.fields.components.allowedValues[].id string
+	editmeta.fields.components.allowedValues[].name string
+	editmeta.fields.components.allowedValues[].self string
+	editmeta.fields.components.key string
+	editmeta.fields.components.name string
+	editmeta.fields.components.operations array
+	editmeta.fields.components.operations[] string
+	editmeta.fields.components.required bool
+	editmeta.fields.components.schema object
+	editmeta.fields.components.schema.items string
+	editmeta.fields.components.schema.system string
+	editmeta.fields.components.schema.type string
 	editmeta.fields.customfield[atlassian-team] object
 	editmeta.fields.customfield[atlassian-team].autoCompleteUrl string
 	editmeta.fields.customfield[atlassian-team].key string
@@ -549,6 +714,16 @@ GET /rest/api/3/issue/{key} 200
 	editmeta.fields.customfield[devsummarycf].schema.custom string
 	editmeta.fields.customfield[devsummarycf].schema.customId number
 	editmeta.fields.customfield[devsummarycf].schema.type string
+	editmeta.fields.customfield[float] object
+	editmeta.fields.customfield[float].key string
+	editmeta.fields.customfield[float].name string
+	editmeta.fields.customfield[float].operations array
+	editmeta.fields.customfield[float].operations[] string
+	editmeta.fields.customfield[float].required bool
+	editmeta.fields.customfield[float].schema object
+	editmeta.fields.customfield[float].schema.custom string
+	editmeta.fields.customfield[float].schema.customId number
+	editmeta.fields.customfield[float].schema.type string
 	editmeta.fields.customfield[gh-lexo-rank] object
 	editmeta.fields.customfield[gh-lexo-rank].key string
 	editmeta.fields.customfield[gh-lexo-rank].name string
@@ -606,6 +781,41 @@ GET /rest/api/3/issue/{key} 200
 	editmeta.fields.customfield[multicheckboxes].schema.customId number
 	editmeta.fields.customfield[multicheckboxes].schema.items string
 	editmeta.fields.customfield[multicheckboxes].schema.type string
+	editmeta.fields.customfield[select] object
+	editmeta.fields.customfield[select].allowedValues array
+	editmeta.fields.customfield[select].allowedValues[] object
+	editmeta.fields.customfield[select].allowedValues[].id string
+	editmeta.fields.customfield[select].allowedValues[].self string
+	editmeta.fields.customfield[select].allowedValues[].value string
+	editmeta.fields.customfield[select].key string
+	editmeta.fields.customfield[select].name string
+	editmeta.fields.customfield[select].operations array
+	editmeta.fields.customfield[select].operations[] string
+	editmeta.fields.customfield[select].required bool
+	editmeta.fields.customfield[select].schema object
+	editmeta.fields.customfield[select].schema.custom string
+	editmeta.fields.customfield[select].schema.customId number
+	editmeta.fields.customfield[select].schema.type string
+	editmeta.fields.customfield[textarea] object
+	editmeta.fields.customfield[textarea].key string
+	editmeta.fields.customfield[textarea].name string
+	editmeta.fields.customfield[textarea].operations array
+	editmeta.fields.customfield[textarea].operations[] string
+	editmeta.fields.customfield[textarea].required bool
+	editmeta.fields.customfield[textarea].schema object
+	editmeta.fields.customfield[textarea].schema.custom string
+	editmeta.fields.customfield[textarea].schema.customId number
+	editmeta.fields.customfield[textarea].schema.type string
+	editmeta.fields.customfield[textfield] object
+	editmeta.fields.customfield[textfield].key string
+	editmeta.fields.customfield[textfield].name string
+	editmeta.fields.customfield[textfield].operations array
+	editmeta.fields.customfield[textfield].operations[] string
+	editmeta.fields.customfield[textfield].required bool
+	editmeta.fields.customfield[textfield].schema object
+	editmeta.fields.customfield[textfield].schema.custom string
+	editmeta.fields.customfield[textfield].schema.customId number
+	editmeta.fields.customfield[textfield].schema.type string
 	editmeta.fields.customfield[vulnerabilitycf] object
 	editmeta.fields.customfield[vulnerabilitycf].key string
 	editmeta.fields.customfield[vulnerabilitycf].name string
@@ -634,6 +844,30 @@ GET /rest/api/3/issue/{key} 200
 	editmeta.fields.environment.schema object
 	editmeta.fields.environment.schema.system string
 	editmeta.fields.environment.schema.type string
+	editmeta.fields.fixVersions object
+	editmeta.fields.fixVersions.allowedValues array
+	editmeta.fields.fixVersions.allowedValues[] object
+	editmeta.fields.fixVersions.allowedValues[].archived bool
+	editmeta.fields.fixVersions.allowedValues[].description string
+	editmeta.fields.fixVersions.allowedValues[].id string
+	editmeta.fields.fixVersions.allowedValues[].name string
+	editmeta.fields.fixVersions.allowedValues[].overdue bool
+	editmeta.fields.fixVersions.allowedValues[].projectId number
+	editmeta.fields.fixVersions.allowedValues[].releaseDate string
+	editmeta.fields.fixVersions.allowedValues[].released bool
+	editmeta.fields.fixVersions.allowedValues[].self string
+	editmeta.fields.fixVersions.allowedValues[].startDate string
+	editmeta.fields.fixVersions.allowedValues[].userReleaseDate string
+	editmeta.fields.fixVersions.allowedValues[].userStartDate string
+	editmeta.fields.fixVersions.key string
+	editmeta.fields.fixVersions.name string
+	editmeta.fields.fixVersions.operations array
+	editmeta.fields.fixVersions.operations[] string
+	editmeta.fields.fixVersions.required bool
+	editmeta.fields.fixVersions.schema object
+	editmeta.fields.fixVersions.schema.items string
+	editmeta.fields.fixVersions.schema.system string
+	editmeta.fields.fixVersions.schema.type string
 	editmeta.fields.issuelinks object
 	editmeta.fields.issuelinks.autoCompleteUrl string
 	editmeta.fields.issuelinks.key string
@@ -729,6 +963,39 @@ GET /rest/api/3/issue/{key} 200
 	editmeta.fields.summary.schema object
 	editmeta.fields.summary.schema.system string
 	editmeta.fields.summary.schema.type string
+	editmeta.fields.timetracking object
+	editmeta.fields.timetracking.key string
+	editmeta.fields.timetracking.name string
+	editmeta.fields.timetracking.operations array
+	editmeta.fields.timetracking.operations[] string
+	editmeta.fields.timetracking.required bool
+	editmeta.fields.timetracking.schema object
+	editmeta.fields.timetracking.schema.system string
+	editmeta.fields.timetracking.schema.type string
+	editmeta.fields.versions object
+	editmeta.fields.versions.allowedValues array
+	editmeta.fields.versions.allowedValues[] object
+	editmeta.fields.versions.allowedValues[].archived bool
+	editmeta.fields.versions.allowedValues[].description string
+	editmeta.fields.versions.allowedValues[].id string
+	editmeta.fields.versions.allowedValues[].name string
+	editmeta.fields.versions.allowedValues[].overdue bool
+	editmeta.fields.versions.allowedValues[].projectId number
+	editmeta.fields.versions.allowedValues[].releaseDate string
+	editmeta.fields.versions.allowedValues[].released bool
+	editmeta.fields.versions.allowedValues[].self string
+	editmeta.fields.versions.allowedValues[].startDate string
+	editmeta.fields.versions.allowedValues[].userReleaseDate string
+	editmeta.fields.versions.allowedValues[].userStartDate string
+	editmeta.fields.versions.key string
+	editmeta.fields.versions.name string
+	editmeta.fields.versions.operations array
+	editmeta.fields.versions.operations[] string
+	editmeta.fields.versions.required bool
+	editmeta.fields.versions.schema object
+	editmeta.fields.versions.schema.items string
+	editmeta.fields.versions.schema.system string
+	editmeta.fields.versions.schema.type string
 	expand string
 	fields object
 	fields.aggregateprogress object
@@ -736,7 +1003,7 @@ GET /rest/api/3/issue/{key} 200
 	fields.aggregateprogress.progress number
 	fields.aggregateprogress.total number
 	fields.aggregatetimeestimate number|null
-	fields.aggregatetimeoriginalestimate null
+	fields.aggregatetimeoriginalestimate number|null
 	fields.aggregatetimespent number|null
 	fields.assignee object|null
 	fields.assignee.accountId string
@@ -765,6 +1032,7 @@ GET /rest/api/3/issue/{key} 200
 	fields.comment.comments[].author.avatarUrls.32x32 string
 	fields.comment.comments[].author.avatarUrls.48x48 string
 	fields.comment.comments[].author.displayName string
+	fields.comment.comments[].author.emailAddress string
 	fields.comment.comments[].author.self string
 	fields.comment.comments[].author.timeZone string
 	fields.comment.comments[].body object
@@ -772,6 +1040,11 @@ GET /rest/api/3/issue/{key} 200
 	fields.comment.comments[].body.content[] object
 	fields.comment.comments[].body.content[].content array
 	fields.comment.comments[].body.content[].content[] object
+	fields.comment.comments[].body.content[].content[].attrs object
+	fields.comment.comments[].body.content[].content[].attrs.accessLevel string
+	fields.comment.comments[].body.content[].content[].attrs.id string
+	fields.comment.comments[].body.content[].content[].attrs.shortName string
+	fields.comment.comments[].body.content[].content[].attrs.text string
 	fields.comment.comments[].body.content[].content[].marks array
 	fields.comment.comments[].body.content[].content[].marks[] object
 	fields.comment.comments[].body.content[].content[].marks[].type string
@@ -794,6 +1067,7 @@ GET /rest/api/3/issue/{key} 200
 	fields.comment.comments[].updateAuthor.avatarUrls.32x32 string
 	fields.comment.comments[].updateAuthor.avatarUrls.48x48 string
 	fields.comment.comments[].updateAuthor.displayName string
+	fields.comment.comments[].updateAuthor.emailAddress string
 	fields.comment.comments[].updateAuthor.self string
 	fields.comment.comments[].updateAuthor.timeZone string
 	fields.comment.comments[].updated string
@@ -802,6 +1076,10 @@ GET /rest/api/3/issue/{key} 200
 	fields.comment.startAt number
 	fields.comment.total number
 	fields.components array
+	fields.components[] object
+	fields.components[].id string
+	fields.components[].name string
+	fields.components[].self string
 	fields.created string
 	fields.creator object
 	fields.creator.accountId string
@@ -818,9 +1096,24 @@ GET /rest/api/3/issue/{key} 200
 	fields.creator.timeZone string
 	fields.customfield[agent-sessions] null
 	fields.customfield[atlassian-team] null
-	fields.customfield[datepicker] null
+	fields.customfield[datepicker] string|null
+	fields.customfield[datetime] null
 	fields.customfield[designcf] null
 	fields.customfield[devsummarycf] string
+	fields.customfield[firstresponsedate] null
+	fields.customfield[float] number|null
+	fields.customfield[focus-areas] null
+	fields.customfield[forms-locked-field-cftype] null
+	fields.customfield[forms-open-field-cftype] null
+	fields.customfield[forms-submitted-field-cftype] null
+	fields.customfield[forms-total-field-cftype] null
+	fields.customfield[gh-epic-color] string
+	fields.customfield[gh-epic-label] null
+	fields.customfield[gh-epic-link] string|null
+	fields.customfield[gh-epic-status] object
+	fields.customfield[gh-epic-status].id string
+	fields.customfield[gh-epic-status].self string
+	fields.customfield[gh-epic-status].value string
 	fields.customfield[gh-lexo-rank] string
 	fields.customfield[gh-sprint] array|null
 	fields.customfield[gh-sprint][] object
@@ -832,21 +1125,68 @@ GET /rest/api/3/issue/{key} 200
 	fields.customfield[gh-sprint][].name string
 	fields.customfield[gh-sprint][].startDate string
 	fields.customfield[gh-sprint][].state string
-	fields.customfield[jsw-issue-color] null
+	fields.customfield[goals] null
+	fields.customfield[jpo-custom-field-baseline-end] null
+	fields.customfield[jpo-custom-field-baseline-start] null
+	fields.customfield[jsw-issue-color] string|null
 	fields.customfield[jsw-story-points] number|null
-	fields.customfield[multicheckboxes] null
+	fields.customfield[multicheckboxes] array|null
+	fields.customfield[multicheckboxes][] object
+	fields.customfield[multicheckboxes][].id string
+	fields.customfield[multicheckboxes][].self string
+	fields.customfield[multicheckboxes][].value string
+	fields.customfield[multiuserpicker] null
+	fields.customfield[proforma-forms-field-cftype] null
+	fields.customfield[sd-approvals] null
+	fields.customfield[sd-customer-organizations] array
+	fields.customfield[sd-sentiment] null
+	fields.customfield[select] object|null
+	fields.customfield[select].id string
+	fields.customfield[select].self string
+	fields.customfield[select].value string
+	fields.customfield[textarea] object|null
+	fields.customfield[textarea].content array
+	fields.customfield[textarea].content[] object
+	fields.customfield[textarea].content[].content array
+	fields.customfield[textarea].content[].content[] object
+	fields.customfield[textarea].content[].content[].text string
+	fields.customfield[textarea].content[].content[].type string
+	fields.customfield[textarea].content[].type string
+	fields.customfield[textarea].type string
+	fields.customfield[textarea].version number
+	fields.customfield[textfield] string|null
+	fields.customfield[timeinstatus] string|null
+	fields.customfield[userpicker] null
+	fields.customfield[vp-origin] null
 	fields.customfield[vulnerabilitycf] null
-	fields.description object
+	fields.customfield_* null
+	fields.description object|null
 	fields.description.content array
 	fields.description.content[] object
 	fields.description.content[].attrs object
+	fields.description.content[].attrs.language string
+	fields.description.content[].attrs.level number
 	fields.description.content[].attrs.localId string
 	fields.description.content[].attrs.panelType string
 	fields.description.content[].attrs.resourceId string
 	fields.description.content[].content array
 	fields.description.content[].content[] object
+	fields.description.content[].content[].attrs object
+	fields.description.content[].content[].attrs.accessLevel string
+	fields.description.content[].content[].attrs.id string
+	fields.description.content[].content[].attrs.localId string
+	fields.description.content[].content[].attrs.shortName string
+	fields.description.content[].content[].attrs.state string
+	fields.description.content[].content[].attrs.text string
 	fields.description.content[].content[].content array
 	fields.description.content[].content[].content[] object
+	fields.description.content[].content[].content[].content array
+	fields.description.content[].content[].content[].content[] object
+	fields.description.content[].content[].content[].content[].marks array
+	fields.description.content[].content[].content[].content[].marks[] object
+	fields.description.content[].content[].content[].content[].marks[].type string
+	fields.description.content[].content[].content[].content[].text string
+	fields.description.content[].content[].content[].content[].type string
 	fields.description.content[].content[].content[].marks array
 	fields.description.content[].content[].content[].marks[] object
 	fields.description.content[].content[].content[].marks[].type string
@@ -854,16 +1194,99 @@ GET /rest/api/3/issue/{key} 200
 	fields.description.content[].content[].content[].type string
 	fields.description.content[].content[].marks array
 	fields.description.content[].content[].marks[] object
+	fields.description.content[].content[].marks[].attrs object
+	fields.description.content[].content[].marks[].attrs.href string
 	fields.description.content[].content[].marks[].type string
 	fields.description.content[].content[].text string
 	fields.description.content[].content[].type string
 	fields.description.content[].type string
 	fields.description.type string
 	fields.description.version number
-	fields.duedate null
+	fields.duedate string|null
 	fields.environment null
 	fields.fixVersions array
+	fields.fixVersions[] object
+	fields.fixVersions[].archived bool
+	fields.fixVersions[].description string
+	fields.fixVersions[].id string
+	fields.fixVersions[].name string
+	fields.fixVersions[].releaseDate string
+	fields.fixVersions[].released bool
+	fields.fixVersions[].self string
 	fields.issuelinks array
+	fields.issuelinks[] object
+	fields.issuelinks[].id string
+	fields.issuelinks[].inwardIssue object
+	fields.issuelinks[].inwardIssue.fields object
+	fields.issuelinks[].inwardIssue.fields.issuetype object
+	fields.issuelinks[].inwardIssue.fields.issuetype.avatarId number
+	fields.issuelinks[].inwardIssue.fields.issuetype.description string
+	fields.issuelinks[].inwardIssue.fields.issuetype.hierarchyLevel number
+	fields.issuelinks[].inwardIssue.fields.issuetype.iconUrl string
+	fields.issuelinks[].inwardIssue.fields.issuetype.id string
+	fields.issuelinks[].inwardIssue.fields.issuetype.name string
+	fields.issuelinks[].inwardIssue.fields.issuetype.self string
+	fields.issuelinks[].inwardIssue.fields.issuetype.subtask bool
+	fields.issuelinks[].inwardIssue.fields.priority object
+	fields.issuelinks[].inwardIssue.fields.priority.iconUrl string
+	fields.issuelinks[].inwardIssue.fields.priority.id string
+	fields.issuelinks[].inwardIssue.fields.priority.name string
+	fields.issuelinks[].inwardIssue.fields.priority.self string
+	fields.issuelinks[].inwardIssue.fields.status object
+	fields.issuelinks[].inwardIssue.fields.status.description string
+	fields.issuelinks[].inwardIssue.fields.status.iconUrl string
+	fields.issuelinks[].inwardIssue.fields.status.id string
+	fields.issuelinks[].inwardIssue.fields.status.name string
+	fields.issuelinks[].inwardIssue.fields.status.self string
+	fields.issuelinks[].inwardIssue.fields.status.statusCategory object
+	fields.issuelinks[].inwardIssue.fields.status.statusCategory.colorName string
+	fields.issuelinks[].inwardIssue.fields.status.statusCategory.id number
+	fields.issuelinks[].inwardIssue.fields.status.statusCategory.key string
+	fields.issuelinks[].inwardIssue.fields.status.statusCategory.name string
+	fields.issuelinks[].inwardIssue.fields.status.statusCategory.self string
+	fields.issuelinks[].inwardIssue.fields.summary string
+	fields.issuelinks[].inwardIssue.id string
+	fields.issuelinks[].inwardIssue.key string
+	fields.issuelinks[].inwardIssue.self string
+	fields.issuelinks[].outwardIssue object
+	fields.issuelinks[].outwardIssue.fields object
+	fields.issuelinks[].outwardIssue.fields.issuetype object
+	fields.issuelinks[].outwardIssue.fields.issuetype.avatarId number
+	fields.issuelinks[].outwardIssue.fields.issuetype.description string
+	fields.issuelinks[].outwardIssue.fields.issuetype.hierarchyLevel number
+	fields.issuelinks[].outwardIssue.fields.issuetype.iconUrl string
+	fields.issuelinks[].outwardIssue.fields.issuetype.id string
+	fields.issuelinks[].outwardIssue.fields.issuetype.name string
+	fields.issuelinks[].outwardIssue.fields.issuetype.self string
+	fields.issuelinks[].outwardIssue.fields.issuetype.subtask bool
+	fields.issuelinks[].outwardIssue.fields.priority object
+	fields.issuelinks[].outwardIssue.fields.priority.iconUrl string
+	fields.issuelinks[].outwardIssue.fields.priority.id string
+	fields.issuelinks[].outwardIssue.fields.priority.name string
+	fields.issuelinks[].outwardIssue.fields.priority.self string
+	fields.issuelinks[].outwardIssue.fields.status object
+	fields.issuelinks[].outwardIssue.fields.status.description string
+	fields.issuelinks[].outwardIssue.fields.status.iconUrl string
+	fields.issuelinks[].outwardIssue.fields.status.id string
+	fields.issuelinks[].outwardIssue.fields.status.name string
+	fields.issuelinks[].outwardIssue.fields.status.self string
+	fields.issuelinks[].outwardIssue.fields.status.statusCategory object
+	fields.issuelinks[].outwardIssue.fields.status.statusCategory.colorName string
+	fields.issuelinks[].outwardIssue.fields.status.statusCategory.id number
+	fields.issuelinks[].outwardIssue.fields.status.statusCategory.key string
+	fields.issuelinks[].outwardIssue.fields.status.statusCategory.name string
+	fields.issuelinks[].outwardIssue.fields.status.statusCategory.self string
+	fields.issuelinks[].outwardIssue.fields.summary string
+	fields.issuelinks[].outwardIssue.id string
+	fields.issuelinks[].outwardIssue.key string
+	fields.issuelinks[].outwardIssue.self string
+	fields.issuelinks[].self string
+	fields.issuelinks[].type object
+	fields.issuelinks[].type.id string
+	fields.issuelinks[].type.inward string
+	fields.issuelinks[].type.name string
+	fields.issuelinks[].type.outward string
+	fields.issuelinks[].type.self string
 	fields.issuerestriction object
 	fields.issuerestriction.issuerestrictions object
 	fields.issuerestriction.shouldDisplay bool
@@ -974,11 +1397,45 @@ GET /rest/api/3/issue/{key} 200
 	fields.statusCategory.self string
 	fields.statuscategorychangedate string
 	fields.subtasks array
+	fields.subtasks[] object
+	fields.subtasks[].fields object
+	fields.subtasks[].fields.issuetype object
+	fields.subtasks[].fields.issuetype.avatarId number
+	fields.subtasks[].fields.issuetype.description string
+	fields.subtasks[].fields.issuetype.hierarchyLevel number
+	fields.subtasks[].fields.issuetype.iconUrl string
+	fields.subtasks[].fields.issuetype.id string
+	fields.subtasks[].fields.issuetype.name string
+	fields.subtasks[].fields.issuetype.self string
+	fields.subtasks[].fields.issuetype.subtask bool
+	fields.subtasks[].fields.priority object
+	fields.subtasks[].fields.priority.iconUrl string
+	fields.subtasks[].fields.priority.id string
+	fields.subtasks[].fields.priority.name string
+	fields.subtasks[].fields.priority.self string
+	fields.subtasks[].fields.status object
+	fields.subtasks[].fields.status.description string
+	fields.subtasks[].fields.status.iconUrl string
+	fields.subtasks[].fields.status.id string
+	fields.subtasks[].fields.status.name string
+	fields.subtasks[].fields.status.self string
+	fields.subtasks[].fields.status.statusCategory object
+	fields.subtasks[].fields.status.statusCategory.colorName string
+	fields.subtasks[].fields.status.statusCategory.id number
+	fields.subtasks[].fields.status.statusCategory.key string
+	fields.subtasks[].fields.status.statusCategory.name string
+	fields.subtasks[].fields.status.statusCategory.self string
+	fields.subtasks[].fields.summary string
+	fields.subtasks[].id string
+	fields.subtasks[].key string
+	fields.subtasks[].self string
 	fields.summary string
 	fields.timeestimate number|null
-	fields.timeoriginalestimate null
+	fields.timeoriginalestimate number|null
 	fields.timespent number|null
 	fields.timetracking object
+	fields.timetracking.originalEstimate string
+	fields.timetracking.originalEstimateSeconds number
 	fields.timetracking.remainingEstimate string
 	fields.timetracking.remainingEstimateSeconds number
 	fields.timetracking.timeSpent string
@@ -1110,20 +1567,13 @@ GET /rest/api/3/issue/{key}/comment 200
 	comments[].body object
 	comments[].body.content array
 	comments[].body.content[] object
-	comments[].body.content[].attrs object
-	comments[].body.content[].attrs.layout string
-	comments[].body.content[].attrs.localId string
 	comments[].body.content[].content array
 	comments[].body.content[].content[] object
 	comments[].body.content[].content[].attrs object
 	comments[].body.content[].content[].attrs.accessLevel string
-	comments[].body.content[].content[].attrs.alt string
-	comments[].body.content[].content[].attrs.collection string
 	comments[].body.content[].content[].attrs.id string
-	comments[].body.content[].content[].attrs.localId string
 	comments[].body.content[].content[].attrs.shortName string
 	comments[].body.content[].content[].attrs.text string
-	comments[].body.content[].content[].attrs.type string
 	comments[].body.content[].content[].marks array
 	comments[].body.content[].content[].marks[] object
 	comments[].body.content[].content[].marks[].type string
@@ -1135,7 +1585,6 @@ GET /rest/api/3/issue/{key}/comment 200
 	comments[].created string
 	comments[].id string
 	comments[].jsdPublic bool
-	comments[].parentId number
 	comments[].self string
 	comments[].updateAuthor object
 	comments[].updateAuthor.accountId string
@@ -1157,6 +1606,16 @@ GET /rest/api/3/issue/{key}/comment 200
 
 GET /rest/api/3/issue/{key}/remotelink 200
 	. array
+	.[] object
+	.[].application object
+	.[].id number
+	.[].object object
+	.[].object.icon object
+	.[].object.status object
+	.[].object.status.icon object
+	.[].object.title string
+	.[].object.url string
+	.[].self string
 
 GET /rest/api/3/issue/{key}/transitions 200
 	. object
@@ -1367,6 +1826,11 @@ GET /rest/api/3/project/{project} 200
 	avatarUrls.32x32 string
 	avatarUrls.48x48 string
 	components array
+	components[] object
+	components[].id string
+	components[].isAssigneeTypeValid bool
+	components[].name string
+	components[].self string
 	description string
 	entityId string
 	expand string
@@ -1398,6 +1862,7 @@ GET /rest/api/3/project/{project} 200
 	properties object
 	roles object
 	roles.Administrator string
+	roles.Administrators string
 	roles.Member string
 	roles.Viewer string
 	roles.atlassian-addons-project-access string
@@ -1407,6 +1872,19 @@ GET /rest/api/3/project/{project} 200
 	style string
 	uuid string
 	versions array
+	versions[] object
+	versions[].archived bool
+	versions[].description string
+	versions[].id string
+	versions[].name string
+	versions[].overdue bool
+	versions[].projectId number
+	versions[].releaseDate string
+	versions[].released bool
+	versions[].self string
+	versions[].startDate string
+	versions[].userReleaseDate string
+	versions[].userStartDate string
 
 GET /rest/api/3/project/{project}/roledetails 200
 	. array
@@ -1459,6 +1937,25 @@ GET /rest/api/3/project/{project}/version 200
 	startAt number
 	total number
 	values array
+	values[] object
+	values[].archived bool
+	values[].description string
+	values[].expand string
+	values[].id string
+	values[].issuesStatusForFixVersion object
+	values[].issuesStatusForFixVersion.done number
+	values[].issuesStatusForFixVersion.inProgress number
+	values[].issuesStatusForFixVersion.toDo number
+	values[].issuesStatusForFixVersion.unmapped number
+	values[].name string
+	values[].overdue bool
+	values[].projectId number
+	values[].releaseDate string
+	values[].released bool
+	values[].self string
+	values[].startDate string
+	values[].userReleaseDate string
+	values[].userStartDate string
 
 GET /rest/api/3/status 200
 	. array
@@ -1509,9 +2006,58 @@ GET /rest/api/3/user/groups 200
 GET /rest/api/3/user/viewissue/search 200
 	. array
 
+GET /rest/api/3/workflow/search 200
+	. object
+	isLast bool
+	maxResults number
+	self string
+	startAt number
+	total number
+	values array
+	values[] object
+	values[].created string
+	values[].description string
+	values[].id object
+	values[].id.entityId string
+	values[].id.name string
+	values[].transitions array
+	values[].transitions[] object
+	values[].transitions[].description string
+	values[].transitions[].from array
+	values[].transitions[].id string
+	values[].transitions[].name string
+	values[].transitions[].rules object
+	values[].transitions[].rules.postFunctions array
+	values[].transitions[].rules.postFunctions[] object
+	values[].transitions[].rules.postFunctions[].configuration object
+	values[].transitions[].rules.postFunctions[].configuration.event object
+	values[].transitions[].rules.postFunctions[].configuration.event.id string
+	values[].transitions[].rules.postFunctions[].configuration.event.name string
+	values[].transitions[].rules.postFunctions[].configuration.fieldId string
+	values[].transitions[].rules.postFunctions[].configuration.fieldValue string
+	values[].transitions[].rules.postFunctions[].type string
+	values[].transitions[].rules.validators array
+	values[].transitions[].rules.validators[] object
+	values[].transitions[].rules.validators[].configuration object
+	values[].transitions[].rules.validators[].configuration.permissionKey string
+	values[].transitions[].rules.validators[].type string
+	values[].transitions[].to string
+	values[].transitions[].type string
+	values[].updated string
+
 GET /rest/api/3/workflowscheme/project 200
 	. object
 	values array
+	values[] object
+	values[].projectIds array
+	values[].projectIds[] string
+	values[].workflowScheme object
+	values[].workflowScheme.defaultWorkflow string
+	values[].workflowScheme.description string
+	values[].workflowScheme.id number
+	values[].workflowScheme.issueTypeMappings object
+	values[].workflowScheme.name string
+	values[].workflowScheme.self string
 
 GET /rest/dev-status/latest/issue/summary 200
 	. object
@@ -1801,6 +2347,13 @@ GET /rest/greenhopper/1.0/rapidviewconfig/editmodel.json 200
 	swimlanesConfig.rapidViewId number
 	swimlanesConfig.swimlaneStrategy string
 	swimlanesConfig.swimlanes array
+	swimlanesConfig.swimlanes[] object
+	swimlanesConfig.swimlanes[].description string
+	swimlanesConfig.swimlanes[].id number
+	swimlanesConfig.swimlanes[].isDefault bool
+	swimlanesConfig.swimlanes[].name string
+	swimlanesConfig.swimlanes[].position number
+	swimlanesConfig.swimlanes[].query string
 	warnBeforeEditingLocation bool
 	warnBeforeEditingOwner bool
 	workingDaysConfig object
@@ -1887,9 +2440,14 @@ POST /rest/api/3/search/jql 200
 	issues[].fields.assignee.self string
 	issues[].fields.assignee.timeZone string
 	issues[].fields.components array
+	issues[].fields.components[] object
+	issues[].fields.components[].id string
+	issues[].fields.components[].name string
+	issues[].fields.components[].self string
 	issues[].fields.created string
-	issues[].fields.customfield[datepicker] null
+	issues[].fields.customfield[datepicker] string|null
 	issues[].fields.customfield[devsummarycf] string
+	issues[].fields.customfield[float] number|null
 	issues[].fields.customfield[gh-sprint] array|null
 	issues[].fields.customfield[gh-sprint][] object
 	issues[].fields.customfield[gh-sprint][].boardId number
@@ -1900,12 +2458,49 @@ POST /rest/api/3/search/jql 200
 	issues[].fields.customfield[gh-sprint][].name string
 	issues[].fields.customfield[gh-sprint][].startDate string
 	issues[].fields.customfield[gh-sprint][].state string
+	issues[].fields.customfield[jpo-custom-field-baseline-end] null
 	issues[].fields.customfield[jsw-story-points] number|null
-	issues[].fields.customfield[multicheckboxes] null
-	issues[].fields.duedate null
+	issues[].fields.customfield[multicheckboxes] array|null
+	issues[].fields.customfield[multicheckboxes][] object
+	issues[].fields.customfield[multicheckboxes][].id string
+	issues[].fields.customfield[multicheckboxes][].self string
+	issues[].fields.customfield[multicheckboxes][].value string
+	issues[].fields.duedate string|null
 	issues[].fields.issuelinks array
 	issues[].fields.issuelinks[] object
 	issues[].fields.issuelinks[].id string
+	issues[].fields.issuelinks[].inwardIssue object
+	issues[].fields.issuelinks[].inwardIssue.fields object
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype object
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.avatarId number
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.description string
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.hierarchyLevel number
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.iconUrl string
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.id string
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.name string
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.self string
+	issues[].fields.issuelinks[].inwardIssue.fields.issuetype.subtask bool
+	issues[].fields.issuelinks[].inwardIssue.fields.priority object
+	issues[].fields.issuelinks[].inwardIssue.fields.priority.iconUrl string
+	issues[].fields.issuelinks[].inwardIssue.fields.priority.id string
+	issues[].fields.issuelinks[].inwardIssue.fields.priority.name string
+	issues[].fields.issuelinks[].inwardIssue.fields.priority.self string
+	issues[].fields.issuelinks[].inwardIssue.fields.status object
+	issues[].fields.issuelinks[].inwardIssue.fields.status.description string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.iconUrl string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.id string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.name string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.self string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.statusCategory object
+	issues[].fields.issuelinks[].inwardIssue.fields.status.statusCategory.colorName string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.statusCategory.id number
+	issues[].fields.issuelinks[].inwardIssue.fields.status.statusCategory.key string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.statusCategory.name string
+	issues[].fields.issuelinks[].inwardIssue.fields.status.statusCategory.self string
+	issues[].fields.issuelinks[].inwardIssue.fields.summary string
+	issues[].fields.issuelinks[].inwardIssue.id string
+	issues[].fields.issuelinks[].inwardIssue.key string
+	issues[].fields.issuelinks[].inwardIssue.self string
 	issues[].fields.issuelinks[].outwardIssue object
 	issues[].fields.issuelinks[].outwardIssue.fields object
 	issues[].fields.issuelinks[].outwardIssue.fields.issuetype object

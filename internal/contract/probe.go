@@ -61,7 +61,12 @@ func Probe(ctx context.Context, c *jira.Client, project string) []error {
 	try("Boards", err)
 	if len(boards) > 0 {
 		b := boards[0].ID
-		try("BoardConfiguration", ignore(c.BoardConfiguration(ctx, b)))
+		// Cards carry the board's estimate, as the app asks for them.
+		if cfg, err := c.BoardConfiguration(ctx, b); err != nil {
+			try("BoardConfiguration", err)
+		} else if cfg.PointsField != "" {
+			pf = cfg.PointsField
+		}
 		try("QuickFilters", ignore(c.QuickFilters(ctx, b)))
 		try("CardColors", ignore(c.CardColors(ctx, b)))
 		some, _, err := c.BoardIssues(ctx, b, "", pf)

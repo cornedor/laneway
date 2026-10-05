@@ -1,32 +1,3 @@
 # "endpoint | path" the demo may answer though Jira's recording lacks it,
-# each with its reason. The recording is LAN on corne-team: a team-managed
-# project, where the demo is company-managed.
-
-# Story Points is a number field (float) in company-managed projects;
-# team-managed ones have Story point estimate (jsw-story-points).
-GET /rest/agile/1.0/board/{id}/backlog 200 | issues[].fields.customfield[float]
-GET /rest/agile/1.0/board/{id}/issue 200 | issues[].fields.customfield[float]
-GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200 | issues[].fields.customfield[float]
-GET /rest/api/3/issue/{key} 200 | fields.customfield[float]
-POST /rest/api/3/search/jql 200 | issues[].fields.customfield[float]
-
-# LAN has no text or select custom fields; the demo's Test notes, Legacy
-# ref and Team are.
-GET /rest/api/3/issue/{key} 200 | fields.customfield[textarea]
-GET /rest/api/3/issue/{key} 200 | fields.customfield[textfield]
-GET /rest/api/3/issue/{key} 200 | fields.customfield[select]
-GET /rest/api/3/issue/{key} 200 | editmeta.fields.customfield[textarea]
-GET /rest/api/3/issue/{key} 200 | editmeta.fields.customfield[textfield]
-GET /rest/api/3/issue/{key} 200 | editmeta.fields.customfield[select]
-
-# Team-managed projects have no components.
-GET /rest/api/3/issue/{key} 200 | editmeta.fields.components
-
-# Jira leaves max out of a column without a WIP limit; LAN sets none.
-GET /rest/agile/1.0/board/{id}/configuration 200 | columnConfig.columns[].max
-
-# Jira leaves parent out of an issue without one; LAN's sprint has none.
-GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200 | issues[].fields.parent
-
-# Mentions and emoji carry attrs; LAN's comments have neither.
-GET /rest/api/3/issue/{key} 200 | fields.comment.comments[].body.content[].content[].attrs
+# each with its reason. Prefer giving the recorded projects (LAN, LWC on
+# corne-team) data that shows the path over a line here.

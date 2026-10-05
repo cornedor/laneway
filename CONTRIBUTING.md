@@ -26,7 +26,8 @@ screenshots are shot from `laneway -demo` by `scripts/screenshots`.
 
 `internal/contract` holds the demo's answers against a recording of a real
 Jira's (key paths and types, no values). Re-record, reads only:
-`go test ./internal/contract -run TestRecord -record <site> -project <key>`.
+`go test ./internal/contract -run TestRecord -record corne-team -project LAN,LWC`.
+LWC is a company-managed fixture project; keep its data varied.
 
 ## Pull requests
 

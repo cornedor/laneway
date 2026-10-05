@@ -15,14 +15,15 @@ import (
 )
 
 var (
-	record  = flag.String("record", "", "re-record testdata/jira.shape from this site in the laneway config (read-only)")
-	project = flag.String("project", "LAN", "the project -record reads")
+	record   = flag.String("record", "", "re-record testdata/jira.shape from this site in the laneway config (read-only)")
+	projects = flag.String("project", "LAN,LWC", "the projects -record reads, comma separated")
 )
 
 const shapeFile = "testdata/jira.shape"
 
-// probeThrough runs the probe on project through a proxy to target.
-func probeThrough(t *testing.T, target, email, token, project string) *Proxy {
+// probeThrough runs the probe on each project through a proxy to target,
+// with a client of its own.
+func probeThrough(t *testing.T, target, email, token string, projects ...string) *Proxy {
 	t.Helper()
 	p, err := NewProxy(target)
 	if err != nil {
@@ -30,9 +31,11 @@ func probeThrough(t *testing.T, target, email, token, project string) *Proxy {
 	}
 	srv := httptest.NewServer(p)
 	defer srv.Close()
-	c := jira.New(jira.Config{BaseURL: srv.URL, Email: email, APIToken: token, Projects: []string{project}, Timeout: time.Minute})
-	for _, err := range Probe(context.Background(), c, project) {
-		t.Log(err)
+	for _, project := range projects {
+		c := jira.New(jira.Config{BaseURL: srv.URL, Email: email, APIToken: token, Projects: []string{project}, Timeout: time.Minute})
+		for _, err := range Probe(context.Background(), c, project) {
+			t.Logf("%s: %v", project, err)
+		}
 	}
 	if r := p.Refused(); len(r) > 0 {
 		t.Errorf("the probe tried to write: %v", r)
@@ -43,7 +46,7 @@ func probeThrough(t *testing.T, target, email, token, project string) *Proxy {
 // TestRecord: with -record <site>, re-records Jira's outline into
 // testdata. Only reads leave; the proxy refuses the rest.
 //
-//	go test ./internal/contract -run TestRecord -record corne-team -project LAN -v
+//	go test ./internal/contract -run TestRecord -record corne-team -project LAN,LWC -v
 func TestRecord(t *testing.T) {
 	if *record == "" {
 		t.Skip("-record <site> re-records " + shapeFile)
@@ -56,14 +59,15 @@ func TestRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := probeThrough(t, site.BaseURL, site.Email, site.APIToken, *project)
+	p := probeThrough(t, site.BaseURL, site.Email, site.APIToken, strings.Split(*projects, ",")...)
 	f, err := os.Create(shapeFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
 	header := "Jira Cloud's answers to the app's reads: key paths and types, no values.\n" +
-		"Re-record: go test ./internal/contract -run TestRecord -record <site> -project <key>\n" +
+		"Re-record: go test ./internal/contract -run TestRecord -record <site> -project <keys>\n" +
+		"Projects: " + *projects + ".\n" +
 		"Recorded " + time.Now().Format(time.DateOnly) + "."
 	if err := p.Doc().Write(f, header); err != nil {
 		t.Fatal(err)
