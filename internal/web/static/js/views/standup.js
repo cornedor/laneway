@@ -140,8 +140,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   // ---- painting
 
   // strip is the round: on its own line the people, each chip the same size whoever is shown (a ring marks them, a
-  // badge those heard), so the chips wrap by their number alone with the arrows beside them; under them the one
-  // shown, the tools and the timer, on one line.
+  // badge those heard), scrolling sideways between the arrows; under them the one shown, the tools and the timer.
   function strip() {
     const chips = stops.map((st, i) => {
       const p = st.Person;
@@ -162,7 +161,19 @@ export default function mount(el, { app, scope, context, toolbar }) {
         timerEl));
   }
 
+  // seePerson keeps the people's scroll across a repaint, moved only as far as shows the one shown.
+  function seePerson(was) {
+    const row = root.querySelector('.stpeople'), cur = row && row.querySelector('.stchip.cur');
+    if (!row) return;
+    row.scrollLeft = was;
+    if (!cur) return;
+    const l = cur.offsetLeft, r = l + cur.offsetWidth; // the row is the chips' offsetParent
+    if (l < row.scrollLeft) row.scrollLeft = l;
+    else if (r > row.scrollLeft + row.clientWidth) row.scrollLeft = r - row.clientWidth;
+  }
+
   function paint() {
+    const was = (root.querySelector('.stpeople') || {}).scrollLeft || 0;
     clear(root);
     const label = since ? since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }) : '…';
     root.append(h('div.sthead', h('div.sttitle', h('h2', 'Standup'), view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), loading && data && h('span.dim', 'loading…')),
@@ -171,6 +182,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
     if (err) return root.append(h('div.empty', err));
     if (!data) return root.append(h('div.loading', 'Loading…'));
     root.append(strip());
+    seePerson(was);
     paintTimer();
     if (!lines.length) return root.append(h('div.empty', 'No changes since ' + label));
     sel = Math.max(0, Math.min(sel, lines.length - 1));
@@ -184,6 +196,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
       (sec || root).append(rowEl(l, i));
     });
     const r = root.querySelector('.strow.sel'); if (r) r.scrollIntoView({ block: 'nearest' });
+    seePerson(was); // again with the rows in: they may have changed the width
   }
 
   function rowEl(l, i) {

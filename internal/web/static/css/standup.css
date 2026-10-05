@@ -1,16 +1,19 @@
+/* The scrollbar's room kept, so a stop's rows coming and going never narrow the page under the strip. */
+.standup { scrollbar-gutter: stable; }
 .strow.parked .wsum { color: var(--fg-3); }
 .strow .what.quiet { color: var(--warn); }
 .stwho.stale { color: var(--warn); }
 /* The strip. Nothing in it changes size with what it shows, so stepping round never moves or re-wraps a thing:
-   row one the people, every chip one size (the shown one ringed, a badge on those heard), wrapping by their number
-   alone between the arrows; row two the one shown (cut, never wrapped), the tools and the timer in fixed slots. */
+   row one the people between the arrows, every chip one size (the shown one ringed, a badge on those heard),
+   scrolling sideways when there are more than fit; row two the one shown (cut, never wrapped), the tools and the timer in fixed slots. */
 .ststrip { display: flex; flex-direction: column; gap: calc(var(--pad) * .75); padding: var(--pad); margin-bottom: calc(var(--pad) * 1.5); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
 .sthead { flex-wrap: nowrap; align-items: flex-start; }
 .sttitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--pad); flex: 1; min-width: 0; }
 .stbtns { display: flex; gap: .286rem; flex: none; }
 .stround { display: flex; align-items: center; gap: .286rem; }
 .stround > .btn { flex: none; }
-.stpeople { display: flex; flex-wrap: wrap; align-items: center; gap: .286rem; flex: 1; min-width: 0; }
+.stpeople { position: relative; display: flex; align-items: center; gap: .286rem; flex: 1; min-width: 0; padding: .214rem; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.stpeople::-webkit-scrollbar { display: none; }
 .stchip { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; height: 2.286rem; min-width: 2.286rem; padding: 0 .143rem; border: 2px solid transparent; border-radius: 999px; background: none; color: var(--fg); font: inherit; cursor: pointer; }
 .stchip:hover { background: var(--bg-3); }
 .stchip.cur { border-color: var(--accent); background: var(--accent-bg); }
