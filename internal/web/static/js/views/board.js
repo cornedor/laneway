@@ -185,6 +185,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // The sprint's share done (points, else issues), days and workdays left and goal (TUI jiraSprintBar, jiraSprintLine).
   function renderSprint() {
     const id = resolveScope().sprint, sp = S.closed || (id && sprints().find(s => s.ID === id));
+    if (!embed) context.parentElement.classList.toggle('bd-sprinted', !!sp);
     if (!sp) { clear(sprintEl); return; }
     const now = Date.now(), DAY = 864e5, start = date(sp.Start), end = date(sp.End), closed = date(sp.Complete);
     const kids = [];
@@ -1545,6 +1546,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     document.removeEventListener('keydown', touch, true);
     document.removeEventListener('pointermove', touch);
     for (const p of S.panes) p.vl.destroy();
-    if (!embed) delete app.boardView;
+    if (!embed) { delete app.boardView; context.parentElement.classList.remove('bd-sprinted'); }
   };
 }
