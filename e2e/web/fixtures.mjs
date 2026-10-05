@@ -23,7 +23,13 @@ function start(unhandled) {
     proc.on('exit', code => reject(new Error(`laneway web exited ${code}:\n${log}`)));
     setTimeout(() => reject(new Error(`laneway web didn't start:\n${log}`)), 15000);
   });
-  const stop = () => { proc.kill(); rmSync(home, { recursive: true, force: true }); };
+  // SIGINT: laneway web's own way out, so it ends as a person ends it.
+  const stop = async () => {
+    const exited = new Promise(r => proc.exitCode !== null ? r() : proc.on('exit', r));
+    proc.kill('SIGINT');
+    await Promise.race([exited, new Promise(r => setTimeout(r, 3000))]);
+    rmSync(home, { recursive: true, force: true });
+  };
   return { url, stop, log: () => log };
 }
 
@@ -45,7 +51,7 @@ export const test = base.extend({
       const url = await server.url;
       await use({ url, errors });
     } finally {
-      server.stop();
+      await server.stop();
     }
     let missed = '';
     try { missed = readFileSync(unhandled, 'utf8'); } catch {}

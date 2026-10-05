@@ -20,6 +20,10 @@ func TestMain(m *testing.M) {
 		fmt.Println("skip: no tmux")
 		os.Exit(0)
 	}
+	// LANEWAY names a binary to test instead, e.g. one built with -cover.
+	if laneway = os.Getenv("LANEWAY"); laneway != "" {
+		os.Exit(m.Run())
+	}
 	dir, err := os.MkdirTemp("", "laneway-e2e-")
 	if err != nil {
 		panic(err)
@@ -61,6 +65,17 @@ func start(t *testing.T) *term {
 		"env "+strings.Join(env, " ")+" "+laneway+" -demo", ";", "set", "-s", "escape-time", "0")
 	path := strings.TrimSpace(s.tmux("display", "-p", "#{socket_path}"))
 	t.Cleanup(func() {
+		// q first, so laneway ends as a person ends it.
+		if s.running() {
+			_ = exec.Command("tmux", "-L", s.sock, "send-keys", "-t", "e2e", "Escape").Run()
+			time.Sleep(100 * time.Millisecond)
+			_ = exec.Command("tmux", "-L", s.sock, "send-keys", "-t", "e2e", "Escape").Run()
+			time.Sleep(100 * time.Millisecond)
+			_ = exec.Command("tmux", "-L", s.sock, "send-keys", "-t", "e2e", "q").Run()
+			for end := time.Now().Add(3 * time.Second); s.running() && time.Now().Before(end); {
+				time.Sleep(50 * time.Millisecond)
+			}
+		}
 		_ = exec.Command("tmux", "-L", s.sock, "kill-server").Run()
 		os.Remove(path) // tmux leaves it
 		if b, _ := os.ReadFile(s.unhandled); len(b) > 0 {
