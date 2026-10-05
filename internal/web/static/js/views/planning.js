@@ -79,16 +79,19 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     hl: k => (app.highlights && app.highlights.has(k) ? app.highlights.get(k) : null), tmark: k => tmark(k),
     fdate: (t, f) => (DF ? goDate(t, DF) : f), stamp: (e, k) => app.agents && app.agents.stamp(e, k),
   };
-  // sort: 'rank' (the board's order, which J/K and dropping between issues change) or a column, within each section
-  const sortKey = 'planning.sort.' + board.ID;
-  let [sort, dir] = String(app.prefs.get(sortKey, 'rank:1')).split(':');
-  dir = dir === '-1' ? -1 : 1;
+  // Each pane's sort: 'rank' (the board's order, which J/K and dropping between issues change) or a column,
+  // within each section; kept per board, the split's apart.
   let statusAt = new Map();
   const CMP = comparators(c => { const i = statusAt.get(String(c.StatusID)); return i == null ? columns.length : i; });
-  if (sort !== 'rank' && !CMP[sort]) sort = 'rank';
-  const sorted = () => sort !== 'rank';
+  function readSort(p, key) {
+    p.sortKey = key;
+    const [s, d] = String(app.prefs.get(key, 'rank:1')).split(':');
+    p.sort = s === 'rank' || CMP[s] ? s : 'rank'; p.dir = d === '-1' ? -1 : 1;
+  }
+  const sorted = p => p.sort !== 'rank';
   const left = makePane(() => sections.filter(s => !sideOn() || s.id !== side));
   const right = makePane(() => sections.filter(s => sideOn() && s.id === side));
+  readSort(left, 'planning.sort.' + board.ID); readSort(right, 'planning.sort.split.' + board.ID);
   const panes = [left, right];
   const allRows = () => panes.flatMap(p => p.rows);
   app.listed = () => allRows().filter(r => r.k === 'c').map(r => r.c);
@@ -164,7 +167,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const tmark = key => (app.timer ? app.timer.mark(key) : '');
   const filtering = () => !!match || who != null;
   const visible = c => passesWho(who, c) && (!match || match(c));
-  const shown = s => sortCards(filtering() ? s.cards.filter(visible) : s.cards, CMP, sort, dir);
+  const shown = (s, p) => sortCards(filtering() ? s.cards.filter(visible) : s.cards, CMP, p.sort, p.dir);
   const names = new Map();
   function setWho(w) {
     who = w;
@@ -183,16 +186,16 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function paintHeads() {
     root.style.setProperty('--lcols', gridCols(cols));
     for (const p of panes) {
-      const head = listHead(cols, sort, dir);
-      head.addEventListener('click', e => { const t = e.target.closest('[data-sort]'); if (t && t.dataset.sort) setSort(...nextSort(sort, dir, t.dataset.sort)); });
+      const head = listHead(cols, p.sort, p.dir);
+      head.addEventListener('click', e => { const t = e.target.closest('[data-sort]'); if (t && t.dataset.sort) setSort(p, ...nextSort(p.sort, p.dir, t.dataset.sort)); });
       if (p.head) p.head.replaceWith(head); else p.el.prepend(head);
       p.head = head; p.sb = -1;
     }
   }
-  function setSort(s, d) {
-    sort = s; dir = d;
-    app.prefs.set(sortKey, sort + ':' + dir);
-    for (const p of panes) paintHead(p.head, sort, dir);
+  function setSort(p, s, d) {
+    p.sort = s; p.dir = d;
+    app.prefs.set(p.sortKey, s + ':' + d);
+    paintHead(p.head, s, d);
     relayout();
   }
   async function pickCols() {
@@ -200,7 +203,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (!r) return;
     cols = r;
     app.prefs.set('planning.cols', cols.join(','));
-    if (sort !== 'rank' && !cols.includes(sort)) { sort = 'rank'; dir = 1; app.prefs.set(sortKey, 'rank:1'); }
+    for (const p of panes) if (sorted(p) && !cols.includes(p.sort)) { p.sort = 'rank'; p.dir = 1; app.prefs.set(p.sortKey, 'rank:1'); }
     paintHeads(); relayout();
   }
   paintHeads();
@@ -213,7 +216,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       for (const s of p.secs()) {
         p.rows.push({ k: 'h', key: 'h:' + s.id, s, h: headH(s) });
         if (folded.has(s.id)) continue;
-        const cs = shown(s);
+        const cs = shown(s, p);
         if (!cs.length) p.rows.push({ k: 'e', key: 'e:' + s.id, s, h: ROW });
         for (const c of cs) p.rows.push({ k: 'c', key: 'c:' + c.Key, s, c, h: ROW });
       }
@@ -395,7 +398,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   // J/K: swap with the neighbour
   function rankStep(d) {
     const cc = curCard(); if (!cc || filtering()) return;
-    if (sorted()) { app.ui.toast(`Sorted by ${sort}: J and K rank in the rank order, a click on the header brings it back`); return; }
+    const p = paneOf(cur) || left;
+    if (sorted(p)) { app.ui.toast(`Sorted by ${p.sort}: J and K rank in the rank order, a click on the header brings it back`); return; }
     const cs = cc.s.cards, i = cs.indexOf(cc.c), j = i + d;
     if (j < 0 || j >= cs.length) return;
     const other = cs[j].Key;
@@ -504,7 +508,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function copyTable() {
     const s = curSection(); if (!s) return;
     const esc = x => String(x == null ? '' : x).replace(/\|/g, '\\|');
-    const rows = sortCards(s.cards, CMP, sort, dir).map(c => `| ${c.Key} | ${esc(c.Summary)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
+    const p = paneOf(cur) || left;
+    const rows = sortCards(s.cards, CMP, p.sort, p.dir).map(c => `| ${c.Key} | ${esc(c.Summary)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
     const text = ['| Key | Summary | Assignee | Points |', '| --- | --- | --- | --- |', ...rows].join('\n');
     navigator.clipboard.writeText(text).then(() => app.ui.toast(`Copied ${s.name} (${s.cards.length} issues) as a markdown table`, { kind: 'ok' }), e => app.ui.errToast(e));
   }
@@ -521,9 +526,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const rect = scroller.getBoundingClientRect(), y = e.clientY - rect.top + scroller.scrollTop;
     if (y >= total) { const s = rows[rows.length - 1].s; return { s, anchor: null, after: false, y: total - 1 }; }
     const i = rowAtY(p, Math.max(y, 0)), r = rows[i];
-    if (sorted()) { const at = rows.findLastIndex(x => x.s === r.s); return { s: r.s, anchor: null, after: false, y: tops[at] + rows[at].h }; }
+    if (sorted(p)) { const at = rows.findLastIndex(x => x.s === r.s); return { s: r.s, anchor: null, after: false, y: tops[at] + rows[at].h }; }
     if (r.k === 'c') { const after = y - tops[i] > r.h / 2; return { s: r.s, anchor: r.c.Key, after, y: tops[i] + (after ? r.h : 0) }; }
-    if (r.k === 'h') { const first = shown(r.s)[0]; return { s: r.s, anchor: first ? first.Key : null, after: false, y: tops[i] + r.h }; }
+    if (r.k === 'h') { const first = shown(r.s, p)[0]; return { s: r.s, anchor: first ? first.Key : null, after: false, y: tops[i] + r.h }; }
     return { s: r.s, anchor: null, after: false, y: tops[i] + 2 };
   }
   const dragNodes = ks => panes.flatMap(p => ks.map(k => p.live.get('c:' + k))).filter(n => n && n.firstChild);
@@ -552,7 +557,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       e.preventDefault();
       const ks = drag.keys;
       dropEl.hidden = true; drag = null;
-      if (sorted() && ks.every(k => t.s.cards.some(c => c.Key === k))) return;
+      if (sorted(p) && ks.every(k => t.s.cards.some(c => c.Key === k))) return;
       moveCards(ks, t.s, t.anchor, t.after);
     });
     scroller.addEventListener('dragend', () => {
@@ -594,7 +599,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('C', closeSprint, 'complete the active sprint', G);
   scope.bind('E', editSprint, 'edit sprint name, goal, end', G);
   scope.bind('R', () => load(true), 'reload', G);
-  scope.bind('O', () => setSort(SORTS[(SORTS.indexOf(sort) + 1) % SORTS.length], 1), 'sort: rank, priority, points, assignee, epic, key, status…', G);
+  scope.bind('O', () => { const p = paneOf(cur) || left; setSort(p, SORTS[(SORTS.indexOf(p.sort) + 1) % SORTS.length], 1); }, 'sort the pane: rank, priority, points, assignee, epic, key, status…', G);
   scope.bind('f', () => filterIn.focus(), 'filter', { ...G, bar: 'filter' });
   scope.bind('F', openBuilder, 'filter builder', { ...G, bar: 'filter builder' });
   scope.bind('A', pickWho, 'filter by assignee', G);
