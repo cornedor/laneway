@@ -65,8 +65,8 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
 // pick({title, items, label(item), detail?(item), render?(item, match)→node, multi, selected, placeholder, create?, query?, current?})
 // → Promise<item | item[] | null>. Type to filter, ↑/↓ or ctrl+n/p, Enter picks, Esc cancels. `query` starts the filter
 // typed, `current` puts the cursor on that item.
-// With `multi`, `enterPicks` makes Enter pick the row under the cursor alone until a row is ticked: space (nothing
-// typed), Tab (clears what was typed, for the next name) or a click; the foot's Apply button takes the ticks.
+// With `multi`, space (nothing typed), Tab (clears what was typed, for the next one) or a click ticks a row; Enter or
+// the foot's Apply button takes the ticks. `enterPicks` makes Enter pick the row under the cursor alone until one is ticked.
 // `first: q => item | null` puts that item at the top for what is typed (an issue key typed in full).
 // With `create: q => item` and no match, Enter on typed text creates an item.
 // With `search: async q => items` the list is also fed by the server (debounced).
@@ -117,14 +117,19 @@ export function pick(o) {
     input.addEventListener('input', () => { q = input.value; sel = 0; render(); if (o.search) remote(q); });
     let rt = 0;
     const remote = q => { clearTimeout(rt); rt = setTimeout(async () => { try { const r = await o.search(q); if (input.value === q) { items = r; render(); } } catch (e) { /* keep list */ } }, 180); };
-    const foot = o.multi && (o.enterPicks
-      ? h('div.pick-foot.row', h('span', 'space / tab / click ticks · enter applies'), h('span.spacer'), h('button.btn.primary.sm', { type: 'button', onclick: () => { ticked = true; enter(); } }, 'Apply'))
-      : h('div.pick-foot', 'space toggles · enter confirms'));
+    const foot = o.multi && h('div.pick-foot.row', h('span', 'space / tab / click ticks · enter applies'), h('span.spacer'), h('button.btn.primary.sm', { type: 'button', onclick: () => { ticked = true; enter(); } }, 'Apply'));
     const m = modal(h('div.pick', o.title && h('div.pick-title', o.title), input, list, foot), { className: 'pick-modal', onClose: () => finish(null) });
     const move = d => { if (!shown.length) return; sel = (sel + d + Math.min(shown.length, 200)) % Math.min(shown.length, 200); mark(); };
-    const tick = () => { const it = shown[sel]; choose(sel); if (q) { input.value = q = ''; render(); sel = Math.max(0, shown.indexOf(it)); mark(); } };
-    if (o.enterPicks) m.scope.bind('Tab', tick, '', { input: true, hidden: true });
-    m.scope.bind(o.enterPicks ? ['ArrowDown', 'ctrl+n'] : ['ArrowDown', 'ctrl+n', 'Tab'], () => move(1), '', { input: true, hidden: true });
+    // Tab on typed text without a match ticks it as a new item (create) instead of finishing.
+    const tick = () => {
+      let it = shown[sel];
+      if (it === undefined) { if (!o.create || !q) return; it = o.create(q); if (!items.includes(it)) items = [...items, it]; }
+      chosen.has(it) ? chosen.delete(it) : chosen.add(it); ticked = true;
+      if (q) input.value = q = '';
+      render(); sel = Math.max(0, shown.indexOf(it)); mark();
+    };
+    if (o.multi) m.scope.bind('Tab', tick, '', { input: true, hidden: true });
+    m.scope.bind(o.multi ? ['ArrowDown', 'ctrl+n'] : ['ArrowDown', 'ctrl+n', 'Tab'], () => move(1), '', { input: true, hidden: true });
     m.scope.bind(['ArrowUp', 'ctrl+p', 'shift+Tab'], () => move(-1), '', { input: true, hidden: true });
     const enter = () => { if (loading) { enterLater = true; return; } if (o.multi && o.enterPicks && !ticked) { if (shown[sel] !== undefined) finish([shown[sel]]); } else if (o.multi) finish(o.create && q && !shown.length ? [...chosen, o.create(q)] : [...chosen]); else choose(sel); };
     m.scope.bind('Enter', enter, '', { input: true, hidden: true });
