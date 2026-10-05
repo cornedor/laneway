@@ -231,7 +231,7 @@ func runDemo(cfgPath string) error {
 		uiCfg = cfg.UI
 	}
 	uiCfg.UpdateCheck = "off"
-	baseURL, stop, err := demo.New(time.Now()).Start()
+	baseURL, stop, err := newDemo().Start()
 	if err != nil {
 		return err
 	}
@@ -254,6 +254,21 @@ func runDemo(cfgPath string) error {
 		fmt.Fprint(os.Stdout, fm.ReleasePointer())
 	}
 	return err
+}
+
+// newDemo is the demo Jira. LANEWAY_DEMO_UNHANDLED names a file it adds
+// each request it can't answer to, for the e2e tests.
+func newDemo() *demo.Server {
+	s := demo.New(time.Now())
+	if path := os.Getenv("LANEWAY_DEMO_UNHANDLED"); path != "" {
+		s.OnUnhandled = func(req string) {
+			if f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {
+				fmt.Fprintln(f, req)
+				f.Close()
+			}
+		}
+	}
+	return s
 }
 
 // newProgram runs m with wheel bursts folded into one message a frame.

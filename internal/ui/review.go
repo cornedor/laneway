@@ -24,6 +24,9 @@ func (m *Model) openReview() tea.Cmd {
 		m.status = "open a board first"
 		return nil
 	}
+	if m.demo { // gh and glab ask the user's own forges
+		return func() tea.Msg { return reviewMsg{} }
+	}
 	m.status = "asking gh and glab what waits on your review…"
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {

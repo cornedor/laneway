@@ -29,6 +29,13 @@ Jira's (key paths and types, no values). Re-record, reads only:
 `go test ./internal/contract -run TestRecord -record corne-team -project LAN,LWC`.
 LWC is a company-managed fixture project; keep its data varied.
 
+`e2e/` drives the built app on the demo. The TUI runs in tmux, inside
+`go test ./...` (skipped without tmux). The web runs in Playwright:
+`cd e2e/web && npm ci && npx playwright test` (`CHROMIUM=/path` uses an
+installed browser). Both fail on a request the demo can't answer
+(`LANEWAY_DEMO_UNHANDLED`); serve it in `internal/demo`, shaped as the
+contract recording has it.
+
 ## Pull requests
 
 - One change per PR, with a test that fails without it.

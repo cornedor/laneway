@@ -24,7 +24,6 @@ import (
 
 	"github.com/cornedor/laneway/internal/autostart"
 	"github.com/cornedor/laneway/internal/config"
-	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/offline"
 	"github.com/cornedor/laneway/internal/store"
@@ -98,7 +97,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 	end := webQuit
 	opt := web.Options{Version: version, Demo: demoMode, Token: token, UpgradeCmd: upgradeCmd()}
 	if demoMode {
-		baseURL, stopDemo, err := demo.New(time.Now()).Start()
+		baseURL, stopDemo, err := newDemo().Start()
 		if err != nil {
 			return end, err
 		}

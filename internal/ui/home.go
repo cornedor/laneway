@@ -56,7 +56,7 @@ func (m *Model) openHome() tea.Cmd {
 		}
 	}
 	slices.SortFunc(inbox, func(a, b inboxThread) int { return b.latest().Compare(a.latest()) })
-	timer, starred, timerKey, site := m.timerLabel(), m.jqlList(jqlSavedMeta), m.keys.Timer, m.site
+	timer, starred, timerKey, site, demo := m.timerLabel(), m.jqlList(jqlSavedMeta), m.keys.Timer, m.site, m.demo
 	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == m.timer.key }); timer != "" && i >= 0 {
 		timer += "  " + m.jiraTab.cards[i].Summary // the timed card's, when the board has it
 	}
@@ -92,7 +92,11 @@ func (m *Model) openHome() tea.Cmd {
 					items = []jiraPickerItem{{label: "Timer"}, row}
 				case "reviews":
 					var cards []jira.Card
-					reqs, err := review.Requests(ctx)
+					var reqs []review.Request
+					var err error
+					if !demo { // gh and glab ask the user's own forges
+						reqs, err = review.Requests(ctx)
+					}
 					if err == nil {
 						var projects []jira.Project
 						if projects, err = c.ListProjects(ctx); err == nil {

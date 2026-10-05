@@ -36,8 +36,17 @@ type Server struct {
 	// base is where Start serves it, for links back to itself.
 	base string
 	git  gitlabState // the GitLab's writes (gitlab.go)
-	// Unhandled are the requests no route answered, for tests.
-	Unhandled []string
+	// Unhandled are the requests no route answered, for tests;
+	// OnUnhandled, when set, hears each as it comes.
+	Unhandled   []string
+	OnUnhandled func(req string)
+}
+
+func (s *Server) unhandled(req string) {
+	s.Unhandled = append(s.Unhandled, req)
+	if s.OnUnhandled != nil {
+		s.OnUnhandled(req)
+	}
 }
 
 // New generates the project, dated around now.
@@ -180,7 +189,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	case r.Method != http.MethodGet:
-		s.Unhandled = append(s.Unhandled, r.Method+" "+p)
+		s.unhandled(r.Method + " " + p)
 		w.WriteHeader(http.StatusNoContent) // any other write succeeds and changes nothing
 		return
 	}
@@ -188,7 +197,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send(v)
 		return
 	}
-	s.Unhandled = append(s.Unhandled, r.Method+" "+p)
+	if p != "/rest/laneway/1/events" { // laneway-server's, which Jira has not either
+		s.unhandled(r.Method + " " + p)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 	send(map[string]any{"errorMessages": []string{"the demo has no " + p}})
@@ -273,6 +284,13 @@ func (s *Server) read(p string, q map[string][]string) (any, bool) {
 		return map[string]any{"results": s.jqlValues(get("fieldName"), get("fieldValue"))}, true
 	case "/rest/dev-status/latest/issue/summary", "/rest/dev-status/latest/issue/detail":
 		return s.devStatus(p, get), true
+	case "/rest/api/3/workflowscheme/project":
+		return map[string]any{"values": []any{map[string]any{"projectIds": []string{"10000"}, "workflowScheme": map[string]any{
+			"id": 10000, "name": "DEMO workflow scheme", "description": "", "defaultWorkflow": workflowName, "issueTypeMappings": map[string]any{}}}}}, true
+	case "/rest/api/3/workflow/search":
+		return map[string]any{"isLast": true, "maxResults": 50, "startAt": 0, "total": 1, "values": []any{s.workflowJSON()}}, true
+	case "/rest/greenhopper/1.0/rapidviewconfig/editmodel.json":
+		return map[string]any{"id": boardID, "name": "DEMO board", "cardColorConfig": map[string]any{"rapidViewId": boardID, "canEdit": true, "cardColorStrategy": "none"}}, true
 	case "/rest/agile/1.0/board":
 		return map[string]any{"isLast": true, "total": 1, "values": []any{map[string]any{"id": boardID, "name": "DEMO board", "type": "scrum"}}}, true
 	}

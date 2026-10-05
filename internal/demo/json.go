@@ -350,3 +350,17 @@ func mentions(doc any) any {
 	}
 	return doc
 }
+
+// workflowName is the one workflow every demo issue type follows.
+const workflowName = "DEMO workflow"
+
+// workflowJSON is that workflow as /workflow/search expands it: a global
+// transition into each status, none with a validator.
+func (s *Server) workflowJSON() map[string]any {
+	var trs []any
+	for _, st := range statuses {
+		trs = append(trs, map[string]any{"id": "1" + st.id, "name": st.name, "description": "", "from": []string{}, "to": st.id, "type": "global",
+			"rules": map[string]any{"validators": []any{}, "postFunctions": []any{}}})
+	}
+	return map[string]any{"id": map[string]any{"name": workflowName, "entityId": "demo-workflow"}, "description": "", "transitions": trs}
+}

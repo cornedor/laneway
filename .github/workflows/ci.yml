@@ -23,9 +23,31 @@ jobs:
       - name: gofmt
         if: runner.os == 'Linux'
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+      - name: tmux, for e2e/tui
+        if: runner.os == 'Linux'
+        run: command -v tmux || (sudo apt-get update && sudo apt-get install -y tmux)
       - run: go build ./...
       - run: go vet ./...
       - run: go test -race ./...
+
+  e2e-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-web-results
+          path: e2e/web/test-results
 
   vuln:
     runs-on: ubuntu-latest

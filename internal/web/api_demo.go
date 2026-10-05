@@ -7,7 +7,7 @@ import (
 )
 
 // Demo mode has no business touching the user's machine: herdr agents,
-// git repos, configured commands and the LLM are all off limits. An issue's
+// git repos, configured commands, gh, glab and the LLM are all off limits. An issue's
 // branch name is only its template filled in, so ctrl+y works.
 
 var demoIssueBlocked = regexp.MustCompile(`^/api/issues/[^/]+/(ask|work|pr|worktree)$`)
@@ -32,6 +32,8 @@ func demoGate(s *Server, w http.ResponseWriter, r *http.Request) bool {
 			empty = map[string]any{"Available": false, "Command": "", "Asks": []any{}}
 		case "/api/branch":
 			empty = map[string]string{}
+		case "/api/review": // gh and glab ask the user's own forges
+			empty = map[string]any{"Keys": []string{}, "Cards": []any{}, "Requests": 0}
 		case "/api/worklog/proposals":
 			empty = map[string]any{"Items": []any{}, "Failed": []string{}}
 		}
