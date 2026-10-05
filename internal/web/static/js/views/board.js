@@ -16,22 +16,13 @@ import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
+import { COLS, DEFAULT_COLS, SORTS, PRIO_ICON, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, ageText, setAvatar, buildRow as listRow, fillCells } from '../lib/cardlist.js';
 import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
 
 css('board');
 
-const DAY = 864e5;
-const PRIO_ICON = ['chevrons-up', 'chevron-up', 'equal', 'chevron-down', 'chevrons-down'];
 const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
 const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
-const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created'];
-// List columns: id, header, width, class of the cell.
-const COLS = {
-  mark: ['', '1.857rem'], key: ['Key', '6.143rem'], summary: ['Summary', 'minmax(8.571rem, 1fr)'], status: ['Status', '8.429rem'], priority: ['Prio', '2.429rem'],
-  points: ['Pts', '2.857rem'], assignee: ['Assignee', '10.714rem'], epic: ['Epic', '9.286rem'], labels: ['Labels', '7.857rem'], reporter: ['Reporter', '7.857rem'],
-  due: ['Due', '4.571rem'], updated: ['Updated', '6rem'], created: ['Created', '6rem'], age: ['Age', '3.143rem'],
-};
-const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'points', 'assignee', 'due', 'updated'];
 const FIELD_COL = { type: null, priority: 'priority', status: 'status', points: 'points', assignee: 'assignee', parent: 'epic', due: 'due', age: 'age' };
 const SWIMS = ['none', 'assignee', 'epic', 'priority'];
 const SEP = '\x1f';
@@ -540,25 +531,21 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       main.append(wrap);
     } else {
       const pane = { col: -1, name: 'list', cards: [], all: [], total: 0, rh: 0 };
-      pane.head = h('div.bd-lhead', S.cols.map(id => h('span', { class: 'lh-' + id, dataset: { sort: sortable(id) ? id : '' } }, colLabel(id), sortMark(id))));
+      pane.head = listHead(S.cols, S.sort, S.dir);
       pane.body = h('div.bd-lbody');
       pane.drop = h('div.bd-drop', { hidden: true });
       pane.body.append(pane.drop);
       pane.vl = vlist(pane.body, { rowHeight: 32, create: buildRow, bind: (w, j) => fillRow(w, pane.cards[j], pane.heads && pane.heads[j]) });
       S.panes.push(pane);
       const list = h('div.bd-list', pane.head, pane.body);
-      list.style.setProperty('--lcols', S.cols.map(colWidth).join(' '));
+      list.style.setProperty('--lcols', gridCols(S.cols));
       pane.el = list;
       main.append(list);
     }
   }
-  const sortable = id => id !== 'mark' && id !== 'age' && !id.startsWith('x:') && id !== 'labels' && id !== 'reporter';
-  const colLabel = id => (id.startsWith('x:') ? id.slice(2) : (COLS[id] || ['', ''])[0]);
-  const colWidth = id => (COLS[id] ? COLS[id][1] : '8.571rem');
-  const sortMark = id => (S.sort === id ? [' ', icon(S.dir > 0 ? 'arrow-up' : 'arrow-down')] : []);
   function paintHead(p) {
     if (S.mode !== 'lanes') {
-      for (const s of p.head.children) s.replaceChildren(colLabel(s.className.replace('lh-', '')), ...sortMark(s.dataset.sort));
+      paintListHead(p.head, S.sort, S.dir);
       return;
     }
     const filtered = p.all.length !== p.total;
@@ -628,19 +615,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const rv = k => !!(app.reviewKeys && app.reviewKeys.has(k)); // waiting on your review, once the review screen asked
   const hlOf = k => (app.highlights && app.highlights.has(k) ? app.highlights.get(k) : null); // a rule's highlight colour, '' for the theme's
   const sigOf = c => [c.Key, c.Summary, c.Type, c.Status, c.Priority, c.AssigneeID, c.AvatarURL, c.Points, c.ParentKey, c.Subtasks, c.SubtasksDone, c.Due, c.Done, c.Flagged, c.InProgress, c.PR, c.Deploy, c.Labels, c.Updated, c.Extra, S.sel === c.Key, S.marks.has(c.Key), S.pins.has(c.Key), rv(c.Key), hlOf(c.Key), ribbonOf(c), hourTick(), tmark(c.Key)].join('|');
-  function ageText(c) {
-    if (c.Done) return '';
-    const t = !isZero(c.Since) ? c.Since : c.Created;
-    if (isZero(t)) return '';
-    const d = Math.floor((Date.now() - Date.parse(t)) / DAY);
-    return d > 0 ? d + 'd' : Math.max(1, Math.floor((Date.now() - Date.parse(t)) / 36e5)) + 'h';
-  }
-  function setAvatar(slot, c, name) {
-    const k = c.Assignee + '|' + c.AvatarURL + '|' + !!name;
-    if (slot._k === k) return;
-    slot._k = k;
-    slot.replaceChildren(ui.avatar(c.Assignee, c.AvatarURL, 20), name && c.Assignee ? h('span.l-name', ' ' + c.Assignee) : '');
-  }
   const extraValues = c => (c.Extra ? c.Extra.split(SEP).map(kv => kv.slice(kv.indexOf('=') + 1)) : []);
   const fdate = (t, fallback) => (DF ? goDate(t, DF) : fallback);
   function fillCard(w, c) {
@@ -689,28 +663,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     setAvatar(r.av, c);
   }
 
-  function buildRow() {
-    const r = {};
-    const w = h('div.lrow', { draggable: true }, S.cols.map(id => (r[id] = h('span', { class: 'l-' + id.replace(/\W+/g, '-') }))), r.ghead = h('div.l-ghead'));
-    w._r = r;
-    return w;
-  }
-  const FILL = {
-    mark: (e, c) => { const hl = hlOf(c.Key); setIcon(e, S.marks.has(c.Key) ? 'square-check' : hl !== null ? 'circle' : S.pins.has(c.Key) ? 'pin' : rv(c.Key) ? 'glasses' : c.Flagged ? 'flag' : '', '', hl !== null || (!S.marks.has(c.Key) && c.Flagged)); },
-    key: (e, c) => { e.textContent = c.Key; app.agents && app.agents.stamp(e, c.Key); const tm = tmark(c.Key); if (tm) e.append(h('span.ctimer', ' ', icon('timer'), ' ' + tm)); },
-    summary: (e, c) => { e.textContent = c.Summary; e.title = c.Summary; },
-    status: (e, c) => { e.textContent = c.Status; e.className = 'l-status pill cat-' + (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new'); },
-    priority: (e, c) => { const po = prioOrd(c); e.className = 'l-priority cprio p' + po; setIcon(e, po < 5 ? PRIO_ICON[po] : ''); e.title = c.Priority; },
-    points: (e, c) => { e.textContent = c.Points; },
-    assignee: (e, c) => setAvatar(e, c, true),
-    epic: (e, c) => { e.textContent = c.ParentSummary || ''; e.title = c.ParentKey ? c.ParentKey + ' ' + c.ParentSummary : ''; },
-    labels: (e, c) => { e.textContent = (c.Labels || '').split(' ').filter(Boolean).map(l => '#' + l).join(' '); },
-    reporter: (e, c) => { e.textContent = c.Reporter || ''; },
-    due: (e, c) => { const d = date(c.Due); e.textContent = d ? fdate(c.Due, shortDate(c.Due)) : ''; e.className = 'l-due' + (d && !c.Done && d.getTime() < startOfToday() ? ' overdue' : ''); },
-    updated: (e, c) => { e.textContent = ago(c.Updated); e.title = fdate(c.Updated, ''); },
-    created: (e, c) => { e.textContent = ago(c.Created); e.title = fdate(c.Created, ''); },
-    age: (e, c) => { e.textContent = ageText(c); },
-  };
+  const buildRow = () => listRow(S.cols);
+  const cellCtx = { marked: k => S.marks.has(k), pinned: k => S.pins.has(k), review: rv, hl: hlOf, tmark, fdate, stamp: (e, k) => app.agents && app.agents.stamp(e, k) };
   function fillRow(w, c, head) {
     if (!c) return;
     const ht = head ? head.name + ' · ' + head.n + (head.pts > 0 ? ' · ' + head.pts + 'p' : '') : '';
@@ -724,10 +678,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const rib = ribbonOf(c);
     if (rib) w.style.setProperty('--ribbon', rib); else w.style.removeProperty('--ribbon');
     w.classList.toggle('ribbon', !!rib);
-    for (const id of S.cols) {
-      if (FILL[id]) FILL[id](r[id], c);
-      else if (id.startsWith('x:')) r[id].textContent = cq.extraOf(c)[id.slice(2).toLowerCase()] || '';
-    }
+    fillCells(w, S.cols, c, cellCtx);
   }
 
   // ---- selection and navigation
@@ -803,7 +754,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     openIssue(key);
   });
   delegate(main, 'click', '[data-fold]', (e, t) => foldBand(t.dataset.fold));
-  delegate(main, 'click', '[data-sort]', (e, t) => { if (t.dataset.sort) setSort(t.dataset.sort, S.sort === t.dataset.sort ? -S.dir : 1); });
+  delegate(main, 'click', '[data-sort]', (e, t) => { if (t.dataset.sort) setSort(...nextSort(S.sort, S.dir, t.dataset.sort)); });
   delegate(main, 'dblclick', '[data-key]', (e, t) => window.open(app.session.baseURL + '/browse/' + t.dataset.key, '_blank', 'noopener'));
 
   // ---- drag and drop
@@ -1193,15 +1144,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function unfoldAll() { S.fold.clear(); layout(); }
   function setCompact(v) { S.compact = v; app.prefs.set('board.compact', v ? '1' : '0'); renderToolbar(); layout(); }
   function setCols(list) {
-    S.cols = ['mark', 'key', 'summary', ...list.filter(c => !['mark', 'key', 'summary'].includes(c))];
+    S.cols = fixCols(list);
     app.prefs.set('board.cols', S.cols.join(','));
     S.built = ''; if (S.sort !== 'rank' && !S.cols.includes(S.sort)) { S.sort = 'rank'; S.dir = 1; }
     layout();
   }
   async function pickCols() {
-    const items = allCols().filter(c => !['mark', 'key', 'summary'].includes(c));
-    const r = await ui.pick({ title: 'List columns', items, multi: true, selected: items.filter(c => S.cols.includes(c)), label: colLabel, placeholder: 'Columns…' });
-    if (r) setCols(allCols().filter(c => r.includes(c)));
+    const r = await pickListCols(ui, allCols(), S.cols);
+    if (r) setCols(r);
   }
 
   // ---- filter builder, named filters
@@ -1546,7 +1496,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (want) cols = want.split(',').filter(c => all.includes(c));
     else if (CF) cols = all.filter(c => ['mark', 'key', 'summary'].includes(c) || [...CF].some(f => FIELD_COL[f] === c) || CUSTOM.includes(c));
     else cols = all.filter(c => DEFAULT_COLS.includes(c) || CUSTOM.includes(c));
-    return ['mark', 'key', 'summary', ...cols.filter(c => !['mark', 'key', 'summary'].includes(c))];
+    return fixCols(cols);
   }
 
   async function start() {
