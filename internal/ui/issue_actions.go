@@ -170,6 +170,10 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		m.openBulkInput("upload", "file path (~ works)")
 		m.jiraFieldKey = key
 	case "paste":
+		if m.demo { // the clipboard tools are this machine's
+			m.status = "paste: " + errOffInDemo.Error()
+			return nil
+		}
 		m.status = "uploading the clipboard image to " + key + "…"
 		name, command := time.Now().Format("pasted-20060102-150405.png"), m.opts.clipboardImage
 		return jiraMutateCmd(key, "attachments", func() error {
@@ -181,6 +185,10 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			return err
 		})
 	case "screenshot":
+		if m.demo { // the screen tools are this machine's
+			m.status = "screenshot: " + errOffInDemo.Error()
+			return nil
+		}
 		m.status = "pick a region to attach to " + key + "…"
 		name := time.Now().Format("screenshot-20060102-150405.png")
 		return jiraMutateCmd(key, "attachments", func() error {

@@ -82,3 +82,11 @@ func TestViews(t *testing.T) {
 		s.wait("To Do 3 · 6p")
 	}
 }
+
+// TestDemoOpensNothing: o, which opens the issue in a browser, says the
+// demo runs nothing on this machine.
+func TestDemoOpensNothing(t *testing.T) {
+	s := start(t)
+	s.keys("o")
+	s.wait("not in the demo")
+}

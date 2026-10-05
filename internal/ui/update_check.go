@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -44,6 +45,11 @@ func (m Model) WithDemo() Model {
 	m.herdr, m.demo = nil, true
 	return m
 }
+
+// errOffInDemo: the demo runs nothing on this machine (no browser,
+// configured command, LLM, clipboard or screenshot tool), as the web's
+// demoGate.
+var errOffInDemo = errors.New("not in the demo, which runs nothing on this machine")
 
 // noHerdr says why there are no agents: none running, or the demo.
 func (m *Model) noHerdr() string {

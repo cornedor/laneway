@@ -45,6 +45,10 @@ var runLLM = func(ctx context.Context, command []string, prompt, input string) (
 
 // openAsk lists the questions.
 func (m *Model) openAsk() {
+	if m.demo {
+		m.status = "asking: " + errOffInDemo.Error()
+		return
+	}
 	if llmCommand(m.opts.llm) == nil {
 		m.status = "asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH"
 		return
@@ -60,7 +64,7 @@ func (m *Model) openAsk() {
 // askLLM runs the question id about the panel's issue.
 func (m *Model) askLLM(id string) tea.Cmd {
 	iss, command := m.jiraIssue, llmCommand(m.opts.llm)
-	if iss == nil || command == nil {
+	if iss == nil || command == nil || m.demo {
 		return nil
 	}
 	var label, prompt string

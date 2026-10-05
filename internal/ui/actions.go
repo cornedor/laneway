@@ -118,6 +118,10 @@ type actionDoneMsg struct {
 // runAction runs action i on the issues where the keys are.
 func (m *Model) runAction(i int, panel bool) tea.Cmd {
 	a := m.actions[i]
+	if m.demo {
+		m.status = a.Name + ": " + errOffInDemo.Error()
+		return nil
+	}
 	issues := m.actionIssues(panel)
 	if len(issues) == 0 {
 		m.status = a.Name + ": no issue selected"

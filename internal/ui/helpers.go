@@ -234,6 +234,9 @@ type openedMsg struct {
 }
 
 func (m Model) openOpenable(o openable) tea.Cmd {
+	if m.demo { // the demo runs nothing on this machine
+		return func() tea.Msg { return openedMsg{name: o.name, err: errOffInDemo} }
+	}
 	command := m.opts.openCmd
 	return func() tea.Msg {
 		return openedMsg{name: o.name, err: opener.Open(command, o.url)}
