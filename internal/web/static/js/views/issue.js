@@ -15,6 +15,7 @@ import * as pins from '../lib/pins.js';
 import { lineDiff } from '../lib/linediff.js';
 import { ago, dateTime as localDateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
+import { grip } from '../lib/grip.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
 const trail = [];            // issues left by following a link, oldest first: {key, summary, status, cat}
@@ -846,26 +847,14 @@ export function mountIssue(el, key, { app, full, card }) {
   if (!full) {
     const pw = Number(app.session.ui && app.session.ui.PanelWidth);
     const def = pw >= 20 && pw <= 80 ? pw : 50;
-    const clamp = p => Math.min(Math.max(Math.round(p), 20), 80);
     const show = p => document.documentElement.style.setProperty('--panel-w', p + '%');
     const keep = p => { pct = p; show(p); app.prefs.set('panelPct', p === def ? '' : String(p)); };
+    const clamp = grip(root.querySelector('.iss-grip'), { def, show, keep, pct: ev => (el.getBoundingClientRect().right - ev.clientX) * 100 / window.innerWidth });
     const px = Number(app.prefs.get('panelW', '')); // the width in pixels, before percentages
     if (px) { app.prefs.set('panelW', ''); app.prefs.set('panelPct', String(clamp(px * 100 / window.innerWidth))); }
     const saved = Number(app.prefs.get('panelPct', ''));
     let pct = saved >= 20 && saved <= 80 ? saved : def;
     show(pct);
-    const grip = root.querySelector('.iss-grip');
-    grip.addEventListener('pointerdown', e => {
-      e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add('drag');
-      const right = el.getBoundingClientRect().right;
-      const move = ev => { let p = clamp((right - ev.clientX) * 100 / window.innerWidth); if (Math.abs(p - def) <= 3) p = def; pct = p; show(p); };
-      const up = () => {
-        grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); grip.classList.remove('drag');
-        keep(pct);
-      };
-      grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
-    });
-    grip.addEventListener('dblclick', () => keep(def));
     const stepWidth = d => {
       let next = clamp(pct + d * 5);
       if ((pct < def) !== (next < def) && pct !== def && next !== def) next = def;

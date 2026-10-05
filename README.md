@@ -545,7 +545,9 @@ it. `P` parks a card for after the standup: the *Parking lot* comes last on
 Everyone, kept for the sprint. `y` copies the stop as text, `[` `]` step a
 workday back and forward, `enter` opens the issue in the panel, `esc` (or
 `U`) goes back to the board. `ui.standup_start: first` opens on the first
-person instead.
+person instead. In the browser the view's board sits beside the standup,
+past a grip like the panel's (drag, double-click resets): the shown
+person's cards, everyone's on Everyone, the row picked marked on it.
 
 ## Releases
 

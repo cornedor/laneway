@@ -41,3 +41,12 @@
 @media (prefers-reduced-motion: reduce) { .stleft.flash { animation: none; } }
 /* A phone: the timer goes under the one shown. */
 @media (max-width: 640px) { .stbar { flex-wrap: wrap; } .stbar > .stwhom { flex-basis: 100%; } .sttimer { margin-left: auto; } }
+/* The standup and, past the grip, the board: the standup's share in --st-split. A phone has the standup alone. */
+.stsplit { display: flex; height: 100%; min-height: 0; }
+.stsplit > .standup { flex: 0 0 var(--st-split, 50%); max-width: none; min-width: 0; }
+.stgrip { flex: none; width: .429rem; cursor: col-resize; touch-action: none; }
+.stgrip:hover, .stgrip.drag { background: var(--accent); opacity: .5; }
+.stboard { flex: 1 1 0; min-width: 0; display: flex; gap: var(--pad); padding: calc(var(--pad) * 2) var(--pad); overflow: auto; }
+.stboard .bd-lane { min-width: 13rem; }
+.stboard .bcw { padding-bottom: .429rem; }
+@media (max-width: 900px) { .stgrip, .stboard { display: none; } .stsplit > .standup { flex-basis: 100%; } }

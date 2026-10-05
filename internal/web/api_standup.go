@@ -26,7 +26,8 @@ func init() {
 
 // standupLines: ?board=ID and its view (?sprint=ID, ?backlog=1, ?jql= with
 // ?kind=filter for all of Jira; else the board's cards), ?since=DAY or
-// ui.standup_lookback workdays back. Since is the day it starts from,
+// ui.standup_lookback workdays back. Board is the view's columns and their
+// cards, for the board beside the standup. Since is the day it starts from,
 // Settings the ui.standup_* options, durations in seconds; the browser
 // splits Length over who takes part, as standup.Settings.Turn does.
 func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -45,11 +46,16 @@ func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	}
 	sprint, _ := strconv.Atoi(Q(r, "sprint"))
 	v := standupView{sprint: sprint, backlog: Q(r, "backlog") != "", jql: Q(r, "jql"), filter: Q(r, "kind") == "filter"}
-	stops, head, err := teamStandup(ctx, s, board, v, since, now)
+	stops, cols, head, err := teamStandup(ctx, s, board, v, since, now)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"Stops": stops, "Head": head, "Since": since.Format(time.DateOnly), "Settings": map[string]any{
+	for i := range cols {
+		if cols[i].Cards == nil {
+			cols[i].Cards = []jira.Card{}
+		}
+	}
+	return map[string]any{"Stops": stops, "Board": cols, "Head": head, "Since": since.Format(time.DateOnly), "Settings": map[string]any{
 		"First": set.First, "Shuffle": set.Shuffle, "Length": set.Length.Seconds(), "Timebox": set.Timebox.Seconds(),
 	}}, nil
 }
@@ -63,13 +69,13 @@ type standupView struct {
 	jql             string
 }
 
-// teamStandup is the stops of the board's view since since, and its head:
-// the sprint goal and the workdays left.
-func teamStandup(ctx context.Context, s *Server, board int, v standupView, since, now time.Time) ([]standup.Stop, string, error) {
+// teamStandup is the stops of the board's view since since, its columns
+// and cards, and its head: the sprint goal and the workdays left.
+func teamStandup(ctx context.Context, s *Server, board int, v standupView, since, now time.Time) ([]standup.Stop, []standup.Column, string, error) {
 	c := s.Client()
 	cfg, err := c.BoardConfiguration(ctx, board)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	var cards []jira.Card
 	switch {
@@ -83,7 +89,7 @@ func teamStandup(ctx context.Context, s *Server, board int, v standupView, since
 		cards, _, err = c.BoardIssues(ctx, board, v.jql, cfg.PointsField)
 	}
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	b := standup.Board{Columns: make([]standup.Column, len(cfg.Columns)), Stale: cmp.Or(s.UIConfig().StaleDays, 5)}
 	for i, col := range cfg.Columns {
@@ -114,7 +120,7 @@ func teamStandup(ctx context.Context, s *Server, board int, v standupView, since
 	}
 	entries, err := c.TeamStandup(ctx, since, ids)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, "", err
 	}
 	if name != "" {
 		entries = standup.Mine(entries, work.Commits(work.Repos(s.opt.Jira.Repos), since), me, name)
@@ -138,7 +144,7 @@ func teamStandup(ctx context.Context, s *Server, board int, v standupView, since
 			}
 		}
 	}
-	return standup.Stops(b, people, entries, since, now), head, nil
+	return standup.Stops(b, people, entries, since, now), b.Columns, head, nil
 }
 
 func plural(n int, what string) string {

@@ -1,18 +1,21 @@
 // Standup: a strip that goes round the people (← →), Everyone first with the board walked right to left, then each
 // person's cards and what they did, those heard ticked; a timer beside it, each turn counting down (ui.standup_length
 // split, or ui.standup_timebox) and the whole standup's time; below, the stop's rows, over the view the board showed last.
-// A picks who takes part, kept per board. Park a card for after (P, kept per view): Everyone's parking lot comes last. Stops come from /standup/lines, built like the TUI's.
+// A picks who takes part, kept per board. Park a card for after (P, kept per view): Everyone's parking lot comes last.
+// Beside it, past a grip like the issue panel's, the view's board: the shown person's cards, the row picked marked.
+// Stops and the board come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { avatar } from '../lib/ui.js';
 import { projectOf, boardsOf, lastBoard, setCtx, switcher, recover } from './plan_ctx.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
+import { grip } from '../lib/grip.js';
 
 const PARK = 'Parking lot';
 
 export default function mount(el, { app, scope, context, toolbar }) {
-  css('work'); css('standup');
+  css('work'); css('board'); css('standup');
   const { api, ui, prefs } = app;
   const wd = workdays(app);
   const prevWorkday = d => { let x = addDays(d, -1); while (!wd.includes(x.getDay())) x = addDays(x, -1); return x; };
@@ -24,8 +27,15 @@ export default function mount(el, { app, scope, context, toolbar }) {
   let stops = [], at = 0, shuffled = false, started = 0, turn = 0, paused = 0;
   const heard = new Set();
 
-  const root = h('div.standup');
-  el.append(root);
+  // The standup on the left, the board on the right, split at a share of the width kept in prefs (50% by default).
+  const root = h('div.standup'), boardEl = h('div.stboard'), gripEl = h('div.stgrip', { title: 'Drag to resize', role: 'separator' });
+  const split = h('div.stsplit', root, gripEl, boardEl);
+  el.append(split);
+  const showSplit = p => split.style.setProperty('--st-split', p + '%');
+  const savedSplit = Number(prefs.get('standupSplit', ''));
+  showSplit(savedSplit >= 25 && savedSplit <= 75 ? savedSplit : 50);
+  grip(gripEl, { def: 50, min: 25, max: 75, show: showSplit, keep: p => { showSplit(p); prefs.set('standupSplit', p === 50 ? '' : String(p)); },
+    pct: ev => { const b = split.getBoundingClientRect(); return (ev.clientX - b.left) * 100 / b.width; } });
 
   const picks = l => !!(l.Key || l.Unfold);
   const person = () => (stops[at] && stops[at].Person) || {};
@@ -145,6 +155,33 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   // ---- painting
 
+  // paintBoard draws the view's lanes with the shown person's cards (everyone's on Everyone), redrawn only when the
+  // standup or the person changes, and marks the card of the row picked.
+  let drawn = null;
+  function paintBoard() {
+    const who = person().ID || '';
+    if (!data || !data.Board) { if (drawn) { clear(boardEl); drawn = null; } return; }
+    if (!drawn || drawn.data !== data || drawn.who !== who) {
+      drawn = { data, who };
+      clear(boardEl);
+      const n = data.Board.length;
+      data.Board.forEach((col, i) => {
+        const cards = col.Cards.filter(c => !who || c.AssigneeID === who);
+        boardEl.append(h('section.bd-lane', h('div.bd-lane-head.' + (i === 0 ? 'knew' : i === n - 1 ? 'kdone' : 'kprog'), h('span.bd-lane-name', col.Name), h('span.bd-count', String(cards.length))),
+          h('div.bd-lane-body' + (cards.length ? '' : '.empty'), cards.map(cardEl))));
+      });
+    }
+    const key = lines[sel] && lines[sel].Key;
+    boardEl.querySelectorAll('.card.sel').forEach(c => c.classList.remove('sel'));
+    const c = key && boardEl.querySelector('.card[data-key="' + CSS.escape(key) + '"]');
+    if (c) { c.classList.add('sel'); c.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  }
+  const cardEl = c => h('div.bcw', h('div.card' + (c.Done ? '.done' : c.InProgress ? '.prog' : '') + (c.Flagged ? '.flagged' : ''), { dataset: { key: c.Key } },
+    h('div.c1', h('span.ckey', c.Key), c.Flagged && h('span.cflag', icon('flag')), h('span.spacer'), c.Points && h('span.cpts', c.Points)),
+    h('div.csum', c.Summary),
+    h('div.c3', h('span.spacer'), h('span.cav', avatar(c.Assignee, c.AvatarURL, 20)))));
+  delegate(boardEl, 'click', '.card', (e, c) => app.panel.open(c.dataset.key));
+
   // strip is the round: on its own line the people, each chip the same size whoever is shown (a ring marks them, a
   // badge those heard), scrolling sideways between the arrows; under them the one shown, the tools and the timer.
   function strip() {
@@ -178,7 +215,9 @@ export default function mount(el, { app, scope, context, toolbar }) {
     else if (r > row.scrollLeft + row.clientWidth) row.scrollLeft = r - row.clientWidth;
   }
 
-  function paint() {
+  function paint() { paintList(); paintBoard(); }
+
+  function paintList() {
     const was = (root.querySelector('.stpeople') || {}).scrollLeft || 0;
     clear(root);
     const label = since ? since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }) : '…';
