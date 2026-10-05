@@ -1,8 +1,11 @@
 // Markdown → DOM for Jira text (the dialect internal/jira/adf.go writes). Builds nodes
 // with createElement/textContent only: nothing from the text is ever parsed as HTML.
 //
-//   render(md, {attachment(id)→url, isKey(str)→bool, onKey(key), onTask(n, total, done, input), names:[…]}) → DocumentFragment
+//   render(md, {attachment(id)→url, isKey(str)→bool, onKey(key), site, onTask(n, total, done, input), names:[…]}) → DocumentFragment
+//
+// With onKey, a link to an issue on site (the Jira base URL) opens it here: a pill when it shows its URL.
 import { h } from './dom.js';
+import { jiraKey, issuePill } from './issuepill.js';
 
 const SAFE_HREF = /^(https?:|mailto:|#)/i;
 const KEY = /[A-Z][A-Z0-9]+-\d+/y;
@@ -13,7 +16,7 @@ const TAGS = [
   [/<status color="([a-z-]*)">([\s\S]*?)<\/status>/y, m => h('span.md-status.c-' + m[1].replace(/[^a-z]/g, ''), m[2])],
   [/<span style="(color|background-color):\s*(#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?);?">([\s\S]*?)<\/span>/y, (m, o) => h(m[1] === 'color' ? 'span.md-col' : 'span.md-hi', { style: { '--c': m[2] } }, inline(m[3], o))],
   [/<span style="[^"]*">([\s\S]*?)<\/span>/y, (m, o) => h('span', inline(m[1], o))],
-  [/<(https?:\/\/[^>\s]+)>/y, m => link(m[1], m[1])],
+  [/<(https?:\/\/[^>\s]+)>/y, (m, o) => urlLink(m[1], o)],
   [/<br>/y, () => h('br')], // a line break in a table cell
 ];
 
@@ -27,6 +30,9 @@ function link(href, text, o) {
   const ext = /^https?:/i.test(href);
   return h('a', { href, target: ext ? '_blank' : null, rel: ext ? 'noopener noreferrer' : null }, text);
 }
+const issueKey = (href, o) => (o.onKey ? jiraKey(href, o.site) : '');
+const urlLink = (url, o) => { const k = issueKey(url, o); return k ? issuePill(k, o.onKey, url) : link(url, url); };
+const keyLink = (key, kids, o) => h('a.issue-ref', { href: '#/issue/' + key, onclick: e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); o.onKey(key); } }, kids);
 
 // "[text](href)" at s[i]: {text, href, end} or null. Brackets and parens may nest.
 function linkAt(s, i) {
@@ -103,7 +109,12 @@ export function inline(s, o = {}) {
       }
     } else if (c === '[') {
       const m = linkAt(s, i);
-      if (m) { push(SAFE_HREF.test(m.href) ? linkWith(m.href, inline(m.text, o)) : h('span', inline(m.text, o))); i = m.end; continue; }
+      if (m) {
+        const k = issueKey(m.href, o);
+        push(k && (!m.text || m.text === m.href) ? issuePill(k, o.onKey, m.href) : k ? keyLink(k, inline(m.text, o), o)
+          : SAFE_HREF.test(m.href) ? linkWith(m.href, inline(m.text, o)) : h('span', inline(m.text, o)));
+        i = m.end; continue;
+      }
     } else if (c === '*' && s.startsWith('***', i) && s.indexOf('***', i + 3) > i + 3) {
       const j = s.indexOf('***', i + 3);
       push(h('strong', h('em', inline(s.slice(i + 3, j), o)))); i = j + 3; continue;
@@ -144,14 +155,14 @@ export function inline(s, o = {}) {
       const m = URLRE.exec(s);
       if (m) {
         const url = m[0].replace(/[.,;:!?)\]]+$/, '');
-        push(link(url, url)); i += url.length; continue;
+        push(urlLink(url, o)); i += url.length; continue;
       }
     } else if (/[A-Z]/.test(c) && o.isKey && !word(s[i - 1]) && o.onKey) {
       KEY.lastIndex = i;
       const m = KEY.exec(s);
       if (m && !word(s[i + m[0].length]) && s[i + m[0].length] !== '-' && o.isKey(m[0])) {
         const key = m[0];
-        push(h('a.issue-ref', { href: '#/issue/' + key, onclick: e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); o.onKey(key); } }, key));
+        push(keyLink(key, key, o));
         i += key.length; continue;
       }
     }
@@ -246,7 +257,7 @@ function blocks(lines, o) {
       out.push(h('details.md-expand', h('summary', m[1] || 'Details'), blocks(lines.slice(i + 1, end), o))); i = end + 1;
     } else if (BLOCK.test(l.trim()) || SHELL.test(l.trim())) { i++; }
     else if (CLOSE.test(l.trim())) { i++; }
-    else if ((m = CARD.exec(l.trim()))) { out.push(h('p', link(m[1], m[1]))); i++; }
+    else if ((m = CARD.exec(l.trim()))) { out.push(h('p', urlLink(m[1], o))); i++; }
     else if (/^>/.test(l)) {
       const q = [];
       while (i < lines.length && /^>/.test(lines[i])) q.push(lines[i++].replace(/^> ?/, ''));

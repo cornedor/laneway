@@ -21,6 +21,7 @@ const catOf = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 export default function mount(el, { app, scope, query }) {
   css('issue'); css('diff'); css('dev');
   const { api, ui } = app;
+  const jira = { site: app.session && app.session.baseURL, onKey: k => app.panel.open(k) }; // its Jira links open beside
   const url = query.url || '';
   let mr = null, mrErr = null, data = null, dead = false, cur = 0, version = +query.version || 0, tab = query.tab === 'changes' ? 'changes' : 'overview', jobId = +query.job || 0;
   const cards = new Map(); // a named issue's card, by key: {card} | {err}
@@ -169,7 +170,7 @@ export default function mount(el, { app, scope, query }) {
     if (mr) {
       kids.push(fieldsEl());
       if (mr.Checks) kids.push(h('div.sec-head', h('h3', 'Pipeline'), h('span.dim', 'a job shows its log')), h('div.mrp-pipeline', pipelineBox()), jobId ? jobView.el : null);
-      kids.push(h('div.sec-head', h('h3', 'Description')), (mr.Description || '').trim() ? h('div.md.mrp-desc', md(mr.Description)) : h('div.faint', 'No description.'));
+      kids.push(h('div.sec-head', h('h3', 'Description')), (mr.Description || '').trim() ? h('div.md.mrp-desc', md(mr.Description, jira)) : h('div.faint', 'No description.'));
     } else if (!mrErr) kids.push(h('div.df-msg', 'Loading the merge request…'));
     kids.push(...discussions());
     over.replaceChildren(h('div.mrp-page', kids));
@@ -204,7 +205,7 @@ export default function mount(el, { app, scope, query }) {
   // ---- threads and notes (both tabs)
   // A pending note of your review: only you see it until the review is submitted.
   const pending = d => {
-    const el = h('div.df-note.pending', h('div', h('span.df-who', 'you'), h('span.df-when', 'pending'), h('div.md', md(d.Body))),
+    const el = h('div.df-note.pending', h('div', h('span.df-who', 'you'), h('span.df-when', 'pending'), h('div.md', md(d.Body, jira))),
       h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => editDraft(d, el) }, 'Edit'), h('button.btn.ghost.sm', { onclick: () => dropDraft(d) }, 'Drop')));
     return el;
   };
@@ -225,7 +226,7 @@ export default function mount(el, { app, scope, query }) {
   const note = t => {
     const el = h('div.df-note' + (t.Resolved ? '.resolved' : ''), { dataset: { thread: t.ID } },
       t.Outdated ? h('div.df-when', 'outdated · ' + t.Path + ':' + (t.NewLine || t.OldLine) + (t.NewLine ? '' : ' (removed)')) : null,
-      (t.Notes || []).map(n => h('div.df-msg-row', ui.avatar(n.Author, '', 20), h('div', h('span.df-who', n.Author), isZero(n.Created) ? null : h('span.df-when', ago(n.Created)), h('div.md', md(n.Body))))),
+      (t.Notes || []).map(n => h('div.df-msg-row', ui.avatar(n.Author, '', 20), h('div', h('span.df-who', n.Author), isZero(n.Created) ? null : h('span.df-when', ago(n.Created)), h('div.md', md(n.Body, jira))))),
       h('div.df-acts', h('button.btn.ghost.sm', { onclick: () => { const c = composer({ ReplyTo: t.ID }, 'Reply…'); c.classList.add('reply'); el.append(c); } }, 'Reply'),
         t.Resolvable || t.Resolved ? h('button.btn.ghost.sm', { onclick: () => resolve(t) }, t.Resolved ? 'Reopen' : 'Resolve') : null,
         t.Resolved ? h('span.df-when', 'resolved') : null));

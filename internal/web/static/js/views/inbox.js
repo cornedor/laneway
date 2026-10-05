@@ -84,7 +84,7 @@ export default function mount(el, { app, scope, toolbar }) {
     const when = Date.parse(e.When);
     return h('div.ientry' + (when > newFrom ? '.new' : '') + (e.Mention || e.Assigned ? '.mention' : ''),
       h('div.meta', h('span.who', e.Who), h('span', { title: dateTime(e.When) }, ago(e.When)), e.Mention && h('span', '@ mentions you'), e.Assigned && h('span', 'assigned you')),
-      e.CommentID ? h('div.body', md(e.Body, away(cur()) ? {} : { isKey: k => /^[A-Z][A-Z0-9]+-\d+$/.test(k), onKey: k => app.panel.open(k) }))
+      e.CommentID ? h('div.body', md(e.Body, away(cur()) ? {} : { isKey: k => /^[A-Z][A-Z0-9]+-\d+$/.test(k), onKey: k => app.panel.open(k), site: app.session.baseURL }))
         : e.Changes && e.Changes.length ? e.Changes.map(c => h('div.chg', h('span.f', c.Field + ': '), c.From && h('s', clip(c.From) + ' '), c.From && '→ ', clip(c.To)))
           : h('div.chg', e.What));
   }

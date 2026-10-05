@@ -14,6 +14,7 @@ import { h, clear, debounce } from './dom.js';
 import { icon } from './icons.js';
 import { css } from './css.js';
 import { render as md, glyph } from './md.js';
+import { jiraKey } from './issuepill.js';
 import { mdArea } from './mdarea.js';
 import { lines, enter, indent, toggleTask, pasteLink, tableTab, tableArrow, moveLines, wrapWith, backspace, inFence as fenced } from './mdhl.js';
 import { htmlToMd, rich } from './html2md.js';
@@ -340,10 +341,8 @@ export function mdEdit(app, o) {
     if (box && !ta.readOnly) return ta.edit(toggleTask(ta.value, ta.offsetOf(box)));
     if (!(e.ctrlKey || e.metaKey)) return;
     const a = t.closest('[data-href]'), k = t.closest('[data-key]');
-    if (a) { e.preventDefault(); window.open(a.dataset.href, '_blank', 'noopener'); } else if (k) {
-      const m = o.mdOpts && o.mdOpts();
-      if (m && m.onKey) { e.preventDefault(); m.onKey(k.dataset.key); }
-    }
+    const m = o.mdOpts && o.mdOpts(), local = a && m && m.onKey && jiraKey(a.dataset.href, m.site); // an issue on this site opens here
+    if (local) { e.preventDefault(); m.onKey(local); } else if (a) { e.preventDefault(); window.open(a.dataset.href, '_blank', 'noopener'); } else if (k && m && m.onKey) { e.preventDefault(); m.onKey(k.dataset.key); }
   });
   ta.addEventListener('paste', e => {
     const fs = [...(e.clipboardData ? e.clipboardData.files : [])];

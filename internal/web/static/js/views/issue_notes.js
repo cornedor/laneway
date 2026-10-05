@@ -39,7 +39,7 @@ export function mountNotes(parent, key, { app, el, full }) {
       return;
     }
     const long = text.split('\n').length > 4;
-    const body = h('div.notes-body.md' + (long && !open ? '.folded' : ''), render(text));
+    const body = h('div.notes-body.md' + (long && !open ? '.folded' : ''), render(text, { site: app.session.baseURL, onKey: k => app.panel.open(k) }));
     box.append(h('div.notes-head', h('b', 'Notes (local)'), h('span.spacer'),
       long && h('button.btn.ghost.sm', { onclick: () => { open = !open; paint(); } }, open ? 'Fold' : 'Unfold'),
       h('button.btn.ghost.sm', { title: 'Post as a comment', onclick: post }, 'Post as comment'),

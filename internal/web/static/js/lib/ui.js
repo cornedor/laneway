@@ -3,7 +3,6 @@ import { h, clear } from './dom.js';
 import { icon } from './icons.js';
 import { keys } from './keys.js';
 import { fuzzy } from './fuzzy.js';
-import { initials, hue } from './fmt.js';
 
 
 // toast('Moved', {kind:'ok'|'err'|'info', action:{label, run}, ms})
@@ -164,14 +163,5 @@ export function confirm({ title, text = '', ok = 'OK', danger = false } = {}) {
   });
 }
 
-// Avatar: an image when the API gave a URL, else coloured initials.
-export function avatar(name, url, size = 20) {
-  const r = v => Math.round(v / 14 * 1000) / 1000 + 'rem';
-  const s = { width: r(size), height: r(size), fontSize: r(Math.round(size * 0.42)) };
-  if (!name) return h('span.avatar.none', { style: s, title: 'Unassigned' }, '·');
-  return h('span.avatar', { style: { ...s, background: `hsl(${hue(name)} 45% 42%)` }, title: name }, initials(name),
-    (url && (url.startsWith('/api/avatar/') || url.startsWith('data:'))) && h('img', { src: url, alt: '', loading: 'lazy', onerror: e => e.target.remove() }));
-}
 export const chip = (text, cls = '') => h('span.chip' + (cls ? '.' + cls : ''), text);
-// Status pill coloured by status category ('new'|'indeterminate'|'done' or the card's Done/InProgress).
-export const statusPill = (name, cat) => h('span.pill.cat-' + (cat || 'new'), name);
+export { avatar, statusPill } from './badge.js';

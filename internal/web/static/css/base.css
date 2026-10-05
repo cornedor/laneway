@@ -48,6 +48,14 @@ kbd { font-size: .85em; background: var(--bg-3); border: 1px solid var(--border)
 .pill { display: inline-block; font-size: .786rem; font-weight: 600; padding: 0 .5rem; border-radius: 4px; line-height: 1.286rem; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
   background: color-mix(in srgb, var(--pill, var(--cat-new)) 18%, transparent); color: var(--pill, var(--cat-new)); }
 .pill.cat-new { --pill: var(--cat-new); } .pill.cat-indeterminate { --pill: var(--cat-indeterminate); } .pill.cat-done { --pill: var(--cat-done); }
+/* A link to an issue on this site (lib/issuepill.js): [status] KEY summary (avatar) */
+a.issue-pill { display: inline-flex; align-items: center; gap: .357rem; max-width: 100%; vertical-align: bottom; padding: 0 .286rem; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-2); color: var(--fg); line-height: 1.5; white-space: nowrap; }
+a.issue-pill:hover { text-decoration: none; border-color: var(--accent); }
+.issue-pill .pill { flex: none; font-size: .7em; line-height: 1.5; padding: 0 .357rem; }
+.issue-pill .ip-key { flex: none; font-family: var(--font-mono); font-size: .9em; color: var(--accent); }
+.issue-pill .ip-sum { min-width: 0; max-width: 40ch; overflow: hidden; text-overflow: ellipsis; }
+.issue-pill .ip-sum:empty { display: none; }
 .avatar { position: relative; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 600; overflow: hidden; flex: none; vertical-align: middle; }
 .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; } .avatar.none { background: var(--bg-3); color: var(--fg-3); border: 1px dashed var(--border); }
 

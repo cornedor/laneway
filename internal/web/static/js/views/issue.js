@@ -143,7 +143,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const mdOpts = () => {
     const pre = prefixes();
     return { attachment: id => '/api/attachments/' + encodeURIComponent(id), names: [...people().keys()].sort((a, b) => b.length - a.length),
-      isKey: s => pre.has(s.slice(0, s.lastIndexOf('-'))), onKey: open };
+      isKey: s => pre.has(s.slice(0, s.lastIndexOf('-'))), onKey: open, site: app.session.baseURL };
   };
   const fail = e => ui.errToast(e);
   const changed = what => bus.emit('issue:changed', { key, what });
