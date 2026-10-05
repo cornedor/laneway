@@ -57,7 +57,7 @@ func (m *Model) cardSlot() int {
 // cardLines are a lane card's lines: three, or one when compact (key and
 // marks, the avatar, the summary).
 func (m *Model) cardLines(c jira.Card, styled bool) []string {
-	lines := jiraCardLines(c, styled, m.opts.fields)
+	lines := cardLinesFor(c, styled, m.opts.fields, m.opts.layout, m.cardLook(c))
 	if tm := m.timerMark(c.Key); tm != "" {
 		lines[0] += " " + tm
 	}
@@ -71,7 +71,20 @@ func (m *Model) cardLines(c jira.Card, styled bool) []string {
 			chip = jiraAvatar(c.Assignee) + " "
 		}
 	}
-	return []string{lines[0] + " " + chip + c.Summary}
+	return []string{joinSides(lines[0]) + " " + chip + c.Summary}
+}
+
+// cardLook is what ui.card_styles make of c, against the query env of the
+// last render.
+func (m *Model) cardLook(c jira.Card) cardLook {
+	if len(m.opts.cardStyles) == 0 {
+		return cardLook{}
+	}
+	env := m.jiraTab.styleEnv
+	if env.now.IsZero() {
+		env.now = time.Now()
+	}
+	return cardLookOf(c, m.opts.cardStyles, env)
 }
 
 const jiraCompactMeta = jiraMetaPrefix + "compact"
@@ -292,6 +305,7 @@ type jiraDrag struct {
 }
 
 type jiraTabState struct {
+	styleEnv jiraQueryEnv   // what ui.card_styles queries compare against, from the last render
 	view     viewport.Model // the list mode's rows
 	project  string
 	projects []jira.Project // the picker's list, fetched once
@@ -2069,6 +2083,9 @@ func jiraPriorityMark(p string) string {
 // lane render, with the cursor scrolled into view.
 func (m *Model) renderJira() {
 	t := m.jiraTab
+	if len(m.opts.cardStyles) > 0 {
+		t.styleEnv = m.jiraQueryEnv()
+	}
 	w, h := t.view.Width(), t.view.Height()
 	var msg string
 	t.empty = emptyHint{row: -1}
@@ -2273,7 +2290,11 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 	// The summary, its parent and custom fields give way on a long row; the
 	// tail (assignee, deploy, subtasks, due, age) is what a row is scanned
 	// for, in columns at the right edge.
+	lk := m.cardLook(c)
 	title := c.Summary
+	if lk.bold {
+		title = lipgloss.NewStyle().Bold(true).Render(title)
+	}
 	if f.parent && c.ParentSummary != "" {
 		title += jiraDimStyle.Render(" · ⌃ " + c.ParentSummary)
 	}
@@ -2294,6 +2315,9 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 	row := "  "
 	if r := m.cardRibbon(c); r != "" && !selected {
 		row = r + " "
+	}
+	if col := cardStyleColour(lk.edge); col != nil && !selected {
+		row = lipgloss.NewStyle().Foreground(col).Render("▌") + " "
 	}
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		row = hl + " "
@@ -2340,6 +2364,13 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 		// Plain selection colours, as the selected card: dim status, points
 		// and marks sank into the selection background.
 		row = stripKeepImages(row)
+	} else {
+		if lk.fade {
+			row = jiraDimStyle.Faint(true).Render(stripKeepImages(row))
+		}
+		if tint, ok := cardTintStyle(lk.tint); ok {
+			row = paintRow(tint, row, width)
+		}
 	}
 	return m.jiraSelect(row, selected, width)
 }
@@ -2397,21 +2428,32 @@ func jiraLaneLayout(width, n int) (visible, laneW int) {
 	return visible, width / visible
 }
 
-// jiraCardLines is a card's three lines: key, type and points; summary;
-// assignee. styled false leaves them plain, for the drag ghost.
+// jiraCardLines is a card's three lines as f picks them: key, marks and
+// points; summary; assignee, epic and custom fields. styled false leaves
+// them plain, for the drag ghost.
 func jiraCardLines(c jira.Card, styled bool, f cardFields) []string {
+	return cardLinesFor(c, styled, f, nil, cardLook{})
+}
+
+// cardLinesFor is a card's three lines: as l places them and lk styles
+// them, or as f picks them when l is nil.
+func cardLinesFor(c jira.Card, styled bool, f cardFields, l *cardLayout, lk cardLook) []string {
+	if l == nil {
+		l = defaultCardLayout(f)
+	}
+	render := func() []string { return layoutCardLines(c, l, styled, f.stale, lk) }
 	if !styled {
-		return renderCardLines(c, false, f)
+		return render()
 	}
 	now := time.Now().Truncate(time.Minute)
 	if !now.Equal(cardLinesAt) {
 		clear(cardLinesMemo)
 		cardLinesAt = now
 	}
-	k := cardLinesKey{c, f, plainIcons}
+	k := cardLinesKey{c, f, plainIcons, l, strings.Join(lk.hidden, ","), lk.bold}
 	lines, ok := cardLinesMemo[k]
 	if !ok {
-		lines = renderCardLines(c, true, f)
+		lines = render()
 		cardLinesMemo[k] = lines
 	}
 	return slices.Clone(lines)
@@ -2426,70 +2468,12 @@ var (
 )
 
 type cardLinesKey struct {
-	c     jira.Card
-	f     cardFields
-	plain bool
-}
-
-func renderCardLines(c jira.Card, styled bool, f cardFields) []string {
-	key, pts, who := c.Key, "", ""
-	if f.points && c.Points != "" {
-		pts = " " + c.Points + "p"
-	}
-	if f.assignee {
-		who = c.Assignee
-		if who == "" {
-			who = "unassigned"
-		}
-	}
-	if f.parent && c.ParentSummary != "" {
-		if who != "" {
-			who += " · "
-		}
-		who += "⌃ " + c.ParentSummary
-	}
-	for _, v := range jiraExtraValues(c) {
-		if who != "" {
-			who += " · "
-		}
-		who += v
-	}
-	chip := ""
-	if f.avatar && c.Assignee != "" {
-		chip = jiraInitials(c.Assignee)
-	}
-	if !styled {
-		return []string{key + pts, c.Summary, strings.TrimSpace(chip + " " + who)}
-	}
-	if chip != "" {
-		chip = jiraAvatar(c.Assignee) + " "
-	}
-	head := jiraKeyStyle.Render(key)
-	if f.flagged && c.Flagged {
-		head = jiraOverStyle.Render("⚑") + " " + head
-	}
-	if f.typ {
-		head += " " + jiraTypeIcon(c.Type)
-	}
-	if pm := jiraPriorityMark(c.Priority); f.priority && pm != "" {
-		head += " " + pm
-	}
-	if pr := jiraPRMark(c.PR); f.pr && pr != "" {
-		head += " " + pr
-	}
-	if d := jiraDeployMark(c.Deploy); f.deploy && d != "" {
-		head += " " + d
-	}
-	if st := jiraSubtaskMark(c); f.subtasks && st != "" {
-		head += " " + st
-	}
-	if d := jiraDueMark(c, time.Now()); f.due && d != "" {
-		head += " " + d
-	}
-	if a := jiraAgeMark(c, time.Now(), f.stale); f.age && a != "" {
-		head += " " + a
-	}
-	return []string{head + jiraDimStyle.Render(pts), c.Summary, chip + jiraDimStyle.Render(who)}
+	c      jira.Card
+	f      cardFields
+	plain  bool
+	layout *cardLayout
+	hidden string
+	bold   bool
 }
 
 // jiraExtra is a card's ui.custom_fields as name → value, names
@@ -2792,15 +2776,25 @@ func (m *Model) jiraLaneCard(c jira.Card, sel bool, inner int) []string {
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		lines[0] = hl + " " + lines[0]
 	}
+	lk := m.cardLook(c)
 	ribbon := m.cardRibbon(c)
+	if col := cardStyleColour(lk.edge); col != nil {
+		ribbon = lipgloss.NewStyle().Foreground(col).Render("▌")
+	}
 	if ribbon != "" {
 		inner--
 	}
+	tint, tinted := cardTintStyle(lk.tint)
 	for i, line := range lines {
-		line = ansi.Truncate(line, inner, "…")
+		line = ansi.Truncate(cardSides(line, inner), inner, "…")
+		if lk.fade && !sel {
+			line = jiraDimStyle.Faint(true).Render(stripKeepImages(line))
+		}
 		switch {
 		case sel: // plain: dim marks vanish on the selection colour
 			lines[i] = ribbon + m.jiraSelect(stripKeepImages(line), true, inner)
+		case tinted:
+			lines[i] = ribbon + paintRow(tint, line, inner)
 		default: // full width, on the terminal's own background
 			lines[i] = ribbon + line + strings.Repeat(" ", max(inner-visualWidth(line), 0))
 		}

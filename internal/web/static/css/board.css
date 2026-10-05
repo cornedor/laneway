@@ -127,6 +127,18 @@ body.panel-focus .lrow.sel { background: var(--bg-3); box-shadow: inset 3px 0 va
 .ctimer { color: var(--accent); font-size: .786rem; white-space: nowrap; }
 .cextra { font-size: .786rem; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
 .card.ribbon { box-shadow: inset -5px 0 0 var(--ribbon); }
+.cstatus { font-size: .714rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 0 .357rem; border-radius: 4px; line-height: 1.214rem; color: var(--cat-new); background: color-mix(in srgb, var(--cat-new) 14%, transparent); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
+.cstatus.cat-prog { color: var(--cat-indeterminate); background: color-mix(in srgb, var(--cat-indeterminate) 14%, transparent); }
+.cstatus.cat-done { color: var(--cat-done); background: color-mix(in srgb, var(--cat-done) 14%, transparent); }
+.cav.cwho { align-items: center; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
+/* ui.card_styles */
+.card.edged, .card.edged:hover { border-left-color: var(--edge); }
+.card.tinted { background: color-mix(in srgb, var(--tint) 14%, var(--bg)); }
+.card.faded:not(.sel) { opacity: .5; }
+.card.bold .csum, .lrow.bold .l-summary { font-weight: 600; }
+.lrow.edged:not(.sel) { box-shadow: inset 3px 0 0 var(--edge); }
+.lrow.tinted { background: color-mix(in srgb, var(--tint) 12%, transparent); }
+.lrow.faded:not(.sel) { opacity: .5; }
 .bd.compact .card { flex-direction: row; align-items: center; gap: .571rem; padding: .143rem .571rem; }
 .bd.compact .c1 { flex: none; }
 .bd.compact .csum { flex: 1; min-height: 0; min-width: 0; display: block; white-space: nowrap; text-overflow: ellipsis; -webkit-line-clamp: unset; }

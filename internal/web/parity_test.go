@@ -38,7 +38,7 @@ var webOnly = map[string]string{
 // the browser ignores it.
 var sharedOptions = []string{
 	"auto_refresh", "stale_after", "card_limit", "panel_width", "keys", "default_mode",
-	"date_format", "card_fields", "quick_filters", "views", "stale_days",
+	"date_format", "card_fields", "card_layout", "card_styles", "quick_filters", "views", "stale_days",
 	"velocity_sprints", "templates", "timer_on_start", "start_assigns", "start_status",
 	"workday_start", "capacity", "saved_filters", "branch_template", "work_branch_template",
 	"kanban_done_days", "roadmap_epic_type", "my_work_jql", "roadmap_done_days", "workdays",

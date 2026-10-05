@@ -100,6 +100,29 @@ func (g GitLabConfig) WithToken() (GitLabConfig, error) {
 	return g, err
 }
 
+// CardLayout is a lane card's lines: Top and Bottom around the summary,
+// each with a left and a right side. Fields are those of card_fields plus
+// key, labels and the custom_fields by name.
+type CardLayout struct {
+	Top         []string `yaml:"top,omitempty"`
+	TopRight    []string `yaml:"top_right,omitempty"`
+	Bottom      []string `yaml:"bottom,omitempty"`
+	BottomRight []string `yaml:"bottom_right,omitempty"`
+}
+
+// CardStyle restyles the cards When (the board's query language) matches.
+// Edge and Tint are accent, ok, warn, err, info or #rrggbb; Hide drops
+// fields on a match, Show keeps fields off every card it does not match.
+type CardStyle struct {
+	When string   `yaml:"when"`
+	Edge string   `yaml:"edge,omitempty"`
+	Tint string   `yaml:"tint,omitempty"`
+	Fade bool     `yaml:"fade,omitempty"`
+	Bold bool     `yaml:"bold,omitempty"`
+	Hide []string `yaml:"hide,omitempty"`
+	Show []string `yaml:"show,omitempty"`
+}
+
 // RulesTest is `laneway rules test`'s defaults.
 type RulesTest struct {
 	Type   string `yaml:"type"`
@@ -130,6 +153,12 @@ type UIConfig struct {
 	// CardFields picks what cards and list rows show, in any order:
 	// type, priority, status, points, assignee, parent.
 	CardFields []string `yaml:"card_fields"`
+	// CardLayout places a lane card's fields around its summary; set, it
+	// replaces CardFields on lane cards (list rows keep CardFields).
+	CardLayout CardLayout `yaml:"card_layout"`
+	// CardStyles restyle the cards a board query matches, in order (a later
+	// match wins).
+	CardStyles []CardStyle `yaml:"card_styles"`
 	// QuickFilters are JQL presets shown before every board's own.
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.

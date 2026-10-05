@@ -2,12 +2,12 @@
 // navigation, drag and drop, and quiet refreshes. Cards render through lib/vlist.js
 // so a lane or list of thousands stays smooth.
 import { h, clear, delegate, debounce } from '../lib/dom.js';
-import { icon, setIcon, TYPE_ICON } from '../lib/icons.js';
+import { icon, setIcon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
 import { onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
-import { isZero, date, shortDate, ago, localDate } from '../lib/fmt.js';
+import { isZero, date, shortDate } from '../lib/fmt.js';
 import { workdays } from '../lib/worktime.js';
 import { goDate } from '../lib/godate.js';
 import * as cq from '../lib/cardquery.js';
@@ -16,20 +16,17 @@ import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
-import { COLS, DEFAULT_COLS, SORTS, PRIO_ICON, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, ageText, setAvatar, buildRow as listRow, fillCells } from '../lib/cardlist.js';
+import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, buildRow as listRow, fillCells } from '../lib/cardlist.js';
+import { buildCard as buildCardEl, fillCard as fillCardEl, catClass } from '../lib/card.js';
+import { layoutOf, lookOf, colour } from '../lib/cardstyle.js';
 import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
 
 css('board');
 
-const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
-const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
 const FIELD_COL = { type: null, priority: 'priority', status: 'status', points: 'points', assignee: 'assignee', parent: 'epic', due: 'due', age: 'age' };
 const SWIMS = ['none', 'assignee', 'epic', 'priority'];
-const SEP = '\x1f';
 
 const who = c => c.AssigneeID || c.Assignee || '';
-const catClass = c => (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo');
-const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const firstOf = (api, path) => new Promise((res, rej) => {
   let got = false;
   api.swr(path, d => { if (!got) { got = true; res(d); } }).catch(e => { if (!got) rej(e); });
@@ -53,8 +50,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const staleMs = /^\d+\s*[smh]$/i.test(String(UI.StaleAfter || '').trim()) ? parseEvery(UI.StaleAfter) : 6e4;
   const DF = UI.DateFormat || '';
   const CF = UI.CardFields && UI.CardFields.length ? new Set(UI.CardFields.map(x => String(x).toLowerCase().trim())) : null;
-  const cf = name => !CF || CF.has(name);
   const CUSTOM = (UI.CustomFields || []).map(n => 'x:' + n);
+  const LAYOUT = layoutOf(UI); // ui.card_layout, else ui.card_fields in the usual places
+  const LOOK = lookOf(UI.CardStyles, { me, get pins() { return S.pins; }, get notes() { return S.notes; } }, UI.CustomFields || []); // ui.card_styles
   const allCols = () => [...Object.keys(COLS), ...CUSTOM];
   const S = {
     project: '', boards: [], board: null, bundle: null, people: new Map(),
@@ -593,15 +591,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
 
   // ---- cards
-  function buildCard() {
-    const r = {};
-    const w = h('div.bcw', { role: 'listitem' }, h('div.card', { draggable: true },
-      h('div.c1', r.type = h('span.ctype'), r.key = h('span.ckey'), r.pin = h('span.cpin', { title: 'Pinned' }, icon('pin')), r.rev = h('span.cpin', { title: 'Waiting on your review' }, icon('glasses')), r.hl = h('span.chl', { title: 'A rule highlighted it; opening it clears the mark' }, icon('circle', true)), r.flag = h('span.cflag', { title: 'Flagged' }, icon('flag', true)), r.timer = h('span.ctimer', { title: 'Timer running · T stops it' }), h('span.sp'), r.prio = h('span.cprio'), r.pts = h('span.cpts')),
-      r.sum = h('div.csum'),
-      h('div.c3', r.parent = h('span.cparent'), r.sub = h('span.csub'), r.due = h('span.cdue'), r.pr = h('span.cpr'), r.dep = h('span.cdep'), r.extra = h('span.cextra'), r.labels = h('span.clabels'), h('span.sp'), r.age = h('span.cage'), r.av = h('span.cav'))));
-    w._r = r;
-    return w;
-  }
   const hourTick = () => Math.floor(Date.now() / 36e5);
   const tmark = key => (app.timer ? app.timer.mark(key) : '');
   const ribbonOf = c => {
@@ -615,52 +604,18 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const rv = k => !!(app.reviewKeys && app.reviewKeys.has(k)); // waiting on your review, once the review screen asked
   const hlOf = k => (app.highlights && app.highlights.has(k) ? app.highlights.get(k) : null); // a rule's highlight colour, '' for the theme's
   const sigOf = c => [c.Key, c.Summary, c.Type, c.Status, c.Priority, c.AssigneeID, c.AvatarURL, c.Points, c.ParentKey, c.Subtasks, c.SubtasksDone, c.Due, c.Done, c.Flagged, c.InProgress, c.PR, c.Deploy, c.Labels, c.Updated, c.Extra, S.sel === c.Key, S.marks.has(c.Key), S.pins.has(c.Key), rv(c.Key), hlOf(c.Key), ribbonOf(c), hourTick(), tmark(c.Key)].join('|');
-  const extraValues = c => (c.Extra ? c.Extra.split(SEP).map(kv => kv.slice(kv.indexOf('=') + 1)) : []);
   const fdate = (t, fallback) => (DF ? goDate(t, DF) : fallback);
+
+  const buildCard = () => buildCardEl(LAYOUT);
   function fillCard(w, c) {
     if (!c) return;
     const sig = sigOf(c);
     if (w._sig === sig) return;
     w._sig = sig;
-    const r = w._r, card = w.firstChild;
-    w.dataset.key = c.Key;
-    const rib = ribbonOf(c);
-    card.className = 'card ' + catClass(c) + (c.Flagged && cf('flagged') ? ' flagged' : '') + (S.sel === c.Key ? ' sel' : '') + (S.marks.has(c.Key) ? ' mark' : '') + (rib ? ' ribbon' : '');
-    if (rib) card.style.setProperty('--ribbon', rib); else card.style.removeProperty('--ribbon');
-    r.type.hidden = !cf('type');
-    const tc = TYPE_CLS[(c.Type || '').toLowerCase()] || 't-other';
-    r.type.className = 'ctype ' + tc;
-    if (TYPE_ICON[tc.slice(2)]) setIcon(r.type, TYPE_ICON[tc.slice(2)]); else setIcon(r.type, '', (c.Type || '?')[0].toUpperCase());
-    r.type.title = c.Type;
-    r.key.textContent = c.Key; app.agents && app.agents.stamp(r.key, c.Key);
-    r.pin.hidden = !S.pins.has(c.Key);
-    r.rev.hidden = !rv(c.Key);
-    const hl = hlOf(c.Key);
-    r.hl.hidden = hl === null; r.hl.style.color = hl && hl.startsWith('#') ? hl : '';
-    r.flag.hidden = !c.Flagged || !cf('flagged');
-    const tm = tmark(c.Key); r.timer.hidden = !tm; if (tm) setIcon(r.timer, 'timer', tm);
-    const po = prioOrd(c);
-    r.prio.hidden = !c.Priority || !cf('priority');
-    r.prio.className = 'cprio p' + po; if (po < 5) setIcon(r.prio, PRIO_ICON[po]); else setIcon(r.prio, '', (c.Priority || '').slice(0, 3)); r.prio.title = c.Priority;
-    r.pts.hidden = c.Points === '' || c.Points == null || !cf('points'); r.pts.textContent = c.Points;
-    r.sum.textContent = c.Summary; r.sum.title = c.Summary;
-    r.parent.hidden = !c.ParentKey || !cf('parent'); r.parent.textContent = c.ParentKey ? c.ParentSummary || c.ParentKey : '';
-    r.parent.dataset.open = c.ParentKey || ''; r.parent.title = c.ParentKey ? c.ParentKey + ' ' + c.ParentSummary : '';
-    r.sub.hidden = !c.Subtasks || !cf('subtasks');
-    if (c.Subtasks) { r.sub.textContent = c.SubtasksDone + '/' + c.Subtasks; r.sub.style.setProperty('--p', Math.round(100 * c.SubtasksDone / c.Subtasks) + '%'); r.sub.title = 'Subtasks done'; }
-    const due = date(c.Due);
-    r.due.hidden = !due || !cf('due');
-    if (due) { r.due.textContent = fdate(c.Due, shortDate(c.Due)); r.due.className = 'cdue' + (!c.Done && due.getTime() < startOfToday() ? ' overdue' : ''); r.due.title = 'Due ' + localDate(due); }
-    r.pr.hidden = !c.PR || !cf('pr'); if (PR_ICON[c.PR]) setIcon(r.pr, ...PR_ICON[c.PR]); else setIcon(r.pr, '', c.PR || ''); r.pr.className = 'cpr pr-' + (c.PR || '').toLowerCase();
-    r.dep.hidden = !c.Deploy || !cf('deploy'); setIcon(r.dep, 'rocket', c.Deploy || '');
-    const ev = extraValues(c);
-    r.extra.hidden = !ev.length; r.extra.textContent = ev.join(' · '); r.extra.title = ev.length ? c.Extra.split(SEP).join(', ') : '';
-    const ls = c.Labels ? c.Labels.split(' ') : [];
-    r.labels.hidden = !ls.length; r.labels.textContent = ls.slice(0, 2).map(l => '#' + l).join(' ') + (ls.length > 2 ? ' +' + (ls.length - 2) : ''); r.labels.title = c.Labels;
-    const a = cf('age') ? ageText(c) : '';
-    r.age.textContent = a; r.age.title = a ? 'In status since ' + ago(!isZero(c.Since) ? c.Since : c.Created) : '';
-    r.av.hidden = !(cf('avatar') || cf('assignee'));
-    setAvatar(r.av, c);
+    fillCardEl(w, c, {
+      look: LOOK && LOOK(c), sel: S.sel === c.Key, marked: S.marks.has(c.Key), pinned: k => S.pins.has(k), review: rv, hl: hlOf, tmark,
+      ribbon: ribbonOf(c), fdate, stamp: (e, k) => app.agents && app.agents.stamp(e, k),
+    });
   }
 
   const buildRow = () => listRow(S.cols);
@@ -678,6 +633,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const rib = ribbonOf(c);
     if (rib) w.style.setProperty('--ribbon', rib); else w.style.removeProperty('--ribbon');
     w.classList.toggle('ribbon', !!rib);
+    const lk = LOOK && LOOK(c);
+    for (const k of ['edge', 'tint']) if (lk && lk[k]) w.style.setProperty('--' + k, colour(lk[k])); else w.style.removeProperty('--' + k);
+    w.classList.toggle('edged', !!(lk && lk.edge)); w.classList.toggle('tinted', !!(lk && lk.tint));
+    w.classList.toggle('faded', !!(lk && lk.fade)); w.classList.toggle('bold', !!(lk && lk.bold));
     fillCells(w, S.cols, c, cellCtx);
   }
 

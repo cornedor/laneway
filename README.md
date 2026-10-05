@@ -116,6 +116,15 @@ ui:
   empty_lanes: show             # or hide: lanes the filters leave empty; alt+e's choice wins after that
   date_format: 2006-01-02 15:04 # Go time layout; the panel says 2d ago within a week
   card_fields: [type, priority, status, points, assignee, avatar, parent, pr, deploy, subtasks, due, flagged, age]
+  card_layout:                  # lane cards: fields around the summary (else card_fields); the web's settings drag them
+    top: [type, key, flagged]
+    top_right: [status, points]
+    bottom: [parent, due, labels]
+    bottom_right: [age, avatar]
+  card_styles:                  # restyle the cards a board query matches; a later match wins
+    - {when: "prio>=high", edge: err, bold: true}   # edge, tint: accent ok warn err info or #rrggbb
+    - {when: "is:done", fade: true}
+    - {when: "-due<7d", hide: [due]}                 # hide, show: fields; show keeps them off cards it doesn't match
   quick_filters:                # JQL presets before the board's own (1-9)
     - {name: Bugs, jql: "type = Bug"}
   views:                        # extra views of every board, after its own ([ ])

@@ -31,6 +31,8 @@ type options struct {
 	lanes           bool // default mode
 	dateFormat      string
 	fields          cardFields
+	layout          *cardLayout         // ui.card_layout, nil: cardFields in the usual places
+	cardStyles      []cardStyle         // ui.card_styles
 	quick           []jira.QuickFilter  // config presets, ids -1, -2, …
 	views           []jiraView          // config JQL views
 	savedFilters    bool                // starred Jira filters as views
@@ -455,6 +457,10 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.fields = f
 	}
 	o.fields.stale = o.staleDays
+	var lw, cw []string
+	o.layout, lw = cardLayoutFrom(c.CardLayout, c.CustomFields)
+	o.cardStyles, cw = cardStylesFrom(c.CardStyles, c.CustomFields)
+	warn = append(append(warn, lw...), cw...)
 	o.panelDefault = o.panelPct
 	return o, warn
 }

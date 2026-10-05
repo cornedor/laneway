@@ -12,8 +12,16 @@ export async function load(app, host) {
   return { options, path: d.path, editable: d.editable, warnings: d.warnings || [], groups: d.groups, keyActions: d.keyActions };
 }
 
+// put writes ui.<name> and refreshes the session's copy; the setting comes back as /api/settings lists it.
+export async function put(app, name, payload) {
+  const st = await app.api.put('/settings/' + name, payload);
+  app.api.get('/session', { fresh: true }).then(s => { if (app.session) app.session.ui = s.ui; }).catch(() => {});
+  app.bus.emit('prefs', { key: 'ui.' + name, value: '' });
+  return st;
+}
+
 function make(app, host, st0, editable) {
-  const o = { name: st0.Name, section: st0.Group, cfg: true, st: st0, err: '', wide: st0.Type === 'yaml' };
+  const o = { name: st0.Name, section: st0.Group, cfg: true, st: st0, err: '', wide: st0.Type === 'yaml', editable };
   const st = () => o.st;
   const current = () => { const s = st(); return s.Value != null ? show(s.Value) : (s.Type === 'bool' || s.Type === 'enum') && s.Choices && s.Name !== 'theme' && s.Name !== 'code_theme' ? s.Choices[0] : ''; };
   o.desc = st0.Doc;
@@ -22,10 +30,8 @@ function make(app, host, st0, editable) {
   async function save(payload, quiet) {
     if (!editable) { app.ui.toast('No config file to write to', { kind: 'err' }); return false; }
     try {
-      o.st = await app.api.put('/settings/' + o.name, payload);
+      o.st = await put(app, o.name, payload);
       o.err = '';
-      app.api.get('/session', { fresh: true }).then(s => { if (app.session) app.session.ui = s.ui; }).catch(() => {});
-      app.bus.emit('prefs', { key: 'ui.' + o.name, value: '' });
       if (!quiet) app.ui.toast('Saved ui.' + o.name + (st().Restart ? ' · takes effect on restart' : ''), { kind: 'ok' });
       host.redraw(o);
       return true;

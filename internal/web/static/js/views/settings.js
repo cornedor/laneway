@@ -6,7 +6,8 @@
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
 //   board.refresh  seconds between idle refetches, '0' = off (default 120)
 //   board.empty_lanes  'show' | 'hide'               (default: session.ui.EmptyLanes or 'show'; alt+e)
-// Card fields and the card limit are the config's ui.card_fields and ui.card_limit (below).
+// Card fields and the card limit are the config's ui.card_fields and ui.card_limit (below); ui.card_layout and
+// ui.card_styles get the card designer (settings_cards.js).
 // Changing one emits bus 'prefs' {key, value}.
 import { h, clear } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
@@ -16,6 +17,7 @@ import { onChange as onMetrics } from '../lib/metrics.js';
 import api from '../lib/api.js';
 import * as notifier from '../lib/notify.js';
 import { load as loadConfig } from './settings_config.js';
+import { designCards } from './settings_cards.js';
 import { keyOptions } from './settings_keys.js';
 import { fontOptions } from './settings_fonts.js';
 
@@ -219,11 +221,12 @@ export default function mount(el, { app, scope, toolbar }) {
 
   draw();
   el.focus();
-  let dead = false;
+  let dead = false, offCards = null;
   keyRows = keyOptions(app, host); options.push(...keyRows); draw();
   loadConfig(app, host).then(c => {
     if (dead) return;
     cfg = c;
+    offCards = designCards(app, host, c.options);
     options.push(...c.options);
     if (c.path) options.push(info('Config file', c.path, 'Data', c.editable ? 'ui: options are written here, comments kept' : 'read-only'));
     for (const w of c.warnings) options.push(info('Config warning', w, 'Data'));
@@ -237,5 +240,5 @@ export default function mount(el, { app, scope, toolbar }) {
   }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
   const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(); } });
-  return () => { dead = true; offMetrics(); editor = null; editing = null; };
+  return () => { dead = true; offMetrics(); if (offCards) offCards(); editor = null; editing = null; };
 }

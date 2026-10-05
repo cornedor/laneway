@@ -138,6 +138,33 @@ ui:
 Custom fields show on cards and rows and are searchable:
 `/"test type":e2e`.
 
+`ui.card_layout` places lane cards' fields yourself: `top` and `bottom` are
+the lines around the summary, each with a `_right` side. Any field of
+`card_fields` goes, plus `key`, `labels` and your custom fields by name.
+List rows keep `card_fields`.
+
+`ui.card_styles` restyle the cards a board query matches (the `/` language):
+a coloured `edge`, a `tint`, `fade`, a `bold` summary, fields to `hide`, or
+fields to `show` only on a match. A later match wins.
+
+```yaml
+ui:
+  card_layout:
+    top: [type, key, flagged]
+    top_right: [status, points]
+    bottom: [parent, due, labels]
+    bottom_right: [age, avatar]
+  card_styles:
+    - {when: "prio>=high", edge: err, bold: true}
+    - {when: "age>5d -is:done", tint: warn}
+    - {when: "is:done", fade: true}
+    - {when: "due<7d", show: [due]}
+```
+
+Colours are `accent`, `ok`, `warn`, `err`, `info` (the theme's) or `#rrggbb`.
+In the browser, Settings > Board and cards has a designer for both: drag
+fields onto a card, add styles, and see sample cards change as you go.
+
 ## Settings: `,`
 
 `,` lists every `ui:` option by topic with its value and default, and says
