@@ -525,3 +525,12 @@ func TestLinkTitleRoundTrip(t *testing.T) {
 		t.Errorf("saved %s", back)
 	}
 }
+
+// A list indented from its first line once looped forever.
+func TestMarkdownToADFIndentedListTerminates(t *testing.T) {
+	doc := MarkdownToADF("<!-- panel:note -->\n - a\n - b\n<!-- /panel -->\n")
+	b, _ := json.Marshal(doc)
+	if !strings.Contains(string(b), `"text":"b"`) {
+		t.Fatalf("items lost: %s", b)
+	}
+}

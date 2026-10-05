@@ -1130,8 +1130,12 @@ func parseMDBlocks(lines []string, kept []json.RawMessage) []any {
 			}
 			blocks = append(blocks, map[string]any{"type": "blockquote", "content": parseMDBlocks(inner, kept)})
 		case mdBullet.MatchString(ln) || mdOrdered.MatchString(ln):
+			m := mdBullet.FindStringSubmatch(ln)
+			if m == nil {
+				m = mdOrdered.FindStringSubmatch(ln)
+			}
 			var node any
-			node, i = parseMDList(lines, i, 0)
+			node, i = parseMDList(lines, i, len(m[1]))
 			blocks = append(blocks, node)
 		default:
 			var para []string
