@@ -54,7 +54,10 @@ function parseEvery(s) {
   return m ? Number(m[1]) * { s: 1e3, m: 6e4, h: 36e5 }[m[2]] : 12e4;
 }
 
-export default function mount(el, { app, params, query, scope, context, toolbar }) {
+// embed mounts the board inside another view (the standup's): it leaves the URL, the context crumbs, the palette's
+// board commands and app.lastView alone, takes its keys from the scope it is given (none, for the standup), and
+// gains embed.setWho(ids) and embed.select(key); embed.onWho(ids) hears the assignee filter change on it.
+export default function mount(el, { app, params, query, scope, context, toolbar, embed }) {
   const { api, bus, ui } = app;
   const me = (app.session.me && app.session.me.AccountID) || '';
   const UI = app.session.ui || {};
@@ -103,7 +106,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
   const emptyBtn = h('button.btn', { title: 'Hide / show empty lanes  (alt+e)', 'aria-pressed': 'false', onclick: () => setHideEmpty(!S.hideEmpty) });
   const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
-  context.append(projectBtn, boardBtn, sprintBtn, sprintEl);
+  if (!embed) context.append(projectBtn, boardBtn, sprintBtn, sprintEl);
   toolbar.append(h('span.spacer'), swimBtn, colsBtn, emptyBtn, compactBtn, modeBtn, refreshBtn);
 
   function renderToolbar() {
@@ -252,7 +255,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
   // The view shown, for the team standup to walk (TUI: the standup walks the board's current view).
   function rememberView() {
-    if (!S.board || S.past) return;
+    if (!S.board || S.past || embed) return;
     const r = resolveScope(), p = new URLSearchParams();
     if (r.sprint) p.set('sprint', r.sprint);
     else if (r.backlog) p.set('backlog', 1);
@@ -1149,11 +1152,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
 
   // ---- filters
   function toggleQF(id) { S.qf.has(id) ? S.qf.delete(id) : S.qf.add(id); renderBar(); S.path === cardsPath() || loadCards(); }
-  function toggleMine() { S.mine = !S.mine; if (S.mine) S.who = null; layout(); renderBar(); }
+  // whoChanged tells the view the board is embedded in who its assignee filter shows, null for anyone.
+  const whoChanged = () => { if (embed && embed.onWho) embed.onWho(S.mine ? [me] : S.who ? [...S.who] : null); };
+  function toggleMine() { S.mine = !S.mine; if (S.mine) S.who = null; layout(); renderBar(); whoChanged(); }
   function clearFilters() {
     const reload = S.qf.size > 0;
     S.mine = false; S.who = null; S.qf.clear(); S.text = ''; S.textFn = null; filterIn.value = '';
-    layout(); renderBar();
+    layout(); renderBar(); whoChanged();
     if (reload) loadCards();
   }
   async function pickWho() {
@@ -1163,7 +1168,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     show(); await Promise.race([loadPeople(), new Promise(r => setTimeout(r, 400))]); show();
     const r = await pickPeople(app, seen, S.who);
     if (r === undefined) return;
-    S.who = r; if (r) S.mine = false; layout(); renderBar();
+    S.who = r; if (r) S.mine = false; layout(); renderBar(); whoChanged();
   }
   function setSort(col, dir) {
     S.sort = col; S.dir = dir;
@@ -1368,7 +1373,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     if (S.past) leavePast(true);
     S.closed = null;
     S.scope = id;
-    app.setQuery({ sprint: id === 'active' ? null : id });
+    if (!embed) app.setQuery({ sprint: id === 'active' ? null : id });
     renderToolbar();
     loadCards();
   }
@@ -1540,7 +1545,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   offs.push(bus.on('focus', () => { if (Date.now() - S.fetched > staleMs) refresh(false); }));
   const onChanged = debounce(() => refresh(false), 250);
   offs.push(bus.on('issue:changed', onChanged));
-  offs.push(bus.on('panel', ({ key }) => { app.setQuery({ issue: key || null }); }));
+  if (!embed) offs.push(bus.on('panel', ({ key }) => { app.setQuery({ issue: key || null }); }));
   // Searches starred in the palette (ctrl+s): views of every board, shared with the TUI.
   const loadStarred = () => api.get('/jql/starred', { fresh: true }).then(l => { S.starred = l || []; renderToolbar(); }).catch(() => {});
   const starredP = loadStarred();
@@ -1577,10 +1582,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
       return fail(e);
     }
     if (S.dead) return;
-    const canon = '#/board/' + S.project + '/' + S.board.ID;
-    if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; history.replaceState(null, '', canon + (q ? '?' + q : '')); }
-    if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
-    setCtx(app, S.project, S.board);
+    if (!embed) {
+      const canon = '#/board/' + S.project + '/' + S.board.ID;
+      if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; history.replaceState(null, '', canon + (q ? '?' + q : '')); }
+      if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
+      setCtx(app, S.project, S.board);
+    }
     const dm = app.session.ui && app.session.ui.DefaultMode;
     S.mode = app.prefs.get('board.mode.' + S.board.ID, app.prefs.get('board.mode', dm === 'list' ? 'list' : 'lanes')) === 'list' ? 'list' : 'lanes';
     const [sort, dir] = String(app.prefs.get('board.sort.' + S.board.ID, 'rank:1')).split(':');
@@ -1614,11 +1621,15 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
   }
 
   bindKeys();
-  registerCommands();
+  if (!embed) registerCommands();
   start();
+  if (embed) {
+    embed.setWho = ids => { S.mine = false; S.who = ids && ids.length ? new Set(ids) : null; layout(); renderBar(); };
+    embed.select = key => { if (key && S.where.has(key)) select(key); };
+  }
 
   // A console handle for testing: laneway.boardView.synth(1500).
-  app.boardView = {
+  if (!embed) app.boardView = {
     state: S,
     setCards(cards) { S.cards = cards; S.total = cards.length; S.loaded = true; layout(); renderBar(); },
     synth(n = 1500) {
@@ -1640,6 +1651,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar 
     document.removeEventListener('keydown', touch, true);
     document.removeEventListener('pointermove', touch);
     for (const p of S.panes) p.vl.destroy();
-    delete app.boardView;
+    if (!embed) delete app.boardView;
   };
 }

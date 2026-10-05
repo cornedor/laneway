@@ -39,14 +39,22 @@
 .stgo { min-width: 6.5rem; justify-content: center; }
 @keyframes st-flash { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .stleft.flash { animation: none; } }
-/* A phone: the timer goes under the one shown. */
-@media (max-width: 640px) { .stbar { flex-wrap: wrap; } .stbar > .stwhom { flex-basis: 100%; } .sttimer { margin-left: auto; } }
+/* Narrow by the pane's own width (the grip, the panel or a phone): the one shown gets a line of their own above the
+   tools and the timer, and a row's cells go under its summary instead of squeezing it a word per line. */
+.standup { container-type: inline-size; }
+.standup .stwho { flex: 0 1 auto; max-width: 45%; white-space: normal; text-align: right; } /* over work.css, which loads after */
+@container (max-width: 44rem) { .stbar { flex-wrap: wrap; } .stbar > .stwhom { flex-basis: 100%; } .sttimer { margin-left: auto; } }
+@container (max-width: 40rem) {
+  .standup .strow { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--pad); }
+  .standup .strow .stwho { grid-column: 2; margin-left: 0; max-width: none; text-align: left; }
+}
 /* The standup and, past the grip, the board: the standup's share in --st-split. A phone has the standup alone. */
 .stsplit { display: flex; height: 100%; min-height: 0; }
 .stsplit > .standup { flex: 0 0 var(--st-split, 50%); max-width: none; min-width: 0; }
 .stgrip { flex: none; width: .429rem; cursor: col-resize; touch-action: none; }
 .stgrip:hover, .stgrip.drag { background: var(--accent); opacity: .5; }
-.stboard { flex: 1 1 0; min-width: 0; display: flex; gap: var(--pad); padding: calc(var(--pad) * 2) var(--pad); overflow: auto; }
-.stboard .bd-lane { min-width: 13rem; }
-.stboard .bcw { padding-bottom: .429rem; }
+/* The pane: the board (absolutely placed, as on its page) filling it; its buttons are in the page's toolbar. */
+.stboard { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.stbview { position: relative; flex: 1; min-height: 0; }
 @media (max-width: 900px) { .stgrip, .stboard { display: none; } .stsplit > .standup { flex-basis: 100%; } }
+.stbview .fchip kbd { display: none; } /* the board's keys are the standup's here */

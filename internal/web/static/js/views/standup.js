@@ -2,8 +2,8 @@
 // person's cards and what they did, those heard ticked; a timer beside it, each turn counting down (ui.standup_length
 // split, or ui.standup_timebox) and the whole standup's time; below, the stop's rows, over the view the board showed last.
 // A picks who takes part, kept per board. Park a card for after (P, kept per view): Everyone's parking lot comes last.
-// Beside it, past a grip like the issue panel's, the view's board: the shown person's cards, the row picked marked.
-// Stops and the board come from /standup/lines, built like the TUI's.
+// Beside it, past a grip like the issue panel's, the board view itself on the same view, filtered to the person shown.
+// Stops come from /standup/lines, built like the TUI's.
 import { h, clear, delegate } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
@@ -11,11 +11,12 @@ import { avatar } from '../lib/ui.js';
 import { projectOf, boardsOf, lastBoard, setCtx, switcher, recover } from './plan_ctx.js';
 import { ymd, addDays, workdays } from '../lib/worktime.js';
 import { grip } from '../lib/grip.js';
+import mountBoard from './board.js';
 
 const PARK = 'Parking lot';
 
 export default function mount(el, { app, scope, context, toolbar }) {
-  css('work'); css('board'); css('standup');
+  css('work'); css('standup');
   const { api, ui, prefs } = app;
   const wd = workdays(app);
   const prevWorkday = d => { let x = addDays(d, -1); while (!wd.includes(x.getDay())) x = addDays(x, -1); return x; };
@@ -155,32 +156,42 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   // ---- painting
 
-  // paintBoard draws the view's lanes with the shown person's cards (everyone's on Everyone), redrawn only when the
-  // standup or the person changes, and marks the card of the row picked.
-  let drawn = null;
-  function paintBoard() {
-    const who = person().ID || '';
-    if (!data || !data.Board) { if (drawn) { clear(boardEl); drawn = null; } return; }
-    if (!drawn || drawn.data !== data || drawn.who !== who) {
-      drawn = { data, who };
-      clear(boardEl);
-      const n = data.Board.length;
-      data.Board.forEach((col, i) => {
-        const cards = col.Cards.filter(c => !who || c.AssigneeID === who);
-        boardEl.append(h('section.bd-lane', h('div.bd-lane-head.' + (i === 0 ? 'knew' : i === n - 1 ? 'kdone' : 'kprog'), h('span.bd-lane-name', col.Name), h('span.bd-count', String(cards.length))),
-          h('div.bd-lane-body' + (cards.length ? '' : '.empty'), cards.map(cardEl))));
-      });
-    }
-    const key = lines[sel] && lines[sel].Key;
-    boardEl.querySelectorAll('.card.sel').forEach(c => c.classList.remove('sel'));
-    const c = key && boardEl.querySelector('.card[data-key="' + CSS.escape(key) + '"]');
-    if (c) { c.classList.add('sel'); c.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  // paintBoard keeps the board beside the standup: the board view itself, embedded on the standup's board and view
+  // (its buttons in the page's toolbar, as on its own page; its keys left to the standup), its assignee filter the person shown (anyone on
+  // Everyone) and the row picked selected on it. Picking someone in its own assignee filter goes to their stop.
+  const boardView = h('div.stbview');
+  boardEl.append(boardView);
+  let embedded = null;
+  const viewKey = () => board.ID + '|' + (view ? view.query : 'sprint=' + (sprint || 0));
+  function boardQuery() {
+    const q = new URLSearchParams(view ? view.query : '');
+    if (q.get('sprint')) return { sprint: q.get('sprint') };
+    if (q.get('backlog')) return { sprint: 'backlog' };
+    if (q.get('jql')) return { sprint: 'jql:' + q.get('jql'), vname: view.name };
+    return { sprint: sprint ? String(sprint) : 'active' };
   }
-  const cardEl = c => h('div.bcw', h('div.card' + (c.Done ? '.done' : c.InProgress ? '.prog' : '') + (c.Flagged ? '.flagged' : ''), { dataset: { key: c.Key } },
-    h('div.c1', h('span.ckey', c.Key), c.Flagged && h('span.cflag', icon('flag')), h('span.spacer'), c.Points && h('span.cpts', c.Points)),
-    h('div.csum', c.Summary),
-    h('div.c3', h('span.spacer'), h('span.cav', avatar(c.Assignee, c.AvatarURL, 20)))));
-  delegate(boardEl, 'click', '.card', (e, c) => app.panel.open(c.dataset.key));
+  function dropBoard() { if (embedded) embedded.dispose(); embedded = null; clear(toolbar); clear(boardView); }
+  function paintBoard() {
+    if (!board || !data) return;
+    if (!embedded || embedded.id !== viewKey()) {
+      dropBoard();
+      const ctl = { onWho: followWho };
+      const dispose = mountBoard(boardView, { app, params: { project, board: String(board.ID) }, query: boardQuery(), scope: { bind() {} }, context: null, toolbar, embed: ctl });
+      embedded = { id: viewKey(), ctl, dispose, who: undefined };
+    }
+    const who = person().ID || '';
+    if (embedded.who !== who) { embedded.who = who; embedded.ctl.setWho(who ? [who] : null); }
+    embedded.ctl.select(lines[sel] && lines[sel].Key);
+  }
+  // followWho goes where the board's own assignee filter points: one person's stop, Everyone for anyone.
+  function followWho(ids) {
+    if (!ids || !ids.length) { if (at !== 0) go(0); return; }
+    if (ids.length > 1) return;
+    const i = stops.findIndex(s => s.Person.ID === ids[0]);
+    if (i < 0) return ui.toast("They aren't in the round: A picks who takes part");
+    embedded.who = ids[0];
+    if (i !== at) go(i);
+  }
 
   // strip is the round: on its own line the people, each chip the same size whoever is shown (a ring marks them, a
   // badge those heard), scrolling sideways between the arrows; under them the one shown, the tools and the timer.
@@ -327,7 +338,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   // reset starts the standup over, for another board: its people, unheard, the timer stopped.
   function reset() {
-    data = null; stops = []; at = 0; lines = []; folded = []; sel = 0; heard.clear();
+    data = null; stops = []; at = 0; lines = []; folded = []; sel = 0; heard.clear(); dropBoard();
     started = turn = paused = 0; clearInterval(tick); opened = false; since = null;
   }
 
@@ -368,5 +379,5 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   clear(toolbar);
   load();
-  return () => { dead = true; clearInterval(tick); };
+  return () => { dead = true; clearInterval(tick); dropBoard(); };
 }
