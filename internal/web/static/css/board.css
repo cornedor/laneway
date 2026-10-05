@@ -65,7 +65,8 @@ body.panel-focus .card.sel { outline-color: var(--fg-3); } /* the keys are the p
 .cparent { max-width: 7em; overflow: hidden; text-overflow: ellipsis; color: var(--accent); flex: 0 1 auto !important; } .cparent:hover { text-decoration: underline; }
 .csub { font-size: .786rem; padding: 0 .357rem; border-radius: 9px; background: linear-gradient(to right, color-mix(in srgb, var(--ok) 35%, var(--bg-3)) var(--p, 0%), var(--bg-3) var(--p, 0%)); line-height: 1.286rem; }
 .cdue { font-size: .786rem; color: var(--fg-2); } .cdue.overdue { color: var(--err); font-weight: 600; }
-.cpr, .cdep { font-size: .786rem; color: var(--fg-2); } .cpr.pr-open { color: var(--info); } .cpr.pr-merged { color: var(--ok); } .cpr.pr-declined { color: var(--fg-3); }
+.cpr, .cdep { font-size: .786rem; color: var(--fg-2); }
+.cdep { overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; } .cpr.pr-open { color: var(--info); } .cpr.pr-merged { color: var(--ok); } .cpr.pr-declined { color: var(--fg-3); }
 .clabels { font-size: .786rem; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
 .cage { font-size: .786rem; color: var(--fg-3); }
 .cav { display: inline-flex; }
