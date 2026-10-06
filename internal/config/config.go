@@ -165,6 +165,9 @@ type UIConfig struct {
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
+	// LaneLayouts are your own lanes over a board's columns, which alt+l
+	// switches between.
+	LaneLayouts []LaneLayout `yaml:"lane_layouts"`
 	// StaleDays is how many days a card may sit in progress before its age
 	// shows in red (default 5).
 	StaleDays int `yaml:"stale_days"`
@@ -324,6 +327,25 @@ type UIConfig struct {
 type QuickFilter struct {
 	Name string `yaml:"name"`
 	JQL  string `yaml:"jql"`
+}
+
+// LaneLayout arranges a board's columns into lanes of your own: in its
+// order, several columns stacked in one lane, some hidden. Columns are known
+// by their statuses' ids, so boards sharing a workflow share the layout.
+type LaneLayout struct {
+	Name string `yaml:"name"`
+	// Boards are the board ids it is for; none: every board it fits.
+	Boards []int      `yaml:"boards,omitempty"`
+	Lanes  []LaneSpec `yaml:"lanes"`
+	// Hidden are statuses whose columns leave the board.
+	Hidden []string `yaml:"hidden,omitempty"`
+}
+
+// LaneSpec is a layout's lane: the columns holding its statuses, stacked,
+// under its name ("": its first column's).
+type LaneSpec struct {
+	Name     string   `yaml:"name,omitempty"`
+	Statuses []string `yaml:"statuses"`
 }
 
 // NamedQuery is a / search query with a name.

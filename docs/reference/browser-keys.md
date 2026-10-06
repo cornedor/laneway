@@ -67,6 +67,7 @@ terminal's is in the last column.
 | `z` `Z` | fold the band, unfold all | |
 | `c` | one-line cards | |
 | `alt+e` | empty lanes | |
+| `alt+l` | next lane layout | |
 | `alt+t` | time machine: `←` `→` a day, `esc` back | `ctrl+t` |
 | `alt+o` | closed sprints | `ctrl+o` |
 | `V` | releases | |

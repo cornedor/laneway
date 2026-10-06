@@ -69,6 +69,9 @@ The [search reference](../reference/search.md) has every field.
 - `alt+e` hides lanes the filters leave empty, so the rest get the room.
   Moving a card into one shows it again. `ui.empty_lanes: hide` starts
   that way.
+- `alt+l` switches to your own lanes (`ui.lane_layouts`): Test, UAT and
+  Deploy stacked under Done, columns reordered, renamed or hidden. Again
+  goes on to the next layout, then back to the board's columns.
 
 === "Terminal"
 

@@ -35,6 +35,7 @@ type options struct {
 	cardStyles      []cardStyle         // ui.card_styles
 	quick           []jira.QuickFilter  // config presets, ids -1, -2, …
 	views           []jiraView          // config JQL views
+	laneLayouts     []config.LaneLayout // ui.lane_layouts, the usable ones
 	savedFilters    bool                // starred Jira filters as views
 	capacity        map[string]float64  // sprint points per person, "default" for the rest
 	timerOnStart    bool                // S also starts the timer
@@ -419,6 +420,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			continue
 		}
 		o.views = append(o.views, jiraView{kind: jiraViewJQL, name: v.Name, jql: v.JQL, lanes: true})
+	}
+	for i, l := range c.LaneLayouts {
+		if strings.TrimSpace(l.Name) == "" || len(l.Lanes) == 0 {
+			warn = append(warn, fmt.Sprintf("ui.lane_layouts[%d]: needs name and lanes", i))
+			continue
+		}
+		o.laneLayouts = append(o.laneLayouts, l)
 	}
 	if c.CardFields != nil {
 		var f cardFields

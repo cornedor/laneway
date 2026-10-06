@@ -136,6 +136,13 @@ func (m *Model) jiraViewSegs() []headSeg {
 		if h := len(t.cols) - n; h > 0 {
 			tail = append(tail, keySeg(jiraDimStyle.Render(fmt.Sprintf("    %d empty hidden", h)), m.keys.EmptyLanes))
 		}
+		if t.layout != "" && t.layout == m.jiraLayoutName() {
+			s := "    lanes: " + t.layout
+			if t.layoutHidden > 0 {
+				s += fmt.Sprintf(", %d hidden", t.layoutHidden)
+			}
+			tail = append(tail, keySeg(jiraDimStyle.Render(s), m.keys.LaneLayout))
+		}
 	}
 	room := t.viewsW - ansi.StringWidth(joinSegs(head)) - ansi.StringWidth(joinSegs(tail))
 	first, last := jiraViewsFit(t.views, t.viewIdx, room)

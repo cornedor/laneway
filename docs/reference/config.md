@@ -61,6 +61,7 @@ Restart starts `laneway web` again); the rest apply at once.
 | `card_styles` | | restyle the cards a `/` query matches: `when`, `edge`, `tint` (`accent ok warn err info` or `#rrggbb`), `fade`, `bold`, `hide`, `show`; a later match wins |
 | `card_colors` | `ribbon` | the board's own card colours as a bar on cards and rows; `off` |
 | `empty_lanes` | `show` | `hide`: lanes the filters leave empty |
+| `lane_layouts` | | your own lanes over a board's columns, `alt+l` switches; see [Lane layouts](#lane-layouts) |
 | `custom_fields` | | Jira fields by name on cards and rows, searchable as `"test type":e2e`. *Restart* |
 | `card_limit` | `500` | most cards one view fetches (50–5000); charts and the roadmap count up to 5000. *Restart* |
 | `kanban_done_days` | `14` | done work older than this leaves kanban boards |
@@ -206,6 +207,36 @@ ui:
 | `clipboard_image` | probed | prints the clipboard's PNG (`wl-paste --type image/png`) |
 | `download_dir` | `$XDG_DOWNLOAD_DIR`, else `~/Downloads` | where attachments are saved |
 | `update_check` | `on` | a daily look for a newer release, `↑ v1.2` in the header |
+
+## Lane layouts
+
+`ui.lane_layouts` are your own lanes over a board's columns: in your order,
+several columns stacked in one lane under a header each, renamed, some
+hidden. `alt+l` steps through the board's own columns and each layout that
+fits it, remembered per board; nothing changes in Jira.
+
+A lane lists the statuses whose columns it holds, by id, so boards on the
+same workflow share a layout. A layout fits a board where it places at
+least two columns; `boards:` limits it to those board ids. A column it
+doesn't place keeps a lane of its own after its left neighbour's;
+`hidden:` takes columns off the board, and the header counts their cards.
+
+```yaml
+ui:
+  lane_layouts:
+    - name: Dev
+      boards: [12, 34]            # optional
+      lanes:
+        - statuses: ["10000"]     # To do; the name defaults to the column's
+        - name: Doing
+          statuses: ["3", "10020"]          # In progress, Blocked
+        - name: Done
+          statuses: ["10010", "10011", "10012", "10001"]  # Test, UAT, Deploy, Done
+      hidden: ["10030"]           # Won't do
+```
+
+A lane's limit is its columns' limits added up, when each has one. Moving
+a card into a lane of several statuses asks which one.
 
 ## Actions
 

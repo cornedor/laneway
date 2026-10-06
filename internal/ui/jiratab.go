@@ -18,8 +18,10 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/lanes"
 	"github.com/cornedor/laneway/internal/safeterm"
 	"github.com/cornedor/laneway/internal/viewport"
 )
@@ -144,6 +146,66 @@ func (m *Model) toggleEmptyLanes() {
 	m.renderJira()
 }
 
+// jiraLayoutKey remembers a board's lane layout by name.
+func jiraLayoutKey(board int) string {
+	return jiraMetaPrefix + "layout:" + strconv.Itoa(board)
+}
+
+// jiraLayout is the board's chosen lane layout while it still fits.
+func (m *Model) jiraLayout() (config.LaneLayout, bool) {
+	t := m.jiraTab
+	if t.layout == "" || t.cfg == nil {
+		return config.LaneLayout{}, false
+	}
+	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraBoardID(), t.cfg.Columns)
+	i := slices.IndexFunc(fit, func(l config.LaneLayout) bool { return l.Name == t.layout })
+	if i < 0 {
+		return config.LaneLayout{}, false
+	}
+	return fit[i], true
+}
+
+// jiraLayoutName is the lane layout the board shows, "" for its columns.
+func (m *Model) jiraLayoutName() string {
+	l, _ := m.jiraLayout()
+	return l.Name
+}
+
+// cycleJiraLayout switches the board to its next fitting lane layout, after
+// the last back to its own columns, remembered per board.
+func (m *Model) cycleJiraLayout() {
+	t := m.jiraTab
+	if t.cfg == nil {
+		return
+	}
+	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraBoardID(), t.cfg.Columns)
+	if len(fit) == 0 {
+		m.status = "no lane layout fits this board: add one to ui.lane_layouts"
+		return
+	}
+	next := fit[0].Name
+	if cur, ok := m.jiraLayout(); ok {
+		i := slices.IndexFunc(fit, func(l config.LaneLayout) bool { return l.Name == cur.Name })
+		next = ""
+		if i+1 < len(fit) {
+			next = fit[i+1].Name
+		}
+	}
+	keep := m.selectedJiraKey()
+	t.layout = next
+	if m.store != nil {
+		_ = m.store.SetMeta(jiraLayoutKey(m.jiraBoardID()), next)
+	}
+	t.laneTop = nil
+	m.buildJiraLanes()
+	m.selectJiraKey(keep)
+	m.status = "lanes: the board's columns"
+	if next != "" {
+		m.status = "lanes: " + next
+	}
+	m.renderJira()
+}
+
 // jiraBodyTop is the screen row of the first body line: the title row, its
 // rule, the view selector and the filter line.
 const jiraBodyTop = 4
@@ -185,6 +247,16 @@ type jiraLane struct {
 	cards     []int
 	max       int // the column's WIP limit, 0 for none
 	col       int // its index in cols
+	// sections are a layout lane's columns, stacked; nil for a lane of one.
+	sections []jiraSection
+}
+
+// jiraSection is a column stacked in a lane: its cards are the lane's
+// cards[first:first+n].
+type jiraSection struct {
+	name      string
+	statusIDs []string
+	first, n  int
 }
 
 // jiraAssignee is the board's assignee filter: id "" for everyone, else
@@ -351,7 +423,14 @@ type jiraTabState struct {
 	// a card. Moves address cols, so H and L reach a hidden lane.
 	cols       []jiraLane
 	emptyLanes string
-	order      []int // the list mode's row order, indexes into cards
+	// layout is the board's ui.lane_layouts entry by name, "" for its own
+	// columns; layoutHidden counts the cards in the columns it hides.
+	layout       string
+	layoutHidden int
+	// laneAt is each shown lane's body lines' card rows, -1 for a section
+	// header or a gap, as the last render drew them.
+	laneAt [][]int
+	order  []int // the list mode's row order, indexes into cards
 	// rows caches the list mode's unselected rows, per order, for rowsFor;
 	// buildJiraLanes drops it.
 	rows    []string
@@ -819,6 +898,10 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	t.boards, t.board, t.cfg, t.views, t.viewIdx = msg.boards, msg.board, msg.cfg, msg.views, msg.viewIdx
 	t.quick, t.quickOn, t.assignee = withLocalQuick(msg.quick, m.opts.quick), msg.quickOn, msg.assignee
 	t.swim = m.readJiraSwim()
+	t.layout = ""
+	if m.store != nil {
+		t.layout, _, _ = m.store.GetMeta(jiraLayoutKey(m.jiraBoardID()))
+	}
 	if msg.statusNames != nil {
 		t.statusNames = msg.statusNames
 	}
@@ -951,16 +1034,34 @@ func (m *Model) buildJiraLanes() {
 		skip = kanbanBacklog(t.cfg)
 	}
 	q, env := jiraParseQuery(t.jiraSearchQuery()), m.jiraQueryEnv()
-	col := map[string]int{}
+	var board []jira.Column
 	for i, c := range t.cfg.Columns {
-		if i == skip {
-			continue
+		if i != skip {
+			board = append(board, c)
 		}
-		for _, id := range c.StatusIDs {
+	}
+	ls, hidden := lanes.Board(board), []string(nil)
+	if l, ok := m.jiraLayout(); ok {
+		var cols []int
+		ls, cols = lanes.Arrange(l, board)
+		for _, ci := range cols {
+			hidden = append(hidden, board[ci].StatusIDs...)
+		}
+	}
+	col := map[string]int{}
+	for _, l := range ls {
+		lane := jiraLane{name: l.Name, statusIDs: l.StatusIDs(), max: l.Max, col: len(t.cols)}
+		for _, id := range lane.statusIDs {
 			col[id] = len(t.cols)
 		}
-		t.cols = append(t.cols, jiraLane{name: c.Name, statusIDs: c.StatusIDs, max: c.Max, col: len(t.cols)})
+		if len(l.Sections) > 1 {
+			for _, s := range l.Sections {
+				lane.sections = append(lane.sections, jiraSection{name: s.Name, statusIDs: s.StatusIDs})
+			}
+		}
+		t.cols = append(t.cols, lane)
 	}
+	t.layoutHidden = 0
 	var asOf time.Time
 	if t.past != nil && !t.past.loading {
 		asOf = t.past.asOf(time.Now())
@@ -977,7 +1078,12 @@ func (m *Model) buildJiraLanes() {
 		}
 		if l, ok := col[cd.StatusID]; ok {
 			t.cols[l].cards = append(t.cols[l].cards, i)
+		} else if slices.Contains(hidden, cd.StatusID) {
+			t.layoutHidden++
 		}
+	}
+	for i := range t.cols {
+		t.cols[i].stack(t.cards)
 	}
 	t.lanes = t.cols
 	if m.jiraHidesEmpty() && slices.ContainsFunc(t.cols, func(l jiraLane) bool { return len(l.cards) > 0 }) {
@@ -1000,6 +1106,37 @@ func (m *Model) buildJiraLanes() {
 		t.laneTop = make([]int, len(t.lanes))
 	}
 	m.clampJiraCursor()
+}
+
+// stack orders a stacked lane's cards by section, rank kept within each,
+// and counts them into its sections.
+func (l *jiraLane) stack(cards []jira.Card) {
+	if len(l.sections) == 0 {
+		return
+	}
+	sec := func(ci int) int {
+		return slices.IndexFunc(l.sections, func(s jiraSection) bool { return slices.Contains(s.statusIDs, cards[ci].StatusID) })
+	}
+	slices.SortStableFunc(l.cards, func(a, b int) int { return sec(a) - sec(b) })
+	at := 0
+	for i := range l.sections {
+		l.sections[i].first, l.sections[i].n = at, 0
+		for at < len(l.cards) && sec(l.cards[at]) == i {
+			l.sections[i].n++
+			at++
+		}
+	}
+}
+
+// headAt is whether a stacked lane draws a section header before its
+// card r: the first of a section. An empty section draws none.
+func (l jiraLane) headAt(r int) (jiraSection, bool) {
+	for _, s := range l.sections {
+		if s.first == r && s.n > 0 {
+			return s, true
+		}
+	}
+	return jiraSection{}, false
 }
 
 func (m *Model) clampJiraCursor() {
@@ -1226,6 +1363,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.openMyWork()
 	case key.Matches(msg, m.keys.EmptyLanes) && m.jiraShowsLanes():
 		m.toggleEmptyLanes()
+		return m, nil
+	case key.Matches(msg, m.keys.LaneLayout) && m.jiraShowsLanes():
+		m.cycleJiraLayout()
 		return m, nil
 	case key.Matches(msg, m.keys.Compact):
 		m.toggleCompact()
@@ -2600,14 +2740,14 @@ func (m *Model) renderJiraLanes(width, height int) string {
 	if t.swim != jiraSortRank {
 		return m.renderJiraSwimlanes(visible, laneW, height)
 	}
-	slots := max((height-1)/m.cardSlot(), 1)
-	if t.lane < len(t.laneTop) {
-		top := &t.laneTop[t.lane]
+	if t.lane < len(t.laneTop) && t.lane < len(t.lanes) {
+		top, lane := &t.laneTop[t.lane], t.lanes[t.lane]
 		if t.row < *top {
 			*top = t.row
 		}
-		if t.row >= *top+slots {
-			*top = t.row - slots + 1
+		// Down until the cursor's card fits, section headers and all.
+		for *top < t.row && m.jiraLaneSpan(lane, *top, t.row) > height-1 {
+			*top++
 		}
 	}
 	ghost := -1 // the dragged card, as an index into cards
@@ -2615,13 +2755,16 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		ghost = slices.IndexFunc(t.cards, func(c jira.Card) bool { return c.Key == t.drag.key })
 	}
 	cols := make([][]string, 0, visible)
+	t.laneAt = t.laneAt[:0]
 	for l := t.firstLane; l < t.firstLane+visible && l < len(t.lanes); l++ {
 		inner := laneW - 1
 		lane := t.lanes[l]
 		head := m.jiraLaneHead(l, inner)
 		col := []string{head}
+		var at []int // the body lines' card rows
 		if t.drag.active && l == t.drag.over && len(lane.statusIDs) > 1 {
 			cols = append(cols, append(col, m.jiraDropZones(lane, ghost, inner, height-1)...))
+			t.laneAt = append(t.laneAt, nil)
 			continue
 		}
 		// While a card is dragged over this lane, its ghost sits where the card
@@ -2659,27 +2802,43 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		}
 		gap := m.cardSlot() > m.cardH()
 		for r := top; r < len(slots) && len(col)+m.cardH() <= height; r++ {
+			if s, ok := lane.headAt(r); ok {
+				if len(col)+1+m.cardH() > height {
+					break // no header without its card
+				}
+				col = append(col, m.jiraSectionHead(s, inner))
+				at = append(at, -1)
+			}
 			c := t.cards[slots[r].ci]
 			if slots[r].ghost || (slots[r].ci == ghost && l == t.drag.from && t.drag.over != l) {
 				// The ghost, and the card it left behind: plain text, faint.
 				for _, line := range m.cardLines(c, false) {
 					col = append(col, jiraGhostStyle.Render(ansi.Truncate("┊ "+line, inner, "…")))
+					at = append(at, -1)
 				}
 				if gap {
 					col = append(col, "")
+					at = append(at, -1)
 				}
 				continue
 			}
+			row := slices.Index(lane.cards, slots[r].ci)
 			sel := l == t.lane && t.row < len(lane.cards) && lane.cards[t.row] == slots[r].ci
-			col = append(col, m.jiraLaneCard(c, sel, inner)...)
+			lines := m.jiraLaneCard(c, sel, inner)
+			col = append(col, lines...)
+			for range lines {
+				at = append(at, row)
+			}
 			if gap {
 				col = append(col, "")
+				at = append(at, -1)
 			}
 		}
 		if len(slots) == 0 {
 			col = append(col, jiraGhostStyle.Render(" nothing here"))
 		}
 		cols = append(cols, col)
+		t.laneAt = append(t.laneAt, at)
 	}
 	sep := shade(jiraDimStyle.Render("│"), 1)
 	lines := make([]string, height)
@@ -2698,6 +2857,26 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		lines[y] = b.String()
 	}
 	return strings.Join(lines, "\n")
+}
+
+// jiraLaneSpan is how many lines lane's cards top to row take, the
+// section headers among them counted.
+func (m *Model) jiraLaneSpan(lane jiraLane, top, row int) int {
+	n := 0
+	for r := top; r <= row; r++ {
+		if _, ok := lane.headAt(r); ok {
+			n++
+		}
+		n += m.cardSlot()
+	}
+	return n
+}
+
+// jiraSectionHead is a stacked lane's line over a column's cards: its name
+// and count on a rule.
+func (m *Model) jiraSectionHead(s jiraSection, inner int) string {
+	label := "─ " + ansi.Truncate(s.name, max(inner-8, 1), "…") + " " + strconv.Itoa(s.n) + " "
+	return jiraDimStyle.Render(label + strings.Repeat("─", max(inner-1-visualWidth(label), 0)))
 }
 
 // screenErrHints are what a screen over the board offers when its load
@@ -3362,7 +3541,11 @@ func (m *Model) hitJira(x, y int) hit {
 		}
 		return h
 	}
-	if line >= 1 {
+	if line >= 1 && col < len(t.laneAt) && t.laneAt[col] != nil {
+		if line-1 < len(t.laneAt[col]) {
+			h.line = t.laneAt[col][line-1]
+		}
+	} else if line >= 1 {
 		r := (line-1)/m.cardSlot() + t.laneTop[lane]
 		if (line-1)%m.cardSlot() < m.cardH() && r < len(t.lanes[lane].cards) {
 			h.line = r

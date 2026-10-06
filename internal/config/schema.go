@@ -27,6 +27,7 @@ var SettingDefaults = map[string]string{
 	"meeting_key":          "none",
 	"quick_filters":        "none",
 	"views":                "none",
+	"lane_layouts":         "none",
 	"stale_days":           "5",
 	"velocity_sprints":     "8",
 	"templates":            "none",
@@ -90,7 +91,7 @@ type SettingGroup struct {
 // SettingGroups are the settings screen's headings and their options, in
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
-	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
+	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
 	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
 	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
@@ -122,6 +123,7 @@ var SettingDocs = map[string]string{
 	"card_styles":          "restyle cards a board query matches: when, edge, tint, fade, bold, hide, show",
 	"quick_filters":        "JQL presets shown before every board's own",
 	"views":                "JQL-narrowed views of every board, after its own",
+	"lane_layouts":         "your own lanes over a board's columns: stacked, reordered, renamed, hidden; alt+l switches",
 	"stale_days":           "days in progress before a card's age shows red",
 	"velocity_sprints":     "how many closed sprints the velocity chart shows",
 	"templates":            "the description a new issue starts with, by type (markdown)",

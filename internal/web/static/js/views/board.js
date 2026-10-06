@@ -61,6 +61,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
     mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS,
+    layout: '', layoutHidden: 0,
     past: null, closed: null, pins: new Set(), notes: new Set(), starred: [], colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
     panes: [], where: new Map(), visible: [], built: '', rowH: 0,
@@ -93,9 +94,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, icon('columns-3'), 'Columns');
   const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
   const emptyBtn = h('button.btn', { title: 'Hide / show empty lanes  (alt+e)', 'aria-pressed': 'false', onclick: () => setHideEmpty(!S.hideEmpty) });
+  const layoutBtn = h('button.btn', { title: 'Lane layout: the board\'s columns or a ui.lane_layouts entry  (alt+l)', onclick: () => cycleLayout() });
   const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
   if (!embed) context.append(projectBtn, boardBtn, sprintBtn, sprintEl);
-  toolbar.append(h('span.spacer'), swimBtn, colsBtn, emptyBtn, compactBtn, modeBtn, refreshBtn);
+  toolbar.append(h('span.spacer'), layoutBtn, swimBtn, colsBtn, emptyBtn, compactBtn, modeBtn, refreshBtn);
 
   function renderToolbar() {
     app.chrome.label(projectBtn, S.project || '…');
@@ -110,6 +112,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     compactBtn.setAttribute('aria-pressed', S.compact ? 'true' : 'false');
     setIcon(emptyBtn, S.hideEmpty ? 'eye-off' : 'eye', S.hideEmpty ? (S.hidden ? S.hidden + ' empty hidden' : 'Empty hidden') : 'Empty shown');
     emptyBtn.setAttribute('aria-pressed', S.hideEmpty ? 'true' : 'false');
+    const L = activeLayout();
+    layoutBtn.hidden = S.mode !== 'lanes' || !layouts().length;
+    setIcon(layoutBtn, 'layout-panel-left', L ? L.Name + (S.layoutHidden ? ' · ' + S.layoutHidden + ' hidden' : '') : 'Columns');
   }
   const isScrum = () => !!S.board && S.board.Type !== 'kanban';
   const sprints = () => (S.bundle && S.bundle.sprints) || [];
@@ -330,7 +335,24 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     return true;
   }
   const CMP = comparators(c => colIndexOf(c));
-  function columns() { return (S.bundle && S.bundle.config && S.bundle.config.Columns) || []; }
+  function columns() {
+    const L = activeLayout();
+    return L ? L.Lanes : (S.bundle && S.bundle.config && S.bundle.config.Columns) || [];
+  }
+  // ui.lane_layouts fitting the board, arranged by the server as the TUI does (internal/lanes): lanes shaped as
+  // columns, with the columns stacked in them as Sections, and the statuses whose columns they hide.
+  const layouts = () => (S.bundle && S.bundle.layouts) || [];
+  const activeLayout = () => (S.layout && layouts().find(l => l.Name === S.layout)) || null;
+  function cycleLayout() {
+    const ls = layouts();
+    if (!ls.length) return ui.toast('No lane layout fits this board: add one to ui.lane_layouts');
+    const i = ls.findIndex(l => l.Name === S.layout);
+    S.layout = i < 0 ? ls[0].Name : i + 1 < ls.length ? ls[i + 1].Name : '';
+    app.prefs.set('board.layout.' + S.board.ID, S.layout);
+    if (S.mode !== 'lanes') setMode('lanes');
+    layout(); renderToolbar();
+    ui.toast(S.layout ? 'Lanes: ' + S.layout + (S.layoutHidden ? ', ' + S.layoutHidden + ' hidden' : '') : 'Lanes: the board\'s columns');
+  }
   function statusCol() {
     const m = new Map();
     columns().forEach((c, i) => (c.StatusIDs || []).forEach(id => m.set(String(id), i)));
@@ -380,12 +402,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function layout() {
     if (!S.bundle || !S.loaded || S.dead) return;
     sc = statusCol();
-    const cols = columns(), base = S.base = shownCards(), vis = base.filter(passes);
+    const L = activeLayout(), hid = new Set(L ? L.Hidden : []), shown = shownCards();
+    const cols = columns(), base = S.base = hid.size ? shown.filter(c => !hid.has(String(c.StatusID))) : shown, vis = base.filter(passes);
+    if (shown.length - base.length !== S.layoutHidden) { S.layoutHidden = shown.length - base.length; renderToolbar(); }
     S.visible = vis;
     const lanes = S.mode === 'lanes', swim = lanes && S.swim !== 'none';
     const other = lanes && base.some(c => !sc.has(String(c.StatusID)));
     const groups = swim ? groupsOf(vis) : null;
-    const sig = S.mode + '|' + cols.map(c => c.Name).join(',') + (other ? '|other' : '') + (swim ? '|swim:' + S.swim + ':' + groups.map(g => g.name).join('\x1e') : '') + (lanes ? '' : '|' + S.cols.join(','));
+    const sig = S.mode + '|' + (L ? L.Name + ':' : '') + cols.map(c => c.Name).join(',') + (other ? '|other' : '') + (swim ? '|swim:' + S.swim + ':' + groups.map(g => g.name).join('\x1e') : '') + (lanes ? '' : '|' + S.cols.join(','));
     root.classList.toggle('compact', S.compact);
     if (sig !== S.built) build(sig, lanes, cols, other, groups);
     if (swim) {
@@ -398,9 +422,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       for (const c of base) S.colTotal[Math.min(colIndexOf(c), nc - 1)]++;
       groups.forEach((g, gi) => { for (const c of g.cards) S.panes[gi * nc + Math.min(colIndexOf(c), nc - 1)].all.push(c); });
     } else if (lanes) {
-      for (const p of S.panes) { p.all = []; p.total = 0; }
+      for (const p of S.panes) { p.all = []; p.total = 0; p.heads = null; }
       for (const c of base) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].total++;
       for (const c of vis) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].all.push(c);
+      for (const p of S.panes) stack(p, cols[p.col]);
     } else {
       const l = sortCards(vis, CMP, S.sort, S.dir);
       S.panes[0].all = l; S.panes[0].total = base.length;
@@ -412,7 +437,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (S.sel && !S.where.has(S.sel)) S.sel = null;
     const rh = swim ? 0 : probeHeight(lanes);
     for (const p of S.panes) {
-      if (p.heads) { p.rh = rh; const gh = Math.round(rh * 0.85); p.body.style.setProperty('--gh', gh + 'px'); p.vl.setRowHeight(i => rh + (p.heads[i] ? gh : 0)); p.grouped = true; }
+      if (p.heads) { p.rh = rh; const gh = lanes ? 26 : Math.round(rh * 0.85); p.body.style.setProperty('--gh', gh + 'px'); p.vl.setRowHeight(i => rh + (p.heads[i] ? gh : 0)); p.grouped = true; }
       else if (rh !== p.rh || p.grouped) { p.rh = rh; p.grouped = false; p.vl.setRowHeight(rh); }
       p.vl.setCount(p.cards.length);
       if (!swim) paintHead(p);
@@ -420,6 +445,29 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (swim) paintSwim(groups);
     hideEmptyLanes(swim);
     renderStats(); renderBanner();
+  }
+
+  // A layout's lane of several columns stacks them: its cards by column, rank kept within each, a header over each
+  // column's first (TUI jiraLane.stack). An empty column draws no header.
+  function stack(p, col) {
+    const secs = (col && col.Sections) || [];
+    if (secs.length < 2) return;
+    const sec = c => secs.findIndex(s => (s.StatusIDs || []).includes(String(c.StatusID)));
+    p.all = p.all.map((c, i) => [sec(c), i, c]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+    p.heads = new Array(p.all.length).fill(null);
+    let at = -1;
+    p.all.forEach((c, i) => {
+      const k = sec(c);
+      if (i === 0 || k !== sec(p.all[i - 1])) p.heads[at = i] = { name: k >= 0 ? secs[k].Name : 'Other', n: 0 };
+      p.heads[at].n++;
+    });
+  }
+  function secHead(w, head) {
+    w.classList.toggle('shead', !!head);
+    if (!head) { if (w._sec) w._sec.hidden = true; return; }
+    if (!w._sec) w.append(w._sec = h('div.bd-sec'));
+    w._sec.hidden = false;
+    w._sec.textContent = head.name + ' · ' + head.n;
   }
 
   // Columns the filters left without a card hide (alt+e, ui.empty_lanes:
@@ -525,7 +573,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
         pane.drop = h('div.bd-drop', { hidden: true });
         pane.body.append(pane.drop);
         pane.el = h('section.bd-lane', { dataset: { pane: i }, 'aria-label': n.name }, pane.head, pane.body);
-        pane.vl = vlist(pane.body, { rowHeight: 96, create: buildCard, bind: (w, j) => fillCard(w, pane.cards[j]) });
+        pane.vl = vlist(pane.body, { rowHeight: 96, create: buildCard, bind: (w, j) => { fillCard(w, pane.cards[j]); secHead(w, pane.heads && pane.heads[j]); } });
         S.panes.push(pane);
         wrap.append(pane.el);
       });
@@ -1371,6 +1419,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     k.bind('Z', unfoldAll, 'unfold all swimlanes', { group: V });
     k.bind('c', () => setCompact(!S.compact), 'one-line cards', { group: V });
     k.bind('alt+e', () => { if (S.mode === 'lanes') setHideEmpty(!S.hideEmpty); }, 'hide / show empty lanes', { group: V });
+    k.bind('alt+l', cycleLayout, 'next lane layout: the board\'s columns or a ui.lane_layouts entry', { group: V });
     k.bind('C', pickCols, 'list columns', { group: V });
     k.bind('V', () => app.go('/reports/releases'), 'releases: versions and their progress', { group: V });
     k.bind('alt+t', openPast, 'time machine: the board on earlier days', { group: V });
@@ -1412,6 +1461,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     C('fold', 'fold the swimlane', () => foldBand());
     C('unfold', 'unfold all swimlanes', unfoldAll);
     C('compact', 'one-line cards', () => setCompact(!S.compact));
+    C('layout', 'next lane layout (ui.lane_layouts)', cycleLayout);
     C('empty_lanes', 'hide / show empty lanes', () => { if (S.mode !== 'lanes') setMode('lanes'); setHideEmpty(!S.hideEmpty); });
     C('columns', 'list columns', pickCols);
     C('builder', 'filter builder', openBuilder);
@@ -1497,6 +1547,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     S.compact = app.prefs.get('board.compact', '0') === '1';
     const el = String((app.session.ui && app.session.ui.EmptyLanes) || '').toLowerCase() === 'hide' ? 'hide' : 'show';
     S.hideEmpty = app.prefs.get('board.empty_lanes', el) === 'hide';
+    S.layout = app.prefs.get('board.layout.' + S.board.ID, '');
     S.cols = listCols();
     loadPins(); pins.register(app);
     renderToolbar(); renderBar();

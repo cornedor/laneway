@@ -12,6 +12,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/lanes"
 )
 
 func init() {
@@ -109,7 +110,7 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"id": id, "config": cfg}
+	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, id, cfg.Columns)}
 	qf, _ := c.QuickFilters(ctx, id)
 	out["quickFilters"] = append(localQuick(s.UIConfig().QuickFilters), qf...)
 	if sp, err := c.Sprints(ctx, id); err == nil {
@@ -124,6 +125,41 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		out["statusNames"] = names
 	}
 	return out, nil
+}
+
+// layoutLane is a lane of a lane layout shaped as a board column, so the
+// board draws it as one, with the columns stacked in it.
+type layoutLane struct {
+	Name      string
+	StatusIDs []string
+	Max       int
+	Sections  []lanes.Section
+}
+
+// boardLayout is a ui.lane_layouts entry arranged over a board's columns,
+// with the statuses whose columns it hides.
+type boardLayout struct {
+	Name   string
+	Lanes  []layoutLane
+	Hidden []string
+}
+
+// boardLayouts are the lane layouts fitting board, arranged as the
+// terminal does (internal/lanes).
+func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column) []boardLayout {
+	out := []boardLayout{}
+	for _, l := range lanes.Fitting(ls, board, cols) {
+		arranged, hidden := lanes.Arrange(l, cols)
+		b := boardLayout{Name: l.Name, Hidden: []string{}}
+		for _, a := range arranged {
+			b.Lanes = append(b.Lanes, layoutLane{Name: a.Name, StatusIDs: a.StatusIDs(), Max: a.Max, Sections: a.Sections})
+		}
+		for _, ci := range hidden {
+			b.Hidden = append(b.Hidden, cols[ci].StatusIDs...)
+		}
+		out = append(out, b)
+	}
+	return out
 }
 
 // localQuick are ui.quick_filters, shown before every board's own, as the
