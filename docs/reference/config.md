@@ -235,9 +235,10 @@ ui:
       hidden: ["10030"]           # Won't do
 ```
 
-A lane's limit is its columns' limits added up, when each has one. Moving
-a card into a lane of several statuses asks which one. `z` folds a stacked
-column, remembered per board.
+A lane's limit is its columns' limits added up, when each has one. `H` and
+`L` step a card through a stacked lane's columns one by one; a column of
+several statuses asks which one; a drag shows a drop zone per status. `z` folds a
+stacked column, remembered per board.
 
 ## Actions
 

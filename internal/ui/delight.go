@@ -67,7 +67,12 @@ func (m *Model) celebrateMove(key string) tea.Cmd {
 	}
 	ci := slices.IndexFunc(t.cards, func(c jira.Card) bool { return c.Key == key })
 	for _, lane := range t.lanes {
-		if ci >= 0 && slices.Contains(lane.cards, ci) && m.laneCategory(lane.col) == "done" {
+		// A stacked lane holds more than done: the card's own column says.
+		cat := m.laneCategory(lane.col)
+		if ci >= 0 && len(lane.sections) > 0 {
+			cat = m.statusCategory(t.cards[ci].StatusID, cat)
+		}
+		if ci >= 0 && slices.Contains(lane.cards, ci) && cat == "done" {
 			t.confetti = confetti{lane: lane.name, seq: t.confetti.seq + 1}
 			m.renderJira()
 			return confettiTick(t.confetti.seq)

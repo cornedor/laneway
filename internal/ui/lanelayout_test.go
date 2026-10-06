@@ -115,3 +115,22 @@ func TestJiraLaneSections(t *testing.T) {
 		t.Errorf("Z left folds %v", m.jiraTab.secFold)
 	}
 }
+
+// TestJiraLaneSectionMoves: L steps a card through a stacked lane's
+// sections one by one, straight to the section's status, then on to the
+// next lane.
+func TestJiraLaneSectionMoves(t *testing.T) {
+	m := jiraTabModel(t)
+	m.opts.laneLayouts = []config.LaneLayout{{Name: "Flow", Lanes: []config.LaneSpec{{Name: "Work", Statuses: []string{"1", "3"}}}}}
+	out, _ := m.handleJiraKey(keyMsg(t, "alt+l"))
+	m = out.(Model)
+	m.selectJiraKey("ABC-1")
+	m.moveJiraCardBy(1)
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-1" || c.StatusID != "3" || m.jiraTab.lane != 0 {
+		t.Fatalf("after L: %s in status %s, lane %d; want ABC-1 to In progress in Work", c.Key, c.StatusID, m.jiraTab.lane)
+	}
+	m.moveJiraCardBy(1)
+	if p := m.jiraPicker; !p.active || p.kind != jiraPickLaneStatus || len(p.items) != 2 || !strings.Contains(p.title, "Done") {
+		t.Fatalf("Done has two statuses: want its picker, got %q with %d items", p.title, len(p.items))
+	}
+}

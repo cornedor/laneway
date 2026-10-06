@@ -1816,31 +1816,47 @@ func (m Model) handleJiraRanked(msg jiraRankedMsg) (tea.Model, tea.Cmd) {
 func (m *Model) moveJiraCardBy(delta int) tea.Cmd {
 	t := m.jiraTab
 	c, ok := m.selectedJiraCard()
-	from := -1
-	if m.jiraShowsLanes() && t.lane < len(t.lanes) {
-		from = t.lanes[t.lane].col
-	} else if !m.jiraShowsLanes() { // the list: the column of the card's status
-		from = slices.IndexFunc(t.cols, func(l jiraLane) bool { return slices.Contains(l.statusIDs, c.StatusID) })
+	if !ok {
+		return nil
+	}
+	// The stops H and L step through: each lane, a stacked lane's sections
+	// one by one.
+	type stop struct {
+		lane int
+		ids  []string
+	}
+	var stops []stop
+	for i, l := range t.cols {
+		if len(l.sections) == 0 {
+			stops = append(stops, stop{i, l.statusIDs})
+		}
+		for _, sec := range l.sections {
+			stops = append(stops, stop{i, sec.statusIDs})
+		}
+	}
+	from := slices.IndexFunc(stops, func(s stop) bool { return slices.Contains(s.ids, c.StatusID) })
+	if m.jiraShowsLanes() && t.lane < len(t.lanes) && (from < 0 || stops[from].lane != t.lanes[t.lane].col) {
+		from = slices.IndexFunc(stops, func(s stop) bool { return s.lane == t.lanes[t.lane].col })
 	}
 	to := from + delta
 	switch {
-	case !ok:
-		return nil
 	case from < 0:
 		m.status = c.Key + "'s status is in no column of this board"
 		return nil
 	case to < 0:
 		m.status = c.Key + " is in the first lane already"
 		return nil
-	case to >= len(t.cols):
+	case to >= len(stops):
 		m.status = c.Key + " is in the last lane already"
 		return nil
 	}
-	if len(t.cols[to].statusIDs) > 1 {
-		m.openJiraLaneStatusPicker(c, to)
+	if ids := stops[to].ids; len(ids) > 1 {
+		m.openJiraLaneStatusPicker(c, stops[to].lane, ids)
 		return nil
+	} else if len(t.cols[stops[to].lane].sections) > 0 {
+		return m.moveJiraCard(c.Key, stops[to].lane, ids[0])
 	}
-	return m.moveJiraCard(c.Key, to, "")
+	return m.moveJiraCard(c.Key, stops[to].lane, "")
 }
 
 // jiraStatusName names a status id, falling back to the id.
@@ -1851,13 +1867,14 @@ func (m *Model) jiraStatusName(id string) string {
 	return id
 }
 
-// openJiraLaneStatusPicker asks which of column to's statuses card goes to.
-func (m *Model) openJiraLaneStatusPicker(c jira.Card, to int) {
+// openJiraLaneStatusPicker asks which of ids, statuses of column to, card
+// goes to.
+func (m *Model) openJiraLaneStatusPicker(c jira.Card, to int, ids []string) {
 	t := m.jiraTab
 	lane := t.cols[to]
 	m.startJiraPicker(jiraPickLaneStatus, c.Key+" → "+lane.name, false)
-	items := make([]jiraPickerItem, len(lane.statusIDs))
-	for i, id := range lane.statusIDs {
+	items := make([]jiraPickerItem, len(ids))
+	for i, id := range ids {
 		items[i] = jiraPickerItem{id: id, label: m.jiraStatusName(id), current: id == c.StatusID}
 	}
 	m.setJiraPickerItems(items)
@@ -1908,6 +1925,9 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 		want = func(tm jira.TransitionMeta) bool { return tm.ToID == statusID }
 	}
 	cat := m.laneCategory(to) // before the card lands, which would tell its old one
+	if statusID != "" {
+		cat = m.statusCategory(statusID, cat)
+	}
 	t.cards[ci].StatusID = target
 	t.cards[ci].Status = name
 	t.cards[ci].Done, t.cards[ci].InProgress = cat == "done", cat == "indeterminate"
@@ -3347,6 +3367,24 @@ func (m *Model) jiraLaneHead(l, inner int) string {
 		head = jiraLaneStyle.Render(head)
 	}
 	return laneMark[m.laneCategory(lane.col)].Render("▍") + " " + jiraDimStyle.Render(before) + head + jiraDimStyle.Render(after)
+}
+
+// statusCategory is status id's category as a loaded card in it shows,
+// else def.
+func (m *Model) statusCategory(id, def string) string {
+	for _, c := range m.jiraTab.cards {
+		if c.StatusID != id {
+			continue
+		}
+		switch {
+		case c.Done:
+			return "done"
+		case c.InProgress:
+			return "indeterminate"
+		}
+		return "new"
+	}
+	return def
 }
 
 // laneMark colours a lane head's mark by its status category, as the

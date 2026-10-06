@@ -955,15 +955,17 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       bus.emit('issue:changed', { key: card.Key });
     } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
-  async function moveCol(card, to, at, statusID) {
+  // A move into column to (an index into columns()): to statusID when given, else one of ids (default: the column's).
+  async function moveCol(card, to, at, statusID, ids) {
     const col = columns()[to];
     if (!col || !writable()) return;
+    const want = ids || (col.StatusIDs || []).map(String);
     S.lastEdit = { what: '→ ' + col.Name, run: key => { const c = S.cards.find(x => x.Key === key); return c && moveCol(c, to, null); } };
     let trs;
     const metaP = metaOf(card); metaP.catch(() => {});
     try { trs = await transitionsOf(card); } catch (e) { return ui.errToast(e); }
-    const names = (col.StatusIDs || []).map(id => (S.bundle.statusNames || {})[id]);
-    let opts = trs.filter(t => (col.StatusIDs || []).includes(String(t.StatusID)) || names.includes(t.Name));
+    const names = want.map(id => (S.bundle.statusNames || {})[id]);
+    let opts = trs.filter(t => want.includes(String(t.StatusID)) || names.includes(t.Name));
     if (statusID) opts = opts.filter(t => String(t.StatusID) === String(statusID) || t.Name === (S.bundle.statusNames || {})[statusID]);
     else if (opts.length > 1) { const other = opts.filter(t => String(t.StatusID) !== String(card.StatusID)); if (other.length) opts = other; }
     if (!opts.length) return ui.toast('No transition from ' + card.Status + ' to ' + col.Name, { kind: 'err' });
@@ -973,8 +975,11 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       if (!t) return;
     }
     const before = S.cards;
-    const done = to === columns().length - 1;
-    const next = replaceCard(card, { Status: t.Name, StatusID: String(t.StatusID || col.StatusIDs[0]), Done: done, InProgress: !done && to > 0 });
+    const sid = String(t.StatusID || want[0]), bc = S.bundle.config.Columns || [];
+    // A layout's lanes are no guide to done: the board's last column is.
+    const done = activeLayout() ? !!bc.length && bc[bc.length - 1].StatusIDs.map(String).includes(sid) : to === columns().length - 1;
+    const first = activeLayout() ? !!bc.length && bc[0].StatusIDs.map(String).includes(sid) : to === 0;
+    const next = replaceCard(card, { Status: t.Name, StatusID: sid, Done: done, InProgress: !done && !first });
     if (at) reorder(next, at);
     layout();
     if (S.sel === card.Key) select(card.Key);
@@ -1014,11 +1019,17 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       bus.emit('issue:changed', { key: card.Key, what: card.Key + ' ' + field + ' → ' + (field === 'assignee' ? patch.Assignee || 'unassigned' : patch.ParentKey || 'no epic') });
     } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
+  // H and L step through the lanes, a stacked lane's sections one by one (TUI moveJiraCardBy).
   function stepCol(d) {
     const c = curCard(); if (!c) return;
-    const to = colIndexOf(c) + d;
-    if (to < 0 || to >= columns().length) return;
-    moveCol(c, to, null);
+    const stops = [];
+    columns().forEach((col, i) => {
+      const secs = col.Sections && col.Sections.length > 1 ? col.Sections : [col];
+      for (const s of secs) stops.push({ to: i, ids: (s.StatusIDs || []).map(String), sec: secs.length > 1 });
+    });
+    const from = stops.findIndex(s => s.ids.includes(String(c.StatusID))), st = stops[from + d];
+    if (from < 0 || !st) return;
+    moveCol(c, st.to, null, st.sec && st.ids.length === 1 ? st.ids[0] : null, st.sec ? st.ids : null);
   }
   // d is -1/1, or -Infinity/Infinity for the top/bottom. A list sorted by anything but rank still ranks in rank order.
   function stepRank(d) {
