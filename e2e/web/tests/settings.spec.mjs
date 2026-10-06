@@ -31,6 +31,7 @@ test('key groups fold', async ({ page, app }) => {
   await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toHaveCount(0);
   await global.click();
   await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toBeVisible();
+  await expect(global.locator('xpath=following-sibling::*[1]')).not.toHaveClass(/st-fold/); // its keys right under it
   await global.click();
   await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toHaveCount(0);
   await page.getByRole('searchbox', { name: 'Filter settings' }).fill('jump to issue by key');

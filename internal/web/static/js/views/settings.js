@@ -1,5 +1,5 @@
 // Settings: topic headings, `/` filters by name. j/k move, enter/space/→ change, ← back, del resets, esc leaves.
-// Sections in four groups (GROUPS): this browser (Appearance, Fonts, Board, Notifications), Jira and server (Jira site
+// Sections in four groups (GROUPS): the web app's own, saved on the server for every browser (Appearance, Fonts, Board, Notifications), Jira and server (Jira site
 // and Server: settings_site.js; GitLab, Data), every ui: option of the config file by topic (settings_config.js),
 // shared with the terminal app, and Keyboard (remaps, settings_keys.js, a row per folded group). With room a sidebar
 // lists the sections and marks the one in view.
@@ -28,7 +28,7 @@ css('settings');
 
 // GROUPS order the sections; a section none lists is the config file's (its topics in the server's order).
 const GROUPS = [
-  { title: 'This browser', desc: 'kept in this browser only', sections: ['Appearance', 'Fonts', 'Board', 'Notifications'] },
+  { title: 'Web app', desc: 'every browser on this laneway web; the terminal has its own', sections: ['Appearance', 'Fonts', 'Board', 'Notifications'] },
   { title: 'Jira and server', sections: ['Jira site', 'Server', 'GitLab', 'Data'] },
   { title: 'Config file', desc: 'ui: options, shared with the terminal app', sections: null },
   { title: 'Keyboard', sections: ['Keyboard'] },
@@ -91,7 +91,7 @@ export default function mount(el, { app, scope, toolbar }) {
       change: () => toggleNotify() },
     action('Test notification', 'shows one now', 'Notifications', () => { if (!notifier.notify('laneway', 'Notifications work.')) app.ui.toast('Turn notifications on first', { kind: 'err' }); }),
 
-    choice('Default mode', 'how the board opens (this browser)', 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
+    choice('Default mode', 'how the board opens', 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
     choice('Empty lanes', 'columns the filters leave without a card (alt+e)', 'Board', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
     choice('Auto refresh', 'refetch an idle board', 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
 
