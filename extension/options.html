@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>laneway redirect</title>
+<style>
+  :root { color-scheme: light dark; font: 14px/1.4 system-ui, sans-serif; }
+  body { margin: 16px; max-width: 560px; background: Canvas; }
+  label { display: block; margin: 12px 0 4px; font-weight: 600; }
+  input, textarea { box-sizing: border-box; width: 100%; font: 13px ui-monospace, monospace; padding: 6px; }
+  textarea { height: 9em; }
+  small { display: block; opacity: .7; margin-top: 4px; }
+  p { min-height: 1.4em; }
+</style>
+<label for="laneway">laneway web</label>
+<input id="laneway" placeholder="http://127.0.0.1:8484">
+<small>Where <code>laneway web</code> listens.</small>
+<label for="hosts">Jira sites</label>
+<textarea id="hosts" spellcheck="false" placeholder="acme.atlassian.net = jira"></textarea>
+<small>One host per line; <code>= site</code> switches laneway to that site (<code>jira</code> is the <code>jira:</code> block), without it laneway keeps its current one. Empty: every *.atlassian.net.</small>
+<label><input type="checkbox" id="enabled" style="width:auto"> Redirect (the toolbar button toggles it)</label>
+<p><button id="save">Save</button> <span id="msg"></span></p>
+<script type="module" src="options.js"></script>
