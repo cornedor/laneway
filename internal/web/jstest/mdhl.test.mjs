@@ -91,11 +91,11 @@ test('lines: block classes and groups', () => {
 
 test('lines: placeholders desc.go writes', () => {
   const ls = lines(['<!-- keep:1 mediaSingle: move or delete this line -->', '<!-- block:2 columns -->', 'c', '<!-- /block -->', '<!-- table:3 numbered -->', '<!-- card: https://x.io/c -->'].join('\n'));
-  assert.deepEqual(ls.map(l => l.c), ['keep', 'tag blo', ' ex', 'tag pnc ex', 'tag shell', 'card']);
+  assert.deepEqual(ls.map(l => l.c), ['keep atom', 'tag blo', ' ex', 'tag pnc ex', 'tag shell', 'card atom']);
   assert.match(ls[0].h, /data-l="image"/);
   assert.match(ls[5].h, /hl-card" data-href="https:\/\/x.io\/c"/);
   assert.match(lines('<!-- keep:1 table with a mention: move or delete this line -->')[0].h, /data-l="table with a mention"/);
-  assert.match(highlight('a ⟦4 @Ada Lovelace⟧ b'), /<span class="mk">⟦4 <\/span><span class="hl-kept">@Ada Lovelace<\/span><span class="mk">⟧<\/span>/);
+  assert.match(highlight('a ⟦4 @Ada Lovelace⟧ b'), /<span class="atom"><span class="mk">⟦4 <\/span><span class="hl-kept">@Ada Lovelace<\/span><span class="mk">⟧<\/span><\/span>/);
   assert.match(highlight('| <!-- bg:#ffeeaa --> x |'), /hl-sw" style="--c:#ffeeaa"/);
 });
 

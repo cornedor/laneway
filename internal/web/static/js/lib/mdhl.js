@@ -43,7 +43,7 @@ const INLINE = [
   { re: /<status color="([a-z]+)">([^<\n]*)<\/status>/y, out: m => mk(m[0].slice(0, m[0].indexOf('>') + 1)) + span('hl-status' + (STATUS.has(m[1]) ? ' c-' + m[1] : ''), esc(m[2])) + mk('</status>') },
   { re: /<date>([^<\n]*)<\/date>/y, out: m => mk('<date>') + span('hl-date', esc(m[1])) + mk('</date>') },
   { re: /<span style="color:\s*(#[0-9a-fA-F]{3,8})">([^\n]*?)<\/span>/y, out: (m, o) => mk(m[0].slice(0, m[0].indexOf('>') + 1)) + '<span class="md-col" style="--c:' + m[1] + '">' + inline(m[2], o) + '</span>' + mk('</span>') },
-  { re: /⟦(\d+ ?)([^⟦⟧\n]*)⟧/y, out: m => mk('⟦' + m[1]) + span('hl-kept', esc(m[2])) + mk('⟧') },
+  { re: /⟦(\d+ ?)([^⟦⟧\n]*)⟧/y, out: m => span('atom', mk('⟦' + m[1]) + span('hl-kept', esc(m[2])) + mk('⟧')) },
   { re: /<!-- bg:(#[0-9a-fA-F]{3,8}) -->/y, out: m => '<span class="hl-sw" style="--c:' + m[1] + '">' + mk(m[0]) + '</span>' },
   { re: /<!-- th -->/y, out: m => span('mk hl-thm', esc(m[0])) },
   { re: /<!--[^\n]*?-->/y, out: m => span(/^<!-- ?keep:/.test(m[0]) ? 'hl-keep' : 'hl-tag', esc(m[0])) },
@@ -154,9 +154,9 @@ export function lines(text, o = {}) {
       continue;
     }
     if ((m = BLOCK.exec(l))) { push('tag blo', mk(m[1]) + span('hl-blk', esc(m[2])) + mk(m[3])); frames.push({ kind: 'block' }); continue; }
-    if ((m = KEEP.exec(l))) { push('keep', mk(m[1]) + '<span class="hl-kn" data-l="' + esc(keptLabel(m[2])) + '" title="Kept as it is in Jira: move or delete this line">' + mk(m[2]) + '</span>' + mk(m[3])); continue; }
+    if ((m = KEEP.exec(l))) { push('keep atom', mk(m[1]) + '<span class="hl-kn" data-l="' + esc(keptLabel(m[2])) + '" title="Kept as it is in Jira: move or delete this line">' + mk(m[2]) + '</span>' + mk(m[3])); continue; }
     if ((m = SHELL.exec(l))) { push('tag shell', mk(m[1]) + span('hl-shell', esc(m[2])) + mk(m[3])); continue; }
-    if ((m = CARD.exec(l))) { push('card', mk(m[1]) + '<span class="hl-lt hl-card"' + href(m[2]) + '>' + esc(m[2]) + '</span>' + mk(m[3])); continue; }
+    if ((m = CARD.exec(l))) { push('card atom', mk(m[1]) + '<span class="hl-lt hl-card"' + href(m[2]) + '>' + esc(m[2]) + '</span>' + mk(m[3])); continue; }
     if (/^\s*<!--.*-->\s*$/.test(l)) { push(/^\s*<!-- ?keep:/.test(l) ? 'keep' : 'tag', span(/^\s*<!-- ?keep:/.test(l) ? 'hl-keep' : 'hl-tag', esc(l))); continue; }
     if (isTable(l, src[i + 1])) {
       const first = i === 0 || !isTable(src[i - 1], l);

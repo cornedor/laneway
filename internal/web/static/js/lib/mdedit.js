@@ -302,6 +302,7 @@ export function mdEdit(app, o) {
 
   ta.addEventListener('input', () => { size(); trigger(); livePreview(); draft.save(); });
   ta.addEventListener('keydown', e => {
+    if (e.defaultPrevented) return;
     if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && pop.hidden) {
       const ed = moveLines(ta.value, ta.selectionStart, ta.selectionEnd, e.key === 'ArrowUp' ? -1 : 1);
       e.preventDefault();

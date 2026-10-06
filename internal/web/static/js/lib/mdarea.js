@@ -7,6 +7,9 @@
 // .act, so css can show their markdown and draw the others rendered (.live).
 // Re-rendering clears the browser's undo, so it keeps its own (ctrl+z,
 // ctrl+shift+z, ctrl+y); copy and cut take the markdown, hidden markers too.
+// While the field is .live, an .atom (a line or a span: a kept block, a
+// mention) is one thing: the caret selects all of it, arrows step past it,
+// backspace and delete take it in two presses, enter opens a line after it.
 //
 //   const ta = mdArea('div.input.ed-ta', {lines, enter(v, a, b) → edit | null, type(v, a, b, ch) → edit | null,
 //                                         paste(v, a, b, text, html) → edit | null, placeholder, rows})
@@ -118,19 +121,47 @@ export function mdArea(sel, o) {
     s.removeAllRanges(); s.addRange(r);
   };
 
-  // ---- the lines the caret is on are .act
-  let act = [], held = false;
+  // ---- atoms: [s, e) of each, line: it is a whole line
+  const atoms = () => [...el.querySelectorAll(':scope.live .atom')].map(n => { const s = offset(n, 0); return { n, s, e: s + n.textContent.length, line: n.parentNode === el }; });
+  // snap: a selection reaching into an atom takes all of it; a caret in one
+  // (on an atom line: anywhere) selects it.
+  const snap = (a, b) => {
+    for (const t of atoms()) {
+      if (a === b) { if (t.line ? a >= t.s && a <= t.e : a > t.s && a < t.e) return [t.s, t.e]; continue; }
+      if (a > t.s && a < t.e) a = t.s;
+      if (b > t.s && b < t.e) b = t.e;
+    }
+    return [a, b];
+  };
+  const atomAt = (a, b) => atoms().find(t => t.s === a && t.e === b);
+  // gone: replacing [a, b) with t, a selected atom line goes with its newline.
+  const gone = (a, b, t) => {
+    const x = atomAt(a, b);
+    if (!t && x && x.line) return b < text.length ? { from: a, to: b + 1, text: '', a, b: a } : a > 0 ? { from: a - 1, to: b, text: '', a: a - 1, b: a - 1 } : { from: a, to: b, text: '', a, b: a };
+    return { from: a, to: b, text: t, a: a + t.length, b: a + t.length };
+  };
+
+  // ---- the lines the caret is on are .act, the atoms selected .on
+  let act = [], on = [], held = false;
   const lineIndex = i => lineOf(i);
   const activate = (a, b) => {
     for (const d of act) d.classList.remove('act');
-    act = [];
+    for (const d of on) d.classList.remove('on');
+    act = []; on = [];
     if (a == null || !info.length) return;
+    if (a !== b) for (const t of atoms()) if (!t.line && t.s >= a && t.e <= b) { t.n.classList.add('on'); on.push(t.n); }
     let x = lineIndex(a), y = b === a ? x : lineIndex(b);
     if (info[x]) x = info[x].g;
     while (y + 1 < info.length && info[y] && info[y + 1].g === info[y].g) y++;
     for (let i = x; i <= y && i < el.children.length; i++) { const d = el.children[i]; d.classList.add('act'); act.push(d); }
   };
-  const sync = () => { if (held || composing) return; if (document.activeElement !== el) return activate(null); const [a, b] = getSel(); activate(a, b); };
+  const sync = () => {
+    if (held || composing) return;
+    if (document.activeElement !== el) return activate(null);
+    const [a, b] = getSel(), [x, y] = snap(a, b);
+    if (x !== a || y !== b) setSel(x, y);
+    activate(x, y);
+  };
   const onSel = () => sync();
   el.addEventListener('focus', () => { document.addEventListener('selectionchange', onSel); sync(); });
   el.addEventListener('blur', () => { document.removeEventListener('selectionchange', onSel); activate(null); });
@@ -138,6 +169,8 @@ export function mdArea(sel, o) {
   // A drag selects over the text as it is drawn; the markdown shows when it ends.
   el.addEventListener('mousedown', e => {
     if (e.button) return;
+    const n = e.target.closest && e.target.closest('.atom'), t = n && !e.shiftKey && atoms().find(t => t.n === n);
+    if (t) { e.preventDefault(); el.focus({ preventScroll: true }); setSel(t.s, t.e); activate(t.s, t.e); return; }
     held = true;
     addEventListener('mouseup', () => { held = false; sync(); }, { once: true });
   });
@@ -216,6 +249,11 @@ export function mdArea(sel, o) {
   el.addEventListener('beforeinput', e => {
     const t = e.inputType;
     if (t === 'historyUndo' || t === 'historyRedo') { e.preventDefault(); restore(at + (t === 'historyUndo' ? -1 : 1)); return; }
+    // Over an atom the browser would keep its hidden text: the edit is ours.
+    if (!composing && (t === 'insertText' || t.startsWith('delete'))) {
+      const [a, b] = getSel();
+      if (a !== b && atoms().some(x => x.s < b && x.e > a)) { e.preventDefault(); edit(gone(a, b, t === 'insertText' ? e.data || '' : '')); return; }
+    }
     if (t === 'insertText' && o.type && !composing && e.data && e.data.length === 1) {
       const [a, b] = getSel(), ed = a !== b && o.type(text, a, b, e.data);
       if (ed) { e.preventDefault(); edit(ed); }
@@ -223,13 +261,43 @@ export function mdArea(sel, o) {
     }
     if (t !== 'insertParagraph' && t !== 'insertLineBreak') return;
     e.preventDefault();
-    const [a, b] = getSel();
+    let [a, b] = getSel();
+    if (atomAt(a, b)) a = b;
     edit((!shift && o.enter && o.enter(text, a, b)) || { from: a, to: b, text: '\n', a: a + 1, b: a + 1 });
   });
+  // A key on or next to an atom: arrows step off a selected one, backspace
+  // and delete select the one they would eat into. → whether it took the key.
+  const atomKey = k => {
+    if (!/^(Arrow(Left|Right|Up|Down)|Backspace|Delete)$/.test(k)) return false;
+    const [a, b] = getSel(), t = atomAt(a, b);
+    // Up and down onto an atom line (the browser skips a line with no text drawn).
+    if (!t && a === b && (k === 'ArrowUp' || k === 'ArrowDown')) {
+      const s = lineStarts()[lineOf(a)], e = text.indexOf('\n', a);
+      const x = atoms().find(x => x.line && (k === 'ArrowUp' ? x.e + 1 === s : e >= 0 && x.s === e + 1));
+      if (!x) return false;
+      setSel(x.s, x.e); activate(x.s, x.e);
+      return true;
+    }
+    if (t) {
+      if (k === 'Backspace' || k === 'Delete' || (!t.line && (k === 'ArrowUp' || k === 'ArrowDown'))) return false;
+      const back = k === 'ArrowLeft' || k === 'ArrowUp';
+      const i = back ? (t.line ? Math.max(0, t.s - 1) : t.s) : (t.line ? Math.min(text.length, t.e + 1) : t.e);
+      setSel(i, i); sync();
+      return true;
+    }
+    if (a !== b || (k !== 'Backspace' && k !== 'Delete')) return false;
+    // An empty line next to an atom line goes as usual, the caret then on the atom.
+    const empty = (a === 0 || text[a - 1] === '\n') && (a === text.length || text[a] === '\n');
+    const hit = atoms().find(t => k === 'Backspace' ? (t.line ? !empty && t.e + 1 === a : t.e === a) : (t.line ? !empty && t.s - 1 === a : t.s === a));
+    if (!hit) return false;
+    setSel(hit.s, hit.e); activate(hit.s, hit.e);
+    return true;
+  };
   let plain = false;
   el.addEventListener('keydown', e => {
     shift = e.shiftKey;
     plain = (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'v';
+    if (!(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) && !composing && atomKey(e.key)) { e.preventDefault(); return; }
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     const k = e.key.toLowerCase();
     if (k === 'z' || k === 'y') { e.preventDefault(); restore(at + (k === 'z' && !e.shiftKey ? -1 : 1)); }

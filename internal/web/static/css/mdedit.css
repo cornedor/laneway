@@ -71,14 +71,17 @@
 .ed-ta.live .ln.tag:not(.act) { font-family: inherit; font-size: .75em; letter-spacing: .04em; text-transform: uppercase; }
 .ed-ta.live .ln.exo:not(.act) .hl-exp::before { content: '▸ '; }
 .ed-ta.live .ln.shell:not(.act) .hl-shell::before { content: 'table · '; }
-/* placeholders: a kept block as a chip, a card as a link chip, a kept inline as its label */
-.ed-ta.live .ln.keep:not(.act), .ed-ta.live .ln.card:not(.act) { font-family: inherit; font-size: 1em; }
-.ed-ta.live .ln.keep:not(.act) .hl-kn, .ed-ta.live .ln.card:not(.act) .hl-card { display: inline-block; font-size: .9em; padding: .1em .55em; border-radius: var(--radius); background: var(--bg-3); border: 1px dashed var(--border); text-decoration: none; }
-.ed-ta.live .ln.keep:not(.act) .hl-kn { color: var(--fg-2); cursor: default; }
-.ed-ta.live .ln.keep:not(.act) .hl-kn::before { content: '▣ ' attr(data-l); }
-.ed-ta.live .ln.keep:not(.act) .hl-kn::after { content: ' · kept as is'; color: var(--fg-3); }
-.ed-ta.live .ln.card:not(.act) .hl-card { border-style: solid; }
-.ed-ta.live .ln.card:not(.act) .hl-card::before { content: '🔗 '; }
+.ed-ta.live .atom .mk { display: none; }
+/* atoms (lib/mdarea.js), drawn the same with the caret on them: a kept block as a chip, a card as a link chip, a kept inline as its label */
+.ed-ta.live .ln.keep, .ed-ta.live .ln.card { font-family: inherit; font-size: 1em; }
+.ed-ta.live .ln.keep .hl-kn, .ed-ta.live .ln.card .hl-card { display: inline-block; font-size: .9em; padding: .1em .55em; border-radius: var(--radius); background: var(--bg-3); border: 1px dashed var(--border); text-decoration: none; cursor: default; }
+.ed-ta.live .ln.keep .hl-kn { color: var(--fg-2); }
+.ed-ta.live .ln.keep .hl-kn::before { content: '▣ ' attr(data-l); }
+.ed-ta.live .ln.keep .hl-kn::after { content: ' · kept as is'; color: var(--fg-3); }
+.ed-ta.live .ln.card .hl-card { border-style: solid; }
+.ed-ta.live .ln.card .hl-card::before { content: '🔗 '; }
+.ed-ta.live .ln.atom.act .hl-kn, .ed-ta.live .ln.atom.act .hl-card, .ed-ta.live .atom.on .hl-kept { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ed-ta.live .atom { caret-color: transparent; }
 .ed-ta.live .ln:not(.act) .hl-sw::before { content: ''; display: inline-block; width: .7em; height: .7em; margin-right: .3em; border-radius: 2px; background: var(--c); border: 1px solid var(--border); vertical-align: baseline; }
 .ed-ta.live .ln:not(.act) .td:has(> .hl-thm) { font-weight: 700; background: var(--bg-3); }
 .ed-ta.live .ln.pnc:not(.act) .hl-end { visibility: hidden; } .ed-ta.live .ln.pnc:not(.act) { line-height: .7; }
