@@ -39,6 +39,14 @@
 .bd-lane-head.over { color: var(--err); } .bd-lane-head.over .bd-count { background: var(--err); color: var(--bg); } .bd-lane-head.over .bd-wip { color: var(--err); font-weight: 700; }
 .bd-lane-body { flex: 1; min-height: 0; overflow-y: auto; position: relative; padding: var(--pad) .429rem 0; overscroll-behavior-y: contain; }
 .bd-lane-body.empty::after { content: "No issues"; position: absolute; left: 0; right: 0; top: 1.286rem; text-align: center; color: var(--fg-3); font-size: .857rem; pointer-events: none; }
+.bd-lane-fold { flex: none; display: inline-flex; border: 0; background: none; color: var(--fg-3); padding: 0; margin: 0 -.143rem; cursor: pointer; }
+.bd-lane-fold:hover { color: var(--fg); }
+/* a collapsed lane: a narrow full-height bar, its name and count turned a quarter */
+.bd-lanes > .bd-lane.collapsed { flex: none; width: 2.429rem; min-width: 0; cursor: pointer; }
+.bd-lane.collapsed > :not(.bd-lane-head), .bd-lane.collapsed .bd-wip { display: none; }
+.bd-lane.collapsed .bd-lane-head { flex: 1; min-height: 0; writing-mode: vertical-rl; padding: .5rem 0; border-bottom: 0; border-radius: 8px; }
+.bd-lane.collapsed .bd-count { padding: .5rem 0; }
+.bd-lane.collapsed:hover .bd-lane-head { color: var(--fg); }
 .bd-drop { position: absolute; left: .429rem; right: .429rem; height: .286rem; border-radius: 2px; background: var(--accent); pointer-events: none; z-index: 2; }
 
 /* cards */

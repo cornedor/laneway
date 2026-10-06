@@ -61,7 +61,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
     mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS,
-    layout: '', layoutHidden: 0, secFold: new Set(),
+    layout: '', layoutHidden: 0, secFold: new Set(), laneFold: new Set(),
     past: null, closed: null, pins: new Set(), notes: new Set(), starred: [], colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
     panes: [], where: new Map(), visible: [], built: '', rowH: 0,
@@ -423,7 +423,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       for (const c of base) S.colTotal[Math.min(colIndexOf(c), nc - 1)]++;
       groups.forEach((g, gi) => { for (const c of g.cards) S.panes[gi * nc + Math.min(colIndexOf(c), nc - 1)].all.push(c); });
     } else if (lanes) {
-      for (const p of S.panes) { p.all = []; p.total = 0; p.heads = null; p.shown = null; }
+      for (const p of S.panes) { p.all = []; p.total = 0; p.heads = null; p.shown = null; p.folded = S.laneFold.has(p.name); p.el.classList.toggle('collapsed', p.folded); }
       for (const c of base) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].total++;
       for (const c of vis) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].all.push(c);
       for (const p of S.panes) stack(p, cols[p.col]);
@@ -588,7 +588,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
         const pane = { col: n.col, name: n.name, max: n.max, cards: [], all: [], total: 0, rh: 0 };
         pane.count = h('span.bd-count');
         pane.wip = h('span.bd-wip');
-        pane.head = h('div.bd-lane-head.k' + catOf(i, names.length, other), h('span.bd-lane-name', n.name), pane.count, pane.wip);
+        const fold = h('button.bd-lane-fold', { type: 'button', title: 'Collapse / expand', 'aria-label': 'Collapse / expand ' + n.name }, icon('chevron-right'));
+        pane.head = h('div.bd-lane-head.k' + catOf(i, names.length, other), fold, h('span.bd-lane-name', n.name), pane.count, pane.wip);
         pane.body = h('div.bd-lane-body', { role: 'list', 'aria-label': n.name });
         pane.drop = h('div.bd-drop', { hidden: true });
         pane.body.append(pane.drop);
@@ -791,6 +792,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     openIssue(key);
   });
   delegate(main, 'click', '[data-fold]', (e, t) => foldBand(t.dataset.fold));
+  // A lane's chevron collapses it to a bar until clicked again or the board reloads; not remembered.
+  delegate(main, 'click', '.bd-lane-fold, .bd-lane.collapsed', (e, t) => {
+    const p = S.panes[Number(t.closest('.bd-lane').dataset.pane)];
+    S.laneFold.has(p.name) ? S.laneFold.delete(p.name) : S.laneFold.add(p.name);
+    layout();
+  });
   delegate(main, 'click', '[data-sort]', (e, t) => { if (t.dataset.sort) setSort(...nextSort(S.sort, S.dir, t.dataset.sort)); });
   delegate(main, 'dblclick', '[data-key]', (e, t) => window.open(app.session.baseURL + '/browse/' + t.dataset.key, '_blank', 'noopener'));
 

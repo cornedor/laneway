@@ -85,7 +85,8 @@ The [search reference](../reference/search.md) has every field.
 
     `O` steps the sort, or the swimlanes; in the list `C` picks the
     columns, and a click on a column header sorts by it. Folded stacked
-    columns line up under the lane's head; a click unfolds one.
+    columns line up under the lane's head; a click unfolds one. The ›
+    beside a lane's name collapses it to a thin bar until clicked again.
 
 laneway remembers the mode and swimlanes per board.
 
