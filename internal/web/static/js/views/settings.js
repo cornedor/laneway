@@ -1,6 +1,8 @@
 // Settings: topic headings, `/` filters by name. j/k move, enter/space/→ change, ← back, del resets, esc leaves.
-// Sections: Appearance and Board (this browser), Notifications, App, Site (settings_site.js), Keyboard (remaps, settings_keys.js), then every
-// ui: option of the config file by topic (settings_config.js), shared with the terminal app, and GitLab.
+// Sections in four groups (GROUPS): this browser (Appearance, Fonts, Board, Notifications), Jira and server (Jira site
+// and Server: settings_site.js; GitLab, Data), every ui: option of the config file by topic (settings_config.js),
+// shared with the terminal app, and Keyboard (remaps, settings_keys.js, a row per folded group). With room a sidebar
+// lists the sections and marks the one in view.
 //
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
@@ -23,6 +25,17 @@ import { fontOptions } from './settings_fonts.js';
 import { siteOptions } from './settings_site.js';
 
 css('settings');
+
+// GROUPS order the sections; a section none lists is the config file's (its topics in the server's order).
+const GROUPS = [
+  { title: 'This browser', desc: 'kept in this browser only', sections: ['Appearance', 'Fonts', 'Board', 'Notifications'] },
+  { title: 'Jira and server', sections: ['Jira site', 'Server', 'GitLab', 'Data'] },
+  { title: 'Config file', desc: 'ui: options, shared with the terminal app', sections: null },
+  { title: 'Keyboard', sections: ['Keyboard'] },
+];
+const CONFIG = GROUPS.findIndex(g => !g.sections);
+const groupOf = sec => { const i = GROUPS.findIndex(g => g.sections && g.sections.includes(sec)); return i < 0 ? CONFIG : i; };
+const slug = sec => 'st-' + sec.replace(/\W+/g, '-');
 
 const cycle = (list, cur, d) => list[(Math.max(0, list.indexOf(cur)) + d + list.length) % list.length];
 
@@ -78,16 +91,16 @@ export default function mount(el, { app, scope, toolbar }) {
       change: () => toggleNotify() },
     action('Test notification', 'shows one now', 'Notifications', () => { if (!notifier.notify('laneway', 'Notifications work.')) app.ui.toast('Turn notifications on first', { kind: 'err' }); }),
 
-    choice('Default mode', 'how the board opens (this browser)', 'Board (this browser)', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
-    choice('Empty lanes', 'columns the filters leave without a card (alt+e)', 'Board (this browser)', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
-    choice('Auto refresh', 'refetch an idle board', 'Board (this browser)', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
+    choice('Default mode', 'how the board opens (this browser)', 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
+    choice('Empty lanes', 'columns the filters leave without a card (alt+e)', 'Board', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
+    choice('Auto refresh', 'refetch an idle board', 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
 
-    s.autostart && { name: 'Start at login', desc: 'runs laneway web in the background when you log in, on ' + location.host + ' (' + s.autostart.path + ')', section: 'App', meta: 'autostart startup boot service systemd launchd',
+    s.autostart && { name: 'Start at login', desc: 'runs laneway web in the background when you log in, on ' + location.host + ' (' + s.autostart.path + ')', section: 'Server',
       render: () => { const on = s.autostart.enabled; return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Start at login', tabindex: -1, onclick: () => toggleLogin() }, h('i')), h('span.st-state', on ? 'on' : 'off')); },
       change: () => toggleLogin() },
     ...siteOptions(app, () => refresh()),
-    info('Site', s.site || '-', 'Data'), info('Jira', s.baseURL || '-', 'Data'),
-    info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Data'), info('Version', s.version || 'dev', 'Data'),
+    info('Site', s.site || '-', 'Jira site'), info('Jira', s.baseURL || '-', 'Jira site'),
+    info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Jira site'), info('Version', s.version || 'dev', 'Server'),
     action('Clear cached data', 'the browser copy of API answers; reloaded on demand', 'Data', () => { api.forget(); app.ui.toast('Caches cleared', { kind: 'ok' }); }),
     action('Clear recent issues', 'the palette’s recent list and search history', 'Data', () => {
       try { for (const k of Object.keys(localStorage)) if (/^lw:(recent|jqlhist|cmdrecent):/.test(k)) localStorage.removeItem(k); } catch (e) { /* ignore */ }
@@ -146,11 +159,13 @@ export default function mount(el, { app, scope, toolbar }) {
 
   // ---- view
   let q = '', sel = 0, rows = [], editing = null, cfg = null, keyRows = [];
+  const folds = new Set(); // the key groups open
   const filter = h('input.input.st-filter', { type: 'search', placeholder: 'Filter settings  (/)', spellcheck: false, 'aria-label': 'Filter settings', oninput: e => { q = e.target.value.trim().toLowerCase(); sel = 0; draw(); } });
   const list = h('div.st-list');
   const foot = h('div.st-foot');
+  const nav = h('nav.st-nav', { 'aria-label': 'Settings sections' });
   toolbar.append(filter);
-  el.append(h('div.st', list, foot));
+  el.append(h('div.st', nav, h('div.st-main', list, foot)));
   const setFoot = () => { foot.textContent = 'j/k move · enter/space change · ←/→ cycle · del reset · / filter · esc leaves' + (cfg && cfg.path ? ' · ui: options write to ' + cfg.path : ''); };
   setFoot();
 
@@ -161,6 +176,7 @@ export default function mount(el, { app, scope, toolbar }) {
     commit: () => editing && editing.commit(),
     cancel: () => editing && editing.cancel(),
     reload: () => { rebuildKeys(); draw(); },
+    folds,
   };
   function rebuildKeys() {
     options.splice(0, options.length, ...options.filter(o => !keyRows.includes(o)));
@@ -171,31 +187,68 @@ export default function mount(el, { app, scope, toolbar }) {
   const hay = o => (o.name + ' ' + o.name.replace(/_/g, ' ') + ' ' + (o.desc || '') + ' ' + o.section + ' ' + (o.meta || '') + ' ' + (o.key ? app.keys.registry().filter(r => r.desc === o.name).map(r => r.specs.join(' ')).join(' ') : '')).toLowerCase();
   const shown = () => {
     const words = q.split(/\s+/).filter(Boolean);
-    const vis = options.filter(o => { if (!words.length) return true; const t = hay(o); return words.every(w => t.includes(w)); });
-    const rank = o => (o.key ? 2 : o.cfg ? 4 : ({ Appearance: 0, Notifications: 1, App: 1.5, Site: 1.6, Keyboard: 2, 'Board (this browser)': 3, Data: 5 })[o.section] ?? 4);
-    // sections keep the order they first appear in; the fixed ones come first
+    const match = o => { const t = hay(o); return words.every(w => t.includes(w)); };
+    // A folded group's keys show only when the filter finds them; its row shows while any key of it does.
+    const vis = options.filter(o => {
+      if (o.key) return folds.has(o.group) || (words.length > 0 && match(o));
+      if (o.fold) return !words.length || match(o) || options.some(k => k.key && k.group === o.fold && match(k));
+      return !words.length || match(o);
+    });
+    const topics = (cfg && cfg.groups) || [];
     const seen = []; for (const o of vis) if (!seen.includes(o.section)) seen.push(o.section);
-    const at = sec => rank(vis.find(o => o.section === sec)) * 1000 + seen.indexOf(sec);
+    const at = sec => {
+      const g = groupOf(sec), list = GROUPS[g].sections;
+      const i = list ? list.indexOf(sec) : topics.includes(sec) ? topics.indexOf(sec) : topics.length + seen.indexOf(sec);
+      return g * 1000 + i;
+    };
     return vis.map((o, i) => [o, at(o.section), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
   };
   function rowFor(o) {
-    return h('div.st-row' + (o.wide ? '.wide' : ''), { role: 'group', 'aria-label': o.name, onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } } },
+    return h('div.st-row' + (o.wide ? '.wide' : ''), { role: 'group', 'aria-label': o.name, onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } if (o.fold) o.activate(); } },
       h('div.st-name', h('div', o.name, o.meta && h('span.chip', o.meta)), o.desc && h('div.st-desc', o.desc)), o.render());
   }
   function draw() {
     const vis = shown();
     rows = vis.filter(o => !o.static);
     sel = Math.min(sel, Math.max(0, rows.length - 1));
-    clear(list);
-    let sec = null, body = null;
+    clear(list); clear(nav);
+    let grp = -1, sec = null, body = null;
     for (const o of vis) {
-      if (o.section !== sec) { sec = o.section; list.append(h('h3.st-h', { id: 'st-' + sec.replace(/\W+/g, '-') }, sec)); body = h('div.st-sec', { role: 'group', 'aria-labelledby': 'st-' + sec.replace(/\W+/g, '-') }); list.append(body); }
+      if (o.section !== sec) {
+        sec = o.section;
+        const g = groupOf(sec), G = GROUPS[g];
+        if (g !== grp) {
+          grp = g;
+          list.append(h('div.st-gh', h('h2', G.title), G.desc && h('span.st-desc', G.desc)));
+          if (!(G.sections && G.sections.length === 1)) nav.append(h('div.st-nav-g', G.title));
+        }
+        if (sec !== G.title) list.append(h('h3.st-h', { id: slug(sec) }, sec));
+        body = h('div.st-sec' + (o.fold || o.key ? '.st-keys' : ''), { role: 'group', 'aria-label': sec, id: sec === G.title ? slug(sec) : null });
+        list.append(body);
+        const target = slug(sec);
+        nav.append(h('a.st-nav-a', { href: '#/settings', dataset: { sec: target }, onclick: e => { e.preventDefault(); const t = list.querySelector('#' + target); if (t) { jumped = target; t.scrollIntoView({ block: 'start' }); spy(); } } }, sec));
+      }
       o.el = rowFor(o);
+      if (o.fold) o.el.classList.add('st-fold');
       body.append(o.el);
     }
     if (!vis.length) list.append(h('div.empty', 'No settings match “' + q + '”'));
-    mark();
+    mark(); spy();
   }
+  // spy marks the sidebar's link of the section at the top of the view; the last at the bottom, a jumped-to one
+  // while it shows (a short one near the end never reaches the top).
+  let jumped = null;
+  function spy() {
+    const box = el.getBoundingClientRect(), top = box.top + 48;
+    const ids = [...list.querySelectorAll('[id^="st-"]')];
+    let cur = ids[0] && ids[0].id;
+    for (const t of ids) { if (t.getBoundingClientRect().top <= top) cur = t.id; else break; }
+    if (ids.length && el.scrollTop + el.clientHeight >= el.scrollHeight - 2) cur = ids[ids.length - 1].id;
+    const j = jumped && list.querySelector('#' + jumped);
+    if (j && j.getBoundingClientRect().top < box.bottom && j.getBoundingClientRect().top >= box.top - 2) cur = jumped; else jumped = null;
+    for (const a of nav.children) if (a.dataset.sec) a.classList.toggle('on', a.dataset.sec === cur);
+  }
+  el.addEventListener('scroll', spy, { passive: true });
   function mark() {
     for (const o of options) if (o.el) o.el.classList.toggle('sel', rows[sel] === o);
     const o = rows[sel]; if (o && o.el && o.el.scrollIntoView) o.el.scrollIntoView({ block: 'nearest' });
@@ -230,8 +283,8 @@ export default function mount(el, { app, scope, toolbar }) {
     cfg = c;
     offCards = designCards(app, host, c.options);
     options.push(...c.options);
-    if (c.path) options.push(info('Config file', c.path, 'Data', c.editable ? 'ui: options are written here, comments kept' : 'read-only'));
-    for (const w of c.warnings) options.push(info('Config warning', w, 'Data'));
+    if (c.path) options.push(info('Config file', c.path, 'Server', c.editable ? 'ui: options are written here, comments kept' : 'read-only'));
+    for (const w of c.warnings) options.push(info('Config warning', w, 'Server'));
     setFoot(); draw();
   }).catch(e => app.ui.errToast(e));
   // Each GitLab instance (the gitlab: config's, then glab's logins), signed in to.
@@ -242,5 +295,5 @@ export default function mount(el, { app, scope, toolbar }) {
   }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
   const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(); } });
-  return () => { dead = true; offMetrics(); if (offCards) offCards(); editor = null; editing = null; };
+  return () => { dead = true; el.removeEventListener('scroll', spy); offMetrics(); if (offCards) offCards(); editor = null; editing = null; };
 }

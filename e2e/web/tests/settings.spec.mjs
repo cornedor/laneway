@@ -21,3 +21,27 @@ test('restart comes back', async ({ page, app }) => {
   await reloaded;
   await expect(page.getByRole('group', { name: 'Projects' })).toBeVisible();
 });
+
+// Keys sit folded by group: a click opens one, the filter finds a key in a folded one.
+test('key groups fold', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const keys = page.getByRole('group', { name: 'Keyboard', exact: true });
+  const global = keys.locator('.st-fold', { hasText: 'Global' });
+  await expect(global).toBeVisible();
+  await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toHaveCount(0);
+  await global.click();
+  await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toBeVisible();
+  await global.click();
+  await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toHaveCount(0);
+  await page.getByRole('searchbox', { name: 'Filter settings' }).fill('jump to issue by key');
+  await expect(keys.getByRole('group', { name: 'jump to issue by key' })).toBeVisible();
+});
+
+// The sidebar lists the sections and jumps to one.
+test('sidebar jumps to a section', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const nav = page.getByRole('navigation', { name: 'Settings sections' });
+  await nav.getByRole('link', { name: 'Keyboard' }).click();
+  await expect(nav.getByRole('link', { name: 'Keyboard' })).toHaveClass(/on/);
+  await expect(page.locator('.st-fold').first()).toBeInViewport();
+});

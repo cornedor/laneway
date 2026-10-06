@@ -1,5 +1,5 @@
-// Settings > Site: this site's projects (jira.projects, or sites.<name>.projects: first in the project picker,
-// the first one opened at start), picked from the site's projects; and restarting laneway web.
+// Settings > Jira site: this site's projects (jira.projects, or sites.<name>.projects: first in the project picker,
+// the first one opened at start), picked from the site's projects; Server: restarting laneway web.
 import { h } from '../lib/dom.js';
 import { restart } from '../lib/sites.js';
 
@@ -23,13 +23,13 @@ export function siteOptions(app, refresh) {
   }
   const drop = k => save(mine().filter(x => x !== k));
   return [
-    { name: 'Projects', section: 'Site',
+    { name: 'Projects', section: 'Jira site',
       desc: 'your favourites: first in the project picker, the first one opens at start; jira.projects of this site',
       render: () => h('span.st-val',
         mine().length ? mine().map(k => h('span.chip.st-proj', k, h('button.st-proj-x', { tabindex: -1, title: 'Remove ' + k, 'aria-label': 'Remove ' + k, onclick: e => { e.stopPropagation(); drop(k); } }, '×'))) : h('span.faint', 'none'),
         h('button.btn.ghost', { tabindex: -1, onclick: edit }, 'Edit')),
       change: edit, reset: () => { if (mine().length) save([]); } },
-    { name: 'Restart', section: 'Site',
+    { name: 'Restart', section: 'Server',
       desc: 'starts laneway web again: the config read anew, for options marked restart needed',
       render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: () => restart(app) }, 'Restart')),
       change: () => restart(app) },

@@ -1,6 +1,8 @@
-// Keyboard remapping: any web binding can get another key. Remaps live in the `keymap` pref
+// Keyboard remapping: any web binding can get another key. Each group of keys is folded behind one row
+// (host.folds holds the open ones); a filter shows the matching keys whatever is folded. Remaps live in the `keymap` pref
 // ({bindId: [spec]}); `ui.keys` of the config file applies to the bindings that have a TUI action.
 import { h } from '../lib/dom.js';
+import { icon } from '../lib/icons.js';
 import { keyOf, kbd } from '../lib/keys.js';
 
 const userMap = app => { try { return JSON.parse(app.prefs.get('keymap', '{}')) || {}; } catch (e) { return {}; } };
@@ -38,11 +40,19 @@ export function keyOptions(app, host) {
   const rows = app.keys.registry().filter(r => r.scope !== 'settings');
   rows.sort((a, b) => a.group.localeCompare(b.group) || a.desc.localeCompare(b.desc));
   const out = [];
-  out.push({ name: 'Remap keys', section: 'Keyboard', static: true, wide: true, desc: 'Enter on a row to give it another key. Overrides ui.keys of the config file, which the bindings with a terminal action already follow. Views you have not opened yet list their keys after the first visit.', render: () => h('span') });
+  out.push({ name: 'Remap keys', section: 'Keyboard', static: true, wide: true, desc: 'Open a group, then enter on a key to give it another. Overrides ui.keys of the config file; views not opened yet list their keys after the first visit.', render: () => h('span') });
   if (Object.keys(userMap(app)).length) out.push({ name: 'Reset all remaps', section: 'Keyboard', desc: 'back to the defaults and ui.keys', render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: () => resetAll() }, 'Reset')), change: () => resetAll() });
   const resetAll = () => { apply(app, {}); app.ui.toast('Keys reset', { kind: 'ok' }); host.reload(); };
+  for (const g of [...new Set(rows.map(r => r.group))]) {
+    const keys = rows.filter(r => r.group === g);
+    const fold = { name: g, section: 'Keyboard', fold: g };
+    Object.defineProperty(fold, 'desc', { get: () => { const n = keys.filter(r => userMap(app)[r.id]).length; return keys.length + (keys.length === 1 ? ' key' : ' keys') + (n ? ' · ' + n + ' remapped' : ''); } });
+    fold.render = () => h('span.st-val', icon(host.folds.has(g) ? 'chevron-up' : 'chevron-down'));
+    fold.activate = fold.change = () => { host.folds.has(g) ? host.folds.delete(g) : host.folds.add(g); host.reload(); };
+    out.push(fold);
+  }
   for (const r0 of rows) {
-    const o = { name: r0.desc, section: 'Keys · ' + r0.group, key: true, meta: '', desc: '' };
+    const o = { name: r0.desc, section: 'Keyboard', group: r0.group, key: true, meta: '', desc: '' };
     const cur = () => app.keys.registry().find(x => x.id === r0.id) || r0;
     const rebind = async () => {
       const spec = await capture(app, cur());

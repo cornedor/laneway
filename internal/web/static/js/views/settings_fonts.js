@@ -79,7 +79,7 @@ export function fontOptions(app, refresh) {
     }
     drawFiles(); paint();
     return {
-      name, desc, section: 'Appearance', wide: true,
+      name, desc, section: 'Fonts', wide: true,
       render: () => h('div.st-fonts', grid, fileBox, h('div.st-fcustom', input,
         h('button.btn', { type: 'button', tabindex: -1, onclick: () => picker.click() }, 'Upload font…'), picker), hint, sample),
       change: d => { const id = cycle(ids(), fonts.choice(role), d); if (id === 'custom' && !input.value.trim()) return; pick(id); },
@@ -93,13 +93,13 @@ export function fontOptions(app, refresh) {
     fontRow('ui', 'UI font', 'h/l cycle, enter edits the custom field; bundled fonts load when first used'),
     fontRow('mono', 'Monospace font', 'keys, code, the editor’s monospace mode'),
     ...terminalOptions(app, refresh),
-    { name: 'Ligatures', desc: 'in monospace text: -> => != as one glyph (Fira Code, JetBrains Mono, Cascadia Code)', section: 'Appearance',
+    { name: 'Ligatures', desc: 'in monospace text: -> => != as one glyph (Fira Code, JetBrains Mono, Cascadia Code)', section: 'Fonts',
       render: () => { const on = fonts.ligatures(); return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Ligatures', tabindex: -1, onclick: () => { fonts.setLigatures(!on); refresh(); } }, h('i')), h('span.st-state', on ? 'on' : 'off')); },
       change: () => { fonts.setLigatures(!fonts.ligatures()); refresh(); }, reset: () => { fonts.setLigatures(true); refresh(); } },
-    { name: 'Line height', desc: 'text leading; density sets spacing of rows and panels, this the lines inside them', section: 'Appearance',
+    { name: 'Line height', desc: 'text leading; density sets spacing of rows and panels, this the lines inside them', section: 'Fonts',
       render: () => h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: () => { fonts.setLineHeight(cycle(lhs, fonts.lineHeight(), 1)); refresh(); } }, fonts.lineHeight() || 'default (1.45)')),
       change: d => { fonts.setLineHeight(cycle(lhs, fonts.lineHeight(), d)); refresh(); }, reset: () => { fonts.setLineHeight(0); refresh(); } },
-    { name: 'Reset fonts', desc: 'system fonts, ligatures on, default line height (uploaded files stay)', section: 'Appearance',
+    { name: 'Reset fonts', desc: 'system fonts, ligatures on, default line height (uploaded files stay)', section: 'Fonts',
       render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: doReset }, 'Reset')), change: doReset },
   ];
   function doReset() { fonts.reset(); refresh(); toast('Fonts reset', 'ok'); }
