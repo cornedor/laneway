@@ -36,20 +36,26 @@ func webCmd(args []string, cfgPath, site string, errOut io.Writer) int {
 	fs := flag.NewFlagSet("web", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	addr := fs.String("addr", "127.0.0.1:8484", "address to listen on")
-	remote := fs.Bool("remote", false, "allow a non-loopback address; needs the printed ?token= URL. WARNING: grants shell access via ui.actions and ui.llm to whoever holds the token")
+	remote := fs.Bool("remote", false, "allow a non-loopback address; needs -cert, -key and the printed ?token= URL. WARNING: grants shell access via ui.actions and ui.llm to whoever holds the token")
+	cert := fs.String("cert", "", "TLS certificate file (PEM); serves https")
+	key := fs.String("key", "", "TLS private key file (PEM) for -cert")
 	noOpen := fs.Bool("no-open", false, "do not open the browser")
 	demoFlag := fs.Bool("demo", false, "serve a generated project instead of Jira")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if err := runWeb(cfgPath, site, *addr, *remote, !*noOpen, *demoFlag); err != nil {
+	if (*cert == "") != (*key == "") {
+		fmt.Fprintln(errOut, "laneway: -cert and -key go together")
+		return 2
+	}
+	if err := runWeb(cfgPath, site, *addr, *cert, *key, *remote, !*noOpen, *demoFlag); err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return 1
 	}
 	return 0
 }
 
-func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
+func runWeb(cfgPath, site, addr, cert, key string, remote, open, demoMode bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	token := ""
@@ -63,7 +69,7 @@ func runWeb(cfgPath, site, addr string, remote, open, demoMode bool) error {
 	// The setup screen ends by serving the app in its place, on the same
 	// address: the browser reloads into it.
 	for {
-		next, err := serveWeb(ctx, cfgPath, site, addr, token, remote, open, demoMode)
+		next, err := serveWeb(ctx, cfgPath, site, addr, cert, key, token, remote, open, demoMode)
 		if errors.Is(err, syscall.EADDRINUSE) && runningWeb(addr) {
 			// Started at login, most likely: open that one.
 			url := "http://" + addr
@@ -91,7 +97,7 @@ const (
 	webAdded // a site was added: start again on it
 )
 
-func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote, open, demoMode bool) (int, error) {
+func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token string, remote, open, demoMode bool) (int, error) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
 	end := webQuit
@@ -169,15 +175,18 @@ func serveWeb(parent context.Context, cfgPath, site, addr, token string, remote,
 			opt.DefaultName = cfg.Jira.Name
 		}
 	}
-	if !demoMode && !remote { // -remote's token changes each start: not for a login service
+	if !demoMode && !remote && cert == "" { // -remote's token changes each start: not for a login service
 		opt.Autostart = webAutostart(cfgPath, addr)
 	}
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		opt.AllowedHosts = append(opt.AllowedHosts, allowedHosts(host)...)
 	}
 	srv := web.New(ctx, opt)
-	err := web.Serve(ctx, addr, remote, srv, func(a net.Addr) {
+	err := web.Serve(ctx, addr, remote, cert, key, srv, func(a net.Addr) {
 		url := "http://" + a.String()
+		if cert != "" {
+			url = "https://" + a.String()
+		}
 		if opt.Token != "" {
 			url += "/?token=" + opt.Token
 		}

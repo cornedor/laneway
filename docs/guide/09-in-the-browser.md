@@ -21,7 +21,8 @@ address opens that one.
 | Flag | |
 | --- | --- |
 | `-addr` | address to listen on, `127.0.0.1:8484` by default |
-| `-remote` | allow an address that is not loopback (see [Security](#security)) |
+| `-remote` | allow an address that is not loopback; needs `-cert` and `-key` (see [Security](#security)) |
+| `-cert`, `-key` | TLS certificate and key files (PEM): serve https |
 | `-no-open` | don't open the browser |
 | `-demo` | serve a generated project instead of Jira; your config's `ui:` and `rules:` still apply |
 
@@ -131,7 +132,15 @@ refresh.
   cross-site requests are refused, WebSockets included.
 - `-remote` also needs the launch token: open the URL it prints, with
   `?token=`, which sets a cookie; requests without it get 401. Use it on a
-  network you trust, or behind a tunnel that authenticates.
+  network you trust.
+- `-remote` on an address that is not loopback needs TLS (`-cert`,
+  `-key`): the token and cookie never cross the network in plain text.
+  Without a certificate, tunnel instead: `ssh -L 8484:127.0.0.1:8484 host`
+  reaches a plain `laneway web` on that host, no `-remote` needed.
+- Over `-remote`, settings that run commands (`ui.actions`, `ui.llm`,
+  `ui.activity`, `ui.open`, `ui.clipboard_image`, `ui.work_agent`,
+  `ui.work_args`, `ui.work_create`) are read-only: edit them in the config
+  file. Configured actions still run.
 
 ## Tips
 

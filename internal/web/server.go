@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"crypto/tls"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
@@ -440,26 +441,44 @@ func compressible(p string) bool {
 	return false
 }
 
-// Serve listens on addr and serves until ctx ends. A wildcard or public
-// address is refused unless allowRemote: the API acts as you on Jira.
-func Serve(ctx context.Context, addr string, allowRemote bool, h http.Handler, ready func(net.Addr)) error {
+// Serve listens on addr and serves until ctx ends, over TLS when certFile
+// and keyFile are given. A wildcard or public address is refused unless
+// allowRemote, and then needs TLS: the API acts as you on Jira and runs
+// your commands, so its token must not cross the network in plain text.
+func Serve(ctx context.Context, addr string, allowRemote bool, certFile, keyFile string, h http.Handler, ready func(net.Addr)) error {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return err
 	}
-	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) && !allowRemote {
-		return fmt.Errorf("%s is not a loopback address: the web UI acts as you on Jira; pass -remote to allow it", addr)
+	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+		if !allowRemote {
+			return fmt.Errorf("%s is not a loopback address: the web UI acts as you on Jira; pass -remote to allow it", addr)
+		}
+		if certFile == "" {
+			return fmt.Errorf("%s is not a loopback address: -remote needs -cert and -key, or an SSH tunnel to a loopback address", addr)
+		}
+	}
+	srv := &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}
+	if certFile != "" {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return err
+		}
+		srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
 	}
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}
 	go func() { <-ctx.Done(); _ = srv.Close() }()
 	if ready != nil {
 		ready(ln.Addr())
 	}
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	serve := srv.Serve
+	if srv.TLSConfig != nil {
+		serve = func(ln net.Listener) error { return srv.ServeTLS(ln, "", "") }
+	}
+	if err := serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil

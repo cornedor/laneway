@@ -23,7 +23,8 @@ the command; a command's flags go before its arguments.
 | `laneway setup` | add a Jira site, or replace a site's email and token |
 
 `laneway web` flags: `-addr` (`127.0.0.1:8484`), `-remote` (allow an
-address that is not loopback), `-no-open` (don't open the browser),
+address that is not loopback; needs `-cert` and `-key`), `-cert`, `-key`
+(TLS certificate and key, PEM), `-no-open` (don't open the browser),
 `-demo`.
 
 ## Scripts

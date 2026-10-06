@@ -5,6 +5,9 @@ package config
 // SettingsRestart are options read once at startup.
 var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
 
+// SettingsCommand are options laneway runs as commands (or passes to one).
+var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": true, "open": true, "clipboard_image": true, "work_agent": true, "work_args": true, "work_create": true}
+
 // SettingDefaults is each ui: option's default as the docs show it.
 var SettingDefaults = map[string]string{
 	"auto_refresh":         "2m",

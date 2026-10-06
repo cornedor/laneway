@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -124,5 +125,38 @@ func TestUpdate(t *testing.T) {
 	}
 	if u := get(Options{Version: "v9.9.9"}); len(u) != 0 {
 		t.Errorf("current = %v", u)
+	}
+}
+
+func TestSettingsCommandRemote(t *testing.T) {
+	s := New(t.Context(), Options{Token: "sekret"})
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte("ui:\n"), 0o600)
+	s.opt.ConfigPath = path
+	ui := reflect.TypeOf(config.UIConfig{})
+	for name := range config.SettingsCommand {
+		if !fieldByName(reflect.New(ui).Elem(), name).IsValid() {
+			t.Errorf("ui.%s: no such setting", name)
+		}
+	}
+	put := func(name, body string) int {
+		r := httptest.NewRequest("PUT", "/api/settings/"+name, strings.NewReader(body))
+		r.Host = "localhost"
+		r.Header.Set("Cookie", tokenCookie+"=sekret")
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w.Code
+	}
+	if c := put("llm", `{"Value": "sh -c id"}`); c != 403 {
+		t.Errorf("ui.llm over -remote = %d, want 403", c)
+	}
+	if c := put("actions", `{"YAML": "- {name: x, command: [id]}"}`); c != 403 {
+		t.Errorf("ui.actions over -remote = %d, want 403", c)
+	}
+	if c := put("stale_days", `{"Value": 4}`); c != 200 {
+		t.Errorf("ui.stale_days over -remote = %d, want 200", c)
+	}
+	if b, _ := os.ReadFile(path); strings.Contains(string(b), "llm") || strings.Contains(string(b), "actions") {
+		t.Errorf("command setting written:\n%s", b)
 	}
 }

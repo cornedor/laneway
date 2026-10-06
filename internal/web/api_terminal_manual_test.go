@@ -45,7 +45,7 @@ func TestTerminalManual(t *testing.T) {
 	ctx := context.Background()
 	h := New(ctx, Options{Client: cl, Store: st, Site: "demo", ConfigPath: conf})
 	t.Logf("serving http://%s", addr)
-	if err := Serve(ctx, addr, false, h, nil); err != nil {
+	if err := Serve(ctx, addr, false, "", "", h, nil); err != nil {
 		t.Fatal(err)
 	}
 }

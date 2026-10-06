@@ -144,3 +144,16 @@ func TestPaneAndWorkInputs(t *testing.T) {
 		t.Error("herdr was reached")
 	}
 }
+
+func TestServeRemoteNeedsTLS(t *testing.T) {
+	h := http.NotFoundHandler()
+	if err := Serve(t.Context(), "0.0.0.0:0", false, "", "", h, nil); err == nil || !strings.Contains(err.Error(), "-remote") {
+		t.Errorf("public without -remote: %v", err)
+	}
+	if err := Serve(t.Context(), "0.0.0.0:0", true, "", "", h, nil); err == nil || !strings.Contains(err.Error(), "-cert") {
+		t.Errorf("-remote without TLS: %v", err)
+	}
+	if err := Serve(t.Context(), "0.0.0.0:0", true, "missing.pem", "missing.key", h, nil); err == nil {
+		t.Error("-remote with a missing certificate served")
+	}
+}
