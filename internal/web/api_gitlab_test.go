@@ -50,8 +50,60 @@ func TestGitLabMR(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &mr); err != nil || rec.Code != 200 || mr.Title != "Fix login" {
 		t.Fatalf("%d %s", rec.Code, rec.Body)
 	}
-	if rec := call(s, "GET", "/api/gitlab/mr?url="+url.QueryEscape("https://elsewhere.test/g/p/-/merge_requests/7"), "", ""); rec.Code != 404 {
+	rec = call(s, "GET", "/api/gitlab/mr?url="+url.QueryEscape("https://elsewhere.test/g/p/-/merge_requests/7"), "", "")
+	var e struct{ Signin gitlab.SignIn }
+	if json.Unmarshal(rec.Body.Bytes(), &e); rec.Code != 404 || e.Signin.Glab != "glab auth login --hostname elsewhere.test" {
 		t.Errorf("another host: %d %s", rec.Code, rec.Body)
+	}
+}
+
+// TestGitLabEditMerge: PUT /api/gitlab/mr sends what is set, Draft as the
+// title's prefix; GET /api/gitlab/merge is the ways to merge, POST merges.
+func TestGitLabEditMerge(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir())
+	wrote := map[string]string{}
+	gl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			b, _ := io.ReadAll(r.Body)
+			wrote[r.URL.Path] = string(b)
+		}
+		switch r.URL.Path {
+		case "/api/v4/projects/g/p/merge_requests/7", "/api/v4/projects/g/p/merge_requests/7/merge":
+			w.Write([]byte(`{"iid": 7, "title": "Fix login", "state": "opened", "source_branch": "fix", "target_branch": "main", "detailed_merge_status": "mergeable", "force_remove_source_branch": true}`))
+		case "/api/v4/projects/g/p/members/all":
+			w.Write([]byte(`[{"id": 2, "username": "grace", "name": "Grace"}]`))
+		default:
+			w.Write([]byte(`[]`))
+		}
+	}))
+	defer gl.Close()
+	s := New(context.Background(), Options{GitLab: gitlab.NewSites([]gitlab.Config{{BaseURL: gl.URL, Token: "tok"}})})
+	q := "?url=" + url.QueryEscape(gl.URL+"/g/p/-/merge_requests/7")
+	if rec := call(s, "PUT", "/api/gitlab/mr"+q, `{"Draft": true, "ReviewerIDs": [2]}`, ""); rec.Code != 200 {
+		t.Fatalf("edit: %d %s", rec.Code, rec.Body)
+	}
+	if got := wrote["/api/v4/projects/g/p/merge_requests/7"]; got != `{"reviewer_ids":[2],"title":"Draft: Fix login"}` {
+		t.Errorf("edit sent %s", got)
+	}
+	if rec := call(s, "GET", "/api/gitlab/members"+q, "", ""); !strings.Contains(rec.Body.String(), `"Username":"grace"`) {
+		t.Errorf("members: %s", rec.Body)
+	}
+	var m struct {
+		Ready   string
+		Choices []struct {
+			Squash, DeleteBranch bool
+			Label                string
+		}
+	}
+	rec := call(s, "GET", "/api/gitlab/merge"+q, "", "")
+	if json.Unmarshal(rec.Body.Bytes(), &m); m.Ready != "" || len(m.Choices) != 4 || !m.Choices[0].DeleteBranch || m.Choices[0].Label != "Its commits, delete the branch" {
+		t.Fatalf("merge choices: %s", rec.Body)
+	}
+	if rec := call(s, "POST", "/api/gitlab/merge"+q, `{"Squash": true}`, ""); rec.Code != 200 {
+		t.Fatalf("merge: %d %s", rec.Code, rec.Body)
+	}
+	if got := wrote["/api/v4/projects/g/p/merge_requests/7/merge"]; got != `{"should_remove_source_branch":false,"squash":true}` {
+		t.Errorf("merge sent %s", got)
 	}
 }
 

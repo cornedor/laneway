@@ -5,8 +5,9 @@ const mem = new Map();
 let site = '';
 export const setSite = s => { site = s; };
 
-// fields: Jira's refusal reasons by field id, when it gave them.
-export class ApiError extends Error { constructor(msg, status, fields) { super(msg); this.status = status; this.fields = fields || null; } }
+// fields: Jira's refusal reasons by field id, when it gave them; signin: how to sign in to GitLab, when it has no
+// token for a merge request's host (gitlab.SignIn).
+export class ApiError extends Error { constructor(msg, status, fields, signin) { super(msg); this.status = status; this.fields = fields || null; this.signin = signin || null; } }
 
 // Go sends a nil slice as null; these fields are always lists. Keep in step
 // with sliceKeys in internal/web/server.go.
@@ -35,7 +36,7 @@ async function call(method, path, body, signal) {
   });
   let data = null;
   try { data = lists(await res.json()); } catch (e) { /* empty body */ }
-  if (!res.ok) throw new ApiError((data && data.error) || res.statusText, res.status, data && data.fields);
+  if (!res.ok) throw new ApiError((data && data.error) || res.statusText, res.status, data && data.fields, data && data.signin);
   if (res.status === 202) window.dispatchEvent(new CustomEvent('lw:queued')); // a write kept for when Jira is back
   return data;
 }

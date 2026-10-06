@@ -206,8 +206,10 @@ On create, `←` `→` change the type, `enter` on the summary creates,
 
 The list (`alt+m`): `enter` reads one in the panel, `d` its diff, `o`
 GitLab, `r` refresh. In the panel: `i` the Jira issue it names, `p` its
-pipeline's jobs (`enter` a job's log, `G` follows it), `A` approve, `C`
-agent review.
+pipeline's jobs (`enter` a job's log, `G` follows it), `A` approve, `M`
+merge, `e` edit (title, draft, reviewers, assignees, labels, target branch,
+description in `$EDITOR`), `C` agent review. Without a token for its GitLab
+it says how to sign in; `r` tries again.
 
 The diff:
 
@@ -221,6 +223,7 @@ The diff:
 | `E` `x` | reword, drop a pending note |
 | `S` | submit the review: comment, approve or request changes |
 | `A` | approve |
+| `M` | merge |
 | `C` | agent review |
 | `R` | resolve, reopen |
 | `e` | the whole file, again the changes |

@@ -19,10 +19,10 @@ import (
 
 // enter on a GitLab merge request in D reads it in the panel, in place of
 // the issue: its state, branches, pipeline by stage, approvals, reviewers,
-// your pending review and description. d reviews its diff, A approves, C
-// has an agent review it, o opens it in GitLab, r refetches, esc or
-// backspace go back to the issue. A link no GitLab instance has a token for
-// opens in the browser, as before.
+// your pending review and description. d reviews its diff, A approves, M
+// merges, e edits it (mr_edit.go), C has an agent review it, o opens it in
+// GitLab, r refetches, esc or backspace go back to the issue. A link no
+// GitLab instance has a token for says how to sign in; r tries again.
 
 // panelMR is the merge request the panel shows over its issue.
 type panelMR struct {
@@ -35,6 +35,9 @@ type panelMR struct {
 	loading     bool
 	err         string
 	gen         int
+	// signIn is how to sign in when there is no token for the link's host,
+	// or GitLab rejected it; c is nil without one.
+	signIn *gitlab.SignIn
 	// thenDiff opens the diff once the merge request is read (d on the merge
 	// requests screen).
 	thenDiff bool
@@ -88,6 +91,44 @@ func (m *Model) openMR(c *gitlab.Client, r forge.Ref, link, title string, fresh 
 	}
 }
 
+// openMRLink shows link in the panel: its merge request, or how to sign in
+// to its host; false for a link that is no GitLab merge request's.
+func (m *Model) openMRLink(link, title string) (tea.Cmd, bool) {
+	if c, r, ok := m.gitlabMR(link); ok {
+		return m.openMR(c, r, link, title, false), true
+	}
+	if !gitlab.IsMRLink(link) {
+		return nil, false
+	}
+	m.openMRSignIn(link, title)
+	return nil, true
+}
+
+// openMRSignIn shows how to sign in to link's host in the panel, in place
+// of its merge request.
+func (m *Model) openMRSignIn(link, title string) {
+	m.mrGen++
+	si := gitlab.SignInFor(forge.HostOf(link))
+	m.mr = &panelMR{link: link, title: title, signIn: &si, gen: m.mrGen}
+	m.refView.GotoTop()
+	m.renderRef()
+	m.status = m.mrStatusHint()
+}
+
+// retryMR asks for link's token again, after glab auth login.
+func (m *Model) retryMR() tea.Cmd {
+	p := m.mr
+	if m.gitlab != nil {
+		m.gitlab.Forget(p.link)
+	}
+	if c, r, ok := m.gitlabMR(p.link); ok {
+		return m.openMR(c, r, p.link, p.title, true)
+	}
+	m.openMRSignIn(p.link, p.title)
+	m.status = "still no GitLab token for " + forge.HostOf(p.link)
+	return nil
+}
+
 // showMR opens the panel on the merge request alone, no issue under it
 // (the merge requests screen).
 func (m *Model) showMR(c *gitlab.Client, r forge.Ref, link, title string) tea.Cmd {
@@ -111,6 +152,11 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 		return m, m.watchMRPipeline()
 	}
 	m.mr.loading = false
+	if gitlab.Rejected(msg.err) {
+		si := gitlab.SignInFor(forge.HostOf(m.mr.link))
+		si.Rejected = true
+		m.mr.signIn = &si
+	}
 	if msg.err != nil {
 		m.mr.err = msg.err.Error()
 	} else {
@@ -130,7 +176,14 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 // mrHints are the merge request's keys, as the panel's hint line shows them:
 // its label and the key a click on it presses.
 func (m *Model) mrHints() [][2]string {
-	hints := [][2]string{{"d diff", "d"}, {"A approve", "A"}, {"C agent review", "C"}}
+	if m.mr != nil && m.mr.signIn != nil {
+		return [][2]string{{helpKey(m.keys.Refresh) + " try again", firstKey(m.keys.Refresh)}, {helpKey(m.keys.OpenAttach) + " GitLab", firstKey(m.keys.OpenAttach)}}
+	}
+	hints := [][2]string{{"d diff", "d"}, {"A approve", "A"}}
+	if p := m.mr; p != nil && p.mr != nil && p.mr.State == forge.StateOpen {
+		hints = append(hints, [2]string{"M merge", "M"})
+	}
+	hints = append(hints, [2]string{"e edit", "e"}, [2]string{"C agent review", "C"})
 	if p := m.mr; p != nil && p.mr != nil && p.mr.Checks != nil {
 		hints = append(hints, [2]string{"p jobs", "p"})
 	}
@@ -210,9 +263,16 @@ func (m *Model) renderMR(w int) string {
 		title = p.mr.Title
 	}
 	b.WriteString(refKeyStyle.Render(title) + "\n")
-	b.WriteString(refDimStyle.Render(p.ref.Repo+"!"+strconv.Itoa(p.ref.Number)) + "\n")
+	where := forge.HostOf(p.link)
+	if p.c != nil {
+		where = mrLabel(p.ref)
+	}
+	b.WriteString(refDimStyle.Render(where) + "\n")
 	b.WriteString(refDimStyle.Render(m.mrHintLine()) + "\n\n")
 	switch {
+	case p.signIn != nil:
+		lines := p.signIn.Lines()
+		b.WriteString(refErrStyle.Render(lines[0]) + "\n\n" + strings.Join(lines[1:], "\n\n"))
 	case p.err != "":
 		b.WriteString(refErrStyle.Render(p.err))
 	case p.loading || p.mr == nil:
@@ -370,6 +430,8 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		}
 		m.status = "opening " + u + "…"
 		return m, m.openOpenable(openable{name: m.mr.title, url: u}), true
+	case key.Matches(msg, m.keys.Refresh) && m.mr.signIn != nil:
+		return m, m.retryMR(), true
 	case key.Matches(msg, m.keys.Refresh):
 		p := m.mr
 		return m, m.openMR(p.c, p.ref, p.link, p.title, true), true
@@ -397,6 +459,12 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		return m, m.startMRReview(m.mr.mr, m.mr.ref), true
 	case msg.String() == "A" && m.mr.mr != nil:
 		return m, m.approveMR(m.mr.c, m.mr.ref.Repo, m.mr.ref.Number), true
+	case msg.String() == "M" && m.mr.mr != nil:
+		m.openMRMerge()
+		return m, nil, true
+	case msg.String() == "e" && m.mr.mr != nil:
+		m.openMREdit()
+		return m, nil, true
 	case msg.String() == "d" && m.mr.mr != nil:
 		out, cmd := m.openDiffView()
 		return out, cmd, true

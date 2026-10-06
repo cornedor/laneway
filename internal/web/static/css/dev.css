@@ -117,3 +117,6 @@ button.pp-job { cursor: pointer; } button.pp-job:hover { background: var(--bg-3)
 .dv-desc { margin-top: .429rem; }
 @media (prefers-reduced-motion: reduce) { .dv-dot.dvt-run, .dv-skel-row i { animation: none; } .dv-caret { transition: none; } }
 @media (max-width: 600px) { .dv-author { display: none; } .dv-ref code { max-width: 14ch; } }
+.mr-signin { display: flex; flex-direction: column; gap: .429rem; padding: .429rem 0; overflow-wrap: anywhere; }
+.mr-signin p { margin: 0; }
+.mr-signin pre { margin: 0; padding: .429rem .571rem; background: var(--bg-3); border-radius: var(--radius); font-size: .9em; overflow-x: auto; }

@@ -134,3 +134,44 @@ func TestGitLabJobs(t *testing.T) {
 		t.Errorf("the pipeline after: %+v", mr.Checks)
 	}
 }
+
+// TestGitLabEditMerge: an edit changes what the next read says, draft by
+// its title; a merge waits for the pipeline, then the merge request is merged.
+func TestGitLabEditMerge(t *testing.T) {
+	s := New(time.Now())
+	base, stop, err := s.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	c := gitlab.New(gitlab.Config{BaseURL: base, Token: "demo"})
+	ctx := context.Background()
+	const repo = "acme/shop-api"
+	ms, err := c.Members(ctx, repo)
+	if err != nil || len(ms) != len(users) {
+		t.Fatalf("Members = %+v, %v", ms, err)
+	}
+	ls, _ := c.Labels(ctx, repo)
+	title, revs, labels := gitlab.DraftTitle("Rate cache", true), []int{ms[0].ID}, []string{ls[1]}
+	if err := c.Update(ctx, repo, 87, gitlab.Edit{Title: &title, ReviewerIDs: &revs, Labels: &labels}); err != nil {
+		t.Fatal(err)
+	}
+	mr, _ := c.Get(ctx, repo, 87)
+	if !mr.Draft || mr.Title != "Draft: Rate cache" || len(mr.ReviewerIDs) != 1 || mr.ReviewerIDs[0] != ms[0].ID || strings.Join(mr.Labels, ",") != ls[1] {
+		t.Fatalf("after the edit: %+v", mr)
+	}
+	if err := c.Merge(ctx, repo, 87, forge.MergeOptions{}); err == nil {
+		t.Error("merged a draft")
+	}
+	title = gitlab.DraftTitle(title, false)
+	_ = c.Update(ctx, repo, 87, gitlab.Edit{Title: &title})
+	s.mu.Lock()
+	s.git.deployAt = time.Now().Add(-deployRun)
+	s.mu.Unlock()
+	if err := c.Merge(ctx, repo, 87, forge.MergeOptions{DeleteBranch: true}); err != nil {
+		t.Fatal(err)
+	}
+	if mr, _ = c.Get(ctx, repo, 87); mr.State != forge.StateMerged {
+		t.Errorf("after the merge: %s", mr.State)
+	}
+}

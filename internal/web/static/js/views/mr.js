@@ -4,15 +4,17 @@
 // merge request as a whole, outdated ones too, with a comment of your own. Changes: the files beside the diff,
 // every line highlighted by the server (GET /api/gitlab/diff?url=), the inline threads under their lines.
 // Reply and Resolve on a thread, a click on a line's number starts one there; all of it into your pending review
-// (POST /api/gitlab/note, PUT /api/gitlab/resolve) until S submits it. 1/2 the tabs; on Changes j/k or ]/[ file,
-// n/N thread, z folds the file, Z all, e the whole file, v a version; i the issue it names, beside; o GitLab,
-// r reload, esc back. #/mr?url=LINK[&tab=changes][&version=N].
+// (POST /api/gitlab/note, PUT /api/gitlab/resolve) until S submits it. M merges it (POST /api/gitlab/merge), GitLab's
+// defaults first; e edits it (PUT /api/gitlab/mr), as a click on its title, a field or Mark as draft does. 1/2 the
+// tabs; on Changes j/k or ]/[ file, n/N thread, z folds the file, Z all, e the whole file, v a version; i the issue it
+// names, beside; o GitLab, r reload, esc back. A host without a token says how to sign in.
+// #/mr?url=LINK[&tab=changes][&version=N].
 import { h, clear, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { icon } from '../lib/icons.js';
 import { ago, isZero, plural, duration } from '../lib/fmt.js';
 import { render as md } from '../lib/md.js';
-import { stateBadge, issueKeys, pipeline, pipelineMini, approvals, mrHref, glyph, running } from '../lib/mr.js';
+import { stateBadge, issueKeys, pipeline, pipelineMini, approvals, mrHref, glyph, running, signInHelp } from '../lib/mr.js';
 
 const raw = s => { const t = document.createElement('template'); t.innerHTML = s; return t.content; };
 const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
@@ -52,23 +54,24 @@ export default function mount(el, { app, scope, query }) {
       h('span.mrp-ikey', k), c ? ui.statusPill(c.Status, catOf(c)) : null, c ? h('span.clip', c.Summary) : null);
   }
   function renderHead() {
-    const t = titleText();
+    const t = titleText(), open = isOpen();
     clear(head).append(...[
       h('div.iss-top',
         h('span.chip', 'Merge request'),
         h('button.iss-key.btn.link', { title: 'Copy link', onclick: () => copy(url, 'Link') }, label() || '…'),
         ...keys().slice(0, 3).map(issueChip),
         h('span.spacer'),
+        open ? h('button.btn.ghost.sm', { title: 'GitLab merges no draft', onclick: () => edit('draft') }, mr.Draft ? 'Mark as ready' : 'Mark as draft') : null,
         safe(url) ? h('a.btn.ghost.sm', { href: safe(url), target: '_blank', rel: 'noopener noreferrer', title: 'Open in GitLab (o)' }, 'GitLab', icon('external-link')) : null,
         h('button.btn.ghost.sm', { title: 'Back (esc)', onclick: back }, icon('arrow-left'), 'Back')),
-      h('h1.iss-title.mrp-title', t || '…'),
+      open ? h('h1.iss-title', { title: 'Edit the title', onclick: () => edit('title') }, t) : h('h1.iss-title.mrp-title', t || (mrErr ? '' : '…')),
       h('div.iss-sub.mrp-sub',
         mr ? stateBadge(mr) : null,
         mr ? h('span.mrp-flow', mr.Author ? h('b', mr.Author) : null, mr.Author ? ' wants to merge ' : 'Merges ', h('code.dv-mono', mr.SourceBranch), ' into ', h('code.dv-mono', mr.TargetBranch)) : null,
         mr && !isZero(mr.UpdatedAt) ? h('span.dim', 'updated ' + ago(mr.UpdatedAt)) : null,
         mr && mr.Checks ? h('button.mrp-link', { title: 'The pipeline, stage by stage', onclick: () => { setTab('overview'); const p = over.querySelector('.mrp-pipeline'); if (p) p.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }, pipelineMini(mr.Checks)) : null,
         mr ? approvals(mr, ui) : null),
-      mrErr ? h('div.dv-err', mrErr.message || String(mrErr)) : null].filter(Boolean));
+      mrErr ? signInHelp(mrErr) || h('div.dv-err', mrErr.message || String(mrErr)) : null].filter(Boolean));
     document.title = label() + (t ? ' ' + t : '') + ' · laneway';
   }
   function renderTabs() {
@@ -80,6 +83,7 @@ export default function mount(el, { app, scope, query }) {
       h('span.spacer'), h('div.mrp-acts',
         h('button.btn.ghost.sm', { title: 'An agent reviews it in a worktree of its branch; its notes come back as pending (C)', onclick: agentReview }, icon('zap'), 'Agent review'),
         h('button.btn.sm', { title: 'Approve without a review (A)', onclick: () => review(true) }, icon('check'), 'Approve'),
+        isOpen() ? h('button.btn.sm', { title: mr.Mergeable ? 'Merge (M)' : 'Not ready to merge: ' + mr.MergeStatus, disabled: !mr.Mergeable, onclick: merge }, icon('git-merge'), 'Merge') : null,
         h('button.btn.primary.sm', { title: 'Submit your review: comment, approve or request changes (S)', onclick: () => review(false) }, n ? 'Submit review · ' + plural(n, 'pending note') : 'Submit review')));
   }
   function setTab(t) {
@@ -170,7 +174,7 @@ export default function mount(el, { app, scope, query }) {
     if (mr) {
       kids.push(fieldsEl());
       if (mr.Checks) kids.push(h('div.sec-head', h('h3', 'Pipeline'), h('span.dim', 'a job shows its log')), h('div.mrp-pipeline', pipelineBox()), jobId ? jobView.el : null);
-      kids.push(h('div.sec-head', h('h3', 'Description')), (mr.Description || '').trim() ? h('div.md.mrp-desc', md(mr.Description, jira)) : h('div.faint', 'No description.'));
+      kids.push(h('div.sec-head', h('h3', 'Description'), isOpen() ? h('button.btn.ghost.sm', { onclick: () => edit('description') }, 'Edit') : null), (mr.Description || '').trim() ? h('div.md.mrp-desc', md(mr.Description, jira)) : h('div.faint', 'No description.'));
     } else if (!mrErr) kids.push(h('div.df-msg', 'Loading the merge request…'));
     kids.push(...discussions());
     over.replaceChildren(h('div.mrp-page', kids));
@@ -178,6 +182,8 @@ export default function mount(el, { app, scope, query }) {
   // fieldsEl is the overview's grid: what the merge request is, as the issue page's fields.
   function fieldsEl() {
     const fld = (k, ...v) => (v.some(Boolean) ? h('div.fld.ro', h('span.k', k), h('span.v', ...v)) : null);
+    // efld is a field a click edits while the merge request is open.
+    const efld = (k, field, ...v) => (isOpen() ? h('button.fld', { title: 'Edit ' + k.toLowerCase(), onclick: () => edit(field) }, h('span.k', k), h('span.v', ...(v.some(Boolean) ? v : [h('span.faint', 'None')]))) : fld(k, ...v));
     const people = list => (list && list.length ? list.map(p => h('span.who', ui.avatar(p, '', 18), p)) : null);
     const ts = (data && data.Threads) || [], open = ts.filter(t => t.Resolvable && !t.Resolved).length, done = ts.filter(t => t.Resolved).length;
     const fs = (data && data.Files) || [], add = fs.reduce((s, f) => s + (f.Add || 0), 0), del = fs.reduce((s, f) => s + (f.Del || 0), 0);
@@ -185,12 +191,13 @@ export default function mount(el, { app, scope, query }) {
     return h('div.fields.mrp-fields',
       fld('Merge', merge),
       fld('Author', ...(people(mr.Author ? [mr.Author] : []) || [])),
-      fld('Reviewers', ...(people(mr.Reviewers) || [])),
-      fld('Assignees', ...(people(mr.Assignees) || [])),
+      efld('Reviewers', 'reviewers', ...(people(mr.Reviewers) || [])),
+      efld('Assignees', 'assignees', ...(people(mr.Assignees) || [])),
       fld('Approvals', approvals(mr, ui)),
       fld('Changes', data ? h('span', plural(fs.length, 'file'), ' ', h('span.df-add', '+' + add), ' ', h('span.df-del', '−' + del)) : mr.ChangesCount && plural(+mr.ChangesCount || 0, 'file')),
       fld('Threads', ts.length ? [open && open + ' open', done && done + ' resolved'].filter(Boolean).join(' · ') || plural(ts.length, 'comment') : null),
-      fld('Labels', (mr.Labels || []).length ? h('span.chips', mr.Labels.map(l => h('span.chip', l))) : null));
+      efld('Labels', 'labels', (mr.Labels || []).length ? h('span.chips', mr.Labels.map(l => h('span.chip', l))) : null),
+      efld('Target branch', 'target', mr.TargetBranch ? h('code.dv-mono', mr.TargetBranch) : null));
   }
   // discussions are the threads on the merge request as a whole and the outdated ones, with your pending general
   // notes, then a comment of your own.
@@ -335,7 +342,8 @@ export default function mount(el, { app, scope, query }) {
     const gotMR = api.get('/gitlab/mr?url=' + q, { fresh: true }).then(m => { mr = m; mrErr = null; }, e => { mrErr = e; });
     const gotDiff = api.get('/gitlab/diff?url=' + q + (version ? '&version=' + version : ''), { fresh: true }).then(d => { data = d; whole.clear(); },
       e => { if (!dead) body.replaceChildren(h('div.df-msg', e.message, ' ', safe(url) ? h('a', { href: safe(url), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab') : null)); });
-    await gotMR; if (!dead) { renderHead(); renderOverview(); watchPipeline(); if (jobId && !jobView.el.dataset.read) { jobView.el.dataset.read = '1'; showJob(jobId); } }
+    await gotMR; if (!dead && mrErr && mrErr.signin) { tabs.hidden = over.hidden = changes.hidden = true; renderHead(); return; } // how to sign in, alone
+    if (!dead) { tabs.hidden = false; setTab(tab); renderHead(); renderTabs(); renderOverview(); watchPipeline(); if (jobId && !jobView.el.dataset.read) { jobView.el.dataset.read = '1'; showJob(jobId); } }
     await gotDiff; if (!dead && data) { versionPick(); paint(); }
   }
   function go(i) {
@@ -393,6 +401,46 @@ export default function mount(el, { app, scope, query }) {
       load(true);
     } catch (e) { ui.errToast(e); }
   }
+  // ---- e: an edit; M: the merge
+  const isOpen = () => !!mr && mr.State === 'opened';
+  const q = () => '?url=' + encodeURIComponent(url);
+  async function save(patch, what) {
+    try { mr = await api.put('/gitlab/mr' + q(), patch); ui.toast(what, { kind: 'ok' }); if (!dead) { renderHead(); renderTabs(); renderOverview(); } }
+    catch (e) { ui.errToast(e); }
+  }
+  const EDITS = { title: 'Title', draft: 'Draft or ready', reviewers: 'Reviewers', assignees: 'Assignees', labels: 'Labels', target: 'Target branch', description: 'Description' };
+  async function edit(field) {
+    if (!isOpen()) return ui.toast(mr ? 'It is ' + mr.State : 'Still reading it');
+    if (!field) field = await ui.pick({ title: 'Edit ' + label(), items: Object.keys(EDITS), label: f => EDITS[f] });
+    if (field === 'title' || field === 'target') {
+      const k = field === 'title' ? 'Title' : 'TargetBranch', v = await ui.prompt({ title: EDITS[field], value: mr[k] || '', ok: 'Save' });
+      if (v && v.trim() && v.trim() !== mr[k]) save({ [k]: v.trim() }, EDITS[field] + ' changed');
+    } else if (field === 'description') {
+      const v = await ui.prompt({ title: 'Description', value: mr.Description || '', multiline: true, ok: 'Save' });
+      if (v != null && v !== mr.Description) save({ Description: v }, 'Description saved');
+    } else if (field === 'draft') save({ Draft: !mr.Draft }, mr.Draft ? 'Marked as ready' : 'Marked as draft');
+    else if (field === 'labels') {
+      const have = mr.Labels || [], all = api.get('/gitlab/labels' + q()).then(ls => [...new Set([...ls, ...have])]);
+      const r = await ui.pick({ title: 'Labels of ' + label(), items: all, multi: true, selected: have, placeholder: 'Labels…' });
+      if (r) save({ Labels: r }, 'Labels changed');
+    } else if (field === 'reviewers' || field === 'assignees') {
+      const [ik, nk] = field === 'reviewers' ? ['ReviewerIDs', 'Reviewers'] : ['AssigneeIDs', 'Assignees'];
+      const ids = mr[ik] || [], names = new Map(ids.map((id, i) => [id, (mr[nk] || [])[i]]));
+      const all = api.get('/gitlab/members' + q()).then(ms => { for (const m of ms) names.set(m.ID, m.Name); return [...new Set([...ms.map(m => m.ID), ...ids])]; });
+      const r = await ui.pick({ title: EDITS[field] + ' of ' + label(), items: all, multi: true, selected: ids, label: id => names.get(id) || String(id), placeholder: 'People…' });
+      if (r) save({ [ik]: r }, EDITS[field] + ' changed');
+    }
+  }
+  async function merge() {
+    let m;
+    try { m = await api.get('/gitlab/merge' + q(), { fresh: true }); } catch (e) { return ui.errToast(e); }
+    if (m.Ready) return ui.toast(m.Ready);
+    const c = await ui.pick({ title: m.Title, items: m.Choices, label: c => c.Label, detail: c => (c === m.Choices[0] ? 'GitLab\'s default' : '') });
+    if (!c) return;
+    try { mr = await api.post('/gitlab/merge' + q(), { Squash: c.Squash, DeleteBranch: c.DeleteBranch }); ui.toast('Merged ' + label(), { kind: 'ok' }); if (!dead) { renderHead(); renderTabs(); renderOverview(); } }
+    catch (e) { ui.errToast(e); }
+  }
+
   // C: the work agent reviews it in a worktree of its branch; its findings come back as pending notes (r reloads).
   async function agentReview() {
     try {
@@ -408,6 +456,7 @@ export default function mount(el, { app, scope, query }) {
   scope.bind('C', agentReview, 'an agent reviews it', { group: G, bar: 'agent review' });
   scope.bind('S', () => review(false), 'submit your review', { group: G, bar: 'review' });
   scope.bind('A', () => review(true), 'approve', { group: G, bar: 'approve' });
+  scope.bind('M', merge, 'merge: GitLab\'s defaults first', { group: G, bar: 'merge' });
   scope.bind('o', () => safe(url) && window.open(url, '_blank', 'noopener'), 'open in GitLab', { group: G });
   scope.bind('r', () => load(true), 'reload', { group: G });
   scope.bind('Escape', () => (jobId ? closeJob() : back()), 'close the job log, else back', { group: G, bar: 'back' });
@@ -416,7 +465,7 @@ export default function mount(el, { app, scope, query }) {
   scope.bind('n', () => thread(1), 'next inline thread', { group: D, when: onChanges, bar: 'thread' });
   scope.bind('N', () => thread(-1), 'previous inline thread', { group: D, when: onChanges, bar: 'thread' });
   scope.bind('z', () => fold(cur), 'fold the file', { group: D, when: onChanges });
-  scope.bind('e', () => expand(cur), 'the whole file / the changes only', { group: D, when: onChanges, bar: 'whole file' });
+  scope.bind('e', () => (onChanges() ? expand(cur) : edit()), 'edit it: title, draft, people, labels, target, description; on Changes the whole file / the changes only', { group: G });
   scope.bind('Z', foldAll, 'fold / unfold every file', { group: D, when: onChanges });
   scope.bind('v', () => { setTab('changes'); if (picker.hidden) return ui.toast('One version: nothing pushed since it opened'); picker.focus(); picker.showPicker && picker.showPicker(); }, 'pick a version', { group: D });
   delegate(files, 'click', '.df-file-link', (e, t) => go(+t.dataset.file));

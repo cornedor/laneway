@@ -159,18 +159,27 @@ their lines.
   or submit.
 - `n` `N` step through threads, `e` shows the whole file, `v` an earlier
   push.
+- `M` merges it: squashed or not, the branch deleted or kept, GitLab's
+  defaults first.
+- Edit it: title, draft or ready, reviewers and assignees from the
+  project's members, labels, target branch, description.
+- A merge request on a GitLab without a token says how to sign in: `glab
+  auth login --hostname <host>`, or a personal access token with scope
+  `api` under `gitlab:` in the config. Reload once signed in; no restart.
 
 === "Terminal"
 
     `alt+m` lists them; `enter` reads one in the panel, `i` the Jira issue
     it names, `p` its pipeline's jobs (`enter` a job's log, followed while
-    it runs). `d` opens the diff over the screen, files on the left.
+    it runs), `e` what to edit, the description in `$EDITOR`. `d` opens
+    the diff over the screen, files on the left.
 
     ![A merge request's diff with a thread under its line](../screenshots/review.png)
 
     In the diff, `c` writes a note on the line or a reply on a thread, `V`
     marks a range first, `s` suggests a change. `E` rewords a pending note,
-    `x` drops it, `R` resolves a thread. `S` submits, `A` approves.
+    `x` drops it, `R` resolves a thread. `S` submits, `A` approves, `M`
+    merges.
     `]` `[` change file, `?` lists the rest. Leaving with unsubmitted notes
     says so.
 
@@ -178,13 +187,14 @@ their lines.
 
     `g M` lists them; `enter` opens a merge request's page: *Overview*
     (`1`) with the pipeline, the job logs and the discussion, *Changes*
-    (`2`) with the diff. `i` shows the Jira issue beside it.
+    (`2`) with the diff. `i` shows the Jira issue beside it. A click on
+    the title or a field edits it, `e` lists what can change.
 
     ![A merge request in the browser](../screenshots/web/mr.png)
 
     In the diff, a click on a line number writes a note there, `shift`+click
     marks a range. Suggest, edit, drop, reply and resolve are buttons. `S`
-    submits, `A` approves, `j` `k` change file.
+    submits, `A` approves, `M` merges, `j` `k` change file.
 
     ![A merge request's changes with a thread](../screenshots/web/review.png)
 

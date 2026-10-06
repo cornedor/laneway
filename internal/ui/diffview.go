@@ -133,6 +133,10 @@ type diffState struct {
 	drafts   []forge.Draft
 	verdicts bool
 	verdict  int
+	// merges are M's list while it is open, mergeAt its cursor.
+	merges     []string
+	mergeAt    int
+	mergeTitle string
 }
 
 // diffHScrollStep is how far ←/→ pan a wide diff: a tab's worth of columns,
@@ -926,6 +930,9 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if d.verdicts {
 		return m.handleDiffVerdictKey(msg)
 	}
+	if d.merges != nil {
+		return m.handleDiffMergeKey(msg)
+	}
 	if key.Matches(msg, m.keys.Help) {
 		m.openHelp("Diff review")
 		return m, nil
@@ -956,6 +963,8 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "A":
 		return m, m.approveMR(d.c, d.repo, d.number)
+	case "M":
+		return m.openDiffMerge()
 	case "C":
 		if m.mr == nil || m.mr.mr == nil {
 			return m, nil
@@ -1298,6 +1307,8 @@ func (m *Model) renderDiffView(bodyH int) string {
 		over = d.versionLines(codeW)
 	case d.verdicts:
 		over = d.verdictLines(codeW)
+	case d.merges != nil:
+		over = d.mergeLines(codeW)
 	}
 	if over != nil { // over the diff's first rows
 		for i, l := range over {

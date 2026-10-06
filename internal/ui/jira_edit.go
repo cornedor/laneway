@@ -127,6 +127,13 @@ const (
 	jiraPickAsk
 	// jiraPickHome is the start screen (home.go).
 	jiraPickHome
+	// jiraPickMREdit is what e changes on a merge request, jiraPickMRPeople
+	// its reviewers or assignees, jiraPickMRLabels its labels and
+	// jiraPickMRMerge how M merges it (mr_edit.go).
+	jiraPickMREdit
+	jiraPickMRPeople
+	jiraPickMRLabels
+	jiraPickMRMerge
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -695,7 +702,8 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		if k := m.jiraPicker.kind; k == jiraPickProject || k == jiraPickBoardAssignee || k == jiraPickStandupPeople || k == jiraPickFormOption || k == jiraPickPalette || k == jiraPickMessages || k == jiraPickHistory || k == jiraPickDev || k == jiraPickJob || k == jiraPickAttachment || k == jiraPickDeleteAttachment || k == jiraPickUnlink || k == jiraPickMoveProject ||
-			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickClosedSprint || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps {
+			k == jiraPickLink || k == jiraPickLinkType || k == jiraPickClosedSprint || k == jiraPickSprint || k == jiraPickBoard || k == jiraPickReleases || k == jiraPickDeps ||
+			k == jiraPickMRPeople || k == jiraPickMRLabels {
 			m.jiraPicker.found = nil
 			m.filterJiraPicker()
 			if k == jiraPickPalette {
@@ -958,6 +966,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		m.closeJiraPicker()
 		return m, m.downloadAttachment(it.id)
 	}
+	if kind == jiraPickMREdit || kind == jiraPickMRPeople || kind == jiraPickMRLabels || kind == jiraPickMRMerge {
+		return m.applyMRPick(kind, it)
+	}
 	if kind == jiraPickJob {
 		id, _ := strconv.Atoi(it.id)
 		m.closeJiraPicker()
@@ -972,9 +983,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.closeJiraPicker()
-		if c, r, ok := m.gitlabMR(it.id); ok {
+		if cmd, ok := m.openMRLink(it.id, it.label); ok {
 			m.focus = focusRef
-			return m, m.openMR(c, r, it.id, it.label, false)
+			return m, cmd
 		}
 		m.status = "opening " + it.id + "…"
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
@@ -1147,6 +1158,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		run = func() error { return client.SetSummary(ctx, key, raw) }
+	}
+	if field == "mr-title" || field == "mr-target" {
+		return m.applyMRText(field, raw)
 	}
 	if field == "plan-rename" || field == "plan-end" {
 		return m.applyPlanSprint(field, raw)
@@ -1542,6 +1556,10 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "labels":
 		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+	case "mr-title":
+		title, hint, outerW = "Title of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+	case "mr-target":
+		title, hint, outerW = "Target branch of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-rename":
 		title, hint, outerW = "Rename the sprint", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-end":

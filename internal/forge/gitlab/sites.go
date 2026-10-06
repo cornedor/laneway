@@ -74,6 +74,21 @@ func (s *Sites) For(link string) *Client {
 	return c
 }
 
+// Forget drops link's host's missing token, or glab's token for it, so the
+// next For asks glab again: after glab auth login, without a restart.
+func (s *Sites) Forget(link string) {
+	h := forge.HostOf(link)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch c, ok := s.clients[h]; {
+	case ok && c == nil:
+		delete(s.clients, h)
+	case ok && s.from[h] == "glab":
+		s.clients[h] = New(Config{BaseURL: c.BaseURL()}) // its base URL kept, the token asked again
+		delete(s.from, h)
+	}
+}
+
 // Status is one instance as the settings screens show it.
 type Status struct {
 	Host    string
@@ -172,7 +187,11 @@ func (s *Sites) hosts() []string {
 func (st Status) Summary() string {
 	switch {
 	case errors.Is(st.Err, forge.ErrNotConfigured):
-		return "no token: add one under gitlab: in the config, or glab auth login --hostname " + st.Host
+		return strings.Join(SignInFor(st.Host).Lines(), " ")
+	case Rejected(st.Err):
+		si := SignInFor(st.Host)
+		si.Rejected = true
+		return strings.Join(si.Lines(), " ")
 	case st.Err != nil:
 		return st.Err.Error()
 	}

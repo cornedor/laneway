@@ -136,8 +136,10 @@ func StatusError(label string, code int, what string, body []byte, header http.H
 
 func (e *StatusErr) Error() string {
 	switch e.Code {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return fmt.Sprintf("%s: not authorized for %s — check token / scopes", e.Label, e.What)
+	case http.StatusUnauthorized:
+		return fmt.Sprintf("%s rejected the token for %s: expired or revoked", e.Label, e.What)
+	case http.StatusForbidden:
+		return fmt.Sprintf("%s: not allowed for %s — the token's scope (api to write) or your role", e.Label, e.What)
 	case http.StatusNotFound:
 		return fmt.Sprintf("%s: %s not found (or no access)", e.Label, e.What)
 	}

@@ -4,7 +4,7 @@
 // against httptest servers.
 //
 // Authentication is a personal access token sent in the PRIVATE-TOKEN header
-// (read_api to read, api to approve, merge and comment). Descriptions come
+// (read_api to read, api to approve, merge, edit and comment). Descriptions come
 // back as GitLab-flavored markdown.
 //
 // Ported from matterbox's internal/forge/gitlab (Corné Dorrestijn, Jasper
@@ -30,7 +30,7 @@ import (
 // already compact, but naming fields keeps the decode predictable.
 const mrFields = "title,state,draft,author,source_branch,target_branch,assignees," +
 	"reviewers,labels,changes_count,detailed_merge_status,has_conflicts,description," +
-	"web_url,updated_at,head_pipeline,project_id"
+	"web_url,updated_at,head_pipeline,project_id,squash,force_remove_source_branch"
 
 // Config is one instance: BaseURL its root (https://git.example.com), Token
 // a personal access token.
@@ -149,6 +149,8 @@ type apiMR struct {
 	WebURL              string    `json:"web_url"`
 	UpdatedAt           string    `json:"updated_at"`
 	UserNotesCount      int       `json:"user_notes_count"`
+	Squash              bool      `json:"squash"`
+	RemoveSourceBranch  bool      `json:"force_remove_source_branch"`
 	Author              *apiUser  `json:"author"`
 	Assignees           []apiUser `json:"assignees"`
 	Reviewers           []apiUser `json:"reviewers"`
@@ -164,6 +166,7 @@ type apiMR struct {
 }
 
 type apiUser struct {
+	ID       int    `json:"id"`
 	Name     string `json:"name"`
 	Username string `json:"username"`
 }
@@ -238,6 +241,8 @@ func toChange(a apiMR, project string) *forge.Change {
 		ChangesCount: a.ChangesCount,
 		Notes:        a.UserNotesCount,
 		HasConflicts: a.HasConflicts,
+		Squash:       a.Squash,
+		DeleteBranch: a.RemoveSourceBranch,
 		Description:  a.Description,
 		Mergeable:    a.DetailedMergeStatus == "mergeable",
 	}
@@ -247,9 +252,11 @@ func toChange(a apiMR, project string) *forge.Change {
 	}
 	for _, u := range a.Assignees {
 		ch.Assignees = append(ch.Assignees, u.Name)
+		ch.AssigneeIDs = append(ch.AssigneeIDs, u.ID)
 	}
 	for _, u := range a.Reviewers {
 		ch.Reviewers = append(ch.Reviewers, u.Name)
+		ch.ReviewerIDs = append(ch.ReviewerIDs, u.ID)
 	}
 	if t, err := time.Parse(time.RFC3339, a.UpdatedAt); err == nil {
 		ch.UpdatedAt = t
@@ -444,19 +451,140 @@ func (c *Client) Approve(ctx context.Context, project string, iid int) error {
 	return nil
 }
 
-// Merge merges the merge request and asks GitLab to delete the source branch,
-// then invalidates the cache.
-func (c *Client) Merge(ctx context.Context, project string, iid int) error {
+// Merge merges the merge request as o says, then invalidates the cache.
+func (c *Client) Merge(ctx context.Context, project string, iid int, o forge.MergeOptions) error {
 	if !c.Enabled() {
 		return forge.ErrNotConfigured
 	}
 	path := fmt.Sprintf("/projects/%s/merge_requests/%d/merge", encodePath(project), iid)
-	body := map[string]any{"should_remove_source_branch": true}
+	body := map[string]any{"squash": o.Squash, "should_remove_source_branch": o.DeleteBranch}
 	if err := c.rest.Do(ctx, http.MethodPut, path, "merge", body, nil); err != nil {
 		return err
 	}
 	c.Invalidate(project, iid)
 	return nil
+}
+
+// Edit is a change to a merge request: what is set is sent, the rest stays.
+// Empty AssigneeIDs or ReviewerIDs (not nil) clear them; a draft is the
+// title's prefix (DraftTitle).
+type Edit struct {
+	Title, Description, TargetBranch *string
+	AssigneeIDs, ReviewerIDs         *[]int
+	Labels                           *[]string
+}
+
+// Update writes e to the merge request, then invalidates the cache.
+func (c *Client) Update(ctx context.Context, project string, iid int, e Edit) error {
+	if !c.Enabled() {
+		return forge.ErrNotConfigured
+	}
+	body := map[string]any{}
+	if e.Title != nil {
+		body["title"] = *e.Title
+	}
+	if e.Description != nil {
+		body["description"] = *e.Description
+	}
+	if e.TargetBranch != nil {
+		body["target_branch"] = *e.TargetBranch
+	}
+	ids := func(v []int) []int {
+		if len(v) == 0 {
+			return []int{0} // GitLab's "nobody"
+		}
+		return v
+	}
+	if e.AssigneeIDs != nil {
+		body["assignee_ids"] = ids(*e.AssigneeIDs)
+	}
+	if e.ReviewerIDs != nil {
+		body["reviewer_ids"] = ids(*e.ReviewerIDs)
+	}
+	if e.Labels != nil {
+		body["labels"] = strings.Join(*e.Labels, ",")
+	}
+	path := fmt.Sprintf("/projects/%s/merge_requests/%d", encodePath(project), iid)
+	if err := c.rest.Do(ctx, http.MethodPut, path, "edit "+label(project, iid), body, nil); err != nil {
+		return err
+	}
+	c.Invalidate(project, iid)
+	return nil
+}
+
+// draftRe is the title prefixes GitLab reads as a draft.
+var draftRe = regexp.MustCompile(`(?i)^\s*(\[draft\]|\(draft\)|draft:|draft\s+-|\[wip\]|wip:)\s*`)
+
+// DraftTitle is title marked a draft, or not: GitLab has no draft field to
+// write, only the title's prefix.
+func DraftTitle(title string, draft bool) string {
+	for draftRe.MatchString(title) {
+		title = draftRe.ReplaceAllString(title, "")
+	}
+	if draft {
+		return "Draft: " + title
+	}
+	return title
+}
+
+// Member is someone in a project, who can be assigned or asked to review.
+type Member struct {
+	ID       int
+	Username string
+	Name     string
+}
+
+// listMax is how many pages of a list Members and Labels read: a project
+// with more than a thousand is searched in GitLab.
+const listMax = 10
+
+// Members are the project's members, inherited ones too, by name.
+func (c *Client) Members(ctx context.Context, project string) ([]Member, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	var out []Member
+	for page := 1; page <= listMax; page++ {
+		var us []apiUser
+		path := fmt.Sprintf("/projects/%s/members/all?per_page=100&page=%d", encodePath(project), page)
+		if err := c.rest.Do(ctx, http.MethodGet, path, "members", nil, &us); err != nil {
+			return nil, err
+		}
+		for _, u := range us {
+			if !slices.ContainsFunc(out, func(m Member) bool { return m.ID == u.ID }) {
+				out = append(out, Member{ID: u.ID, Username: u.Username, Name: u.Name})
+			}
+		}
+		if len(us) < 100 {
+			break
+		}
+	}
+	slices.SortFunc(out, func(a, b Member) int { return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)) })
+	return out, nil
+}
+
+// Labels are the names of the labels the project can use, its groups' too.
+func (c *Client) Labels(ctx context.Context, project string) ([]string, error) {
+	if !c.Enabled() {
+		return nil, forge.ErrNotConfigured
+	}
+	var out []string
+	for page := 1; page <= listMax; page++ {
+		var ls []struct {
+			Name string `json:"name"`
+		}
+		path := fmt.Sprintf("/projects/%s/labels?per_page=100&page=%d", encodePath(project), page)
+		if err := c.rest.Do(ctx, http.MethodGet, path, "labels", nil, &ls); err != nil {
+			return nil, err
+		}
+		for _, l := range ls {
+			out = append(out, l.Name)
+		}
+		if len(ls) < 100 {
+			break
+		}
+	}
+	return out, nil
 }
 
 // encodePath URL-encodes a project path for the API, turning the namespace

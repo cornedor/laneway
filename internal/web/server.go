@@ -161,7 +161,10 @@ func writeErr(w http.ResponseWriter, err error) {
 	var he httpError
 	var re *jira.RequestError
 	var fe FieldError
+	var se signInErr
 	switch {
+	case errors.As(err, &se):
+		code = se.code
 	case errors.As(err, &fe):
 		code = http.StatusBadRequest
 	case errors.As(err, &he):
@@ -181,6 +184,9 @@ func writeErr(w http.ResponseWriter, err error) {
 	}
 	if fe.Field != "" {
 		body["fields"] = map[string]string{fe.Field: fe.Msg}
+	}
+	if se.Host != "" {
+		body["signin"] = se.SignIn // how to sign in to GitLab there
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

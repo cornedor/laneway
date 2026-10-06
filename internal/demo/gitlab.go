@@ -20,15 +20,22 @@ import (
 const gitlabMe = "jamie"
 
 var (
-	mrRe     = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/merge_requests/(\d+)(/.*)?$`)
-	mrFileRe = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/repository/files/(.+)/raw$`)
-	jobsRe   = regexp.MustCompile(`^/api/v4/projects/\d+/pipelines/(\d+)/jobs$`)
-	jobRe    = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/jobs/(\d+)(/trace)?$`)
+	mrRe       = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/merge_requests/(\d+)(/.*)?$`)
+	mrFileRe   = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/repository/files/(.+)/raw$`)
+	jobsRe     = regexp.MustCompile(`^/api/v4/projects/\d+/pipelines/(\d+)/jobs$`)
+	jobRe      = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/jobs/(\d+)(/trace)?$`)
+	projListRe = regexp.MustCompile(`^/api/v4/projects/acme/([a-z-]+)/(members/all|labels)$`)
 )
 
+// gitlabLabels are the demo project's labels.
+var gitlabLabels = []string{"backend", "frontend", "performance", "needs-qa", "security"}
+
 // gitlabState is what the demo's writes changed: notes added, drafts
-// pending, threads resolved, approvals given.
+// pending, threads resolved, approvals given, merge requests edited and
+// merged.
 type gitlabState struct {
+	edits    map[int]map[string]any // by iid: the fields an edit set, as the API sends them
+	merged   map[int]bool
 	notes    map[int][]gitlabThread    // by iid, after the built-in ones
 	replies  map[string][]gitlabThread // by thread id
 	drafts   map[int][]gitlabDraft
@@ -123,7 +130,26 @@ func (s *Server) gitlabMR(iid int) (*devWork, *devPR) {
 }
 
 func gitlabUser(u user) map[string]any {
-	return map[string]any{"name": u.name, "username": strings.ToLower(strings.Fields(u.name)[0])}
+	return map[string]any{"id": gitlabID(u), "name": u.name, "username": strings.ToLower(strings.Fields(u.name)[0])}
+}
+
+// gitlabID is u's account id on the demo's GitLab: demo-0003 is 3.
+func gitlabID(u user) int {
+	n, _ := strconv.Atoi(strings.TrimPrefix(u.id, "demo-"))
+	return n
+}
+
+// gitlabUsers are the people ids names, as the API sends them.
+func gitlabUsers(ids []any) []any {
+	out := []any{}
+	for _, id := range ids {
+		for _, u := range users {
+			if float64(gitlabID(u)) == id {
+				out = append(out, gitlabUser(u))
+			}
+		}
+	}
+	return out
 }
 
 // gitlabMRJSON is the merge request as the API sends it.
@@ -150,7 +176,17 @@ func (s *Server) gitlabMRJSON(w *devWork, p *devPR) map[string]any {
 		mr["head_pipeline"] = map[string]any{"id": 5521, "status": status, "duration": 235 + int(min(s.deployElapsed(), deployRun)/time.Second), "web_url": s.repoURL(w) + "/-/pipelines/5521",
 			"detailed_status": map[string]any{"label": label}}
 	}
-	if p.status != "OPEN" {
+	mr["squash"], mr["force_remove_source_branch"] = false, true
+	for k, v := range s.git.edits[p.n] {
+		mr[k] = v
+	}
+	if title, _ := mr["title"].(string); strings.HasPrefix(title, "Draft: ") {
+		mr["draft"], mr["detailed_merge_status"] = true, "draft_status"
+	}
+	if s.git.merged[p.n] {
+		mr["state"] = "merged"
+	}
+	if mr["state"] != "opened" {
 		mr["detailed_merge_status"] = "not_open"
 	}
 	return mr
@@ -196,7 +232,7 @@ func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[st
 		return false
 	}
 	if s.git.notes == nil {
-		s.git = gitlabState{notes: map[int][]gitlabThread{}, replies: map[string][]gitlabThread{}, drafts: map[int][]gitlabDraft{}, resolved: map[string]bool{}, approved: map[int]bool{}}
+		s.git = gitlabState{edits: map[int]map[string]any{}, merged: map[int]bool{}, notes: map[int][]gitlabThread{}, replies: map[string][]gitlabThread{}, drafts: map[int][]gitlabDraft{}, resolved: map[string]bool{}, approved: map[int]bool{}}
 	}
 	switch {
 	case p == "/api/v4/user":
@@ -236,6 +272,20 @@ func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[st
 		}
 		return true
 	}
+	if m := projListRe.FindStringSubmatch(p); m != nil {
+		out := []any{}
+		if m[2] == "labels" {
+			for _, l := range gitlabLabels {
+				out = append(out, map[string]any{"name": l})
+			}
+		} else {
+			for _, u := range users {
+				out = append(out, gitlabUser(u))
+			}
+		}
+		send(out)
+		return true
+	}
 	if m := mrFileRe.FindStringSubmatch(p); m != nil {
 		text, ok := gitlabFile(m[2])
 		if !ok {
@@ -259,6 +309,35 @@ func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[st
 	sub := m[3]
 	switch {
 	case sub == "" && r.Method == http.MethodGet:
+		send(s.gitlabMRJSON(work, pr))
+	case sub == "" && r.Method == http.MethodPut: // an edit
+		e := s.git.edits[iid]
+		if e == nil {
+			e = map[string]any{}
+			s.git.edits[iid] = e
+		}
+		for _, k := range []string{"title", "description", "target_branch"} {
+			if v, ok := body[k].(string); ok {
+				e[k] = v
+			}
+		}
+		if ids, ok := body["assignee_ids"].([]any); ok {
+			e["assignees"] = gitlabUsers(ids)
+		}
+		if ids, ok := body["reviewer_ids"].([]any); ok {
+			e["reviewers"] = gitlabUsers(ids)
+		}
+		if ls, ok := body["labels"].(string); ok {
+			e["labels"] = strings.FieldsFunc(ls, func(r rune) bool { return r == ',' })
+		}
+		send(s.gitlabMRJSON(work, pr))
+	case sub == "/merge" && r.Method == http.MethodPut:
+		if mr := s.gitlabMRJSON(work, pr); mr["detailed_merge_status"] != "mergeable" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			send(map[string]any{"message": "405 Method Not Allowed"})
+			break
+		}
+		s.git.merged[iid] = true
 		send(s.gitlabMRJSON(work, pr))
 	case sub == "/approvals":
 		var by []any

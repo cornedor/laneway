@@ -47,6 +47,7 @@
 .mrp-sub { flex-wrap: wrap; row-gap: .429rem; }
 .mrp-flow { color: var(--fg-2); min-width: 0; } .mrp-flow b { color: var(--fg); font-weight: 500; } .mrp-flow code { overflow-wrap: anywhere; }
 .mrp-acts { display: flex; gap: .429rem; padding-bottom: .214rem; }
+.mrp-fields .fld .v { flex-wrap: wrap; white-space: normal; row-gap: .143rem; }
 .mrp-link { background: none; border: 0; padding: .143rem .286rem; margin: 0 -.286rem; border-radius: var(--radius); font: inherit; color: inherit; cursor: pointer; } .mrp-link:hover { background: var(--bg-3); }
 .mrp-issue { display: inline-flex; align-items: center; gap: .429rem; min-width: 0; max-width: 30rem; margin-left: .286rem; padding: 1px .571rem; font: inherit; font-size: .9em; color: var(--fg);
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }

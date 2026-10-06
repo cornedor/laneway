@@ -36,7 +36,7 @@ export default function mount(el, { app, scope }) {
       if (dead) return;
       rows = r.Rows || []; sel = Math.min(sel, Math.max(rows.length - 1, 0));
       note.hidden = rows.length > 0 && !(r.Errs || []).length;
-      note.textContent = !r.Configured ? 'No GitLab: add one under gitlab: in the config, or glab auth login.'
+      note.textContent = !r.Configured ? 'No GitLab token: sign in with glab auth login --hostname <host>, or add a personal access token with scope api under gitlab: in the config.'
         : [rows.length ? '' : 'Nothing waits on you.', ...(r.Errs || [])].filter(Boolean).join('\n');
       paint();
     } catch (e) { if (!dead) { note.hidden = false; note.textContent = e.message; } }

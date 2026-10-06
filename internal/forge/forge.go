@@ -71,7 +71,13 @@ type Provider interface {
 	// Approve records an approval.
 	Approve(ctx context.Context, repo string, number int) error
 	// Merge merges the change request.
-	Merge(ctx context.Context, repo string, number int) error
+	Merge(ctx context.Context, repo string, number int, o MergeOptions) error
+}
+
+// MergeOptions are how a merge goes: its commits squashed into one, its
+// source branch deleted after.
+type MergeOptions struct {
+	Squash, DeleteBranch bool
 }
 
 // Ref names a change request: the repository it lives in (a GitLab project
@@ -94,6 +100,10 @@ type Change struct {
 	TargetBranch string
 	Assignees    []string
 	Reviewers    []string
+	// AssigneeIDs and ReviewerIDs are the same people as the forge's account
+	// ids, in the same order: what an edit sends back.
+	AssigneeIDs  []int
+	ReviewerIDs  []int
 	Labels       []string
 	ChangesCount string // "44", or "44+" when the forge caps it
 	Notes        int    // the people's comments, system notes left out
@@ -103,6 +113,10 @@ type Change struct {
 	Mergeable    bool
 	MergeStatus  string
 	HasConflicts bool
+	// Squash and DeleteBranch are what a merge does by default: the change
+	// request's own settings, which start from the project's.
+	Squash       bool
+	DeleteBranch bool
 	Description  string
 	WebURL       string
 	UpdatedAt    time.Time

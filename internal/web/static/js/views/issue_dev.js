@@ -5,7 +5,7 @@
 // A GitLab merge request's row unfolds it (enter, a click): state, pipeline by stage, approvals and
 // description from GET /api/gitlab/mr (forge.Change), as the TUI's panel shows it; o opens any row's link.
 import { h, clear } from '../lib/dom.js';
-import { mrBody, diffHref, mrButtons } from '../lib/mr.js';
+import { mrBody, diffHref, mrButtons, signInHelp } from '../lib/mr.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { ago, dateTime, isZero, duration, plural } from '../lib/fmt.js';
@@ -118,6 +118,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   }
   function mrDetail(u) {
     const st = mrs.get(u) || {};
+    if (st.err && st.err.signin) return h('div.dv-mr', signInHelp(st.err));
     if (st.err) return h('div.dv-mr.dv-err', st.err.message || String(st.err), ' ', h('a', { href: safe(u), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab'));
     if (!st.data) return h('div.dv-mr.dv-dim', 'Loading the merge request…');
     return mrBody(st.data, ui);

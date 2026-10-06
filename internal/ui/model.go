@@ -1002,6 +1002,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleDiffResolved(msg)
 	case diffReviewedMsg:
 		return m.handleDiffReviewed(msg)
+	case mrWroteMsg:
+		return m.handleMRWrote(msg)
+	case mrDescEditedMsg:
+		return m.handleMRDescEdited(msg)
 	case mrReviewMsg:
 		return m.handleMRReview(msg)
 	case openedMsg:

@@ -240,17 +240,19 @@ The page:
 | `1` `2` | Overview, Changes |
 | `j` `k`, `]` `[` | next, previous file |
 | `n` `N` | next, previous thread |
-| `e` | the whole file |
+| `e` | edit it; on Changes the whole file |
 | `z` `Z` | fold the file, all |
 | `v` | an earlier push |
 | `S` | submit the review |
 | `A` | approve |
+| `M` | merge |
 | `C` | agent review |
 | `i` | the Jira issue beside |
 | `o` `r` | GitLab, reload |
 
 Notes take the mouse: a click on a line number notes it, `shift`+click a
-range; suggest, edit, drop, reply and resolve are buttons.
+range; suggest, edit, drop, reply and resolve are buttons. A click on the
+title or a field (reviewers, assignees, labels, target branch) edits it.
 
 ## Rules and settings
 

@@ -225,6 +225,8 @@ func (m *Model) helpSections() []struct {
 		section{"Merge request", []helpRow{
 			{"d", "review the diff: notes, replies, suggestions"},
 			{"A", "approve"},
+			{"M", "merge: squash, delete the branch, GitLab's defaults first"},
+			{"e", "edit: title, draft, reviewers, assignees, labels, target branch, description"},
 			{"C", "an agent reviews it; its findings land in your review"},
 			{"i", "the Jira issue it names"},
 			{"p", "its pipeline's jobs: ↵ reads one's log"},
@@ -253,6 +255,7 @@ func (m *Model) helpSections() []struct {
 			{"R", "resolve / reopen the thread"},
 			{"S", "submit your review: comment, approve, request changes"},
 			{"A", "approve without a review"},
+			{"M", "merge"},
 			{"C", "an agent reviews it"},
 			{"e", "the whole file / the changes only"},
 			{"z / Z", "fold the file / every file"},

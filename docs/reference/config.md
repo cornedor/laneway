@@ -27,9 +27,9 @@ jira:
   timeout: 20s            # one request's limit (an attachment's: without progress)
 sites:                    # more Jira instances, same keys as jira:
   club: {base_url: https://club.atlassian.net, email: you@example.com, api_token: ...}
-gitlab:                   # GitLab instances for merge requests; a host not listed uses glab's login
+gitlab:                   # GitLab instances for merge requests; a host not listed uses glab's login (glab auth login --hostname <host>)
   - base_url: https://git.example.com
-    token: ...            # read_api; api to approve, merge and comment. Or token_cmd: [...]
+    token: ...            # read_api; api to approve, merge, edit and comment. Or token_cmd: [...]
     repos: {group/project: ~/src/project}  # checkouts for an agent review; else found among jira.repos by origin
 ```
 

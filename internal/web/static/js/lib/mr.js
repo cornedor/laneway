@@ -101,6 +101,20 @@ export function approvals(m, ui) {
     !a.Approved && waiting.length ? h('span.dv-dim', 'waiting on ' + waiting.join(', ')) : null);
 }
 
+// signInHelp is how to sign in to a GitLab host (an ApiError's signin, gitlab.SignIn): glab's login, else a token
+// in the config; null for another error.
+export function signInHelp(e) {
+  const s = e && e.signin;
+  if (!s) return null;
+  const link = (u, text) => h('a', { href: safe(u), target: '_blank', rel: 'noopener noreferrer' }, text);
+  return h('div.mr-signin',
+    h('b.dvt-err', s.Rejected ? s.Host + ' rejected the token: expired or revoked.' : 'No GitLab token for ' + s.Host + '.'),
+    h('p', 'Sign in with glab: ', h('code', s.Glab), s.Install ? [' (', link(s.Install, 'install glab'), ')'] : null),
+    h('p', 'Or add it under ', h('code', 'gitlab:'), ' in the config: a ', link(s.TokenURL, 'personal access token'), ' with scope api (read_api only reads).'),
+    h('pre', 'gitlab:\n  - base_url: https://' + s.Host + '\n    token_cmd: [pass, gitlab]'),
+    h('p.dv-dim', 'Then reload (r).'));
+}
+
 // mrButtons are a merge request row's own actions, so a click on the rest of the row only unfolds it: Review
 // (its page, on the diff: d) and GitLab (a new tab: o).
 export const mrButtons = link => (safe(link) ? h('span.dv-acts',

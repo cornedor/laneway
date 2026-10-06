@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -115,8 +116,12 @@ func TestParse(t *testing.T) {
 // wants them and drop the cached copy.
 func TestMeApproveMerge(t *testing.T) {
 	var got []string
+	var merge map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = append(got, r.Method+" "+r.URL.Path)
+		if strings.HasSuffix(r.URL.Path, "/merge") {
+			json.NewDecoder(r.Body).Decode(&merge)
+		}
 		if r.URL.Path == "/api/v4/user" {
 			w.Write([]byte(`{"username": "ada", "name": "Ada Lovelace"}`))
 		}
@@ -134,12 +139,88 @@ func TestMeApproveMerge(t *testing.T) {
 	if _, ok := c.cache.Get("g/p", 5); ok {
 		t.Error("approve kept the cached copy")
 	}
-	if err := c.Merge(ctx, "g/p", 5); err != nil {
+	if err := c.Merge(ctx, "g/p", 5, forge.MergeOptions{Squash: true}); err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"GET /api/v4/user", "POST /api/v4/projects/g/p/merge_requests/5/approve", "PUT /api/v4/projects/g/p/merge_requests/5/merge"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("calls:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	if merge["squash"] != true || merge["should_remove_source_branch"] != false {
+		t.Errorf("merge body = %v", merge)
+	}
+}
+
+// TestUpdate: only the fields set are sent; no one is GitLab's [0], labels
+// a comma list; the cached copy goes.
+func TestUpdate(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/api/v4/projects/g/p/merge_requests/5" {
+			t.Errorf("got %s %s", r.Method, r.URL.Path)
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	c.cache.Put("g/p", 5, &forge.Change{})
+	title, none, labels := "Draft: Fix", []int{}, []string{"bug", "ui"}
+	if err := c.Update(context.Background(), "g/p", 5, Edit{Title: &title, ReviewerIDs: &none, Labels: &labels}); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"labels":"bug,ui","reviewer_ids":[0],"title":"Draft: Fix"}`
+	if b, _ := json.Marshal(body); string(b) != want {
+		t.Errorf("body = %s, want %s", b, want)
+	}
+	if _, ok := c.cache.Get("g/p", 5); ok {
+		t.Error("update kept the cached copy")
+	}
+}
+
+func TestDraftTitle(t *testing.T) {
+	for _, c := range []struct {
+		in    string
+		draft bool
+		want  string
+	}{
+		{"Fix", true, "Draft: Fix"},
+		{"Draft: Fix", true, "Draft: Fix"},
+		{"[Draft] WIP: Fix", false, "Fix"},
+		{"draft - Fix", false, "Fix"},
+		{"Drafting rules", false, "Drafting rules"},
+	} {
+		if got := DraftTitle(c.in, c.draft); got != c.want {
+			t.Errorf("DraftTitle(%q, %v) = %q, want %q", c.in, c.draft, got, c.want)
+		}
+	}
+}
+
+// TestMembersLabels: every page read, members once each and by name.
+func TestMembersLabels(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		page := r.URL.Query().Get("page")
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/members/all") && page == "1":
+			var us []string
+			for i := range 100 {
+				us = append(us, fmt.Sprintf(`{"id": %d, "username": "u%d", "name": "User %03d"}`, i+10, i, i))
+			}
+			w.Write([]byte("[" + strings.Join(us, ",") + "]"))
+		case strings.HasSuffix(r.URL.Path, "/members/all"):
+			w.Write([]byte(`[{"id": 1, "username": "ada", "name": "ada Lovelace"}, {"id": 10, "username": "u0", "name": "User 000"}]`))
+		case strings.HasSuffix(r.URL.Path, "/labels"):
+			w.Write([]byte(`[{"name": "bug"}, {"name": "ui"}]`))
+		}
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	ms, err := c.Members(context.Background(), "g/p")
+	if err != nil || len(ms) != 101 || ms[0].Username != "ada" {
+		t.Fatalf("Members = %d, first %+v, %v", len(ms), ms[0], err)
+	}
+	ls, err := c.Labels(context.Background(), "g/p")
+	if err != nil || strings.Join(ls, ",") != "bug,ui" {
+		t.Errorf("Labels = %v, %v", ls, err)
 	}
 }
 
