@@ -6,6 +6,7 @@ import { avatar } from './ui.js';
 import { isZero, date, shortDate, ago } from './fmt.js';
 import { prioOrd } from './cardsort.js';
 import * as cq from './cardquery.js';
+import { check, setCheck } from './selbar.js';
 
 // What O steps the list's order through.
 export const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created'];
@@ -66,9 +67,15 @@ const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); retur
 // buildRow is an empty row of cols; its cells are in w._r by column id.
 export function buildRow(cols) {
   const r = {};
-  const w = h('div.lrow', { draggable: true }, cols.map(id => (r[id] = h('span', { class: 'l-' + id.replace(/\W+/g, '-') }))), r.ghead = h('div.l-ghead'));
+  const w = h('div.lrow', { draggable: true }, cols.map(id => (r[id] = cell(id))), r.ghead = h('div.l-ghead'));
   w._r = r;
   return w;
+}
+// cell is a column's span; the mark's holds a checkbox and the icon it gives way to (pin, flag…).
+function cell(id) {
+  const e = h('span', { class: 'l-' + id.replace(/\W+/g, '-') });
+  if (id === 'mark') e.append(e._chk = check(), e._ico = h('span.l-ico'));
+  return e;
 }
 // fillCells writes card c into row w's cells. o: marked, pinned, review (key → bool), hl (key → colour, '' the theme's,
 // null none), tmark (key → running timer text), fdate (time, fallback → text), stamp (cell, key) for an agent's mark.
@@ -80,7 +87,7 @@ export function fillCells(w, cols, c, o) {
   }
 }
 const FILL = {
-  mark: (e, c, o) => { const hl = o.hl(c.Key); setIcon(e, o.marked(c.Key) ? 'square-check' : hl !== null ? 'circle' : o.pinned(c.Key) ? 'pin' : o.review(c.Key) ? 'glasses' : c.Flagged ? 'flag' : '', '', hl !== null || (!o.marked(c.Key) && c.Flagged)); },
+  mark: (e, c, o) => { const hl = o.hl(c.Key); setCheck(e._chk, o.marked(c.Key)); setIcon(e._ico, hl !== null ? 'circle' : o.pinned(c.Key) ? 'pin' : o.review(c.Key) ? 'glasses' : c.Flagged ? 'flag' : '', '', hl !== null || c.Flagged); },
   key: (e, c, o) => { e.textContent = c.Key; if (o.stamp) o.stamp(e, c.Key); const tm = o.tmark(c.Key); if (tm) e.append(h('span.ctimer', ' ', icon('timer'), ' ' + tm)); },
   summary: (e, c) => { e.textContent = c.Summary; e.title = c.Summary; },
   status: (e, c) => { e.textContent = c.Status; e.className = 'l-status pill cat-' + (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new'); },

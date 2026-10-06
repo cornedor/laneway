@@ -32,3 +32,35 @@ test('bulk: an assignee for two cards', async ({ page, app }) => {
   await page.reload();
   for (const k of ['DEMO-5', 'DEMO-9']) await expect(card(page, k).locator('.cav')).toContainText('PN');
 });
+
+// x shows every card's checkbox; a click on one marks it; the bar counts them and opens the bulk edit.
+test('bulk: checkboxes and the selection bar', async ({ page, app }) => {
+  await page.goto(app.url);
+  await selectCard(page, 'DEMO-5');
+  const bar = page.getByRole('toolbar', { name: 'Selected issues' });
+  await expect(bar).toBeHidden();
+  await page.keyboard.press('x');
+  await expect(bar).toContainText('1 selected');
+  await card(page, 'DEMO-9').locator('.chk').click();
+  await expect(card(page, 'DEMO-9')).toHaveClass(/\bmark\b/);
+  await expect(bar).toContainText('2 selected');
+  await bar.getByRole('button', { name: /Edit/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('Edit 2 issues: DEMO-5, DEMO-9');
+  await page.keyboard.press('Escape');
+  await bar.getByRole('button', { name: 'Clear the selection' }).click();
+  await expect(bar).toBeHidden();
+  await expect(page.locator('.bd-lanes .card.mark')).toHaveCount(0);
+});
+
+// In the list a row's checkbox cell marks it without opening the issue.
+test('bulk: the list checkbox', async ({ page, app }) => {
+  await page.goto(app.url);
+  await selectCard(page, 'DEMO-5');
+  await page.keyboard.press('t');
+  const row = page.locator('.bd-list .lrow[data-key="DEMO-9"]');
+  await row.hover();
+  await row.locator('.chk').click();
+  await expect(row).toHaveClass(/\bmark\b/);
+  await expect(page.getByRole('toolbar', { name: 'Selected issues' })).toContainText('1 selected');
+  await expect(page.locator('#panel')).not.toContainText('DEMO-9');
+});

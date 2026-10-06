@@ -11,6 +11,7 @@ import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
 import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
 import { comparators, sortCards } from '../lib/cardsort.js';
+import { selBar } from '../lib/selbar.js';
 import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, buildRow, fillCells } from '../lib/cardlist.js';
 import { goDate } from '../lib/godate.js';
 
@@ -98,7 +99,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const sidePick = h('select.input.pl-side-pick', { 'aria-label': 'Section kept in view', onchange: () => setSide(Number(sidePick.value)) });
   const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, icon('x'))), right.el);
   sideEl.hidden = !sideOn();
-  const root = h('div.pl.pl-panes', left.el, sideEl);
+  const bar = selBar({ edit: () => { const ks = targets(); if (ks.length) app.actions.bulk(ks); }, clear: () => clearSel() });
+  const root = h('div.pl.pl-panes', left.el, sideEl, bar.el);
   el.append(root);
 
   const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', title: 'words, status:review  points>2  is:mine  -label:ui  (F builds a query)', oninput: () => setFilter(filterIn.value) });
@@ -239,7 +241,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   };
 
   // ---- paint the visible window
-  const paint = () => { for (const p of panes) p.paint(); };
+  const paint = () => { for (const p of panes) p.paint(); bar.set(sel.size); root.classList.toggle('marking', sel.size > 0); };
+  function clearSel() { sel.clear(); for (const p of panes) for (const n of p.live.values()) n._sig = ''; paint(); }
   function paintPane(p) {
     const { rows, tops, live, scroller, space } = p;
     const sb = scroller.offsetWidth - scroller.clientWidth;
@@ -606,7 +609,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('Escape', () => {
     if (document.activeElement === filterIn) { filterIn.value = ''; filterIn.blur(); setFilter(''); return; }
     if (filtering()) { filterIn.value = ''; filter = ''; match = null; setWho(null); return; }
-    sel.clear(); for (const p of panes) for (const n of p.live.values()) n._sig = ''; paint();
+    clearSel();
   }, 'clear filters and selection', { ...G, input: true, when: () => document.activeElement === filterIn || filtering() || sel.size > 0 });
 
   const offTimer = ['timer', 'timer:tick'].map(ev => app.bus.on(ev, paint));

@@ -16,6 +16,7 @@ import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
+import { selBar } from '../lib/selbar.js';
 import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, buildRow as listRow, fillCells } from '../lib/cardlist.js';
 import { buildCard as buildCardEl, fillCard as fillCardEl, catClass } from '../lib/card.js';
 import { layoutOf, lookOf, colour } from '../lib/cardstyle.js';
@@ -78,7 +79,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const bar = h('div.bd-bar', chips, h('span.sp'), filterIn, stats);
   const banner = h('div.bd-banner', { hidden: true });
   const main = h('div.bd-main');
-  const root = h('div.bd', bar, banner, main);
+  const selbar = selBar({ edit: () => bulk(), clear: () => clearMarks() });
+  const root = h('div.bd', bar, banner, main, selbar.el);
   el.append(root);
   const bdMsg = text => clear(main).append(h('div.empty', text));
 
@@ -703,13 +705,17 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (!key) return;
     S.marks.has(key) ? S.marks.delete(key) : S.marks.add(key);
     rebind(key);
+    marksChanged();
   }
+  function clearMarks() { const ks = [...S.marks]; S.marks.clear(); ks.forEach(rebind); marksChanged(); }
+  // With any marked every card shows its checkbox, and the bar counts them.
+  function marksChanged() { selbar.set(S.marks.size); root.classList.toggle('marking', S.marks.size > 0); }
 
   // ---- mouse
   delegate(main, 'click', '[data-key]', (e, t) => {
     const key = t.dataset.key;
     if (e.target.closest('.cparent') && e.target.closest('.cparent').dataset.open) { app.panel.open(e.target.closest('.cparent').dataset.open); return; }
-    if (e.ctrlKey || e.metaKey || e.shiftKey) { toggleMark(key); select(key, { scroll: false }); return; }
+    if (e.target.closest('.chk, .l-mark') || e.ctrlKey || e.metaKey || e.shiftKey) { toggleMark(key); select(key, { scroll: false }); return; }
     select(key, { scroll: false });
     openIssue(key);
   });
@@ -1225,6 +1231,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const all = list.every(c => S.marks.has(c.Key));
     for (const c of list) all ? S.marks.delete(c.Key) : S.marks.add(c.Key);
     for (const p of S.panes) p.vl.refresh();
+    marksChanged();
     ui.toast(all ? 'Cleared marks' : S.marks.size + ' marked  ·  X edits them  ·  esc clears');
   }
   const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => ui.toast('Copied ' + what), ui.errToast) : ui.toast('No clipboard here', { kind: 'err' }));
@@ -1309,6 +1316,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const was = [...S.marks];
     S.marks = new Set(ks.filter(k => !done.has(k)));
     new Set([...was, ...S.marks]).forEach(rebind);
+    marksChanged();
   }
   const cycleO = () => {
     if (S.mode === 'lanes') setSwim(SWIMS[(SWIMS.indexOf(S.swim) + 1) % SWIMS.length]);
@@ -1332,7 +1340,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     k.bind('Escape', () => {
       if (S.past) leavePast();
       else if (app.panel.key) app.panel.close();
-      else if (S.marks.size) { const ks = [...S.marks]; S.marks.clear(); ks.forEach(rebind); }
+      else if (S.marks.size) clearMarks();
       else if (S.sel) { const o = S.sel; S.sel = null; rebind(o); }
     }, 'leave time machine / close panel / clear selection', { group: G });
     k.bind('s', needW(c => app.actions.transition(c.Key)), 'change status', { group: E, bar: 'status' });

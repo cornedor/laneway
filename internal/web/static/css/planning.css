@@ -1,4 +1,4 @@
-.pl { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.pl { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .pl-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
 .pl-space { position: relative; width: 100%; }
 .pl-abs { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }

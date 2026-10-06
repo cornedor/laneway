@@ -8,6 +8,7 @@ import { isZero, date, shortDate, ago, localDate } from './fmt.js';
 import { prioOrd } from './cardsort.js';
 import { PRIO_ICON, ageText, setAvatar } from './cardlist.js';
 import { extraOf } from './cardquery.js';
+import { check, setCheck } from './selbar.js';
 import { colour } from './cardstyle.js';
 
 const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
@@ -32,9 +33,9 @@ export function buildCard(layout) {
     }
     return (r.f[f] = (PART[f] || (() => h('span.cextra', { dataset: { field: f } })))());
   };
-  const line = (cls, left, right) => h('div.' + cls, left.flatMap(part), h('span.sp'), right.flatMap(part));
+  const line = (cls, left, right, lead) => h('div.' + cls, lead, left.flatMap(part), h('span.sp'), right.flatMap(part));
   const w = h('div.bcw', { role: 'listitem' }, h('div.card', { draggable: true },
-    line('c1', layout.top, layout.top_right), r.sum = h('div.csum'), line('c3', layout.bottom, layout.bottom_right)));
+    line('c1', layout.top, layout.top_right, r.chk = check()), r.sum = h('div.csum'), line('c3', layout.bottom, layout.bottom_right)));
   w._r = r;
   return w;
 }
@@ -56,6 +57,7 @@ export function fillCard(w, c, o = {}) {
     if (TYPE_ICON[tc.slice(2)]) setIcon(F.type, TYPE_ICON[tc.slice(2)]); else setIcon(F.type, '', (c.Type || '?')[0].toUpperCase());
     F.type.title = c.Type;
   }
+  setCheck(r.chk, !!o.marked);
   r.key.textContent = c.Key; if (o.stamp) o.stamp(r.key, c.Key);
   r.pin.hidden = !(o.pinned && o.pinned(c.Key));
   r.rev.hidden = !(o.review && o.review(c.Key));
