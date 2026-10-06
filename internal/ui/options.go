@@ -246,7 +246,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	o.home = home.Pick(c.Home)
 	for _, w := range c.Home {
-		if len(home.Pick([]string{w})) == 0 {
+		if len(home.Pick([]string{w})) == 0 && !slices.Contains(home.Retired, w) {
 			warn = append(warn, fmt.Sprintf("ui.home: %q is none of %s", w, strings.Join(home.Widgets, ", ")))
 		}
 	}

@@ -27,6 +27,10 @@ func TestOptionsFrom(t *testing.T) {
 	if !reflect.DeepEqual(o, defaultOptions()) || len(warn) != 5 {
 		t.Errorf("bad values = %+v, %d warnings %v; want defaults and 5", o, len(warn), warn)
 	}
+	o, warn = optionsFrom(config.UIConfig{Home: []string{"work", "reviews", "bogus"}})
+	if !reflect.DeepEqual(o.home, []string{"work"}) || len(warn) != 1 {
+		t.Errorf("home = %v %v, want work and a warning for bogus alone", o.home, warn)
+	}
 }
 
 func TestJiraConfig(t *testing.T) {

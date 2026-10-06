@@ -18,6 +18,9 @@ import (
 // would show them.
 var Widgets = []string{"work", "inbox", "sprint", "timer", "filters"}
 
+// Retired are widgets laneway dropped; old configs naming them stay quiet.
+var Retired = []string{"reviews"}
+
 // Pick is names' known widgets in their order, each once: the home screen,
 // none when it names none.
 func Pick(names []string) []string {
