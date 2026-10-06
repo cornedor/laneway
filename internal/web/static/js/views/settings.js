@@ -22,6 +22,7 @@ import * as notifier from '../lib/notify.js';
 import { load as loadConfig } from './settings_config.js';
 import { designCards } from './settings_cards.js';
 import { designJQL } from './settings_jql.js';
+import { designLanes } from './settings_lanes.js';
 import { keyOptions } from './settings_keys.js';
 import { fontOptions } from './settings_fonts.js';
 import { siteOptions } from './settings_site.js';
@@ -278,13 +279,14 @@ export default function mount(el, { app, scope, toolbar }) {
 
   draw();
   el.focus();
-  let dead = false, offCards = null, offJQL = null;
+  let dead = false, offCards = null, offJQL = null, offLanes = null;
   keyRows = keyOptions(app, host); options.push(...keyRows); draw();
   loadConfig(app, host).then(c => {
     if (dead) return;
     cfg = c;
     offCards = designCards(app, host, c.options);
     offJQL = designJQL(app, host, c.options);
+    offLanes = designLanes(app, host, c.options);
     options.push(...c.options);
     if (c.path) options.push(info('Config file', c.path, 'Server', c.editable ? 'ui: options are written here, comments kept' : 'read-only'));
     for (const w of c.warnings) options.push(info('Config warning', w, 'Server'));
@@ -298,5 +300,5 @@ export default function mount(el, { app, scope, toolbar }) {
   }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
   const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(); } });
-  return () => { dead = true; el.removeEventListener('scroll', spy); offMetrics(); if (offCards) offCards(); if (offJQL) offJQL(); editor = null; editing = null; };
+  return () => { dead = true; el.removeEventListener('scroll', spy); offMetrics(); if (offCards) offCards(); if (offJQL) offJQL(); if (offLanes) offLanes(); editor = null; editing = null; };
 }

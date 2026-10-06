@@ -215,6 +215,10 @@ several columns stacked in one lane under a header each, renamed, some
 hidden. `alt+l` steps through the board's own columns and each layout that
 fits it, remembered per board; nothing changes in Jira.
 
+The browser's settings draw a layout over a board's real columns: drag a
+column onto a lane, between lanes or onto Hidden, drag lanes to reorder,
+type their names. It writes the config for you; by hand:
+
 A lane lists the statuses whose columns it holds, by id, so boards on the
 same workflow share a layout. A layout fits a board where it places at
 least two columns; `boards:` limits it to those board ids. A column it

@@ -24,6 +24,7 @@ func init() {
 		return s.Client().Boards(ctx, r.PathValue("project"))
 	})
 	get("/boards/{board}", boardBundle)
+	post("/boards/{board}/arrange", arrangeBoard)
 	get("/boards/{board}/cards", boardCards)
 	get("/issues/{key}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key := r.PathValue("key")
@@ -160,6 +161,44 @@ func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column) []board
 		out = append(out, b)
 	}
 	return out
+}
+
+// arrangeBoard is a lane layout (the body's Layout, as ui.lane_layouts
+// writes one) over the board's columns, for the settings' lane editor:
+// the columns and status names, the lanes as column indexes with the
+// layout lane each came from (Spec, -1 for an unplaced column), the
+// hidden columns, and whether the layout fits the board.
+func arrangeBoard(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	id, err := boardID(r)
+	if err != nil {
+		return nil, err
+	}
+	b, err := Body[struct{ Layout config.LaneLayout }](r)
+	if err != nil {
+		return nil, err
+	}
+	c := s.Client()
+	cfg, err := c.BoardConfiguration(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	type lane struct {
+		Name string
+		Spec int
+		Cols []int
+	}
+	arranged, hidden := lanes.Arrange(b.Layout, cfg.Columns)
+	out := []lane{}
+	for _, a := range arranged {
+		l := lane{Name: a.Name, Spec: a.Spec, Cols: []int{}}
+		for _, sec := range a.Sections {
+			l.Cols = append(l.Cols, sec.Col)
+		}
+		out = append(out, l)
+	}
+	names, _ := c.StatusNames(ctx)
+	return map[string]any{"Columns": cfg.Columns, "StatusNames": names, "Lanes": out, "Hidden": append([]int{}, hidden...),
+		"Fits": lanes.Fits(b.Layout, id, cfg.Columns)}, nil
 }
 
 // localQuick are ui.quick_filters, shown before every board's own, as the

@@ -48,6 +48,9 @@ func TestArrange(t *testing.T) {
 	if ids := got[2].StatusIDs(); !reflect.DeepEqual(ids, []string{"10", "11", "12", "20"}) {
 		t.Errorf("status ids %v", ids)
 	}
+	if got[0].Spec != 0 || got[2].Spec != 2 {
+		t.Errorf("specs %d %d", got[0].Spec, got[2].Spec)
+	}
 	if got[2].Section("12") != 1 || got[2].Section("3") != -1 {
 		t.Errorf("Section: %d %d", got[2].Section("12"), got[2].Section("3"))
 	}
@@ -67,6 +70,9 @@ func TestArrangeOrderHiddenAndUnplaced(t *testing.T) {
 	}
 	if !reflect.DeepEqual(hidden, []int{0}) {
 		t.Errorf("hidden %v", hidden)
+	}
+	if got[0].Spec != -1 || got[1].Spec != 0 {
+		t.Errorf("an unplaced column's lane has spec %d, Later %d", got[0].Spec, got[1].Spec)
 	}
 	if got[0].Sections[0].Col != 1 || got[1].Sections[0].Col != 2 {
 		t.Errorf("cols %d %d", got[0].Sections[0].Col, got[1].Sections[0].Col)

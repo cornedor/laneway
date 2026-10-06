@@ -113,3 +113,21 @@
   .st-nav-a { padding: .143rem .571rem; border-left: 2px solid transparent; color: var(--fg-2); text-decoration: none; font-size: .929rem; }
   .st-nav-a:hover { color: var(--fg); } .st-nav-a.on { color: var(--fg); border-left-color: var(--accent); background: var(--accent-bg); }
 }
+
+/* the lane layout editor (settings_lanes.js) */
+.ln-top, .ln-board { flex-wrap: wrap; gap: .429rem; align-items: center; }
+.ln-board .cd-label { padding-top: 0; }
+.ln-lname { width: 12rem; }
+.ln-boards { display: flex; flex-wrap: wrap; gap: .286rem .714rem; align-items: center; }
+.ln-bchk { display: inline-flex; align-items: center; gap: .286rem; font-size: .857rem; cursor: pointer; }
+.ln-lanes { display: flex; align-items: stretch; overflow-x: auto; padding-bottom: .286rem; }
+.ln-gap { flex: none; width: .571rem; border-radius: 6px; transition: width .12s; }
+.ln-gap.over { width: 2.286rem; background: var(--accent-bg); outline: 1px dashed var(--accent); }
+.ln-lane { flex: none; width: 10rem; display: flex; flex-direction: column; border: 1px solid var(--border); border-top: 3px solid var(--fg-3); border-radius: var(--radius); background: var(--bg); }
+.ln-lane.over { border-color: var(--accent); background: var(--accent-bg); }
+.ln-head { display: flex; align-items: center; gap: .143rem; padding: .286rem; border-bottom: 1px solid var(--border); }
+.ln-name { flex: 1; min-width: 0; font-weight: 600; font-size: .857rem; padding: .143rem .286rem; }
+.ln-body { display: flex; flex-direction: column; align-items: flex-start; gap: .286rem; padding: .429rem; min-height: 4rem; }
+.ln-foreign { font-size: .786rem; }
+.ln-hidden { min-height: 1.857rem; }
+.ln select.input { width: auto; max-width: 16rem; }

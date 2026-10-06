@@ -27,6 +27,9 @@ type Lane struct {
 	// Max is the work-in-progress limit: its sections' summed when every
 	// one has a limit, else 0 for none.
 	Max int
+	// Spec is the index of the layout's lane it is, -1 for a column the
+	// layout doesn't place (and the board's own lanes).
+	Spec int
 }
 
 // StatusIDs are the lane's statuses, its sections' in order.
@@ -47,7 +50,7 @@ func (l Lane) Section(id string) int {
 func Board(cols []jira.Column) []Lane {
 	out := make([]Lane, len(cols))
 	for i, c := range cols {
-		out[i] = Lane{Name: c.Name, Max: c.Max, Sections: []Section{{Name: c.Name, StatusIDs: c.StatusIDs, Max: c.Max, Col: i}}}
+		out[i] = Lane{Name: c.Name, Max: c.Max, Spec: -1, Sections: []Section{{Name: c.Name, StatusIDs: c.StatusIDs, Max: c.Max, Col: i}}}
 	}
 	return out
 }
@@ -107,7 +110,7 @@ func Arrange(l config.LaneLayout, cols []jira.Column) (out []Lane, hidden []int)
 		}
 	}
 	for li, s := range l.Lanes {
-		var lane Lane
+		lane := Lane{Spec: li}
 		for ci, c := range cols {
 			if at[ci] == li {
 				lane.Sections = append(lane.Sections, Section{Name: c.Name, StatusIDs: c.StatusIDs, Max: c.Max, Col: ci})

@@ -1,11 +1,16 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -33,5 +38,43 @@ func TestBoardLayouts(t *testing.T) {
 	}
 	if got := boardLayouts(nil, 1, cols); got == nil {
 		t.Error("no layouts should be [], not null")
+	}
+}
+
+// TestArrangeBoard: the lane editor's arrangement of a layout over the demo
+// board: its columns as indexes, the layout lane each came from.
+func TestArrangeBoard(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
+	ts := httptest.NewServer(New(context.Background(), Options{Client: cl, Demo: true}))
+	defer ts.Close()
+	body := `{"Layout": {"name": "Ship", "lanes": [{"name": "Shipping", "statuses": ["3", "4"]}], "hidden": ["1"]}}`
+	resp, err := http.Post(ts.URL+"/api/boards/1/arrange", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var got struct {
+		Columns []jira.Column
+		Lanes   []struct {
+			Name string
+			Spec int
+			Cols []int
+		}
+		Hidden []int
+		Fits   bool
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil || resp.StatusCode != 200 {
+		t.Fatalf("%d %v", resp.StatusCode, err)
+	}
+	if len(got.Columns) != 4 || !got.Fits || len(got.Hidden) != 1 || got.Hidden[0] != 0 {
+		t.Fatalf("columns %d, fits %v, hidden %v", len(got.Columns), got.Fits, got.Hidden)
+	}
+	if len(got.Lanes) != 2 || got.Lanes[0].Spec != -1 || got.Lanes[1].Name != "Shipping" || got.Lanes[1].Spec != 0 || len(got.Lanes[1].Cols) != 2 {
+		t.Errorf("lanes %+v, want In Progress unplaced then Shipping of columns 2 and 3", got.Lanes)
 	}
 }
