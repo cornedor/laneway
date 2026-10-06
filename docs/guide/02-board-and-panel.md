@@ -71,16 +71,19 @@ The [search reference](../reference/search.md) has every field.
   that way.
 - `alt+l` switches to your own lanes (`ui.lane_layouts`): Test, UAT and
   Deploy stacked under Done, columns reordered, renamed or hidden. Again
-  goes on to the next layout, then back to the board's columns.
+  goes on to the next layout, then back to the board's columns. `z`, or
+  a click on a stacked column's header, folds it; `Z` unfolds them all.
 
 === "Terminal"
 
-    `s` steps the sort, or the swimlanes.
+    `s` steps the sort, or the swimlanes. A folded column keeps its header
+    in place, with a ▸.
 
 === "Browser"
 
     `O` steps the sort, or the swimlanes; in the list `C` picks the
-    columns, and a click on a column header sorts by it.
+    columns, and a click on a column header sorts by it. Folded stacked
+    columns line up under the lane's head; a click unfolds one.
 
 laneway remembers the mode and swimlanes per board.
 

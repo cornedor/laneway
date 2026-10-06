@@ -61,7 +61,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
     mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS,
-    layout: '', layoutHidden: 0,
+    layout: '', layoutHidden: 0, secFold: new Set(),
     past: null, closed: null, pins: new Set(), notes: new Set(), starred: [], colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
     panes: [], where: new Map(), visible: [], built: '', rowH: 0,
@@ -422,7 +422,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       for (const c of base) S.colTotal[Math.min(colIndexOf(c), nc - 1)]++;
       groups.forEach((g, gi) => { for (const c of g.cards) S.panes[gi * nc + Math.min(colIndexOf(c), nc - 1)].all.push(c); });
     } else if (lanes) {
-      for (const p of S.panes) { p.all = []; p.total = 0; p.heads = null; }
+      for (const p of S.panes) { p.all = []; p.total = 0; p.heads = null; p.shown = null; }
       for (const c of base) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].total++;
       for (const c of vis) S.panes[Math.min(colIndexOf(c), S.panes.length - 1)].all.push(c);
       for (const p of S.panes) stack(p, cols[p.col]);
@@ -431,7 +431,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       S.panes[0].all = l; S.panes[0].total = base.length;
       S.panes[0].heads = groupHeads(l);
     }
-    for (const p of S.panes) p.cards = p.folded ? [] : p.all;
+    for (const p of S.panes) p.cards = p.folded ? [] : p.shown || p.all;
     S.where.clear();
     for (const p of S.panes) p.cards.forEach((c, i) => S.where.set(c.Key, { p, i }));
     if (S.sel && !S.where.has(S.sel)) S.sel = null;
@@ -448,26 +448,45 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
 
   // A layout's lane of several columns stacks them: its cards by column, rank kept within each, a header over each
-  // column's first (TUI jiraLane.stack). An empty column draws no header.
+  // column's first (TUI jiraLane.stack). An empty column draws no header. A folded column (z, a click on its
+  // header) leaves p.shown for the strip under the lane's head; the TUI draws its header in place.
+  const secKey = (lane, sec) => lane + '\x1f' + sec;
   function stack(p, col) {
     const secs = (col && col.Sections) || [];
+    if (p.folds) { p.folds.hidden = true; p.folds.replaceChildren(); }
     if (secs.length < 2) return;
     const sec = c => secs.findIndex(s => (s.StatusIDs || []).includes(String(c.StatusID)));
     p.all = p.all.map((c, i) => [sec(c), i, c]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
-    p.heads = new Array(p.all.length).fill(null);
-    let at = -1;
-    p.all.forEach((c, i) => {
+    const name = k => (k >= 0 ? secs[k].Name : 'Other'), folded = k => S.secFold.has(secKey(p.name, name(k)));
+    const n = new Map();
+    for (const c of p.all) n.set(sec(c), (n.get(sec(c)) || 0) + 1);
+    p.shown = p.all.filter(c => !folded(sec(c)));
+    p.heads = new Array(p.shown.length).fill(null);
+    p.shown.forEach((c, i) => {
       const k = sec(c);
-      if (i === 0 || k !== sec(p.all[i - 1])) p.heads[at = i] = { name: k >= 0 ? secs[k].Name : 'Other', n: 0 };
-      p.heads[at].n++;
+      if (i === 0 || k !== sec(p.shown[i - 1])) p.heads[i] = { name: name(k), n: n.get(k) };
     });
+    const strip = [...n.keys()].filter(folded).map(k => h('button.bd-fold', { type: 'button', dataset: { sec: name(k), lane: p.name }, title: 'Unfold  (Z: all)' }, '▸ ' + name(k) + ' · ' + n.get(k)));
+    if (p.folds && strip.length) { p.folds.hidden = false; p.folds.append(...strip); }
   }
-  function secHead(w, head) {
+  function secHead(w, head, lane) {
     w.classList.toggle('shead', !!head);
     if (!head) { if (w._sec) w._sec.hidden = true; return; }
-    if (!w._sec) w.append(w._sec = h('div.bd-sec'));
+    if (!w._sec) w.append(w._sec = h('div.bd-sec', { title: 'Fold  (z)' }));
     w._sec.hidden = false;
+    w._sec.dataset.sec = head.name; w._sec.dataset.lane = lane;
     w._sec.textContent = head.name + ' · ' + head.n;
+  }
+  function toggleSection(lane, sec) {
+    const k = secKey(lane, sec), keep = S.sel;
+    S.secFold.has(k) ? S.secFold.delete(k) : S.secFold.add(k);
+    app.prefs.set('board.secfold.' + S.board.ID, [...S.secFold].join('\n'));
+    layout();
+    if (keep && !S.where.has(keep)) {
+      S.sel = null;
+      const p = S.panes.find(q => q.name === lane && q.cards.length) || S.panes.find(q => q.cards.length);
+      if (p) select(p.cards[0].Key);
+    }
   }
 
   // Columns the filters left without a card hide (alt+e, ui.empty_lanes:
@@ -573,7 +592,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
         pane.drop = h('div.bd-drop', { hidden: true });
         pane.body.append(pane.drop);
         pane.el = h('section.bd-lane', { dataset: { pane: i }, 'aria-label': n.name }, pane.head, pane.body);
-        pane.vl = vlist(pane.body, { rowHeight: 96, create: buildCard, bind: (w, j) => { fillCard(w, pane.cards[j]); secHead(w, pane.heads && pane.heads[j]); } });
+        pane.folds = h('div.bd-folds', { hidden: true });
+        pane.el.insertBefore(pane.folds, pane.body);
+        pane.vl = vlist(pane.body, { rowHeight: 96, create: buildCard, bind: (w, j) => { fillCard(w, pane.cards[j]); secHead(w, pane.heads && pane.heads[j], pane.name); } });
         S.panes.push(pane);
         wrap.append(pane.el);
       });
@@ -603,7 +624,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     p.wip.textContent = p.max ? 'max ' + p.max : '';
     p.head.classList.toggle('over', !!over);
     p.wip.title = over ? 'Over the WIP limit of ' + p.max : 'WIP limit';
-    p.body.classList.toggle('empty', !p.cards.length);
+    p.body.classList.toggle('empty', !(p.shown ? p.all : p.cards).length);
   }
   function paintSwim(groups) {
     S.heads.forEach((hd, i) => {
@@ -759,8 +780,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function marksChanged() { selbar.set(S.marks.size); root.classList.toggle('marking', S.marks.size > 0); }
 
   // ---- mouse
+  delegate(main, 'click', '[data-sec]', (e, t) => toggleSection(t.dataset.lane, t.dataset.sec));
   delegate(main, 'click', '[data-key]', (e, t) => {
     const key = t.dataset.key;
+    if (e.target.closest('[data-sec]')) return;
     if (e.target.closest('.cparent') && e.target.closest('.cparent').dataset.open) { app.panel.open(e.target.closest('.cparent').dataset.open); return; }
     if (e.target.closest('.chk, .l-mark') || e.ctrlKey || e.metaKey || e.shiftKey) { toggleMark(key); select(key, { scroll: false }); return; }
     select(key, { scroll: false });
@@ -1142,7 +1165,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     ui.toast(v === 'none' ? 'No swimlanes' : 'Swimlanes by ' + v);
   }
   function foldBand(name) {
-    if (!swimming()) return ui.toast('Folding needs swimlanes  (O)');
+    if (!swimming() && name == null && S.mode === 'lanes') {
+      const w = cur(), col = w && columns()[w.p.col];
+      if (col && (col.Sections || []).length > 1) {
+        const c = w.p.cards[w.i], s = col.Sections.find(x => (x.StatusIDs || []).includes(String(c.StatusID)));
+        if (s) return toggleSection(w.p.name, s.Name);
+      }
+    }
+    if (!swimming()) return ui.toast('Folding needs swimlanes  (O) or a stacked lane');
     const w = cur(), g = name != null ? name : w && groupName(w.p.cards[w.i]);
     if (g == null) return;
     S.fold.has(g) ? S.fold.delete(g) : S.fold.add(g);
@@ -1154,7 +1184,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       if (p) select(p.cards[0].Key);
     }
   }
-  function unfoldAll() { S.fold.clear(); layout(); }
+  function unfoldAll() { S.fold.clear(); S.secFold.clear(); app.prefs.set('board.secfold.' + S.board.ID, ''); layout(); }
   function setCompact(v) { S.compact = v; app.prefs.set('board.compact', v ? '1' : '0'); renderToolbar(); layout(); }
   function setCols(list) {
     S.cols = fixCols(list);
@@ -1415,8 +1445,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     k.bind('r', () => refresh(true), 'refresh', { group: G });
     k.bind('t', () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'), 'lanes / list', { group: V, bar: 'lanes / list' });
     k.bind('O', cycleO, 'lanes: cycle swimlanes · list: cycle sort', { group: V });
-    k.bind('z', () => foldBand(), 'fold the swimlane', { group: V });
-    k.bind('Z', unfoldAll, 'unfold all swimlanes', { group: V });
+    k.bind('z', () => foldBand(), 'fold the swimlane, or the stacked lane\'s section', { group: V });
+    k.bind('Z', unfoldAll, 'unfold all swimlanes and sections', { group: V });
     k.bind('c', () => setCompact(!S.compact), 'one-line cards', { group: V });
     k.bind('alt+e', () => { if (S.mode === 'lanes') setHideEmpty(!S.hideEmpty); }, 'hide / show empty lanes', { group: V });
     k.bind('alt+l', cycleLayout, 'next lane layout: the board\'s columns or a ui.lane_layouts entry', { group: V });
@@ -1548,6 +1578,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const el = String((app.session.ui && app.session.ui.EmptyLanes) || '').toLowerCase() === 'hide' ? 'hide' : 'show';
     S.hideEmpty = app.prefs.get('board.empty_lanes', el) === 'hide';
     S.layout = app.prefs.get('board.layout.' + S.board.ID, '');
+    S.secFold = new Set(String(app.prefs.get('board.secfold.' + S.board.ID, '')).split('\n').filter(Boolean));
     S.cols = listCols();
     loadPins(); pins.register(app);
     renderToolbar(); renderBar();

@@ -163,8 +163,8 @@ func defaultKeys() keyMap {
 		History:         bind("issue history", "H"),
 		DevInfo:         bind("pull requests and branches", "D"),
 		Pin:             bind("pin / unpin issue; on a panel field, star it", "*"),
-		Fold:            bind("fold the swimlane", "z"),
-		UnfoldAll:       bind("unfold every swimlane", "Z"),
+		Fold:            bind("fold the swimlane, or the stacked lane's section", "z"),
+		UnfoldAll:       bind("unfold every swimlane and section", "Z"),
 		JQL:             bind("JQL search", "Q"),
 		Settings:        bind("settings", ","),
 		FilterBuilder:   bind("filter builder", "F"),
@@ -236,6 +236,7 @@ type hit struct {
 	zone      hitZone
 	idx, line int
 	band      string
+	section   int // a stacked lane's section header hit: its index + 1, 0 for none
 }
 
 // Model is the whole app. Held by value like matterbox's; the board state

@@ -78,3 +78,40 @@ func TestJiraLaneLayoutNone(t *testing.T) {
 		t.Errorf("status %q", m.status)
 	}
 }
+
+// TestJiraLaneSections: z folds the cursor's section of a stacked lane to
+// its header, the cursor moving on; a click on the header unfolds it; the
+// folds are remembered per board, and Z clears them.
+func TestJiraLaneSections(t *testing.T) {
+	m := jiraTabModel(t)
+	m.opts.laneLayouts = []config.LaneLayout{{Name: "Flow", Lanes: []config.LaneSpec{{Name: "Work", Statuses: []string{"1", "3"}}}}}
+	out, _ := m.handleJiraKey(keyMsg(t, "alt+l"))
+	m = out.(Model)
+	m.selectJiraKey("ABC-1")
+	out, _ = m.handleJiraKey(keyMsg(t, "z"))
+	m = out.(Model)
+	if c, _ := m.selectedJiraCard(); c.Key != "ABC-2" {
+		t.Errorf("cursor on %s, want ABC-2 past the folded To do", c.Key)
+	}
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "▸ To do 2") || strings.Contains(view, "ABC-3") {
+		t.Errorf("To do should fold to its header:\n%s", view)
+	}
+	if v, _, _ := m.store.GetMeta(jiraSecFoldKey(1)); v != secFoldKey("Work", "To do") {
+		t.Errorf("remembered %q", v)
+	}
+	h := m.hitJira(2, jiraBodyTop+1)
+	if h.section != 1 || h.idx != 0 {
+		t.Fatalf("header hit %+v", h)
+	}
+	out, _ = m.clickJira(h, 2, jiraBodyTop+1, 1)
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "ABC-3") {
+		t.Errorf("a click should unfold To do:\n%s", view)
+	}
+	m.toggleJiraSection(0, 1)
+	out, _ = m.handleJiraKey(keyMsg(t, "Z"))
+	if m = out.(Model); len(m.jiraTab.secFold) != 0 {
+		t.Errorf("Z left folds %v", m.jiraTab.secFold)
+	}
+}

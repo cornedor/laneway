@@ -423,6 +423,8 @@ type jiraTabState struct {
 	// a card. Moves address cols, so H and L reach a hidden lane.
 	cols       []jiraLane
 	emptyLanes string
+	// secFold are the stacked lanes' folded sections (secFoldKey).
+	secFold map[string]bool
 	// layout is the board's ui.lane_layouts entry by name, "" for its own
 	// columns; layoutHidden counts the cards in the columns it hides.
 	layout       string
@@ -902,6 +904,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	if m.store != nil {
 		t.layout, _, _ = m.store.GetMeta(jiraLayoutKey(m.jiraBoardID()))
 	}
+	t.secFold = m.readJiraSecFold()
 	if msg.statusNames != nil {
 		t.statusNames = msg.statusNames
 	}
@@ -1128,15 +1131,68 @@ func (l *jiraLane) stack(cards []jira.Card) {
 	}
 }
 
-// headAt is whether a stacked lane draws a section header before its
-// card r: the first of a section. An empty section draws none.
-func (l jiraLane) headAt(r int) (jiraSection, bool) {
-	for _, s := range l.sections {
-		if s.first == r && s.n > 0 {
-			return s, true
+// headAt is the section whose header a stacked lane draws before its card
+// r, the first of it; -1 for none. An empty section draws none.
+func (l jiraLane) headAt(r int) int {
+	return slices.IndexFunc(l.sections, func(s jiraSection) bool { return s.first == r && s.n > 0 })
+}
+
+// sectionOf is the index of the section holding card r, -1 for none.
+func (l jiraLane) sectionOf(r int) int {
+	return slices.IndexFunc(l.sections, func(s jiraSection) bool { return r >= s.first && r < s.first+s.n })
+}
+
+// secFoldKey names a stacked lane's section for the folds.
+func secFoldKey(lane, section string) string { return lane + "\x1f" + section }
+
+// jiraSecFoldKey remembers a board's folded sections.
+func jiraSecFoldKey(board int) string {
+	return jiraMetaPrefix + "secfold:" + strconv.Itoa(board)
+}
+
+// readJiraSecFold is the current board's folded sections.
+func (m *Model) readJiraSecFold() map[string]bool {
+	out := map[string]bool{}
+	if m.store == nil {
+		return out
+	}
+	v, _, _ := m.store.GetMeta(jiraSecFoldKey(m.jiraBoardID()))
+	for _, k := range strings.Split(v, "\n") {
+		if k != "" {
+			out[k] = true
 		}
 	}
-	return jiraSection{}, false
+	return out
+}
+
+// toggleJiraSection folds section s of lane l to its header, or unfolds
+// it, remembered per board.
+func (m *Model) toggleJiraSection(l, s int) {
+	t := m.jiraTab
+	if l < 0 || l >= len(t.lanes) || s < 0 || s >= len(t.lanes[l].sections) {
+		return
+	}
+	lane := t.lanes[l]
+	k := secFoldKey(lane.name, lane.sections[s].name)
+	if t.secFold == nil {
+		t.secFold = map[string]bool{}
+	}
+	if t.secFold[k] {
+		delete(t.secFold, k)
+		m.status = "unfolded " + lane.sections[s].name
+	} else {
+		t.secFold[k] = true
+		m.status = "folded " + lane.sections[s].name + " · " + helpKey(m.keys.UnfoldAll) + " unfolds all"
+	}
+	m.saveJiraSecFold()
+	m.skipJiraFolded(1)
+	m.renderJira()
+}
+
+func (m *Model) saveJiraSecFold() {
+	if m.store != nil {
+		_ = m.store.SetMeta(jiraSecFoldKey(m.jiraBoardID()), strings.Join(slices.Sorted(maps.Keys(m.jiraTab.secFold)), "\n"))
+	}
 }
 
 func (m *Model) clampJiraCursor() {
@@ -1332,7 +1388,8 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Fold):
 		m.foldJiraSwimlane()
 	case key.Matches(msg, m.keys.UnfoldAll):
-		t.swimFold = nil
+		t.swimFold, t.secFold = nil, nil
+		m.saveJiraSecFold()
 		m.renderJira()
 	case key.Matches(msg, m.keys.Mark):
 		m.toggleJiraMark()
@@ -1452,10 +1509,17 @@ func (m *Model) moveJiraCursor(delta int) {
 }
 
 // jiraFolded is whether the lane cursor's row r of lane l is in a folded
-// swimlane.
+// swimlane, or a folded section of a stacked lane.
 func (m *Model) jiraFolded(l, r int) bool {
 	t := m.jiraTab
-	if len(t.swimFold) == 0 || t.swim == jiraSortRank || l >= len(t.lanes) || r >= len(t.lanes[l].cards) {
+	if l >= len(t.lanes) || r >= len(t.lanes[l].cards) {
+		return false
+	}
+	if lane := t.lanes[l]; t.swim == jiraSortRank && len(t.secFold) > 0 {
+		s := lane.sectionOf(r)
+		return s >= 0 && t.secFold[secFoldKey(lane.name, lane.sections[s].name)]
+	}
+	if len(t.swimFold) == 0 || t.swim == jiraSortRank {
 		return false
 	}
 	g, _ := jiraGroupOf(t.swim, t.cards[t.lanes[l].cards[r]])
@@ -1503,8 +1567,14 @@ func (m *Model) toggleJiraSwimlane(g string) {
 func (m *Model) foldJiraSwimlane() {
 	t := m.jiraTab
 	c, ok := m.selectedJiraCard()
+	if t.swim == jiraSortRank && m.jiraShowsLanes() && t.lane < len(t.lanes) && len(t.lanes[t.lane].sections) > 0 {
+		if s := t.lanes[t.lane].sectionOf(t.row); s >= 0 && ok {
+			m.toggleJiraSection(t.lane, s)
+		}
+		return
+	}
 	if t.swim == jiraSortRank || !m.jiraShowsLanes() {
-		m.status = "fold needs swimlanes (" + helpKey(m.keys.Sort) + " in lanes)"
+		m.status = "fold needs swimlanes (" + helpKey(m.keys.Sort) + " in lanes) or a stacked lane"
 		return
 	}
 	if !ok {
@@ -2741,12 +2811,12 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		return m.renderJiraSwimlanes(visible, laneW, height)
 	}
 	if t.lane < len(t.laneTop) && t.lane < len(t.lanes) {
-		top, lane := &t.laneTop[t.lane], t.lanes[t.lane]
+		top := &t.laneTop[t.lane]
 		if t.row < *top {
 			*top = t.row
 		}
 		// Down until the cursor's card fits, section headers and all.
-		for *top < t.row && m.jiraLaneSpan(lane, *top, t.row) > height-1 {
+		for *top < t.row && m.jiraLaneSpan(t.lane, *top, t.row) > height-1 {
 			*top++
 		}
 	}
@@ -2802,12 +2872,16 @@ func (m *Model) renderJiraLanes(width, height int) string {
 		}
 		gap := m.cardSlot() > m.cardH()
 		for r := top; r < len(slots) && len(col)+m.cardH() <= height; r++ {
-			if s, ok := lane.headAt(r); ok {
-				if len(col)+1+m.cardH() > height {
+			folded := m.jiraFolded(l, r)
+			if s := lane.headAt(r); s >= 0 {
+				if !folded && len(col)+1+m.cardH() > height {
 					break // no header without its card
 				}
-				col = append(col, m.jiraSectionHead(s, inner))
-				at = append(at, -1)
+				col = append(col, m.jiraSectionHead(lane.sections[s], inner, folded))
+				at = append(at, -2-s)
+			}
+			if folded {
+				continue
 			}
 			c := t.cards[slots[r].ci]
 			if slots[r].ghost || (slots[r].ci == ghost && l == t.drag.from && t.drag.over != l) {
@@ -2861,21 +2935,27 @@ func (m *Model) renderJiraLanes(width, height int) string {
 
 // jiraLaneSpan is how many lines lane's cards top to row take, the
 // section headers among them counted.
-func (m *Model) jiraLaneSpan(lane jiraLane, top, row int) int {
-	n := 0
+func (m *Model) jiraLaneSpan(l, top, row int) int {
+	lane, n := m.jiraTab.lanes[l], 0
 	for r := top; r <= row; r++ {
-		if _, ok := lane.headAt(r); ok {
+		if lane.headAt(r) >= 0 {
 			n++
 		}
-		n += m.cardSlot()
+		if !m.jiraFolded(l, r) {
+			n += m.cardSlot()
+		}
 	}
 	return n
 }
 
 // jiraSectionHead is a stacked lane's line over a column's cards: its name
-// and count on a rule.
-func (m *Model) jiraSectionHead(s jiraSection, inner int) string {
-	label := "─ " + ansi.Truncate(s.name, max(inner-8, 1), "…") + " " + strconv.Itoa(s.n) + " "
+// and count on a rule, a ▸ when folded.
+func (m *Model) jiraSectionHead(s jiraSection, inner int, folded bool) string {
+	mark := "─ "
+	if folded {
+		mark = "▸ "
+	}
+	label := mark + ansi.Truncate(s.name, max(inner-8, 1), "…") + " " + strconv.Itoa(s.n) + " "
 	return jiraDimStyle.Render(label + strings.Repeat("─", max(inner-1-visualWidth(label), 0)))
 }
 
@@ -3545,6 +3625,9 @@ func (m *Model) hitJira(x, y int) hit {
 		if line-1 < len(t.laneAt[col]) {
 			h.line = t.laneAt[col][line-1]
 		}
+		if h.line <= -2 { // a section's header
+			h.section, h.line = -1-h.line, -1
+		}
 	} else if line >= 1 {
 		r := (line-1)/m.cardSlot() + t.laneTop[lane]
 		if (line-1)%m.cardSlot() < m.cardH() && r < len(t.lanes[lane].cards) {
@@ -3562,6 +3645,11 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 	m.focus = focusJira
 	if h.band != "" {
 		m.toggleJiraSwimlane(h.band)
+		return m, nil
+	}
+	if h.section > 0 && h.idx >= 0 {
+		t.lane = h.idx
+		m.toggleJiraSection(h.idx, h.section-1)
 		return m, nil
 	}
 	if h.line < 0 {

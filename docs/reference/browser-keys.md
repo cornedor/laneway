@@ -64,7 +64,7 @@ terminal's is in the last column.
 | `t` | lanes or list | |
 | `O` | lanes: swimlanes; list: sort | `s` |
 | `C` | list columns | |
-| `z` `Z` | fold the band, unfold all | |
+| `z` `Z` | fold the band (or the stacked lane's section), unfold all | |
 | `c` | one-line cards | |
 | `alt+e` | empty lanes | |
 | `alt+l` | next lane layout | |

@@ -36,7 +36,7 @@ panel's page. Keys for the browser: [Browser keys](browser-keys.md).
 | `[` `]` | previous, next view |
 | `t` | lanes or list |
 | `s` | list: sort (rank, priority, points, assignee, epic, key, status, updated, due, created); lanes: swimlanes by assignee, epic or priority |
-| `z`, `Z` | fold the band, unfold all |
+| `z`, `Z` | fold the band (or the stacked lane's section), unfold all |
 | `c` | one-line cards |
 | `alt+e` | hide or show lanes the filters leave empty |
 | `alt+l` | next lane layout (`ui.lane_layouts`), then the board's columns |
