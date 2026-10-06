@@ -11,7 +11,9 @@ test('highlight keeps every character', () => {
     '# Title **bold**', '', 'Some *it* and _it_ and ~~gone~~ and `co*de*` <u>u</u> & <b>', 'See [docs](https://x.io/a_b) or https://y.io/p, ABC-12.',
     '- [ ] open', '  - [x] done **b**', '1. one', '> quoted *x*', '```js', 'const a = **b**;', '```', '---',
     '| A | B |', '| --- | :-: |', '| 1 | 2 \\| 3 |', '<!-- panel:info -->', 'x', '<!-- /panel -->', '<!-- keep:3 -->',
-    '<status color="green">DONE</status> <date>2026-10-01</date> <span style="color:#bf2600">red</span> :smile: @Ann Lee hi', '<> decided', '',
+    '<status color="green">DONE</status> <date>2026-10-01</date> <span style="color:#bf2600">red</span> :smile: @Ann Lee hi', '<> decided',
+    '<!-- keep:1 mediaSingle: move or delete this line -->', '<!-- block:2 columns -->', 'c', '<!-- /block -->', '<!-- table:3 numbered -->',
+    '| <!-- bg:#ffeeaa --> x | <!-- th --> y |', '| - | - |', '<!-- card: https://x.io/c -->', 'hi ⟦4 @Ada Lovelace⟧ there', '',
   ].join('\n');
   assert.equal(text(highlight(src, { names: ['Ann Lee'] })), src);
 });
@@ -85,6 +87,16 @@ test('lines: block classes and groups', () => {
   assert.deepEqual(ls.map(l => l.g), [0, 1, 2, 2, 2, 5, 6, 7, 8, 8, 8, 11, 12]);
   assert.equal(ls[1].s, '--h:8ch');
   assert.match(ls[2].h, /^<span class="td">/);
+});
+
+test('lines: placeholders desc.go writes', () => {
+  const ls = lines(['<!-- keep:1 mediaSingle: move or delete this line -->', '<!-- block:2 columns -->', 'c', '<!-- /block -->', '<!-- table:3 numbered -->', '<!-- card: https://x.io/c -->'].join('\n'));
+  assert.deepEqual(ls.map(l => l.c), ['keep', 'tag blo', ' ex', 'tag pnc ex', 'tag shell', 'card']);
+  assert.match(ls[0].h, /data-l="image"/);
+  assert.match(ls[5].h, /hl-card" data-href="https:\/\/x.io\/c"/);
+  assert.match(lines('<!-- keep:1 table with a mention: move or delete this line -->')[0].h, /data-l="table with a mention"/);
+  assert.match(highlight('a ⟦4 @Ada Lovelace⟧ b'), /<span class="mk">⟦4 <\/span><span class="hl-kept">@Ada Lovelace<\/span><span class="mk">⟧<\/span>/);
+  assert.match(highlight('| <!-- bg:#ffeeaa --> x |'), /hl-sw" style="--c:#ffeeaa"/);
 });
 
 test('enter renumbers the list after it, opens a table row', () => {

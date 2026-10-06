@@ -22,6 +22,10 @@
 .ed-ta .hl-tag { font-family: var(--font-mono); font-size: .85em; color: var(--info); }
 .ed-ta .ln.tag { font-family: var(--font-mono); font-size: .85em; color: var(--fg-3); }
 .ed-ta .hl-keep { font-family: var(--font-mono); font-size: .85em; color: var(--fg-2); background: var(--bg-4); border-radius: 3px; }
+.ed-ta .ln.tag, .ed-ta .ln.keep, .ed-ta .ln.card, .ed-ta .hl-tag, .ed-ta .hl-keep { font-variant-ligatures: none; } /* <!-- stays as typed */
+.ed-ta .ln.keep, .ed-ta .ln.card { font-family: var(--font-mono); font-size: .85em; }
+.ed-ta .hl-kept { color: var(--fg-2); background: var(--bg-3); border-radius: 3px; padding: 0 .15em; }
+.ed-ta .hl-blk, .ed-ta .hl-shell { color: var(--fg-2); font-weight: 600; }
 .ed-ta .ln.q { color: var(--fg-2); border-left: 3px solid var(--border); padding-left: .714rem; } .ed-ta .ln.q > .mk { color: var(--accent); }
 .ed-ta .ln.li { padding-left: var(--h); text-indent: calc(-1 * var(--h)); }
 .ed-ta .ln.li .ind, .ed-ta .ln.li .lm { display: inline-block; text-indent: 0; white-space: pre; }
@@ -44,6 +48,7 @@
 .ed-ta .ln.pn { --c: var(--info); border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 9%, transparent); }
 .ed-ta .pn-note { --c: var(--accent) !important; } .ed-ta .pn-success { --c: var(--ok) !important; } .ed-ta .pn-warning { --c: var(--warn) !important; } .ed-ta .pn-error { --c: var(--err) !important; }
 .ed-ta .ln.ex { border-left: 1px dashed var(--border); }
+.ed-ta .ln.q.pn { padding-left: calc(var(--pl) + .714rem); background-image: linear-gradient(var(--border), var(--border)); background-size: 3px 100%; background-position: var(--pl) 0; background-repeat: no-repeat; } /* the quote's bar inside the panel's */
 .ed-ta .ln.li.pn, .ed-ta .ln.li.ex { padding-left: calc(var(--pl) + var(--h)); } /* the hanging indent inside the panel's */
 .ed-ta .hl-pn, .ed-ta .hl-exp { color: var(--c, var(--fg-2)); font-weight: 600; }
 
@@ -65,6 +70,17 @@
 .ed-ta.live .ln.fx:not(.act) { line-height: .6; }
 .ed-ta.live .ln.tag:not(.act) { font-family: inherit; font-size: .75em; letter-spacing: .04em; text-transform: uppercase; }
 .ed-ta.live .ln.exo:not(.act) .hl-exp::before { content: '▸ '; }
+.ed-ta.live .ln.shell:not(.act) .hl-shell::before { content: 'table · '; }
+/* placeholders: a kept block as a chip, a card as a link chip, a kept inline as its label */
+.ed-ta.live .ln.keep:not(.act), .ed-ta.live .ln.card:not(.act) { font-family: inherit; font-size: 1em; }
+.ed-ta.live .ln.keep:not(.act) .hl-kn, .ed-ta.live .ln.card:not(.act) .hl-card { display: inline-block; font-size: .9em; padding: .1em .55em; border-radius: var(--radius); background: var(--bg-3); border: 1px dashed var(--border); text-decoration: none; }
+.ed-ta.live .ln.keep:not(.act) .hl-kn { color: var(--fg-2); cursor: default; }
+.ed-ta.live .ln.keep:not(.act) .hl-kn::before { content: '▣ ' attr(data-l); }
+.ed-ta.live .ln.keep:not(.act) .hl-kn::after { content: ' · kept as is'; color: var(--fg-3); }
+.ed-ta.live .ln.card:not(.act) .hl-card { border-style: solid; }
+.ed-ta.live .ln.card:not(.act) .hl-card::before { content: '🔗 '; }
+.ed-ta.live .ln:not(.act) .hl-sw::before { content: ''; display: inline-block; width: .7em; height: .7em; margin-right: .3em; border-radius: 2px; background: var(--c); border: 1px solid var(--border); vertical-align: baseline; }
+.ed-ta.live .ln:not(.act) .td:has(> .hl-thm) { font-weight: 700; background: var(--bg-3); }
 .ed-ta.live .ln.pnc:not(.act) .hl-end { visibility: hidden; } .ed-ta.live .ln.pnc:not(.act) { line-height: .7; }
 .ed-ta.live .ln.q:not(.act) { font-style: italic; }
 .ed-ta.live .ln:not(.act) .hl-emo[data-g]::before { content: attr(data-g); }

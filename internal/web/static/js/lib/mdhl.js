@@ -43,12 +43,15 @@ const INLINE = [
   { re: /<status color="([a-z]+)">([^<\n]*)<\/status>/y, out: m => mk(m[0].slice(0, m[0].indexOf('>') + 1)) + span('hl-status' + (STATUS.has(m[1]) ? ' c-' + m[1] : ''), esc(m[2])) + mk('</status>') },
   { re: /<date>([^<\n]*)<\/date>/y, out: m => mk('<date>') + span('hl-date', esc(m[1])) + mk('</date>') },
   { re: /<span style="color:\s*(#[0-9a-fA-F]{3,8})">([^\n]*?)<\/span>/y, out: (m, o) => mk(m[0].slice(0, m[0].indexOf('>') + 1)) + '<span class="md-col" style="--c:' + m[1] + '">' + inline(m[2], o) + '</span>' + mk('</span>') },
+  { re: /⟦(\d+ ?)([^⟦⟧\n]*)⟧/y, out: m => mk('⟦' + m[1]) + span('hl-kept', esc(m[2])) + mk('⟧') },
+  { re: /<!-- bg:(#[0-9a-fA-F]{3,8}) -->/y, out: m => '<span class="hl-sw" style="--c:' + m[1] + '">' + mk(m[0]) + '</span>' },
+  { re: /<!-- th -->/y, out: m => span('mk hl-thm', esc(m[0])) },
   { re: /<!--[^\n]*?-->/y, out: m => span(/^<!-- ?keep:/.test(m[0]) ? 'hl-keep' : 'hl-tag', esc(m[0])) },
   { re: /https?:\/\/[^\s<>()]*[^\s<>().,;:!?'"\]]/y, pre: c => word(c) || c === '/', out: m => '<span class="hl-url hl-bare"' + href(m[0]) + '>' + esc(m[0]) + '</span>' },
   { re: /:([a-z0-9_+-]{2,}):/y, pre: word, out: (m, o) => { const g = o.emoji && o.emoji(m[1]); return g ? '<span class="hl-emo" data-g="' + esc(g) + '">' + mk(m[0]) + '</span>' : span('hl-emo', esc(m[0])); } },
   { re: /[A-Z][A-Z0-9_]+-\d+(?![\p{L}\p{N}_-])/uy, pre: c => word(c) || c === '-', out: m => '<span class="hl-key" data-key="' + m[0] + '">' + m[0] + '</span>' },
 ];
-const STARTS = /[\\`!*[_~<h:@A-Z]/;
+const STARTS = /[\\`!*[_~<h:@A-Z⟦]/;
 
 function inline(s, o) {
   let out = '', plain = 0;
@@ -82,6 +85,15 @@ const DELIM = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
 const PANEL = /^(\s*<!-- panel:)([a-z]+)( -->\s*)$/;
 const EXPAND = /^(\s*<!-- expand(?::\s*)?)(.*?)( -->\s*)$/;
 const CLOSE = /^(\s*<!-- )(\/(?:panel|expand|block))( -->\s*)$/;
+// Placeholders desc.go writes for what markdown can't hold: a kept block, a
+// container edited as its content, a kept table's layout, a link card.
+const KEEP = /^(\s*<!-- ?keep:\d+ )(.*?)((?:: move or delete this line)? -->\s*)$/;
+const BLOCK = /^(\s*<!-- block:\d+ )(.*?)( -->\s*)$/;
+const SHELL = /^(\s*<!-- table:\d+ )(.*?)( -->\s*)$/;
+const CARD = /^(\s*<!-- card: )(.*?)( -->\s*)$/;
+// KEPT names a kept block's ADF type as a reader would.
+const KEPT = { mediaSingle: 'image', mediaGroup: 'attachments', media: 'attachment', table: 'table', blockCard: 'link card', embedCard: 'embed', extension: 'macro', bodiedExtension: 'macro', codeBlock: 'code block', taskList: 'checklist', decisionList: 'decisions', nestedExpand: 'expand', layoutSection: 'columns', rule: 'divider' };
+const keptLabel = n => { const [t, ...more] = n.split(' with '); return (KEPT[t] || t) + (more.length ? ' with ' + more.join(' with ') : ''); };
 const isRow = l => /^\s*\|/.test(l) && (l.match(/(?<!\\)\|/g) || []).length > 1;
 const isTable = (l, next) => isRow(l) || (l.includes('|') && DELIM.test(next || '') && next.includes('|'));
 const cols = s => [...s].reduce((n, c) => (c === '\t' ? n + 4 - (n % 4) : n + 1), 0);
@@ -115,10 +127,10 @@ export function lines(text, o = {}) {
   };
   const out = [];
   let fence = '', group = -1;
-  const frames = []; // open panels and expands: {kind, type}
+  const frames = []; // open panels, expands and blocks: {kind, type}
   const frame = () => {
     const p = [...frames].reverse().find(f => f.kind === 'panel');
-    return (p ? ' pn pn-' + p.type : '') + (frames.some(f => f.kind === 'expand') ? ' ex' : '');
+    return (p ? ' pn pn-' + p.type : '') + (frames.some(f => f.kind !== 'panel') ? ' ex' : '');
   };
   for (let i = 0; i < src.length; i++) {
     const l = src[i];
@@ -141,6 +153,10 @@ export function lines(text, o = {}) {
       out.push({ c: 'tag pnc' + c, h: mk(m[1]) + span('hl-end', esc(m[2])) + mk(m[3]), s: '', g: i });
       continue;
     }
+    if ((m = BLOCK.exec(l))) { push('tag blo', mk(m[1]) + span('hl-blk', esc(m[2])) + mk(m[3])); frames.push({ kind: 'block' }); continue; }
+    if ((m = KEEP.exec(l))) { push('keep', mk(m[1]) + '<span class="hl-kn" data-l="' + esc(keptLabel(m[2])) + '" title="Kept as it is in Jira: move or delete this line">' + mk(m[2]) + '</span>' + mk(m[3])); continue; }
+    if ((m = SHELL.exec(l))) { push('tag shell', mk(m[1]) + span('hl-shell', esc(m[2])) + mk(m[3])); continue; }
+    if ((m = CARD.exec(l))) { push('card', mk(m[1]) + '<span class="hl-lt hl-card"' + href(m[2]) + '>' + esc(m[2]) + '</span>' + mk(m[3])); continue; }
     if (/^\s*<!--.*-->\s*$/.test(l)) { push(/^\s*<!-- ?keep:/.test(l) ? 'keep' : 'tag', span(/^\s*<!-- ?keep:/.test(l) ? 'hl-keep' : 'hl-tag', esc(l))); continue; }
     if (isTable(l, src[i + 1])) {
       const first = i === 0 || !isTable(src[i - 1], l);
