@@ -68,6 +68,13 @@ func TestSearchRoutes(t *testing.T) {
 	if code := searchGet(t, ts.URL+"/api/jql/values", nil); code != 400 {
 		t.Errorf("values without field: %d, want 400", code)
 	}
+	var n struct{ Count int }
+	if code := searchGet(t, ts.URL+"/api/jql/count?jql=project%20%3D%20DEMO", &n); code != 200 || n.Count != len(out.Cards) {
+		t.Errorf("count: %d, %d, want %d", code, n.Count, len(out.Cards))
+	}
+	if code := searchGet(t, ts.URL+"/api/jql/count", nil); code != 400 {
+		t.Errorf("count without jql: %d, want 400", code)
+	}
 	var vals []string
 	if code := searchGet(t, ts.URL+"/api/jql/values?field=status&prefix=", &vals); code != 200 {
 		t.Errorf("values: %d", code)

@@ -7,6 +7,7 @@ import { fuzzy } from '../lib/fuzzy.js';
 import { kbd, keys } from '../lib/keys.js';
 import bus from '../lib/bus.js';
 import api from '../lib/api.js';
+import { jqlComplete, jqlMatches, jqlWordsFor } from '../lib/jql.js';
 
 css('palette');
 
@@ -35,36 +36,6 @@ const KEY_RE = /^[A-Za-z][A-Za-z0-9]+-\d+$/;
 // The key in a pasted issue URL: …/browse/ABC-1, or a board's …?selectedIssue=ABC-1 (TUI jiraBrowseRe).
 const BROWSE_RE = /(?:\/browse\/|selectedIssue=)([A-Za-z][A-Za-z0-9_]*-[0-9]+)/;
 const cat = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
-
-// ---- JQL completion (the TUI's rules, internal/ui/jql.go)
-const OPS = ['=', '!=', '~', '!~', '>', '>=', '<', '<=', 'in', 'is', 'was', 'changed'];
-function jqlContext(s) {
-  let start = Math.max(s.lastIndexOf(' '), s.lastIndexOf('('), s.lastIndexOf(',')) + 1;
-  if (((s.match(/"/g) || []).length) % 2 === 1) start = s.lastIndexOf('"');
-  const prefix = s.slice(start).replace(/^"+|"+$/g, '');
-  let head = s.slice(0, start);
-  const open = head.lastIndexOf('(');
-  if (open >= 0 && !head.slice(open).includes(')')) head = head.slice(0, open);
-  const w = head.replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean), n = w.length;
-  const lw = i => w[i].toLowerCase(), isOp = i => OPS.includes(lw(i));
-  if (n >= 3 && lw(n - 1) === 'in' && lw(n - 2) === 'not') return { field: w[n - 3], prefix, start, value: true };
-  if (n >= 3 && lw(n - 1) === 'not' && isOp(n - 2)) return { field: w[n - 3], prefix, start, value: true };
-  if (n >= 2 && isOp(n - 1)) return { field: w[n - 2], prefix, start, value: true };
-  return { field: '', prefix, start, value: false };
-}
-function jqlComplete(s, word) {
-  const { start } = jqlContext(s);
-  if (word.includes(' ') && !word.startsWith('"')) word = '"' + word + '"';
-  return s.slice(0, start) + word + ' ';
-}
-function jqlMatches(words, prefix) {
-  const p = prefix.toLowerCase(), head = [], rest = [];
-  for (const w of words) {
-    const l = w.replace(/^"|"$/g, '').toLowerCase();
-    if (l.startsWith(p)) head.push(w); else if (p && l.includes(p)) rest.push(w);
-  }
-  return head.concat(rest);
-}
 
 const MODES = {
   search: { label: 'search', hint: 'Search issues…' },
@@ -234,18 +205,9 @@ export function openPalette(app, mode = '') {
   function suggest() {
     const v = q;
     if (!v.trim()) { sugg = []; build(); return; }
-    const c = jqlContext(v);
-    if (!c.value) {
-      stopFetch();
-      const tag = (arr, kind) => arr.map(text => ({ text, kind }));
-      const all = [...tag(words.Fields, 'field'), ...tag(words.Functions, 'function'), ...tag(words.Reserved, 'keyword')];
-      const ok = new Set(jqlMatches(all.map(a => a.text), c.prefix));
-      sugg = all.filter(a => ok.has(a.text)).sort((a, b) => [...ok].indexOf(a.text) - [...ok].indexOf(b.text)).slice(0, 40);
-      build(); return;
-    }
-    const fns = jqlMatches(words.Functions, c.prefix).map(text => ({ text, kind: 'function' }));
-    sugg = fns; build();
-    valuesRemote(c);
+    const { c, list } = jqlWordsFor(words, v);
+    sugg = list; build();
+    if (c.value) valuesRemote(c); else stopFetch();
   }
   const valuesRemote = debounce(c => {
     if (cur !== 'jql' || phase !== 'edit') return;

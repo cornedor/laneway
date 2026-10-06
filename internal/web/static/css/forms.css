@@ -20,3 +20,9 @@ label.check { display: inline-flex; align-items: center; gap: .286rem; cursor: p
 .bulk-failed { list-style: none; margin: var(--pad) 0 0; padding: 0; color: var(--err); max-height: 30vh; overflow: auto; }
 .bulk-failed b { color: var(--fg); }
 @media (max-width: 560px) { .form { grid-template-columns: 1fr; gap: .143rem; } .form-label { padding-top: .429rem; } }
+
+/* a JQL input with completions under it (lib/jqlinput.js) */
+.jqi { position: relative; }
+.jqi-in { width: 100%; }
+.jqi .jqi-pop { top: 100%; bottom: auto; margin-top: 2px; max-width: 100%; }
+.jqi-pop .mp { justify-content: space-between; } .jqi-word { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

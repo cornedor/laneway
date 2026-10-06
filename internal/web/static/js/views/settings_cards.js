@@ -1,6 +1,6 @@
 // The card designer on the settings page: ui.card_layout as a card whose fields are dragged into place, and
 // ui.card_styles as a list of conditions with what they do; both with a preview of sample cards drawn as the board
-// draws them (lib/card.js). Each change writes the config file at once (settings_config.js put).
+// draws them (lib/card.js). Each change writes the config file at once (settings_config.js saver).
 // Keys: enter on the row starts editing. Layout: h/l pick a field, H/L move it, J/K a line down or up, x
 // takes it off the card or puts it back; styles: tab walks the controls. esc leaves.
 import { h, clear, debounce } from '../lib/dom.js';
@@ -9,7 +9,7 @@ import { css } from '../lib/css.js';
 import { compile } from '../lib/cardquery.js';
 import { buildCard, fillCard } from '../lib/card.js';
 import { FIELDS, SLOTS, COLORS, fieldLabel, layoutOf, layoutIsSet, normStyle, lookOf, layoutValue, styleValue } from '../lib/cardstyle.js';
-import { put } from './settings_config.js';
+import { saver } from './settings_config.js';
 
 css('board');
 
@@ -52,27 +52,8 @@ export function designCards(app, host, options) {
   }
   const preview = () => { const p = h('div.cd-prev', { 'aria-label': 'Preview' }); previews.add(p); paintPreview(p); return p; };
 
-  // Writes go out one at a time, the last change last; an error shows under the row.
-  function saver(o, value) {
-    let busy = false, again = false;
-    const status = () => o.el && o.el.querySelector('.cd-status');
-    const say = (t, bad) => { const s = status(); if (s) { s.textContent = t; s.classList.toggle('bad', !!bad); } };
-    async function run() {
-      if (!o.editable) { say('No config file to write to', true); return; }
-      if (busy) { again = true; return; }
-      busy = true; say('Saving…');
-      try {
-        const v = value();
-        o.st = await put(app, o.name, { Value: v });
-        say('Saved to the config file');
-      } catch (e) { say(e.message, true); }
-      busy = false;
-      if (again) { again = false; run(); }
-    }
-    return run;
-  }
-  const saveLayout = saver(L, () => (state.layoutSet ? layoutValue(state.layout) : null));
-  const saveStyles = debounce(saver(S, () => { const v = state.styles.filter(s => s.when.trim()).map(styleValue); return v.length ? v : null; }), 400);
+  const saveLayout = saver(app, L, () => (state.layoutSet ? layoutValue(state.layout) : null));
+  const saveStyles = debounce(saver(app, S, () => { const v = state.styles.filter(s => s.when.trim()).map(styleValue); return v.length ? v : null; }), 400);
 
   // ---- keyboard: a scope over the settings page's own while editing
   let keys = null;

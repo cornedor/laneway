@@ -202,7 +202,9 @@ back to the config file (your comments kept) and applied at once. The
 
     `g ,` (or `,`) opens them, beside the browser's own: Appearance,
     Keyboard, Notifications and App. `enter` or `space` changes a row, `h` `l` step its
-    values, `delete` resets it.
+    values, `delete` resets it. `quick_filters`, `views` and `my_work_jql`
+    get a JQL editor: a name and a query per row, completions as you type,
+    and how many issues each finds.
 
     ![Settings in the browser](../screenshots/web/settings.png)
 

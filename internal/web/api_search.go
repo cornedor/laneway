@@ -57,6 +57,16 @@ func init() {
 		raw, _ := json.Marshal(list)
 		return map[string]bool{"On": on}, s.opt.Store.SetMeta(jqlStarredMeta, string(raw))
 	})
+	// GET /jql/count?jql= is how many issues jql finds, by Jira's approximate
+	// count; {Count}, or Jira's complaint about the query.
+	get("/jql/count", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		jql := strings.TrimSpace(Q(r, "jql"))
+		if jql == "" {
+			return nil, badRequest("jql is empty")
+		}
+		n, err := s.Client().Count(ctx, jql)
+		return map[string]int{"Count": n}, err
+	})
 	get("/jql/words", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return s.Client().JQLAutocomplete(ctx)
 	})

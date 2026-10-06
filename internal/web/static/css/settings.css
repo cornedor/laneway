@@ -90,6 +90,12 @@
 .cd-fchip { display: inline-flex; align-items: center; gap: .143rem; }
 .cd-fx { border: 0; background: none; color: var(--fg-3); cursor: pointer; padding: 0 .143rem; font: inherit; } .cd-fx:hover { color: var(--err); }
 .cd-add { padding: 0 .429rem; }
+/* the JQL editors (views/settings_jql.js) */
+.jq-name { flex: 0 1 11rem; min-width: 6rem; }
+.jq .jqi { flex: 1; min-width: 0; }
+.jq-count { min-width: 5.5rem; text-align: right; }
+.jq > .row { flex-wrap: wrap; }
+@media (max-width: 700px) { .jq-rule .cd-rhead { flex-wrap: wrap; } .jq-rule .jqi { flex-basis: 100%; order: 1; } .jq-name { flex: 1; } .jq-count { min-width: 0; } }
 @media (max-width: 700px) { .cd-rbody { grid-template-columns: 1fr; } .cd-trayrow { flex-direction: column; } }
 .cd-tog .btn.on { background: var(--accent-bg); color: var(--fg); box-shadow: inset 0 0 0 1px var(--accent); }
 .st-proj { display: inline-flex; align-items: center; gap: .143rem; } .st-proj-x { font: inherit; border: 0; background: none; color: var(--fg-3); cursor: pointer; padding: 0 .143rem; } .st-proj-x:hover { color: var(--fg); }

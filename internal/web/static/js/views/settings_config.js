@@ -21,6 +21,25 @@ export async function put(app, name, payload) {
   return st;
 }
 
+// saver → run(): writes value() as ui.<o.name>, one write at a time, the last change last; the outcome shows in
+// the row's .cd-status.
+export function saver(app, o, value) {
+  let busy = false, again = false;
+  const say = (t, bad) => { const s = o.el && o.el.querySelector('.cd-status'); if (s) { s.textContent = t; s.classList.toggle('bad', !!bad); } };
+  async function run() {
+    if (!o.editable) { say('No config file to write to', true); return; }
+    if (busy) { again = true; return; }
+    busy = true; say('Saving…');
+    try {
+      o.st = await put(app, o.name, { Value: value() });
+      say('Saved to the config file');
+    } catch (e) { say(e.message, true); }
+    busy = false;
+    if (again) { again = false; run(); }
+  }
+  return run;
+}
+
 function make(app, host, st0, editable) {
   const o = { name: st0.Name, section: st0.Group, cfg: true, st: st0, err: '', wide: st0.Type === 'yaml', editable };
   const st = () => o.st;
