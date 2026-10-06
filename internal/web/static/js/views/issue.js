@@ -415,11 +415,16 @@ export function mountIssue(el, key, { app, full, card }) {
     const list = galleryList();
     if (!list.length) return ui.toast('No images');
     let i = src ? Math.max(0, list.findIndex(x => x.src === src)) : at;
-    const img = h('img.lightbox'), cap = h('div.lb-cap');
-    const show = d => { i = (i + d + list.length) % list.length; img.src = list[i].src; img.alt = list[i].name; cap.textContent = list[i].name + (list.length > 1 ? '  ' + (i + 1) + '/' + list.length : ''); };
-    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: 'Previous (←)', 'aria-label': 'Previous' }, icon('chevron-left')), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: 'Next (→)', 'aria-label': 'Next' }, icon('chevron-right')), cap), { wide: true });
+    const img = h('img.lightbox'), name = h('span'), dl = h('a.btn.ghost.sm', { title: 'Download (d)', 'aria-label': 'Download' }, icon('download'));
+    const show = d => {
+      i = (i + d + list.length) % list.length; const x = list[i];
+      img.src = x.src; img.alt = x.name; name.textContent = x.name + (list.length > 1 ? '  ' + (i + 1) + '/' + list.length : '');
+      dl.href = x.src + (x.src.includes('?') ? '&' : '?') + 'download=1&name=' + encodeURIComponent(x.name); dl.download = x.name;
+    };
+    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: 'Previous (←)', 'aria-label': 'Previous' }, icon('chevron-left')), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: 'Next (→)', 'aria-label': 'Next' }, icon('chevron-right')), h('div.lb-cap', name, dl)), { wide: true });
     m.scope.bind(['ArrowRight', 'l', 'n'], () => show(1), '', { hidden: true });
     m.scope.bind(['ArrowLeft', 'h', 'N'], () => show(-1), '', { hidden: true });
+    m.scope.bind('d', () => dl.click(), 'download');
     show(0);
   }
   root.addEventListener('click', e => { const im = e.target.closest('img.md-img'); if (im) gallery(0, im.getAttribute('src')); });
