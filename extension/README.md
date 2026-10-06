@@ -26,3 +26,5 @@ How: a `declarativeNetRequest` rule sends main-frame Jira requests to `go.html`,
 Switching site sets laneway's `lw_site` cookie, which other open laneway tabs then follow as well.
 
 Test: `node --test extension/*.test.mjs`.
+
+Chrome Web Store: `extension/pack.sh`, then see [STORE.md](STORE.md).
