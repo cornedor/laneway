@@ -32,6 +32,9 @@ const NAMED = {
   createdrecently: '-6', resolvedrecently: '-7', updatedrecently: '-8', doneissues: '-9',
 };
 
+// http parses an http(s) URL, or null: the hash go.html reads comes from whoever opened it.
+const http = href => { try { const u = new URL(href); return /^https?:$/.test(u.protocol) ? u : null; } catch { return null; } };
+
 const report = s => REPORTS[String(s || '').toLowerCase().replace(/[^a-z]/g, '')] || 'burndown';
 const withQuery = (path, q) => { const s = new URLSearchParams(Object.entries(q).filter(([, v]) => v)).toString(); return s ? path + '?' + s : path; };
 
@@ -60,8 +63,8 @@ const view = (project, v, issue) => withQuery(project ? '/board/' + project : '/
 
 // route maps a Jira URL to a laneway hash route ('/board/ABC/12'), or null.
 export function route(href) {
-  let u;
-  try { u = new URL(href); } catch { return null; }
+  const u = http(href);
+  if (!u) return null;
   const q = u.searchParams, seg = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const sel = KEY.test(q.get('selectedIssue') || '') ? q.get('selectedIssue') : '';
 
@@ -150,9 +153,11 @@ export function parseHosts(text) {
 export const PATHS = '(browse|issues|jira/(browse|software|core|your-work|for-you)|secure/RapidBoard\\.jspa|projects/[^/]+/issues)';
 
 // The marker that sends a request to Jira untouched (a priority allow rule matches it).
+// bypass is href with it, or null when href is no http(s) URL.
 export const BYPASS = 'laneway=jira';
 export function bypass(href) {
-  const u = new URL(href);
+  const u = http(href);
+  if (!u) return null;
   u.searchParams.set(...BYPASS.split('='));
   return u.toString();
 }
