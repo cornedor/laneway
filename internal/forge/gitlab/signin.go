@@ -56,7 +56,7 @@ func (s SignIn) Lines() []string {
 
 // IsMRLink is whether link is a GitLab merge request's, on any host.
 func IsMRLink(link string) bool {
-	return mrURLRe.MatchString(strings.TrimSpace(link))
+	return mrURLRe.MatchString(strings.TrimSpace(link)) && forge.HostOf(link) != ""
 }
 
 // Rejected is whether err is GitLab refusing the token (401).

@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -194,17 +195,25 @@ func NormalizeBaseURL(raw string) string {
 	return raw
 }
 
-// HostOf returns the lowercased host of a URL, or "" if it doesn't parse to one.
+// hostRe is a host[:port] fit to show in a shell command: net/url lets ;,
+// $(…), quotes and control runes through in a host.
+var hostRe = regexp.MustCompile(`^([a-z0-9._-]+|\[[0-9a-f:.]+\])(:\d+)?$`)
+
+// HostOf returns the lowercased host[:port] of a URL, or "" if it doesn't
+// parse to a plain one.
 func HostOf(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Host == "" {
+	if err != nil {
 		return ""
 	}
-	return strings.ToLower(u.Host)
+	if h := strings.ToLower(u.Host); hostRe.MatchString(h) {
+		return h
+	}
+	return ""
 }
 
 // Cache memoises fetched change requests per provider, keyed case-insensitively

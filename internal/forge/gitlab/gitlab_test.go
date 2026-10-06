@@ -95,6 +95,30 @@ func TestGetErrors(t *testing.T) {
 	}
 }
 
+// TestEscapesStripped: no terminal escape in a merge request, its jobs or
+// an error message survives to a render path.
+func TestEscapesStripped(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/merge_requests/1"):
+			w.Write([]byte(`{"iid": 1, "title": "\u001b]52;c;eA==\u0007hi\u009b2J"}`))
+		case strings.HasSuffix(r.URL.Path, "/merge_requests/1/approvals"):
+			w.Write([]byte(`{}`))
+		default:
+			http.Error(w, `{"message": "no\u001b[2J"}`, http.StatusConflict)
+		}
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	mr, err := c.Get(context.Background(), "g/p", 1)
+	if err != nil || mr.Title != "]52;c;eA==hi2J" {
+		t.Errorf("title %q, err %v", mr.Title, err)
+	}
+	if err := c.Approve(context.Background(), "g/p", 1); err == nil || strings.ContainsRune(err.Error(), 0x1b) {
+		t.Errorf("error %q", err)
+	}
+}
+
 // TestParse: a merge request link on this instance, nested groups whole;
 // another host or another page is none.
 func TestParse(t *testing.T) {

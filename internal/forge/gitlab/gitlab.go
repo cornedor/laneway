@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/forge"
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // mrFields is the field list requested from the API. The default response is
@@ -211,7 +212,7 @@ func (c *Client) fetch(ctx context.Context, project string, iid int) (*forge.Cha
 		return nil, err
 	}
 	var a apiMR
-	if err := json.Unmarshal(body, &a); err != nil {
+	if err := json.Unmarshal(safeterm.JSON(body), &a); err != nil {
 		return nil, fmt.Errorf("decode merge request: %w", err)
 	}
 	mr := toChange(a, project)

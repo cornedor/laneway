@@ -27,6 +27,13 @@ func TestSignIn(t *testing.T) {
 	if !IsMRLink("https://any.host/g/p/-/merge_requests/3") || IsMRLink("https://github.com/o/r/pull/3") {
 		t.Error("IsMRLink")
 	}
+	// A host that would break out of the glab command is no host.
+	for _, link := range []string{"https://x;reboot.example/g/p/-/merge_requests/1", "https://x$(id).example/g/p/-/merge_requests/1",
+		"https://a'b/g/p/-/merge_requests/1", "https://x\u009b.example/g/p/-/merge_requests/1"} {
+		if IsMRLink(link) {
+			t.Errorf("IsMRLink(%q)", link)
+		}
+	}
 }
 
 // TestSitesForget: a host without a token is asked glab again once

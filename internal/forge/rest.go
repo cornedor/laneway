@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // RequestTimeout bounds a single HTTP call. Generous for a slow instance; a
@@ -47,7 +49,8 @@ func (r *REST) Root() string { return r.root }
 
 // DoRaw performs an authenticated request to path (relative to the API root,
 // beginning with "/" and optionally carrying a query string), sending body as
-// JSON when non-nil, and returns the raw response body. A non-2xx status becomes
+// JSON when non-nil, and returns the raw response body: unsanitised, so a
+// caller decoding JSON from it runs it through safeterm.JSON (Do does). A non-2xx status becomes
 // an error labelled by what — a change-request reference, or an action name like
 // "approve".
 func (r *REST) DoRaw(ctx context.Context, method, path, what string, body any) ([]byte, error) {
@@ -97,6 +100,9 @@ func (r *REST) Do(ctx context.Context, method, path, what string, body, out any)
 	if err != nil {
 		return err
 	}
+	// The forge's text reaches the terminal; no string in it may carry an
+	// escape.
+	respBody = safeterm.JSON(respBody)
 	if out == nil || len(respBody) == 0 {
 		return nil
 	}
@@ -122,13 +128,13 @@ type StatusErr struct {
 // with a {"message": …} body; we surface it when present, since it carries the
 // reason a merge or approve was refused.
 func StatusError(label string, code int, what string, body []byte, header http.Header) error {
-	e := &StatusErr{Label: label, Code: code, What: what, Msg: APIMessage(body), Header: header}
+	e := &StatusErr{Label: label, Code: code, What: what, Msg: safeterm.Line(APIMessage(body)), Header: header}
 	if e.Msg == "" {
 		if txt := strings.TrimSpace(string(body)); txt != "" {
 			if len(txt) > 200 {
 				txt = txt[:200] + "…"
 			}
-			e.Msg = txt
+			e.Msg = safeterm.Line(txt)
 		}
 	}
 	return e
