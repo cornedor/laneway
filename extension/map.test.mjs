@@ -78,6 +78,11 @@ test('parseHosts', () => {
 test('bypass', () => {
   assert.equal(bypass(J + '/browse/ABC-1'), J + '/browse/ABC-1?laneway=jira');
   assert.equal(bypass(J + '/issues/?jql=a'), J + '/issues/?jql=a&laneway=jira');
+  for (const s of ['javascript:fetch(1)', 'data:text/html,x', 'file:///etc/passwd', '//evil.com/x', '']) {
+    assert.equal(bypass(s), null, s);
+    assert.equal(route(s), null, s);
+  }
+  assert.equal(route('javascript:/browse/ABC-1'), null);
 });
 
 test('PATHS lets other pages through', () => {

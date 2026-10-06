@@ -1,8 +1,8 @@
-# Chrome Web Store listing
+# Store listings
 
-Build: `extension/pack.sh` → `dist/extension/` (zip, promo tile, screenshots). Bump `version` in `manifest.json` for every upload.
+Build: `extension/pack.sh` → `dist/extension/` (zip, promo tile, screenshots). One zip for both stores. Bump `version` in `manifest.json` for every upload.
 
-## Store listing
+## Chrome: store listing
 
 Category: Developer Tools. Language: English.
 
@@ -20,7 +20,7 @@ Description:
 
 Images: icon from the zip, `promo-440x280.png`, the three `*-1280x800.png`.
 
-## Privacy practices
+## Chrome: privacy practices
 
 Single purpose: open Jira links in laneway web instead of Jira.
 
@@ -38,3 +38,21 @@ Remote code: no.
 Data usage: none of the types. Certify all three statements.
 
 Privacy policy: https://cornedor.github.io/laneway/extension-privacy/
+
+## Firefox (addons.mozilla.org)
+
+Submit a new add-on → On this site → upload the zip. Lint first: `npx web-ext lint -s extension` (one expected warning: Firefox ignores `service_worker`, it runs `background.scripts`).
+
+Source code: no, nothing is minified or bundled.
+
+Name: laneway redirect. Slug: `laneway-redirect`. Summary: the manifest's `description`. Description: as Chrome's.
+
+Categories: Other. Support site: https://github.com/cornedor/laneway/issues. License: MIT.
+
+Privacy policy: paste the text of `docs/extension-privacy.md` (AMO wants the text, not a URL).
+
+Notes to reviewer:
+
+> Plain, unbundled source. Needs laneway web (github.com/cornedor/laneway, `laneway web`) to do anything useful; without it the redirect lands on 127.0.0.1:8484. The pure URL mapping is in map.js, tested by map.test.mjs in the repo.
+
+Screenshots: the three `*-1280x800.png`.

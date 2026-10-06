@@ -10,6 +10,6 @@
   "permissions": ["declarativeNetRequestWithHostAccess", "storage", "cookies"],
   "host_permissions": ["https://*.atlassian.net/*", "http://127.0.0.1/*", "http://localhost/*"],
   "optional_host_permissions": ["*://*/*"],
-  "web_accessible_resources": [{ "resources": ["go.html", "go.js", "map.js", "settings.js"], "matches": ["*://*/*"] }],
+  "web_accessible_resources": [{ "resources": ["go.html"], "matches": ["*://*/*"] }],
   "browser_specific_settings": { "gecko": { "id": "laneway-redirect@cornedor.github.io", "strict_min_version": "142.0", "data_collection_permissions": { "required": ["none"] } } }
 }
