@@ -40,9 +40,11 @@
 .ed-ta .hl-img { display: block; max-width: min(100%, 32rem); max-height: 16rem; margin: .2em 0; border-radius: var(--radius); background: var(--bg-3); cursor: default; }
 .ed-ta .hl-alt { color: var(--fg-2); }
 /* panels and expands: their lines tinted, as the panel is drawn */
-.ed-ta .ln.pn { --c: var(--info); border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 9%, transparent); padding-left: .714rem; }
+.ed-ta .ln.pn, .ed-ta .ln.ex { --pl: .714rem; padding-left: var(--pl); }
+.ed-ta .ln.pn { --c: var(--info); border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 9%, transparent); }
 .ed-ta .pn-note { --c: var(--accent) !important; } .ed-ta .pn-success { --c: var(--ok) !important; } .ed-ta .pn-warning { --c: var(--warn) !important; } .ed-ta .pn-error { --c: var(--err) !important; }
-.ed-ta .ln.ex { border-left: 1px dashed var(--border); padding-left: .714rem; }
+.ed-ta .ln.ex { border-left: 1px dashed var(--border); }
+.ed-ta .ln.li.pn, .ed-ta .ln.li.ex { padding-left: calc(var(--pl) + var(--h)); } /* the hanging indent inside the panel's */
 .ed-ta .hl-pn, .ed-ta .hl-exp { color: var(--c, var(--fg-2)); font-weight: 600; }
 
 /* .live: the lines the caret is not on (.act) drawn rendered, their markdown hidden */
@@ -52,7 +54,7 @@
 .ed-ta.live .ln:not(.act) .lm.bul .hl-li::after { content: '•'; color: var(--accent); position: absolute; left: 0; top: 0; }
 .ed-ta.live .ln:not(.act) .lm.bul.d1 .hl-li::after { content: '◦'; } .ed-ta.live .ln:not(.act) .lm.bul.d2 .hl-li::after { content: '▪'; }
 .ed-ta.live .ln.task:not(.act) .lm { display: none; }
-.ed-ta.live .ln.task:not(.act) { padding-left: calc(var(--h) - 2ch); text-indent: calc(2ch - var(--h)); }
+.ed-ta.live .ln.task:not(.act) { padding-left: calc(var(--pl, 0px) + var(--h) - 2ch); text-indent: calc(2ch - var(--h)); }
 .ed-ta.live .ln:not(.act) .hl-box { display: inline-block; position: relative; color: transparent; width: 3ch; }
 .ed-ta.live .ln:not(.act) .hl-box::before { content: ''; position: absolute; left: .4ch; top: 50%; width: 1em; height: 1em; transform: translateY(-50%); box-sizing: border-box; border: 1.5px solid var(--fg-3); border-radius: 4px; background: var(--bg); }
 .ed-ta.live .ln:not(.act) .hl-box.on::before { background: var(--accent); border-color: var(--accent); }
