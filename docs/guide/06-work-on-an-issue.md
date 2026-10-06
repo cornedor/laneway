@@ -162,7 +162,8 @@ their lines.
 - `M` merges it: squashed or not, the branch deleted or kept, GitLab's
   defaults first.
 - Edit it: title, draft or ready, reviewers and assignees from the
-  project's members, labels, target branch, description.
+  project's members (one of each on GitLab's free tier), labels, target
+  branch, description.
 - A merge request on a GitLab without a token says how to sign in: `glab
   auth login --hostname <host>`, or a personal access token with scope
   `api` under `gitlab:` in the config. Reload once signed in; no restart.

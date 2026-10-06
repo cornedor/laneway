@@ -228,6 +228,11 @@ func (t gitlabThread) json(resolved bool) map[string]any {
 // serveGitLab answers /api/v4 requests; false for another path.
 func (s *Server) serveGitLab(w http.ResponseWriter, r *http.Request, body map[string]any, send func(any)) bool {
 	p, q := r.URL.Path, r.URL.Query()
+	if p == "/api/graphql" { // a paid tier's: several assignees and reviewers
+		send(map[string]any{"data": map[string]any{"project": map[string]any{"mergeRequest": map[string]any{
+			"allowsMultipleAssignees": true, "allowsMultipleReviewers": true}}}})
+		return true
+	}
 	if !strings.HasPrefix(p, "/api/v4/") {
 		return false
 	}

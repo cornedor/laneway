@@ -72,6 +72,8 @@ func TestGitLabEditMerge(t *testing.T) {
 			w.Write([]byte(`{"iid": 7, "title": "Fix login", "state": "opened", "source_branch": "fix", "target_branch": "main", "detailed_merge_status": "mergeable", "force_remove_source_branch": true}`))
 		case "/api/v4/projects/g/p/members/all":
 			w.Write([]byte(`[{"id": 2, "username": "grace", "name": "Grace"}]`))
+		case "/api/graphql":
+			w.Write([]byte(`{"data": {"project": {"mergeRequest": {"allowsMultipleAssignees": false, "allowsMultipleReviewers": true}}}}`))
 		default:
 			w.Write([]byte(`[]`))
 		}
@@ -85,7 +87,8 @@ func TestGitLabEditMerge(t *testing.T) {
 	if got := wrote["/api/v4/projects/g/p/merge_requests/7"]; got != `{"reviewer_ids":[2],"title":"Draft: Fix login"}` {
 		t.Errorf("edit sent %s", got)
 	}
-	if rec := call(s, "GET", "/api/gitlab/members"+q, "", ""); !strings.Contains(rec.Body.String(), `"Username":"grace"`) {
+	if rec := call(s, "GET", "/api/gitlab/members"+q, "", ""); !strings.Contains(rec.Body.String(), `"Username":"grace"`) ||
+		!strings.Contains(rec.Body.String(), `"MultipleAssignees":false,"MultipleReviewers":true`) {
 		t.Errorf("members: %s", rec.Body)
 	}
 	var m struct {

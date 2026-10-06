@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,11 +14,17 @@ import (
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 )
 
-// fakeMRGitLab is a GitLab with !7 on g/p, its writes kept by path.
-func fakeMRGitLab(t *testing.T, mr string) (*httptest.Server, map[string]map[string]any) {
+// fakeMRGitLab is a GitLab with !7 on g/p, its writes kept by path; a
+// paid tier's, with several reviewers, unless one.
+func fakeMRGitLab(t *testing.T, mr string, one ...bool) (*httptest.Server, map[string]map[string]any) {
 	t.Helper()
 	wrote := map[string]map[string]any{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/graphql" {
+			multi := len(one) == 0 || !one[0]
+			fmt.Fprintf(w, `{"data": {"project": {"mergeRequest": {"allowsMultipleAssignees": %v, "allowsMultipleReviewers": %v}}}}`, multi, multi)
+			return
+		}
 		if r.Method == http.MethodPut {
 			var b map[string]any
 			json.NewDecoder(r.Body).Decode(&b)
@@ -191,5 +198,28 @@ func TestMRSignIn(t *testing.T) {
 	out, cmd := m.handleRefKey(keyMsg(t, "r"))
 	if m = out.(Model); cmd != nil || !strings.Contains(m.status, "still no GitLab token") {
 		t.Errorf("r with no token yet: status %q", m.status)
+	}
+}
+
+// TestMREditOne: a GitLab that takes one reviewer picks one, Nobody first;
+// enter sets that one alone.
+func TestMREditOne(t *testing.T) {
+	t.Setenv("GLAB_CONFIG_DIR", t.TempDir())
+	srv, wrote := fakeMRGitLab(t, `{"iid": 7, "title": "Fix login", "state": "opened", "reviewers": [{"id": 1, "name": "Ada"}]}`, true)
+	m := loadedJiraModel(t).WithGitLab(gitlab.NewSites([]gitlab.Config{{BaseURL: srv.URL, Token: "tok"}}))
+	m = mrInPanel(t, m, srv.URL+"/g/p/-/merge_requests/7")
+	out, _ := m.handleRefKey(keyMsg(t, "e"))
+	m = out.(Model)
+	m.jiraPicker.idx = 2 // Reviewers
+	out, cmd := m.applyJiraPick()
+	m = run(t, out.(Model), cmd)
+	if p := m.jiraPicker; p.checked != nil || len(p.items) != 3 || p.items[0].label != "Nobody" || p.idx != 1 {
+		t.Fatalf("one-pick picker: checked %v, items %+v, cursor %d", p.checked, p.items, p.idx)
+	}
+	m.jiraPicker.idx = 2 // Grace
+	out, cmd = m.handleKey(keyMsg(t, "enter"))
+	run(t, out.(Model), cmd)
+	if got, _ := json.Marshal(wrote["/api/v4/projects/g/p/merge_requests/7"]["reviewer_ids"]); string(got) != "[2]" {
+		t.Errorf("reviewer_ids = %s, want [2]", got)
 	}
 }

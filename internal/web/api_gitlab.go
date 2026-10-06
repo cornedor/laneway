@@ -93,17 +93,26 @@ func init() {
 		}
 		return c.Get(ctx, ref.Repo, ref.Number)
 	})
-	// ?url=: the project's members (who can review or be assigned) and labels.
+	// ?url=: the project's Members (who can review or be assigned), and
+	// whether the merge request takes several assignees and reviewers
+	// (several when GitLab doesn't say); and its labels.
 	get("/gitlab/members", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		c, ref, err := gitlabLink(s, r)
 		if err != nil {
 			return nil, err
 		}
 		ms, err := c.Members(ctx, ref.Repo)
+		if err != nil {
+			return nil, err
+		}
+		a, rv, merr := c.Multiple(ctx, ref.Repo, ref.Number)
+		if merr != nil {
+			a, rv = true, true
+		}
 		if ms == nil {
 			ms = []gitlab.Member{}
 		}
-		return ms, err
+		return map[string]any{"Members": ms, "MultipleAssignees": a, "MultipleReviewers": rv}, nil
 	})
 	get("/gitlab/labels", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		c, ref, err := gitlabLink(s, r)

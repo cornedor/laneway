@@ -207,6 +207,9 @@ type jiraPickerLoadedMsg struct {
 	sprints []jira.Sprint
 	title   string // replaces the picker's title when set
 	text    string // the list as text, for its copy (the timesheet)
+	// single makes a multi picker take one row (a GitLab that takes one
+	// reviewer); its current one is marked.
+	single bool
 }
 
 // jiraAssigneeDebounceMsg fires after the debounce window to run the pending
@@ -471,6 +474,9 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 		m.filterJiraPicker()
 		m.jiraPicker.idx = max(0, slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == chosen }))
 		return m, nil
+	}
+	if msg.single {
+		m.jiraPicker.checked = nil
 	}
 	m.setJiraPickerItems(msg.items)
 	m.markChecked()

@@ -45,6 +45,7 @@ type Client struct {
 	baseURL string // trimmed of any trailing slash
 	token   string
 	rest    *forge.REST
+	gql     *forge.REST // the GraphQL API, for what REST doesn't say
 	cache   forge.Cache
 	// diffs memoises the review diff separately from the change itself: it is a
 	// different (and much larger) fetch, made only when the diff view is opened.
@@ -63,6 +64,9 @@ func New(cfg Config) *Client {
 		token:   token,
 		rest: forge.NewREST(base+"/api/v4", "gitlab", func(r *http.Request) {
 			r.Header.Set("PRIVATE-TOKEN", token)
+		}),
+		gql: forge.NewREST(base+"/api", "gitlab", func(r *http.Request) {
+			r.Header.Set("Authorization", "Bearer "+token)
 		}),
 	}
 }
@@ -537,6 +541,36 @@ type Member struct {
 // listMax is how many pages of a list Members and Labels read: a project
 // with more than a thousand is searched in GitLab.
 const listMax = 10
+
+// Multiple is whether the merge request takes several assignees and
+// several reviewers: GitLab's free tier takes one of each.
+func (c *Client) Multiple(ctx context.Context, project string, iid int) (assignees, reviewers bool, err error) {
+	if !c.Enabled() {
+		return false, false, forge.ErrNotConfigured
+	}
+	body := map[string]any{
+		"query":     `query($p: ID!, $iid: String!) { project(fullPath: $p) { mergeRequest(iid: $iid) { allowsMultipleAssignees allowsMultipleReviewers } } }`,
+		"variables": map[string]any{"p": project, "iid": strconv.Itoa(iid)},
+	}
+	var resp struct {
+		Data struct {
+			Project *struct {
+				MergeRequest *struct {
+					AllowsMultipleAssignees bool `json:"allowsMultipleAssignees"`
+					AllowsMultipleReviewers bool `json:"allowsMultipleReviewers"`
+				} `json:"mergeRequest"`
+			} `json:"project"`
+		} `json:"data"`
+	}
+	if err := c.gql.Do(ctx, http.MethodPost, "/graphql", "graphql", body, &resp); err != nil {
+		return false, false, err
+	}
+	if resp.Data.Project == nil || resp.Data.Project.MergeRequest == nil {
+		return false, false, fmt.Errorf("gitlab: %s not found in GraphQL", label(project, iid))
+	}
+	mr := resp.Data.Project.MergeRequest
+	return mr.AllowsMultipleAssignees, mr.AllowsMultipleReviewers, nil
+}
 
 // Members are the project's members, inherited ones too, by name.
 func (c *Client) Members(ctx context.Context, project string) ([]Member, error) {

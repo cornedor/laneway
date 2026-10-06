@@ -425,10 +425,15 @@ export default function mount(el, { app, scope, query }) {
       if (r) save({ Labels: r }, 'Labels changed');
     } else if (field === 'reviewers' || field === 'assignees') {
       const [ik, nk] = field === 'reviewers' ? ['ReviewerIDs', 'Reviewers'] : ['AssigneeIDs', 'Assignees'];
-      const ids = mr[ik] || [], names = new Map(ids.map((id, i) => [id, (mr[nk] || [])[i]]));
-      const all = api.get('/gitlab/members' + q()).then(ms => { for (const m of ms) names.set(m.ID, m.Name); return [...new Set([...ms.map(m => m.ID), ...ids])]; });
-      const r = await ui.pick({ title: EDITS[field] + ' of ' + label(), items: all, multi: true, selected: ids, label: id => names.get(id) || String(id), placeholder: 'People…' });
-      if (r) save({ [ik]: r }, EDITS[field] + ' changed');
+      // One pick, Nobody first, on a GitLab that takes one (its free tier).
+      const ids = mr[ik] || [], names = new Map([[0, 'Nobody'], ...ids.map((id, i) => [id, (mr[nk] || [])[i]])]);
+      let got;
+      try { got = await api.get('/gitlab/members' + q()); } catch (e) { return ui.errToast(e); }
+      for (const m of got.Members) names.set(m.ID, m.Name);
+      const multi = field === 'reviewers' ? got.MultipleReviewers : got.MultipleAssignees, all = [...new Set([...got.Members.map(m => m.ID), ...ids])];
+      const o = { title: EDITS[field] + ' of ' + label(), label: id => names.get(id) || String(id), placeholder: 'People…' };
+      const r = multi ? await ui.pick({ ...o, items: all, multi: true, selected: ids }) : await ui.pick({ ...o, items: [0, ...all], current: ids[0] || 0 });
+      if (r != null) save({ [ik]: multi ? r : r ? [r] : [] }, EDITS[field] + ' changed');
     }
   }
   async function merge() {

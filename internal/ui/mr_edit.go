@@ -71,10 +71,13 @@ func (m Model) applyMRPick(kind jiraPickerKind, it jiraPickerItem) (Model, tea.C
 		i, _ := strconv.Atoi(it.id)
 		return m, m.mergeMR(MergeChoices(p.mr)[i].MergeOptions)
 	case jiraPickMRPeople, jiraPickMRLabels:
-		if !m.jiraPicker.ticked { // enter on a row: it alone changes
-			m.toggleChecked()
+		ids := it.id // one pick: that one, "" nobody
+		if m.jiraPicker.checked != nil {
+			if !m.jiraPicker.ticked { // enter on a row: it alone changes
+				m.toggleChecked()
+			}
+			ids, _ = m.jiraPicker.checkedPick()
 		}
-		ids, _ := m.jiraPicker.checkedPick()
 		field := m.jiraPicker.issueKey
 		m.closeJiraPicker()
 		var e gitlab.Edit
@@ -122,7 +125,7 @@ func (m Model) applyMRPick(kind jiraPickerKind, it jiraPickerItem) (Model, tea.C
 }
 
 // openMRPeople ticks field's people (reviewers or assignees) among the
-// project's members.
+// project's members; one of them, with Nobody, on a GitLab that takes one.
 func (m *Model) openMRPeople(field string) tea.Cmd {
 	p := m.mr
 	names, ids := p.mr.Reviewers, p.mr.ReviewerIDs
@@ -137,19 +140,26 @@ func (m *Model) openMRPeople(field string) tea.Cmd {
 			m.jiraPicker.checked[strconv.Itoa(id)] = names[i]
 		}
 	}
-	c, ctx, repo := p.c, m.ctx, p.ref.Repo
+	c, ctx, ref := p.c, m.ctx, p.ref
 	return func() tea.Msg {
-		ms, err := c.Members(ctx, repo)
+		ms, err := c.Members(ctx, ref.Repo)
+		single := false
+		if a, r, merr := c.Multiple(ctx, ref.Repo, ref.Number); merr == nil { // unknown: several, as GitLab's paid tiers
+			single = field == "assignees" && !a || field == "reviewers" && !r
+		}
 		var items []jiraPickerItem
+		if single {
+			items = append(items, jiraPickerItem{id: "", label: "Nobody", current: len(ids) == 0})
+		}
 		for _, mb := range ms {
-			items = append(items, jiraPickerItem{id: strconv.Itoa(mb.ID), label: mb.Name, search: mb.Username})
+			items = append(items, jiraPickerItem{id: strconv.Itoa(mb.ID), label: mb.Name, search: mb.Username, current: slices.Contains(ids, mb.ID)})
 		}
 		for i, id := range ids { // someone not a member any more stays listed
 			if i < len(names) && !slices.ContainsFunc(ms, func(mb gitlab.Member) bool { return mb.ID == id }) {
-				items = append(items, jiraPickerItem{id: strconv.Itoa(id), label: names[i]})
+				items = append(items, jiraPickerItem{id: strconv.Itoa(id), label: names[i], current: true})
 			}
 		}
-		return jiraPickerLoadedMsg{gen: gen, seq: 1, kind: jiraPickMRPeople, items: items, err: err}
+		return jiraPickerLoadedMsg{gen: gen, seq: 1, kind: jiraPickMRPeople, items: items, err: err, single: single}
 	}
 }
 

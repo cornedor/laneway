@@ -195,6 +195,32 @@ func TestDraftTitle(t *testing.T) {
 	}
 }
 
+// TestMultiple: GraphQL's allowsMultiple fields, the token as a bearer; a
+// merge request GraphQL doesn't find is an error.
+func TestMultiple(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var b struct{ Variables map[string]string }
+		json.NewDecoder(r.Body).Decode(&b)
+		if r.URL.Path != "/api/graphql" || r.Header.Get("Authorization") != "Bearer tok" {
+			t.Errorf("got %s, auth %q", r.URL.Path, r.Header.Get("Authorization"))
+		}
+		if b.Variables["p"] != "g/p" || b.Variables["iid"] != "5" {
+			w.Write([]byte(`{"data": {"project": null}}`))
+			return
+		}
+		w.Write([]byte(`{"data": {"project": {"mergeRequest": {"allowsMultipleAssignees": false, "allowsMultipleReviewers": true}}}}`))
+	}))
+	defer srv.Close()
+	c := newTestClient(srv)
+	a, r, err := c.Multiple(context.Background(), "g/p", 5)
+	if err != nil || a || !r {
+		t.Errorf("Multiple = %v %v %v", a, r, err)
+	}
+	if _, _, err := c.Multiple(context.Background(), "g/q", 5); err == nil {
+		t.Error("no merge request: no error")
+	}
+}
+
 // TestMembersLabels: every page read, members once each and by name.
 func TestMembersLabels(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
