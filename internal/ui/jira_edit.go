@@ -1174,6 +1174,9 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	if field == "plan-goal" {
 		return m.applyPlanGoal(raw)
 	}
+	if field == "lane-rename" {
+		return m.applyLaneRename(raw)
+	}
 	if field == "jql-filter" {
 		return m.applySaveFilter(raw)
 	}
@@ -1572,6 +1575,8 @@ func (m *Model) renderJiraFieldInput() string {
 		title, hint, outerW = "End "+m.jiraFieldKey+" on", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
 	case "plan-goal":
 		title, hint, outerW = "Goal of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+	case "lane-rename":
+		title, hint, outerW = "Rename the lane", "↵ save · empty: its first column's · esc cancel", m.jiraFieldInput.Width()+12
 	case "jql-filter":
 		title, hint, outerW = "Save as a Jira filter", "↵ save, starred · esc cancel", m.jiraFieldInput.Width()+12
 	case "week-add":

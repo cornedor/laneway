@@ -161,3 +161,97 @@ func sumMax(ss []Section) int {
 	}
 	return n
 }
+
+// Draft is a layout as an editor shows it over one board: lanes of column
+// indexes, each keeping the statuses of its columns on other boards
+// (Foreign), and the hidden columns. Lane names are "" for the first
+// column's.
+type Draft struct {
+	Lanes         []DraftLane
+	Hidden        []int
+	ForeignHidden []string
+}
+
+// DraftLane is a lane of a Draft.
+type DraftLane struct {
+	Name    string
+	Cols    []int
+	Foreign []string
+}
+
+// NewDraft is l over cols. A lane of l without a column here stays, after
+// the one before it, for the boards it is for.
+func NewDraft(l config.LaneLayout, cols []jira.Column) Draft {
+	here := map[string]bool{}
+	for _, c := range cols {
+		for _, id := range c.StatusIDs {
+			here[id] = true
+		}
+	}
+	foreign := func(ids []string) []string {
+		out := []string{}
+		for _, id := range ids {
+			if !here[id] {
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	arranged, hidden := Arrange(l, cols)
+	d := Draft{Hidden: append([]int{}, hidden...), ForeignHidden: foreign(l.Hidden)}
+	spec := []int{} // each draft lane's layout lane, -1 for none
+	for _, a := range arranged {
+		dl := DraftLane{Cols: []int{}, Foreign: []string{}}
+		for _, s := range a.Sections {
+			dl.Cols = append(dl.Cols, s.Col)
+		}
+		if a.Spec >= 0 {
+			dl.Name, dl.Foreign = l.Lanes[a.Spec].Name, foreign(l.Lanes[a.Spec].Statuses)
+		}
+		d.Lanes, spec = append(d.Lanes, dl), append(spec, a.Spec)
+	}
+	for si, s := range l.Lanes {
+		if slices.Contains(spec, si) {
+			continue
+		}
+		at := 0
+		for j, sj := range spec {
+			if sj >= 0 && sj < si {
+				at = j + 1
+			}
+		}
+		d.Lanes = slices.Insert(d.Lanes, at, DraftLane{Name: s.Name, Cols: []int{}, Foreign: foreign(s.Statuses)})
+		spec = slices.Insert(spec, at, si)
+	}
+	return d
+}
+
+// Apply is l with d's lanes and hidden columns, cols being the board's d
+// was made over. A lane left without a status goes; a name that is its
+// first column's is left out.
+func (d Draft) Apply(l config.LaneLayout, cols []jira.Column) config.LaneLayout {
+	ids := func(cis []int) []string {
+		var out []string
+		for _, ci := range cis {
+			if ci >= 0 && ci < len(cols) {
+				out = append(out, cols[ci].StatusIDs...)
+			}
+		}
+		return out
+	}
+	l.Lanes = nil
+	for _, dl := range d.Lanes {
+		cis := slices.Sorted(slices.Values(dl.Cols))
+		st := append(ids(cis), dl.Foreign...)
+		if len(st) == 0 {
+			continue
+		}
+		name := dl.Name
+		if len(cis) > 0 && cis[0] < len(cols) && name == cols[cis[0]].Name {
+			name = ""
+		}
+		l.Lanes = append(l.Lanes, config.LaneSpec{Name: name, Statuses: st})
+	}
+	l.Hidden = append(ids(d.Hidden), d.ForeignHidden...)
+	return l
+}

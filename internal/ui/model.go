@@ -65,7 +65,7 @@ type keyMap struct {
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Repeat          key.Binding
 	EmptyLanes, MergeRequests          key.Binding
-	LaneLayout                         key.Binding
+	LaneLayout, ArrangeLanes           key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
 	ClosedSprint, StartScreen          key.Binding
 	AgentBack                          key.Binding // out of the agent's terminal in the panel
@@ -175,6 +175,7 @@ func defaultKeys() keyMap {
 		Compact:         bind("one-line cards", "c"),
 		EmptyLanes:      bind("hide / show empty lanes", "alt+e"),
 		LaneLayout:      bind("next lane layout (ui.lane_layouts)", "alt+l"),
+		ArrangeLanes:    bind("arrange the lanes: stack, move, rename, hide columns", "alt+L", "alt+shift+l"),
 		Releases:        bind("releases: versions and their progress", "V"),
 		Repeat:          bind("do the last change again on the selected card", "."),
 		Refine:          bind("refine: the view's issues one at a time", "ctrl+e"),

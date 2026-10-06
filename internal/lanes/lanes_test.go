@@ -1,7 +1,9 @@
 package lanes
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/cornedor/laneway/internal/config"
@@ -116,5 +118,38 @@ func TestBoard(t *testing.T) {
 	got := Board(board)
 	if len(got) != len(board) || got[3].Sections[0].Col != 3 || got[1].Max != 3 || got[3].Name != "Test" {
 		t.Fatalf("Board: %+v", got)
+	}
+}
+
+// TestDraft: a layout over a board keeps what other boards need: a lane
+// with no column here, and statuses of columns elsewhere, through an edit.
+func TestDraft(t *testing.T) {
+	l := config.LaneLayout{Name: "x", Boards: []int{3}, Hidden: []string{"1", "77"}, Lanes: []config.LaneSpec{
+		{Name: "Doing", Statuses: []string{"3", "88"}},
+		{Name: "Elsewhere", Statuses: []string{"99"}},
+		{Name: "Done", Statuses: []string{"20"}},
+	}}
+	d := NewDraft(l, board)
+	var got []string
+	for _, dl := range d.Lanes {
+		got = append(got, strings.TrimSpace(fmt.Sprintf("%s %v %v", dl.Name, dl.Cols, dl.Foreign)))
+	}
+	want := []string{"Doing [1] [88]", "Elsewhere [] [99]", "[2] []", "[3] []", "[4] []", "Done [5] []"}
+	if !reflect.DeepEqual(got, want) || !reflect.DeepEqual(d.Hidden, []int{0}) || !reflect.DeepEqual(d.ForeignHidden, []string{"77"}) {
+		t.Fatalf("draft %q hidden %v %v, want %q", got, d.Hidden, d.ForeignHidden, want)
+	}
+	// Blocked joins Doing (after it, but stacked in board order), Test and
+	// UAT go; Done is renamed to its column's name.
+	d.Lanes[0].Cols = []int{2, 1}
+	d.Lanes = append(d.Lanes[:2], d.Lanes[5])
+	d.Lanes[2].Name = "Done"
+	d.Hidden = append(d.Hidden, 3, 4)
+	out := d.Apply(l, board)
+	if out.Name != "x" || !reflect.DeepEqual(out.Boards, []int{3}) {
+		t.Errorf("name and boards: %+v", out)
+	}
+	wantLanes := []config.LaneSpec{{Name: "Doing", Statuses: []string{"3", "4", "88"}}, {Name: "Elsewhere", Statuses: []string{"99"}}, {Statuses: []string{"20"}}}
+	if !reflect.DeepEqual(out.Lanes, wantLanes) || !reflect.DeepEqual(out.Hidden, []string{"1", "10", "11", "12", "77"}) {
+		t.Errorf("applied %+v hidden %v", out.Lanes, out.Hidden)
 	}
 }

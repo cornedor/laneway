@@ -423,6 +423,8 @@ type jiraTabState struct {
 	// a card. Moves address cols, so H and L reach a hidden lane.
 	cols       []jiraLane
 	emptyLanes string
+	// arrange is the arrange mode's cursor (lanearrange.go), nil when off.
+	arrange *jiraArrange
 	// secFold are the stacked lanes' folded sections (secFoldKey).
 	secFold map[string]bool
 	// layout is the board's ui.lane_layouts entry by name, "" for its own
@@ -1032,17 +1034,8 @@ func (m *Model) buildJiraLanes() {
 	if t.cfg == nil || !ok {
 		return
 	}
-	skip := -1
-	if v.kind == jiraViewBoard {
-		skip = kanbanBacklog(t.cfg)
-	}
 	q, env := jiraParseQuery(t.jiraSearchQuery()), m.jiraQueryEnv()
-	var board []jira.Column
-	for i, c := range t.cfg.Columns {
-		if i != skip {
-			board = append(board, c)
-		}
-	}
+	board := m.jiraBoard()
 	ls, hidden := lanes.Board(board), []string(nil)
 	if l, ok := m.jiraLayout(); ok {
 		var cols []int
@@ -1252,6 +1245,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openPalette()
 		return m, nil
 	}
+	if t.arrange != nil {
+		return m.handleJiraArrangeKey(msg)
+	}
 	if t.roadmap != nil {
 		return m.handleRoadmapKey(msg)
 	}
@@ -1423,6 +1419,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.LaneLayout) && m.jiraShowsLanes():
 		m.cycleJiraLayout()
+		return m, nil
+	case key.Matches(msg, m.keys.ArrangeLanes) && m.jiraShowsLanes():
+		m.openJiraArrange()
 		return m, nil
 	case key.Matches(msg, m.keys.Compact):
 		m.toggleCompact()
@@ -2350,6 +2349,10 @@ func (m *Model) renderJira() {
 	if msg != "" {
 		t.view.SetContent(msg)
 		t.lanesOut = msg
+		return
+	}
+	if t.arrange != nil && m.jiraShowsLanes() {
+		t.lanesOut = m.renderJiraArrange(w, h)
 		return
 	}
 	if m.jiraShowsLanes() {
@@ -3632,7 +3635,7 @@ func (m *Model) jiraFilterLine() string { return joinSegs(m.jiraFilterSegs()) }
 func (m *Model) hitJira(x, y int) hit {
 	t := m.jiraTab
 	line := y - jiraBodyTop
-	if line < 0 {
+	if line < 0 || t.arrange != nil {
 		return hit{zone: hitJira, idx: -1, line: -1}
 	}
 	if !m.jiraShowsLanes() {

@@ -134,3 +134,51 @@ func TestJiraLaneSectionMoves(t *testing.T) {
 		t.Fatalf("Done has two statuses: want its picker, got %q with %d items", p.title, len(p.items))
 	}
 }
+
+// TestJiraArrange: alt+L on a board without a layout starts one of its
+// columns; H stacks the cursor's column on the lane before, r renames that
+// lane, x hides a column, each written to ui.lane_layouts; esc leaves with
+// the board in the layout.
+func TestJiraArrange(t *testing.T) {
+	m := jiraTabModel(t)
+	press := func(k string) {
+		t.Helper()
+		out, _ := m.handleJiraKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	press("alt+L")
+	if m.jiraTab.arrange == nil || len(m.uiConfig.LaneLayouts) != 1 || m.jiraLayoutName() != "My lanes" {
+		t.Fatalf("arrange %v, layouts %+v", m.jiraTab.arrange, m.uiConfig.LaneLayouts)
+	}
+	press("l") // In progress
+	press("H") // onto To do
+	l := m.uiConfig.LaneLayouts[0]
+	if len(l.Lanes) != 2 || strings.Join(l.Lanes[0].Statuses, ",") != "1,3" {
+		t.Fatalf("lanes %+v, want To do and In progress stacked, then Done", l.Lanes)
+	}
+	press("r")
+	if m.jiraFieldName != "lane-rename" {
+		t.Fatalf("r opened %q", m.jiraFieldName)
+	}
+	m.jiraFieldInput.SetValue("Work")
+	out, _ := m.applyJiraField()
+	m = out.(Model)
+	if got := m.uiConfig.LaneLayouts[0].Lanes[0].Name; got != "Work" {
+		t.Errorf("lane named %q, want Work", got)
+	}
+	press("l") // Done
+	press("x")
+	if l := m.uiConfig.LaneLayouts[0]; strings.Join(l.Hidden, ",") != "5,6" || len(l.Lanes) != 1 {
+		t.Errorf("after x: lanes %+v hidden %v", l.Lanes, l.Hidden)
+	}
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Work", "▸ Done", "hidden:"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("arrange view lacks %q:\n%s", want, view)
+		}
+	}
+	press("esc")
+	if m.jiraTab.arrange != nil || len(m.jiraTab.lanes) != 1 || m.jiraTab.lanes[0].name != "Work" || len(m.jiraTab.lanes[0].sections) != 2 {
+		t.Errorf("after esc: arrange %v, lanes %d", m.jiraTab.arrange, len(m.jiraTab.lanes))
+	}
+}

@@ -60,21 +60,36 @@ func TestArrangeBoard(t *testing.T) {
 	defer resp.Body.Close()
 	var got struct {
 		Columns []jira.Column
-		Lanes   []struct {
-			Name string
-			Spec int
-			Cols []int
+		Layout  config.LaneLayout
+		Draft   struct {
+			Lanes []struct {
+				Name string
+				Cols []int
+			}
+			Hidden []int
 		}
-		Hidden []int
-		Fits   bool
+		Fits bool
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil || resp.StatusCode != 200 {
 		t.Fatalf("%d %v", resp.StatusCode, err)
 	}
-	if len(got.Columns) != 4 || !got.Fits || len(got.Hidden) != 1 || got.Hidden[0] != 0 {
-		t.Fatalf("columns %d, fits %v, hidden %v", len(got.Columns), got.Fits, got.Hidden)
+	if len(got.Columns) != 4 || !got.Fits || len(got.Draft.Hidden) != 1 || got.Draft.Hidden[0] != 0 || got.Layout.Name != "Ship" {
+		t.Fatalf("columns %d, fits %v, draft %+v, layout %+v", len(got.Columns), got.Fits, got.Draft, got.Layout)
 	}
-	if len(got.Lanes) != 2 || got.Lanes[0].Spec != -1 || got.Lanes[1].Name != "Shipping" || got.Lanes[1].Spec != 0 || len(got.Lanes[1].Cols) != 2 {
-		t.Errorf("lanes %+v, want In Progress unplaced then Shipping of columns 2 and 3", got.Lanes)
+	if ls := got.Draft.Lanes; len(ls) != 2 || ls[0].Name != "" || ls[1].Name != "Shipping" || len(ls[1].Cols) != 2 {
+		t.Errorf("lanes %+v, want In Progress unplaced then Shipping of columns 2 and 3", ls)
+	}
+	// A draft comes back applied: In Progress joins Shipping.
+	body = `{"Layout": {"name": "Ship"}, "Draft": {"Lanes": [{"Name": "Shipping", "Cols": [1, 2, 3]}], "Hidden": [0]}}`
+	resp2, err := http.Post(ts.URL+"/api/boards/1/arrange", "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if err := json.NewDecoder(resp2.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if ls := got.Layout.Lanes; len(ls) != 1 || strings.Join(ls[0].Statuses, ",") != "2,3,5,4" || strings.Join(got.Layout.Hidden, ",") != "1" {
+		t.Errorf("applied layout %+v", got.Layout)
 	}
 }

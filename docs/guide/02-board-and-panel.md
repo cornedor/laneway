@@ -69,9 +69,10 @@ The [search reference](../reference/search.md) has every field.
 - `alt+e` hides lanes the filters leave empty, so the rest get the room.
   Moving a card into one shows it again. `ui.empty_lanes: hide` starts
   that way.
-- `alt+l` switches to your own lanes (`ui.lane_layouts`, drawn by
-  dragging columns in the browser's settings): Test, UAT and Deploy
-  stacked under Done, columns reordered, renamed or hidden. Again
+- `alt+l` switches to your own lanes (`ui.lane_layouts`, arranged with
+  `alt+L` in the terminal or by dragging in the browser's settings):
+  Test, UAT and Deploy stacked under Done, columns reordered, renamed or
+  hidden. Again
   goes on to the next layout, then back to the board's columns. `z`, or
   a click on a stacked column's header, folds it; `Z` unfolds them all.
 

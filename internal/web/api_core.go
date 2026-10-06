@@ -163,17 +163,20 @@ func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column) []board
 	return out
 }
 
-// arrangeBoard is a lane layout (the body's Layout, as ui.lane_layouts
-// writes one) over the board's columns, for the settings' lane editor:
-// the columns and status names, the lanes as column indexes with the
-// layout lane each came from (Spec, -1 for an unplaced column), the
-// hidden columns, and whether the layout fits the board.
+// arrangeBoard is a lane layout over the board's columns, for the
+// settings' lane editor: the body's Layout (as ui.lane_layouts has it), with
+// the editor's Draft of it applied when given. It answers the columns,
+// status names, the layout to write, its draft over the board, and whether
+// it fits the board.
 func arrangeBoard(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	id, err := boardID(r)
 	if err != nil {
 		return nil, err
 	}
-	b, err := Body[struct{ Layout config.LaneLayout }](r)
+	b, err := Body[struct {
+		Layout config.LaneLayout
+		Draft  *lanes.Draft
+	}](r)
 	if err != nil {
 		return nil, err
 	}
@@ -182,23 +185,13 @@ func arrangeBoard(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	type lane struct {
-		Name string
-		Spec int
-		Cols []int
-	}
-	arranged, hidden := lanes.Arrange(b.Layout, cfg.Columns)
-	out := []lane{}
-	for _, a := range arranged {
-		l := lane{Name: a.Name, Spec: a.Spec, Cols: []int{}}
-		for _, sec := range a.Sections {
-			l.Cols = append(l.Cols, sec.Col)
-		}
-		out = append(out, l)
+	l := b.Layout
+	if b.Draft != nil {
+		l = b.Draft.Apply(l, cfg.Columns)
 	}
 	names, _ := c.StatusNames(ctx)
-	return map[string]any{"Columns": cfg.Columns, "StatusNames": names, "Lanes": out, "Hidden": append([]int{}, hidden...),
-		"Fits": lanes.Fits(b.Layout, id, cfg.Columns)}, nil
+	return map[string]any{"Columns": cfg.Columns, "StatusNames": names, "Layout": l, "Draft": lanes.NewDraft(l, cfg.Columns),
+		"Fits": lanes.Fits(l, id, cfg.Columns)}, nil
 }
 
 // localQuick are ui.quick_filters, shown before every board's own, as the

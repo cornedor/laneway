@@ -23,8 +23,9 @@ import (
 
 // tuiOnly: TUI action -> why the web binds no key to it.
 var tuiOnly = map[string]string{
-	"quit":      "the browser closes its tab",
-	"plan_goal": "one form edits the sprint's name, goal and end: plan_rename (E)",
+	"quit":          "the browser closes its tab",
+	"plan_goal":     "one form edits the sprint's name, goal and end: plan_rename (E)",
+	"arrange_lanes": "the browser arranges lanes in the settings' lane editor, by dragging",
 }
 
 // webOnly: web bind id -> why the TUI has no action for it.

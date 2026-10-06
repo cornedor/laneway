@@ -3,7 +3,8 @@
 // head to reorder; type in its name to rename. The server arranges a layout over the board (internal/lanes, as the
 // board does); statuses of columns on other boards stay with their lane. Each change writes the config file.
 // Keys: enter on the row starts editing; h/l pick a column, H/L stack it on the lane before or after, n gives it a
-// lane of its own, x hides or shows it, < > move its lane, r renames its lane, esc leaves.
+// lane of its own, x hides or shows it, < > move its lane, r renames its lane, esc leaves. The server turns the
+// edited view (lanes.Draft) into the layout written, as the TUI's arrange mode does.
 import { h, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { saver } from './settings_config.js';
@@ -33,43 +34,35 @@ export function designLanes(app, host, options) {
     return o;
   };
   const save = debounce(saver(app, O, () => { const v = specs.filter(l => l.name.trim() && l.lanes.length).map(out); return v.length ? v : null; }), 400);
-  const ids = ci => (B.cols[ci].StatusIDs || []).map(String);
   const colName = ci => B.cols[ci].Name;
   const laneName = l => l.name || (l.cols.length ? colName(l.cols[0]) : 'Lane');
 
   // ---- the layout over the board
-  async function arrange() {
-    const spec = specs[cur], n = ++seq;
+  // arrange has the server lay the layout over the board (internal/lanes): with a draft (the view edited) it
+  // applies it first, and the layout to write comes back. quiet keeps the view and the page as they are (a name
+  // being typed).
+  async function arrange(draft, quiet) {
+    const spec = specs[cur], n = quiet ? seq : ++seq;
     if (!spec || !B.board) { view = null; host.redraw(O); return; }
     try {
-      const r = await app.api.post('/boards/' + B.board + '/arrange', { Layout: spec });
-      if (n !== seq) return;
+      const r = await app.api.post('/boards/' + B.board + '/arrange', { Layout: spec, Draft: draft });
+      if (n !== seq && !quiet) return;
+      specs[cur] = norm(r.Layout);
+      if (draft) save();
+      if (quiet) return;
       B.cols = r.Columns || []; B.names = r.StatusNames || {}; B.fits = r.Fits; B.err = '';
-      const here = new Set(B.cols.flatMap((c, i) => ids(i)));
-      const foreign = list => list.filter(id => !here.has(id));
-      const lanes = (r.Lanes || []).map(l => ({ name: l.Spec >= 0 ? spec.lanes[l.Spec].name : '', cols: l.Cols, foreign: l.Spec >= 0 ? foreign(spec.lanes[l.Spec].statuses) : [], spec: l.Spec }));
-      // A lane of the layout with no column here stays, for the boards it is for, after the one before it.
-      spec.lanes.forEach((sl, si) => {
-        if (lanes.some(l => l.spec === si)) return;
-        let at = 0;
-        lanes.forEach((l, j) => { if (l.spec >= 0 && l.spec < si) at = j + 1; });
-        lanes.splice(at, 0, { name: sl.name, cols: [], foreign: sl.statuses.slice(), spec: si });
-      });
-      view = { lanes, hidden: r.Hidden || [], foreignHidden: foreign(spec.hidden) };
+      const d = r.Draft;
+      view = { lanes: (d.Lanes || []).map(l => ({ name: l.Name, cols: l.Cols || [], foreign: l.Foreign || [] })), hidden: d.Hidden || [], foreignHidden: d.ForeignHidden || [] };
     } catch (e) {
+      if (quiet) return app.ui.errToast(e);
       if (n === seq) { view = null; B.err = e.message; }
     }
     host.redraw(O);
   }
-  // commit writes the view back into the layout, saves it, and has the server arrange it again (whether it fits).
-  function commit() { write(); host.redraw(O); arrange(); }
-  function write() {
-    const spec = specs[cur];
-    view.lanes = view.lanes.filter(l => l.cols.length || l.foreign.length);
-    spec.lanes = view.lanes.map(l => ({ name: l.cols.length && l.name === colName(l.cols[0]) ? '' : l.name, statuses: [...l.cols.flatMap(ids), ...l.foreign] }));
-    spec.hidden = [...view.hidden.flatMap(ids), ...view.foreignHidden];
-    save();
-  }
+  const draft = () => ({ Lanes: view.lanes.map(l => ({ Name: l.name, Cols: l.cols, Foreign: l.foreign })), Hidden: view.hidden, ForeignHidden: view.foreignHidden });
+  // commit writes the view into the layout and saves it; write does without redrawing.
+  function commit() { host.redraw(O); return arrange(draft()); }
+  const write = debounce(() => arrange(draft(), true), 400);
   const laneOf = ci => view.lanes.find(l => l.cols.includes(ci));
   function take(ci) {
     const l = laneOf(ci);
@@ -81,7 +74,7 @@ export function designLanes(app, host, options) {
   function alone(ci, before) {
     take(ci);
     const at = before ? view.lanes.indexOf(before) : view.lanes.length;
-    view.lanes.splice(at < 0 ? view.lanes.length : at, 0, { name: '', cols: [ci], foreign: [], spec: -1 });
+    view.lanes.splice(at < 0 ? view.lanes.length : at, 0, { name: '', cols: [ci], foreign: [] });
     pick = ci; commit();
   }
   function hide(ci) {
@@ -208,7 +201,7 @@ export function designLanes(app, host, options) {
       specs.length > 0 && h('select.input', { 'aria-label': 'Layout', onchange: e => { cur = Number(e.target.value); pick = -1; arrange(); } },
         specs.map((l, i) => h('option', { value: i, selected: i === cur }, l.name || 'Untitled'))),
       spec && h('input.input.ln-lname', { type: 'text', value: spec.name, placeholder: 'Name', 'aria-label': 'Layout name', spellcheck: false,
-        oninput: debounce(e => { spec.name = e.target.value.trim(); save(); }, 500), onchange: () => host.redraw(O) }),
+        oninput: debounce(e => { specs[cur].name = e.target.value.trim(); save(); }, 500), onchange: () => host.redraw(O) }),
       h('button.btn', { type: 'button', onclick: newLayout }, icon('plus'), 'New layout'),
       spec && h('button.btn.ghost', { type: 'button', onclick: dropLayout }, 'Delete layout'),
       h('span.spacer'), h('span.cd-status'));
