@@ -98,8 +98,9 @@ func readJiraCache(st *store.Store, board int, view string) (jiraCache, bool) {
 }
 
 // jiraBoardFromCache delivers the stored copy of the board loadJiraBoard is
-// about to fetch, resolved the same way; nil-message when there is none.
-func jiraBoardFromCache(st *store.Store, seq int, project string, board int, view string, configured []string, readMode bool) tea.Cmd {
+// about to fetch, resolved the same way; nil-message when there is none, or
+// when it is filtered and filters aren't remembered (ui.remember_filters).
+func jiraBoardFromCache(st *store.Store, seq int, project string, board int, view string, configured []string, readMode, remember bool) tea.Cmd {
 	return func() tea.Msg {
 		project, board = resolveJiraBoard(st, project, board, configured)
 		if board == 0 {
@@ -109,7 +110,7 @@ func jiraBoardFromCache(st *store.Store, seq int, project string, board int, vie
 			view, _, _ = st.GetMeta(jiraViewKey(board))
 		}
 		c, ok := readJiraCache(st, board, view)
-		if !ok || c.Project != project {
+		if !ok || c.Project != project || (!remember && c.Filter != "") {
 			return nil
 		}
 		msg := c.boardMsg(seq)

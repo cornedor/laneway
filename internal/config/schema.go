@@ -37,6 +37,7 @@ var SettingDefaults = map[string]string{
 	"workday_start":        "09:00",
 	"capacity":             "none",
 	"saved_filters":        "on",
+	"remember_filters":     "on",
 	"delight":              "on",
 	"threaded_replies":     "on",
 	"skin_tone":            "none",
@@ -92,7 +93,7 @@ type SettingGroup struct {
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
 	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
-	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "filters", "my_work_jql"}},
+	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "remember_filters", "filters", "my_work_jql"}},
 	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity", "calendar", "meeting_key"}},
@@ -133,6 +134,7 @@ var SettingDocs = map[string]string{
 	"workday_start":        "when work logged on another day starts",
 	"capacity":             "story points per person a sprint holds; default for everyone else",
 	"saved_filters":        "your starred Jira filters as views",
+	"remember_filters":     "the assignee filter (mine) and each board's quick filters stay on next time; off: every start clears them",
 	"branch_template":      "the branch ctrl+y copies: {key} {summary} {type} {project}",
 	"work_branch_template": "the branch S creates, same placeholders",
 	"kanban_done_days":     "how many days done work stays on a kanban board",
@@ -194,7 +196,7 @@ func SettingChoices(name string) []string {
 		return []string{"nerd", "plain"}
 	case "empty_fields", "empty_lanes":
 		return []string{"show", "hide"}
-	case "saved_filters", "mouse", "delight", "update_check", "threaded_replies":
+	case "saved_filters", "remember_filters", "mouse", "delight", "update_check", "threaded_replies":
 		return []string{"on", "off"}
 	case "skin_tone":
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}

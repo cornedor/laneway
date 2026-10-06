@@ -193,6 +193,9 @@ type UIConfig struct {
 	// SavedFilters is "on" (your starred Jira filters as views, after
 	// Views) or "off".
 	SavedFilters string `yaml:"saved_filters"`
+	// RememberFilters is "on" (default: the assignee filter, and each
+	// board's quick filters, stay set across restarts) or "off".
+	RememberFilters string `yaml:"remember_filters"`
 	// BranchTemplate is the branch name copy_branch puts on the clipboard:
 	// {key}, {summary} (slugged), {type}, {project}; "{key}-{summary}".
 	BranchTemplate string `yaml:"branch_template"`

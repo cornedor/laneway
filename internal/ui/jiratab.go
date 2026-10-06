@@ -634,10 +634,10 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	configured := m.jiraProjects
 	readMode := !t.modeRead
 	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, append(slices.Clone(m.opts.views), m.savedJQLViews()...)
-	withSaved, doneDays := m.opts.savedFilters, m.opts.kanbanDoneDays
+	withSaved, doneDays, remember := m.opts.savedFilters, m.opts.kanbanDoneDays, m.opts.rememberFilters
 	var cached tea.Cmd
 	if fromCache {
-		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode)
+		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode, remember)
 	}
 	return tea.Batch(cached, func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, c.Scaled(60*time.Second))
@@ -645,7 +645,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 		msg := jiraBoardMsg{seq: seq}
 		if readMode {
 			msg.lanes = storedJiraMode(st)
-			if v, ok, _ := st.GetMeta(jiraMetaPrefix + "assignee"); ok {
+			if v, ok, _ := st.GetMeta(jiraMetaPrefix + "assignee"); ok && remember {
 				id, label, _ := strings.Cut(v, "\t")
 				assignee = jiraAssignee{id: id, label: label}
 			}
@@ -737,7 +737,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 		}
 		if board.ID != quickBoard {
 			quickOn = map[int]bool{}
-			if v, ok, _ := st.GetMeta(jiraMetaPrefix + "quick:" + strconv.Itoa(board.ID)); ok {
+			if v, ok, _ := st.GetMeta(jiraMetaPrefix + "quick:" + strconv.Itoa(board.ID)); ok && remember {
 				for _, f := range strings.Split(v, ",") {
 					if id, err := strconv.Atoi(f); err == nil {
 						quickOn[id] = true
@@ -2112,7 +2112,7 @@ func boardAssigneeItems(seen map[string]string, us []jira.User, cur string) []ji
 }
 
 // setJiraAssignee applies an assignee filter picked from the picker and
-// remembers it.
+// remembers it (ui.remember_filters).
 func (m *Model) setJiraAssignee(id, label string) tea.Cmd {
 	t := m.jiraTab
 	if id == "" {
@@ -2120,6 +2120,9 @@ func (m *Model) setJiraAssignee(id, label string) tea.Cmd {
 	}
 	t.assignee = jiraAssignee{id: id, label: label}
 	st := m.store
+	if !m.opts.rememberFilters {
+		return m.loadJiraCards(t.viewIdx, true)
+	}
 	save := func() tea.Msg {
 		_ = st.SetMeta(jiraMetaPrefix+"assignee", id+"\t"+label)
 		return nil
@@ -2154,6 +2157,9 @@ func (m *Model) clearJiraFilters() tea.Cmd {
 
 func (m *Model) saveJiraQuick() tea.Cmd {
 	t := m.jiraTab
+	if !m.opts.rememberFilters {
+		return nil
+	}
 	var ids []string
 	for _, q := range t.quick {
 		if t.quickOn[q.ID] {

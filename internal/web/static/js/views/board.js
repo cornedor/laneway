@@ -305,6 +305,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function setBundle(b) {
     const first = !S.bundle;
     S.bundle = b;
+    if (b && b.quickFilters) for (const id of S.qf) if (!b.quickFilters.some(q => q.ID === id)) S.qf.delete(id); // a remembered one since removed
     if (first && UI.CardColors !== 'off') {
       api.swr('/boards/' + S.board.ID + '/cardcolors?scope=' + encodeURIComponent('project = ' + S.project), c => { S.colors = c; for (const p of S.panes) p.vl.refresh(); }).catch(() => {});
     }
@@ -1134,14 +1135,29 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
 
   // ---- filters
-  function toggleQF(id) { S.qf.has(id) ? S.qf.delete(id) : S.qf.add(id); renderBar(); S.path === cardsPath() || loadCards(); }
+  // Filters outlive the view (planning and back, a reload) unless ui.remember_filters is off, as the TUI's: mine and the
+  // assignee filter in board.assignee for every board, the quick filters in board.quick.<id>. An embedded board keeps its own.
+  const rememberFilters = !embed && String(UI.RememberFilters || '').trim().toLowerCase() !== 'off';
+  function saveFilters() {
+    if (!rememberFilters) return;
+    app.prefs.set('board.assignee', JSON.stringify({ mine: S.mine, who: S.who ? [...S.who] : null }));
+    app.prefs.set('board.quick.' + S.board.ID, [...S.qf].join(','));
+  }
+  function restoreFilters() {
+    if (!rememberFilters) return;
+    let a = {};
+    try { a = JSON.parse(app.prefs.get('board.assignee', '{}')) || {}; } catch (e) { /* a broken one: none */ }
+    S.mine = !!a.mine; S.who = Array.isArray(a.who) ? new Set(a.who) : null;
+    S.qf = new Set(String(app.prefs.get('board.quick.' + S.board.ID, '')).split(',').filter(Boolean).map(Number));
+  }
+  function toggleQF(id) { S.qf.has(id) ? S.qf.delete(id) : S.qf.add(id); saveFilters(); renderBar(); S.path === cardsPath() || loadCards(); }
   // whoChanged tells the view the board is embedded in who its assignee filter shows, null for anyone.
   const whoChanged = () => { if (embed && embed.onWho) embed.onWho(S.mine ? [me] : S.who ? [...S.who] : null); };
-  function toggleMine() { S.mine = !S.mine; if (S.mine) S.who = null; layout(); renderBar(); whoChanged(); }
+  function toggleMine() { S.mine = !S.mine; if (S.mine) S.who = null; saveFilters(); layout(); renderBar(); whoChanged(); }
   function clearFilters() {
     const reload = S.qf.size > 0;
     S.mine = false; S.who = null; S.qf.clear(); S.text = ''; S.textFn = null; filterIn.value = '';
-    layout(); renderBar(); whoChanged();
+    saveFilters(); layout(); renderBar(); whoChanged();
     if (reload) loadCards();
   }
   async function pickWho() {
@@ -1151,7 +1167,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     show(); await Promise.race([loadPeople(), new Promise(r => setTimeout(r, 400))]); show();
     const r = await pickPeople(app, seen, S.who);
     if (r === undefined) return;
-    S.who = r; if (r) S.mine = false; layout(); renderBar(); whoChanged();
+    S.who = r; if (r) S.mine = false; saveFilters(); layout(); renderBar(); whoChanged();
   }
   function setSort(col, dir) {
     S.sort = col; S.dir = dir;
@@ -1590,6 +1606,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     S.hideEmpty = app.prefs.get('board.empty_lanes', el) === 'hide';
     S.layout = app.prefs.get('board.layout.' + S.board.ID, '');
     S.secFold = new Set(String(app.prefs.get('board.secfold.' + S.board.ID, '')).split('\n').filter(Boolean));
+    restoreFilters();
     S.cols = listCols();
     loadPins(); pins.register(app);
     renderToolbar(); renderBar();

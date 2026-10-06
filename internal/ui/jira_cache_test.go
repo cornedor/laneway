@@ -51,3 +51,29 @@ func TestJiraCachedAfterFresh(t *testing.T) {
 		t.Errorf("late cached copy won: cards=%v loading=%v", m.jiraTab.cards, m.jiraTab.loading)
 	}
 }
+
+// TestJiraRememberFiltersOff: with ui.remember_filters off nothing stores
+// the filters, and a filtered cached board doesn't show.
+func TestJiraRememberFiltersOff(t *testing.T) {
+	m := configuredJiraModel(t, "ABC")
+	m.opts.rememberFilters = false
+	m.jiraTab.quick = []jira.QuickFilter{{ID: 7, Name: "Bugs", JQL: "type = Bug"}}
+	m.jiraTab.quickOn = map[int]bool{7: true}
+	if m.saveJiraQuick() != nil {
+		t.Error("quick filters saved")
+	}
+	m.setJiraAssignee("me", "Me")
+	if _, ok, _ := m.store.GetMeta(jiraMetaPrefix + "assignee"); ok {
+		t.Error("assignee saved")
+	}
+
+	msg := jiraBoardMsg{project: "ABC", boards: []jira.Board{{ID: 1, Name: "B"}}, cfg: &jira.BoardConfig{}, views: []jiraView{{name: "Board"}},
+		assignee: jiraAssignee{id: "me", label: "Me"}}
+	saveJiraCache(m.store, 1, "Board", cacheOf(msg, "assignee = currentUser()"))
+	if got := jiraBoardFromCache(m.store, 1, "ABC", 1, "Board", nil, false, false)(); got != nil {
+		t.Errorf("filtered cache shown: %+v", got)
+	}
+	if got := jiraBoardFromCache(m.store, 1, "ABC", 1, "Board", nil, false, true)(); got == nil {
+		t.Error("filtered cache dropped with remember on")
+	}
+}
