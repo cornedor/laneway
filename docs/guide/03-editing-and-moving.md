@@ -6,48 +6,60 @@ From here on laneway writes to Jira, so practise on an issue of your own.
 
 ## Move a card
 
-On the board, `H` and `L` (or `shift+←` `shift+→`) push the card a lane
-left or right. It moves on screen at once; Jira catches up behind it. With
-the mouse, drag it.
+On the board, `H` and `L` push the card a lane left or right. It moves on
+screen at once; Jira catches up behind it. With the mouse, drag it.
 
-- A lane holding several statuses asks which one.
+- A lane holding several statuses asks which one (in the browser, a drag
+  shows a drop zone per status).
 - Moved the wrong card, or set the wrong priority? `u` takes back the last
   change: a move, a rank, an edit, a bulk edit or a deleted comment. `u`
   again takes back the one before.
 - `K` and `J` rank a card up or down within its lane, `alt+k` and `alt+j`
-  to its top or bottom. With the mouse, drag it up or down the lane: it
-  lands where its ghost shows.
+  to its top or bottom. With the mouse, drag it up or down the lane.
 - `M` sends it to another sprint or the backlog.
+- `.` does the last move or edit again, on the card you're on.
 
-> **Try it:** pick one of your cards in To do and press `L`. Watch the
-> status line: `ABC-12 → In progress`. Then `u` to put it back.
+> **Try it:** pick one of your cards in To do and press `L`. It moves to In
+> progress. Then `u` to put it back.
 
 ### When the workflow wants more
 
 Some moves come with conditions: Code review needs a reviewer, Waiting for
 needs a comment. Instead of failing with Jira's message, laneway opens a
 small form with exactly those fields, the required ones first and marked
-`*`:
+`*`. Fill them in and the move goes through; if Jira still refuses, the
+form stays up with its reason, so the fix is one edit away. `esc` cancels
+and the card goes back.
 
-- `↑` `↓` pick a field, `enter` edits it (a list for people and options,
-  an editor for longer text), `del` clears it.
-- `ctrl+s` makes the move. If Jira still refuses, the form stays up with
-  its reason, so the fix is one edit away.
-- `esc` cancels and the card goes back.
+=== "Terminal"
 
-> **Tip:** the same form shows up when you create an issue in a project
-> that insists on a field, such as a Component. Fill it in and the issue is
-> created with it.
+    `↑` `↓` pick a field, `enter` edits it, `del` clears it, `ctrl+s` makes
+    the move.
+
+=== "Browser"
+
+    `tab` walks the fields, `ctrl+enter` makes the move.
+
+The same form shows up when you create an issue in a project that insists
+on a field, such as a Component.
 
 ## Change fields
 
-**From the board:** `e` on a card opens a quick edit: status, priority,
-assignee, labels, points or sprint, without opening the panel. Or
-right-click the card: the same, as a menu at the pointer, with open, copy
-and pin below. Status, priority, assignee and sprint open their list
-beside it; `esc` goes back to the menu.
+**From the board:** a quick edit changes status, priority, assignee,
+labels, points or sprint without opening the panel. Or right-click the
+card: the same, as a menu at the pointer, with open, copy and pin below.
 
-**From the panel:** one key per common field.
+=== "Terminal"
+
+    `e` on a card is the quick edit.
+
+=== "Browser"
+
+    `E` on a card is the quick edit; `s` `p` `P` `a` `e` also edit status,
+    priority, points, assignee and summary right from the board. On a phone,
+    a long press opens the menu.
+
+**From the panel:** one key per common field, the same in both.
 
 | Key | Edits |
 | --- | --- |
@@ -56,118 +68,163 @@ beside it; `esc` goes back to the menu.
 | `P` | story points |
 | `e` | summary |
 | `l` | labels |
-| `a` | assignee ("Assign to me" comes first) |
+| `a` | assignee ("Assign to me" has the cursor) |
 | `E` | the description |
 
-Any other field, custom ones too: `tab` to it, `enter`. Text, numbers and
-dates edit right in their row; people and options drop a list under it.
+Any other field, custom ones too, edits in its row: text, numbers and dates
+right there, people and options in a list under it. Fields the edit screen
+has beyond the usual fold under a More row; `*` on one stars it, so it
+always shows, in the terminal and the browser alike.
+
+=== "Terminal"
+
+    `tab` to a field, `enter` edits it.
+
+=== "Browser"
+
+    Click a field to edit it.
 
 > **Tip:** dates understand you: `2026-10-01`, `today`, `+3d`, `fri`. A
 > date-time takes `fri 14:00`.
 
 ## Write
 
-`E` opens the description as markdown in an editor, right where it was,
-as does a click on `E edit` on its heading. Bold, italic, code and links
-show styled as you type.
+`E` opens the description as markdown in an editor, right where it was.
+Jira's extras (panels, expands, action items, mentions, dates, statuses,
+coloured text, tables) have a markdown spelling of their own; `/` at a
+line's start lists them to insert, narrowed as you type (`/warn`, `/todo`,
+`/green`). The [editor reference](../reference/editor.md) has all of them.
 
-- `enter` is a newline, `ctrl+s` saves, `esc` cancels (it asks once if you
-  changed something).
-- `ctrl+e` hands the text to your own `$EDITOR`.
-- In the panel, a click on an action item's box checks it in Jira, and a
-  click on an expand's title opens or folds it (folded at first, as in
-  Jira).
-- `/` at a line's start lists Jira's content to insert — panels, an
-  expand, action items, a table, a status, today's date, colours — narrowed
-  as you type (`/warn`, `/todo`, `/green`); `tab` writes it. `@` lists
-  people, as in a comment.
-- Jira's extras have a syntax of their own:
-  - a mention `@Ada Lovelace`, a date `<date>2026-09-30</date>`, a status
-    `<status color="green">DONE</status>`, a smart link `<https://…>`, a
-    link card `<!-- card: https://… -->`
-  - a panel (the coloured info or warning boxes): its text between
-    `<!-- panel:info -->` and `<!-- /panel -->`; an expand the same, with
-    `<!-- expand: Title -->` and `<!-- /expand -->`
-  - an action item `- [ ] ` (`- [x] ` done), a decision `<> `
-  - a table as `| a | b |` rows; a cell's colour leads it as
-    `<!-- bg:#deebff -->`, a header cell outside the first row as `<!-- th -->`;
-    `<br>` breaks a line in a cell, `<br><br>` starts a paragraph. A numbered
-    or sized table has a `<!-- table:1 numbered, column widths -->` line above
-    it: it keeps its layout, and its widths while the column count stays
-  - underline, sub and superscript, colour: `<u>`, `<sub>`, `<sup>`,
-    `<span style="color:#ff5630">`, `<span style="background-color:#fff0b3">`
-- Things markdown can't hold, like an image or a table with merged
-  cells, stand as a `<!-- keep:1 table … -->` line. Move the line and the
-  block moves; leave it and the block comes back untouched. A synced block
-  or columns keep their frame as `<!-- block:2 … -->` … `<!-- /block -->`
-  lines, their text editable between.
+=== "Terminal"
+
+    Bold, italic, code and links show styled as you type. `enter` is a
+    newline, `ctrl+s` saves, `esc` cancels (it asks once if you changed
+    something). `ctrl+e` hands the text to your own `$EDITOR`.
+
+=== "Browser"
+
+    Markdown draws as rich text, its markers showing only on the line with
+    the caret. A toolbar formats, as do `ctrl+b` `ctrl+i` `ctrl+k`;
+    `ctrl+p` previews, `ctrl+enter` saves, `esc` cancels. Paste a web page's
+    text and it comes in as markdown; paste or drop a file and it attaches.
+
+In the panel, a click on an action item's box checks it in Jira, and a
+click on an expand's title opens or folds it.
+
+What you write is kept as a draft as you type, shared by the terminal and
+the browser: after a crash or a closed tab, opening the editor on that
+issue brings it back.
 
 ## Talk
 
-- `c` writes a comment after the thread. `ctrl+s` posts it; `enter` starts a new line.
-  `ctrl+o` limits it to one project role or group you're in, or makes it an
-  internal note in a Service Desk project.
-- `R` replies to a comment, composed right under it.
+- `c` writes a comment after the thread; `R` replies to a comment, in
+  Jira's thread.
 - `@` and a few letters list people; `tab` inserts a mention that notifies
   them.
-- `:` and two letters list emoji, the ones you use most first; `tab` inserts
-  one, and Jira shows it as its emoji. In the description editor too.
+- `:` and two letters list emoji, the ones you use most first. In the
+  description editor too.
+- `ctrl+o` limits a comment to one project role or group you're in, or
+  makes it an internal note in a Service Desk project.
 - Under each comment: *reply*, and on your own *edit* and *delete*, to
-  click. Or `}` and `{` select a comment: `R` replies, `enter` edits yours,
-  `delete` twice deletes it (`u` brings it back).
+  click.
 
-> **Try it:** on an issue a colleague works on, press `c`, type `@` and
-> the first letters of their name, `tab`, then your message. `esc` instead
-> of `ctrl+s` if you'd rather not send it; laneway asks before dropping
-> what you wrote.
+=== "Terminal"
+
+    `ctrl+s` posts, `enter` starts a new line. `}` and `{` select a
+    comment: `R` replies to it, `enter` edits yours, `delete` twice deletes
+    it (`u` brings it back).
+
+=== "Browser"
+
+    `ctrl+enter` posts. On the comments tab, `j` and `k` select a comment:
+    `R` replies to it, `e` edits yours, `d` deletes it.
+
+> **Try it:** on an issue a colleague works on, press `c`, type `@` and the
+> first letters of their name, `tab`, then your message. `esc` instead of
+> posting if you'd rather not send it; laneway asks before dropping what
+> you wrote.
 
 ## More actions
 
 `A` in the panel holds the rest: a subtask (or a child for an epic), a link
-to another issue (type its key or words, check the hit, `enter`) or a web page, clone, change its type, move it to another project or delete it, watch it or add and remove watchers, vote, flag, upload a file, the image on
-your clipboard or a screenshot of a region, download or delete an attachment. With the project in
-`jira.repos` it also opens a draft pull request from the issue's branch
-(`gh` or `glab`), which `D` then lists.
+to another issue or a web page, clone, change its type, move it to another
+project, set the original estimate, time in each status, the dependency
+tree, delete it, watch it or add and remove watchers, vote, flag, upload a
+file, delete an attachment.
+With the project in `jira.repos` it also opens a draft pull request from
+the issue's branch (chapter 6).
+
+=== "Terminal"
+
+    `A` also attaches the image on your clipboard or a screenshot of a
+    region (grim and slurp, gnome-screenshot, spectacle or screencapture),
+    and downloads an attachment to `ui.download_dir`.
+
+=== "Browser"
+
+    `L` links to another issue directly. Drop or paste files on the panel
+    to attach them; a click on an attachment opens or downloads it.
 
 ## Create an issue
 
-`n` on the board opens one form: the type (`←` `→` change it; it starts on
-the type you last made), the summary, where the cursor waits, and the
-description. `enter` on the summary creates it, `ctrl+s` from anywhere. The
-issue lands in the board's project, and in the sprint you are looking at;
-the panel opens on it. Fields the type requires, like a Component, show up
-in the form as soon as the type is set, and the hint says what is still
-empty. `+ more fields` shows the others the type allows, like the assignee,
-labels or a due date; the form remembers which you prefer.
-Making several? `alt+enter` creates the issue and keeps the form for the
-next, its type and fields as they were. Or paste a list into the summary:
-one issue a line.
+`n` opens one form: the type, the summary, where the cursor waits, and the
+description. The issue lands in the board's project, and in the sprint you
+are looking at; the panel opens on it. Fields the type requires, like a
+Component, show up as soon as the type is set. `+ more fields` shows the
+others the type allows, like the assignee, labels or a due date. A refused
+create keeps the form, Jira's reasons under the fields they are about.
+
+Making several? Paste a list into the summary: one issue a line, list
+markers dropped.
+
+=== "Terminal"
+
+    `←` `→` change the type (it starts on the one you last made). `enter`
+    on the summary creates it, `ctrl+s` from anywhere. `alt+enter` creates
+    it and keeps the form for the next, its type and fields as they were.
+
+=== "Browser"
+
+    `ctrl+enter` creates it. Tick *Create another* to keep the form for the
+    next. Drop files on it to attach them.
+
 A subtask, an epic's child, a roadmap epic and a clone open the same form,
-the parent or the clone's copy filled in. A refused create keeps the form, Jira's reasons under the fields
-they are about.
+the parent or the clone's copy filled in.
 
 > **Tip:** give a type a starting description with `ui.templates` in the
 > config, such as steps, expected and actual for every new Bug.
 
 ## Many cards at once
 
-1. `x` marks the card under the cursor; `X` marks the whole lane (or every
-   row in the list, after `/` narrowed it).
-2. `B` edits all marked cards: status, priority, assignee, labels, points or
-   sprint. For labels, `ui -old` adds ui and removes old.
-3. Cards that fail stay marked, with the reason on the status line.
-   `esc` clears the marks.
+Mark the cards, then edit them together: status (each along its own
+workflow), priority, assignee, labels, points or sprint. Cards
+that fail stay marked, with the reason. `esc` clears the marks; marks
+survive switching views.
 
-> **Try it:** `/label:` shows the cards without a label. `X` marks them
-> all, `B` → labels, type one, `enter`.
+=== "Terminal"
+
+    1. `x` marks the card under the cursor; `X` marks the whole lane (or
+       every row in the list, after `/` narrowed it).
+    2. `B` edits all marked cards. For labels, `ui -old` adds ui and
+       removes old.
+
+=== "Browser"
+
+    1. `x` (or `ctrl`+click, or a card's checkbox) marks a card; `ctrl+a`
+       marks the whole lane, or every row in the list. A bar counts the
+       marked cards.
+    2. `X` edits them all, the flag too, four at a time, with a Stop
+       button; an Undo follows.
+
+> **Try it:** search `label:` to show the cards without a label. Mark them
+> all, edit, labels, type one, `enter`.
 
 ## Recap
 
-- `H` `L` move, `u` undoes, `K` `J` rank, `M` to a sprint.
-- `e` on the board, or one key per field in the panel; `tab` + `enter` for
-  the rest.
+- `H` `L` move, `u` undoes, `K` `J` rank, `M` to a sprint, `.` again.
+- A quick edit on the board, or one key per field in the panel.
 - `E` description, `c` comment, `R` reply, `@` mention, `A` for more.
-- `n` creates, `x` / `X` / `B` edit many at once.
+- `n` creates; mark cards and edit them at once.
 
 Previous: [The board and the panel](02-board-and-panel.md) · Next:
 [Planning and reporting](04-planning-and-reporting.md)

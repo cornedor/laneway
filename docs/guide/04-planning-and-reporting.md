@@ -2,42 +2,65 @@
 
 **In this chapter:** step back from single cards. Fill a sprint against
 everyone's capacity, see epics on a timeline, read the burndown and ship a
-release. Each of these is one key from the board; `esc` (or `q`) brings you
-back.
+release.
 
-> **Kanban board?** Planning (`P`) and the charts (`C`) need a scrum board
-> with sprints; the roadmap and releases work on any. A kanban board hides
-> work done more than two weeks ago, like Jira does
+> **Kanban board?** Planning and the sprint charts need a scrum board with
+> sprints; the roadmap, cycle time and releases work on any. A kanban
+> board hides work done more than two weeks ago, like Jira does
 > (`ui.kanban_done_days`).
 
-## Plan a sprint: `P`
+## Plan a sprint
 
-On a board with sprints, `P` puts the backlog on the left and a sprint on the
-right (the first future one; `[` `]` pick another). Each side counts its
-cards and points; the sprint also splits them per person, and weighs its
-points against what the last sprints got done (`10p of ~12p`, marked over
-when it is more).
+The backlog and the sprints side by side, each counting its cards and
+points. A sprint also splits them per person, against `ui.capacity`, and
+weighs its points against what the last sprints got done (`10p of ~12p`,
+marked over when it is more). Move cards across, rank them, start and
+complete sprints. Changes show at once and are written behind.
 
-![The backlog beside the next sprint](../screenshots/planning.png)
+=== "Terminal"
 
-| Key | Does |
-| --- | --- |
-| `←` `→` | switch side |
-| `x` | mark cards |
-| `M` or `space` | move the marked (or the selected) card across |
-| `K` `J` | rank up or down |
-| `S` | start the sprint on the right (today until the day you type, `+2w` by default) |
-| `N` | a new sprint, named on from the last one |
-| `R` / `E` | rename it / edit its goal |
-| `C` twice | complete the active sprint; unfinished work moves to the next one |
-| `y` | copy the sprint as a markdown table |
-| `/` | filter both sides, in the board's query language; `esc` clears it |
-| `F` | filter builder: field, compare, value → the filter |
-| `e` / `B` | quick edit the card (points, status, assignee…) / the marked ones |
-| `u` | undo the last move across |
+    `P` on the board puts the backlog on the left and a sprint on the
+    right (the first future one; `[` `]` pick another). `esc` goes back.
 
-With the mouse, drag a card to the other side. Changes show at once and are
-written behind.
+    ![The backlog beside the next sprint](../screenshots/planning.png)
+
+    | Key | Does |
+    | --- | --- |
+    | `←` `→` | switch side |
+    | `x` | mark cards |
+    | `M` or `space` | move the marked (or the selected) card across |
+    | `K` `J` | rank up or down |
+    | `S` | start the sprint on the right (today until the day you type, `+2w` by default) |
+    | `N` | a new sprint, named on from the last one |
+    | `R` / `E` | rename it / edit its goal |
+    | `C` twice | complete the active sprint; unfinished work moves to the next one |
+    | `y` | copy the sprint as a markdown table |
+    | `/`, `F` | filter both sides, filter builder |
+    | `e` / `B` | quick edit the card / the marked ones |
+    | `u` | undo the last move across |
+
+=== "Browser"
+
+    `g p` lists the active and future sprints and the backlog as sections,
+    each foldable (`z`). `|` splits the screen, a sprint kept beside the
+    list, and `>` sends a card there. Drag rows across; marked rows go
+    together.
+
+    ![Sprints and the backlog in the browser](../screenshots/web/planning.png)
+
+    | Key | Does |
+    | --- | --- |
+    | `x` or `space` | select cards |
+    | `m` | move the selected (or the current) card to a sprint or the backlog |
+    | `J` `K` | rank down or up |
+    | `[` `]` | the previous, next sprint |
+    | `Z` | start the sprint |
+    | `N` | a new sprint |
+    | `E` | its name, goal and end in one form |
+    | `C` | complete the active sprint; unfinished work moves on |
+    | `y` | copy the section as a markdown table |
+    | `f`, `F`, `A` | filter, filter builder, assignee filter |
+    | `e` / `X` | quick edit the card / the selected ones |
 
 > **Tip:** tell laneway how many points each person takes on:
 >
@@ -46,66 +69,114 @@ written behind.
 >   capacity: {Ada: 13, default: 10}
 > ```
 >
-> A person over capacity turns red and gets a `!` (`Ada 15/13!`). With
-> `ui.calendar` set, your meetings in the sprint come off yours: a sprint
-> with a quarter of its hours in meetings leaves you three quarters.
+> A person over capacity turns red (`Ada 15/13!`). With `ui.calendar` set,
+> your meetings in the sprint come off yours: a sprint with a quarter of its
+> hours in meetings leaves you three quarters.
 
-> **Try it:** open `P` before your next planning meeting, mark the top
-> backlog items with `x` until someone hits their limit, and `M` them into
-> the sprint.
+### Refine: `ctrl+e`
 
-### Refine the backlog: `ctrl+e`
+`ctrl+e` steps through the open issues on screen (the search and filters
+apply), one at a time in a wide panel, the ones without points first: set
+points, priority, labels, status, or split one into subtasks. `J` goes to
+the next, `K` back; `esc` ends it and copies what you changed, for the
+meeting notes.
 
-On the backlog view, `ctrl+e` steps through the open issues on screen (the
-search and filters apply) one at a time, the ones without points first, in
-a wide panel: set points (`P`), priority, labels, status, or split one into
-subtasks (`A`). `J` goes to the next, `K` back;
-`esc` ends it and copies what you changed, for the meeting notes.
+## See the roadmap
 
-## See the roadmap: `R`
+The project's epics on a timeline, in rank order: a bar from start to due
+date (or Plans' target dates), filled by points done, else by children
+done. Epics without dates span their children's sprints, drawn fainter.
+Resolved epics stay for 90 days (`ui.roadmap_done_days`). Epics with a
+parent (an initiative) sit under it.
 
-`R` shows the project's epics on a timeline: a bar from start to due date,
-filled by how much is done. Epics without dates span their children's
-sprints, drawn fainter.
+=== "Terminal"
 
-![Epics on a timeline, one expanded](../screenshots/roadmap.png)
+    `R` on the board.
+
+    ![Epics on a timeline, one expanded](../screenshots/roadmap.png)
+
+=== "Browser"
+
+    `g m`.
+
+    ![Epics on a timeline in the browser](../screenshots/web/roadmap.png)
 
 - `←` `→` scroll, `+` `-` zoom (a day to two weeks per column), `.` back to
   today.
 - `space` folds an epic's issues out, `enter` opens one.
-- `H` `L` move a bar, `<` `>` move its end, or drag it with the mouse. The
-  new dates go to Jira once you pause.
-- `n` makes a new epic, `f` shows an epic's issues as a board view.
+- `H` `L` move a bar, `<` `>` move its end; `e` grips its start, again its
+  end, again lets go. Or drag a bar, or either end, with the mouse. The new
+  dates go to Jira once you pause.
+- `E` quick edits the row's issue, `n` makes a new epic, `f` shows an
+  epic's issues as a board view, `y` copies the roadmap as a table.
+
+=== "Terminal"
+
+    `/` narrows the roadmap to the epics, and children, that match; `u`
+    puts the last moved bar back.
+
+=== "Browser"
+
+    `F` narrows the roadmap to the epics, and children, that match.
 
 > **Tip:** a `⛓` on an epic means another open epic blocks it. It turns red
 > `⛔` when that blocker ends after this one starts.
 
-## Read the charts: `C`
+## Read the charts
 
-On a board with sprints, `C` draws the active sprint: burndown, burnup,
-cumulative flow, the velocity of the last sprints, and how long work takes
-(cycle and lead time, with the 50th and 85th percentile). *Retro* compares
-the last sprint with the one before, for the retrospective. `tab` steps through
-them; `y` copies the open chart's numbers as a table. The burndown's title
-says where the sprint stands against the ideal line: ahead, behind or on
-track.
+The active sprint's burndown (points left per day, against the ideal
+line), its burnup and cumulative flow, the velocity of the last 8 closed
+sprints (`ui.velocity_sprints`). *Cycle* plots the issues resolved in the
+last 8 weeks by how long they took, with the 50th and 85th percentile, and
+lead time the same. *Retro* sets the last closed sprint beside the one
+before: committed, added, done, carried over, moved backwards, and which
+issues. `y` copies the open chart's numbers as a markdown table.
 
-![The active sprint's burndown](../screenshots/burndown.png)
+The burndown counts an issue from the day it joined the sprint and says how
+much was added after the start; its title says whether the sprint is
+ahead, behind or on track. No story points in your team? The burndown and
+burnup count issues instead.
 
-> **Tip:** no story points in your team? The burndown and burnup count
-> issues instead.
+=== "Terminal"
 
-## Ship a release: `V`
+    `C` on the board; `tab` steps through the charts.
 
-`V` lists the project's versions with how much of each is done. `enter`
-shows one's issues as a view; the `↳ release` row under an unreleased one
-releases it today, on a second `enter`. Set an issue's fix version in the
-panel, with its other fields.
+    ![The active sprint's burndown](../screenshots/burndown.png)
+
+=== "Browser"
+
+    `g r` opens Reports; `1`–`7` (or `h` `l`) pick burndown, burnup,
+    cumulative flow, velocity, cycle time, retro or releases. `s` picks
+    another sprint, `W` the cycle-time window. Hover a chart for its
+    numbers.
+
+    ![The burndown in the browser](../screenshots/web/burndown.png)
+
+## Ship a release
+
+The project's versions, newest first, each with a bar of its issues done
+and its release date. Open one to see its issues as a view; release an
+unreleased one today. Set an issue's fix version in the panel, among its
+other fields.
+
+=== "Terminal"
+
+    `V` lists them; `enter` shows a version's issues. The `↳ release` row
+    under an unreleased one releases it on a second `enter`, saying how
+    many of its issues are not done yet.
+
+=== "Browser"
+
+    `V` on the board, or the Releases report (`g r` then `7`). `enter`
+    shows a version's issues on the board, `r` releases it.
 
 ## Recap
 
-- `P` planning, `ctrl+e` refinement, `R` roadmap, `C` charts (cycle time and a
-  retro too), `V` releases; `esc` back to the board.
+- Planning: the backlog beside the sprints, capacity per person; start and
+  complete sprints there.
+- `ctrl+e` refines whatever is on screen, one issue at a time.
+- The roadmap: epics on a timeline, dragged or moved with `H` `L`.
+- Charts for the sprint, cycle time and the retro; releases.
 
 Previous: [Editing and moving](03-editing-and-moving.md) · Next:
 [Your day](05-your-day.md)

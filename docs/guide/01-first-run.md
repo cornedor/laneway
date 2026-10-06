@@ -20,96 +20,153 @@ Or grab a binary from
 `PATH`. When a newer release is out, `↑ v1.2` shows in the header and the
 palette (`:`) has the command that updates it.
 
-**Try it first:** `laneway -demo` (or `demo` at the first start's site
-prompt) opens a generated project, with sprints,
-comments and worklogs, served inside laneway itself. No site, no token;
-move cards and comment all you like, it is gone when you quit. Most of this
-guide works on it; git, agents and your own sites need the real thing.
+## Terminal or browser
+
+One binary, two ways to use it. `laneway` runs in your terminal;
+`laneway web` serves the same app to your browser, on
+`http://127.0.0.1:8484`. They share the config, so you set up once, and
+both can run at the same time.
+
+Throughout this guide, where the two differ you'll see a tab for each.
+Pick yours once and every page follows.
+
+**Try it first:** `laneway -demo` or `laneway web -demo` opens a generated
+project, with sprints, comments, worklogs and a merge request to review.
+No site, no token; move cards and comment all you like, it is gone when you
+quit. Most of this guide works on it; git, agents and your own sites need
+the real thing.
 
 ## Tell it where your Jira is
 
-Run `laneway`. The first time, it has no config yet, so it asks three
-things:
+=== "Terminal"
 
-```
-Connect laneway to a Jira site. ctrl+d cancels.
+    Run `laneway`. The first time, it has no config yet, so it asks:
 
-Jira site, its name (acme) or URL: acme
-  https://acme.atlassian.net
-Email: you@example.com
-API token: make one at https://id.atlassian.com/manage-profile/security/api-tokens
-  paste it, or press enter to open that page:
-  signing in… ✓ signed in as Ada Lovelace
+    ```
+    Connect laneway to a Jira site, or type demo to try it on a generated board first. ctrl+d cancels.
 
-Saved as jira in ~/.config/laneway/config.yaml.
-```
+    Jira site, its name (acme) or URL: acme
+      https://acme.atlassian.net
+    Email: you@example.com
+    API token: make one at https://id.atlassian.com/manage-profile/security/api-tokens
+      paste it, or press enter to open that page:
+      signing in… ✓ signed in as Ada Lovelace
+    Keep the token in the system keyring instead of the config file? [Y/n]
 
-For the token, press `enter` and the page opens: *Create API token*, name
-it "laneway", copy it, paste it back (it isn't shown). laneway signs in
-before it saves anything; a typo says what went wrong and asks again, with
-`enter` keeping what you typed. Then your board opens.
+    Saved as jira in ~/.config/laneway/config.yaml.
+    ```
 
-The config it wrote is plain YAML: `~/.config/laneway/config.yaml`.
+    For the token, press `enter` and the page opens: *Create API token*,
+    name it "laneway", copy it, paste it back (it isn't shown). laneway
+    signs in before it saves anything; a typo says what went wrong and asks
+    again, with `enter` keeping what you typed. The keyring question only
+    comes where there is one (`secret-tool`, macOS Keychain). Then your
+    board opens.
 
-> **Tip:** rather not keep the token in a file? Where there is a keyring
-> (`secret-tool`, macOS Keychain) setup offers to keep it there. Or export
+=== "Browser"
+
+    Run `laneway web`. Without a config the browser opens on a setup page:
+    your site (`acme` or its URL), email and an API token, with the steps to
+    make one. It signs in before it saves anything and says what went wrong
+    if it can't.
+
+    Two boxes to tick: keep the token in the system keyring, and start
+    `laneway web` when you log in. *Try the demo* starts the generated
+    project instead.
+
+The config is plain YAML, readable only by you:
+`~/.config/laneway/config.yaml`.
+
+> **Tip:** rather not keep the token in the file or a keyring? Export
 > `JIRA_API_TOKEN` first; setup then offers that, and the file gets none.
 
 > **Tip:** add `projects: [ABC]` under `jira:` to put the projects you work
 > in at the top of the project picker.
 
-Token expired? `laneway setup` again with the same site replaces the
-email and token and leaves the rest of the config alone;
+Token expired? `laneway setup` again with the same site replaces the email
+and token and leaves the rest of the config alone;
 `laneway -site club setup` fills in club's URL for you.
 
 ## Your board
 
-Run `laneway` again. It opens on a board of the first project in
-`projects` (or, without that list, the first project you can see by name):
-the board's columns side by side as lanes, one card per issue.
+laneway opens on a board of the first project in `projects` (or, without
+that list, the first project you can see by name): the board's columns side
+by side as lanes, one card per issue.
 
-Two keys pick what you look at:
+=== "Terminal"
 
-| Key | Does |
-| --- | --- |
-| `p` | pick a project (type to filter) |
-| `b` | pick one of the project's boards |
+    ![The board as swim lanes](../screenshots/board.png)
+
+    | Key | Does |
+    | --- | --- |
+    | `p` | pick a project (type to filter) |
+    | `b` | pick one of the project's boards |
+
+=== "Browser"
+
+    ![The board in the browser](../screenshots/web/board.png)
+
+    | Key | Does |
+    | --- | --- |
+    | `alt+p` | pick a project (type to filter) |
+    | `B` | pick one of the project's boards |
+
+    Or click the project and board names in the bar above the lanes.
 
 laneway remembers both, so next time it opens right there, from a cached
 copy while the fresh one loads.
 
-> **Try it:** press `p`, type a few letters of your project, `enter`. Then
-> `b` to pick your team's board.
-
 ## Look around
 
-| Key | Does |
-| --- | --- |
-| arrows or `h` `j` `k` `l` | move between cards and lanes |
-| `[` `]` | the board's views: active sprint, next sprints, backlog |
-| `t` | swap the lanes for a sortable list, and back |
-| `enter` | open the card's issue in a panel beside the board |
-| `esc` | close the panel again |
-| `?` | every key, as bound on your machine |
-| `q` | quit |
+=== "Terminal"
 
-![The same board as a list](../screenshots/list.png)
+    | Key | Does |
+    | --- | --- |
+    | arrows or `h` `j` `k` `l` | move between cards and lanes |
+    | `[` `]` | the board's views: active sprint, next sprints, backlog |
+    | `t` | swap the lanes for a sortable list, and back |
+    | `enter` | open the card's issue in a panel beside the board |
+    | `esc` | close the panel again |
+    | `?` | every key, as bound on your machine |
+    | `:` | the palette: every action you can take right now |
+    | `q` | quit |
 
-> **Try it:** press `t` for the list, then `s` a few times to sort it by
-> priority, points, assignee… `t` again brings the lanes back.
+    ![The same board as a list](../screenshots/list.png)
 
-> **Tip:** lost? `?` opens the help at the screen you are on, and `:` opens
-> the command palette: every action you can take right now, searchable by
-> any word.
+    > **Try it:** press `t` for the list, then `s` a few times to sort it by
+    > priority, points, assignee… `t` again brings the lanes back.
+
+=== "Browser"
+
+    | Key | Does |
+    | --- | --- |
+    | arrows or `h` `j` `k` `l` | move between cards and lanes |
+    | `[` `]`, `v` | the board's views: active sprint, next sprints, backlog |
+    | `t` | swap the lanes for a sortable list, and back |
+    | `enter` | open the card's issue in a panel beside the board |
+    | `esc` | close the panel again |
+    | `?` | the keys you can press right now |
+    | `:` | the palette: every command, view and issue |
+    | `g` then a letter | another view: `g p` planning, `g r` reports, `M` lists them all |
+
+    The bar at the bottom shows the main keys of what has the focus; a
+    click presses one.
+
+    ![The same board as a list](../screenshots/web/list.png)
+
+    > **Try it:** press `t` for the list, then `O` a few times to sort it by
+    > priority, points, assignee… `t` again brings the lanes back.
+
+> **Tip:** lost? `?` shows the keys of the screen you are on, and `:`
+> finds any action by any word.
 
 ## More than one Jira?
 
-Press `@` and pick *+ add a Jira site*: the same three questions, and a
-name to pick it by (`club` for club.atlassian.net). It lands under
-`sites:`, and laneway opens on it. `@` switches between them after that,
-and the next start opens the one you last picked; `laneway -site club`
-starts on one. `laneway setup` does the same from
-the shell.
+Press `@` and pick *add a Jira site*: the same questions, and a name to
+pick it by (`club` for club.atlassian.net). It lands under `sites:`, and
+laneway opens on it. `@` switches between them after that, and the next
+start opens the one you last picked; `laneway -site club` starts on one.
+`laneway setup` does the same from the shell.
 
 ```yaml
 sites:
@@ -118,9 +175,11 @@ sites:
 
 ## Recap
 
-- The first `laneway` asks for your Jira, email and token and saves them in `~/.config/laneway/config.yaml`; `@` adds another site.
-- `p` project, `b` board, `[` `]` views, `t` lanes or list.
+- `laneway` in the terminal, `laneway web` in the browser, one config.
+- The first start asks for your Jira, email and token; `@` adds another
+  site.
+- Pick a project and board once; `[` `]` views, `t` lanes or list.
 - `enter` opens an issue, `esc` closes it, `?` when in doubt.
 
 Next: [The board and the panel](02-board-and-panel.md), where you narrow
-the board down and read an issue without leaving the terminal.
+the board down and read an issue without opening Jira.

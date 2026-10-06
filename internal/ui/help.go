@@ -32,7 +32,9 @@ func (m *Model) helpSections() []struct {
 	}{
 		{"Board", []helpRow{
 			{join(k.Up, k.Down) + "  " + join(k.Left, k.Right), "move"},
+			{join(k.Home, k.End) + "  " + join(k.PageUp, k.PageDown), "top / bottom, a page"},
 			row(k.OpenChannel, "open issue"),
+			row(k.OpenRef, "show / hide the panel"),
 			row(k.Goto, "go to issue by key"),
 			row(k.Create, "new issue"),
 			row(k.OpenAttach, "open in browser"),
@@ -94,6 +96,7 @@ func (m *Model) helpSections() []struct {
 			{join(k.JiraComment, k.JiraReply), "comment / reply"},
 			{join(k.NextComment, k.PrevComment), "select a comment: R reply, ↵ edit yours, " + helpKey(k.DeleteComment) + " twice delete"},
 			{join(k.LogWork, k.Timer), "log work / timer"},
+			row(k.Undo, "undo the last edit"),
 			row(k.Timesheet, "today's worklogs"),
 			row(k.Inbox, "inbox"),
 			row(k.Agents, "agents"),
@@ -170,13 +173,13 @@ func (m *Model) helpSections() []struct {
 			{"esc / " + helpKey(k.Quit), "back to the board"},
 		}},
 		section{"Charts", []helpRow{
-			{helpKey(k.Tab) + " / " + join(k.PrevView, k.NextView), "next / previous chart"},
+			{helpKey(k.Tab) + " / " + join(k.PrevView, k.NextView), "next chart / previous / next"},
 			row(k.CopyKey, "copy the numbers as a table"),
 			row(k.Refresh, "refresh"),
 			{"esc / " + helpKey(k.Quit), "back to the board"},
 		}},
 		section{"Standup", []helpRow{
-			{"← →", "previous / next person, Everyone first: the board walked right to left"},
+			{join(k.Left, k.Right), "previous / next person, Everyone first: the board walked right to left"},
 			row(k.Assignee, "who takes part, kept for the board: the timer splits the length over them"),
 			row(k.StandupPause, "start / pause the timer (a turn each, and the whole standup; ui.standup_timer)"),
 			row(k.StandupShuffle, "the people in a random order / the board's"),
@@ -269,6 +272,8 @@ func (m *Model) helpSections() []struct {
 			{join(k.PrevView, k.NextView), "previous / next day"},
 			row(k.EditEntry, "edit the entry"),
 			row(k.DeleteEntry, "delete it (twice)"),
+			row(k.ProposeWork, "propose what's missing: commits, ui.activity, meetings"),
+			row(k.OpenChannel, "open the issue; a proposal: log it"),
 			row(k.CopyKey, "copy the day as a table"),
 			row(k.Timesheet, "the week"),
 		}},

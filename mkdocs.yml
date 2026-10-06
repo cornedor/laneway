@@ -1,5 +1,5 @@
 site_name: laneway
-site_description: A terminal board for Jira
+site_description: Jira in your terminal and your browser
 repo_url: https://github.com/cornedor/laneway
 repo_name: cornedor/laneway
 edit_uri: edit/main/docs/
@@ -12,6 +12,7 @@ theme:
     - navigation.sections
     - search.suggest
     - content.code.copy
+    - content.tabs.link
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -33,6 +34,7 @@ markdown_extensions:
   - toc: {permalink: true}
   - pymdownx.highlight
   - pymdownx.superfences
+  - pymdownx.tabbed: {alternate_style: true}
 
 nav:
   - Home: index.md
@@ -47,4 +49,12 @@ nav:
       - guide/07-from-the-shell.md
       - guide/08-make-it-yours.md
       - guide/09-in-the-browser.md
-  - Reference: reference.md
+  - Reference:
+      - reference/index.md
+      - reference/config.md
+      - reference/terminal-keys.md
+      - reference/browser-keys.md
+      - reference/search.md
+      - reference/editor.md
+      - reference/rules.md
+      - reference/cli.md

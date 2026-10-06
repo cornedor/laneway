@@ -152,7 +152,8 @@ type UIConfig struct {
 	// DateFormat is a Go time layout for the panel's dates.
 	DateFormat string `yaml:"date_format"`
 	// CardFields picks what cards and list rows show, in any order:
-	// type, priority, status, points, assignee, parent.
+	// type, priority, status, points, assignee, avatar, parent, pr, deploy,
+	// subtasks, due, flagged, age.
 	CardFields []string `yaml:"card_fields"`
 	// CardLayout places a lane card's fields around its summary; set, it
 	// replaces CardFields on lane cards (list rows keep CardFields).

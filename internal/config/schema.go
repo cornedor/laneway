@@ -5,7 +5,7 @@ package config
 // SettingsRestart are options read once at startup.
 var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
 
-// SettingDefaults is each ui: option's default as the README shows it.
+// SettingDefaults is each ui: option's default as the docs show it.
 var SettingDefaults = map[string]string{
 	"auto_refresh":         "2m",
 	"stale_after":          "1m",
@@ -114,7 +114,7 @@ var SettingDocs = map[string]string{
 	"calendar":             "an iCalendar feed of your meetings (file, https or webcal URL, or a vdir directory): the timesheet proposes them as worklogs, planning takes them off your capacity",
 	"meeting_key":          "the issue meetings from ui.calendar are logged on",
 	"home":                 "the start screen's widgets, in order: work, inbox, sprint, timer, reviews, filters",
-	"card_fields":          "what cards show, in order: type, priority, status, points, assignee, parent",
+	"card_fields":          "what cards show, in order: type, priority, status, points, assignee, avatar, parent, pr, deploy, subtasks, due, flagged, age",
 	"card_layout":          "where a lane card's fields sit: top, top_right, bottom, bottom_right around the summary",
 	"card_styles":          "restyle cards a board query matches: when, edge, tint, fade, bold, hide, show",
 	"quick_filters":        "JQL presets shown before every board's own",

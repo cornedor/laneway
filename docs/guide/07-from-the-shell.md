@@ -11,7 +11,7 @@ Four commands, no board:
 laneway list                                   # your open issues
 laneway list -jql 'project = ABC ORDER BY rank' -format csv
 laneway view ABC-12                            # one issue; -format json
-laneway create -project ABC -type Bug -summary 'Login fails'
+laneway create -project ABC -type Bug -summary 'Login fails'   # type: Task by default
 laneway move ABC-12 'In Progress'              # any status it can move to
 ```
 
@@ -48,34 +48,51 @@ when = true
 set -g status-right '#(laneway prompt -format "{{.Key}} {{.Timer}}")'
 ```
 
-## Rules in the background
+## In the background
 
-`laneway rules watch` runs your `watch:` rules without the board, printing
-what fires: leave it in a tmux pane, or a user service. Chapter 8 shows
-how to write them.
+`laneway web` can start when you log in: tick it on the setup page or
+under Settings › App (chapter 9). Your rules run inside it, so they keep
+watching while the browser tab is closed.
+
+`laneway rules watch` runs your `watch:` rules without any app, printing
+what fires: leave it in a tmux pane. Chapter 8 shows how to write them.
 
 ## When the connection drops
 
 laneway keeps working.
 
-- **Reading.** Every issue it has read is kept in a local index. Offline,
-  the palette (`:`), the panel and simple `Q` searches answer from it and
-  say so. It keeps the
-  project's people as well, so `@` mentions and the assignee picker work
-  offline too. `laneway index` shows what it holds, `laneway index clear`
-  empties it.
-- **Writing.** A change that never reached Jira waits in a queue, `⇡3` in
-  the header, and goes out by itself once Jira answers, oldest first. If
-  the issue changed in Jira meanwhile, it waits for you: the palette's
-  *queue* row sends it anyway or drops it.
+- **Writing.** A change that never reached Jira waits in a queue and goes
+  out by itself once Jira answers, oldest first. If the issue changed in
+  Jira meanwhile, it waits for you to send it anyway or drop it. Anything
+  that may have reached Jira fails as before, so nothing is sent twice.
 - **Typing.** A comment or description you're writing is kept as a draft;
-  after a crash, `c` or `E` on the issue brings it back.
+  after a crash, opening the editor on the issue brings it back.
+
+=== "Terminal"
+
+    The queue shows as `⇡3` in the header; the palette's *queue* row sends
+    or drops a waiting change.
+
+    Every issue laneway reads is also kept in a local index. Offline, the
+    palette, the panel and simple `Q` searches answer from it and say so.
+    It keeps the project's people as well, so `@` mentions and the
+    assignee picker work offline too. `laneway index` shows what it holds,
+    `laneway index clear` empties it.
+
+=== "Browser"
+
+    The queue shows as a chip with a count in the bar on top; a click sends
+    or drops a waiting change. The `laneway web` server must still be
+    running: reads come from it, and there is no local index.
 
 ## Recap
 
-- `list`, `view`, `create`, `move` for scripts; `completion` for your shell.
-- `laneway prompt` for the prompt or tmux, `rules watch` in the background.
-- Offline: reads come from the index, writes wait in the `⇡` queue.
+- `list`, `view`, `create`, `move` for scripts; `completion` for your
+  shell.
+- `laneway prompt` for the prompt or tmux; `laneway web` at login, or
+  `rules watch`, in the background.
+- Offline: writes wait in a queue; in the terminal, reads come from the
+  index.
 
 Previous: [Work on an issue](06-work-on-an-issue.md) · Next:
 [Make it yours](08-make-it-yours.md)
