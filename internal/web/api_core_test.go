@@ -88,3 +88,24 @@ func TestBoardLocalQuickFilters(t *testing.T) {
 		t.Errorf("quick filters = %+v, want the preset first, then the board's", q)
 	}
 }
+
+func TestPrefsRoundTrip(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = st.SetMeta("jira:mode", "web:x")
+	ts := httptest.NewServer(New(context.Background(), Options{Client: jira.New(jira.Config{}), Store: st, Site: "t"}))
+	t.Cleanup(ts.Close)
+
+	if code := issueCall(t, "PUT", ts.URL+"/api/prefs/theme.preset", map[string]string{"Value": "nord"}, nil); code >= 300 {
+		t.Fatalf("put status %d", code)
+	}
+	var out map[string]string
+	if code := issueCall(t, "GET", ts.URL+"/api/prefs", nil, &out); code != 200 {
+		t.Fatalf("get status %d", code)
+	}
+	if len(out) != 1 || out["theme.preset"] != "nord" {
+		t.Errorf("prefs = %v, want only theme.preset=nord", out)
+	}
+}

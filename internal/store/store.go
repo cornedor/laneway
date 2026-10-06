@@ -77,15 +77,15 @@ func (s *Store) GetMeta(key string) (string, bool, error) {
 	return v, ok, nil
 }
 
-// Prefixed is every value whose key starts with prefix, in no order.
-func (s *Store) Prefixed(prefix string) []string {
+// Prefixed is every key starting with prefix, with its value.
+func (s *Store) Prefixed(prefix string) map[string]string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.refresh(false)
-	var out []string
+	out := map[string]string{}
 	for k, v := range s.meta {
 		if strings.HasPrefix(k, prefix) {
-			out = append(out, v)
+			out[k] = v
 		}
 	}
 	return out

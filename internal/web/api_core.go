@@ -59,10 +59,8 @@ func init() {
 	})
 	get("/prefs", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		out := map[string]string{}
-		for _, k := range s.opt.Store.Prefixed("web:") {
-			if v, ok, _ := s.opt.Store.GetMeta(k); ok {
-				out[k[len("web:"):]] = v
-			}
+		for k, v := range s.opt.Store.Prefixed("web:") {
+			out[strings.TrimPrefix(k, "web:")] = v
 		}
 		return out, nil
 	})

@@ -21,7 +21,7 @@ const commands = {
 };
 
 // Look-and-feel prefs are mirrored unscoped (boot.js and fonts.js read them before the site is known); the rest per site.
-const GLOBAL_PREF = /^(font|terminal)\./;
+const GLOBAL_PREF = /^(font|terminal|theme)\./;
 
 // Where the focus or a press last landed, in the panel or not (app.panel.focused); a modal over them, or the key bar, changes neither.
 // body.panel-focus shows it: the panel's edge lit, the view's cursor muted.
@@ -233,7 +233,7 @@ async function boot() {
     api.swr('/emoji/table', emojiTable);
     const p = await api.get('/prefs'); app.prefs.data = p || {};
     onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });
-    theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
+    theme.attach(app.prefs); theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
   } catch (e) { $('#top').classList.remove('boot'); $('#viewbar').classList.remove('hold'); clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
   import('./lib/keybar.js').then(m => m.install(app)).catch(e => console.error('keybar', e));

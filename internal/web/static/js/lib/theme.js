@@ -32,7 +32,11 @@ export const accents = ['#5b8def', '#e5484d', '#f76b15', '#e0a100', '#30a46c', '
 import { changed } from './metrics.js';
 const root = document.documentElement;
 const get = (k, d) => { try { return localStorage.getItem('lw:' + k) || d; } catch (e) { return d; } };
-const set = (k, v) => { try { v == null ? localStorage.removeItem('lw:' + k) : localStorage.setItem('lw:' + k, v); } catch (e) { /* ignore */ } };
+const local = (k, v) => { try { v == null ? localStorage.removeItem('lw:' + k) : localStorage.setItem('lw:' + k, v); } catch (e) { /* ignore */ } };
+// The picks below follow the user across browsers: app.prefs (server store) as theme.<key>, localStorage for boot.js's first paint.
+const SYNCED = ['theme', 'accent', 'density', 'fs', 'motion', 'custom'];
+let prefs = null; // app.prefs once attached
+const set = (k, v) => { local(k, v); if (prefs && SYNCED.includes(k)) prefs.set('theme.' + k, v == null ? '' : v); };
 
 // ui.theme (preset and accent) is the default until this browser picks its own; kept for boot.js's first paint.
 const dflt = () => get('theme-default', 'auto');
@@ -50,7 +54,7 @@ export const theme = {
   // ui.theme: a preset name, or {preset, accent}; colours by name stay the TUI's.
   setDefault(t) {
     const p = t && presets.some(x => x.id === t.preset) ? t.preset : '', a = t && /^#[0-9a-f]{3,8}$/i.test(t.accent || '') ? t.accent : '';
-    set('theme-default', p || null); set('accent-default', a || null);
+    local('theme-default', p || null); local('accent-default', a || null);
     apply(theme.current);
     if (!theme.accent) paintAccent(a);
   },
@@ -59,7 +63,7 @@ export const theme = {
   next() { const i = presets.findIndex(p => p.id === theme.current); theme.set(presets[(i + 1) % presets.length].id); return theme.current; },
 };
 
-// ---- display extras: font size, reduced motion, custom token overrides (all local to this browser)
+// ---- display extras: font size, reduced motion, custom token overrides
 const TOKENS = ['bg', 'bg-2', 'bg-3', 'fg', 'fg-2', 'border', 'accent', 'ok', 'warn', 'err'];
 let customKeys = [];
 const motionCss = document.createElement('style');
@@ -97,6 +101,14 @@ Object.defineProperties(theme, Object.getOwnPropertyDescriptors({
 if (theme.fontSize) theme.setFontSize(theme.fontSize);
 if (theme.motion === 'reduce') theme.setMotion('reduce');
 theme.setCustom(theme.custom);
+
+// Another browser may have picked since: adopt the server store's values (app.prefs.data after load).
+theme.attach = pf => {
+  for (const k of SYNCED) if (pf.data && 'theme.' + k in pf.data) local(k, String(pf.data['theme.' + k]) || null);
+  apply(theme.current); paintAccent(theme.accent || get('accent-default', ''));
+  root.dataset.density = theme.density; theme.setFontSize(theme.fontSize); theme.setMotion(theme.motion); theme.setCustom(theme.custom);
+  prefs = pf; // after: re-applying must not write the values back
+};
 
 import fonts from './fonts.js'; // applies --font-ui / --font-mono at load
 theme.fonts = fonts;
