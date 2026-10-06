@@ -65,7 +65,8 @@ export function route(href) {
   const q = u.searchParams, seg = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const sel = KEY.test(q.get('selectedIssue') || '') ? q.get('selectedIssue') : '';
 
-  // /browse/ABC-1, /browse/ABC
+  // /browse/ABC-1, /browse/ABC, /jira/browse/ABC-1
+  if (seg[0] === 'jira' && seg[1] === 'browse') seg.shift();
   if (seg[0] === 'browse' && seg[1]) return KEY.test(seg[1]) ? '/issue/' + seg[1] : PROJ.test(seg[1]) ? '/board/' + seg[1] : null;
   // /projects/ABC/issues/ABC-1 (old links)
   if (seg[0] === 'projects' && seg[2] === 'issues' && KEY.test(seg[3] || '')) return '/issue/' + seg[3];
@@ -146,7 +147,7 @@ export function parseHosts(text) {
 // The paths worth sending to laneway, so dashboards, Confluence (/wiki) and the rest never take the
 // detour. route() still decides; what it maps to null goes back to Jira. Loose on purpose: Chrome
 // caps a rule's compiled regex at 2 KB, and a tighter pattern exceeds it.
-export const PATHS = '(browse|issues|jira/(software|core|your-work|for-you)|secure/RapidBoard\\.jspa|projects/[^/]+/issues)';
+export const PATHS = '(browse|issues|jira/(browse|software|core|your-work|for-you)|secure/RapidBoard\\.jspa|projects/[^/]+/issues)';
 
 // The marker that sends a request to Jira untouched (a priority allow rule matches it).
 export const BYPASS = 'laneway=jira';
