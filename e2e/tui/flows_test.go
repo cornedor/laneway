@@ -74,7 +74,7 @@ func TestViews(t *testing.T) {
 		{"R", "Roadmap  3 epics"},
 		{"I", "Mentions"},
 		{"U", "Standup · since"},
-		{"?", "move card a lane"},
+		{"?", "show / hide the panel"},
 	} {
 		s.keys(v.key)
 		s.wait(v.shows)

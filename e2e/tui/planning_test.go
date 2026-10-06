@@ -68,7 +68,7 @@ func TestPlanCompleteStart(t *testing.T) {
 	s.keys("S")
 	s.wait("Start Sprint 13 today")
 	s.keys("Enter")
-	s.wait("14d left")
+	s.wait("d left") // 14 or 15: the end is a date, the start now
 	s.wait("To Do 6 · 16p")
 	s.wait("Done 0")
 }
