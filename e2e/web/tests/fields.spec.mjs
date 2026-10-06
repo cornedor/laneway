@@ -80,7 +80,7 @@ test('a custom field: Team, under Fields', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(team).toContainText('Platform');
   await page.reload();
-  await page.getByRole('button', { name: /^Fields/ }).click();
+  await expect(page.getByRole('button', { name: /^Fields/ })).toHaveAttribute('aria-expanded', 'true');
   await expect(team).toContainText('Platform');
 });
 
