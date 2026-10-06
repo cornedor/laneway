@@ -69,7 +69,7 @@ func runWeb(cfgPath, site, addr, cert, key string, remote, open, demoMode bool) 
 	// The setup screen ends by serving the app in its place, on the same
 	// address: the browser reloads into it.
 	for {
-		next, err := serveWeb(ctx, cfgPath, site, addr, cert, key, token, remote, open, demoMode)
+		next, bound, err := serveWeb(ctx, cfgPath, site, addr, cert, key, token, remote, open, demoMode)
 		if errors.Is(err, syscall.EADDRINUSE) && runningWeb(addr) {
 			// Started at login, most likely: open that one.
 			url := "http://" + addr
@@ -82,52 +82,60 @@ func runWeb(cfgPath, site, addr, cert, key string, remote, open, demoMode bool) 
 		if err != nil || next == webQuit || ctx.Err() != nil {
 			return err
 		}
-		open, demoMode = false, next == webDemo
+		open = false
+		if _, port, _ := net.SplitHostPort(addr); port == "0" {
+			addr = bound // back on the port it got
+		}
+		if next != webRestart {
+			demoMode = next == webDemo
+		}
 		if next == webAdded {
 			site = "" // the added one, the last site now
 		}
 	}
 }
 
-// How a web server ended: stopped, or set up (to the site, or the demo).
+// How a web server ended: stopped, set up (to the site, or the demo), a
+// site added or restarted.
 const (
 	webQuit = iota
 	webSetUp
 	webDemo
-	webAdded // a site was added: start again on it
+	webAdded   // a site was added: start again on it
+	webRestart // asked from the settings: start again as it was
 )
 
-func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token string, remote, open, demoMode bool) (int, error) {
+func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token string, remote, open, demoMode bool) (end int, bound string, err error) {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
-	end := webQuit
+	end = webQuit
 	opt := web.Options{Version: version, Demo: demoMode, Token: token, UpgradeCmd: upgradeCmd()}
 	if demoMode {
 		baseURL, stopDemo, err := newDemo().Start()
 		if err != nil {
-			return end, err
+			return end, bound, err
 		}
 		defer stopDemo()
 		dir, err := os.MkdirTemp("", "laneway-web-demo-")
 		if err != nil {
-			return end, err
+			return end, bound, err
 		}
 		defer os.RemoveAll(dir)
 		if opt.Store, err = store.Open(filepath.Join(dir, "state.json")); err != nil {
-			return end, err
+			return end, bound, err
 		}
 		jc := config.JiraConfig{BaseURL: baseURL, Email: "demo@example.com", APIToken: "demo", Projects: []string{"DEMO"}}
 		opt.Site, opt.Jira = "demo", jc
 		opt.GitLab = demoGitLab(baseURL)
 		opt.ConfigPath = filepath.Join(dir, "config.yaml")
 		if err := os.WriteFile(opt.ConfigPath, []byte("# demo config\n"), 0o600); err != nil {
-			return end, err
+			return end, bound, err
 		}
 		var uiCfg config.UIConfig
 		if cfgPath != "" { // as in the TUI's demo: the config's ui: and rules: apply, never its sites
 			cfg, _, err := config.Load(cfgPath)
 			if err != nil {
-				return end, err
+				return end, bound, err
 			}
 			uiCfg, opt.Rules, opt.RulesTest = cfg.UI, cfg.Rules, cfg.RulesTest
 		}
@@ -138,7 +146,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)
 		if err != nil && !errors.Is(err, config.ErrNoConfig) {
-			return end, err
+			return end, bound, err
 		}
 		opt.ConfigPath = loaded
 		if site == "" {
@@ -159,7 +167,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 			opt.Setup = st
 		} else {
 			if opt, err = webSite(cfg, site, opt); err != nil {
-				return end, err
+				return end, bound, err
 			}
 			opt.Open = func(other string) (web.Options, error) { return webSite(cfg, other, web.Options{ConfigPath: loaded}) }
 			opt.AddSite = &web.SiteAdder{Keyring: keyringAvailable(), EnvToken: os.Getenv("JIRA_API_TOKEN") != "",
@@ -175,6 +183,12 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 			opt.DefaultName = cfg.Jira.Name
 		}
 	}
+	if opt.Setup == nil {
+		opt.Restart = func() {
+			end = webRestart
+			time.AfterFunc(300*time.Millisecond, cancel) // after the answer is sent
+		}
+	}
 	if !demoMode && !remote && cert == "" { // -remote's token changes each start: not for a login service
 		opt.Autostart = webAutostart(cfgPath, addr)
 	}
@@ -182,7 +196,8 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 		opt.AllowedHosts = append(opt.AllowedHosts, allowedHosts(host)...)
 	}
 	srv := web.New(ctx, opt)
-	err := web.Serve(ctx, addr, remote, cert, key, srv, func(a net.Addr) {
+	err = web.Serve(ctx, addr, remote, cert, key, srv, func(a net.Addr) {
+		bound = a.String()
 		url := "http://" + a.String()
 		if cert != "" {
 			url = "https://" + a.String()
@@ -200,7 +215,7 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 			openBrowser(url)
 		}
 	})
-	return end, err
+	return end, bound, err
 }
 
 // runningWeb is whether a laneway web answers on addr.

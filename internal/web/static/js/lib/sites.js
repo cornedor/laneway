@@ -78,6 +78,14 @@ function addSite(app, info) {
   }
 }
 
+// restart asks the server to start again (the config read anew) and reloads the page once it answers.
+export async function restart(app) {
+  try { await app.api.post('/restart'); } catch (e) { return app.ui.errToast(e); }
+  app.ui.toast('Restarting laneway web…');
+  try { await comeBack(app.session.site); } catch (e) { return app.ui.toast('laneway web did not come back; start it again.', { kind: 'err' }); }
+  location.reload();
+}
+
 // The server starts again on the added site; wait until it answers.
 async function comeBack(site) {
   await new Promise(r => setTimeout(r, 600));

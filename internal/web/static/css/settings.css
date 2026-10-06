@@ -92,3 +92,4 @@
 .cd-add { padding: 0 .429rem; }
 @media (max-width: 700px) { .cd-rbody { grid-template-columns: 1fr; } .cd-trayrow { flex-direction: column; } }
 .cd-tog .btn.on { background: var(--accent-bg); color: var(--fg); box-shadow: inset 0 0 0 1px var(--accent); }
+.st-proj { display: inline-flex; align-items: center; gap: .143rem; } .st-proj-x { font: inherit; border: 0; background: none; color: var(--fg-3); cursor: pointer; padding: 0 .143rem; } .st-proj-x:hover { color: var(--fg); }

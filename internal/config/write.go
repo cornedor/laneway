@@ -58,6 +58,27 @@ func SetSite(path, name string, j JiraConfig) error {
 	})
 }
 
+// SetProjects writes a site's projects (jira: for name "", else
+// sites.<name>) into the config file at path; none removes the key.
+func SetProjects(path, name string, projects []string) error {
+	return editConfig(path, false, false, func(root *yaml.Node) error {
+		site, err := section(root, "jira", true)
+		if name != "" {
+			var sites *yaml.Node
+			if sites, err = section(root, "sites", true); err == nil {
+				site, err = section(sites, name, true)
+			}
+		}
+		if err != nil {
+			return err
+		}
+		if len(projects) == 0 {
+			return setMapping(site, "projects", nil)
+		}
+		return setMapping(site, "projects", projects)
+	})
+}
+
 // editConfig applies edit to the config file at path through its YAML
 // tree, so comments and the other keys stay. create makes a missing file
 // (and its directory), else a missing file is an error. private drops

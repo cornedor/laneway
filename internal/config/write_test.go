@@ -84,6 +84,29 @@ func TestSetSite(t *testing.T) {
 	}
 }
 
+func TestSetProjects(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	orig := "jira:\n  base_url: https://a.atlassian.net\n  projects: [ABC] # mine\nsites:\n  club:\n    base_url: https://club.atlassian.net\n"
+	os.WriteFile(path, []byte(orig), 0o600)
+	if err := SetProjects(path, "", []string{"XYZ", "ABC"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetProjects(path, "club", []string{"CL"}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	want := "jira:\n  base_url: https://a.atlassian.net\n  projects: [XYZ, ABC] # mine\nsites:\n  club:\n    base_url: https://club.atlassian.net\n    projects: [CL]\n"
+	if string(got) != want {
+		t.Errorf("file =\n%s\nwant\n%s", got, want)
+	}
+	if err := SetProjects(path, "club", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(path); strings.Contains(string(got), "CL") {
+		t.Errorf("projects kept:\n%s", got)
+	}
+}
+
 // TestSetSiteNoToken: no token (JIRA_API_TOKEN stands in) leaves the key out.
 func TestSetSiteNoToken(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")

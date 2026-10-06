@@ -81,7 +81,8 @@ The config is plain YAML, readable only by you:
 > `JIRA_API_TOKEN` first; setup then offers that, and the file gets none.
 
 > **Tip:** add `projects: [ABC]` under `jira:` to put the projects you work
-> in at the top of the project picker.
+> in at the top of the project picker. In the browser, Settings > Site >
+> Projects picks them from the site's projects and writes that line.
 
 Token expired? `laneway setup` again with the same site replaces the email
 and token and leaves the rest of the config alone;

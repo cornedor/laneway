@@ -1,5 +1,5 @@
 // Settings: topic headings, `/` filters by name. j/k move, enter/space/→ change, ← back, del resets, esc leaves.
-// Sections: Appearance and Board (this browser), Notifications, Keyboard (remaps, settings_keys.js), then every
+// Sections: Appearance and Board (this browser), Notifications, App, Site (settings_site.js), Keyboard (remaps, settings_keys.js), then every
 // ui: option of the config file by topic (settings_config.js), shared with the terminal app, and GitLab.
 //
 // Board prefs (app.prefs, per site) for the board views:
@@ -20,6 +20,7 @@ import { load as loadConfig } from './settings_config.js';
 import { designCards } from './settings_cards.js';
 import { keyOptions } from './settings_keys.js';
 import { fontOptions } from './settings_fonts.js';
+import { siteOptions } from './settings_site.js';
 
 css('settings');
 
@@ -84,6 +85,7 @@ export default function mount(el, { app, scope, toolbar }) {
     s.autostart && { name: 'Start at login', desc: 'runs laneway web in the background when you log in, on ' + location.host + ' (' + s.autostart.path + ')', section: 'App', meta: 'autostart startup boot service systemd launchd',
       render: () => { const on = s.autostart.enabled; return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Start at login', tabindex: -1, onclick: () => toggleLogin() }, h('i')), h('span.st-state', on ? 'on' : 'off')); },
       change: () => toggleLogin() },
+    ...siteOptions(app, () => refresh()),
     info('Site', s.site || '-', 'Data'), info('Jira', s.baseURL || '-', 'Data'),
     info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Data'), info('Version', s.version || 'dev', 'Data'),
     action('Clear cached data', 'the browser copy of API answers; reloaded on demand', 'Data', () => { api.forget(); app.ui.toast('Caches cleared', { kind: 'ok' }); }),
@@ -170,7 +172,7 @@ export default function mount(el, { app, scope, toolbar }) {
   const shown = () => {
     const words = q.split(/\s+/).filter(Boolean);
     const vis = options.filter(o => { if (!words.length) return true; const t = hay(o); return words.every(w => t.includes(w)); });
-    const rank = o => (o.key ? 2 : o.cfg ? 4 : ({ Appearance: 0, Notifications: 1, App: 1.5, Keyboard: 2, 'Board (this browser)': 3, Data: 5 })[o.section] ?? 4);
+    const rank = o => (o.key ? 2 : o.cfg ? 4 : ({ Appearance: 0, Notifications: 1, App: 1.5, Site: 1.6, Keyboard: 2, 'Board (this browser)': 3, Data: 5 })[o.section] ?? 4);
     // sections keep the order they first appear in; the fixed ones come first
     const seen = []; for (const o of vis) if (!seen.includes(o.section)) seen.push(o.section);
     const at = sec => rank(vis.find(o => o.section === sec)) * 1000 + seen.indexOf(sec);

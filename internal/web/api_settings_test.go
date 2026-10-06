@@ -160,3 +160,51 @@ func TestSettingsCommandRemote(t *testing.T) {
 		t.Errorf("command setting written:\n%s", b)
 	}
 }
+
+func TestSiteProjects(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte("jira:\n  projects: [ABC]\n"), 0o600)
+	s := New(t.Context(), Options{ConfigPath: path, Jira: config.JiraConfig{Projects: []string{"ABC"}}})
+	ts := httptest.NewServer(s)
+	defer ts.Close()
+	put := func(body string) int {
+		req, _ := http.NewRequest("PUT", ts.URL+"/api/site/projects", bytes.NewBufferString(body))
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		return res.StatusCode
+	}
+	if code := put(`{"Projects": ["xyz", "ABC", "XYZ"]}`); code != 200 {
+		t.Fatalf("status %d", code)
+	}
+	if got := s.projects(); !reflect.DeepEqual(got, []string{"XYZ", "ABC"}) {
+		t.Errorf("projects %v", got)
+	}
+	if c, _, _ := config.Load(path); !reflect.DeepEqual(c.Jira.Projects, []string{"XYZ", "ABC"}) {
+		t.Errorf("config %v", c.Jira.Projects)
+	}
+	if code := put(`{"Projects": ["no key"]}`); code != http.StatusBadRequest {
+		t.Errorf("bad key: status %d", code)
+	}
+}
+
+func TestRestart(t *testing.T) {
+	restarted := false
+	ts := httptest.NewServer(New(t.Context(), Options{Restart: func() { restarted = true }}))
+	defer ts.Close()
+	res, err := http.Post(ts.URL+"/api/restart", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 200 || !restarted {
+		t.Errorf("status %d, restarted %v", res.StatusCode, restarted)
+	}
+	ts2 := httptest.NewServer(New(t.Context(), Options{}))
+	defer ts2.Close()
+	if res, _ := http.Post(ts2.URL+"/api/restart", "application/json", nil); res.StatusCode != http.StatusNotImplemented {
+		t.Errorf("no Restart: status %d", res.StatusCode)
+	}
+}

@@ -25,10 +25,12 @@ type siteSet struct {
 	open  map[string]Options
 	ruled map[string]bool // sites whose rule watches run: those switched to
 	rules map[string]*ruleRunner
+	// projects are sites' projects: saved since the start, over the config's.
+	projects map[string][]string
 }
 
 func newSiteSet(base Options) *siteSet {
-	return &siteSet{base: base, ui: base.UI, open: map[string]Options{}, ruled: map[string]bool{}}
+	return &siteSet{base: base, ui: base.UI, open: map[string]Options{}, ruled: map[string]bool{}, projects: map[string][]string{}}
 }
 
 // at is s for the site r asks for.

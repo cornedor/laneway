@@ -68,6 +68,8 @@ type Options struct {
 	Autostart *Autostart
 	// AddSite, when set, lets the site picker add a Jira site.
 	AddSite *SiteAdder
+	// Restart, when set, serves the app again with the config read anew.
+	Restart func()
 	// UpgradeCmd updates this binary ("" when unknown: the release page).
 	UpgradeCmd string
 	// GitLab are the GitLab instances (nil: none, as in the demo), and

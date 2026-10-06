@@ -1,6 +1,7 @@
 // The config file's ui: options on the settings page. The server owns the table (/api/settings: type,
 // default, value, description, choices) and writes the file the terminal app reads, comments kept.
 import { h } from '../lib/dom.js';
+import { restart } from '../lib/sites.js';
 
 const cycle = (list, cur, d) => list[(Math.max(0, list.indexOf(cur)) + d + list.length) % list.length];
 const show = v => (Array.isArray(v) ? v.join(', ') : String(v));
@@ -32,7 +33,7 @@ function make(app, host, st0, editable) {
     try {
       o.st = await put(app, o.name, payload);
       o.err = '';
-      if (!quiet) app.ui.toast('Saved ui.' + o.name + (st().Restart ? ' · takes effect on restart' : ''), { kind: 'ok' });
+      if (!quiet) app.ui.toast('Saved ui.' + o.name + (st().Restart ? ' · takes effect on restart' : ''), { kind: 'ok', action: st().Restart ? { label: 'Restart', run: () => restart(app) } : undefined });
       host.redraw(o);
       return true;
     } catch (e) { o.err = e.message; host.redraw(o); return false; }

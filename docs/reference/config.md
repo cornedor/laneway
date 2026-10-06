@@ -48,7 +48,8 @@ or commenting.
 
 Every option is optional. `,` (terminal) and `g ,` (browser) list them by
 topic with their value, default and what they do. Options marked
-*restart* apply on the next start; the rest apply at once.
+*restart* apply on the next start (the browser's Settings > Site >
+Restart starts `laneway web` again); the rest apply at once.
 
 ### Board and cards
 

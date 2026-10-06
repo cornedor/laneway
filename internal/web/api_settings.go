@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -288,4 +289,57 @@ func putSetting(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		}
 	}
 	return nil, nil
+}
+
+// projectKey is a Jira project key: a capital, then capitals, digits or _.
+var projectKey = regexp.MustCompile(`^[A-Z][A-Z0-9_]+$`)
+
+func init() {
+	// The projects the project picker lists first, the first one opened at
+	// start: the site's projects: in the config, in the order given.
+	put("/site/projects", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		b, err := Body[struct{ Projects []string }](r)
+		if err != nil {
+			return nil, err
+		}
+		var keys []string
+		for _, k := range b.Projects {
+			k = strings.ToUpper(strings.TrimSpace(k))
+			if !projectKey.MatchString(k) {
+				return nil, badRequest(fmt.Sprintf("%q is not a project key", k))
+			}
+			if !slices.Contains(keys, k) {
+				keys = append(keys, k)
+			}
+		}
+		if s.opt.ConfigPath == "" {
+			return nil, httpError{http.StatusConflict, "no config file to write to"}
+		}
+		if err := config.SetProjects(s.opt.ConfigPath, s.opt.Site, keys); err != nil {
+			return nil, err
+		}
+		s.sites.mu.Lock()
+		s.sites.projects[s.opt.Site] = keys
+		s.sites.mu.Unlock()
+		return map[string]any{"projects": keys}, nil
+	})
+	// Restart serves the app again with the config read anew, on the same
+	// address, site and -remote token.
+	post("/restart", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+		if s.sites.base.Restart == nil {
+			return nil, httpError{http.StatusNotImplemented, "this server can't restart itself"}
+		}
+		s.sites.base.Restart()
+		return map[string]any{}, nil
+	})
+}
+
+// projects are the site's projects: the config's, or the last saved.
+func (s *Server) projects() []string {
+	s.sites.mu.Lock()
+	defer s.sites.mu.Unlock()
+	if p, ok := s.sites.projects[s.opt.Site]; ok {
+		return p
+	}
+	return s.opt.Jira.Projects
 }
