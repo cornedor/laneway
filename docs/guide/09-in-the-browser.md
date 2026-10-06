@@ -65,8 +65,7 @@ shell's `PATH`. It takes effect at the next login. Not with `-demo` or
 | Inbox | `g i` | threads on issues others changed, mentions |
 | Standup | `g s` | round the team, with the board beside it |
 | Agents | `g a` | coding agents and worktrees, each one's live terminal (needs herdr) |
-| Review | `g R` | pull and merge requests waiting on your review (needs `gh` or `glab`) |
-| Merge requests | `g M` | the ones waiting on you on your GitLabs, a page each |
+| Merge requests | `g M` | the merge requests waiting on you on your GitLabs, a page each |
 | Rules | `g l` | your rules, a live feed, try a change |
 | Settings | `g ,` | every `ui:` option, appearance, keys |
 

@@ -1,22 +1,17 @@
 package ui
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/jira"
-	"github.com/cornedor/laneway/internal/review"
 )
 
 // TestHome: ~ lists ui.home's widgets in its order against the demo's
 // Jira, enter on an issue opens it, on a search runs it as a view.
 func TestHome(t *testing.T) {
-	old := review.Requests
-	t.Cleanup(func() { review.Requests = old })
-	review.Requests = func(context.Context) ([]review.Request, error) { return nil, nil }
 	url, stop, err := demo.New(time.Now()).Start()
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +19,7 @@ func TestHome(t *testing.T) {
 	t.Cleanup(stop)
 	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: url, Email: "demo@example.com", APIToken: "demo"})
-	m.opts.home = []string{"sprint", "work", "reviews", "timer", "filters"}
+	m.opts.home = []string{"sprint", "work", "timer", "filters"}
 	m.timer = workTimer{key: "ABC-2", start: time.Now()}
 	m.setJQLList(jqlSavedMeta, []string{"priority = High"})
 
@@ -43,7 +38,7 @@ func TestHome(t *testing.T) {
 		}
 		at[it.id] = i
 	}
-	if strings.Join(heads, ",") != "Sprint,My work,Waiting on my review,Timer,Saved searches" {
+	if strings.Join(heads, ",") != "Sprint,My work,Timer,Saved searches" {
 		t.Errorf("headings %q", heads)
 	}
 	items := m.jiraPicker.items

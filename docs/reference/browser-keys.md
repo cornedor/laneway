@@ -45,7 +45,6 @@ terminal's is in the last column.
 | Inbox | `g i`, `I` | `I` |
 | Standup | `g s`, `U` | `U` |
 | Agents | `g a`, `ctrl+g` | `ctrl+g` |
-| Review | `g R` | `ctrl+r` |
 | Merge requests | `g M` | `alt+m` |
 | Rules | `g l` | |
 | Settings | `g ,`, `,` | `,` |

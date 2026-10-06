@@ -32,8 +32,6 @@ func demoGate(s *Server, w http.ResponseWriter, r *http.Request) bool {
 			empty = map[string]any{"Available": false, "Command": "", "Asks": []any{}}
 		case "/api/branch":
 			empty = map[string]string{}
-		case "/api/review": // gh and glab ask the user's own forges
-			empty = map[string]any{"Keys": []string{}, "Cards": []any{}, "Requests": 0}
 		case "/api/worklog/proposals":
 			empty = map[string]any{"Items": []any{}, "Failed": []string{}}
 		}

@@ -12,8 +12,8 @@ import (
 )
 
 // The start screen (ui.home): its widgets ride on the session, these answer
-// the two that need working out. The rest read /work, /inbox, /timer and
-// /review as their own views do.
+// the two that need working out. The rest read /work, /inbox and /timer as
+// their own views do.
 
 func init() {
 	// GET /home/sprint/{board}: the active sprint's health, null without one.

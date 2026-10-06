@@ -14,7 +14,6 @@ export const routes = [
   { path: '/inbox', name: 'inbox', title: 'Inbox', key: 'i', load: () => import('./inbox.js') },
   { path: '/standup', name: 'standup', title: 'Standup', key: 's', load: () => import('./standup.js') },
   { path: '/agents', name: 'agents', title: 'Agents', key: 'a', bar: false, load: () => import('./agents.js') },
-  { path: '/review', name: 'review', title: 'Review', key: 'R', bar: false, load: () => import('./review.js') },
   { path: '/mr', name: 'mr', title: 'Merge request', nav: false, bar: false, load: () => import('./mr.js') },
   { path: '/mrs', name: 'mrs', title: 'Merge requests', key: 'M', bar: false, load: () => import('./mrs.js') },
   { path: '/rules', name: 'rules', title: 'Rules', key: 'l', nav: false, load: () => import('./rules.js') },

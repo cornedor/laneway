@@ -14,7 +14,6 @@ import (
 
 	"github.com/cornedor/laneway/internal/home"
 	"github.com/cornedor/laneway/internal/jira"
-	"github.com/cornedor/laneway/internal/review"
 )
 
 // ~ is the start screen (ui.home, internal/home, as laneway web's): each
@@ -56,7 +55,7 @@ func (m *Model) openHome() tea.Cmd {
 		}
 	}
 	slices.SortFunc(inbox, func(a, b inboxThread) int { return b.latest().Compare(a.latest()) })
-	timer, starred, timerKey, site, demo := m.timerLabel(), m.jqlList(jqlSavedMeta), m.keys.Timer, m.site, m.demo
+	timer, starred, timerKey, site := m.timerLabel(), m.jqlList(jqlSavedMeta), m.keys.Timer, m.site
 	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == m.timer.key }); timer != "" && i >= 0 {
 		timer += "  " + m.jiraTab.cards[i].Summary // the timed card's, when the board has it
 	}
@@ -90,22 +89,6 @@ func (m *Model) openHome() tea.Cmd {
 						row = jiraPickerItem{id: homeIssue + key, label: "  " + timer}
 					}
 					items = []jiraPickerItem{{label: "Timer"}, row}
-				case "reviews":
-					var cards []jira.Card
-					var reqs []review.Request
-					var err error
-					if !demo { // gh and glab ask the user's own forges
-						reqs, err = review.Requests(ctx)
-					}
-					if err == nil {
-						var projects []jira.Project
-						if projects, err = c.ListProjects(ctx); err == nil {
-							if keys := review.Keys(reqs, projects); len(keys) > 0 {
-								cards, err = c.SearchCards(ctx, "key in ("+strings.Join(keys, ", ")+") ORDER BY updated DESC")
-							}
-						}
-					}
-					items = homeList("Waiting on my review", homeGo+"review", fmt.Sprintf("%d", len(cards)), homeCards(cards), err, "nothing waits on your review")
 				case "filters":
 					fs, err := home.Filters(ctx, c, o.savedFilters, starred)
 					rows := make([]jiraPickerItem, len(fs))
@@ -250,8 +233,6 @@ func (m Model) applyHomePick(it jiraPickerItem) (tea.Model, tea.Cmd) {
 		return m, m.openMyWork()
 	case "inbox":
 		return m, m.openInbox()
-	case "review":
-		return m, m.openReview()
 	}
 	return m, nil // the board
 }

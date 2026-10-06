@@ -85,7 +85,7 @@ ui:
 
 | Option | Default | |
 | --- | --- | --- |
-| `home` | | start on the home screen with these widgets, in order: `work inbox sprint timer reviews filters` |
+| `home` | | start on the home screen with these widgets, in order: `work inbox sprint timer filters` |
 | `quick_filters` | | `{name, jql}` presets before the board's own |
 | `views` | | `{name, jql}` views of every board, after its own |
 | `saved_filters` | `on` | your starred Jira filters as views |

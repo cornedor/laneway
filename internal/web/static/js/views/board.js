@@ -604,9 +604,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const hit = v && (cc.Colors || []).find(x => x.Value.toLowerCase() === v.toLowerCase());
     return hit ? hit.Color : '';
   };
-  const rv = k => !!(app.reviewKeys && app.reviewKeys.has(k)); // waiting on your review, once the review screen asked
   const hlOf = k => (app.highlights && app.highlights.has(k) ? app.highlights.get(k) : null); // a rule's highlight colour, '' for the theme's
-  const sigOf = c => [c.Key, c.Summary, c.Type, c.Status, c.Priority, c.AssigneeID, c.AvatarURL, c.Points, c.ParentKey, c.Subtasks, c.SubtasksDone, c.Due, c.Done, c.Flagged, c.InProgress, c.PR, c.Deploy, c.Labels, c.Updated, c.Extra, S.sel === c.Key, S.marks.has(c.Key), S.pins.has(c.Key), rv(c.Key), hlOf(c.Key), ribbonOf(c), hourTick(), tmark(c.Key)].join('|');
+  const sigOf = c => [c.Key, c.Summary, c.Type, c.Status, c.Priority, c.AssigneeID, c.AvatarURL, c.Points, c.ParentKey, c.Subtasks, c.SubtasksDone, c.Due, c.Done, c.Flagged, c.InProgress, c.PR, c.Deploy, c.Labels, c.Updated, c.Extra, S.sel === c.Key, S.marks.has(c.Key), S.pins.has(c.Key), hlOf(c.Key), ribbonOf(c), hourTick(), tmark(c.Key)].join('|');
   const fdate = (t, fallback) => (DF ? goDate(t, DF) : fallback);
 
   const buildCard = () => buildCardEl(LAYOUT);
@@ -616,13 +615,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (w._sig === sig) return;
     w._sig = sig;
     fillCardEl(w, c, {
-      look: LOOK && LOOK(c), sel: S.sel === c.Key, marked: S.marks.has(c.Key), pinned: k => S.pins.has(k), review: rv, hl: hlOf, tmark,
+      look: LOOK && LOOK(c), sel: S.sel === c.Key, marked: S.marks.has(c.Key), pinned: k => S.pins.has(k), hl: hlOf, tmark,
       ribbon: ribbonOf(c), fdate, stamp: (e, k) => app.agents && app.agents.stamp(e, k),
     });
   }
 
   const buildRow = () => listRow(S.cols);
-  const cellCtx = { marked: k => S.marks.has(k), pinned: k => S.pins.has(k), review: rv, hl: hlOf, tmark, fdate, stamp: (e, k) => app.agents && app.agents.stamp(e, k) };
+  const cellCtx = { marked: k => S.marks.has(k), pinned: k => S.pins.has(k), hl: hlOf, tmark, fdate, stamp: (e, k) => app.agents && app.agents.stamp(e, k) };
   function fillRow(w, c, head) {
     if (!c) return;
     const ht = head ? head.name + ' · ' + head.n + (head.pts > 0 ? ' · ' + head.pts + 'p' : '') : '';
@@ -1221,7 +1220,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (!(String(ch.key || '').startsWith(S.project + '-') || ch.kind === 'sprint' || ch.kind === 'board')) return;
     siteTimer = setTimeout(() => { siteTimer = 0; if (!document.hidden) refresh(false); }, 1000);
   }));
-  offs.push(bus.on('review:keys', () => { for (const p of S.panes) p.vl.refresh(); }));
   offs.push(bus.on('highlights', () => { for (const p of S.panes) p.vl.refresh(); }));
   for (const ev of ['timer', 'timer:tick']) offs.push(bus.on(ev, () => { for (const p of S.panes) p.vl.refresh(); }));
   function markAll() {

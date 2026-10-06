@@ -1,7 +1,7 @@
 // A lane card: its fields where the layout puts them (lib/cardstyle.js), restyled by its look. The board's lanes and
 // the settings designer draw it.
 //   const w = buildCard(layout)       the .bcw wrapper; w._r holds the parts
-//   fillCard(w, card, o)              o: {look, sel, marked, pinned(key), review(key), hl(key), tmark(key), ribbon, fdate, stamp}
+//   fillCard(w, card, o)              o: {look, sel, marked, pinned(key), hl(key), tmark(key), ribbon, fdate, stamp}
 import { h } from './dom.js';
 import { icon, setIcon, TYPE_ICON } from './icons.js';
 import { isZero, date, shortDate, ago, localDate } from './fmt.js';
@@ -28,7 +28,7 @@ export function buildCard(layout) {
   const part = f => {
     if (f === 'key') { // the key brings the marks along
       r.key = h('span.ckey');
-      return [r.key, r.pin = h('span.cpin', { title: 'Pinned' }, icon('pin')), r.rev = h('span.cpin', { title: 'Waiting on your review' }, icon('glasses')),
+      return [r.key, r.pin = h('span.cpin', { title: 'Pinned' }, icon('pin')),
         r.hl = h('span.chl', { title: 'A rule highlighted it; opening it clears the mark' }, icon('circle', true)), r.timer = h('span.ctimer', { title: 'Timer running · T stops it' })];
     }
     return (r.f[f] = (PART[f] || (() => h('span.cextra', { dataset: { field: f } })))());
@@ -60,7 +60,6 @@ export function fillCard(w, c, o = {}) {
   setCheck(r.chk, !!o.marked);
   r.key.textContent = c.Key; if (o.stamp) o.stamp(r.key, c.Key);
   r.pin.hidden = !(o.pinned && o.pinned(c.Key));
-  r.rev.hidden = !(o.review && o.review(c.Key));
   const hl = o.hl ? o.hl(c.Key) : null;
   r.hl.hidden = hl === null; r.hl.style.color = hl && hl.startsWith('#') ? hl : '';
   const tm = o.tmark ? o.tmark(c.Key) : ''; r.timer.hidden = !tm; if (tm) setIcon(r.timer, 'timer', tm);

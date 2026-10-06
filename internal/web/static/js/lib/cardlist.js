@@ -77,7 +77,7 @@ function cell(id) {
   if (id === 'mark') e.append(e._chk = check(), e._ico = h('span.l-ico'));
   return e;
 }
-// fillCells writes card c into row w's cells. o: marked, pinned, review (key → bool), hl (key → colour, '' the theme's,
+// fillCells writes card c into row w's cells. o: marked, pinned (key → bool), hl (key → colour, '' the theme's,
 // null none), tmark (key → running timer text), fdate (time, fallback → text), stamp (cell, key) for an agent's mark.
 export function fillCells(w, cols, c, o) {
   const r = w._r;
@@ -87,7 +87,7 @@ export function fillCells(w, cols, c, o) {
   }
 }
 const FILL = {
-  mark: (e, c, o) => { const hl = o.hl(c.Key); setCheck(e._chk, o.marked(c.Key)); setIcon(e._ico, hl !== null ? 'circle' : o.pinned(c.Key) ? 'pin' : o.review(c.Key) ? 'glasses' : c.Flagged ? 'flag' : '', '', hl !== null || c.Flagged); },
+  mark: (e, c, o) => { const hl = o.hl(c.Key); setCheck(e._chk, o.marked(c.Key)); setIcon(e._ico, hl !== null ? 'circle' : o.pinned(c.Key) ? 'pin' : c.Flagged ? 'flag' : '', '', hl !== null || c.Flagged); },
   key: (e, c, o) => { e.textContent = c.Key; if (o.stamp) o.stamp(e, c.Key); const tm = o.tmark(c.Key); if (tm) e.append(h('span.ctimer', ' ', icon('timer'), ' ' + tm)); },
   summary: (e, c) => { e.textContent = c.Summary; e.title = c.Summary; },
   status: (e, c) => { e.textContent = c.Status; e.className = 'l-status pill cat-' + (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new'); },

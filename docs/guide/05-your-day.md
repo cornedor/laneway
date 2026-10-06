@@ -7,13 +7,13 @@ you were busy.
 ## Home
 
 Your day on one screen: your open work, unread inbox threads, the sprint
-(done against the time gone, *behind* when it trails), the running timer,
-what waits on your review and a count per saved search. `enter` opens the
+(done against the time gone, *behind* when it trails), the running timer
+and a count per saved search. `enter` opens the
 row; on a heading, its own screen. To start every day there:
 
 ```yaml
 ui:
-  home: [work, inbox, sprint, timer, reviews, filters]   # any of them, in your order
+  home: [work, inbox, sprint, timer, filters]   # any of them, in your order
 ```
 
 === "Terminal"

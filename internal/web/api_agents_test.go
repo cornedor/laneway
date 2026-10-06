@@ -16,12 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cornedor/laneway/internal/cli"
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/demo"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
-	"github.com/cornedor/laneway/internal/review"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/work"
 )
@@ -345,23 +343,6 @@ func TestAgentEvents(t *testing.T) {
 	}
 	if s := next(); s.Agents[0].Status != herdr.Blocked {
 		t.Errorf("second = %+v", s)
-	}
-}
-
-func TestReviewRoute(t *testing.T) {
-	if !cli.Have("gh") && !cli.Have("glab") {
-		t.Skip("no gh or glab")
-	}
-	old := review.Requests
-	review.Requests = func(context.Context) ([]review.Request, error) { return []review.Request{{Title: "DEMO-4 x"}}, nil }
-	defer func() { review.Requests = old }()
-	ts := agentsServer(t, t.TempDir())
-	var out struct {
-		Keys  []string
-		Cards []jira.Card
-	}
-	if code := workCall(t, "GET", ts.URL+"/api/review", "", &out); code != 200 || len(out.Cards) != 1 || out.Cards[0].Key != "DEMO-4" {
-		t.Errorf("review = %d %+v", code, out)
 	}
 }
 

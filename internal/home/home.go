@@ -16,7 +16,7 @@ import (
 
 // Widgets are the names ui.home picks from, in the order an empty pick
 // would show them.
-var Widgets = []string{"work", "inbox", "sprint", "timer", "reviews", "filters"}
+var Widgets = []string{"work", "inbox", "sprint", "timer", "filters"}
 
 // Pick is names' known widgets in their order, each once: the home screen,
 // none when it names none.

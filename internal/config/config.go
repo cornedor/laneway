@@ -232,7 +232,7 @@ type UIConfig struct {
 	StandupShuffle  string `yaml:"standup_shuffle"`
 	StandupTimer    string `yaml:"standup_timer"`
 	// Home is the start screen's widgets in order (work, inbox, sprint,
-	// timer, reviews, filters); empty: no start screen, the board first.
+	// timer, filters); empty: no start screen, the board first.
 	Home []string `yaml:"home"`
 	// Calendar is an iCalendar feed of your meetings, a file or an
 	// http(s)/webcal URL; MeetingKey the issue the timesheet proposes them

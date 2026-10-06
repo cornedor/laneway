@@ -1,14 +1,13 @@
 // Home: the start screen of ui.home's widgets (internal/home, the TUI's too): my work, inbox, sprint
-// health, the running timer, reviews waiting and a count per saved search. jk walk every row, enter
-// opens it, esc goes to the board. Each widget loads on its own, so a slow one (reviews asks gh and
-// glab) holds up nothing.
+// health, the running timer and a count per saved search. jk walk every row, enter opens it, esc goes
+// to the board. Each widget loads on its own, so a slow one holds up nothing.
 import { h, delegate } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { stateOf, latest } from '../lib/inbox.js';
 import { duration, plural, ago } from '../lib/fmt.js';
 import { projectOf, boardOf } from './plan_ctx.js';
 
-const TITLE = { work: 'My work', inbox: 'Inbox', sprint: 'Sprint', timer: 'Timer', reviews: 'Waiting on my review', filters: 'Saved searches' };
+const TITLE = { work: 'My work', inbox: 'Inbox', sprint: 'Sprint', timer: 'Timer', filters: 'Saved searches' };
 const MAX = 8; // rows a list widget shows; its head says how many more
 
 export default function mount(el, { app, scope }) {
@@ -67,11 +66,6 @@ export default function mount(el, { app, scope }) {
       }
       const ms = app.timer.elapsed();
       return { rows: [issueRow(t.key, sums[t.key], h('span.accent.mono', ms < 60000 ? '<1m' : duration(Math.floor(ms / 1000))))] };
-    },
-    async reviews() {
-      const r = await api.get('/review', { fresh: true });
-      const cards = r.Cards || [];
-      return { head: cards.length ? plural(cards.length, 'issue') : '', more: () => app.go('/review'), note: 'Nothing waits on your review.', rows: cards.map(c => issueRow(c.Key, c.Summary, statusPill(c))) };
     },
     async filters() {
       const fs = await api.get('/home/filters', { fresh: true });

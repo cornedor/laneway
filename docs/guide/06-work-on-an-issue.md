@@ -2,7 +2,7 @@
 
 **In this chapter:** take an issue from the board to a merged pull request:
 a branch, commits that name it, a coding agent if you like, a draft pull
-request, and the reviews waiting on you. Most of this needs a real
+request, and the merge requests waiting on you. Most of this needs a real
 repository; the demo has a merge request to review.
 
 ## Tell laneway where the code is
@@ -126,20 +126,6 @@ search `pr:open` finds the ones with an open one.
 
 Once it's merged, *Remove its worktree* in the same actions removes the
 checkout. Uncommitted changes keep it; the branch stays.
-
-## Waiting on your review
-
-The issues whose pull or merge requests wait on your review (from `gh` and
-`glab`, by the keys in their titles and branches), as a view, their cards
-marked `⌥`.
-
-=== "Terminal"
-
-    `ctrl+r`.
-
-=== "Browser"
-
-    `g R`; `b` shows them as a board view.
 
 ## Review a merge request
 

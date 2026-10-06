@@ -17,11 +17,11 @@ config:
 - Local search, JQL with completion, a command palette, jump to any issue by key
 - Issue panel with description (edited as markdown), comments, links, subtasks, an epic's children, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases
-- A home screen of your day: your work, inbox, sprint health, timer, reviews and saved searches
+- A home screen of your day: your work, inbox, sprint health, timer and saved searches
 - Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git, your agents' activity and your calendar
 - Inbox: a thread per issue others changed, on every site; a standup that walks the board, with a timer
-- Git: branch keys in commits, draft pull requests, what waits on your review, a prompt segment
-- GitLab merge requests: pipelines and job logs, a diff to review line by line with notes and suggestions, or a coding agent reviews it for you; merge and edit them (reviewers, assignees, labels, draft)
+- Git: branch keys in commits, draft pull requests, a prompt segment
+- GitLab merge requests: the ones waiting on you; pipelines and job logs, a diff to review line by line with notes and suggestions, or a coding agent reviews it for you; merge and edit them (reviewers, assignees, labels, draft)
 - Coding agents: start one on an issue in its own worktree (herdr), see its state on the card, attach to its terminal
 - Rules that notify, run a command or act on Jira when issues change
 - Scripts: list, view, create and move from the shell, completion, your own actions on a key

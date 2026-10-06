@@ -63,7 +63,7 @@ type keyMap struct {
 	Fold, UnfoldAll, Settings          key.Binding
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
-	Compact, Releases, Review, Repeat  key.Binding
+	Compact, Releases, Repeat          key.Binding
 	EmptyLanes, MergeRequests          key.Binding
 	Refine, Notes, Ask, TimeMachine    key.Binding
 	ClosedSprint, StartScreen          key.Binding
@@ -174,14 +174,13 @@ func defaultKeys() keyMap {
 		Compact:         bind("one-line cards", "c"),
 		EmptyLanes:      bind("hide / show empty lanes", "alt+e"),
 		Releases:        bind("releases: versions and their progress", "V"),
-		Review:          bind("waiting on my review (gh, glab)", "ctrl+r"),
 		Repeat:          bind("do the last change again on the selected card", "."),
 		Refine:          bind("refine: the view's issues one at a time", "ctrl+e"),
 		Notes:           bind("private notes on the issue ($EDITOR)", "N"),
 		Ask:             bind("ask ui.llm about the issue", "ctrl+a"),
 		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
 		ClosedSprint:    bind("closed sprints: one as it ended", "ctrl+o"),
-		StartScreen:     bind("home: my work, inbox, sprint, timer, reviews, saved searches", "~"),
+		StartScreen:     bind("home: my work, inbox, sprint, timer, saved searches", "~"),
 		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
 		Agents:          bind("agents: every herdr agent and worktree, by state", "ctrl+g"),
 		MergeRequests:   bind("merge requests waiting on you, every GitLab", "alt+m"),
@@ -387,8 +386,6 @@ type Model struct {
 	inbox        *inboxData
 	inboxUnread  int
 	mentionsSeen time.Time
-	// reviewKeys are the issues waiting on your review, marked ⌥ (review.go).
-	reviewKeys map[string]bool
 	// agents are the herdr agents by issue, worst state first (agents.go);
 	// nil while herdr doesn't answer.
 	agents map[string][]herdr.Agent
@@ -839,8 +836,6 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleInboxSync(msg)
 	case draftSaveMsg:
 		return m.handleDraftSave()
-	case reviewMsg:
-		return m.handleReview(msg)
 	case pullRequestMsg:
 		return m.handlePullRequest(msg)
 	case commentVisMsg:

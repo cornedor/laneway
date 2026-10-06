@@ -76,7 +76,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const DF = UI.DateFormat || '';
   const pinned = new Set(pins.list(app).map(p => p[0]));
   const cellCtx = {
-    marked: k => sel.has(k), pinned: k => pinned.has(k), review: k => !!(app.reviewKeys && app.reviewKeys.has(k)),
+    marked: k => sel.has(k), pinned: k => pinned.has(k),
     hl: k => (app.highlights && app.highlights.has(k) ? app.highlights.get(k) : null), tmark: k => tmark(k),
     fdate: (t, f) => (DF ? goDate(t, DF) : f), stamp: (e, k) => app.agents && app.agents.stamp(e, k),
   };

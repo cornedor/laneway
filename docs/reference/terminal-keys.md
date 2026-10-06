@@ -65,7 +65,6 @@ panel's page. Keys for the browser: [Browser keys](browser-keys.md).
 | Key | Opens |
 | --- | --- |
 | `O` | my work |
-| `ctrl+r` | issues waiting on your review |
 | `R` | roadmap |
 | `P` | planning |
 | `C` | charts |

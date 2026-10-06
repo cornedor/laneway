@@ -10,7 +10,6 @@ const views = {
   '/work': 'DEMO-',
   '/inbox': 'DEMO-',
   '/standup': 'Jamie Rivers',
-  '/review': 'review',
   '/mrs': '!',
   '/rules': 'Rules',
   '/settings': 'Appearance',

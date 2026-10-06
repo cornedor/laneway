@@ -11,7 +11,7 @@ import { kbd } from './keys.js';
 // Most used first: a narrow bar folds the tail into More. The open view always stays.
 const PRIORITY = ['board', 'work', 'inbox', 'planning', 'reports', 'standup', 'roadmap', 'review', 'mrs', 'agents'];
 const GROUPS = ['Project', 'You', 'Tools'];
-const GROUP = { board: 'Project', planning: 'Project', reports: 'Project', roadmap: 'Project', work: 'You', inbox: 'You', standup: 'You', review: 'You', mrs: 'You' };
+const GROUP = { board: 'Project', planning: 'Project', reports: 'Project', roadmap: 'Project', work: 'You', inbox: 'You', standup: 'You', mrs: 'You' };
 export const groupOf = r => r.group || GROUP[r.name] || 'Tools';
 const rank = n => { const i = PRIORITY.indexOf(n); return i < 0 ? PRIORITY.length : i; };
 

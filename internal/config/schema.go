@@ -116,7 +116,7 @@ var SettingDocs = map[string]string{
 	"date_format":          "a Go time layout for the panel's dates",
 	"calendar":             "an iCalendar feed of your meetings (file, https or webcal URL, or a vdir directory): the timesheet proposes them as worklogs, planning takes them off your capacity",
 	"meeting_key":          "the issue meetings from ui.calendar are logged on",
-	"home":                 "the start screen's widgets, in order: work, inbox, sprint, timer, reviews, filters",
+	"home":                 "the start screen's widgets, in order: work, inbox, sprint, timer, filters",
 	"card_fields":          "what cards show, in order: type, priority, status, points, assignee, avatar, parent, pr, deploy, subtasks, due, flagged, age",
 	"card_layout":          "where a lane card's fields sit: top, top_right, bottom, bottom_right around the summary",
 	"card_styles":          "restyle cards a board query matches: when, edge, tint, fade, bold, hide, show",
