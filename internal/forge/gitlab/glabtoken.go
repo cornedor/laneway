@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -86,17 +87,32 @@ func GlabHosts() []string {
 	return slices.Sorted(maps.Keys(glabConfigHosts()))
 }
 
-// glabConfigPath resolves glab's config file location, honoring
-// $GLAB_CONFIG_DIR and falling back to ~/.config/glab-cli.
+// glabConfigPath resolves glab's config file the way glab does:
+// $GLAB_CONFIG_DIR, then ~/.config/glab-cli when it has a config, else the
+// XDG config home — ~/Library/Application Support on macOS, %LOCALAPPDATA%
+// on Windows, where a fresh glab writes it.
 func glabConfigPath() string {
 	if dir := os.Getenv("GLAB_CONFIG_DIR"); dir != "" {
 		return filepath.Join(dir, "config.yml")
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
+	if home, err := os.UserHomeDir(); err == nil {
+		legacy := filepath.Join(home, ".config", "glab-cli", "config.yml")
+		if _, err := os.Stat(legacy); err == nil {
+			return legacy
+		}
+	}
+	dir := os.Getenv("XDG_CONFIG_HOME")
+	switch {
+	case dir != "":
+	case runtime.GOOS == "windows":
+		dir = os.Getenv("LOCALAPPDATA")
+	default:
+		dir, _ = os.UserConfigDir()
+	}
+	if dir == "" {
 		return ""
 	}
-	return filepath.Join(home, ".config", "glab-cli", "config.yml")
+	return filepath.Join(dir, "glab-cli", "config.yml")
 }
 
 // tokenFromGlabCLI asks the glab binary for the token it holds for host — the

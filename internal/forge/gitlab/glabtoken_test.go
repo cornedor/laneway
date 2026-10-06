@@ -88,3 +88,25 @@ func TestParseGlabStatusToken(t *testing.T) {
 		})
 	}
 }
+
+// A fresh glab on macOS writes to ~/Library/Application Support, not
+// ~/.config: the XDG config home, unless ~/.config/glab-cli already has one.
+func TestGlabConfigPathFollowsGlab(t *testing.T) {
+	home, xdg := t.TempDir(), t.TempDir()
+	t.Setenv("GLAB_CONFIG_DIR", "")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	if got, want := glabConfigPath(), filepath.Join(xdg, "glab-cli", "config.yml"); got != want {
+		t.Errorf("without a legacy config, glabConfigPath = %q, want %q", got, want)
+	}
+	legacy := filepath.Join(home, ".config", "glab-cli", "config.yml")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := glabConfigPath(); got != legacy {
+		t.Errorf("with a legacy config, glabConfigPath = %q, want %q", got, legacy)
+	}
+}
