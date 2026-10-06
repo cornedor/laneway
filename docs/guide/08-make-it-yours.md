@@ -2,7 +2,7 @@
 
 **In this chapter:** make laneway work for you. Search all of Jira with
 JQL, keep your favourite searches one key away, let rules watch for
-changes, and bend the cards, keys and colours to your taste. It ends with
+changes, and bend the cards, lanes, keys and colours to your taste. It ends with
 what to check when something looks off.
 
 ## JQL: `Q`
@@ -180,6 +180,15 @@ Colours are `accent`, `ok`, `warn`, `err`, `info` (the theme's) or
 `#rrggbb`. In the browser, Settings › Board and cards has a designer for
 both: drag fields onto a card, add styles, and see sample cards change as
 you go. The terminal draws the result too.
+
+## Your lanes
+
+`ui.lane_layouts` put your own lanes over a board's columns: Test, UAT and
+Deploy stacked under Done, columns reordered, renamed or hidden. Nothing
+changes in Jira. Arrange one with `alt+L` in the terminal, or by dragging
+in the browser's Settings; `alt+l` switches between them.
+[Arrange it](02-board-and-panel.md#arrange-it) shows them on the board,
+[Lane layouts](../reference/config.md#lane-layouts) the config.
 
 ## Settings
 
