@@ -146,11 +146,12 @@ export const keys = {
       return { ...r, specs, changed: specs.length !== 1 || specs[0] !== r.def, from };
     });
   },
-  // The bind already answering to spec in the scope of `id` (or a global one), or null.
+  // The bind already answering to spec in the scope of `id` (or a global one), or null. An editor's keys
+  // and the rest never meet: the editor's win while it has the focus, and only then.
   conflict(id, spec) {
     const me = registry.get(id); if (!me) return null;
     for (const r of keys.registry()) {
-      if (r.id === id) continue;
+      if (r.id === id || FIELD.has(r.scope) !== FIELD.has(me.scope)) continue;
       const shared = r.scope === me.scope || GLOBAL.has(r.scope) || GLOBAL.has(me.scope);
       if (shared && r.specs.some(x => x === spec || (x.startsWith(spec + ' ')) || spec.startsWith(x + ' '))) return r;
     }
@@ -189,5 +190,7 @@ export const keys = {
 const press = b => b.fn(new KeyboardEvent('keydown', { key: (b.spec || b.def).split(' ').pop().replace(/^(ctrl|alt|meta)\+/, '') }));
 const MOVES = /^(j|k|h|l|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|Escape|Tab|shift\+Tab|g g|G)$/;
 const GLOBAL = new Set(['global', 'timer', 'undo']);
+// Scopes that exist only while a text field has the focus.
+const FIELD = new Set(['mdedit']);
 export const kbd = spec => spec.split(' ').map(k => k.replace('ArrowUp', '↑').replace('ArrowDown', '↓').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace('Escape', 'esc').replace('Enter', '⏎').replace('Space', '␣').replace('ctrl+', '⌃').replace('alt+', '⌥').replace('meta+', '⌘'));
 export default keys;

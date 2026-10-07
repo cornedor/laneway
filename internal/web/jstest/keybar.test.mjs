@@ -52,3 +52,15 @@ test('none unbinds: in ui.web_keys by id, in ui.keys by action; the key does not
   assert.deepEqual(shown(), ['s status', 'C columns']);
   v.dispose();
 });
+
+test('a global key may take an editor key: the editor keeps it while it has the focus', () => {
+  const g = keys.scope('global'), e = keys.scope('mdedit'), v = keys.scope('board');
+  g.bind('alt+p', () => {}, 'switch project');
+  e.bind('ctrl+p', () => {}, 'toggle preview', { input: true });
+  e.bind('ctrl+b', () => {}, 'bold', { input: true });
+  v.bind('C', () => {}, 'list columns');
+  assert.equal(keys.conflict('global:alt+p', 'ctrl+p'), null);
+  assert.equal(keys.conflict('global:alt+p', 'C').id, 'board:C');
+  assert.equal(keys.conflict('mdedit:ctrl+p', 'ctrl+b').id, 'mdedit:ctrl+b');
+  g.dispose(); e.dispose(); v.dispose();
+});
