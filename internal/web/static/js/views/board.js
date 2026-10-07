@@ -1636,11 +1636,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     setBusy(1);
     api.swr('/boards/' + S.board.ID, d => { if (!S.dead) setBundle(d); })
       .catch(fail).finally(() => setBusy(-1));
-    if (query.issue) {
+    if (query.issue) { // the app opened the panel; the cursor goes to it once the cards are in, unless it moved on
       const t0 = Date.now();
       const pickIssue = () => {
-        if (S.where.has(query.issue)) { select(query.issue); openIssue(query.issue); }
-        else if (!S.dead && Date.now() - t0 < 8000) later(pickIssue, 150);
+        if (S.dead || app.panel.key !== query.issue) return;
+        if (S.where.has(query.issue)) select(query.issue);
+        else if (Date.now() - t0 < 8000) later(pickIssue, 150);
       };
       later(pickIssue, 100);
     }

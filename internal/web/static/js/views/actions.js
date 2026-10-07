@@ -112,7 +112,7 @@ export async function issueActions(app, st, hk, only) {
         await api.del('/issues/' + key + (n ? '?subtasks=1' : ''));
         app.bus.emit('issue:changed', { key, deleted: true });
         ui.toast('Deleted ' + key, { kind: 'ok' });
-        return app.panel.close();
+        return app.panel.close({ replace: true }); // not back to a deleted issue
       }
       case 'watch': {
         const r = await api.post('/issues/' + key + '/watch');

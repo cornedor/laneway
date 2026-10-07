@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { split, join, withQuery, sameBut, target } from '../static/js/lib/nav.js';
+import { split, join, withQuery, sameBut, target, tidy } from '../static/js/lib/nav.js';
 
 const nameOf = p => (p.match(/^\/(\w+)/) || [])[1] || '';
 
@@ -29,4 +29,13 @@ test('the open panel comes along, not onto the issue page', () => {
   assert.equal(target('#/board/A/1?issue=A-2', '/inbox', { nameOf, panel: 'A-2' }), '#/inbox?issue=A-2');
   assert.equal(target('#/board?issue=A-2', '/issue/A-3', { nameOf, panel: 'A-2' }), '#/issue/A-3');
   assert.equal(target('#/inbox', '#/board?issue=B-1', { nameOf, panel: 'A-2' }), '#/board?issue=B-1');
+});
+
+test('tidy: the start route for none, keys in capitals, else as it was', () => {
+  assert.equal(tidy('', '/board'), '#/board');
+  assert.equal(tidy('#?issue=a-1', '/home'), '#/home?issue=A-1');
+  assert.equal(tidy('#/board/DEMO/1?issue=demo-12', '/board'), '#/board/DEMO/1?issue=DEMO-12');
+  assert.equal(tidy('#/issue/demo-3', '/board'), '#/issue/DEMO-3');
+  const mr = '#/mr?url=' + encodeURIComponent('https://g/a b');
+  assert.equal(tidy(mr, '/board'), mr);
 });

@@ -23,7 +23,7 @@ app.back(fallback)     the previous entry when laneway made it, else fallback in
 app.setURL(url[, {push}]), app.query(), app.setQuery(patch[, {replace}])   the view's own place, no remount
 app.marked   () → keys the view has marked (x), set by the view in mount, null after a route change
 app.listed   () → the cards the view shows, in order (refine queues them; without it, the keys drawn)
-app.panel    open(key[, {card, push}]) / close()    the right-hand issue panel, ?issue= on every route: opening it, or {push} (a link followed, a jump), is a step; another issue of the list beside replaces it; close steps back over them (js/views/issue.js: mountIssue(el, key, {app, full}) → cleanup)
+app.panel    open(key[, {card, push, replace}]) / close([{replace}])    the right-hand issue panel, ?issue= on every route (a typed key opens): opening, closing and a link followed are steps back undoes; another issue of the list beside (cursor, [ ]) replaces, {push} makes it a step (a jump) (js/views/issue.js: mountIssue(el, key, {app, full}) → cleanup)
 app.actions  edit(key, field[, anchor]) transition(key) create({project,parent,type}) palette(mode) jump() bulk(keys)
 app.prefs    get/set                per-site prefs on the server, mirrored to localStorage
 app.session  {site, sites, demo, baseURL, me:{AccountID,DisplayName}, projects, ui}

@@ -37,44 +37,21 @@ const focusAt = e => {
 document.addEventListener('focusin', focusAt, true);
 document.addEventListener('pointerdown', focusAt, true);
 
-// ---- history. Each entry laneway makes holds {lw: {d, p}}: d, the laneway entries behind it (app.back never
-// leaves the app), p, the steps the panel took since it opened here (closing it goes back over them, so back
-// after esc leaves the view instead of showing the issue again).
+// ---- history. Each entry laneway makes holds {lw: {d}}: d, the laneway entries behind it, so app.back never leaves the app.
 const lw = () => (history.state && history.state.lw) || null;
 let shown = '';        // the hash on screen; an event for it again changes nothing
 let depth = 0;         // d of the entry shown
-let rewinding = null;  // writes waiting for the panel's history.go(-p) to land
-const later = fn => (rewinding ? (rewinding.push(fn), true) : false);
-function record(url, { push = false, p } = {}) {
-  const cur = lw() || { d: depth, p: 0 };
-  if (push) { depth = cur.d + 1; history.pushState({ lw: { d: depth, p: p || 0 } }, '', url); }
-  else {
-    const keep = p == null && nav.split(url).path === nav.split(location.hash).path; // a new place starts over
-    history.replaceState({ ...(history.state || {}), lw: { d: cur.d, p: keep ? cur.p : p || 0 } }, '', url);
-  }
+function record(url, { push = false } = {}) {
+  if (push) { depth = ((lw() || { d: depth }).d) + 1; history.pushState({ lw: { d: depth } }, '', url); }
+  else history.replaceState({ ...(history.state || {}), lw: lw() || { d: depth } }, '', url);
   shown = location.hash;
-}
-function rewind(p) {
-  rewinding = [];
-  rewinding.timer = setTimeout(landed, 800); // history.go past the start does nothing, and says nothing
-  history.go(-p);
-}
-// landed: the panel's rewind arrived; the entry there shows no panel either, then what waited runs.
-function landed() {
-  const q = rewinding; if (!q) return;
-  rewinding = null; clearTimeout(q.timer);
-  const s = lw(); if (s) depth = s.d;
-  if (nav.split(location.hash).query.issue) record(nav.withQuery(location.hash, { issue: null }), { p: 0 });
-  navigate({ panel: false });
-  q.forEach(fn => fn());
 }
 // The browser moved: back, forward, a typed URL or a plain link. One it made itself is stamped as the next step.
 function onURL() {
-  if (rewinding) return landed();
   if (location.hash === shown) return;
   const s = lw();
   if (s) depth = s.d;
-  else { depth += 1; history.replaceState({ ...(history.state || {}), lw: { d: depth, p: 0 } }, ''); }
+  else { depth += 1; history.replaceState({ ...(history.state || {}), lw: { d: depth } }, ''); }
   navigate();
 }
 const nameOf = path => { const r = table.find(r => r.re.test(path)); return r ? r.name : ''; };
@@ -86,7 +63,6 @@ export const app = {
   // Navigate: app.go('/board/ABC/12?issue=ABC-1'), a step back can undo; {replace} takes this entry's place.
   // The route shown again, bare (g b on the board), is no step; the open panel comes along.
   go(to, { replace = false } = {}) {
-    if (later(() => app.go(to, { replace }))) return;
     const url = nav.target(location.hash, to, { panel: app.panel.key, nameOf });
     if (!url) return;
     record(url, { push: !replace });
@@ -100,7 +76,6 @@ export const app = {
   // setURL: the view says where it is now without remounting: a canonical path (replace), or a place of its
   // own a step back returns to ({push}: another project on the roadmap).
   setURL(url, { push = false } = {}) {
-    if (later(() => app.setURL(url, { push }))) return;
     if (url === location.hash) return;
     record(url, { push });
     const { path, query } = nav.split(url);
@@ -111,22 +86,15 @@ export const app = {
   query() { return nav.split(location.hash).query; },
   setQuery(patch, { replace = true } = {}) { app.setURL(nav.withQuery(location.hash, patch), { push: !replace }); },
   // The issue panel. Board/list/etc. call app.panel.open(key[, {card}]); the issue module renders it,
-  // its head from `card` (the view's copy) until its own data arrives. It is ?issue= in the URL: opening it
-  // is a step back undoes, as is {push} (a link followed, a jump); another issue of the list beside replaces.
+  // its head from `card` (the view's copy) until its own data arrives. It is ?issue= in the URL, and every
+  // change a step back undoes (opening, closing, a link followed) but another issue of the list beside
+  // (the cursor, [ ]), which takes the entry's place; {push} makes that a step too (a jump), {replace} any.
   panel: {
     key: null, cleanup: null,
     async open(key, opts = {}) {
       const el = $('#panel'); if (!key) return app.panel.close();
       if (app.panel.key === key && !el.hidden && !opts.force) return;
-      if (opts.url !== false && current) {
-        const push = el.hidden || !!opts.push;
-        const put = () => {
-          if (nav.split(location.hash).query.issue === key) return;
-          record(nav.withQuery(location.hash, { issue: key }), push ? { push: true, p: ((lw() || {}).p || 0) + 1 } : {});
-          if (app.route) app.route.query = nav.split(location.hash).query;
-        };
-        if (!later(put)) put();
-      }
+      if (opts.url !== false && current) app.setQuery({ issue: key }, { replace: !!opts.replace || (!el.hidden && !opts.push) });
       panelFocus = app.panel.focused(); // another issue from inside the panel keeps it
       setTimeout(paintFocus);
       app.panel.key = key; el.hidden = false; el.dataset.key = key;
@@ -142,11 +110,7 @@ export const app = {
       bus.emit('panel', { key });
     },
     close(opts = {}) {
-      if (opts.url !== false && current && nav.split(location.hash).query.issue) {
-        const p = (lw() || {}).p || 0;
-        if (rewinding) { /* already on its way back */ } else if (p > 0) rewind(p);
-        else { record(nav.withQuery(location.hash, { issue: null }), { p: 0 }); if (app.route) app.route.query = nav.split(location.hash).query; }
-      }
+      if (opts.url !== false && current) app.setQuery({ issue: null }, { replace: !!opts.replace });
       const el = $('#panel'); app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
       app.panel.key = null; el.hidden = true; clear(el); document.body.classList.remove('has-panel');
       panelFocus = false; paintFocus();
@@ -204,14 +168,15 @@ function syncPanel(key) {
 }
 
 // navigate mounts the view of the URL; one that differs from the shown only in ?issue just moves the panel.
-// panel: false leaves the panel be (the panel's own rewind landing). force remounts the same (reload).
-async function navigate({ force = false, panel = true } = {}) {
-  if (!nav.split(location.hash).path) record(nav.join(app.session.home && app.session.home.Start ? '/home' : '/board', nav.split(location.hash).query));
+// force remounts the same (reload).
+async function navigate({ force = false } = {}) {
+  const tidy = nav.tidy(location.hash, app.session.home && app.session.home.Start ? '/home' : '/board');
+  if (tidy !== location.hash) record(tidy);
   shown = location.hash;
   const { path, query } = nav.split(location.hash);
   if (!force && current && current.path === path && nav.sameBut(app.route.query, query, 'issue')) {
     app.route.query = query;
-    if (panel) syncPanel(query.issue);
+    syncPanel(query.issue);
     return;
   }
   let hit = null, params = {};
@@ -233,7 +198,7 @@ async function navigate({ force = false, panel = true } = {}) {
   }
   current = { name: hit.name, path, scope: keys.scope(hit.name) };
   app.route = { name: hit.name, params, query };
-  if (panel) syncPanel(query.issue); // beside the view while it loads
+  syncPanel(query.issue); // beside the view while it loads
   viewTitle = hit.title + ' · laneway'; document.title = viewTitle;
   app.chrome.mark(hit.name);
   clear(view).append(h('div.loading', 'Loading…'));
@@ -349,9 +314,7 @@ async function boot() {
   $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');
   if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
   await import('./views/plan_ctx.js').then(m => m.sanitize(app)).catch(e => console.warn('ctx', e));
-  // After a reload the entries behind are the page before it: the panel's steps there are not rewound (that loads it again).
-  history.replaceState({ ...(history.state || {}), lw: { d: lw() ? lw().d : 0, p: 0 } }, '');
-  depth = lw().d;
+  if (lw()) depth = lw().d; else history.replaceState({ ...(history.state || {}), lw: { d: 0 } }, '');
   window.addEventListener('popstate', onURL);
   window.addEventListener('hashchange', onURL);
   await navigate();

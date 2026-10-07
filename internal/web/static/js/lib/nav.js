@@ -21,6 +21,16 @@ export function withQuery(hash, patch) {
   return join(path, { ...query, ...patch });
 }
 
+// tidy: the hash as laneway writes it: the start route for none, issue keys in capitals (a typed demo-12).
+const KEY = /^[a-z][a-z0-9_]*-\d+$/i;
+export function tidy(hash, start) {
+  const { path, query } = split(hash);
+  if (query.issue && KEY.test(query.issue)) query.issue = query.issue.toUpperCase();
+  const p = path ? path.replace(/^\/issue\/([^/]+)/, (m, k) => (KEY.test(k) ? '/issue/' + k.toUpperCase() : m)) : start;
+  const out = join(p, query);
+  return out === join(path, split(hash).query) && path ? hash : out;
+}
+
 // sameBut: whether two queries differ at most in the keys named.
 export function sameBut(a, b, ...keys) {
   const strip = q => Object.entries(q || {}).filter(([k]) => !keys.includes(k)).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0));

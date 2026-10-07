@@ -173,7 +173,7 @@ async function remove(app, key) {
       sub = true;
     }
   }
-  if (app.panel.key === key) app.panel.close();
+  if (app.panel.key === key) app.panel.close({ replace: true }); // not back to a deleted issue
   app.bus.emit('issue:changed', { key, deleted: true });
   app.ui.toast(key + ' deleted', { kind: 'ok' });
 }
