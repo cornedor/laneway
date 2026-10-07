@@ -161,6 +161,23 @@ func TestSettingsCommandRemote(t *testing.T) {
 	}
 }
 
+// Another site's options keep the token, so its guard holds too.
+func TestSettingsCommandRemoteOtherSite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte("ui:\n"), 0o600)
+	o := Options{Token: "sekret", Site: "a", Sites: []string{"a", "b"}, ConfigPath: path}
+	o.Open = func(site string) (Options, error) { return Options{Site: site, ConfigPath: path}, nil }
+	s := New(t.Context(), o)
+	r := httptest.NewRequest("PUT", "/api/settings/actions", strings.NewReader(`{"YAML": "- {name: x, command: [id]}"}`))
+	r.Host = "localhost"
+	r.Header.Set("Cookie", tokenCookie+"=sekret; "+siteCookie+"=s:b")
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != 403 {
+		t.Errorf("ui.actions on site b over -remote = %d, want 403", w.Code)
+	}
+}
+
 func TestSiteProjects(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	os.WriteFile(path, []byte("jira:\n  projects: [ABC]\n"), 0o600)

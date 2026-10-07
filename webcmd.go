@@ -333,7 +333,11 @@ func webSetupSave(ctx context.Context, path, site string, f web.SetupForm) (stri
 		return "", web.FieldError{Field: "email", Msg: "Type the email address you sign in to Jira with."}
 	}
 	check := j
-	check.APIToken = cmp.Or(j.APIToken, os.Getenv("JIRA_API_TOKEN"))
+	if strings.HasPrefix(base, "https://") && strings.HasSuffix(strings.ToLower(base), ".atlassian.net") {
+		// JIRA_API_TOKEN is an Atlassian Cloud token: whoever can reach this
+		// form must not get it sent to a host of their choosing.
+		check.APIToken = cmp.Or(j.APIToken, os.Getenv("JIRA_API_TOKEN"))
+	}
 	if check.APIToken == "" {
 		return "", web.FieldError{Field: "token", Msg: "Paste the API token."}
 	}

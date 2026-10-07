@@ -429,7 +429,7 @@ func planStart(ctx context.Context, s *Server, r *http.Request) (*startPlan, err
 		return nil, badRequest("unknown agent " + kind + ": pick one herdr knows")
 	}
 	branch := strings.TrimSpace(b.Branch)
-	if branch != "" && !validBranch(ctx, branch) {
+	if branch != "" && !work.ValidBranch(ctx, branch) {
 		return nil, badRequest("bad branch name " + branch + ": git refuses it (no spaces, .., ~^:?*[\\, leading - or trailing .lock)")
 	}
 	p := &startPlan{s: s, c: c, cfg: cfg, key: key, repo: repo, kind: kind, branch: branch, actions: b.Actions, another: b.Another}
@@ -637,14 +637,6 @@ func startError(key, repo string, err error) error {
 		return fmt.Errorf("%s: herdr stopped answering (%w): is it still running?", key, err)
 	}
 	return fmt.Errorf("%s: start work: %w", key, err)
-}
-
-// validBranch: git's branch name rules, and no leading "-" or "@{" forms.
-func validBranch(ctx context.Context, b string) bool {
-	if b == "" || strings.HasPrefix(b, "-") || strings.Contains(b, "@{") {
-		return false
-	}
-	return exec.CommandContext(ctx, "git", "check-ref-format", "--branch", b).Run() == nil
 }
 
 // startWrites assigns the issue to you and moves it to its start status, when

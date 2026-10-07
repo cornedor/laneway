@@ -59,7 +59,9 @@ func (c *Client) Events(ctx context.Context, fn func(SiteChange)) error {
 				line := sc.Text()
 				switch {
 				case strings.HasPrefix(line, "data:"):
-					data += strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+					if len(data) < 1<<20 { // past that it's no change of ours: let it fail to decode
+						data += strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+					}
 				case line == "" && data != "":
 					var ch SiteChange
 					if json.Unmarshal([]byte(data), &ch) == nil {

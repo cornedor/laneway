@@ -68,6 +68,12 @@ func TestWebSetupSave(t *testing.T) {
 	if _, err := os.Stat(path); err == nil {
 		t.Fatal("a refused form wrote the config")
 	}
+	t.Setenv("JIRA_API_TOKEN", "good")
+	var fe web.FieldError
+	if _, err := webSetupSave(ctx, path, "", web.SetupForm{Site: jiraSrv.URL, Email: "a@b.c"}); !errors.As(err, &fe) || fe.Field != "token" {
+		t.Errorf("JIRA_API_TOKEN sent to %s: %v", jiraSrv.URL, err)
+	}
+	t.Setenv("JIRA_API_TOKEN", "")
 	who, err := webSetupSave(ctx, path, "", web.SetupForm{Site: jiraSrv.URL + "/", Email: " ada@acme.io ", Token: "good"})
 	if err != nil || who != "Ada Lovelace" {
 		t.Fatalf("save = %q %v", who, err)

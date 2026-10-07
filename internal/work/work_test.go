@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+func TestValidBranch(t *testing.T) {
+	for b, want := range map[string]bool{"issue/LAN-1-x": true, "main": true, "--upload-pack=x": false, "-x": false, "a b": false, "a..b": false, "@{-1}": false, "": false} {
+		if got := ValidBranch(t.Context(), b); got != want {
+			t.Errorf("ValidBranch(%q) = %v", b, got)
+		}
+	}
+}
+
 // TestPropose: events close together are one session, the time up to
 // an event goes to its issue, a session's first event counts a quarter,
 // and what is logged comes off.

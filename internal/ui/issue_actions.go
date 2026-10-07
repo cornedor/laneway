@@ -525,7 +525,7 @@ func (m Model) handleJiraDownloaded(msg jiraDownloadedMsg) (tea.Model, tea.Cmd) 
 	if msg.err != nil {
 		m.fail("download: " + msg.err.Error())
 	} else {
-		m.lastDownload = msg.path
+		m.lastDownload, _ = filepath.Abs(msg.path) // opener opens only absolute paths
 		m.status = "saved " + msg.path + " · " + helpKey(m.keys.Palette) + " open download"
 	}
 	return m, nil

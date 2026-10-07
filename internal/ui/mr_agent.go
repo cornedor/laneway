@@ -16,6 +16,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/work"
 )
 
 // C on a GitLab merge request (its panel view or its diff): its source
@@ -98,6 +99,11 @@ func StartMRReview(ctx context.Context, c *herdr.Client, repos map[string]string
 	}
 	if repo == "" {
 		return "", "", false, errors.New("no checkout of " + ref.Repo + ": add one under gitlab: repos:, or to jira.repos")
+	}
+	for _, b := range []string{mr.SourceBranch, mr.TargetBranch} {
+		if !work.ValidBranch(ctx, b) {
+			return "", "", false, errors.New("bad branch name " + strconv.Quote(b) + " from GitLab")
+		}
 	}
 	if out, err := exec.CommandContext(ctx, "git", "-C", repo, "fetch", "origin", mr.SourceBranch, mr.TargetBranch).CombinedOutput(); err != nil {
 		return "", "", false, errors.New("git fetch: " + strings.TrimSpace(string(out)))

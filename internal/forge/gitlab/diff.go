@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/forge"
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // The review half of the GitLab provider: the merge request's full diff, the
@@ -500,5 +501,6 @@ func (c *Client) File(ctx context.Context, project, path, ref string) ([]string,
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(strings.TrimSuffix(string(b), "\n"), "\n"), nil
+	// DoRaw skips the JSON clean-up: a committed file can hold escapes.
+	return strings.Split(strings.TrimSuffix(safeterm.Text(string(b)), "\n"), "\n"), nil
 }

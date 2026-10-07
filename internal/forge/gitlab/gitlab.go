@@ -3,9 +3,10 @@
 // instance. Like internal/jira it has no dependency on the UI, so it is tested
 // against httptest servers.
 //
-// Authentication is a personal access token sent in the PRIVATE-TOKEN header
-// (read_api to read, api to approve, merge, edit and comment). Descriptions come
-// back as GitLab-flavored markdown.
+// Authentication is a personal access token sent as Authorization: Bearer,
+// which Go drops on a redirect to another host (read_api to read, api to
+// approve, merge, edit and comment). Descriptions come back as
+// GitLab-flavored markdown.
 //
 // Ported from matterbox's internal/forge/gitlab (Corné Dorrestijn, Jasper
 // Kuiper).
@@ -64,7 +65,7 @@ func New(cfg Config) *Client {
 		baseURL: base,
 		token:   token,
 		rest: forge.NewREST(base+"/api/v4", "gitlab", func(r *http.Request) {
-			r.Header.Set("PRIVATE-TOKEN", token)
+			r.Header.Set("Authorization", "Bearer "+token)
 		}),
 		gql: forge.NewREST(base+"/api", "gitlab", func(r *http.Request) {
 			r.Header.Set("Authorization", "Bearer "+token)

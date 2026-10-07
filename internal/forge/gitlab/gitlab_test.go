@@ -35,8 +35,8 @@ func TestGet(t *testing.T) {
 	calls := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.Header.Get("PRIVATE-TOKEN") != "tok" {
-			t.Errorf("no PRIVATE-TOKEN on %s", r.URL.Path)
+		if r.Header.Get("Authorization") != "Bearer tok" {
+			t.Errorf("no token on %s", r.URL.Path)
 		}
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/merge_requests/42/approvals"):
@@ -351,4 +351,21 @@ func TestJobLog(t *testing.T) {
 	if _, err := c.JobLog(context.Background(), "g/p", 7); err != nil || calls != 4 {
 		t.Errorf("a second read: %v, %d calls (want 4: uncached)", err, calls)
 	}
+}
+
+// TestTokenStaysOnRedirect: a redirect to another host gets no token.
+func TestTokenStaysOnRedirect(t *testing.T) {
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h := r.Header.Get("Authorization") + r.Header.Get("PRIVATE-TOKEN"); h != "" {
+			t.Errorf("token sent to the redirect host: %q", h)
+		}
+		w.Write([]byte(mrJSON))
+	}))
+	defer other.Close()
+	away := strings.Replace(other.URL, "127.0.0.1", "localhost", 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, away+r.URL.Path, http.StatusFound)
+	}))
+	defer srv.Close()
+	newTestClient(srv).Get(context.Background(), "g/p", 42)
 }

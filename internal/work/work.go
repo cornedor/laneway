@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"bytes"
 	"cmp"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +40,14 @@ func BranchKey(branch string) string {
 		return strings.ToUpper(m[1])
 	}
 	return ""
+}
+
+// ValidBranch: git's branch name rules, and no leading "-" or "@{" forms.
+func ValidBranch(ctx context.Context, b string) bool {
+	if b == "" || strings.HasPrefix(b, "-") || strings.Contains(b, "@{") {
+		return false
+	}
+	return exec.CommandContext(ctx, "git", "check-ref-format", "--branch", b).Run() == nil
 }
 
 // ExpandHome is p with a leading ~ as the home directory.

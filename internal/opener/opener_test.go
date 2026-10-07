@@ -20,3 +20,16 @@ func TestOpenCommand(t *testing.T) {
 	}
 	t.Error("the command never ran on the target")
 }
+
+func TestOpenRefuses(t *testing.T) {
+	for _, target := range []string{"smb://evil/share/x.app", "file:///etc/passwd", "vscode://x", "--help", "relative/file", ""} {
+		if err := Open([]string{"true"}, target); err == nil {
+			t.Errorf("%q opened", target)
+		}
+	}
+	for _, target := range []string{"https://example.com", "HTTP://example.com", "mailto:a@b.c", t.TempDir()} {
+		if err := Open([]string{"true"}, target); err != nil {
+			t.Errorf("%q: %v", target, err)
+		}
+	}
+}

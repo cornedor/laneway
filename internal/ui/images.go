@@ -34,6 +34,9 @@ const (
 	// imgFullPx is the longest side of the copy i shows, sent from the
 	// original when it opens: large enough for a screenshot's own pixels.
 	imgFullPx = 3840
+	// imgMaxPixels caps what an attachment may decode to (about 256 MiB of
+	// RGBA): a tiny file can claim a huge canvas.
+	imgMaxPixels = 64 << 20
 )
 
 // cellPx is a terminal cell's size in pixels.
@@ -294,6 +297,9 @@ func (m Model) handleResendImages() (tea.Model, tea.Cmd) {
 // box columns and maxRows rows, and builds the transmit sequence. w×h is
 // the transmitted pixel size.
 func encodeKittyImage(id uint32, b []byte, maxPx, box, maxRows int, cell cellPx) (seq string, w, h int, err error) {
+	if c, _, err := image.DecodeConfig(bytes.NewReader(b)); err == nil && c.Width*c.Height > imgMaxPixels {
+		return "", 0, 0, fmt.Errorf("image is %d×%d: too large to decode", c.Width, c.Height)
+	}
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", 0, 0, fmt.Errorf("decode image: %w", err)

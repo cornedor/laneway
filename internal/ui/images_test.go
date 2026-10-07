@@ -80,6 +80,11 @@ func TestEncodeKittyImage(t *testing.T) {
 	if _, _, _, err := encodeKittyImage(7, []byte("nope"), imgMaxPx, 80, 16, defaultCell); err == nil {
 		t.Error("garbage decoded")
 	}
+	buf.Reset()
+	_ = png.Encode(&buf, image.NewGray(image.Rect(0, 0, 9000, 8000)))
+	if _, _, _, err := encodeKittyImage(7, buf.Bytes(), imgMaxPx, 80, 16, defaultCell); err == nil || !strings.Contains(err.Error(), "too large") {
+		t.Errorf("72 MP image: %v", err)
+	}
 }
 
 // TestPanelPlacesImage: a ready attachment's placeholder rows follow its
