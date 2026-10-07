@@ -14,6 +14,8 @@ func TestBulkUndo(t *testing.T) {
 	s.keys("3")
 	s.wait("Assign to me")
 	s.keys("Down", "Down", "Down", "Down", "Enter") // Sam Okafor
+	s.wait("enter again assigns 2 issues")
+	s.keys("Enter")
 	sams := func(n int) func(string) bool {
 		return func(scr string) bool { return strings.Count(lane(scr, 0), "SO Sam Okafor") == n }
 	}

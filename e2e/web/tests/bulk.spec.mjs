@@ -17,6 +17,7 @@ test('bulk: a status for two cards, and u undoes it', async ({ page, app }) => {
   await markTwo(page, app);
   await pick(page, 'Status');
   await pick(page, 'In Review');
+  await page.getByRole('dialog').getByRole('button', { name: 'Apply' }).click();
   for (const k of ['DEMO-5', 'DEMO-9']) await expect(inLane(page, 'IN REVIEW', k)).toBeVisible();
   await page.keyboard.press('u');
   for (const k of ['DEMO-5', 'DEMO-9']) await expect(inLane(page, 'TO DO', k)).toBeVisible();
@@ -28,6 +29,7 @@ test('bulk: an assignee for two cards', async ({ page, app }) => {
   await markTwo(page, app);
   await pick(page, 'Assignee');
   await pick(page, 'Priya', /Priya Nair/);
+  await page.getByRole('dialog').getByRole('button', { name: 'Apply' }).click();
   for (const k of ['DEMO-5', 'DEMO-9']) await expect(card(page, k).locator('.cav')).toContainText('PN');
   await page.reload();
   for (const k of ['DEMO-5', 'DEMO-9']) await expect(card(page, k).locator('.cav')).toContainText('PN');

@@ -62,7 +62,7 @@ test('complete the active sprint, start the next', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: /start/i }).click();
   await expect(head(page, 'Sprint 13')).toContainText('active');
   // The open issues of the sprint closed went on: the board is Sprint 13's.
-  await page.goto(page.url().replace(/#.*/, '#/board'));
+  await page.goto(new URL('/board', page.url()).href);
   await expect(page.locator('.crumb', { hasText: 'Sprint 13' })).toBeVisible();
   await expect(page.locator('.bd-lanes .card', { hasText: 'DEMO-14' })).toBeVisible();
 });

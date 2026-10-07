@@ -12,5 +12,5 @@ test('/ finds an issue and opens it', async ({ page }) => {
 
 test(': runs a command', async ({ page }) => {
   await (await palette(page, ':', 'roadmap', /Go to Roadmap/)).click();
-  await expect(page).toHaveURL(/#\/roadmap/);
+  await expect(page).toHaveURL(/\/roadmap$/);
 });
