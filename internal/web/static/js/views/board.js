@@ -1569,7 +1569,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   offs.push(bus.on('focus', () => { if (Date.now() - S.fetched > staleMs) refresh(false); }));
   const onChanged = debounce(() => refresh(false), 250);
   offs.push(bus.on('issue:changed', onChanged));
-  if (!embed) offs.push(bus.on('panel', ({ key }) => { app.setQuery({ issue: key || null }); }));
+  if (!embed) offs.push(bus.on('panel', ({ key }) => { if (key && key !== S.sel && S.where.has(key)) select(key); })); // back and forward move the cursor along
   // Searches starred in the palette (ctrl+s): views of every board, shared with the TUI.
   const loadStarred = () => api.get('/jql/starred', { fresh: true }).then(l => { S.starred = l || []; renderToolbar(); }).catch(() => {});
   const starredP = loadStarred();
@@ -1608,7 +1608,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (S.dead) return;
     if (!embed) {
       const canon = '#/board/' + S.project + '/' + S.board.ID;
-      if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; history.replaceState(null, '', canon + (q ? '?' + q : '')); }
+      if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; app.setURL(canon + (q ? '?' + q : '')); }
       if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
       setCtx(app, S.project, S.board);
     }

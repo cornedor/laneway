@@ -105,7 +105,7 @@ export function mountIssue(el, key, { app, full, card }) {
     ui.toast(what + ' copied');
   };
   const browseURL = () => (st.issue && st.issue.URL) || (app.session.baseURL + '/browse/' + key);
-  const go = k => { expect = k; return full ? app.go('/issue/' + k) : app.panel.open(k, { force: true }); };
+  const go = (k, push = true) => { expect = k; return full ? app.go('/issue/' + k, { replace: !push }) : app.panel.open(k, { force: true, push }); };
   const open = k => { if (k !== key) { trail.push(me_.entry()); go(k); } };
   const back = () => { if (!trail.length) return ui.toast('No previous issue'); go(trail.pop().key); };
   const jumpTo = i => { const e = trail[i]; if (!e) return; trail.length = i; go(e.key); };
@@ -131,7 +131,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const step = d => {
     const ks = viewKeys(), i = ks.indexOf(key);
     if (i < 0 || !ks[i + d]) return ui.toast(i < 0 ? 'Not in the list beside' : 'End of the list');
-    trail.length = 0; go(ks[i + d]);
+    trail.length = 0; go(ks[i + d], false);
   };
   const prefixes = () => new Set([...(app.session.projects || []), key.split('-')[0], ...(st.issue ? (st.issue.Links || []).map(l => l.Key.split('-')[0]) : [])]);
   const people = () => {
@@ -213,7 +213,7 @@ export function mountIssue(el, key, { app, full, card }) {
   }
   function goBack() {
     if (!full) return app.panel.close();
-    if (history.length > 1) history.back(); else app.go('/board');
+    app.back('/board');
   }
 
   // ---- fields

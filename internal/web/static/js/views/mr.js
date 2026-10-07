@@ -91,8 +91,8 @@ export default function mount(el, { app, scope, query }) {
     syncURL();
     renderTabs();
   }
-  const syncURL = () => history.replaceState(null, '', mrHref(url, tab === 'changes' ? 'changes' : '') + (version ? '&version=' + version : '') + (jobId ? '&job=' + jobId : ''));
-  function back() { if (history.length > 1) history.back(); else app.go('/mrs'); }
+  const syncURL = () => app.setURL(mrHref(url, tab === 'changes' ? 'changes' : '') + (version ? '&version=' + version : '') + (jobId ? '&job=' + jobId : ''));
+  const back = () => app.back('/mrs');
 
   // ---- the pipeline, live: polled while it runs; a job's log under it, followed while the job runs
   const openStages = new Set(); // the stages listing their passed jobs

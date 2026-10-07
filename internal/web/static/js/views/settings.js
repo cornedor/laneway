@@ -271,7 +271,7 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind(['ArrowLeft', 'h'], () => change(-1), 'previous value', { group: 'Settings' });
   scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, 'reset to the default', { group: 'Settings', bar: 'reset' });
   scope.bind('/', () => { filter.focus(); filter.select(); }, 'filter settings', { group: 'Settings', bar: 'filter' });
-  scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else history.length > 1 ? history.back() : app.go('/board'); }, 'leave settings', { group: 'Settings', bar: 'leave' });
+  scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else app.back('/board'); }, 'leave settings', { group: 'Settings', bar: 'leave' });
   scope.bind('Escape', () => { if (editing) editing.cancel(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true });
   scope.bind('Enter', () => { if (editing) editing.commit(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true, when: () => !(editing && editing.multi) });
   scope.bind('ctrl+Enter', () => { if (editing) editing.commit(); }, '', { input: true, hidden: true });

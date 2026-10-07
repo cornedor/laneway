@@ -244,6 +244,7 @@ export default async function mount(el, { app, scope, query }) {
   if (want) {
     const p = query.pane ? rows.findIndex(r => r.pane === query.pane) : -1, i = p >= 0 ? p : rows.findIndex(r => r.key === want);
     if (i >= 0) { sel = i; mark(); } else if (!bare && (snap().Worktrees || {})[want]) { bare = true; build(); sel = Math.max(0, rows.findIndex(r => r.key === want)); mark(); }
+    if (query.type) app.setQuery({ type: null }); // done once: not again on back or reload
     if (query.type && cur() && cur().key === want && cur().agent) { if (app.panel.key) app.panel.close(); type(); }
   }
   paintHint();

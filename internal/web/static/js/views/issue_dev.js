@@ -120,7 +120,7 @@ export function mountDev(key, { app, el, full, card, details }) {
     if (st.err && st.err.signin) return h('div.dv-mr', signInHelp(st.err));
     if (st.err) return h('div.dv-mr.dv-err', st.err.message || String(st.err), ' ', h('a', { href: safe(u), target: '_blank', rel: 'noopener noreferrer' }, 'Open in GitLab'));
     if (!st.data) return h('div.dv-mr.dv-dim', 'Loading the merge request…');
-    return mrBody(st.data, ui);
+    return mrBody(st.data, ui, u => app.go(u));
   }
   function toggleMR(u, fresh) {
     if (openMR.has(u) && !fresh) { openMR.delete(u); paint(); return; }
@@ -247,7 +247,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   const openLink = r => { if (r && r.dataset.url) openURL(r.dataset.url); else ui.toast('No link'); };
   scope.bind('Enter', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) toggleMR(r.dataset.url); else openLink(r); }, 'open in the browser; a GitLab merge request unfolds', { group: G, when: onRow });
   scope.bind('o', () => openLink(rowOf(document.activeElement)), 'open in the browser', { group: G, when: onRow });
-  scope.bind('d', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) location.hash = diffHref(r.dataset.url); else ui.toast('Not a GitLab merge request'); }, 'a merge request\'s diff', { group: G, when: onRow });
+  scope.bind('d', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) app.go(diffHref(r.dataset.url)); else ui.toast('Not a GitLab merge request'); }, 'a merge request\'s diff', { group: G, when: onRow });
   scope.bind('r', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset && openMR.has(r.dataset.url)) toggleMR(r.dataset.url, true); else load(true); }, 'reload', { group: G, when: onRow });
   scope.bind('y', () => { const r = rowOf(document.activeElement); if (r && r.dataset.copy) copy(r.dataset.copy, r.dataset.what); else ui.toast('Nothing to copy'); }, 'copy branch or hash', { group: G, when: onRow });
   scope.bind('Escape', () => { const s = el.querySelector('.iss-scroll'); if (s) s.focus({ preventScroll: true }); else document.activeElement.blur(); }, 'leave development', { group: G, when: onRow });

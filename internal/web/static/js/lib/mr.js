@@ -121,13 +121,13 @@ export const mrButtons = link => (safe(link) ? h('span.dv-acts',
   h('a.btn.ghost.sm', { href: safe(link), target: '_blank', rel: 'noopener noreferrer', title: 'Open in GitLab (o)', tabindex: -1 }, 'GitLab', icon('external-link'))) : null);
 
 // mrBody is an unfolded row's summary: merge status, approvals, the pipeline and the description.
-export function mrBody(m, ui) {
+export function mrBody(m, ui, go = u => { location.hash = u; }) {
   const kv = (k, ...v) => (v.some(Boolean) ? h('div.dv-kv', h('span.dv-k', k), h('span', ...v)) : null);
   const merge = m.State !== 'opened' ? null : m.HasConflicts ? h('span.dvt-err', m.MergeStatus) : m.Mergeable ? h('span.dvt-ok', m.MergeStatus) : m.MergeStatus;
   return h('div.dv-mr', { onclick: e => e.stopPropagation() },
     kv('Merge', merge, isZero(m.UpdatedAt) ? null : h('span.dv-dim', ' · updated ' + ago(m.UpdatedAt))),
     kv('Approvals', approvals(m, ui)),
     kv('Labels', (m.Labels || []).join(', ')),
-    m.Checks ? pipeline(m.Checks, { onJob: j => { location.hash = mrHref(m.WebURL) + '&job=' + j.ID; } }) : null,
+    m.Checks ? pipeline(m.Checks, { onJob: j => go(mrHref(m.WebURL) + '&job=' + j.ID) }) : null,
     (m.Description || '').trim() ? h('div.dv-desc.md', md(m.Description)) : null);
 }
