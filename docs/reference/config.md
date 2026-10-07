@@ -294,11 +294,14 @@ ui:
 Colour names: `accent dim selection_fg selection_bg selection_idle error
 mention link code attachment over_limit drop_fg priority_highest
 priority_high priority_low priority_lowest type_bug type_story type_epic
-type_subtask type_other highlight roadmap_done roadmap_todo status_todo
-status_progress status_done`, and `shade`.
+type_subtask type_other type_alert highlight roadmap_done roadmap_todo
+status_todo status_progress status_done`, and `shade`.
 
 - `status_*` colour the lane marks and the panel's status lozenges; unset
   they follow `selection_bg`, `roadmap_todo` and `roadmap_done`.
+- `type_*` colour issue type icons by Jira's colour for the icon: red
+  `type_bug`, green `type_story`, purple `type_epic`, blue `type_other`,
+  orange `type_alert` (unset it follows `highlight`).
 - `shade`: `auto` steps off the terminal's own background (faint for the
   canvas, list zebra rows; stronger for the panel's trail, section bars,
   the board title, lane heads and status line), `off`, or one colour for

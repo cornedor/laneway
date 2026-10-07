@@ -2204,30 +2204,58 @@ var jiraLaneStyle = lipgloss.NewStyle().Bold(true)
 // its WIP limit.
 var jiraKeyStyle, jiraDimStyle, jiraOverStyle, jiraDropStyle, jiraViewActive, jiraGhostStyle, jiraPinStyle lipgloss.Style
 
+// jiraTypeIcons are the glyph, plain letter and theme colour per issue
+// type kind (jira.TypeKind). The colours follow Jira's: red type_bug, green
+// type_story, purple type_epic, blue type_other, orange type_alert.
+var jiraTypeIcons = map[string][3]string{
+	"task":        {"\uf14a", "•", "type_other"},
+	"bug":         {"\uf188", "B", "type_bug"},
+	"incident":    {"\uf21e", "•", "type_bug"},
+	"document":    {"\uf15c", "•", "type_epic"},
+	"epic":        {"\uf0e7", "E", "type_epic"},
+	"problem":     {"\uf06a", "!", "type_alert"},
+	"design":      {"\uf040", "•", "type_other"},
+	"improvement": {"\uf062", "↑", "type_story"},
+	"add":         {"\uf0fe", "+", "type_story"},
+	"remove":      {"\uf146", "-", "type_story"},
+	"checklist":   {"\uf0ae", "•", "type_epic"},
+	"money":       {"\uf0d6", "•", "type_story"},
+	"story":       {"\uf02e", "S", "type_story"},
+	"subtask":     {"\uf0da", "↳", "type_subtask"},
+	"question":    {"\uf059", "?", "type_alert"},
+	"code":        {"\uf121", "•", "type_other"},
+	"idea":        {"\uf0eb", "•", "type_alert"},
+	"security":    {"\uf023", "•", "type_alert"},
+	"mail":        {"\uf0e0", "•", "type_other"},
+	"folder":      {"\uf07b", "•", "type_story"},
+	"work":        {"\uf0b1", "•", "type_alert"},
+	"event":       {"\uf271", "•", "type_story"},
+	"devices":     {"\uf109", "•", "type_other"},
+	"building":    {"\uf1ad", "•", "type_story"},
+	"add-user":    {"\uf234", "•", "type_other"},
+	"user-check":  {"\uf007", "•", "type_alert"},
+	"user":        {"\uf2bd", "•", "type_other"},
+	"monitor":     {"\uf108", "•", "type_story"},
+}
+
 // jiraTypeIcon is a nerd-font glyph per issue type, like the GitLab tab's:
 // by kind (jira.TypeKind), else by name.
 func jiraTypeIcon(kind, name string) string {
-	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
-	icon := func(nerd, plain string) string {
-		if plainIcons {
-			return plain
-		}
-		return nerd
-	}
 	if kind == "" {
 		kind = strings.ToLower(name)
 	}
-	switch kind {
-	case "bug":
-		return st(curTheme["type_bug"]).Render(icon("\uf188", "B"))
-	case "story":
-		return st(curTheme["type_story"]).Render(icon("\uf02e", "S"))
-	case "epic":
-		return st(curTheme["type_epic"]).Render(icon("\uf0e7", "E"))
-	case "sub-task", "subtask":
-		return st(curTheme["type_subtask"]).Render(icon("\uf0da", "↳"))
+	if kind == "sub-task" {
+		kind = "subtask"
 	}
-	return st(curTheme["type_other"]).Render(icon("\uf14a", "•"))
+	t, ok := jiraTypeIcons[kind]
+	if !ok {
+		t = jiraTypeIcons["task"]
+	}
+	glyph := t[0]
+	if plainIcons {
+		glyph = t[1]
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(curTheme[t[2]])).Render(glyph)
 }
 
 // plainIcons draws issue types as letters, for terminals without a Nerd

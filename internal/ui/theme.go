@@ -40,6 +40,7 @@ func defaultTheme() theme {
 		"type_epic":        "5",
 		"type_subtask":     "8",
 		"type_other":       "4",    // task and the rest
+		"type_alert":       "",     // question, problem, security…; "" follows highlight
 		"highlight":        "11",   // a card a rule highlighted
 		"roadmap_done":     "2",    // an epic bar's done part, the done status lozenge
 		"roadmap_todo":     "4",    // and the rest (and in progress); today's line is highlight
@@ -64,7 +65,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#db4b4b", "priority_high": "#ff9e64",
 		"priority_low": "#7aa2f7", "priority_lowest": "#565f89",
 		"type_bug": "#f7768e", "type_story": "#9ece6a", "type_epic": "#bb9af7",
-		"type_subtask": "#565f89", "type_other": "#7aa2f7", "highlight": "#e0af68",
+		"type_subtask": "#565f89", "type_other": "#7aa2f7", "type_alert": "#ff9e64", "highlight": "#e0af68",
 		"roadmap_done": "#9ece6a", "roadmap_todo": "#7aa2f7", "shade": "auto",
 		"status_todo": "#565f89", "status_progress": "#7aa2f7", "status_done": "#9ece6a",
 	},
@@ -76,7 +77,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#f38ba8", "priority_high": "#fab387",
 		"priority_low": "#89b4fa", "priority_lowest": "#6c7086",
 		"type_bug": "#f38ba8", "type_story": "#a6e3a1", "type_epic": "#cba6f7",
-		"type_subtask": "#6c7086", "type_other": "#89b4fa", "highlight": "#f9e2af",
+		"type_subtask": "#6c7086", "type_other": "#89b4fa", "type_alert": "#fab387", "highlight": "#f9e2af",
 		"roadmap_done": "#a6e3a1", "roadmap_todo": "#89b4fa", "shade": "auto",
 		"status_todo": "#6c7086", "status_progress": "#89b4fa", "status_done": "#a6e3a1",
 	},
@@ -88,7 +89,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#cc241d", "priority_high": "#fe8019",
 		"priority_low": "#83a598", "priority_lowest": "#928374",
 		"type_bug": "#fb4934", "type_story": "#b8bb26", "type_epic": "#d3869b",
-		"type_subtask": "#928374", "type_other": "#83a598", "highlight": "#fabd2f",
+		"type_subtask": "#928374", "type_other": "#83a598", "type_alert": "#fe8019", "highlight": "#fabd2f",
 		"roadmap_done": "#b8bb26", "roadmap_todo": "#83a598", "shade": "auto",
 		"status_todo": "#928374", "status_progress": "#83a598", "status_done": "#b8bb26",
 	},
@@ -100,7 +101,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#ff5555", "priority_high": "#ffb86c",
 		"priority_low": "#8be9fd", "priority_lowest": "#6272a4",
 		"type_bug": "#ff5555", "type_story": "#50fa7b", "type_epic": "#bd93f9",
-		"type_subtask": "#6272a4", "type_other": "#8be9fd", "highlight": "#f1fa8c",
+		"type_subtask": "#6272a4", "type_other": "#8be9fd", "type_alert": "#ffb86c", "highlight": "#f1fa8c",
 		"roadmap_done": "#50fa7b", "roadmap_todo": "#8be9fd", "shade": "auto",
 		"status_todo": "#6272a4", "status_progress": "#8be9fd", "status_done": "#50fa7b",
 	},
@@ -112,7 +113,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#bf616a", "priority_high": "#d08770",
 		"priority_low": "#81a1c1", "priority_lowest": "#616e88",
 		"type_bug": "#bf616a", "type_story": "#a3be8c", "type_epic": "#b48ead",
-		"type_subtask": "#616e88", "type_other": "#81a1c1", "highlight": "#ebcb8b",
+		"type_subtask": "#616e88", "type_other": "#81a1c1", "type_alert": "#d08770", "highlight": "#ebcb8b",
 		"roadmap_done": "#a3be8c", "roadmap_todo": "#81a1c1", "shade": "auto",
 		"status_todo": "#616e88", "status_progress": "#81a1c1", "status_done": "#a3be8c",
 	},
@@ -124,7 +125,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#e06c75", "priority_high": "#d19a66",
 		"priority_low": "#61afef", "priority_lowest": "#5c6370",
 		"type_bug": "#e06c75", "type_story": "#98c379", "type_epic": "#c678dd",
-		"type_subtask": "#5c6370", "type_other": "#61afef", "highlight": "#e5c07b",
+		"type_subtask": "#5c6370", "type_other": "#61afef", "type_alert": "#d19a66", "highlight": "#e5c07b",
 		"roadmap_done": "#98c379", "roadmap_todo": "#61afef", "shade": "auto",
 		"status_todo": "#5c6370", "status_progress": "#61afef", "status_done": "#98c379",
 	},
@@ -136,7 +137,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#eb6f92", "priority_high": "#ebbcba",
 		"priority_low": "#9ccfd8", "priority_lowest": "#6e6a86",
 		"type_bug": "#eb6f92", "type_story": "#9ccfd8", "type_epic": "#c4a7e7",
-		"type_subtask": "#6e6a86", "type_other": "#9ccfd8", "highlight": "#f6c177",
+		"type_subtask": "#6e6a86", "type_other": "#9ccfd8", "type_alert": "#f6c177", "highlight": "#f6c177",
 		"roadmap_done": "#9ccfd8", "roadmap_todo": "#9ccfd8", "shade": "auto",
 		"status_todo": "#6e6a86", "status_progress": "#9ccfd8", "status_done": "#9ccfd8",
 	},
@@ -148,7 +149,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#e82424", "priority_high": "#ffa066",
 		"priority_low": "#7e9cd8", "priority_lowest": "#727169",
 		"type_bug": "#e82424", "type_story": "#98bb6c", "type_epic": "#957fb8",
-		"type_subtask": "#727169", "type_other": "#7e9cd8", "highlight": "#e6c384",
+		"type_subtask": "#727169", "type_other": "#7e9cd8", "type_alert": "#ffa066", "highlight": "#e6c384",
 		"roadmap_done": "#98bb6c", "roadmap_todo": "#7e9cd8", "shade": "auto",
 		"status_todo": "#727169", "status_progress": "#7e9cd8", "status_done": "#98bb6c",
 	},
@@ -160,7 +161,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#f92672", "priority_high": "#fd971f",
 		"priority_low": "#66d9ef", "priority_lowest": "#75715e",
 		"type_bug": "#f92672", "type_story": "#a6e22e", "type_epic": "#ae81ff",
-		"type_subtask": "#75715e", "type_other": "#66d9ef", "highlight": "#e6db74",
+		"type_subtask": "#75715e", "type_other": "#66d9ef", "type_alert": "#fd971f", "highlight": "#e6db74",
 		"roadmap_done": "#a6e22e", "roadmap_todo": "#66d9ef", "shade": "auto",
 		"status_todo": "#75715e", "status_progress": "#66d9ef", "status_done": "#a6e22e",
 	},
@@ -172,7 +173,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#d20f39", "priority_high": "#fe640b",
 		"priority_low": "#1e66f5", "priority_lowest": "#8c8fa1",
 		"type_bug": "#d20f39", "type_story": "#40a02b", "type_epic": "#8839ef",
-		"type_subtask": "#8c8fa1", "type_other": "#1e66f5", "highlight": "#df8e1d",
+		"type_subtask": "#8c8fa1", "type_other": "#1e66f5", "type_alert": "#fe640b", "highlight": "#df8e1d",
 		"roadmap_done": "#40a02b", "roadmap_todo": "#1e66f5", "shade": "auto",
 		"status_todo": "#8c8fa1", "status_progress": "#1e66f5", "status_done": "#40a02b",
 	},
@@ -184,7 +185,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#e78284", "priority_high": "#ef9f76",
 		"priority_low": "#8caaee", "priority_lowest": "#737994",
 		"type_bug": "#e78284", "type_story": "#a6d189", "type_epic": "#ca9ee6",
-		"type_subtask": "#737994", "type_other": "#8caaee", "highlight": "#e5c890",
+		"type_subtask": "#737994", "type_other": "#8caaee", "type_alert": "#ef9f76", "highlight": "#e5c890",
 		"roadmap_done": "#a6d189", "roadmap_todo": "#8caaee", "shade": "auto",
 		"status_todo": "#737994", "status_progress": "#8caaee", "status_done": "#a6d189",
 	},
@@ -196,7 +197,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#ed8796", "priority_high": "#f5a97f",
 		"priority_low": "#8aadf4", "priority_lowest": "#6e738d",
 		"type_bug": "#ed8796", "type_story": "#a6da95", "type_epic": "#c6a0f6",
-		"type_subtask": "#6e738d", "type_other": "#8aadf4", "highlight": "#eed49f",
+		"type_subtask": "#6e738d", "type_other": "#8aadf4", "type_alert": "#f5a97f", "highlight": "#eed49f",
 		"roadmap_done": "#a6da95", "roadmap_todo": "#8aadf4", "shade": "auto",
 		"status_todo": "#6e738d", "status_progress": "#8aadf4", "status_done": "#a6da95",
 	},
@@ -208,7 +209,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#eb6f92", "priority_high": "#ea9a97",
 		"priority_low": "#9ccfd8", "priority_lowest": "#6e6a86",
 		"type_bug": "#eb6f92", "type_story": "#9ccfd8", "type_epic": "#c4a7e7",
-		"type_subtask": "#6e6a86", "type_other": "#9ccfd8", "highlight": "#f6c177",
+		"type_subtask": "#6e6a86", "type_other": "#9ccfd8", "type_alert": "#f6c177", "highlight": "#f6c177",
 		"roadmap_done": "#9ccfd8", "roadmap_todo": "#9ccfd8", "shade": "auto",
 		"status_todo": "#6e6a86", "status_progress": "#9ccfd8", "status_done": "#9ccfd8",
 	},
@@ -220,7 +221,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#b4637a", "priority_high": "#d7827e",
 		"priority_low": "#56949f", "priority_lowest": "#8a869c",
 		"type_bug": "#b4637a", "type_story": "#286983", "type_epic": "#907aa9",
-		"type_subtask": "#8a869c", "type_other": "#56949f", "highlight": "#ea9d34",
+		"type_subtask": "#8a869c", "type_other": "#56949f", "type_alert": "#ea9d34", "highlight": "#ea9d34",
 		"roadmap_done": "#286983", "roadmap_todo": "#56949f", "shade": "auto",
 		"status_todo": "#8a869c", "status_progress": "#56949f", "status_done": "#286983",
 	},
@@ -232,7 +233,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#f7768e", "priority_high": "#ff9e64",
 		"priority_low": "#7aa2f7", "priority_lowest": "#565f89",
 		"type_bug": "#f7768e", "type_story": "#9ece6a", "type_epic": "#bb9af7",
-		"type_subtask": "#565f89", "type_other": "#7aa2f7", "highlight": "#e0af68",
+		"type_subtask": "#565f89", "type_other": "#7aa2f7", "type_alert": "#ff9e64", "highlight": "#e0af68",
 		"roadmap_done": "#9ece6a", "roadmap_todo": "#7aa2f7", "shade": "auto",
 		"status_todo": "#565f89", "status_progress": "#7aa2f7", "status_done": "#9ece6a",
 	},
@@ -244,7 +245,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#f52a65", "priority_high": "#b15c00",
 		"priority_low": "#2e7de9", "priority_lowest": "#7a82a8",
 		"type_bug": "#f52a65", "type_story": "#587539", "type_epic": "#9854f1",
-		"type_subtask": "#7a82a8", "type_other": "#2e7de9", "highlight": "#8c6c3e",
+		"type_subtask": "#7a82a8", "type_other": "#2e7de9", "type_alert": "#b15c00", "highlight": "#8c6c3e",
 		"roadmap_done": "#587539", "roadmap_todo": "#2e7de9", "shade": "auto",
 		"status_todo": "#7a82a8", "status_progress": "#2e7de9", "status_done": "#587539",
 	},
@@ -256,7 +257,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#9d0006", "priority_high": "#af3a03",
 		"priority_low": "#076678", "priority_lowest": "#7c6f64",
 		"type_bug": "#9d0006", "type_story": "#79740e", "type_epic": "#8f3f71",
-		"type_subtask": "#7c6f64", "type_other": "#076678", "highlight": "#b57614",
+		"type_subtask": "#7c6f64", "type_other": "#076678", "type_alert": "#af3a03", "highlight": "#b57614",
 		"roadmap_done": "#79740e", "roadmap_todo": "#076678", "shade": "auto",
 		"status_todo": "#7c6f64", "status_progress": "#076678", "status_done": "#79740e",
 	},
@@ -268,7 +269,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#dc322f", "priority_high": "#cb4b16",
 		"priority_low": "#268bd2", "priority_lowest": "#586e75",
 		"type_bug": "#dc322f", "type_story": "#859900", "type_epic": "#6c71c4",
-		"type_subtask": "#586e75", "type_other": "#268bd2", "highlight": "#b58900",
+		"type_subtask": "#586e75", "type_other": "#268bd2", "type_alert": "#cb4b16", "highlight": "#b58900",
 		"roadmap_done": "#859900", "roadmap_todo": "#268bd2", "shade": "auto",
 		"status_todo": "#586e75", "status_progress": "#268bd2", "status_done": "#859900",
 	},
@@ -280,7 +281,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#dc322f", "priority_high": "#cb4b16",
 		"priority_low": "#268bd2", "priority_lowest": "#93a1a1",
 		"type_bug": "#dc322f", "type_story": "#859900", "type_epic": "#6c71c4",
-		"type_subtask": "#93a1a1", "type_other": "#268bd2", "highlight": "#b58900",
+		"type_subtask": "#93a1a1", "type_other": "#268bd2", "type_alert": "#cb4b16", "highlight": "#b58900",
 		"roadmap_done": "#859900", "roadmap_todo": "#268bd2", "shade": "auto",
 		"status_todo": "#93a1a1", "status_progress": "#268bd2", "status_done": "#859900",
 	},
@@ -292,7 +293,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#c4746e", "priority_high": "#b6927b",
 		"priority_low": "#8ba4b0", "priority_lowest": "#737c73",
 		"type_bug": "#c4746e", "type_story": "#87a987", "type_epic": "#8992a7",
-		"type_subtask": "#737c73", "type_other": "#8ba4b0", "highlight": "#c4b28a",
+		"type_subtask": "#737c73", "type_other": "#8ba4b0", "type_alert": "#b6927b", "highlight": "#c4b28a",
 		"roadmap_done": "#87a987", "roadmap_todo": "#8ba4b0", "shade": "auto",
 		"status_todo": "#737c73", "status_progress": "#8ba4b0", "status_done": "#87a987",
 	},
@@ -304,7 +305,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#c84053", "priority_high": "#cc6d00",
 		"priority_low": "#4d699b", "priority_lowest": "#8a8980",
 		"type_bug": "#c84053", "type_story": "#6f894e", "type_epic": "#624c83",
-		"type_subtask": "#8a8980", "type_other": "#4d699b", "highlight": "#77713f",
+		"type_subtask": "#8a8980", "type_other": "#4d699b", "type_alert": "#cc6d00", "highlight": "#77713f",
 		"roadmap_done": "#6f894e", "roadmap_todo": "#4d699b", "shade": "auto",
 		"status_todo": "#8a8980", "status_progress": "#4d699b", "status_done": "#6f894e",
 	},
@@ -316,7 +317,7 @@ var themePresets = map[string]theme{
 		"priority_highest": "#e45649", "priority_high": "#986801",
 		"priority_low": "#4078f2", "priority_lowest": "#8a8c94",
 		"type_bug": "#e45649", "type_story": "#50a14f", "type_epic": "#a626a4",
-		"type_subtask": "#8a8c94", "type_other": "#4078f2", "highlight": "#c18401",
+		"type_subtask": "#8a8c94", "type_other": "#4078f2", "type_alert": "#c18401", "highlight": "#c18401",
 		"roadmap_done": "#50a14f", "roadmap_todo": "#4078f2", "shade": "auto",
 		"status_todo": "#8a8c94", "status_progress": "#4078f2", "status_done": "#50a14f",
 	},
@@ -366,9 +367,9 @@ func themeFrom(over map[string]string) (theme, []string) {
 	return th, warn
 }
 
-// statusFallback is the colour each status category's takes when the theme
-// leaves it unset, as before it had its own.
-var statusFallback = map[string]string{"status_todo": "dim", "status_progress": "roadmap_todo", "status_done": "roadmap_done"}
+// themeFallback is the colour each of these takes when the theme leaves it
+// unset, as before it had its own.
+var themeFallback = map[string]string{"status_todo": "dim", "status_progress": "roadmap_todo", "status_done": "roadmap_done", "type_alert": "highlight"}
 
 // shadeStyle is the cards' faint background, used while shadeOn: the
 // theme's shade colour, or with "auto" a step off the terminal's own
@@ -466,7 +467,7 @@ func applyTheme(th theme) {
 	}
 	monoTheme = false
 	th = maps.Clone(th)
-	for name, from := range statusFallback {
+	for name, from := range themeFallback {
 		if th[name] == "" {
 			th[name] = th[from]
 		}

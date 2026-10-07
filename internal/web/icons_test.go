@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/cornedor/laneway/internal/jira"
 )
 
 // TestIcons: every icon('name') the frontend draws is in lib/icons.js, and every icon there is used.
@@ -38,6 +40,21 @@ func TestIcons(t *testing.T) {
 	for name := range have {
 		if !strings.Contains(code, "'"+name+"'") {
 			t.Errorf("icon %q in lib/icons.js is never used", name)
+		}
+	}
+}
+
+// TestTypeIconKinds: every kind jira.TypeKind returns is in TYPE_ICON.
+func TestTypeIconKinds(t *testing.T) {
+	src, err := fs.ReadFile(staticFS, "static/js/lib/icons.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, table, _ := strings.Cut(string(src), "export const TYPE_ICON = {")
+	table, _, _ = strings.Cut(table, "\n};")
+	for _, k := range jira.TypeKinds() {
+		if !regexp.MustCompile(`(?:\s|^)'?` + regexp.QuoteMeta(k) + `'?: \[`).MatchString(table) {
+			t.Errorf("type kind %q is not in TYPE_ICON", k)
 		}
 	}
 }

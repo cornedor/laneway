@@ -11,7 +11,6 @@ import { extraOf } from './cardquery.js';
 import { check, setCheck } from './selbar.js';
 import { colour } from './cardstyle.js';
 
-const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
 const brokenTypeIcons = new Set();
 const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
 export const catClass = c => (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo');
@@ -27,11 +26,12 @@ const PART = {
 // fillType draws c's type: our icon for Jira's stock ones (TypeKind), else the type's own icon from Jira, else by name.
 function fillType(el, c) {
   const own = c.TypeAvatar && !brokenTypeIcons.has(c.TypeAvatar);
-  const tc = TYPE_CLS[c.TypeKind] || (own ? 't-img' : TYPE_CLS[(c.Type || '').toLowerCase()]) || 't-other';
-  el.className = 'ctype ' + tc;
+  const name = (c.Type || '').toLowerCase();
+  const t = TYPE_ICON[c.TypeKind] || (!own && TYPE_ICON[name === 'sub-task' ? 'subtask' : name]);
+  el.className = 'ctype t-' + (t ? t[1] : own ? 'img' : 'other');
   el.title = c.Type;
-  if (TYPE_ICON[tc.slice(2)]) setIcon(el, TYPE_ICON[tc.slice(2)]);
-  else if (tc === 't-img') {
+  if (t) setIcon(el, t[0]);
+  else if (own) {
     if (el._ico === c.TypeAvatar) return;
     el._ico = c.TypeAvatar;
     el.replaceChildren(h('img', { src: c.TypeAvatar, alt: '', onerror: () => { brokenTypeIcons.add(c.TypeAvatar); if (el._ico === c.TypeAvatar) fillType(el, c); } }));

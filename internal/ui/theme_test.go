@@ -204,3 +204,12 @@ func TestMonoTheme(t *testing.T) {
 		t.Error("mono should draw no colour")
 	}
 }
+
+// TestTypeIconKinds: every kind jira.TypeKind returns has a glyph.
+func TestTypeIconKinds(t *testing.T) {
+	for _, k := range jira.TypeKinds() {
+		if _, ok := jiraTypeIcons[k]; !ok {
+			t.Errorf("no glyph for type kind %q", k)
+		}
+	}
+}

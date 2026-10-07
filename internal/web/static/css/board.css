@@ -70,7 +70,8 @@ body.panel-focus .card.sel { outline-color: var(--fg-3); } /* the keys are the p
 .card.flagged { border-top-color: var(--err); border-right-color: var(--err); border-bottom-color: var(--err); }
 .c1, .c3 { display: flex; align-items: center; gap: .429rem; min-width: 0; line-height: 1.429rem; height: 1.429rem; flex: none; white-space: nowrap; font-size: .857rem; color: var(--fg-2); }
 .ctype { display: inline-flex; align-items: center; justify-content: center; width: 1.143rem; height: 1.143rem; border-radius: 4px; font-size: .714rem; font-weight: 700; color: var(--bg); background: var(--fg-3); flex: none; }
-.ctype.t-bug { background: var(--err); } .ctype.t-story { background: var(--ok); } .ctype.t-task { background: var(--info); } .ctype.t-epic { background: var(--accent); } .ctype.t-sub { background: var(--fg-3); }
+.ctype.t-red { background: var(--err); } .ctype.t-green { background: var(--ok); } .ctype.t-blue { background: var(--info); } .ctype.t-purple { background: var(--accent); }
+.ctype.t-orange { background: var(--warn); } .ctype.t-grey { background: var(--fg-3); }
 .ctype.t-img { background: none; } .ctype.t-img img { width: 100%; height: 100%; display: block; }
 .ckey { font-family: var(--font-mono); color: var(--fg-2); }
 .cflag { color: var(--err); }
