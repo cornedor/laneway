@@ -404,7 +404,7 @@ type jiraTabState struct {
 
 	assignee jiraAssignee
 	quick    []jira.QuickFilter
-	quickOn  map[int]bool      // quick filter id → on
+	quickOn  map[int]bool // quick filter id → on
 	// statusNames names status ids, for a lane's drop zones.
 	statusNames map[string]string
 	// pendingMove is a keyboard move into a lane of several statuses,
