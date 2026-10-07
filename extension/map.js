@@ -148,9 +148,9 @@ export function parseHosts(text) {
 }
 
 // The paths worth sending to laneway, so dashboards, Confluence (/wiki) and the rest never take the
-// detour. route() still decides; what it maps to null goes back to Jira. Loose on purpose: Chrome
-// caps a rule's compiled regex at 2 KB, and a tighter pattern exceeds it.
-export const PATHS = '(browse|issues|jira/(browse|software|core|your-work|for-you)|secure/RapidBoard\\.jspa|projects/[^/]+/issues)';
+// detour. route() still decides; what it maps to null goes back to Jira. One rule each: Chrome caps a
+// rule's compiled regex at 2 KB, and all of them in one alternation followed by .* exceeds it.
+export const PATHS = ['browse', 'issues', 'jira/(browse|software|core|your-work|for-you)', 'secure/RapidBoard\\.jspa', 'projects/[^/]+/issues'];
 
 // The marker that sends a request to Jira untouched (a priority allow rule matches it).
 // bypass is href with it, or null when href is no http(s) URL.

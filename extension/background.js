@@ -13,18 +13,19 @@ async function sync() {
   try { laneway = new URL(o.laneway).hostname; } catch {}
   const addRules = !o.enabled || !laneway ? [] : [
     { id: ALLOW, priority: 2, action: { type: 'allow' }, condition: { urlFilter: BYPASS, resourceTypes: ['main_frame'] } },
-    {
-      id: REDIRECT, priority: 1,
+    ...PATHS.map((p, i) => ({
+      id: REDIRECT + i, priority: 1,
       action: { type: 'redirect', redirect: { regexSubstitution: chrome.runtime.getURL('go.html') + '#\\0' } },
       condition: {
-        regexFilter: '^https?://[^/]+/' + PATHS + '.*',
+        regexFilter: '^https?://[^/]+/' + p + '.*',
         requestDomains: hosts.length ? hosts : ['atlassian.net'],
         resourceTypes: ['main_frame'],
         excludedInitiatorDomains: [laneway, 'atlassian.net', 'atlassian.com', ...hosts],
       },
-    },
+    })),
   ];
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [ALLOW, REDIRECT], addRules });
+  const removeRuleIds = (await chrome.declarativeNetRequest.getDynamicRules()).map(r => r.id);
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
   await chrome.action.setBadgeText({ text: o.enabled ? '' : 'off' });
   await chrome.action.setTitle({ title: o.enabled ? 'Jira opens in laneway (click: off)' : 'Jira opens in Jira (click: on)' });
 }

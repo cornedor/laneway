@@ -86,7 +86,7 @@ test('bypass', () => {
 });
 
 test('PATHS lets other pages through', () => {
-  const re = new RegExp('^https?://[^/]+/' + PATHS);
+  const re = new RegExp('^https?://[^/]+/(' + PATHS.join('|') + ')');
   for (const p of ['/browse/A-1', '/jira/browse/A-1', '/issues/?jql=x', '/issues?jql=x', '/jira/software/c/projects/A/boards/1', '/jira/your-work', '/projects/A/issues/A-1', '/secure/RapidBoard.jspa?rapidView=1']) assert.ok(re.test(J + p), p);
   for (const p of ['/wiki/spaces/A', '/jira/dashboards', '/jira/people/x', '/']) assert.ok(!re.test(J + p), p);
 });
