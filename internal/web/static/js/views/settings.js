@@ -229,7 +229,7 @@ export default function mount(el, { app, scope, toolbar }) {
         body = h('div.st-sec' + (o.fold || o.key ? '.st-keys' : ''), { role: 'group', 'aria-label': sec, id: sec === G.title ? slug(sec) : null });
         list.append(body);
         const target = slug(sec);
-        nav.append(h('a.st-nav-a', { href: '#/settings', dataset: { sec: target }, onclick: e => { e.preventDefault(); const t = list.querySelector('#' + target); if (t) { jumped = target; t.scrollIntoView({ block: 'start' }); spy(); } } }, sec));
+        nav.append(h('a.st-nav-a', { href: '/settings', dataset: { sec: target }, onclick: e => { e.preventDefault(); const t = list.querySelector('#' + target); if (t) { jumped = target; t.scrollIntoView({ block: 'start' }); spy(); } } }, sec));
       }
       o.el = rowFor(o);
       if (o.fold) o.el.classList.add('st-fold');

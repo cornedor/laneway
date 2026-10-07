@@ -39,16 +39,18 @@ document.addEventListener('pointerdown', focusAt, true);
 
 // ---- history. Each entry laneway makes holds {lw: {d}}: d, the laneway entries behind it, so app.back never leaves the app.
 const lw = () => (history.state && history.state.lw) || null;
-let shown = '';        // the hash on screen; an event for it again changes nothing
+const here = () => location.pathname + location.search;
+let shown = '';        // the URL on screen; an event for it again changes nothing
 let depth = 0;         // d of the entry shown
 function record(url, { push = false } = {}) {
   if (push) { depth = ((lw() || { d: depth }).d) + 1; history.pushState({ lw: { d: depth } }, '', url); }
   else history.replaceState({ ...(history.state || {}), lw: lw() || { d: depth } }, '', url);
-  shown = location.hash;
+  shown = here();
 }
 // The browser moved: back, forward, a typed URL or a plain link. One it made itself is stamped as the next step.
 function onURL() {
-  if (location.hash === shown) return;
+  if (location.hash.startsWith('#/')) history.replaceState(history.state, '', location.hash.slice(1)); // an old #/ link
+  if (here() === shown) return;
   const s = lw();
   if (s) depth = s.d;
   else { depth += 1; history.replaceState({ ...(history.state || {}), lw: { d: depth } }, ''); }
@@ -63,7 +65,7 @@ export const app = {
   // Navigate: app.go('/board/ABC/12?issue=ABC-1'), a step back can undo; {replace} takes this entry's place.
   // The route shown again, bare (g b on the board), is no step; the open panel comes along.
   go(to, { replace = false } = {}) {
-    const url = nav.target(location.hash, to, { panel: app.panel.key, nameOf });
+    const url = nav.target(here(), to, { panel: app.panel.key, nameOf });
     if (!url) return;
     record(url, { push: !replace });
     navigate();
@@ -76,15 +78,15 @@ export const app = {
   // setURL: the view says where it is now without remounting: a canonical path (replace), or a place of its
   // own a step back returns to ({push}: another project on the roadmap).
   setURL(url, { push = false } = {}) {
-    if (url === location.hash) return;
+    if (url === here()) return;
     record(url, { push });
     const { path, query } = nav.split(url);
     if (current) current.path = path;
     if (app.route) app.route.query = query;
   },
   // Query params of the current hash route, updatable without remounting: app.setQuery({tab:'day'}).
-  query() { return nav.split(location.hash).query; },
-  setQuery(patch, { replace = true } = {}) { app.setURL(nav.withQuery(location.hash, patch), { push: !replace }); },
+  query() { return nav.split(here()).query; },
+  setQuery(patch, { replace = true } = {}) { app.setURL(nav.withQuery(here(), patch), { push: !replace }); },
   // The issue panel. Board/list/etc. call app.panel.open(key[, {card}]); the issue module renders it,
   // its head from `card` (the view's copy) until its own data arrives. It is ?issue= in the URL, and every
   // change a step back undoes (opening, closing, a link followed) but another issue of the list beside
@@ -170,10 +172,10 @@ function syncPanel(key) {
 // navigate mounts the view of the URL; one that differs from the shown only in ?issue just moves the panel.
 // force remounts the same (reload).
 async function navigate({ force = false } = {}) {
-  const tidy = nav.tidy(location.hash, app.session.home && app.session.home.Start ? '/home' : '/board');
-  if (tidy !== location.hash) record(tidy);
-  shown = location.hash;
-  const { path, query } = nav.split(location.hash);
+  const tidy = nav.tidy(here(), app.session.home && app.session.home.Start ? '/home' : '/board');
+  if (tidy !== here()) record(tidy);
+  shown = here();
+  const { path, query } = nav.split(here());
   if (!force && current && current.path === path && nav.sameBut(app.route.query, query, 'issue')) {
     app.route.query = query;
     syncPanel(query.issue);
@@ -192,7 +194,7 @@ async function navigate({ force = false } = {}) {
     app.route = { name: '', params: {}, query: {} };
     viewTitle = 'Not found · laneway'; document.title = viewTitle;
     app.chrome.mark('');
-    clear(view).append(h('div.empty', h('h2', 'Nothing at ' + path), h('p', h('a', { href: '#/board' }, 'Back to the board'))));
+    clear(view).append(h('div.empty', h('h2', 'Nothing at ' + path), h('p', h('a', { href: '/board' }, 'Back to the board'))));
     bus.emit('route', app.route);
     return;
   }
@@ -259,9 +261,9 @@ function chrome() {
   // An in-app link is an app.go: no step for the view shown, the panel along. Modified clicks stay the browser's.
   document.addEventListener('click', e => {
     if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    const a = e.target.closest && e.target.closest('a[href^="#/"]');
-    if (!a || a.target) return;
-    e.preventDefault(); app.go(a.getAttribute('href'));
+    const a = e.target.closest && e.target.closest('a[href^="/"]'), href = a && a.getAttribute('href');
+    if (!a || a.target || a.hasAttribute('download') || !nameOf(nav.split(href).path)) return; // /api files load as files
+    e.preventDefault(); app.go(href);
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) bus.emit('focus'); });
 }
@@ -315,8 +317,9 @@ async function boot() {
   if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
   await import('./views/plan_ctx.js').then(m => m.sanitize(app)).catch(e => console.warn('ctx', e));
   if (lw()) depth = lw().d; else history.replaceState({ ...(history.state || {}), lw: { d: 0 } }, '');
+  if (location.hash.startsWith('#/')) history.replaceState(history.state, '', location.hash.slice(1)); // an old #/ link or bookmark
   window.addEventListener('popstate', onURL);
-  window.addEventListener('hashchange', onURL);
+  window.addEventListener('hashchange', onURL); // a #/ link typed or pasted
   await navigate();
   (window.requestIdleCallback || setTimeout)(() => import('./views/palette.js')); // ready before the first ':'
 }

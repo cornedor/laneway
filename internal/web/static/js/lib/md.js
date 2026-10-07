@@ -32,7 +32,7 @@ function link(href, text, o) {
 }
 const issueKey = (href, o) => (o.onKey ? jiraKey(href, o.site) : '');
 const urlLink = (url, o) => { const k = issueKey(url, o); return k ? issuePill(k, o.onKey, url) : link(url, url); };
-const keyLink = (key, kids, o) => h('a.issue-ref', { href: '#/issue/' + key, onclick: e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); o.onKey(key); } }, kids);
+const keyLink = (key, kids, o) => h('a.issue-ref', { href: '/issue/' + key, onclick: e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); o.onKey(key); } }, kids);
 
 // "[text](href)" at s[i]: {text, href, end} or null. Brackets and parens may nest.
 function linkAt(s, i) {

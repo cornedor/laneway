@@ -43,3 +43,20 @@ func TestAssetsETagAndTypes(t *testing.T) {
 		}
 	}
 }
+
+// A page of the app (a reload, a link from elsewhere) gets the shell; a missing file or API path stays a 404.
+func TestAssetsAppPaths(t *testing.T) {
+	sub, _ := fs.Sub(staticFS, "static")
+	srv := httptest.NewServer(assets(sub))
+	defer srv.Close()
+	for path, want := range map[string]int{"/board/ABC/1": 200, "/issue/ABC-1": 200, "/mr": 200, "/api/nope": 404, "/api": 404, "/js/nope.js": 404} {
+		res, err := http.Get(srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != want || want == 200 && res.Header.Get("Content-Type") != "text/html; charset=utf-8" {
+			t.Errorf("%s: %d %q, want %d", path, res.StatusCode, res.Header.Get("Content-Type"), want)
+		}
+	}
+}

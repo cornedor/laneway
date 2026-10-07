@@ -28,7 +28,7 @@ export function install(app) {
 }
 
 const setCookie = s => { document.cookie = 'lw_site=s:' + encodeURIComponent(s) + '; path=/; max-age=31536000; samesite=strict'; };
-const reload = () => { location.hash = '#/board'; location.reload(); };
+const reload = () => { location.href = '/board'; };
 
 // The form `laneway setup` asks with a site set up: address, email, token and a name to pick it by.
 function addSite(app, info) {

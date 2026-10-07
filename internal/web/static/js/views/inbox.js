@@ -75,7 +75,7 @@ export default function mount(el, { app, scope, toolbar }) {
     if (!t) return;
     if (force || !newFrom) newFrom = s.unread ? (data.marks[t.ID]?.Read || data.floor) : Infinity;
     detail.append(h('div.ithread',
-      h('h2', away(t) ? h('a', { href: t.URL, target: '_blank', rel: 'noopener' }, t.Key) : h('a', { href: '#/issue/' + t.Key, onclick: e => { e.preventDefault(); app.panel.open(t.Key); } }, t.Key), ' ', t.Summary),
+      h('h2', away(t) ? h('a', { href: t.URL, target: '_blank', rel: 'noopener' }, t.Key) : h('a', { href: '/issue/' + t.Key, onclick: e => { e.preventDefault(); app.panel.open(t.Key); } }, t.Key), ' ', t.Summary),
       h('div.sub', ui.statusPill(t.Status, /done|closed|resolved/i.test(t.Status) ? 'done' : 'indeterminate'), t.Assignee && h('span', t.Assignee), away(t) && h('span', 'on ' + siteName(t)), h('span', t.Entries.length + (t.Entries.length === 1 ? ' update' : ' updates'))),
       t.Entries.map(e => entry(e))));
     if (s.unread && hold !== t.ID) readTimer = setTimeout(() => mark(t, { Read: latest(t) }, true), 700);

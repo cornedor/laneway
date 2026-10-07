@@ -12,7 +12,7 @@ const check = s => CHECK[s] || CHECK.skipped;
 const WORD = { success: 'passed', failed: 'failed', warning: 'passed with warnings', running: 'running', pending: 'pending', manual: 'manual', canceled: 'canceled', skipped: 'skipped' };
 
 // mrHref is the merge request's page; tab 'changes' opens on its diff.
-export const mrHref = (link, tab) => '#/mr?url=' + encodeURIComponent(link) + (tab ? '&tab=' + tab : '');
+export const mrHref = (link, tab) => '/mr?url=' + encodeURIComponent(link) + (tab ? '&tab=' + tab : '');
 // diffHref is the page on its diff (d).
 export const diffHref = link => mrHref(link, 'changes');
 
@@ -121,7 +121,7 @@ export const mrButtons = link => (safe(link) ? h('span.dv-acts',
   h('a.btn.ghost.sm', { href: safe(link), target: '_blank', rel: 'noopener noreferrer', title: 'Open in GitLab (o)', tabindex: -1 }, 'GitLab', icon('external-link'))) : null);
 
 // mrBody is an unfolded row's summary: merge status, approvals, the pipeline and the description.
-export function mrBody(m, ui, go = u => { location.hash = u; }) {
+export function mrBody(m, ui, go = u => { location.href = u; }) {
   const kv = (k, ...v) => (v.some(Boolean) ? h('div.dv-kv', h('span.dv-k', k), h('span', ...v)) : null);
   const merge = m.State !== 'opened' ? null : m.HasConflicts ? h('span.dvt-err', m.MergeStatus) : m.Mergeable ? h('span.dvt-ok', m.MergeStatus) : m.MergeStatus;
   return h('div.dv-mr', { onclick: e => e.stopPropagation() },

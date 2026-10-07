@@ -25,7 +25,7 @@ const catOf = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 
 // issuePill draws key at once and fills in the rest when its card comes.
 export function issuePill(key, onKey, url) {
-  const sum = h('span.ip-sum'), a = h('a.issue-pill', { href: '#/issue/' + key, title: url || key, onclick: e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); onKey(key); } },
+  const sum = h('span.ip-sum'), a = h('a.issue-pill', { href: '/issue/' + key, title: url || key, onclick: e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); onKey(key); } },
     h('span.ip-key', key));
   card(key).then(c => {
     if (!c) return a.classList.add('missing');

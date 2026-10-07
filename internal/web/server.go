@@ -410,6 +410,9 @@ func assets(root fs.FS) http.Handler {
 	files["/"] = files["/index.html"]
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		a, ok := files[r.URL.Path]
+		if !ok && appPath(r.URL.Path) {
+			a, ok = files["/"], true
+		}
 		if !ok || a == nil || r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.NotFound(w, r)
 			return
@@ -432,6 +435,12 @@ func assets(root fs.FS) http.Handler {
 		h.Set("Etag", etag)
 		http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(body))
 	})
+}
+
+// appPath is a page of the app (/board/ABC/1, /issue/ABC-1): the shell, its router takes it from there.
+// Files have an extension; /api answers itself or not at all.
+func appPath(p string) bool {
+	return p != "/api" && !strings.HasPrefix(p, "/api/") && path.Ext(p) == ""
 }
 
 func compressible(p string) bool {

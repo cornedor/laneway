@@ -109,7 +109,7 @@ export default async function mount(el, { app, scope, query }) {
       const btn = (label, key, fn, cls = '') => h('button.btn' + cls, { onclick: fn }, label, h('kbd', key));
       clear(info);
       if (r) info.append(
-        h('h2', h('a.issue-ref', { href: away(r.key) ? issues.get(r.key).URL : '#/issue/' + r.key, onclick: e => { e.preventDefault(); openIssue(r.key); } }, r.key), ' ' + summary(r.key)),
+        h('h2', h('a.issue-ref', { href: away(r.key) ? issues.get(r.key).URL : '/issue/' + r.key, onclick: e => { e.preventDefault(); openIssue(r.key); } }, r.key), ' ' + summary(r.key)),
         h('div.ag-meta', h('span.chip', icon(ICON[r.group] || ICON.unknown), ' ' + (LABEL[r.group] || r.group)), c && h('span', c.Status + ' · ' + (c.Assignee || 'unassigned')), away(r.key) && h('span', 'on ' + siteName(r.key)),
           a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',

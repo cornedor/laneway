@@ -21,7 +21,7 @@ export function install(app) {
   const views = routes.filter(r => r.name !== 'issue');
   const inBar = views.filter(r => r.nav !== false).sort((a, b) => GROUPS.indexOf(groupOf(a)) - GROUPS.indexOf(groupOf(b)));
   for (const r of inBar) {
-    nav.insertBefore(h('a', { href: '#/' + r.name, dataset: { name: r.name, group: groupOf(r) }, title: r.title + (r.key ? '  (g ' + r.key + ')' : '') }, r.title), more);
+    nav.insertBefore(h('a', { href: '/' + r.name, dataset: { name: r.name, group: groupOf(r) }, title: r.title + (r.key ? '  (g ' + r.key + ')' : '') }, r.title), more);
   }
   const links = [...nav.querySelectorAll('a')];
   let current = '';
@@ -104,7 +104,7 @@ export function install(app) {
   addEventListener('online', net); addEventListener('offline', net); net();
 
   // Agents on an issue that wait on you (herdr). Working ones only as a quiet count.
-  const ag = add(h('a', { href: '#/agents', hidden: true }), 20);
+  const ag = add(h('a', { href: '/agents', hidden: true }), 20);
   app.bus.on('agents', s => {
     const as = ((s && s.Available && s.Agents) || []).filter(a => a.Key);
     const blocked = as.filter(a => a.Status === 'blocked').length, working = as.filter(a => a.Status === 'working').length;

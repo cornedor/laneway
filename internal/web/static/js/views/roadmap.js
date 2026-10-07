@@ -31,7 +31,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   let t0 = 0, t1 = 0;
   const scroller = h('div.rm', { tabindex: -1 }); hwheel(scroller);
   el.append(scroller);
-  switcher(app, { scope, context, project, boards: false, group: 'Roadmap', onPick: r => { project = r.project; epics = []; app.setURL('#/roadmap/' + project, { push: true }); load(); } });
+  switcher(app, { scope, context, project, boards: false, group: 'Roadmap', onPick: r => { project = r.project; epics = []; app.setURL('/roadmap/' + project, { push: true }); load(); } });
   toolbar.append(h('span.spacer'),
     h('button.btn', { title: 'Zoom out (-)', 'aria-label': 'Zoom out', onclick: () => setZoom(zoom - 1) }, icon('minus')),
     h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, icon('plus')),

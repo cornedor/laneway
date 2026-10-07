@@ -1607,8 +1607,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     }
     if (S.dead) return;
     if (!embed) {
-      const canon = '#/board/' + S.project + '/' + S.board.ID;
-      if (!location.hash.startsWith(canon)) { const q = location.hash.split('?')[1]; app.setURL(canon + (q ? '?' + q : '')); }
+      const canon = '/board/' + S.project + '/' + S.board.ID;
+      if (location.pathname !== canon) app.setURL(canon + location.search);
       if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
       setCtx(app, S.project, S.board);
     }

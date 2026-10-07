@@ -1,7 +1,7 @@
 // Route table. Each view module default-exports mount(el, ctx) → cleanup?
 // bar: false marks a view that never fills the view bar (it hides at once instead of holding its place).
 // ctx: {app, params, query, scope (a keys scope disposed on leave), context + toolbar (the view bar: where, then how)}.
-// Hash routes: #/board/PROJECT/BOARDID?issue=KEY … (':x' are params).
+// Routes: /board/PROJECT/BOARDID?issue=KEY … (':x' are params); the server answers any such path with the shell.
 // A missing module shows a "not built yet" page; nothing else breaks.
 export const routes = [
   { path: '/home', name: 'home', title: 'Home', key: 'h', bar: false, load: () => import('./home.js') },

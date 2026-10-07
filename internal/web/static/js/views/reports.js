@@ -71,7 +71,7 @@ export default async function mount(el, { app, params, query, scope, context, to
     const q = new URLSearchParams();
     if (sprintId) q.set('sprint', sprintId);
     if (compare) q.set('compare', compare);
-    app.setURL('#/reports/' + k + (project ? '/' + project + (board ? '/' + board.ID : '') : '') + (q.size ? '?' + q : ''));
+    app.setURL('/reports/' + k + (project ? '/' + project + (board ? '/' + board.ID : '') : '') + (q.size ? '?' + q : ''));
     document.title = KINDS.find(x => x[0] === k)[1] + ' · laneway';
     load();
   }

@@ -235,7 +235,7 @@ export function mountIssue(el, key, { app, full, card }) {
       cell('reporter', 'Reporter', i.Reporter),
       cell('points', 'Points', i.StoryPoints),
       cell('labels', 'Labels', i.Labels && i.Labels.length && h('span.chips', i.Labels.map(l => h('span.chip', l)))),
-      cell('parent', 'Parent', pk && h('span.parent', h('a.issue-ref', { href: '#/issue/' + pk, title: ps, onclick: e => { e.preventDefault(); e.stopPropagation(); open(pk); } }, pk), ps && h('span.dim.clip', ' ' + ps))),
+      cell('parent', 'Parent', pk && h('span.parent', h('a.issue-ref', { href: '/issue/' + pk, title: ps, onclick: e => { e.preventDefault(); e.stopPropagation(); open(pk); } }, pk), ps && h('span.dim.clip', ' ' + ps))),
       cell('sprint', 'Sprint', c.Sprint),
       cell('due', 'Due', date(c.Due)),
       cell(null, 'Updated', ago(i.Updated)),
@@ -360,7 +360,7 @@ export function mountIssue(el, key, { app, full, card }) {
     const done = kids.filter(k => k.Done).length;
     clear(box.children).append(
       h('div.sec-head', h('h3', 'Child issues'), h('span.dim', done + '/' + kids.length), h('div.bar', h('i', { style: { width: Math.round(100 * done / kids.length) + '%' } }))),
-      h('div.rows', kids.map(k => h('a.row-link' + (k.Done ? '.done' : ''), { href: '#/issue/' + k.Key, onclick: e => { e.preventDefault(); open(k.Key); } },
+      h('div.rows', kids.map(k => h('a.row-link' + (k.Done ? '.done' : ''), { href: '/issue/' + k.Key, onclick: e => { e.preventDefault(); open(k.Key); } },
         h('span.mono.k', k.Key), h('span.clip', k.Summary), ui.statusPill(k.Status, k.Done ? 'done' : 'indeterminate'), k.Assignee && ui.avatar(k.Assignee, null, 18)))));
   }
   function renderLinks() {
