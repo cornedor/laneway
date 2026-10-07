@@ -60,6 +60,12 @@ To do
 	if st.Person.ID != "" || st.Quiet {
 		t.Errorf("everyone's stop: %+v", st)
 	}
+	b := board()
+	b.Browse = func(k string) string { return "https://x/browse/" + k }
+	if st := Stops(b, nil, entries, now.AddDate(0, 0, -3), now)[0]; !strings.Contains(st.Text, "- [ABC-6](https://x/browse/ABC-6) Fresh · Ann") ||
+		st.Folded[0].Text() != "[ABC-8](https://x/browse/ABC-8) Aside · Ann · commented" {
+		t.Errorf("links:\n%s\n%s", st.Text, st.Folded[0].Text())
+	}
 }
 
 // TestPersonStop: a person's stop is their cards and those they did

@@ -17,17 +17,23 @@ import (
 )
 
 // Row is a row of the standup: a section's heading (Head), or an issue and
-// its cells. Unfold marks the heading of the rows kept folded.
+// its cells. Unfold marks the heading of the rows kept folded. URL is the
+// issue's browse link.
 type Row struct {
-	Head                              string
-	Unfold                            bool
-	Key, Title, Who, Age, Marks, What string
+	Head                                   string
+	Unfold                                 bool
+	Key, Title, Who, Age, Marks, What, URL string
 }
 
-// Text is the row as copied: its cells joined.
+// Text is the row as copied: its cells joined, the key a markdown link
+// when there is a URL.
 func (r Row) Text() string {
+	title := r.Title
+	if rest, ok := strings.CutPrefix(title, r.Key); ok && r.Key != "" && r.URL != "" {
+		title = "[" + r.Key + "](" + r.URL + ")" + rest
+	}
 	var parts []string
-	for _, s := range []string{r.Title, r.Who, r.Age, r.Marks, r.What} {
+	for _, s := range []string{title, r.Who, r.Age, r.Marks, r.What} {
 		if s != "" {
 			parts = append(parts, s)
 		}
@@ -69,12 +75,14 @@ func People(cols []Column) []Person {
 
 // Board is what a walk needs beside the activity: the columns, the
 // projects whose other issues show Off the board, the days in progress
-// past which a card is stale, and the open issues blocking each card.
+// past which a card is stale, the open issues blocking each card, and an
+// issue's browse URL (nil for none).
 type Board struct {
 	Columns  []Column
 	Projects []string
 	Stale    int
 	Blockers map[string][]string
+	Browse   func(key string) string
 }
 
 // Stops are everyone's stop, then one per person in people's order.
@@ -141,7 +149,7 @@ func walk(b Board, entries []jira.InboxEntry, p Person, since, now time.Time) St
 		}
 		text.WriteString(b.Columns[i].Name + "\n")
 		for _, c := range in {
-			r := row(c, cmp.Or(c.card.Assignee, "unassigned"), b.Stale, now)
+			r := row(c, cmp.Or(c.card.Assignee, "unassigned"), b, now)
 			st.Rows = append(st.Rows, r)
 			text.WriteString("- " + r.Text() + "\n")
 		}
@@ -167,7 +175,7 @@ func walk(b Board, entries []jira.InboxEntry, p Person, since, now time.Time) St
 					who = append(who, e.Who)
 				}
 			}
-			st.Folded = append(st.Folded, row(c, strings.Join(who, ", "), b.Stale, now))
+			st.Folded = append(st.Folded, row(c, strings.Join(who, ", "), b, now))
 		}
 	}
 	st.Text = strings.TrimSpace(text.String())
@@ -186,16 +194,19 @@ func did(events []jira.InboxEntry) bool {
 }
 
 // row is a card's line: title, who has it, how long in progress (stale
-// past stale days), flag, blockers, pull request and deploy, and what
+// past b's stale days), flag, blockers, pull request and deploy, and what
 // happened since, or no activity.
-func row(c card, who string, stale int, now time.Time) Row {
+func row(c card, who string, b Board, now time.Time) Row {
 	cd := c.card
 	r := Row{Key: cd.Key, Title: cmp.Or(strings.TrimSpace(cd.Key+" "+cd.Summary), work.NoTicket), Who: who,
 		What: cmp.Or(What(c.events), "no activity")}
+	if cd.Key != "" && b.Browse != nil {
+		r.URL = b.Browse(cd.Key)
+	}
 	if cd.InProgress && !cd.Since.IsZero() {
 		days := int(now.Sub(cd.Since).Hours() / 24)
 		r.Age = fmt.Sprintf("%dd", days)
-		if stale > 0 && days > stale {
+		if b.Stale > 0 && days > b.Stale {
 			r.Age += " stale"
 		}
 	}

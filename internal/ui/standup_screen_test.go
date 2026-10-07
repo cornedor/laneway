@@ -83,7 +83,7 @@ func TestStandupRound(t *testing.T) {
 		t.Errorf("Bo's stop shows Ada's card:\n%s", view)
 	}
 	next()
-	if !s.heard["b2"] || !strings.Contains(s.copyText(), "Ada\n\nTo do\n- ABC-1 First · Ada · logged 2h") {
+	if !s.heard["b2"] || !strings.Contains(s.copyText(), "Ada\n\nTo do\n- [ABC-1](") || !strings.Contains(s.copyText(), "/browse/ABC-1) First · Ada · logged 2h") {
 		t.Errorf("Ada's stop: heard %v, copy %q", s.heard, s.copyText())
 	}
 	next()

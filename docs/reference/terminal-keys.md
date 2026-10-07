@@ -180,7 +180,7 @@ line beside it until you leave (again removes it).
 | `z`, `enter` on Off the board | fold it out |
 | `[` `]` | a workday back, forward |
 | `enter` | open the issue |
-| `y` | copy the stop |
+| `y` | copy the stop as markdown, keys linked |
 | `esc` `U` | back |
 
 ## Worklogs

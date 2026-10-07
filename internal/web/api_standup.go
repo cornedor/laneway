@@ -85,7 +85,7 @@ func teamStandup(ctx context.Context, s *Server, board int, v standupView, since
 	if err != nil {
 		return nil, "", err
 	}
-	b := standup.Board{Columns: make([]standup.Column, len(cfg.Columns)), Stale: cmp.Or(s.UIConfig().StaleDays, 5)}
+	b := standup.Board{Columns: make([]standup.Column, len(cfg.Columns)), Stale: cmp.Or(s.UIConfig().StaleDays, 5), Browse: c.BrowseURL}
 	for i, col := range cfg.Columns {
 		b.Columns[i].Name = col.Name
 		for _, cd := range cards {

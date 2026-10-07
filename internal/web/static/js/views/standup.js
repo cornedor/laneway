@@ -100,7 +100,8 @@ export default function mount(el, { app, scope, context, toolbar }) {
   }
 
   const cells = l => [l.Who, l.Age, l.Marks].filter(Boolean);
-  const rowText = l => [l.Title, l.Who, l.Age, l.Marks, l.What].filter(Boolean).join(' · ');
+  const linked = l => l.Key && l.URL && l.Title.startsWith(l.Key) ? '[' + l.Key + '](' + l.URL + ')' + l.Title.slice(l.Key.length) : l.Title;
+  const rowText = l => [linked(l), l.Who, l.Age, l.Marks, l.What].filter(Boolean).join(' · ');
   const copyText = () => {
     const st = stops[at];
     if (!st) return '';
@@ -375,7 +376,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   scope.bind('[', () => step(-1), 'a workday further back', { ...G, bar: 'day' });
   scope.bind(']', () => step(1), 'a workday forward', { ...G, bar: 'day' });
   sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = null; view = null; reset(); load(); } });
-  scope.bind('y', copy, 'copy the stop as text, parking lot included', { ...G, bar: 'copy' });
+  scope.bind('y', copy, 'copy the stop as markdown, parking lot included', { ...G, bar: 'copy' });
   scope.bind('r', load, 'refresh', G);
 
   clear(toolbar);

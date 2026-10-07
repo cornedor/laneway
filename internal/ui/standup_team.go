@@ -66,7 +66,7 @@ func (m *Model) loadTeamStandup(seq int, since time.Time) tea.Cmd {
 			name = p.Name
 		}
 	}
-	b := standup.Board{Columns: cols, Projects: teamProjects(cols, m.jiraTab.project), Stale: m.opts.staleDays}
+	b := standup.Board{Columns: cols, Projects: teamProjects(cols, m.jiraTab.project), Stale: m.opts.staleDays, Browse: c.BrowseURL}
 	head := m.teamHeader(now)
 	var keys []string
 	for _, col := range cols {
