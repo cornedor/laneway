@@ -1,6 +1,7 @@
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,7 +14,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // Attachment is one file on an issue.
@@ -210,6 +214,53 @@ func (c *Client) MediaID(ctx context.Context, id string) (string, error) {
 		return m[1], nil
 	}
 	return "", fmt.Errorf("attachment %s: no media id (%s)", id, resp.Status)
+}
+
+// inlineFiles links a's attachments by media id, as an inline file of its
+// description or comments names only that: [name](url). Nil when there is
+// no inline file; one Jira asks about is left out.
+func (c *Client) inlineFiles(ctx context.Context, a apiIssue) map[string]string {
+	inline := bytes.Contains(a.Fields.Description, []byte(`"mediaInline"`))
+	if cm := a.Fields.Comment; cm != nil {
+		for _, ac := range cm.Comments {
+			inline = inline || bytes.Contains(ac.Body, []byte(`"mediaInline"`))
+		}
+	}
+	if !inline || len(a.Fields.Attachment) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	var (
+		mu  sync.Mutex
+		wg  sync.WaitGroup
+		sem = make(chan struct{}, 4)
+	)
+	for _, at := range a.Fields.Attachment {
+		wg.Go(func() {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			c.mu.Lock()
+			id, ok := c.mediaIDs[at.ID]
+			c.mu.Unlock()
+			if !ok {
+				var err error
+				if id, err = c.MediaID(ctx, at.ID); err != nil {
+					return
+				}
+				c.mu.Lock()
+				if c.mediaIDs == nil {
+					c.mediaIDs = map[string]string{}
+				}
+				c.mediaIDs[at.ID] = id
+				c.mu.Unlock()
+			}
+			mu.Lock()
+			out[id] = "[" + escapeMediaAlt(safeterm.Line(at.Filename)) + "](" + c.AttachmentURL(at.ID) + ")"
+			mu.Unlock()
+		})
+	}
+	wg.Wait()
+	return out
 }
 
 // imageLine is a markdown image alone on its line pointing at an attachment.

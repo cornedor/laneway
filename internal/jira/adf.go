@@ -33,7 +33,11 @@ type adfMark struct {
 // understands (see internal/ui/markdown.go). It handles the common node types;
 // anything unrecognised degrades to its text content rather than vanishing, so
 // an exotic issue still reads sensibly. A nil/empty/garbage document yields "".
-func adfToMarkdown(raw json.RawMessage) string {
+func adfToMarkdown(raw json.RawMessage) string { return adfWithFiles(raw, nil) }
+
+// adfWithFiles is adfToMarkdown with each inline file as files links it, by
+// media id; the rest stay _[file]_.
+func adfWithFiles(raw json.RawMessage, files map[string]string) string {
 	if len(raw) == 0 || string(raw) == "null" {
 		return ""
 	}
@@ -43,8 +47,20 @@ func adfToMarkdown(raw json.RawMessage) string {
 	}
 	var b strings.Builder
 	writeBlocks(&b, doc.Content, "")
-	return strings.TrimSpace(b.String())
+	md := strings.TrimSpace(b.String())
+	if !strings.Contains(md, "]("+fileRef) {
+		return md
+	}
+	return fileRe.ReplaceAllStringFunc(md, func(s string) string {
+		return cmp.Or(files[fileRe.FindStringSubmatch(s)[1]], "_[file]_")
+	})
 }
+
+// fileRef is the placeholder target inline writes for an inline file, its
+// media id after; adfWithFiles swaps it for the file's link.
+const fileRef = "inline-file:"
+
+var fileRe = regexp.MustCompile(`\[file\]\(` + fileRef + `([^)\s]+)\)`)
 
 // writeBlocks renders a slice of block-level nodes, each separated by a blank
 // line. indent is the running left margin for nested list items.
@@ -358,8 +374,12 @@ func inline(nodes []adfNode) string {
 			}
 		case "emoji":
 			b.WriteString(emojiText(n))
-		case "mediaInline": // a file in the line: named, as it can't show
-			b.WriteString("_[file]_")
+		case "mediaInline": // a file in the line: its media id, which adfWithFiles names
+			if id, _ := n.Attrs["id"].(string); id != "" {
+				b.WriteString("[file](" + fileRef + id + ")")
+			} else {
+				b.WriteString("_[file]_")
+			}
 		case "inlineExtension": // a macro in the line
 			name, _ := n.Attrs["extensionKey"].(string)
 			b.WriteString("_[" + cmp.Or(name, "macro") + " macro]_")

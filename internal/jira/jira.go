@@ -116,6 +116,9 @@ type Client struct {
 	boardMeta boardMetaCache
 	// roadmapFields are the date and sprint field ids (roadmap.go), behind mu.
 	roadmapFields *roadmapFieldIDs
+	// mediaIDs are attachments' Media Services file ids (attachment.go),
+	// behind mu.
+	mediaIDs map[string]string
 }
 
 // New builds a Client from cfg. The returned client is always non-nil; call
@@ -472,7 +475,7 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 			cm.Comments = all
 		}
 	}
-	iss := c.toIssue(decoded)
+	iss := c.toIssue(decoded, c.inlineFiles(ctx, decoded))
 	iss.StoryPoints = extractStoryPoints(body, spFields)
 	if t := decoded.Fields.IssueType; t != nil && c.layouts != nil {
 		var raw struct {
@@ -693,12 +696,14 @@ func isTimeout(err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &ne) && ne.Timeout()
 }
 
-func (c *Client) toIssue(a apiIssue) *Issue {
+// toIssue makes a's Issue, its inline files linked as files has them (see
+// inlineFiles).
+func (c *Client) toIssue(a apiIssue, files map[string]string) *Issue {
 	iss := &Issue{
 		Key:         a.Key,
 		Summary:     safeterm.Line(a.Fields.Summary),
 		URL:         c.BrowseURL(a.Key),
-		Description: safeterm.Text(adfToMarkdown(a.Fields.Description)),
+		Description: safeterm.Text(adfWithFiles(a.Fields.Description, files)),
 		Assignee:    "Unassigned",
 	}
 	for _, l := range a.Fields.Labels {
@@ -735,7 +740,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	if a.Fields.Comment != nil {
 		iss.CommentTotal = a.Fields.Comment.Total
 		for _, ac := range a.Fields.Comment.Comments {
-			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfToMarkdown(ac.Body), iss.Attachments)), Visibility: ac.visibility()}
+			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfWithFiles(ac.Body, files), iss.Attachments)), Visibility: ac.visibility()}
 			if ac.Author != nil {
 				cm.Author = safeterm.Line(ac.Author.DisplayName)
 				cm.AuthorID = ac.Author.AccountID

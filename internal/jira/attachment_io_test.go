@@ -114,3 +114,39 @@ func TestEmbedImages(t *testing.T) {
 		t.Errorf("block %s", got)
 	}
 }
+
+// TestInlineFileNamed: a file inline in a comment, which ADF names only by
+// media id, shows as its attachment's name linked; one Jira can't place
+// stays _[file]_.
+func TestInlineFileNamed(t *testing.T) {
+	const uuid = "f12051de-4615-4686-925d-8142367018b1"
+	asked := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/attachment/content/120631":
+			asked++
+			http.Redirect(w, r, "https://api.media.atlassian.com/file/"+uuid+"/binary?token=x", http.StatusSeeOther)
+		case "/rest/api/3/issue/JB-1":
+			w.Write([]byte(`{"key":"JB-1","fields":{"summary":"S","attachment":[{"id":"120631","filename":"Re [FW] feed.eml"}],` +
+				`"comment":{"total":1,"comments":[{"id":"1","body":{"type":"doc","content":[{"type":"paragraph","content":[` +
+				`{"type":"mediaInline","attrs":{"id":"` + uuid + `","type":"file"}},{"type":"text","text":" and "},{"type":"mediaInline","attrs":{"id":"gone"}}]}]}}]}}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", FlatReplies: true})
+	for range 2 {
+		c.Invalidate("JB-1")
+		iss, err := c.Get(context.Background(), "JB-1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := "[Re (FW) feed.eml](" + srv.URL + "/rest/api/3/attachment/content/120631) and _[file]_"; iss.Comments[0].Body != want {
+			t.Errorf("body %q\nwant %q", iss.Comments[0].Body, want)
+		}
+	}
+	if asked != 1 {
+		t.Errorf("asked Jira for the media id %d times, want once", asked)
+	}
+}
