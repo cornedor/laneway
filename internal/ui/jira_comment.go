@@ -335,7 +335,7 @@ func (m *Model) selectedComment() (int, bool) {
 // thread's order, the Comments tab showing, and scrolls to it.
 func (m *Model) moveCommentCursor(d int) tea.Cmd {
 	iss := m.jiraIssue
-	thread := commentThread(iss.Comments)
+	thread := m.commentOrder(iss.Comments)
 	if len(thread) == 0 {
 		m.status = "no comments"
 		return nil

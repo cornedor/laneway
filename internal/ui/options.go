@@ -21,6 +21,8 @@ type options struct {
 	images          bool
 	delight         bool     // small celebrations (ui.delight)
 	threaded        bool     // replies in Jira's thread (ui.threaded_replies)
+	newestFirst     bool     // ui.comment_order: newest
+	flatComments    bool     // ui.comment_layout: flat
 	skinTone        string   // "_medium_skin_tone" and the like (ui.skin_tone), "" for none
 	updateCheck     bool     // a daily look for a newer release (ui.update_check)
 	llm             []string // the ask command (ui.llm), nil for the default
@@ -372,6 +374,20 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.threaded = false
 	default:
 		warn = append(warn, fmt.Sprintf("ui.threaded_replies: %q is not on or off", c.ThreadedReplies))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.CommentOrder)) {
+	case "", "oldest":
+	case "newest":
+		o.newestFirst = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.comment_order: %q is not oldest or newest", c.CommentOrder))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.CommentLayout)) {
+	case "", "threaded":
+	case "flat":
+		o.flatComments = true
+	default:
+		warn = append(warn, fmt.Sprintf("ui.comment_layout: %q is not threaded or flat", c.CommentLayout))
 	}
 	switch t := strings.ToLower(strings.TrimSpace(c.SkinTone)); t {
 	case "", "none":

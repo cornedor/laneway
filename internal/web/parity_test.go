@@ -45,7 +45,7 @@ var sharedOptions = []string{
 	"kanban_done_days", "roadmap_epic_type", "my_work_jql", "roadmap_done_days", "workdays",
 	"inbox_every", "inbox_lookback", "inbox_issues", "timer_round", "card_colors",
 	"empty_fields", "empty_lanes", "lane_layouts", "custom_fields", "filters", "flag_value", "work_agent", "work_args",
-	"work_create", "theme", "actions", "delight", "threaded_replies", "skin_tone",
+	"work_create", "theme", "actions", "delight", "threaded_replies", "comment_order", "comment_layout", "skin_tone",
 	"update_check", "llm", "activity", "home", "calendar", "meeting_key",
 	"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer",
 }

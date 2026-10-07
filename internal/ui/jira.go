@@ -463,6 +463,52 @@ func commentThread(cs []jira.Comment) []threadedComment {
 	return out
 }
 
+// commentOrder is the Comments tab's order: the thread (or, with
+// ui.comment_layout flat, every comment by date, none indented), and with
+// ui.comment_order newest the latest thread first, its replies still under
+// it oldest first.
+func (m *Model) commentOrder(cs []jira.Comment) []threadedComment {
+	var out []threadedComment
+	if m.opts.flatComments {
+		for i := range cs {
+			out = append(out, threadedComment{i: i})
+		}
+	} else {
+		out = commentThread(cs)
+	}
+	if !m.opts.newestFirst {
+		return out
+	}
+	rev := make([]threadedComment, 0, len(out))
+	for end := len(out); end > 0; {
+		start := end - 1
+		for start > 0 && out[start].depth > 0 {
+			start--
+		}
+		rev = append(rev, out[start:end]...)
+		end = start
+	}
+	return rev
+}
+
+// parentRef is the line above a flat reply quoting its parent: its author
+// and the start of its body, cut to width; "" when the parent isn't loaded.
+func parentRef(cs []jira.Comment, c jira.Comment, width int) string {
+	if c.ParentID == "" {
+		return ""
+	}
+	i := slices.IndexFunc(cs, func(p jira.Comment) bool { return p.ID == c.ParentID })
+	if i < 0 {
+		return ""
+	}
+	p := cs[i]
+	who := p.Author
+	if who == "" {
+		who = "Unknown"
+	}
+	return truncate("↪ "+who+": "+strings.Join(strings.Fields(p.Body), " "), width)
+}
+
 // indentReply puts a reply's lines behind a bar per level.
 func indentReply(s string, depth int) string {
 	if depth == 0 {
@@ -489,17 +535,22 @@ func byteSize(n int64) string {
 	return fmt.Sprintf("%d MB", n>>20)
 }
 
-// renderJiraComments writes the Comments tab: the thread oldest first (the
-// order the API returns), each a dim author·timestamp line and its markdown
-// body. When the issue has more comments than the inline field returned, a
-// trailing note points at the browser.
-func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue) {
+// renderJiraComments writes the Comments tab in commentOrder, each a dim
+// author·timestamp line and its markdown body. When the issue has more
+// comments than the inline field returned, a trailing note points at the
+// browser.
+func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width int) {
 	if len(iss.Comments) == 0 && iss.CommentTotal == 0 {
 		b.WriteString(refDimStyle.Render("no comments yet") + "\n")
 		return
 	}
-	thread := commentThread(iss.Comments)
+	thread := m.commentOrder(iss.Comments)
 	for n, tc := range thread {
+		if m.opts.flatComments {
+			if ref := parentRef(iss.Comments, iss.Comments[tc.i], width); ref != "" {
+				b.WriteString(refDimStyle.Render(ref) + "\n")
+			}
+		}
 		var cb strings.Builder
 		if c := iss.Comments[tc.i]; m.commentEditOn(c.ID) {
 			// Your comment's edit replaces its body, under its byline.

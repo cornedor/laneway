@@ -485,6 +485,52 @@ func TestCommentRepliesIndented(t *testing.T) {
 	}
 }
 
+// TestCommentOrder: newest first turns the threads round, not their
+// replies; flat lists every comment by date, none indented.
+func TestCommentOrder(t *testing.T) {
+	cs := []jira.Comment{{ID: "1"}, {ID: "2"}, {ID: "3", ParentID: "1"}, {ID: "4", ParentID: "3"}, {ID: "5"}}
+	for _, c := range []struct {
+		flat, newest bool
+		want         string
+	}{
+		{false, false, "1:0 3:1 4:2 2:0 5:0"},
+		{false, true, "5:0 2:0 1:0 3:1 4:2"},
+		{true, false, "1:0 2:0 3:0 4:0 5:0"},
+		{true, true, "5:0 4:0 3:0 2:0 1:0"},
+	} {
+		m := Model{opts: options{flatComments: c.flat, newestFirst: c.newest}}
+		var got []string
+		for _, tc := range m.commentOrder(cs) {
+			got = append(got, fmt.Sprintf("%s:%d", cs[tc.i].ID, tc.depth))
+		}
+		if strings.Join(got, " ") != c.want {
+			t.Errorf("flat %v newest %v: %s, want %s", c.flat, c.newest, strings.Join(got, " "), c.want)
+		}
+	}
+}
+
+// TestCommentFlatParentRef: a flat reply sits unindented under a cut line
+// quoting its parent.
+func TestCommentFlatParentRef(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.opts.flatComments = true
+	iss := &jira.Issue{Key: "ABC-1", Comments: []jira.Comment{
+		{ID: "1", Author: "Ada", Body: "A question\nthat goes on " + strings.Repeat("and on ", 20)},
+		{ID: "2", Author: "Bob", Body: "Unrelated"},
+		{ID: "3", ParentID: "1", Author: "Cy", Body: "Answer."},
+	}}
+	got := ansi.Strip(m.renderJiraIssue(iss, 60))
+	if strings.Contains(got, "│ Cy") {
+		t.Errorf("flat reply indented:\n%s", got)
+	}
+	if !regexp.MustCompile(`↪ Ada: A question that goes on [a-z ]*…\nCy`).MatchString(got) {
+		t.Errorf("no parent line above the reply:\n%s", got)
+	}
+	if u, ref := strings.Index(got, "Unrelated"), strings.Index(got, "↪"); ref < u {
+		t.Errorf("reply not in date order:\n%s", got)
+	}
+}
+
 // TestInlineStatusPicker: s drops the transitions under the Status row, not
 // in a modal; a click on a row applies it, and the list goes.
 func TestInlineStatusPicker(t *testing.T) {

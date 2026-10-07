@@ -113,6 +113,8 @@ ui:
 | `templates` | | a new issue's description by type, markdown |
 | `code_theme` | the theme's | a chroma style for code blocks. Terminal |
 | `threaded_replies` | `on` | reply in Jira's thread; `off` posts a new comment quoting it. *Restart* |
+| `comment_order` | `oldest` | `newest` puts the latest comment first; a thread keeps its replies oldest first |
+| `comment_layout` | `threaded` | `flat` lists comments by date, a reply under a truncated line quoting its parent |
 
 ```yaml
 ui:

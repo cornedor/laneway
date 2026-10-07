@@ -491,31 +491,46 @@ export function mountIssue(el, key, { app, full, card }) {
   // ---- comments
   // Who a comment is for, as the composer and a comment's lock name it.
   const visLabel = v => (v.Internal ? 'internal note' : v.Role ? 'only ' + v.Role : v.Group ? 'only ' + v.Group : 'everyone');
+  // ui.comment_layout flat: by date, a reply under a line quoting its parent; ui.comment_order newest: latest thread first.
+  const uiOpt = k => String((app.session.ui || {})[k] || '').trim().toLowerCase();
+  const flat = () => uiOpt('CommentLayout') === 'flat';
+  const newest = () => uiOpt('CommentOrder') === 'newest';
   const order = () => {
     const cs = st.issue ? st.issue.Comments : [];
     const byId = new Map(cs.map(c => [c.ID, c]));
-    const kids = new Map(), roots = [];
-    for (const c of cs) {
-      let p = c.ParentID && byId.get(c.ParentID);
-      while (p && p.ParentID && byId.get(p.ParentID)) p = byId.get(p.ParentID);
-      if (p) (kids.get(p.ID) || kids.set(p.ID, []).get(p.ID)).push(c); else roots.push(c);
+    let groups;
+    if (flat()) groups = cs.map(c => [{ c, reply: false }]);
+    else {
+      const kids = new Map(), roots = [];
+      for (const c of cs) {
+        let p = c.ParentID && byId.get(c.ParentID);
+        while (p && p.ParentID && byId.get(p.ParentID)) p = byId.get(p.ParentID);
+        if (p) (kids.get(p.ID) || kids.set(p.ID, []).get(p.ID)).push(c); else roots.push(c);
+      }
+      groups = roots.map(r => [{ c: r, reply: false }, ...(kids.get(r.ID) || []).map(k => ({ c: k, reply: true }))]);
     }
-    const out = [];
-    for (const r of roots) { out.push({ c: r, reply: false }); for (const k of kids.get(r.ID) || []) out.push({ c: k, reply: true }); }
-    for (const p of st.pending) out.push({ c: p, reply: false });
-    return out;
+    groups.push(...st.pending.map(p => [{ c: p, reply: false }]));
+    if (newest()) groups.reverse();
+    return groups.flat();
+  };
+  // parentRef is a flat reply's parent, quoted: who and the start of what they said.
+  const parentRef = c => {
+    const p = flat() && c.ParentID && (st.issue.Comments || []).find(x => x.ID === c.ParentID);
+    return p ? { id: p.ID, who: p.Author || 'Unknown', text: String(p.Body || '').replace(/\s+/g, ' ').trim().slice(0, 200) } : null;
   };
   const cmEls = new Map();
   function commentEl(c, reply) {
     const mine = !c.pending && c.AuthorID && c.AuthorID === me().AccountID;
     const lock = c.Visibility && visLabel(c.Visibility) !== 'everyone' ? visLabel(c.Visibility) : '';
-    const sig = [c.Body, c.Author, reply, mine, c.pending, lock].join('\u0001');
+    const ref = parentRef(c);
+    const sig = [c.Body, c.Author, reply, mine, c.pending, lock, ref && ref.who + ref.text].join('\u0001');
     const hit = cmEls.get(c.ID);
     if (hit && hit.sig === sig) return hit.el;
     const body = h('div.md.cbody');
     body.append(md(c.Body, mdOpts()));
     const act = (a, label, title) => h('button.btn.ghost.sm', { dataset: { act: a }, title }, label);
     const node = h('article.cm' + (reply ? '.reply' : '') + (mine ? '.mine' : '') + (c.pending ? '.pending' : ''), { dataset: { id: c.ID }, tabindex: -1 },
+      ref && h('div.cm-ref', { dataset: { parent: ref.id }, title: 'Go to the comment it replies to' }, '↪ ', h('b', ref.who), ': ' + ref.text),
       h('header', ui.avatar(c.Author, null, 22), h('b', c.Author), h('time', { title: dateTime(c.Created) }, c.pending ? 'sending…' : ago(c.Created)),
         lock && h('span.cm-lock', { title: 'Visible to ' + lock.replace(/^only /, '') }, icon('lock'), ' ' + lock.replace(/^only /, '')),
         h('span.spacer'), !c.pending && h('span.acts', act('reply', 'Reply', 'Reply (R)'), mine && act('edit', 'Edit', 'Edit (e)'), mine && act('del', 'Delete', 'Delete (d)'))),
@@ -527,7 +542,8 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!st.issue) return;
     const all = order();
     const total = st.issue.CommentTotal || (st.issue.Comments || []).length;
-    const shown = st.all ? all : all.slice(-RECENT);
+    const shown = st.all ? all : newest() ? all.slice(0, RECENT) : all.slice(-RECENT);
+    if (newest() !== (box.list.nextSibling === box.more)) newest() ? box.list.after(box.more) : box.list.before(box.more); // the older ones' end
     const want = shown.map(({ c, reply }) => commentEl(c, reply));
     const live = new Set(shown.map(s => s.c.ID));
     if (st.editingComment && !live.has(st.editingComment.id)) st.editingComment = null;
@@ -561,6 +577,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const isMine = c => c && c.AuthorID && c.AuthorID === me().AccountID;
 
   delegate(box.list, 'click', 'article.cm', (e, art) => {
+    const ref = e.target.closest('.cm-ref'); if (ref) return focusComment(ref.dataset.parent);
     if (!e.target.closest('a,input,img,textarea')) focusComment(art.dataset.id, false);
     const b = e.target.closest('button[data-act]'); if (!b) return;
     const c = (st.issue.Comments || []).find(x => x.ID === art.dataset.id);
@@ -599,7 +616,7 @@ export function mountIssue(el, key, { app, full, card }) {
     save: async (text, mentions) => {
       const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || 'You', AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
       const parent = st.reply && threaded() ? threadRoot(st.reply) : ''; // a real reply in Jira's thread
-      st.pending.push(tmp); renderComments(); box.list.lastElementChild?.scrollIntoView({ block: 'nearest' });
+      st.pending.push(tmp); renderComments(); (newest() ? box.list.firstElementChild : box.list.lastElementChild)?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
       try {
         await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: parent ? everyone() : st.vis, Parent: parent });

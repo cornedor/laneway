@@ -318,6 +318,11 @@ type UIConfig struct {
 	// ThreadedReplies is "on" (a reply goes under its comment in Jira's
 	// thread, and the panel draws replies under theirs) or "off" (flat).
 	ThreadedReplies string `yaml:"threaded_replies"`
+	// CommentOrder is "oldest" (default: oldest comment first) or "newest".
+	CommentOrder string `yaml:"comment_order"`
+	// CommentLayout is "threaded" (default: replies under their comment) or
+	// "flat" (by date, a reply under a truncated line quoting its parent).
+	CommentLayout string `yaml:"comment_layout"`
 	// SkinTone is the tone ":" completion offers people and hands in:
 	// light, medium_light, medium, medium_dark or dark; "" for none.
 	SkinTone string `yaml:"skin_tone"`

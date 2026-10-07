@@ -160,7 +160,7 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 		}
 	}()
 	if m.activityTab == activityComments {
-		m.renderJiraComments(b, iss)
+		m.renderJiraComments(b, iss, width)
 		return
 	}
 	a := m.activity

@@ -43,6 +43,8 @@ var SettingDefaults = map[string]string{
 	"remember_filters":     "on",
 	"delight":              "on",
 	"threaded_replies":     "on",
+	"comment_order":        "oldest",
+	"comment_layout":       "threaded",
 	"skin_tone":            "none",
 	"update_check":         "on",
 	"llm":                  "claude -p, when claude is on the PATH",
@@ -97,7 +99,7 @@ type SettingGroup struct {
 var SettingGroups = []SettingGroup{
 	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
 	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "remember_filters", "filters", "my_work_jql"}},
-	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies"}},
+	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies", "comment_order", "comment_layout"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity", "calendar", "meeting_key"}},
 	{"Start work and agents", []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
@@ -169,6 +171,8 @@ var SettingDocs = map[string]string{
 	"delight":              "small celebrations: confetti on a card into done, a line on a completed sprint",
 	"skin_tone":            "the tone : completion offers for people and hands",
 	"threaded_replies":     "a reply goes under its comment in Jira's thread (and shows there); off: replies are new comments, quoted",
+	"comment_order":        "the Comments tab's order: oldest or newest first (a thread by its first comment, replies oldest first)",
+	"comment_layout":       "threaded: replies under their comment; flat: by date, a reply under a line quoting its parent",
 	"update_check":         "once a day, whether a newer release exists; never on a dev build",
 	"double_click":         "how quickly a second click makes a double-click (100ms–2s)",
 	"icons":                "issue type icons: Nerd Font glyphs, or letters for fonts without them",
@@ -208,6 +212,10 @@ func SettingChoices(name string) []string {
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}
 	case "timer_on_start", "start_assigns", "standup_shuffle", "standup_timer":
 		return []string{"off", "on"}
+	case "comment_order":
+		return []string{"oldest", "newest"}
+	case "comment_layout":
+		return []string{"threaded", "flat"}
 	case "standup_start":
 		return []string{"everyone", "first"}
 	case "report_backwards":
