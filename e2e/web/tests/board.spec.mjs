@@ -31,5 +31,5 @@ test('the filter and a quick filter narrow the cards', async ({ page }) => {
   await expect(page.locator('.bd-lanes .card:visible')).toHaveCount(10);
   await page.locator('.fchip', { hasText: 'Bugs' }).click();
   await expect(page.locator('.bd-lanes .card:visible')).toHaveCount(3);
-  for (const c of await page.locator('.bd-lanes .card:visible').all()) await expect(c.locator('.ctype')).toHaveClass(/t-bug/);
+  for (const c of await page.locator('.bd-lanes .card:visible').all()) await expect(c.locator('.ctype')).toHaveAttribute('title', 'Bug');
 });
