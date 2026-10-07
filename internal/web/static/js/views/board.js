@@ -20,7 +20,7 @@ import { selBar } from '../lib/selbar.js';
 import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, buildRow as listRow, fillCells } from '../lib/cardlist.js';
 import { buildCard as buildCardEl, fillCard as fillCardEl, catClass } from '../lib/card.js';
 import { layoutOf, lookOf, colour } from '../lib/cardstyle.js';
-import { lastProject, lastBoard, setCtx, pickProject, pickBoard as pickBoardOf, boardOf, recover } from './plan_ctx.js';
+import { lastProject, lastBoard, setCtx, openProject, pickBoard as pickBoardOf, recover } from './plan_ctx.js';
 
 css('board');
 
@@ -86,7 +86,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const bdMsg = text => clear(main).append(h('div.empty', text));
 
   // ---- toolbar
-  const projectBtn = app.chrome.crumb('Project  (alt+p): switches to its last board', () => pickProjectCtx());
+  const projectBtn = app.chrome.crumb('Project  (alt+p): switches to its last board', () => openProject(app));
   const boardBtn = app.chrome.crumb('Board  (B)', () => pickBoard());
   const sprintBtn = app.chrome.crumb('View: sprint, backlog, whole board, your views  (v, [ ])', () => pickSprint());
   const modeBtn = h('button.btn', { title: 'Lanes / list  (t)', onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
@@ -1368,13 +1368,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const b = await pickBoardOf(app, S.project, { scrum: false });
     if (b) app.go('/board/' + S.project + '/' + b.ID);
   }
-  async function pickProjectCtx() {
-    const p = await pickProject(app); if (!p) return;
-    let b;
-    try { b = await boardOf(app, p, { scrum: false }); } catch (e) { return ui.errToast(e); }
-    if (b) app.go('/board/' + p + '/' + b.ID);
-    else ui.toast('No boards in ' + p, { kind: 'err' });
-  }
   async function pickSprint() {
     const items = viewItems();
     if (items.length < 2) return;
@@ -1489,7 +1482,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     k.bind('alt+t', openPast, 'time machine: the board on earlier days', { group: V });
     k.bind('alt+o', pickClosed, 'closed sprints: one as it ended', { group: V });
     k.bind('B', () => pickBoard(), 'switch board (same project)', { group: V });
-    k.bind('alt+p', () => pickProjectCtx(), 'switch project (its last board)', { group: V });
     k.bind('v', () => pickSprint(), 'pick a view: sprint, backlog, your views', { group: V, bar: 'view' });
     k.bind('[', () => cycleScope(-1), 'previous view', { group: V });
     k.bind(']', () => cycleScope(1), 'next view', { group: V });
@@ -1517,7 +1509,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     C('clear', 'clear filters', clearFilters);
     C('filter', 'filter cards', () => { filterIn.focus(); filterIn.select(); });
     C('switch', 'switch board', pickBoard);
-    C('project', 'switch project', pickProjectCtx);
+    C('project', 'switch project', () => openProject(app));
     C('sprint', 'pick a view: sprint, backlog, whole board', pickSprint);
     C('new', 'new issue', () => app.actions.create(createOpts()));
     for (const s of SORTS) C('sort:' + s, 'sort list by ' + s, () => setSort(s, 1));

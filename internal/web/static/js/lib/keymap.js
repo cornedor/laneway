@@ -2,7 +2,7 @@
 // A `ui.keys` entry for the action replaces the key here; bindings without an action stay as they are.
 const COMMON = { j: 'down', ArrowDown: 'down', k: 'up', ArrowUp: 'up', y: 'copy_key' };
 const TABLE = {
-  global: { ':': 'palette', '/': 'search', 'g g': 'goto', '?': 'help', n: 'create', Q: 'jql', ',': 'settings', 'ctrl+e': 'refine',
+  global: { ':': 'palette', '/': 'search', 'g g': 'goto', '?': 'help', n: 'create', 'alt+p': 'project', Q: 'jql', ',': 'settings', 'ctrl+e': 'refine',
     W: 'timesheet', I: 'inbox', U: 'standup', O: 'my_work', 'ctrl+g': 'agents', 'g r': 'charts', 'g p': 'plan', 'g m': 'roadmap', 'g M': 'merge_requests', 'g h': 'home' },
   timer: { T: 'timer', w: 'log_work' },
   undo: { u: 'undo' },
@@ -10,7 +10,7 @@ const TABLE = {
   ask: { 'ctrl+a': 'ask' },
   board: { ...COMMON, Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', r: 'refresh', o: 'browser', h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Enter: 'open', s: 'status', e: 'summary', a: 'assign', p: 'priority', P: 'points',
     H: 'move_left', L: 'move_right', J: 'rank_down', K: 'rank_up', 'alt+k': 'rank_top', 'alt+j': 'rank_bottom', x: 'mark', 'ctrl+a': 'mark_all', X: 'bulk', t: 'toggle_mode', O: 'sort',
-    B: 'board', 'alt+p': 'project', '[': 'prev_view', ']': 'next_view', m: 'mine', A: 'assignee_filter', 0: 'clear_filters', F: 'filter_builder', Y: 'copy_url', 'ctrl+y': 'copy_branch',
+    B: 'board', '[': 'prev_view', ']': 'next_view', m: 'mine', A: 'assignee_filter', 0: 'clear_filters', F: 'filter_builder', Y: 'copy_url', 'ctrl+y': 'copy_branch',
     '*': 'pin', z: 'fold', Z: 'unfold_all', c: 'compact', 'alt+e': 'empty_lanes', 'alt+l': 'lane_layout', '.': 'repeat', 'alt+t': 'time_machine', 'alt+o': 'closed_sprint', M: 'move_sprint', E: 'quick_edit', V: 'releases' },
   planning: { ...COMMON, h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', o: 'browser', J: 'rank_down', K: 'rank_up', m: 'move_sprint', x: 'mark', N: 'plan_new', Z: 'plan_start', C: 'plan_complete', E: 'plan_rename', P: 'points', B: 'board', 'alt+p': 'project', Enter: 'open', R: 'refresh', e: 'quick_edit', X: 'bulk', O: 'sort', F: 'filter_builder' },
   reports: { ...COMMON, R: 'refresh', Enter: 'open', '[': 'prev_view', ']': 'next_view' },

@@ -174,6 +174,7 @@ function globalKeys() {
   g.bind('/', () => app.actions.palette('/'), 'search issues', { group: 'Global', bar: 'search' });
   g.bind('g g', () => app.actions.jump(), 'jump to issue by key', { group: 'Global' });
   g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global', bar: 'keys' });
+  g.bind('alt+p', () => import('./views/plan_ctx.js').then(m => m.openProject(app)), 'switch project (its last board)', { group: 'Global' });
   g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), 'new issue', { group: 'Global' });
   g.bind('Q', () => app.actions.palette('#'), 'JQL search', { group: 'Global' });
   g.bind('ctrl+e', () => import('./views/refine.js').then(m => m.startRefine(app)), 'refine: the view\'s issues one at a time', { group: 'Global' });

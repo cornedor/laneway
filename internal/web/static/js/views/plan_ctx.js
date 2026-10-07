@@ -107,6 +107,15 @@ export async function pickProject(app) {
   return p ? p.Key : null;
 }
 
+// openProject asks for a project and opens its remembered board (any type). The global alt+p.
+export async function openProject(app) {
+  const p = await pickProject(app); if (!p) return;
+  let b;
+  try { b = await boardOf(app, p, { scrum: false }); } catch (e) { return app.ui.errToast(e); }
+  if (b) app.go('/board/' + p + '/' + b.ID);
+  else app.ui.toast('No boards in ' + p, { kind: 'err' });
+}
+
 // boardOf → the project's remembered board of the wanted type, else its first; null when none. Never asks.
 export async function boardOf(app, project, { scrum = true } = {}) {
   const list = (await boardsOf(app, project)).filter(b => !scrum || b.Type === 'scrum');

@@ -18,6 +18,7 @@ terminal's is in the last column.
 | `g g` | go to an issue by key or pasted link | `#` |
 | `Q` | JQL, with completion | |
 | `n` | new issue | |
+| `alt+p` | switch project: its last board, or the view's project where it has one | `p` |
 | `g` then a letter | go to a view, see below | |
 | `M` | every view (More) | |
 | `tab` | focus between the view and the panel | |
@@ -59,7 +60,7 @@ terminal's is in the last column.
 | `f`, `F` | filter, filter builder | `/`, `F` |
 | `m`, `A` | mine, assignee filter | `m`, `a` |
 | `1`–`9`, `0` | quick filters, clear | |
-| `alt+p`, `B` | project, board | `p`, `b` |
+| `B` | board | `b` |
 | `v`, `[` `]` | pick a view, previous, next | `[` `]` |
 | `t` | lanes or list | |
 | `O` | lanes: swimlanes; list: sort | `s` |
