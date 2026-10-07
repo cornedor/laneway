@@ -468,9 +468,12 @@ type jiraTabState struct {
 	// sorts is each view's sort by name, so one view's s (or my work's
 	// grouping) stays with it.
 	sorts map[string]viewSort
-	// listHead is the list's column header line, headAt its sortable cells.
+	// listHead is the list's column header line, headAt its sortable cells
+	// and headCols its columns; headDrag a press on it.
 	listHead string
 	headAt   []headCell
+	headCols []headCell
+	headDrag headDrag
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
 	// for none); swimTop is its first line on screen, swimAt each body
 	// line's card row per lane (-1 for none), for the mouse.
@@ -2520,7 +2523,7 @@ func (m *Model) renderJira() {
 		cols.marks = max(cols.marks, visualWidth(m.jiraListMarks(c)))
 	}
 	cols.status, cols.who = min(cols.status, 20), min(cols.who, 24)
-	t.listHead, t.headAt = m.jiraListHeader(cols)
+	t.listHead, t.headAt, t.headCols = m.jiraListHeader(cols)
 	h-- // the header sits over the viewport's top line
 	if t.rowsFor != cols || len(t.rows) != len(t.order) {
 		t.rows = make([]string, len(t.order))
@@ -2701,13 +2704,6 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 		title = pr + " " + title
 	}
 	pad := func(s string, w int) string { return s + strings.Repeat(" ", max(w-visualWidth(s), 0)) }
-	var tail string
-	if cols.who > 0 {
-		tail += "  " + pad(ansi.Truncate(m.jiraListWho(c), cols.who, "…"), cols.who)
-	}
-	if cols.marks > 0 {
-		tail += "  " + pad(m.jiraListMarks(c), cols.marks)
-	}
 	row := "  "
 	if r := m.cardRibbon(c); r != "" && !selected {
 		row = r + " "
@@ -2718,7 +2714,6 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 	if hl := m.jiraHighlight(c.Key); hl != "" {
 		row = hl + " "
 	}
-	row += jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key)) + "  "
 	if f.flagged && c.Flagged {
 		title = jiraOverStyle.Render("⚑") + " " + title
 	}
@@ -2731,27 +2726,28 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 	if a := m.agentMark(c.Key); a != "" {
 		title = a + " " + title
 	}
-	if f.typ {
-		row += jiraTypeIcon(c.TypeKind, c.Type) + " "
-	}
-	if f.priority {
-		pm := jiraPriorityMark(c.Priority)
-		if pm == "" {
-			pm = " "
+	for _, col := range m.jiraListLayout(cols) {
+		var s string
+		switch col.id {
+		case "key":
+			s = jiraKeyStyle.Render(fmt.Sprintf("%-*s", keyW, c.Key))
+		case "type":
+			s = jiraTypeIcon(c.TypeKind, c.Type)
+		case "priority":
+			s = jiraPriorityMark(c.Priority)
+		case "status":
+			s = jiraDimStyle.Render(status)
+		case "points":
+			s = jiraDimStyle.Render(pts)
+		case "summary":
+			s = ansi.Truncate(title, col.w, "…")
+		case "assignee":
+			s = ansi.Truncate(m.jiraListWho(c), col.w, "…")
+		case "marks":
+			s = m.jiraListMarks(c)
 		}
-		row += pm + " "
+		row += pad(s, col.w) + strings.Repeat(" ", col.gap)
 	}
-	if f.status {
-		row += jiraDimStyle.Render(status) + "  "
-	}
-	if f.points {
-		row += jiraDimStyle.Render(pts) + "  "
-	}
-	avail := width - 1 - visualWidth(row)
-	if visualWidth(title)+visualWidth(tail) > avail {
-		title = ansi.Truncate(title, max(avail-visualWidth(tail), 12), "…")
-	}
-	row += pad(title, avail-visualWidth(tail)) + tail
 	row = ansi.Truncate(row, width-1, "…")
 	if selected {
 		// Plain selection colours, as the selected card: dim status, points
@@ -3796,11 +3792,18 @@ func (m *Model) hitJira(x, y int) hit {
 	}
 	if !m.jiraShowsLanes() {
 		if line == 0 { // the column header
-			for _, c := range t.headAt {
+			h := hit{zone: hitJira, idx: -1, line: -1}
+			for _, c := range t.headCols {
 				if x-1 >= c.x0 && x-1 < c.x1 {
-					return hit{zone: hitJira, idx: -1, line: -1, sortBy: int(c.by) + 1}
+					h.headCol = c.col
 				}
 			}
+			for _, c := range t.headAt {
+				if x-1 >= c.x0 && x-1 < c.x1 {
+					h.sortBy = int(c.by) + 1
+				}
+			}
+			return h
 		}
 		if line--; line >= 0 && line < t.view.Height()-1 {
 			if i := slices.Index(t.lineOf, t.view.YOffset()+line); i >= 0 {
@@ -3851,8 +3854,8 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 		m.toggleJiraSwimlane(h.band)
 		return m, nil
 	}
-	if h.sortBy > 0 {
-		m.sortJiraList(viewSort{by: t.sort, desc: t.desc}.next(jiraSort(h.sortBy - 1)))
+	if h.headCol != "" { // a click sorts on the release, a drag moves the column
+		t.headDrag = headDrag{col: h.headCol, sortBy: h.sortBy, x: x}
 		return m, nil
 	}
 	if h.section > 0 && h.idx >= 0 {

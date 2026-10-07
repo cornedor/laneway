@@ -157,7 +157,10 @@ Custom fields show on cards and rows and are searchable:
 `ui.card_layout` places lane cards' fields yourself: `top` and `bottom` are
 the lines around the summary, each with a `_right` side. Any field of
 `card_fields` goes, plus `key`, `labels` and your custom fields by name.
-List rows keep `card_fields`.
+List rows keep `card_fields`; `ui.list_columns` orders their columns
+(`key`, `type`, `priority`, `status`, `points`, `summary`, `assignee`,
+`marks`; the rest follow). In the terminal, dragging a list header onto
+another writes it; the browser keeps its own order per list.
 
 `ui.card_styles` restyle the cards a board search matches: a coloured
 `edge`, a `tint`, `fade`, a `bold` summary, fields to `hide`, or fields to

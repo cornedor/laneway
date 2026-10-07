@@ -94,6 +94,8 @@ func (m *Model) hoverAt(x, y int) hover {
 				return hover{y: y, x0: 1 + c.x0, x1: 1 + c.x1, pointer: pointerHand}
 			}
 		}
+	case h.headCol != "": // its column drags
+		return hover{pointer: pointerHand}
 	case h.line >= 0:
 		return hover{pointer: pointerHand} // a card: its cursor shows it already
 	}

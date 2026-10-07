@@ -21,6 +21,7 @@ var SettingDefaults = map[string]string{
 	"default_mode":         "lanes",
 	"date_format":          "2006-01-02 15:04",
 	"card_fields":          "all",
+	"list_columns":         "key, type, priority, status, points, summary, assignee, marks",
 	"card_layout":          "card_fields, in the usual places",
 	"card_styles":          "none",
 	"home":                 "none",
@@ -98,7 +99,7 @@ type SettingGroup struct {
 // SettingGroups are the settings screen's headings and their options, in
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
-	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
+	{"Board and cards", []string{"default_mode", "card_fields", "list_columns", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
 	{"Views and filters", []string{"home", "quick_filters", "board_quick_filters", "views", "saved_filters", "remember_filters", "filters", "my_work_jql"}},
 	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies", "comment_order", "comment_layout"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
@@ -127,6 +128,7 @@ var SettingDocs = map[string]string{
 	"meeting_key":          "the issue meetings from ui.calendar are logged on",
 	"home":                 "the start screen's widgets, in order: work, inbox, sprint, timer, filters",
 	"card_fields":          "what cards show, in order: type, priority, status, points, assignee, avatar, parent, pr, deploy, subtasks, due, flagged, age",
+	"list_columns":         "the list view's column order (card_fields picks which show); a header dragged onto another writes it",
 	"card_layout":          "where a lane card's fields sit: top, top_right, bottom, bottom_right around the summary",
 	"card_styles":          "restyle cards a board query matches: when, edge, tint, fade, bold, hide, show",
 	"quick_filters":        "JQL presets shown before every board's own",

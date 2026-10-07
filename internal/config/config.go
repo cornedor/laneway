@@ -157,6 +157,10 @@ type UIConfig struct {
 	// type, priority, status, points, assignee, avatar, parent, pr, deploy,
 	// subtasks, due, flagged, age.
 	CardFields []string `yaml:"card_fields"`
+	// ListColumns orders the list view's columns: key, type, priority,
+	// status, points, summary, assignee, marks; those left out follow in
+	// that order. Dragging a header cell writes it.
+	ListColumns []string `yaml:"list_columns"`
 	// CardLayout places a lane card's fields around its summary; set, it
 	// replaces CardFields on lane cards (list rows keep CardFields).
 	CardLayout CardLayout `yaml:"card_layout"`

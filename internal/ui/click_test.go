@@ -105,7 +105,7 @@ func TestClickSettings(t *testing.T) {
 	m := jiraTabModel(t)
 	out, _ := m.handleKey(keyMsg(t, ","))
 	m = out.(Model)
-	i := 4
+	i := 5 // custom_fields, a text row
 	name := m.settings.rows[i].name
 	for j, r := range m.settings.rows {
 		if j != i && strings.Contains(r.name, name) {

@@ -1237,6 +1237,8 @@ func TestListHeaderSorts(t *testing.T) {
 	}{{false, jiraSortKey}, {true, jiraSortKey}, {false, jiraSortRank}} {
 		out, _ = m.Update(tea.MouseClickMsg{X: x, Y: jiraBodyTop, Button: tea.MouseLeft})
 		m = out.(Model)
+		out, _ = m.Update(tea.MouseReleaseMsg{X: x, Y: jiraBodyTop, Button: tea.MouseLeft})
+		m = out.(Model)
 		if m.jiraTab.sort != want.by || m.jiraTab.desc != want.desc {
 			t.Fatalf("sort = %v desc %v, want %v desc %v", m.jiraTab.sort, m.jiraTab.desc, want.by, want.desc)
 		}
@@ -1246,6 +1248,45 @@ func TestListHeaderSorts(t *testing.T) {
 	}
 	if keys() != rank {
 		t.Errorf("back to rank: %s, want %s", keys(), rank)
+	}
+}
+
+// TestListColumnDrag: a header cell dragged onto another moves its column,
+// in the header and the rows, and doesn't sort.
+func TestListColumnDrag(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "t")) // list
+	m = out.(Model)
+	at := func(col string) int {
+		for _, c := range m.jiraTab.headCols {
+			if c.col == col {
+				return 1 + c.x0
+			}
+		}
+		t.Fatalf("no %s column", col)
+		return 0
+	}
+	from, to := at("status"), at("key")
+	for _, msg := range []tea.Msg{
+		tea.MouseClickMsg{X: from, Y: jiraBodyTop, Button: tea.MouseLeft},
+		tea.MouseMotionMsg{X: to, Y: jiraBodyTop, Button: tea.MouseLeft},
+		tea.MouseReleaseMsg{X: to, Y: jiraBodyTop, Button: tea.MouseLeft},
+	} {
+		out, _ = m.Update(msg)
+		m = out.(Model)
+	}
+	if got := m.listColumnOrder(); got[0] != "status" || got[1] != "key" {
+		t.Fatalf("order = %v, want status before key", got)
+	}
+	if m.jiraTab.sort != jiraSortRank {
+		t.Errorf("a drag sorted by %v", m.jiraTab.sort)
+	}
+	view := ansi.Strip(m.View().Content)
+	if h := strings.Index(view, "Status"); h < 0 || h > strings.Index(view, "Key") {
+		t.Errorf("header not moved:\n%s", view)
+	}
+	if r := strings.Index(view, "New"); r < 0 || r > strings.Index(view, "ABC-1") {
+		t.Errorf("rows not moved:\n%s", view)
 	}
 }
 
@@ -2027,5 +2068,14 @@ func TestTimeMachineFromList(t *testing.T) {
 	m.closeTimeMachine()
 	if m.jiraShowsLanes() {
 		t.Error("leaving the time machine kept lanes")
+	}
+}
+
+// TestListColumnsFrom: ui.list_columns' columns go first, the rest follow
+// in the default order; an unknown one warns.
+func TestListColumnsFrom(t *testing.T) {
+	got, warn := listColumnsFrom([]string{"Summary", "key", "bogus", "key"})
+	if want := []string{"summary", "key", "type", "priority", "status", "points", "assignee", "marks"}; !slices.Equal(got, want) || len(warn) != 1 {
+		t.Errorf("= %v %v, want %v and one warning", got, warn, want)
 	}
 }

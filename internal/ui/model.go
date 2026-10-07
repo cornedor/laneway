@@ -243,8 +243,9 @@ type hit struct {
 	zone      hitZone
 	idx, line int
 	band      string
-	section   int // a stacked lane's section header hit: its index + 1, 0 for none
-	sortBy    int // a list column header hit: its jiraSort + 1, 0 for none
+	section   int    // a stacked lane's section header hit: its index + 1, 0 for none
+	sortBy    int    // a list column header hit: its jiraSort + 1, 0 for none
+	headCol   string // a list column header hit: its column
 }
 
 // Model is the whole app. Held by value like matterbox's; the board state
@@ -720,6 +721,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if p := m.jiraTab.plan; p != nil && p.drag.held && msg.Button == tea.MouseLeft {
 			return m.dragPlan(msg.X, msg.Y)
 		}
+		if m.jiraTab.headDrag.col != "" && msg.Button == tea.MouseLeft {
+			return m.dragJiraHead(msg.X)
+		}
 		if m.jiraDragging() && msg.Button == tea.MouseLeft {
 			return m.dragJira(msg.X, msg.Y)
 		}
@@ -752,6 +756,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if p := m.jiraTab.plan; p != nil && p.drag.held {
 			return m.dropPlan()
+		}
+		if m.jiraTab.headDrag.col != "" {
+			return m.dropJiraHead()
 		}
 		if msg.Button == tea.MouseLeft && m.jiraDragging() {
 			return m.dropJira()

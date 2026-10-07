@@ -81,7 +81,8 @@ The [search reference](../reference/search.md) has every field.
 === "Terminal"
 
     `s` steps the sort, or the swimlanes. In the list a click on a column
-    header sorts by it, again reverses it, a third time goes back to rank.
+    header sorts by it, again reverses it, a third time goes back to rank;
+    a header dragged onto another moves its column (`ui.list_columns`).
     A folded column keeps its header in place, with a ▸.
 
 === "Browser"

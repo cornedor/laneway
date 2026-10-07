@@ -62,6 +62,7 @@ var terminalOnly = map[string]string{
 	"code_theme":      "code blocks follow the page theme",
 	"download_dir":    "the browser saves downloads where it saves them",
 	"agent_view":      "an agent shows in the panel's Terminal tab and on the agents screen, never full screen",
+	"list_columns":    "the browser's list has its own columns, ordered by dragging and kept per list (board.cols, planning.cols)",
 }
 
 var webOnlyOptions = map[string]string{
