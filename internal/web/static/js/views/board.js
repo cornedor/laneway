@@ -518,8 +518,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const c = { Key: 'X-1', Summary: 'Probe', Type: 'Task', Status: 'x', Priority: 'High', Points: '1', Labels: 'a', ParentKey: 'X-0', Assignee: 'A B', Subtasks: 1, Due: '2026-01-01T00:00:00Z' };
     lanes ? fillCard(w, c) : fillRow(w, c);
     w.style.cssText = 'position:absolute;visibility:hidden;left:0;right:0;top:0';
-    // a lane hidden for being empty has no layout, and would measure nothing
-    const host = main.firstChild && main.firstChild.querySelector('.bd-lane:not([hidden]) > .bd-lane-body, .bd-lbody');
+    // a lane hidden for being empty, or collapsed, has no layout, and would measure nothing
+    const host = main.firstChild && main.firstChild.querySelector('.bd-lane:not([hidden]):not(.collapsed) > .bd-lane-body, .bd-lbody');
     (host || main).append(w);
     const hgt = Math.ceil(w.getBoundingClientRect().height) || (lanes ? 96 : 32);
     w.remove();
