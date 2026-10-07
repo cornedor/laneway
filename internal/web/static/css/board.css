@@ -78,7 +78,7 @@ body.panel-focus .card.sel { outline-color: var(--fg-3); } /* the keys are the p
 .cpts { min-width: 1.286rem; text-align: center; font-size: .786rem; background: var(--bg-3); border-radius: 9px; padding: 0 .357rem; line-height: 1.286rem; }
 .csum { flex: 1; min-height: 2.6em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 .c3 > span { flex: none; }
-.cparent { max-width: 7em; overflow: hidden; text-overflow: ellipsis; color: var(--accent); flex: 0 1 auto !important; } .cparent:hover { text-decoration: underline; }
+.cparent { overflow: hidden; min-width: 0; text-overflow: ellipsis; color: var(--accent); flex: 0 1 auto !important; } .cparent:hover { text-decoration: underline; }
 .csub { font-size: .786rem; padding: 0 .357rem; border-radius: 9px; background: linear-gradient(to right, color-mix(in srgb, var(--ok) 35%, var(--bg-3)) var(--p, 0%), var(--bg-3) var(--p, 0%)); line-height: 1.286rem; }
 .cdue { font-size: .786rem; color: var(--fg-2); } .cdue.overdue { color: var(--err); font-weight: 600; }
 .cpr, .cdep { font-size: .786rem; color: var(--fg-2); }
@@ -166,7 +166,7 @@ body.panel-focus .lrow.sel { background: var(--bg-3); box-shadow: inset 3px 0 va
 .cstatus { font-size: .714rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 0 .357rem; border-radius: 4px; line-height: 1.214rem; color: var(--cat-new); background: color-mix(in srgb, var(--cat-new) 14%, transparent); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
 .cstatus.cat-prog { color: var(--cat-indeterminate); background: color-mix(in srgb, var(--cat-indeterminate) 14%, transparent); }
 .cstatus.cat-done { color: var(--cat-done); background: color-mix(in srgb, var(--cat-done) 14%, transparent); }
-.cav.cwho { align-items: center; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto !important; min-width: 0; }
+.cav.cwho { align-items: center; overflow: hidden; flex: 0 1 auto !important; min-width: 0; } .cwho .l-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* ui.card_styles */
 .card.edged, .card.edged:hover { border-left-color: var(--edge); }
 .card.tinted { background: color-mix(in srgb, var(--tint) 14%, var(--bg)); }
