@@ -65,6 +65,24 @@ func TestActivityTabs(t *testing.T) {
 	}
 }
 
+// TestCommentsScrollToLatest: opening oldest-first comments scrolls to the
+// panel's end, where the latest is; newest first leaves the tab row on top.
+func TestCommentsScrollToLatest(t *testing.T) {
+	for _, newest := range []bool{false, true} {
+		m := loadedJiraModel(t)
+		m.opts.newestFirst = newest
+		for i := range 40 {
+			m.jiraIssue.Comments = append(m.jiraIssue.Comments, jira.Comment{ID: fmt.Sprint(i), Author: "Ada", Body: fmt.Sprintf("comment %d", i)})
+		}
+		m.switchActivity(activityHistory)
+		m.refView.GotoTop()
+		m.switchActivity(activityComments)
+		if newest != !m.refView.AtBottom() {
+			t.Errorf("newest %v: at bottom %v", newest, m.refView.AtBottom())
+		}
+	}
+}
+
 // TestActivityClick: a click on a tab opens it.
 func TestActivityClick(t *testing.T) {
 	m := loadedJiraModel(t)

@@ -80,7 +80,8 @@ func (m Model) handleActivityLoaded(msg activityLoadedMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
-// switchActivity shows tab t, scrolling the section into view.
+// switchActivity shows tab t, scrolling the section into view; oldest-first
+// comments to their end.
 func (m *Model) switchActivity(t int) tea.Cmd {
 	if m.jiraIssue == nil {
 		return nil
@@ -88,7 +89,9 @@ func (m *Model) switchActivity(t int) tea.Cmd {
 	m.activityTab = (t%activityTabs + activityTabs) % activityTabs
 	cmd := m.loadActivity()
 	m.renderRef()
-	if m.activityLine >= 0 {
+	if m.activityTab == activityComments && !m.opts.newestFirst {
+		m.refView.GotoBottom() // the latest comment, last in the panel
+	} else if m.activityLine >= 0 {
 		lines := strings.Split(m.refView.GetContent(), "\n")
 		row := visualRowsBefore(lines, m.activityLine, m.refView.Width())
 		if top := m.refView.YOffset(); row < top || row >= top+m.refView.Height() {

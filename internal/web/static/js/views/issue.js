@@ -186,6 +186,7 @@ export function mountIssue(el, key, { app, full, card }) {
     }));
   }
   function setTab(t) {
+    const was = st.tab;
     st.tab = t;
     for (const [id, p] of Object.entries(panes)) p.hidden = id !== t;
     const on = t === 'terminal';
@@ -196,6 +197,12 @@ export function mountIssue(el, key, { app, full, card }) {
     renderTabs();
     if (t === 'history') loadHistory();
     if (t === 'comments' && st.focusId == null) focusComment(null);
+    if (t === 'comments' && was !== 'comments' && !newest()) { // oldest first: the latest is at the end
+      // Again each frame while content-visibility sizes the comments it scrolls past.
+      let h = -1, n = 0;
+      const end = () => { if (st.tab !== 'comments' || (scroll.scrollHeight === h && n > 1) || ++n > 20) return; h = scroll.scrollHeight; scroll.scrollTop = h; requestAnimationFrame(end); };
+      end();
+    }
   }
   // The Terminal tab: shown (4, a click) or typing (ctrl+\, enter); 4 on it steps through several agents.
   function openTerm(typing) {
