@@ -176,7 +176,10 @@ type Issue struct {
 	Key     string
 	Summary string
 	Type    string
-	Status  string
+	// TypeKind is the stock type its icon shows (see TypeKind), TypeAvatar
+	// that icon's URL.
+	TypeKind, TypeAvatar string
+	Status               string
 	// StatusCategory is Jira's for the status: "new", "indeterminate" or
 	// "done".
 	StatusCategory string
@@ -246,6 +249,7 @@ type Option struct {
 	ID       string
 	Name     string
 	StatusID string
+	TypeKind string // an issue type's, see TypeKind
 }
 
 // User is an assignable account: AccountID is what SetAssignee writes,
@@ -288,8 +292,9 @@ type apiStatus struct {
 }
 
 type named struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	IconURL string `json:"iconUrl"`
 }
 
 type user struct {
@@ -713,6 +718,7 @@ func (c *Client) toIssue(a apiIssue) *Issue {
 	}
 	if a.Fields.IssueType != nil {
 		iss.Type = safeterm.Line(a.Fields.IssueType.Name)
+		iss.TypeAvatar, iss.TypeKind = a.Fields.IssueType.IconURL, TypeKind(a.Fields.IssueType.IconURL)
 	}
 	if a.Fields.Assignee != nil && a.Fields.Assignee.DisplayName != "" {
 		iss.Assignee = safeterm.Line(a.Fields.Assignee.DisplayName)

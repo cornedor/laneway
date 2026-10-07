@@ -12,6 +12,7 @@ import { check, setCheck } from './selbar.js';
 import { colour } from './cardstyle.js';
 
 const TYPE_CLS = { bug: 't-bug', story: 't-story', task: 't-task', epic: 't-epic', subtask: 't-sub', 'sub-task': 't-sub' };
+const brokenTypeIcons = new Set();
 const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
 export const catClass = c => (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo');
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -22,6 +23,20 @@ const PART = {
   due: () => h('span.cdue'), pr: () => h('span.cpr'), deploy: () => h('span.cdep'), labels: () => h('span.clabels'), age: () => h('span.cage'),
   avatar: () => h('span.cav'), assignee: () => h('span.cav.cwho'),
 };
+
+// fillType draws c's type: our icon for Jira's stock ones (TypeKind), else the type's own icon from Jira, else by name.
+function fillType(el, c) {
+  const own = c.TypeAvatar && !brokenTypeIcons.has(c.TypeAvatar);
+  const tc = TYPE_CLS[c.TypeKind] || (own ? 't-img' : TYPE_CLS[(c.Type || '').toLowerCase()]) || 't-other';
+  el.className = 'ctype ' + tc;
+  el.title = c.Type;
+  if (TYPE_ICON[tc.slice(2)]) setIcon(el, TYPE_ICON[tc.slice(2)]);
+  else if (tc === 't-img') {
+    if (el._ico === c.TypeAvatar) return;
+    el._ico = c.TypeAvatar;
+    el.replaceChildren(h('img', { src: c.TypeAvatar, alt: '', onerror: () => { brokenTypeIcons.add(c.TypeAvatar); if (el._ico === c.TypeAvatar) fillType(el, c); } }));
+  } else setIcon(el, '', (c.Type || '?')[0].toUpperCase());
+}
 
 export function buildCard(layout) {
   const r = { f: {} };
@@ -51,12 +66,7 @@ export function fillCard(w, c, o = {}) {
   const prop = (k, v) => (v ? card.style.setProperty(k, v) : card.style.removeProperty(k));
   prop('--ribbon', rib); prop('--edge', lk && colour(lk.edge)); prop('--tint', lk && colour(lk.tint));
 
-  if (show('type', true)) {
-    const tc = TYPE_CLS[(c.Type || '').toLowerCase()] || 't-other';
-    F.type.className = 'ctype ' + tc;
-    if (TYPE_ICON[tc.slice(2)]) setIcon(F.type, TYPE_ICON[tc.slice(2)]); else setIcon(F.type, '', (c.Type || '?')[0].toUpperCase());
-    F.type.title = c.Type;
-  }
+  if (show('type', true)) fillType(F.type, c);
   setCheck(r.chk, !!o.marked);
   r.key.textContent = c.Key; if (o.stamp) o.stamp(r.key, c.Key);
   r.pin.hidden = !(o.pinned && o.pinned(c.Key));

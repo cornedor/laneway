@@ -845,7 +845,7 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		if mk := m.jiraMark(c.Key); mk != "" {
 			mark = mk
 		}
-		row := mark + fmt.Sprintf("%-*s ", keyW, c.Key) + jiraTypeIcon(c.Type) + " "
+		row := mark + fmt.Sprintf("%-*s ", keyW, c.Key) + jiraTypeIcon(c.TypeKind, c.Type) + " "
 		row += ansi.Truncate(c.Summary, max(width-lipgloss.Width(row)-len(ptsCol)-1, 1), "…")
 		row += strings.Repeat(" ", max(width-lipgloss.Width(row)-len(ptsCol), 0)) + ptsCol
 		switch {

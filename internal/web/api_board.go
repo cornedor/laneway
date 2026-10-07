@@ -119,7 +119,7 @@ func (g *avatarRegistry) lookup(id string) (string, bool) {
 }
 
 // avatarField matches the JSON members that carry an avatar URL.
-var avatarField = regexp.MustCompile(`"(AvatarURL|AuthorAvatar|Avatar|avatar)":("https?:(?:[^"\\]|\\.)*")`)
+var avatarField = regexp.MustCompile(`"(AvatarURL|AuthorAvatar|TypeAvatar|Avatar|avatar)":("https?:(?:[^"\\]|\\.)*")`)
 
 // rewriteAvatars swaps every avatar URL in an encoded response for
 // /api/avatar/<id>, registering the original.

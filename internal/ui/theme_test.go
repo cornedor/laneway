@@ -38,7 +38,7 @@ func TestApplyThemeRecolours(t *testing.T) {
 	if got := jiraPriorityMark("High"); !strings.Contains(got, "0;255;0") {
 		t.Errorf("priority mark = %q, want green", got)
 	}
-	if got := jiraTypeIcon("Bug"); !strings.Contains(got, "0;0;255") {
+	if got := jiraTypeIcon("", "Bug"); !strings.Contains(got, "0;0;255") {
 		t.Errorf("bug icon = %q, want blue", got)
 	}
 }

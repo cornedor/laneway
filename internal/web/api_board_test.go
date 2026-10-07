@@ -77,12 +77,13 @@ func TestAvatarType(t *testing.T) {
 }
 
 func TestRewriteAvatars(t *testing.T) {
-	in := `{"AvatarURL":"https://secure.gravatar.com/avatar/a?d=mm\u0026s=48","Cards":[{"AuthorAvatar":"http://x/a","Reviewers":[{"Name":"n","Avatar":"https://x/b"}]}],"avatar":"","Name":"\"AvatarURL\":\"https://x\""}`
+	in := `{"AvatarURL":"https://secure.gravatar.com/avatar/a?d=mm\u0026s=48","Cards":[{"AuthorAvatar":"http://x/a","TypeAvatar":"https://x/t","Reviewers":[{"Name":"n","Avatar":"https://x/b"}]}],"avatar":"","Name":"\"AvatarURL\":\"https://x\""}`
 	out := string(rewriteAvatars([]byte(in)))
 	var v struct {
 		AvatarURL string
 		Cards     []struct {
 			AuthorAvatar string
+			TypeAvatar   string
 			Reviewers    []struct{ Avatar string }
 		}
 		Name string
@@ -90,7 +91,7 @@ func TestRewriteAvatars(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &v); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}
-	for _, got := range []string{v.AvatarURL, v.Cards[0].AuthorAvatar, v.Cards[0].Reviewers[0].Avatar} {
+	for _, got := range []string{v.AvatarURL, v.Cards[0].AuthorAvatar, v.Cards[0].TypeAvatar, v.Cards[0].Reviewers[0].Avatar} {
 		id, ok := strings.CutPrefix(got, "/api/avatar/")
 		if !ok {
 			t.Fatalf("not rewritten: %s", out)

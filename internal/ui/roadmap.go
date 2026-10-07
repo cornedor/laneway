@@ -794,7 +794,8 @@ func (m *Model) roadmapLabel(r *roadmapState, row roadmapRow, w int) string {
 			pct = fmt.Sprintf(" %3.0f%%", f*100)
 		}
 	case row.kid >= 0:
-		lead = "   " + jiraTypeIcon(r.epics[row.epic].Kids[row.kid].Type) + " "
+		kid := r.epics[row.epic].Kids[row.kid]
+		lead = "   " + jiraTypeIcon(kid.TypeKind, kid.Type) + " "
 	default:
 		if len(e.Kids) > 0 {
 			lead = "▸ "

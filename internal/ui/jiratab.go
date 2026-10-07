@@ -2204,8 +2204,9 @@ var jiraLaneStyle = lipgloss.NewStyle().Bold(true)
 // its WIP limit.
 var jiraKeyStyle, jiraDimStyle, jiraOverStyle, jiraDropStyle, jiraViewActive, jiraGhostStyle, jiraPinStyle lipgloss.Style
 
-// jiraTypeIcon is a nerd-font glyph per issue type, like the GitLab tab's.
-func jiraTypeIcon(t string) string {
+// jiraTypeIcon is a nerd-font glyph per issue type, like the GitLab tab's:
+// by kind (jira.TypeKind), else by name.
+func jiraTypeIcon(kind, name string) string {
 	st := func(c string) lipgloss.Style { return lipgloss.NewStyle().Foreground(lipgloss.Color(c)) }
 	icon := func(nerd, plain string) string {
 		if plainIcons {
@@ -2213,7 +2214,10 @@ func jiraTypeIcon(t string) string {
 		}
 		return nerd
 	}
-	switch strings.ToLower(t) {
+	if kind == "" {
+		kind = strings.ToLower(name)
+	}
+	switch kind {
 	case "bug":
 		return st(curTheme["type_bug"]).Render(icon("\uf188", "B"))
 	case "story":
@@ -2577,7 +2581,7 @@ func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
 		title = a + " " + title
 	}
 	if f.typ {
-		row += jiraTypeIcon(c.Type) + " "
+		row += jiraTypeIcon(c.TypeKind, c.Type) + " "
 	}
 	if f.priority {
 		pm := jiraPriorityMark(c.Priority)

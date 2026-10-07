@@ -137,6 +137,7 @@ func (ix *Index) PutIssue(iss *jira.Issue) {
 	}
 	c, _ := ix.Get(iss.Key)
 	c.Key, c.Summary, c.Type, c.Status = iss.Key, iss.Summary, iss.Type, iss.Status
+	c.TypeKind, c.TypeAvatar = iss.TypeKind, iss.TypeAvatar
 	c.Priority, c.Assignee, c.AssigneeID, c.Reporter = iss.Priority, iss.Assignee, iss.AssigneeAccountID, iss.Reporter
 	c.Points, c.Labels, c.Updated = iss.StoryPoints, strings.Join(iss.Labels, " "), iss.Updated
 	c.Done = iss.StatusCategory == "done"

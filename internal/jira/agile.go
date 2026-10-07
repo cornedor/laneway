@@ -116,14 +116,17 @@ type Sprint struct {
 
 // Card is an issue as a board shows it.
 type Card struct {
-	Key      string
-	Summary  string
-	Type     string
-	TypeID   string
-	Status   string
-	StatusID string
-	Priority string
-	Assignee string
+	Key     string
+	Summary string
+	Type    string
+	TypeID  string
+	// TypeKind is the stock type its icon shows (see TypeKind), TypeAvatar
+	// that icon's URL.
+	TypeKind, TypeAvatar string
+	Status               string
+	StatusID             string
+	Priority             string
+	Assignee             string
 	// AssigneeID is the assignee's accountId, "" when unassigned;
 	// AvatarURL their 48px avatar.
 	AssigneeID string
@@ -613,6 +616,9 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 	}
 	card.Components = strings.Join(names, ExtraSep)
 	card.TypeID, card.Type = obj("issuetype")
+	var typ named
+	_ = json.Unmarshal(f["issuetype"], &typ)
+	card.TypeAvatar, card.TypeKind = typ.IconURL, TypeKind(typ.IconURL)
 	_, card.Priority = obj("priority")
 	card.AssigneeID, card.Assignee = obj("assignee")
 	var who struct {

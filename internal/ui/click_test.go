@@ -925,7 +925,7 @@ func TestPlainIcons(t *testing.T) {
 		t.Fatalf("plain: %v %v", o.plainIcons, warn)
 	}
 	plainIcons = true
-	if got := ansi.Strip(jiraTypeIcon("Bug")); got != "B" {
+	if got := ansi.Strip(jiraTypeIcon("", "Bug")); got != "B" {
 		t.Errorf("bug = %q", got)
 	}
 	if _, warn := optionsFrom(config.UIConfig{Icons: "emoji"}); len(warn) == 0 {

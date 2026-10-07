@@ -249,7 +249,7 @@ func layoutCardLines(c jira.Card, l *cardLayout, styled bool, stale int, lk card
 	piece := func(f string) string {
 		switch f {
 		case "type":
-			return plain(jiraTypeIcon(c.Type), "")
+			return plain(jiraTypeIcon(c.TypeKind, c.Type), "")
 		case "key":
 			return plain(jiraKeyStyle.Render(c.Key), c.Key)
 		case "flagged":

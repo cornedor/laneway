@@ -123,7 +123,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			types, err := c.TypesLike(ctx, project, current)
 			items := make([]jiraPickerItem, 0, len(types))
 			for _, t := range types {
-				items = append(items, jiraPickerItem{id: t.ID, label: jiraTypeIcon(t.Name) + " " + t.Name, value: t.Name})
+				items = append(items, jiraPickerItem{id: t.ID, label: jiraTypeIcon(t.TypeKind, t.Name) + " " + t.Name, value: t.Name})
 			}
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickChangeType, items: items, err: err}
 		}
@@ -286,7 +286,7 @@ func (m *Model) openMoveTypes(key, project string) tea.Cmd {
 		types, err := c.MoveTypes(ctx, issueProject(key), current, project)
 		var items []jiraPickerItem
 		for _, t := range types {
-			items = append(items, jiraPickerItem{id: project + "," + t.ID, label: jiraTypeIcon(t.Name) + " " + t.Name,
+			items = append(items, jiraPickerItem{id: project + "," + t.ID, label: jiraTypeIcon(t.TypeKind, t.Name) + " " + t.Name,
 				focus: strings.EqualFold(t.Name, current)})
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickMoveType, items: items, err: err}

@@ -127,6 +127,7 @@ func (c *Client) allIssueTypes(ctx context.Context, project string) ([]issueType
 		ID      string `json:"id"`
 		Name    string `json:"name"`
 		Subtask bool   `json:"subtask"`
+		IconURL string `json:"iconUrl"`
 	}
 	var resp struct {
 		IssueTypes []rawType `json:"issueTypes"`
@@ -138,7 +139,7 @@ func (c *Client) allIssueTypes(ctx context.Context, project string) ([]issueType
 	}
 	var out []issueType
 	for _, t := range append(resp.IssueTypes, resp.Values...) {
-		out = append(out, issueType{Option: Option{ID: t.ID, Name: t.Name}, Subtask: t.Subtask})
+		out = append(out, issueType{Option: Option{ID: t.ID, Name: t.Name, TypeKind: TypeKind(t.IconURL)}, Subtask: t.Subtask})
 	}
 	return out, nil
 }

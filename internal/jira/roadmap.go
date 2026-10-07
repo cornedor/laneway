@@ -36,6 +36,7 @@ type Epic struct {
 // sprints.
 type EpicChild struct {
 	Key, Summary, Status, Type string
+	TypeKind                   string // see TypeKind
 	Done                       bool
 	Start, End                 time.Time
 	DatesFromSprints           bool
@@ -207,11 +208,9 @@ func (c *Client) addChildren(ctx context.Context, epics []Epic, index map[string
 			kid := EpicChild{Key: is.Key}
 			_ = json.Unmarshal(is.Fields["summary"], &kid.Summary)
 			kid.Status, kid.Done = statusOf(is.Fields["status"])
-			var typ struct {
-				Name string `json:"name"`
-			}
+			var typ named
 			_ = json.Unmarshal(is.Fields["issuetype"], &typ)
-			kid.Type = typ.Name
+			kid.Type, kid.TypeKind = typ.Name, TypeKind(typ.IconURL)
 			kid.Start = dateField(is.Fields[ids.start])
 			if kid.End = dateField(is.Fields["duedate"]); kid.End.IsZero() {
 				kid.End = dateField(is.Fields[ids.end])
