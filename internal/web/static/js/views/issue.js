@@ -312,6 +312,7 @@ export function mountIssue(el, key, { app, full, card }) {
       cancel: done });
     clear(sec).append(h('div.sec-head', h('h3', f.Name)), e.el);
     e.focus();
+    sec.scrollIntoView({ block: 'nearest' });
   }
   const parentLink = () => st.issue && (st.issue.Links || []).find(l => l.Rel === 'parent');
 
