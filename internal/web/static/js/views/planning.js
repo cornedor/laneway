@@ -12,7 +12,7 @@ import * as pins from '../lib/pins.js';
 import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
 import { comparators, sortCards, cmpOf } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
-import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, buildRow, fillCells } from '../lib/cardlist.js';
+import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, dragCols, buildRow, fillCells } from '../lib/cardlist.js';
 import { goDate } from '../lib/godate.js';
 
 const pts = c => Number(c.Points) || 0;
@@ -190,6 +190,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     for (const p of panes) {
       const head = listHead(cols, p.sort, p.dir);
       head.addEventListener('click', e => { const t = e.target.closest('[data-sort]'); if (t && t.dataset.sort) setSort(p, ...nextSort(p.sort, p.dir, t.dataset.sort)); });
+      dragCols(head, () => cols, setCols);
       if (p.head) p.head.replaceWith(head); else p.el.prepend(head);
       p.head = head; p.sb = -1;
     }
@@ -202,7 +203,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
   async function pickCols() {
     const r = await pickListCols(app.ui, allCols(), cols);
-    if (!r) return;
+    if (r) setCols(r);
+  }
+  function setCols(r) {
     cols = r;
     app.prefs.set('planning.cols', cols.join(','));
     for (const p of panes) if (sorted(p) && !cols.includes(p.sort)) { p.sort = 'rank'; p.dir = 1; app.prefs.set(p.sortKey, 'rank:1'); }

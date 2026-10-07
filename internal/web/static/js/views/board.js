@@ -17,7 +17,7 @@ import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
-import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, buildRow as listRow, fillCells } from '../lib/cardlist.js';
+import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, dragCols, buildRow as listRow, fillCells } from '../lib/cardlist.js';
 import { buildCard as buildCardEl, fillCard as fillCardEl, catClass } from '../lib/card.js';
 import { layoutOf, lookOf, colour } from '../lib/cardstyle.js';
 import { lastProject, lastBoard, setCtx, openProject, pickBoard as pickBoardOf, recover } from './plan_ctx.js';
@@ -604,6 +604,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     } else {
       const pane = { col: -1, name: 'list', cards: [], all: [], total: 0, rh: 0 };
       pane.head = listHead(S.cols, S.sort, S.dir);
+      dragCols(pane.head, () => S.cols, setCols);
       pane.body = h('div.bd-lbody');
       pane.drop = h('div.bd-drop', { hidden: true });
       pane.body.append(pane.drop);

@@ -15,10 +15,11 @@
 .pl-row:hover { background: var(--bg-3); }
 .pl-row.cur { background: var(--accent-bg); box-shadow: inset 2px 0 0 var(--accent); }
 .pl .lrow.dragging { opacity: .4; }
-/* a narrow pane (the split, a phone) keeps the first four columns, as the board's list on a phone */
+/* a narrow pane (the split, a phone) keeps the mark, key, summary and status, as the board's list on a phone */
 @container (max-width: 44rem) {
   .pl-pane .bd-lhead, .pl-pane .lrow { grid-template-columns: 1.857rem 5.714rem minmax(7.143rem, 1fr) 7.143rem; }
-  .pl-pane .bd-lhead span:nth-child(n+5), .pl-pane .lrow > :nth-child(n+5) { display: none; }
+  .pl-pane .bd-lhead > :not(.lh-mark, .lh-key, .lh-summary, .lh-status), .pl-pane .lrow > :not(.l-mark, .l-key, .l-summary, .l-status) { display: none; }
+  .pl-pane :is(.lh-key, .l-key) { order: 1; } .pl-pane :is(.lh-summary, .l-summary) { order: 2; } .pl-pane :is(.lh-status, .l-status) { order: 3; }
 }
 .pl-empty { justify-content: center; color: var(--fg-3); font-size: .929rem; background: var(--bg); }
 .pl-empty:hover { background: var(--bg); }

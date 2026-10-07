@@ -1,4 +1,4 @@
-// The list of cards as rows of columns, with a header that sorts and a pick of the columns: the board's list
+// The list of cards as rows of columns, with a header that sorts and orders (dragged) and a pick of the columns: the board's list
 // view and planning draw it alike. Styles in css/board.css (.bd-lhead, .lrow, .l-*).
 import { h } from './dom.js';
 import { icon, setIcon } from './icons.js';
@@ -7,6 +7,9 @@ import { isZero, date, shortDate, ago } from './fmt.js';
 import { prioOrd } from './cardsort.js';
 import * as cq from './cardquery.js';
 import { check, setCheck } from './selbar.js';
+import { FIXED, fixCols, moveCol, pickOrder } from './listcols.js';
+
+export { fixCols };
 
 // What O steps the list's order through.
 export const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created'];
@@ -18,14 +21,12 @@ export const COLS = {
   due: ['Due', '4.571rem'], updated: ['Updated', '6rem'], created: ['Created', '6rem'], age: ['Age', '3.143rem'],
 };
 export const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'points', 'assignee', 'due', 'updated'];
-const FIXED = ['mark', 'key', 'summary'];
 
 export const sortable = id => id !== 'mark';
 export const colLabel = id => (id.startsWith('x:') ? id.slice(2) : (COLS[id] || ['', ''])[0]);
 export const colWidth = id => (COLS[id] ? COLS[id][1] : '8.571rem');
 export const gridCols = cols => cols.map(colWidth).join(' ');
-// fixCols puts the columns every list has first.
-export const fixCols = list => [...FIXED, ...list.filter(c => !FIXED.includes(c))];
+
 
 // A header click sorts by its column, again reverses it, a third time goes back to the rank.
 export function nextSort(sort, dir, id) {
@@ -35,7 +36,36 @@ export function nextSort(sort, dir, id) {
 
 const sortMark = (id, sort, dir) => (sort === id ? [' ', icon(dir > 0 ? 'arrow-up' : 'arrow-down')] : []);
 export function listHead(cols, sort, dir) {
-  return h('div.bd-lhead', cols.map(id => h('span', { class: 'lh-' + id, dataset: { sort: sortable(id) ? id : '' } }, colLabel(id), sortMark(id, sort, dir))));
+  return h('div.bd-lhead', cols.map(id => h('span', { class: 'lh-' + id, draggable: id !== 'mark', dataset: { col: id, sort: sortable(id) ? id : '' } }, colLabel(id), sortMark(id, sort, dir))));
+}
+
+// dragCols lets head's cells be dragged onto one another; set gets the new order.
+export function dragCols(head, cols, set) {
+  let from = null;
+  const clear = () => head.querySelectorAll('.drop-before, .drop-after').forEach(s => s.classList.remove('drop-before', 'drop-after'));
+  const at = e => {
+    const t = e.target.closest && e.target.closest('[data-col]');
+    if (!t || !from) return null;
+    const r = t.getBoundingClientRect();
+    return { to: t.dataset.col, el: t, after: e.clientX > r.left + r.width / 2 };
+  };
+  head.addEventListener('dragstart', e => {
+    e.stopPropagation();
+    from = e.target.dataset.col;
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', from);
+  });
+  head.addEventListener('dragover', e => {
+    const t = at(e); if (!t) return;
+    e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move';
+    clear(); if (t.to !== from) t.el.classList.add(t.after ? 'drop-after' : 'drop-before');
+  });
+  head.addEventListener('drop', e => {
+    const t = at(e); if (!t) return;
+    e.preventDefault(); e.stopPropagation(); clear();
+    const next = moveCol(cols(), from, t.to, t.after);
+    if (next.join() !== cols().join()) set(next);
+  });
+  head.addEventListener('dragend', e => { e.stopPropagation(); from = null; clear(); });
 }
 export function paintHead(head, sort, dir) {
   for (const s of head.children) s.replaceChildren(colLabel(s.className.replace('lh-', '')), ...sortMark(s.dataset.sort, sort, dir));
@@ -45,7 +75,7 @@ export function paintHead(head, sort, dir) {
 export async function pickCols(ui, all, cols) {
   const items = all.filter(c => !FIXED.includes(c));
   const r = await ui.pick({ title: 'List columns', items, multi: true, selected: items.filter(c => cols.includes(c)), label: colLabel, placeholder: 'Columns…' });
-  return r ? fixCols(all.filter(c => r.includes(c))) : null;
+  return r ? pickOrder(all, cols, r) : null;
 }
 
 const DAY = 864e5;
