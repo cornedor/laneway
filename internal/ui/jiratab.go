@@ -405,7 +405,6 @@ type jiraTabState struct {
 	assignee jiraAssignee
 	quick    []jira.QuickFilter
 	quickOn  map[int]bool      // quick filter id → on
-	people   map[string]string // accountId → name, seen on this board
 	// statusNames names status ids, for a lane's drop zones.
 	statusNames map[string]string
 	// pendingMove is a keyboard move into a lane of several statuses,
@@ -1009,14 +1008,6 @@ func (m *Model) installJiraCards(cards []jira.Card, total int, err error, keep s
 	m.dropClosedSprint()
 	t.cards, t.total = cards, total
 	t.fetched = time.Now()
-	if t.people == nil {
-		t.people = map[string]string{}
-	}
-	for _, c := range cards {
-		if c.AssigneeID != "" {
-			t.people[c.AssigneeID] = c.Assignee
-		}
-	}
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
 	m.renderJira()
@@ -2044,7 +2035,7 @@ func (m *Model) pickJiraBoard(kind jiraPickerKind, id string) tea.Cmd {
 		}
 		t.project = id
 		t.boards, t.cfg, t.views, t.cards = nil, nil, nil, nil
-		t.quick, t.quickOn, t.people = nil, nil, nil
+		t.quick, t.quickOn = nil, nil
 		t.idx, t.lane, t.row, t.firstLane = 0, 0, 0, 0
 		m.buildJiraLanes()
 		return m.loadJiraBoard(id, 0, "", true)
@@ -2054,14 +2045,14 @@ func (m *Model) pickJiraBoard(kind jiraPickerKind, id string) tea.Cmd {
 		return nil
 	}
 	t.idx, t.lane, t.row, t.firstLane = 0, 0, 0, 0
-	t.quick, t.quickOn, t.people = nil, nil, nil
+	t.quick, t.quickOn = nil, nil
 	return m.loadJiraBoard(t.project, board, "", true)
 }
 
-// openJiraAssigneeFilter offers everyone, you, unassigned, the people seen
-// on the board, and the project's assignable people once they load (the
-// board's cards alone miss everyone a filter hides), in a filterable
-// picker where space ticks several.
+// openJiraAssigneeFilter offers everyone, you, unassigned and the people
+// with cards on the view, in a filterable picker where space ticks several.
+// While the filter narrows the view, the view is fetched again without it,
+// so the others stay on offer.
 func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil {
@@ -2069,42 +2060,55 @@ func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 		return nil
 	}
 	gen := m.startJiraPicker(jiraPickBoardAssignee, "Assignee", true)
-	seen, cur := maps.Clone(t.people), t.assignee.id
+	cur := t.assignee.id
 	m.jiraPicker.checked = map[string]string{}
+	seen := cardAssignees(t.cards)
 	ids, labels := t.assignee.ids(), strings.Split(t.assignee.label, ", ")
 	for i, id := range ids {
 		m.jiraPicker.checked[id] = id
 		if len(labels) == len(ids) { // a name with ", " in it: the rows name them
 			m.jiraPicker.checked[id] = labels[i]
 		}
+		if id != "me" && id != "none" { // ticked, so it can be unticked
+			seen[id] = m.jiraPicker.checked[id]
+		}
 	}
-	m.setJiraPickerItems(boardAssigneeItems(seen, nil, cur))
-	c, ctx, project, seq := m.jiraClient, m.ctx, t.project, m.jiraPicker.fetchSeq
+	m.setJiraPickerItems(boardAssigneeItems(seen, cur))
+	if cur == "" || t.viewIdx < 0 || t.viewIdx >= len(t.views) {
+		return nil
+	}
+	c, ctx, board, cfg, v, seq := m.jiraClient, m.ctx, m.jiraBoardID(), t.cfg, t.views[t.viewIdx], m.jiraPicker.fetchSeq
+	filter := jiraFilterJQL(jiraAssignee{}, t.quick, t.quickOn)
 	return func() tea.Msg {
-		us, err := c.ProjectUsers(ctx, project)
-		if err != nil || len(us) == 0 {
+		cards, _, err := fetchJiraView(ctx, c, board, cfg, v, filter)
+		if err != nil {
 			return nil
 		}
-		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickBoardAssignee, items: boardAssigneeItems(seen, us, cur)}
+		maps.Copy(seen, cardAssignees(cards))
+		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickBoardAssignee, items: boardAssigneeItems(seen, cur)}
 	}
 }
 
+// cardAssignees are the cards' assignees, accountId to name.
+func cardAssignees(cards []jira.Card) map[string]string {
+	names := map[string]string{}
+	for _, c := range cards {
+		if c.AssigneeID != "" {
+			names[c.AssigneeID] = c.Assignee
+		}
+	}
+	return names
+}
+
 // boardAssigneeItems are the assignee filter's rows: everyone, you,
-// unassigned, then seen and us by name, cur's (comma-joined) ids marked.
-func boardAssigneeItems(seen map[string]string, us []jira.User, cur string) []jiraPickerItem {
-	names := maps.Clone(seen)
-	if names == nil {
-		names = map[string]string{}
+// unassigned, then people by name, cur's (comma-joined) ids marked.
+func boardAssigneeItems(people map[string]string, cur string) []jiraPickerItem {
+	var rows []jiraPickerItem
+	for id, name := range people {
+		rows = append(rows, jiraPickerItem{id: id, label: name})
 	}
-	for _, u := range us {
-		names[u.AccountID] = u.DisplayName
-	}
-	var people []jiraPickerItem
-	for id, name := range names {
-		people = append(people, jiraPickerItem{id: id, label: name})
-	}
-	slices.SortFunc(people, func(a, b jiraPickerItem) int { return strings.Compare(a.label, b.label) })
-	items := append([]jiraPickerItem{{id: "", label: "Everyone"}, {id: "me", label: "Me"}, {id: "none", label: "Unassigned"}}, people...)
+	slices.SortFunc(rows, func(a, b jiraPickerItem) int { return strings.Compare(a.label, b.label) })
+	items := append([]jiraPickerItem{{id: "", label: "Everyone"}, {id: "me", label: "Me"}, {id: "none", label: "Unassigned"}}, rows...)
 	for i := range items {
 		items[i].current = items[i].id == cur || (items[i].id != "" && slices.Contains(strings.Split(cur, ","), items[i].id))
 	}

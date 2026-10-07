@@ -164,7 +164,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const c = S.cards.find(c => who(c) === id);
     return c ? c.Assignee : (S.people.get(id) || id);
   };
-  // The project's assignable people (like the TUI), fetched once per project.
+  // The project's assignable people, fetched once per project: names for a remembered filter's people without cards.
   const peopleCache = (app._boardPeople = app._boardPeople || new Map());
   async function loadPeople() {
     const p = S.project;
@@ -1168,10 +1168,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (reload) loadCards();
   }
   async function pickWho() {
+    // The people with cards on the board (mine and the assignee filter narrow only the view), and anyone ticked.
     const seen = new Map();
     for (const c of S.cards) if (who(c)) seen.set(who(c), c.Assignee);
-    const show = () => { for (const [id, n] of S.people) if (!seen.has(id)) seen.set(id, n); };
-    show(); await Promise.race([loadPeople(), new Promise(r => setTimeout(r, 400))]); show();
+    for (const id of S.who || []) if (id !== '-' && !seen.has(id)) seen.set(id, whoName(id));
     const r = await pickPeople(app, seen, S.who);
     if (r === undefined) return;
     S.who = r; if (r) S.mine = false; saveFilters(); layout(); renderBar(); whoChanged();

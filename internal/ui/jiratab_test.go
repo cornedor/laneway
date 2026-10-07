@@ -1860,27 +1860,43 @@ func TestBoardKeysWithoutBoard(t *testing.T) {
 	}
 }
 
-// TestAssigneeFilterListsProject: a board filtered to one person still
-// offers the project's other assignable people, and their late arrival
-// keeps the filter typed meanwhile.
-func TestAssigneeFilterListsProject(t *testing.T) {
+// TestAssigneeFilterListsBoardPeople: the filter offers the people with
+// cards on the view, not the whole project; narrowed to one person, it
+// fetches the view without that filter (quick filters kept), and the late
+// rows keep the filter typed meanwhile.
+func TestAssigneeFilterListsBoardPeople(t *testing.T) {
+	m := jiraTabModel(t)
+	if m.openJiraAssigneeFilter() != nil {
+		t.Error("unfiltered: the board's cards should be enough")
+	}
+	if !pickerHasLabel(m, "Ada") || len(m.jiraPicker.items) != 4 {
+		t.Fatalf("unfiltered: %+v", m.jiraPicker.items)
+	}
+	m.closeJiraPicker()
+
+	var gotJQL string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/rest/api/3/user/assignable/search" && r.URL.Query().Get("project") == "ABC" {
-			_, _ = w.Write([]byte(`[{"accountId":"a1","displayName":"Ada"},{"accountId":"b2","displayName":"Bob"},{"accountId":"c3","displayName":"Cy"}]`))
+		if r.URL.Path == "/rest/agile/1.0/board/1/sprint/9/issue" {
+			gotJQL = r.URL.Query().Get("jql")
+			_, _ = w.Write([]byte(`{"total":2,"issues":[{"key":"ABC-1","fields":{"assignee":{"accountId":"a1","displayName":"Ada"}}},{"key":"ABC-5","fields":{"assignee":{"accountId":"b2","displayName":"Bob"}}}]}`))
 		}
 	}))
 	defer srv.Close()
-	m := jiraTabModel(t)
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.assignee = jiraAssignee{id: "me", label: "Me"}
+	m.jiraTab.quickOn = map[int]bool{7: true}
 	cmd := m.openJiraAssigneeFilter()
-	if !pickerHasLabel(m, "Ada") || pickerHasLabel(m, "Bob") {
+	if pickerHasLabel(m, "Bob") {
 		t.Fatalf("before the load: %+v", m.jiraPicker.items)
 	}
 	u, _ := m.handleJiraPickerKey(keyStr("b"))
 	m = u.(Model)
 	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
 	m = out.(Model)
-	if !pickerHasLabel(m, "Bob") || pickerHasLabel(m, "Cy") || m.jiraPicker.items[m.jiraPicker.idx].id != "b2" {
+	if strings.Contains(gotJQL, "currentUser") || !strings.Contains(gotJQL, "frontend") {
+		t.Errorf("refetch jql %q", gotJQL)
+	}
+	if !pickerHasLabel(m, "Bob") || m.jiraPicker.items[m.jiraPicker.idx].id != "b2" {
 		t.Errorf("after the load, filtered to b: %+v at %d", m.jiraPicker.items, m.jiraPicker.idx)
 	}
 }
