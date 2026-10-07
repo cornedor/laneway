@@ -276,7 +276,16 @@ next value, `delete` resets. On a key row, `enter` captures a new key.
 
 ## Rebinding
 
-Settings › Keyboard: `enter` on a row captures a new key, kept per site.
-`ui.keys` from the config applies too, to the keys that have a terminal
-action of the same name ([list](terminal-keys.md#rebinding)); a remap in
-Settings wins.
+Settings › Keyboard: `enter` on a row captures a new key and writes it to
+the config. A key with a terminal action of the same name
+([list](terminal-keys.md#rebinding)) goes to `ui.keys`, so the terminal
+follows; it takes one key, not a sequence. The rest go to `ui.web_keys`, by
+the id `scope:default key`:
+
+```yaml
+ui:
+  keys:
+    project: ctrl+p
+  web_keys:
+    "board:C": alt+c
+```

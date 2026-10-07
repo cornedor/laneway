@@ -17,6 +17,7 @@ var SettingDefaults = map[string]string{
 	"card_limit":           "500",
 	"panel_width":          "50",
 	"keys":                 "as in ?",
+	"web_keys":             "as in ?",
 	"default_mode":         "lanes",
 	"date_format":          "2006-01-02 15:04",
 	"card_fields":          "all",
@@ -101,7 +102,7 @@ var SettingGroups = []SettingGroup{
 	{"Planning, roadmap and charts", []string{"velocity_sprints", "roadmap_epic_type", "roadmap_done_days"}},
 	{"Inbox", []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
 	{"Standup", []string{"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer"}},
-	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "delight", "skin_tone"}},
+	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "web_keys", "delight", "skin_tone"}},
 	{"System", []string{"open", "clipboard_image", "download_dir", "update_check"}},
 }
 
@@ -114,6 +115,7 @@ var SettingDocs = map[string]string{
 	"card_limit":           "the most cards one view fetches",
 	"panel_width":          "the issue panel's share of the width, in percent",
 	"keys":                 "rebinds actions by name: search: \"/\" or mine: [m, M]",
+	"web_keys":             "rebinds browser keys no terminal action covers, by bind id: \"board:alt+e\": ctrl+e",
 	"default_mode":         "the board's mode before one is remembered",
 	"date_format":          "a Go time layout for the panel's dates",
 	"calendar":             "an iCalendar feed of your meetings (file, https or webcal URL, or a vdir directory): the timesheet proposes them as worklogs, planning takes them off your capacity",

@@ -121,9 +121,9 @@ Every action can be rebound.
 
 === "Browser"
 
-    Settings › Keyboard: `enter` on an action captures a new key, kept per
-    site. `ui.keys` from the config applies too, where the browser has the
-    same action; a remap in Settings wins.
+    Settings › Keyboard: `enter` on an action captures a new key and saves
+    it in the config: `ui.keys` when the terminal has the action too, so
+    both follow, else `ui.web_keys`.
 
 ## Your own actions
 

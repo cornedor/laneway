@@ -30,11 +30,11 @@ test('a panel waiting for focus has no hints; remapped keys show as bound; a cli
   assert.deepEqual(shown(), ['s status']);
   focused = true;
   assert.deepEqual(shown(), ['c comment']);
-  keys.configure({ user: { 'issue:c': 'C' } });
+  keys.configure({ web: { 'issue:c': 'C' } });
   const [h] = barHints(keys.active());
   assert.equal(h.keys[0].spec, 'C');
   h.keys[0].run();
   assert.equal(pressed, 'C');
-  keys.configure({ user: {} });
+  keys.configure({ web: {} });
   p.dispose(); v.dispose();
 });

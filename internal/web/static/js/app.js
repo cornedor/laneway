@@ -235,7 +235,7 @@ async function boot() {
     const p = await api.get('/prefs'); app.prefs.data = p || {};
     onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });
     theme.attach(app.prefs); theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
-    try { keys.configure({ user: JSON.parse(app.prefs.get('keymap', '{}')) || {}, conf: app.session.ui.Keys || {} }); } catch (e) { console.error('keymap', e); }
+    keys.configure({ conf: session.ui.Keys || {}, web: session.ui.WebKeys || {} });
   } catch (e) { $('#top').classList.remove('boot'); $('#viewbar').classList.remove('hold'); clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
   import('./lib/keybar.js').then(m => m.install(app)).catch(e => console.error('keybar', e));
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));

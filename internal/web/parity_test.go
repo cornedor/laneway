@@ -35,8 +35,8 @@ var webOnly = map[string]string{
 	"rules:N":    "browser notifications need the browser's permission; the TUI's notify writes the terminal's sequence",
 }
 
-// Every ui: option is read by both, or is in terminalOnly with the reason
-// the browser ignores it.
+// Every ui: option is read by both, or is in terminalOnly or webOnlyOptions
+// with the reason the other ignores it.
 var sharedOptions = []string{
 	"auto_refresh", "stale_after", "card_limit", "panel_width", "keys", "default_mode",
 	"date_format", "card_fields", "card_layout", "card_styles", "quick_filters", "views", "stale_days",
@@ -64,6 +64,10 @@ var terminalOnly = map[string]string{
 	"agent_view":      "an agent shows in the panel's Terminal tab and on the agents screen, never full screen",
 }
 
+var webOnlyOptions = map[string]string{
+	"web_keys": "remaps browser keys the terminal has no action for",
+}
+
 func TestParityOptions(t *testing.T) {
 	known := map[string]bool{}
 	ty := reflect.TypeFor[config.UIConfig]()
@@ -71,6 +75,9 @@ func TestParityOptions(t *testing.T) {
 		name, _, _ := strings.Cut(ty.Field(i).Tag.Get("yaml"), ",")
 		known[name] = true
 		why, term := terminalOnly[name]
+		if w, ok := webOnlyOptions[name]; ok {
+			why, term = w, true
+		}
 		shared := slices.Contains(sharedOptions, name)
 		switch {
 		case !shared && !term:
@@ -81,7 +88,7 @@ func TestParityOptions(t *testing.T) {
 			t.Errorf("terminalOnly ui.%s needs a reason", name)
 		}
 	}
-	for _, name := range append(slices.Collect(maps.Keys(terminalOnly)), sharedOptions...) {
+	for _, name := range slices.Concat(slices.Collect(maps.Keys(terminalOnly)), slices.Collect(maps.Keys(webOnlyOptions)), sharedOptions) {
 		if !known[name] {
 			t.Errorf("ui.%s is no ui: option", name)
 		}

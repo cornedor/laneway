@@ -39,3 +39,15 @@ export function fromTUI(k) {
   const name = NAMED[m[2].toLowerCase()] || m[2];
   return name.length > 1 && !/^[A-Z][a-z0-9]+([A-Z][a-z]+)*$/.test(name) ? '' : m[1] + name;
 }
+const TUI_NAME = {};
+for (const [t, w] of Object.entries(NAMED)) TUI_NAME[w] = TUI_NAME[w] || t;
+// A web key in the config's spelling; '' when fromTUI could not read it back.
+export function toTUI(k) {
+  const m = /^((?:ctrl\+|alt\+)*)(.+)$/.exec(k);
+  const t = m ? m[1] + (TUI_NAME[m[2]] || m[2]) : '';
+  return t && fromTUI(t) === k ? t : '';
+}
+// Both ways for a whole spec, "g p" a key at a time; '' when a key does not convert.
+const each = fn => spec => { const l = spec.split(' ').map(fn); return l.every(Boolean) ? l.join(' ') : ''; };
+export const specFromTUI = each(fromTUI);
+export const specToTUI = each(toTUI);

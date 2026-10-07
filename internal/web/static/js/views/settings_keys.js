@@ -1,12 +1,22 @@
 // Keyboard remapping: any web binding can get another key. Each group of keys is folded behind one row
-// (host.folds holds the open ones); a filter shows the matching keys whatever is folded. Remaps live in the `keymap` pref
-// ({bindId: [spec]}); `ui.keys` of the config file applies to the bindings that have a TUI action.
+// (host.folds holds the open ones); a filter shows the matching keys whatever is folded. Remaps go to the config file:
+// ui.keys for a binding with a TUI action (the terminal follows), ui.web_keys by bind id for the rest.
 import { h } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { keyOf, kbd } from '../lib/keys.js';
+import { specToTUI } from '../lib/keymap.js';
+import { put } from './settings_config.js';
 
-const userMap = app => { try { return JSON.parse(app.prefs.get('keymap', '{}')) || {}; } catch (e) { return {}; } };
-const apply = (app, map) => { app.prefs.set('keymap', JSON.stringify(map)); app.keys.configure({ user: map }); };
+const maps = app => ({ keys: { ...(app.session.ui.Keys || {}) }, web_keys: { ...(app.session.ui.WebKeys || {}) } });
+// save writes one of the two maps; the keys follow once the file has it.
+async function save(app, name, map) {
+  try { await put(app, name, { Value: Object.keys(map).length ? map : null }); } catch (e) { app.ui.errToast(e); return false; }
+  app.session.ui[name === 'keys' ? 'Keys' : 'WebKeys'] = map;
+  app.keys.configure({ conf: app.session.ui.Keys || {}, web: app.session.ui.WebKeys || {} });
+  return true;
+}
+// Where a binding's remap lives: [option, entry name].
+const slot = r => (r.action ? ['keys', r.action] : ['web_keys', r.id]);
 
 const kbds = specs => specs.map((s, i) => h('span.st-spec', i ? h('span.faint', ' or ') : null, kbd(s).map(k => h('kbd', k))));
 
@@ -40,24 +50,35 @@ export function keyOptions(app, host) {
   const rows = app.keys.registry().filter(r => r.scope !== 'settings');
   rows.sort((a, b) => a.group.localeCompare(b.group) || a.desc.localeCompare(b.desc));
   const out = [];
-  out.push({ name: 'Remap keys', section: 'Keyboard', static: true, wide: true, desc: 'Open a group, then enter on a key to give it another. Overrides ui.keys of the config file; views not opened yet list their keys after the first visit.', render: () => h('span') });
-  if (Object.keys(userMap(app)).length) out.push({ name: 'Reset all remaps', section: 'Keyboard', desc: 'back to the defaults and ui.keys', render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: () => resetAll() }, 'Reset')), change: () => resetAll() });
-  const resetAll = () => { apply(app, {}); app.ui.toast('Keys reset', { kind: 'ok' }); host.reload(); };
+  out.push({ name: 'Remap keys', section: 'Keyboard', static: true, wide: true, desc: 'Open a group, then enter on a key to give it another. Saved in the config file: ui.keys when the terminal has the action (it follows), else ui.web_keys. Views not opened yet list their keys after the first visit.', render: () => h('span') });
+  const m0 = maps(app);
+  if (Object.keys(m0.keys).length || Object.keys(m0.web_keys).length) out.push({ name: 'Reset all remaps', section: 'Keyboard', desc: 'empties ui.keys and ui.web_keys of the config file, for the terminal too', render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: () => resetAll() }, 'Reset')), change: () => resetAll() });
+  const resetAll = async () => {
+    if (!(await save(app, 'keys', {})) || !(await save(app, 'web_keys', {}))) return;
+    app.ui.toast('Keys reset', { kind: 'ok' }); host.reload();
+  };
   const keyRow = r0 => {
     const o = { name: r0.desc, section: 'Keyboard', group: r0.group, key: true, meta: '', desc: '' };
     const cur = () => app.keys.registry().find(x => x.id === r0.id) || r0;
     const rebind = async () => {
       const spec = await capture(app, cur());
       if (!spec) return;
-      const map = userMap(app);
-      if (spec === r0.def && !(cur().fromConfig)) delete map[r0.id]; else map[r0.id] = [spec];
-      apply(app, map); host.redraw(o);
+      const [name, entry] = slot(r0), t = specToTUI(spec);
+      if (!t || (r0.action && spec.includes(' '))) return app.ui.toast(kbd(spec).join(' ') + (t ? ' is a sequence; the terminal takes one key for ' : ' cannot go in the config for ') + (r0.action || r0.desc), { kind: 'err' });
+      const map = maps(app)[name];
+      if (spec === r0.def) delete map[entry]; else map[entry] = [t];
+      if (await save(app, name, map)) host.reload(); // a ui.keys entry can move other rows too
     };
-    const reset = () => { const map = userMap(app); if (map[r0.id]) { delete map[r0.id]; apply(app, map); host.redraw(o); host.reload(); } };
+    const reset = async () => {
+      const [name, entry] = slot(r0), map = maps(app)[name];
+      if (!(entry in map)) return;
+      delete map[entry];
+      if (await save(app, name, map)) host.reload();
+    };
     o.render = () => {
       const r = cur();
-      return h('span.st-val', kbds(r.specs), r.changed && h('span.faint.st-was', 'default ' + kbd(r.def).join(' ')), r.fromConfig && h('span.chip', 'ui.keys'),
-        userMap(app)[r0.id] && h('button.btn.ghost.st-x', { tabindex: -1, title: 'Back to the default (del)', 'aria-label': 'Reset ' + r0.desc, onclick: e => { e.stopPropagation(); reset(); } }, '×'));
+      return h('span.st-val', kbds(r.specs), r.changed && h('span.faint.st-was', 'default ' + kbd(r.def).join(' ')), r.from && h('span.chip', r.from),
+        r.from && h('button.btn.ghost.st-x', { tabindex: -1, title: 'Back to the default (del)', 'aria-label': 'Reset ' + r0.desc, onclick: e => { e.stopPropagation(); reset(); } }, '×'));
     };
     o.activate = rebind; o.change = () => rebind(); o.reset = reset;
     return o;
@@ -65,7 +86,7 @@ export function keyOptions(app, host) {
   for (const g of [...new Set(rows.map(r => r.group))]) {
     const keys = rows.filter(r => r.group === g);
     const fold = { name: g, section: 'Keyboard', fold: g };
-    Object.defineProperty(fold, 'desc', { get: () => { const n = keys.filter(r => userMap(app)[r.id]).length; return keys.length + (keys.length === 1 ? ' key' : ' keys') + (n ? ' · ' + n + ' remapped' : ''); } });
+    Object.defineProperty(fold, 'desc', { get: () => { const n = app.keys.registry().filter(r => r.group === g && r.from).length; return keys.length + (keys.length === 1 ? ' key' : ' keys') + (n ? ' · ' + n + ' remapped' : ''); } });
     fold.render = () => h('span.st-val', icon(host.folds.has(g) ? 'chevron-up' : 'chevron-down'));
     fold.activate = fold.change = () => { host.folds.has(g) ? host.folds.delete(g) : host.folds.add(g); host.reload(); };
     out.push(fold, ...keys.map(keyRow)); // each group's keys right under its row

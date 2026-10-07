@@ -147,6 +147,8 @@ type UIConfig struct {
 	PanelWidth int `yaml:"panel_width"`
 	// Keys rebinds actions by name: search: "/" or mine: [m, M].
 	Keys map[string]KeyList `yaml:"keys"`
+	// WebKeys rebinds browser keys no terminal action covers, by bind id: "board:alt+e": ctrl+e.
+	WebKeys map[string]KeyList `yaml:"web_keys"`
 	// DefaultMode is the board's mode before one is remembered: lanes or list.
 	DefaultMode string `yaml:"default_mode"`
 	// DateFormat is a Go time layout for the panel's dates.

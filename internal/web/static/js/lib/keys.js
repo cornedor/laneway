@@ -13,12 +13,12 @@
 // Named keys: Enter Escape Tab ArrowUp ArrowDown ArrowLeft ArrowRight Backspace Delete Home End PageUp PageDown Space.
 // Modifiers: ctrl+ alt+ meta+ (shift is implied by the character).
 // In inputs/textareas only `input: true` bindings fire (and Escape always reaches modal scopes).
-import { actionFor, fromTUI } from './keymap.js';
+import { actionFor, specFromTUI } from './keymap.js';
 
 const scopes = [];
 let pending = [], timer = 0;
-// Remaps: `user` (Keyboard settings, id -> spec or specs) beats `conf` (ui.keys of the config file, action -> keys).
-let user = {}, conf = {};
+// Remaps from the config file: `web` (ui.web_keys, bind id -> keys) beats `conf` (ui.keys, action -> keys).
+let web = {}, conf = {};
 const registry = new Map(); // id -> every bind seen, even of views not open now (kept in localStorage for settings)
 try { for (const r of JSON.parse(localStorage.getItem('lw:keyreg') || '[]')) registry.set(r.id, r); } catch (e) { /* ignore */ }
 let regTimer = 0;
@@ -36,13 +36,13 @@ function norm(e) {
 }
 export const keyOf = norm;
 
-// The specs a bind answers to: the user's remap, else ui.keys for its action, else its own.
+// The specs a bind answers to: ui.web_keys for it, else ui.keys for its action, else its own.
+const readable = l => [].concat(l || []).map(specFromTUI).filter(Boolean);
 function effective(id, def, action) {
-  const u = user[id];
-  if (u && u.length) return [].concat(u);
-  const c = action && conf[action];
-  if (c && c.length) { const l = c.map(fromTUI).filter(Boolean); if (l.length) return l; }
-  return [def];
+  const w = readable(web[id]);
+  if (w.length) return w;
+  const c = action ? readable(conf[action]) : [];
+  return c.length ? c : [def];
 }
 const seqs = specs => specs.map(sp => sp.split(' '));
 function resolve(b) { b.specs = effective(b.id, b.def, b.action); b.spec = b.specs[0]; b.seqs = seqs(b.specs); }
@@ -128,16 +128,21 @@ export const keys = {
   scope,
   pending: () => pending.join(' '),
   onChange: fn => { listeners.add(fn); return () => listeners.delete(fn); },
-  // Remapping. configure({user, conf}) re-resolves every bind; user = {id: spec|[specs]}, conf = ui.keys of the config.
+  // Remapping. configure({web, conf}) re-resolves every bind; web = ui.web_keys, conf = ui.keys of the config.
   configure(o) {
-    if (o.user) user = o.user;
+    if (o.web) web = o.web;
     if (o.conf) conf = o.conf;
     for (const s of scopes) for (const b of s.binds) resolve(b);
     notify();
   },
-  // Every bind seen in this browser: [{id, scope, group, desc, def, specs, changed}].
+  // Every bind seen in this browser: [{id, scope, group, desc, def, specs, changed, from}]; from names the config
+  // option that remaps it: 'ui.web_keys', 'ui.keys' or ''.
   registry() {
-    return [...registry.values()].map(r => { const specs = effective(r.id, r.def, r.action); return { ...r, specs, changed: specs.length !== 1 || specs[0] !== r.def, fromConfig: !user[r.id] && specs[0] !== r.def }; });
+    return [...registry.values()].map(r => {
+      const specs = effective(r.id, r.def, r.action);
+      const from = readable(web[r.id]).length ? 'ui.web_keys' : r.action && readable(conf[r.action]).length ? 'ui.keys' : '';
+      return { ...r, specs, changed: specs.length !== 1 || specs[0] !== r.def, from };
+    });
   },
   // The bind already answering to spec in the scope of `id` (or a global one), or null.
   conflict(id, spec) {

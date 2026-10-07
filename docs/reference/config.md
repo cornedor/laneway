@@ -197,6 +197,7 @@ ui:
 | `mouse` | `on` | `off` leaves the mouse to the terminal. Terminal |
 | `double_click` | `400ms` | how quickly a second click opens (100ms–2s). Terminal |
 | `keys` | | rebind actions by name: [terminal](terminal-keys.md#rebinding), [browser](browser-keys.md#rebinding) |
+| `web_keys` | | rebind browser keys without a terminal action, by id: [browser](browser-keys.md#rebinding). Browser |
 | `delight` | `on` | small celebrations: confetti on a card into done, a sprint's points against the last ones |
 | `skin_tone` | | the emoji tone for people: `light medium_light medium medium_dark dark` |
 
