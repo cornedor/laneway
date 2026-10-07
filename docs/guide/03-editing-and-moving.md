@@ -47,7 +47,8 @@ on a field, such as a Component.
 
 **From the board:** a quick edit changes status, priority, assignee,
 labels, points or sprint without opening the panel. Or right-click the
-card: the same, as a menu at the pointer, with open, copy and pin below.
+card: the same, as a menu at the pointer, with open (here or in a new tab),
+copy and pin below.
 
 === "Terminal"
 

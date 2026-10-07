@@ -83,6 +83,7 @@ function cardMenu(app) {
     };
     return [
       { label: 'Open', run: () => app.panel.open(key) },
+      { label: 'Open in new tab', run: () => window.open('/issue/' + key, '_blank', 'noopener') },
       '-',
       { label: 'Status', hint: c.Status, sub: async () => (await app.api.get('/issues/' + key + '/transitions', { fresh: true })).map(t => ({
         label: t.Name, current: c.StatusID != null && String(t.StatusID) === String(c.StatusID), run: () => fields().then(f => f.takeMove(app, key, t)) })) },
