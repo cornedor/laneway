@@ -1,7 +1,7 @@
 // Coding agents (herdr): the live snapshot, agent state on cards and in the panel, and the keys
 // that start work. app.agents.stateFor(key) → {status, count, agents, worktree} | null; bus 'agents' fires on change.
 // Everything hides itself while herdr isn't running.
-import { h } from './dom.js';
+import { h, openURL } from './dom.js';
 import { setIcon } from './icons.js';
 import { css } from './css.js';
 import { target } from './timer.js';
@@ -129,7 +129,7 @@ export function install(app) {
     try {
       const r = await api.post('/issues/' + key + '/pr');
       close();
-      ui.toast('Draft opened: ' + r.URL, { action: { label: 'Open', run: () => window.open(r.URL, '_blank', 'noopener') }, ms: 10000 });
+      ui.toast('Draft opened: ' + r.URL, { action: { label: 'Open', run: () => openURL(r.URL) }, ms: 10000 });
     } catch (e) { close(); ui.errToast(e); }
   };
   // A chip (card, row, panel) opens the agents screen on that issue's agent.

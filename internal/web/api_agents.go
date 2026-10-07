@@ -436,6 +436,9 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.HasPrefix(strings.TrimSpace(b.Prompt), "-") {
+		return nil, badRequest("prompt must not start with -")
+	}
 	a, err := paneAgent(ctx, c, r)
 	if err != nil {
 		return nil, err

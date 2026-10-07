@@ -2,7 +2,7 @@
 // (lib/term.js: herdr agent attach over a WebSocket), attached once the cursor rests on a row, as in the TUI.
 // Enter or a click types into it, ctrl+\ goes back to the list, z full screen. Tab adds the worktrees that have
 // no agent. Live over /api/agents/events. /agents?agent=KEY selects KEY's agent (&pane=ID that one), &type=1 types into it.
-import { h, clear, delegate } from '../lib/dom.js';
+import { h, clear, delegate, openURL } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { kbd } from '../lib/keys.js';
@@ -24,7 +24,7 @@ export default async function mount(el, { app, scope, query }) {
   const card = key => (issues.get(key) || {}).Card;
   const away = key => { const is = issues.get(key); return !!(is && is.Found && is.Site !== app.session.site); };
   const siteName = key => issues.get(key).Site || app.session.defaultName || 'jira';
-  const openIssue = key => (away(key) ? window.open(issues.get(key).URL, '_blank', 'noopener') : app.panel.open(key));
+  const openIssue = key => (away(key) ? openURL(issues.get(key).URL) : app.panel.open(key));
   const asked = new Set();
   let dead = false;
 
@@ -224,7 +224,7 @@ export default async function mount(el, { app, scope, query }) {
   scope.bind('t', () => type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G });
   scope.bind('Escape', () => setFull(false), 'leave full screen', { group: G, when: () => full });
   scope.bind('v', () => { const r = cur(); if (r) openIssue(r.key); }, 'open issue (another site\'s in Jira)', { group: G, bar: 'issue' });
-  scope.bind('o', () => { const r = cur(); if (r) window.open(away(r.key) ? issues.get(r.key).URL : app.session.baseURL + '/browse/' + r.key, '_blank', 'noopener'); }, 'open in Jira', { group: G });
+  scope.bind('o', () => { const r = cur(); if (r) openURL(away(r.key) ? issues.get(r.key).URL : app.session.baseURL + '/browse/' + r.key); }, 'open in Jira', { group: G });
   scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
   scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G, bar: 'prompt' });
   scope.bind('N', () => act('new'), 'new agent in its directory (the start form)', { group: G, bar: 'new agent' });

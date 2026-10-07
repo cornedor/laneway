@@ -132,13 +132,16 @@ func TestPaneAndWorkInputs(t *testing.T) {
 			t.Errorf("output %s = %d", p, code)
 		}
 	}
-	for _, body := range []string{`{"Branch":"-x"}`, `{"Branch":"a b"}`, `{"Branch":"a..b"}`, `{"Agent":"rm"}`, `{"Agent":"--foo"}`} {
+	for _, body := range []string{`{"Branch":"-x"}`, `{"Branch":"a b"}`, `{"Branch":"a..b"}`, `{"Agent":"rm"}`, `{"Agent":"--foo"}`, `{"Prompt":"--dangerously-skip-permissions"}`} {
 		if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/work", body, nil); code != 400 {
 			t.Errorf("%s = %d", body, code)
 		}
 	}
 	if code := workCall(t, "POST", ts.URL+"/api/agents/p1/new", `{"Agent":"rm"}`, nil); code != 400 {
 		t.Errorf("new with bad agent = %d", code)
+	}
+	if code := workCall(t, "POST", ts.URL+"/api/agents/p1/new", `{"Prompt":" --yolo"}`, nil); code != 400 {
+		t.Errorf("new with a flag prompt = %d", code)
 	}
 	if f.called("worktree.create") || f.called("agent.start") {
 		t.Error("herdr was reached")

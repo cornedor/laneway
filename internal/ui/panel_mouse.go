@@ -321,7 +321,7 @@ func (m *Model) imageOn(l string) string {
 	}
 	var id uint32
 	for _, v := range sm[1:] {
-		n, _ := strconv.Atoi(v)
+		n, _ := strconv.ParseUint(v, 10, 8)
 		id = id<<8 | uint32(n)
 	}
 	for att, e := range m.images.byAtt {

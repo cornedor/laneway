@@ -1,7 +1,7 @@
 // Home: the start screen of ui.home's widgets (internal/home, the TUI's too): my work, inbox, sprint
 // health, the running timer and a count per saved search. jk walk every row, enter opens it, esc goes
 // to the board. Each widget loads on its own, so a slow one holds up nothing.
-import { h, delegate } from '../lib/dom.js';
+import { h, delegate, openURL } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { stateOf, latest } from '../lib/inbox.js';
 import { duration, plural, ago } from '../lib/fmt.js';
@@ -38,7 +38,7 @@ export default function mount(el, { app, scope }) {
       return {
         head: news.length + ' unread', more: () => app.go('/inbox'), note: 'All caught up.',
         rows: news.map(t => issueRow(t.Key, t.Summary, h('span.faint', ago(latest(t))),
-          () => (t.Site !== d.site ? window.open(t.URL, '_blank', 'noopener') : app.panel.open(t.Key)))), // another site's opens in Jira
+          () => (t.Site !== d.site ? openURL(t.URL) : app.panel.open(t.Key)))), // another site's opens in Jira
       };
     },
     async sprint() {

@@ -436,6 +436,8 @@ func planStart(ctx context.Context, s *Server, r *http.Request) (*startPlan, err
 	prompt := strings.TrimSpace(b.Prompt)
 	if prompt == "" {
 		prompt = "none"
+	} else if strings.HasPrefix(prompt, "-") {
+		return nil, badRequest("prompt must not start with -")
 	}
 	p.args = workArgs(cfg.Args, prompt, key)
 	if b.Another {

@@ -9,7 +9,7 @@
 // tabs; on Changes j/k or ]/[ file, n/N thread, z folds the file, Z all, e the whole file, v a version; i the issue it
 // names, beside; o GitLab, r reload, esc back. A host without a token says how to sign in.
 // #/mr?url=LINK[&tab=changes][&version=N].
-import { h, clear, delegate } from '../lib/dom.js';
+import { h, clear, delegate, safe, openURL } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { icon } from '../lib/icons.js';
 import { ago, isZero, plural, duration } from '../lib/fmt.js';
@@ -17,7 +17,6 @@ import { render as md } from '../lib/md.js';
 import { stateBadge, issueKeys, pipeline, pipelineMini, approvals, mrHref, glyph, running, signInHelp } from '../lib/mr.js';
 
 const raw = s => { const t = document.createElement('template'); t.innerHTML = s; return t.content; };
-const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 const catOf = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 
 export default function mount(el, { app, scope, query }) {
@@ -462,7 +461,7 @@ export default function mount(el, { app, scope, query }) {
   scope.bind('S', () => review(false), 'submit your review', { group: G, bar: 'review' });
   scope.bind('A', () => review(true), 'approve', { group: G, bar: 'approve' });
   scope.bind('M', merge, 'merge: GitLab\'s defaults first', { group: G, bar: 'merge' });
-  scope.bind('o', () => safe(url) && window.open(url, '_blank', 'noopener'), 'open in GitLab', { group: G });
+  scope.bind('o', () => openURL(url), 'open in GitLab', { group: G });
   scope.bind('r', () => load(true), 'reload', { group: G });
   scope.bind('Escape', () => (jobId ? closeJob() : back()), 'close the job log, else back', { group: G, bar: 'back' });
   scope.bind(['j', ']'], () => go(cur + 1), 'next file', { group: D });

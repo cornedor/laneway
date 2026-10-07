@@ -1,5 +1,5 @@
 // Inbox: what others did on my issues on every configured site, one thread per issue with its own read / done / snoozed state.
-import { h, clear, delegate, debounce } from '../lib/dom.js';
+import { h, clear, delegate, debounce, openURL } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { vlist } from '../lib/vlist.js';
 import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
@@ -166,7 +166,7 @@ export default function mount(el, { app, scope, toolbar }) {
     list.refresh(old); list.refresh(sel); list.scrollTo(sel);
     showThread(true);
   }
-  const browse = t => window.open(away(t) ? t.URL : app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key, '_blank', 'noopener');
+  const browse = t => openURL(away(t) ? t.URL : app.session.baseURL.replace(/\/$/, '') + '/browse/' + t.Key);
   function open() { const t = cur(); if (t) { clearTimeout(readTimer); mark(t, { Read: latest(t) }, true); if (away(t)) browse(t); else app.panel.open(t.Key); } }
 
   function load(fresh) {

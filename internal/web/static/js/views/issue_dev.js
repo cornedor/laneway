@@ -4,7 +4,7 @@
 // (its PR/Deploy say work exists before the list arrives), `details()` shows the Details tab.
 // A GitLab merge request's row unfolds it (enter, a click): state, pipeline by stage, approvals and
 // description from GET /api/gitlab/mr (forge.Change), as the TUI's panel shows it; o opens any row's link.
-import { h, clear } from '../lib/dom.js';
+import { h, clear, safe, openURL } from '../lib/dom.js';
 import { mrBody, diffHref, mrButtons, signInHelp } from '../lib/mr.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
@@ -19,7 +19,6 @@ const RUN = {
 };
 const ENV_RANK = { production: 0, staging: 1, testing: 2, development: 3 };
 const run = s => RUN[s] || RUN.UNKNOWN;
-const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 const when = t => (isZero(t) ? null : h('time.dv-when', { datetime: t, title: dateTime(t) }, ago(t)));
 const prNo = u => { const m = /\/(?:pull|pull-requests|merge_requests)\/(\d+)/.exec(u || ''); return m ? (/merge_requests/.test(u) ? '!' : '#') + m[1] : ''; };
 const isMR = u => /\/-\/merge_requests\/\d+/.test(u || '');
@@ -245,7 +244,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   scope.bind('D', focusDev, 'development: pull requests, builds, deploys, branches, commits', { group: 'Issue', when: inPanel });
   scope.bind(['j', 'ArrowDown'], () => step(1), 'next row', { group: G, when: onRow });
   scope.bind(['k', 'ArrowUp'], () => step(-1), 'previous row', { group: G, when: onRow });
-  const openLink = r => { if (r && r.dataset.url) window.open(r.dataset.url, '_blank', 'noopener'); else ui.toast('No link'); };
+  const openLink = r => { if (r && r.dataset.url) openURL(r.dataset.url); else ui.toast('No link'); };
   scope.bind('Enter', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) toggleMR(r.dataset.url); else openLink(r); }, 'open in the browser; a GitLab merge request unfolds', { group: G, when: onRow });
   scope.bind('o', () => openLink(rowOf(document.activeElement)), 'open in the browser', { group: G, when: onRow });
   scope.bind('d', () => { const r = rowOf(document.activeElement); if (r && 'mr' in r.dataset) location.hash = diffHref(r.dataset.url); else ui.toast('Not a GitLab merge request'); }, 'a merge request\'s diff', { group: G, when: onRow });
@@ -257,7 +256,7 @@ export function mountDev(key, { app, el, full, card, details }) {
   root.addEventListener('click', e => {
     const r = e.target.closest('[data-row]');
     if (!r || e.target.closest('a,button') || !r.dataset.url || (window.getSelection && String(window.getSelection()))) return;
-    if ('mr' in r.dataset) { r.focus({ preventScroll: true }); toggleMR(r.dataset.url); } else window.open(r.dataset.url, '_blank', 'noopener');
+    if ('mr' in r.dataset) { r.focus({ preventScroll: true }); toggleMR(r.dataset.url); } else openURL(r.dataset.url);
   });
 
   load();

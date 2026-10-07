@@ -1,5 +1,5 @@
 // Inbox state shared by the inbox view and the nav badge.
-import { $, h } from './dom.js';
+import { $, h, openURL } from './dom.js';
 import { css } from './css.js';
 import { notify, enabled } from './notify.js';
 
@@ -26,7 +26,7 @@ export function setBadge(n) {
   b.title = n + ' unread';
 }
 
-const openThread = (app, data, t) => (t.Site !== data.site ? window.open(t.URL, '_blank', 'noopener') : app.panel.open(t.Key));
+const openThread = (app, data, t) => (t.Site !== data.site ? openURL(t.URL) : app.panel.open(t.Key));
 
 // As the TUI: one notification per mention newer than the last notified; those from before the page loaded stay quiet.
 let mentionsSeen = Date.now();

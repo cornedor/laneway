@@ -19,7 +19,6 @@ export function h(tag, props, ...kids) {
     else if (k === 'style' && typeof v === 'object') for (const [p, x] of Object.entries(v)) { if (p.startsWith('--')) el.style.setProperty(p, x); else el.style[p] = x; }
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
-    else if (k === 'html') el.innerHTML = v;
     else if (k in el && !svg) el[k] = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
@@ -35,6 +34,10 @@ function add(el, kids) {
 }
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+// safe is u when it is an http(s) link, else ''.
+export const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
+// openURL opens an http(s) link in a new tab; anything else is dropped.
+export function openURL(u) { if (safe(u)) window.open(u, '_blank', 'noopener'); }
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 export function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 // Delegated listener: on(root, 'click', '.card', (e, el) => …)

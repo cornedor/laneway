@@ -1,12 +1,11 @@
 // A GitLab merge request (forge.Change, GET /api/gitlab/mr) in pieces the merge request page (views/mr.js), the
 // development section and the merge requests screen share: its state, the Jira issues it names, the pipeline as a
 // flow of stages, the approvals, and the summary an unfolded row shows. Styles: dev.css.
-import { h } from './dom.js';
+import { h, safe } from './dom.js';
 import { render as md } from './md.js';
 import { icon } from './icons.js';
 import { ago, isZero, duration, plural } from './fmt.js';
 
-const safe = u => (/^https?:\/\//i.test(u || '') ? u : '');
 // A check status → a tone and a glyph.
 const CHECK = { success: ['ok', '✓'], failed: ['err', '✗'], warning: ['warn', '!'], running: ['run', '●'], pending: ['run', '○'], manual: ['none', '▶'], canceled: ['warn', '⊘'], skipped: ['none', '»'] };
 const check = s => CHECK[s] || CHECK.skipped;
