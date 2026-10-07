@@ -5,8 +5,13 @@ import { chart, niceTicks, timeTicks, localDay, num, percentile } from '../lib/c
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, switcher, noBoard } from './plan_ctx.js';
 import { KINDS } from './report_kinds.js';
+import { makeLine, label, past, statusAt, order } from './report_lines.js';
+import { put } from './settings_config.js';
 
 const SPRINT_KINDS = ['burndown', 'burnup', 'cfd'];
+// The reports a line changes; velocity and releases keep Jira's done.
+const LINE_KINDS = ['burndown', 'burnup', 'cfd', 'cycle', 'retro'];
+const CMP = 'var(--info)';
 const DAY = 86400000;
 const ms = t => (isZero(t) ? null : +new Date(t));
 const nextDay = t => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(); };
@@ -42,8 +47,13 @@ export default async function mount(el, { app, params, query, scope, context, to
   const sc = await resolve(app, params);
   let { project, board } = sc;
   let token = 0, charts = [], cur = 0, curItems = [], weeks = 8, sprintId = Number(query.sprint) || 0;
+  let compare = query.compare || ''; // a second line's column, for this visit (kept in the URL)
   let table = null; // the shown report's numbers, for y
   const body = h('div.rp');
+  const doneBtn = h('button.rp-line', { type: 'button', onclick: () => pickDone() });
+  const cmpBtn = h('button.rp-line.cmp', { type: 'button', onclick: () => toggleCompare() });
+  const bar = h('div.rp-lines', doneBtn, cmpBtn);
+  const show = (...nodes) => clear(body).append(bar, ...nodes);
   el.append(body);
   const cleanupCharts = () => { charts.forEach(c => c.destroy()); charts = []; };
   const open = key => app.panel.open(key);
@@ -52,17 +62,64 @@ export default async function mount(el, { app, params, query, scope, context, to
     h('button', { role: 'tab', dataset: { kind: id }, title: label + ' (' + (i + 1) + ')', onclick: () => go(id) }, label)));
   const sprintBtn = app.chrome.crumb('Sprint (s)', () => pickSprint());
   sprintBtn.textContent = 'Sprint';
-  const sw = switcher(app, { scope, context, project, board, scrum: true, group: 'Reports', onPick: r => { project = r.project; board = r.board; sprintId = 0; go(kind); } });
+  const sw = switcher(app, { scope, context, project, board, scrum: true, group: 'Reports', onPick: r => { project = r.project; board = r.board; sprintId = 0; compare = ''; go(kind); } });
   context.append(sprintBtn);
   toolbar.append(tabs);
 
   function go(k) {
     kind = k;
-    history.replaceState(null, '', '#/reports/' + k + (project ? '/' + project + (board ? '/' + board.ID : '') : '') + (sprintId ? '?sprint=' + sprintId : ''));
+    const q = new URLSearchParams();
+    if (sprintId) q.set('sprint', sprintId);
+    if (compare) q.set('compare', compare);
+    history.replaceState(null, '', '#/reports/' + k + (project ? '/' + project + (board ? '/' + board.ID : '') : '') + (q.size ? '?' + q : ''));
     document.title = KINDS.find(x => x[0] === k)[1] + ' · laneway';
     load();
   }
   const step = d => { const i = KINDS.findIndex(k => k[0] === kind); go(KINDS[(i + d + KINDS.length) % KINDS.length][0]); };
+
+  // ---- lines: done counts from ui.report_done's column for the board (Jira's resolution when unset); c sets a second.
+  const doneName = () => (board && (app.session.ui.ReportDone || {})[board.ID]) || '';
+  const lines = cols => {
+    const first = app.session.ui.ReportBackwards === 'first';
+    return { done: makeLine(cols, doneName(), first), compare: makeLine(cols, compare, first) };
+  };
+  const colsCache = {};
+  const boardCols = async () => {
+    if (!colsCache[board.ID]) colsCache[board.ID] = app.api.get('/boards/' + board.ID).then(d => (d.config && d.config.Columns) || []);
+    return colsCache[board.ID];
+  };
+  function lineBar() {
+    const on = LINE_KINDS.includes(kind) && !!board, why = on ? '' : (board ? 'Velocity and releases count Jira\'s done' : 'Lines need a board');
+    doneBtn.disabled = cmpBtn.disabled = !on;
+    doneBtn.textContent = 'Done: ' + (doneName() ? doneName() + ' →' : 'Jira');
+    doneBtn.title = why || 'The column done counts from: it and those right of it (d)';
+    cmpBtn.textContent = compare ? 'vs ' + compare + ' ×' : '+ Compare';
+    cmpBtn.title = why || (compare ? 'One line again (c)' : 'Set a second line beside done, for this visit (c)');
+  }
+  async function pickDone() {
+    if (doneBtn.disabled) return;
+    const cols = await boardCols();
+    const items = [{ name: '', text: 'Jira: the resolution date' }, ...cols.map(c => ({ name: c.Name, text: c.Name + ' →' }))];
+    const it = await app.ui.pick({ title: 'Count done from', items, label: x => x.text, current: items.find(x => x.name === doneName()) });
+    if (!it || it.name === doneName()) return;
+    const map = { ...(app.session.ui.ReportDone || {}) };
+    if (it.name) map[board.ID] = it.name; else delete map[board.ID];
+    try { await put(app, 'report_done', { Value: Object.keys(map).length ? map : null }); } catch (e) { return app.ui.errToast(e); }
+    app.session.ui.ReportDone = map;
+    if (compare === it.name) compare = '';
+    go(kind);
+  }
+  async function toggleCompare() {
+    if (cmpBtn.disabled) return;
+    if (compare) { compare = ''; return go(kind); }
+    const cols = (await boardCols()).filter(c => c.Name !== doneName());
+    const it = await app.ui.pick({ title: 'Compare with a line at', items: cols, label: c => c.Name + ' →' });
+    if (it) { compare = it.Name; go(kind); }
+  }
+  // lineQuery is the lines as /reports/cycle and /reports/retro take them.
+  const lineQuery = () => (doneName() ? '&done=' + encodeURIComponent(doneName()) : '') + (compare ? '&compare=' + encodeURIComponent(compare) : '');
+  // byLine says what a chart counts done by, beside its title.
+  const byLine = L => h('span.rp-by', L.done ? 'done = ' + L.done.name + ' →' : 'done = resolved', L.compare ? ' · vs ' + L.compare.name + ' →' : '');
 
   let lastSprints = [];
   async function pickSprint() {
@@ -77,18 +134,19 @@ export default async function mount(el, { app, params, query, scope, context, to
     tabs.querySelectorAll('button').forEach(b => { const on = b.dataset.kind === kind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
     const sprintKind = SPRINT_KINDS.includes(kind);
     sprintBtn.hidden = !sprintKind;
+    lineBar();
     sw.label(project, board);
     const needsBoard = kind !== 'cycle' && kind !== 'releases';
-    if (needsBoard && !board) { clear(body).append(noBoard('Charts', project)); return; }
-    if (!project) { clear(body).append(noBoard('Reports', '')); return; }
-    clear(body).append(h('div.loading', 'Loading…'));
+    if (needsBoard && !board) { show(noBoard('Charts', project)); return; }
+    if (!project) { show(noBoard('Reports', '')); return; }
+    show(h('div.loading', 'Loading…'));
     try {
       const view = await render(kind, fresh);
       if (my !== token) return;
-      clear(body).append(view);
+      show(view);
     } catch (e) {
       if (my !== token) return;
-      clear(body).append(h('div.empty', h('h2', 'Could not load'), h('p', e.message), h('button.btn', { onclick: () => load(true) }, 'Retry')));
+      show(h('div.empty', h('h2', 'Could not load'), h('p', e.message), h('button.btn', { onclick: () => load(true) }, 'Retry')));
     }
   }
   const get = (path, fresh) => app.api.get(path, { fresh });
@@ -105,8 +163,14 @@ export default async function mount(el, { app, params, query, scope, context, to
         return k === 'burndown' ? burndown(d) : k === 'burnup' ? burnup(d) : flow(d);
       }
       case 'velocity': return velocity(await get('/reports/velocity/' + b, fresh));
-      case 'cycle': return cycleView(await get('/reports/cycle/' + encodeURIComponent(project) + '?weeks=' + weeks, fresh));
-      case 'retro': return retro(await get('/reports/retro/' + b + '?n=2', fresh));
+      case 'cycle': {
+        const [d, cols] = await Promise.all([get('/reports/cycle/' + encodeURIComponent(project) + '?weeks=' + weeks + (b ? '&board=' + b + lineQuery() : ''), fresh), b ? boardCols() : []]);
+        return cycleView(d, lines(cols));
+      }
+      case 'retro': {
+        const [d, cols] = await Promise.all([get('/reports/retro/' + b + '?n=2' + lineQuery(), fresh), boardCols()]);
+        return retro(d, lines(cols));
+      }
       case 'releases': return releases(await get('/reports/versions/' + encodeURIComponent(project), fresh));
     }
   }
@@ -116,25 +180,42 @@ export default async function mount(el, { app, params, query, scope, context, to
   const head = (title, sub) => h('div.rp-head', h('h2', title), h('span.rp-sub', sub));
   const noDates = sp => h('div.empty', h('h2', sp.Name), h('p', 'This sprint has no dates, so there is nothing to plot.'));
 
-  function sprintHead(sp) {
+  function sprintHead(sp, L) {
     const s = ms(sp.Start), e = ms(sp.End);
-    return head(sp.Name, (s && e ? shortDate(sp.Start) + ' – ' + shortDate(sp.End) : '') + (sp.State === 'closed' ? ' · closed' : ''));
+    const el = head(sp.Name, (s && e ? shortDate(sp.Start) + ' – ' + shortDate(sp.End) : '') + (sp.State === 'closed' ? ' · closed' : ''));
+    if (L) el.append(byLine(L));
+    return el;
   }
+  // gapArea shades between two stepped series of [t, v], as their lines are drawn.
+  const gapArea = (a, b) => {
+    const pts = [];
+    a.forEach(([t, v], i) => {
+      const w = b[i][1];
+      if (i) pts.push([t, ...pts[pts.length - 1].slice(1)]);
+      pts.push([t, Math.min(v, w), Math.max(v, w)]);
+    });
+    return { type: 'area', pts, color: CMP, opacity: 0.18 };
+  };
 
-  function burndown({ Sprint: sp, Issues: issues = [] }) {
+  function burndown({ Sprint: sp, Issues: issues = [], Columns: cols = [] }) {
     const start = ms(sp.Start), end = ms(sp.End), now = Date.now();
     if (!start || !end) return noDates(sp);
     const { unit, rows } = burnRows(issues);
     const total = rows.reduce((a, r) => a + r.p, 0);
-    if (total === 0) return card('', sprintHead(sp), h('p.dim', 'No issues in this sprint.'));
-    const left = t => rows.reduce((a, r) => a + ((r.added == null || r.added < t) && !(r.res != null && r.res < t) ? r.p : 0), 0);
+    const L = lines(cols);
+    if (total === 0) return card('', sprintHead(sp, L), h('p.dim', 'No issues in this sprint.'));
+    const leftBy = (line, t) => rows.reduce((a, r) => a + ((r.added == null || r.added < t) && !past(line, r.i, t) ? r.p : 0), 0);
+    const left = t => leftBy(L.done, t);
     const added = rows.reduce((a, r) => a + (r.added != null && r.added > start ? r.p : 0), 0);
     const span = Math.max(end - start, DAY), ideal = t => total * (1 - Math.min(Math.max((t - start) / span, 0), 1));
     const ts = sampleTimes(start, end, now);
     const pts = ts.map((t, i) => [t, i === 0 ? left(start) : left(t)]);
+    const before = L.compare && ts.map(t => [t, leftBy(L.compare, t)]);
+    const gap = before ? Math.abs(before[before.length - 1][1] - pts[pts.length - 1][1]) : 0;
+    const [first, last] = order(L.done, L.compare);
     const curLeft = pts[pts.length - 1][1], idealNow = ideal(Math.min(now, end)), d = curLeft - idealNow;
     const pace = total === 0 ? '' : d >= 0.5 ? num(d) + unit + ' behind' : d <= -0.5 ? num(-d) + unit + ' ahead' : 'on track';
-    const max = niceTicks(Math.max(total, ...pts.map(p => p[1]), 1));
+    const max = niceTicks(Math.max(total, ...pts.map(p => p[1]), ...(before || []).map(p => p[1]), 1));
     const wrap = h('div');
     const spec = {
       title: 'Burndown of ' + sp.Name, desc: `${num(curLeft)} of ${num(total)}${unit} left, ideal ${num(idealNow)}. ${pace}`,
@@ -142,60 +223,83 @@ export default async function mount(el, { app, params, query, scope, context, to
       layers: [
         { type: 'line', pts: [[start, total], [end, 0]], color: 'var(--fg-3)', dash: true, width: 1.5 },
         now > start && now < end && { type: 'vline', x: now, color: 'var(--warn)', label: 'today' },
-        { type: 'line', pts, color: 'var(--accent)', area: true, step: true, width: 2.5 },
+        before && gapArea(pts, before),
+        { type: 'line', pts, color: 'var(--accent)', area: !before, step: true, width: 2.5 },
+        before && { type: 'line', pts: before, color: CMP, step: true, width: 2 },
         { type: 'dots', pts: pts.slice(1), color: 'var(--accent)', r: 3, opacity: 1 },
       ].filter(Boolean),
-      targets: pts.map(([t, v]) => ({ x: t, y: v, head: dayName(t), rows: [
-        { color: 'var(--accent)', label: 'Left', value: num(v) + unit, y: v }, { color: 'var(--fg-3)', label: 'Ideal', value: num(ideal(t)) + unit, y: ideal(t) }] })),
-      legend: [{ name: 'Left', color: 'var(--accent)' }, { name: 'Ideal', color: 'var(--fg-3)', dash: true }],
+      targets: pts.map(([t, v], i) => ({ x: t, y: v, head: dayName(t), rows: [
+        { color: 'var(--accent)', label: 'Left', value: num(v) + unit, y: v },
+        before && { color: CMP, label: 'Before ' + L.compare.name, value: num(before[i][1]) + unit, y: before[i][1] },
+        { color: 'var(--fg-3)', label: 'Ideal', value: num(ideal(t)) + unit, y: ideal(t) }].filter(Boolean) })),
+      legend: [{ name: 'Left', color: 'var(--accent)' }, before && { name: 'Before ' + L.compare.name, color: CMP }, { name: 'Ideal', color: 'var(--fg-3)', dash: true }].filter(Boolean),
     };
-    const view = h('div.rp-in', sprintHead(sp),
+    const view = h('div.rp-in', sprintHead(sp, L),
       h('div.rp-stats', stat(num(curLeft) + unit, 'left'), stat(num(total) + unit, 'in sprint'), stat(num(idealNow) + unit, 'ideal today'),
-        pace && stat(pace, 'pace', d >= 0.5 ? 'bad' : d <= -0.5 ? 'ok' : ''), added > 0 && stat('+' + num(added) + unit, 'added after start', 'warn')),
-      card('', wrap), h('p.rp-note', 'Counted by resolution date. Left/right arrows step through the days.'));
+        pace && stat(pace, 'pace', d >= 0.5 ? 'bad' : d <= -0.5 ? 'ok' : ''), added > 0 && stat('+' + num(added) + unit, 'added after start', 'warn'),
+        before && stat(num(gap) + unit, 'past ' + label(first) + ', not ' + label(last), 'cmp')),
+      card('', wrap), h('p.rp-note', lineNote(L) + ' Left/right arrows step through the days.'));
     charts.push(chart(wrap, spec));
-    table = { head: ['Day', unit === 'p' ? 'Points left' : 'Issues left'], rows: pts.map(([, v], i) => [sampleDay(start, i), num(v)]) };
+    table = { head: ['Day', unit === 'p' ? 'Points left' : 'Issues left', ...(before ? ['Before ' + L.compare.name] : [])],
+      rows: pts.map(([, v], i) => [sampleDay(start, i), num(v), ...(before ? [num(before[i][1])] : [])]) };
     return view;
   }
+  // lineNote says what counts as done, for the note under a chart.
+  function lineNote(L) {
+    const done = L.done ? 'Done counts from ' + L.done.name + ' and the columns right of it.' : 'Done is Jira\'s: the resolution date; d picks a column instead.';
+    if (!L.done && !L.compare) return done;
+    return done + (app.session.ui.ReportBackwards === 'first' ? ' An issue moved back still counts.' : ' An issue moved back stops counting.');
+  }
 
-  function burnup({ Sprint: sp, Issues: issues = [] }) {
+  function burnup({ Sprint: sp, Issues: issues = [], Columns: cols = [] }) {
     const start = ms(sp.Start), end = ms(sp.End), now = Date.now();
     if (!start || !end) return noDates(sp);
     const { unit, rows } = burnRows(issues);
+    const L = lines(cols);
+    // [scope, done, past the compared line] at t.
     const at = t => {
-      let s = 0, dn = 0;
-      for (const r of rows) { if (r.added != null && r.added >= t) continue; s += r.p; if (r.res != null && r.res < t) dn += r.p; }
-      return [s, dn];
+      let s = 0, dn = 0, c = 0;
+      for (const r of rows) {
+        if (r.added != null && r.added >= t) continue;
+        s += r.p;
+        if (past(L.done, r.i, t)) dn += r.p;
+        if (L.compare && past(L.compare, r.i, t)) c += r.p;
+      }
+      return [s, dn, c];
     };
     const ts = sampleTimes(start, end, now), data = ts.map(t => [t, ...at(t)]);
-    const top = niceTicks(Math.max(...data.map(d => d[1]), 1)), [, s, dn] = data[data.length - 1];
+    const top = niceTicks(Math.max(...data.map(d => d[1]), 1)), [, s, dn, cn] = data[data.length - 1];
+    const doneS = data.map(d => [d[0], d[2]]), cmpS = L.compare && data.map(d => [d[0], d[3]]);
+    const [first, last] = order(L.done, L.compare);
     const wrap = h('div');
     charts.push(chart(wrap, {
-      title: 'Burnup of ' + sp.Name, desc: `${num(dn)} of ${num(s)}${unit} done`,
+      title: 'Burnup of ' + sp.Name, desc: `${num(dn)} of ${num(s)}${unit} done` + (cmpS ? `, ${num(cn)}${unit} past ${L.compare.name}` : ''),
       x: { min: start, max: Math.max(end, now), ticks: timeTicks(start, Math.max(end, now), 7) }, y: { max: top.max, ticks: top.ticks },
       layers: [
         now > start && now < end && { type: 'vline', x: now, color: 'var(--warn)', label: 'today' },
         { type: 'line', pts: data.map(d => [d[0], d[1]]), color: 'var(--fg-3)', dash: true, step: true },
-        { type: 'line', pts: data.map(d => [d[0], d[2]]), color: 'var(--ok)', area: true, step: true, width: 2.5 },
+        cmpS && gapArea(doneS, cmpS),
+        { type: 'line', pts: doneS, color: 'var(--ok)', area: !cmpS, step: true, width: 2.5 },
+        cmpS && { type: 'line', pts: cmpS, color: CMP, step: true, width: 2 },
       ].filter(Boolean),
-      targets: data.map(d => ({ x: d[0], y: d[2], head: dayName(d[0]), rows: [{ color: 'var(--ok)', label: 'Done', value: num(d[2]) + unit, y: d[2] }, { color: 'var(--fg-3)', label: 'Scope', value: num(d[1]) + unit, y: d[1] }] })),
-      legend: [{ name: 'Done', color: 'var(--ok)' }, { name: 'Scope', color: 'var(--fg-3)', dash: true }],
+      targets: data.map(d => ({ x: d[0], y: d[2], head: dayName(d[0]), rows: [{ color: 'var(--ok)', label: 'Done', value: num(d[2]) + unit, y: d[2] },
+        cmpS && { color: CMP, label: 'Past ' + L.compare.name, value: num(d[3]) + unit, y: d[3] },
+        { color: 'var(--fg-3)', label: 'Scope', value: num(d[1]) + unit, y: d[1] }].filter(Boolean) })),
+      legend: [{ name: 'Done', color: 'var(--ok)' }, cmpS && { name: 'Past ' + L.compare.name, color: CMP }, { name: 'Scope', color: 'var(--fg-3)', dash: true }].filter(Boolean),
     }));
-    table = { head: ['Day', 'Scope', 'Done'], rows: data.map((d, i) => [sampleDay(start, i), num(d[1]), num(d[2])]) };
-    return h('div.rp-in', sprintHead(sp), h('div.rp-stats', stat(num(dn) + unit, 'done'), stat(num(s) + unit, 'scope')), card('', wrap));
+    table = { head: ['Day', 'Scope', 'Done', ...(cmpS ? ['Past ' + L.compare.name] : [])], rows: data.map((d, i) => [sampleDay(start, i), num(d[1]), num(d[2]), ...(cmpS ? [num(d[3])] : [])]) };
+    return h('div.rp-in', sprintHead(sp, L), h('div.rp-stats', stat(num(dn) + unit, 'done'), cmpS && stat(num(cn) + unit, 'past ' + L.compare.name, 'cmp'),
+      cmpS && stat(num(Math.abs(cn - dn)) + unit, 'past ' + label(first) + ', not ' + label(last), 'cmp'), stat(num(s) + unit, 'scope')),
+      card('', wrap), h('p.rp-note', lineNote(L)));
   }
 
   const FLOW = ['var(--cat-new)', 'var(--info)', 'var(--warn)', 'var(--cat-indeterminate)', 'var(--accent)'];
   function flow({ Sprint: sp, Issues: issues = [], Columns: cols = [] }) {
     const start = ms(sp.Start), end = ms(sp.End), now = Date.now();
     if (!start || !end) return noDates(sp);
+    const L = lines(cols);
     const colOf = {};
     cols.forEach((c, i) => (c.StatusIDs || []).forEach(id => { colOf[id] = i; }));
-    const statusAt = (is, t) => {
-      const mv = is.Moves || [];
-      for (let i = mv.length - 1; i >= 0; i--) if (+new Date(mv[i].When) <= t) return mv[i].To;
-      return mv.length ? mv[0].From : is.Status;
-    };
     const color = i => (i === cols.length - 1 ? 'var(--cat-done)' : i === 0 ? FLOW[0] : FLOW[1 + ((i - 1) % 3)]);
     const data = sampleTimes(start, end, now).map(t => {
       const counts = cols.map(() => 0);
@@ -213,16 +317,19 @@ export default async function mount(el, { app, params, query, scope, context, to
       layers.push({ type: 'area', pts: data.map((d, i) => [d[0], lows[i], his[i]]), color: color(k), opacity: 0.85 });
       lows = his;
     }
+    // A line is the edge between its column's band and the one before: the issues in it and right of it.
+    const marks = [L.done, L.compare].filter(Boolean);
+    for (const l of marks) layers.push({ type: 'line', pts: data.map(d => [d[0], d[1].slice(l.at).reduce((a, b) => a + b, 0)]), color: l === L.compare ? CMP : 'var(--fg)', width: 2, dash: true });
     const wrap = h('div');
     charts.push(chart(wrap, {
       title: 'Cumulative flow of ' + sp.Name, desc: 'Issues per board column, day by day.',
       x: { min: start, max: Math.max(end, now), ticks: timeTicks(start, Math.max(end, now), 7) }, y: { max: top.max, ticks: top.ticks },
       layers,
       targets: data.map(d => ({ x: d[0], head: dayName(d[0]), rows: cols.map((c, k) => ({ color: color(k), label: c.Name, value: String(d[1][k]) })).reverse() })),
-      legend: cols.map((c, k) => ({ name: c.Name, color: color(k) })).reverse(),
+      legend: [...cols.map((c, k) => ({ name: c.Name, color: color(k) })).reverse(), ...marks.map(l => ({ name: (l === L.compare ? 'vs ' : 'done ') + l.name + ' →', color: l === L.compare ? CMP : 'var(--fg)', dash: true }))],
     }));
     table = { head: ['Day', ...cols.map(c => c.Name)], rows: data.map((d, i) => [sampleDay(start, i), ...d[1]]) };
-    return h('div.rp-in', sprintHead(sp), card('Issues per column', wrap));
+    return h('div.rp-in', sprintHead(sp, L.done || L.compare ? L : null), card('Issues per column', wrap));
   }
 
   function velocity(vel) {
@@ -251,49 +358,73 @@ export default async function mount(el, { app, params, query, scope, context, to
       card('', wrap));
   }
 
-  function cycleView(list) {
+  // cycleView: with a second line the cycle runs to the line further right and splits at the other (the server counts).
+  function cycleView(list, L) {
+    list = list || [];
     const now = Date.now(), from = now - weeks * 7 * DAY;
+    const split = !!L.compare;
+    const [first, last] = split ? order(L.done, L.compare) : [null, L.done];
+    const end = label(last);
     const cyc = list.filter(i => i.Cycle > 0), cycD = cyc.map(i => toDays(i.Cycle)), leadD = list.map(i => toDays(i.Lead));
+    const actD = cyc.map(i => toDays(i.Cycle - i.Wait)), waitD = cyc.map(i => toDays(i.Wait));
     const weeksBtn = h('button.btn', { title: 'Weeks (W)', onclick: nextWeeks }, weeks + ' weeks');
-    if (!list.length) return h('div.rp-in', head('Cycle time', ''), h('div.empty', 'Nothing resolved in the last ' + weeks + ' weeks.'), weeksBtn);
+    const sub = 'in progress to ' + end;
+    const title = () => { const el = head('Cycle time', sub); if (L.done || L.compare) el.append(byLine(L)); return el; };
+    if (!list.length) return h('div.rp-in', title(), h('div.empty', 'Nothing got to ' + end + ' in the last ' + weeks + ' weeks.'), weeksBtn);
     const p50 = percentile(cycD, 50), p85 = percentile(cycD, 85);
     const top = niceTicks(Math.max(...cycD, p85 * 1.2, 1));
     const wrap = h('div');
+    const bw = (now - from) / 160, t = i => +new Date(i.Resolved);
+    const marks = split
+      ? [{ type: 'bars', bw, items: cyc.flatMap(i => [{ x: t(i), y: toDays(i.Cycle - i.Wait), color: 'var(--accent)' }, { x: t(i), y0: toDays(i.Cycle - i.Wait), y: toDays(i.Cycle), color: CMP }]) }]
+      : [{ type: 'dots', pts: cyc.map(i => [t(i), toDays(i.Cycle)]), color: 'var(--accent)', r: 4 }];
     charts.push(chart(wrap, {
-      title: 'Cycle time', desc: `${cyc.length} resolved issues; half within ${num(p50)} days, 85% within ${num(p85)}.`, nearest: 'xy',
+      title: 'Cycle time', desc: `${cyc.length} issues to ${end}; half within ${num(p50)} days, 85% within ${num(p85)}.`, nearest: 'xy',
       x: { min: from, max: now, ticks: timeTicks(from, now, 7) }, y: { max: top.max, ticks: top.ticks, fmt: v => num(v) + 'd' },
       layers: [
         { type: 'hline', y: p50, color: 'var(--ok)', label: '50% ' + num(p50) + 'd' }, { type: 'hline', y: p85, color: 'var(--warn)', label: '85% ' + num(p85) + 'd' },
-        { type: 'dots', pts: cyc.map(i => [+new Date(i.Resolved), toDays(i.Cycle)]), color: 'var(--accent)', r: 4 },
+        ...marks,
       ],
-      targets: cyc.map(i => ({ x: +new Date(i.Resolved), y: toDays(i.Cycle), head: i.Key + ' ' + i.Summary.slice(0, 50), onclick: () => open(i.Key),
-        rows: [{ label: 'Cycle', value: days(i.Cycle) + ' days', color: 'var(--accent)', y: toDays(i.Cycle) }, { label: 'Lead', value: days(i.Lead) + ' days' }, { label: 'Done', value: dayName(+new Date(i.Resolved)) }] })),
+      targets: cyc.map(i => ({ x: t(i), y: toDays(i.Cycle), head: i.Key + ' ' + i.Summary.slice(0, 50), onclick: () => open(i.Key),
+        rows: [{ label: 'Cycle', value: days(i.Cycle) + ' days', color: 'var(--accent)', y: toDays(i.Cycle) },
+          ...(split ? [{ label: 'To ' + label(first), value: days(i.Cycle - i.Wait) + ' days', color: 'var(--accent)' }, { label: label(first) + ' to ' + end, value: days(i.Wait) + ' days', color: CMP }] : []),
+          { label: 'Lead', value: days(i.Lead) + ' days' }, { label: 'Done', value: dayName(t(i)) }] })),
+      legend: split ? [{ name: 'In progress to ' + label(first), color: 'var(--accent)' }, { name: label(first) + ' to ' + end, color: CMP }] : undefined,
     }));
-    table = { head: ['Issue', 'Resolved', 'Cycle days', 'Lead days'], rows: list.map(i => [i.Key, ymd(+new Date(i.Resolved)), i.Cycle > 0 ? days(i.Cycle) : '', days(i.Lead)]) };
+    table = { head: ['Issue', 'Done', 'Cycle days', 'Lead days', ...(split ? ['Waiting days'] : [])],
+      rows: list.map(i => [i.Key, ymd(t(i)), i.Cycle > 0 ? days(i.Cycle) : '', days(i.Lead), ...(split ? [days(i.Wait)] : [])]) };
     const slow = cyc.slice().sort((a, b) => b.Cycle - a.Cycle).slice(0, 8);
     curItems = slow.map(i => i.Key);
-    return h('div.rp-in', head('Cycle time', 'in progress to done'),
-      h('div.rp-stats', stat(num(p50) + 'd', 'cycle, 50%'), stat(num(p85) + 'd', 'cycle, 85%'), stat(num(percentile(leadD, 50)) + 'd', 'lead, 50%'), stat(num(percentile(leadD, 85)) + 'd', 'lead, 85%'), stat(list.length, 'resolved'), weeksBtn),
+    return h('div.rp-in', title(),
+      h('div.rp-stats', stat(num(p50) + 'd', 'cycle, 50%'), stat(num(p85) + 'd', 'cycle, 85%'),
+        split && stat(num(percentile(actD, 50)) + 'd', 'to ' + label(first) + ', 50%'), split && stat(num(percentile(waitD, 50)) + 'd', label(first) + ' to ' + end + ', 50%', 'cmp'),
+        split && stat(num(percentile(waitD, 85)) + 'd', label(first) + ' to ' + end + ', 85%', 'cmp'),
+        stat(num(percentile(leadD, 50)) + 'd', 'lead, 50%'), stat(num(percentile(leadD, 85)) + 'd', 'lead, 85%'), stat(list.length, 'done'), weeksBtn),
       card('', wrap),
-      card('Slowest', h('ul.rp-list', slow.map((i, n) => h('li', { class: n === 0 ? 'cur' : '', dataset: { key: i.Key }, onclick: () => open(i.Key) }, h('span.key', i.Key), h('span.sum', i.Summary), h('span.dim', days(i.Cycle) + ' days'))))),
-      h('p.rp-note', 'Lead time runs from created to done; cycle time from first in progress.'));
+      card('Slowest', h('ul.rp-list', slow.map((i, n) => h('li', { class: n === 0 ? 'cur' : '', dataset: { key: i.Key }, onclick: () => open(i.Key) }, h('span.key', i.Key), h('span.sum', i.Summary),
+        h('span.dim', days(i.Cycle) + ' days' + (split ? ', ' + days(i.Wait) + ' after ' + label(first) : '')))))),
+      h('p.rp-note', 'Lead time runs from created to ' + end + '; cycle time from first in progress.' + (split ? ' The cycle runs to the line further right; the bar changes colour at the other.' : '')));
   }
   function nextWeeks() { const w = [4, 8, 12, 26]; weeks = w[(w.indexOf(weeks) + 1) % w.length]; load(); }
 
-  function retro({ Sprints: rs = [], Cards: cards = {} }) {
+  function retro({ Sprints: rs = [], Cards: cards = {} }, L) {
     if (!rs.length) return h('div.empty', h('h2', 'Retro'), h('p', 'No closed sprints yet.'));
     const last = rs[rs.length - 1], n = k => (k || []).length;
-    const metric = [['Committed', r => n(r.Committed)], ['Added during', r => n(r.Added)], ['Done', r => n(r.Done)], ['Carried over', r => n(r.Carried)], ['Moved backwards', r => n(r.Back)], ['Points done', r => num(r.DonePoints) + ' of ' + num(r.Points)]];
+    const [left, right] = order(L.done, L.compare), between = L.compare && 'Past ' + label(left) + ', not ' + label(right);
+    const metric = [['Committed', r => n(r.Committed)], ['Added during', r => n(r.Added)], ['Done', r => n(r.Done)], ['Carried over', r => n(r.Carried)], ['Moved backwards', r => n(r.Back)], ['Points done', r => num(r.DonePoints) + ' of ' + num(r.Points)],
+      ...(between ? [[between, r => n(r.Between)]] : [])];
     const list = (title, keys, cls) => keys && keys.length ? card(title + ' (' + keys.length + ')', h('ul.rp-list', keys.map(k => {
       const c = cards[k] || {};
       return h('li', { dataset: { key: k }, onclick: () => open(k) }, h('span.key', k), h('span.sum', c.Summary || ''), c.Status && h('span.dim', c.Status));
     }))) : null;
-    curItems = [...(last.Carried || []), ...(last.Done || [])];
+    curItems = [...(last.Carried || []), ...(last.Done || []), ...(between ? last.Between || [] : [])];
     table = { head: ['', ...rs.map(r => r.Name)], rows: metric.map(([label, f]) => [label, ...rs.map(f)]) };
-    return h('div.rp-in', head('Retro: ' + last.Name, shortDate(last.Start) + ' – ' + shortDate(last.End)),
+    const top = head('Retro: ' + last.Name, shortDate(last.Start) + ' – ' + shortDate(last.End));
+    if (L.done || L.compare) top.append(byLine(L));
+    return h('div.rp-in', top,
       card('', h('table', h('thead', h('tr', h('th', ''), rs.map(r => h('th.n', r.Name)))),
         h('tbody', metric.map(([label, f]) => h('tr', h('td', label), rs.map(r => h('td.n', f(r)))))))),
-      h('div.rp-grid', list('Shipped', last.Done), list('Slipped', last.Carried), list('Added during the sprint', last.Added), list('Moved backwards', last.Back)));
+      h('div.rp-grid', list('Shipped', last.Done), list('Slipped', last.Carried), between && list(between, last.Between), list('Added during the sprint', last.Added), list('Moved backwards', last.Back)));
   }
 
   function releases(vs) {
@@ -340,6 +471,8 @@ export default async function mount(el, { app, params, query, scope, context, to
   KINDS.forEach(([id], i) => scope.bind(String(i + 1), () => go(id), 'report ' + (i + 1), { hidden: true }));
   scope.bind('s', () => { if (SPRINT_KINDS.includes(kind)) pickSprint(); }, 'pick sprint', { group: 'Reports', bar: 'sprint' });
   scope.bind('W', () => { if (kind === 'cycle') nextWeeks(); }, 'cycle time: weeks', { group: 'Reports' });
+  scope.bind('d', () => pickDone(), 'the column done counts from', { group: 'Reports', bar: 'done' });
+  scope.bind('c', () => toggleCompare(), 'a second line beside done (again: remove it)', { group: 'Reports', bar: 'compare' });
   scope.bind('R', () => load(true), 'reload', { group: 'Reports' });
   scope.bind('y', () => {
     if (!table || !table.rows.length) return app.ui.toast('Nothing to copy here');

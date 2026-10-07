@@ -53,7 +53,7 @@ func Probe(ctx context.Context, c *jira.Client, project string) []error {
 	try("Versions", ignore(c.Versions(ctx, project)))
 	try("ProjectUsers", ignore(c.ProjectUsers(ctx, project)))
 	try("CommentVisibilities", ignore(c.CommentVisibilities(ctx, project)))
-	try("CycleTimes", ignore(c.CycleTimes(ctx, project, 8)))
+	try("CycleTimes", ignore(c.CycleTimes(ctx, project, 8, nil, nil)))
 	try("Roadmap", ignore(c.Roadmap(ctx, project, "Epic", 30)))
 
 	var cards []jira.Card
@@ -87,7 +87,7 @@ func Probe(ctx context.Context, c *jira.Client, project string) []error {
 		}
 		try("ClosedSprints", ignore(c.ClosedSprints(ctx, b)))
 		try("Velocity", ignore(c.Velocity(ctx, b, 4, pf)))
-		try("Retro", ignore(c.Retro(ctx, b, 3, pf)))
+		try("Retro", ignore(c.Retro(ctx, b, 3, pf, nil, nil)))
 	}
 
 	jql := fmt.Sprintf("project = %s ORDER BY updated DESC", project)

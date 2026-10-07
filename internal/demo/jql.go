@@ -125,6 +125,9 @@ func (s *Server) clause(c string) func(*issue) bool {
 	case "parent", `"epic link"`:
 		return func(i *issue) bool { return in(vals, i.parent) }
 	case "status":
+		if strings.Contains(low, " changed") {
+			return nil // history: every issue may have moved
+		}
 		return func(i *issue) bool { return in(vals, i.status.name) }
 	case "priority":
 		if op := strings.TrimSpace(strings.TrimPrefix(low, field)); strings.HasPrefix(op, ">") || strings.HasPrefix(op, "<") {

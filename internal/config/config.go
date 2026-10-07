@@ -176,6 +176,14 @@ type UIConfig struct {
 	// VelocitySprints is how many closed sprints the velocity chart shows
 	// (default 8).
 	VelocitySprints int `yaml:"velocity_sprints"`
+	// ReportDone is the column the charts count as done from, by board id
+	// ({"12": "In review"}: that column and the ones right of it); a board
+	// not named counts Jira's resolution.
+	ReportDone map[string]string `yaml:"report_done"`
+	// ReportBackwards is how the charts count an issue moved back before
+	// the done line: "live" (no longer done) or "first" (done since its
+	// first crossing).
+	ReportBackwards string `yaml:"report_backwards"`
 	// Templates are the description a new issue starts with, by issue
 	// type name (markdown).
 	Templates map[string]string `yaml:"templates"`

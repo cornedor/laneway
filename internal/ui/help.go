@@ -175,6 +175,8 @@ func (m *Model) helpSections() []struct {
 		}},
 		section{"Charts", []helpRow{
 			{helpKey(k.Tab) + " / " + join(k.PrevView, k.NextView), "next chart / previous / next"},
+			row(k.ChartDone, "the column done counts from: it and those right of it (ui.report_done); Jira's resolution by default"),
+			row(k.ChartCompare, "a second line beside done, till you leave; again removes it"),
 			row(k.CopyKey, "copy the numbers as a table"),
 			row(k.Refresh, "refresh"),
 			{"esc / " + helpKey(k.Quit), "back to the board"},

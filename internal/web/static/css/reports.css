@@ -12,6 +12,13 @@
 .rp-card h3 { margin: 0 0 var(--pad); color: var(--fg-2); font-size: .85em; text-transform: uppercase; letter-spacing: .05em; }
 .rp-grid { display: grid; gap: calc(var(--pad) * 2); grid-template-columns: repeat(auto-fit, minmax(22.857rem, 1fr)); }
 .rp-note { color: var(--fg-3); font-size: .9em; }
+.rp-lines { display: flex; gap: .429rem; flex-wrap: wrap; }
+.rp-line { font: inherit; font-size: .929em; color: var(--fg-2); background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: .143rem .714rem; cursor: pointer; white-space: nowrap; }
+.rp-line:hover:not(:disabled) { color: var(--fg); background: var(--bg-3); }
+.rp-line.cmp { border-color: var(--info); }
+.rp-line:disabled { opacity: .5; cursor: default; }
+.rp-by { color: var(--fg-3); font-size: .929em; }
+.rp-stat.cmp b { color: var(--info); }
 
 .rp table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .rp th, .rp td { text-align: left; padding: .357rem .714rem; border-bottom: 1px solid var(--border); }

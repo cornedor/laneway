@@ -387,14 +387,18 @@ func reportRetro(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	rs, err := s.Client().Retro(ctx, id, sprintCount(r, 2), boardPoints(ctx, s, id))
+	done, compare, err := reportLines(ctx, s, r, id)
+	if err != nil {
+		return nil, err
+	}
+	rs, err := s.Client().Retro(ctx, id, sprintCount(r, 2), boardPoints(ctx, s, id), done, compare)
 	if err != nil {
 		return nil, err
 	}
 	// A retro lists keys; a reader wants summaries.
 	var keys []string
 	for _, sp := range rs {
-		for _, list := range [][]string{sp.Done, sp.Carried, sp.Added, sp.Back} {
+		for _, list := range [][]string{sp.Done, sp.Carried, sp.Added, sp.Back, sp.Between} {
 			for _, k := range list {
 				if !slices.Contains(keys, k) && jira.ValidKey(k) {
 					keys = append(keys, k)
@@ -420,7 +424,27 @@ func reportCycle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if n, err := strconv.Atoi(Q(r, "weeks")); err == nil && n > 0 && n <= 52 {
 		weeks = n
 	}
-	return s.Client().CycleTimes(ctx, r.PathValue("project"), weeks)
+	board, _ := strconv.Atoi(Q(r, "board"))
+	done, compare, err := reportLines(ctx, s, r, board)
+	if err != nil {
+		return nil, err
+	}
+	return s.Client().CycleTimes(ctx, r.PathValue("project"), weeks, done, compare)
+}
+
+// reportLines are the lines a chart counts by: ?done= (a column of the
+// board; none for Jira's resolution) and ?compare=, a second one or none.
+func reportLines(ctx context.Context, s *Server, r *http.Request, board int) (done, compare *jira.Line, err error) {
+	dn, cmp := Q(r, "done"), Q(r, "compare")
+	if dn == "" && cmp == "" || board == 0 {
+		return nil, nil, nil
+	}
+	cfg, err := s.Client().BoardConfiguration(ctx, board)
+	if err != nil {
+		return nil, nil, err
+	}
+	first := s.UIConfig().ReportBackwards == "first"
+	return jira.NewLine(cfg.Columns, dn, first), jira.NewLine(cfg.Columns, cmp, first), nil
 }
 
 func roadmap(ctx context.Context, s *Server, r *http.Request) (any, error) {

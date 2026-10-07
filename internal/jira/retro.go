@@ -13,8 +13,11 @@ type RetroSprint struct {
 	Name       string
 	Start, End time.Time
 	// Committed are the issues in it at the start, Added those joining
-	// after; Done what was resolved by its end, Carried the rest.
+	// after; Done what was past the done line by its end, Carried the rest.
 	Committed, Added, Done, Carried []string
+	// Between are those past the left of two lines but not the right one
+	// by its end, with a second line set.
+	Between []string
 	// Points in it and done by its end.
 	Points, DonePoints float64
 	// Back are the issues that moved to an earlier status category during
@@ -22,8 +25,9 @@ type RetroSprint struct {
 	Back []string
 }
 
-// Retro is the board's last n closed sprints, oldest first.
-func (c *Client) Retro(ctx context.Context, board, n int, pointsField string) ([]RetroSprint, error) {
+// Retro is the board's last n closed sprints, oldest first. done is the
+// line that counts as done, nil for Jira's; compare a second line, or nil.
+func (c *Client) Retro(ctx context.Context, board, n int, pointsField string, done, compare *Line) ([]RetroSprint, error) {
 	if !c.Enabled() {
 		return nil, errNotConfigured
 	}
@@ -76,7 +80,10 @@ func (c *Client) Retro(ctx context.Context, board, n int, pointsField string) ([
 				} else {
 					r.Committed = append(r.Committed, is.Key)
 				}
-				if !is.Resolved.IsZero() && !is.Resolved.After(end) {
+				if left, right := Order(done, compare); compare != nil && left.Past(is, end) && !right.Past(is, end) {
+					r.Between = append(r.Between, is.Key)
+				}
+				if done.Past(is, end) {
 					r.Done = append(r.Done, is.Key)
 					r.DonePoints += is.Points
 				} else {

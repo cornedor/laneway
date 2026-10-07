@@ -29,12 +29,22 @@ func TestRetro(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	got, err := c.Retro(context.Background(), 1, 2, "")
+	got, err := c.Retro(context.Background(), 1, 2, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s2 := got[1]
 	if len(got) != 2 || s2.Name != "S2" || strings.Join(s2.Done, ",") != "A-1" || strings.Join(s2.Carried, ",") != "A-2" || strings.Join(s2.Back, ",") != "A-1" {
 		t.Errorf("S2 = %+v", s2)
+	}
+	// Done by the Doing line (A-1's history ends in to do), with Done as
+	// a second line: A-2 is past Doing, not Done.
+	cols := []Column{{Name: "To Do", StatusIDs: []string{"1"}}, {Name: "Doing", StatusIDs: []string{"3"}}, {Name: "Done", StatusIDs: []string{"5"}}}
+	got, err = c.Retro(context.Background(), 1, 2, "", NewLine(cols, "Doing", false), NewLine(cols, "Done", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s2 := got[1]; strings.Join(s2.Done, ",") != "A-2" || strings.Join(s2.Carried, ",") != "A-1" || strings.Join(s2.Between, ",") != "A-2" {
+		t.Errorf("S2 by lines = %+v", s2)
 	}
 }

@@ -57,6 +57,7 @@ type keyMap struct {
 	Roadmap, Palette, Mark, Bulk, Plan key.Binding
 	MarkAll, Undo                      key.Binding
 	Charts, LogWork, Timer, Timesheet  key.Binding
+	ChartDone, ChartCompare            key.Binding
 	JiraDescription, Inbox             key.Binding
 	IssueActions, Site, Standup        key.Binding
 	History, DevInfo, JQL, Pin         key.Binding
@@ -152,6 +153,8 @@ func defaultKeys() keyMap {
 		Bulk:            bind("edit marked cards", "B"),
 		Plan:            bind("sprint planning", "P"),
 		Charts:          bind("sprint charts", "C"),
+		ChartDone:       bind("charts: the column done counts from", "d"),
+		ChartCompare:    bind("charts: a second line beside done", "c"),
 		LogWork:         bind("log work", "w"),
 		JiraDescription: bind("edit description", "E"),
 		Timer:           bind("start / stop the timer", "T"),

@@ -31,6 +31,8 @@ var SettingDefaults = map[string]string{
 	"lane_layouts":         "none",
 	"stale_days":           "5",
 	"velocity_sprints":     "8",
+	"report_done":          "Jira's resolution",
+	"report_backwards":     "live",
 	"templates":            "none",
 	"timer_on_start":       "off",
 	"start_assigns":        "off",
@@ -99,7 +101,7 @@ var SettingGroups = []SettingGroup{
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity", "calendar", "meeting_key"}},
 	{"Start work and agents", []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
-	{"Planning, roadmap and charts", []string{"velocity_sprints", "roadmap_epic_type", "roadmap_done_days"}},
+	{"Planning, roadmap and charts", []string{"velocity_sprints", "report_done", "report_backwards", "roadmap_epic_type", "roadmap_done_days"}},
 	{"Inbox", []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
 	{"Standup", []string{"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer"}},
 	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "web_keys", "delight", "skin_tone"}},
@@ -129,6 +131,8 @@ var SettingDocs = map[string]string{
 	"lane_layouts":         "your own lanes over a board's columns: stacked, reordered, renamed, hidden; alt+l switches",
 	"stale_days":           "days in progress before a card's age shows red",
 	"velocity_sprints":     "how many closed sprints the velocity chart shows",
+	"report_done":          "the column the charts count as done from, by board id: {\"12\": In review}; d on the charts picks it",
+	"report_backwards":     "an issue moved back before the done line: live (no longer done) or first (done since it first got there)",
 	"templates":            "the description a new issue starts with, by type (markdown)",
 	"timer_on_start":       "start the timer when S starts work on an issue",
 	"start_assigns":        "assign the issue to you when S starts work on it",
@@ -206,6 +210,8 @@ func SettingChoices(name string) []string {
 		return []string{"off", "on"}
 	case "standup_start":
 		return []string{"everyone", "first"}
+	case "report_backwards":
+		return []string{"live", "first"}
 	}
 	return nil
 }

@@ -30,6 +30,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"rank_up": &k.RankUp, "rank_down": &k.RankDown, "rank_top": &k.RankTop, "rank_bottom": &k.RankBottom, "next_comment": &k.NextComment, "prev_comment": &k.PrevComment, "delete_comment": &k.DeleteComment, "standup_pause": &k.StandupPause, "standup_shuffle": &k.StandupShuffle, "standup_park": &k.StandupPark, "inbox_done": &k.InboxDone, "inbox_done_all": &k.InboxDoneAll, "inbox_unread": &k.InboxUnread, "inbox_snooze": &k.InboxSnooze, "agent_prompt": &k.AgentPrompt, "agent_stop": &k.AgentStop,
 		"roadmap_grip": &k.RoadmapGrip, "roadmap_fold": &k.RoadmapFold, "zoom_in": &k.ZoomIn, "zoom_out": &k.ZoomOut, "today": &k.Today,
 		"end_earlier": &k.EndEarlier, "end_later": &k.EndLater, "roadmap_issues": &k.RoadmapIssues, "roadmap_edit": &k.RoadmapEdit,
+		"chart_done": &k.ChartDone, "chart_compare": &k.ChartCompare,
 		"edit_entry": &k.EditEntry, "delete_entry": &k.DeleteEntry, "propose_work": &k.ProposeWork,
 	}
 }
@@ -91,7 +92,7 @@ var keyScopes = []struct {
 		"move_left", "move_right", "end_earlier", "end_later", "zoom_in", "zoom_out", "today", "refresh", "roadmap_issues",
 		"create", "browser", "open", "toggle_panel", "copy_key", "help", "search", "undo", "roadmap_edit",
 	}},
-	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts"}},
+	{"charts", []string{"prev_view", "next_view", "refresh", "copy_key", "help", "quit", "charts", "chart_done", "chart_compare"}},
 	{"timesheet", []string{"prev_view", "next_view", "copy_key", "edit_entry", "delete_entry", "propose_work", "timesheet"}},
 	{"standup", []string{"up", "down", "left", "right", "open", "fold", "assignee_filter", "standup_pause", "standup_shuffle", "standup_park", "prev_view", "next_view", "copy_key", "refresh", "help", "quit", "standup"}},
 	{"inbox", []string{"up", "down", "top", "bottom", "page_up", "page_down", "open", "browser", "comment", "reply", "inbox_done", "inbox_done_all", "inbox_unread", "inbox_snooze", "copy_key", "refresh", "help", "quit", "inbox"}},

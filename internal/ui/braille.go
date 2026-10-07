@@ -83,29 +83,44 @@ func (c *brailleCanvas) rows() []string {
 // overlay draws fg over bg, the two the same size: a cell with any of fg's
 // dots in fgStyle (bg's dots merged in), else bg's in bgStyle.
 func overlay(fg, bg *brailleCanvas, fgStyle, bgStyle lipgloss.Style) []string {
-	out := make([]string, fg.h)
-	for r := range fg.h {
+	return layered([]*brailleCanvas{fg, bg}, []lipgloss.Style{fgStyle, bgStyle})
+}
+
+// layered draws canvases of one size over each other, the first on top: a
+// cell takes the style of the first canvas with a dot in it, and the dots
+// of all.
+func layered(cs []*brailleCanvas, styles []lipgloss.Style) []string {
+	top := cs[0]
+	out := make([]string, top.h)
+	for r := range top.h {
 		var line []rune
-		var fgRun bool
+		run := -1
 		flush := func(to *string) {
 			if len(line) == 0 {
 				return
 			}
-			st := bgStyle
-			if fgRun {
-				st = fgStyle
+			st := styles[len(styles)-1] // blanks as the bottom canvas
+			if run >= 0 {
+				st = styles[run]
 			}
 			*to += st.Render(string(line))
 			line = line[:0]
 		}
-		for i := range fg.w {
-			f, b := fg.cells[r*fg.w+i], bg.cells[r*fg.w+i]
-			on := f != 0x2800
-			if on != fgRun {
-				flush(&out[r])
-				fgRun = on
+		for i := range top.w {
+			var ch rune = 0x2800
+			on := -1
+			for k, c := range cs {
+				if d := c.cells[r*top.w+i]; d != 0x2800 {
+					ch |= d
+					if on < 0 {
+						on = k
+					}
+				}
 			}
-			ch := f | b
+			if on != run {
+				flush(&out[r])
+				run = on
+			}
 			if ch == 0x2800 {
 				ch = ' '
 			}

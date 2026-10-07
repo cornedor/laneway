@@ -269,6 +269,9 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	default:
 		o.velocitySprints = n
 	}
+	if b := c.ReportBackwards; b != "" && b != "live" && b != "first" {
+		warn = append(warn, fmt.Sprintf("ui.report_backwards: %q is not live or first", b))
+	}
 	for typ, md := range c.Templates {
 		if o.templates == nil {
 			o.templates = map[string]string{}

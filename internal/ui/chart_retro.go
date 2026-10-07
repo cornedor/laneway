@@ -13,7 +13,7 @@ import (
 // backwards — and which issues those were.
 
 // retroTable is the comparison as rows: a metric, then a column a sprint.
-func retroTable(rs []jira.RetroSprint) ([]string, [][]string) {
+func retroTable(rs []jira.RetroSprint, ln chartLines) ([]string, [][]string) {
 	head := []string{""}
 	for _, r := range rs {
 		head = append(head, r.Name)
@@ -36,16 +36,25 @@ func retroTable(rs []jira.RetroSprint) ([]string, [][]string) {
 			return chartNum(r.DonePoints) + " of " + chartNum(r.Points)
 		}),
 	}
+	if ln.compare != nil {
+		rows = append(rows, metric(betweenName(ln), func(r jira.RetroSprint) string { return n(r.Between) }))
+	}
 	return head, rows
 }
 
-func renderRetro(rs []jira.RetroSprint, width int) string {
+// betweenName names the issues past the left of two lines, not the right.
+func betweenName(ln chartLines) string {
+	first, last := jira.Order(ln.done, ln.compare)
+	return "past " + first.Label() + ", not " + last.Label()
+}
+
+func renderRetro(rs []jira.RetroSprint, ln chartLines, width int) string {
 	if len(rs) == 0 {
 		return refDimStyle.Render("no closed sprints yet")
 	}
 	last := rs[len(rs)-1]
-	head, rows := retroTable(rs)
-	lines := []string{jiraViewActive.Render("Retro — "+last.Name) + jiraDimStyle.Render(fmt.Sprintf("  %s – %s", last.Start.Local().Format("2 Jan"), last.End.Local().Format("2 Jan"))), ""}
+	head, rows := retroTable(rs, ln)
+	lines := []string{jiraViewActive.Render("Retro — "+last.Name) + jiraDimStyle.Render(fmt.Sprintf("  %s – %s · %s", last.Start.Local().Format("2 Jan"), last.End.Local().Format("2 Jan"), ln.by())), ""}
 	colW, nameW := 14, 18
 	cell := func(s string) string { return fmt.Sprintf("%-*s", colW, truncate(s, colW-1)) }
 	h := strings.Repeat(" ", nameW)
@@ -73,5 +82,8 @@ func renderRetro(rs []jira.RetroSprint, width int) string {
 	list("carried over", last.Carried)
 	list("added during", last.Added)
 	list("moved backwards", last.Back)
+	if ln.compare != nil {
+		list(betweenName(ln), last.Between)
+	}
 	return strings.Join(lines, "\n")
 }

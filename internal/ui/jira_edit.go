@@ -134,6 +134,10 @@ const (
 	jiraPickMRPeople
 	jiraPickMRLabels
 	jiraPickMRMerge
+	// jiraPickChartDone is the column the charts count done from,
+	// jiraPickChartCompare where a second line goes (chart_lines.go).
+	jiraPickChartDone
+	jiraPickChartCompare
 )
 
 // jiraPickerItem is one selectable row. id is the value handed to the mutation
@@ -1022,6 +1026,10 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickHome {
 		return m.applyHomePick(it)
+	}
+	if kind == jiraPickChartDone || kind == jiraPickChartCompare {
+		m.applyChartLine(kind == jiraPickChartCompare, it.id)
+		return m, m.loadCharts()
 	}
 	if kind == jiraPickQueue {
 		return m.applyQueuePick(it)

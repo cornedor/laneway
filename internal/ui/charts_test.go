@@ -21,13 +21,13 @@ func TestBurnSeries(t *testing.T) {
 		{Points: 3, Resolved: start.AddDate(0, 0, 2)},
 		{Points: 2},
 	}
-	total, added, left := burnSeries(issues, start, end, now)
+	total, added, left := burnSeries(issues, nil, start, end, now)
 	if total != 10 || added != 0 || !slices.Equal(left, []float64{5, 5, 2}) {
 		t.Errorf("total %v, added %v, left %v", total, added, left)
 	}
 	// An issue added on day 2 counts from then.
 	issues = append(issues, jira.BurnIssue{Points: 4, Added: start.AddDate(0, 0, 1).Add(time.Hour)})
-	total, added, left = burnSeries(issues, start, end, now)
+	total, added, left = burnSeries(issues, nil, start, end, now)
 	if total != 14 || added != 4 || !slices.Equal(left, []float64{5, 9, 6}) {
 		t.Errorf("with scope: total %v, added %v, left %v", total, added, left)
 	}
@@ -41,7 +41,7 @@ func TestBurnSeriesLocalDays(t *testing.T) {
 	t.Cleanup(func() { time.Local = local })
 	start := time.Date(2026, 9, 13, 23, 0, 0, 0, time.UTC) // Mon 14 Sep 08:00 JST
 	resolved := start.Add(90 * time.Minute)                // Mon 09:30 JST, Mon 00:30 UTC
-	_, _, left := burnSeries([]jira.BurnIssue{{Points: 3, Resolved: resolved}, {Points: 1}}, start, start.AddDate(0, 0, 4), start.AddDate(0, 0, 1))
+	_, _, left := burnSeries([]jira.BurnIssue{{Points: 3, Resolved: resolved}, {Points: 1}}, nil, start, start.AddDate(0, 0, 4), start.AddDate(0, 0, 1))
 	if !slices.Equal(left, []float64{1, 1}) {
 		t.Errorf("left %v, want the resolution on day 0", left)
 	}
@@ -109,7 +109,7 @@ func TestBurnupSeries(t *testing.T) {
 		{Points: 5, Resolved: start.Add(2 * time.Hour)},
 		{Points: 3, Added: start.AddDate(0, 0, 1).Add(time.Hour)},
 	}
-	scope, done := burnupSeries(issues, start, start.AddDate(0, 0, 14), start.AddDate(0, 0, 1).Add(2*time.Hour))
+	scope, done := burnupSeries(issues, nil, start, start.AddDate(0, 0, 14), start.AddDate(0, 0, 1).Add(2*time.Hour))
 	if !slices.Equal(scope, []float64{5, 8}) || !slices.Equal(done, []float64{5, 5}) {
 		t.Errorf("scope %v done %v", scope, done)
 	}
@@ -194,8 +194,8 @@ func TestCycleChart(t *testing.T) {
 		{Key: "ABC-2", Summary: "Slow", Resolved: now.Add(-5 * day), Cycle: 9 * day, Lead: 20 * day},
 		{Key: "ABC-3", Summary: "Never started", Resolved: now.Add(-2 * day), Lead: day},
 	}
-	out := ansi.Strip(renderCycle(issues, now, 100, 30))
-	for _, want := range []string{"3 resolved in 8 weeks", "50% within 1.0 days, 85% within 9.0", "●", "85%", "slowest", "ABC-2  9.0 days  Slow"} {
+	out := ansi.Strip(renderCycle(issues, chartLines{}, now, 100, 30))
+	for _, want := range []string{"3 done in 8 weeks", "50% within 1.0 days, 85% within 9.0", "●", "85%", "slowest", "ABC-2  9.0 days  Slow"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("no %q:\n%s", want, out)
 		}
@@ -214,7 +214,7 @@ func TestRetroChart(t *testing.T) {
 		{Name: "S1", Committed: []string{"A-1", "A-2"}, Done: []string{"A-1", "A-2"}, Points: 5, DonePoints: 5},
 		{Name: "S2", Committed: []string{"A-3"}, Added: []string{"A-4"}, Done: []string{"A-3"}, Carried: []string{"A-4"}, Back: []string{"A-3"}, Points: 8, DonePoints: 3},
 	}
-	out := ansi.Strip(renderRetro(rs, 100))
+	out := ansi.Strip(renderRetro(rs, chartLines{}, 100))
 	for _, want := range []string{"Retro — S2", "S1", "carried over      0             1", "moved backwards   0", "points done       5 of 5        3 of 8", "carried over  A-4", "moved backwards  A-3"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("no %q:\n%s", want, out)
@@ -233,14 +233,14 @@ func TestBurndownPace(t *testing.T) {
 	start := time.Now().AddDate(0, 0, -7)
 	v := jiraView{name: "Sprint 1", start: start, end: start.AddDate(0, 0, 14)}
 	issues := []jira.BurnIssue{{Points: 10}, {Points: 10}} // half the sprint gone, nothing done
-	got := ansi.Strip(renderBurndown(v, issues, time.Now(), 80, 20))
+	got := ansi.Strip(renderBurndown(v, issues, chartLines{}, time.Now(), 80, 20))
 	for _, want := range []string{"20 of 20p left · ideal 10p · 10p behind", "⣿ left", "⠉ ideal", "▲ today"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("burndown lacks %q:\n%s", want, got)
 		}
 	}
 	issues[0].Resolved, issues[1].Resolved = start.Add(time.Hour), start.Add(time.Hour)
-	if got := ansi.Strip(renderBurndown(v, issues, time.Now(), 80, 20)); !strings.Contains(got, "10p ahead") {
+	if got := ansi.Strip(renderBurndown(v, issues, chartLines{}, time.Now(), 80, 20)); !strings.Contains(got, "10p ahead") {
 		t.Errorf("all done early:\n%s", got)
 	}
 }

@@ -13,7 +13,7 @@ const TABLE = {
     B: 'board', '[': 'prev_view', ']': 'next_view', m: 'mine', A: 'assignee_filter', 0: 'clear_filters', F: 'filter_builder', Y: 'copy_url', 'ctrl+y': 'copy_branch',
     '*': 'pin', z: 'fold', Z: 'unfold_all', c: 'compact', 'alt+e': 'empty_lanes', 'alt+l': 'lane_layout', '.': 'repeat', 'alt+t': 'time_machine', 'alt+o': 'closed_sprint', M: 'move_sprint', E: 'quick_edit', V: 'releases' },
   planning: { ...COMMON, h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', Home: 'top', End: 'bottom', PageDown: 'page_down', PageUp: 'page_up', o: 'browser', J: 'rank_down', K: 'rank_up', m: 'move_sprint', x: 'mark', N: 'plan_new', Z: 'plan_start', C: 'plan_complete', E: 'plan_rename', P: 'points', B: 'board', 'alt+p': 'project', Enter: 'open', R: 'refresh', e: 'quick_edit', X: 'bulk', O: 'sort', F: 'filter_builder' },
-  reports: { ...COMMON, R: 'refresh', Enter: 'open', '[': 'prev_view', ']': 'next_view' },
+  reports: { ...COMMON, R: 'refresh', Enter: 'open', '[': 'prev_view', ']': 'next_view', d: 'chart_done', c: 'chart_compare' },
   roadmap: { ...COMMON, Home: 'top', End: 'bottom', o: 'browser', h: 'left', ArrowLeft: 'left', l: 'right', ArrowRight: 'right', '+': 'zoom_in', '-': 'zoom_out', '.': 'today', Space: 'roadmap_fold', R: 'refresh', Enter: 'open',
     H: 'move_left', L: 'move_right', '<': 'end_earlier', '>': 'end_later', e: 'roadmap_grip', f: 'roadmap_issues', E: 'roadmap_edit', Y: 'copy_url' },
   work: { ...COMMON, r: 'refresh', o: 'browser', h: 'prev_view', l: 'next_view', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'open', e: 'edit_entry', d: 'delete_entry', p: 'propose_work' },
