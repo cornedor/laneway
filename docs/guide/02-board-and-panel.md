@@ -80,13 +80,15 @@ The [search reference](../reference/search.md) has every field.
 
 === "Terminal"
 
-    `s` steps the sort, or the swimlanes. A folded column keeps its header
-    in place, with a ▸.
+    `s` steps the sort, or the swimlanes. In the list a click on a column
+    header sorts by it, again reverses it, a third time goes back to rank.
+    A folded column keeps its header in place, with a ▸.
 
 === "Browser"
 
     `O` steps the sort, or the swimlanes; in the list `C` picks the
-    columns, and a click on a column header sorts by it. Folded stacked
+    columns, and a click on a column header sorts by it, again reverses
+    it, a third time goes back to rank. Folded stacked
     columns line up under the lane's head; a click unfolds one. The ›
     beside a lane's name collapses it to a thin bar until clicked again.
 

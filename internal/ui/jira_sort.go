@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -68,6 +70,42 @@ func (s jiraSort) apply(order []int, cards []jira.Card) {
 	if cmp := s.cmp(); cmp != nil {
 		slices.SortStableFunc(order, func(a, b int) int { return cmp(cards[a], cards[b]) })
 	}
+}
+
+// applyDesc is apply reversed; ties still keep rank.
+func (s jiraSort) applyDesc(order []int, cards []jira.Card) {
+	cmp := s.cmp()
+	if cmp == nil {
+		slices.Reverse(order)
+		return
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp(cards[b], cards[a]) })
+}
+
+// viewSort is a list's order: by s, reversed when desc.
+type viewSort struct {
+	by   jiraSort
+	desc bool
+}
+
+// next is the order a click on by's header gives: by, then by reversed,
+// then rank again.
+func (v viewSort) next(by jiraSort) viewSort {
+	switch {
+	case v.by != by:
+		return viewSort{by: by}
+	case !v.desc:
+		return viewSort{by: by, desc: true}
+	}
+	return viewSort{}
+}
+
+// arrow marks the sorted column's header.
+func (v viewSort) arrow() string {
+	if v.desc {
+		return "↓"
+	}
+	return "↑"
 }
 
 // cmp compares two cards by s; nil for rank, which keeps the given order.
@@ -149,4 +187,93 @@ func (s jiraSort) cmp() func(a, b jira.Card) int {
 		}
 	}
 	return cmp
+}
+
+// headCell is a sortable cell of the list's header: columns x0 to x1 of the
+// body sort by by.
+type headCell struct {
+	x0, x1 int
+	by     jiraSort
+}
+
+// jiraListHeader is the list's column header over rows laid out as
+// jiraListRow lays them out with cols, and its sortable cells. A sort with
+// no column of its own (updated, due, created) shows at the summary's end.
+func (m *Model) jiraListHeader(cols listCols) (string, []headCell) {
+	t := m.jiraTab
+	f := m.opts.fields
+	cur := viewSort{by: t.sort, desc: t.desc}
+	var b strings.Builder
+	var at []headCell
+	x := 0
+	// cell writes label in w columns, right-aligned when right, then gap
+	// spaces; jiraSortRank for a column that doesn't sort.
+	cell := func(label string, w, gap int, by jiraSort, right bool) {
+		st := jiraDimStyle
+		if by != jiraSortRank && cur.by == by {
+			st = jiraViewActive
+			if visualWidth(label)+1 > w {
+				label = ansi.Truncate(label, max(w-1, 0), "")
+			}
+			label += cur.arrow()
+		}
+		label = ansi.Truncate(label, w, "…")
+		pad := strings.Repeat(" ", max(w-visualWidth(label), 0))
+		if right {
+			b.WriteString(pad + st.Render(label))
+		} else {
+			b.WriteString(st.Render(label) + pad)
+		}
+		b.WriteString(strings.Repeat(" ", gap))
+		if by != jiraSortRank {
+			at = append(at, headCell{x0: x, x1: x + w, by: by})
+		}
+		x += w + gap
+	}
+	b.WriteString("  ")
+	x += 2
+	cell("Key", cols.key, 2, jiraSortKey, false)
+	if f.typ {
+		cell("", visualWidth(jiraTypeIcon("task", "")), 1, jiraSortRank, false)
+	}
+	if f.priority {
+		cell("P", 1, 1, jiraSortPriority, false)
+	}
+	if f.status {
+		cell("Status", cols.status, 2, jiraSortStatus, false)
+	}
+	if f.points {
+		cell("Pts", 4, 2, jiraSortPoints, true)
+	}
+	tailW := 0
+	if cols.who > 0 {
+		tailW += 2 + cols.who
+	}
+	if cols.marks > 0 {
+		tailW += 2 + cols.marks
+	}
+	titleW := max(cols.width-1-x-tailW, 0)
+	end := x + titleW
+	cell("Summary", min(len("Summary"), titleW), 0, jiraSortRank, false)
+	if f.parent && x+3+len("Epic")+1 <= end {
+		b.WriteString(jiraDimStyle.Render(" · "))
+		x += 3
+		cell("Epic", len("Epic")+1, 0, jiraSortEpic, false)
+	}
+	shown := map[jiraSort]bool{jiraSortRank: true, jiraSortKey: true, jiraSortPriority: f.priority, jiraSortStatus: f.status,
+		jiraSortPoints: f.points, jiraSortEpic: f.parent, jiraSortAssignee: cols.who > 0}
+	if by := cur.by.String(); !shown[cur.by] && x+len(by)+2 <= end {
+		w := len(by) + 1
+		b.WriteString(strings.Repeat(" ", end-w-x))
+		x = end - w
+		cell(strings.ToUpper(by[:1])+by[1:], w, 0, cur.by, true)
+	}
+	b.WriteString(strings.Repeat(" ", max(end-x, 0)))
+	x = end
+	if cols.who > 0 {
+		b.WriteString("  ")
+		x += 2
+		cell("Assignee", cols.who, 0, jiraSortAssignee, false)
+	}
+	return ansi.Truncate(b.String(), max(cols.width-1, 0), ""), at
 }

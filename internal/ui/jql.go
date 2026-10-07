@@ -250,7 +250,7 @@ func (m *Model) openMyWork() tea.Cmd {
 	const name = "Mine: my work"
 	cmd := m.runNamedJQLView(name, m.opts.myWorkJQL)
 	if _, ok := m.jiraTab.sorts[name]; cmd != nil && !ok {
-		m.setViewSort(slices.IndexFunc(m.jiraTab.views, func(v jiraView) bool { return v.name == name }), jiraSortStatus)
+		m.setViewSort(slices.IndexFunc(m.jiraTab.views, func(v jiraView) bool { return v.name == name }), viewSort{by: jiraSortStatus})
 	}
 	return cmd
 }

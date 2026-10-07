@@ -88,6 +88,12 @@ func (m *Model) hoverAt(x, y int) hover {
 	switch h := m.hitJira(x, y); {
 	case h.band != "":
 		return hover{y: y, x0: 1, x1: min(listW, m.width) - 1, pointer: pointerHand}
+	case h.sortBy > 0:
+		for _, c := range m.jiraTab.headAt {
+			if int(c.by) == h.sortBy-1 {
+				return hover{y: y, x0: 1 + c.x0, x1: 1 + c.x1, pointer: pointerHand}
+			}
+		}
 	case h.line >= 0:
 		return hover{pointer: pointerHand} // a card: its cursor shows it already
 	}

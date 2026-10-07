@@ -244,6 +244,7 @@ type hit struct {
 	idx, line int
 	band      string
 	section   int // a stacked lane's section header hit: its index + 1, 0 for none
+	sortBy    int // a list column header hit: its jiraSort + 1, 0 for none
 }
 
 // Model is the whole app. Held by value like matterbox's; the board state

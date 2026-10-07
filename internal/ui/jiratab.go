@@ -464,9 +464,13 @@ type jiraTabState struct {
 	closedFrom    int
 
 	sort jiraSort // the list's order; lanes keep the board's rank
+	desc bool     // the list's order reversed
 	// sorts is each view's sort by name, so one view's s (or my work's
 	// grouping) stays with it.
-	sorts map[string]jiraSort
+	sorts map[string]viewSort
+	// listHead is the list's column header line, headAt its sortable cells.
+	listHead string
+	headAt   []headCell
 	// swim groups the lanes into swimlanes by assignee, epic or priority (jiraSortRank
 	// for none); swimTop is its first line on screen, swimAt each body
 	// line's card row per lane (-1 for none), for the mouse.
@@ -964,7 +968,8 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 		t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(msg.viewIdx)
 	}
 	if msg.viewIdx != t.viewIdx && msg.viewIdx < len(t.views) {
-		t.sort = t.sorts[t.views[msg.viewIdx].name]
+		vs := t.sorts[t.views[msg.viewIdx].name]
+		t.sort, t.desc = vs.by, vs.desc
 	}
 	t.viewIdx = msg.viewIdx
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
@@ -984,15 +989,30 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 }
 
 // setViewSort keeps sort as view i's.
-func (m *Model) setViewSort(i int, sort jiraSort) {
+func (m *Model) setViewSort(i int, sort viewSort) {
 	t := m.jiraTab
 	if i < 0 || i >= len(t.views) {
 		return
 	}
 	if t.sorts == nil {
-		t.sorts = map[string]jiraSort{}
+		t.sorts = map[string]viewSort{}
 	}
 	t.sorts[t.views[i].name] = sort
+}
+
+// sortJiraList orders the list by sort, keeping the selected card.
+func (m *Model) sortJiraList(sort viewSort) {
+	t := m.jiraTab
+	keep := m.selectedJiraKey()
+	t.sort, t.desc = sort.by, sort.desc
+	m.setViewSort(t.viewIdx, sort)
+	m.buildJiraLanes()
+	m.selectJiraKey(keep)
+	m.renderJira()
+	m.status = "sorted by " + t.sort.String()
+	if t.desc {
+		m.status += ", reversed"
+	}
 }
 
 // installJiraCards shows a fetched card list, keeping the selection on the
@@ -1094,7 +1114,11 @@ func (m *Model) buildJiraLanes() {
 			}
 		}
 	}
-	t.sort.apply(t.order, t.cards)
+	if t.desc {
+		t.sort.applyDesc(t.order, t.cards)
+	} else {
+		t.sort.apply(t.order, t.cards)
+	}
 	if len(t.laneTop) != len(t.lanes) {
 		t.laneTop = make([]int, len(t.lanes))
 	}
@@ -1460,13 +1484,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			break
 		}
-		keep := m.selectedJiraKey()
-		t.sort = (t.sort + 1) % jiraSortCount
-		m.setViewSort(t.viewIdx, t.sort)
-		m.buildJiraLanes()
-		m.selectJiraKey(keep)
-		m.renderJira()
-		m.status = "sorted by " + t.sort.String()
+		m.sortJiraList(viewSort{by: (t.sort + 1) % jiraSortCount})
 	case key.Matches(msg, m.keys.Goto):
 		m.openJiraGoto()
 	case key.Matches(msg, m.keys.Create):
@@ -2502,6 +2520,8 @@ func (m *Model) renderJira() {
 		cols.marks = max(cols.marks, visualWidth(m.jiraListMarks(c)))
 	}
 	cols.status, cols.who = min(cols.status, 20), min(cols.who, 24)
+	t.listHead, t.headAt = m.jiraListHeader(cols)
+	h-- // the header sits over the viewport's top line
 	if t.rowsFor != cols || len(t.rows) != len(t.order) {
 		t.rows = make([]string, len(t.order))
 		for i, ci := range t.order {
@@ -2531,6 +2551,9 @@ func (m *Model) renderJira() {
 		}
 		lines = append(lines, row)
 	}
+	// One line past the end, as the header covers one: the last row scrolls
+	// into sight.
+	lines = append(lines, "")
 	t.view.SetContentLinesWidth(lines, w)
 	top := t.view.YOffset()
 	r := 0
@@ -2548,6 +2571,14 @@ func (m *Model) renderJira() {
 	case r >= top+h:
 		t.view.SetYOffset(r - h + 1)
 	}
+}
+
+// jiraListBody is the list under its header: the viewport less its last
+// line.
+func (m *Model) jiraListBody() string {
+	t := m.jiraTab
+	lines := strings.Split(t.view.View(), "\n")
+	return strings.Join(append([]string{t.listHead}, lines[:max(len(lines)-1, 0)]...), "\n")
 }
 
 // jiraGroupOf is the group a card heads under in list mode: its assignee,
@@ -3637,6 +3668,8 @@ func (m *Model) renderJiraPane(height, width int) string {
 		body = m.renderPlan(t.view.Width(), t.view.Height())
 	case m.jiraShowsLanes() || t.cfg == nil || len(t.order) == 0:
 		body = t.lanesOut
+	default:
+		body = m.jiraListBody()
 	}
 	rows := []string{head, rule, viewLine, filterLine, body}
 	borderColor := dimColor
@@ -3762,7 +3795,14 @@ func (m *Model) hitJira(x, y int) hit {
 		return hit{zone: hitJira, idx: -1, line: -1}
 	}
 	if !m.jiraShowsLanes() {
-		if line >= 0 && line < t.view.Height() {
+		if line == 0 { // the column header
+			for _, c := range t.headAt {
+				if x-1 >= c.x0 && x-1 < c.x1 {
+					return hit{zone: hitJira, idx: -1, line: -1, sortBy: int(c.by) + 1}
+				}
+			}
+		}
+		if line--; line >= 0 && line < t.view.Height()-1 {
 			if i := slices.Index(t.lineOf, t.view.YOffset()+line); i >= 0 {
 				return hit{zone: hitJira, idx: -1, line: i}
 			}
@@ -3809,6 +3849,10 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 	m.focus = focusJira
 	if h.band != "" {
 		m.toggleJiraSwimlane(h.band)
+		return m, nil
+	}
+	if h.sortBy > 0 {
+		m.sortJiraList(viewSort{by: t.sort, desc: t.desc}.next(jiraSort(h.sortBy - 1)))
 		return m, nil
 	}
 	if h.section > 0 && h.idx >= 0 {
@@ -3908,13 +3952,13 @@ func (m Model) dragJiraList(y int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch line := y - jiraBodyTop; {
-	case line < 0:
+	case line < 1: // over the column header too
 		t.view.ScrollUp(1)
 	case line >= t.view.Height():
 		t.view.ScrollDown(1)
 	}
 	slot := t.drag.slot
-	if h := m.hitJira(1, min(max(y, jiraBodyTop), jiraBodyTop+t.view.Height()-1)); h.line >= 0 {
+	if h := m.hitJira(1, min(max(y, jiraBodyTop+1), jiraBodyTop+t.view.Height()-1)); h.line >= 0 {
 		slot = h.line
 	}
 	if slot != t.drag.slot || !t.drag.slotOK {

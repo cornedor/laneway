@@ -1197,11 +1197,55 @@ func TestListGroups(t *testing.T) {
 	if tt.lineOf[0] != 1 || tt.lineOf[1] != 3 {
 		t.Errorf("lineOf = %v", tt.lineOf)
 	}
-	if h := m.hitJira(5, jiraBodyTop+3); h.line != 1 {
+	if h := m.hitJira(5, jiraBodyTop+1+3); h.line != 1 { // under the column header
 		t.Errorf("click on line 3 = card %d, want 1", h.line)
 	}
-	if h := m.hitJira(5, jiraBodyTop+2); h.line != 1 {
+	if h := m.hitJira(5, jiraBodyTop+1+2); h.line != 1 {
 		t.Errorf("click on a header = card %d, want its first, 1", h.line)
+	}
+}
+
+// TestListHeaderSorts: a click on a list column's header sorts by it, a
+// second reverses it, a third goes back to rank.
+func TestListHeaderSorts(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "t")) // list
+	m = out.(Model)
+	if head := ansi.Strip(m.View().Content); !strings.Contains(head, "Key") || !strings.Contains(head, "Status") {
+		t.Fatalf("no column header:\n%s", head)
+	}
+	x := -1
+	for _, c := range m.jiraTab.headAt {
+		if c.by == jiraSortKey {
+			x = 1 + c.x0
+		}
+	}
+	if x < 0 {
+		t.Fatal("the key header doesn't sort")
+	}
+	keys := func() string {
+		var ks []string
+		for _, ci := range m.jiraTab.order {
+			ks = append(ks, m.jiraTab.cards[ci].Key)
+		}
+		return strings.Join(ks, " ")
+	}
+	rank := keys()
+	for _, want := range []struct {
+		desc bool
+		by   jiraSort
+	}{{false, jiraSortKey}, {true, jiraSortKey}, {false, jiraSortRank}} {
+		out, _ = m.Update(tea.MouseClickMsg{X: x, Y: jiraBodyTop, Button: tea.MouseLeft})
+		m = out.(Model)
+		if m.jiraTab.sort != want.by || m.jiraTab.desc != want.desc {
+			t.Fatalf("sort = %v desc %v, want %v desc %v", m.jiraTab.sort, m.jiraTab.desc, want.by, want.desc)
+		}
+		if want.desc && !strings.HasPrefix(keys(), "ABC-4") {
+			t.Errorf("reversed by key: %s", keys())
+		}
+	}
+	if keys() != rank {
+		t.Errorf("back to rank: %s, want %s", keys(), rank)
 	}
 }
 
@@ -1820,7 +1864,7 @@ func TestListDragRank(t *testing.T) {
 	m.renderJira()
 	tt := m.jiraTab
 	first, last := tt.cards[tt.order[0]].Key, tt.cards[tt.order[len(tt.order)-1]].Key
-	yOf := func(i int) int { return jiraBodyTop + tt.lineOf[i] - tt.view.YOffset() }
+	yOf := func(i int) int { return jiraBodyTop + 1 + tt.lineOf[i] - tt.view.YOffset() }
 	yLast, yFirst := yOf(len(tt.order)-1), yOf(0)
 	out, _ := m.Update(tea.MouseClickMsg{X: 3, Y: yLast, Button: tea.MouseLeft})
 	m = out.(Model)
