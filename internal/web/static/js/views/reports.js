@@ -180,6 +180,9 @@ export default async function mount(el, { app, params, query, scope, context, to
   const head = (title, sub) => h('div.rp-head', h('h2', title), h('span.rp-sub', sub));
   const noDates = sp => h('div.empty', h('h2', sp.Name), h('p', 'This sprint has no dates, so there is nothing to plot.'));
 
+  // xEnd is where a sprint chart's time axis ends: today while the sprint runs on past its end; closed, its last
+  // sample (sampleTimes: at most a day past the end).
+  const xEnd = (sp, end, now) => (sp.State === 'closed' ? Math.max(end, Math.min(now, end + DAY)) : Math.max(end, now));
   function sprintHead(sp, L) {
     const s = ms(sp.Start), e = ms(sp.End);
     const el = head(sp.Name, (s && e ? shortDate(sp.Start) + ' – ' + shortDate(sp.End) : '') + (sp.State === 'closed' ? ' · closed' : ''));
@@ -219,7 +222,7 @@ export default async function mount(el, { app, params, query, scope, context, to
     const wrap = h('div');
     const spec = {
       title: 'Burndown of ' + sp.Name, desc: `${num(curLeft)} of ${num(total)}${unit} left, ideal ${num(idealNow)}. ${pace}`,
-      x: { min: start, max: Math.max(end, now), ticks: timeTicks(start, Math.max(end, now), 7) }, y: { max: max.max, ticks: max.ticks },
+      x: { min: start, max: xEnd(sp, end, now), ticks: timeTicks(start, xEnd(sp, end, now), 7) }, y: { max: max.max, ticks: max.ticks },
       layers: [
         { type: 'line', pts: [[start, total], [end, 0]], color: 'var(--fg-3)', dash: true, width: 1.5 },
         now > start && now < end && { type: 'vline', x: now, color: 'var(--warn)', label: 'today' },
@@ -235,7 +238,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       legend: [{ name: 'Left', color: 'var(--accent)' }, before && { name: 'Before ' + L.compare.name, color: CMP }, { name: 'Ideal', color: 'var(--fg-3)', dash: true }].filter(Boolean),
     };
     const view = h('div.rp-in', sprintHead(sp, L),
-      h('div.rp-stats', stat(num(curLeft) + unit, 'left'), stat(num(total) + unit, 'in sprint'), stat(num(idealNow) + unit, 'ideal today'),
+      h('div.rp-stats', stat(num(curLeft) + unit, 'left'), stat(num(total) + unit, 'in sprint'), stat(num(idealNow) + unit, now < end ? 'ideal today' : 'ideal at the end'),
         pace && stat(pace, 'pace', d >= 0.5 ? 'bad' : d <= -0.5 ? 'ok' : ''), added > 0 && stat('+' + num(added) + unit, 'added after start', 'warn'),
         before && stat(num(gap) + unit, 'past ' + label(first) + ', not ' + label(last), 'cmp')),
       card('', wrap), h('p.rp-note', lineNote(L) + ' Left/right arrows step through the days.'));
@@ -274,7 +277,7 @@ export default async function mount(el, { app, params, query, scope, context, to
     const wrap = h('div');
     charts.push(chart(wrap, {
       title: 'Burnup of ' + sp.Name, desc: `${num(dn)} of ${num(s)}${unit} done` + (cmpS ? `, ${num(cn)}${unit} past ${L.compare.name}` : ''),
-      x: { min: start, max: Math.max(end, now), ticks: timeTicks(start, Math.max(end, now), 7) }, y: { max: top.max, ticks: top.ticks },
+      x: { min: start, max: xEnd(sp, end, now), ticks: timeTicks(start, xEnd(sp, end, now), 7) }, y: { max: top.max, ticks: top.ticks },
       layers: [
         now > start && now < end && { type: 'vline', x: now, color: 'var(--warn)', label: 'today' },
         { type: 'line', pts: data.map(d => [d[0], d[1]]), color: 'var(--fg-3)', dash: true, step: true },
@@ -323,7 +326,7 @@ export default async function mount(el, { app, params, query, scope, context, to
     const wrap = h('div');
     charts.push(chart(wrap, {
       title: 'Cumulative flow of ' + sp.Name, desc: 'Issues per board column, day by day.',
-      x: { min: start, max: Math.max(end, now), ticks: timeTicks(start, Math.max(end, now), 7) }, y: { max: top.max, ticks: top.ticks },
+      x: { min: start, max: xEnd(sp, end, now), ticks: timeTicks(start, xEnd(sp, end, now), 7) }, y: { max: top.max, ticks: top.ticks },
       layers,
       targets: data.map(d => ({ x: d[0], head: dayName(d[0]), rows: cols.map((c, k) => ({ color: color(k), label: c.Name, value: String(d[1][k]) })).reverse() })),
       legend: [...cols.map((c, k) => ({ name: c.Name, color: color(k) })).reverse(), ...marks.map(l => ({ name: (l === L.compare ? 'vs ' : 'done ') + l.name + ' →', color: l === L.compare ? CMP : 'var(--fg)', dash: true }))],
