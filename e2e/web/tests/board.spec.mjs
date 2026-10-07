@@ -60,6 +60,20 @@ test('a list column dragged onto another moves there, and stays', async ({ page 
   await expect(page.locator('.bd-lhead [data-col]').nth(1)).toHaveAttribute('data-col', 'status');
 });
 
+test('a column drops anywhere over the header, below a label or in a gap', async ({ page }) => {
+  await page.keyboard.press('t');
+  const head = page.locator('.bd-lhead'), cols = () => head.locator('[data-col]');
+  const box = async c => head.locator(`[data-col=${c}]`).boundingBox();
+  const hb = await head.boundingBox(), key = await box('key');
+  // under the key label, near the header's bottom edge
+  await head.locator('[data-col=status]').dragTo(head, { targetPosition: { x: key.x - hb.x + 4, y: hb.height - 3 } });
+  await expect(cols().nth(1)).toHaveAttribute('data-col', 'status');
+  // in the gap just right of the key: after it
+  const k2 = await box('key');
+  await head.locator('[data-col=priority]').dragTo(head, { targetPosition: { x: k2.x + k2.width - hb.x + 3, y: 3 } });
+  await expect(cols().nth(3)).toHaveAttribute('data-col', 'priority');
+});
+
 test('a phone keeps the key, summary and status, whatever the order', async ({ page }) => {
   await page.keyboard.press('t');
   const head = page.locator('.bd-lhead');

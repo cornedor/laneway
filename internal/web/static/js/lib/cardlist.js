@@ -43,11 +43,17 @@ export function listHead(cols, sort, dir) {
 export function dragCols(head, cols, set) {
   let from = null;
   const clear = () => head.querySelectorAll('.drop-before, .drop-after').forEach(s => s.classList.remove('drop-before', 'drop-after'));
+  // at is the column under the pointer across the whole header, gaps and all: the nearest shown one.
   const at = e => {
-    const t = e.target.closest && e.target.closest('[data-col]');
-    if (!t || !from) return null;
-    const r = t.getBoundingClientRect();
-    return { to: t.dataset.col, el: t, after: e.clientX > r.left + r.width / 2 };
+    if (!from) return null;
+    let best = null, dist = Infinity;
+    for (const t of head.querySelectorAll('[data-col]')) {
+      const r = t.getBoundingClientRect();
+      if (!r.width) continue; // hidden on a narrow screen
+      const d = e.clientX < r.left ? r.left - e.clientX : e.clientX > r.right ? e.clientX - r.right : 0;
+      if (d < dist) { best = { to: t.dataset.col, el: t, after: e.clientX > r.left + r.width / 2 }; dist = d; }
+    }
+    return best;
   };
   head.addEventListener('dragstart', e => {
     e.stopPropagation();
