@@ -66,3 +66,15 @@ test('complete the active sprint, start the next', async ({ page }) => {
   await expect(page.locator('.crumb', { hasText: 'Sprint 13' })).toBeVisible();
   await expect(page.locator('.bd-lanes .card', { hasText: 'DEMO-14' })).toBeVisible();
 });
+
+test('a column edge drags to resize', async ({ page }) => {
+  const key = page.locator('.bd-lhead [data-col=key]').first();
+  const w0 = (await key.boundingBox()).width, g = await key.locator('.lh-grip').boundingBox();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(g.x + 40, g.y + g.height / 2, { steps: 5 });
+  await page.mouse.up();
+  expect((await key.boundingBox()).width).toBeGreaterThan(w0 + 30);
+  const cell = page.locator('.lrow', { hasText: 'DEMO-5' }).locator('.l-key');
+  expect(Math.abs((await cell.boundingBox()).width - (await key.boundingBox()).width)).toBeLessThan(2);
+});

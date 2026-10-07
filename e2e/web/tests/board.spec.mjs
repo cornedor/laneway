@@ -74,6 +74,28 @@ test('a column drops anywhere over the header, below a label or in a gap', async
   await expect(cols().nth(3)).toHaveAttribute('data-col', 'priority');
 });
 
+test('a column edge drags to resize, a double-click resets it', async ({ page }) => {
+  await page.keyboard.press('t');
+  const head = page.locator('.bd-lhead'), key = head.locator('[data-col=key]'), grip = key.locator('.lh-grip');
+  const w0 = (await key.boundingBox()).width, g = await grip.boundingBox();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(g.x + 60, g.y + g.height / 2, { steps: 5 });
+  await page.mouse.up();
+  const w1 = (await key.boundingBox()).width;
+  expect(w1).toBeGreaterThan(w0 + 50);
+  const cell = page.locator('.lrow', { hasText: 'DEMO-5' }).locator('.l-key');
+  expect(Math.abs((await cell.boundingBox()).width - w1)).toBeLessThan(2); // the rows follow
+  await expect(key.locator('svg')).toHaveCount(0); // no sort
+  await expect(head.locator('[data-col]').nth(1)).toHaveAttribute('data-col', 'key'); // no move
+  await page.reload();
+  await expect(page.locator('.bd-lhead [data-col=key]')).toBeVisible();
+  expect(Math.abs((await page.locator('.bd-lhead [data-col=key]').boundingBox()).width - w1)).toBeLessThan(2);
+  await page.locator('.bd-lhead [data-col=key] .lh-grip').dblclick();
+  expect(Math.abs((await page.locator('.bd-lhead [data-col=key]').boundingBox()).width - w0)).toBeLessThan(2);
+  await expect(page.locator('.bd-lhead [data-col=key] svg')).toHaveCount(0);
+});
+
 test('a phone keeps the key, summary and status, whatever the order', async ({ page }) => {
   await page.keyboard.press('t');
   const head = page.locator('.bd-lhead');

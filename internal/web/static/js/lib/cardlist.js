@@ -25,7 +25,15 @@ export const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'po
 export const sortable = id => id !== 'mark';
 export const colLabel = id => (id.startsWith('x:') ? id.slice(2) : (COLS[id] || ['', ''])[0]);
 export const colWidth = id => (COLS[id] ? COLS[id][1] : '8.571rem');
-export const gridCols = cols => cols.map(colWidth).join(' ');
+// gridCols is the grid of cols, widths (id → px, dragged) over their defaults.
+export const gridCols = (cols, widths = {}) => cols.map(id => (widths[id] ? widths[id] + 'px' : colWidth(id))).join(' ');
+// resizable: the summary takes what the others leave, the mark is a checkbox.
+const resizable = id => id !== 'mark' && id !== 'summary';
+const MIN_W = 24;
+// readWidths is a stored widths pref ('{"key":90}'), {} when none or broken.
+export function readWidths(v) {
+  try { const o = JSON.parse(v || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
+}
 
 
 // A header click sorts by its column, again reverses it, a third time goes back to the rank.
@@ -35,8 +43,48 @@ export function nextSort(sort, dir, id) {
 }
 
 const sortMark = (id, sort, dir) => (sort === id ? [' ', icon(dir > 0 ? 'arrow-up' : 'arrow-down')] : []);
+const grip = id => (resizable(id) ? [h('span.lh-grip', { title: 'Drag to resize, double-click to reset' })] : []);
 export function listHead(cols, sort, dir) {
-  return h('div.bd-lhead', cols.map(id => h('span', { class: 'lh-' + id, draggable: id !== 'mark', dataset: { col: id, sort: sortable(id) ? id : '' } }, colLabel(id), sortMark(id, sort, dir))));
+  return h('div.bd-lhead', cols.map(id => h('span', { class: 'lh-' + id, draggable: id !== 'mark', dataset: { col: id, sort: sortable(id) ? id : '' } }, colLabel(id), sortMark(id, sort, dir), grip(id))));
+}
+
+// resizeCols lets head's cells be widened or narrowed by their right edge, a double-click resetting one;
+// widths (id → px) changes in place, apply lays the grid out again, save keeps it.
+export function resizeCols(head, { widths, apply, save }) {
+  let drag = null;
+  head.addEventListener('pointerdown', e => {
+    const g = e.target.closest('.lh-grip');
+    if (!g || e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const cell = g.parentElement;
+    drag = { id: cell.dataset.col, x: e.clientX, w: cell.getBoundingClientRect().width, moved: false };
+    head.classList.add('resizing');
+    g.setPointerCapture(e.pointerId);
+  });
+  head.addEventListener('pointermove', e => {
+    if (!drag) return;
+    drag.moved = drag.moved || Math.abs(e.clientX - drag.x) > 2;
+    if (!drag.moved) return;
+    widths[drag.id] = Math.round(Math.max(MIN_W, drag.w + e.clientX - drag.x));
+    apply();
+  });
+  const end = () => {
+    if (!drag) return;
+    if (drag.moved) save();
+    drag = null;
+    setTimeout(() => head.classList.remove('resizing'), 0); // past the click the release makes
+  };
+  head.addEventListener('pointerup', end);
+  head.addEventListener('pointercancel', end);
+  head.addEventListener('dblclick', e => {
+    const g = e.target.closest('.lh-grip'); if (!g) return;
+    e.stopPropagation();
+    delete widths[g.parentElement.dataset.col];
+    apply(); save();
+  });
+  // A press on an edge neither sorts nor drags the column.
+  head.addEventListener('click', e => { if (e.target.closest('.lh-grip') || head.classList.contains('resizing')) e.stopPropagation(); }, true);
+  head.addEventListener('dragstart', e => { if (head.classList.contains('resizing')) { e.preventDefault(); e.stopPropagation(); } }, true);
 }
 
 // dragCols lets head's cells be dragged onto one another; set gets the new order.
@@ -74,7 +122,7 @@ export function dragCols(head, cols, set) {
   head.addEventListener('dragend', e => { e.stopPropagation(); from = null; clear(); });
 }
 export function paintHead(head, sort, dir) {
-  for (const s of head.children) s.replaceChildren(colLabel(s.className.replace('lh-', '')), ...sortMark(s.dataset.sort, sort, dir));
+  for (const s of head.children) s.replaceChildren(colLabel(s.dataset.col), ...sortMark(s.dataset.sort, sort, dir), ...grip(s.dataset.col));
 }
 
 // The columns to pick from: every one but those every list has; null when cancelled.

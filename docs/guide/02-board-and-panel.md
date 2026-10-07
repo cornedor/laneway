@@ -90,7 +90,8 @@ The [search reference](../reference/search.md) has every field.
     `O` steps the sort, or the swimlanes; in the list `C` picks the
     columns, and a click on a column header sorts by it, again reverses
     it, a third time goes back to rank. Drag a header onto another to move
-    its column. Folded stacked
+    its column, or its right edge to resize it; a double-click on the edge
+    resets it. Folded stacked
     columns line up under the lane's head; a click unfolds one. The ›
     beside a lane's name collapses it to a thin bar until clicked again.
 

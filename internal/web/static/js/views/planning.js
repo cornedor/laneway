@@ -12,7 +12,7 @@ import * as pins from '../lib/pins.js';
 import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
 import { comparators, sortCards, cmpOf } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
-import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, dragCols, buildRow, fillCells } from '../lib/cardlist.js';
+import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, dragCols, resizeCols, readWidths, buildRow, fillCells } from '../lib/cardlist.js';
 import { goDate } from '../lib/godate.js';
 
 const pts = c => Number(c.Points) || 0;
@@ -185,12 +185,15 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (r !== undefined) setWho(r);
   }
   // The header of each pane: a click sorts by its column, again reverses it, a third time goes back to the rank.
+  const colw = readWidths(app.prefs.get('planning.colw', ''));
+  const grid = () => root.style.setProperty('--lcols', gridCols(cols, colw));
   function paintHeads() {
-    root.style.setProperty('--lcols', gridCols(cols));
+    grid();
     for (const p of panes) {
       const head = listHead(cols, p.sort, p.dir);
       head.addEventListener('click', e => { const t = e.target.closest('[data-sort]'); if (t && t.dataset.sort) setSort(p, ...nextSort(p.sort, p.dir, t.dataset.sort)); });
       dragCols(head, () => cols, setCols);
+      resizeCols(head, { widths: colw, apply: grid, save: () => app.prefs.set('planning.colw', JSON.stringify(colw)) });
       if (p.head) p.head.replaceWith(head); else p.el.prepend(head);
       p.head = head; p.sb = -1;
     }

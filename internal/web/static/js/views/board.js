@@ -17,7 +17,7 @@ import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
-import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, dragCols, buildRow as listRow, fillCells } from '../lib/cardlist.js';
+import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, dragCols, resizeCols, readWidths, buildRow as listRow, fillCells } from '../lib/cardlist.js';
 import { buildCard as buildCardEl, fillCard as fillCardEl, catClass } from '../lib/card.js';
 import { layoutOf, lookOf, colour } from '../lib/cardstyle.js';
 import { lastProject, lastBoard, setCtx, openProject, pickBoard as pickBoardOf, recover } from './plan_ctx.js';
@@ -60,7 +60,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     cards: [], total: 0, loaded: false, path: '', fetched: 0, busy: 0,
     scope: query.sprint || 'active', saved: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
-    mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS,
+    mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS, colw: readWidths(app.prefs.get('board.colw', '')),
     layout: '', layoutHidden: 0, secFold: new Set(), laneFold: new Set(),
     past: null, closed: null, pins: new Set(), notes: new Set(), starred: [], colors: null, lastEdit: null,
     sel: null, marks: new Set(), rowMem: 0,
@@ -611,7 +611,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       pane.vl = vlist(pane.body, { rowHeight: 32, create: buildRow, bind: (w, j) => fillRow(w, pane.cards[j], pane.heads && pane.heads[j]) });
       S.panes.push(pane);
       const list = h('div.bd-list', pane.head, pane.body);
-      list.style.setProperty('--lcols', gridCols(S.cols));
+      const grid = () => list.style.setProperty('--lcols', gridCols(S.cols, S.colw));
+      grid();
+      resizeCols(pane.head, { widths: S.colw, apply: grid, save: () => app.prefs.set('board.colw', JSON.stringify(S.colw)) });
       pane.el = list;
       main.append(list);
     }
