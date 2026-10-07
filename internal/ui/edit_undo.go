@@ -85,14 +85,15 @@ func (m Model) handleEditUndone(msg editUndoneMsg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// cardOf is key's card on the board.
+// cardOf is key's card on the board, else as it was when marked.
 func (m *Model) cardOf(key string) (jira.Card, bool) {
 	for _, c := range m.jiraTab.cards {
 		if c.Key == key {
 			return c, true
 		}
 	}
-	return jira.Card{}, false
+	c := m.jiraTab.marked[key]
+	return c, c.Key == key
 }
 
 // undoPanelPick records the way back from the panel's priority or

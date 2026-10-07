@@ -287,14 +287,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.Mark):
 		if c, ok := p.planCard(); ok {
-			if t.marked == nil {
-				t.marked = map[string]bool{}
-			}
-			if t.marked[c.Key] {
-				delete(t.marked, c.Key)
-			} else {
-				t.marked[c.Key] = true
-			}
+			t.toggleMark(c)
 			p.idx[p.side] = min(p.idx[p.side]+1, max(n-1, 0))
 			m.status = fmt.Sprintf("%d marked · %s or space moves them across", len(t.marked), helpKey(m.keys.MoveSprint))
 		}
@@ -386,7 +379,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // across: into the sprint at its end, or back to the top of the backlog, as
 // Jira places them.
 func (m *Model) planMove() tea.Cmd {
-	return m.planMoveOf(func(c jira.Card) bool { return m.jiraTab.marked[c.Key] })
+	return m.planMoveOf(func(c jira.Card) bool { return m.jiraTab.isMarked(c.Key) })
 }
 
 // planMoveOf moves the side's cards take picks, else the selected one.

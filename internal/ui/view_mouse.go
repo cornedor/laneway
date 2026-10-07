@@ -224,7 +224,7 @@ func (m Model) dropPlan() (tea.Model, tea.Cmd) {
 		return m, m.planRankTo(d.side, d.key, d.slot)
 	}
 	p.side = d.side
-	if m.jiraTab.marked[d.key] {
+	if m.jiraTab.isMarked(d.key) {
 		return m, m.planMove()
 	}
 	return m, m.planMoveOf(func(c jira.Card) bool { return c.Key == d.key })

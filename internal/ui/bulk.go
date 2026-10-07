@@ -31,6 +31,24 @@ type bulkDoneMsg struct {
 	quick  bool
 }
 
+// isMarked is whether key is marked.
+func (t *jiraTabState) isMarked(key string) bool {
+	_, ok := t.marked[key]
+	return ok
+}
+
+// toggleMark marks c, keeping it as it is now, or unmarks it.
+func (t *jiraTabState) toggleMark(c jira.Card) {
+	if t.isMarked(c.Key) {
+		delete(t.marked, c.Key)
+		return
+	}
+	if t.marked == nil {
+		t.marked = map[string]jira.Card{}
+	}
+	t.marked[c.Key] = c
+}
+
 // toggleJiraMark marks or unmarks the selected card and steps down.
 func (m *Model) toggleJiraMark() {
 	t := m.jiraTab
@@ -38,14 +56,7 @@ func (m *Model) toggleJiraMark() {
 	if !ok {
 		return
 	}
-	if t.marked == nil {
-		t.marked = map[string]bool{}
-	}
-	if t.marked[c.Key] {
-		delete(t.marked, c.Key)
-	} else {
-		t.marked[c.Key] = true
-	}
+	t.toggleMark(c)
 	t.rows = nil
 	m.moveJiraCursor(1)
 	m.status = fmt.Sprintf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
@@ -67,14 +78,14 @@ func (m *Model) toggleJiraMarkAll() {
 		return
 	}
 	if t.marked == nil {
-		t.marked = map[string]bool{}
+		t.marked = map[string]jira.Card{}
 	}
-	all := !slices.ContainsFunc(idx, func(i int) bool { return !t.marked[t.cards[i].Key] })
+	all := !slices.ContainsFunc(idx, func(i int) bool { return !t.isMarked(t.cards[i].Key) })
 	for _, i := range idx {
 		if all {
 			delete(t.marked, t.cards[i].Key)
 		} else {
-			t.marked[t.cards[i].Key] = true
+			t.marked[t.cards[i].Key] = t.cards[i]
 		}
 	}
 	t.rows = nil
@@ -104,7 +115,7 @@ func (m *Model) clearJiraMarks() {
 
 // jiraMark is the marked card's sign, "" when not marked.
 func (m *Model) jiraMark(key string) string {
-	if !m.jiraTab.marked[key] {
+	if !m.jiraTab.isMarked(key) {
 		return ""
 	}
 	return lipgloss.NewStyle().Foreground(focusedColor).Bold(true).Render("✓")
@@ -167,12 +178,12 @@ func withValues(items []jiraPickerItem, cards []jira.Card) []jiraPickerItem {
 	return items
 }
 
-// cardsByKey are the loaded cards with keys, in the keys' order.
+// cardsByKey are the cards with keys (cardOf), in the keys' order.
 func (m *Model) cardsByKey(keys ...string) []jira.Card {
 	var out []jira.Card
 	for _, k := range keys {
-		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == k }); i >= 0 {
-			out = append(out, m.jiraTab.cards[i])
+		if c, ok := m.cardOf(k); ok {
+			out = append(out, c)
 		}
 	}
 	return out
@@ -439,9 +450,32 @@ func (m *Model) bulkTransition(keys []string, to string, fields map[string]any, 
 	})
 }
 
-// applyBulkField writes the bulk input's labels or points.
+// bulkAsk asks to confirm writing label to n issues.
+func bulkAsk(kind jiraPickerKind, label string, n int) string {
+	switch kind {
+	case jiraPickStatus, jiraPickSprint:
+		return fmt.Sprintf("enter again moves %d issues to %s", n, label)
+	case jiraPickPriority:
+		return fmt.Sprintf("enter again sets priority %s on %d issues", label, n)
+	case jiraPickAssignee:
+		return fmt.Sprintf("enter again assigns %d issues to %s", n, label)
+	}
+	return fmt.Sprintf("enter again sets %s on %d issues", label, n)
+}
+
+// applyBulkField writes the bulk input's labels or points, on more than one
+// issue once a second enter confirms it.
 func (m Model) applyBulkField(field, raw string) (tea.Model, tea.Cmd) {
 	keys := m.markedKeys()
+	if len(keys) > 1 && m.jiraFieldAsked != raw {
+		m.jiraFieldAsked = raw
+		what := "points " + cmp.Or(strings.TrimSpace(raw), "cleared")
+		if field == "bulk-labels" {
+			what = "labels " + raw
+		}
+		m.status = fmt.Sprintf("enter again sets %s on %d issues", what, len(keys))
+		return m, nil
+	}
 	m.closeJiraField()
 	m.setRepeat(strings.TrimPrefix(field, "bulk-")+" "+raw, func(m *Model, key string) tea.Cmd {
 		m.quickKey = key
@@ -537,12 +571,13 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 	}
+	was := t.marked
 	t.marked = nil
 	for k := range msg.failed {
 		if t.marked == nil {
-			t.marked = map[string]bool{}
+			t.marked = map[string]jira.Card{}
 		}
-		t.marked[k] = true
+		t.marked[k] = was[k]
 	}
 	t.rows = nil
 	ok := len(msg.keys) - len(msg.failed)

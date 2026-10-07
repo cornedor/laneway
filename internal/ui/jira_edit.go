@@ -598,6 +598,7 @@ func (m *Model) closeJiraField() {
 	m.jiraFieldActive = false
 	m.jiraFieldName = ""
 	m.jiraFieldKey = ""
+	m.jiraFieldAsked = ""
 	m.jiraFieldInput = textinput.Model{}
 	m.renderRef()
 }
@@ -857,6 +858,11 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, m.pickJiraBoard(kind, it.id)
 	}
 	if bulk := m.jiraPicker.bulk; len(bulk) > 0 {
+		if len(bulk) > 1 && m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
+			m.jiraPicker.pendingDelete = it.id
+			m.status = bulkAsk(kind, it.label, len(bulk))
+			return m, nil
+		}
 		m.closeJiraPicker()
 		return m, m.applyBulkPick(kind, bulk, it)
 	}

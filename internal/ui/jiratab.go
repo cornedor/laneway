@@ -396,8 +396,9 @@ type jiraTabState struct {
 	undoing bool
 	// undoneMove is the card an undo is moving back, for its status.
 	undoneMove string
-	// marked are the cards a bulk edit applies to (bulk.go), by key.
-	marked    map[string]bool
+	// marked are the cards a bulk edit applies to (bulk.go), by key, as they
+	// were when marked: the way back for those another view has unloaded.
+	marked    map[string]jira.Card
 	viewIdx   int
 	wantLanes bool // the user's mode; a list-only view overrides it
 	modeRead  bool // wantLanes and the assignee were restored from the store
@@ -3760,7 +3761,7 @@ func (m Model) clickJira(h hit, x, y, count int) (tea.Model, tea.Cmd) {
 			t.drag = jiraDrag{key: c.Key, x: x, y: y, from: h.idx, over: h.idx}
 		}
 	}
-	if c, ok := m.selectedJiraCard(); ok && onMark && len(m.agents[c.Key]) > 0 && !(m.jiraTab.marked[c.Key] && m.frameCell(x, y) == "✓") {
+	if c, ok := m.selectedJiraCard(); ok && onMark && len(m.agents[c.Key]) > 0 && !(m.jiraTab.isMarked(c.Key) && m.frameCell(x, y) == "✓") {
 		m.renderJira()
 		return m, m.attachAgent(c.Key, m.agents[c.Key][0].PaneID)
 	}

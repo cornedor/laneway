@@ -75,13 +75,13 @@ func (m *Model) copyJiraTable() tea.Cmd {
 	var cards []jira.Card
 	seen := map[string]bool{}
 	for _, i := range t.order {
-		if c := t.cards[i]; t.marked[c.Key] {
+		if c := t.cards[i]; t.isMarked(c.Key) {
 			cards = append(cards, c)
 			seen[c.Key] = true
 		}
 	}
 	for _, c := range t.cards {
-		if t.marked[c.Key] && !seen[c.Key] {
+		if t.isMarked(c.Key) && !seen[c.Key] {
 			cards = append(cards, c)
 		}
 	}

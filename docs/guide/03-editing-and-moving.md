@@ -197,27 +197,29 @@ the parent or the clone's copy filled in.
 ## Many cards at once
 
 Mark the cards, then edit them together: status (each along its own
-workflow), priority, assignee, labels, points or sprint. Cards
-that fail stay marked, with the reason. `esc` clears the marks; marks
-survive switching views.
+workflow), priority, assignee, labels, points or sprint. Before
+more than one card changes, laneway asks once more. Cards that fail stay
+marked, with the reason. `u` puts back what each card had, also one marked
+in a view you've since left. `esc` clears the marks; marks survive
+switching views.
 
 === "Terminal"
 
     1. `x` marks the card under the cursor; `X` marks the whole lane (or
        every row in the list, after `/` narrowed it).
-    2. `B` edits all marked cards. For labels, `ui -old` adds ui and
-       removes old.
+    2. `B` edits all marked cards; `enter` again confirms. For labels,
+       `ui -old` adds ui and removes old.
 
 === "Browser"
 
     1. `x` (or `ctrl`+click, or a card's checkbox) marks a card; `ctrl+a`
        marks the whole lane, or every row in the list. A bar counts the
        marked cards.
-    2. `X` edits them all, the flag too, four at a time, with a Stop
-       button; an Undo follows.
+    2. `X` edits them all, the flag too, after Apply (or `y`), four at
+       a time, with a Stop button; an Undo follows.
 
 > **Try it:** search `label:` to show the cards without a label. Mark them
-> all, edit, labels, type one, `enter`.
+> all, edit, labels, type one, `enter` twice.
 
 ## Recap
 

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/jira"
@@ -50,6 +51,17 @@ func bulkModel(t *testing.T) (Model, func() []string) {
 		slices.Sort(out)
 		return out
 	}
+}
+
+// confirmPick enters on the picker's row twice: the first only asks.
+func confirmPick(t *testing.T, m Model) (Model, tea.Cmd) {
+	t.Helper()
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || !strings.HasPrefix(m.status, "enter again") {
+		t.Fatalf("first enter should ask, status %q", m.status)
+	}
+	out, cmd = m.applyJiraPick()
+	return out.(Model), cmd
 }
 
 // pickBulk opens B and picks the row whose id is id.
@@ -96,13 +108,15 @@ func TestBulkStatus(t *testing.T) {
 	m, writes := bulkModel(t)
 	m = pickBulk(t, m, "status")
 	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.label == "Done" })
-	out, cmd := m.applyJiraPick()
-	m = out.(Model)
+	m, cmd := confirmPick(t, m)
+	if m.status != "checking what Done needs…" {
+		t.Errorf("status %q", m.status)
+	}
 	check := cmd().(bulkMoveMsg) // no screen: straight on
 	if check.form != nil || check.err != nil {
 		t.Fatalf("check = %+v", check)
 	}
-	out, cmd = m.handleBulkMove(check)
+	out, cmd := m.handleBulkMove(check)
 	m = out.(Model)
 	msg := cmd().(bulkDoneMsg)
 	if len(msg.failed) != 1 || msg.failed["ABC-3"] == nil {
@@ -127,7 +141,7 @@ func TestBulkPriority(t *testing.T) {
 	out, _ = m.applyJiraPick()
 	m = out.(Model)
 	m.setJiraPickerItems([]jiraPickerItem{{id: "2", label: "High"}})
-	_, cmd := m.applyJiraPick()
+	_, cmd := confirmPick(t, m)
 	if msg := cmd().(bulkDoneMsg); len(msg.failed) != 0 || msg.what != "priority High" {
 		t.Fatalf("%+v", msg)
 	}
@@ -145,6 +159,10 @@ func TestBulkLabels(t *testing.T) {
 	}
 	m.jiraFieldInput.SetValue("ui -old")
 	out, cmd := m.applyJiraField()
+	if m = out.(Model); cmd != nil || !m.jiraFieldActive || m.status != "enter again sets labels ui -old on 2 issues" {
+		t.Fatalf("first enter should ask, status %q", m.status)
+	}
+	out, cmd = m.applyJiraField()
 	m = out.(Model)
 	if msg := cmd().(bulkDoneMsg); len(msg.failed) != 0 {
 		t.Fatal(msg.failed)
@@ -160,12 +178,56 @@ func TestBulkSprint(t *testing.T) {
 	m, writes := bulkModel(t)
 	m = pickBulk(t, m, "sprint")
 	m.jiraPicker.idx = slices.IndexFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.label == "Backlog" })
-	_, cmd := m.applyJiraPick()
+	_, cmd := confirmPick(t, m)
 	if msg := cmd().(jiraMutatedMsg); msg.err != nil {
 		t.Fatal(msg.err)
 	}
 	if w := writes(); len(w) != 1 || !strings.Contains(w[0], `"issues":["ABC-1","ABC-3"]`) {
 		t.Errorf("writes = %q", w)
+	}
+}
+
+// TestBulkConfirmOtherRow: a first enter on one row, then on another, asks
+// again rather than writing the second.
+func TestBulkConfirmOtherRow(t *testing.T) {
+	m, writes := bulkModel(t)
+	out, _ := m.handleJiraKey(keyMsg(t, "B"))
+	m = out.(Model)
+	m.jiraPicker.idx = 1 // Priority
+	out, _ = m.applyJiraPick()
+	m = out.(Model)
+	m.setJiraPickerItems([]jiraPickerItem{{id: "2", label: "High"}, {id: "4", label: "Low"}})
+	out, _ = m.applyJiraPick()
+	m = out.(Model)
+	m.jiraPicker.idx = 1
+	out, cmd := m.applyJiraPick()
+	if m = out.(Model); cmd != nil || m.status != "enter again sets priority Low on 2 issues" {
+		t.Errorf("status %q", m.status)
+	}
+	if w := writes(); len(w) != 0 {
+		t.Errorf("writes = %q", w)
+	}
+}
+
+// TestBulkUndoUnloaded: a card marked in a view since left keeps its way
+// back: undo puts back the value it had when marked.
+func TestBulkUndoUnloaded(t *testing.T) {
+	m, writes := bulkModel(t) // ABC-1 and ABC-3 marked
+	i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == "ABC-3" })
+	m.jiraTab.cards[i].Key = "ABC-99" // gone from the board
+	m = pickBulk(t, m, "labels")
+	m.jiraFieldInput.SetValue("ui")
+	out, _ := m.applyJiraField()
+	m = out.(Model)
+	out, cmd := m.applyJiraField()
+	m = out.(Model)
+	out, _ = m.handleBulkDone(cmd().(bulkDoneMsg))
+	m = out.(Model)
+	if msg := m.jiraTab.undo[len(m.jiraTab.undo)-1].back(&m)().(editUndoneMsg); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	if w := writes(); !slices.Contains(w, `PUT /rest/api/3/issue/ABC-3 {"fields":{"labels":[]}}`) {
+		t.Errorf("writes = %q, want ABC-3's labels back", w)
 	}
 }
 
@@ -288,7 +350,7 @@ func TestQuickEditShowsValues(t *testing.T) {
 	if got["status"] != "New" || got["points"] != "5" || got["assignee"] != "unassigned" || got["sprint"] != "backlog" {
 		t.Errorf("values = %v", got)
 	}
-	m.jiraTab.marked = map[string]bool{"ABC-1": true, "ABC-3": true}
+	m.jiraTab.marked = map[string]jira.Card{"ABC-1": {}, "ABC-3": {}}
 	m.openBulkMenu()
 	for _, it := range m.jiraPicker.items {
 		if l := ansi.Strip(it.label); it.id == "status" && !strings.HasSuffix(l, "New") || it.id == "assignee" && !strings.HasSuffix(l, "mixed") {

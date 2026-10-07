@@ -302,7 +302,7 @@ func TestPlanRenameAndEnd(t *testing.T) {
 func TestPlanDrag(t *testing.T) {
 	var writes []string
 	m := planModel(t, &writes)
-	m.jiraTab.marked = map[string]bool{"ABC-7": true}
+	m.jiraTab.marked = map[string]jira.Card{"ABC-7": {}}
 	y := jiraBodyTop + 3 // the head, the per-assignee line, then ABC-7, ABC-8
 	out, _ := m.Update(tea.MouseClickMsg{X: 5, Y: y, Button: tea.MouseLeft})
 	m = out.(Model)

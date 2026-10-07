@@ -74,6 +74,8 @@ export async function openBulk(app, keys) {
     if (!a) return;
     const q = await ask(app, a.id, keys, project);
     if (!q) return;
+    const list = keys.slice(0, 12).join(', ') + (keys.length > 12 ? ` and ${keys.length - 12} more` : '');
+    if (keys.length > 1 && !await app.ui.confirm({ title: `Edit ${keys.length} issues`, text: `${q.what}: ${list}`, ok: 'Apply' })) return;
     return await run(app, keys, q);
   } catch (e) { app.ui.errToast(e); }
 }

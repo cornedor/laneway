@@ -463,6 +463,7 @@ type Model struct {
 	jiraFieldName   string // "points", "summary", "labels" or "field" (panelEditID)
 	jiraFieldKey    string
 	jiraFieldInput  textinput.Model
+	jiraFieldAsked  string // the bulk value a first enter asked to confirm
 
 	jiraCommentActive  bool
 	jiraCommentKey     string
