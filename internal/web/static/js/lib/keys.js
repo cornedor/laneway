@@ -170,14 +170,15 @@ export const keys = {
     return out;
   },
   // The open screen's own bindings (view and panel, under any modal), for the palette's rows: [{id, group, spec, desc, run}].
-  // Moving the cursor is left out, as the TUI's palette does.
+  // Moving the cursor is left out, as the TUI's palette does; an unbound one stays, its spec ''.
   screen() {
     const out = [], seen = new Set(), sorted = byRank(), under = covered(sorted);
     for (const s of sorted) {
       if (s.modal || s.layer < 1 || s.layer > 2 || under(s)) continue;
       for (const b of s.binds) {
-        if (b.hidden || !b.desc || !b.spec || (b.when && !b.when()) || MOVES.test(b.spec) || seen.has(b.spec)) continue;
-        seen.add(b.spec);
+        const k = b.spec || b.id;
+        if (b.hidden || !b.desc || (b.when && !b.when()) || MOVES.test(b.spec || b.def) || seen.has(k)) continue;
+        seen.add(k);
         out.push({ id: b.id, group: b.group, spec: b.spec, desc: b.desc, run: () => press(b) });
       }
     }
@@ -185,7 +186,7 @@ export const keys = {
   },
 };
 // Runs a bind as its key would, for a click on a palette row or a key bar hint.
-const press = b => b.fn(new KeyboardEvent('keydown', { key: b.spec.split(' ').pop().replace(/^(ctrl|alt|meta)\+/, '') }));
+const press = b => b.fn(new KeyboardEvent('keydown', { key: (b.spec || b.def).split(' ').pop().replace(/^(ctrl|alt|meta)\+/, '') }));
 const MOVES = /^(j|k|h|l|ArrowUp|ArrowDown|ArrowLeft|ArrowRight|Home|End|PageUp|PageDown|Escape|Tab|shift\+Tab|g g|G)$/;
 const GLOBAL = new Set(['global', 'timer', 'undo']);
 export const kbd = spec => spec.split(' ').map(k => k.replace('ArrowUp', '↑').replace('ArrowDown', '↓').replace('ArrowLeft', '←').replace('ArrowRight', '→').replace('Escape', 'esc').replace('Enter', '⏎').replace('Space', '␣').replace('ctrl+', '⌃').replace('alt+', '⌥').replace('meta+', '⌘'));

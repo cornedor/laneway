@@ -39,7 +39,7 @@ test('a panel waiting for focus has no hints; remapped keys show as bound; a cli
   p.dispose(); v.dispose();
 });
 
-test('none unbinds: in ui.web_keys by id, in ui.keys by action; the key does nothing and shows nowhere', () => {
+test('none unbinds: in ui.web_keys by id, in ui.keys by action; the key does nothing, the palette keeps the action', () => {
   const v = keys.scope('board');
   v.bind('s', () => {}, 'status', { bar: 'status' });
   v.bind('C', () => {}, 'list columns', { bar: 'columns' });
@@ -47,6 +47,7 @@ test('none unbinds: in ui.web_keys by id, in ui.keys by action; the key does not
   assert.deepEqual(shown(), []);
   assert.deepEqual(keys.registry().filter(r => r.scope === 'board' && ['s', 'C'].includes(r.def)).map(r => [r.def, r.specs, r.from]),
     [['s', [], 'ui.keys'], ['C', [], 'ui.web_keys']]);
+  assert.deepEqual(keys.screen().filter(b => ['board:s', 'board:C'].includes(b.id)).map(b => [b.id, b.spec]), [['board:s', ''], ['board:C', '']]); // still in the palette
   keys.configure({ web: {}, conf: {} });
   assert.deepEqual(shown(), ['s status', 'C columns']);
   v.dispose();

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"charm.land/bubbles/v2/key"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -115,7 +116,7 @@ func (m *Model) openPalette() {
 		}
 		for _, name := range s.actions {
 			b := names[name]
-			if paletteSkip[name] || b == nil || len(b.Keys()) == 0 {
+			if paletteSkip[name] || b == nil {
 				continue
 			}
 			desc, search := b.Help().Desc, paletteAliases[name]
@@ -123,6 +124,10 @@ func (m *Model) openPalette() {
 				desc = d
 			} else if d, ok := help[keysLabel(*b)]; ok {
 				desc, search = d, strings.TrimSpace(search+" "+desc)
+			}
+			if len(b.Keys()) == 0 { // unbound (ui.keys none): run by name
+				items = append(items, jiraPickerItem{id: "n:" + name, label: desc, search: search})
+				continue
 			}
 			items = append(items, jiraPickerItem{id: "a:" + b.Keys()[0], label: desc + "  " + keysLabel(*b), search: search})
 		}
@@ -222,6 +227,8 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 	case "a":
 		m.focus = m.paletteFocus
 		return m.handleKey(keyPress(arg))
+	case "n":
+		return m.runUnbound(arg)
 	case "v":
 		i, _ := strconv.Atoi(arg)
 		return m, m.cycleJiraView(i - m.jiraTab.viewIdx)
@@ -269,6 +276,27 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 }
 
 // keyPress is the key event a binding's key string names.
+// unboundKey is a key no terminal sends: an unbound action holds it while
+// the palette runs it.
+const unboundKey = "\U0010FFFD"
+
+// runUnbound runs an action ui.keys left without a key, as its key would.
+func (m Model) runUnbound(name string) (tea.Model, tea.Cmd) {
+	b := m.keys.keyNames()[name]
+	if b == nil {
+		return m, nil
+	}
+	saved := *b
+	*b = key.NewBinding(key.WithKeys(unboundKey))
+	m.focus = m.paletteFocus
+	out, cmd := m.handleKey(keyPress(unboundKey))
+	if mm, ok := out.(Model); ok {
+		*mm.keys.keyNames()[name] = saved
+		out = mm
+	}
+	return out, cmd
+}
+
 func keyPress(s string) tea.KeyPressMsg {
 	named := map[string]rune{
 		"enter": tea.KeyEnter, "tab": tea.KeyTab, "esc": tea.KeyEscape, "backspace": tea.KeyBackspace,

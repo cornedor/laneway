@@ -194,6 +194,8 @@ function globalKeys() {
   for (const p of theme.presets) commands.register({ id: 'theme:' + p.id, title: 'Theme: ' + p.name, group: 'Theme', run: () => theme.set(p.id) });
   commands.register({ id: 'refine', title: 'Refine the view\'s issues one at a time', group: 'Issue', run: () => import('./views/refine.js').then(m => m.startRefine(app)) });
   commands.register({ id: 'create', title: 'Create issue', group: 'Issue', run: () => app.actions.create({}) });
+  // A view with its own project switch (planning, reports…) lists that one instead.
+  commands.register({ id: 'project', title: 'Switch project (its last board)', group: 'Go', when: () => !keys.screen().some(b => b.id.endsWith(':alt+p')), run: () => import('./views/plan_ctx.js').then(m => m.openProject(app)) });
   commands.register({ id: 'reload', title: 'Reload data (drop caches)', group: 'App', run: () => { api.forget(); navigate(); ui.toast('Reloaded'); } });
   commands.register({ id: 'help', title: 'Keyboard help', group: 'App', run: () => import('./views/help.js').then(m => m.openHelp(app)) });
   commands.register({ id: 'messages', group: 'App', get title() { return 'Messages: the last ' + ui.messages.length + ' (enter copies one)'; }, run: openMessages });

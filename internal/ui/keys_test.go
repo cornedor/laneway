@@ -4,6 +4,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,7 +75,19 @@ func TestUnboundKey(t *testing.T) {
 	}
 	m.helpOpen, m.width = true, 400
 	_ = m.renderHelp(40)
+	m.helpOpen = false
 	m.openPalette()
+	if !slices.ContainsFunc(m.jiraPicker.items, func(it jiraPickerItem) bool { return it.id == "n:search" }) {
+		t.Fatal("the palette lacks the unbound action")
+	}
+	m.closeJiraPicker()
+	out, _ = m.applyPalette("n:search")
+	if !out.(Model).jiraTab.searching {
+		t.Error("the palette does not run the unbound action")
+	}
+	if len(out.(Model).keys.Search.Keys()) != 0 {
+		t.Error("running it left a key bound")
+	}
 }
 
 func TestKeyClashes(t *testing.T) {

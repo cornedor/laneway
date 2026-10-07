@@ -1509,7 +1509,6 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     C('clear', 'clear filters', clearFilters);
     C('filter', 'filter cards', () => { filterIn.focus(); filterIn.select(); });
     C('switch', 'switch board', pickBoard);
-    C('project', 'switch project', () => openProject(app));
     C('sprint', 'pick a view: sprint, backlog, whole board', pickSprint);
     C('new', 'new issue', () => app.actions.create(createOpts()));
     for (const s of SORTS) C('sort:' + s, 'sort list by ' + s, () => setSort(s, 1));
