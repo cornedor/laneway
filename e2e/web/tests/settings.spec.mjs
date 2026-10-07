@@ -46,3 +46,18 @@ test('sidebar jumps to a section', async ({ page, app }) => {
   await expect(nav.getByRole('link', { name: 'Keyboard' })).toHaveClass(/on/);
   await expect(page.locator('.st-fold').first()).toBeInViewport();
 });
+
+// A lane layout is on every board it fits, or on the boards ticked.
+test('a lane layout goes on every board it fits', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const g = page.getByRole('group', { name: 'lane_layouts' });
+  await g.getByRole('button', { name: 'New layout' }).click();
+  const every = g.getByRole('checkbox', { name: 'Every board it fits' }), board = g.getByRole('checkbox', { name: 'DEMO board' });
+  await expect(every).toBeChecked();
+  await board.check();
+  await expect(every).not.toBeChecked();
+  await every.check();
+  await expect(board).not.toBeChecked();
+  await every.uncheck();
+  await expect(board).toBeChecked();
+});

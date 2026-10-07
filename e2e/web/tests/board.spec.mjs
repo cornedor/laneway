@@ -33,3 +33,18 @@ test('the filter and a quick filter narrow the cards', async ({ page }) => {
   await expect(page.locator('.bd-lanes .card:visible')).toHaveCount(3);
   for (const c of await page.locator('.bd-lanes .card:visible').all()) await expect(c.locator('.ctype')).toHaveAttribute('title', 'Bug');
 });
+
+test('the assignee picker: a name picks it alone, the box ticks', async ({ page }) => {
+  const dialog = page.getByRole('dialog');
+  const row = name => dialog.locator('.pick-row', { hasText: name });
+  await page.keyboard.press('A');
+  await row('Mira Jansen').locator('.pick-label').click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.fchip', { hasText: 'Mira Jansen' })).toBeVisible();
+  await page.keyboard.press('A');
+  await row('Priya Nair').locator('.check').click();
+  await expect(dialog).toBeVisible();
+  await row('Sam Okafor').locator('.check').click();
+  await dialog.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.locator('.fchip', { hasText: 'Mira Jansen +2' })).toBeVisible();
+});

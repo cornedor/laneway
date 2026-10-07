@@ -111,6 +111,11 @@ export function designLanes(app, host, options) {
     B.board = (B.boards.find(b => b.ID === last) || B.boards[0] || {}).ID || 0;
     arrange();
   }
+  // setAll clears the boards (every board it fits), or else keeps it to the board shown.
+  function setAll(all) {
+    specs[cur].boards = all || !B.board ? [] : [B.board];
+    commit();
+  }
   function toggleBoard(id) {
     const spec = specs[cur];
     spec.boards = spec.boards.includes(id) ? spec.boards.filter(x => x !== id) : [...spec.boards, id];
@@ -210,8 +215,9 @@ export function designLanes(app, host, options) {
       h('select.input', { 'aria-label': 'Project', onchange: e => setProject(e.target.value) }, projects.map(p => h('option', { value: p, selected: p === B.project }, p))),
       h('select.input', { 'aria-label': 'Board', onchange: e => { B.board = Number(e.target.value); arrange(); } },
         B.boards.map(b => h('option', { value: b.ID, selected: b.ID === B.board }, b.Name))),
-      spec && h('span.cd-label', { title: 'None ticked: every board the layout fits' }, 'Only on'),
+      spec && h('span.cd-label', 'On'),
       spec && h('span.ln-boards',
+        h('label.ln-bchk', { title: 'Every board with two or more of its columns' }, h('input', { type: 'checkbox', checked: !spec.boards.length, onchange: e => setAll(e.target.checked) }), 'Every board it fits'),
         B.boards.map(b => h('label.ln-bchk', h('input', { type: 'checkbox', checked: spec.boards.includes(b.ID), onchange: () => toggleBoard(b.ID) }), b.Name)),
         spec.boards.filter(id => !B.boards.some(b => b.ID === id)).map(id => h('span.chip', 'board ' + id, h('button.cd-fx', { type: 'button', 'aria-label': 'Remove board ' + id, onclick: () => toggleBoard(id) }, '×')))));
     if (!spec) return h('div.cd.ln', top, board, h('div.faint', 'No lane layouts yet. A layout stacks, reorders, renames and hides a board\'s columns, for you; alt+l switches to it.'));
