@@ -137,7 +137,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const people = () => {
     const i = st.issue, m = new Map();
     const add = (id, name) => { if (name && !m.has(name)) m.set(name, id || ''); };
-    if (i) { add(i.AssigneeAccountID, i.Assignee); add(i.ReporterAccountID, i.Reporter); for (const c of i.Comments) add(c.AuthorID, c.Author); }
+    if (i) { add(i.AssigneeAccountID, i.Assignee); add(i.ReporterAccountID, i.Reporter); for (const c of i.Comments) add(c.AuthorID, c.Author); for (const u of i.Mentioned || []) add(u.AccountID, u.DisplayName); }
     return m;
   };
   const mdOpts = () => {

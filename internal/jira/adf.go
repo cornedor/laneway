@@ -1,6 +1,7 @@
 package jira
 
 import (
+	"bytes"
 	"cmp"
 	"encoding/json"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/emoji"
+	"github.com/cornedor/laneway/internal/safeterm"
 )
 
 // adfNode is one node in an Atlassian Document Format tree. Block and inline
@@ -650,6 +652,39 @@ func inlineMentions(node map[string]any, ms []Mention) {
 	ms = slices.Clone(ms)
 	slices.SortFunc(ms, func(a, b Mention) int { return len(b.DisplayName) - len(a.DisplayName) })
 	splitTexts(node, func(text string) []any { return splitMentions(text, ms) })
+}
+
+// mentioned is each person a's description and comments mention, once per
+// name a mention reads.
+func mentioned(a apiIssue) []User {
+	raws := []json.RawMessage{a.Fields.Description}
+	if a.Fields.Comment != nil {
+		for _, ac := range a.Fields.Comment.Comments {
+			raws = append(raws, ac.Body)
+		}
+	}
+	var out []User
+	var walk func(n adfNode)
+	walk = func(n adfNode) {
+		if n.Type == "mention" {
+			id, _ := n.Attrs["id"].(string)
+			text, _ := n.Attrs["text"].(string)
+			name := safeterm.Line(strings.TrimPrefix(text, "@"))
+			if name != "" && !slices.ContainsFunc(out, func(u User) bool { return u.DisplayName == name }) {
+				out = append(out, User{AccountID: id, DisplayName: name})
+			}
+		}
+		for _, c := range n.Content {
+			walk(c)
+		}
+	}
+	for _, raw := range raws {
+		var doc adfNode
+		if bytes.Contains(raw, []byte(`"mention"`)) && json.Unmarshal(raw, &doc) == nil {
+			walk(doc)
+		}
+	}
+	return out
 }
 
 // splitTexts replaces each unmarked text node under node, outside code

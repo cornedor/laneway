@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -636,7 +637,7 @@ func TestGetParsesComments(t *testing.T) {
 					{
 						"author": {"accountId": "a2", "displayName": "Alan Turing"},
 						"created": "2026-06-16T10:00:00.000+0200",
-						"body": {"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"reply"}]}]}
+						"body": {"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"reply cc "},{"type":"mention","attrs":{"id":"a3","text":"@Grace Hopper"}},{"type":"mention","attrs":{"id":"a1","text":"@Ada Lovelace"}}]}]}
 					}
 				]
 			}
@@ -664,8 +665,11 @@ func TestGetParsesComments(t *testing.T) {
 	if iss.Comments[0].Created.IsZero() {
 		t.Error("comment[0] created not parsed")
 	}
-	if iss.Comments[1].Author != "Alan Turing" || iss.Comments[1].Body != "reply" {
+	if iss.Comments[1].Author != "Alan Turing" || iss.Comments[1].Body != "reply cc @Grace Hopper@Ada Lovelace" {
 		t.Errorf("comment[1] = %+v", iss.Comments[1])
+	}
+	if want := []User{{"a3", "Grace Hopper"}, {"a1", "Ada Lovelace"}}; !slices.Equal(iss.Mentioned, want) {
+		t.Errorf("Mentioned = %v, want %v", iss.Mentioned, want)
 	}
 }
 

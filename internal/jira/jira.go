@@ -207,6 +207,9 @@ type Issue struct {
 	// say "…and N more".
 	Comments     []Comment
 	CommentTotal int
+	// Mentioned are the people its description and comments mention, by
+	// the name each mention reads, so "@Ada Lovelace" styles whole.
+	Mentioned []User `json:",omitempty"`
 
 	// Screen is the rest of its edit screen as last seen for its project and
 	// type (layout.go), with ScreenValues: drawn before EditMeta answers
@@ -751,6 +754,7 @@ func (c *Client) toIssue(a apiIssue, files map[string]string) *Issue {
 			iss.Comments = append(iss.Comments, cm)
 		}
 	}
+	iss.Mentioned = mentioned(a)
 	return iss
 }
 
