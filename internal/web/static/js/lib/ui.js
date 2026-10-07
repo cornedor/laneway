@@ -65,7 +65,8 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
 // → Promise<item | item[] | null>. Type to filter, ↑/↓ or ctrl+n/p, Enter picks, Esc cancels. `query` starts the filter
 // typed, `current` puts the cursor on that item.
 // With `multi`, space (nothing typed), Tab (clears what was typed, for the next one) or a click ticks a row; Enter or
-// the foot's Apply button takes the ticks. `enterPicks` makes Enter pick the row under the cursor alone until one is ticked.
+// the foot's Apply button takes the ticks. `enterPicks` makes Enter pick the row under the cursor alone until one is ticked,
+// and a click outside a row's box picks that row alone at once.
 // `first: q => item | null` puts that item at the top for what is typed (an issue key typed in full).
 // With `create: q => item` and no match, Enter on typed text creates an item.
 // With `search: async q => items` the list is also fed by the server (debounced).
@@ -95,7 +96,7 @@ export function pick(o) {
       clear(list);
       const frag = document.createDocumentFragment();
       rows.slice(0, 200).forEach((r, i) => {
-        const row = h('div.pick-row' + (i === sel ? '.sel' : ''), { role: 'option', dataset: { i }, onmousemove: () => { if (sel !== i) { sel = i; mark(); } }, onclick: () => choose(i) },
+        const row = h('div.pick-row' + (i === sel ? '.sel' : ''), { role: 'option', dataset: { i }, onmousemove: () => { if (sel !== i) { sel = i; mark(); } }, onclick: e => (o.multi && o.enterPicks && !e.target.closest('.check') ? finish([r.it]) : choose(i)) },
           o.multi && h('span.check', icon(chosen.has(r.it) ? 'square-check' : 'square')),
           o.render ? o.render(r.it, r.m) : h('span.pick-label', label(r.it)),
           o.detail && !o.render && h('span.pick-detail', o.detail(r.it)));
@@ -116,7 +117,7 @@ export function pick(o) {
     input.addEventListener('input', () => { q = input.value; sel = 0; render(); if (o.search) remote(q); });
     let rt = 0;
     const remote = q => { clearTimeout(rt); rt = setTimeout(async () => { try { const r = await o.search(q); if (input.value === q) { items = r; render(); } } catch (e) { /* keep list */ } }, 180); };
-    const foot = o.multi && h('div.pick-foot.row', h('span', 'space / tab / click ticks · enter applies'), h('span.spacer'), h('button.btn.primary.sm', { type: 'button', onclick: () => { ticked = true; enter(); } }, 'Apply'));
+    const foot = o.multi && h('div.pick-foot.row', h('span', o.enterPicks ? 'space / tab / box ticks · click picks · enter applies' : 'space / tab / click ticks · enter applies'), h('span.spacer'), h('button.btn.primary.sm', { type: 'button', onclick: () => { ticked = true; enter(); } }, 'Apply'));
     const m = modal(h('div.pick', o.title && h('div.pick-title', o.title), input, list, foot), { className: 'pick-modal', onClose: () => finish(null) });
     const move = d => { if (!shown.length) return; sel = (sel + d + Math.min(shown.length, 200)) % Math.min(shown.length, 200); mark(); };
     // Tab on typed text without a match ticks it as a new item (create) instead of finishing.
