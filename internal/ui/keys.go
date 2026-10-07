@@ -37,8 +37,8 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 // retiredKeys are actions laneway dropped; old configs naming them stay quiet.
 var retiredKeys = []string{"review"}
 
-// applyKeys rebinds the named actions, keeping each one's help text.
-// Unknown names and empty lists are reported and skipped.
+// applyKeys rebinds the named actions, keeping each one's help text; "none"
+// unbinds one. Unknown names and empty lists are reported and skipped.
 func (k *keyMap) applyKeys(over map[string]config.KeyList) []string {
 	names := k.keyNames()
 	var warn []string
@@ -53,6 +53,9 @@ func (k *keyMap) applyKeys(over map[string]config.KeyList) []string {
 			continue
 		case len(keys) == 0 || slices.Contains(keys, ""):
 			warn = append(warn, fmt.Sprintf("ui.keys.%s: no key", name))
+			continue
+		case slices.Equal(keys, []string{config.NoKey}):
+			*b = key.NewBinding(key.WithHelp("", b.Help().Desc), key.WithDisabled())
 			continue
 		}
 		*b = key.NewBinding(key.WithKeys(keys...), key.WithHelp(keys[0], b.Help().Desc))

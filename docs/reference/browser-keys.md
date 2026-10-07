@@ -289,3 +289,5 @@ ui:
   web_keys:
     "board:C": alt+c
 ```
+
+`none` unbinds a key (No key when capturing).

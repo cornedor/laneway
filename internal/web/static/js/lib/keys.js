@@ -36,16 +36,18 @@ function norm(e) {
 }
 export const keyOf = norm;
 
-// The specs a bind answers to: ui.web_keys for it, else ui.keys for its action, else its own.
-const readable = l => [].concat(l || []).map(specFromTUI).filter(Boolean);
-function effective(id, def, action) {
-  const w = readable(web[id]);
-  if (w.length) return w;
-  const c = action ? readable(conf[action]) : [];
-  return c.length ? c : [def];
+// A remap's specs: [] for "none" (unbound), null when it has no key the browser reads.
+export const NO_KEY = 'none';
+function remap(l) {
+  l = [].concat(l || []);
+  if (l.length === 1 && l[0] === NO_KEY) return [];
+  const r = l.map(specFromTUI).filter(Boolean);
+  return r.length ? r : null;
 }
+// The specs a bind answers to: ui.web_keys for it, else ui.keys for its action, else its own.
+const effective = (id, def, action) => remap(web[id]) || (action && remap(conf[action])) || [def];
 const seqs = specs => specs.map(sp => sp.split(' '));
-function resolve(b) { b.specs = effective(b.id, b.def, b.action); b.spec = b.specs[0]; b.seqs = seqs(b.specs); }
+function resolve(b) { b.specs = effective(b.id, b.def, b.action); b.spec = b.specs[0] || ''; b.seqs = seqs(b.specs); }
 function remember(b) {
   if (b.hidden || !b.desc || b.scope === 'modal') return;
   const r = registry.get(b.id), row = { id: b.id, scope: b.scope, group: b.group, def: b.def, desc: b.desc, action: b.action };
@@ -140,7 +142,7 @@ export const keys = {
   registry() {
     return [...registry.values()].map(r => {
       const specs = effective(r.id, r.def, r.action);
-      const from = readable(web[r.id]).length ? 'ui.web_keys' : r.action && readable(conf[r.action]).length ? 'ui.keys' : '';
+      const from = remap(web[r.id]) ? 'ui.web_keys' : r.action && remap(conf[r.action]) ? 'ui.keys' : '';
       return { ...r, specs, changed: specs.length !== 1 || specs[0] !== r.def, from };
     });
   },
@@ -159,7 +161,7 @@ export const keys = {
   active() {
     const out = [], seen = new Set();
     for (const s of visible()) for (const b of s.binds) {
-      if (b.hidden || !b.desc) continue;
+      if (b.hidden || !b.desc || !b.spec) continue;
       const on = !b.when || b.when();
       if (!on && !b.help) continue;
       const id = b.spec + (on ? '' : '~'); if (seen.has(id)) continue; seen.add(id);
@@ -174,7 +176,7 @@ export const keys = {
     for (const s of sorted) {
       if (s.modal || s.layer < 1 || s.layer > 2 || under(s)) continue;
       for (const b of s.binds) {
-        if (b.hidden || !b.desc || (b.when && !b.when()) || MOVES.test(b.spec) || seen.has(b.spec)) continue;
+        if (b.hidden || !b.desc || !b.spec || (b.when && !b.when()) || MOVES.test(b.spec) || seen.has(b.spec)) continue;
         seen.add(b.spec);
         out.push({ id: b.id, group: b.group, spec: b.spec, desc: b.desc, run: () => press(b) });
       }

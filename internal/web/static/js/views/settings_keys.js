@@ -3,7 +3,7 @@
 // ui.keys for a binding with a TUI action (the terminal follows), ui.web_keys by bind id for the rest.
 import { h } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
-import { keyOf, kbd } from '../lib/keys.js';
+import { keyOf, kbd, NO_KEY } from '../lib/keys.js';
 import { specToTUI } from '../lib/keymap.js';
 import { put } from './settings_config.js';
 
@@ -20,7 +20,7 @@ const slot = r => (r.action ? ['keys', r.action] : ['web_keys', r.id]);
 
 const kbds = specs => specs.map((s, i) => h('span.st-spec', i ? h('span.faint', ' or ') : null, kbd(s).map(k => h('kbd', k))));
 
-// Waits for a key (or keys in sequence, 1s of quiet ends it); resolves the spec or null.
+// Waits for a key (or keys in sequence, 1s of quiet ends it); resolves the spec, NO_KEY to unbind, or null.
 function capture(app, r) {
   return new Promise(resolve => {
     let seq = [], timer = 0, note = '';
@@ -31,7 +31,7 @@ function capture(app, r) {
     const finish = v => { clearTimeout(timer); resolve(v); m.close(); };
     pad.addEventListener('keydown', e => {
       const k = keyOf(e); if (!k) return;
-      if (k === 'Escape') return;
+      if (k === 'Escape' || k === 'Tab' || k === 'shift+Tab') return; // tab reaches the No key button
       e.preventDefault(); e.stopPropagation();
       clearTimeout(timer);
       if (k === 'Backspace' && seq.length) seq.pop(); else seq.push(k);
@@ -40,7 +40,8 @@ function capture(app, r) {
       paint();
       if (seq.length && !c) timer = setTimeout(() => finish(spec), 1000);
     });
-    m = app.ui.modal(h('div', h('p', r.desc, h('span.faint', '  ' + r.group)), pad, h('div.faint.cap-hint', 'One key, or a sequence like “g x”. It is taken after a second. Backspace removes the last key, esc cancels.')), { title: 'New key', onClose: () => resolve(null) });
+    m = app.ui.modal(h('div', h('p', r.desc, h('span.faint', '  ' + r.group)), pad, h('div.faint.cap-hint', 'One key, or a sequence like “g x”. It is taken after a second. Backspace removes the last key, tab reaches No key, esc cancels.'),
+      h('div.cap-none', h('button.btn', { onclick: () => finish(NO_KEY) }, 'No key'))), { title: 'New key', onClose: () => resolve(null) });
     paint();
     pad.focus();
   });
@@ -63,7 +64,7 @@ export function keyOptions(app, host) {
     const rebind = async () => {
       const spec = await capture(app, cur());
       if (!spec) return;
-      const [name, entry] = slot(r0), t = specToTUI(spec);
+      const [name, entry] = slot(r0), t = spec === NO_KEY ? NO_KEY : specToTUI(spec);
       if (!t || (r0.action && spec.includes(' '))) return app.ui.toast(kbd(spec).join(' ') + (t ? ' is a sequence; the terminal takes one key for ' : ' cannot go in the config for ') + (r0.action || r0.desc), { kind: 'err' });
       const map = maps(app)[name];
       if (spec === r0.def) delete map[entry]; else map[entry] = [t];
@@ -77,7 +78,7 @@ export function keyOptions(app, host) {
     };
     o.render = () => {
       const r = cur();
-      return h('span.st-val', kbds(r.specs), r.changed && h('span.faint.st-was', 'default ' + kbd(r.def).join(' ')), r.from && h('span.chip', r.from),
+      return h('span.st-val', r.specs.length ? kbds(r.specs) : h('span.faint', 'no key'), r.changed && h('span.faint.st-was', 'default ' + kbd(r.def).join(' ')), r.from && h('span.chip', r.from),
         r.from && h('button.btn.ghost.st-x', { tabindex: -1, title: 'Back to the default (del)', 'aria-label': 'Reset ' + r0.desc, onclick: e => { e.stopPropagation(); reset(); } }, '×'));
     };
     o.activate = rebind; o.change = () => rebind(); o.reset = reset;

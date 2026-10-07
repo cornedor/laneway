@@ -40,6 +40,7 @@
 .cap:focus { border-color: var(--accent); outline: none; }
 .cap-keys kbd { font-size: 1.3em; margin: 0 .214rem; } .cap-msg { min-height: 1.3em; font-size: .857rem; } .cap-msg.bad { color: var(--err); }
 .cap-hint { font-size: .857rem; }
+.cap-none { margin-top: var(--pad); }
 @media (max-width: 700px) {
   .st { padding: var(--pad); }
   .st-row { flex-wrap: wrap; } .st-val { max-width: 100%; flex: 1 1 100%; justify-content: flex-start; }

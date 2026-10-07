@@ -59,6 +59,24 @@ func TestReboundKeyDrivesBoard(t *testing.T) {
 	}
 }
 
+// TestUnboundKey: none takes the action's key away; the key does nothing.
+func TestUnboundKey(t *testing.T) {
+	m := jiraTabModel(t)
+	if warn := m.keys.applyKeys(map[string]config.KeyList{"search": {config.NoKey}}); len(warn) != 0 {
+		t.Fatalf("warnings = %v", warn)
+	}
+	if len(m.keys.Search.Keys()) != 0 {
+		t.Errorf("search keys = %v", m.keys.Search.Keys())
+	}
+	out, _ := m.handleKey(keyMsg(t, "/"))
+	if out.(Model).jiraTab.searching {
+		t.Error("unbound key still searches")
+	}
+	m.helpOpen, m.width = true, 400
+	_ = m.renderHelp(40)
+	m.openPalette()
+}
+
 func TestKeyClashes(t *testing.T) {
 	k := defaultKeys()
 	if warn := k.clashes(); len(warn) != 0 {

@@ -114,7 +114,7 @@ var SettingDocs = map[string]string{
 	"image_max_rows":       "the tallest an inline image gets, in rows",
 	"card_limit":           "the most cards one view fetches",
 	"panel_width":          "the issue panel's share of the width, in percent",
-	"keys":                 "rebinds actions by name: search: \"/\" or mine: [m, M]",
+	"keys":                 "rebinds actions by name: search: \"/\" or mine: [m, M]; none unbinds one",
 	"web_keys":             "rebinds browser keys no terminal action covers, by bind id: \"board:alt+e\": ctrl+e",
 	"default_mode":         "the board's mode before one is remembered",
 	"date_format":          "a Go time layout for the panel's dates",

@@ -113,6 +113,7 @@ Every action can be rebound.
       keys:
         search: ctrl+f
         mine: [m, M]
+        roadmap: none   # no key
     ```
 
     The names are in the [reference](../reference/terminal-keys.md#rebinding).

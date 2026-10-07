@@ -258,6 +258,7 @@ ui:
   keys:
     search: f
     mine: [m, M]
+    roadmap: none     # unbound
 ```
 
 A key bound to two actions on one screen is reported. The actions:

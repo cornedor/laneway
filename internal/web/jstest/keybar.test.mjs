@@ -38,3 +38,16 @@ test('a panel waiting for focus has no hints; remapped keys show as bound; a cli
   keys.configure({ web: {} });
   p.dispose(); v.dispose();
 });
+
+test('none unbinds: in ui.web_keys by id, in ui.keys by action; the key does nothing and shows nowhere', () => {
+  const v = keys.scope('board');
+  v.bind('s', () => {}, 'status', { bar: 'status' });
+  v.bind('C', () => {}, 'list columns', { bar: 'columns' });
+  keys.configure({ web: { 'board:C': 'none' }, conf: { status: ['none'] } });
+  assert.deepEqual(shown(), []);
+  assert.deepEqual(keys.registry().filter(r => r.scope === 'board' && ['s', 'C'].includes(r.def)).map(r => [r.def, r.specs, r.from]),
+    [['s', [], 'ui.keys'], ['C', [], 'ui.web_keys']]);
+  keys.configure({ web: {}, conf: {} });
+  assert.deepEqual(shown(), ['s status', 'C columns']);
+  v.dispose();
+});

@@ -145,7 +145,7 @@ type UIConfig struct {
 	CardLimit int `yaml:"card_limit"`
 	// PanelWidth is the issue panel's share of the width, in percent.
 	PanelWidth int `yaml:"panel_width"`
-	// Keys rebinds actions by name: search: "/" or mine: [m, M].
+	// Keys rebinds actions by name: search: "/" or mine: [m, M]; none unbinds one.
 	Keys map[string]KeyList `yaml:"keys"`
 	// WebKeys rebinds browser keys no terminal action covers, by bind id: "board:alt+e": ctrl+e.
 	WebKeys map[string]KeyList `yaml:"web_keys"`
@@ -375,6 +375,9 @@ type NamedQuery struct {
 
 // KeyList is one key or a list of them.
 type KeyList []string
+
+// NoKey as a KeyList's only key unbinds the action.
+const NoKey = "none"
 
 func (k *KeyList) UnmarshalYAML(n *yaml.Node) error {
 	if n.Kind == yaml.ScalarNode {
