@@ -34,6 +34,8 @@ const SHOTS = {
   },
   planning: async ({ open, keys, ready }) => { await open('/board', '.bd-lane .card'); await keys('g', 'p'); await ready('.pl .lrow .l-key'); },
   burndown: async ({ open, keys, ready }) => { await open('/board', '.bd-lane .card'); await keys('g', 'r'); await ready('.rp .ch-line'); },
+  // A second line through the URL: d would write the done line to config.yaml.
+  lines: async ({ open, ready }) => { await open('/reports/burnup/DEMO/1?compare=In%20Review', '.rp .ch-area'); await ready('.rp-line.cmp'); },
   roadmap: async ({ open, keys, ready }) => { await open('/board', '.bd-lane .card'); await keys('g', 'm'); await ready('.rm-bar'); await keys('Space'); await ready('.rm-row + .rm-row .rm-bar'); },
   inbox: async ({ open, keys, ready }) => { await open('/board', '.bd-lane .card'); await keys('I'); await ready('.inbox-detail .ientry'); },
   standup: async ({ open, keys, ready }) => { await open('/board', '.bd-lane .card'); await keys('U'); await ready('.standup .strow'); await ready('.stboard .card'); },

@@ -126,7 +126,7 @@ parent (an initiative) sit under it.
 
 The active sprint's burndown (points left per day, against the ideal
 line), its burnup and cumulative flow, the velocity of the last 8 closed
-sprints (`ui.velocity_sprints`). *Cycle* plots the issues resolved in the
+sprints (`ui.velocity_sprints`). *Cycle* plots the issues done in the
 last 8 weeks by how long they took, with the 50th and 85th percentile, and
 lead time the same. *Retro* sets the last closed sprint beside the one
 before: committed, added, done, carried over, moved backwards, and which
@@ -139,7 +139,8 @@ burnup count issues instead.
 
 === "Terminal"
 
-    `C` on the board; `tab` steps through the charts.
+    `C` on the board; `tab` steps through the charts, `d` and `c` set the
+    lines.
 
     ![The active sprint's burndown](../screenshots/burndown.png)
 
@@ -147,10 +148,29 @@ burnup count issues instead.
 
     `g r` opens Reports; `1`–`7` (or `h` `l`) pick burndown, burnup,
     cumulative flow, velocity, cycle time, retro or releases. `s` picks
-    another sprint, `W` the cycle-time window. Hover a chart for its
-    numbers.
+    another sprint, `W` the cycle-time window, `d` and `c` the lines (also
+    the buttons above the chart). Hover a chart for its numbers.
 
     ![The burndown in the browser](../screenshots/web/burndown.png)
+
+### Where done is
+
+By default done is Jira's: the resolution date, usually the board's last
+column. Your work may end sooner: when a customer accepts or a release goes
+out is not up to you. `d` picks the column done counts from instead; that
+column and every one right of it count (In review counts what is in
+review, accepted or done). It is kept per board in `ui.report_done`.
+
+`c` puts a second line beside it while you look, say Done beside In
+review: the burndown and burnup draw both with the gap shaded, flow marks
+them, cycle time splits each issue at the left one (how long to build,
+how long to get through review), and the retro lists what got past one
+but not the other. Velocity and releases keep Jira's done.
+
+![Done beside In Review on the burnup](../screenshots/web/lines.png)
+
+An issue moved back before the line stops counting (`ui.report_backwards:
+first` keeps counting it from its first crossing).
 
 ## Ship a release
 
@@ -176,7 +196,8 @@ other fields.
   complete sprints there.
 - `ctrl+e` refines whatever is on screen, one issue at a time.
 - The roadmap: epics on a timeline, dragged or moved with `H` `L`.
-- Charts for the sprint, cycle time and the retro; releases.
+- Charts for the sprint, cycle time and the retro, counting done where you
+  say; releases.
 
 Previous: [Editing and moving](03-editing-and-moving.md) · Next:
 [Your day](05-your-day.md)

@@ -409,7 +409,7 @@ export default async function mount(el, { app, params, query, scope, context, to
 
   function retro({ Sprints: rs = [], Cards: cards = {} }, L) {
     if (!rs.length) return h('div.empty', h('h2', 'Retro'), h('p', 'No closed sprints yet.'));
-    const last = rs[rs.length - 1], n = k => (k || []).length;
+    const last = rs[rs.length - 1], n = k => String((k || []).length);
     const [left, right] = order(L.done, L.compare), between = L.compare && 'Past ' + label(left) + ', not ' + label(right);
     const metric = [['Committed', r => n(r.Committed)], ['Added during', r => n(r.Added)], ['Done', r => n(r.Done)], ['Carried over', r => n(r.Carried)], ['Moved backwards', r => n(r.Back)], ['Points done', r => num(r.DonePoints) + ' of ' + num(r.Points)],
       ...(between ? [[between, r => n(r.Between)]] : [])];

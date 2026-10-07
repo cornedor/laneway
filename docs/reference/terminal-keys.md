@@ -153,7 +153,9 @@ On create, `←` `→` change the type, `enter` on the summary creates,
 
 ## Charts
 
-`tab` the next chart, `y` copies its numbers as a markdown table.
+`tab` the next chart, `y` copies its numbers as a markdown table. `d`
+picks the column done counts from (`ui.report_done`), `c` sets a second
+line beside it until you leave (again removes it).
 
 ## Inbox
 
@@ -269,6 +271,7 @@ A key bound to two actions on one screen is reported. The actions:
 | Panel | `status priority points summary labels assign description comment reply next_comment prev_comment delete_comment log_work start_work linked_issue back image issue_actions history development notes ask` |
 | Agent terminal | `agent_back` |
 | Planning | `plan_start plan_goal plan_rename plan_new plan_complete` |
+| Charts | `chart_done chart_compare` |
 | Roadmap | `roadmap_grip roadmap_fold end_earlier end_later zoom_in zoom_out today roadmap_issues roadmap_edit` |
 | Worklogs | `edit_entry delete_entry propose_work` |
 | Inbox | `inbox_done inbox_done_all inbox_unread inbox_snooze` |

@@ -409,8 +409,8 @@ func (m *Model) chartsSegs() []headSeg {
 		segs = append(segs, plainSeg(jiraDimStyle.Render("  ·  loading…")))
 	}
 	segs = append(segs, plainSeg(jiraDimStyle.Render("  ·")))
-	return append(segs, hintSegs(hint{label: "tab", press: "tab", what: "switch"}, keyHint(m.keys.Refresh, "refresh"),
-		keyHint(m.keys.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
+	return append(segs, hintSegs(hint{label: "tab", press: "tab", what: "switch"}, keyHint(m.keys.ChartDone, "done"), keyHint(m.keys.ChartCompare, "compare"),
+		keyHint(m.keys.Refresh, "refresh"), keyHint(m.keys.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
 }
 
 // planSegs is planning's view line: the sprint's name steps to the next.

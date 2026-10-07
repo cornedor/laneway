@@ -167,6 +167,8 @@ ui:
 | Option | Default | |
 | --- | --- | --- |
 | `velocity_sprints` | `8` | closed sprints in the velocity chart (1–50) |
+| `report_done` | Jira's resolution | the column the charts count done from, by board id: `{"12": In review}` is that column and every one right of it. `d` on the charts sets it |
+| `report_backwards` | `live` | an issue moved back before the done line: `live` stops counting it, `first` counts it from its first crossing |
 | `roadmap_epic_type` | `Epic` | the issue type the roadmap shows and creates (`Initiative`, …) |
 | `roadmap_done_days` | `90` | resolved epics older than this leave the roadmap |
 

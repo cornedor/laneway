@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -242,5 +244,43 @@ func TestBurndownPace(t *testing.T) {
 	issues[0].Resolved, issues[1].Resolved = start.Add(time.Hour), start.Add(time.Hour)
 	if got := ansi.Strip(renderBurndown(v, issues, chartLines{}, time.Now(), 80, 20)); !strings.Contains(got, "10p ahead") {
 		t.Errorf("all done early:\n%s", got)
+	}
+}
+
+// TestChartLines: d writes the done line to ui.report_done for the board,
+// c sets a second one for the visit; the burnup draws both.
+func TestChartLines(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("ui: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := jiraTabModel(t).WithConfigPath(path)
+	m.jiraTab.charts = &chartsState{tab: chartBurnup, sprint: &m.jiraTab.views[0]}
+	m.openChartLinePicker(false)
+	if len(m.jiraPicker.items) != 4 || !m.jiraPicker.items[0].current {
+		t.Fatalf("done picker = %+v", m.jiraPicker.items)
+	}
+	m.applyChartLine(false, "In progress")
+	if raw, _ := os.ReadFile(path); !strings.Contains(string(raw), `"1": In progress`) {
+		t.Errorf("config:\n%s", raw)
+	}
+	m.openChartLinePicker(true)
+	if len(m.jiraPicker.items) != 2 { // the done line's column is left out
+		t.Fatalf("compare picker = %+v", m.jiraPicker.items)
+	}
+	m.applyChartLine(true, "Done")
+	ln := m.chartLines()
+	if ln.done == nil || ln.done.Name != "In progress" || ln.compare == nil || ln.compare.Name != "Done" {
+		t.Fatalf("lines = %+v", ln)
+	}
+	start := time.Date(2026, 10, 1, 9, 0, 0, 0, time.Local)
+	v := jiraView{name: "Sprint 1", start: start, end: start.AddDate(0, 0, 10)}
+	issues := []jira.BurnIssue{
+		{Points: 3, Status: "3", Moves: []jira.StatusMove{{When: start.Add(time.Hour), From: "1", To: "3"}}},
+		{Points: 2, Status: "5", Moves: []jira.StatusMove{{When: start.Add(time.Hour), From: "1", To: "5"}}},
+	}
+	got := ansi.Strip(renderBurnup(v, issues, ln, start.AddDate(0, 0, 2), 100, 20))
+	if !strings.Contains(got, "5 of 5p done") || !strings.Contains(got, "past Done: 2p") || !strings.Contains(got, "done = In progress →") {
+		t.Errorf("burnup:\n%s", got)
 	}
 }

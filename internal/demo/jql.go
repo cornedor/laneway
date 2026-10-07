@@ -27,7 +27,7 @@ func (s *Server) search(jql string) []*issue {
 		all = append(all, s.issues[k])
 	}
 	low := strings.ToLower(jql)
-	if sprintEqRe.MatchString(strings.TrimSpace(orderByRe.ReplaceAllString(low, ""))) || strings.Contains(low, "closedsprints()") {
+	if sprintEqRe.MatchString(strings.TrimSpace(orderByRe.ReplaceAllString(low, ""))) || strings.Contains(low, "closedsprints()") || strings.HasPrefix(strings.TrimSpace(low), "key in (") {
 		for _, k := range s.hidden {
 			all = append(all, s.issues[k])
 		}

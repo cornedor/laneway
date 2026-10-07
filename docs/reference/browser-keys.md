@@ -154,6 +154,8 @@ Fields have no key walk: click one to edit it.
 | `h` `l`, `[` `]` | previous, next report |
 | `s` | pick a sprint |
 | `W` | cycle-time window |
+| `d` | the column done counts from (`ui.report_done`) |
+| `c` | a second line beside done, for the visit; again removes it |
 | `j` `k`, `enter` | items, open (a release: its issues on the board) |
 | `r` | release the version |
 | `y` | copy the numbers as a markdown table |

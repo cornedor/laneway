@@ -102,7 +102,8 @@ func renderCycle(issues []jira.CycleIssue, ln chartLines, now time.Time, width, 
 	for _, ci := range slow[:min(len(slow), max(height-len(lines)-1, 0), 5)] {
 		took := cycleDays(ci.Cycle) + " days"
 		if ln.compare != nil {
-			took += jiraDimStyle.Render(" (" + cycleDays(ci.Wait) + " after)")
+			first, _ := jira.Order(ln.done, ln.compare)
+			took += jiraDimStyle.Render(" (" + cycleDays(ci.Wait) + " after " + first.Label() + ")")
 		}
 		lines = append(lines, fmt.Sprintf("  %s  %s  %s", jiraKeyStyle.Render(ci.Key), took, truncate(ci.Summary, max(width-40, 10))))
 	}

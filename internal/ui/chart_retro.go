@@ -56,6 +56,9 @@ func renderRetro(rs []jira.RetroSprint, ln chartLines, width int) string {
 	head, rows := retroTable(rs, ln)
 	lines := []string{jiraViewActive.Render("Retro — "+last.Name) + jiraDimStyle.Render(fmt.Sprintf("  %s – %s · %s", last.Start.Local().Format("2 Jan"), last.End.Local().Format("2 Jan"), ln.by())), ""}
 	colW, nameW := 14, 18
+	for _, r := range rows {
+		nameW = max(nameW, len(r[0])+2)
+	}
 	cell := func(s string) string { return fmt.Sprintf("%-*s", colW, truncate(s, colW-1)) }
 	h := strings.Repeat(" ", nameW)
 	for _, c := range head[1:] {
