@@ -717,9 +717,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function rebind(key) { const w = S.where.get(key); if (w) w.p.vl.refresh(w.i); }
   const openIssue = key => app.panel.open(key, { card: S.cards.find(c => c.Key === key) });
   const openPanel = debounce(() => { if (S.sel && app.panel.key && app.panel.key !== S.sel) openIssue(S.sel); }, 110);
-  function select(key, { scroll = true, row = true } = {}) {
+  function select(key, { scroll = true, row = true, anchor = true } = {}) {
     const old = S.sel;
     S.sel = key;
+    if (anchor) S.anchor = key;
     if (old && old !== key) rebind(old);
     if (key) {
       const w = S.where.get(key);
@@ -777,6 +778,21 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     rebind(key);
     marksChanged();
   }
+  // ctrl+click starts marking with the card the cursor was on; shift+click marks the run from the anchor
+  // (the last card picked other than by shift+click) to the clicked one, within its lane or the list.
+  function clickMark(key, shift, ctrl) {
+    const from = S.anchor && S.where.get(S.anchor), to = S.where.get(key);
+    if (shift && from && to && from.p === to.p) {
+      const [a, b] = from.i < to.i ? [from.i, to.i] : [to.i, from.i];
+      for (const c of to.p.cards.slice(a, b + 1)) S.marks.add(c.Key);
+      to.p.vl.refresh();
+      marksChanged();
+    } else {
+      if (ctrl && !S.marks.size && from && S.anchor !== key) { S.marks.add(S.anchor); rebind(S.anchor); }
+      toggleMark(key);
+    }
+    select(key, { scroll: false, anchor: !shift });
+  }
   function clearMarks() { const ks = [...S.marks]; S.marks.clear(); ks.forEach(rebind); marksChanged(); }
   // With any marked every card shows its checkbox, and the bar counts them.
   function marksChanged() { selbar.set(S.marks.size); root.classList.toggle('marking', S.marks.size > 0); }
@@ -787,10 +803,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const key = t.dataset.key;
     if (e.target.closest('[data-sec]')) return;
     if (e.target.closest('.cparent') && e.target.closest('.cparent').dataset.open) { app.panel.open(e.target.closest('.cparent').dataset.open); return; }
-    if (e.target.closest('.chk, .l-mark') || e.ctrlKey || e.metaKey || e.shiftKey) { toggleMark(key); select(key, { scroll: false }); return; }
+    if (e.target.closest('.chk, .l-mark') || e.ctrlKey || e.metaKey || e.shiftKey) return clickMark(key, e.shiftKey, e.ctrlKey || e.metaKey);
     select(key, { scroll: false });
     openIssue(key);
   });
+  // shift+click would select the text between the two cards
+  delegate(main, 'mousedown', '[data-key]', e => { if (e.shiftKey) e.preventDefault(); });
   delegate(main, 'click', '[data-fold]', (e, t) => foldBand(t.dataset.fold));
   // A lane's chevron collapses it to a bar until clicked again or the board reloads; not remembered.
   delegate(main, 'click', '.bd-lane-fold, .bd-lane.collapsed', (e, t) => {

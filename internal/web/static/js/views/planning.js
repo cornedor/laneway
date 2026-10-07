@@ -48,7 +48,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   if (!board) { el.append(noBoard('Planning', project)); return; }
 
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
-  let data = null, sections = [], cur = '', filter = '', who = null, velAvg = 0, velN = 0, columns = [];
+  let data = null, sections = [], cur = '', anchor = '', filter = '', who = null, velAvg = 0, velN = 0, columns = [];
   const sel = new Set(), folded = new Set();
   app.marked = () => [...sel];
   let ROW = 32, drag = null, token = 0, writing = 0, lastWrite = 0;
@@ -331,8 +331,9 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   // ---- cursor and selection
-  function setCur(id, scrollTo = true) {
+  function setCur(id, scrollTo = true, keepAnchor = false) {
     cur = id; paint();
+    if (!keepAnchor) anchor = id;
     const p = paneOf(id); if (!p) return;
     p.last = id;
     if (!scrollTo) return;
@@ -356,6 +357,20 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const cc = curCard(); return cc ? [cc.c.Key] : [];
   }
   function toggleSel(key) { sel.has(key) ? sel.delete(key) : sel.add(key); for (const p of panes) { const n = p.live.get('c:' + key); if (n) n._sig = ''; } paint(); }
+  // ctrl+click starts selecting with the issue the cursor was on; shift+click selects the run from the anchor
+  // (the last row picked other than by shift+click) to the clicked one, within its pane.
+  function clickSel(p, key, shift, ctrl) {
+    const ks = p.rows.filter(r => r.k === 'c').map(r => r.c.Key), a = ks.indexOf(anchor), b = ks.indexOf(key);
+    if (shift && a >= 0) {
+      for (const k of ks.slice(Math.min(a, b), Math.max(a, b) + 1)) sel.add(k);
+      for (const q of panes) for (const n of q.live.values()) n._sig = '';
+      paint();
+    } else {
+      if (ctrl && !sel.size && a >= 0 && anchor !== key) toggleSel(anchor);
+      toggleSel(key);
+    }
+    setCur(key, false, shift);
+  }
 
   // ---- writes: optimistic, queued, reloaded from the server if one fails
   let queue = Promise.resolve(), settle = 0;
@@ -491,6 +506,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   document.addEventListener('plan:action', onAction);
 
   // ---- mouse
+  // shift+click would select the text between the two rows
+  for (const p of panes) p.scroller.addEventListener('mousedown', e => { if (e.shiftKey && e.target.closest('.pl-row, .lrow')) e.preventDefault(); });
   for (const p of panes) p.scroller.addEventListener('click', e => {
     const n = e.target.closest('.pl-row, .lrow'); if (!n) return;
     const holder = n.parentElement, r = p.rows.find(x => p.live.get(x.key) === holder);
@@ -503,8 +520,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       return toggleFold(r.s);
     }
     if (r.k !== 'c') return;
+    if (e.target.closest('.l-mark') || e.ctrlKey || e.metaKey || e.shiftKey) return clickSel(p, r.c.Key, e.shiftKey, e.ctrlKey || e.metaKey);
     setCur(r.c.Key, false);
-    if (e.target.closest('.l-mark') || e.ctrlKey || e.metaKey || e.shiftKey) return toggleSel(r.c.Key);
     app.panel.open(r.c.Key);
   });
   // y: the section under the cursor as a markdown table (TUI copy table).
