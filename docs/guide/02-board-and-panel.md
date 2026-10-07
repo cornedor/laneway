@@ -66,6 +66,7 @@ The [search reference](../reference/search.md) has every field.
   assignee, priority, epic or status it groups the rows.
 - In lanes the same key groups them into swimlanes by assignee, epic or
   priority. `z` folds the band under the cursor, `Z` unfolds them all.
+  `}` and `{` jump to the next and previous band, or the list's group.
 - `c` makes cards one line high.
 - `alt+e` hides lanes the filters leave empty, so the rest get the room.
   Moving a card into one shows it again. `ui.empty_lanes: hide` starts

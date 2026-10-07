@@ -64,6 +64,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Roadmap, "roadmap: epics on a timeline (space children, H L < > e dates, y copy)"),
 			row(k.Sort, "sort the list; lanes: swimlanes"),
 			{join(k.Fold, k.UnfoldAll), "fold the swimlane or stacked lane's section / unfold all"},
+			{join(k.PrevBand, k.NextBand), "previous / next swimlane, or the list's group"},
 			{join(k.MoveCardLeft, k.MoveCardRight), "move card a lane"},
 			{join(k.RankUp, k.RankDown), "rank up / down in its lane"},
 			{join(k.RankTop, k.RankBottom), "rank to the top / bottom of its lane"},

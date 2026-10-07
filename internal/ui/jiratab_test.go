@@ -1430,6 +1430,40 @@ func TestJiraSwimlaneFold(t *testing.T) {
 	}
 }
 
+// TestJiraBandJump: } { step a swimlane at a time, into the nearest lane
+// when the cursor's has none of the band.
+func TestJiraBandJump(t *testing.T) {
+	m := jiraTabModel(t)
+	out, _ := m.handleKey(keyMsg(t, "}"))
+	if m = out.(Model); !strings.Contains(m.status, "bands need swimlanes") {
+		t.Errorf("} without swimlanes: %q", m.status)
+	}
+	for _, step := range []struct{ key, want string }{
+		{"s", "ABC-1"}, {"}", "ABC-3"}, {"}", "ABC-3"}, {"{", "ABC-1"}, {"l", "ABC-2"}, {"{", "ABC-1"},
+	} {
+		out, _ = m.handleKey(keyMsg(t, step.key))
+		m = out.(Model)
+		if c, _ := m.selectedJiraCard(); c.Key != step.want {
+			t.Fatalf("%s: on %s, want %s", step.key, c.Key, step.want)
+		}
+	}
+	// The list, by assignee: a group at a time.
+	for _, k := range []string{"t", "s", "s", "s", "g"} {
+		out, _ = m.handleKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	first, _ := m.selectedJiraCard()
+	out, _ = m.handleKey(keyMsg(t, "}"))
+	m = out.(Model)
+	if c, _ := m.selectedJiraCard(); m.jiraTab.sort != jiraSortAssignee || c.Assignee == first.Assignee {
+		t.Errorf("list }: sort %v, from %s to %s", m.jiraTab.sort, first.Key, c.Key)
+	}
+	out, _ = m.handleKey(keyMsg(t, "{"))
+	if m = out.(Model); m.jiraTab.idx != 0 {
+		t.Errorf("list {: idx %d, want 0", m.jiraTab.idx)
+	}
+}
+
 // TestPanelDeployed: the panel names the environment the board's card was
 // deployed to.
 func TestPanelDeployed(t *testing.T) {

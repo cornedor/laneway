@@ -216,7 +216,7 @@ func TestParityWebOnly(t *testing.T) {
 }
 
 var (
-	reKeymapBlock = regexp.MustCompile(`(?s)'?([\w-]+)'?:\s*\{(.*?)\}`)
+	reKeymapBlock = regexp.MustCompile(`'?([\w-]+)'?:\s*\{((?:'(?:[^'\\]|\\.)*'|[^'}])*)\}`)
 	reKeymapPair  = regexp.MustCompile(`(?:'((?:[^'\\]|\\.)*)'|([\w+]+))\s*:\s*'([a-z_]+)'`)
 )
 

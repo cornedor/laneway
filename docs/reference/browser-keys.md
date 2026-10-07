@@ -66,6 +66,7 @@ terminal's is in the last column.
 | `O` | lanes: swimlanes; list: sort | `s` |
 | `C` | list columns | |
 | `z` `Z` | fold the band (or the stacked lane's section), unfold all | |
+| `{` `}` | previous, next band; in a grouped list, group | |
 | `c` | one-line cards | |
 | `alt+e` | empty lanes | |
 | `alt+l` | next lane layout | |

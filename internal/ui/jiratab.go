@@ -1316,6 +1316,10 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.moveJiraCursor(-max(t.view.Height()/2, 1))
 	case key.Matches(msg, m.keys.PageDown):
 		m.moveJiraCursor(max(t.view.Height()/2, 1))
+	case key.Matches(msg, m.keys.NextBand):
+		m.jumpJiraBand(1)
+	case key.Matches(msg, m.keys.PrevBand):
+		m.jumpJiraBand(-1)
 	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
 		return m.openJiraCard()
 	case key.Matches(msg, m.keys.OpenAttach):
@@ -1584,6 +1588,88 @@ func (m *Model) foldJiraSwimlane() {
 	m.skipJiraFolded(1)
 	m.renderJira()
 	m.status = "folded " + g + " · " + helpKey(m.keys.UnfoldAll) + " unfolds all"
+}
+
+// jiraSwimGroups are the swimlanes in order, with a card of each.
+func (m *Model) jiraSwimGroups() ([]string, map[string]jira.Card) {
+	t := m.jiraTab
+	var groups []string
+	rep := map[string]jira.Card{}
+	for _, l := range t.lanes {
+		for _, ci := range l.cards {
+			if g, _ := jiraGroupOf(t.swim, t.cards[ci]); rep[g].Key == "" {
+				rep[g] = t.cards[ci]
+				groups = append(groups, g)
+			}
+		}
+	}
+	cmp := t.swim.cmp()
+	slices.SortStableFunc(groups, func(a, b string) int { return cmp(rep[a], rep[b]) })
+	return groups, rep
+}
+
+// jumpJiraBand moves the cursor to the first card of the next swimlane (dir
+// 1) or the previous one, skipping folded ones; in the list, of the next
+// group. A swimlane with no card in the cursor's lane takes the nearest lane
+// with one.
+func (m *Model) jumpJiraBand(dir int) {
+	t := m.jiraTab
+	c, ok := m.selectedJiraCard()
+	if !m.jiraShowsLanes() {
+		g, grouped := jiraGroupOf(t.sort, c)
+		if !grouped {
+			m.status = "bands need swimlanes or a grouped list (" + helpKey(m.keys.Sort) + ")"
+			return
+		}
+		groupAt := func(i int) string { g, _ := jiraGroupOf(t.sort, t.cards[t.order[i]]); return g }
+		i := t.idx
+		for i >= 0 && i < len(t.order) && groupAt(i) == g {
+			i += dir
+		}
+		if !ok || i < 0 || i >= len(t.order) {
+			return
+		}
+		for g = groupAt(i); i > 0 && groupAt(i-1) == g; i-- {
+		}
+		t.idx = i
+		m.renderJira()
+		return
+	}
+	if t.swim == jiraSortRank {
+		m.status = "bands need swimlanes or a grouped list (" + helpKey(m.keys.Sort) + ")"
+		return
+	}
+	if !ok {
+		return
+	}
+	groups, _ := m.jiraSwimGroups()
+	g, _ := jiraGroupOf(t.swim, c)
+	for i := slices.Index(groups, g) + dir; i >= 0 && i < len(groups); i += dir {
+		if !t.swimFold[groups[i]] && m.selectJiraSwimlane(groups[i]) {
+			m.renderJira()
+			return
+		}
+	}
+}
+
+// selectJiraSwimlane puts the cursor on band g's first card in the cursor's
+// lane, else in the nearest lane holding one; false when none does.
+func (m *Model) selectJiraSwimlane(g string) bool {
+	t := m.jiraTab
+	for d := 0; d < 2*len(t.lanes); d++ {
+		l := t.lane + (d+1)/2*(1-2*(d%2))
+		if l < 0 || l >= len(t.lanes) {
+			continue
+		}
+		if r := slices.IndexFunc(t.lanes[l].cards, func(ci int) bool {
+			cg, _ := jiraGroupOf(t.swim, t.cards[ci])
+			return cg == g
+		}); r >= 0 {
+			t.lane, t.row = l, r
+			return true
+		}
+	}
+	return false
 }
 
 // moveJiraLane moves the cursor to the next lane (or previous), keeping its
@@ -3231,20 +3317,9 @@ func (m *Model) renderJiraSwimlanes(visible, laneW, height int) string {
 	for i := range shown {
 		heads[i] = m.jiraLaneHead(t.firstLane+i, inner)
 	}
-	// The groups in order: each lane is sorted by group, so a group is a run
-	// in every lane; next[i] is where lane i's current run starts.
-	var groups []string
-	rep := map[string]jira.Card{} // a card of each group, to order them
-	for _, l := range t.lanes {
-		for _, ci := range l.cards {
-			if g, _ := jiraGroupOf(t.swim, t.cards[ci]); rep[g].Key == "" {
-				rep[g] = t.cards[ci]
-				groups = append(groups, g)
-			}
-		}
-	}
-	cmp := t.swim.cmp()
-	slices.SortStableFunc(groups, func(a, b string) int { return cmp(rep[a], rep[b]) })
+	// Each lane is sorted by group, so a group is a run in every lane;
+	// next[i] is where lane i's current run starts.
+	groups, rep := m.jiraSwimGroups()
 	// Lay the body out first, then draw only the lines on screen: each line
 	// is a band's header, a card row's line y (its first line at start), or
 	// a gap.

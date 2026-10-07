@@ -62,6 +62,7 @@ type keyMap struct {
 	IssueActions, Site, Standup        key.Binding
 	History, DevInfo, JQL, Pin         key.Binding
 	Fold, UnfoldAll, Settings          key.Binding
+	NextBand, PrevBand                 key.Binding
 	FilterBuilder, PanelWider          key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Repeat          key.Binding
@@ -168,6 +169,8 @@ func defaultKeys() keyMap {
 		Pin:             bind("pin / unpin issue; on a panel field, star it", "*"),
 		Fold:            bind("fold the swimlane, or the stacked lane's section", "z"),
 		UnfoldAll:       bind("unfold every swimlane and section", "Z"),
+		NextBand:        bind("next swimlane or group", "}"),
+		PrevBand:        bind("previous swimlane or group", "{"),
 		JQL:             bind("JQL search", "Q"),
 		Settings:        bind("settings", ","),
 		FilterBuilder:   bind("filter builder", "F"),

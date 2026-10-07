@@ -770,6 +770,29 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const w = cur(); const p = w ? w.p : S.panes.find(p => p.cards.length);
     if (p && p.cards.length) select(p.cards[end ? p.cards.length - 1 : 0].Key);
   }
+  // } {: the next or previous swimlane's first card, in the cursor's column else the nearest one holding
+  // one; in a grouped list, the next or previous group's (TUI jumpJiraBand).
+  function jumpBand(d) {
+    const w = cur();
+    if (!w) return move(0, 1);
+    if (S.mode === 'list') {
+      const heads = w.p.heads;
+      if (!heads) return ui.toast('Bands need swimlanes or a grouped list  (O)');
+      let i = w.i;
+      while (i > 0 && !heads[i]) i--;
+      do i += d; while (i > 0 && i < heads.length && !heads[i]);
+      if (i >= 0 && i < w.p.cards.length) select(w.p.cards[i].Key);
+      return;
+    }
+    if (!swimming()) return ui.toast('Bands need swimlanes or a grouped list  (O)');
+    const at = S.panes.indexOf(w.p) % S.ncols;
+    for (let g = w.p.group + d; g >= 0 && g < S.panes.length / S.ncols; g += d) {
+      for (let k = 0; k < 2 * S.ncols; k++) {
+        const col = at + Math.ceil(k / 2) * (k % 2 ? 1 : -1), q = col >= 0 && col < S.ncols && S.panes[g * S.ncols + col];
+        if (q && q.cards.length) return select(q.cards[0].Key);
+      }
+    }
+  }
   const page = d => { const w = cur(); if (w) move(0, d * Math.max(1, Math.floor(w.p.body.clientHeight / (w.p.rh || 60)) - 1)); else move(0, 1); };
 
   function toggleMark(key) {
@@ -1492,6 +1515,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     k.bind('O', cycleO, 'lanes: cycle swimlanes · list: cycle sort', { group: V });
     k.bind('z', () => foldBand(), 'fold the swimlane, or the stacked lane\'s section', { group: V });
     k.bind('Z', unfoldAll, 'unfold all swimlanes and sections', { group: V });
+    k.bind('}', () => jumpBand(1), 'next swimlane, or the list\'s group', { group: G });
+    k.bind('{', () => jumpBand(-1), 'previous swimlane, or the list\'s group', { group: G });
     k.bind('c', () => setCompact(!S.compact), 'one-line cards', { group: V });
     k.bind('alt+e', () => { if (S.mode === 'lanes') setHideEmpty(!S.hideEmpty); }, 'hide / show empty lanes', { group: V });
     k.bind('alt+l', cycleLayout, 'next lane layout: the board\'s columns or a ui.lane_layouts entry', { group: V });
