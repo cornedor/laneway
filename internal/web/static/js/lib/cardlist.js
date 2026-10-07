@@ -20,7 +20,7 @@ export const COLS = {
 export const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'points', 'assignee', 'due', 'updated'];
 const FIXED = ['mark', 'key', 'summary'];
 
-export const sortable = id => id !== 'mark' && id !== 'age' && !id.startsWith('x:') && id !== 'labels' && id !== 'reporter';
+export const sortable = id => id !== 'mark';
 export const colLabel = id => (id.startsWith('x:') ? id.slice(2) : (COLS[id] || ['', ''])[0]);
 export const colWidth = id => (COLS[id] ? COLS[id][1] : '8.571rem');
 export const gridCols = cols => cols.map(colWidth).join(' ');

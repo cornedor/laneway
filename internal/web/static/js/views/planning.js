@@ -10,7 +10,7 @@ import { openFilterBuilder } from './board_filter.js';
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
 import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
-import { comparators, sortCards } from '../lib/cardsort.js';
+import { comparators, sortCards, cmpOf } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
 import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, buildRow, fillCells } from '../lib/cardlist.js';
 import { goDate } from '../lib/godate.js';
@@ -87,7 +87,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function readSort(p, key) {
     p.sortKey = key;
     const [s, d] = String(app.prefs.get(key, 'rank:1')).split(':');
-    p.sort = s === 'rank' || CMP[s] ? s : 'rank'; p.dir = d === '-1' ? -1 : 1;
+    p.sort = s === 'rank' || cmpOf(CMP, s) ? s : 'rank'; p.dir = d === '-1' ? -1 : 1;
   }
   const sorted = p => p.sort !== 'rank';
   const left = makePane(() => sections.filter(s => !sideOn() || s.id !== side));
