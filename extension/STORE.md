@@ -1,6 +1,6 @@
 # Store listings
 
-Build: `extension/pack.sh` → `dist/extension/` (zip, promo tile, screenshots). One zip for both stores. Bump `version` in `manifest.json` for every upload.
+Build: `extension/pack.sh` → `extension/dist/` (zip, promo tile, screenshots). One zip for both stores. Bump `version` in `manifest.json` for every upload.
 
 ## Chrome: store listing
 

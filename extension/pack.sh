@@ -1,10 +1,10 @@
 #!/bin/sh
-# Builds the store upload into dist/: the extension zip, plus the listing's promo tile
+# Builds the store upload into extension/dist/: the extension zip, plus the listing's promo tile
 # and screenshots (from docs/screenshots/web). Needs zip and ImageMagick.
 set -eu
 cd "$(dirname "$0")"
 v=$(node -p 'require("./manifest.json").version')
-out=../dist/extension
+out=dist
 rm -rf "$out" && mkdir -p "$out/store"
 
 zip -q -X "$out/laneway-redirect-$v.zip" manifest.json background.js go.html go.js map.js options.html options.js settings.js icon-*.png
