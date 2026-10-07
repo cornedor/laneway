@@ -118,3 +118,24 @@ func TestProposalComment(t *testing.T) {
 		}
 	}
 }
+
+// TestBoardQuickFiltersOff: ui.board_quick_filters off leaves the board's own
+// quick filters out, the config's presets in.
+func TestBoardQuickFiltersOff(t *testing.T) {
+	url, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: url, Email: "demo@example.com", APIToken: "demo"})
+	m.opts.quick = []jira.QuickFilter{{ID: -1, Name: "Bugs", JQL: "type = Bug"}}
+	m.opts.boardQuick = false
+	msg, ok := m.loadJiraBoard("DEMO", 1, "", false)().(jiraBoardMsg)
+	if !ok || msg.err != nil {
+		t.Fatalf("board load = %+v", msg)
+	}
+	if len(msg.quick) != 1 || msg.quick[0].ID != -1 {
+		t.Errorf("quick filters = %+v, want the preset alone", msg.quick)
+	}
+}

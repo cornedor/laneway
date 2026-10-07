@@ -88,6 +88,7 @@ ui:
 | --- | --- | --- |
 | `home` | | start on the home screen with these widgets, in order: `work inbox sprint timer filters` |
 | `quick_filters` | | `{name, jql}` presets before the board's own |
+| `board_quick_filters` | `on` | the board's own quick filters from Jira; `off`: only `quick_filters` |
 | `views` | | `{name, jql}` views of every board, after its own |
 | `saved_filters` | `on` | your starred Jira filters as views |
 | `remember_filters` | `on` | the assignee filter (mine) and each board's quick filters stay on next time |

@@ -14,7 +14,8 @@ anyone with cards on the board, or Unassigned, and ticks several at once.
 
 **Quick filters.** The board's own quick filters sit above the cards;
 `1`–`9` toggle them, `0` clears every filter at once. Add your own presets
-under `ui.quick_filters` in the config and they come first.
+under `ui.quick_filters` in the config and they come first;
+`ui.board_quick_filters: off` hides the board's own.
 
 **Search.** The board's search narrows the loaded cards as you type,
 without asking Jira again. Plain words match the key, summary, assignee or

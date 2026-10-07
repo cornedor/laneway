@@ -38,6 +38,7 @@ type options struct {
 	quick           []jira.QuickFilter  // config presets, ids -1, -2, …
 	views           []jiraView          // config JQL views
 	laneLayouts     []config.LaneLayout // ui.lane_layouts, the usable ones
+	boardQuick      bool                // the board's own quick filters (ui.board_quick_filters)
 	savedFilters    bool                // starred Jira filters as views
 	rememberFilters bool                // the assignee and quick filters outlive the session (ui.remember_filters)
 	capacity        map[string]float64  // sprint points per person, "default" for the rest
@@ -88,7 +89,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, savedFilters: true, rememberFilters: true, delight: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, standup: standup.Defaults, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, boardQuick: true, savedFilters: true, rememberFilters: true, delight: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, standup: standup.Defaults, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -339,6 +340,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		o.mouse = false
 	default:
 		warn = append(warn, fmt.Sprintf("ui.mouse: %q is not on or off", c.Mouse))
+	}
+	switch strings.ToLower(strings.TrimSpace(c.BoardQuickFilters)) {
+	case "", "on":
+	case "off":
+		o.boardQuick = false
+	default:
+		warn = append(warn, fmt.Sprintf("ui.board_quick_filters: %q is not on or off", c.BoardQuickFilters))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.SavedFilters)) {
 	case "", "on":

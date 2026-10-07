@@ -87,6 +87,17 @@ func TestBoardLocalQuickFilters(t *testing.T) {
 	if len(q) < 2 || q[0] != (jira.QuickFilter{ID: -1, Name: "Bugs", JQL: "type = Bug"}) || q[1].ID < 0 {
 		t.Errorf("quick filters = %+v, want the preset first, then the board's", q)
 	}
+
+	ui.BoardQuickFilters = "off"
+	ts = httptest.NewServer(New(context.Background(), Options{Client: cl, UI: ui, Store: st, Site: "demo", Demo: true}))
+	t.Cleanup(ts.Close)
+	out.QuickFilters = nil
+	if code := issueCall(t, "GET", ts.URL+"/api/boards/1", nil, &out); code != 200 {
+		t.Fatalf("status %d", code)
+	}
+	if q := out.QuickFilters; len(q) != 1 || q[0].ID != -1 {
+		t.Errorf("board_quick_filters off: quick filters = %+v, want the preset alone", q)
+	}
 }
 
 func TestPrefsRoundTrip(t *testing.T) {

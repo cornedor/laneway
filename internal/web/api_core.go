@@ -112,8 +112,12 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, id, cfg.Columns)}
-	qf, _ := c.QuickFilters(ctx, id)
-	out["quickFilters"] = append(localQuick(s.UIConfig().QuickFilters), qf...)
+	quick := localQuick(s.UIConfig().QuickFilters)
+	if !strings.EqualFold(strings.TrimSpace(s.UIConfig().BoardQuickFilters), "off") {
+		qf, _ := c.QuickFilters(ctx, id)
+		quick = append(quick, qf...)
+	}
+	out["quickFilters"] = quick
 	if sp, err := c.Sprints(ctx, id); err == nil {
 		out["sprints"] = sp
 	}

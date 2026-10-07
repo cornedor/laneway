@@ -165,6 +165,9 @@ type UIConfig struct {
 	CardStyles []CardStyle `yaml:"card_styles"`
 	// QuickFilters are JQL presets shown before every board's own.
 	QuickFilters []QuickFilter `yaml:"quick_filters"`
+	// BoardQuickFilters is "on" (the board's own quick filters from Jira,
+	// after QuickFilters) or "off".
+	BoardQuickFilters string `yaml:"board_quick_filters"`
 	// Views are JQL-narrowed views of every board, after its own.
 	Views []QuickFilter `yaml:"views"`
 	// LaneLayouts are your own lanes over a board's columns, which alt+l

@@ -633,7 +633,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	configured := m.jiraProjects
 	readMode := !t.modeRead
 	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, append(slices.Clone(m.opts.views), m.savedJQLViews()...)
-	withSaved, doneDays, remember := m.opts.savedFilters, m.opts.kanbanDoneDays, m.opts.rememberFilters
+	withSaved, withQuick, doneDays, remember := m.opts.savedFilters, m.opts.boardQuick, m.opts.kanbanDoneDays, m.opts.rememberFilters
 	var cached tea.Cmd
 	if fromCache {
 		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode, remember)
@@ -702,7 +702,12 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 				sprints, sprintsErr = c.Sprints(ctx, board.ID)
 			}
 		}()
-		go func() { defer wg.Done(); msg.quick, msg.quickErr = c.QuickFilters(ctx, board.ID) }()
+		go func() {
+			defer wg.Done()
+			if withQuick {
+				msg.quick, msg.quickErr = c.QuickFilters(ctx, board.ID)
+			}
+		}()
 		go func() { defer wg.Done(); msg.statusNames, _ = c.StatusNames(ctx) }()
 		wg.Wait()
 		if err := firstErr(cfgErr, sprintsErr); err != nil {

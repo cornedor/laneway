@@ -39,6 +39,7 @@ var SettingDefaults = map[string]string{
 	"start_status":         "none",
 	"workday_start":        "09:00",
 	"capacity":             "none",
+	"board_quick_filters":  "on",
 	"saved_filters":        "on",
 	"remember_filters":     "on",
 	"delight":              "on",
@@ -98,7 +99,7 @@ type SettingGroup struct {
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
 	{"Board and cards", []string{"default_mode", "card_fields", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
-	{"Views and filters", []string{"home", "quick_filters", "views", "saved_filters", "remember_filters", "filters", "my_work_jql"}},
+	{"Views and filters", []string{"home", "quick_filters", "board_quick_filters", "views", "saved_filters", "remember_filters", "filters", "my_work_jql"}},
 	{"Panel", []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies", "comment_order", "comment_layout"}},
 	{"Refresh", []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{"Time and worklogs", []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity", "calendar", "meeting_key"}},
@@ -141,6 +142,7 @@ var SettingDocs = map[string]string{
 	"start_status":         "the status S moves the issue to (In Progress); empty for none",
 	"workday_start":        "when work logged on another day starts",
 	"capacity":             "story points per person a sprint holds; default for everyone else",
+	"board_quick_filters":  "the board's own quick filters from Jira; off: only quick_filters",
 	"saved_filters":        "your starred Jira filters as views",
 	"remember_filters":     "the assignee filter (mine) and each board's quick filters stay on next time; off: every start clears them",
 	"branch_template":      "the branch ctrl+y copies: {key} {summary} {type} {project}",
@@ -206,7 +208,7 @@ func SettingChoices(name string) []string {
 		return []string{"nerd", "plain"}
 	case "empty_fields", "empty_lanes":
 		return []string{"show", "hide"}
-	case "saved_filters", "remember_filters", "mouse", "delight", "update_check", "threaded_replies":
+	case "board_quick_filters", "saved_filters", "remember_filters", "mouse", "delight", "update_check", "threaded_replies":
 		return []string{"on", "off"}
 	case "skin_tone":
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}
