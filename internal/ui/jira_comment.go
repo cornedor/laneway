@@ -52,10 +52,10 @@ func (m *Model) openJiraCommentInputFor(key string) {
 		m.jiraCommentInput.CursorEnd()
 		m.unsent = struct{ key, text string }{}
 		m.status = i18n.T("your unsent comment is back")
-	} else if text, at, ok := m.draft(commentDraft(m.jiraCommentKey)); ok {
-		m.jiraCommentInput.SetValue(text)
+	} else if d, ok := m.draft(commentDraft(m.jiraCommentKey)); ok {
+		m.jiraCommentInput.SetValue(d.Text)
 		m.jiraCommentInput.CursorEnd()
-		m.status = i18n.Tf("your draft from %s is back · esc twice drops it", draftWhen(at, time.Now()))
+		m.status = i18n.Tf("your draft from %s is back · esc twice drops it", draftWhen(d.At, time.Now()))
 	}
 }
 

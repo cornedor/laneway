@@ -76,3 +76,17 @@ What you write is kept as a draft in the state file a moment after each
 change, shared by the terminal and the browser: open the editor on the
 issue again, in either, and it comes back. Saving, posting or cancelling
 drops it.
+
+A description or rich-text field saves only when Jira still has what the
+editor opened on (for a draft, what it was written on). When someone
+changed it meanwhile, nothing is written:
+
+=== "Terminal"
+
+    The editor opens again on your text. `ctrl+r` swaps in Jira's and back;
+    `ctrl+s` saves the one showing over it.
+
+=== "Browser"
+
+    A dialog shows what saving yours would change in Jira's: keep editing,
+    take theirs, or save yours over it.

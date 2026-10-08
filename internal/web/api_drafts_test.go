@@ -27,6 +27,14 @@ func TestDrafts(t *testing.T) {
 			t.Errorf("%s = %q", id, d.Text)
 		}
 	}
+	var db struct{ Text, Base string }
+	issueCall(t, "PUT", u+"desc:DEMO-1", map[string]string{"Text": "x", "Base": "0a1b"}, nil)
+	if issueCall(t, "GET", u+"desc:DEMO-1", nil, &db); db.Text != "x" || db.Base != "0a1b" {
+		t.Errorf("draft with a base = %+v", db)
+	}
+	if code := issueCall(t, "PUT", u+"desc:DEMO-1", map[string]string{"Text": "x", "Base": "a b\nc"}, nil); code != 400 {
+		t.Errorf("bad base: %d", code)
+	}
 	issueCall(t, "DELETE", u+"desc:DEMO-1", nil, nil)
 	if issueCall(t, "GET", u+"desc:DEMO-1", nil, &d); d.Text != "" {
 		t.Errorf("deleted draft = %q", d.Text)

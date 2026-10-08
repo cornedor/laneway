@@ -71,8 +71,15 @@ func TestIssuePanelRoutes(t *testing.T) {
 	if code := issueCall(t, "GET", iu+"/description", nil, &ed); code != 200 || !ed.Editable {
 		t.Fatalf("description: %d %+v", code, ed)
 	}
-	if code := issueCall(t, "PUT", iu+"/description", mdBody{Markdown: "hello **world**", Kept: ed.Kept}, nil); code != 200 {
+	if code := issueCall(t, "PUT", iu+"/description", mdBody{Markdown: "hello **world**", Kept: ed.Kept, Base: ed.Base}, nil); code != 200 {
 		t.Fatalf("set description: %d", code)
+	}
+	// A save on what the editor opened before that one is refused.
+	if code := issueCall(t, "PUT", iu+"/description", mdBody{Markdown: "stale", Base: ed.Base}, nil); code != http.StatusConflict {
+		t.Fatalf("stale description save: %d, want 409", code)
+	}
+	if issueCall(t, "GET", iu+"/description", nil, &ed); ed.Markdown != "hello **world**" {
+		t.Fatalf("description after a refused save = %q", ed.Markdown)
 	}
 
 	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "  "}, nil); code != 400 {

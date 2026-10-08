@@ -120,6 +120,7 @@
   "bad branch name %s: git refuses it (no spaces, .., ~^:?*[\\, leading - or trailing .lock)": "ongeldige branchnaam %s: git weigert hem (geen spaties, .., ~^:?*[\\, beginnend - of eindigend op .lock)",
   "bad date": "ongeldige datum",
   "bad day": "ongeldige dag",
+  "bad draft base": "ongeldige conceptbasis",
   "bad draft id": "ongeldig concept-id",
   "bad end day": "ongeldige einddag",
   "bad field id": "ongeldig veld-id",

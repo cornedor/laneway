@@ -177,6 +177,8 @@ func writeErr(w http.ResponseWriter, err error) {
 		code = http.StatusAccepted // kept for later: the browser counts it as sent
 	case errors.Is(err, jira.ErrNotFound):
 		code = http.StatusNotFound
+	case errors.Is(err, jira.ErrDocChanged):
+		code = http.StatusConflict
 	case errors.Is(err, context.DeadlineExceeded):
 		code = http.StatusGatewayTimeout
 	case errors.As(err, &re):

@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/ui"
 )
 
 // Drafts: a comment or description being written, kept in the state file
@@ -18,6 +18,9 @@ import (
 // desc:KEY:comment:ID and desc:KEY:field:ID.
 
 const draftPrefix = "jira_tab:draft:"
+
+// docBase is a draft's Base: none, or a jira.DocBase.
+var docBase = regexp.MustCompile(`^[0-9a-f]{0,64}$`)
 
 var draftID = regexp.MustCompile(`^(comment|desc):([A-Z][A-Z0-9_]*-[0-9]+)(:comment:[0-9]+|:field:[A-Za-z0-9_]+)?$`)
 
@@ -36,27 +39,30 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		v, ok, _ := s.opt.Store.GetMeta(k)
-		unix, text, _ := strings.Cut(v, "\n")
-		sec, err := strconv.ParseInt(unix, 10, 64)
-		if !ok || err != nil || text == "" {
+		v, _, _ := s.opt.Store.GetMeta(k)
+		d, ok := ui.DecodeDraft(v)
+		if !ok {
 			return map[string]any{"Text": ""}, nil
 		}
-		return map[string]any{"Text": text, "When": time.Unix(sec, 0)}, nil
+		return map[string]any{"Text": d.Text, "When": d.At, "Base": d.Base}, nil
 	})
 	put("/drafts/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		k, err := draftKey(r)
 		if err != nil {
 			return nil, err
 		}
-		b, err := Body[struct{ Text string }](r)
+		// Base is the jira.DocBase of the document a desc: draft edits.
+		b, err := Body[struct{ Text, Base string }](r)
 		if err != nil {
 			return nil, err
 		}
 		if strings.TrimSpace(b.Text) == "" {
 			return nil, s.opt.Store.DeleteMeta(k)
 		}
-		return nil, s.opt.Store.SetMeta(k, strconv.FormatInt(time.Now().Unix(), 10)+"\n"+b.Text)
+		if !docBase.MatchString(b.Base) {
+			return nil, badRequest(i18n.T("bad draft base"))
+		}
+		return nil, s.opt.Store.SetMeta(k, ui.EncodeDraft(ui.Draft{Text: b.Text, Base: b.Base, At: time.Now()}))
 	})
 	del("/drafts/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		k, err := draftKey(r)

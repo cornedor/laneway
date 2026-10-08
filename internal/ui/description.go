@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"cmp"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -22,13 +24,30 @@ import (
 // markdown can carry both ways is offered (see jira.EditableDescription);
 // saving it unchanged writes nothing. Rich-text fields and your comments
 // edit the same way.
+//
+// A description or field is saved only when Jira still has the document
+// the editor opened on (jira.SetDoc). When someone changed it meanwhile,
+// nothing is written and the editor opens again on your text: ctrl+r
+// swaps it with Jira's, ctrl+s saves what shows over it.
 
 // descEdit is the in-app editor open on a description, field or comment.
 type descEdit struct {
 	key, comment, field, before string
-	kept                        []json.RawMessage
-	input                       editor.Model
-	discard                     bool // a first esc on changed text asked to confirm
+	// base is the jira.DocBase the save expects Jira to have, "" for none.
+	base    string
+	kept    []json.RawMessage
+	input   editor.Model
+	discard bool // a first esc on changed text asked to confirm
+	// other is, after a refused save, the text ctrl+r swaps in: Jira's
+	// while yours shows, else yours; theirs is whether Jira's shows.
+	other  *docText
+	theirs bool
+}
+
+// docText is a document's markdown and the blocks its placeholders keep.
+type docText struct {
+	md   string
+	kept []json.RawMessage
 }
 
 // descLoadedMsg is the description fetched for editing.
@@ -39,14 +58,23 @@ type descLoadedMsg struct {
 	md      string
 	// kept are the blocks the markdown holds as placeholder lines.
 	kept []json.RawMessage
+	base string // jira.DocBase of the document, "" for a comment
 	err  error
 }
 
 // descEditedMsg is the editor closed on path.
 type descEditedMsg struct {
-	key, comment, field, path, before string
-	kept                              []json.RawMessage
-	err                               error
+	key, comment, field, path, before, base string
+	kept                                    []json.RawMessage
+	err                                     error
+}
+
+// descConflictMsg is a save refused because the document changed in Jira
+// (jira.DocChangedError): mine is the text not saved, raw Jira's document.
+type descConflictMsg struct {
+	key, field, mine, base, path string
+	kept                         []json.RawMessage
+	raw                          json.RawMessage
 }
 
 // editDescription fetches the panel issue's description for the editor.
@@ -62,14 +90,21 @@ func (m *Model) editDescription() tea.Cmd {
 			return descLoadedMsg{key: key, err: err}
 		}
 		ed, err := jira.EditableDescription(raw)
-		return descLoadedMsg{key: key, md: ed.Markdown, kept: ed.Kept, err: err}
+		return descLoadedMsg{key: key, md: ed.Markdown, kept: ed.Kept, base: jira.DocBase(raw), err: err}
 	}
+}
+
+// descEditFits is whether an editor on key can open: the panel shows it
+// and nothing else is open.
+func (m *Model) descEditFits(key string) bool {
+	r := m.currentRef()
+	return r != nil && r.jiraKey == key && m.jiraIssue != nil && m.jiraIssue.Key == key && !m.modalOpen()
 }
 
 // handleDescLoaded opens the in-app editor on the markdown, unless the
 // panel moved on from the issue or something else opened meanwhile.
 func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
-	if r := m.currentRef(); r == nil || r.jiraKey != msg.key || m.jiraIssue == nil || m.jiraIssue.Key != msg.key || m.modalOpen() {
+	if !m.descEditFits(msg.key) {
 		if m.status == i18n.Tf("loading %s description…", msg.key) {
 			m.status = ""
 		}
@@ -79,20 +114,56 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 		m.fail(i18n.Tf("%s: %s — edit it in Jira (o)", msg.key, msg.err.Error()))
 		return m, nil
 	}
-	ed := newModalComposer("")
-	ed.MaxHeight = max(m.bodyH()-12, 6)
-	ed.SetValue(msg.md)
-	m.descEdit = &descEdit{key: msg.key, comment: msg.comment, field: msg.field, before: msg.md, kept: msg.kept, input: ed}
+	d := &descEdit{key: msg.key, comment: msg.comment, field: msg.field, before: msg.md, base: msg.base, kept: msg.kept}
+	text := msg.md
 	m.status = ""
-	if text, at, ok := m.draft(m.descEdit.draftID()); ok && text != msg.md {
-		m.descEdit.input.SetValue(text)
-		m.status = i18n.Tf("your draft from %s is back · esc twice keeps Jira's", draftWhen(at, time.Now()))
+	if dr, ok := m.draft(d.draftID()); ok && dr.Text != msg.md {
+		text = dr.Text
+		m.status = i18n.Tf("your draft from %s is back · esc twice keeps Jira's", draftWhen(dr.At, time.Now()))
+		if dr.Base != "" && d.base != "" && dr.Base != d.base {
+			d.base = dr.Base // saving it asks first
+			m.status = i18n.Tf("your draft from %s is back, but Jira's changed since · esc twice keeps Jira's", draftWhen(dr.At, time.Now()))
+		}
 	}
+	m.openDescEdit(d, text)
+	return m, nil
+}
+
+// openDescEdit opens the editor d on text.
+func (m *Model) openDescEdit(d *descEdit, text string) {
+	d.input = newModalComposer("")
+	d.input.MaxHeight = max(m.bodyH()-12, 6)
+	d.input.SetValue(text)
+	m.descEdit = d
 	if m.descEditInline() {
-		m.descEdit.input.MaxHeight = max(m.refView.Height()-4, 6)
+		d.input.MaxHeight = max(m.refView.Height()-4, 6)
 		m.renderRef()
 		m.showInlineEditor()
 	}
+}
+
+// handleDescConflict opens the editor again on the text a save didn't
+// write, Jira's a ctrl+r away. When it can't open, the text waits as a
+// draft whose save asks again.
+func (m Model) handleDescConflict(msg descConflictMsg) (tea.Model, tea.Cmd) {
+	what := cmp.Or(msg.field, "description")
+	d := &descEdit{key: msg.key, field: msg.field, kept: msg.kept, base: jira.DocBase(msg.raw)}
+	if msg.path != "" {
+		defer os.Remove(msg.path) // the editor or the draft holds it
+	}
+	if !m.descEditFits(msg.key) {
+		m.saveDraft(d.draftID(), msg.mine, msg.base)
+		m.fail(i18n.Tf("%s %s changed in Jira since you opened it; nothing saved · your text is kept as a draft", msg.key, what))
+		return m, nil
+	}
+	if ed, err := jira.EditableDescription(msg.raw); err == nil {
+		d.before, d.other = ed.Markdown, &docText{md: ed.Markdown, kept: ed.Kept}
+		m.fail(i18n.Tf("%s %s changed in Jira since you opened it; nothing saved · ctrl+r shows Jira's · ctrl+s saves yours over it", msg.key, what))
+	} else {
+		m.fail(i18n.Tf("%s %s changed in Jira since you opened it; nothing saved · ctrl+s saves yours over it", msg.key, what))
+	}
+	m.openDescEdit(d, msg.mine)
+	m.saveDraft(d.draftID(), msg.mine, d.base)
 	return m, nil
 }
 
@@ -233,7 +304,7 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m.quit()
 	case "esc":
-		if d.input.Value() != d.before && !d.discard {
+		if (d.input.Value() != d.before || d.other != nil) && !d.discard {
 			d.discard = true
 			m.status = i18n.T("esc again discards your changes · ctrl+s saves")
 			return m, nil
@@ -244,11 +315,25 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+s":
 		m.dropDraft(d.draftID()) // a failed save keeps the text in a file
 		m.descEdit = nil
-		return m.saveDesc(descEditedMsg{key: d.key, comment: d.comment, field: d.field, before: d.before, kept: d.kept}, d.input.Value())
+		return m.saveDesc(descEditedMsg{key: d.key, comment: d.comment, field: d.field, before: d.before, base: d.base, kept: d.kept}, d.input.Value())
 	case "ctrl+e":
 		m.dropDraft(d.draftID()) // the file holds it now
 		m.descEdit = nil
-		return m.openExternalEditor(descLoadedMsg{key: d.key, comment: d.comment, field: d.field, md: d.input.Value(), kept: d.kept}, d.before)
+		return m.openExternalEditor(descLoadedMsg{key: d.key, comment: d.comment, field: d.field, md: d.input.Value(), kept: d.kept, base: d.base}, d.before)
+	case "ctrl+r":
+		if o := d.other; o != nil {
+			md, kept := d.input.Value(), d.kept
+			d.input.SetValue(o.md)
+			d.kept, o.md, o.kept, d.theirs = o.kept, md, kept, !d.theirs
+			m.status = i18n.T("yours · ctrl+r shows Jira's · ctrl+s saves yours over it")
+			if d.theirs {
+				m.status = i18n.T("Jira's · ctrl+r shows yours · ctrl+s saves this")
+			}
+			if m.descEditInline() {
+				m.renderRef()
+			}
+			return m, nil
+		}
 	}
 	d.discard = false
 	var cmd tea.Cmd
@@ -274,9 +359,9 @@ func (m Model) openExternalEditor(msg descLoadedMsg, before string) (tea.Model, 
 		return m, nil
 	}
 	m.status = i18n.Tf("editing %s description…", msg.key)
-	key, comment, field, path, kept := msg.key, msg.comment, msg.field, f.Name(), msg.kept
+	key, comment, field, path, kept, base := msg.key, msg.comment, msg.field, f.Name(), msg.kept, msg.base
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
-		return descEditedMsg{key: key, comment: comment, field: field, path: path, before: before, kept: kept, err: err}
+		return descEditedMsg{key: key, comment: comment, field: field, path: path, before: before, base: base, kept: kept, err: err}
 	})
 }
 
@@ -339,20 +424,23 @@ func (m Model) saveDesc(msg descEditedMsg, text string) (tea.Model, tea.Cmd) {
 		}
 		return nil
 	}
-	if field := msg.field; field != "" {
-		var doc any // blank clears
-		if after != "" {
-			doc = jira.MarkdownToADFKept(after, kept)
-		}
-		m.status = i18n.Tf("saving %s %s…", key, field)
-		return m, jiraMutateCmd(key, field, func() error { return keep(c.SetField(ctx, key, field, doc)) })
-	}
 	if comment != "" {
 		m.status = i18n.Tf("saving the comment on %s…", key)
 		return m, jiraMutateCmd(key, "comment", func() error { return keep(c.SetComment(ctx, key, comment, after, kept)) })
 	}
-	m.status = i18n.Tf("saving %s description…", key)
-	return m, jiraMutateCmd(key, "description", func() error { return keep(c.SetDescription(ctx, key, after, kept)) })
+	field, base, what := msg.field, msg.base, cmp.Or(msg.field, "description")
+	if field != "" {
+		m.status = i18n.Tf("saving %s %s…", key, field)
+	} else {
+		m.status = i18n.Tf("saving %s description…", key)
+	}
+	return m, func() tea.Msg {
+		err := c.SetDoc(ctx, key, what, after, kept, base)
+		if dc := (*jira.DocChangedError)(nil); errors.As(err, &dc) {
+			return descConflictMsg{key: key, field: field, mine: after, base: base, path: path, kept: kept, raw: dc.Raw}
+		}
+		return jiraMutatedMsg{key: key, field: what, err: keep(err)}
+	}
 }
 
 // openCommentPicker lists your own comments on the panel issue to edit or

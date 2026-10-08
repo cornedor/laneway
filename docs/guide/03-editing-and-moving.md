@@ -116,6 +116,10 @@ What you write is kept as a draft as you type, shared by the terminal and
 the browser: after a crash or a closed tab, opening the editor on that
 issue brings it back.
 
+A colleague's edit is never saved over unasked: when the description
+changed in Jira since you opened it, laneway writes nothing and lets you
+see theirs before you save yours over it.
+
 ## Talk
 
 - `c` writes a comment after the thread; `R` replies to a comment, in

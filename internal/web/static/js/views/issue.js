@@ -310,9 +310,11 @@ export function mountIssue(el, key, { app, full, card }) {
     st.editingDoc = f.ID;
     const sec = box.docs.querySelector('[data-field="' + CSS.escape(f.ID) + '"]') || box.docs.appendChild(h('div.desc.doc', { dataset: { field: f.ID } }));
     const done = () => { st.editingDoc = null; renderDocs(); };
-    const e = editor({ value: ed.Markdown, rows: 8, placeholder: T('%s (markdown)…', f.Name), allowEmpty: true, label: T('Save'), draft: 'desc:' + key + ':field:' + f.ID,
-      save: async (text, mentions) => {
-        await api.put('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
+    const e = editor({ value: ed.Markdown, rows: 8, placeholder: T('%s (markdown)…', f.Name), allowEmpty: true, label: T('Save'), draft: 'desc:' + key + ':field:' + f.ID, base: ed.Base,
+      save: async (text, mentions, base) => {
+        const r = await saveDoc('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), f.Name, e, { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] }, base);
+        if (r === 'theirs') { e.dropDraft(); done(); changed(); }
+        if (r !== true) return false;
         st.editingDoc = null; changed(T('%s %s updated', key, f.Name)); ui.toast(T('%s saved', f.Name), { kind: 'ok' });
       },
       cancel: done });
@@ -350,14 +352,37 @@ export function mountIssue(el, key, { app, full, card }) {
       return ui.toast(T('Edit this one in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err', action: { label: T('Open'), run: () => window.open(browseURL(), '_blank', 'noopener') } });
     }
     st.editingDesc = true;
-    const e = editor({ value: ed.Markdown, rows: 10, placeholder: T('Description (markdown)…'), allowEmpty: true, label: T('Save'), draft: 'desc:' + key,
-      save: async (text, mentions) => {
-        await api.put('/issues/' + key + '/description', { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
+    const e = editor({ value: ed.Markdown, rows: 10, placeholder: T('Description (markdown)…'), allowEmpty: true, label: T('Save'), draft: 'desc:' + key, base: ed.Base,
+      save: async (text, mentions, base) => {
+        const r = await saveDoc('/issues/' + key + '/description', T('Description'), e, { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] }, base);
+        if (r === 'theirs') { e.dropDraft(); st.editingDesc = false; st.descSig = null; changed(); }
+        if (r !== true) return false;
         st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(T('%s description updated', key)); ui.toast(T('Description saved'), { kind: 'ok' });
       },
       cancel: () => { st.editingDesc = false; renderDesc(true); } });
     clear(box.desc).append(h('div.sec-head', h('h3', T('Description'))), e.el);
     e.focus();
+  }
+  // saveDoc PUTs body to a document's path when Jira still has the one the editor opened on (base). When someone
+  // changed it meanwhile (409) it shows what saving yours would do to theirs and asks: true when saved, 'theirs' to
+  // drop yours, false to keep editing (the editor then saves against theirs).
+  async function saveDoc(path, name, e, body, base) {
+    try { await api.put(path, { ...body, Base: base }); return true; } catch (err) { if (err.status !== 409) throw err; }
+    const now = await api.get(path, { fresh: true });
+    e.rebase(now.Base);
+    const pick = await new Promise(resolve => {
+      let v = false;
+      const b = (label, val, cls = '') => h('button.btn' + cls, { onclick: () => { v = val; m.close(); } }, label);
+      const diff = now.Editable ? lineDiff(now.Markdown, body.Markdown, 40) : [];
+      const m = ui.modal(h('div',
+        h('p', T('Someone changed it in Jira since you opened it. Nothing was saved.')),
+        diff.length > 0 && [h('p.dim', T('Saving yours over theirs:')), h('div.chg-diff', diff.map(l => h('div.' + (l[0] === '-' ? 'del' : l[0] === '+' ? 'add' : 'more'), l)))],
+        h('div.row.end', b(T('Keep editing'), false, '.primary'), b(T('Take theirs'), 'theirs'), b(T('Save yours over it'), 'mine', '.danger'))),
+      { title: T('%s changed in Jira', name), wide: true, onClose: () => resolve(v) });
+    });
+    if (pick !== 'mine') return pick;
+    await api.put(path, { ...body, Base: now.Base });
+    return true;
   }
 
   // ---- children, links, files

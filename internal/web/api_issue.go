@@ -52,7 +52,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		return nil, s.Client().SetDescription(ctx, key, b.Markdown, b.Kept)
+		return nil, s.Client().SetDescription(ctx, key, b.Markdown, b.Kept, b.Base)
 	})
 	// A rich-text field (a custom textarea) as markdown to edit like the description.
 	get("/issues/{key}/doc/{field}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -81,11 +81,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		var doc any // blank clears
-		if strings.TrimSpace(b.Markdown) != "" {
-			doc = jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, b.Markdown), b.Kept)
-		}
-		return nil, s.Client().SetField(ctx, key, r.PathValue("field"), doc)
+		return nil, s.Client().SetDoc(ctx, key, r.PathValue("field"), b.Markdown, b.Kept, b.Base)
 	})
 	post("/issues/{key}/description/task", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
@@ -318,6 +314,9 @@ func init() {
 type mdBody struct {
 	Markdown string
 	Kept     []json.RawMessage
+	// Base is the document the editor opened on (editable's); a save
+	// finding another one in Jira fails with 409, writing nothing.
+	Base string
 }
 
 func issueKey(r *http.Request) (string, error) {
@@ -329,23 +328,25 @@ func issueKey(r *http.Request) (string, error) {
 }
 
 // editable is a document as markdown to edit. When markdown can't carry it,
-// Editable is false, Reason says why and Markdown is empty.
+// Editable is false, Reason says why and Markdown is empty. Base marks the
+// document (jira.DocBase), for the save to check.
 type editable struct {
 	Markdown string
 	Kept     []json.RawMessage
 	Editable bool
 	Reason   string
+	Base     string
 }
 
 func editableOf(raw json.RawMessage) editable {
 	ed, err := jira.EditableDescription(raw)
 	if err != nil {
-		return editable{Reason: err.Error()}
+		return editable{Reason: err.Error(), Base: jira.DocBase(raw)}
 	}
 	if ed.Kept == nil {
 		ed.Kept = []json.RawMessage{}
 	}
-	return editable{Markdown: ed.Markdown, Kept: ed.Kept, Editable: true}
+	return editable{Markdown: ed.Markdown, Kept: ed.Kept, Editable: true, Base: jira.DocBase(raw)}
 }
 
 // docField is a field /doc edits: a custom one, or environment.

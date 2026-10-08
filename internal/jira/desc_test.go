@@ -3,6 +3,7 @@ package jira
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -120,15 +121,46 @@ func TestSetDescription(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
-	if err := c.SetDescription(context.Background(), "ABC-1", " ", nil); err != nil {
+	if err := c.SetDescription(context.Background(), "ABC-1", " ", nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	if body != `{"fields":{"description":null}}` {
 		t.Errorf("blank body = %s", body)
 	}
-	_ = c.SetDescription(context.Background(), "ABC-1", "hi", nil)
+	_ = c.SetDescription(context.Background(), "ABC-1", "hi", nil, "")
 	if !strings.Contains(body, `"type":"doc"`) || !strings.Contains(body, `"text":"hi"`) {
 		t.Errorf("body = %s", body)
+	}
+}
+
+// TestSetDocBase: a save writes only when Jira still has the document the
+// editor opened on; otherwise it fails with what Jira has, writing nothing.
+func TestSetDocBase(t *testing.T) {
+	theirs := `{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"theirs"}]}]}`
+	puts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			puts++
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		io.WriteString(w, `{"fields":{"customfield_7": `+theirs+`}}`)
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	ctx := context.Background()
+	// The same document, keys in another order and spaced out, has the same base.
+	same := DocBase(json.RawMessage(`{ "version":1, "type":"doc", "content":[{"content":[{"text":"theirs","type":"text"}],"type":"paragraph"}]}`))
+	if err := c.SetDoc(ctx, "ABC-1", "customfield_7", "mine", nil, same); err != nil || puts != 1 {
+		t.Fatalf("unchanged: err %v, %d puts", err, puts)
+	}
+	err := c.SetDoc(ctx, "ABC-1", "customfield_7", "mine", nil, DocBase(nil))
+	var dc *DocChangedError
+	if !errors.As(err, &dc) || !errors.Is(err, ErrDocChanged) || string(dc.Raw) != theirs || puts != 1 {
+		t.Fatalf("changed: err %v, %d puts", err, puts)
+	}
+	if DocBase(nil) != DocBase(json.RawMessage("null")) {
+		t.Error("no document and null should be the same")
 	}
 }
 

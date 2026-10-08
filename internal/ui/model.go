@@ -821,6 +821,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleJiraWatch(msg)
 	case descLoadedMsg:
 		return m.handleDescLoaded(msg)
+	case descConflictMsg:
+		return m.handleDescConflict(msg)
 	case descEditedMsg:
 		out, cmd := m.handleDescEdited(msg)
 		return out, tea.Batch(cmd, resendImagesLater())

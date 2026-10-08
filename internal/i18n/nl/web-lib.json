@@ -125,6 +125,7 @@
   "Draft opened: %s": "Concept geopend: %s",
   "Draft pull request": "Concept-pull request",
   "Draft restored": "Concept hersteld",
+  "Draft restored; Jira’s has changed since": "Concept hersteld; dat van Jira is sindsdien gewijzigd",
   "Drag to resize, double-click to reset": "Sleep om te schalen, dubbelklik om te herstellen",
   "Drop": "Verwijderen",
   "Drop it": "Weggooien",
