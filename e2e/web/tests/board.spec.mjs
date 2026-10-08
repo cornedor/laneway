@@ -104,3 +104,37 @@ test('a phone keeps the key, summary and status, whatever the order', async ({ p
   await expect(head.locator('[data-col=updated]')).toBeHidden();
   for (const c of ['key', 'summary', 'status']) await expect(head.locator(`[data-col=${c}]`)).toBeVisible();
 });
+
+test('j k h l walk the cards, enter opens one, ] the next', async ({ page }) => {
+  const sel = page.locator('.bd-lanes .card.sel .ckey');
+  await page.keyboard.press('j');
+  await expect(sel).toHaveText('DEMO-5');
+  await page.keyboard.press('j');
+  await expect(sel).toHaveText('DEMO-9');
+  await page.keyboard.press('l'); // the same row, a lane on
+  await expect(sel).toHaveText('DEMO-6');
+  await page.keyboard.press('k');
+  await expect(sel).toHaveText('DEMO-4');
+  // [ ] are the panel's once it has the focus, the board's views before.
+  const panel = page.locator('body.panel-focus .iss .iss-key');
+  await page.keyboard.press('Enter');
+  await expect(panel).toHaveText('DEMO-4');
+  await page.keyboard.press(']');
+  await expect(panel).toHaveText('DEMO-6');
+  await expect(sel).toHaveText('DEMO-6');
+  await page.keyboard.press('[');
+  await expect(page.locator('.iss .iss-key')).toHaveText('DEMO-4');
+});
+
+test('u undoes a move', async ({ page }) => {
+  await selectCard(page, 'DEMO-5');
+  await page.keyboard.press('L');
+  await expect(inLane(page, 'IN PROGRESS', 'DEMO-5')).toBeVisible();
+  // The card moves at once, u is bound once Jira has the move: press it till then.
+  await expect(async () => {
+    await page.keyboard.press('u');
+    await expect(inLane(page, 'TO DO', 'DEMO-5')).toBeVisible({ timeout: 500 });
+  }).toPass();
+  await page.reload();
+  await expect(inLane(page, 'TO DO', 'DEMO-5')).toBeVisible();
+});

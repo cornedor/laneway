@@ -721,7 +721,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // ---- selection and navigation
   function rebind(key) { const w = S.where.get(key); if (w) w.p.vl.refresh(w.i); }
   const openIssue = key => app.panel.open(key, { card: S.cards.find(c => c.Key === key) });
-  const openPanel = debounce(() => { if (S.sel && app.panel.key && app.panel.key !== S.sel) openIssue(S.sel); }, 110);
+  // The panel follows the cursor once it rests, unless it went elsewhere meanwhile ([ ], a link).
+  const followPanel = debounce(was => { if (S.sel && app.panel.key && app.panel.key === was && app.panel.key !== S.sel) openIssue(S.sel); }, 110);
+  const openPanel = () => followPanel(app.panel.key);
   function select(key, { scroll = true, row = true, anchor = true } = {}) {
     const old = S.sel;
     S.sel = key;
