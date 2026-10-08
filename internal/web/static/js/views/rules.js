@@ -39,7 +39,9 @@ export default function mount(el, { app, scope, toolbar }) {
   root.append(h('section.rules-col', h('h3', T('Rules')), listEl),
     h('section.rules-col', h('h3', T('Try a change')), testEl, resEl),
     h('section.rules-log-wrap', h('h3', T('Firing log')), logEl));
-  el.append(root);
+  // The page shows once its rules, form and first test are in: filling in, they pushed the log down.
+  el.append(h('div.loading', T('Loading…')));
+  const show = () => { if (!root.isConnected) el.replaceChildren(root); };
 
   const notifyBtn = h('button.btn.ghost', { onclick: async () => { await setEnabled(!enabled()); paintNotify(); } });
   function paintNotify() {
@@ -122,10 +124,12 @@ export default function mount(el, { app, scope, toolbar }) {
   });
 
   async function load() {
-    try { info = await api.get('/rules', { fresh: true }); } catch (e) { clear(listEl).append(h('div.empty', e.message)); return; }
+    try { info = await api.get('/rules', { fresh: true }); } catch (e) { clear(listEl).append(h('div.empty', e.message)); show(); return; }
     if (dead) return;
     sel = Math.min(sel, Math.max(info.Rules.length - 1, 0));
-    paintList(); if (!testEl.firstChild) buildForm(); test(); loadLog();
+    paintList(); if (!testEl.firstChild) buildForm(); await test();
+    if (dead) return;
+    show(); loadLog();
   }
 
   const move = d => { if (!info || !info.Rules.length) return; sel = (sel + d + info.Rules.length) % info.Rules.length; paintList(); };

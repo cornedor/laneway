@@ -288,6 +288,9 @@ async function openMessages() {
 }
 
 async function boot() {
+  // A view without the bar lets it go now, not once the session is in: the page would jump up.
+  const first = table.find(r => r.re.test(nav.split(location.hash.startsWith('#/') ? location.hash.slice(1) : here()).path));
+  if (first && first.bar === false) $('#viewbar').classList.remove('hold');
   let session;
   try { session = await api.get('/session'); } catch (e) { session = e; }
   if (session && session.setup) { // no Jira site yet: only the setup screen

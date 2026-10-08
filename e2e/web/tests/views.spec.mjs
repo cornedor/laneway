@@ -22,3 +22,17 @@ for (const [route, text] of Object.entries(views)) {
     await expect(page.locator('main, #app, body').first()).toContainText(text);
   });
 }
+
+// With Jira slow, a view draws in place: no part of it pushed aside as its
+// data comes in (CLS within the web's "good").
+test.describe('a slow Jira', () => {
+  test.use({ cls: 0.1 });
+  for (const [route, text] of Object.entries(views)) {
+    test(`${route} draws in place`, async ({ page, app }) => {
+      await page.route(/\/api\//, async r => { await new Promise(x => setTimeout(x, 300)); await r.continue().catch(() => {}); });
+      await page.goto(new URL('#' + route, app.url).href);
+      await expect(page.locator('main, #app, body').first()).toContainText(text);
+      await page.waitForTimeout(1000); // what loads after
+    });
+  }
+});

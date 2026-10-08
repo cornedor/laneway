@@ -12,6 +12,7 @@
 .iss-title { font-size: 1.3em; margin: .429rem 0 .286rem; cursor: text; overflow-wrap: anywhere; }
 .iss-title:hover { background: var(--bg-3); border-radius: var(--radius); }
 .iss-sub { display: flex; align-items: center; gap: var(--pad); font-size: .9em; padding-bottom: var(--pad); }
+.pane.details.waiting > :not(.fields) { display: none; } /* issue.js: the rest shows with the issue */
 .pill-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
 .chip.flag { background: var(--warn); color: var(--bg); }
 .chip.timer-mark { color: var(--accent); cursor: pointer; }

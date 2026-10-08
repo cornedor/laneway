@@ -61,11 +61,12 @@ async function watchVitals(page, vitals) {
 // Its INP and CLS go along as the attachment vitals (vitals-reporter.mjs).
 // test.use({ bulk: n }) gives the demo n issues more; { inp: ms } is the
 // test's INP budget, failed on with INP_BUDGETS=1 (a serial run: parallel
-// workers' contention is no app's).
+// workers' contention is no app's); { cls: n } its CLS budget, always.
 export const test = base.extend({
   bulk: [0, { option: true }],
   inp: [0, { option: true }],
-  app: async ({ page, bulk, inp }, use, info) => {
+  cls: [0, { option: true }],
+  app: async ({ page, bulk, inp, cls }, use, info) => {
     const unhandled = info.outputPath('unhandled.txt');
     const server = start(unhandled, bulk);
     const errors = [];
@@ -95,6 +96,7 @@ export const test = base.extend({
     }
     await info.attach('vitals', { body: JSON.stringify(vitals), contentType: 'application/json' });
     if (inp && process.env.INP_BUDGETS) expect(vitals.INP?.value ?? 0, `INP, on ${vitals.INP?.target}`).toBeLessThanOrEqual(inp);
+    if (cls) expect(vitals.CLS?.value ?? 0, `CLS, on ${vitals.CLS?.target}`).toBeLessThanOrEqual(cls);
     let missed = '';
     try { missed = readFileSync(unhandled, 'utf8'); } catch {}
     expect(missed, 'requests the demo could not answer').toBe('');

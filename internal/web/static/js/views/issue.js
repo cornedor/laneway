@@ -87,6 +87,9 @@ export function mountIssue(el, key, { app, full, card }) {
     list: h('div.cm-list'), more: h('div.cm-more'), composer: h('div.composer'),
   };
   const dev = mountDev(key, { app, el, full, card: () => st.card, details: () => setTab('details') });
+  // .waiting shows only the fields (loading) till the issue is in: dev and notes answer sooner, and the
+  // fields filling in above them pushed them down.
+  panes.details.classList.add('waiting');
   panes.details.append(box.fields, dev.el, box.desc, box.docs, box.children, box.links, box.files);
   panes.comments.append(box.more, box.list, box.composer);
   let offNotes = null;
@@ -171,7 +174,9 @@ export function mountIssue(el, key, { app, full, card }) {
         ...(c && c.Flagged ? [h('span.chip.flag', T('Flagged'))] : []),
         ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: T('Timer running · T stops it'), onclick: () => app.timer.toggle(key) }, icon('timer'), ' ' + app.timer.mark(key))] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
-        h('span.dim', T('updated %s', ago((i || c).Updated))))] : []));
+        h('span.dim', T('updated %s', ago((i || c).Updated))))]
+        // its height held, or the tabs below jump down as it comes
+        : [h('div.iss-sub', { 'aria-hidden': 'true', style: { visibility: 'hidden' } }, h('span.pill-btn', ui.statusPill('…', 'new')))]));
     learn(key, c); if (i) learn(key, { Summary: i.Summary, Status: i.Status, StatusCategory: i.StatusCategory });
     const tr = trailEl(); if (tr) head.prepend(tr);
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';
@@ -805,6 +810,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (web) { st.weblinks = web; renderLinks(); }
   }
   function paint() {
+    panes.details.classList.remove('waiting');
     renderHead(); renderTabs(); renderFields(); renderDesc(); renderDocs(); renderChildren(); renderLinks(); renderFiles(); renderComments();
   }
 
