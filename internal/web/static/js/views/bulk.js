@@ -3,19 +3,20 @@
 import { h } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { pickUser, pickLabels, bulkUndo, undo } from './fields.js';
+import { T, Tn } from '../lib/i18n.js';
 
 css('forms');
 
 const ACTIONS = [
-  { id: 'status', label: 'Status' },
-  { id: 'assignee', label: 'Assignee' },
-  { id: 'priority', label: 'Priority' },
-  { id: 'labels+', label: 'Add labels' },
-  { id: 'labels-', label: 'Remove labels' },
-  { id: 'sprint', label: 'Sprint / backlog' },
-  { id: 'flag+', label: 'Flag' },
-  { id: 'flag-', label: 'Remove flag' },
-  { id: 'points', label: 'Story points' },
+  { id: 'status', label: T('Status') },
+  { id: 'assignee', label: T('Assignee') },
+  { id: 'priority', label: T('Priority') },
+  { id: 'labels+', label: T('Add labels') },
+  { id: 'labels-', label: T('Remove labels') },
+  { id: 'sprint', label: T('Sprint / backlog') },
+  { id: 'flag+', label: T('Flag') },
+  { id: 'flag-', label: T('Remove flag') },
+  { id: 'points', label: T('Story points') },
 ];
 
 // What to change: {edit, what}, or null when cancelled.
@@ -25,41 +26,41 @@ async function ask(app, id, keys, project) {
     case 'status': {
       const ts = await app.api.get(`/projects/${project}/statuses`);
       const names = [...new Set(ts.flatMap(t => (t.Statuses || []).map(s => s.Name)))];
-      const s = await app.ui.pick({ title: `Move ${n} issues to`, items: names, label: x => x });
-      return s && { edit: { Field: 'status', To: s }, what: `${n} moved to ${s}` };
+      const s = await app.ui.pick({ title: T('Move %d issues to', n), items: names, label: x => x });
+      return s && { edit: { Field: 'status', To: s }, what: T('%d moved to %s', n, s) };
     }
     case 'assignee': {
-      const u = await pickUser(app, { project, title: `Assign ${n} issues`, specials: true });
-      return u && { edit: { Field: 'assignee', ID: u.AccountID }, what: u.none ? `${n} unassigned` : `${n} assigned to ${u.DisplayName}` };
+      const u = await pickUser(app, { project, title: T('Assign %d issues', n), specials: true });
+      return u && { edit: { Field: 'assignee', ID: u.AccountID }, what: u.none ? T('%d unassigned', n) : T('%d assigned to %s', n, u.DisplayName) };
     }
     case 'priority': {
       const list = await app.api.get('/priorities');
-      const p = await app.ui.pick({ title: `Priority of ${n} issues`, items: list, label: x => x.Name });
-      return p && { edit: { Field: 'priority', ID: p.ID }, what: `${n} priority → ${p.Name}` };
+      const p = await app.ui.pick({ title: T('Priority of %d issues', n), items: list, label: x => x.Name });
+      return p && { edit: { Field: 'priority', ID: p.ID }, what: T('%d priority → %s', n, p.Name) };
     }
     case 'labels+': {
-      const ls = await pickLabels(app, project, [], `Add labels to ${n} issues`);
-      return ls && ls.length ? { edit: { Field: 'labels', Add: ls }, what: `${n} +${ls.join(' +')}` } : null;
+      const ls = await pickLabels(app, project, [], T('Add labels to %d issues', n));
+      return ls && ls.length ? { edit: { Field: 'labels', Add: ls }, what: T('%d %s', n, '+' + ls.join(' +')) } : null;
     }
     case 'labels-': {
       const issues = await Promise.all(keys.slice(0, 100).map(k => app.api.get('/issues/' + k).catch(() => null)));
       const have = [...new Set(issues.flatMap(i => (i && i.Labels) || []))];
-      if (!have.length) { app.ui.toast('None of them has labels'); return null; }
-      const ls = await app.ui.pick({ title: `Remove labels from ${n} issues`, items: have, multi: true, label: x => x });
-      return ls && ls.length ? { edit: { Field: 'labels', Remove: ls }, what: `${n} -${ls.join(' -')}` } : null;
+      if (!have.length) { app.ui.toast(T('None of them has labels')); return null; }
+      const ls = await app.ui.pick({ title: T('Remove labels from %d issues', n), items: have, multi: true, label: x => x });
+      return ls && ls.length ? { edit: { Field: 'labels', Remove: ls }, what: T('%d %s', n, '-' + ls.join(' -')) } : null;
     }
     case 'sprint': {
       const s = await app.api.get(`/projects/${project}/sprints`);
-      const o = await app.ui.pick({ title: `Move ${n} issues to`, items: [{ ID: 0, Name: 'Backlog' }, ...s.Sprints], label: x => x.Name, detail: x => x.State || '' });
-      return o && { edit: { Field: 'sprint', Sprint: o.ID }, what: `${n} → ${o.Name}` };
+      const o = await app.ui.pick({ title: `Move ${n} issues to`, items: [{ ID: 0, Name: T('Backlog') }, ...s.Sprints], label: x => x.Name, detail: x => x.State || '' });
+      return o && { edit: { Field: 'sprint', Sprint: o.ID }, what: T('%d → %s', n, o.Name) };
     }
-    case 'flag+': return { edit: { Field: 'flag', On: true }, what: `${n} flagged` };
-    case 'flag-': return { edit: { Field: 'flag', On: false }, what: `${n} unflagged` };
+    case 'flag+': return { edit: { Field: 'flag', On: true }, what: T('%d flagged', n) };
+    case 'flag-': return { edit: { Field: 'flag', On: false }, what: T('%d unflagged', n) };
     case 'points': {
-      const v = await app.ui.prompt({ title: `Story points for ${n} issues (empty clears)` });
+      const v = await app.ui.prompt({ title: T('Story points for %d issues (empty clears)', n) });
       if (v === null) return null;
-      if (v.trim() && isNaN(Number(v))) { app.ui.toast('Story points must be a number', { kind: 'err' }); return null; }
-      return { edit: { Field: 'points', Text: v.trim() }, what: `${n} points → ${v.trim() || 'none'}` };
+      if (v.trim() && isNaN(Number(v))) { app.ui.toast(T('Story points must be a number'), { kind: 'err' }); return null; }
+      return { edit: { Field: 'points', Text: v.trim() }, what: T('%d points → %s', n, v.trim() || T('none')) };
     }
   }
   return null;
@@ -67,15 +68,15 @@ async function ask(app, id, keys, project) {
 
 export async function openBulk(app, keys) {
   keys = [...new Set(keys || [])];
-  if (!keys.length) return app.ui.toast('Mark issues with x first');
+  if (!keys.length) return app.ui.toast(T('Mark issues with x first'));
   const project = keys[0].split('-')[0];
   try {
-    const a = await app.ui.pick({ title: `Edit ${keys.length} issue${keys.length === 1 ? '' : 's'}: ${keys.slice(0, 4).join(', ')}${keys.length > 4 ? '…' : ''}`, items: ACTIONS, label: x => x.label });
+    const a = await app.ui.pick({ title: Tn(keys.length, 'Edit %d issue: %s', 'Edit %d issues: %s', keys.length, keys.slice(0, 4).join(', ') + (keys.length > 4 ? '…' : '')), items: ACTIONS, label: x => x.label });
     if (!a) return;
     const q = await ask(app, a.id, keys, project);
     if (!q) return;
-    const list = keys.slice(0, 12).join(', ') + (keys.length > 12 ? ` and ${keys.length - 12} more` : '');
-    if (keys.length > 1 && !await app.ui.confirm({ title: `Edit ${keys.length} issues`, text: `${q.what}: ${list}`, ok: 'Apply' })) return;
+    const list = keys.slice(0, 12).join(', ') + (keys.length > 12 ? T(' and %d more', keys.length - 12) : '');
+    if (keys.length > 1 && !await app.ui.confirm({ title: T('Edit %d issues', keys.length), text: T('%s: %s', q.what, list), ok: T('Apply') })) return;
     return await run(app, keys, q);
   } catch (e) { app.ui.errToast(e); }
 }
@@ -87,7 +88,7 @@ async function run(app, keys, { edit, what }) {
   const bar = h('progress', { max: keys.length, value: 0 });
   const label = h('div.dim', `0 / ${keys.length}`);
   const list = h('ul.bulk-failed');
-  const closeBtn = h('button.btn', { type: 'button', onclick: () => m.close() }, 'Stop');
+  const closeBtn = h('button.btn', { type: 'button', onclick: () => m.close() }, T('Stop'));
   const m = app.ui.modal(h('div.bulk', bar, label, list, h('div.row.end', closeBtn)), { title: what, onClose: () => { stop = true; } });
   const res = { Done: [], Undo: {}, Failed: {} };
   let n = 0;
@@ -106,10 +107,10 @@ async function run(app, keys, { edit, what }) {
   const step = bulkUndo(app, what, res);
   if (!failed.length) {
     m.close();
-    app.ui.toast(`${what}`, { kind: 'ok', action: step && { label: 'Undo', run: () => undo(app, step) } });
+    app.ui.toast(`${what}`, { kind: 'ok', action: step && { label: T('Undo'), run: () => undo(app, step) } });
   } else if (!stop) {
-    label.textContent = `${res.Done.length} done, ${failed.length} failed`;
-    closeBtn.textContent = 'Close'; closeBtn.focus();
+    label.textContent = T('%d done, %d failed', res.Done.length, failed.length);
+    closeBtn.textContent = T('Close'); closeBtn.focus();
   }
   return res;
 }

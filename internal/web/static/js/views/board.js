@@ -21,11 +21,13 @@ import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paint
 import { buildCard as buildCardEl, fillCard as fillCardEl, catClass } from '../lib/card.js';
 import { layoutOf, lookOf, colour } from '../lib/cardstyle.js';
 import { lastProject, lastBoard, setCtx, openProject, pickBoard as pickBoardOf, recover } from './plan_ctx.js';
+import { T, Tn } from '../lib/i18n.js';
 
 css('board');
 
 const FIELD_COL = { type: null, priority: 'priority', status: 'status', points: 'points', assignee: 'assignee', parent: 'epic', due: 'due', age: 'age' };
 const SWIMS = ['none', 'assignee', 'epic', 'priority'];
+const SWIMNAME = { assignee: T('assignee'), epic: T('epic'), priority: T('priority') };
 
 const who = c => c.AssigneeID || c.Assignee || '';
 const firstOf = (api, path) => new Promise((res, rej) => {
@@ -74,7 +76,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   let lastInput = Date.now(), autoT = 0;
 
   // ---- skeleton
-  const filterIn = h('input.input.bd-filter', { type: 'text', placeholder: 'Filter  (f)', spellcheck: false, autocomplete: 'off', title: 'words, status:review,test  points>2  prio>=high  is:flagged  age>3d  due<7d  epic:  -negate  (F builds a query)' });
+  const filterIn = h('input.input.bd-filter', { type: 'text', placeholder: T('Filter  (f)'), spellcheck: false, autocomplete: 'off', title: T('words, status:review,test  points>2  prio>=high  is:flagged  age>3d  due<7d  epic:  -negate  (F builds a query)') });
   const chips = h('div.bd-chips');
   const stats = h('span.bd-stats.dim'), sprintEl = h('span.bd-sprint.dim');
   const bar = h('div.bd-bar', chips, h('span.sp'), filterIn, stats);
@@ -86,16 +88,16 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const bdMsg = text => clear(main).append(h('div.empty', text));
 
   // ---- toolbar
-  const projectBtn = app.chrome.crumb('Project  (alt+p): switches to its last board', () => openProject(app));
-  const boardBtn = app.chrome.crumb('Board  (B)', () => pickBoard());
-  const sprintBtn = app.chrome.crumb('View: sprint, backlog, whole board, your views  (v, [ ])', () => pickSprint());
-  const modeBtn = h('button.btn', { title: 'Lanes / list  (t)', onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
-  const swimBtn = h('button.btn', { title: 'Swimlanes: none, assignee, epic, priority  (O)', onclick: () => cycleSwim() });
-  const colsBtn = h('button.btn', { title: 'List columns  (C)', onclick: () => pickCols() }, icon('columns-3'), 'Columns');
-  const compactBtn = h('button.btn', { title: 'Compact (one-line) cards  (c)', 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
-  const emptyBtn = h('button.btn', { title: 'Hide / show empty lanes  (alt+e)', 'aria-pressed': 'false', onclick: () => setHideEmpty(!S.hideEmpty) });
-  const layoutBtn = h('button.btn', { title: 'Lane layout: the board\'s columns or a ui.lane_layouts entry  (alt+l)', onclick: () => cycleLayout() });
-  const refreshBtn = h('button.btn.ghost.bd-refresh', { title: 'Refresh  (r)', 'aria-label': 'Refresh', onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
+  const projectBtn = app.chrome.crumb(T('Project  (alt+p): switches to its last board'), () => openProject(app));
+  const boardBtn = app.chrome.crumb(T('Board  (B)'), () => pickBoard());
+  const sprintBtn = app.chrome.crumb(T('View: sprint, backlog, whole board, your views  (v, [ ])'), () => pickSprint());
+  const modeBtn = h('button.btn', { title: T('Lanes / list  (t)'), onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
+  const swimBtn = h('button.btn', { title: T('Swimlanes: none, assignee, epic, priority  (O)'), onclick: () => cycleSwim() });
+  const colsBtn = h('button.btn', { title: T('List columns  (C)'), onclick: () => pickCols() }, icon('columns-3'), T('Columns'));
+  const compactBtn = h('button.btn', { title: T('Compact (one-line) cards  (c)'), 'aria-pressed': 'false', onclick: () => setCompact(!S.compact) });
+  const emptyBtn = h('button.btn', { title: T('Hide / show empty lanes  (alt+e)'), 'aria-pressed': 'false', onclick: () => setHideEmpty(!S.hideEmpty) });
+  const layoutBtn = h('button.btn', { title: T('Lane layout: the board\'s columns or a ui.lane_layouts entry  (alt+l)'), onclick: () => cycleLayout() });
+  const refreshBtn = h('button.btn.ghost.bd-refresh', { title: T('Refresh  (r)'), 'aria-label': T('Refresh'), onclick: () => refresh(true) }, h('span.ico-spin', { 'aria-hidden': 'true' }, icon('refresh-cw')));
   if (!embed) context.append(projectBtn, boardBtn, sprintBtn, sprintEl);
   toolbar.append(h('span.spacer'), layoutBtn, swimBtn, colsBtn, emptyBtn, compactBtn, modeBtn, refreshBtn);
 
@@ -105,16 +107,16 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const sp = scopeLabel();
     sprintBtn.textContent = sp;
     sprintBtn.hidden = !isScrum() && !viewItems().some(i => i.id.includes(':') && !i.id.startsWith('closed'));
-    if (S.mode === 'lanes') setIcon(modeBtn, 'kanban', 'Lanes'); else setIcon(modeBtn, 'list', 'List');
+    if (S.mode === 'lanes') setIcon(modeBtn, 'kanban', T('Lanes')); else setIcon(modeBtn, 'list', T('List'));
     swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes'; emptyBtn.hidden = S.mode !== 'lanes';
-    setIcon(swimBtn, 'rows-3', S.swim === 'none' ? 'Swimlanes' : 'by ' + S.swim);
-    if (S.compact) setIcon(compactBtn, 'fold-vertical', 'Compact'); else setIcon(compactBtn, 'unfold-vertical', 'Full');
+    setIcon(swimBtn, 'rows-3', S.swim === 'none' ? T('Swimlanes') : T('by %s', SWIMNAME[S.swim]));
+    if (S.compact) setIcon(compactBtn, 'fold-vertical', T('Compact')); else setIcon(compactBtn, 'unfold-vertical', T('Full'));
     compactBtn.setAttribute('aria-pressed', S.compact ? 'true' : 'false');
-    setIcon(emptyBtn, S.hideEmpty ? 'eye-off' : 'eye', S.hideEmpty ? (S.hidden ? S.hidden + ' empty hidden' : 'Empty hidden') : 'Empty shown');
+    setIcon(emptyBtn, S.hideEmpty ? 'eye-off' : 'eye', S.hideEmpty ? (S.hidden ? T('%d empty hidden', S.hidden) : T('Empty hidden')) : T('Empty shown'));
     emptyBtn.setAttribute('aria-pressed', S.hideEmpty ? 'true' : 'false');
     const L = activeLayout();
     layoutBtn.hidden = S.mode !== 'lanes' || !layouts().length;
-    setIcon(layoutBtn, 'layout-panel-left', L ? L.Name + (S.layoutHidden ? ' · ' + S.layoutHidden + ' hidden' : '') : 'Columns');
+    setIcon(layoutBtn, 'layout-panel-left', L ? L.Name + (S.layoutHidden ? ' · ' + T('%d hidden', S.layoutHidden) : '') : T('Columns'));
   }
   const isScrum = () => !!S.board && S.board.Type !== 'kanban';
   const sprints = () => (S.bundle && S.bundle.sprints) || [];
@@ -123,28 +125,28 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const out = [];
     if (isScrum()) {
       sprints().forEach(s => out.push({ id: String(s.ID), name: s.Name, info: s.State }));
-      out.push({ id: 'backlog', name: 'Backlog' }, { id: 'all', name: 'Whole board' });
+      out.push({ id: 'backlog', name: T('Backlog') }, { id: 'all', name: T('Whole board') });
     } else {
-      out.push({ id: 'active', name: 'Board' });
+      out.push({ id: 'active', name: T('Board') });
       const cols = (S.bundle && S.bundle.config && S.bundle.config.Columns) || [];
-      if (cols.length && cols[0].Name.toLowerCase() === 'backlog') out.push({ id: 'backlog', name: 'Backlog' });
+      if (cols.length && cols[0].Name.toLowerCase() === 'backlog') out.push({ id: 'backlog', name: T('Backlog') });
     }
-    ((app.session.ui && app.session.ui.Views) || []).forEach((v, i) => { if (v.Name && v.JQL) out.push({ id: 'view:' + i, name: v.Name, info: 'view', jql: v.JQL, kind: 'jql' }); });
-    for (const f of S.saved) out.push({ id: 'filter:' + f.ID, name: f.Name, info: 'saved filter', jql: f.JQL, kind: 'filter' });
+    ((app.session.ui && app.session.ui.Views) || []).forEach((v, i) => { if (v.Name && v.JQL) out.push({ id: 'view:' + i, name: v.Name, info: T('view'), jql: v.JQL, kind: 'jql' }); });
+    for (const f of S.saved) out.push({ id: 'filter:' + f.ID, name: f.Name, info: T('saved filter'), jql: f.JQL, kind: 'filter' });
     // A named query opened from elsewhere (a release's issues): ?sprint=jql:…&vname=…
-    if (String(query.sprint || '').startsWith('jql:') && !out.some(i => i.id === query.sprint)) out.push({ id: query.sprint, name: query.vname || 'JQL', info: 'query', jql: query.sprint.slice(4), kind: 'filter' });
-    for (const q of S.starred) out.push({ id: 'star:' + q, name: '★ ' + (q.length > 30 ? q.slice(0, 29) + '…' : q), info: 'starred search', jql: q, kind: 'filter' });
+    if (String(query.sprint || '').startsWith('jql:') && !out.some(i => i.id === query.sprint)) out.push({ id: query.sprint, name: query.vname || 'JQL', info: T('query'), jql: query.sprint.slice(4), kind: 'filter' });
+    for (const q of S.starred) out.push({ id: 'star:' + q, name: '★ ' + (q.length > 30 ? q.slice(0, 29) + '…' : q), info: T('starred search'), jql: q, kind: 'filter' });
     return out;
   }
   function scopeLabel() {
-    if (S.closed) return S.closed.Name + ' (closed)';
+    if (S.closed) return T('%s (closed)', S.closed.Name);
     const it = viewItems().find(i => i.id === S.scope);
     if (it && (it.kind || !isScrum())) return it.name;
-    if (S.scope === 'backlog') return 'Backlog';
-    if (S.scope === 'all') return 'Whole board';
+    if (S.scope === 'backlog') return T('Backlog');
+    if (S.scope === 'all') return T('Whole board');
     const r = resolveScope();
     const sp = r.sprint && sprints().find(s => s.ID === r.sprint);
-    return sp ? sp.Name : 'Whole board';
+    return sp ? sp.Name : T('Whole board');
   }
 
   // ---- filter bar
@@ -152,15 +154,15 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const anyFilter = () => S.mine || S.who != null || S.qf.size || S.text.trim();
   function renderBar() {
     const kids = [];
-    kids.push(h('button.fchip' + (S.mine ? '.on' : ''), { dataset: { act: 'mine' }, title: 'Assigned to me  (m)' }, h('kbd', 'm'), 'Mine'));
-    kids.push(h('button.fchip' + (S.who != null ? '.on' : ''), { dataset: { act: 'who' }, title: 'Assignee  (A)' }, h('kbd', 'A'), S.who == null ? 'Assignee' : whoLabel(S.who, whoName)));
+    kids.push(h('button.fchip' + (S.mine ? '.on' : ''), { dataset: { act: 'mine' }, title: T('Assigned to me  (m)') }, h('kbd', 'm'), T('Mine')));
+    kids.push(h('button.fchip' + (S.who != null ? '.on' : ''), { dataset: { act: 'who' }, title: T('Assignee  (A)') }, h('kbd', 'A'), S.who == null ? T('Assignee') : whoLabel(S.who, whoName)));
     qfs().slice(0, 9).forEach((q, i) => kids.push(h('button.fchip' + (S.qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)));
-    cq.words(S.text).forEach((w, i) => kids.push(h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, icon('x'))));
-    if (anyFilter()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: 'Clear filters  (0)' }, icon('x'), 'clear'));
+    cq.words(S.text).forEach((w, i) => kids.push(h('button.fchip.term', { dataset: { term: i }, title: T('Remove %s', w) }, w, icon('x'))));
+    if (anyFilter()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: T('Clear filters  (0)') }, icon('x'), T('clear')));
     clear(chips).append(...kids);
   }
   const whoName = id => {
-    if (id === '-') return 'Unassigned';
+    if (id === '-') return T('Unassigned');
     const c = S.cards.find(c => who(c) === id);
     return c ? c.Assignee : (S.people.get(id) || id);
   };
@@ -200,18 +202,18 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       const pointed = S.cards.some(c => c.Points);
       let done = 0, total = 0;
       for (const c of S.cards) { const n = pointed ? Number(c.Points) || 0 : 1; total += n; if (c.Done) done += n; }
-      if (total) kids.push(h('span.bd-prog', { title: Math.round(done / total * 100) + '% done', style: { '--pct': done / total * 100 + '%' } }), (Math.round(done * 10) / 10) + '/' + (Math.round(total * 10) / 10) + (pointed ? 'p' : ''));
+      if (total) kids.push(h('span.bd-prog', { title: T('%d%% done', Math.round(done / total * 100)), style: { '--pct': done / total * 100 + '%' } }), (Math.round(done * 10) / 10) + '/' + (Math.round(total * 10) / 10) + (pointed ? 'p' : ''));
     }
     const left = end && Math.ceil((end.getTime() - now) / DAY);
     let when = '';
-    if (closed) when = 'closed ' + shortDate(sp.Complete);
-    else if (start && start.getTime() > now) when = 'starts ' + shortDate(sp.Start);
+    if (closed) when = T('closed %s', shortDate(sp.Complete));
+    else if (start && start.getTime() > now) when = T('starts %s', shortDate(sp.Start));
     else if (left > 0) {
       const wd = workdays(app), last = new Date(end); last.setHours(0, 0, 0, 0);
       let n = 0;
       for (const d = new Date(now); d.setHours(0, 0, 0, 0) < last.getTime(); d.setDate(d.getDate() + 1)) if (wd.includes(d.getDay())) n++;
-      when = left + 'd left · ' + n + (n === 1 ? ' workday' : ' workdays');
-    } else if (end) when = 'ended ' + shortDate(sp.End);
+      when = Tn(n, '%dd left · %d workday', '%dd left · %d workdays', left, n);
+    } else if (end) when = T('ended %s', shortDate(sp.End));
     if (when) kids.push(h('span.bd-when', when));
     const goal = (sp.Goal || '').trim().split(/\s+/).join(' ');
     if (goal) kids.push(h('span.bd-goal', { title: goal }, goal));
@@ -223,7 +225,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     let pts = 0;
     for (const c of vis) pts += Number(c.Points) || 0;
     const filtered = vis.length !== S.cards.length;
-    stats.textContent = (filtered ? vis.length + ' of ' : '') + S.cards.length + ' issues' + (pts ? ' · ' + (Math.round(pts * 10) / 10) + ' pts' : '') + (S.total > S.cards.length ? ' (' + S.total + ' in Jira)' : '');
+    stats.textContent = (filtered ? T('%d of %d issues', vis.length, S.cards.length) : Tn(S.cards.length, '%d issue', '%d issues', S.cards.length)) + (pts ? ' · ' + T('%s pts', Math.round(pts * 10) / 10) : '') + (S.total > S.cards.length ? ' ' + T('(%d in Jira)', S.total) : '');
   }
 
   // ---- data
@@ -294,13 +296,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const reqs = [api.get(path, { fresh: true }).then(d => { if (S.path === path && !S.dead) setCards(d); })];
     if (loud) reqs.push(api.get('/boards/' + S.board.ID, { fresh: true }).then(setBundle));
     return Promise.all(reqs)
-      .then(() => { S.fetched = Date.now(); if (loud) ui.toast('Refreshed'); })
+      .then(() => { S.fetched = Date.now(); if (loud) ui.toast(T('Refreshed')); })
       .catch(e => { if (loud || !S.loaded) fail(e); })
       .finally(() => setBusy(-1));
   }
   function fail(e) {
     if (S.loaded) ui.errToast(e);
-    else bdMsg(h('div', h('h2', 'Could not load the board'), h('pre', e.message)));
+    else bdMsg(h('div', h('h2', T('Could not load the board')), h('pre', e.message)));
   }
   function setBundle(b) {
     const first = !S.bundle;
@@ -346,13 +348,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const activeLayout = () => (S.layout && layouts().find(l => l.Name === S.layout)) || null;
   function cycleLayout() {
     const ls = layouts();
-    if (!ls.length) return ui.toast('No lane layout fits this board: add one to ui.lane_layouts');
+    if (!ls.length) return ui.toast(T('No lane layout fits this board: add one to ui.lane_layouts'));
     const i = ls.findIndex(l => l.Name === S.layout);
     S.layout = i < 0 ? ls[0].Name : i + 1 < ls.length ? ls[i + 1].Name : '';
     app.prefs.set('board.layout.' + S.board.ID, S.layout);
     if (S.mode !== 'lanes') setMode('lanes');
     layout(); renderToolbar();
-    ui.toast(S.layout ? 'Lanes: ' + S.layout + (S.layoutHidden ? ', ' + S.layoutHidden + ' hidden' : '') : 'Lanes: the board\'s columns');
+    ui.toast(S.layout ? (S.layoutHidden ? T('Lanes: %s, %d hidden', S.layout, S.layoutHidden) : T('Lanes: %s', S.layout)) : T('Lanes: the board\'s columns'));
   }
   function statusCol() {
     const m = new Map();
@@ -389,12 +391,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
 
   // ---- swimlanes: bands by assignee, epic or priority
-  const groupName = c => (S.swim === 'assignee' ? c.Assignee || 'Unassigned' : S.swim === 'epic' ? c.ParentSummary || 'No epic' : c.Priority || 'No priority');
+  const groupName = c => (S.swim === 'assignee' ? c.Assignee || T('Unassigned') : S.swim === 'epic' ? c.ParentSummary || T('No epic') : c.Priority || T('No priority'));
   function groupsOf(cards) {
     const m = new Map();
     for (const c of cards) { const n = groupName(c); (m.get(n) || m.set(n, []).get(n)).push(c); }
     const out = [...m].map(([name, list]) => ({ name, cards: list }));
-    const last = S.swim === 'assignee' ? 'Unassigned' : S.swim === 'epic' ? 'No epic' : 'No priority';
+    const last = S.swim === 'assignee' ? T('Unassigned') : S.swim === 'epic' ? T('No epic') : T('No priority');
     out.sort((a, b) => (a.name === last) - (b.name === last)
       || (S.swim === 'priority' ? prioOrd(a.cards[0]) - prioOrd(b.cards[0]) : 0) || a.name.localeCompare(b.name));
     return out;
@@ -458,7 +460,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (secs.length < 2) return;
     const sec = c => secs.findIndex(s => (s.StatusIDs || []).includes(String(c.StatusID)));
     p.all = p.all.map((c, i) => [sec(c), i, c]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
-    const name = k => (k >= 0 ? secs[k].Name : 'Other'), folded = k => S.secFold.has(secKey(p.name, name(k)));
+    const name = k => (k >= 0 ? secs[k].Name : T('Other')), folded = k => S.secFold.has(secKey(p.name, name(k)));
     const n = new Map();
     for (const c of p.all) n.set(sec(c), (n.get(sec(c)) || 0) + 1);
     p.shown = p.all.filter(c => !folded(sec(c)));
@@ -467,13 +469,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       const k = sec(c);
       if (i === 0 || k !== sec(p.shown[i - 1])) p.heads[i] = { name: name(k), n: n.get(k) };
     });
-    const strip = [...n.keys()].filter(folded).map(k => h('button.bd-fold', { type: 'button', dataset: { sec: name(k), lane: p.name }, title: 'Unfold  (Z: all)' }, '▸ ' + name(k) + ' · ' + n.get(k)));
+    const strip = [...n.keys()].filter(folded).map(k => h('button.bd-fold', { type: 'button', dataset: { sec: name(k), lane: p.name }, title: T('Unfold  (Z: all)') }, '▸ ' + name(k) + ' · ' + n.get(k)));
     if (p.folds && strip.length) { p.folds.hidden = false; p.folds.append(...strip); }
   }
   function secHead(w, head, lane) {
     w.classList.toggle('shead', !!head);
     if (!head) { if (w._sec) w._sec.hidden = true; return; }
-    if (!w._sec) w.append(w._sec = h('div.bd-sec', { title: 'Fold  (z)' }));
+    if (!w._sec) w.append(w._sec = h('div.bd-sec', { title: T('Fold  (z)') }));
     w._sec.hidden = false;
     w._sec.dataset.sec = head.name; w._sec.dataset.lane = lane;
     w._sec.textContent = head.name + ' · ' + head.n;
@@ -509,7 +511,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function setHideEmpty(v) {
     S.hideEmpty = v; app.prefs.set('board.empty_lanes', v ? 'hide' : 'show');
     layout(); renderToolbar();
-    ui.toast(v ? (S.hidden ? S.hidden + (S.hidden === 1 ? ' empty lane' : ' empty lanes') + ' hidden' : 'Empty lanes hide once a filter leaves one') : 'Empty lanes shown');
+    ui.toast(v ? (S.hidden ? Tn(S.hidden, '%d empty lane hidden', '%d empty lanes hidden', S.hidden) : T('Empty lanes hide once a filter leaves one')) : T('Empty lanes shown'));
   }
 
   // Row height is measured from a real card, so density and fonts decide it.
@@ -545,7 +547,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
 
   // ---- building the lanes or list
   function laneNames(cols, other) {
-    return cols.map((c, i) => ({ name: c.Name, max: c.Max || 0, col: i })).concat(other ? [{ name: 'Other', max: 0, col: cols.length }] : []);
+    return cols.map((c, i) => ({ name: c.Name, max: c.Max || 0, col: i })).concat(other ? [{ name: T('Other'), max: 0, col: cols.length }] : []);
   }
   const catOf = (i, n, other) => (i === 0 ? 'new' : i === n - 1 && !other ? 'done' : 'prog');
   function build(sig, lanes, cols, other, groups) {
@@ -566,7 +568,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       wrap.append(h('div.bd-swim-head', S.heads.map(x => x.el)));
       S.bands = groups.map((g, gi) => {
         const band = { name: g.name, caret: h('span.bd-caret'), count: h('span.bd-count') };
-        band.head = h('div.bd-band-head', { dataset: { fold: g.name }, title: 'Fold / unfold  (z, Z)' }, band.caret, h('span.bd-band-name', g.name), band.count);
+        band.head = h('div.bd-band-head', { dataset: { fold: g.name }, title: T('Fold / unfold  (z, Z)') }, band.caret, h('span.bd-band-name', g.name), band.count);
         const row = h('div.bd-band-row');
         names.forEach(n => {
           const pane = { col: n.col, group: gi, band: g.cards[0], name: n.name, cards: [], all: [], total: 0, rh: 0 };
@@ -588,7 +590,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
         const pane = { col: n.col, name: n.name, max: n.max, cards: [], all: [], total: 0, rh: 0 };
         pane.count = h('span.bd-count');
         pane.wip = h('span.bd-wip');
-        const fold = h('button.bd-lane-fold', { type: 'button', title: 'Collapse / expand', 'aria-label': 'Collapse / expand ' + n.name }, icon('chevron-right'));
+        const fold = h('button.bd-lane-fold', { type: 'button', title: T('Collapse / expand'), 'aria-label': T('Collapse / expand %s', n.name) }, icon('chevron-right'));
         pane.head = h('div.bd-lane-head.k' + catOf(i, names.length, other), fold, h('span.bd-lane-name', n.name), pane.count, pane.wip);
         pane.body = h('div.bd-lane-body', { role: 'list', 'aria-label': n.name });
         pane.drop = h('div.bd-drop', { hidden: true });
@@ -626,9 +628,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const filtered = p.all.length !== p.total;
     p.count.textContent = filtered ? p.all.length + '/' + p.total : p.total;
     const over = p.max && p.total > p.max;
-    p.wip.textContent = p.max ? 'max ' + p.max : '';
+    p.wip.textContent = p.max ? T('max %d', p.max) : '';
     p.head.classList.toggle('over', !!over);
-    p.wip.title = over ? 'Over the WIP limit of ' + p.max : 'WIP limit';
+    p.wip.title = over ? T('Over the WIP limit of %d', p.max) : T('WIP limit');
     p.body.classList.toggle('empty', !(p.shown ? p.all : p.cards).length);
   }
   function paintSwim(groups) {
@@ -636,7 +638,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       const shown = S.panes.reduce((n, p) => n + (p.col === i ? p.all.length : 0), 0);
       hd.count.textContent = shown !== S.colTotal[i] ? shown + '/' + S.colTotal[i] : S.colTotal[i];
       const over = hd.max && S.colTotal[i] > hd.max;
-      hd.wip.textContent = hd.max ? 'max ' + hd.max : '';
+      hd.wip.textContent = hd.max ? T('max %d', hd.max) : '';
       hd.el.classList.toggle('over', !!over);
     });
     S.bands.forEach((b, gi) => {
@@ -651,8 +653,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // A list sorted by assignee, priority, epic or status heads each group with its name, count and points
   // (TUI jiraGroupHeader); heads[i] is the header on row i, null when sorted otherwise.
   const listGroup = {
-    assignee: c => c.Assignee || 'Unassigned', priority: c => c.Priority || 'No priority',
-    epic: c => c.ParentSummary || 'No epic', status: c => c.Status,
+    assignee: c => c.Assignee || T('Unassigned'), priority: c => c.Priority || T('No priority'),
+    epic: c => c.ParentSummary || T('No epic'), status: c => c.Status,
   };
   function groupHeads(l) {
     const g = listGroup[S.sort];
@@ -705,7 +707,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const r = w._r;
     w.dataset.key = c.Key;
     w.className = 'vl-row lrow ' + catClass(c) + (S.sel === c.Key ? ' sel' : '') + (S.marks.has(c.Key) ? ' mark' : '') + (c.Flagged ? ' flagged' : '') + (head ? ' ghead' : '');
-    if (head) r.ghead.replaceChildren(S.sort === 'assignee' && head.name !== 'Unassigned' ? ui.avatar(head.name, c.AvatarURL, 18) : '', h('span', ht));
+    if (head) r.ghead.replaceChildren(S.sort === 'assignee' && head.name !== T('Unassigned') ? ui.avatar(head.name, c.AvatarURL, 18) : '', h('span', ht));
     const rib = ribbonOf(c);
     if (rib) w.style.setProperty('--ribbon', rib); else w.style.removeProperty('--ribbon');
     w.classList.toggle('ribbon', !!rib);
@@ -780,14 +782,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (!w) return move(0, 1);
     if (S.mode === 'list') {
       const heads = w.p.heads;
-      if (!heads) return ui.toast('Bands need swimlanes or a grouped list  (O)');
+      if (!heads) return ui.toast(T('Bands need swimlanes or a grouped list  (O)'));
       let i = w.i;
       while (i > 0 && !heads[i]) i--;
       do i += d; while (i > 0 && i < heads.length && !heads[i]);
       if (i >= 0 && i < w.p.cards.length) select(w.p.cards[i].Key);
       return;
     }
-    if (!swimming()) return ui.toast('Bands need swimlanes or a grouped list  (O)');
+    if (!swimming()) return ui.toast(T('Bands need swimlanes or a grouped list  (O)'));
     const at = S.panes.indexOf(w.p) % S.ncols;
     for (let g = w.p.group + d; g >= 0 && g < S.panes.length / S.ncols; g += d) {
       for (let k = 0; k < 2 * S.ncols; k++) {
@@ -921,8 +923,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
         const name = names[id] || id, cur = String(card.StatusID) === String(id);
         const ok = !trs || can.has(String(id)) || can.has(name);
         const cat = cats.get(name) || (p.col === 0 ? 'new' : p.col === last ? 'done' : 'indeterminate');
-        zs.append(h('div.bd-zone.cat-' + cat + (cur ? '.cur' : ok ? '' : '.no'), { dataset: { status: id }, title: cur ? 'Current status' : ok ? 'Move to ' + name : 'No transition from ' + card.Status + ' to ' + name },
-          h('span.bd-zone-name', name), cur ? h('span.bd-zone-tag', 'current') : ok ? '' : h('span.bd-zone-tag', 'no transition')));
+        zs.append(h('div.bd-zone.cat-' + cat + (cur ? '.cur' : ok ? '' : '.no'), { dataset: { status: id }, title: cur ? T('Current status') : ok ? T('Move to %s', name) : T('No transition from %s to %s', card.Status, name) },
+          h('span.bd-zone-name', name), cur ? h('span.bd-zone-tag', T('current')) : ok ? '' : h('span.bd-zone-tag', T('no transition'))));
       }
       p.el.insertBefore(zs, p.body);
     }
@@ -961,7 +963,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const from = S.where.get(key);
     const same = from && from.p === pane;
     if (swimming()) {
-      if (same) return ui.toast('Ranking needs the swimlanes off  (O)');
+      if (same) return ui.toast(T('Ranking needs the swimlanes off  (O)'));
       if (from && from.p.group !== pane.group) setBand(card, pane.band);
       if (from && from.p.col === pane.col) return;
       return moveCol(S.cards.find(c => c.Key === key), pane.col, null);
@@ -986,7 +988,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (i < 0) rest.push(card); else rest.splice(at.after ? i + 1 : i, 0, card);
     S.cards = rest;
   }
-  const writable = () => { if (S.past) { ui.toast('The time machine only looks  ·  esc back to now'); return false; } return true; };
+  const writable = () => { if (S.past) { ui.toast(T('The time machine only looks  ·  esc back to now')); return false; } return true; };
   const pushUndo = (what, run) => import('./fields.js').then(m => m.pushUndo(app, what, run));
   // Undo one failed move: only this card goes back, other moves made meanwhile stay.
   function revertCard(key, before) {
@@ -1003,7 +1005,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     reorder(card, at); layout();
     try {
       await api.post('/issues/' + card.Key + '/rank', { Other: at.other, After: at.after });
-      if (back) pushUndo(card.Key + "'s rank", async () => { await api.post('/issues/' + card.Key + '/rank', { Other: back.other, After: back.after }); bus.emit('issue:changed', { key: card.Key }); });
+      if (back) pushUndo(T("%s's rank", card.Key), async () => { await api.post('/issues/' + card.Key + '/rank', { Other: back.other, After: back.after }); bus.emit('issue:changed', { key: card.Key }); });
       bus.emit('issue:changed', { key: card.Key });
     } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
@@ -1020,7 +1022,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     let opts = trs.filter(t => want.includes(String(t.StatusID)) || names.includes(t.Name));
     if (statusID) opts = opts.filter(t => String(t.StatusID) === String(statusID) || t.Name === (S.bundle.statusNames || {})[statusID]);
     else if (opts.length > 1) { const other = opts.filter(t => String(t.StatusID) !== String(card.StatusID)); if (other.length) opts = other; }
-    if (!opts.length) return ui.toast('No transition from ' + card.Status + ' to ' + col.Name, { kind: 'err' });
+    if (!opts.length) return ui.toast(T('No transition from %s to %s', card.Status, col.Name), { kind: 'err' });
     let t = opts[0];
     if (opts.length > 1) {
       t = await ui.pick({ title: card.Key + ' → ' + col.Name, items: opts, label: o => o.Name });
@@ -1049,7 +1051,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       bus.emit('issue:changed', { key: card.Key, what: card.Key + ' → ' + t.Name });
       if (done) confetti(app, [...main.querySelectorAll('.bd-lane-head.kdone')].find(e => e.querySelector('.bd-lane-name').textContent === col.Name));
     } catch (e) {
-      revertCard(card.Key, before); ui.toast('Could not move ' + card.Key + ': ' + e.message, { kind: 'err' });
+      revertCard(card.Key, before); ui.toast(T('Could not move %s: %s', card.Key, e.message), { kind: 'err' });
     }
   }
   // A drop into another swimlane gives the card that band's assignee or epic, as Jira's board (TUI jiraSetBand).
@@ -1067,8 +1069,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     try {
       const r = await api.put('/issues/' + card.Key + '/field/' + field, body);
       const u = r && r.Undo;
-      if (u) pushUndo(card.Key + ' back to its ' + field, async () => { await api.put('/issues/' + card.Key + '/field/' + u.Field, u); bus.emit('issue:changed', { key: card.Key }); });
-      bus.emit('issue:changed', { key: card.Key, what: card.Key + ' ' + field + ' → ' + (field === 'assignee' ? patch.Assignee || 'unassigned' : patch.ParentKey || 'no epic') });
+      if (u) pushUndo(T('%s back to its %s', card.Key, field), async () => { await api.put('/issues/' + card.Key + '/field/' + u.Field, u); bus.emit('issue:changed', { key: card.Key }); });
+      bus.emit('issue:changed', { key: card.Key, what: T('%s %s → %s', card.Key, field, field === 'assignee' ? patch.Assignee || T('unassigned') : patch.ParentKey || T('no epic')) });
     } catch (e) { revertCard(card.Key, before); ui.errToast(e); }
   }
   // H and L step through the lanes, a stacked lane's sections one by one (TUI moveJiraCardBy).
@@ -1086,12 +1088,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // d is -1/1, or -Infinity/Infinity for the top/bottom. A list sorted by anything but rank still ranks in rank order.
   function stepRank(d) {
     if (!writable()) return;
-    if (swimming()) return ui.toast('Ranking needs the swimlanes off  (O)');
+    if (swimming()) return ui.toast(T('Ranking needs the swimlanes off  (O)'));
     const w = cur(), c = curCard(); if (!c) return;
     const L = S.mode === 'list' && !listRanks() ? S.base.filter(passes) : w.p.cards;
     const i = L.findIndex(x => x.Key === c.Key);
     const j = Math.max(0, Math.min(L.length - 1, i + (Number.isFinite(d) ? d : d * L.length)));
-    if (j === i) return ui.toast(c.Key + (d < 0 ? ' is ranked first already' : ' is ranked last already'));
+    if (j === i) return ui.toast(d < 0 ? T('%s is ranked first already', c.Key) : T('%s is ranked last already', c.Key));
     rankTo(c, { other: L[j].Key, after: j > i });
   }
 
@@ -1099,7 +1101,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   offs.push(bus.on('issue:patch', ({ key, field, value }) => {
     patchCard(key, field, value);
     if (field === 'summary' || value === undefined) return;
-    S.lastEdit = { what: field + ' → ' + (value && value.DisplayName ? value.DisplayName : Array.isArray(value) ? value.join(' ') : value == null || value === '' ? 'none' : value), run: key2 => repeatField(key2, field, value) };
+    S.lastEdit = { what: field + ' → ' + (value && value.DisplayName ? value.DisplayName : Array.isArray(value) ? value.join(' ') : value == null || value === '' ? T('none') : value), run: key2 => repeatField(key2, field, value) };
   }));
   // An edit from a picker (status, priority…) shows on its card at once; the refetch after the write settles it.
   function patchCard(key, field, value) {
@@ -1131,34 +1133,35 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       case 'status': body = { To: value }; break;
       case 'priority': {
         const p = (await api.get('/priorities')).find(x => x.Name === value);
-        if (!p) return ui.toast('No priority ' + value, { kind: 'err' });
+        if (!p) return ui.toast(T('No priority %s', value), { kind: 'err' });
         body = { ID: p.ID }; break;
       }
       case 'assignee': body = { ID: value ? value.AccountID : '' }; break;
       case 'points': case 'duedate': body = { Text: String(value == null ? '' : value) }; break;
       case 'labels': body = { Labels: value }; break;
       case 'flag': body = { On: !!value }; break;
-      default: return ui.toast('Cannot repeat ' + field);
+      default: return ui.toast(T('Cannot repeat %s', field));
     }
     try {
       const r = await api.put('/issues/' + key + '/field/' + field, body);
       bus.emit('issue:changed', { key });
       const u = r && r.Undo;
-      if (u) pushUndo(key + ' ' + field, async () => { await api.put('/issues/' + key + '/field/' + u.Field, u); bus.emit('issue:changed', { key }); });
-      ui.toast(key + ' ' + field + ' repeated', { kind: 'ok' });
+      if (u) pushUndo(T('%s %s', key, field), async () => { await api.put('/issues/' + key + '/field/' + u.Field, u); bus.emit('issue:changed', { key }); });
+      ui.toast(T('%s %s repeated', key, field), { kind: 'ok' });
     } catch (e) { ui.errToast(e); bus.emit('issue:changed', { key }); }
   }
   // M (TUI move_sprint): the marked cards, else the selected one, to an open sprint or the backlog.
   async function moveSprint() {
     if (!writable()) return;
-    if (!isScrum()) return ui.toast("Sprints are a scrum board's");
+    if (!isScrum()) return ui.toast(T("Sprints are a scrum board's"));
     const ks = bulkKeys();
-    if (!ks.length) return ui.toast('Select a card first');
+    if (!ks.length) return ui.toast(T('Select a card first'));
     pickSprintFor(ks);
   }
+  const issuesOf = ks => (ks.length === 1 ? ks[0] : T('%d issues', ks.length));
   async function pickSprintFor(ks) {
-    const items = [...sprints().filter(s => s.State !== 'closed'), { ID: 0, Name: 'Backlog' }];
-    const o = await ui.pick({ title: (ks.length === 1 ? ks[0] : ks.length + ' issues') + ' → sprint', items, label: s => s.Name, detail: s => s.State || '' });
+    const items = [...sprints().filter(s => s.State !== 'closed'), { ID: 0, Name: T('Backlog') }];
+    const o = await ui.pick({ title: T('%s → sprint', issuesOf(ks)), items, label: s => s.Name, detail: s => s.State || '' });
     if (o) toSprint(ks, o);
   }
   async function toSprint(ks, o) {
@@ -1170,18 +1173,18 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     for (const k of ks) bus.emit('issue:changed', { key: k, what: k + ' → ' + o.Name });
     // Undo puts each card back where it was, when that was the backlog or a sprint the board knows.
     const back = ks.filter(k => from.get(k) != null);
-    const step = back.length && await pushUndo((ks.length === 1 ? ks[0] : ks.length + ' issues') + ' → ' + o.Name, async () => {
+    const step = back.length && await pushUndo(T('%s → %s', issuesOf(ks), o.Name), async () => {
       for (const id of new Set(back.map(k => from.get(k)))) await api.post('/plan/move', { Keys: back.filter(k => from.get(k) === id), Sprint: id });
       for (const k of back) bus.emit('issue:changed', { key: k });
     });
-    ui.toast((ks.length === 1 ? ks[0] : ks.length + ' issues') + ' → ' + o.Name, { kind: 'ok', action: step && { label: 'Undo', run: () => import('./fields.js').then(m => m.undo(app, step)) } });
+    ui.toast(T('%s → %s', issuesOf(ks), o.Name), { kind: 'ok', action: step && { label: T('Undo'), run: () => import('./fields.js').then(m => m.undo(app, step)) } });
   }
   function repeat() {
     const c = curCard();
-    if (!S.lastEdit) return ui.toast('Nothing to repeat yet');
-    if (!c) return ui.toast('Select a card first');
+    if (!S.lastEdit) return ui.toast(T('Nothing to repeat yet'));
+    if (!c) return ui.toast(T('Select a card first'));
     if (!writable()) return;
-    ui.toast('Repeating ' + S.lastEdit.what + ' on ' + c.Key + '…');
+    ui.toast(T('Repeating %s on %s…', S.lastEdit.what, c.Key));
     S.lastEdit.run(c.Key);
   }
 
@@ -1240,7 +1243,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     renderToolbar();
     if (S.mode !== 'lanes') return;
     layout();
-    ui.toast(v === 'none' ? 'No swimlanes' : 'Swimlanes by ' + v);
+    ui.toast(v === 'none' ? T('No swimlanes') : T('Swimlanes by %s', SWIMNAME[v]));
   }
   function foldBand(name) {
     if (!swimming() && name == null && S.mode === 'lanes') {
@@ -1250,7 +1253,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
         if (s) return toggleSection(w.p.name, s.Name);
       }
     }
-    if (!swimming()) return ui.toast('Folding needs swimlanes  (O) or a stacked lane');
+    if (!swimming()) return ui.toast(T('Folding needs swimlanes  (O) or a stacked lane'));
     const w = cur(), g = name != null ? name : w && groupName(w.p.cards[w.i]);
     if (g == null) return;
     S.fold.has(g) ? S.fold.delete(g) : S.fold.add(g);
@@ -1284,7 +1287,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function registerNamedFilters() {
     filterCmds.forEach(u => u()); filterCmds = [];
     ((app.session.ui && app.session.ui.Filters) || []).forEach((f, i) => {
-      if (f.Name && f.Query) filterCmds.push(app.commands.register({ id: 'board:filter:' + i, title: 'Filter: ' + f.Name, group: 'Filters', run: () => { filterIn.value = f.Query; setText(f.Query); } }));
+      if (f.Name && f.Query) filterCmds.push(app.commands.register({ id: 'board:filter:' + i, title: T('Filter: %s', f.Name), group: T('Filters'), run: () => { filterIn.value = f.Query; setText(f.Query); } }));
     });
   }
 
@@ -1307,8 +1310,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function stepPast(d) {
     const p = S.past;
     if (!p) return false;
-    if (p.loading) { ui.toast('Still reading the history  ·  esc cancels'); return true; }
-    if (p.at) { ui.toast('A closed sprint shows as it closed  ·  esc leaves it'); return true; }
+    if (p.loading) { ui.toast(T('Still reading the history  ·  esc cancels')); return true; }
+    if (p.at) { ui.toast(T('A closed sprint shows as it closed  ·  esc leaves it')); return true; }
     p.days = Math.min(p.days + d, 90);
     if (p.days <= 0) leavePast(); else layout();
     return true;
@@ -1318,12 +1321,12 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     S.past = null; layout();
   }
   async function pickClosed() {
-    if (!isScrum()) return ui.toast("Closed sprints are a scrum board's");
+    if (!isScrum()) return ui.toast(T("Closed sprints are a scrum board's"));
     let list;
     try { list = (await api.get('/boards/' + S.board.ID + '?closed=1')).closedSprints || []; } catch (e) { return ui.errToast(e); }
-    if (!list.length) return ui.toast('No closed sprints');
+    if (!list.length) return ui.toast(T('No closed sprints'));
     const closedOn = s => (!isZero(s.Complete) ? s.Complete : s.End);
-    const r = await ui.pick({ title: 'Closed sprints', items: list, label: s => s.Name, detail: s => [isZero(closedOn(s)) ? '' : 'closed ' + shortDate(closedOn(s)), s.Goal].filter(Boolean).join('  ·  ') });
+    const r = await ui.pick({ title: T('Closed sprints'), items: list, label: s => s.Name, detail: s => [isZero(closedOn(s)) ? '' : T('closed %s', shortDate(closedOn(s))), s.Goal].filter(Boolean).join('  ·  ') });
     if (r) openClosed(r, closedOn(r));
   }
   function openClosed(sp, closedAt) {
@@ -1347,8 +1350,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       else if (c.Done) { done++; continue; } else to.backlog = (to.backlog || 0) + 1;
       carried++;
     }
-    if (!carried) return done + ' done';
-    return done + ' done  ·  ' + carried + ' carried over: ' + Object.keys(to).sort().map(k => to[k] + ' → ' + k).join(', ');
+    if (!carried) return T('%d done', done);
+    return T('%d done  ·  %d carried over: %s', done, carried, Object.keys(to).sort().map(k => to[k] + ' → ' + (k === 'backlog' ? T('backlog') : k)).join(', '));
   }
   function renderBanner() {
     const p = S.past;
@@ -1356,8 +1359,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (!p) return;
     const day = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     let t;
-    if (S.closed) t = S.closed.Name + ', ' + (p.loading ? 'reading history…' : 'as it closed ' + day(p.at) + '  ·  ' + closedLine() + '  ·  esc leaves it');
-    else t = p.loading ? 'reading the board’s history…  ·  esc cancels' : 'as of ' + day(asOf(p) - 60000) + '  ·  ← earlier  ·  → later  ·  esc back to now';
+    if (S.closed) t = p.loading ? T('%s, reading history…', S.closed.Name) : T('%s, as it closed %s  ·  %s  ·  esc leaves it', S.closed.Name, day(p.at), closedLine());
+    else t = p.loading ? T('reading the board’s history…  ·  esc cancels') : T('as of %s  ·  ← earlier  ·  → later  ·  esc back to now', day(asOf(p) - 60000));
     setIcon(banner, 'rotate-ccw-clock', t);
   }
 
@@ -1386,14 +1389,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     for (const c of list) all ? S.marks.delete(c.Key) : S.marks.add(c.Key);
     for (const p of S.panes) p.vl.refresh();
     marksChanged();
-    ui.toast(all ? 'Cleared marks' : S.marks.size + ' marked  ·  X edits them  ·  esc clears');
+    ui.toast(all ? T('Cleared marks') : T('%d marked  ·  X edits them  ·  esc clears', S.marks.size));
   }
-  const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => ui.toast('Copied ' + what), ui.errToast) : ui.toast('No clipboard here', { kind: 'err' }));
+  const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => ui.toast(T('Copied %s', what)), ui.errToast) : ui.toast(T('No clipboard here'), { kind: 'err' }));
   function copyTable() {
     const cards = S.visible.filter(c => S.marks.has(c.Key));
     const esc = x => String(x || '').replace(/\|/g, '\\|');
     const rows = cards.map(c => `| [${c.Key}](${app.session.baseURL}/browse/${c.Key}) | ${esc(c.Summary)} | ${esc(c.Status)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
-    copy(['| Key | Summary | Status | Assignee | Points |', '| --- | --- | --- | --- | --- |', ...rows].join('\n'), cards.length + ' rows as a table');
+    copy(['| Key | Summary | Status | Assignee | Points |', '| --- | --- | --- | --- | --- |', ...rows].join('\n'), Tn(cards.length, '%d row as a table', '%d rows as a table', cards.length));
   }
   const slug = t => {
     const words = t.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
@@ -1415,7 +1418,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   async function pickSprint() {
     const items = viewItems();
     if (items.length < 2) return;
-    const r = await ui.pick({ title: 'View', items, label: i => i.name, detail: i => i.info || '' });
+    const r = await ui.pick({ title: T('View'), items, label: i => i.name, detail: i => i.info || '' });
     if (r) setScope(r.id);
   }
   function setScope(id) {
@@ -1436,7 +1439,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
 
   // ---- actions
-  const need = fn => () => { const c = curCard(); if (c) fn(c); else ui.toast('Select a card first'); };
+  const need = fn => () => { const c = curCard(); if (c) fn(c); else ui.toast(T('Select a card first')); };
   const needW = fn => need(c => { if (writable()) fn(c); });
   const edit = field => needW(c => app.actions.edit(c.Key, field, cardEl(c.Key)));
   app.marked = () => [...S.marks];
@@ -1445,9 +1448,9 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   app.menuItems = key => {
     const c = S.cards.find(x => x.Key === key);
     if (!c) return [];
-    const out = [{ label: S.pins.has(key) ? 'Unpin' : 'Pin', hint: S.pins.has(key) ? 'pinned' : '', run: () => togglePin(c) }];
+    const out = [{ label: S.pins.has(key) ? T('Unpin') : T('Pin'), hint: S.pins.has(key) ? T('pinned') : '', run: () => togglePin(c) }];
     // The board's open sprints and the backlog, the card's own marked (TUI cardMenu); a move as M makes it.
-    if (isScrum()) out.unshift({ id: 'sprint', label: 'Sprint', hint: c.Sprint || 'backlog', sub: () => [...sprints().filter(sp => sp.State !== 'closed'), { ID: 0, Name: 'Backlog' }].map(sp => ({
+    if (isScrum()) out.unshift({ id: 'sprint', label: T('Sprint'), hint: c.Sprint || T('backlog'), sub: () => [...sprints().filter(sp => sp.State !== 'closed'), { ID: 0, Name: T('Backlog') }].map(sp => ({
       label: sp.Name, hint: sp.State || '', current: sp.ID ? sp.Name === c.Sprint : !c.Sprint,
       run: () => { if (!writable() || (sp.ID ? sp.Name === c.Sprint : !c.Sprint)) return; select(key); toSprint([key], sp); } })) });
     return out;
@@ -1472,109 +1475,109 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const cycleSwim = () => setSwim(SWIMS[(SWIMS.indexOf(S.swim) + 1) % SWIMS.length]);
 
   function bindKeys() {
-    const k = scope, G = 'Board', E = 'Board: edit', F = 'Board: filter', V = 'Board: view';
-    k.bind(['j', 'ArrowDown'], () => move(0, 1), 'next card', { group: G });
-    k.bind(['k', 'ArrowUp'], () => move(0, -1), 'previous card', { group: G });
-    k.bind('h', () => move(-1, 0), 'previous lane', { group: G });
-    k.bind('l', () => move(1, 0), 'next lane', { group: G });
-    k.bind('ArrowLeft', () => (S.past ? stepPast(1) : move(-1, 0)), 'previous lane (time machine: a day earlier)', { group: G, hidden: true });
-    k.bind('ArrowRight', () => (S.past ? stepPast(-1) : move(1, 0)), 'next lane (time machine: a day later)', { group: G, hidden: true });
-    k.bind('Home', () => edge(false), 'first card in lane', { group: G });
-    k.bind('End', () => edge(true), 'last card in lane', { group: G });
-    k.bind('PageDown', () => page(1), 'page down', { group: G, hidden: true });
-    k.bind('PageUp', () => page(-1), 'page up', { group: G, hidden: true });
-    k.bind('Enter', need(c => openIssue(c.Key)), 'open issue', { group: G, bar: 'open' });
+    const k = scope, G = T('Board'), E = T('Board: edit'), F = T('Board: filter'), V = T('Board: view');
+    k.bind(['j', 'ArrowDown'], () => move(0, 1), T('next card'), { group: G });
+    k.bind(['k', 'ArrowUp'], () => move(0, -1), T('previous card'), { group: G });
+    k.bind('h', () => move(-1, 0), T('previous lane'), { group: G });
+    k.bind('l', () => move(1, 0), T('next lane'), { group: G });
+    k.bind('ArrowLeft', () => (S.past ? stepPast(1) : move(-1, 0)), T('previous lane (time machine: a day earlier)'), { group: G, hidden: true });
+    k.bind('ArrowRight', () => (S.past ? stepPast(-1) : move(1, 0)), T('next lane (time machine: a day later)'), { group: G, hidden: true });
+    k.bind('Home', () => edge(false), T('first card in lane'), { group: G });
+    k.bind('End', () => edge(true), T('last card in lane'), { group: G });
+    k.bind('PageDown', () => page(1), T('page down'), { group: G, hidden: true });
+    k.bind('PageUp', () => page(-1), T('page up'), { group: G, hidden: true });
+    k.bind('Enter', need(c => openIssue(c.Key)), T('open issue'), { group: G, bar: T('open') });
     k.bind('Escape', () => {
       if (S.past) leavePast();
       else if (app.panel.key) app.panel.close();
       else if (S.marks.size) clearMarks();
       else if (S.sel) { const o = S.sel; S.sel = null; rebind(o); }
-    }, 'leave time machine / close panel / clear selection', { group: G });
-    k.bind('s', needW(c => app.actions.transition(c.Key)), 'change status', { group: E, bar: 'status' });
-    k.bind('e', edit('summary'), 'edit summary', { group: E });
-    k.bind('a', edit('assignee'), 'assign', { group: E, bar: 'assign' });
-    k.bind('p', edit('priority'), 'set priority', { group: E });
-    k.bind('P', edit('points'), 'set points', { group: E });
-    k.bind('H', () => { if (writable()) stepCol(-1); }, 'move card to previous column', { group: E, bar: 'move' });
-    k.bind('L', () => { if (writable()) stepCol(1); }, 'move card to next column', { group: E, bar: 'move' });
-    k.bind('J', () => stepRank(1), 'rank card down', { group: E });
-    k.bind('K', () => stepRank(-1), 'rank card up', { group: E });
-    k.bind('alt+j', () => stepRank(Infinity), 'rank card to the bottom', { group: E });
-    k.bind('alt+k', () => stepRank(-Infinity), 'rank card to the top', { group: E });
-    k.bind('M', moveSprint, 'move to a sprint or the backlog', { group: E });
-    k.bind('E', need(c => app.actions.menu && app.actions.menu(c.Key)), 'quick edit: status, assignee, priority, points, labels, sprint, pin', { group: E, bar: 'edit' });
-    k.bind('.', repeat, 'repeat the last change on this card', { group: E });
-    k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, 'mark card (multi-select)', { group: E, bar: 'mark' });
-    k.bind('ctrl+a', markAll, 'mark all in the lane / list', { group: E });
-    k.bind('X', bulk, 'bulk edit marked cards', { group: E });
-    k.bind('n', () => app.actions.create(createOpts()), 'new issue (into the sprint shown)', { group: E });
-    k.bind('*', need(togglePin), 'pin / unpin issue (first in the palette)', { group: G });
-    k.bind('o', need(c => window.open(app.session.baseURL + '/browse/' + c.Key, '_blank', 'noopener')), 'open in Jira', { group: G });
-    k.bind('y', () => { if (S.marks.size) return copyTable(); const c = curCard(); if (c) copy(c.Key, c.Key); else ui.toast('Select a card first'); }, 'copy key (marked cards: as a table)', { group: G });
-    k.bind('Y', need(c => copy(app.session.baseURL + '/browse/' + c.Key, 'link')), 'copy link', { group: G });
-    k.bind('ctrl+y', need(copyBranch), 'copy branch name', { group: G });
-    k.bind('r', () => refresh(true), 'refresh', { group: G });
-    k.bind('t', () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'), 'lanes / list', { group: V, bar: 'lanes / list' });
-    k.bind('O', cycleO, 'lanes: cycle swimlanes · list: cycle sort', { group: V });
-    k.bind('z', () => foldBand(), 'fold the swimlane, or the stacked lane\'s section', { group: V });
-    k.bind('Z', unfoldAll, 'unfold all swimlanes and sections', { group: V });
-    k.bind('}', () => jumpBand(1), 'next swimlane, or the list\'s group', { group: G });
-    k.bind('{', () => jumpBand(-1), 'previous swimlane, or the list\'s group', { group: G });
-    k.bind('c', () => setCompact(!S.compact), 'one-line cards', { group: V });
-    k.bind('alt+e', () => { if (S.mode === 'lanes') setHideEmpty(!S.hideEmpty); }, 'hide / show empty lanes', { group: V });
-    k.bind('alt+l', cycleLayout, 'next lane layout: the board\'s columns or a ui.lane_layouts entry', { group: V });
-    k.bind('C', pickCols, 'list columns', { group: V });
-    k.bind('V', () => app.go('/reports/releases'), 'releases: versions and their progress', { group: V });
-    k.bind('alt+t', openPast, 'time machine: the board on earlier days', { group: V });
-    k.bind('alt+o', pickClosed, 'closed sprints: one as it ended', { group: V });
-    k.bind('B', () => pickBoard(), 'switch board (same project)', { group: V });
-    k.bind('v', () => pickSprint(), 'pick a view: sprint, backlog, your views', { group: V, bar: 'view' });
-    k.bind('[', () => cycleScope(-1), 'previous view', { group: V });
-    k.bind(']', () => cycleScope(1), 'next view', { group: V });
-    k.bind('f', () => { filterIn.focus(); filterIn.select(); }, 'filter cards', { group: F, bar: 'filter' });
-    k.bind('F', openBuilder, 'filter builder', { group: F, bar: 'filter builder' });
-    k.bind('m', () => toggleMine(), 'only my cards', { group: F, bar: 'mine' });
-    k.bind('A', () => pickWho(), 'filter by assignee', { group: F });
-    k.bind('0', () => clearFilters(), 'clear filters', { group: F });
-    for (let i = 1; i <= 9; i++) k.bind(String(i), () => { const q = qfs()[i - 1]; if (q) toggleQF(q.ID); }, i === 1 ? 'toggle quick filter 1-9' : '', { group: F, hidden: i > 1 });
+    }, T('leave time machine / close panel / clear selection'), { group: G });
+    k.bind('s', needW(c => app.actions.transition(c.Key)), T('change status'), { group: E, bar: T('status') });
+    k.bind('e', edit('summary'), T('edit summary'), { group: E });
+    k.bind('a', edit('assignee'), T('assign'), { group: E, bar: T('assign') });
+    k.bind('p', edit('priority'), T('set priority'), { group: E });
+    k.bind('P', edit('points'), T('set points'), { group: E });
+    k.bind('H', () => { if (writable()) stepCol(-1); }, T('move card to previous column'), { group: E, bar: T('move') });
+    k.bind('L', () => { if (writable()) stepCol(1); }, T('move card to next column'), { group: E, bar: T('move') });
+    k.bind('J', () => stepRank(1), T('rank card down'), { group: E });
+    k.bind('K', () => stepRank(-1), T('rank card up'), { group: E });
+    k.bind('alt+j', () => stepRank(Infinity), T('rank card to the bottom'), { group: E });
+    k.bind('alt+k', () => stepRank(-Infinity), T('rank card to the top'), { group: E });
+    k.bind('M', moveSprint, T('move to a sprint or the backlog'), { group: E });
+    k.bind('E', need(c => app.actions.menu && app.actions.menu(c.Key)), T('quick edit: status, assignee, priority, points, labels, sprint, pin'), { group: E, bar: T('edit') });
+    k.bind('.', repeat, T('repeat the last change on this card'), { group: E });
+    k.bind('x', () => { toggleMark(S.sel); move(0, 1); }, T('mark card (multi-select)'), { group: E, bar: T('mark') });
+    k.bind('ctrl+a', markAll, T('mark all in the lane / list'), { group: E });
+    k.bind('X', bulk, T('bulk edit marked cards'), { group: E });
+    k.bind('n', () => app.actions.create(createOpts()), T('new issue (into the sprint shown)'), { group: E });
+    k.bind('*', need(togglePin), T('pin / unpin issue (first in the palette)'), { group: G });
+    k.bind('o', need(c => window.open(app.session.baseURL + '/browse/' + c.Key, '_blank', 'noopener')), T('open in Jira'), { group: G });
+    k.bind('y', () => { if (S.marks.size) return copyTable(); const c = curCard(); if (c) copy(c.Key, c.Key); else ui.toast(T('Select a card first')); }, T('copy key (marked cards: as a table)'), { group: G });
+    k.bind('Y', need(c => copy(app.session.baseURL + '/browse/' + c.Key, T('link'))), T('copy link'), { group: G });
+    k.bind('ctrl+y', need(copyBranch), T('copy branch name'), { group: G });
+    k.bind('r', () => refresh(true), T('refresh'), { group: G });
+    k.bind('t', () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'), T('lanes / list'), { group: V, bar: T('lanes / list') });
+    k.bind('O', cycleO, T('lanes: cycle swimlanes · list: cycle sort'), { group: V });
+    k.bind('z', () => foldBand(), T('fold the swimlane, or the stacked lane\'s section'), { group: V });
+    k.bind('Z', unfoldAll, T('unfold all swimlanes and sections'), { group: V });
+    k.bind('}', () => jumpBand(1), T('next swimlane, or the list\'s group'), { group: G });
+    k.bind('{', () => jumpBand(-1), T('previous swimlane, or the list\'s group'), { group: G });
+    k.bind('c', () => setCompact(!S.compact), T('one-line cards'), { group: V });
+    k.bind('alt+e', () => { if (S.mode === 'lanes') setHideEmpty(!S.hideEmpty); }, T('hide / show empty lanes'), { group: V });
+    k.bind('alt+l', cycleLayout, T('next lane layout: the board\'s columns or a ui.lane_layouts entry'), { group: V });
+    k.bind('C', pickCols, T('list columns'), { group: V });
+    k.bind('V', () => app.go('/reports/releases'), T('releases: versions and their progress'), { group: V });
+    k.bind('alt+t', openPast, T('time machine: the board on earlier days'), { group: V });
+    k.bind('alt+o', pickClosed, T('closed sprints: one as it ended'), { group: V });
+    k.bind('B', () => pickBoard(), T('switch board (same project)'), { group: V });
+    k.bind('v', () => pickSprint(), T('pick a view: sprint, backlog, your views'), { group: V, bar: T('view') });
+    k.bind('[', () => cycleScope(-1), T('previous view'), { group: V });
+    k.bind(']', () => cycleScope(1), T('next view'), { group: V });
+    k.bind('f', () => { filterIn.focus(); filterIn.select(); }, T('filter cards'), { group: F, bar: T('filter') });
+    k.bind('F', openBuilder, T('filter builder'), { group: F, bar: T('filter builder') });
+    k.bind('m', () => toggleMine(), T('only my cards'), { group: F, bar: T('mine') });
+    k.bind('A', () => pickWho(), T('filter by assignee'), { group: F });
+    k.bind('0', () => clearFilters(), T('clear filters'), { group: F });
+    for (let i = 1; i <= 9; i++) k.bind(String(i), () => { const q = qfs()[i - 1]; if (q) toggleQF(q.ID); }, i === 1 ? T('toggle quick filter 1-9') : '', { group: F, hidden: i > 1 });
   }
 
   let qfCmds = [];
   function registerQFCommands() {
     qfCmds.forEach(u => u()); qfCmds = [];
-    for (const q of qfs()) qfCmds.push(app.commands.register({ id: 'board:qf:' + q.ID, title: 'Board: toggle quick filter ' + q.Name, group: 'Board', run: () => toggleQF(q.ID) }));
+    for (const q of qfs()) qfCmds.push(app.commands.register({ id: 'board:qf:' + q.ID, title: T('Board: toggle quick filter %s', q.Name), group: T('Board'), run: () => toggleQF(q.ID) }));
   }
   function registerCommands() {
-    const C = (id, title, run) => unreg.push(app.commands.register({ id: 'board:' + id, title: 'Board: ' + title, group: 'Board', run }));
-    C('lanes', 'show lanes', () => setMode('lanes'));
-    C('list', 'show list', () => setMode('list'));
-    C('toggle', 'toggle lanes / list', () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'));
-    C('refresh', 'refresh', () => refresh(true));
-    C('mine', 'only my cards', toggleMine);
-    C('who', 'filter by assignee', pickWho);
-    C('clear', 'clear filters', clearFilters);
-    C('filter', 'filter cards', () => { filterIn.focus(); filterIn.select(); });
-    C('switch', 'switch board', pickBoard);
-    C('sprint', 'pick a view: sprint, backlog, whole board', pickSprint);
-    C('new', 'new issue', () => app.actions.create(createOpts()));
-    for (const s of SORTS) C('sort:' + s, 'sort list by ' + s, () => setSort(s, 1));
-    for (const v of SWIMS) C('swim:' + v, v === 'none' ? 'no swimlanes' : 'swimlanes by ' + v, () => { if (S.mode !== 'lanes') setMode('lanes'); setSwim(v); });
-    C('fold', 'fold the swimlane', () => foldBand());
-    C('unfold', 'unfold all swimlanes', unfoldAll);
-    C('compact', 'one-line cards', () => setCompact(!S.compact));
-    C('layout', 'next lane layout (ui.lane_layouts)', cycleLayout);
-    C('empty_lanes', 'hide / show empty lanes', () => { if (S.mode !== 'lanes') setMode('lanes'); setHideEmpty(!S.hideEmpty); });
-    C('columns', 'list columns', pickCols);
-    C('builder', 'filter builder', openBuilder);
-    C('past', 'time machine: the board on earlier days', openPast);
-    C('closed', 'closed sprints: one as it ended', pickClosed);
-    C('pin', 'pin / unpin the selected issue', () => togglePin(curCard()));
-    C('repeat', 'repeat the last change', repeat);
-    C('top', 'rank to the top', () => stepRank(-Infinity));
-    C('bottom', 'rank to the bottom', () => stepRank(Infinity));
-    C('markall', 'mark all in the lane / list', markAll);
-    C('branch', 'copy branch name', () => { const c = curCard(); if (c) copyBranch(c); });
-    C('table', 'copy marked cards as a table', copyTable);
+    const C = (id, title, run) => unreg.push(app.commands.register({ id: 'board:' + id, title, group: T('Board'), run }));
+    C('lanes', T('Board: show lanes'), () => setMode('lanes'));
+    C('list', T('Board: show list'), () => setMode('list'));
+    C('toggle', T('Board: toggle lanes / list'), () => setMode(S.mode === 'lanes' ? 'list' : 'lanes'));
+    C('refresh', T('Board: refresh'), () => refresh(true));
+    C('mine', T('Board: only my cards'), toggleMine);
+    C('who', T('Board: filter by assignee'), pickWho);
+    C('clear', T('Board: clear filters'), clearFilters);
+    C('filter', T('Board: filter cards'), () => { filterIn.focus(); filterIn.select(); });
+    C('switch', T('Board: switch board'), pickBoard);
+    C('sprint', T('Board: pick a view: sprint, backlog, whole board'), pickSprint);
+    C('new', T('Board: new issue'), () => app.actions.create(createOpts()));
+    for (const s of SORTS) C('sort:' + s, T('Board: sort list by %s', s), () => setSort(s, 1));
+    for (const v of SWIMS) C('swim:' + v, v === 'none' ? T('Board: no swimlanes') : T('Board: swimlanes by %s', SWIMNAME[v]), () => { if (S.mode !== 'lanes') setMode('lanes'); setSwim(v); });
+    C('fold', T('Board: fold the swimlane'), () => foldBand());
+    C('unfold', T('Board: unfold all swimlanes'), unfoldAll);
+    C('compact', T('Board: one-line cards'), () => setCompact(!S.compact));
+    C('layout', T('Board: next lane layout (ui.lane_layouts)'), cycleLayout);
+    C('empty_lanes', T('Board: hide / show empty lanes'), () => { if (S.mode !== 'lanes') setMode('lanes'); setHideEmpty(!S.hideEmpty); });
+    C('columns', T('Board: list columns'), pickCols);
+    C('builder', T('Board: filter builder'), openBuilder);
+    C('past', T('Board: time machine: the board on earlier days'), openPast);
+    C('closed', T('Board: closed sprints: one as it ended'), pickClosed);
+    C('pin', T('Board: pin / unpin the selected issue'), () => togglePin(curCard()));
+    C('repeat', T('Board: repeat the last change'), repeat);
+    C('top', T('Board: rank to the top'), () => stepRank(-Infinity));
+    C('bottom', T('Board: rank to the bottom'), () => stepRank(Infinity));
+    C('markall', T('Board: mark all in the lane / list'), markAll);
+    C('branch', T('Board: copy branch name'), () => { const c = curCard(); if (c) copyBranch(c); });
+    C('table', T('Board: copy marked cards as a table'), copyTable);
     registerNamedFilters();
     unreg.push(() => filterCmds.forEach(u => u()));
     unreg.push(() => qfCmds.forEach(u => u()));
@@ -1617,18 +1620,18 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
 
   async function start() {
-    bdMsg('Loading…');
+    bdMsg(T('Loading…'));
     let project = params.project, bid = params.board ? Number(params.board) : 0;
     try {
       if (!project) project = lastProject(app) || (app.session.projects || [])[0];
       if (project && !bid) bid = lastBoard(app, project);
       if (project) app.chrome.label(projectBtn, project);
       if (!project) { const ps = await firstOf(api, '/projects'); project = ps[0] && ps[0].Key; }
-      if (!project) return bdMsg(h('div', h('h2', 'No project'), h('p', 'Add one under jira.projects in the config.')));
+      if (!project) return bdMsg(h('div', h('h2', T('No project')), h('p', T('Add one under jira.projects in the config.'))));
       S.project = project;
       S.boards = await firstOf(api, '/projects/' + project + '/boards');
       S.board = S.boards.find(b => b.ID === bid) || S.boards[0];
-      if (!S.board) return bdMsg(h('div', h('h2', 'No board in ' + project)));
+      if (!S.board) return bdMsg(h('div', h('h2', T('No board in %s', project))));
     } catch (e) {
       if (e.status === 404 && project && (recover(app, project) || params.project)) { params = { ...params, project: '', board: '' }; return start(); }
       return fail(e);

@@ -13,9 +13,10 @@ import { mountTerm } from './issue_term.js';
 import { ICON, LABEL } from '../lib/agents.js';
 import * as pins from '../lib/pins.js';
 import { lineDiff } from '../lib/linediff.js';
-import { ago, dateTime as localDateTime, shortDate, isZero, duration, plural } from '../lib/fmt.js';
+import { ago, dateTime as localDateTime, shortDate, isZero, duration } from '../lib/fmt.js';
 import { goDate } from '../lib/godate.js';
 import { grip } from '../lib/grip.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const RECENT = 40;           // comments drawn at first; the rest on demand
 const trail = [];            // issues left by following a link, oldest first: {key, summary, status, cat}
@@ -92,7 +93,7 @@ export function mountIssue(el, key, { app, full, card }) {
   import('./issue_notes.js').then(m => { if (!dead) offNotes = m.mountNotes(panes.details, key, { app, el, full }); });
   scroll.append(panes.details, panes.comments, panes.history);
   const term = mountTerm(key, { app, back: () => { setTab('details'); scroll.focus({ preventScroll: true }); }, repaint: () => { if (!dead) renderTabs(); } });
-  const root = h('div.iss' + (full ? '.full' : ''), !full && h('div.iss-grip', { title: 'Drag to resize', role: 'separator' }), head, tabs, scroll, term.el);
+  const root = h('div.iss' + (full ? '.full' : ''), !full && h('div.iss-grip', { title: T('Drag to resize'), role: 'separator' }), head, tabs, scroll, term.el);
   el.append(root);
 
   // ---- helpers
@@ -102,12 +103,12 @@ export function mountIssue(el, key, { app, full, card }) {
       try { document.execCommand('copy'); } catch (e2) { /* nothing more to try */ }
       t.remove();
     }
-    ui.toast(what + ' copied');
+    ui.toast(T('%s copied', what));
   };
   const browseURL = () => (st.issue && st.issue.URL) || (app.session.baseURL + '/browse/' + key);
   const go = (k, push = true) => { expect = k; return full ? app.go('/issue/' + k, { replace: !push }) : app.panel.open(k, { force: true, push }); };
   const open = k => { if (k !== key) { trail.push(me_.entry()); go(k); } };
-  const back = () => { if (!trail.length) return ui.toast('No previous issue'); go(trail.pop().key); };
+  const back = () => { if (!trail.length) return ui.toast(T('No previous issue')); go(trail.pop().key); };
   const jumpTo = i => { const e = trail[i]; if (!e) return; trail.length = i; go(e.key); };
   const learn = (k, c) => { if (c && c.Summary) meta.set(k, { summary: c.Summary, status: c.Status, cat: c.StatusCategory || catOf(c) }); };
   function trailEl() {
@@ -117,10 +118,10 @@ export function mountIssue(el, key, { app, full, card }) {
       e.asked = true;
       api.get('/issues/' + e.key + '/card').then(c => { learn(e.key, c); Object.assign(e, meta.get(e.key)); if (!dead) renderHead(); }).catch(() => {});
     }
-    return h('div.iss-trail' + (trailOpen ? '.open' : ''), { role: 'navigation', 'aria-label': 'Came from' },
+    return h('div.iss-trail' + (trailOpen ? '.open' : ''), { role: 'navigation', 'aria-label': T('Came from') },
       h('div.tr-head', h('span', (app.session && app.session.site) || 'Jira'),
-        ...(trail.length > TRAIL_SHOWN ? [h('button.tr-more', { title: 'Show or hide older', onclick: () => { trailOpen = !trailOpen; renderHead(); } },
-          trailOpen ? 'less' : '+' + (trail.length - TRAIL_SHOWN))] : []), h('span.spacer'), h('kbd', 'Backspace')),
+        ...(trail.length > TRAIL_SHOWN ? [h('button.tr-more', { title: T('Show or hide older'), onclick: () => { trailOpen = !trailOpen; renderHead(); } },
+          trailOpen ? T('less') : '+' + (trail.length - TRAIL_SHOWN))] : []), h('span.spacer'), h('kbd', 'Backspace')),
       h('div.tr-list', trail.slice(from).map((e, j) => {
         const d = meta.get(e.key) || e;
         return h('button.tr-row', { title: e.key + ' ' + (d.summary || ''), onclick: () => jumpTo(from + j) },
@@ -130,7 +131,7 @@ export function mountIssue(el, key, { app, full, card }) {
   const viewKeys = () => [...new Set([...document.querySelectorAll('#view [data-key]')].map(e => e.dataset.key).filter(k => /^[A-Z][A-Z0-9]*-\d+$/.test(k)))];
   const step = d => {
     const ks = viewKeys(), i = ks.indexOf(key);
-    if (i < 0 || !ks[i + d]) return ui.toast(i < 0 ? 'Not in the list beside' : 'End of the list');
+    if (i < 0 || !ks[i + d]) return ui.toast(i < 0 ? T('Not in the list beside') : T('End of the list'));
     trail.length = 0; go(ks[i + d], false);
   };
   const prefixes = () => new Set([...(app.session.projects || []), key.split('-')[0], ...(st.issue ? (st.issue.Links || []).map(l => l.Key.split('-')[0]) : [])]);
@@ -157,32 +158,32 @@ export function mountIssue(el, key, { app, full, card }) {
     clear(head).append(
       h('div.iss-top',
         ...(type ? [h('span.chip', type)] : []),
-        h('button.iss-key.btn.link', { title: 'Copy key (y)', onclick: () => copy(key, key) }, key),
-        h('button.btn.ghost.sm', { title: 'Copy link (Y)', onclick: () => copy(browseURL(), 'Link') }, 'Copy link'),
-        h('button.btn.ghost.sm', { title: 'Subtask, clone, move, watchers… (A)', onclick: () => actions() }, 'Actions'),
+        h('button.iss-key.btn.link', { title: T('Copy key (y)'), onclick: () => copy(key, key) }, key),
+        h('button.btn.ghost.sm', { title: T('Copy link (Y)'), onclick: () => copy(browseURL(), T('Link')) }, T('Copy link')),
+        h('button.btn.ghost.sm', { title: T('Subtask, clone, move, watchers… (A)'), onclick: () => actions() }, T('Actions')),
         app.agents && app.agents.available && !(app.session && app.session.demo) &&
-          h('button.btn.ghost.sm', { title: 'Start work: worktree and agent (S) · another agent (alt+s)', onclick: () => app.agents.start(key) }, (app.agents.stateFor(key) || {}).count ? 'Agent' : 'Start work'),
+          h('button.btn.ghost.sm', { title: T('Start work: worktree and agent (S) · another agent (alt+s)'), onclick: () => app.agents.start(key) }, (app.agents.stateFor(key) || {}).count ? T('Agent') : T('Start work')),
         h('span.spacer'),
-        h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: 'Open in Jira (o)' }, 'Jira', icon('external-link')),
-        h('button.btn.ghost.sm', { title: full ? 'Back (esc)' : 'Close (esc)', onclick: goBack }, full ? [icon('arrow-left'), 'Back'] : icon('x'))),
-      h('h1.iss-title', { title: 'Edit summary', onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
-      ...(i || c ? [h('div.iss-sub', h('button.pill-btn', { title: 'Change status', onclick: () => app.actions.transition(key) }, i ? ui.statusPill(i.Status, i.StatusCategory) : ui.statusPill(c.Status, catOf(c))),
-        ...(c && c.Flagged ? [h('span.chip.flag', 'Flagged')] : []),
-        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: 'Timer running · T stops it', onclick: () => app.timer.toggle(key) }, icon('timer'), ' ' + app.timer.mark(key))] : []),
+        h('a.btn.ghost.sm', { href: browseURL(), target: '_blank', rel: 'noopener noreferrer', title: T('Open in Jira (o)') }, 'Jira', icon('external-link')),
+        h('button.btn.ghost.sm', { title: full ? T('Back (esc)') : T('Close (esc)'), onclick: goBack }, full ? [icon('arrow-left'), T('Back')] : icon('x'))),
+      h('h1.iss-title', { title: T('Edit summary'), onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
+      ...(i || c ? [h('div.iss-sub', h('button.pill-btn', { title: T('Change status'), onclick: () => app.actions.transition(key) }, i ? ui.statusPill(i.Status, i.StatusCategory) : ui.statusPill(c.Status, catOf(c))),
+        ...(c && c.Flagged ? [h('span.chip.flag', T('Flagged'))] : []),
+        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: T('Timer running · T stops it'), onclick: () => app.timer.toggle(key) }, icon('timer'), ' ' + app.timer.mark(key))] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
-        h('span.dim', 'updated ' + ago((i || c).Updated)))] : []));
+        h('span.dim', T('updated %s', ago((i || c).Updated))))] : []));
     learn(key, c); if (i) learn(key, { Summary: i.Summary, Status: i.Status, StatusCategory: i.StatusCategory });
     const tr = trailEl(); if (tr) head.prepend(tr);
     document.title = key + (summary ? ' ' + summary : '') + ' · laneway';
   }
   function renderTabs() {
     const n = st.issue ? (st.issue.CommentTotal || (st.issue.Comments || []).length) : 0;
-    const ts = [['details', 'Details', '1'], ['comments', 'Comments' + (n ? ' ' + n : ''), '2'], ['history', 'History', '3']];
-    if (term.has() || st.tab === 'terminal') ts.push(['terminal', 'Terminal', '4']);
+    const ts = [['details', T('Details'), '1'], ['comments', n ? T('Comments %d', n) : T('Comments'), '2'], ['history', T('History'), '3']];
+    if (term.has() || st.tab === 'terminal') ts.push(['terminal', T('Terminal'), '4']);
     clear(tabs).append(...ts.map(([id, label, k]) => {
       const s = id === 'terminal' && term.status();
       return h('button.tab' + (st.tab === id ? '.on' : ''), { role: 'tab', 'aria-selected': st.tab === id, onclick: () => (id !== 'terminal' ? setTab(id) : st.tab !== 'terminal' && openTerm(false)) },
-        s ? h('span.it-st.st-' + s, { title: 'agent ' + (LABEL[s] || s) }, icon(ICON[s] || ICON.unknown)) : null, label, h('kbd', k));
+        s ? h('span.it-st.st-' + s, { title: T('agent %s', LABEL[s] || s) }, icon(ICON[s] || ICON.unknown)) : null, label, h('kbd', k));
     }));
   }
   function setTab(t) {
@@ -206,7 +207,7 @@ export function mountIssue(el, key, { app, full, card }) {
   }
   // The Terminal tab: shown (4, a click) or typing (ctrl+\, enter); 4 on it steps through several agents.
   function openTerm(typing) {
-    if (!term.has() && st.tab !== 'terminal') return ui.toast(key + ' has no agent: S starts one');
+    if (!term.has() && st.tab !== 'terminal') return ui.toast(T('%s has no agent: S starts one', key));
     if (st.tab === 'terminal' && !typing) return term.next();
     if (st.tab !== 'terminal') setTab('terminal');
     if (typing) term.type(); else term.el.focus({ preventScroll: true });
@@ -222,24 +223,24 @@ export function mountIssue(el, key, { app, full, card }) {
     const c = st.card || {};
     const cell = (field, label, value) => {
       const inner = [h('span.k', label), h('span.v', value == null || value === '' ? dash() : value)];
-      return field ? h('button.fld', { dataset: { field }, title: 'Edit ' + label.toLowerCase(), onclick: e => edit(field, e.currentTarget) }, inner)
+      return field ? h('button.fld', { dataset: { field }, title: T('Edit %s', label.toLowerCase()), onclick: e => edit(field, e.currentTarget) }, inner)
         : h('div.fld.ro', inner);
     };
     const parent = (c.ParentKey || parentLink());
     const pk = c.ParentKey || (parent && parent.Key), ps = c.ParentSummary || (parent && parent.Summary);
     const date = t => (isZero(t) ? null : shortDate(t));
     clear(box.fields).append(
-      cell('status', 'Status', ui.statusPill(i.Status, i.StatusCategory)),
-      cell('priority', 'Priority', i.Priority),
-      cell('assignee', 'Assignee', i.Assignee && h('span.who', ui.avatar(i.Assignee, c.AvatarURL, 18), i.Assignee)),
-      cell('reporter', 'Reporter', i.Reporter),
-      cell('points', 'Points', i.StoryPoints),
-      cell('labels', 'Labels', i.Labels && i.Labels.length && h('span.chips', i.Labels.map(l => h('span.chip', l)))),
-      cell('parent', 'Parent', pk && h('span.parent', h('a.issue-ref', { href: '/issue/' + pk, title: ps, onclick: e => { e.preventDefault(); e.stopPropagation(); open(pk); } }, pk), ps && h('span.dim.clip', ' ' + ps))),
-      cell('sprint', 'Sprint', c.Sprint),
-      cell('due', 'Due', date(c.Due)),
-      cell(null, 'Updated', ago(i.Updated)),
-      cell(null, 'Created', !isZero(c.Created) ? dateTime(c.Created) : null),
+      cell('status', T('Status'), ui.statusPill(i.Status, i.StatusCategory)),
+      cell('priority', T('Priority'), i.Priority),
+      cell('assignee', T('Assignee'), i.Assignee && h('span.who', ui.avatar(i.Assignee, c.AvatarURL, 18), i.Assignee)),
+      cell('reporter', T('Reporter'), i.Reporter),
+      cell('points', T('Points'), i.StoryPoints),
+      cell('labels', T('Labels'), i.Labels && i.Labels.length && h('span.chips', i.Labels.map(l => h('span.chip', l)))),
+      cell('parent', T('Parent'), pk && h('span.parent', h('a.issue-ref', { href: '/issue/' + pk, title: ps, onclick: e => { e.preventDefault(); e.stopPropagation(); open(pk); } }, pk), ps && h('span.dim.clip', ' ' + ps))),
+      cell('sprint', T('Sprint'), c.Sprint),
+      cell('due', T('Due'), date(c.Due)),
+      cell(null, T('Updated'), ago(i.Updated)),
+      cell(null, T('Created'), !isZero(c.Created) ? dateTime(c.Created) : null),
       ...extraCells(cell));
   }
   // The rest of the edit screen (editmeta: components, custom fields), after the panel's own, as the TUI's
@@ -263,21 +264,21 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!rest.length) return out;
     const open = app.prefs.get('fields.more', '') === 'open';
     out.push(h('button.fld.more', { 'aria-expanded': String(open), onclick: () => { app.prefs.set('fields.more', open ? '' : 'open'); renderFields(); } },
-      h('span.k', top.length ? 'More fields' : 'Fields'), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('star'), ' keeps one shown'])));
+      h('span.k', top.length ? T('More fields') : T('Fields')), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('star'), ' ' + T('keeps one shown')])));
     if (!open) return out;
     const hide = String((app.session.ui && app.session.ui.EmptyFields) || '').toLowerCase() === 'hide' && !st.showEmpty;
     const shown = hide ? rest.filter(f => valueText(m.Values[f.ID])) : rest;
     out.push(...shown.map(f => fieldCell(cell, f, false)));
-    if (rest.length > shown.length) out.push(h('button.fld.more', { onclick: () => { st.showEmpty = true; renderFields(); } }, h('span.k', 'Empty fields'), h('span.v.dim', '+ ' + (rest.length - shown.length) + ' more')));
+    if (rest.length > shown.length) out.push(h('button.fld.more', { onclick: () => { st.showEmpty = true; renderFields(); } }, h('span.k', T('Empty fields')), h('span.v.dim', T('+ %d more', rest.length - shown.length))));
     return out;
   }
   function fieldCell(cell, f, on) {
     const v = valueText(fieldMeta().Values[f.ID]);
     let c;
-    if (f.ReadOnly) { c = cell(null, f.Name, v); c.title = 'Jira lets no one edit this issue now'; }
-    else if (f.Kind === 'doc') c = h('button.fld', { title: 'Write ' + f.Name.toLowerCase(), onclick: () => editDoc(f) }, h('span.k', f.Name), h('span.v', dash()));
+    if (f.ReadOnly) { c = cell(null, f.Name, v); c.title = T('Jira lets no one edit this issue now'); }
+    else if (f.Kind === 'doc') c = h('button.fld', { title: T('Write %s', f.Name.toLowerCase()), onclick: () => editDoc(f) }, h('span.k', f.Name), h('span.v', dash()));
     else c = cell(f.ID, f.Name, v);
-    return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? 'Unstar: fold it under More' : 'Star: show it on every issue', 'aria-label': (on ? 'Unstar ' : 'Star ') + f.Name, 'aria-pressed': String(on), onclick: () => starField(f, !on) }, icon('star', on)));
+    return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? T('Unstar: fold it under More') : T('Star: show it on every issue'), 'aria-label': on ? T('Unstar %s', f.Name) : T('Star %s', f.Name), 'aria-pressed': String(on), onclick: () => starField(f, !on) }, icon('star', on)));
   }
   async function starField(f, on) {
     try { app.session.starred = await api.put('/fields/starred/' + encodeURIComponent(f.ID), { On: on }); } catch (e) { return fail(e); }
@@ -291,7 +292,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!m || st.editingDoc) return; // a reload keeps the last ones until editmeta answers: no jump
     const fs = (m.Fields || []).filter(isDoc);
     clear(box.docs).append(...fs.map(f => h('div.desc.doc', { dataset: { field: f.ID }, ondblclick: e => { if (!f.ReadOnly && !e.target.closest('a,input,img,summary')) editDoc(f); } },
-      h('div.sec-head', h('h3', f.Name), !f.ReadOnly && h('button.btn.ghost.sm', { title: 'Edit ' + f.Name, onclick: () => editDoc(f) }, 'Edit')),
+      h('div.sec-head', h('h3', f.Name), !f.ReadOnly && h('button.btn.ghost.sm', { title: T('Edit %s', f.Name), onclick: () => editDoc(f) }, T('Edit'))),
       h('div.md', md(m.Values[f.ID].Text, mdOpts())))));
   }
   async function editDoc(f) {
@@ -300,14 +301,14 @@ export function mountIssue(el, key, { app, full, card }) {
     let ed;
     try { ed = await api.get('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { fresh: true }); } catch (e) { return fail(e); }
     if (dead) return;
-    if (!ed.Editable) return ui.toast('Edit this one in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err', action: { label: 'Open', run: () => window.open(browseURL(), '_blank', 'noopener') } });
+    if (!ed.Editable) return ui.toast(T('Edit this one in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err', action: { label: T('Open'), run: () => window.open(browseURL(), '_blank', 'noopener') } });
     st.editingDoc = f.ID;
     const sec = box.docs.querySelector('[data-field="' + CSS.escape(f.ID) + '"]') || box.docs.appendChild(h('div.desc.doc', { dataset: { field: f.ID } }));
     const done = () => { st.editingDoc = null; renderDocs(); };
-    const e = editor({ value: ed.Markdown, rows: 8, placeholder: f.Name + ' (markdown)…', allowEmpty: true, label: 'Save', draft: 'desc:' + key + ':field:' + f.ID,
+    const e = editor({ value: ed.Markdown, rows: 8, placeholder: T('%s (markdown)…', f.Name), allowEmpty: true, label: T('Save'), draft: 'desc:' + key + ':field:' + f.ID,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
-        st.editingDoc = null; changed(key + ' ' + f.Name + ' updated'); ui.toast(f.Name + ' saved', { kind: 'ok' });
+        st.editingDoc = null; changed(T('%s %s updated', key, f.Name)); ui.toast(T('%s saved', f.Name), { kind: 'ok' });
       },
       cancel: done });
     clear(sec).append(h('div.sec-head', h('h3', f.Name)), e.el);
@@ -324,8 +325,8 @@ export function mountIssue(el, key, { app, full, card }) {
     st.descSig = sig;
     const body = h('div.md');
     if (sig && sig.trim()) body.append(md(sig, { ...mdOpts(), onTask: toggleTask }));
-    else body.append(h('p.faint', 'No description. Press e to write one.'));
-    clear(box.desc).append(h('div.sec-head', h('h3', 'Description'), h('button.btn.ghost.sm', { title: 'Edit (E)', onclick: editDesc }, 'Edit')), body);
+    else body.append(h('p.faint', T('No description. Press e to write one.')));
+    clear(box.desc).append(h('div.sec-head', h('h3', T('Description')), h('button.btn.ghost.sm', { title: T('Edit (E)'), onclick: editDesc }, T('Edit'))), body);
     box.desc.ondblclick = e => { if (!e.target.closest('a,input,img,summary')) editDesc(); };
   }
   let taskChain = Promise.resolve();
@@ -341,16 +342,16 @@ export function mountIssue(el, key, { app, full, card }) {
     try { ed = await api.get('/issues/' + key + '/description', { fresh: true }); } catch (e) { return fail(e); }
     if (dead) return;
     if (!ed.Editable) {
-      return ui.toast('Edit this one in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err', action: { label: 'Open', run: () => window.open(browseURL(), '_blank', 'noopener') } });
+      return ui.toast(T('Edit this one in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err', action: { label: T('Open'), run: () => window.open(browseURL(), '_blank', 'noopener') } });
     }
     st.editingDesc = true;
-    const e = editor({ value: ed.Markdown, rows: 10, placeholder: 'Description (markdown)…', allowEmpty: true, label: 'Save', draft: 'desc:' + key,
+    const e = editor({ value: ed.Markdown, rows: 10, placeholder: T('Description (markdown)…'), allowEmpty: true, label: T('Save'), draft: 'desc:' + key,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/description', { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
-        st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(key + ' description updated'); ui.toast('Description saved', { kind: 'ok' });
+        st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(T('%s description updated', key)); ui.toast(T('Description saved'), { kind: 'ok' });
       },
       cancel: () => { st.editingDesc = false; renderDesc(true); } });
-    clear(box.desc).append(h('div.sec-head', h('h3', 'Description')), e.el);
+    clear(box.desc).append(h('div.sec-head', h('h3', T('Description'))), e.el);
     e.focus();
   }
 
@@ -360,7 +361,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!kids || !kids.length) return clear(box.children);
     const done = kids.filter(k => k.Done).length;
     clear(box.children).append(
-      h('div.sec-head', h('h3', 'Child issues'), h('span.dim', done + '/' + kids.length), h('div.bar', h('i', { style: { width: Math.round(100 * done / kids.length) + '%' } }))),
+      h('div.sec-head', h('h3', T('Child issues')), h('span.dim', done + '/' + kids.length), h('div.bar', h('i', { style: { width: Math.round(100 * done / kids.length) + '%' } }))),
       h('div.rows', kids.map(k => h('a.row-link' + (k.Done ? '.done' : ''), { href: '/issue/' + k.Key, onclick: e => { e.preventDefault(); open(k.Key); } },
         h('span.mono.k', k.Key), h('span.clip', k.Summary), ui.statusPill(k.Status, k.Done ? 'done' : 'indeterminate'), k.Assignee && ui.avatar(k.Assignee, null, 18)))));
   }
@@ -371,12 +372,12 @@ export function mountIssue(el, key, { app, full, card }) {
     const groups = new Map();
     for (const l of links) (groups.get(l.Rel) || groups.set(l.Rel, []).get(l.Rel)).push(l);
     fill(box.links,
-      h('div.sec-head', h('h3', 'Links'), h('button.btn.ghost.sm', { title: 'Link an issue (L)', onclick: addLink }, '+ Issue'), h('button.btn.ghost.sm', { onclick: addWebLink }, '+ Web')),
-      !links.length && !web.length && h('p.faint', 'No links.'),
+      h('div.sec-head', h('h3', T('Links')), h('button.btn.ghost.sm', { title: T('Link an issue (L)'), onclick: addLink }, T('+ Issue')), h('button.btn.ghost.sm', { onclick: addWebLink }, T('+ Web'))),
+      !links.length && !web.length && h('p.faint', T('No links.')),
       [...groups].map(([rel, ls]) => h('div.lgroup', h('div.rel', rel), ls.map(l => h('div.row-link', { dataset: { key: l.Key }, onclick: () => open(l.Key) },
         h('span.mono.k', l.Key), h('span.clip', l.Summary), l.Status && h('span.chip', l.Status),
-        l.LinkID && h('button.btn.ghost.sm.x', { title: 'Remove link', onclick: e => { e.stopPropagation(); removeLink(l); } }, icon('x')))))),
-      web.length > 0 && h('div.lgroup', h('div.rel', 'Web'), web.map(w => h('a.row-link', { href: safeHref(w.URL), target: '_blank', rel: 'noopener noreferrer',
+        l.LinkID && h('button.btn.ghost.sm.x', { title: T('Remove link'), onclick: e => { e.stopPropagation(); removeLink(l); } }, icon('x')))))),
+      web.length > 0 && h('div.lgroup', h('div.rel', T('Web')), web.map(w => h('a.row-link', { href: safeHref(w.URL), target: '_blank', rel: 'noopener noreferrer',
         onclick: w.Page ? e => { if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); readPage(w); } } : null },
         h('span.clip', w.Title), w.App && h('span.chip', w.App)))));
   }
@@ -384,18 +385,18 @@ export function mountIssue(el, key, { app, full, card }) {
   async function readPage(w) {
     let p;
     try { p = await api.get('/confluence/pages/' + w.Page); } catch (e) { return ui.errToast(e); }
-    ui.modal(h('div.page', h('div.md', md(p.Markdown, { ...mdOpts(), pageImage: id => '/api/confluence/images/' + encodeURIComponent(id) })), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, 'Open in Confluence', icon('external-link')))),
+    ui.modal(h('div.page', h('div.md', md(p.Markdown, { ...mdOpts(), pageImage: id => '/api/confluence/images/' + encodeURIComponent(id) })), h('div.modal-foot', h('a.btn', { href: safeHref(p.URL), target: '_blank', rel: 'noopener noreferrer' }, T('Open in Confluence'), icon('external-link')))),
       { title: p.Title, wide: true });
   }
   const addLink = () => actions('link');
   const actions = only => issueActions(app, st, { key, changed, open, upload: attachFiles, reloadExtras: () => { st.weblinks = null; return loadExtras(); }, tab: setTab }, only);
   async function addWebLink() {
-    const url = await ui.prompt({ title: 'Link a web page', placeholder: 'https://…', ok: 'Add' });
+    const url = await ui.prompt({ title: T('Link a web page'), placeholder: 'https://…', ok: T('Add') });
     if (!url || !url.trim()) return;
     try { await api.post('/issues/' + key + '/weblinks', { URL: url.trim(), Title: '' }); st.weblinks = null; loadExtras(); } catch (e) { fail(e); }
   }
   async function removeLink(l) {
-    if (!await ui.confirm({ title: 'Remove link', text: l.Rel + ' ' + l.Key + '?', ok: 'Remove', danger: true })) return;
+    if (!await ui.confirm({ title: T('Remove link'), text: T('%s %s?', l.Rel, l.Key), ok: T('Remove'), danger: true })) return;
     try { await api.del('/issues/' + key + '/links/' + encodeURIComponent(l.LinkID)); changed(); } catch (e) { fail(e); }
   }
   const safeHref = u => (/^https?:\/\//i.test(u) ? u : '#');
@@ -406,7 +407,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!fs.length) return clear(box.files);
     const url = a => '/api/attachments/' + encodeURIComponent(a.ID);
     const imgs = fs.filter(a => a.MimeType.startsWith('image/') && !/svg/.test(a.MimeType)), rest = fs.filter(a => !imgs.includes(a));
-    fill(box.files,h('div.sec-head', h('h3', 'Attachments'), h('span.dim', String(fs.length))),
+    fill(box.files,h('div.sec-head', h('h3', T('Attachments')), h('span.dim', String(fs.length))),
       imgs.length > 0 && h('div.thumbs', imgs.map(a => h('a.thumb', { href: url(a), title: a.Filename + ' · ' + size(a.Size), onclick: e => { e.preventDefault(); gallery(0, url(a)); } },
         h('img', { src: url(a), alt: a.Filename, loading: 'lazy', decoding: 'async' }), h('span.clip', a.Filename)))),
       rest.map(a => h('a.row-link', { href: url(a) + '?download=1&name=' + encodeURIComponent(a.Filename), download: a.Filename }, h('span.clip', a.Filename), h('span.dim', size(a.Size)))));
@@ -421,18 +422,18 @@ export function mountIssue(el, key, { app, full, card }) {
   }
   function gallery(at, src) {
     const list = galleryList();
-    if (!list.length) return ui.toast('No images');
+    if (!list.length) return ui.toast(T('No images'));
     let i = src ? Math.max(0, list.findIndex(x => x.src === src)) : at;
-    const img = h('img.lightbox'), name = h('span'), dl = h('a.btn.ghost.sm', { title: 'Download (d)', 'aria-label': 'Download' }, icon('download'));
+    const img = h('img.lightbox'), name = h('span'), dl = h('a.btn.ghost.sm', { title: T('Download (d)'), 'aria-label': T('Download') }, icon('download'));
     const show = d => {
       i = (i + d + list.length) % list.length; const x = list[i];
       img.src = x.src; img.alt = x.name; name.textContent = x.name + (list.length > 1 ? '  ' + (i + 1) + '/' + list.length : '');
       dl.href = x.src + (x.src.includes('?') ? '&' : '?') + 'download=1&name=' + encodeURIComponent(x.name); dl.download = x.name;
     };
-    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: 'Previous (←)', 'aria-label': 'Previous' }, icon('chevron-left')), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: 'Next (→)', 'aria-label': 'Next' }, icon('chevron-right')), h('div.lb-cap', name, dl)), { wide: true });
+    const m = ui.modal(h('div.lb', list.length > 1 && h('button.btn.ghost.lb-prev', { onclick: () => show(-1), title: T('Previous (←)'), 'aria-label': T('Previous') }, icon('chevron-left')), img, list.length > 1 && h('button.btn.ghost.lb-next', { onclick: () => show(1), title: T('Next (→)'), 'aria-label': T('Next') }, icon('chevron-right')), h('div.lb-cap', name, dl)), { wide: true });
     m.scope.bind(['ArrowRight', 'l', 'n'], () => show(1), '', { hidden: true });
     m.scope.bind(['ArrowLeft', 'h', 'N'], () => show(-1), '', { hidden: true });
-    m.scope.bind('d', () => dl.click(), 'download');
+    m.scope.bind('d', () => dl.click(), T('download'));
     show(0);
   }
   root.addEventListener('click', e => { const im = e.target.closest('img.md-img'); if (im) gallery(0, im.getAttribute('src')); });
@@ -441,10 +442,10 @@ export function mountIssue(el, key, { app, full, card }) {
   async function linked() {
     const i = st.issue; if (!i) return;
     const items = [...(i.Links || []).map(l => ({ k: l.Key, label: l.Key + '  ' + (l.Rel || '') + '  ' + (l.Summary || '') })),
-      ...(st.children || []).filter(c => !(i.Links || []).some(l => l.Key === c.Key)).map(c => ({ k: c.Key, label: c.Key + '  child  ' + c.Summary })),
+      ...(st.children || []).filter(c => !(i.Links || []).some(l => l.Key === c.Key)).map(c => ({ k: c.Key, label: c.Key + '  ' + T('child') + '  ' + c.Summary })),
       ...(st.weblinks || []).map(w => ({ url: w.URL, w, label: (w.Page ? '▤ ' : '↗ ') + (w.Title || w.URL) }))];
-    if (!items.length) return ui.toast('No links');
-    const it = await ui.pick({ title: 'Go to', items, label: x => x.label, placeholder: 'Linked issue…' });
+    if (!items.length) return ui.toast(T('No links'));
+    const it = await ui.pick({ title: T('Go to'), items, label: x => x.label, placeholder: T('Linked issue…') });
     if (!it) return;
     if (it.k) open(it.k); else if (it.w.Page) readPage(it.w); else window.open(safeHref(it.url), '_blank', 'noopener');
   }
@@ -452,9 +453,9 @@ export function mountIssue(el, key, { app, full, card }) {
   // Find in the issue: marks matches in all tabs; n / N (or enter) step, esc clears.
   const find = { on: false, marks: [], at: -1 };
   const findBar = h('div.iss-find', { hidden: true });
-  const findIn = h('input.input', { type: 'text', placeholder: 'Find in this issue…', spellcheck: false, oninput: () => findRun(findIn.value) });
+  const findIn = h('input.input', { type: 'text', placeholder: T('Find in this issue…'), spellcheck: false, oninput: () => findRun(findIn.value) });
   const findCount = h('span.dim');
-  findBar.append(findIn, findCount, h('button.btn.ghost.sm', { onclick: () => findStep(-1), title: 'Previous (N)', 'aria-label': 'Previous' }, icon('arrow-up')), h('button.btn.ghost.sm', { onclick: () => findStep(1), title: 'Next (n)', 'aria-label': 'Next' }, icon('arrow-down')), h('button.btn.ghost.sm', { onclick: () => findClose(), title: 'Close (esc)', 'aria-label': 'Close' }, icon('x')));
+  findBar.append(findIn, findCount, h('button.btn.ghost.sm', { onclick: () => findStep(-1), title: T('Previous (N)'), 'aria-label': T('Previous') }, icon('arrow-up')), h('button.btn.ghost.sm', { onclick: () => findStep(1), title: T('Next (n)'), 'aria-label': T('Next') }, icon('arrow-down')), h('button.btn.ghost.sm', { onclick: () => findClose(), title: T('Close (esc)'), 'aria-label': T('Close') }, icon('x')));
   findIn.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); findStep(e.shiftKey ? -1 : 1); findIn.blur(); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); findClose(); }
@@ -481,7 +482,7 @@ export function mountIssue(el, key, { app, full, card }) {
       const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + q.length);
       const mk = h('mark.find'); r.surroundContents(mk); find.marks.unshift(mk);
     }
-    findCount.textContent = find.marks.length ? find.marks.length + ' found' : 'none';
+    findCount.textContent = find.marks.length ? T('%d found', find.marks.length) : T('none');
     if (find.marks.length) findStep(1, true);
   }
   function findStep(d, first) {
@@ -498,7 +499,9 @@ export function mountIssue(el, key, { app, full, card }) {
 
   // ---- comments
   // Who a comment is for, as the composer and a comment's lock name it.
-  const visLabel = v => (v.Internal ? 'internal note' : v.Role ? 'only ' + v.Role : v.Group ? 'only ' + v.Group : 'everyone');
+  const visWho = v => (v.Internal ? T('internal note') : v.Role || v.Group || '');
+  const visLimited = v => !!(v.Internal || v.Role || v.Group);
+  const visLabel = v => (v.Internal ? T('internal note') : v.Role ? T('only %s', v.Role) : v.Group ? T('only %s', v.Group) : T('everyone'));
   // ui.comment_layout flat: by date, a reply under a line quoting its parent; ui.comment_order newest: latest thread first.
   const uiOpt = k => String((app.session.ui || {})[k] || '').trim().toLowerCase();
   const flat = () => uiOpt('CommentLayout') === 'flat';
@@ -524,12 +527,13 @@ export function mountIssue(el, key, { app, full, card }) {
   // parentRef is a flat reply's parent, quoted: who and the start of what they said.
   const parentRef = c => {
     const p = flat() && c.ParentID && (st.issue.Comments || []).find(x => x.ID === c.ParentID);
-    return p ? { id: p.ID, who: p.Author || 'Unknown', text: String(p.Body || '').replace(/\s+/g, ' ').trim().slice(0, 200) } : null;
+    return p ? { id: p.ID, who: p.Author || T('Unknown'), text: String(p.Body || '').replace(/\s+/g, ' ').trim().slice(0, 200) } : null;
   };
   const cmEls = new Map();
   function commentEl(c, reply) {
     const mine = !c.pending && c.AuthorID && c.AuthorID === me().AccountID;
-    const lock = c.Visibility && visLabel(c.Visibility) !== 'everyone' ? visLabel(c.Visibility) : '';
+    const lock = c.Visibility && visLimited(c.Visibility) ? visLabel(c.Visibility) : '';
+    const lockWho = lock ? visWho(c.Visibility) : '';
     const ref = parentRef(c);
     const sig = [c.Body, c.Author, reply, mine, c.pending, lock, ref && ref.who + ref.text].join('\u0001');
     const hit = cmEls.get(c.ID);
@@ -538,10 +542,10 @@ export function mountIssue(el, key, { app, full, card }) {
     body.append(md(c.Body, mdOpts()));
     const act = (a, label, title) => h('button.btn.ghost.sm', { dataset: { act: a }, title }, label);
     const node = h('article.cm' + (reply ? '.reply' : '') + (mine ? '.mine' : '') + (c.pending ? '.pending' : ''), { dataset: { id: c.ID }, tabindex: -1 },
-      ref && h('div.cm-ref', { dataset: { parent: ref.id }, title: 'Go to the comment it replies to' }, '↪ ', h('b', ref.who), ': ' + ref.text),
-      h('header', ui.avatar(c.Author, null, 22), h('b', c.Author), h('time', { title: dateTime(c.Created) }, c.pending ? 'sending…' : ago(c.Created)),
-        lock && h('span.cm-lock', { title: 'Visible to ' + lock.replace(/^only /, '') }, icon('lock'), ' ' + lock.replace(/^only /, '')),
-        h('span.spacer'), !c.pending && h('span.acts', act('reply', 'Reply', 'Reply (R)'), mine && act('edit', 'Edit', 'Edit (e)'), mine && act('del', 'Delete', 'Delete (d)'))),
+      ref && h('div.cm-ref', { dataset: { parent: ref.id }, title: T('Go to the comment it replies to') }, '↪ ', h('b', ref.who), ': ' + ref.text),
+      h('header', ui.avatar(c.Author, null, 22), h('b', c.Author), h('time', { title: dateTime(c.Created) }, c.pending ? T('sending…') : ago(c.Created)),
+        lock && h('span.cm-lock', { title: T('Visible to %s', lockWho) }, icon('lock'), ' ' + lockWho),
+        h('span.spacer'), !c.pending && h('span.acts', act('reply', T('Reply'), T('Reply (R)')), mine && act('edit', T('Edit'), T('Edit (e)')), mine && act('del', T('Delete'), T('Delete (d)')))),
       body);
     cmEls.set(c.ID, { el: node, sig });
     return node;
@@ -564,9 +568,9 @@ export function mountIssue(el, key, { app, full, card }) {
     while (at) { const nx = at.nextSibling; at.remove(); at = nx; }
     for (const n of box.list.children) n.classList.toggle('focus', n.dataset.id === st.focusId);
     clear(box.more);
-    if (all.length > shown.length) box.more.append(h('button.btn', { onclick: () => { st.all = true; renderComments(); } }, 'Show ' + plural(all.length - shown.length, 'earlier comment')));
-    else if (total > all.length && !st.pending.length) box.more.append(h('p.faint', plural(total - all.length, 'older comment') + ' not loaded. Open in Jira to read them.'));
-    if (!all.length) box.list.dataset.empty = 'No comments yet.'; else delete box.list.dataset.empty;
+    if (all.length > shown.length) box.more.append(h('button.btn', { onclick: () => { st.all = true; renderComments(); } }, Tn(all.length - shown.length, 'Show %d earlier comment', 'Show %d earlier comments', all.length - shown.length)));
+    else if (total > all.length && !st.pending.length) box.more.append(h('p.faint', Tn(total - all.length, '%d older comment not loaded. Open in Jira to read it.', '%d older comments not loaded. Open in Jira to read them.', total - all.length)));
+    if (!all.length) box.list.dataset.empty = T('No comments yet.'); else delete box.list.dataset.empty;
   }
   const commentEls = () => [...box.list.children].filter(n => n.dataset.id && !n.dataset.id.startsWith('tmp-'));
   function focusComment(id, scrollTo = true) {
@@ -598,31 +602,31 @@ export function mountIssue(el, key, { app, full, card }) {
     const art = box.list.querySelector('[data-id="' + CSS.escape(c.ID) + '"]'); if (!art) return;
     let ed;
     try { ed = await api.get('/issues/' + key + '/comments/' + encodeURIComponent(c.ID) + '/edit', { fresh: true }); } catch (e) { return fail(e); }
-    if (!ed.Editable) return ui.toast('Edit this comment in Jira: ' + (ed.Reason || 'markdown cannot hold it'), { kind: 'err' });
+    if (!ed.Editable) return ui.toast(T('Edit this comment in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err' });
     st.editingComment = { id: c.ID };
     const body = art.querySelector('.cbody');
-    const e = editor({ value: ed.Markdown, rows: 4, label: 'Save', draft: 'desc:' + key + ':comment:' + c.ID,
+    const e = editor({ value: ed.Markdown, rows: 4, label: T('Save'), draft: 'desc:' + key + ':comment:' + c.ID,
       save: async (text, mentions) => {
         await api.put('/issues/' + key + '/comments/' + encodeURIComponent(c.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
-        st.editingComment = null; cmEls.delete(c.ID); art.remove(); changed(key + ' comment edited');
+        st.editingComment = null; cmEls.delete(c.ID); art.remove(); changed(T('%s comment edited', key));
       },
       cancel: () => { st.editingComment = null; body.hidden = false; e.el.remove(); } });
     body.hidden = true; body.after(e.el); e.focus();
   }
   async function deleteComment(c) {
-    if (!await ui.confirm({ title: 'Delete comment', text: 'Delete this comment by ' + c.Author + '?', ok: 'Delete', danger: true })) return;
+    if (!await ui.confirm({ title: T('Delete comment'), text: T('Delete this comment by %s?', c.Author), ok: T('Delete'), danger: true })) return;
     try {
       const r = await api.del('/issues/' + key + '/comments/' + encodeURIComponent(c.ID));
       st.issue.Comments = (st.issue.Comments || []).filter(x => x.ID !== c.ID); renderComments(); changed();
       // u posts it again, as you (TUI undoDeleteComment)
-      if (r && r.Raw) import('./fields.js').then(m => m.pushUndo(app, 'the deleted comment on ' + key, async () => { await api.post('/issues/' + key + '/comments', { Raw: r.Raw, Parent: c.ParentID || '' }); bus.emit('issue:changed', { key }); }));
+      if (r && r.Raw) import('./fields.js').then(m => m.pushUndo(app, T('the deleted comment on %s', key), async () => { await api.post('/issues/' + key + '/comments', { Raw: r.Raw, Parent: c.ParentID || '' }); bus.emit('issue:changed', { key }); }));
     } catch (e) { fail(e); }
   }
 
   // composer
-  const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: 'Write a comment… (@ to mention, markdown works)', label: 'Comment', noCancel: true, draft: 'comment:' + key,
+  const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: T('Write a comment… (@ to mention, markdown works)'), label: T('Comment'), noCancel: true, draft: 'comment:' + key,
     save: async (text, mentions) => {
-      const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || 'You', AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
+      const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || T('You'), AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
       const parent = st.reply && threaded() ? threadRoot(st.reply) : ''; // a real reply in Jira's thread
       st.pending.push(tmp); renderComments(); (newest() ? box.list.firstElementChild : box.list.lastElementChild)?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
@@ -630,7 +634,7 @@ export function mountIssue(el, key, { app, full, card }) {
         await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: parent ? everyone() : st.vis, Parent: parent });
         st.pending = st.pending.filter(p => p !== tmp);
         st.vis = everyone(); paintVis(); // the next one is for everyone again
-        await reload(true); changed(key + ' comment added');
+        await reload(true); changed(T('%s comment added', key));
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
         if (parent && !st.reply) setReply(st.issue.Comments.find(c => c.ID === parent) || null);
@@ -651,15 +655,15 @@ export function mountIssue(el, key, { app, full, card }) {
   // Who the comment is for: everyone, an internal note (Service Desk), a role or group the user is in; ctrl+o steps (TUI cycleCommentVis).
   const everyone = () => ({ Internal: false, Role: '', Group: '', GroupID: '' });
   st.vis = everyone();
-  const visBtn = h('button.btn.ghost.sm.vis-chip', { title: 'Who sees it  (ctrl+o)', onclick: () => cycleVis() });
-  const paintVis = () => { visBtn.replaceChildren(icon('eye'), ' ' + visLabel(st.vis)); visBtn.classList.toggle('on', visLabel(st.vis) !== 'everyone'); };
+  const visBtn = h('button.btn.ghost.sm.vis-chip', { title: T('Who sees it  (ctrl+o)'), onclick: () => cycleVis() });
+  const paintVis = () => { visBtn.replaceChildren(icon('eye'), ' ' + visLabel(st.vis)); visBtn.classList.toggle('on', visLimited(st.vis)); };
   paintVis();
   let visOpts = null;
   async function cycleVis() {
-    if (st.reply && threaded()) return ui.toast('A reply is for whoever its comment is for');
+    if (st.reply && threaded()) return ui.toast(T('A reply is for whoever its comment is for'));
     if (!visOpts) {
       try { visOpts = await api.get('/projects/' + encodeURIComponent(key.slice(0, key.lastIndexOf('-'))) + '/commentvis'); } catch (e) { return fail(e); }
-      if (!visOpts.length) return ui.toast("Comments here are for everyone: you're in no role or group to limit them to");
+      if (!visOpts.length) return ui.toast(T("Comments here are for everyone: you're in no role or group to limit them to"));
     }
     const all = [everyone(), ...visOpts];
     const visKey = v => [!!v.Internal, v.Role || '', v.Group || ''].join('\n');
@@ -673,8 +677,8 @@ export function mountIssue(el, key, { app, full, card }) {
     replyChip.hidden = !c;
     clear(replyChip);
     const locked = !!c && threaded();
-    visBtn.disabled = locked; visBtn.title = locked ? 'A reply is for whoever its comment is for' : 'Who sees it  (ctrl+o)';
-    if (c) replyChip.append(h('span', 'Replying to ', h('b', c.Author)), h('button.btn.ghost.sm', { title: 'Not a reply', onclick: () => { const t = '@' + c.Author + ' '; if (comp.ta.value.startsWith(t)) comp.ta.value = comp.ta.value.slice(t.length); setReply(null); } }, icon('x')));
+    visBtn.disabled = locked; visBtn.title = locked ? T('A reply is for whoever its comment is for') : T('Who sees it  (ctrl+o)');
+    if (c) replyChip.append(h('span', T('Replying to'), ' ', h('b', c.Author)), h('button.btn.ghost.sm', { title: T('Not a reply'), onclick: () => { const t = '@' + c.Author + ' '; if (comp.ta.value.startsWith(t)) comp.ta.value = comp.ta.value.slice(t.length); setReply(null); } }, icon('x')));
   }
   function replyTo(c) {
     setTab('comments');
@@ -699,13 +703,13 @@ export function mountIssue(el, key, { app, full, card }) {
 
   // ---- history tab: time in status, then Changes · Work log · All (comments, changes and work
   // interleaved), newest first, as the TUI's activity tabs; 3 again steps the view, the box filters.
-  const HIST = [['changes', 'Changes'], ['worklog', 'Work log'], ['all', 'All']];
+  const HIST = [['changes', T('Changes')], ['worklog', T('Work log')], ['all', T('All')]];
   st.histView = HIST.some(v => v[0] === app.prefs.get('issue.hist', '')) ? app.prefs.get('issue.hist', '') : 'changes';
   st.histQ = '';
   async function loadHistory() {
     if (st.hist) return;
     st.hist = 'loading';
-    clear(panes.history).append(h('div.loading', 'Loading history…'));
+    clear(panes.history).append(h('div.loading', T('Loading history…')));
     const [log, tis, logs] = await Promise.all([
       api.get('/issues/' + key + '/history').catch(e => e), api.get('/issues/' + key + '/timeinstatus').catch(() => null),
       api.get('/issues/' + key + '/worklogs').catch(() => [])]);
@@ -720,17 +724,17 @@ export function mountIssue(el, key, { app, full, card }) {
   function setHist(v) { st.histView = v; app.prefs.set('issue.hist', v === 'changes' ? '' : v); if (st.hist && st.hist !== 'loading') renderHistory(); }
   function renderHistory(err) {
     const p = clear(panes.history);
-    if (err) return p.append(h('div.empty', 'Could not load history: ' + err.message, h('div', h('button.btn', { onclick: () => { st.hist = null; loadHistory(); } }, 'Retry'))));
+    if (err) return p.append(h('div.empty', T('Could not load history: %s', err.message), h('div', h('button.btn', { onclick: () => { st.hist = null; loadHistory(); } }, T('Retry')))));
     const tis = st.tis || [];
     if (tis.length && st.histView === 'changes') {
       const max = Math.max(...tis.map(t => t.Time), 1);
-      p.append(h('div.sec-head', h('h3', 'Time in status')), h('div.tis', tis.map(t => h('div.tis-row' + (t.Now ? '.now' : ''),
+      p.append(h('div.sec-head', h('h3', T('Time in status'))), h('div.tis', tis.map(t => h('div.tis-row' + (t.Now ? '.now' : ''),
         h('span.name', t.Status), h('span.track', h('i', { style: { width: Math.max(2, Math.round(100 * t.Time / max)) + '%' } })),
         h('span.dim', duration(t.Time / 1e9) + (t.Visits > 1 ? ' · ' + t.Visits + '×' : ''))))));
     }
     const counts = { changes: (st.hist || []).length, worklog: st.logs.length, all: (st.hist || []).length + st.logs.length + ((st.issue && st.issue.Comments) || []).length };
-    const filter = h('input.input.hist-q', { type: 'search', placeholder: 'Filter: who, field, words', value: st.histQ, oninput: () => { st.histQ = filter.value; paintList(); } });
-    p.append(h('div.hist-bar', h('span.seg', HIST.map(([id, label]) => h('button.btn.sm' + (st.histView === id ? '.on' : ''), { onclick: () => setHist(id), title: '3 steps through them' }, label, h('span.dim', ' ' + counts[id])))), filter));
+    const filter = h('input.input.hist-q', { type: 'search', placeholder: T('Filter: who, field, words'), value: st.histQ, oninput: () => { st.histQ = filter.value; paintList(); } });
+    p.append(h('div.hist-bar', h('span.seg', HIST.map(([id, label]) => h('button.btn.sm' + (st.histView === id ? '.on' : ''), { onclick: () => setHist(id), title: T('3 steps through them') }, label, h('span.dim', ' ' + counts[id])))), filter));
     const list = h('div.hist-list');
     p.append(list);
     paintList();
@@ -739,8 +743,8 @@ export function mountIssue(el, key, { app, full, card }) {
       const items = histItems().filter(it => words.every(w => it.text.includes(w))).sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
       const frag = document.createDocumentFragment();
       for (const it of items) frag.append(it.el());
-      if (!items.length) frag.append(h('p.faint', words.length ? 'Nothing matches.' : st.histView === 'worklog' ? 'No work logged.' : 'Nothing recorded.'));
-      if (st.histView === 'worklog' && items.length) frag.append(h('p.dim', duration(items.reduce((n, it) => n + it.secs, 0)) + ' in all'));
+      if (!items.length) frag.append(h('p.faint', words.length ? T('Nothing matches.') : st.histView === 'worklog' ? T('No work logged.') : T('Nothing recorded.')));
+      if (st.histView === 'worklog' && items.length) frag.append(h('p.dim', T('%s in all', duration(items.reduce((n, it) => n + it.secs, 0)))));
       clear(list).append(frag);
     }
   }
@@ -749,18 +753,18 @@ export function mountIssue(el, key, { app, full, card }) {
     const low = (...xs) => xs.filter(Boolean).join(' ').toLowerCase();
     if (v !== 'worklog') for (const e of st.hist || []) out.push({ at: e.When, text: low(e.Who, e.What, ...(e.Changes || []).flatMap(c => [c.Field, c.From, c.To])), el: () => changeEl(e) });
     if (v !== 'changes') for (const w of st.logs) out.push({ at: w.Started, secs: w.Seconds, text: low(w.Author, 'logged', w.Comment), el: () => worklogEl(w) });
-    if (v === 'all') for (const c of (st.issue && st.issue.Comments) || []) out.push({ at: c.Created, text: low(c.Author, 'commented', c.Body), el: () => h('div.chg', chgHead(c.Author, c.Created, 'commented'), h('div.md.cbody.chg-body', md(c.Body, mdOpts()))) });
+    if (v === 'all') for (const c of (st.issue && st.issue.Comments) || []) out.push({ at: c.Created, text: low(c.Author, 'commented', c.Body), el: () => h('div.chg', chgHead(c.Author, c.Created, T('commented')), h('div.md.cbody.chg-body', md(c.Body, mdOpts()))) });
     return out;
   }
   const chgHead = (who, at, what) => h('div.chg-head', ui.avatar(who, null, 18), h('b', who || 'Jira'), what && h('span.dim', what), h('time.dim', { title: dateTime(at) }, ago(at)));
   const changeEl = e => h('div.chg', chgHead(e.Who, e.When),
     (e.Changes && e.Changes.length ? e.Changes : [{ Field: '', From: '', To: e.What }]).map(c => (c.From.includes('\n') || c.To.includes('\n')
-      ? [h('div.chg-line', h('span.fname', c.Field), h('span.dim', 'changed')), h('div.chg-diff', lineDiff(c.From, c.To).map(l => h('div.' + (l[0] === '-' ? 'del' : l[0] === '+' ? 'add' : 'more'), l)))]
+      ? [h('div.chg-line', h('span.fname', c.Field), h('span.dim', T('changed'))), h('div.chg-diff', lineDiff(c.From, c.To).map(l => h('div.' + (l[0] === '-' ? 'del' : l[0] === '+' ? 'add' : 'more'), l)))]
       : h('div.chg-line', c.Field && h('span.fname', c.Field), c.From || c.To ? changeText(c) : null))));
-  const worklogEl = w => h('div.chg', chgHead(w.Author, w.Started, 'logged ' + duration(w.Seconds)), w.Comment && h('div.md.cbody.chg-body', md(w.Comment, mdOpts())));
+  const worklogEl = w => h('div.chg', chgHead(w.Author, w.Started, T('logged %s', duration(w.Seconds))), w.Comment && h('div.md.cbody.chg-body', md(w.Comment, mdOpts())));
   const clip = (s, n = 160) => (s.length > n ? s.slice(0, n) + '…' : s);
   const changeText = c => (!c.Field ? h('span', c.To) : [
-    c.From ? h('span.from', clip(c.From)) : h('span.faint', 'none'), h('span.arrow', '→'), c.To ? h('span.to', clip(c.To)) : h('span.faint', 'none')]);
+    c.From ? h('span.from', clip(c.From)) : h('span.faint', T('none')), h('span.arrow', '→'), c.To ? h('span.to', clip(c.To)) : h('span.faint', T('none'))]);
 
   // ---- editor (description, comment edit, composer): lib/mdedit.js
   function editor(o) { const e = mdEdit(app, { ...o, issueKey: key, people, mdOpts, onFiles: attachFiles }); editors.add(e); return e; }
@@ -772,7 +776,7 @@ export function mountIssue(el, key, { app, full, card }) {
         const res = await fetch('/api/issues/' + key + '/attachments', { method: 'POST', body: fd });
         if (!res.ok) throw new Error(((await res.json().catch(() => ({}))).error) || res.statusText);
         made.push(await res.json().catch(() => null));
-        ui.toast('Attached ' + (f.name || 'image'), { kind: 'ok' });
+        ui.toast(T('Attached %s', f.name || T('image')), { kind: 'ok' });
       } catch (e) { made.push(null); fail(e); }
     }
     changed();
@@ -807,15 +811,15 @@ export function mountIssue(el, key, { app, full, card }) {
   function loadFailed(e) {
     const gone = e && (e.status === 404 || /does not exist|not found|404/i.test(e.message || ''));
     clear(box.fields).append(h('div.empty',
-      h('h2', gone ? key + ' not found' : 'Could not load ' + key),
-      h('p.dim', gone ? 'It does not exist, or you cannot see it.' : (e && e.message) || ''),
-      h('div', h('button.btn', { onclick: () => { clear(box.fields).append(h('div.loading', 'Loading ' + key + '…')); reload(true).then(() => { if (!st.issue && !dead) loadFailed(e); }); } }, 'Retry'),
-        ' ', h('button.btn.ghost', { onclick: goBack }, full ? '← Back' : 'Close'))));
+      h('h2', gone ? T('%s not found', key) : T('Could not load %s', key)),
+      h('p.dim', gone ? T('It does not exist, or you cannot see it.') : (e && e.message) || ''),
+      h('div', h('button.btn', { onclick: () => { clear(box.fields).append(h('div.loading', T('Loading %s…', key))); reload(true).then(() => { if (!st.issue && !dead) loadFailed(e); }); } }, T('Retry')),
+        ' ', h('button.btn.ghost', { onclick: goBack }, full ? T('← Back') : T('Close')))));
   }
 
   renderHead(); renderTabs(); setTab('details');
   clear(panes.history);
-  box.fields.append(h('div.loading', 'Loading ' + key + '…'));
+  box.fields.append(h('div.loading', T('Loading %s…', key)));
   api.swr('/issues/' + key, iss => { if (!dead) { st.issue = iss; if (!iss.Comments) iss.Comments = []; paint(); } }).then(() => { if (!dead) loadExtras(); })
     .catch(e => { if (!dead && !st.issue) loadFailed(e); });
   api.swr('/issues/' + key + '/card', c => { if (!dead) { st.card = c; renderFields(); renderHead(); dev.hint(); } }).catch(() => {});
@@ -825,52 +829,52 @@ export function mountIssue(el, key, { app, full, card }) {
   const offTimer = [bus.on('timer', () => { if (!dead) renderHead(); }), bus.on('timer:tick', () => { if (!dead && app.timer.mark(key)) renderHead(); })];
 
   // ---- keys
-  const G = 'Issue';
+  const G = T('Issue');
   scope.bind('Escape', e => {
     if (find.on && !(e.target.closest && e.target.closest('.ed'))) return findClose();
     const ed = e.target.closest && e.target.closest('.ed');
     if (ed) { if (ed._escape && ed._escape()) return; if (ed._cancel) return ed._cancel(); }
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,select')) return document.activeElement.blur();
     goBack();
-  }, full ? 'back' : 'close panel', { group: G, input: true });
-  scope.bind('ctrl+o', e => { if (e.target === comp.ta) cycleVis(); }, 'who sees the comment: everyone, an internal note, a role or group', { group: G, input: true });
-  scope.bind('ctrl+Enter', e => { const ed = e.target.closest && e.target.closest('.ed'); if (ed && ed._save) ed._save(); }, 'save / send', { group: G, input: true });
-  scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : st.tab === 'terminal' ? term.scroll(3) : scroll.scrollBy({ top: 80 })), 'next comment / scroll down', { group: G });
-  scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), 'previous comment / scroll up', { group: G });
-  scope.bind('ctrl+d', () => scroll.scrollBy({ top: scroll.clientHeight / 2 }), 'half page down', { group: G, hidden: true });
-  scope.bind('ctrl+u', () => scroll.scrollBy({ top: -scroll.clientHeight / 2 }), 'half page up', { group: G, hidden: true });
-  scope.bind('c', composeComment, 'write a comment', { group: G, bar: 'comment' });
-  scope.bind('e', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) editComment(c); else edit('summary'); }, 'edit summary (or own focused comment)', { group: G });
-  scope.bind('E', editDesc, 'edit description', { group: G, bar: 'description' });
-  scope.bind('a', () => edit('assignee'), 'change assignee', { group: G, bar: 'assign' });
-  scope.bind('p', () => edit('priority'), 'change priority', { group: G });
-  scope.bind('P', () => edit('points'), 'set story points', { group: G });
-  scope.bind('l', () => edit('labels'), 'edit labels', { group: G });
-  scope.bind('r', () => { reload(true); dev.refresh(); }, 'refresh', { group: G });
-  scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[(st.issue.Comments || []).length - 1]); if (c) replyTo(c); }, 'reply to comment', { group: G });
-  scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, 'delete own comment', { group: G });
-  scope.bind('L', addLink, 'link an issue', { group: G });
-  scope.bind('A', () => actions(), 'issue actions: subtask, clone, move, watchers…', { group: G, bar: 'actions' });
-  scope.bind('[', () => step(-1), 'previous issue in the list', { group: G, bar: 'issue' });
-  scope.bind(']', () => step(1), 'next issue in the list', { group: G, bar: 'issue' });
-  scope.bind('Backspace', back, 'back along the trail of followed issues', { group: G });
-  scope.bind('G', linked, 'go to a linked issue, child or web link', { group: G });
-  scope.bind('i', () => gallery(0), 'view images', { group: G });
-  scope.bind('/', () => findOpen(), 'find in the issue (n / N next, previous)', { group: G });
-  scope.bind('n', () => findStep(1), 'next match', { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
-  scope.bind('N', () => findStep(-1), 'previous match', { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
-  scope.bind('1', () => setTab('details'), 'details tab', { group: G, bar: 'tabs' });
-  scope.bind('2', () => setTab('comments'), 'comments tab', { group: G, bar: 'tabs' });
-  scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), 'history tab (again: work log, all)', { group: G, bar: 'tabs' });
-  scope.bind('4', () => openTerm(false), 'terminal tab: the issue\'s agent (again: the next agent)', { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || app.panel.focused()) });
-  scope.bind('ctrl+\\', () => openTerm(true), 'type into the issue\'s agent (its terminal here; ctrl+\\ there back to the issue)', { group: G });
-  scope.bind('Enter', () => term.type(), 'type into the terminal', { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
-  scope.bind('t', () => term.type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
-  scope.bind('y', () => copy(key, key), 'copy key', { group: G });
-  scope.bind('*', () => pins.toggle(app, key, st.issue && st.issue.Summary), 'pin / unpin issue (first in the palette)', { group: G });
-  scope.bind('Y', () => copy(browseURL(), 'Link'), 'copy link', { group: G });
-  scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), 'open in Jira', { group: G, bar: 'Jira' });
-  scope.bind('s', () => edit('status'), 'change status', { group: G, bar: 'status' });
+  }, full ? T('back') : T('close panel'), { group: G, input: true });
+  scope.bind('ctrl+o', e => { if (e.target === comp.ta) cycleVis(); }, T('who sees the comment: everyone, an internal note, a role or group'), { group: G, input: true });
+  scope.bind('ctrl+Enter', e => { const ed = e.target.closest && e.target.closest('.ed'); if (ed && ed._save) ed._save(); }, T('save / send'), { group: G, input: true });
+  scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : st.tab === 'terminal' ? term.scroll(3) : scroll.scrollBy({ top: 80 })), T('next comment / scroll down'), { group: G });
+  scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), T('previous comment / scroll up'), { group: G });
+  scope.bind('ctrl+d', () => scroll.scrollBy({ top: scroll.clientHeight / 2 }), T('half page down'), { group: G, hidden: true });
+  scope.bind('ctrl+u', () => scroll.scrollBy({ top: -scroll.clientHeight / 2 }), T('half page up'), { group: G, hidden: true });
+  scope.bind('c', composeComment, T('write a comment'), { group: G, bar: T('comment') });
+  scope.bind('e', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) editComment(c); else edit('summary'); }, T('edit summary (or own focused comment)'), { group: G });
+  scope.bind('E', editDesc, T('edit description'), { group: G, bar: T('description') });
+  scope.bind('a', () => edit('assignee'), T('change assignee'), { group: G, bar: T('assign') });
+  scope.bind('p', () => edit('priority'), T('change priority'), { group: G });
+  scope.bind('P', () => edit('points'), T('set story points'), { group: G });
+  scope.bind('l', () => edit('labels'), T('edit labels'), { group: G });
+  scope.bind('r', () => { reload(true); dev.refresh(); }, T('refresh'), { group: G });
+  scope.bind('R', () => { const c = focused() || (st.issue && st.issue.Comments[(st.issue.Comments || []).length - 1]); if (c) replyTo(c); }, T('reply to comment'), { group: G });
+  scope.bind('d', () => { const c = st.tab === 'comments' && focused(); if (c && isMine(c)) deleteComment(c); }, T('delete own comment'), { group: G });
+  scope.bind('L', addLink, T('link an issue'), { group: G });
+  scope.bind('A', () => actions(), T('issue actions: subtask, clone, move, watchers…'), { group: G, bar: T('actions') });
+  scope.bind('[', () => step(-1), T('previous issue in the list'), { group: G, bar: T('issue') });
+  scope.bind(']', () => step(1), T('next issue in the list'), { group: G, bar: T('issue') });
+  scope.bind('Backspace', back, T('back along the trail of followed issues'), { group: G });
+  scope.bind('G', linked, T('go to a linked issue, child or web link'), { group: G });
+  scope.bind('i', () => gallery(0), T('view images'), { group: G });
+  scope.bind('/', () => findOpen(), T('find in the issue (n / N next, previous)'), { group: G });
+  scope.bind('n', () => findStep(1), T('next match'), { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
+  scope.bind('N', () => findStep(-1), T('previous match'), { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
+  scope.bind('1', () => setTab('details'), T('details tab'), { group: G, bar: T('tabs') });
+  scope.bind('2', () => setTab('comments'), T('comments tab'), { group: G, bar: T('tabs') });
+  scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), T('history tab (again: work log, all)'), { group: G, bar: T('tabs') });
+  scope.bind('4', () => openTerm(false), T('terminal tab: the issue\'s agent (again: the next agent)'), { group: G, when: () => (term.has() || st.tab === 'terminal') && (full || app.panel.focused()) });
+  scope.bind('ctrl+\\', () => openTerm(true), T('type into the issue\'s agent (its terminal here; ctrl+\\ there back to the issue)'), { group: G });
+  scope.bind('Enter', () => term.type(), T('type into the terminal'), { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
+  scope.bind('t', () => term.type({ takeover: true }), T('take over the agent\'s input from another herdr attach'), { group: G, when: () => st.tab === 'terminal' && (full || app.panel.focused()) });
+  scope.bind('y', () => copy(key, key), T('copy key'), { group: G });
+  scope.bind('*', () => pins.toggle(app, key, st.issue && st.issue.Summary), T('pin / unpin issue (first in the palette)'), { group: G });
+  scope.bind('Y', () => copy(browseURL(), 'Link'), T('copy link'), { group: G });
+  scope.bind('o', () => window.open(browseURL(), '_blank', 'noopener'), T('open in Jira'), { group: G, bar: 'Jira' });
+  scope.bind('s', () => edit('status'), T('change status'), { group: G, bar: T('status') });
 
   // ---- resize (panel only): ui.panel_width (50%) until a drag or < > picks another, 20–80%; near
   // ui.panel_width a drag snaps to it and < > stop there on the way past (TUI panel_resize.go).
@@ -889,10 +893,10 @@ export function mountIssue(el, key, { app, full, card }) {
       let next = clamp(pct + d * 5);
       if ((pct < def) !== (next < def) && pct !== def && next !== def) next = def;
       keep(next);
-      ui.toast('Panel ' + next + '%' + (next === def ? ' (ui.panel_width)' : ''));
+      ui.toast(next === def ? T('Panel %d%% (ui.panel_width)', next) : T('Panel %d%%', next));
     };
-    scope.bind('<', () => stepWidth(1), 'widen the panel', { group: G });
-    scope.bind('>', () => stepWidth(-1), 'narrow the panel', { group: G });
+    scope.bind('<', () => stepWidth(1), T('widen the panel'), { group: G });
+    scope.bind('>', () => stepWidth(-1), T('narrow the panel'), { group: G });
   }
   // A dialog opened while the panel loaded keeps the focus.
   if (!document.querySelector('[aria-modal="true"]')) scroll.focus({ preventScroll: true });

@@ -7,6 +7,7 @@ import { css } from '../lib/css.js';
 import { fieldInput, formRow } from './fields.js';
 import { mdEdit } from '../lib/mdedit.js';
 import { projectOf } from './plan_ctx.js';
+import { T } from '../lib/i18n.js';
 
 css('forms');
 
@@ -32,35 +33,35 @@ export async function openCreate(app, opts = {}) {
 
   const projectSel = h('select.input', { onchange: () => { project = projectSel.value; type = ''; loadProject(); } }, h('option', { value: project }, project || '…'));
   const typeSel = h('select.input', { onchange: () => { type = typeSel.value; applyTemplate(); loadFields(); } });
-  const summary = h('textarea.input', { rows: 2, placeholder: 'Summary. One per line makes several issues.', value: opts.summary || (restore && restore.summary) || '', oninput: count });
+  const summary = h('textarea.input', { rows: 2, placeholder: T('Summary. One per line makes several issues.'), value: opts.summary || (restore && restore.summary) || '', oninput: count });
   const files = [];
   const fileBar = h('div.ed-files');
-  const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || 'image', ' ', h('button.btn.ghost.sm', { type: 'button', title: 'Remove', onclick: () => { files.splice(i, 1); paintFiles(); } }, icon('x')))));
-  const ed = mdEdit(app, { value: opts.description || (restore ? restore.description : ''), rows: 5, placeholder: 'Description (markdown). / formats, @ mentions, drop files to attach', noCancel: true,
-    hint: 'files attach after creating', project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
+  const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || T('image'), ' ', h('button.btn.ghost.sm', { type: 'button', title: T('Remove'), onclick: () => { files.splice(i, 1); paintFiles(); } }, icon('x')))));
+  const ed = mdEdit(app, { value: opts.description || (restore ? restore.description : ''), rows: 5, placeholder: T('Description (markdown). / formats, @ mentions, drop files to attach'), noCancel: true,
+    hint: T('files attach after creating'), project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
   const description = ed.ta;
-  const sprintSel = h('select.input', h('option', { value: '' }, 'None (backlog)'));
+  const sprintSel = h('select.input', h('option', { value: '' }, T('None (backlog)')));
   const sprintRow = h('div.form-sprint', { hidden: true });
   const count$ = h('div.faint.form-hint');
   const extra = h('div.form');
-  const more = h('details.form-more', { hidden: true, open: prefs.get('create.more', '') === '1', ontoggle: () => prefs.set('create.more', more.open ? '1' : '') }, h('summary', 'More fields'), h('div.form'));
+  const more = h('details.form-more', { hidden: true, open: prefs.get('create.more', '') === '1', ontoggle: () => prefs.set('create.more', more.open ? '1' : '') }, h('summary', T('More fields')), h('div.form'));
   const err = h('div.form-err', { role: 'alert' });
   const another = h('input', { type: 'checkbox', checked: prefs.get('create.another', '') === '1', onchange: () => prefs.set('create.another', another.checked ? '1' : '0') });
-  const okBtn = h('button.btn.primary', { type: 'submit' }, 'Create');
+  const okBtn = h('button.btn.primary', { type: 'submit' }, T('Create'));
 
   const form = h('form.form-dialog', { onsubmit: e => { e.preventDefault(); submit(); } },
-    h('div.form', formRow('Project', projectSel), formRow('Type', typeSel), formRow('Summary', [summary, count$], true), formRow('Description', [ed.el, fileBar, opts.note ? h('div.faint.form-hint', opts.note) : ''], true)),
+    h('div.form', formRow(T('Project'), projectSel), formRow(T('Type'), typeSel), formRow(T('Summary'), [summary, count$], true), formRow(T('Description'), [ed.el, fileBar, opts.note ? h('div.faint.form-hint', opts.note) : ''], true)),
     extra, sprintRow, more, err,
-    h('div.row.end', h('label.check', another, ' Create another'), h('span.spacer'), h('span.faint.form-hint', 'ctrl+⏎ creates'),
-      h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), okBtn));
-  const m = app.ui.modal(form, { title: opts.cloneOf ? 'Clone of ' + opts.cloneOf : 'Create issue', wide: true, onClose: () => { ed.dispose(); if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
-  m.scope.bind('ctrl+Enter', () => submit(), 'create', { input: true, hidden: true });
+    h('div.row.end', h('label.check', another, ' ' + T('Create another')), h('span.spacer'), h('span.faint.form-hint', T('ctrl+⏎ creates')),
+      h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), okBtn));
+  const m = app.ui.modal(form, { title: opts.cloneOf ? T('Clone of %s', opts.cloneOf) : T('Create issue'), wide: true, onClose: () => { ed.dispose(); if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
+  m.scope.bind('ctrl+Enter', () => submit(), T('create'), { input: true, hidden: true });
   summary.focus();
   count();
 
   function count() {
     const n = summaries(summary.value).length;
-    count$.textContent = n > 1 ? `${n} issues will be created` : '';
+    count$.textContent = n > 1 ? T('%d issues will be created', n) : '';
   }
 
   // The first project key is shown at once; the creatable ones fill in.
@@ -108,8 +109,8 @@ export async function openCreate(app, opts = {}) {
       const r = await app.api.get(`/projects/${p}/sprints`);
       if (p !== project || !r.Sprints.length) return;
       const want = opts.sprint ? String(opts.sprint) : '';
-      sprintSel.replaceChildren(h('option', { value: '' }, 'None (backlog)'), ...r.Sprints.map(s => h('option', { value: s.ID, selected: String(s.ID) === want }, `${s.Name} (${s.State})`)));
-      sprintRow.replaceChildren(h('div.form', formRow('Sprint', sprintSel)));
+      sprintSel.replaceChildren(h('option', { value: '' }, T('None (backlog)')), ...r.Sprints.map(s => h('option', { value: s.ID, selected: String(s.ID) === want }, `${s.Name} (${s.State})`)));
+      sprintRow.replaceChildren(h('div.form', formRow(T('Sprint'), sprintSel)));
       sprintRow.hidden = false;
     } catch (e) { /* no board: no sprint */ }
   }
@@ -133,7 +134,7 @@ export async function openCreate(app, opts = {}) {
       }
       extra.replaceChildren(...[...req.flat(), ...common.flat()].filter(Boolean));
       more.lastChild.replaceChildren(...rest.flat().filter(Boolean));
-      more.firstChild.textContent = `More fields (${rest.length})`;
+      more.firstChild.textContent = T('More fields (%d)', rest.length);
       more.hidden = !rest.length;
     } catch (e) { err.textContent = e.message; }
   }
@@ -142,7 +143,7 @@ export async function openCreate(app, opts = {}) {
     for (const f of files.splice(0)) {
       const fd = new FormData(); fd.append('file', f, f.name || 'pasted-' + Date.now() + '.png');
       try { const res = await fetch('/api/issues/' + key + '/attachments', { method: 'POST', body: fd }); if (!res.ok) throw new Error(res.statusText); }
-      catch (e) { app.ui.toast('Could not attach ' + (f.name || 'file') + ' to ' + key, { kind: 'err' }); }
+      catch (e) { app.ui.toast(T('Could not attach %s to %s', f.name || T('file'), key), { kind: 'err' }); }
     }
     paintFiles();
   }
@@ -159,16 +160,16 @@ export async function openCreate(app, opts = {}) {
       if (more.contains(el)) more.open = true;
       el.after(h('div.form-err.field-err', msg));
     }
-    return rest.length ? rest.join('; ') : 'Jira refused it: see the fields marked';
+    return rest.length ? rest.join('; ') : T('Jira refused it: see the fields marked');
   }
 
   async function submit() {
     if (busy) return;
     for (const x of form.querySelectorAll('.field-err')) x.remove();
     const sums = summaries(summary.value);
-    if (!sums.length) { err.textContent = 'Summary is required'; summary.focus(); return; }
+    if (!sums.length) { err.textContent = T('Summary is required'); summary.focus(); return; }
     const missing = fields.filter(f => f.Required && widgets.get(f.ID).empty()).map(f => f.Name);
-    if (missing.length) { err.textContent = 'Fill in ' + missing.join(', '); return; }
+    if (missing.length) { err.textContent = T('Fill in %s', missing.join(', ')); return; }
     const Fields = [];
     for (const f of fields) {
       const w = widgets.get(f.ID);
@@ -180,7 +181,7 @@ export async function openCreate(app, opts = {}) {
     const made = [], warn = [];
     let failed = null;
     for (const [i, s] of sums.entries()) {
-      okBtn.textContent = sums.length > 1 ? `Creating ${i + 1}/${sums.length}…` : 'Creating…';
+      okBtn.textContent = sums.length > 1 ? T('Creating %d/%d…', i + 1, sums.length) : T('Creating…');
       try {
         const r = await app.api.post('/issues', { Project: project, Type: type, Summary: s, Description: description.value, Parent: parent, CloneOf: opts.cloneOf || '', Sprint: Number(sprintSel.value) || 0, Fields });
         made.push(r.Key);
@@ -189,15 +190,15 @@ export async function openCreate(app, opts = {}) {
         app.bus.emit('issue:changed', { key: r.Key, created: true });
       } catch (e) { failed = e; summary.value = sums.slice(i).join('\n'); break; }
     }
-    busy = false; okBtn.disabled = false; okBtn.textContent = 'Create';
+    busy = false; okBtn.disabled = false; okBtn.textContent = T('Create');
     if (made.length) {
       prefs.set('create.project', project); prefs.set('create.type.' + project, type);
       const first = made[0];
-      app.ui.toast(made.length === 1 ? `Created ${first}` : `Created ${made.length} issues: ${made.join(', ')}`, { kind: 'ok', ms: 6000, action: { label: 'Open', run: () => app.panel.open(first) } });
+      app.ui.toast(made.length === 1 ? T('Created %s', first) : T('Created %d issues: %s', made.length, made.join(', ')), { kind: 'ok', ms: 6000, action: { label: T('Open'), run: () => app.panel.open(first) } });
       for (const w of warn) app.ui.toast(w, { kind: 'err' });
     }
     if (failed) {
-      err.textContent = (made.length ? `${made.length} created, then: ` : '') + fieldErrors(failed);
+      err.textContent = (made.length ? T('%d created, then: ', made.length) : '') + fieldErrors(failed);
       return;
     }
     submitted = true; draft = null;
