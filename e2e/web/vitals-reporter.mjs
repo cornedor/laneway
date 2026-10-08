@@ -1,8 +1,9 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-// Core Web Vitals' "good": INP at most 200ms, CLS at most 0.1.
-const good = { INP: 200, CLS: 0.1 };
+// INP at most 100ms, where a response stops feeling instant (the web's
+// "good" is 200ms; this is an app); CLS at most 0.1, the web's "good".
+const good = { INP: 100, CLS: 0.1 };
 const show = { INP: v => `${Math.round(v)}ms`, CLS: v => v.toFixed(3) };
 
 // VitalsReporter sums up the vitals attachments (fixtures.mjs): each test's
@@ -19,7 +20,7 @@ export default class VitalsReporter {
   onEnd() {
     const tests = [...this.tests.values()];
     if (!tests.length) return;
-    const lines = [], md = ['### Web vitals', ''];
+    const lines = [], md = [process.env.INP_BUDGETS ? '### Web vitals, INP budgets (serial)' : '### Web vitals', ''];
     for (const name of Object.keys(good)) {
       const worst = tests.filter(t => t[name]).sort((a, b) => b[name].value - a[name].value);
       const over = worst.filter(t => t[name].value > good[name]);

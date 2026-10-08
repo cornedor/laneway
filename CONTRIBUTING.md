@@ -35,8 +35,10 @@ LWC is a company-managed fixture project; keep its data varied.
 installed browser). Both fail on a request the demo can't answer
 (`LANEWAY_DEMO_UNHANDLED`); serve it in `internal/demo`, shaped as the
 contract recording has it. Each web test's worst INP and CLS (web-vitals)
-go to `test-results/vitals.json` and the CI job summary; measured, not
-enforced.
+go to `test-results/vitals.json` and the CI job summary. `perf.spec.mjs`
+holds INP to budgets on a big board (50ms moving, 100ms the rest), in CI
+one test at a time: `INP_BUDGETS=1 npx playwright test tests/perf.spec.mjs
+--workers=1` (`CPU_SLOWDOWN=4` for a slower machine).
 
 ## Pull requests
 

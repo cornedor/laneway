@@ -43,6 +43,11 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+      # One at a time: parallel workers' contention is no app's.
+      - name: INP budgets
+        run: npx playwright test tests/perf.spec.mjs --workers=1
+        env:
+          INP_BUDGETS: 1
       - if: failure()
         uses: actions/upload-artifact@v7
         with:

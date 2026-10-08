@@ -59,10 +59,13 @@ async function watchVitals(page, vitals) {
 // test is Playwright's with app: a fresh demo, the page on its board. A
 // test fails on an error in the page or a request the demo can't answer.
 // Its INP and CLS go along as the attachment vitals (vitals-reporter.mjs).
-// test.use({ bulk: n }) gives the demo n issues more.
+// test.use({ bulk: n }) gives the demo n issues more; { inp: ms } is the
+// test's INP budget, failed on with INP_BUDGETS=1 (a serial run: parallel
+// workers' contention is no app's).
 export const test = base.extend({
   bulk: [0, { option: true }],
-  app: async ({ page, bulk }, use, info) => {
+  inp: [0, { option: true }],
+  app: async ({ page, bulk, inp }, use, info) => {
     const unhandled = info.outputPath('unhandled.txt');
     const server = start(unhandled, bulk);
     const errors = [];
@@ -80,12 +83,18 @@ export const test = base.extend({
     try {
       const url = await server.url;
       await use({ url, errors });
+      // web-vitals reports when idle or hidden; a test can end before either.
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+      }).catch(() => {});
       // The page first: one still loading would fail on the server gone.
       await page.close();
     } finally {
       await server.stop();
     }
     await info.attach('vitals', { body: JSON.stringify(vitals), contentType: 'application/json' });
+    if (inp && process.env.INP_BUDGETS) expect(vitals.INP?.value ?? 0, `INP, on ${vitals.INP?.target}`).toBeLessThanOrEqual(inp);
     let missed = '';
     try { missed = readFileSync(unhandled, 'utf8'); } catch {}
     expect(missed, 'requests the demo could not answer').toBe('');
