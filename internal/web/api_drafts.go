@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strings"
@@ -19,6 +20,11 @@ import (
 // create form, its text the form as JSON.
 
 const draftPrefix = "jira_tab:draft:"
+
+// docPrefix keeps a draft the visual editor wrote as ADF beside it, the
+// markdown it was saved as first: the TUI reads and writes the markdown, so
+// a draft whose markdown it changed since comes back as that markdown.
+const docPrefix = "laneway:draftdoc:"
 
 // docBase is a draft's Base: none, or a jira.DocBase.
 var docBase = regexp.MustCompile(`^[0-9a-f]{0,64}$`)
@@ -48,23 +54,52 @@ func init() {
 		if !ok {
 			return map[string]any{"Text": ""}, nil
 		}
-		return map[string]any{"Text": d.Text, "When": d.At, "Base": d.Base}, nil
+		out := map[string]any{"Text": d.Text, "When": d.At, "Base": d.Base}
+		if dv, _, _ := s.opt.Store.GetMeta(docPrefix + strings.TrimPrefix(k, draftPrefix)); dv != "" {
+			if md, doc, ok := strings.Cut(dv, "\x00"); ok && md == d.Text {
+				out["Doc"] = json.RawMessage(doc)
+			}
+		}
+		return out, nil
 	})
 	put("/drafts/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		k, err := draftKey(r)
 		if err != nil {
 			return nil, err
 		}
-		// Base is the jira.DocBase of the document a desc: draft edits.
-		b, err := Body[struct{ Text, Base string }](r)
+		// Base is the jira.DocBase of the document a desc: draft edits. Doc, the
+		// visual editor's, is kept as it is; Text is then its markdown.
+		b, err := Body[struct {
+			Text, Base string
+			Doc        json.RawMessage
+		}](r)
 		if err != nil {
 			return nil, err
 		}
+		dk := docPrefix + strings.TrimPrefix(k, draftPrefix)
+		var doc json.RawMessage
+		if given(b.Doc) {
+			if doc, err = jira.CheckDoc(b.Doc); err != nil {
+				return nil, badRequest(err.Error())
+			}
+			b.Text = ""
+			if doc != nil {
+				b.Text = draftMarkdown(doc)
+			}
+		}
 		if strings.TrimSpace(b.Text) == "" {
+			_ = s.opt.Store.DeleteMeta(dk)
 			return nil, s.opt.Store.DeleteMeta(k)
 		}
 		if !docBase.MatchString(b.Base) {
 			return nil, badRequest(i18n.T("bad draft base"))
+		}
+		if doc != nil {
+			if err := s.opt.Store.SetMeta(dk, b.Text+"\x00"+string(doc)); err != nil {
+				return nil, err
+			}
+		} else {
+			_ = s.opt.Store.DeleteMeta(dk)
 		}
 		return nil, s.opt.Store.SetMeta(k, ui.EncodeDraft(ui.Draft{Text: b.Text, Base: b.Base, At: time.Now()}))
 	})
@@ -73,6 +108,16 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
+		_ = s.opt.Store.DeleteMeta(docPrefix + strings.TrimPrefix(k, draftPrefix))
 		return nil, s.opt.Store.DeleteMeta(k)
 	})
+}
+
+// draftMarkdown is doc as the TUI edits it: markdown with its placeholder
+// lines when markdown can carry it, else as it reads.
+func draftMarkdown(doc json.RawMessage) string {
+	if ed, err := jira.EditableDescription(doc); err == nil && len(ed.Kept) == 0 {
+		return ed.Markdown
+	}
+	return jira.DocMarkdown(doc)
 }

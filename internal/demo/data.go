@@ -81,6 +81,7 @@ type comment struct {
 	parent  string // the comment it replies to
 	author  user
 	body    string
+	doc     any // the body as last written, nil: body's paragraphs
 	created time.Time
 	vis     map[string]any // the visibility it was posted with, nil for everyone
 }

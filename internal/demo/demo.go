@@ -77,6 +77,7 @@ var (
 	versionRe    = regexp.MustCompile(`^/rest/api/3/version/(\d+)$`)
 	attachRe     = regexp.MustCompile(`^/rest/api/3/issue/([A-Z]+-\d+)/attachments$`)
 	attachmentRe = regexp.MustCompile(`^/rest/api/3/attachment/content/(\d+)$`)
+	mediaFileRe  = regexp.MustCompile(`^/file/00000000-0000-4000-8000-(\d{12})/binary$`)
 )
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -148,8 +149,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send(s.attach(s.issues[m[1]], r.Header.Get("Content-Type"), raw))
 		return
 	}
+	// As Jira's, an attachment's content redirects to its media file, which names its id.
 	if m := attachmentRe.FindStringSubmatch(p); m != nil && r.Method == http.MethodGet {
 		if a := s.attachment(m[1]); a != nil {
+			http.Redirect(w, r, "/file/"+mediaFileID(a.id)+"/binary", http.StatusFound)
+			return
+		}
+	}
+	if m := mediaFileRe.FindStringSubmatch(p); m != nil && r.Method == http.MethodGet {
+		if a := s.attachment(strings.TrimLeft(m[1], "0")); a != nil {
 			w.Header().Set("Content-Type", a.mime)
 			_, _ = w.Write(a.data)
 			return
@@ -449,7 +457,7 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 		return map[string]any{"comments": out, "total": len(out), "maxResults": len(out), "startAt": 0}, true
 	case "POST /comment":
 		s.seq++
-		c := comment{id: strconv.Itoa(s.seq), author: me, body: adfText(body["body"]), created: time.Now()}
+		c := comment{id: strconv.Itoa(s.seq), author: me, body: adfText(body["body"]), doc: written(body["body"]), created: time.Now()}
 		c.parent, _ = body["parentId"].(string)
 		if v, ok := body["visibility"].(map[string]any); ok {
 			// As Jira: a group posted by its ID comes back with its name too.
@@ -471,7 +479,7 @@ func (s *Server) issueRoute(method string, iss *issue, sub, id string, body map[
 	case "PUT /comment":
 		for i, c := range iss.comments {
 			if c.id == id {
-				iss.comments[i].body = adfText(body["body"])
+				iss.comments[i].body, iss.comments[i].doc = adfText(body["body"]), written(body["body"])
 				return commentJSON(iss.comments[i]), true
 			}
 		}
@@ -922,6 +930,9 @@ func (s *Server) attach(iss *issue, contentType string, raw []byte) []any {
 	iss.updated = time.Now()
 	return out
 }
+
+// mediaFileID is attachment id's media file, as Jira's Media Services names it.
+func mediaFileID(id string) string { return fmt.Sprintf("00000000-0000-4000-8000-%012s", id) }
 
 // attachment is the upload with id, nil for none.
 func (s *Server) attachment(id string) *attachment {

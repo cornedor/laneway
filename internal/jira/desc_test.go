@@ -566,3 +566,10 @@ func TestMarkdownToADFIndentedListTerminates(t *testing.T) {
 		t.Fatalf("items lost: %s", b)
 	}
 }
+func TestCodeBlockInTableCell(t *testing.T) {
+	raw := json.RawMessage(`{"type":"doc","content":[{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"codeBlock","attrs":{"language":"ts"},"content":[{"type":"text","text":"function x() {\n  return a|b;\n}"}]}]}]}]}]}`)
+	md := adfToMarkdown(raw)
+	if want := "`function x() {`<br>`  return a\\|b;`<br>`}`"; !strings.Contains(md, want) {
+		t.Errorf("markdown = %q, want it to hold %q", md, want)
+	}
+}

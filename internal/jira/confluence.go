@@ -102,8 +102,9 @@ func (c *Client) ConfluencePage(ctx context.Context, id string) (Page, error) {
 	return Page{ID: resp.ID, Title: safeterm.Line(resp.Title), URL: base + resp.Links.WebUI, Markdown: safeterm.Text(md)}, nil
 }
 
-// pageImageRe is an image of the page's: its name only.
-var pageImageRe = regexp.MustCompile(`!\[([^\]\n]*)\]\(` + mediaRef + `\)`)
+// pageImageRe is an image of the page's: its name (its media id and size
+// as adfToMarkdown writes them dropped).
+var pageImageRe = regexp.MustCompile(`!\[([^\]\n]*)\]\(` + mediaRef + `(?:#[0-9a-fA-F-]{1,64})?(?: "[^"\n]*")?\)`)
 
 // pageMedium is a media node of a page: its file and name.
 type pageMedium struct{ id, alt string }

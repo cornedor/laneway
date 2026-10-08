@@ -203,12 +203,13 @@ func (m *Model) loadImage(key string, get func() ([]byte, error)) tea.Cmd {
 // issueShowsAttachment reports whether the description or a comment embeds
 // attachment att, so files only listed on the issue aren't downloaded.
 func issueShowsAttachment(iss *jira.Issue, att string) bool {
-	ref := "](" + jira.AttachmentScheme + att + ")"
-	if strings.Contains(iss.Description, ref) {
+	ref := "](" + jira.AttachmentScheme + att
+	shows := func(md string) bool { return strings.Contains(md, ref+")") || strings.Contains(md, ref+` "`) } // a picture's size may follow
+	if shows(iss.Description) {
 		return true
 	}
 	for _, c := range iss.Comments {
-		if strings.Contains(c.Body, ref) {
+		if shows(c.Body) {
 			return true
 		}
 	}

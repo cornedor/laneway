@@ -1,16 +1,25 @@
-// Markdown editor: markdown drawn as rich text, its markers shown only on the
-// caret's line (lib/mdarea.js, lib/mdhl.js; Source shows them all): enter
-// continues a list, quote or table, tab nests a list item or steps through a
-// table's cells, a task box clicks, a marker typed over a selection wraps it,
-// pasted HTML comes in as markdown (lib/html2md.js), alt+↑↓ move lines, ctrl+click
-// follows a link; a formatting toolbar, a `/` menu for Jira formatting, `@`
-// mentions, `:` emoji, ctrl+b/i/k, ctrl+p preview, full screen and pasted/dropped files.
+// The text editor of comments, descriptions and rich-text fields, in two modes, switched in its toolbar
+// (kept per browser): Visual (lib/rte.js: Jira's document as it shows, edited in place) and Markdown,
+// the markdown drawn as rich text, its markers shown only on the caret's line (lib/mdarea.js,
+// lib/mdhl.js; Source shows them all): enter continues a list, quote or table, tab nests a list item or
+// steps through a table's cells, a task box clicks, a marker typed over a selection wraps it, pasted
+// HTML comes in as markdown (lib/html2md.js), alt+↑↓ move lines, ctrl+click follows a link; a
+// formatting toolbar, a `/` menu for Jira formatting, `@` mentions, `:` emoji, ctrl+b/i/k, ctrl+p
+// preview. Both: full screen, pasted or dropped files, drafts.
 //
-//   const e = mdEdit(app, {value, rows, placeholder, mono, issueKey, project, label, save(text, mentions), cancel,
+//   const e = mdEdit(app, {doc | value, kept, editable, reason, rows, placeholder, mono, issueKey, project, label, save, cancel,
 //                          allowEmpty, noCancel, people() → Map(name → accountId), mdOpts() → render options, onFiles(files), hint,
 //                          draft: an id ("comment:KEY", "desc:KEY", "desc:KEY:comment:ID") kept in the state file as the TUI's drafts,
-//                          base: the Base of the document it edits, kept with the draft and handed to save(text, mentions, base)})
-//   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.ta, e.mentions, e.size(), e.focus(), e.rebase(base)
+//                          base: the Base of the document it edits, kept with the draft and handed to save})
+//   With doc (ADF; null for none) it edits a document: save(doc, base); kept, editable and reason are the
+//   server's markdown of it (editable), for the Markdown mode. With value (markdown) it saves markdown:
+//   save(text, mentions, base). onFiles uploads files and answers each one's attachment ({ID, Filename, MediaID} or null).
+//   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.focus(), e.isEmpty(), e.clear(), e.onInput(fn),
+//   e.value() → Promise of the doc, or {text, mentions}; e.current() → {doc} or {text, mentions, kept} as it is now (no conversion;
+//   kept: the nodes its placeholders name, to send along),
+//   e.doc() (Visual, else null), e.text() (Markdown, else ''), e.mode(), e.ready() → Promise of the Visual mode mounted,
+//   e.set(doc | markdown), e.setMarkdown(text), e.markdown() → Promise of it as markdown to read, e.mention(user, prepend),
+//   e.unmention(name), e.snapshot(), e.restore(s), e.contains(el), e.preview(), e.dispose(), e.dropDraft(), e.rebase(base)
 //   save answering false keeps the editor and its draft (a save Jira refused).
 import { h, clear, debounce, onLeave } from './dom.js';
 import { icon } from './icons.js';
@@ -26,9 +35,16 @@ import { mentionsIn } from './comment.js';
 css('mdedit');
 
 const today = () => new Date().toISOString().slice(0, 10);
-const MODE = 'laneway.editor.source'; // this browser shows the markdown as typed, not rendered
-const source = () => { try { return localStorage.getItem(MODE) === '1'; } catch (e) { return false; } };
+const SOURCE = 'laneway.editor.source'; // Markdown mode shows the markdown as typed, not rendered
+const MODE = 'laneway.editor.mode'; // 'markdown', or Visual
+const pref = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+const setPref = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* this time only */ } };
+const source = () => pref(SOURCE, '0') === '1';
 const PANELS = ['info', 'note', 'success', 'warning', 'error'];
+// The visual editor (ProseMirror, ~170 KB) loads with the first editor that shows it.
+let rteModule = null;
+const loadRte = () => (rteModule = rteModule || import('./rte.js'));
+const EMPTY = { type: 'doc', version: 1, content: [] };
 
 // Slash commands: apply(ctl) runs with the typed "/query" already removed.
 const SLASH = [
@@ -57,8 +73,31 @@ const SLASH = [
     .map(([label, hex]) => ({ name: 'colour' + label, label: T('Text colour: %s', label), run: c => c.wrap('<span style="color:' + hex + '">', '</span>', 'text') })),
 ];
 
+// Who a document mentions, as {AccountID, DisplayName}.
+const mentionsOf = doc => {
+  const out = [];
+  const walk = n => {
+    if (!n || typeof n !== 'object') return;
+    if (n.type === 'mention' && n.attrs && n.attrs.id && !out.some(m => m.AccountID === n.attrs.id)) out.push({ AccountID: n.attrs.id, DisplayName: String(n.attrs.text || '').replace(/^@/, '') });
+    (n.content || []).forEach(walk);
+  };
+  walk(doc);
+  return out;
+};
+const hasContent = doc => !!(doc && Array.isArray(doc.content) && doc.content.length);
+
 export function mdEdit(app, o) {
   const { api, ui } = app;
+  const adf = 'doc' in o; // edits a document (ADF), not markdown
+  let kept = (o.kept || []).slice(); // the Markdown mode's placeholders: the nodes markdown can't carry
+  const editable = o.editable !== false;
+  // Markdown when that is the pref and it can hold the document (one given only as a document starts Visual).
+  let mode = pref(MODE, 'visual') === 'markdown' && (!adf || (editable && !(hasContent(o.doc) && !(o.value || '').trim()))) ? 'markdown' : 'visual';
+  let keptMoved = false; // kept is a switch's, not the one the editor opened with: a Markdown draft goes as the document
+  const listeners = [];
+  const changed = () => { touched = true; for (const f of listeners) f(); draft.save(); };
+  let touched = false;
+
   const mentions = [];
   const glyphs = new Map(); // emoji taken here → glyph, for the preview
   // Longest first, so "@Ann Lee" wins over "@Ann".
@@ -79,7 +118,7 @@ export function mdEdit(app, o) {
     if (!m || m.replace(/\s+/g, ' ').trim() === t.replace(/\s+/g, ' ').trim()) return null;
     return { from: a, to: b, text: m, a: a + m.length, b: a + m.length };
   };
-  const ta = mdArea('div.input.ed-ta' + (o.mono ? '.mono' : '') + (source() ? '' : '.live'), { value: o.value, rows: o.rows || 4, placeholder: o.placeholder,
+  const ta = mdArea('div.input.ed-ta' + (o.mono ? '.mono' : '') + (source() ? '' : '.live'), { value: adf && mode === 'visual' ? '' : o.value, rows: o.rows || 4, placeholder: o.placeholder,
     lines: t => {
       const ns = names(), sig = ns.join('\u0001') + (glyph('smile') ? '+' : '');
       if (sig !== cacheSig) { cache.clear(); cacheSig = sig; }
@@ -201,7 +240,7 @@ export function mdEdit(app, o) {
   }
   const inFence = t => (t.match(/^```/gm) || []).length % 2 === 1;
 
-  // ---- preview
+  // ---- preview (Markdown mode)
   const renderPreview = () => {
     if (preview.hidden) return;
     let text = ta.value;
@@ -209,12 +248,16 @@ export function mdEdit(app, o) {
     clear(preview).append(text.trim() ? md(text, o.mdOpts ? o.mdOpts() : {}) : h('p.faint', T('Nothing to preview.')));
   };
   const livePreview = debounce(renderPreview, 120);
-  const togglePreview = () => { preview.hidden = !preview.hidden; bPrev.classList.toggle('on', !preview.hidden); renderPreview(); ta.focus({ preventScroll: true }); };
+  const togglePreview = () => {
+    if (mode !== 'markdown') return;
+    preview.hidden = !preview.hidden; bPrev.classList.toggle('on', !preview.hidden); renderPreview(); ta.focus({ preventScroll: true });
+  };
 
   // ---- files: onFiles uploads them and answers each one's attachment ({ID, Filename}, or null).
   // On an issue an image goes in the text where it was pasted: a line while it uploads, then ![name](attachment:ID).
   let uploads = 0;
   async function files(list) {
+    if (mode === 'visual' && r) return r.files(list);
     if (!o.onFiles) return;
     const marks = list.map(f => o.issueKey && f.type.startsWith('image/') ? '![' + T('Uploading %s %d…', f.name || T('image'), ++uploads) + ']()' : '');
     const shown = marks.filter(Boolean);
@@ -234,22 +277,16 @@ export function mdEdit(app, o) {
     if (shown.length) ta.dispatchEvent(new Event('input'));
   }
 
-  // ---- toolbar
+  // ---- the Markdown mode's toolbar
   const btn = (label, title, fn, cls = '') => h('button.tb' + cls, { type: 'button', title, tabindex: -1, onmousedown: e => e.preventDefault(), onclick: fn }, label);
   const bPrev = btn(T('Preview'), T('Preview (ctrl+p)'), togglePreview, '.txt');
   const bSrc = btn(T('Source'), T('Show the markdown everywhere, not only on the caret’s line'), () => {
     const on = ta.classList.toggle('live');
     bSrc.classList.toggle('on', !on);
-    try { localStorage.setItem(MODE, on ? '0' : '1'); } catch (e) { /* this time only */ }
+    setPref(SOURCE, on ? '0' : '1');
     ta.focus({ preventScroll: true });
   }, '.txt' + (source() ? '.on' : ''));
-  const full = () => {
-    const on = node.classList.toggle('full');
-    bFull.classList.toggle('on', on);
-    ta.focus({ preventScroll: true });
-  };
-  const bFull = btn(icon('maximize-2'), T('Full screen (esc leaves it)'), full);
-  const toolbar = h('div.ed-tools', { role: 'toolbar' },
+  const mdTools = h('div.ed-tools', { role: 'toolbar' },
     btn(icon('bold'), T('Bold (ctrl+b)'), () => ctl.wrap('**', '**', 'bold')), btn(icon('italic'), T('Italic (ctrl+i)'), () => ctl.wrap('*', '*', 'italic')),
     btn(icon('strikethrough'), T('Strikethrough'), () => ctl.wrap('~~', '~~', 'text')), btn(icon('code'), T('Inline code'), () => ctl.wrap('`', '`', 'code')),
     btn(icon('link'), T('Link (ctrl+k)'), () => ctl.link()), h('i.sep'),
@@ -257,51 +294,152 @@ export function mdEdit(app, o) {
     btn(icon('list-todo'), T('Task list'), () => ctl.line('- [ ] ')), btn(icon('quote'), T('Quote'), () => ctl.line('> ')), btn(icon('square-code'), T('Code block'), () => ctl.block('```\n', '\n```', '')), h('i.sep'),
     btn('/', T('Insert… (type / in the text)'), () => { ctl.insert('/'); trigger(); }), btn(icon('at-sign'), T('Mention'), () => { ctl.insert('@'); trigger(); }),
     o.onFiles && btn(icon('paperclip'), T('Attach files (or paste, or drop them)'), () => fileIn.click()),
-    h('span.spacer'), bSrc, bPrev, bFull);
+    h('span.spacer'), bSrc, bPrev);
   if (!o.onFiles) fileIn.remove();
 
+  // ---- what both modes share: the mode switch, full screen
+  const full = () => {
+    const on = node.classList.toggle('full');
+    bFull.classList.toggle('on', on);
+    focus();
+  };
+  const bFull = btn(icon('maximize-2'), T('Full screen (esc leaves it)'), full);
+  const bVis = h('button', { type: 'button', tabindex: -1, title: T('Edit it as it shows'), onmousedown: e => e.preventDefault(), onclick: () => toMode('visual') }, T('Visual'));
+  const bMd = h('button', { type: 'button', tabindex: -1, onmousedown: e => e.preventDefault(), onclick: () => toMode('markdown'),
+    disabled: adf && !editable, title: adf && !editable ? T('Markdown can’t hold this one: %s', o.reason || T('it has what markdown can’t write')) : T('Edit the markdown') }, T('Markdown'));
+  const modeSw = h('span.ed-mode', { role: 'group', 'aria-label': T('Editor mode') }, bVis, bMd);
+  const right = h('span.ed-right', modeSw, bFull);
+
   // ---- shell
-  const node = h('div.ed', toolbar, ta, pop, preview, fileIn,
+  const head = h('div.ed-head');
+  const body = h('div.ed-body');
+  document.body.append(pop); // floats over the page: in the panel, contain would hold position: fixed to it
+  const node = h('div.ed', head, body, preview, fileIn,
     h('div.ed-foot', h('span.dim.hint', o.hint || (o.noCancel ? T('ctrl+⏎ %s · / formats', (o.label || T('Save')).toLowerCase()) : T('ctrl+⏎ %s · esc cancels · / formats', (o.label || T('Save')).toLowerCase()))), h('span.spacer'),
       !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => node._cancel() }, T('Cancel')), o.save && go));
-  const size = () => {}; // the field grows with its text (css: max-height)
+
+  // ---- the Visual mode: mounted once its module is in
+  let r = null, pendingFocus = null, mounting = null;
+  const mountVisual = async (doc) => {
+    const m = await loadRte();
+    if (disposed) return;
+    if (r) { r.setDoc(doc); return; }
+    r = m.rte({ doc, placeholder: o.placeholder, rows: o.rows || 4, issueKey: o.issueKey, project: o.project, site: app.session && app.session.baseURL,
+      isKey: o.mdOpts && o.mdOpts().isKey, onKey: o.mdOpts && o.mdOpts().onKey, people: o.people, api, ui,
+      upload: o.issueKey && o.onFiles ? o.onFiles : null, onFiles: !o.issueKey && o.onFiles ? o.onFiles : null,
+      convert: async text => (await api.post('/adf/doc', { Markdown: text, Kept: [], People: mentionsIn(text, [], people()) })).Doc,
+      onChange: changed, keys: app.keys });
+  };
+  const showMode = () => {
+    bVis.classList.toggle('on', mode === 'visual'); bMd.classList.toggle('on', mode === 'markdown');
+    bVis.setAttribute('aria-pressed', String(mode === 'visual')); bMd.setAttribute('aria-pressed', String(mode === 'markdown'));
+    node.classList.toggle('visual', mode === 'visual');
+    if (mode === 'visual') {
+      preview.hidden = true;
+      clear(head).append(r ? r.toolbar : h('div.ed-tools'), right);
+      if (r) { if (!r.toolbar.querySelector(':scope > .spacer')) r.toolbar.append(h('span.spacer')); r.toolbar.append(right); }
+      clear(body).append(r ? r.el : h('div.input.ed-ta', { style: { minHeight: 'calc(' + (o.rows || 4) + ' * 1.5em + .714rem + 2px)' } }));
+    } else {
+      mdTools.append(right);
+      clear(head).append(mdTools);
+      clear(body).append(ta);
+    }
+  };
+  // Switching converts what is written: the document to markdown (refused when markdown can't hold it) or back.
+  async function toMode(m, quiet) {
+    if (m === mode || mounting) return;
+    if (r && r.busy()) return ui.toast(T('A file is still uploading'));
+    node.classList.add('ed-busy');
+    try {
+      if (m === 'markdown') {
+        const doc = r ? r.getDoc() : EMPTY;
+        if (hasContent(doc) || adf) {
+          const c = await api.post('/adf/markdown', { Doc: doc });
+          if (adf && !c.Editable) { ui.toast(T('Markdown can’t hold this one: %s', c.Reason || ''), { kind: 'err' }); return; }
+          if (adf) { ta.value = c.Markdown; kept = c.Kept || []; keptMoved = true; } else { ta.value = c.Text; mentions.push(...mentionsOf(doc).filter(x => !mentions.some(y => y.AccountID === x.AccountID))); }
+        }
+      } else {
+        mounting = mountVisual(await toDoc());
+        await mounting;
+      }
+      mode = m;
+      if (!quiet) setPref(MODE, m);
+      showMode();
+      focus();
+    } catch (e) { ui.errToast(e); } finally { mounting = null; node.classList.remove('ed-busy'); }
+  }
+  // The Markdown mode's text as a document.
+  const toDoc = async () => {
+    if (!ta.value.trim()) return EMPTY;
+    return (await api.post('/adf/doc', { Markdown: ta.value, Kept: kept, People: mentionsIn(ta.value, mentions, people()) })).Doc;
+  };
+  const isEmpty = () => (mode === 'visual' ? (r ? r.isEmpty() : !(adf ? hasContent(o.doc) : (o.value || '').trim())) : !ta.value.trim());
+  const focus = end => {
+    if (mode === 'visual') { if (r) r.focus(end); else pendingFocus = end || false; return; }
+    ta.focus({ preventScroll: true }); if (end !== false) ta.setSelectionRange(ta.value.length);
+  };
+  async function value() {
+    if (mounting) await mounting;
+    if (adf) return mode === 'visual' ? (r ? r.getDoc() : o.doc || EMPTY) : toDoc();
+    if (mode === 'markdown') return { text: ta.value, mentions: mentionsIn(ta.value, mentions, people()) };
+    const doc = r ? r.getDoc() : EMPTY;
+    if (!hasContent(doc)) return { text: '', mentions: [] };
+    const c = await api.post('/adf/markdown', { Doc: doc });
+    return { text: c.Text, mentions: mentionsOf(doc) };
+  }
+
   let busy = false;
   let base = o.base || '';
   async function run() {
-    if (busy || !o.save || (!o.allowEmpty && !ta.value.trim())) return;
-    busy = true; go.disabled = true; ta.readOnly = true;
-    const text = ta.value;
-    try { if (await o.save(text, mentionsIn(text, mentions, people()), base) !== false) draft.drop(); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
+    if (busy || !o.save) return;
+    if (mode === 'visual' && r && r.busy()) return ui.toast(T('A file is still uploading'));
+    if (!o.allowEmpty && isEmpty()) return;
+    busy = true; go.disabled = true; node.classList.add('ed-busy');
+    try {
+      const v = await value();
+      const ok = adf ? await o.save(v, base) : await o.save(v.text, v.mentions, base);
+      if (ok !== false) { draft.drop(); touched = false; }
+    } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; node.classList.remove('ed-busy'); }
   }
   node._save = run;
   // Cancelling with changes asks first (TUI: esc in the description editor); it drops the draft too.
   node._cancel = async () => {
     closePop();
-    if (o.noCancel || !o.cancel) return ta.blur();
-    if (ta.value !== (o.value || '') && !await ui.confirm({ title: T('Discard your changes?'), text: T('What you typed here is lost.'), ok: T('Discard'), danger: true })) return ta.focus();
+    if (o.noCancel || !o.cancel) return document.activeElement && document.activeElement.blur();
+    if (touched && !await ui.confirm({ title: T('Discard your changes?'), text: T('What you typed here is lost.'), ok: T('Discard'), danger: true })) return focus(false);
     draft.drop(); o.cancel();
   };
 
   // ---- drafts: what is typed is kept a moment after each change (TUI drafts.go: "unix base\ntext" under jira_tab:draft:),
-  // so a reload or the terminal brings it back; saving or discarding drops it. Leaving the page sends the last
-  // moment's typing (keepalive: it outlives the page). A restored draft saves against the document it was written on:
-  // one Jira changed since asks first.
+  // so a reload or the terminal brings it back; saving or discarding drops it. The Visual mode's goes as the document
+  // (the server keeps its markdown for the TUI). Leaving the page sends the last moment's typing (keepalive: it outlives
+  // the page). A restored draft saves against the document it was written on: one Jira changed since asks first.
   const draft = { save: () => {}, drop: () => {}, flush: () => {} };
   if (o.draft) {
     const path = '/drafts/' + encodeURIComponent(o.draft);
     let typed = false;
-    const keep = (keepalive = false) => (ta.value.trim() && ta.value !== (o.value || '') ? api.put(path, { Text: ta.value, Base: base }, { keepalive }) : api.del(path, undefined, { keepalive })).catch(() => {});
+    const keep = async (keepalive = false) => {
+      if (!touched || isEmpty()) return api.del(path, undefined, { keepalive }).catch(() => {});
+      if (mode === 'visual' && r && r.busy()) return; // kept once its files are in
+      try {
+        const body = mode === 'visual' && r ? { Doc: r.getDoc(), Base: base } : keptMoved ? { Doc: await toDoc(), Base: base } : { Text: ta.value, Base: base };
+        await api.put(path, body, { keepalive });
+      } catch (e) { /* the next change tries again */ }
+    };
     const later = debounce(() => { if (typed) keep(); }, 2000);
     draft.save = () => { typed = true; later(); };
     draft.drop = () => { typed = false; api.del(path).catch(() => {}); };
     draft.flush = keepalive => { if (typed) keep(keepalive); typed = false; };
-    api.get(path, { fresh: true }).then(d => {
-      if (!d || !d.Text || d.Text === ta.value || ta.value !== (o.value || '')) return;
-      ta.value = d.Text; size();
-      const was = base;
+    api.get(path, { fresh: true }).then(async d => {
+      if (!d || (!d.Text && !d.Doc) || touched) return;
+      if (mounting) await mounting;
+      if (touched) return;
+      const was = base, before = snapshot();
+      if (d.Doc) await set(d.Doc, true); else if (!adf) await set(d.Text, true); else await setMarkdown(d.Text, true);
+      touched = true;
       if (d.Base && base) base = d.Base;
       ui.toast(base !== was ? T('Draft restored; Jira’s has changed since') : T('Draft restored'),
-        { action: { label: T('Drop it'), run: () => { ta.value = o.value || ''; base = was; size(); draft.drop(); } } });
+        { action: { label: T('Drop it'), run: () => { restore(before); touched = false; base = was; draft.drop(); } } });
     }).catch(() => {});
   }
   node._escape = () => {
@@ -310,7 +448,67 @@ export function mdEdit(app, o) {
     return false;
   };
 
-  ta.addEventListener('input', () => { size(); trigger(); livePreview(); draft.save(); });
+  // ---- setting what is written
+  // set: a document (or, editing markdown, markdown) as the text, in whichever mode shows.
+  async function set(v, quiet) {
+    if (adf || (v && typeof v === 'object')) {
+      const doc = v && typeof v === 'object' ? v : EMPTY;
+      if (mode === 'visual') { if (r) r.setDoc(doc); else await (mounting = mountVisual(doc)).finally(() => { mounting = null; }); } else {
+        const c = await api.post('/adf/markdown', { Doc: doc });
+        if (c.Editable) { ta.value = c.Markdown; kept = c.Kept || []; keptMoved = true; } else {
+          // Markdown can't hold it: it shows Visual.
+          await (mounting = mountVisual(doc)).finally(() => { mounting = null; });
+          mode = 'visual'; showMode();
+        }
+      }
+    } else if (mode === 'markdown') ta.value = v || '';
+    else await setMarkdown(v || '', quiet);
+    if (!quiet) changed();
+  }
+  // setMarkdown: text as what is written; untouched: only while nothing was typed (a template).
+  async function setMarkdown(text, quiet, untouched) {
+    if (untouched && touched) return;
+    if (mode === 'markdown') ta.value = text;
+    else {
+      const doc = text.trim() ? (await api.post('/adf/doc', { Markdown: text, Kept: kept, People: mentionsIn(text, mentions, people()) })).Doc : EMPTY;
+      if (untouched && touched) return;
+      if (r) r.setDoc(doc); else await (mounting = mountVisual(doc)).finally(() => { mounting = null; });
+    }
+    if (!quiet) changed();
+  }
+  const snapshot = () => ({ mode, doc: mode === 'visual' ? (r ? r.getDoc() : (adf && o.doc) || EMPTY) : null, text: ta.value, kept: kept.slice(), mentions: mentions.slice() });
+  function restore(s) {
+    if (!s) return;
+    kept = s.kept || kept; mentions.splice(0, mentions.length, ...(s.mentions || []));
+    if (s.mode === 'visual' && s.doc) return set(s.doc, true);
+    if (s.mode === 'markdown') return mode === 'markdown' ? (ta.value = s.text) : setMarkdown(s.text, true);
+  }
+  // A mention at the start (a reply's @Author), or one taken out again.
+  function mention(u, prepend) {
+    if (u.AccountID && !mentions.some(m => m.AccountID === u.AccountID)) mentions.push({ AccountID: u.AccountID, DisplayName: u.DisplayName });
+    const tag = '@' + u.DisplayName + ' ';
+    if (mode === 'markdown') { if (!ta.value.startsWith(tag)) ta.value = (prepend ? tag + ta.value : ta.value + tag); return; }
+    if (!r) return;
+    const v = r.view, { schema } = v.state, n = schema.nodes.mention.create({ id: u.AccountID, text: '@' + u.DisplayName, accessLevel: '' });
+    const first = v.state.doc.firstChild;
+    if (prepend && first && first.firstChild && first.firstChild.type === n.type && first.firstChild.attrs.id === u.AccountID) return;
+    // At the start of the first paragraph; before anything else (a code block, a picture) in one of its own.
+    const tr = !prepend ? v.state.tr.replaceSelectionWith(n).insertText(' ')
+      : first && first.type === schema.nodes.paragraph ? v.state.tr.insert(1, [n, schema.text(' ')]) : v.state.tr.insert(0, schema.nodes.paragraph.create(null, [n, schema.text(' ')]));
+    v.dispatch(tr);
+  }
+  function unmention(name) {
+    const tag = '@' + name + ' ';
+    if (mode === 'markdown') { if (ta.value.startsWith(tag)) ta.value = ta.value.slice(tag.length); return; }
+    if (!r) return;
+    const v = r.view, first = v.state.doc.firstChild, m = first && first.firstChild;
+    if (m && m.type.name === 'mention' && String(m.attrs.text).replace(/^@/, '') === name) {
+      const next = first.childCount > 1 ? first.child(1) : null, extra = next && next.isText && next.text.startsWith(' ') ? 1 : 0;
+      v.dispatch(v.state.tr.delete(1, 1 + m.nodeSize + extra));
+    }
+  }
+
+  ta.addEventListener('input', () => { trigger(); livePreview(); changed(); });
   ta.addEventListener('keydown', e => {
     if (e.defaultPrevented) return;
     if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && pop.hidden) {
@@ -359,10 +557,12 @@ export function mdEdit(app, o) {
     const fs = [...(e.clipboardData ? e.clipboardData.files : [])];
     if (fs.length && o.onFiles) { e.preventDefault(); files(fs); }
   });
+  // Files dropped on the Markdown mode; the Visual one takes its own where they land.
   for (const t of ['dragenter', 'dragover']) node.addEventListener(t, e => { if (o.onFiles && e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); node.classList.add('drop'); } });
   node.addEventListener('dragleave', e => { if (!node.contains(e.relatedTarget)) node.classList.remove('drop'); });
   node.addEventListener('drop', e => {
     node.classList.remove('drop');
+    if (mode === 'visual') return;
     if (o.onFiles && e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); files([...e.dataTransfer.files]); }
   });
 
@@ -382,9 +582,35 @@ export function mdEdit(app, o) {
   });
   const release = () => { draft.flush(); if (scope) { scope.dispose(); scope = null; } };
   ta.addEventListener('blur', release);
+  node.addEventListener('focusout', e => { if (mode === 'visual' && !node.contains(e.relatedTarget)) draft.flush(); });
   const unLeave = o.draft ? onLeave(() => draft.flush(true)) : () => {};
 
-  requestAnimationFrame(size);
-  return { el: node, ta, mentions, size, focus: () => { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length); },
-    preview: togglePreview, dispose: () => { release(); unLeave(); }, dropDraft: () => draft.drop(), rebase: b => { base = b; } };
+  // ---- start: the Visual mode mounts on its document (a markdown value converted first), the Markdown one at once
+  let disposed = false;
+  showMode();
+  if (mode === 'visual') {
+    // A document starts as it is; markdown (or a document given only as markdown) is made one first.
+    const md0 = (o.value || '').trim() && (!adf || !hasContent(o.doc));
+    const first = md0 ? api.post('/adf/doc', { Markdown: o.value, Kept: kept, People: mentionsIn(o.value, [], people()) }).then(c => c.Doc) : Promise.resolve(o.doc || EMPTY);
+    mounting = first.then(mountVisual).then(() => {
+      showMode();
+      if (pendingFocus !== null) { r.focus(pendingFocus); pendingFocus = null; }
+    }).catch(e => {
+      // No visual editor: the markdown one, as it was.
+      console.warn('visual editor', e);
+      if (adf && !editable) return ui.errToast(e);
+      if (adf) ta.value = o.value || '';
+      mode = 'markdown'; showMode();
+    }).finally(() => { mounting = null; });
+  }
+
+  // current: what is written, now: {doc} (Visual) or {text, mentions} (Markdown).
+  const current = () => (mode === 'visual' ? (r ? { doc: r.getDoc() } : adf && hasContent(o.doc) ? { doc: o.doc } : { text: o.value || '', mentions: [] })
+    : { text: ta.value, mentions: mentionsIn(ta.value, mentions, people()), kept: kept.length ? kept.slice() : undefined });
+
+  return { el: node, focus, isEmpty, value, current, mode: () => mode, doc: () => (mode === 'visual' && r ? r.getDoc() : null), text: () => (mode === 'markdown' ? ta.value : ''),
+    clear: () => { touched = false; if (r) r.setDoc(EMPTY); ta.value = ''; mentions.length = 0; },
+    onInput: fn => listeners.push(fn), set, setMarkdown, markdown: async () => (mode === 'markdown' ? ta.value : r && !r.isEmpty() ? (await api.post('/adf/markdown', { Doc: r.getDoc() })).Text : ''),
+    mention, unmention, snapshot, restore, contains: el => node.contains(el), ready: () => mounting || Promise.resolve(),
+    preview: togglePreview, dispose: () => { disposed = true; release(); unLeave(); pop.remove(); if (r) r.destroy(); }, dropDraft: () => draft.drop(), rebase: b => { base = b; } };
 }

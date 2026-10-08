@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -84,12 +85,19 @@ type Value struct {
 	Text    string   // text, doc (as markdown), number
 	Users   []User   // user, users
 	Options []Option // option, options
+	// Doc is a doc's (or comment's) ADF, the web's visual editor's, in place of Text.
+	Doc json.RawMessage `json:",omitempty"`
+	// Kept are the nodes Text's placeholder lines name (EditableDescription's).
+	Kept []json.RawMessage `json:",omitempty"`
 }
 
 // Empty reports whether the value holds nothing.
 func (v Value) Empty() bool {
-	return strings.TrimSpace(v.Text) == "" && len(v.Users) == 0 && len(v.Options) == 0
+	return strings.TrimSpace(v.Text) == "" && len(v.Users) == 0 && len(v.Options) == 0 && !hasContent(v.Doc)
 }
+
+// hasContent reports whether doc is an ADF document with content.
+func hasContent(doc json.RawMessage) bool { d, err := CheckDoc(doc); return err == nil && d != nil }
 
 // TransitionsMeta lists the moves offered on an issue, with screen fields.
 func (c *Client) TransitionsMeta(ctx context.Context, key string) ([]TransitionMeta, error) {
@@ -379,10 +387,17 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 		id, err := strconv.Atoi(v.Options[0].ID)
 		return id, true, err
 	case KindDoc:
+		if len(v.Doc) > 0 && string(v.Doc) != "null" {
+			d, err := CheckDoc(v.Doc)
+			if err != nil || d == nil {
+				return nil, true, err
+			}
+			return d, true, nil
+		}
 		if strings.TrimSpace(v.Text) == "" {
 			return nil, true, nil
 		}
-		return MarkdownToADFKept(v.Text, MentionNodes(v.Users)), true, nil
+		return MarkdownToADFKept(v.Text, append(slices.Clone(v.Kept), MentionNodes(v.Users)...)), true, nil
 	case KindOption:
 		if len(v.Options) == 0 {
 			return nil, true, nil

@@ -1,8 +1,9 @@
 # Markdown editor
 
-Descriptions, rich-text fields and your own comments edit as markdown, in
-the terminal and in the browser alike. laneway turns it into Jira's
-document format on save and back again on the next edit.
+Descriptions, rich-text fields and your own comments edit as markdown in
+the terminal, and in the browser as markdown or visually (below). laneway
+turns markdown into Jira's document format on save and back again on the
+next edit.
 
 ## Plain markdown
 
@@ -64,13 +65,28 @@ its widths while the column count stays.
 
 === "Browser"
 
-    Markdown draws as rich text, its markers shown only on the caret's line
-    (*Source* shows them all). `ctrl+enter` saves, `esc` cancels (asking
-    once when there are changes). A toolbar formats; so do `ctrl+b`
-    `ctrl+i` `ctrl+k` (link) and `ctrl+e` (code).
-    `ctrl+p` previews, `alt+↑` `↓` move lines, `enter` continues a list,
-    quote or table, `tab` nests a list item or steps through cells. Pasted
-    HTML comes in as markdown; pasted or dropped files attach.
+    Two modes, switched in the toolbar (the choice is kept per browser):
+
+    - **Visual** edits Jira's document itself, as it shows, and saves it
+      as it is: nothing goes through markdown. Markdown typed still
+      formats (`# `, `- `, `1. `, `[] `, `> `, ```` ``` ````, `---`,
+      `**bold**`). `/` inserts (tables, panels, expands, decisions, dates,
+      status), `@` mentions, `:` picks an emoji. Pictures pasted or
+      dropped upload where they land; drag an edge to size one, the bar
+      over it places it left, centred, right or wrapped, sets its alt text
+      and caption. A bar over a table adds and removes rows and columns,
+      merges cells and colours them. Code blocks pick their language and
+      are coloured. What it can't edit (a macro) is kept as it was.
+    - **Markdown** draws markdown as rich text, its markers shown only on
+      the caret's line (*Source* shows them all); `ctrl+p` previews,
+      `alt+↑` `↓` move lines, `enter` continues a list, quote or table,
+      `tab` nests a list item or steps through cells. Pasted HTML comes in
+      as markdown.
+
+    Switching converts what you wrote (a document markdown can't hold
+    stays Visual). `ctrl+enter` saves, `esc` cancels (asking once when
+    there are changes); `ctrl+b` `ctrl+i` `ctrl+k` (link) and `ctrl+e`
+    (code) format in both.
 
 What you write is kept as a draft in the state file a moment after each
 change, shared by the terminal and the browser: open the editor on the

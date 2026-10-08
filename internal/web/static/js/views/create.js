@@ -46,10 +46,12 @@ export async function openCreate(app, opts = {}) {
   const files = [];
   const fileBar = h('div.ed-files');
   const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || T('image'), ' ', h('button.btn.ghost.sm', { type: 'button', title: T('Remove'), onclick: () => { files.splice(i, 1); paintFiles(); } }, icon('x')))));
-  const ed = mdEdit(app, { value: opts.description || (restore ? restore.description : ''), rows: 5, placeholder: T('Description (markdown). / formats, @ mentions, drop files to attach'), noCancel: true,
+  const ed = mdEdit(app, { doc: opts.descriptionDoc || (restore && restore.descriptionDoc) || null, value: opts.description || (restore ? restore.description || '' : ''), rows: 5,
+    placeholder: T('Description. / formats, @ mentions, drop files to attach'), noCancel: true,
     hint: T('files attach after creating'), project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
-  const description = ed.ta;
-  description.addEventListener('input', () => changed());
+  // typed: the description is the user's (typed, restored, a clone's), not the type's template.
+  let typed = !!(opts.description || opts.descriptionDoc || (restore && (restore.description || restore.descriptionDoc)));
+  ed.onInput(() => { typed = !ed.isEmpty(); changed(); });
   const sprintSel = h('select.input', h('option', { value: '' }, T('None (backlog)')));
   const sprintRow = h('div.form-sprint', { hidden: true });
   const count$ = h('div.faint.form-hint');
@@ -74,8 +76,8 @@ export async function openCreate(app, opts = {}) {
   const keep = (keepalive = false) => {
     if (!dirty || submitted) return;
     dirty = false;
-    const typed = summary.value.trim() || (description.value.trim() && description.value !== template);
-    draft = typed ? { project, type, summary: summary.value, description: description.value } : null;
+    const v = ed.current();
+    draft = summary.value.trim() || (typed && !ed.isEmpty()) ? { project, type, summary: summary.value, description: v.text || '', descriptionDoc: v.doc || null } : null;
     (draft ? app.api.put(DRAFT, { Text: JSON.stringify(draft) }, { keepalive }) : app.api.del(DRAFT, undefined, { keepalive })).catch(() => {});
   };
   const later = debounce(() => keep(), 2000);
@@ -121,8 +123,9 @@ export async function openCreate(app, opts = {}) {
     const ts = (app.session.ui && app.session.ui.Templates) || {};
     const k = Object.keys(ts).find(t => t.toLowerCase() === String(type).toLowerCase());
     const next = k ? ts[k] : '';
-    if (opts.cloneOf || (description.value.trim() && description.value !== template)) return;
-    description.value = next; template = next;
+    if (opts.cloneOf || typed || next === template) return;
+    template = next;
+    ed.ready().then(() => ed.setMarkdown(next, true, true)).catch(() => {});
   }
 
   async function loadSprints() {
@@ -200,13 +203,14 @@ export async function openCreate(app, opts = {}) {
       else if (f.ID === 'parent' && !w.empty()) Fields.push({ ID: f.ID, Kind: f.Kind, Value: w.get() });
     }
     const parent = opts.parent && !fields.some(f => f.ID === 'parent') ? opts.parent : '';
+    const cur = ed.current(), desc = cur.doc ? { DescriptionDoc: cur.doc } : { Description: cur.text, DescriptionKept: cur.kept };
     busy = true; okBtn.disabled = true; err.textContent = '';
     const made = [], warn = [];
     let failed = null;
     for (const [i, s] of sums.entries()) {
       okBtn.textContent = sums.length > 1 ? T('Creating %d/%d…', i + 1, sums.length) : T('Creating…');
       try {
-        const r = await app.api.post('/issues', { Project: project, Type: type, Summary: s, Description: description.value, Parent: parent, CloneOf: opts.cloneOf || '', Sprint: Number(sprintSel.value) || 0, Fields });
+        const r = await app.api.post('/issues', { Project: project, Type: type, Summary: s, ...desc, Parent: parent, CloneOf: opts.cloneOf || '', Sprint: Number(sprintSel.value) || 0, Fields });
         made.push(r.Key);
         if (files.length) await attach(r.Key);
         if (r.Warning) warn.push(r.Warning);
@@ -227,7 +231,7 @@ export async function openCreate(app, opts = {}) {
     submitted = true; draft = null; dirty = false;
     app.api.del(DRAFT).catch(() => {});
     if (another.checked) {
-      summary.value = ''; description.value = ''; applyTemplate(); count(); summary.focus(); submitted = false;
+      summary.value = ''; ed.clear(); typed = false; template = ''; applyTemplate(); count(); summary.focus(); submitted = false;
       return;
     }
     m.close();

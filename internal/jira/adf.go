@@ -37,6 +37,10 @@ type adfMark struct {
 // an exotic issue still reads sensibly. A nil/empty/garbage document yields "".
 func adfToMarkdown(raw json.RawMessage) string { return adfWithFiles(raw, nil) }
 
+// DocMarkdown is raw as markdown to read: what markdown can't carry
+// degrades to its text.
+func DocMarkdown(raw json.RawMessage) string { return adfToMarkdown(raw) }
+
 // adfWithFiles is adfToMarkdown with each inline file as files links it, by
 // media id; the rest stay _[file]_.
 func adfWithFiles(raw json.RawMessage, files map[string]string) string {
@@ -56,6 +60,32 @@ func adfWithFiles(raw json.RawMessage, files map[string]string) string {
 	return fileRe.ReplaceAllStringFunc(md, func(s string) string {
 		return cmp.Or(files[fileRe.FindStringSubmatch(s)[1]], "_[file]_")
 	})
+}
+
+// mediaIDRe is a media file id as a markdown image target may carry it.
+var mediaIDRe = regexp.MustCompile(`^[0-9a-fA-F-]{1,64}$`)
+
+var mediaLayout = regexp.MustCompile(`^[a-z-]{1,20}$`)
+
+// mediaTitle is a mediaSingle's width and layout as a markdown image title
+// ( "320px wrap-left", "50%"), "" when it is the default: as wide as it
+// is, centred.
+func mediaTitle(attrs map[string]any) string {
+	var parts []string
+	if w, ok := attrs["width"].(float64); ok && w > 0 {
+		if t, _ := attrs["widthType"].(string); t == "pixel" {
+			parts = append(parts, strconv.Itoa(int(w))+"px")
+		} else {
+			parts = append(parts, strconv.FormatFloat(min(w, 100), 'f', -1, 64)+"%")
+		}
+	}
+	if l, _ := attrs["layout"].(string); l != "" && l != "center" && mediaLayout.MatchString(l) {
+		parts = append(parts, l)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ` "` + strings.Join(parts, " ") + `"`
 }
 
 // fileRef is the placeholder target inline writes for an inline file, its
@@ -141,14 +171,27 @@ func writeBlock(b *strings.Builder, n adfNode, indent string) {
 		b.WriteString(indent + "_[" + cmp.Or(name, "macro") + " macro]_\n\n")
 		writeBlocks(b, n.Content, indent)
 	case "mediaGroup", "mediaSingle":
-		// Each media names its file in alt; toIssue resolves the name to an
-		// attachment id (see resolveMedia).
+		// Each media names its file in alt and its media file in id;
+		// toIssue resolves them to an attachment (see resolveMedia). A
+		// picture's size and place ride in the title: "320px wrap-left".
+		title := ""
+		if n.Type == "mediaSingle" {
+			title = mediaTitle(n.Attrs)
+		}
 		wrote := false
 		for _, c := range n.Content {
-			if alt, _ := c.Attrs["alt"].(string); c.Type == "media" && alt != "" {
-				b.WriteString(indent + "![" + escapeMediaAlt(alt) + "](" + mediaRef + ")\n\n")
-				wrote = true
+			if c.Type != "media" {
+				continue
 			}
+			alt, _ := c.Attrs["alt"].(string)
+			ref := mediaRef
+			if id, _ := c.Attrs["id"].(string); mediaIDRe.MatchString(id) {
+				ref += "#" + id
+			} else if alt == "" {
+				continue
+			}
+			b.WriteString(indent + "![" + escapeMediaAlt(alt) + "](" + ref + title + ")\n\n")
+			wrote = true
 		}
 		if !wrote {
 			b.WriteString(indent + "_[attachment]_\n\n")
@@ -277,14 +320,43 @@ func cellText(nodes []adfNode) string {
 	var parts []string
 	for _, n := range nodes {
 		s := flatText([]adfNode{n})
-		if n.Type == "paragraph" {
+		switch n.Type {
+		case "paragraph":
 			s = strings.ReplaceAll(strings.Trim(inline(n.Content), " \n"), "\n", "<br>")
+		case "codeBlock": // its lines kept, each as code
+			s = codeCell(n)
 		}
 		if s != "" {
 			parts = append(parts, s)
 		}
 	}
 	return strings.Join(parts, "<br><br>")
+}
+
+// codeCell is a code block in a table cell: each line inline code, joined
+// by <br>.
+func codeCell(n adfNode) string {
+	var text strings.Builder
+	for _, c := range n.Content {
+		text.WriteString(c.Text)
+	}
+	var lines []string
+	for _, l := range strings.Split(strings.TrimRight(text.String(), "\n"), "\n") {
+		if strings.TrimSpace(l) == "" {
+			lines = append(lines, "")
+			continue
+		}
+		fence := "`"
+		for strings.Contains(l, fence) {
+			fence += "`"
+		}
+		pad := ""
+		if strings.HasPrefix(l, "`") || strings.HasSuffix(l, "`") {
+			pad = " "
+		}
+		lines = append(lines, fence+pad+l+pad+fence)
+	}
+	return strings.Join(lines, "<br>")
 }
 
 // flatText flattens blocks onto one line.

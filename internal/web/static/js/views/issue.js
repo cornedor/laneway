@@ -45,7 +45,7 @@ export function composeWith(app, k, text) {
   composeWant = { key: k, text };
   app.panel.open(k);
 }
-const drafts = new Map();    // unsent comment text by issue key
+const drafts = new Map();    // unsent comment by issue key (its editor's snapshot)
 const fill = (el, ...kids) => { clear(el); for (const k of kids.flat(Infinity)) if (k) el.append(k); return el; };
 const dash = () => h('span.faint', '—');
 
@@ -318,13 +318,12 @@ export function mountIssue(el, key, { app, full, card }) {
     let ed;
     try { ed = await api.get('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), { fresh: true }); } catch (e) { return fail(e); }
     if (dead) return;
-    if (!ed.Editable) return ui.toast(T('Edit this one in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err', action: { label: T('Open'), run: () => window.open(browseURL(), '_blank', 'noopener') } });
     st.editingDoc = f.ID;
     const sec = box.docs.querySelector('[data-field="' + CSS.escape(f.ID) + '"]') || box.docs.appendChild(h('div.desc.doc', { dataset: { field: f.ID } }));
     const done = () => { st.editingDoc = null; renderDocs(); };
-    const e = editor({ value: ed.Markdown, rows: 8, placeholder: T('%s (markdown)…', f.Name), allowEmpty: true, label: T('Save'), draft: 'desc:' + key + ':field:' + f.ID, base: ed.Base,
-      save: async (text, mentions, base) => {
-        const r = await saveDoc('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), f.Name, e, { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] }, base);
+    const e = editor({ ...docOf(ed), rows: 8, placeholder: T('%s…', f.Name), allowEmpty: true, label: T('Save'), draft: 'desc:' + key + ':field:' + f.ID, base: ed.Base,
+      save: async (doc, base) => {
+        const r = await saveDoc('/issues/' + key + '/doc/' + encodeURIComponent(f.ID), f.Name, e, { Doc: doc }, base);
         if (r === 'theirs') { e.dropDraft(); done(); changed(); }
         if (r !== true) return false;
         st.editingDoc = null; changed(T('%s %s updated', key, f.Name)); ui.toast(T('%s saved', f.Name), { kind: 'ok' });
@@ -360,13 +359,10 @@ export function mountIssue(el, key, { app, full, card }) {
     let ed;
     try { ed = await api.get('/issues/' + key + '/description', { fresh: true }); } catch (e) { return fail(e); }
     if (dead) return;
-    if (!ed.Editable) {
-      return ui.toast(T('Edit this one in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err', action: { label: T('Open'), run: () => window.open(browseURL(), '_blank', 'noopener') } });
-    }
     st.editingDesc = true;
-    const e = editor({ value: ed.Markdown, rows: 10, placeholder: T('Description (markdown)…'), allowEmpty: true, label: T('Save'), draft: 'desc:' + key, base: ed.Base,
-      save: async (text, mentions, base) => {
-        const r = await saveDoc('/issues/' + key + '/description', T('Description'), e, { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] }, base);
+    const e = editor({ ...docOf(ed), rows: 10, placeholder: T('Description… (/ inserts, @ mentions)'), allowEmpty: true, label: T('Save'), draft: 'desc:' + key, base: ed.Base,
+      save: async (doc, base) => {
+        const r = await saveDoc('/issues/' + key + '/description', T('Description'), e, { Doc: doc }, base);
         if (r === 'theirs') { e.dropDraft(); st.editingDesc = false; st.descSig = null; changed(); }
         if (r !== true) return false;
         st.editingDesc = false; st.issue.Description = null; st.descSig = null; changed(T('%s description updated', key)); ui.toast(T('Description saved'), { kind: 'ok' });
@@ -382,10 +378,13 @@ export function mountIssue(el, key, { app, full, card }) {
     try { await api.put(path, { ...body, Base: base }); return true; } catch (err) { if (err.status !== 409) throw err; }
     const now = await api.get(path, { fresh: true });
     e.rebase(now.Base);
+    // What saving would change, read as markdown.
+    const read = doc => (doc ? api.post('/adf/markdown', { Doc: doc }).then(c => c.Text, () => '') : '');
+    const [theirs, mine] = await Promise.all([read(now.Doc), read(body.Doc)]);
     const pick = await new Promise(resolve => {
       let v = false;
       const b = (label, val, cls = '') => h('button.btn' + cls, { onclick: () => { v = val; m.close(); } }, label);
-      const diff = now.Editable ? lineDiff(now.Markdown, body.Markdown, 40) : [];
+      const diff = lineDiff(theirs, mine, 40);
       const m = ui.modal(h('div',
         h('p', T('Someone changed it in Jira since you opened it. Nothing was saved.')),
         diff.length > 0 && [h('p.dim', T('Saving yours over theirs:')), h('div.chg-diff', diff.map(l => h('div.' + (l[0] === '-' ? 'del' : l[0] === '+' ? 'add' : 'more'), l)))],
@@ -644,12 +643,11 @@ export function mountIssue(el, key, { app, full, card }) {
     const art = box.list.querySelector('[data-id="' + CSS.escape(c.ID) + '"]'); if (!art) return;
     let ed;
     try { ed = await api.get('/issues/' + key + '/comments/' + encodeURIComponent(c.ID) + '/edit', { fresh: true }); } catch (e) { return fail(e); }
-    if (!ed.Editable) return ui.toast(T('Edit this comment in Jira: %s', ed.Reason || T('markdown cannot hold it')), { kind: 'err' });
     st.editingComment = { id: c.ID };
     const body = art.querySelector('.cbody');
-    const e = editor({ value: ed.Markdown, rows: 4, label: T('Save'), draft: 'desc:' + key + ':comment:' + c.ID,
-      save: async (text, mentions) => {
-        await api.put('/issues/' + key + '/comments/' + encodeURIComponent(c.ID), { Markdown: text, Kept: [...ed.Kept, ...mentions.map(mentionNode)] });
+    const e = editor({ ...docOf(ed), rows: 4, label: T('Save'), draft: 'desc:' + key + ':comment:' + c.ID,
+      save: async doc => {
+        await api.put('/issues/' + key + '/comments/' + encodeURIComponent(c.ID), { Doc: doc });
         st.editingComment = null; cmEls.delete(c.ID); art.remove(); changed(T('%s comment edited', key));
       },
       cancel: () => { st.editingComment = null; body.hidden = false; e.el.remove(); } });
@@ -666,14 +664,15 @@ export function mountIssue(el, key, { app, full, card }) {
   }
 
   // composer
-  const comp = editor({ value: drafts.get(key) || '', rows: 3, placeholder: T('Write a comment… (@ to mention, markdown works)'), label: T('Comment'), noCancel: true, draft: 'comment:' + key,
-    save: async (text, mentions) => {
+  const comp = editor({ doc: null, rows: 3, placeholder: T('Write a comment… (@ mentions, / inserts)'), label: T('Comment'), noCancel: true, draft: 'comment:' + key,
+    save: async doc => {
+      const snap = comp.snapshot(), text = await comp.markdown().catch(() => '');
       const tmp = { ID: 'tmp-' + Date.now(), Author: me().DisplayName || T('You'), AuthorID: me().AccountID, Body: text, Created: new Date(), pending: true };
       const parent = st.reply && threaded() ? threadRoot(st.reply) : ''; // a real reply in Jira's thread
       st.pending.push(tmp); renderComments(); (newest() ? box.list.firstElementChild : box.list.lastElementChild)?.scrollIntoView({ block: 'nearest' });
-      comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
+      comp.clear(); drafts.delete(key); setReply(null);
       try {
-        const found = await postComment(api, key, { Markdown: text, Mentions: mentions, Visibility: parent ? everyone() : st.vis, Parent: parent });
+        const found = await postComment(api, key, { Doc: doc, Visibility: parent ? everyone() : st.vis, Parent: parent });
         st.pending = st.pending.filter(p => p !== tmp);
         st.vis = everyone(); paintVis(); // the next one is for everyone again
         await reload(true); changed(T('%s comment added', key));
@@ -681,10 +680,11 @@ export function mountIssue(el, key, { app, full, card }) {
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
         if (parent && !st.reply) setReply(st.issue.Comments.find(c => c.ID === parent) || null);
-        comp.ta.value = text; drafts.set(key, text); comp.size(); throw e;
+        comp.restore(snap); drafts.set(key, snap); throw e;
       }
     } });
-  comp.ta.addEventListener('input', () => drafts.set(key, comp.ta.value));
+  if (drafts.get(key)) comp.ready().then(() => comp.restore(drafts.get(key)));
+  comp.onInput(() => drafts.set(key, comp.snapshot()));
   const replyChip = h('div.reply-chip', { hidden: true });
   // Jira's threads are one level deep: a reply to a reply goes under that one's parent (jira.ThreadRoot).
   const threadRoot = c => {
@@ -721,15 +721,12 @@ export function mountIssue(el, key, { app, full, card }) {
     clear(replyChip);
     const locked = !!c && threaded();
     visBtn.disabled = locked; visBtn.title = locked ? T('A reply is for whoever its comment is for') : T('Who sees it  (ctrl+o)');
-    if (c) replyChip.append(h('span', T('Replying to'), ' ', h('b', c.Author)), h('button.btn.ghost.sm', { title: T('Not a reply'), onclick: () => { const t = '@' + c.Author + ' '; if (comp.ta.value.startsWith(t)) comp.ta.value = comp.ta.value.slice(t.length); setReply(null); } }, icon('x')));
+    if (c) replyChip.append(h('span', T('Replying to'), ' ', h('b', c.Author)), h('button.btn.ghost.sm', { title: T('Not a reply'), onclick: () => { comp.unmention(c.Author); setReply(null); } }, icon('x')));
   }
   function replyTo(c) {
     setTab('comments');
     setReply(c);
-    const tag = '@' + c.Author + ' ';
-    if (!comp.ta.value.startsWith(tag)) comp.ta.value = tag + comp.ta.value;
-    if (c.AuthorID) comp.mentions.push({ AccountID: c.AuthorID, DisplayName: c.Author });
-    comp.size(); comp.focus();
+    comp.ready().then(() => { comp.mention({ AccountID: c.AuthorID, DisplayName: c.Author }, true); comp.focus(true); });
   }
   function composeComment() {
     setTab('comments');
@@ -738,9 +735,7 @@ export function mountIssue(el, key, { app, full, card }) {
   }
   me_.compose = text => {
     setReply(null);
-    comp.ta.value = text; drafts.set(key, text);
-    comp.ta.dispatchEvent(new Event('input', { bubbles: true }));
-    comp.size(); composeComment();
+    comp.ready().then(() => comp.setMarkdown(text)).then(() => { drafts.set(key, comp.snapshot()); composeComment(); });
   };
   if (startText != null) setTimeout(() => me_.compose(startText), 0);
 
@@ -825,7 +820,8 @@ export function mountIssue(el, key, { app, full, card }) {
     changed();
     return made;
   }
-  const mentionNode = m => ({ type: 'mention', attrs: { id: m.AccountID, text: '@' + m.DisplayName } });
+  // The editor's start from the server's editable: the document, and its markdown for the Markdown mode.
+  const docOf = ed => ({ doc: ed.Doc || null, value: ed.Markdown || '', kept: ed.Kept || [], editable: !!ed.Editable, reason: ed.Reason });
 
   // ---- data
   let gen = 0;
@@ -881,7 +877,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,select')) return document.activeElement.blur();
     goBack();
   }, full ? T('back') : T('close panel'), { group: G, input: true });
-  scope.bind('ctrl+o', e => { if (e.target === comp.ta) cycleVis(); }, T('who sees the comment: everyone, an internal note, a role or group'), { group: G, input: true });
+  scope.bind('ctrl+o', e => { if (comp.contains(e.target)) cycleVis(); }, T('who sees the comment: everyone, an internal note, a role or group'), { group: G, input: true });
   scope.bind('ctrl+Enter', e => { const ed = e.target.closest && e.target.closest('.ed'); if (ed && ed._save) ed._save(); }, T('save / send'), { group: G, input: true });
   scope.bind(['j', 'ArrowDown'], () => (st.tab === 'comments' ? moveComment(1) : st.tab === 'terminal' ? term.scroll(3) : scroll.scrollBy({ top: 80 })), T('next comment / scroll down'), { group: G });
   scope.bind(['k', 'ArrowUp'], () => (st.tab === 'comments' ? moveComment(-1) : st.tab === 'terminal' ? term.scroll(-3) : scroll.scrollBy({ top: -80 })), T('previous comment / scroll up'), { group: G });
@@ -952,7 +948,7 @@ export function mountIssue(el, key, { app, full, card }) {
     for (const e of editors) e.dispose();
     if (offNotes) offNotes();
     dev.dispose();
-    drafts.set(key, comp.ta.value);
+    drafts.set(key, comp.snapshot());
     if (here === me_) here = null;
     if (!full) document.title = 'laneway';
   };

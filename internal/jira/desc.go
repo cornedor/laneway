@@ -105,6 +105,30 @@ func DocBase(raw json.RawMessage) string {
 // conditional write for an issue, so the moment between the two is open.
 // When Jira can't be reached the check is skipped: the write is queued.
 func (c *Client) SetDoc(ctx context.Context, key, id, md string, kept []json.RawMessage, base string) error {
+	return c.writeDoc(ctx, key, id, base, func() (any, error) {
+		if strings.TrimSpace(md) == "" {
+			return nil, nil
+		}
+		return MarkdownToADFKept(c.EmbedImages(ctx, md), kept), nil
+	})
+}
+
+// SetDocADF is SetDoc with the document as ADF; one with no content clears
+// the field.
+func (c *Client) SetDocADF(ctx context.Context, key, id string, doc json.RawMessage, base string) error {
+	v, err := CheckDoc(doc)
+	if err != nil {
+		return err
+	}
+	return c.writeDoc(ctx, key, id, base, func() (any, error) {
+		if v == nil {
+			return nil, nil
+		}
+		return v, nil
+	})
+}
+
+func (c *Client) writeDoc(ctx context.Context, key, id, base string, doc func() (any, error)) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
@@ -117,16 +141,31 @@ func (c *Client) SetDoc(ctx context.Context, key, id, md string, kept []json.Raw
 			return &DocChangedError{Raw: raw}
 		}
 	}
-	var doc any
-	if strings.TrimSpace(md) != "" {
-		doc = MarkdownToADFKept(c.EmbedImages(ctx, md), kept)
+	v, err := doc()
+	if err != nil {
+		return err
 	}
-	body := map[string]any{"fields": map[string]any{id: doc}}
+	body := map[string]any{"fields": map[string]any{id: v}}
 	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
 		return err
 	}
 	c.Invalidate(key)
 	return nil
+}
+
+// CheckDoc is raw if it is an ADF document, nil when it has no content.
+func CheckDoc(raw json.RawMessage) (json.RawMessage, error) {
+	var d struct {
+		Type    string            `json:"type"`
+		Content []json.RawMessage `json:"content"`
+	}
+	if json.Unmarshal(raw, &d) != nil || d.Type != "doc" {
+		return nil, fmt.Errorf("jira: not a document")
+	}
+	if len(d.Content) == 0 {
+		return nil, nil
+	}
+	return raw, nil
 }
 
 // ToggleTask checks or unchecks the description's nth action item (from
@@ -206,15 +245,27 @@ var inlineKeepTypes = []string{"mention", "emoji", "inlineCard", "date", "status
 // SetComment replaces comment id's body with markdown, placeholder lines
 // put back from kept.
 func (c *Client) SetComment(ctx context.Context, key, id, md string, kept []json.RawMessage) error {
-	if !c.Enabled() {
-		return errNotConfigured
-	}
 	if strings.TrimSpace(md) == "" {
 		return fmt.Errorf("jira: empty comment")
 	}
-	body := map[string]any{"body": MarkdownToADFKept(c.EmbedImages(ctx, md), kept)}
+	raw, _ := json.Marshal(MarkdownToADFKept(c.EmbedImages(ctx, md), kept))
+	return c.SetCommentADF(ctx, key, id, raw)
+}
+
+// SetCommentADF replaces comment id's body with doc, an ADF document.
+func (c *Client) SetCommentADF(ctx context.Context, key, id string, doc json.RawMessage) error {
+	if !c.Enabled() {
+		return errNotConfigured
+	}
+	v, err := CheckDoc(doc)
+	if err != nil {
+		return err
+	}
+	if v == nil {
+		return fmt.Errorf("jira: empty comment")
+	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment/" + url.PathEscape(id)
-	if err := c.do(ctx, http.MethodPut, path, key, body, nil); err != nil {
+	if err := c.do(ctx, http.MethodPut, path, key, map[string]any{"body": v}, nil); err != nil {
 		return err
 	}
 	c.Invalidate(key)

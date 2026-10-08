@@ -115,6 +115,14 @@ func written(v any) any {
 	return nil
 }
 
+// commentDoc is c's body as written, else its text as paragraphs, its @names mentions.
+func commentDoc(c comment) any {
+	if c.doc != nil {
+		return c.doc
+	}
+	return mentions(adf(c.body))
+}
+
 // docOr is doc, the value as written, or else text as paragraphs.
 func docOr(doc any, text string) any {
 	if doc != nil {
@@ -163,7 +171,7 @@ func collectText(n any, sb *strings.Builder) {
 // commentJSON is a comment as the comment endpoint has it; parentId only
 // there, as on Jira.
 func commentJSON(c comment) map[string]any {
-	m := map[string]any{"id": c.id, "author": userJSON(&c.author), "body": mentions(adf(c.body)), "created": stamp(c.created), "updated": stamp(c.created)}
+	m := map[string]any{"id": c.id, "author": userJSON(&c.author), "body": commentDoc(c), "created": stamp(c.created), "updated": stamp(c.created)}
 	if c.parent != "" {
 		n, _ := strconv.Atoi(c.parent) // Jira sends it as a number
 		m["parentId"] = n

@@ -7,6 +7,7 @@
 import { h } from './dom.js';
 import { jiraKey, issuePill } from './issuepill.js';
 import { T } from './i18n.js';
+import { paint as paintCode } from './codehl.js';
 
 const SAFE_HREF = /^(https?:|mailto:|#)/i;
 const KEY = /[A-Z][A-Z0-9]+-\d+/y;
@@ -51,10 +52,15 @@ function linkAt(s, i) {
     else if (s[k] === ')' && --p === 0) break;
   }
   if (k >= s.length) return null;
-  return { text: s.slice(i + 1, j), href: s.slice(j + 2, k).trim().split(/\s+"/)[0].replace(/^<|>$/g, ''), end: k + 1 };
+  const target = s.slice(j + 2, k).trim(), t = /\s+"([^"]*)"$/.exec(target);
+  return { text: s.slice(i + 1, j), href: target.split(/\s+"/)[0].replace(/^<|>$/g, ''), title: t ? t[1] : '', end: k + 1 };
 }
 
 const word = c => c !== undefined && /[\p{L}\p{N}]/u.test(c);
+
+// A picture's size and place, as its title carries them ("320px wrap-left", "50%"; internal/jira mediaTitle).
+const sized = title => { const m = /(?:^|\s)(\d+(?:\.\d+)?)(px|%)(?=\s|$)/.exec(title || ''); return m ? { width: m[1] + m[2] } : null; };
+const placed = title => { const m = /(?:^|\s)(align-start|align-end|wrap-left|wrap-right|wide|full-width)(?=\s|$)/.exec(title || ''); return m ? { layout: m[1] } : {}; };
 
 // ---- emoji: :name: draws its glyph once the table (GET /api/emoji/table) is in;
 // those drawn before it get theirs when it arrives. Atlassian's numbered squares
@@ -103,7 +109,7 @@ export function inline(s, o = {}) {
       const m = linkAt(s, i + 1);
       if (m) {
         i = m.end;
-        if (m.href.startsWith('attachment:') && o.attachment) push(h('img.md-img', { src: o.attachment(m.href.slice(11)), alt: m.text, loading: 'lazy', dataset: { id: m.href.slice(11) } }));
+        if (m.href.startsWith('attachment:') && o.attachment) push(h('img.md-img', { src: o.attachment(m.href.slice(11)), alt: m.text, loading: 'lazy', dataset: { id: m.href.slice(11), ...placed(m.title) }, style: sized(m.title) }));
         else if (m.href.startsWith('confluence:') && o.pageImage) push(h('img.md-img', { src: o.pageImage(m.href.slice(11)), alt: m.text, loading: 'lazy' })); // a Confluence page's own
         else push(link(m.href, m.text || m.href));
         continue;
@@ -246,7 +252,9 @@ function blocks(lines, o) {
         i++;
       }
       i++;
-      out.push(h('pre', h('code', { dataset: m[2] ? { lang: m[2] } : null }, body.join('\n'))));
+      const code = h('code', { dataset: m[2] ? { lang: m[2] } : null }, body.join('\n'));
+      if (m[2]) paintCode(code, m[2]); // coloured by its language once the server answers
+      out.push(h('pre', code));
     } else if ((m = HEADING.exec(l))) {
       out.push(h('h' + Math.min(6, m[1].length + 2), { class: 'md-h' }, inline(m[2], o))); i++;
     } else if (/^---+\s*$/.test(l)) { out.push(h('hr')); i++; }

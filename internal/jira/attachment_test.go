@@ -155,3 +155,29 @@ func TestCommentVisibilityRead(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveMediaByID(t *testing.T) {
+	atts := []Attachment{{ID: "10", Filename: "a.png"}, {ID: "11", Filename: "a.png"}, {ID: "12", Filename: "b.png"}}
+	media := map[string]Attachment{"aa-11": atts[1]}
+	md := "![a.png](attachment#aa-11 \"320px wrap-left\")\n\n![b.png](attachment#aa-ff)\n\n![](attachment#aa-99)\n\n![c.png](attachment)"
+	want := "![a.png](attachment:11 \"320px wrap-left\")\n\n![b.png](attachment:12)\n\n_[attachment]_\n\n![c.png](attachment)"
+	if got := resolveMedia(md, atts, media); got != want {
+		t.Errorf("resolveMedia =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestMediaTitle(t *testing.T) {
+	for _, c := range []struct {
+		attrs map[string]any
+		want  string
+	}{
+		{map[string]any{"layout": "center"}, ""},
+		{map[string]any{"layout": "wrap-left", "width": 320.0, "widthType": "pixel"}, ` "320px wrap-left"`},
+		{map[string]any{"layout": "center", "width": 66.5}, ` "66.5%"`},
+		{map[string]any{"layout": "bad layout"}, ""},
+	} {
+		if got := mediaTitle(c.attrs); got != c.want {
+			t.Errorf("mediaTitle(%v) = %q, want %q", c.attrs, got, c.want)
+		}
+	}
+}

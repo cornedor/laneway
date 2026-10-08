@@ -52,6 +52,9 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
+		if given(b.Doc) {
+			return nil, s.Client().SetDocADF(ctx, key, "description", b.Doc, b.Base)
+		}
 		return nil, s.Client().SetDescription(ctx, key, b.Markdown, b.Kept, b.Base)
 	})
 	// A rich-text field (a custom textarea) as markdown to edit like the description.
@@ -81,6 +84,9 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
+		if given(b.Doc) {
+			return nil, s.Client().SetDocADF(ctx, key, r.PathValue("field"), b.Doc, b.Base)
+		}
 		return nil, s.Client().SetDoc(ctx, key, r.PathValue("field"), b.Markdown, b.Kept, b.Base)
 	})
 	post("/issues/{key}/description/task", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -108,6 +114,8 @@ func init() {
 			Mentions []jira.User
 			// Raw posts a document as it is: a deleted comment's, to undo the delete.
 			Raw json.RawMessage
+			// Doc is the comment as ADF, from the visual editor.
+			Doc json.RawMessage
 			// Visibility limits who reads it: an internal note, a role or a group.
 			Visibility jira.Visibility
 			// Parent is the comment it replies to (which sets who reads it).
@@ -129,10 +137,17 @@ func init() {
 			}
 			return nil, s.Client().AddCommentADFFor(ctx, key, b.Raw, jira.Visibility{}, b.Parent)
 		}
-		if strings.TrimSpace(b.Markdown) == "" {
+		var doc json.RawMessage
+		if given(b.Doc) {
+			if doc, err = jira.CheckDoc(b.Doc); err != nil {
+				return nil, badRequest(err.Error())
+			}
+		} else if strings.TrimSpace(b.Markdown) != "" {
+			doc, _ = json.Marshal(commentDoc(ctx, s, b.Markdown, b.Mentions))
+		}
+		if doc == nil {
 			return nil, badRequest(i18n.T("empty comment"))
 		}
-		doc, _ := json.Marshal(commentDoc(ctx, s, b.Markdown, b.Mentions))
 		if b.Check {
 			if found, err := s.Client().HasComment(ctx, key, doc); err != nil || found {
 				return map[string]bool{"Found": found}, err
@@ -164,6 +179,9 @@ func init() {
 		b, err := Body[mdBody](r)
 		if err != nil {
 			return nil, err
+		}
+		if given(b.Doc) {
+			return nil, s.Client().SetCommentADF(ctx, key, r.PathValue("id"), b.Doc)
 		}
 		return nil, s.Client().SetComment(ctx, key, r.PathValue("id"), b.Markdown, b.Kept)
 	})
@@ -316,6 +334,8 @@ func init() {
 type mdBody struct {
 	Markdown string
 	Kept     []json.RawMessage
+	// Doc is the document as ADF (the visual editor's), in place of Markdown.
+	Doc json.RawMessage
 	// Base is the document the editor opened on (editable's); a save
 	// finding another one in Jira fails with 409, writing nothing.
 	Base string
@@ -329,10 +349,12 @@ func issueKey(r *http.Request) (string, error) {
 	return key, nil
 }
 
-// editable is a document as markdown to edit. When markdown can't carry it,
+// editable is a document to edit: Doc as Jira has it (null when empty), for
+// the visual editor, and as markdown. When markdown can't carry it,
 // Editable is false, Reason says why and Markdown is empty. Base marks the
 // document (jira.DocBase), for the save to check.
 type editable struct {
+	Doc      json.RawMessage
 	Markdown string
 	Kept     []json.RawMessage
 	Editable bool
@@ -341,14 +363,18 @@ type editable struct {
 }
 
 func editableOf(raw json.RawMessage) editable {
+	doc := raw
+	if len(doc) == 0 {
+		doc = json.RawMessage("null")
+	}
 	ed, err := jira.EditableDescription(raw)
 	if err != nil {
-		return editable{Reason: err.Error(), Base: jira.DocBase(raw)}
+		return editable{Doc: doc, Reason: err.Error(), Base: jira.DocBase(raw)}
 	}
 	if ed.Kept == nil {
 		ed.Kept = []json.RawMessage{}
 	}
-	return editable{Markdown: ed.Markdown, Kept: ed.Kept, Editable: true, Base: jira.DocBase(raw)}
+	return editable{Doc: doc, Markdown: ed.Markdown, Kept: ed.Kept, Editable: true, Base: jira.DocBase(raw)}
 }
 
 // docField is a field /doc edits: a custom one, or environment.

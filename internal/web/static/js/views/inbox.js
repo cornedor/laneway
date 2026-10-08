@@ -149,16 +149,16 @@ export default function mount(el, { app, scope, toolbar }) {
       last = [...t.Entries].reverse().find(e => e.CommentID);
       if (!last) return ui.toast(T('No comments to reply to'));
     }
-    const at = last && last.Who ? '@' + last.Who + ' ' : '';
-    const ment = last && last.WhoID ? [{ AccountID: last.WhoID, DisplayName: last.Who }] : [];
-    const ed = mdEdit(app, { value: at, rows: 3, issueKey: t.Key, label: reply ? T('Reply') : T('Comment'), placeholder: T('Comment on %s… (@ mentions, / formats)', t.Key),
-      save: async (text, mentions) => {
-        const found = await postComment(api, t.Key, { Markdown: text, Mentions: [...ment.filter(m => text.includes('@' + m.DisplayName)), ...mentions] });
+    const ed = mdEdit(app, { doc: null, rows: 3, issueKey: t.Key, label: reply ? T('Reply') : T('Comment'), placeholder: T('Comment on %s… (@ mentions, / formats)', t.Key),
+      save: async doc => {
+        const found = await postComment(api, t.Key, { Doc: doc });
         m.close(); ui.toast(found ? T('Your comment was on %s already: not posted again', t.Key) : T('Commented on %s', t.Key), { kind: 'ok' }); app.bus.emit('issue:changed', { key: t.Key }); load(true);
       } });
     const m = ui.modal(h('div.prompt', ed.el), { title: (reply ? T('Reply on %s', t.Key) : T('Comment on %s', t.Key)) + '  ' + t.Summary, wide: true, onClose: () => ed.dispose() });
     m.scope.bind('ctrl+Enter', () => ed.el._save(), '', { input: true, hidden: true });
     ed.focus();
+    // A reply starts with its author mentioned.
+    if (last && last.WhoID) ed.ready().then(() => { ed.mention({ AccountID: last.WhoID, DisplayName: last.Who }, true); ed.focus(true); });
   }
 
   function setTab(t) { tab = t; app.prefs.set('inbox_tab', t); sel = 0; buildRows(); }

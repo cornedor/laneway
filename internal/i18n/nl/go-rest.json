@@ -116,6 +116,7 @@
   "bad JSON: %s": "ongeldige JSON: %s",
   "bad Started: want RFC 3339": "ongeldige Started: verwacht RFC 3339",
   "bad attachment id": "ongeldig bijlage-id",
+  "bad media id": "ongeldig media-id",
   "bad board id": "ongeldig bord-id",
   "bad branch name %s: git refuses it (no spaces, .., ~^:?*[\\, leading - or trailing .lock)": "ongeldige branchnaam %s: git weigert hem (geen spaties, .., ~^:?*[\\, beginnend - of eindigend op .lock)",
   "bad date": "ongeldige datum",

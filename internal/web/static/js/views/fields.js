@@ -6,7 +6,6 @@ import { css } from '../lib/css.js';
 import { keys } from '../lib/keys.js';
 import { T } from '../lib/i18n.js';
 import { mdEdit } from '../lib/mdedit.js';
-import { mentionsIn } from '../lib/comment.js';
 
 css('forms');
 
@@ -335,11 +334,11 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
       break;
     }
     case 'doc': case 'comment': {
-      // Markdown, @ mentions and all, as the comment composer (sent as Users).
-      const e = mdEdit(app, { value: v.Text || '', rows: 4, issueKey: issue, project, noCancel: true, hint: T('@ mentions · / formats') });
-      e.ta.addEventListener('input', touch);
-      w.el = e.el; w.focusEl = e.ta; w.dispose = e.dispose;
-      w.get = () => ({ Text: e.ta.value, Users: mentionsIn(e.ta.value, e.mentions, []) }); w.empty = () => !e.ta.value.trim();
+      // As the comment composer: the document (Visual), or markdown with the people it mentions (sent as Users).
+      const e = mdEdit(app, { doc: v.Doc || null, value: v.Text || '', rows: 4, issueKey: issue, project, noCancel: true, hint: T('@ mentions · / formats') });
+      e.onInput(touch);
+      w.el = e.el; w.focusEl = { focus: () => e.focus() }; w.dispose = e.dispose;
+      w.get = () => { const c = e.current(); return c.doc ? { Doc: c.doc } : { Text: c.text, Users: c.mentions, Kept: c.kept }; }; w.empty = () => e.isEmpty();
       break;
     }
     case 'strings':

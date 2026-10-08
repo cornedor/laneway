@@ -3,6 +3,7 @@ package ui
 import (
 	"html"
 	"strings"
+	"unicode/utf16"
 
 	"github.com/alecthomas/chroma/v2"
 )
@@ -77,4 +78,48 @@ func tokenClass(t chroma.TokenType) string {
 		return "hl-o"
 	}
 	return ""
+}
+
+// CodeSpan is a token of a code block HighlightSpans found: [From, To) in
+// UTF-16 units (a browser's string offsets) and its coarse class (as
+// HighlightHTML's).
+type CodeSpan struct {
+	From, To int
+	Class    string
+}
+
+// HighlightSpans is code in language lang (a fence's or an ADF code
+// block's: "go", "typescript") as its tokens of a class; none for a
+// language chroma has no lexer for, or past diffHighlightMaxLines.
+func HighlightSpans(lang, code string) []CodeSpan {
+	lexer := lexerFor(strings.ToLower(strings.TrimSpace(lang)))
+	if lexer == nil || strings.Count(code, "\n") > diffHighlightMaxLines {
+		return nil
+	}
+	it, err := chroma.Coalesce(lexer).Tokenise(nil, code)
+	if err != nil {
+		return nil
+	}
+	var out []CodeSpan
+	at := 0
+	for tok := it(); tok != chroma.EOF; tok = it() {
+		n := utf16Len(tok.Value)
+		if cls := tokenClass(tok.Type); cls != "" && n > 0 && strings.TrimSpace(tok.Value) != "" {
+			if k := len(out) - 1; k >= 0 && out[k].Class == cls && out[k].To == at {
+				out[k].To += n
+			} else {
+				out = append(out, CodeSpan{at, at + n, cls})
+			}
+		}
+		at += n
+	}
+	return out
+}
+
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		n += utf16.RuneLen(r)
+	}
+	return n
 }

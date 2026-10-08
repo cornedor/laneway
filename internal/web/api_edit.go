@@ -564,8 +564,14 @@ func transitionWith(ctx context.Context, s *Server, r *http.Request) (any, error
 	}
 	iss, _ := s.Client().Get(ctx, key)
 	var doc any
-	if strings.TrimSpace(comment.Text) != "" {
-		doc = commentDoc(ctx, s, comment.Text, comment.Users)
+	if given(comment.Doc) {
+		if d, err := jira.CheckDoc(comment.Doc); err != nil {
+			return nil, badRequest(err.Error())
+		} else if d != nil {
+			doc = d
+		}
+	} else if strings.TrimSpace(comment.Text) != "" {
+		doc = jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, comment.Text), append(comment.Kept, jira.MentionNodes(comment.Users)...))
 	}
 	if err := s.Client().TransitionWithDoc(ctx, key, b.ID, fields, doc); err != nil {
 		return nil, err
@@ -579,8 +585,8 @@ func transitionWith(ctx context.Context, s *Server, r *http.Request) (any, error
 
 // cloneDraft is the create form's start for a clone of key (TUI
 // openJiraClone): its project, type, "CLONE - " summary, parent and the
-// description as markdown; Note says when that can't be edited and is
-// copied as it is.
+// description as markdown, and as it is (DescriptionDoc, for the visual
+// editor); Note says when markdown can't carry it and it is copied as it is.
 func cloneDraft(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	key, err := issueKey(r)
 	if err != nil {
@@ -590,7 +596,7 @@ func cloneDraft(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]string{"Project": d.Project, "Type": d.Type, "Summary": d.Summary, "Parent": d.Parent}
+	out := map[string]any{"Project": d.Project, "Type": d.Type, "Summary": d.Summary, "Parent": d.Parent, "DescriptionDoc": d.DescriptionADF}
 	if ed, err := jira.EditableDescription(d.DescriptionADF); err != nil {
 		out["Note"] = i18n.Tf("The description is copied from %s as it is.", key)
 	} else {
@@ -609,6 +615,10 @@ func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		CloneOf                                     string
 		Sprint                                      int
 		Fields                                      []fieldVal
+		// DescriptionDoc is the description as ADF (the visual editor's), in place of Description;
+		// DescriptionKept the nodes Description's placeholder lines name.
+		DescriptionDoc  json.RawMessage
+		DescriptionKept []json.RawMessage
 	}](r)
 	if err != nil {
 		return nil, err
@@ -626,6 +636,19 @@ func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		if in, err = cloneInput(ctx, c, b.CloneOf, b.Description); err != nil {
 			return nil, err
 		}
+	}
+	if given(b.DescriptionDoc) {
+		doc, err := jira.CheckDoc(b.DescriptionDoc)
+		if err != nil {
+			return nil, badRequest(err.Error())
+		}
+		in.Description, in.DescriptionADF = "", doc
+	} else if len(b.DescriptionKept) > 0 && strings.TrimSpace(b.Description) != "" {
+		doc, err := json.Marshal(jira.MarkdownToADFKept(b.Description, b.DescriptionKept))
+		if err != nil {
+			return nil, err
+		}
+		in.Description, in.DescriptionADF = "", doc
 	}
 	in.Project, in.Type, in.Summary, in.Parent = b.Project, b.Type, b.Summary, b.Parent
 	if in.Fields == nil {

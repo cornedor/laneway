@@ -142,7 +142,8 @@ func init() {
 		nk, err := s.Client().MoveIssue(ctx, key, b.Project, b.TypeID)
 		return map[string]string{"Key": nk}, err
 	})
-	// POST multipart, field "file": attaches it to the issue; answers the attachment (ID blank when Jira named none).
+	// POST multipart, field "file": attaches it to the issue; answers the attachment (ID blank when Jira named none)
+	// and its Media Services file (MediaID, blank when Jira names none), for the visual editor's media node.
 	post("/issues/{key}/attachments", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key, err := issueKey(r)
 		if err != nil {
@@ -158,7 +159,15 @@ func init() {
 		if name == "" {
 			name = "file"
 		}
-		return s.Client().UploadAttachmentFrom(ctx, key, name, f)
+		at, err := s.Client().UploadAttachmentFrom(ctx, key, name, f)
+		if err != nil || at.ID == "" {
+			return at, err
+		}
+		m, _ := s.Client().MediaID(ctx, at.ID)
+		return struct {
+			jira.Attachment
+			MediaID string
+		}{at, m}, nil
 	})
 }
 

@@ -52,17 +52,34 @@ func escapeMediaAlt(s string) string {
 	return strings.NewReplacer("[", "(", "]", ")", "\n", " ").Replace(s)
 }
 
-// resolveMedia points each ![name](attachment) at the attachment of that
-// name. Names that match none are left as they are.
-func resolveMedia(md string, atts []Attachment) string {
-	if len(atts) == 0 || !strings.Contains(md, "]("+mediaRef+")") {
+// mediaImage is a picture adfToMarkdown wrote: ![name](attachment#mediaID "size").
+var mediaImage = regexp.MustCompile(`!\[([^\]\n]*)\]\(` + mediaRef + `(?:#([0-9a-fA-F-]{1,64}))?((?: "[^"\n]*")?)\)`)
+
+// resolveMedia points each picture adfToMarkdown wrote at its attachment:
+// the one of its media file (media, when known), else the one of its name.
+// One that matches none keeps its name, ![name](attachment), or reads
+// _[attachment]_ without one.
+func resolveMedia(md string, atts []Attachment, media map[string]Attachment) string {
+	if !strings.Contains(md, "]("+mediaRef) {
 		return md
 	}
-	for _, a := range atts {
-		name := escapeMediaAlt(a.Filename)
-		md = strings.ReplaceAll(md, "!["+name+"]("+mediaRef+")", "!["+name+"]("+AttachmentScheme+a.ID+")")
-	}
-	return md
+	return mediaImage.ReplaceAllStringFunc(md, func(s string) string {
+		m := mediaImage.FindStringSubmatch(s)
+		name, id, title := m[1], m[2], m[3]
+		at, ok := media[id]
+		for _, a := range atts {
+			if !ok && name != "" && escapeMediaAlt(a.Filename) == name {
+				at, ok = a, true
+			}
+		}
+		switch {
+		case ok:
+			return "![" + name + "](" + AttachmentScheme + at.ID + title + ")"
+		case name == "":
+			return "_[attachment]_"
+		}
+		return "![" + name + "](" + mediaRef + ")"
+	})
 }
 
 // maxAttachmentBytes caps a download; bigger files are not worth drawing.
@@ -192,9 +209,16 @@ var mediaFile = regexp.MustCompile(`/file/([0-9a-fA-F-]{36})/`)
 
 // MediaID is the Media Services file id an ADF media node needs to show
 // attachment id. Jira has no API for it; its content redirect names it.
+// Each one is asked once.
 func (c *Client) MediaID(ctx context.Context, id string) (string, error) {
 	if !c.Enabled() {
 		return "", errNotConfigured
+	}
+	c.mu.Lock()
+	m, ok := c.mediaIDs[id]
+	c.mu.Unlock()
+	if ok {
+		return m, nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
@@ -210,57 +234,126 @@ func (c *Client) MediaID(ctx context.Context, id string) (string, error) {
 		return "", fmt.Errorf("call jira: %w", err)
 	}
 	resp.Body.Close()
-	if m := mediaFile.FindStringSubmatch(resp.Header.Get("Location")); m != nil {
-		return m[1], nil
+	f := mediaFile.FindStringSubmatch(resp.Header.Get("Location"))
+	if f == nil {
+		return "", fmt.Errorf("attachment %s: no media id (%s)", id, resp.Status)
 	}
-	return "", fmt.Errorf("attachment %s: no media id (%s)", id, resp.Status)
+	c.mu.Lock()
+	if c.mediaIDs == nil {
+		c.mediaIDs = map[string]string{}
+	}
+	c.mediaIDs[id] = f[1]
+	c.mu.Unlock()
+	return f[1], nil
 }
 
-// inlineFiles links a's attachments by media id, as an inline file of its
-// description or comments names only that: [name](url). Nil when there is
-// no inline file; one Jira asks about is left out.
-func (c *Client) inlineFiles(ctx context.Context, a apiIssue) map[string]string {
-	inline := bytes.Contains(a.Fields.Description, []byte(`"mediaInline"`))
-	if cm := a.Fields.Comment; cm != nil {
-		for _, ac := range cm.Comments {
-			inline = inline || bytes.Contains(ac.Body, []byte(`"mediaInline"`))
-		}
-	}
-	if !inline || len(a.Fields.Attachment) == 0 {
-		return nil
-	}
-	out := map[string]string{}
+// mediaFiles maps the Media Services file id of each of atts to it, four
+// asked at a time; one Jira won't name is left out.
+func (c *Client) mediaFiles(ctx context.Context, atts []Attachment) map[string]Attachment {
+	out := map[string]Attachment{}
 	var (
 		mu  sync.Mutex
 		wg  sync.WaitGroup
 		sem = make(chan struct{}, 4)
 	)
-	for _, at := range a.Fields.Attachment {
+	for _, at := range atts {
 		wg.Go(func() {
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			c.mu.Lock()
-			id, ok := c.mediaIDs[at.ID]
-			c.mu.Unlock()
-			if !ok {
-				var err error
-				if id, err = c.MediaID(ctx, at.ID); err != nil {
-					return
-				}
-				c.mu.Lock()
-				if c.mediaIDs == nil {
-					c.mediaIDs = map[string]string{}
-				}
-				c.mediaIDs[at.ID] = id
-				c.mu.Unlock()
+			if id, err := c.MediaID(ctx, at.ID); err == nil {
+				mu.Lock()
+				out[id] = at
+				mu.Unlock()
 			}
-			mu.Lock()
-			out[id] = "[" + escapeMediaAlt(safeterm.Line(at.Filename)) + "](" + c.AttachmentURL(at.ID) + ")"
-			mu.Unlock()
 		})
 	}
 	wg.Wait()
 	return out
+}
+
+// MediaAttachment is the attachment of key whose Media Services file is
+// media, the file an ADF media node names.
+func (c *Client) MediaAttachment(ctx context.Context, key, media string) (Attachment, error) {
+	iss, err := c.Get(ctx, key)
+	if err != nil {
+		return Attachment{}, err
+	}
+	c.mu.Lock()
+	for _, at := range iss.Attachments {
+		if c.mediaIDs[at.ID] == media {
+			c.mu.Unlock()
+			return at, nil
+		}
+	}
+	c.mu.Unlock()
+	if at, ok := c.mediaFiles(ctx, iss.Attachments)[media]; ok {
+		return at, nil
+	}
+	return Attachment{}, ErrNotFound
+}
+
+// issueMedia is what a's documents need to name their files: the link of
+// each inline one by media id (files), and the attachment of each media id
+// (media) when a picture's name alone doesn't tell its attachment. Both nil
+// when names do; one Jira asks about is left out.
+func (c *Client) issueMedia(ctx context.Context, a apiIssue) (files map[string]string, media map[string]Attachment) {
+	if len(a.Fields.Attachment) == 0 {
+		return nil, nil
+	}
+	docs := []json.RawMessage{a.Fields.Description}
+	if cm := a.Fields.Comment; cm != nil {
+		for _, ac := range cm.Comments {
+			docs = append(docs, ac.Body)
+		}
+	}
+	names := map[string]int{}
+	for _, at := range a.Fields.Attachment {
+		names[escapeMediaAlt(safeterm.Line(at.Filename))]++
+	}
+	inline, unnamed := false, false
+	for _, d := range docs {
+		walkMedia(d, func(typ, alt string) {
+			inline = inline || typ == "mediaInline"
+			unnamed = unnamed || typ == "media" && names[escapeMediaAlt(safeterm.Line(alt))] != 1
+		})
+	}
+	if !inline && !unnamed {
+		return nil, nil
+	}
+	atts := make([]Attachment, len(a.Fields.Attachment))
+	for i, at := range a.Fields.Attachment {
+		atts[i] = Attachment{ID: at.ID, Filename: safeterm.Line(at.Filename), MimeType: at.MimeType, Size: at.Size}
+	}
+	media = c.mediaFiles(ctx, atts)
+	if inline {
+		files = map[string]string{}
+		for id, at := range media {
+			files[id] = "[" + escapeMediaAlt(at.Filename) + "](" + c.AttachmentURL(at.ID) + ")"
+		}
+	}
+	return files, media
+}
+
+// walkMedia calls fn with the type and alt of each media and mediaInline node of doc.
+func walkMedia(doc json.RawMessage, fn func(typ, alt string)) {
+	if !bytes.Contains(doc, []byte(`"media`)) {
+		return
+	}
+	var n adfNode
+	if json.Unmarshal(doc, &n) != nil {
+		return
+	}
+	var walk func(n adfNode)
+	walk = func(n adfNode) {
+		if n.Type == "media" || n.Type == "mediaInline" {
+			alt, _ := n.Attrs["alt"].(string)
+			fn(n.Type, alt)
+		}
+		for _, c := range n.Content {
+			walk(c)
+		}
+	}
+	walk(n)
 }
 
 // imageLine is a markdown image alone on its line pointing at an attachment.

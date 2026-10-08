@@ -488,7 +488,8 @@ func (c *Client) fetch(ctx context.Context, key string) (*Issue, error) {
 			cm.Comments = all
 		}
 	}
-	iss := c.toIssue(decoded, c.inlineFiles(ctx, decoded))
+	files, media := c.issueMedia(ctx, decoded)
+	iss := c.toIssue(decoded, files, media)
 	iss.StoryPoints = extractStoryPoints(body, spFields)
 	if t := decoded.Fields.IssueType; t != nil && c.layouts != nil {
 		var raw struct {
@@ -777,9 +778,9 @@ func isTimeout(err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &ne) && ne.Timeout()
 }
 
-// toIssue makes a's Issue, its inline files linked as files has them (see
-// inlineFiles).
-func (c *Client) toIssue(a apiIssue, files map[string]string) *Issue {
+// toIssue makes a's Issue, its inline files linked as files has them and
+// its pictures pointed at their attachments by media (see issueMedia).
+func (c *Client) toIssue(a apiIssue, files map[string]string, media map[string]Attachment) *Issue {
 	iss := &Issue{
 		Key:         a.Key,
 		Summary:     safeterm.Line(a.Fields.Summary),
@@ -793,7 +794,7 @@ func (c *Client) toIssue(a apiIssue, files map[string]string) *Issue {
 	for _, at := range a.Fields.Attachment {
 		iss.Attachments = append(iss.Attachments, Attachment{ID: at.ID, Filename: safeterm.Line(at.Filename), MimeType: at.MimeType, Size: at.Size})
 	}
-	iss.Description = resolveMedia(iss.Description, iss.Attachments)
+	iss.Description = resolveMedia(iss.Description, iss.Attachments, media)
 	iss.Links = issueLinks(a.Fields.Parent, a.Fields.IssueLinks, a.Fields.Subtasks)
 	if a.Fields.Status != nil {
 		iss.Status, iss.StatusCategory = safeterm.Line(a.Fields.Status.Name), a.Fields.Status.Category.Key
@@ -821,7 +822,7 @@ func (c *Client) toIssue(a apiIssue, files map[string]string) *Issue {
 	if a.Fields.Comment != nil {
 		iss.CommentTotal = a.Fields.Comment.Total
 		for _, ac := range a.Fields.Comment.Comments {
-			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfWithFiles(ac.Body, files), iss.Attachments)), Visibility: ac.visibility()}
+			cm := Comment{ID: ac.ID, ParentID: looseID(ac.ParentID), Raw: ac.Body, Body: safeterm.Text(resolveMedia(adfWithFiles(ac.Body, files), iss.Attachments, media)), Visibility: ac.visibility()}
 			if ac.Author != nil {
 				cm.Author = safeterm.Line(ac.Author.DisplayName)
 				cm.AuthorID = ac.Author.AccountID
