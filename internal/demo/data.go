@@ -317,3 +317,28 @@ func (s *Server) worklog(key string, who user, at time.Time, secs int, text stri
 	s.seq++
 	iss.worklogs = append(iss.worklogs, worklog{id: fmt.Sprint(s.seq), author: who, started: at, seconds: secs, comment: text})
 }
+
+// Bulk adds n issues more, DEMO-1000 on, for timing the UI on a big board:
+// two of three in the active sprint, across its lanes, the rest in the
+// backlog.
+func (s *Server) Bulk(n int) {
+	kinds := []string{"Story", "Task", "Bug"}
+	labels := [][]string{nil, {"frontend"}, {"backend"}, {"frontend", "backend"}}
+	for i := range n {
+		iss := &issue{key: fmt.Sprintf("DEMO-%d", 1000+i), typ: kinds[i%len(kinds)], status: statuses[i%len(statuses)],
+			summary: fmt.Sprintf("Filler work item %d for a big board", i), priority: priorities[i%len(priorities)],
+			assignee: &users[i%len(users)], reporter: mira, points: float64(i%8 + 1), labels: labels[i%len(labels)],
+			created: s.now.AddDate(0, 0, -30+i%30), updated: s.now.Add(-time.Duration(i) * time.Minute)}
+		iss.description = "What: " + iss.summary + ".\n\nWhy: the board has to stay quick with this many."
+		if i%3 != 2 {
+			iss.sprint = activeID
+		} else {
+			iss.status = todo
+		}
+		if iss.status == done {
+			iss.resolved = s.now.AddDate(0, 0, -1)
+		}
+		s.issues[iss.key] = iss
+		s.order = append(s.order, iss.key)
+	}
+}

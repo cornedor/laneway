@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -258,9 +259,13 @@ func runDemo(cfgPath string) error {
 }
 
 // newDemo is the demo Jira. LANEWAY_DEMO_UNHANDLED names a file it adds
-// each request it can't answer to, for the e2e tests.
+// each request it can't answer to, for the e2e tests; LANEWAY_DEMO_BULK a
+// number of issues more, for timing a big board.
 func newDemo() *demo.Server {
 	s := demo.New(time.Now())
+	if n, err := strconv.Atoi(os.Getenv("LANEWAY_DEMO_BULK")); err == nil {
+		s.Bulk(n)
+	}
 	if path := os.Getenv("LANEWAY_DEMO_UNHANDLED"); path != "" {
 		s.OnUnhandled = func(req string) {
 			if f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600); err == nil {

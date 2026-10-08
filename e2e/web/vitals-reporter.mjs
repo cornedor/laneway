@@ -27,7 +27,8 @@ export default class VitalsReporter {
       md.push(`**${name}**: ${over.length} of ${tests.length} tests over ${show[name](good[name])}`, '',
         '| | test | target |', '|--:|---|---|');
       for (const t of worst.slice(0, 5)) {
-        const m = t[name], where = [m.type, m.target].filter(Boolean).join(' ');
+        // INP's phases: input delay / processing / presentation
+        const m = t[name], where = [m.phases && m.phases.join('/'), m.type, m.target].filter(Boolean).join(' ');
         lines.push(`  ${show[name](m.value).padStart(7)}  ${t.title}${where ? `  (${where})` : ''}`);
         md.push(`| ${show[name](m.value)} | ${t.title} | \`${where || m.url}\` |`);
       }

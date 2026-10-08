@@ -8,12 +8,12 @@ import { fileURLToPath } from 'node:url';
 const vitalsJS = fileURLToPath(new URL('node_modules/web-vitals/dist/web-vitals.attribution.iife.js', import.meta.url));
 
 // start runs `laneway web -demo` on a free port, in a home of its own, and
-// resolves to the URL it prints.
-function start(unhandled) {
+// resolves to the URL it prints. bulk is a number of issues more in it.
+function start(unhandled, bulk) {
   const home = mkdtempSync(path.join(tmpdir(), 'laneway-e2e-'));
   const proc = spawn(process.env.LANEWAY, ['web', '-demo', '-no-open', '-addr', '127.0.0.1:0'], {
     env: { ...process.env, HOME: home, XDG_CONFIG_HOME: path.join(home, '.config'), XDG_STATE_HOME: path.join(home, '.state'),
-      XDG_CACHE_HOME: path.join(home, '.cache'), LANEWAY_DEMO_UNHANDLED: unhandled },
+      XDG_CACHE_HOME: path.join(home, '.cache'), LANEWAY_DEMO_UNHANDLED: unhandled, LANEWAY_DEMO_BULK: String(bulk) },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
   let log = '';
@@ -45,8 +45,13 @@ async function watchVitals(page, vitals) {
   });
   // One script: Playwright runs each in a scope of its own.
   await page.addInitScript(readFileSync(vitalsJS, 'utf8') + `
-    const send = m => window.__vital({ name: m.name, value: m.value, target: m.attribution.interactionTarget || m.attribution.largestShiftTarget || '',
-      type: m.attribution.interactionType || '', url: location.pathname + location.hash });
+    const send = ({ name, value, attribution: a }) => {
+      const ls = a.longestScript && a.longestScript.entry;
+      window.__vital({ name, value, target: a.interactionTarget || a.largestShiftTarget || '', type: a.interactionType || '', url: location.pathname + location.search,
+        // INP: where the time went, and the longest script in it
+        phases: name === 'INP' ? [a.inputDelay, a.processingDuration, a.presentationDelay].map(Math.round) : undefined,
+        script: ls ? [Math.round(ls.duration) + 'ms', ls.invoker, ls.sourceFunctionName, ls.sourceURL.replace(location.origin, '') + ':' + ls.sourceCharPosition].join(' ') : undefined });
+    };
     webVitals.onINP(send, { reportAllChanges: true, durationThreshold: 16 });
     webVitals.onCLS(send, { reportAllChanges: true });`);
 }
@@ -54,13 +59,17 @@ async function watchVitals(page, vitals) {
 // test is Playwright's with app: a fresh demo, the page on its board. A
 // test fails on an error in the page or a request the demo can't answer.
 // Its INP and CLS go along as the attachment vitals (vitals-reporter.mjs).
+// test.use({ bulk: n }) gives the demo n issues more.
 export const test = base.extend({
-  app: async ({ page }, use, info) => {
+  bulk: [0, { option: true }],
+  app: async ({ page, bulk }, use, info) => {
     const unhandled = info.outputPath('unhandled.txt');
-    const server = start(unhandled);
+    const server = start(unhandled, bulk);
     const errors = [];
     const vitals = {};
     await watchVitals(page, vitals);
+    // CPU_SLOWDOWN=4: a slower machine's INP (Chromium only).
+    if (process.env.CPU_SLOWDOWN) await (await page.context().newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: +process.env.CPU_SLOWDOWN });
     page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
     // A failed request is reported with its URL below, not as the console's
     // "Failed to load resource".
