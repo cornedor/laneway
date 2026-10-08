@@ -129,8 +129,12 @@ func (m *Model) arrangeEdit(edit func(d *lanes.Draft)) {
 }
 
 // writeLaneLayout puts l in ui.lane_layouts in place of the layout named
-// old ("" adds it), and writes the config file.
+// old ("" adds it), and writes the config file. A layout without a site
+// gets this one's.
 func (m *Model) writeLaneLayout(old string, l config.LaneLayout) {
+	if l.Site == "" {
+		l.Site = m.jiraSite()
+	}
 	ls := slices.Clone(m.uiConfig.LaneLayouts)
 	if i := slices.IndexFunc(ls, func(x config.LaneLayout) bool { return x.Name == old }); old != "" && i >= 0 {
 		ls[i] = l

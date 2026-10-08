@@ -152,13 +152,16 @@ func jiraLayoutKey(board int) string {
 	return jiraMetaPrefix + "layout:" + strconv.Itoa(board)
 }
 
+// jiraSite is the Jira the board is on, as a lane layout's Site names it.
+func (m *Model) jiraSite() string { return lanes.Site(m.jiraClient.BaseURL()) }
+
 // jiraLayout is the board's chosen lane layout while it still fits.
 func (m *Model) jiraLayout() (config.LaneLayout, bool) {
 	t := m.jiraTab
 	if t.layout == "" || t.cfg == nil {
 		return config.LaneLayout{}, false
 	}
-	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraBoardID(), t.cfg.Columns)
+	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraSite(), m.jiraBoardID(), t.cfg.Columns)
 	i := slices.IndexFunc(fit, func(l config.LaneLayout) bool { return l.Name == t.layout })
 	if i < 0 {
 		return config.LaneLayout{}, false
@@ -179,7 +182,7 @@ func (m *Model) cycleJiraLayout() {
 	if t.cfg == nil {
 		return
 	}
-	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraBoardID(), t.cfg.Columns)
+	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraSite(), m.jiraBoardID(), t.cfg.Columns)
 	if len(fit) == 0 {
 		m.status = i18n.T("no lane layout fits this board: add one to ui.lane_layouts")
 		return

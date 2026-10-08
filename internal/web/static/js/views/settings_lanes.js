@@ -24,7 +24,7 @@ export function designLanes(app, host, options) {
   if (!O) return () => {};
   const ui = () => (app.session && app.session.ui) || {};
   // specs are ui.lane_layouts as written: lower-case keys, status ids as strings.
-  const norm = l => ({ name: l.Name || '', boards: (l.Boards || []).map(Number), hidden: (l.Hidden || []).map(String),
+  const norm = l => ({ name: l.Name || '', site: l.Site || '', boards: (l.Boards || []).map(Number), hidden: (l.Hidden || []).map(String),
     lanes: (l.Lanes || []).map(x => ({ name: x.Name || '', statuses: (x.Statuses || []).map(String) })) });
   const specs = (ui().LaneLayouts || []).map(norm);
   let cur = 0, pick = null, seq = 0;
@@ -37,6 +37,7 @@ export function designLanes(app, host, options) {
 
   const out = l => {
     const o = { name: l.name, lanes: l.lanes.map(x => (x.name ? { name: x.name, statuses: x.statuses } : { statuses: x.statuses })) };
+    if (l.site) o.site = l.site;
     if (l.boards.length) o.boards = l.boards;
     if (l.hidden.length) o.hidden = l.hidden;
     return o;
@@ -129,7 +130,7 @@ export function designLanes(app, host, options) {
     if (!B.board) return app.ui.toast(T('Pick a board first'), { kind: 'err' });
     let n = specs.length + 1;
     while (specs.some(l => l.name === 'Layout ' + n)) n++;
-    specs.push({ name: 'Layout ' + n, boards: [], hidden: [], lanes: [] });
+    specs.push({ name: 'Layout ' + n, site: '', boards: [], hidden: [], lanes: [] });
     cur = specs.length - 1; pick = null; split.clear();
     await arrange();
     if (view) commit();

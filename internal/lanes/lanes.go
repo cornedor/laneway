@@ -5,6 +5,7 @@
 package lanes
 
 import (
+	"net/url"
 	"slices"
 	"strings"
 
@@ -96,10 +97,22 @@ func placement(l config.LaneLayout, cols []jira.Column) [][]int {
 // placed is whether at, a column's placement, puts it anywhere.
 func placed(at []int) bool { return len(at) > 0 && at[0] != -1 }
 
-// Fits is whether l is for board: listed in its Boards, or Boards empty,
-// and placing at least two of cols (Jira's default statuses are in many
-// workflows; one shared column alone doesn't make a board's layout).
-func Fits(l config.LaneLayout, board int, cols []jira.Column) bool {
+// Site is the host of baseURL, as a layout's Site names a Jira.
+func Site(baseURL string) string {
+	if u, err := url.Parse(baseURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return baseURL
+}
+
+// Fits is whether l is for board of site (a Site): made there, or on no
+// site in particular; listed in its Boards, or Boards empty; and placing at
+// least two of cols (Jira's default statuses are in many workflows; one
+// shared column alone doesn't make a board's layout).
+func Fits(l config.LaneLayout, site string, board int, cols []jira.Column) bool {
+	if l.Site != "" && site != "" && !strings.EqualFold(l.Site, site) {
+		return false
+	}
 	if len(l.Boards) > 0 && !slices.Contains(l.Boards, board) {
 		return false
 	}
@@ -112,11 +125,11 @@ func Fits(l config.LaneLayout, board int, cols []jira.Column) bool {
 	return n >= 2
 }
 
-// Fitting are the layouts for board, in config order.
-func Fitting(ls []config.LaneLayout, board int, cols []jira.Column) []config.LaneLayout {
+// Fitting are the layouts for board of site, in config order.
+func Fitting(ls []config.LaneLayout, site string, board int, cols []jira.Column) []config.LaneLayout {
 	var out []config.LaneLayout
 	for _, l := range ls {
-		if l.Name != "" && Fits(l, board, cols) {
+		if l.Name != "" && Fits(l, site, board, cols) {
 			out = append(out, l)
 		}
 	}

@@ -236,7 +236,9 @@ layout. A column whose statuses are in one lane is stacked there whole; one
 whose statuses are spread over lanes is a section in each, named by its
 statuses there. A status a layout doesn't list stays with its column's
 first listed one. A layout fits a board where it places at least two
-columns; `boards:` limits it to those board ids. A column it doesn't place
+columns; `site:` keeps it to the Jira it was made on (the editors write
+it: another site's status ids mean other statuses), `boards:` to those
+board ids. A column it doesn't place
 keeps a lane of its own after its left neighbour's; `hidden:` takes
 statuses off the board, and the header counts their cards.
 
@@ -244,6 +246,7 @@ statuses off the board, and the header counts their cards.
 ui:
   lane_layouts:
     - name: Dev
+      site: acme.atlassian.net    # optional
       boards: [12, 34]            # optional
       lanes:
         - statuses: ["10000"]     # To do; the name defaults to the column's

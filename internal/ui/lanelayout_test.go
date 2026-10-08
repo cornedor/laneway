@@ -17,6 +17,7 @@ func TestJiraLaneLayout(t *testing.T) {
 	m := jiraTabModel(t)
 	m.opts.laneLayouts = []config.LaneLayout{
 		{Name: "Elsewhere", Boards: []int{2}, Lanes: []config.LaneSpec{{Statuses: []string{"1", "3"}}}},
+		{Name: "Other Jira", Site: "other.atlassian.net", Lanes: []config.LaneSpec{{Statuses: []string{"1", "3"}}}},
 		{Name: "Flow", Lanes: []config.LaneSpec{{Name: "Work", Statuses: []string{"3", "1"}}}},
 	}
 	out, _ := m.handleJiraKey(keyMsg(t, "alt+l"))
@@ -149,6 +150,9 @@ func TestJiraArrange(t *testing.T) {
 	press("alt+L")
 	if m.jiraTab.arrange == nil || len(m.uiConfig.LaneLayouts) != 1 || m.jiraLayoutName() != "My lanes" {
 		t.Fatalf("arrange %v, layouts %+v", m.jiraTab.arrange, m.uiConfig.LaneLayouts)
+	}
+	if site := m.uiConfig.LaneLayouts[0].Site; site == "" || site != m.jiraSite() {
+		t.Errorf("layout made on site %q, want this board's %q", site, m.jiraSite())
 	}
 	press("l") // In progress
 	press("H") // onto To do

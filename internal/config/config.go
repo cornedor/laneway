@@ -362,6 +362,9 @@ type QuickFilter struct {
 // by their statuses' ids, so boards sharing a workflow share the layout.
 type LaneLayout struct {
 	Name string `yaml:"name"`
+	// Site is the host of the Jira it was made on: status and board ids
+	// mean something else on another. None: every site.
+	Site string `yaml:"site,omitempty"`
 	// Boards are the board ids it is for; none: every board it fits.
 	Boards []int      `yaml:"boards,omitempty"`
 	Lanes  []LaneSpec `yaml:"lanes"`

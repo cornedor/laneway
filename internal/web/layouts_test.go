@@ -27,7 +27,7 @@ func TestBoardLayouts(t *testing.T) {
 		{Name: "Ship", Hidden: []string{"1"}, Lanes: []config.LaneSpec{{Name: "Done", Statuses: []string{"2", "3"}}}},
 		{Name: "Other board", Boards: []int{5}, Lanes: []config.LaneSpec{{Statuses: []string{"1", "2"}}}},
 	}
-	got := boardLayouts(ls, 1, cols, nil)
+	got := boardLayouts(ls, "", 1, cols, nil)
 	if len(got) != 1 || got[0].Name != "Ship" {
 		t.Fatalf("layouts %+v, want Ship alone", got)
 	}
@@ -37,7 +37,7 @@ func TestBoardLayouts(t *testing.T) {
 			t.Errorf("%s lacks %s", b, want)
 		}
 	}
-	if got := boardLayouts(nil, 1, cols, nil); got == nil {
+	if got := boardLayouts(nil, "", 1, cols, nil); got == nil {
 		t.Error("no layouts should be [], not null")
 	}
 }
@@ -89,5 +89,8 @@ func TestArrangeBoard(t *testing.T) {
 	}
 	if ls := got.Layout.Lanes; len(ls) != 1 || strings.Join(ls[0].Statuses, ",") != "2,3,5,4" || strings.Join(got.Layout.Hidden, ",") != "1" {
 		t.Errorf("applied layout %+v", got.Layout)
+	}
+	if got.Layout.Site != lanes.Site(base) {
+		t.Errorf("an edited layout is on site %q, want this one's %q", got.Layout.Site, lanes.Site(base))
 	}
 }

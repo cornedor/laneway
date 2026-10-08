@@ -113,7 +113,7 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	names, _ := c.StatusNames(ctx)
-	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, id, cfg.Columns, names)}
+	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, lanes.Site(c.BaseURL()), id, cfg.Columns, names)}
 	quick := localQuick(s.UIConfig().QuickFilters)
 	if !strings.EqualFold(strings.TrimSpace(s.UIConfig().BoardQuickFilters), "off") {
 		qf, _ := c.QuickFilters(ctx, id)
@@ -151,11 +151,11 @@ type boardLayout struct {
 	Hidden []string
 }
 
-// boardLayouts are the lane layouts fitting board, arranged as the
+// boardLayouts are the lane layouts fitting board of site, arranged as the
 // terminal does (internal/lanes).
-func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column, names map[string]string) []boardLayout {
+func boardLayouts(ls []config.LaneLayout, site string, board int, cols []jira.Column, names map[string]string) []boardLayout {
 	out := []boardLayout{}
-	for _, l := range lanes.Fitting(ls, board, cols) {
+	for _, l := range lanes.Fitting(ls, site, board, cols) {
 		arranged, hidden := lanes.Arrange(l, cols, names)
 		b := boardLayout{Name: l.Name, Hidden: append([]string{}, hidden...)}
 		for _, a := range arranged {
@@ -168,9 +168,9 @@ func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column, names m
 
 // arrangeBoard is a lane layout over the board's columns, for the
 // settings' lane editor: the body's Layout (as ui.lane_layouts has it), with
-// the editor's Draft of it applied when given. It answers the columns,
-// status names, the layout to write, its draft over the board, and whether
-// it fits the board.
+// the editor's Draft of it applied when given, and this site's when it has
+// none. It answers the columns, status names, the layout to write, its draft
+// over the board, and whether it fits the board.
 func arrangeBoard(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	id, err := boardID(r)
 	if err != nil {
@@ -188,13 +188,14 @@ func arrangeBoard(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	if err != nil {
 		return nil, err
 	}
-	l := b.Layout
+	l, site := b.Layout, lanes.Site(c.BaseURL())
 	if b.Draft != nil {
 		l = b.Draft.Apply(l, cfg.Columns)
+		l.Site = cmp.Or(l.Site, site)
 	}
 	names, _ := c.StatusNames(ctx)
 	return map[string]any{"Columns": cfg.Columns, "StatusNames": names, "Layout": l, "Draft": lanes.NewDraft(l, cfg.Columns),
-		"Fits": lanes.Fits(l, id, cfg.Columns)}, nil
+		"Fits": lanes.Fits(l, site, id, cfg.Columns)}, nil
 }
 
 // localQuick are ui.quick_filters, shown before every board's own, as the

@@ -103,14 +103,14 @@ func TestFits(t *testing.T) {
 		l    config.LaneLayout
 		want bool
 	}{{two, true}, {one, false}, {hid, true}, {other, false}} {
-		if got := Fits(c.l, 1, board); got != c.want {
+		if got := Fits(c.l, "", 1, board); got != c.want {
 			t.Errorf("%s fits: %v, want %v", c.l.Name, got, c.want)
 		}
 	}
-	if !Fits(other, 9, board) {
+	if !Fits(other, "", 9, board) {
 		t.Error("d is for board 9")
 	}
-	if got := Fitting([]config.LaneLayout{two, one, {Lanes: two.Lanes}}, 1, board); len(got) != 1 || got[0].Name != "a" {
+	if got := Fitting([]config.LaneLayout{two, one, {Lanes: two.Lanes}}, "", 1, board); len(got) != 1 || got[0].Name != "a" {
 		t.Errorf("Fitting: %v (a nameless layout is left out)", got)
 	}
 }
@@ -190,7 +190,7 @@ func TestArrangeSplitColumn(t *testing.T) {
 	if got[1].Max != 0 || got[1].Sections[1].Col != 3 || got[3].Sections[0].Col != 3 {
 		t.Errorf("max %d, cols %d %d", got[1].Max, got[1].Sections[1].Col, got[3].Sections[0].Col)
 	}
-	if !Fits(l, 1, cols) {
+	if !Fits(l, "", 1, cols) {
 		t.Error("it places In progress, Test and UAT: fits")
 	}
 }
@@ -247,5 +247,21 @@ func TestArrangeSplitLaneName(t *testing.T) {
 	d.Lanes[li].Name = "QA"
 	if out := d.Apply(l, board); out.Lanes[li].Name != "QA" {
 		t.Errorf("named as its status: %+v, want the name kept", out.Lanes[li])
+	}
+}
+
+// TestFitsSite: a layout made on one Jira stays off another's boards, whose
+// status ids mean other statuses; one made on none fits every site.
+func TestFitsSite(t *testing.T) {
+	l := config.LaneLayout{Name: "dev", Site: "work.atlassian.net", Lanes: []config.LaneSpec{{Statuses: []string{"1"}}, {Statuses: []string{"3"}}}}
+	if !Fits(l, Site("https://work.atlassian.net/"), 1, board) || !Fits(l, "WORK.atlassian.net", 1, board) {
+		t.Error("made here: fits")
+	}
+	if Fits(l, Site("http://127.0.0.1:8080"), 1, board) {
+		t.Error("made on another site: fits")
+	}
+	l.Site = ""
+	if !Fits(l, "127.0.0.1:8080", 1, board) {
+		t.Error("made on no site in particular: doesn't fit")
 	}
 }
