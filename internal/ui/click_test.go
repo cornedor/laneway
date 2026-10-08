@@ -545,6 +545,54 @@ func TestCommentKeepsText(t *testing.T) {
 	}
 }
 
+// TestCommentTimedOut: a post Jira answers too late may have landed; c
+// brings it back, and posting it again finds it there instead of posting
+// a second copy.
+func TestCommentTimedOut(t *testing.T) {
+	posts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/myself":
+			fmt.Fprint(w, `{"accountId":"me1"}`)
+		case r.Method == http.MethodPost:
+			posts++
+			_, _ = io.Copy(io.Discard, r.Body)
+			<-r.Context().Done() // stored, but answered too late
+		case r.URL.Path == "/rest/api/3/issue/ABC-1/comment":
+			fmt.Fprint(w, `{"comments":[{"id":"2","author":{"accountId":"me1"},
+				"body":{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":"my words"}]}]}}]}`)
+		default:
+			fmt.Fprint(w, `{}`)
+		}
+	}))
+	defer srv.Close()
+	m := panelModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", Timeout: 50 * time.Millisecond})
+	m.focus = focusRef
+	post := func() jiraMutatedMsg {
+		t.Helper()
+		m.jiraCommentInput.SetValue("my words")
+		out, cmd := m.handleKey(keyMsg(t, "ctrl+s"))
+		msg, ok := findMsg[jiraMutatedMsg](cmd)
+		if !ok {
+			t.Fatal("no post")
+		}
+		out, _ = out.(Model).handleJiraMutated(msg)
+		m = out.(Model)
+		return msg
+	}
+	out, _ := m.handleKey(keyMsg(t, "c"))
+	m = out.(Model)
+	if post(); !strings.Contains(m.status, "may have posted") {
+		t.Fatalf("status %q", m.status)
+	}
+	out, _ = m.handleKey(keyMsg(t, "c"))
+	m = out.(Model)
+	if msg := post(); !msg.found || posts != 1 || !strings.Contains(m.status, "already") {
+		t.Errorf("again: found %v, %d posts, %q", msg.found, posts, m.status)
+	}
+}
+
 // TestQuitGuard: ctrl+c with a comment you wrote asks once; again quits.
 func TestQuitGuard(t *testing.T) {
 	m := panelModel(t)

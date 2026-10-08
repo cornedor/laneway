@@ -57,8 +57,11 @@ fields, functions and keywords, and a field's values after an operator.
 === "Browser"
 
     `Q` opens the palette in JQL mode (`#` in the palette does the same).
-    `tab` completes, `enter` runs it. `ctrl+s` stars the query as a view on
-    every board; `ctrl+f` saves it as a Jira filter.
+    `tab` completes, `enter` lists the hits there. A hit opens beside them
+    shown as a board view, `[` `]` in the panel stepping through them;
+    `ctrl+enter` opens that view without one, from the query too. A reload
+    keeps it. `ctrl+s` stars the query as a view on every board; `ctrl+f`
+    saves it as a Jira filter.
 
 `ui.saved_filters` (on) shows your starred Jira filters as views too.
 
@@ -79,4 +82,5 @@ characters it also searches all of Jira (summary, description, comments).
 === "Browser"
 
     The first character picks a mode: `:` commands, `/` issues, `#` JQL;
-    `g ` jumps to a key. `ctrl+enter` opens an issue as a full page.
+    `g ` jumps to a key. `ctrl+enter` opens an issue as a full page; on
+    JQL hits, the hits as a view.

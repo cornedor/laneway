@@ -193,3 +193,32 @@ func TestCommentVisibility(t *testing.T) {
 		t.Errorf("reply body %q", bodies[3])
 	}
 }
+
+// TestHasComment: a comment of yours that reads the same is there; one by
+// someone else, or with other text, is not.
+func TestHasComment(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/myself":
+			io.WriteString(w, `{"accountId":"me"}`)
+		case "/rest/api/3/issue/ABC-1/comment":
+			if r.URL.Query().Get("orderBy") != "-created" {
+				t.Errorf("not the newest first: %s", r.URL)
+			}
+			io.WriteString(w, `{"comments":[
+				{"id":"3","author":{"accountId":"you"},"body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"theirs"}]}]}},
+				{"id":"2","author":{"accountId":"me"},"body":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"mention","attrs":{"id":"m","text":"@Mira"}},{"type":"text","text":" ships  it"}]}]}}]}`)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	for _, tc := range []struct {
+		text string
+		want bool
+	}{{"ships it", true}, {"ships it later", false}, {"theirs", false}} {
+		got, err := c.HasComment(context.Background(), "ABC-1", CommentADF(tc.text, &Mention{AccountID: "m", DisplayName: "Mira"}, nil))
+		if err != nil || got != tc.want {
+			t.Errorf("%q: %v %v, want %v", tc.text, got, err, tc.want)
+		}
+	}
+}

@@ -24,6 +24,26 @@ test('a comment', async ({ page }) => {
   await expect(panel(page)).toContainText('Ship it after the review');
 });
 
+test('a comment Jira answered too late is not posted twice', async ({ page, app }) => {
+  const sent = [];
+  await page.route('**/api/issues/DEMO-4/comments', async route => {
+    sent.push(route.request().postDataJSON());
+    if (sent.length > 1) return route.continue();
+    await route.fetch(); // stored, but the answer comes too late
+    await route.fulfill({ status: 504, contentType: 'application/json', body: JSON.stringify({ error: 'jira: DEMO-4 timed out after 20s' }) });
+  });
+  await page.keyboard.press('c');
+  await page.keyboard.type('Landed after all');
+  await page.keyboard.press('Control+Enter');
+  await expect(page.getByRole('alert')).toContainText('may have posted');
+  await page.locator('.composer .ed-ta').click();
+  await page.keyboard.press('Control+Enter');
+  await expect(page.getByRole('status')).toContainText('already');
+  expect(sent.map(b => !!b.Check)).toEqual([false, true]);
+  await expect(panel(page).locator('article.cm', { hasText: 'Landed after all' })).toHaveCount(1);
+  app.errors.splice(app.errors.findIndex(e => e.startsWith('504 POST')), 1); // the late answer
+});
+
 test('s moves it to Done, on the board too', async ({ page }) => {
   await page.keyboard.press('s');
   await expect(page.locator('.pick-input')).toBeFocused();

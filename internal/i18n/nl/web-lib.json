@@ -330,6 +330,7 @@
   "Terminal": "Terminal",
   "Text colour: %s": "Tekstkleur: %s",
   "The answer came back empty.": "Het antwoord was leeg.",
+  "The comment may have posted: %s. Posting it again looks for it first.": "De reactie is misschien geplaatst: %s. Opnieuw plaatsen kijkt eerst of hij er al staat.",
   "The answer in the comment composer, to edit and post (ctrl+enter)": "Het antwoord in het reactieveld, om te bewerken en te plaatsen (ctrl+enter)",
   "Theme": "Thema",
   "Theme: %s": "Thema: %s",

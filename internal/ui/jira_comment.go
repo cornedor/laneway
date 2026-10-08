@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 	"time"
@@ -50,7 +51,10 @@ func (m *Model) openJiraCommentInputFor(key string) {
 	if m.unsent.key == m.jiraCommentKey && m.unsent.text != "" {
 		m.jiraCommentInput.SetValue(m.unsent.text)
 		m.jiraCommentInput.CursorEnd()
-		m.unsent = struct{ key, text string }{}
+		if m.unsent.maybe != nil {
+			m.jiraCommentMaybe = m.unsent
+		}
+		m.unsent = unsentComment{}
 		m.status = i18n.T("your unsent comment is back")
 	} else if d, ok := m.draft(commentDraft(m.jiraCommentKey)); ok {
 		m.jiraCommentInput.SetValue(d.Text)
@@ -127,6 +131,7 @@ func (m *Model) closeJiraComment() {
 	m.jiraCommentReplyTo, m.jiraCommentReplyID = "", ""
 	m.jiraCommentInput = editor.Model{}
 	m.jiraCommentBefore, m.jiraCommentDiscard = "", false
+	m.jiraCommentMaybe = unsentComment{}
 	m.jiraCommentMentions = nil
 	m.jiraMention = mentionState{seq: m.jiraMention.seq + 1}
 }
@@ -165,11 +170,17 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 // applyJiraComment closes the composer and posts the comment (or reply). An
-// empty body with no mention is treated as a cancel.
+// empty body with no mention is treated as a cancel. A comment brought
+// back after a post that may have landed is looked for first, so it is
+// not posted twice.
 func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 	key := m.jiraCommentKey
 	text := strings.TrimSpace(m.jiraCommentInput.Value())
 	mention, inline, vis, parent := m.jiraCommentMention, m.jiraCommentMentions, m.jiraCommentVis, m.replyParent()
+	var maybe json.RawMessage
+	if m.jiraCommentMaybe.text == text {
+		maybe = m.jiraCommentMaybe.maybe
+	}
 	m.saveOpenDrafts() // until Jira has it
 	m.closeJiraComment()
 	if text == "" && mention == nil {
@@ -181,8 +192,20 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 		m.status = i18n.Tf("posting reply to %s…", key)
 	}
 	return m, func() tea.Msg {
-		err := client.AddCommentMentions(ctx, key, text, mention, inline, vis, parent)
-		return jiraMutatedMsg{key: key, field: "comment", err: err, text: text}
+		msg := jiraMutatedMsg{key: key, field: "comment", text: text}
+		if maybe != nil {
+			found, err := client.HasComment(ctx, key, maybe)
+			if err != nil || found {
+				msg.err, msg.found, msg.maybe = err, found, maybe
+				return msg
+			}
+		}
+		doc := jira.CommentADF(text, mention, inline)
+		msg.err = client.AddCommentADFFor(ctx, key, doc, vis, parent)
+		if jira.TimedOut(msg.err) {
+			msg.maybe = doc
+		}
+		return msg
 	}
 }
 

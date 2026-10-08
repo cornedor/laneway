@@ -130,6 +130,9 @@ see theirs before you save yours over it.
   description editor too.
 - `ctrl+o` limits a comment to one project role or group you're in, or
   makes it an internal note in a Service Desk project.
+- A post that fails keeps its text (in the terminal `c` brings it back).
+  One Jira answered too late may have landed: posting it again looks for
+  it among the newest comments first, so it isn't posted twice.
 - Under each comment: *reply*, and on your own *edit* and *delete*, to
   click.
 

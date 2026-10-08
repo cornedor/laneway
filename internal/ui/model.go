@@ -486,7 +486,10 @@ type Model struct {
 	jiraCommentBefore  string
 	jiraCommentDiscard bool
 	// unsent is a comment whose post failed, by issue: c brings it back.
-	unsent struct{ key, text string }
+	unsent unsentComment
+	// jiraCommentMaybe is the comment c brought back when its post may
+	// have landed: posting the same text looks for it first.
+	jiraCommentMaybe unsentComment
 	// otherSites are the other configured sites' clients, for the inbox
 	// (inbox_sites.go).
 	otherSites *siteClients
