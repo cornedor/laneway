@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -43,7 +44,7 @@ func (m *Model) openTimeMachineAt(at time.Time) tea.Cmd {
 	t := m.jiraTab
 	if !m.jiraShowsLanes() {
 		if v, ok := m.jiraCurrentView(); !ok || !v.lanes || !v.closed.IsZero() {
-			m.status = "the time machine needs a sprint or board view"
+			m.status = i18n.T("the time machine needs a sprint or board view")
 			return nil
 		}
 		keep := m.selectedJiraKey()
@@ -59,7 +60,7 @@ func (m *Model) openTimeMachineAt(at time.Time) tea.Cmd {
 		seq = t.past.seq + 1
 	}
 	t.past = &timeMachine{loading: true, days: 1, seq: seq, at: at}
-	m.status = "reading the board's history…"
+	m.status = i18n.T("reading the board's history…")
 	m.renderJira()
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -75,7 +76,7 @@ func (m Model) handleTimeMachine(msg timeMachineMsg) (tea.Model, tea.Cmd) {
 	}
 	if msg.err != nil {
 		m.jiraTab.past = nil
-		m.fail("time machine: " + msg.err.Error())
+		m.fail(i18n.Tf("time machine: %s", msg.err.Error()))
 		m.renderJira()
 		return m, nil
 	}
@@ -96,12 +97,12 @@ func (p *timeMachine) asOf(now time.Time) time.Time {
 // pastLabel is the header's "as of mon 22".
 func (p *timeMachine) label(now time.Time) string {
 	if p.loading {
-		return "⏲ reading history…"
+		return i18n.T("⏲ reading history…")
 	}
 	if !p.at.IsZero() {
-		return "⏲ as it closed, " + strings.ToLower(p.at.Local().Format("Mon 2 Jan"))
+		return i18n.Tf("⏲ as it closed, %s", strings.ToLower(p.at.Local().Format("Mon 2 Jan")))
 	}
-	return "⏲ as of " + strings.ToLower(p.asOf(now).Add(-time.Minute).Format("Mon 2 Jan"))
+	return i18n.Tf("⏲ as of %s", strings.ToLower(p.asOf(now).Add(-time.Minute).Format("Mon 2 Jan")))
 }
 
 // pastCard is c as the time machine has it, false when it didn't exist yet.
@@ -126,9 +127,9 @@ func (m *Model) stepTimeMachine(d int) {
 	keep := m.selectedJiraKey()
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
-	m.status = "← earlier · → later · esc back to now"
+	m.status = i18n.T("← earlier · → later · esc back to now")
 	if !p.at.IsZero() {
-		m.status = "a closed sprint, as it closed · esc leaves it"
+		m.status = i18n.T("a closed sprint, as it closed · esc leaves it")
 	}
 	m.renderJira()
 }
@@ -141,7 +142,7 @@ func (m *Model) closeTimeMachine() {
 	}
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
-	m.status = "back to now"
+	m.status = i18n.T("back to now")
 	m.renderJira()
 }
 
@@ -157,9 +158,9 @@ func (m Model) handleTimeMachineKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case s == "esc", key.Matches(msg, m.keys.TimeMachine):
 		m.closeTimeMachine()
 	case p.loading:
-		m.status = "still reading the history · esc cancels"
+		m.status = i18n.T("still reading the history · esc cancels")
 	case !p.at.IsZero() && (s == "left" || s == "right"):
-		m.status = "a closed sprint shows as it closed · esc leaves it"
+		m.status = i18n.T("a closed sprint shows as it closed · esc leaves it")
 	case s == "left":
 		m.stepTimeMachine(1)
 	case s == "right":
@@ -175,9 +176,9 @@ func (m Model) handleTimeMachineKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
 		return m.openJiraCard()
 	case !p.at.IsZero():
-		m.status = "a closed sprint only looks · esc leaves it"
+		m.status = i18n.T("a closed sprint only looks · esc leaves it")
 	default:
-		m.status = "the time machine only looks · esc back to now"
+		m.status = i18n.T("the time machine only looks · esc back to now")
 	}
 	return m, nil
 }

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/safeterm"
 )
 
@@ -58,11 +58,11 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	}
 	switch {
 	case t.loading:
-		segs = append(segs, plainSeg(dim("  refreshing…"+loadingFor(t.loadingSince))))
+		segs = append(segs, plainSeg(dim(i18n.Tf("  refreshing…%s", loadingFor(t.loadingSince)))))
 	case !t.fetched.IsZero():
-		segs = append(segs, plainSeg(dim("  ")), keySeg(dim("updated "+age(t.fetched)), k.Refresh))
+		segs = append(segs, plainSeg(dim("  ")), keySeg(dim(i18n.Tf("updated %s", age(t.fetched))), k.Refresh))
 		if t.total > len(t.cards) {
-			segs = append(segs, plainSeg(dim(fmt.Sprintf("  ·  first %d of %d", len(t.cards), t.total))))
+			segs = append(segs, plainSeg(dim(i18n.Tf("  ·  first %d of %d", len(t.cards), t.total))))
 		}
 	}
 	if tl := m.timerLabel(); tl != "" {
@@ -87,22 +87,22 @@ func (m *Model) jiraTitleSegs() []headSeg {
 	for i, h := range []struct {
 		b    key.Binding
 		what string
-	}{{k.Help, "help"}, {k.Project, "project"}, {k.Board, "board"}} {
+	}{{k.Help, i18n.T("help")}, {k.Project, i18n.T("project")}, {k.Board, i18n.T("board")}} {
 		if i > 0 {
 			segs = append(segs, plainSeg(dim("  ")))
 		}
 		segs = append(segs, keySeg(dim(helpKey(h.b)+" "+h.what), h.b))
 	}
 	segs = append(segs, plainSeg(dim("  ")), keySeg(dim(helpKey(k.PrevView)), k.PrevView), plainSeg(dim(" ")),
-		keySeg(dim(helpKey(k.NextView)), k.NextView), plainSeg(dim(" view")))
+		keySeg(dim(helpKey(k.NextView)), k.NextView), plainSeg(dim(i18n.T(" view"))))
 	for _, h := range []struct {
 		b    key.Binding
 		what string
-	}{{k.ToggleMode, "lanes/list"}, {k.OpenChannel, "open"}, {k.OpenAttach, "browser"}, {k.Refresh, "refresh"}} {
+	}{{k.ToggleMode, i18n.T("lanes/list")}, {k.OpenChannel, i18n.T("open")}, {k.OpenAttach, i18n.T("browser")}, {k.Refresh, i18n.T("refresh")}} {
 		segs = append(segs, plainSeg(dim("  ")), keySeg(dim(helpKey(h.b)+" "+h.what), h.b))
 	}
 	if m.jiraShowsLanes() {
-		segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move")))
+		segs = append(segs, plainSeg(dim(i18n.Tf("  %s/%s move", helpKey(k.MoveCardLeft), helpKey(k.MoveCardRight)))))
 	}
 	return segs
 }
@@ -115,7 +115,7 @@ func (m *Model) jiraViewSegs() []headSeg {
 	t := m.jiraTab
 	var head, tail []headSeg
 	if t.offline != "" {
-		head = append(head, keySeg(jiraOverStyle.Render("offline · showing the cached board · "+helpKey(m.keys.Refresh)+" retries"), m.keys.Refresh), plainSeg("    "))
+		head = append(head, keySeg(jiraOverStyle.Render(i18n.Tf("offline · showing the cached board · %s retries", helpKey(m.keys.Refresh))), m.keys.Refresh), plainSeg("    "))
 	}
 	if v, ok := m.jiraCurrentView(); ok {
 		// A closed sprint's bar would count what is done now; its line says what was.
@@ -131,15 +131,15 @@ func (m *Model) jiraViewSegs() []headSeg {
 	}
 	if n := len(t.lanes); m.jiraShowsLanes() && n > 0 {
 		if vis, _ := jiraLaneLayout(t.view.Width(), n); vis < n {
-			tail = append(tail, plainSeg(jiraDimStyle.Render(fmt.Sprintf("    lanes %d–%d of %d", t.firstLane+1, t.firstLane+vis, n))))
+			tail = append(tail, plainSeg(jiraDimStyle.Render(i18n.Tf("    lanes %d–%d of %d", t.firstLane+1, t.firstLane+vis, n))))
 		}
 		if h := len(t.cols) - n; h > 0 {
-			tail = append(tail, keySeg(jiraDimStyle.Render(fmt.Sprintf("    %d empty hidden", h)), m.keys.EmptyLanes))
+			tail = append(tail, keySeg(jiraDimStyle.Render(i18n.Tf("    %d empty hidden", h)), m.keys.EmptyLanes))
 		}
 		if t.layout != "" && t.layout == m.jiraLayoutName() {
-			s := "    lanes: " + t.layout
+			s := i18n.Tf("    lanes: %s", t.layout)
 			if t.layoutHidden > 0 {
-				s += fmt.Sprintf(", %d hidden", t.layoutHidden)
+				s = i18n.Tf("    lanes: %s, %d hidden", t.layout, t.layoutHidden)
 			}
 			tail = append(tail, keySeg(jiraDimStyle.Render(s), m.keys.LaneLayout))
 		}
@@ -196,11 +196,11 @@ func (m *Model) jiraFilterSegs() []headSeg {
 		}
 		segs = append(segs, plainSeg(" "), headSeg{s: dim("esc"), kind: "esc"}, plainSeg("  "))
 	}
-	who := "everyone"
+	who := i18n.T("everyone")
 	if t.assignee.id != "" {
 		who = t.assignee.short()
 	}
-	segs = append(segs, plainSeg(dim(helpKey(m.keys.Assignee)+" assignee ("+helpKey(m.keys.Mine)+" me): ")),
+	segs = append(segs, plainSeg(dim(i18n.Tf("%s assignee (%s me): ", helpKey(m.keys.Assignee), helpKey(m.keys.Mine)))),
 		headSeg{s: chip(t.assignee.id != "", who), kind: "assignee"})
 	for i, q := range t.quick {
 		if i == 9 {
@@ -209,17 +209,17 @@ func (m *Model) jiraFilterSegs() []headSeg {
 		segs = append(segs, plainSeg("  "), headSeg{s: chip(t.quickOn[q.ID], strconv.Itoa(i+1)+" "+q.Name), kind: "quick", i: i})
 	}
 	if t.jiraFiltered() {
-		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(helpKey(m.keys.ClearFilters)+" clears"), m.keys.ClearFilters))
+		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(i18n.Tf("%s clears", helpKey(m.keys.ClearFilters))), m.keys.ClearFilters))
 	}
 	if t.sort != jiraSortRank && !m.jiraShowsLanes() {
-		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(helpKey(m.keys.Sort)+" sort: ")+chip(true, t.sort.String()), m.keys.Sort))
+		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(i18n.Tf("%s sort: ", helpKey(m.keys.Sort)))+chip(true, t.sort.String()), m.keys.Sort))
 	}
 	if !t.searching {
 		segs = append(segs, plainSeg(dim("  ·  ")))
 		if t.jiraSearchQuery() == "" {
-			segs = append(segs, keySeg(dim(helpKey(m.keys.Search)+" search"), m.keys.Search), plainSeg(dim("  ")))
+			segs = append(segs, keySeg(dim(i18n.Tf("%s search", helpKey(m.keys.Search))), m.keys.Search), plainSeg(dim("  ")))
 		}
-		segs = append(segs, keySeg(dim(helpKey(m.keys.FilterBuilder)+" filter"), m.keys.FilterBuilder))
+		segs = append(segs, keySeg(dim(i18n.Tf("%s filter", helpKey(m.keys.FilterBuilder))), m.keys.FilterBuilder))
 	}
 	return segs
 }
@@ -277,7 +277,7 @@ func (m Model) runSeg(h headSeg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	case "goal":
 		if v, ok := m.jiraCurrentView(); ok && strings.TrimSpace(v.goal) != "" {
-			m.status = "goal: " + safeterm.Line(strings.Join(strings.Fields(v.goal), " "))
+			m.status = i18n.Tf("goal: %s", safeterm.Line(strings.Join(strings.Fields(v.goal), " ")))
 		}
 		return m, nil, true
 	case "esc":
@@ -364,31 +364,31 @@ func hintSegs(hints ...hint) []headSeg {
 func (m *Model) roadmapSegs() []headSeg {
 	r := m.jiraTab.roadmap
 	dim := jiraDimStyle.Render
-	s := jiraViewActive.Render("Roadmap") + dim(fmt.Sprintf("  %d epics · %s per column", len(r.epics), roadmapZoomName(roadmapZooms[r.zoom])))
+	s := jiraViewActive.Render(i18n.T("Roadmap")) + dim(i18n.Tf("  %d epics · %s per column", len(r.epics), roadmapZoomName(roadmapZooms[r.zoom])))
 	if n := len(r.groups); n > 0 {
-		s += dim(fmt.Sprintf(" · %d parents", n))
+		s += dim(i18n.Tf(" · %d parents", n))
 	}
 	segs := []headSeg{plainSeg(s)}
 	switch {
 	case r.finding:
 		segs = append(segs, plainSeg("  "+r.find.View()))
 	case r.filter != "":
-		segs = append(segs, plainSeg(dim("  /"+r.filter+" (esc clears)")))
+		segs = append(segs, plainSeg(dim(i18n.Tf("  /%s (esc clears)", r.filter))))
 	}
 	switch {
 	case r.loading:
-		segs = append(segs, plainSeg(dim("  ·  loading…")))
+		segs = append(segs, plainSeg(dim(i18n.T("  ·  loading…"))))
 	case !r.fetched.IsZero():
-		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim("updated "+age(r.fetched)), m.keys.Refresh))
+		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(i18n.Tf("updated %s", age(r.fetched))), m.keys.Refresh))
 	}
 	k := m.keys
 	segs = append(segs, plainSeg(dim("  ·")))
-	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "scroll"},
-		hint{helpKey(k.ZoomIn), firstKey(k.ZoomIn), helpKey(k.ZoomOut), firstKey(k.ZoomOut), "zoom"},
-		keyHint(k.Today, "today"), keyHint(k.RoadmapFold, "children"))...)
-	segs = append(segs, plainSeg(dim("  "+helpKey(k.MoveCardLeft)+"/"+helpKey(k.MoveCardRight)+" move  "+
-		helpKey(k.EndEarlier)+" "+helpKey(k.EndLater)+" end  "+helpKey(k.RoadmapGrip)+" grip an end")))
-	return append(segs, hintSegs(keyHint(k.OpenChannel, "open"), keyHint(k.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
+	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", i18n.T("scroll")},
+		hint{helpKey(k.ZoomIn), firstKey(k.ZoomIn), helpKey(k.ZoomOut), firstKey(k.ZoomOut), i18n.T("zoom")},
+		keyHint(k.Today, i18n.T("today")), keyHint(k.RoadmapFold, i18n.T("children")))...)
+	segs = append(segs, plainSeg(dim(i18n.Tf("  %s/%s move  %s %s end  %s grip an end",
+		helpKey(k.MoveCardLeft), helpKey(k.MoveCardRight), helpKey(k.EndEarlier), helpKey(k.EndLater), helpKey(k.RoadmapGrip)))))
+	return append(segs, hintSegs(keyHint(k.OpenChannel, i18n.T("open")), keyHint(k.CopyKey, i18n.T("copy")), hint{label: "esc", press: "esc", what: i18n.T("board")})...)
 }
 
 // chartsSegs is the charts' view line: a chart's name shows it.
@@ -406,11 +406,11 @@ func (m *Model) chartsSegs() []headSeg {
 		segs = append(segs, headSeg{s: style.Render(chartTabNames[i]), kind: "chart", i: i})
 	}
 	if ch.loading {
-		segs = append(segs, plainSeg(jiraDimStyle.Render("  ·  loading…")))
+		segs = append(segs, plainSeg(jiraDimStyle.Render(i18n.T("  ·  loading…"))))
 	}
 	segs = append(segs, plainSeg(jiraDimStyle.Render("  ·")))
-	return append(segs, hintSegs(hint{label: "tab", press: "tab", what: "switch"}, keyHint(m.keys.ChartDone, "done"), keyHint(m.keys.ChartCompare, "compare"),
-		keyHint(m.keys.Refresh, "refresh"), keyHint(m.keys.CopyKey, "copy"), hint{label: "esc", press: "esc", what: "board"})...)
+	return append(segs, hintSegs(hint{label: "tab", press: "tab", what: i18n.T("switch")}, keyHint(m.keys.ChartDone, i18n.T("done")), keyHint(m.keys.ChartCompare, i18n.T("compare")),
+		keyHint(m.keys.Refresh, i18n.T("refresh")), keyHint(m.keys.CopyKey, i18n.T("copy")), hint{label: "esc", press: "esc", what: i18n.T("board")})...)
 }
 
 // planSegs is planning's view line: the sprint's name steps to the next.
@@ -418,24 +418,24 @@ func (m *Model) planSegs() []headSeg {
 	p := m.jiraTab.plan
 	dim := jiraDimStyle.Render
 	k := m.keys
-	segs := []headSeg{plainSeg(jiraViewActive.Render("Planning") + dim("  backlog → ")), keySeg(dim(p.sprints[p.target].name), k.NextView)}
+	segs := []headSeg{plainSeg(jiraViewActive.Render(i18n.T("Planning")) + dim(i18n.T("  backlog → "))), keySeg(dim(p.sprints[p.target].name), k.NextView)}
 	switch {
 	case p.finding:
 		segs = append(segs, plainSeg("  "+p.find.View()))
 	case p.filter != "":
-		segs = append(segs, plainSeg(dim("  /"+p.filter+" (esc clears)")))
+		segs = append(segs, plainSeg(dim(i18n.Tf("  /%s (esc clears)", p.filter))))
 	}
 	if p.loading {
-		segs = append(segs, plainSeg(dim("  ·  loading…")))
+		segs = append(segs, plainSeg(dim(i18n.T("  ·  loading…"))))
 	}
 	segs = append(segs, plainSeg(dim("  ·")))
-	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", "side"},
-		hint{helpKey(k.PrevView), firstKey(k.PrevView), helpKey(k.NextView), firstKey(k.NextView), "sprint"})...)
+	segs = append(segs, hintSegs(hint{"←", "left", "→", "right", i18n.T("side")},
+		hint{helpKey(k.PrevView), firstKey(k.PrevView), helpKey(k.NextView), firstKey(k.NextView), i18n.T("sprint")})...)
 	if !p.finding {
-		segs = append(segs, plainSeg(dim("  ")), keySeg(dim(helpKey(k.FilterBuilder)+" filter"), k.FilterBuilder))
+		segs = append(segs, plainSeg(dim("  ")), keySeg(dim(i18n.Tf("%s filter", helpKey(k.FilterBuilder))), k.FilterBuilder))
 	}
-	segs = append(segs, plainSeg(dim(fmt.Sprintf("  %s/space move across  %s %s rank  %s goal  %s rename  %s new  %s start/end  %s %s complete",
+	segs = append(segs, plainSeg(dim(i18n.Tf("  %s/space move across  %s %s rank  %s goal  %s rename  %s new  %s start/end  %s %s complete",
 		helpKey(k.MoveSprint), helpKey(k.RankUp), helpKey(k.RankDown), helpKey(k.PlanGoal), helpKey(k.PlanRename), helpKey(k.PlanNew),
 		helpKey(k.PlanStart), helpKey(k.PlanComplete), helpKey(k.PlanComplete)))))
-	return append(segs, hintSegs(keyHint(k.OpenChannel, "open"), hint{label: "esc", press: "esc", what: "board"})...)
+	return append(segs, hintSegs(keyHint(k.OpenChannel, i18n.T("open")), hint{label: "esc", press: "esc", what: i18n.T("board")})...)
 }
