@@ -1270,7 +1270,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   function setCols(list) {
     S.cols = fixCols(list);
     app.prefs.set('board.cols', S.cols.join(','));
-    S.built = ''; if (S.sort !== 'rank' && !S.cols.includes(S.sort)) { S.sort = 'rank'; S.dir = 1; }
+    S.built = ''; if (!SORTS.includes(S.sort) && !S.cols.includes(S.sort)) { S.sort = 'rank'; S.dir = 1; }
     layout();
   }
   async function pickCols() {

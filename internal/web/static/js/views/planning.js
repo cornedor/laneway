@@ -212,7 +212,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function setCols(r) {
     cols = r;
     app.prefs.set('planning.cols', cols.join(','));
-    for (const p of panes) if (sorted(p) && !cols.includes(p.sort)) { p.sort = 'rank'; p.dir = 1; app.prefs.set(p.sortKey, 'rank:1'); }
+    for (const p of panes) if (!SORTS.includes(p.sort) && !cols.includes(p.sort)) { p.sort = 'rank'; p.dir = 1; app.prefs.set(p.sortKey, 'rank:1'); }
     paintHeads(); relayout();
   }
   paintHeads();
