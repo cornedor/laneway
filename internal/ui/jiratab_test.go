@@ -115,6 +115,27 @@ func TestKanbanIssuesBigBacklog(t *testing.T) {
 	}
 }
 
+// TestFilterViewTotal: a filter view the card limit cuts off has Jira's
+// count for a total, for the header's "first N of M".
+func TestFilterViewTotal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/search/jql":
+			_, _ = w.Write([]byte(`{"issues":[{"key":"K-1","fields":{}}],"nextPageToken":"p2"}`))
+		case "/rest/api/3/search/approximate-count":
+			_, _ = w.Write([]byte(`{"count":2100}`))
+		default:
+			_, _ = w.Write([]byte(`[]`))
+		}
+	}))
+	defer srv.Close()
+	c := jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CardLimit: 1})
+	cards, total, err := fetchJiraView(context.Background(), c, 7, &jira.BoardConfig{}, jiraView{kind: jiraViewFilter, jql: "labels = x"}, "")
+	if err != nil || len(cards) != 1 || total != 2100 {
+		t.Errorf("%d cards of %d, %v", len(cards), total, err)
+	}
+}
+
 // TestJiraTabBacklogIsList: a planning view shows as a list whatever the mode.
 func TestJiraTabBacklogIsList(t *testing.T) {
 	m := jiraTabModel(t)

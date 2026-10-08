@@ -96,3 +96,41 @@ func TestCount(t *testing.T) {
 		t.Errorf("Count = %d, %v", n, err)
 	}
 }
+
+// TestSearchCardsTotal: a search the card limit cuts off asks the count for
+// its total; one it doesn't, or that ends right at it, asks nothing more.
+func TestSearchCardsTotal(t *testing.T) {
+	for _, c := range []struct{ limit, issues, total, counts int }{{2, 3, 2100, 1}, {3, 3, 3, 0}, {5, 3, 3, 0}} {
+		counts := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Token string `json:"nextPageToken"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			switch r.URL.Path {
+			case "/rest/api/3/search/approximate-count":
+				counts++
+				fmt.Fprint(w, `{"count": 2100}`)
+			case "/rest/api/3/search/jql":
+				n := 0
+				fmt.Sscan(body.Token, &n)
+				next := ""
+				if n+1 < c.issues {
+					next = fmt.Sprint(n + 1)
+				}
+				fmt.Fprintf(w, `{"issues": [{"key": "ABC-%d", "fields": {}}], "nextPageToken": %q}`, n+1, next)
+			default:
+				fmt.Fprint(w, `[]`)
+			}
+		}))
+		cl := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CardLimit: c.limit})
+		cards, total, err := cl.SearchCardsTotal(context.Background(), "x")
+		srv.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cards) != min(c.limit, c.issues) || total != c.total || counts != c.counts {
+			t.Errorf("limit %d: %d cards of %d, %d counts; want %d counts, total %d", c.limit, len(cards), total, counts, c.counts, c.total)
+		}
+	}
+}

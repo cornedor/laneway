@@ -296,6 +296,7 @@
   "Find a person…": "Zoek een persoon…",
   "Find an issue or type its key…": "Zoek een issue of typ de key…",
   "Find in this issue…": "Zoek in deze issue…",
+  "First %d of %d issues · ctrl+s stars as a view · ctrl+f saves as a filter": "Eerste %d van %d issues · ctrl+s zet vast als weergave · ctrl+f bewaart als filter",
   "Flag": "Vlag",
   "Flag as an impediment": "Markeren als blokkade",
   "Flagged": "Gevlagd",

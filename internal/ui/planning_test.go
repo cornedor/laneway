@@ -372,6 +372,25 @@ func TestPlanCopyFailedSide(t *testing.T) {
 	}
 }
 
+// TestPlanCutOff: a backlog past the card limit says how much of it shows,
+// and keeps counting what Jira has as cards move out.
+func TestPlanCutOff(t *testing.T) {
+	var writes []string
+	m := planModel(t, &writes)
+	p := m.jiraTab.plan
+	out, _ := m.handlePlan(planMsg{seq: p.seq, left: p.sides[0], right: p.sides[1], totals: [2]int{2100, 2}})
+	m = out.(Model)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Backlog  2 of 2100 cards") || !strings.Contains(view, "Sprint 1  2 cards") {
+		t.Errorf("planning:\n%s", view)
+	}
+	out, cmd := m.handleJiraKey(keyMsg(t, "space"))
+	m = out.(Model)
+	cmd()
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Backlog  1 of 2099 cards") || !strings.Contains(view, "Sprint 1  3 cards") {
+		t.Errorf("after a move:\n%s", view)
+	}
+}
+
 // TestPlanFilter: / narrows both sides as it is typed, letters and all;
 // esc clears it.
 func TestPlanFilter(t *testing.T) {

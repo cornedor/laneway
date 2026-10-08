@@ -63,7 +63,7 @@ Restart starts `laneway web` again); the rest apply at once.
 | `empty_lanes` | `show` | `hide`: lanes the filters leave empty |
 | `lane_layouts` | | your own lanes over a board's columns, `alt+l` switches; see [Lane layouts](#lane-layouts) |
 | `custom_fields` | | Jira fields by name on cards and rows, searchable as `"test type":e2e`. *Restart* |
-| `card_limit` | `500` | most cards one view fetches (50–5000); charts and the roadmap count up to 5000. *Restart* |
+| `card_limit` | `500` | most cards one view fetches (50–5000); a view, search or planning side it cuts off says how many Jira has. Charts and the roadmap count up to 5000. *Restart* |
 | `kanban_done_days` | `14` | done work older than this leaves kanban boards |
 | `stale_days` | `5` | an in-progress card's age turns red past this |
 | `flag_value` | `Impediment` | the Flagged option flag sets. *Restart* |

@@ -13,14 +13,15 @@ import (
 )
 
 func init() {
-	// GET /search?jql= runs JQL; {cards}.
+	// GET /search?jql= runs JQL; {cards, total}, total past the card limit
+	// by Jira's approximate count.
 	get("/search", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		jql := strings.TrimSpace(Q(r, "jql"))
 		if jql == "" {
 			return nil, badRequest(i18n.T("jql is empty"))
 		}
-		cards, err := s.Client().SearchCards(ctx, jql)
-		return map[string]any{"cards": cards}, err
+		cards, total, err := s.Client().SearchCardsTotal(ctx, jql)
+		return map[string]any{"cards": cards, "total": total}, err
 	})
 	// GET /find?q=&n= is the text search over every visible issue; {cards}.
 	get("/find", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

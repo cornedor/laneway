@@ -48,6 +48,33 @@ func searchGet(t *testing.T, url string, v any) int {
 	return res.StatusCode
 }
 
+// TestSearchTotal: a search or filter view the card limit cuts off says how
+// many issues Jira has.
+func TestSearchTotal(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	st, err := store.Open(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cl := jira.New(jira.Config{BaseURL: base, Email: "d@example.com", APIToken: "x", CardLimit: 3})
+	ts := httptest.NewServer(New(context.Background(), Options{Client: cl, Store: st, Site: "demo", Demo: true}))
+	t.Cleanup(ts.Close)
+	q := url.QueryEscape("project = DEMO")
+	for _, path := range []string{"/api/search?jql=" + q, "/api/boards/1/viewcards?kind=filter&jql=" + q} {
+		var out struct {
+			Cards []jira.Card
+			Total int
+		}
+		if code := searchGet(t, ts.URL+path, &out); code != 200 || len(out.Cards) != 3 || out.Total <= 3 {
+			t.Errorf("%s: %d, %d cards of %d", path, code, len(out.Cards), out.Total)
+		}
+	}
+}
+
 func TestSearchRoutes(t *testing.T) {
 	ts := searchDemo(t)
 	var out struct{ Cards []jira.Card }

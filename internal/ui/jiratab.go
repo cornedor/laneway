@@ -811,8 +811,7 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 	case jiraViewJQL:
 		return c.BoardIssues(ctx, board, andOrderedJQL(v.jql, filter), cfg.PointsField)
 	case jiraViewFilter:
-		cards, err := c.SearchCards(ctx, andOrderedJQL(v.jql, filter))
-		return cards, len(cards), err
+		return c.SearchCardsTotal(ctx, andOrderedJQL(v.jql, filter))
 	}
 	return KanbanIssues(ctx, c, board, cfg, v.doneDays, filter, cfg.PointsField)
 }
