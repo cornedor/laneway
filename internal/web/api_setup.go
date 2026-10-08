@@ -48,7 +48,7 @@ func (e FieldError) Error() string { return e.Msg }
 
 // setupOnly is the gate in setup mode: the setup screen's own calls pass.
 func setupOnly(s *Server, w http.ResponseWriter, r *http.Request) bool {
-	if s.opt.Setup == nil || r.URL.Path == "/api/session" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/autostart" {
+	if s.opt.Setup == nil || r.URL.Path == "/api/session" || r.URL.Path == "/api/i18n.js" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/autostart" {
 		return false
 	}
 	writeErr(w, httpError{http.StatusServiceUnavailable, "laneway is not connected to Jira yet"})

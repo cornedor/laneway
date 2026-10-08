@@ -19,6 +19,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/rules"
 )
 
@@ -322,6 +323,8 @@ type UIConfig struct {
 	// Delight is "on" (small celebrations: confetti on a card into done, a
 	// line on a completed sprint) or "off".
 	Delight string `yaml:"delight"`
+	// Language is the language laneway shows: en (default) or nl.
+	Language string `yaml:"language"`
 	// ThreadedReplies is "on" (a reply goes under its comment in Jira's
 	// thread, and the panel draws replies under theirs) or "off" (flat).
 	ThreadedReplies string `yaml:"threaded_replies"`
@@ -471,6 +474,7 @@ func Load(path string) (Config, string, error) {
 		if env := os.Getenv("JIRA_API_TOKEN"); env != "" {
 			c.Jira.APIToken = env
 		}
+		i18n.SetLang(c.UI.Language)
 		return c, p, nil
 	}
 	return Config{}, candidates[0], fmt.Errorf("%w; run `laneway setup`, or create %s with:\n\n%s\nA token: %s", ErrNoConfig, candidates[0], starterConfig, TokenURL)

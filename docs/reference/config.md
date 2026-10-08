@@ -204,6 +204,7 @@ ui:
 | `keys` | | rebind actions by name: [terminal](terminal-keys.md#rebinding), [browser](browser-keys.md#rebinding) |
 | `web_keys` | | rebind browser keys without a terminal action, by id: [browser](browser-keys.md#rebinding). Browser |
 | `delight` | `on` | small celebrations: confetti on a card into done, a sprint's points against the last ones |
+| `language` | `en` | the language laneway shows: `en` or `nl`; `LANEWAY_LANG` overrides it |
 | `skin_tone` | | the emoji tone for people: `light medium_light medium medium_dark dark` |
 
 ### System

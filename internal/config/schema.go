@@ -1,9 +1,11 @@
 package config
 
+import "github.com/cornedor/laneway/internal/i18n"
+
 // What the settings screens (terminal and web) say about each ui: option.
 
 // SettingsRestart are options read once at startup.
-var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true}
+var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true, "language": true}
 
 // SettingsCommand are options laneway runs as commands (or passes to one).
 var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": true, "open": true, "clipboard_image": true, "work_agent": true, "work_args": true, "work_create": true}
@@ -44,6 +46,7 @@ var SettingDefaults = map[string]string{
 	"saved_filters":        "on",
 	"remember_filters":     "on",
 	"delight":              "on",
+	"language":             "en",
 	"threaded_replies":     "on",
 	"comment_order":        "oldest",
 	"comment_layout":       "threaded",
@@ -108,7 +111,7 @@ var SettingGroups = []SettingGroup{
 	{"Planning, roadmap and charts", []string{"velocity_sprints", "report_done", "report_backwards", "roadmap_epic_type", "roadmap_done_days"}},
 	{"Inbox", []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
 	{"Standup", []string{"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer"}},
-	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "web_keys", "delight", "skin_tone"}},
+	{"Look and feel", []string{"theme", "mouse", "double_click", "keys", "web_keys", "delight", "skin_tone", "language"}},
 	{"System", []string{"open", "clipboard_image", "download_dir", "update_check"}},
 }
 
@@ -173,6 +176,7 @@ var SettingDocs = map[string]string{
 	"mouse":                "clicks, drags and the wheel; off leaves the mouse to the terminal",
 	"llm":                  "a command answering ctrl+a's questions about the issue, piped on stdin",
 	"delight":              "small celebrations: confetti on a card into done, a line on a completed sprint",
+	"language":             "the language laneway shows (LANEWAY_LANG overrides it)",
 	"skin_tone":            "the tone : completion offers for people and hands",
 	"threaded_replies":     "a reply goes under its comment in Jira's thread (and shows there); off: replies are new comments, quoted",
 	"comment_order":        "the Comments tab's order: oldest or newest first (a thread by its first comment, replies oldest first)",
@@ -212,6 +216,8 @@ func SettingChoices(name string) []string {
 		return []string{"show", "hide"}
 	case "board_quick_filters", "saved_filters", "remember_filters", "mouse", "delight", "update_check", "threaded_replies":
 		return []string{"on", "off"}
+	case "language":
+		return append([]string{"en"}, i18n.Langs...)
 	case "skin_tone":
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}
 	case "timer_on_start", "start_assigns", "standup_shuffle", "standup_timer":
