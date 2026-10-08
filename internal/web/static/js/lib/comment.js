@@ -4,6 +4,15 @@
 // applyJiraComment).
 import { T } from './i18n.js';
 
+// mentionsIn is who text mentions, as an editor draws them: those picked
+// ({AccountID, DisplayName}), then the issue's people ([name, accountId]) typed
+// by hand or restored with a draft.
+export function mentionsIn(text, picked, people) {
+  const all = [...picked];
+  for (const [n, id] of people) if (id && !all.some(m => m.AccountID === id)) all.push({ AccountID: id, DisplayName: n });
+  return all.filter(m => text.includes('@' + m.DisplayName));
+}
+
 const maybe = new Map(); // issue key → the text that may have posted
 
 // postComment posts body ({Markdown, …}) on key; true when it was there already.

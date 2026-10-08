@@ -21,6 +21,7 @@ import { mdArea } from './mdarea.js';
 import { lines, enter, indent, toggleTask, pasteLink, tableTab, tableArrow, moveLines, wrapWith, backspace, inFence as fenced } from './mdhl.js';
 import { htmlToMd, rich } from './html2md.js';
 import { T } from './i18n.js';
+import { mentionsIn } from './comment.js';
 
 css('mdedit');
 
@@ -270,7 +271,7 @@ export function mdEdit(app, o) {
     if (busy || !o.save || (!o.allowEmpty && !ta.value.trim())) return;
     busy = true; go.disabled = true; ta.readOnly = true;
     const text = ta.value;
-    try { if (await o.save(text, mentions.filter(m => text.includes('@' + m.DisplayName)), base) !== false) draft.drop(); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
+    try { if (await o.save(text, mentionsIn(text, mentions, people()), base) !== false) draft.drop(); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
   }
   node._save = run;
   // Cancelling with changes asks first (TUI: esc in the description editor); it drops the draft too.
