@@ -1,7 +1,7 @@
 // Create dialog: openCreate(app, {project, parent, subtask, type, summary, sprint}); a clone adds
 // {description, cloneOf, note} and starts from that issue's copy.
 // Several lines in the summary make several issues. ctrl+Enter creates.
-import { h } from '../lib/dom.js';
+import { h, debounce, onLeave } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { fieldInput, formRow } from './fields.js';
@@ -21,25 +21,35 @@ export function summaries(text) {
   return lines.length > 1 ? lines.map(l => l.replace(bullet, '').trim()).filter(Boolean) : lines;
 }
 
-let draft = null; // a closed, unsent form comes back next time
+// An unsent form comes back next time, after a reload too: the draft "create" (as lib/mdedit.js keeps the
+// editor's), written a moment after each change, on close and when the page goes; draft is its last copy.
+let draft = null;
+const DRAFT = '/drafts/create';
+async function lastDraft(api) {
+  if (draft) return draft;
+  try { const d = await api.get(DRAFT, { fresh: true }); if (d && d.Text) draft = JSON.parse(d.Text); } catch (e) { /* none */ }
+  return draft;
+}
 
 export async function openCreate(app, opts = {}) {
   const prefs = app.prefs;
-  const restore = !opts.summary && draft && (!opts.project || opts.project === draft.project) ? draft : null;
+  const last = opts.summary ? null : await lastDraft(app.api);
+  const restore = last && (!opts.project || opts.project === last.project) ? last : null;
   let project = opts.project || (restore && restore.project) || projectOf(app, {});
   let type = opts.type || (restore && restore.type) || '';
   let widgets = new Map(), fields = [], pseq = 0, fseq = 0, busy = false, submitted = false;
   const kept = new Map(); // values typed, kept across a type change
 
-  const projectSel = h('select.input', { onchange: () => { project = projectSel.value; type = ''; loadProject(); } }, h('option', { value: project }, project || '…'));
-  const typeSel = h('select.input', { onchange: () => { type = typeSel.value; applyTemplate(); loadFields(); } });
-  const summary = h('textarea.input', { rows: 2, placeholder: T('Summary. One per line makes several issues.'), value: opts.summary || (restore && restore.summary) || '', oninput: count });
+  const projectSel = h('select.input', { onchange: () => { project = projectSel.value; type = ''; loadProject(); changed(); } }, h('option', { value: project }, project || '…'));
+  const typeSel = h('select.input', { onchange: () => { type = typeSel.value; applyTemplate(); loadFields(); changed(); } });
+  const summary = h('textarea.input', { rows: 2, placeholder: T('Summary. One per line makes several issues.'), value: opts.summary || (restore && restore.summary) || '', oninput: () => { count(); changed(); } });
   const files = [];
   const fileBar = h('div.ed-files');
   const paintFiles = () => fileBar.replaceChildren(...files.map((f, i) => h('span.chip', f.name || T('image'), ' ', h('button.btn.ghost.sm', { type: 'button', title: T('Remove'), onclick: () => { files.splice(i, 1); paintFiles(); } }, icon('x')))));
   const ed = mdEdit(app, { value: opts.description || (restore ? restore.description : ''), rows: 5, placeholder: T('Description (markdown). / formats, @ mentions, drop files to attach'), noCancel: true,
     hint: T('files attach after creating'), project: () => project, onFiles: fs => { files.push(...fs); paintFiles(); } });
   const description = ed.ta;
+  description.addEventListener('input', () => changed());
   const sprintSel = h('select.input', h('option', { value: '' }, T('None (backlog)')));
   const sprintRow = h('div.form-sprint', { hidden: true });
   const count$ = h('div.faint.form-hint');
@@ -54,10 +64,23 @@ export async function openCreate(app, opts = {}) {
     extra, sprintRow, more, err,
     h('div.row.end', h('label.check', another, ' ' + T('Create another')), h('span.spacer'), h('span.faint.form-hint', T('ctrl+⏎ creates')),
       h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), okBtn));
-  const m = app.ui.modal(form, { title: opts.cloneOf ? T('Clone of %s', opts.cloneOf) : T('Create issue'), wide: true, onClose: () => { ed.dispose(); if (!submitted && summary.value.trim()) draft = { project, type, summary: summary.value, description: description.value }; } });
+  const m = app.ui.modal(form, { title: opts.cloneOf ? T('Clone of %s', opts.cloneOf) : T('Create issue'), wide: true, onClose: () => { ed.dispose(); unLeave(); keep(); } });
   m.scope.bind('ctrl+Enter', () => submit(), T('create'), { input: true, hidden: true });
   summary.focus();
   count();
+
+  // The draft: what is typed, unless it is only the type's template; none drops it.
+  let dirty = false;
+  const keep = (keepalive = false) => {
+    if (!dirty || submitted) return;
+    dirty = false;
+    const typed = summary.value.trim() || (description.value.trim() && description.value !== template);
+    draft = typed ? { project, type, summary: summary.value, description: description.value } : null;
+    (draft ? app.api.put(DRAFT, { Text: JSON.stringify(draft) }, { keepalive }) : app.api.del(DRAFT, undefined, { keepalive })).catch(() => {});
+  };
+  const later = debounce(() => keep(), 2000);
+  const changed = () => { dirty = true; later(); };
+  const unLeave = onLeave(() => keep(true));
 
   function count() {
     const n = summaries(summary.value).length;
@@ -201,7 +224,8 @@ export async function openCreate(app, opts = {}) {
       err.textContent = (made.length ? T('%d created, then: ', made.length) : '') + fieldErrors(failed);
       return;
     }
-    submitted = true; draft = null;
+    submitted = true; draft = null; dirty = false;
+    app.api.del(DRAFT).catch(() => {});
     if (another.checked) {
       summary.value = ''; description.value = ''; applyTemplate(); count(); summary.focus(); submitted = false;
       return;

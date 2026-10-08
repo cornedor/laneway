@@ -15,7 +15,8 @@ import (
 // Drafts: a comment or description being written, kept in the state file
 // where the TUI keeps its own (internal/ui/drafts.go), so a reload, or the
 // terminal, brings it back. Ids are comment:KEY, desc:KEY,
-// desc:KEY:comment:ID and desc:KEY:field:ID.
+// desc:KEY:comment:ID and desc:KEY:field:ID; create is the browser's
+// create form, its text the form as JSON.
 
 const draftPrefix = "jira_tab:draft:"
 
@@ -26,6 +27,9 @@ var draftID = regexp.MustCompile(`^(comment|desc):([A-Z][A-Z0-9_]*-[0-9]+)(:comm
 
 func draftKey(r *http.Request) (string, error) {
 	id := r.PathValue("id")
+	if id == "create" {
+		return draftPrefix + id, nil
+	}
 	m := draftID.FindStringSubmatch(id)
 	if m == nil || (m[1] == "comment" && m[3] != "") || !jira.ValidKey(m[2]) {
 		return "", badRequest(i18n.T("bad draft id"))

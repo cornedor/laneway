@@ -71,6 +71,17 @@ test('description, in the markdown editor', async ({ page }) => {
   await expect(page.locator('.iss li', { hasText: 'keep their cart' })).toBeVisible();
 });
 
+test('a description being typed is back after a reload', async ({ page }) => {
+  await page.keyboard.press('E');
+  await expect(page.locator('.iss [data-placeholder^="Description"]')).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(' Typed just now.');
+  await page.reload(); // at once: the page sends it as it goes
+  await expect(page.locator('.iss .fld[data-field="status"]')).toBeVisible();
+  await page.keyboard.press('E');
+  await expect(page.locator('.iss [data-placeholder^="Description"]')).toContainText('Typed just now.');
+});
+
 test('a description changed in Jira meanwhile is not saved over unasked', async ({ page, app }) => {
   await page.keyboard.press('E');
   await expect(page.locator('.iss [data-placeholder^="Description"]')).toBeFocused();

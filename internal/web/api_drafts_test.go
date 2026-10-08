@@ -19,7 +19,7 @@ func TestDrafts(t *testing.T) {
 	if issueCall(t, "GET", u+"comment:DEMO-1", nil, &d) != 200 || d.Text != "" {
 		t.Fatalf("no draft = %+v", d)
 	}
-	for _, id := range []string{"desc:DEMO-1", "desc:DEMO-1:comment:10001", "comment:DEMO-2"} {
+	for _, id := range []string{"desc:DEMO-1", "desc:DEMO-1:comment:10001", "comment:DEMO-2", "create"} {
 		if code := issueCall(t, "PUT", u+id, map[string]string{"Text": "half a\nthought"}, nil); code != 200 {
 			t.Fatalf("put %s: %d", id, code)
 		}

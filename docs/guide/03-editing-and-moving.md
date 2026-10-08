@@ -191,7 +191,8 @@ markers dropped.
 === "Browser"
 
     `ctrl+enter` creates it. Tick *Create another* to keep the form for the
-    next. Drop files on it to attach them.
+    next. Drop files on it to attach them. A form closed unsent, or lost to
+    a reload or a closed tab, is back the next time `n` opens it.
 
 A subtask, an epic's child, a roadmap epic and a clone open the same form,
 the parent or the clone's copy filled in.
