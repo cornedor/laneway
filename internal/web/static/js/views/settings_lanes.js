@@ -9,6 +9,7 @@ import { h, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { saver } from './settings_config.js';
 import { projectOf, lastBoard, boardsOf } from './plan_ctx.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const DRAG_COL = 'text/x-laneway-col', DRAG_LANE = 'text/x-laneway-lane';
 
@@ -35,7 +36,7 @@ export function designLanes(app, host, options) {
   };
   const save = debounce(saver(app, O, () => { const v = specs.filter(l => l.name.trim() && l.lanes.length).map(out); return v.length ? v : null; }), 400);
   const colName = ci => B.cols[ci].Name;
-  const laneName = l => l.name || (l.cols.length ? colName(l.cols[0]) : 'Lane');
+  const laneName = l => l.name || (l.cols.length ? colName(l.cols[0]) : T('Lane'));
 
   // ---- the layout over the board
   // arrange has the server lay the layout over the board (internal/lanes): with a draft (the view edited) it
@@ -91,7 +92,7 @@ export function designLanes(app, host, options) {
   // ---- layouts and boards
   // newLayout starts from the board's columns, a lane each (the server places none, so each keeps its own).
   async function newLayout() {
-    if (!B.board) return app.ui.toast('Pick a board first', { kind: 'err' });
+    if (!B.board) return app.ui.toast(T('Pick a board first'), { kind: 'err' });
     let n = specs.length + 1;
     while (specs.some(l => l.name === 'Layout ' + n)) n++;
     specs.push({ name: 'Layout ' + n, boards: [], hidden: [], lanes: [] });
@@ -153,17 +154,17 @@ export function designLanes(app, host, options) {
     host.begin({ o: O, commit: () => {}, cancel: () => { leave(); host.redraw(O); } });
     if (keys) keys.dispose(); else document.addEventListener('mousedown', outside, true);
     keys = app.keys.scope('lanes', { layer: 2, covers: () => true });
-    const g = { group: 'Lane layouts' };
-    keys.bind('Escape', () => { if (document.activeElement && document.activeElement.matches('input')) document.activeElement.blur(); else { leave(); host.redraw(O); } }, 'leave the editor', { ...g, bar: 'leave', input: true });
-    keys.bind(['h', 'ArrowLeft'], () => choose(-1), 'previous column', { ...g, bar: 'h l pick' });
-    keys.bind(['l', 'ArrowRight'], () => choose(1), 'next column', g);
-    keys.bind('H', () => step(-1), 'stack it on the lane before', { ...g, bar: 'H L stack' });
-    keys.bind('L', () => step(1), 'stack it on the lane after', g);
-    keys.bind('n', () => { if (pick >= 0) { const l = laneOf(pick); alone(pick, l ? view.lanes[view.lanes.indexOf(l) + 1] || null : null); } }, 'a lane of its own', { ...g, bar: 'n own lane' });
-    keys.bind(['x', 'Delete'], () => { if (pick >= 0) hide(pick); }, 'hide it, or show it again', { ...g, bar: 'x hide' });
-    keys.bind('<', () => shiftLane(-1), 'move its lane left', { ...g, bar: '< > lane' });
-    keys.bind('>', () => shiftLane(1), 'move its lane right', g);
-    keys.bind('r', rename, 'rename its lane', g);
+    const g = { group: T('Lane layouts') };
+    keys.bind('Escape', () => { if (document.activeElement && document.activeElement.matches('input')) document.activeElement.blur(); else { leave(); host.redraw(O); } }, T('leave the editor'), { ...g, bar: T('leave'), input: true });
+    keys.bind(['h', 'ArrowLeft'], () => choose(-1), T('previous column'), { ...g, bar: T('h l pick') });
+    keys.bind(['l', 'ArrowRight'], () => choose(1), T('next column'), g);
+    keys.bind('H', () => step(-1), T('stack it on the lane before'), { ...g, bar: T('H L stack') });
+    keys.bind('L', () => step(1), T('stack it on the lane after'), g);
+    keys.bind('n', () => { if (pick >= 0) { const l = laneOf(pick); alone(pick, l ? view.lanes[view.lanes.indexOf(l) + 1] || null : null); } }, T('a lane of its own'), { ...g, bar: T('n own lane') });
+    keys.bind(['x', 'Delete'], () => { if (pick >= 0) hide(pick); }, T('hide it, or show it again'), { ...g, bar: T('x hide') });
+    keys.bind('<', () => shiftLane(-1), T('move its lane left'), { ...g, bar: T('< > lane') });
+    keys.bind('>', () => shiftLane(1), T('move its lane right'), g);
+    keys.bind('r', rename, T('rename its lane'), g);
     host.redraw(O);
   };
   O.reset = () => { specs.length = 0; cur = 0; view = null; save(); host.redraw(O); };
@@ -180,7 +181,7 @@ export function designLanes(app, host, options) {
     onclick: () => { pick = ci; if (!keys) O.activate(); else host.redraw(O); },
   }, colName(ci));
   const gap = before => h('div.ln-gap', {
-    title: 'Drop a column here for a lane of its own',
+    title: T('Drop a column here for a lane of its own'),
     ondragover: e => over(e, has(e, DRAG_COL) || has(e, DRAG_LANE)), ondragleave: leaveZone,
     ondrop: e => {
       e.preventDefault(); e.currentTarget.classList.remove('over');
@@ -194,45 +195,45 @@ export function designLanes(app, host, options) {
     ondrop: e => { e.preventDefault(); e.currentTarget.classList.remove('over'); const ci = Number(e.dataTransfer.getData(DRAG_COL)); if (Number.isInteger(ci)) stack(ci, l); },
   },
   h('div.ln-head',
-    h('span.cd-grip', { draggable: true, title: 'Drag to reorder', ondragstart: e => { dragLane = l; e.dataTransfer.setData(DRAG_LANE, '1'); e.dataTransfer.effectAllowed = 'move'; }, ondragend: () => { dragLane = null; } }, icon('grip-vertical')),
-    h('input.input.ln-name', { type: 'text', value: l.name, placeholder: laneName(l), spellcheck: false, autocomplete: 'off', 'aria-label': 'Lane name',
+    h('span.cd-grip', { draggable: true, title: T('Drag to reorder'), ondragstart: e => { dragLane = l; e.dataTransfer.setData(DRAG_LANE, '1'); e.dataTransfer.effectAllowed = 'move'; }, ondragend: () => { dragLane = null; } }, icon('grip-vertical')),
+    h('input.input.ln-name', { type: 'text', value: l.name, placeholder: laneName(l), spellcheck: false, autocomplete: 'off', 'aria-label': T('Lane name'),
       oninput: e => { l.name = e.target.value.trim(); write(); } })),
   h('div.ln-body', l.cols.map(chip),
-    l.foreign.length > 0 && h('span.faint.ln-foreign', { title: l.foreign.join(', ') }, (l.cols.length ? '+ ' : '') + l.foreign.length + (l.foreign.length === 1 ? ' status' : ' statuses') + ' on other boards')));
+    l.foreign.length > 0 && h('span.faint.ln-foreign', { title: l.foreign.join(', ') }, (l.cols.length ? '+ ' : '') + Tn(l.foreign.length, '%d status on other boards', '%d statuses on other boards', l.foreign.length)))));
 
   O.render = () => {
     const spec = specs[cur], projects = (app.session && app.session.projects) || [];
     const top = h('div.row.ln-top',
-      specs.length > 0 && h('select.input', { 'aria-label': 'Layout', onchange: e => { cur = Number(e.target.value); pick = -1; arrange(); } },
-        specs.map((l, i) => h('option', { value: i, selected: i === cur }, l.name || 'Untitled'))),
-      spec && h('input.input.ln-lname', { type: 'text', value: spec.name, placeholder: 'Name', 'aria-label': 'Layout name', spellcheck: false,
+      specs.length > 0 && h('select.input', { 'aria-label': T('Layout'), onchange: e => { cur = Number(e.target.value); pick = -1; arrange(); } },
+        specs.map((l, i) => h('option', { value: i, selected: i === cur }, l.name || T('Untitled')))),
+      spec && h('input.input.ln-lname', { type: 'text', value: spec.name, placeholder: T('Name'), 'aria-label': T('Layout name'), spellcheck: false,
         oninput: debounce(e => { specs[cur].name = e.target.value.trim(); save(); }, 500), onchange: () => host.redraw(O) }),
-      h('button.btn', { type: 'button', onclick: newLayout }, icon('plus'), 'New layout'),
-      spec && h('button.btn.ghost', { type: 'button', onclick: dropLayout }, 'Delete layout'),
+      h('button.btn', { type: 'button', onclick: newLayout }, icon('plus'), T('New layout')),
+      spec && h('button.btn.ghost', { type: 'button', onclick: dropLayout }, T('Delete layout')),
       h('span.spacer'), h('span.cd-status'));
     const board = h('div.row.ln-board',
-      h('span.cd-label', 'Board'),
-      h('select.input', { 'aria-label': 'Project', onchange: e => setProject(e.target.value) }, projects.map(p => h('option', { value: p, selected: p === B.project }, p))),
-      h('select.input', { 'aria-label': 'Board', onchange: e => { B.board = Number(e.target.value); arrange(); } },
+      h('span.cd-label', T('Board')),
+      h('select.input', { 'aria-label': T('Project'), onchange: e => setProject(e.target.value) }, projects.map(p => h('option', { value: p, selected: p === B.project }, p))),
+      h('select.input', { 'aria-label': T('Board'), onchange: e => { B.board = Number(e.target.value); arrange(); } },
         B.boards.map(b => h('option', { value: b.ID, selected: b.ID === B.board }, b.Name))),
-      spec && h('span.cd-label', 'On'),
+      spec && h('span.cd-label', T('On')),
       spec && h('span.ln-boards',
-        h('label.ln-bchk', { title: 'Every board with two or more of its columns' }, h('input', { type: 'checkbox', checked: !spec.boards.length, onchange: e => setAll(e.target.checked) }), 'Every board it fits'),
+        h('label.ln-bchk', { title: T('Every board with two or more of its columns') }, h('input', { type: 'checkbox', checked: !spec.boards.length, onchange: e => setAll(e.target.checked) }), T('Every board it fits')),
         B.boards.map(b => h('label.ln-bchk', h('input', { type: 'checkbox', checked: spec.boards.includes(b.ID), onchange: () => toggleBoard(b.ID) }), b.Name)),
-        spec.boards.filter(id => !B.boards.some(b => b.ID === id)).map(id => h('span.chip', 'board ' + id, h('button.cd-fx', { type: 'button', 'aria-label': 'Remove board ' + id, onclick: () => toggleBoard(id) }, '×')))));
-    if (!spec) return h('div.cd.ln', top, board, h('div.faint', 'No lane layouts yet. A layout stacks, reorders, renames and hides a board\'s columns, for you; alt+l switches to it.'));
-    if (!view) return h('div.cd.ln', top, board, h('div.faint', B.err || (B.board ? 'Loading the board…' : 'Pick a board')));
+        spec.boards.filter(id => !B.boards.some(b => b.ID === id)).map(id => h('span.chip', T('board %s', id), h('button.cd-fx', { type: 'button', 'aria-label': T('Remove board %s', id), onclick: () => toggleBoard(id) }, '×')))));
+    if (!spec) return h('div.cd.ln', top, board, h('div.faint', T("No lane layouts yet. A layout stacks, reorders, renames and hides a board's columns, for you; alt+l switches to it.")));
+    if (!view) return h('div.cd.ln', top, board, h('div.faint', B.err || (B.board ? T('Loading the board…') : T('Pick a board'))));
     const lanes = h('div.ln-lanes', view.lanes.flatMap(l => [gap(l), lane(l)]), gap(null));
-    const hidden = h('div.cd-trayrow', h('span.cd-label', 'Hidden'),
+    const hidden = h('div.cd-trayrow', h('span.cd-label', T('Hidden')),
       h('div.cd-zone.ln-hidden', {
         ondragover: e => over(e, has(e, DRAG_COL)), ondragleave: leaveZone,
         ondrop: e => { e.preventDefault(); e.currentTarget.classList.remove('over'); const ci = Number(e.dataTransfer.getData(DRAG_COL)); if (Number.isInteger(ci) && !view.hidden.includes(ci)) hide(ci); },
-      }, view.hidden.map(chip), !view.hidden.length && h('span.faint', 'drop a column here to take it off the board')));
+      }, view.hidden.map(chip), !view.hidden.length && h('span.faint', T('drop a column here to take it off the board'))));
     return h('div.cd.ln', top, board, lanes, hidden,
       h('div.row.cd-foot',
-        h('span.faint', keys ? 'h l pick · H L stack · n own lane · x hide · < > lane · r rename · esc done' : 'Drag columns onto lanes, between them, or onto Hidden; enter for keys.'),
+        h('span.faint', keys ? T('h l pick · H L stack · n own lane · x hide · < > lane · r rename · esc done') : T('Drag columns onto lanes, between them, or onto Hidden; enter for keys.')),
         h('span.spacer'),
-        !B.fits && h('span.st-err', 'Not on this board: tick it, or place two of its columns')));
+        !B.fits && h('span.st-err', T('Not on this board: tick it, or place two of its columns'))));
   };
   setProject(B.project);
   return () => leave();

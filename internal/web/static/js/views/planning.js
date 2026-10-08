@@ -14,6 +14,7 @@ import { comparators, sortCards, cmpOf } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
 import { COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead, pickCols as pickListCols, dragCols, resizeCols, readWidths, buildRow, fillCells } from '../lib/cardlist.js';
 import { goDate } from '../lib/godate.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const pts = c => Number(c.Points) || 0;
 const fmtP = n => String(Math.round(n * 10) / 10);
@@ -35,17 +36,17 @@ export function sprintCheer(vel) {
   if (!(last.Done > 0)) return '';
   const rank = 1 + vel.slice(0, -1).filter(v => v.Done > last.Done).length;
   const pts = String(Math.round(last.Done * 10) / 10);
-  if (rank === 1) return `${pts}p, best of the last ${vel.length}`;
-  if (rank <= 3) return `${pts}p, #${rank} of the last ${vel.length}`;
-  return pts + 'p done';
+  if (rank === 1) return T('%sp, best of the last %d', pts, vel.length);
+  if (rank <= 3) return T('%sp, #%d of the last %d', pts, rank, vel.length);
+  return T('%sp done', pts);
 }
 
 export default async function mount(el, { app, params, scope, context, toolbar }) {
   css('board'); css('planning');
   const sc = await resolve(app, params);
   let { project, board } = sc;
-  switcher(app, { scope, context, project, board, group: 'Planning', onPick: r => app.go('/planning/' + r.project + (r.board ? '/' + r.board.ID : '')) });
-  if (!board) { el.append(noBoard('Planning', project)); return; }
+  switcher(app, { scope, context, project, board, group: T('Planning'), onPick: r => app.go('/planning/' + r.project + (r.board ? '/' + r.board.ID : '')) });
+  if (!board) { el.append(noBoard(T('Planning'), project)); return; }
 
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
   let data = null, sections = [], cur = '', anchor = '', filter = '', who = null, velAvg = 0, velN = 0, columns = [];
@@ -96,18 +97,18 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const panes = [left, right];
   const allRows = () => panes.flatMap(p => p.rows);
   app.listed = () => allRows().filter(r => r.k === 'c').map(r => r.c);
-  const sidePick = h('select.input.pl-side-pick', { 'aria-label': 'Section kept in view', onchange: () => setSide(Number(sidePick.value)) });
-  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: 'Close the split (|)', 'aria-label': 'Close the split', onclick: () => setSide(null) }, icon('x'))), right.el);
+  const sidePick = h('select.input.pl-side-pick', { 'aria-label': T('Section kept in view'), onchange: () => setSide(Number(sidePick.value)) });
+  const sideEl = h('div.pl-side', h('div.pl-side-bar', sidePick, h('button.btn.ghost', { title: T('Close the split (|)'), 'aria-label': T('Close the split'), onclick: () => setSide(null) }, icon('x'))), right.el);
   sideEl.hidden = !sideOn();
   const bar = selBar({ edit: () => { const ks = targets(); if (ks.length) app.actions.bulk(ks); }, clear: () => clearSel() });
   const root = h('div.pl.pl-panes', left.el, sideEl, bar.el);
   el.append(root);
 
-  const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: 'Filter  f', 'aria-label': 'Filter issues', title: 'words, status:review  points>2  is:mine  -label:ui  (F builds a query)', oninput: () => setFilter(filterIn.value) });
-  const whoBtn = h('button.btn.ghost', { title: 'Assignee (A)', onclick: () => pickWho() }, 'Assignee');
-  const colsBtn = h('button.btn.ghost', { title: 'List columns', onclick: () => pickCols() }, icon('columns-3'), 'Columns');
-  const splitBtn = h('button.btn.ghost.pl-split', { title: 'Keep a sprint in view beside the list (|)', onclick: () => setSide(side == null ? defaultSide() : null) }, 'Split');
-  toolbar.append(filterIn, whoBtn, h('span.spacer'), colsBtn, splitBtn, h('button.btn.nw', { title: 'New sprint (N)', onclick: () => newSprint() }, '+ Sprint'));
+  const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: T('Filter  f'), 'aria-label': T('Filter issues'), title: T('words, status:review  points>2  is:mine  -label:ui  (F builds a query)'), oninput: () => setFilter(filterIn.value) });
+  const whoBtn = h('button.btn.ghost', { title: T('Assignee (A)'), onclick: () => pickWho() }, T('Assignee'));
+  const colsBtn = h('button.btn.ghost', { title: T('List columns'), onclick: () => pickCols() }, icon('columns-3'), T('Columns'));
+  const splitBtn = h('button.btn.ghost.pl-split', { title: T('Keep a sprint in view beside the list (|)'), onclick: () => setSide(side == null ? defaultSide() : null) }, T('Split'));
+  toolbar.append(filterIn, whoBtn, h('span.spacer'), colsBtn, splitBtn, h('button.btn.nw', { title: T('New sprint (N)'), onclick: () => newSprint() }, T('+ Sprint')));
 
   // ---- data
   const secOf = id => sections.find(s => s.id === id);
@@ -116,7 +117,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     statusAt = new Map();
     columns.forEach((c, i) => (c.StatusIDs || []).forEach(id => statusAt.set(String(id), i)));
     sections = (d.Sprints || []).map(s => ({ id: s.ID, sprint: s, name: s.Name, cards: s.Cards || [] }));
-    sections.push({ id: 0, sprint: null, name: 'Backlog', cards: (d.Backlog && d.Backlog.Cards) || [] });
+    sections.push({ id: 0, sprint: null, name: T('Backlog'), cards: (d.Backlog && d.Backlog.Cards) || [] });
     for (const k of [...sel]) if (!sections.some(s => s.cards.some(c => c.Key === k))) sel.delete(k);
     if (side != null && !secOf(side)) side = defaultSide();
     paintSide();
@@ -143,7 +144,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       build(d); relayout(true);
     } catch (e) {
       if (my !== token) return;
-      if (!data) clear(left.scroller).append(h('div.empty', h('h2', 'Could not load'), h('p', e.message), h('button.btn', { onclick: () => load(true) }, 'Retry')));
+      if (!data) clear(left.scroller).append(h('div.empty', h('h2', T('Could not load')), h('p', e.message), h('button.btn', { onclick: () => load(true) }, T('Retry'))));
       else app.ui.errToast(e);
     }
   }
@@ -173,7 +174,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const names = new Map();
   function setWho(w) {
     who = w;
-    whoBtn.textContent = w == null ? 'Assignee' : whoLabel(w, id => names.get(id) || id);
+    whoBtn.textContent = w == null ? T('Assignee') : whoLabel(w, id => names.get(id) || id);
     whoBtn.classList.toggle('on', w != null);
     relayout();
   }
@@ -286,7 +287,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   function rowNode(r) {
-    if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filtering() ? 'No matches' : r.s.sprint ? 'Drop issues here to plan them' : 'The backlog is empty');
+    if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filtering() ? T('No matches') : r.s.sprint ? T('Drop issues here to plan them') : T('The backlog is empty'));
     if (r.k === 'h') return headNode(r.s, r.h);
     const c = r.c, w = buildRow(cols);
     w.className = 'lrow ' + (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo') + (c.Flagged ? ' flagged' : '');
@@ -301,19 +302,19 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const over = sp && velAvg > 0 && sum > velAvg * 1.001;
     const dates = sp && !isZero(sp.Start) ? shortDate(sp.Start) + ' – ' + shortDate(sp.End) : '';
     const h1 = h('div.pl-h1',
-      h('button.pl-fold', { tabindex: -1, 'aria-label': open ? 'Fold ' + s.name : 'Unfold ' + s.name, 'aria-expanded': open, dataset: { act: 'fold' } }, icon(open ? 'chevron-down' : 'chevron-right')),
+      h('button.pl-fold', { tabindex: -1, 'aria-label': open ? T('Fold %s', s.name) : T('Unfold %s', s.name), 'aria-expanded': open, dataset: { act: 'fold' } }, icon(open ? 'chevron-down' : 'chevron-right')),
       h('span.pl-name', s.name),
-      sp && h('span.pill.cat-' + (sp.State === 'active' ? 'indeterminate' : 'new'), sp.State === 'active' ? 'active' : 'planned'),
+      sp && h('span.pill.cat-' + (sp.State === 'active' ? 'indeterminate' : 'new'), sp.State === 'active' ? T('active') : T('planned')),
       dates && h('span.pl-dates', dates),
-      sp && h('span.pl-goal', { title: sp.Goal || 'No goal' }, sp.Goal || ''),
+      sp && h('span.pl-goal', { title: sp.Goal || T('No goal') }, sp.Goal || ''),
       !sp || !sp.Goal ? h('span.spacer') : null,
-      h('span.pl-tot' + (over ? '.over' : ''), cs.length + (cs.length === 1 ? ' issue' : ' issues'), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && ` of ~${fmtP(velAvg)}p (avg last ${velN})`,
-        unest(cs) ? h('span.pl-unest', { title: 'Issues without story points' }, ' · ' + unest(cs) + ' unestimated') : null),
-      sp && sp.State === 'future' && h('button.btn.pl-act', { dataset: { act: 'start' }, tabindex: -1 }, 'Start'),
-      sp && sp.State === 'active' && h('button.btn.pl-act', { dataset: { act: 'close' }, tabindex: -1 }, 'Complete'),
-      sp && h('button.btn.ghost.pl-act', { dataset: { act: 'edit' }, tabindex: -1, title: 'Edit sprint (E)' }, 'Edit'));
+      h('span.pl-tot' + (over ? '.over' : ''), Tn(cs.length, '%d issue', '%d issues', cs.length), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && T(' of ~%sp (avg last %d)', fmtP(velAvg), velN),
+        unest(cs) ? h('span.pl-unest', { title: T('Issues without story points') }, T(' · %d unestimated', unest(cs))) : null),
+      sp && sp.State === 'future' && h('button.btn.pl-act', { dataset: { act: 'start' }, tabindex: -1 }, T('Start')),
+      sp && sp.State === 'active' && h('button.btn.pl-act', { dataset: { act: 'close' }, tabindex: -1 }, T('Complete')),
+      sp && h('button.btn.ghost.pl-act', { dataset: { act: 'edit' }, tabindex: -1, title: T('Edit sprint (E)') }, T('Edit')));
     const out = h('div.pl-row.pl-head', { style: { height: height + 'px' } }, h1);
-    if (sp) out.append(h('div.pl-h2', h('span.pl-prog', { title: fmtP(done) + 'p done', role: 'progressbar', 'aria-valuenow': sum ? Math.round(done / sum * 100) : 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: { width: (sum ? done / sum * 100 : 0) + '%' } })), capsNode(cs, sp)));
+    if (sp) out.append(h('div.pl-h2', h('span.pl-prog', { title: T('%sp done', fmtP(done)), role: 'progressbar', 'aria-valuenow': sum ? Math.round(done / sum * 100) : 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: { width: (sum ? done / sum * 100 : 0) + '%' } })), capsNode(cs, sp)));
     return out;
   }
 
@@ -329,10 +330,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     for (const c of cs) by.set(c.Assignee || 'unassigned', (by.get(c.Assignee || 'unassigned') || 0) + pts(c));
     const list = [...by].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return h('div.pl-caps', list.map(([name, p]) => {
-      const cap = capFor(name, sp), over = cap != null && p > cap;
-      const meet = sp && sp.Mine && sp.Mine.Name === name ? ` (${fmtP(sp.Mine.Hours)}h of meetings off)` : '';
-      return h('span.pl-cap' + (over ? '.over' : ''), { title: cap != null ? `${name}: ${fmtP(p)} of ${fmtP(cap)}p${meet}` : `${name}: ${fmtP(p)}p` },
-        h('span', name), cap != null && h('span.bar', h('i', { style: { width: Math.min(p / (cap || 1), 1) * 100 + '%' } })), cap != null ? `${fmtP(p)}/${fmtP(cap)}${over ? '!' : ''}` : fmtP(p));
+      const cap = capFor(name, sp), over = cap != null && p > cap, dn = name === 'unassigned' ? T('unassigned') : name;
+      const meet = sp && sp.Mine && sp.Mine.Name === name ? T(' (%sh of meetings off)', fmtP(sp.Mine.Hours)) : '';
+      return h('span.pl-cap' + (over ? '.over' : ''), { title: cap != null ? T('%s: %s of %sp%s', dn, fmtP(p), fmtP(cap), meet) : T('%s: %sp', dn, fmtP(p)) },
+        h('span', dn), cap != null && h('span.bar', h('i', { style: { width: Math.min(p / (cap || 1), 1) * 100 + '%' } })), cap != null ? `${fmtP(p)}/${fmtP(cap)}${over ? '!' : ''}` : fmtP(p));
     }));
   }
 
@@ -407,7 +408,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       // u moves them back to where each came from (TUI recordSprintUndo)
       const back = new Map();
       for (const k of crossing) back.set(from.get(k), [...(back.get(from.get(k)) || []), k]);
-      import('./fields.js').then(m => m.pushUndo(app, 'the move of ' + (crossing.length === 1 ? crossing[0] : crossing.length + ' issues') + ' to ' + to.name, async () => {
+      import('./fields.js').then(m => m.pushUndo(app, T('the move of %s to %s', crossing.length === 1 ? crossing[0] : Tn(crossing.length, '%d issue', '%d issues', crossing.length), to.name), async () => {
         for (const [id, ks] of back) await app.api.post('/plan/move', { Keys: ks, Sprint: id });
         for (const k of crossing) app.bus.emit('issue:changed', { key: k });
         load(true);
@@ -423,7 +424,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function rankStep(d) {
     const cc = curCard(); if (!cc || filtering()) return;
     const p = paneOf(cur) || left;
-    if (sorted(p)) { app.ui.toast(`Sorted by ${p.sort}: J and K rank in the rank order, a click on the header brings it back`); return; }
+    if (sorted(p)) { app.ui.toast(T('Sorted by %s: J and K rank in the rank order, a click on the header brings it back', p.sort)); return; }
     const cs = cc.s.cards, i = cs.indexOf(cc.c), j = i + d;
     if (j < 0 || j >= cs.length) return;
     const other = cs[j].Key;
@@ -434,7 +435,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
 
   async function moveTo() {
     const keysToMove = targets(); if (!keysToMove.length) return;
-    const to = await app.ui.pick({ title: `Move ${keysToMove.length} to…`, items: sections, label: s => s.name, detail: s => s.cards.length + ' issues' });
+    const to = await app.ui.pick({ title: T('Move %d to…', keysToMove.length), items: sections, label: s => s.name, detail: s => Tn(s.cards.length, '%d issue', '%d issues', s.cards.length) });
     if (to) { moveCards(keysToMove, to, null, false); if (keysToMove.length === 1) cur = keysToMove[0]; sel.clear(); relayout(); setCur(cur); }
   }
   // >: to the sprint kept in view
@@ -444,62 +445,62 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const p = paneOf(cur) || left, st = stopsOf(p), next = st.slice(st.indexOf(cur) + 1).find(id => !ks.includes(id));
     moveCards(ks, to, null, false); sel.clear(); relayout();
     setCur(next || stopsOf(p)[0] || '');
-    app.ui.toast(`${ks.length > 1 ? ks.length + ' issues' : ks[0]} to ${to.name}`);
+    app.ui.toast(T('%s to %s', ks.length > 1 ? Tn(ks.length, '%d issue', '%d issues', ks.length) : ks[0], to.name));
   }
   function shift(d) {
     const cc = curCard(); if (!cc) return;
     const to = sections[sections.indexOf(cc.s) + d];
     if (!to) return;
     const ks = targets(); moveCards(ks, to, null, false); sel.clear(); relayout(); setCur(cc.c.Key);
-    app.ui.toast(`${ks.length > 1 ? ks.length + ' issues' : ks[0]} to ${to.name}`);
+    app.ui.toast(T('%s to %s', ks.length > 1 ? Tn(ks.length, '%d issue', '%d issues', ks.length) : ks[0], to.name));
   }
 
   // ---- sprint actions
   const sprintOf = pred => { const s = curSection(); return s && s.sprint && (!pred || pred(s.sprint)) ? s : sections.find(x => x.sprint && (!pred || pred(x.sprint))); };
   async function newSprint() {
     const last = [...sections].reverse().find(s => s.sprint);
-    const name = await app.ui.prompt({ title: 'New sprint', value: nextSprintName(last && last.name), placeholder: 'Sprint name', ok: 'Create' });
+    const name = await app.ui.prompt({ title: T('New sprint'), value: nextSprintName(last && last.name), placeholder: T('Sprint name'), ok: T('Create') });
     if (!name || !name.trim()) return;
-    try { await app.api.post('/plan/sprints', { Board: board.ID, Name: name.trim() }); app.ui.toast('Created ' + name.trim(), { kind: 'ok' }); load(true); } catch (e) { app.ui.errToast(e); }
+    try { await app.api.post('/plan/sprints', { Board: board.ID, Name: name.trim() }); app.ui.toast(T('Created %s', name.trim()), { kind: 'ok' }); load(true); } catch (e) { app.ui.errToast(e); }
   }
   function dialog(title, fields, ok, run) {
     const form = h('form.pl-form', { onsubmit: async e => {
       e.preventDefault();
       try { await run(form); m.close(); load(true); } catch (err) { app.ui.errToast(err); }
-    } }, fields, h('div.row.end', h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), h('button.btn.primary', { type: 'submit' }, ok)));
+    } }, fields, h('div.row.end', h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), h('button.btn.primary', { type: 'submit' }, ok)));
     const m = app.ui.modal(form, { title });
     return m;
   }
   function startSprint() {
-    const s = sprintOf(sp => sp.State === 'future'); if (!s) return app.ui.toast('No planned sprint to start');
-    dialog('Start ' + s.name, [
-      h('label', 'Ends on', h('input.input', { type: 'date', name: 'end', value: plusDays(14), min: plusDays(1), required: true, autofocus: true })),
-      h('p.pl-note', `Starts now with ${s.cards.length} issues, ${fmtP(s.cards.reduce((a, c) => a + pts(c), 0))}p.`)],
-    'Start sprint', async f => { await app.api.post('/plan/sprints/' + s.id + '/start', { End: f.end.value }); app.ui.toast(s.name + ' started', { kind: 'ok' }); });
+    const s = sprintOf(sp => sp.State === 'future'); if (!s) return app.ui.toast(T('No planned sprint to start'));
+    dialog(T('Start %s', s.name), [
+      h('label', T('Ends on'), h('input.input', { type: 'date', name: 'end', value: plusDays(14), min: plusDays(1), required: true, autofocus: true })),
+      h('p.pl-note', T('Starts now with %s, %sp.', Tn(s.cards.length, '%d issue', '%d issues', s.cards.length), fmtP(s.cards.reduce((a, c) => a + pts(c), 0))))],
+    T('Start sprint'), async f => { await app.api.post('/plan/sprints/' + s.id + '/start', { End: f.end.value }); app.ui.toast(T('%s started', s.name), { kind: 'ok' }); });
   }
   function closeSprint() {
-    const s = sprintOf(sp => sp.State === 'active'); if (!s) return app.ui.toast('No active sprint');
+    const s = sprintOf(sp => sp.State === 'active'); if (!s) return app.ui.toast(T('No active sprint'));
     const lastCol = columns.length ? columns[columns.length - 1].StatusIDs || [] : [];
     const open = s.cards.filter(c => !c.Done && !lastCol.includes(c.StatusID));
     const next = sections.filter(x => x.sprint && x.sprint.State === 'future');
-    const dest = h('select.input', { name: 'to' }, next.map(x => h('option', { value: x.id }, x.name)), h('option', { value: 0 }, 'Backlog'));
-    dialog('Complete ' + s.name, [
-      h('p', `${s.cards.length - open.length} done, ${open.length} unfinished.`),
-      open.length ? h('label', 'Move unfinished issues to', dest) : null],
-    'Complete sprint', async f => {
+    const dest = h('select.input', { name: 'to' }, next.map(x => h('option', { value: x.id }, x.name)), h('option', { value: 0 }, T('Backlog')));
+    dialog(T('Complete %s', s.name), [
+      h('p', T('%d done, %d unfinished.', s.cards.length - open.length, open.length)),
+      open.length ? h('label', T('Move unfinished issues to'), dest) : null],
+    T('Complete sprint'), async f => {
       const r = await app.api.post('/plan/sprints/' + s.id + '/close', { Board: board.ID, MoveTo: Number(dest.value) || 0 });
       const cheer = String((app.session.ui && app.session.ui.Delight) || '').toLowerCase() === 'off' ? '' : await app.api.get('/reports/velocity/' + board.ID, { fresh: true }).then(sprintCheer, () => '');
-      app.ui.toast(`${s.name} completed` + (r && r.Moved ? `, ${r.Moved} moved` : '') + (cheer ? ' · ' + cheer : ''), { kind: 'ok', ms: cheer ? 6000 : undefined });
+      app.ui.toast(T('%s completed', s.name) + (r && r.Moved ? T(', %d moved', r.Moved) : '') + (cheer ? ' · ' + cheer : ''), { kind: 'ok', ms: cheer ? 6000 : undefined });
     });
   }
   function editSprint() {
     const s = sprintOf(); if (!s) return;
     const sp = s.sprint, end = isZero(sp.End) ? '' : isoDay(sp.End);
-    dialog('Edit ' + s.name, [
-      h('label', 'Name', h('input.input', { name: 'name', value: sp.Name, required: true, autofocus: true })),
-      h('label', 'Goal', h('textarea.input', { name: 'goal', rows: 3 }, sp.Goal || '')),
-      h('label', 'Ends on', h('input.input', { type: 'date', name: 'end', value: end }))],
-    'Save', async f => {
+    dialog(T('Edit %s', s.name), [
+      h('label', T('Name'), h('input.input', { name: 'name', value: sp.Name, required: true, autofocus: true })),
+      h('label', T('Goal'), h('textarea.input', { name: 'goal', rows: 3 }, sp.Goal || '')),
+      h('label', T('Ends on'), h('input.input', { type: 'date', name: 'end', value: end }))],
+    T('Save'), async f => {
       const body = {};
       if (f.name.value.trim() !== sp.Name) body.Name = f.name.value.trim();
       if (f.goal.value.trim() !== (sp.Goal || '')) body.Goal = f.goal.value.trim();
@@ -537,7 +538,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const p = paneOf(cur) || left;
     const rows = sortCards(s.cards, CMP, p.sort, p.dir).map(c => `| ${c.Key} | ${esc(c.Summary)} | ${esc(c.Assignee)} | ${esc(c.Points)} |`);
     const text = ['| Key | Summary | Assignee | Points |', '| --- | --- | --- | --- |', ...rows].join('\n');
-    navigator.clipboard.writeText(text).then(() => app.ui.toast(`Copied ${s.name} (${s.cards.length} issues) as a markdown table`, { kind: 'ok' }), e => app.ui.errToast(e));
+    navigator.clipboard.writeText(text).then(() => app.ui.toast(T('Copied %s (%s) as a markdown table', s.name, Tn(s.cards.length, '%d issue', '%d issues', s.cards.length)), { kind: 'ok' }), e => app.ui.errToast(e));
   }
   function toggleFold(s) {
     if (!s) return;
@@ -594,46 +595,46 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   // ---- keys
-  const G = { group: 'Planning' };
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next', G);
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
-  scope.bind('Home', () => setCur(stops()[0]), 'first', { ...G, hidden: true });
-  scope.bind('End', () => setCur(stops().at(-1)), 'last', { ...G, hidden: true });
+  const G = { group: T('Planning') };
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next'), G);
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous'), G);
+  scope.bind('Home', () => setCur(stops()[0]), T('first'), { ...G, hidden: true });
+  scope.bind('End', () => setCur(stops().at(-1)), T('last'), { ...G, hidden: true });
   const page = () => Math.max(1, Math.floor((paneOf(cur) || left).scroller.clientHeight / rowPx()) - 1);
-  scope.bind('PageDown', () => move(page()), 'page down', { ...G, hidden: true });
-  scope.bind('PageUp', () => move(-page()), 'page up', { ...G, hidden: true });
-  scope.bind('J', () => rankStep(1), 'rank down', { ...G, bar: 'rank' });
-  scope.bind('K', () => rankStep(-1), 'rank up', { ...G, bar: 'rank' });
-  scope.bind('m', moveTo, 'move to a sprint or the backlog', { ...G, bar: 'move' });
-  scope.bind(']', () => shift(1), 'move to the next sprint', G);
-  scope.bind('[', () => shift(-1), 'move to the previous sprint', G);
-  scope.bind('|', () => setSide(side == null ? defaultSide() : null), 'split: keep a sprint in view beside the list', G);
-  scope.bind('>', toSide, 'move to the sprint kept in view (split)', { ...G, when: sideOn });
-  scope.bind('Tab', otherPane, 'the other pane (split)', { ...G, when: sideOn });
-  scope.bind(['h', 'ArrowLeft', 'l', 'ArrowRight'], otherPane, 'the other pane (split)', { ...G, when: sideOn, hidden: true });
-  scope.bind(['x', 'Space'], () => { const cc = curCard(); if (cc) { toggleSel(cc.c.Key); move(1); } else if (cur.startsWith('h:')) toggleFold(curSection()); }, 'select', { ...G, bar: 'select' });
-  scope.bind('Enter', () => { const cc = curCard(); if (cc) app.panel.open(cc.c.Key); else toggleFold(curSection()); }, 'open', { ...G, bar: 'open' });
-  scope.bind('z', () => toggleFold(curSection()), 'fold or unfold the section', G);
-  scope.bind('P', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'points'); }, 'story points', G);
-  scope.bind('a', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'assignee'); }, 'assignee', G);
-  scope.bind('e', () => { const cc = curCard(); if (cc && app.actions.menu) app.actions.menu(cc.c.Key); }, 'quick edit: status, assignee, priority, points, labels, sprint, pin', { ...G, bar: 'edit' });
-  scope.bind('X', () => { const ks = targets(); if (ks.length) app.actions.bulk(ks); }, 'bulk edit the marked issues (else the one under the cursor)', G);
-  scope.bind('o', () => { const cc = curCard(); if (cc) window.open(app.session.baseURL + '/browse/' + cc.c.Key, '_blank', 'noopener'); }, 'open in Jira', G);
-  scope.bind('y', copyTable, 'copy the section as a markdown table', G);
-  scope.bind('N', newSprint, 'new sprint', { ...G, bar: 'new sprint' });
-  scope.bind('Z', startSprint, 'start the sprint (S starts work on the issue)', G);
-  scope.bind('C', closeSprint, 'complete the active sprint', G);
-  scope.bind('E', editSprint, 'edit sprint name, goal, end', G);
-  scope.bind('R', () => load(true), 'reload', G);
-  scope.bind('O', () => { const p = paneOf(cur) || left; setSort(p, SORTS[(SORTS.indexOf(p.sort) + 1) % SORTS.length], 1); }, 'sort the pane: rank, priority, points, assignee, epic, key, status…', G);
-  scope.bind('f', () => filterIn.focus(), 'filter', { ...G, bar: 'filter' });
-  scope.bind('F', openBuilder, 'filter builder', { ...G, bar: 'filter builder' });
-  scope.bind('A', pickWho, 'filter by assignee', G);
+  scope.bind('PageDown', () => move(page()), T('page down'), { ...G, hidden: true });
+  scope.bind('PageUp', () => move(-page()), T('page up'), { ...G, hidden: true });
+  scope.bind('J', () => rankStep(1), T('rank down'), { ...G, bar: T('rank') });
+  scope.bind('K', () => rankStep(-1), T('rank up'), { ...G, bar: T('rank') });
+  scope.bind('m', moveTo, T('move to a sprint or the backlog'), { ...G, bar: T('move') });
+  scope.bind(']', () => shift(1), T('move to the next sprint'), G);
+  scope.bind('[', () => shift(-1), T('move to the previous sprint'), G);
+  scope.bind('|', () => setSide(side == null ? defaultSide() : null), T('split: keep a sprint in view beside the list'), G);
+  scope.bind('>', toSide, T('move to the sprint kept in view (split)'), { ...G, when: sideOn });
+  scope.bind('Tab', otherPane, T('the other pane (split)'), { ...G, when: sideOn });
+  scope.bind(['h', 'ArrowLeft', 'l', 'ArrowRight'], otherPane, T('the other pane (split)'), { ...G, when: sideOn, hidden: true });
+  scope.bind(['x', 'Space'], () => { const cc = curCard(); if (cc) { toggleSel(cc.c.Key); move(1); } else if (cur.startsWith('h:')) toggleFold(curSection()); }, T('select'), { ...G, bar: T('select') });
+  scope.bind('Enter', () => { const cc = curCard(); if (cc) app.panel.open(cc.c.Key); else toggleFold(curSection()); }, T('open'), { ...G, bar: T('open') });
+  scope.bind('z', () => toggleFold(curSection()), T('fold or unfold the section'), G);
+  scope.bind('P', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'points'); }, T('story points'), G);
+  scope.bind('a', () => { const cc = curCard(); if (cc) app.actions.edit(cc.c.Key, 'assignee'); }, T('assignee'), G);
+  scope.bind('e', () => { const cc = curCard(); if (cc && app.actions.menu) app.actions.menu(cc.c.Key); }, T('quick edit: status, assignee, priority, points, labels, sprint, pin'), { ...G, bar: T('edit') });
+  scope.bind('X', () => { const ks = targets(); if (ks.length) app.actions.bulk(ks); }, T('bulk edit the marked issues (else the one under the cursor)'), G);
+  scope.bind('o', () => { const cc = curCard(); if (cc) window.open(app.session.baseURL + '/browse/' + cc.c.Key, '_blank', 'noopener'); }, T('open in Jira'), G);
+  scope.bind('y', copyTable, T('copy the section as a markdown table'), G);
+  scope.bind('N', newSprint, T('new sprint'), { ...G, bar: T('new sprint') });
+  scope.bind('Z', startSprint, T('start the sprint (S starts work on the issue)'), G);
+  scope.bind('C', closeSprint, T('complete the active sprint'), G);
+  scope.bind('E', editSprint, T('edit sprint name, goal, end'), G);
+  scope.bind('R', () => load(true), T('reload'), G);
+  scope.bind('O', () => { const p = paneOf(cur) || left; setSort(p, SORTS[(SORTS.indexOf(p.sort) + 1) % SORTS.length], 1); }, T('sort the pane: rank, priority, points, assignee, epic, key, status…'), G);
+  scope.bind('f', () => filterIn.focus(), T('filter'), { ...G, bar: T('filter') });
+  scope.bind('F', openBuilder, T('filter builder'), { ...G, bar: T('filter builder') });
+  scope.bind('A', pickWho, T('filter by assignee'), G);
   scope.bind('Escape', () => {
     if (document.activeElement === filterIn) { filterIn.value = ''; filterIn.blur(); setFilter(''); return; }
     if (filtering()) { filterIn.value = ''; filter = ''; match = null; setWho(null); return; }
     clearSel();
-  }, 'clear filters and selection', { ...G, input: true, when: () => document.activeElement === filterIn || filtering() || sel.size > 0 });
+  }, T('clear filters and selection'), { ...G, input: true, when: () => document.activeElement === filterIn || filtering() || sel.size > 0 });
 
   const offTimer = ['timer', 'timer:tick'].map(ev => app.bus.on(ev, paint));
   const offBus = app.bus.on('issue:changed', () => { if (writing || Date.now() - lastWrite < 1500) return; load(true); });

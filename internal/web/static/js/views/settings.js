@@ -26,16 +26,21 @@ import { designLanes } from './settings_lanes.js';
 import { keyOptions } from './settings_keys.js';
 import { fontOptions } from './settings_fonts.js';
 import { siteOptions } from './settings_site.js';
+import { T } from '../lib/i18n.js';
 
 css('settings');
 
 // GROUPS order the sections; a section none lists is the config file's (its topics in the server's order).
 const GROUPS = [
-  { title: 'Web app', desc: 'every browser on this laneway web; the terminal has its own', sections: ['Appearance', 'Fonts', 'Board', 'Notifications'] },
-  { title: 'Jira and server', sections: ['Jira site', 'Server', 'GitLab', 'Data'] },
-  { title: 'Config file', desc: 'ui: options, shared with the terminal app', sections: null },
-  { title: 'Keyboard', sections: ['Keyboard'] },
+  { title: T('Web app'), desc: T('every browser on this laneway web; the terminal has its own'), sections: ['Appearance', 'Fonts', 'Board', 'Notifications'] },
+  { title: T('Jira and server'), sections: ['Jira site', 'Server', 'GitLab', 'Data'] },
+  { title: T('Config file'), desc: T('ui: options, shared with the terminal app'), sections: null },
+  { title: T('Keyboard'), sections: ['Keyboard'] },
 ];
+// A section's name is its id (options carry it, the sidebar and anchors key on it); this is what shows.
+const SECTIONS = { Appearance: T('Appearance'), Fonts: T('Fonts'), Board: T('Board'), Notifications: T('Notifications'), 'Jira site': T('Jira site'), Server: T('Server'), GitLab: 'GitLab', Data: T('Data'), Keyboard: T('Keyboard') };
+const secName = sec => SECTIONS[sec] || sec;
+const VAL = { compact: T('compact'), normal: T('normal'), roomy: T('roomy'), show: T('show'), hide: T('hide'), lanes: T('lanes'), list: T('list') };
 const CONFIG = GROUPS.findIndex(g => !g.sections);
 const groupOf = sec => { const i = GROUPS.findIndex(g => g.sections && g.sections.includes(sec)); return i < 0 ? CONFIG : i; };
 const slug = sec => 'st-' + sec.replace(/\W+/g, '-');
@@ -53,19 +58,19 @@ export default function mount(el, { app, scope, toolbar }) {
   const setSize = v => { theme.setFontSize(v); refresh(); };
   const stepSize = d => { const cur = theme.fontSize || Math.round(theme.effectiveFontSize); setSize(Math.min(FS_MAX, Math.max(FS_MIN, cur + d))); };
   const fontSize = {
-    name: 'Font size', desc: 'scales all text and spacing; h/l or enter steps 1px, del = auto', section: 'Appearance',
+    name: T('Font size'), desc: T('scales all text and spacing; h/l or enter steps 1px, del = auto'), section: 'Appearance',
     render: () => {
       const eff = Math.round(theme.effectiveFontSize), auto = !theme.fontSize;
       return h('span.st-val.st-step',
-        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Smaller', disabled: !auto && theme.fontSize <= FS_MIN, onclick: () => stepSize(-1) }, icon('minus')),
-        h('span.st-num.mono', { title: auto ? 'from the density' : 'fixed' }, auto ? 'auto · ' + eff + 'px (from density)' : eff + 'px'),
-        h('button.btn.ghost', { tabindex: -1, 'aria-label': 'Larger', disabled: !auto && theme.fontSize >= FS_MAX, onclick: () => stepSize(1) }, icon('plus')),
-        h('button.btn.ghost' + (auto ? '.on' : ''), { tabindex: -1, title: 'Follow the density', onclick: () => setSize(0) }, 'auto'));
+        h('button.btn.ghost', { tabindex: -1, 'aria-label': T('Smaller'), disabled: !auto && theme.fontSize <= FS_MIN, onclick: () => stepSize(-1) }, icon('minus')),
+        h('span.st-num.mono', { title: auto ? T('from the density') : T('fixed') }, auto ? T('auto · %dpx (from density)', eff) : eff + 'px'),
+        h('button.btn.ghost', { tabindex: -1, 'aria-label': T('Larger'), disabled: !auto && theme.fontSize >= FS_MAX, onclick: () => stepSize(1) }, icon('plus')),
+        h('button.btn.ghost' + (auto ? '.on' : ''), { tabindex: -1, title: T('Follow the density'), onclick: () => setSize(0) }, T('auto')));
     },
     change: stepSize, reset: () => setSize(0),
   };
   // An option: {name, desc, section, render() → control node, change(dir)?}
-  const choice = (name, desc, section, list, get, set, label = x => x) => ({
+  const choice = (name, desc, section, list, get, set, label = x => VAL[x] || x) => ({
     name, desc, section,
     render: () => h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: () => set(cycle(list, get(), 1)) }, label(get()))),
     change: d => set(cycle(list, get(), d)),
@@ -73,57 +78,57 @@ export default function mount(el, { app, scope, toolbar }) {
   const info = (name, value, section, desc = '') => ({ name, desc, section, render: () => h('span.st-val.mono', value) });
 
   const options = [
-    { name: 'Theme', desc: 'g t cycles through them anywhere', section: 'Appearance',
+    { name: T('Theme'), desc: T('g t cycles through them anywhere'), section: 'Appearance',
       render: themeGroups,
       change: d => { theme.set(cycle(theme.presets.map(p => p.id), theme.current, d)); refresh(); } },
-    { name: 'Accent', desc: 'highlights, focus, primary buttons', section: 'Appearance',
+    { name: T('Accent'), desc: T('highlights, focus, primary buttons'), section: 'Appearance',
       render: () => h('span.st-swatches',
-        h('button.st-dot.none', { tabindex: -1, title: 'Theme default', class: theme.accent ? '' : 'on', onclick: () => { theme.setAccent(''); refresh(); } }, icon('ban')),
+        h('button.st-dot.none', { tabindex: -1, title: T('Theme default'), class: theme.accent ? '' : 'on', onclick: () => { theme.setAccent(''); refresh(); } }, icon('ban')),
         theme.accents.map(c => h('button.st-dot', { tabindex: -1, title: c, class: theme.accent === c ? 'on' : '', style: { background: c }, onclick: () => { theme.setAccent(c); refresh(); } })),
-        h('input.st-color', { type: 'color', title: 'Custom colour', value: /^#[0-9a-f]{6}$/i.test(theme.accent) ? theme.accent : '#5b8def', tabindex: -1, oninput: e => { theme.setAccent(e.target.value); }, onchange: refresh })),
+        h('input.st-color', { type: 'color', title: T('Custom colour'), value: /^#[0-9a-f]{6}$/i.test(theme.accent) ? theme.accent : '#5b8def', tabindex: -1, oninput: e => { theme.setAccent(e.target.value); }, onchange: refresh })),
       change: d => { const l = ['', ...theme.accents]; theme.setAccent(cycle(l, theme.accent, d)); refresh(); } },
-    choice('Density', 'spacing of rows and panels', 'Appearance', ['compact', 'normal', 'roomy'], () => theme.density, v => { theme.setDensity(v); refresh(); }),
+    choice(T('Density'), T('spacing of rows and panels'), 'Appearance', ['compact', 'normal', 'roomy'], () => theme.density, v => { theme.setDensity(v); refresh(); }),
     fontSize,
     ...fontOptions(app, () => refresh()),
-    choice('Motion', 'animations and transitions', 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? 'reduced' : 'system')),
-    choice('Key bar', 'the main keys here at the bottom, a click presses one; messages show in it', 'Appearance', ['show', 'hide'], () => pref('keybar', 'show'), v => { setPref('keybar', v); refresh(); }),
-    { name: 'Custom tokens', desc: 'CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies', section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
+    choice(T('Motion'), T('animations and transitions'), 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? T('reduced') : T('system'))),
+    choice(T('Key bar'), T('the main keys here at the bottom, a click presses one; messages show in it'), 'Appearance', ['show', 'hide'], () => pref('keybar', 'show'), v => { setPref('keybar', v); refresh(); }),
+    { name: T('Custom tokens'), desc: T('CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies'), section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
 
-    { name: 'Browser notifications', desc: 'inbox news while this tab is in the background; the browser asks when you turn them on', section: 'Notifications',
-      render: () => { const on = notifier.enabled(); return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Browser notifications', tabindex: -1, onclick: () => toggleNotify() }, h('i')), h('span.st-state', notifier.permission() === 'denied' ? 'blocked by the browser' : on ? 'on' : 'off')); },
+    { name: T('Browser notifications'), desc: T('inbox news while this tab is in the background; the browser asks when you turn them on'), section: 'Notifications',
+      render: () => { const on = notifier.enabled(); return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': T('Browser notifications'), tabindex: -1, onclick: () => toggleNotify() }, h('i')), h('span.st-state', notifier.permission() === 'denied' ? T('blocked by the browser') : on ? T('on') : T('off'))); },
       change: () => toggleNotify() },
-    action('Test notification', 'shows one now', 'Notifications', () => { if (!notifier.notify('laneway', 'Notifications work.')) app.ui.toast('Turn notifications on first', { kind: 'err' }); }),
+    action(T('Test notification'), T('shows one now'), 'Notifications', () => { if (!notifier.notify('laneway', T('Notifications work.'))) app.ui.toast(T('Turn notifications on first'), { kind: 'err' }); }),
 
-    choice('Default mode', 'how the board opens', 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
-    choice('Empty lanes', 'columns the filters leave without a card (alt+e)', 'Board', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
-    choice('Auto refresh', 'refetch an idle board', 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
+    choice(T('Default mode'), T('how the board opens'), 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
+    choice(T('Empty lanes'), T('columns the filters leave without a card (alt+e)'), 'Board', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
+    choice(T('Auto refresh'), T('refetch an idle board'), 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
 
-    s.autostart && { name: 'Start at login', desc: 'runs laneway web in the background when you log in, on ' + location.host + ' (' + s.autostart.path + ')', section: 'Server',
-      render: () => { const on = s.autostart.enabled; return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': 'Start at login', tabindex: -1, onclick: () => toggleLogin() }, h('i')), h('span.st-state', on ? 'on' : 'off')); },
+    s.autostart && { name: T('Start at login'), desc: T('runs laneway web in the background when you log in, on %s (%s)', location.host, s.autostart.path), section: 'Server',
+      render: () => { const on = s.autostart.enabled; return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': T('Start at login'), tabindex: -1, onclick: () => toggleLogin() }, h('i')), h('span.st-state', on ? T('on') : T('off'))); },
       change: () => toggleLogin() },
     ...siteOptions(app, () => refresh()),
-    info('Site', s.site || '-', 'Jira site'), info('Jira', s.baseURL || '-', 'Jira site'),
-    info('Signed in as', (s.me && s.me.DisplayName) || '-', 'Jira site'), info('Version', s.version || 'dev', 'Server'),
-    action('Clear cached data', 'the browser copy of API answers; reloaded on demand', 'Data', () => { api.forget(); app.ui.toast('Caches cleared', { kind: 'ok' }); }),
-    action('Clear recent issues', 'the palette’s recent list and search history', 'Data', () => {
+    info(T('Site'), s.site || '-', 'Jira site'), info('Jira', s.baseURL || '-', 'Jira site'),
+    info(T('Signed in as'), (s.me && s.me.DisplayName) || '-', 'Jira site'), info(T('Version'), s.version || 'dev', 'Server'),
+    action(T('Clear cached data'), T('the browser copy of API answers; reloaded on demand'), 'Data', () => { api.forget(); app.ui.toast(T('Caches cleared'), { kind: 'ok' }); }),
+    action(T('Clear recent issues'), T('the palette’s recent list and search history'), 'Data', () => {
       try { for (const k of Object.keys(localStorage)) if (/^lw:(recent|jqlhist|cmdrecent):/.test(k)) localStorage.removeItem(k); } catch (e) { /* ignore */ }
-      app.ui.toast('Recents cleared', { kind: 'ok' });
+      app.ui.toast(T('Recents cleared'), { kind: 'ok' });
     }),
   ].filter(Boolean);
   async function toggleLogin() {
     try {
       s.autostart = await api.put('/autostart', { On: !s.autostart.enabled });
-      app.ui.toast(s.autostart.enabled ? 'laneway web starts when you log in' : 'No longer starts at login; this one runs until you stop it', { kind: 'ok' });
+      app.ui.toast(s.autostart.enabled ? T('laneway web starts when you log in') : T('No longer starts at login; this one runs until you stop it'), { kind: 'ok' });
     } catch (e) { app.ui.errToast(e); }
     refresh();
   }
   async function toggleNotify() {
     const on = await notifier.setEnabled(!notifier.enabled());
-    if (!on && notifier.permission() === 'denied') app.ui.toast('The browser blocks notifications for this site', { kind: 'err' });
+    if (!on && notifier.permission() === 'denied') app.ui.toast(T('The browser blocks notifications for this site'), { kind: 'err' });
     refresh();
   }
   function action(name, desc, section, run) {
-    return { name, desc, section, render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: run }, 'Run')), change: run };
+    return { name, desc, section, render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: run }, T('Run'))), change: run };
   }
   let allThemes = false;
   function themeGroups() {
@@ -132,7 +137,7 @@ export default function mount(el, { app, scope, toolbar }) {
     const cur = (theme.presets.find(p => p.id === theme.current) || theme.presets[0]).group;
     const shown = allThemes ? [...groups] : [...groups].filter(([g]) => g === cur);
     return h('div.st-themes', shown.map(([g, ps]) => h('div.st-tg', h('span.st-tg-name', g), h('span.st-swatches', ps.map(swatch)))),
-      h('button.btn', { tabindex: -1, onclick: () => { allThemes = !allThemes; refresh(); } }, allThemes ? 'Fewer themes' : 'More themes…'));
+      h('button.btn', { tabindex: -1, onclick: () => { allThemes = !allThemes; refresh(); } }, allThemes ? T('Fewer themes') : T('More themes…')));
   }
   function swatch(p) {
     const t = theme.tokens(p.id);
@@ -149,27 +154,27 @@ export default function mount(el, { app, scope, toolbar }) {
     const apply = () => {
       try {
         const v = ta.value.trim() ? JSON.parse(ta.value) : {};
-        if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('Expected an object of "--token": "value"');
-        theme.setCustom(v); err.textContent = ''; app.ui.toast('Tokens applied', { kind: 'ok' });
+        if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error(T('Expected an object of "--token": "value"'));
+        theme.setCustom(v); err.textContent = ''; app.ui.toast(T('Tokens applied'), { kind: 'ok' });
       } catch (e) { err.textContent = e.message; }
     };
     ta.addEventListener('keydown', e => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); apply(); }
     });
-    return h('div.st-edit', ta, err, h('div.row', h('button.btn', { tabindex: -1, onclick: apply }, 'Apply'),
-      h('button.btn.ghost', { tabindex: -1, onclick: () => { ta.value = ''; apply(); } }, 'Reset')));
+    return h('div.st-edit', ta, err, h('div.row', h('button.btn', { tabindex: -1, onclick: apply }, T('Apply')),
+      h('button.btn.ghost', { tabindex: -1, onclick: () => { ta.value = ''; apply(); } }, T('Reset'))));
   }
 
   // ---- view
   let q = '', sel = 0, rows = [], editing = null, cfg = null, keyRows = [];
   const folds = new Set(); // the key groups open
-  const filter = h('input.input.st-filter', { type: 'search', placeholder: 'Filter settings  (/)', spellcheck: false, 'aria-label': 'Filter settings', oninput: e => { q = e.target.value.trim().toLowerCase(); sel = 0; draw(); } });
+  const filter = h('input.input.st-filter', { type: 'search', placeholder: T('Filter settings  (/)'), spellcheck: false, 'aria-label': T('Filter settings'), oninput: e => { q = e.target.value.trim().toLowerCase(); sel = 0; draw(); } });
   const list = h('div.st-list');
   const foot = h('div.st-foot');
-  const nav = h('nav.st-nav', { 'aria-label': 'Settings sections' });
+  const nav = h('nav.st-nav', { 'aria-label': T('Settings sections') });
   toolbar.append(filter);
   el.append(h('div.st', nav, h('div.st-main', list, foot)));
-  const setFoot = () => { foot.textContent = 'j/k move · enter/space change · ←/→ cycle · del reset · / filter · esc leaves' + (cfg && cfg.path ? ' · ui: options write to ' + cfg.path : ''); };
+  const setFoot = () => { foot.textContent = T('j/k move · enter/space change · ←/→ cycle · del reset · / filter · esc leaves') + (cfg && cfg.path ? T(' · ui: options write to %s', cfg.path) : ''); };
   setFoot();
 
   const host = {
@@ -225,17 +230,18 @@ export default function mount(el, { app, scope, toolbar }) {
           list.append(h('div.st-gh', h('h2', G.title), G.desc && h('span.st-desc', G.desc)));
           if (!(G.sections && G.sections.length === 1)) nav.append(h('div.st-nav-g', G.title));
         }
-        if (sec !== G.title) list.append(h('h3.st-h', { id: slug(sec) }, sec));
-        body = h('div.st-sec' + (o.fold || o.key ? '.st-keys' : ''), { role: 'group', 'aria-label': sec, id: sec === G.title ? slug(sec) : null });
+        const one = !!(G.sections && G.sections.length === 1);
+        if (!one) list.append(h('h3.st-h', { id: slug(sec) }, secName(sec)));
+        body = h('div.st-sec' + (o.fold || o.key ? '.st-keys' : ''), { role: 'group', 'aria-label': secName(sec), id: one ? slug(sec) : null });
         list.append(body);
         const target = slug(sec);
-        nav.append(h('a.st-nav-a', { href: '/settings', dataset: { sec: target }, onclick: e => { e.preventDefault(); const t = list.querySelector('#' + target); if (t) { jumped = target; t.scrollIntoView({ block: 'start' }); spy(); } } }, sec));
+        nav.append(h('a.st-nav-a', { href: '/settings', dataset: { sec: target }, onclick: e => { e.preventDefault(); const t = list.querySelector('#' + target); if (t) { jumped = target; t.scrollIntoView({ block: 'start' }); spy(); } } }, secName(sec)));
       }
       o.el = rowFor(o);
       if (o.fold) o.el.classList.add('st-fold');
       body.append(o.el);
     }
-    if (!vis.length) list.append(h('div.empty', 'No settings match “' + q + '”'));
+    if (!vis.length) list.append(h('div.empty', T('No settings match “%s”', q)));
     mark(); spy();
   }
   // spy marks the sidebar's link of the section at the top of the view; the last at the bottom, a jumped-to one
@@ -266,14 +272,14 @@ export default function mount(el, { app, scope, toolbar }) {
   const activate = () => { const o = rows[sel]; if (o) (o.activate || o.change || (() => {}))(1); };
   const go = d => { if (rows.length) { sel = (sel + d + rows.length) % rows.length; mark(); } };
 
-  scope.bind(['j', 'ArrowDown'], () => go(1), 'next option', { group: 'Settings' });
-  scope.bind(['k', 'ArrowUp'], () => go(-1), 'previous option', { group: 'Settings' });
-  scope.bind(['Enter', 'Space'], activate, 'change option', { group: 'Settings', bar: 'change' });
-  scope.bind(['ArrowRight', 'l'], () => change(1), 'next value', { group: 'Settings' });
-  scope.bind(['ArrowLeft', 'h'], () => change(-1), 'previous value', { group: 'Settings' });
-  scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, 'reset to the default', { group: 'Settings', bar: 'reset' });
-  scope.bind('/', () => { filter.focus(); filter.select(); }, 'filter settings', { group: 'Settings', bar: 'filter' });
-  scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else app.back('/board'); }, 'leave settings', { group: 'Settings', bar: 'leave' });
+  scope.bind(['j', 'ArrowDown'], () => go(1), T('next option'), { group: T('Settings') });
+  scope.bind(['k', 'ArrowUp'], () => go(-1), T('previous option'), { group: T('Settings') });
+  scope.bind(['Enter', 'Space'], activate, T('change option'), { group: T('Settings'), bar: T('change') });
+  scope.bind(['ArrowRight', 'l'], () => change(1), T('next value'), { group: T('Settings') });
+  scope.bind(['ArrowLeft', 'h'], () => change(-1), T('previous value'), { group: T('Settings') });
+  scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, T('reset to the default'), { group: T('Settings'), bar: T('reset') });
+  scope.bind('/', () => { filter.focus(); filter.select(); }, T('filter settings'), { group: T('Settings'), bar: T('filter') });
+  scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else app.back('/board'); }, T('leave settings'), { group: T('Settings'), bar: T('leave') });
   scope.bind('Escape', () => { if (editing) editing.cancel(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true });
   scope.bind('Enter', () => { if (editing) editing.commit(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true, when: () => !(editing && editing.multi) });
   scope.bind('ctrl+Enter', () => { if (editing) editing.commit(); }, '', { input: true, hidden: true });
@@ -290,14 +296,14 @@ export default function mount(el, { app, scope, toolbar }) {
     offJQL = designJQL(app, host, c.options);
     offLanes = designLanes(app, host, c.options);
     options.push(...c.options);
-    if (c.path) options.push(info('Config file', c.path, 'Server', c.editable ? 'ui: options are written here, comments kept' : 'read-only'));
-    for (const w of c.warnings) options.push(info('Config warning', w, 'Server'));
+    if (c.path) options.push(info(T('Config file'), c.path, 'Server', c.editable ? T('ui: options are written here, comments kept') : T('read-only')));
+    for (const w of c.warnings) options.push(info(T('Config warning'), w, 'Server'));
     setFoot(); draw();
   }).catch(e => app.ui.errToast(e));
   // Each GitLab instance (the gitlab: config's, then glab's logins), signed in to.
   api.get('/gitlab', { fresh: true }).then(list => {
     if (dead || !list.length) return;
-    options.push(...list.map(g => info(g.Host, g.OK ? g.User + ' (' + g.From + ')' : g.From ? 'fails' : 'no token', 'GitLab', g.Summary)));
+    options.push(...list.map(g => info(g.Host, g.OK ? g.User + ' (' + g.From + ')' : g.From ? T('fails') : T('no token'), 'GitLab', g.Summary)));
     draw();
   }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.

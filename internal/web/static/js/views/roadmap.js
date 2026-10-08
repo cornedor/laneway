@@ -9,6 +9,7 @@ import { remPx, onChange as onMetrics } from '../lib/metrics.js';
 import { hwheel } from '../lib/hscroll.js';
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, switcher, noBoard } from './plan_ctx.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const DAY = 86400000;
 const ZOOMS = [2, 4, 8, 14, 24, 40, 64]; // px per day
@@ -31,14 +32,14 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   let t0 = 0, t1 = 0;
   const scroller = h('div.rm', { tabindex: -1 }); hwheel(scroller);
   el.append(scroller);
-  switcher(app, { scope, context, project, boards: false, group: 'Roadmap', onPick: r => { project = r.project; epics = []; app.setURL('/roadmap/' + project, { push: true }); load(); } });
+  switcher(app, { scope, context, project, boards: false, group: T('Roadmap'), onPick: r => { project = r.project; epics = []; app.setURL('/roadmap/' + project, { push: true }); load(); } });
   toolbar.append(h('span.spacer'),
-    h('button.btn', { title: 'Zoom out (-)', 'aria-label': 'Zoom out', onclick: () => setZoom(zoom - 1) }, icon('minus')),
-    h('button.btn', { title: 'Zoom in (+)', 'aria-label': 'Zoom in', onclick: () => setZoom(zoom + 1) }, icon('plus')),
-    h('button.btn', { title: 'Today (.)', onclick: () => today() }, 'Today'));
+    h('button.btn', { title: T('Zoom out (-)'), 'aria-label': T('Zoom out'), onclick: () => setZoom(zoom - 1) }, icon('minus')),
+    h('button.btn', { title: T('Zoom in (+)'), 'aria-label': T('Zoom in'), onclick: () => setZoom(zoom + 1) }, icon('plus')),
+    h('button.btn', { title: T('Today (.)'), onclick: () => today() }, T('Today')));
   const said = h('span.rm-said.dim', { role: 'status', 'aria-live': 'polite' });
   let filter = '';
-  const find = h('input.input.rm-find', { type: 'search', placeholder: 'Filter (F)', spellcheck: false, 'aria-label': 'Filter epics by key or summary',
+  const find = h('input.input.rm-find', { type: 'search', placeholder: T('Filter (F)'), spellcheck: false, 'aria-label': T('Filter epics by key or summary'),
     oninput: () => { filter = find.value.trim(); cur = 0; draw(); } });
   find.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.stopPropagation(); if (find.value) { find.value = ''; filter = ''; draw(); } find.blur(); }
@@ -51,8 +52,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
 
   async function load(fresh) {
     const my = ++token;
-    if (!project) { clear(scroller).append(noBoard('Roadmap', '')); return; }
-    if (!epics.length) clear(scroller).append(h('div.loading', 'Loading…'));
+    if (!project) { clear(scroller).append(noBoard(T('Roadmap'), '')); return; }
+    if (!epics.length) clear(scroller).append(h('div.loading', T('Loading…')));
     try {
       const d = await app.api.get('/roadmap/' + encodeURIComponent(project), { fresh });
       if (my !== token) return;
@@ -61,7 +62,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       draw(true);
     } catch (e) {
       if (my !== token) return;
-      clear(scroller).append(h('div.empty', h('h2', 'Could not load'), h('p', e.message), h('button.btn', { onclick: () => load(true) }, 'Retry')));
+      clear(scroller).append(h('div.empty', h('h2', T('Could not load')), h('p', e.message), h('button.btn', { onclick: () => load(true) }, T('Retry'))));
     }
   }
 
@@ -96,7 +97,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
         if (ms(g.End) == null || t > ms(g.End)) g.End = iso(t);
       }
     }
-    for (const g of at.values()) g.Status = g.epics.length + (g.epics.length === 1 ? ' epic' : ' epics');
+    for (const g of at.values()) g.Status = Tn(g.epics.length, '%d epic', '%d epics', g.epics.length);
     return [...at.values()];
   }
   const matches = it => { const t = (it.Key + ' ' + it.Summary).toLowerCase(); return filter.toLowerCase().split(/\s+/).every(w => t.includes(w)); };
@@ -129,10 +130,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     inner.append(header(w));
     const list = h('div.rm-rows', { role: 'list' });
     rows.forEach((r, i) => list.append(rowEl(r, i, w)));
-    if (!epics.length) list.append(h('div.empty', 'No epics in ' + project + '.'));
-    else if (!rows.length) list.append(h('div.empty', 'No epic matches ' + filter + '.'));
+    if (!epics.length) list.append(h('div.empty', T('No epics in %s.', project)));
+    else if (!rows.length) list.append(h('div.empty', T('No epic matches %s.', filter)));
     inner.append(list);
-    inner.append(h('div.rm-today', { style: { left: labelW() + xOf(midnight(now)) + ppd() / 2 + 'px' }, title: 'Today' }));
+    inner.append(h('div.rm-today', { style: { left: labelW() + xOf(midnight(now)) + ppd() / 2 + 'px' }, title: T('Today') }));
     clear(scroller).append(inner);
     if (reset) { scroller.scrollLeft = Math.max(xOf(now) - scroller.clientWidth / 3, 0); keepScrollApply(0, keepTop); } else keepScrollApply(keepScroll, keepTop);
     markCur();
@@ -162,19 +163,19 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const blocked = kid || grp ? null : openBlockers(it), bad = blocked && blockConflict(it, blocked);
     const pct = kid ? (it.Done ? 100 : 0) : it.Points > 0 ? Math.round(it.DonePoints / it.Points * 100) : it.Children ? Math.round(it.DoneChildren / it.Children * 100) : it.Done ? 100 : 0;
     const label = h('div.rm-label', { onclick: () => select(i) },
-      !kid ? h('button.rm-fold', { 'aria-label': isOpen ? 'Fold' : 'Unfold', 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, foldable ? icon(isOpen ? 'chevron-down' : 'chevron-right') : '') : h('span.rm-fold'),
+      !kid ? h('button.rm-fold', { 'aria-label': isOpen ? T('Fold') : T('Unfold'), 'aria-expanded': isOpen, tabindex: -1, onclick: ev => { ev.stopPropagation(); select(i); toggle(); } }, foldable ? icon(isOpen ? 'chevron-down' : 'chevron-right') : '') : h('span.rm-fold'),
       h('span.rm-key', it.Key), h('span.rm-sum', { title: it.Summary }, it.Summary),
-      blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: 'Blocked by ' + blocked.map(b => b.Key).join(', ') + (bad ? ', ending after this starts' : '') }, icon(bad ? 'ban' : 'link')),
+      blocked && h('span.rm-block' + (bad ? '.bad' : ''), { title: T('Blocked by %s', blocked.map(b => b.Key).join(', ')) + (bad ? T(', ending after this starts') : '') }, icon(bad ? 'ban' : 'link')),
       grp ? h('span.rm-cnt', { title: it.Status }, it.epics.length) : !kid && it.Children > 0 && h('span.rm-cnt', it.DoneChildren + '/' + it.Children));
     const track = h('div.rm-track', { style: { width: w + 'px' }, onclick: () => select(i) });
     if (s) {
-      const when = shortDate(s[0]) + ' – ' + shortDate(s[1] - DAY) + (it.DatesFromSprints ? ' (from sprints)' : '');
+      const when = shortDate(s[0]) + ' – ' + shortDate(s[1] - DAY) + (it.DatesFromSprints ? T(' (from sprints)') : '');
       track.append(h('div.rm-bar.c-' + c + (it.DatesFromSprints ? '.soft' : '') + (grip && i === cur ? '.grip-' + grip : ''), {
         dataset: { i }, onpointerdown: grp ? null : ev => dragStart(ev, i),
-        style: { left: xOf(s[0]) + 'px', width: Math.max(xOf(s[1]) - xOf(s[0]), 6) + 'px', '--pct': pct + '%' }, title: `${it.Key} ${it.Summary}\n${when}\n${it.Status}` + (kid ? '' : it.Points > 0 ? `, ${pct}% of ${it.Points} points` : `, ${pct}% of ${it.Children} issues`),
+        style: { left: xOf(s[0]) + 'px', width: Math.max(xOf(s[1]) - xOf(s[0]), 6) + 'px', '--pct': pct + '%' }, title: `${it.Key} ${it.Summary}\n${when}\n${it.Status}` + (kid ? '' : it.Points > 0 ? T(', %d%% of %s points', pct, it.Points) : T(', %d%% of %s issues', pct, it.Children)),
         onclick: ev => { ev.stopPropagation(); if (dragged) { dragged = false; return; } select(i); app.panel.open(it.Key); },
       }, h('span', it.Summary)));
-    } else track.append(h('span.rm-nodate', 'no dates'));
+    } else track.append(h('span.rm-nodate', T('no dates')));
     return h('div.rm-row' + (kid ? '.kid' : '') + (grp ? '.group' : '') + (r.inGroup ? '.ingroup' : ''), { role: 'listitem', dataset: { i } }, label, track);
   }
 
@@ -182,7 +183,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   // TUI roadmapSayBlockers: landing on a blocked epic names its blockers.
   function sayBlockers() {
     const r = rows[cur];
-    if (r && !r.kid && r.e.BlockedBy && r.e.BlockedBy.length) said.textContent = r.e.Key + ' is blocked by ' + r.e.BlockedBy.join(', ');
+    if (r && !r.kid && r.e.BlockedBy && r.e.BlockedBy.length) said.textContent = T('%s is blocked by %s', r.e.Key, r.e.BlockedBy.join(', '));
   }
   const curKey = () => rows[cur] && rows[cur].e.Key;
   // The epic's issues (a parent's for an issue row) as a view of the board (TUI RoadmapIssues).
@@ -190,7 +191,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const r = rows[cur]; if (!r) return;
     const k = r.kid ? r.parent.Key : r.e.Key;
     if (pending.size) save();
-    app.go('/board/' + encodeURIComponent(project) + '?' + new URLSearchParams({ sprint: 'jql:parent = ' + k + ' ORDER BY rank', vname: (r.group ? 'Parent: ' : 'Epic: ') + k }));
+    app.go('/board/' + encodeURIComponent(project) + '?' + new URLSearchParams({ sprint: 'jql:parent = ' + k + ' ORDER BY rank', vname: r.group ? T('Parent: %s', k) : T('Epic: %s', k) }));
   }
   // y: every epic as a markdown table (TUI roadmapTable), with the parent column when there are parents.
   async function copyTable() {
@@ -200,17 +201,17 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const head = ['Epic', 'Summary', 'Status', 'Start', 'End', 'Done'].concat(parents ? ['Parent'] : []);
     const body = epics.map(e => [`[${e.Key}](${app.session.baseURL}/browse/${e.Key})`, e.Summary, e.Status, day(e.Start), day(e.End),
       e.Points > 0 ? `${e.DonePoints}/${e.Points}p` : e.Children > 0 ? `${e.DoneChildren}/${e.Children}` : ''].concat(parents ? [e.Parent || ''] : []));
-    copy(markdownTable(head, body), `${epics.length} epics as a markdown table`);
+    copy(markdownTable(head, body), Tn(epics.length, '%d epic as a markdown table', '%d epics as a markdown table', epics.length));
   }
-  const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => app.ui.toast('Copied ' + what), app.ui.errToast) : app.ui.toast('No clipboard here', { kind: 'err' }));
+  const copy = (text, what) => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => app.ui.toast(T('Copied %s', what)), app.ui.errToast) : app.ui.toast(T('No clipboard here'), { kind: 'err' }));
 
   // ---- dates. shift moves the row's start by ds days and its end by de (TUI shiftRoadmap); no dates: from today.
   const step = () => Math.max(1, Math.round(14 / ZOOMS[zoom])); // about a cell a press
   function shift(ds, de, { quiet } = {}) {
     const r = rows[cur]; if (!r) return false;
     const it = r.e;
-    if (r.group) { app.ui.toast('A parent spans its epics: move those'); return false; }
-    if (ds && !canStart) { app.ui.toast('No start date field in Jira: < > move the end'); return false; }
+    if (r.group) { app.ui.toast(T('A parent spans its epics: move those')); return false; }
+    if (ds && !canStart) { app.ui.toast(T('No start date field in Jira: < > move the end')); return false; }
     if (!pending.has(it.Key)) pending.set(it.Key, { it, was: { Start: it.Start, End: it.End, DatesFromSprints: it.DatesFromSprints } });
     let s = ms(it.Start), e = ms(it.End);
     if (s == null && e == null) s = midnight(Date.now());
@@ -231,24 +232,24 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     try {
       for (const { it, was } of todo) {
         await app.api.post('/roadmap/' + it.Key + '/dates', { Start: ymd(ms(it.Start)), End: ymd(ms(it.End)) });
-        import('./fields.js').then(m => m.pushUndo(app, 'the dates of ' + it.Key, async () => {
+        import('./fields.js').then(m => m.pushUndo(app, T('the dates of %s', it.Key), async () => {
           await app.api.post('/roadmap/' + it.Key + '/dates', { Start: ymd(ms(was.Start)), End: ymd(ms(was.End)) });
-          app.bus.emit('issue:changed', { key: it.Key, what: it.Key + ' dates back' });
+          app.bus.emit('issue:changed', { key: it.Key, what: T('%s dates back', it.Key) });
         }));
       }
-      said.textContent = 'Saved ' + todo.map(t => t.it.Key).join(', ');
+      said.textContent = T('Saved %s', todo.map(t => t.it.Key).join(', '));
     } catch (e) {
-      app.ui.errToast(new Error('Dates not saved: ' + e.message));
+      app.ui.errToast(new Error(T('Dates not saved: %s', e.message)));
       saving--; load(true); return; // Jira's dates again
     }
     saving--;
-    for (const { it } of todo) app.bus.emit('issue:changed', { key: it.Key, what: it.Key + ' dates' });
+    for (const { it } of todo) app.bus.emit('issue:changed', { key: it.Key, what: T('%s dates', it.Key) });
   }
-  function letGo() { if (grip) { grip = ''; said.textContent = 'Bar let go'; draw(); } }
+  function letGo() { if (grip) { grip = ''; said.textContent = T('Bar let go'); draw(); } }
   function cycleGrip() {
     if (!rows[cur]) return;
     grip = { '': 'start', start: 'end', end: '' }[grip];
-    said.textContent = grip ? `Holding the bar's ${grip} · h/l move it · e the other end · esc let go` : 'Bar let go';
+    said.textContent = grip === 'start' ? T("Holding the bar's start · h/l move it · e the other end · esc let go") : grip ? T("Holding the bar's end · h/l move it · e the other end · esc let go") : T('Bar let go');
     draw();
   }
 
@@ -314,34 +315,34 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const pan = d => scroller.scrollBy({ left: d * 120, behavior: 'smooth' });
 
   const held = () => !!grip;
-  scope.bind(['h', 'ArrowLeft'], () => (grip === 'start' ? shift(-step(), 0) : shift(0, -step())), 'move the held end earlier', { group: 'Roadmap', when: held });
-  scope.bind(['l', 'ArrowRight'], () => (grip === 'start' ? shift(step(), 0) : shift(0, step())), 'move the held end later', { group: 'Roadmap', when: held });
-  scope.bind('Escape', letGo, 'let the bar go', { group: 'Roadmap', when: held, bar: 'let go' });
-  scope.bind('Escape', () => { find.value = ''; filter = ''; cur = 0; draw(); said.textContent = 'Filter cleared'; }, 'clear the filter', { group: 'Roadmap', when: () => !grip && !!filter });
-  scope.bind('e', cycleGrip, "grip the bar's start, end, let go", { group: 'Roadmap', bar: 'grip' });
-  scope.bind('H', () => shift(-step(), -step()), 'move the bar earlier', { group: 'Roadmap', bar: 'move' });
-  scope.bind('L', () => shift(step(), step()), 'move the bar later', { group: 'Roadmap', bar: 'move' });
-  scope.bind('<', () => shift(0, -step()), 'end earlier', { group: 'Roadmap' });
-  scope.bind('>', () => shift(0, step()), 'end later', { group: 'Roadmap' });
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next row', { group: 'Roadmap' });
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous row', { group: 'Roadmap' });
-  scope.bind('Home', () => move(-rows.length), 'first row', { group: 'Roadmap', hidden: true });
-  scope.bind('End', () => move(rows.length), 'last row', { group: 'Roadmap', hidden: true });
-  scope.bind(['h', 'ArrowLeft'], () => pan(-1), 'scroll left', { group: 'Roadmap' });
-  scope.bind(['l', 'ArrowRight'], () => pan(1), 'scroll right', { group: 'Roadmap' });
-  scope.bind(['+', '='], () => setZoom(zoom + 1), 'zoom in', { group: 'Roadmap', bar: 'zoom' });
-  scope.bind(['-', '_'], () => setZoom(zoom - 1), 'zoom out', { group: 'Roadmap', bar: 'zoom' });
-  scope.bind('.', today, 'scroll to today', { group: 'Roadmap', bar: 'today' });
-  scope.bind('Space', toggle, 'fold epic issues', { group: 'Roadmap', bar: 'fold' });
-  scope.bind('Enter', () => { const r = rows[cur]; if (r) app.panel.open(r.e.Key); }, 'open', { group: 'Roadmap', bar: 'open' });
-  scope.bind('R', () => load(true), 'reload', { group: 'Roadmap' });
-  scope.bind('f', issuesView, "the epic's issues as a board view", { group: 'Roadmap' });
-  scope.bind('F', () => find.focus(), 'filter by key or summary', { group: 'Roadmap', bar: 'filter' });
-  scope.bind('E', () => { const k = curKey(); if (k && app.actions.menu) app.actions.menu(k); }, 'quick edit the row\'s issue', { group: 'Roadmap' });
-  scope.bind('o', () => { const k = curKey(); if (k) window.open(app.session.baseURL + '/browse/' + k, '_blank', 'noopener'); }, 'open in Jira', { group: 'Roadmap' });
-  scope.bind('y', copyTable, 'copy the roadmap as a markdown table', { group: 'Roadmap' });
-  scope.bind('Y', () => { const k = curKey(); if (k) copy(app.session.baseURL + '/browse/' + k, 'link'); }, 'copy link', { group: 'Roadmap' });
-  scope.bind('n', () => app.actions.create({ project, type: app.session.ui.RoadmapEpicType || 'Epic' }), 'new epic', { group: 'Roadmap' });
+  scope.bind(['h', 'ArrowLeft'], () => (grip === 'start' ? shift(-step(), 0) : shift(0, -step())), T('move the held end earlier'), { group: T('Roadmap'), when: held });
+  scope.bind(['l', 'ArrowRight'], () => (grip === 'start' ? shift(step(), 0) : shift(0, step())), T('move the held end later'), { group: T('Roadmap'), when: held });
+  scope.bind('Escape', letGo, T('let the bar go'), { group: T('Roadmap'), when: held, bar: T('let go') });
+  scope.bind('Escape', () => { find.value = ''; filter = ''; cur = 0; draw(); said.textContent = T('Filter cleared'); }, T('clear the filter'), { group: T('Roadmap'), when: () => !grip && !!filter });
+  scope.bind('e', cycleGrip, T("grip the bar's start, end, let go"), { group: T('Roadmap'), bar: T('grip') });
+  scope.bind('H', () => shift(-step(), -step()), T('move the bar earlier'), { group: T('Roadmap'), bar: T('move') });
+  scope.bind('L', () => shift(step(), step()), T('move the bar later'), { group: T('Roadmap'), bar: T('move') });
+  scope.bind('<', () => shift(0, -step()), T('end earlier'), { group: T('Roadmap') });
+  scope.bind('>', () => shift(0, step()), T('end later'), { group: T('Roadmap') });
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next row'), { group: T('Roadmap') });
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous row'), { group: T('Roadmap') });
+  scope.bind('Home', () => move(-rows.length), T('first row'), { group: T('Roadmap'), hidden: true });
+  scope.bind('End', () => move(rows.length), T('last row'), { group: T('Roadmap'), hidden: true });
+  scope.bind(['h', 'ArrowLeft'], () => pan(-1), T('scroll left'), { group: T('Roadmap') });
+  scope.bind(['l', 'ArrowRight'], () => pan(1), T('scroll right'), { group: T('Roadmap') });
+  scope.bind(['+', '='], () => setZoom(zoom + 1), T('zoom in'), { group: T('Roadmap'), bar: T('zoom') });
+  scope.bind(['-', '_'], () => setZoom(zoom - 1), T('zoom out'), { group: T('Roadmap'), bar: T('zoom') });
+  scope.bind('.', today, T('scroll to today'), { group: T('Roadmap'), bar: T('today') });
+  scope.bind('Space', toggle, T('fold epic issues'), { group: T('Roadmap'), bar: T('fold') });
+  scope.bind('Enter', () => { const r = rows[cur]; if (r) app.panel.open(r.e.Key); }, T('open'), { group: T('Roadmap'), bar: T('open') });
+  scope.bind('R', () => load(true), T('reload'), { group: T('Roadmap') });
+  scope.bind('f', issuesView, T("the epic's issues as a board view"), { group: T('Roadmap') });
+  scope.bind('F', () => find.focus(), T('filter by key or summary'), { group: T('Roadmap'), bar: T('filter') });
+  scope.bind('E', () => { const k = curKey(); if (k && app.actions.menu) app.actions.menu(k); }, T("quick edit the row's issue"), { group: T('Roadmap') });
+  scope.bind('o', () => { const k = curKey(); if (k) window.open(app.session.baseURL + '/browse/' + k, '_blank', 'noopener'); }, T('open in Jira'), { group: T('Roadmap') });
+  scope.bind('y', copyTable, T('copy the roadmap as a markdown table'), { group: T('Roadmap') });
+  scope.bind('Y', () => { const k = curKey(); if (k) copy(app.session.baseURL + '/browse/' + k, T('link')); }, T('copy link'), { group: T('Roadmap') });
+  scope.bind('n', () => app.actions.create({ project, type: app.session.ui.RoadmapEpicType || 'Epic' }), T('new epic'), { group: T('Roadmap') });
   const offBus = app.bus.on('issue:changed', () => { if (!saving && !pending.size) load(true); });
   const offM = onMetrics(() => rows.length && draw());
   const off = () => { offBus(); offM(); };
