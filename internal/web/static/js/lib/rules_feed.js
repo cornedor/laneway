@@ -2,6 +2,7 @@
 // notify actions become toasts, and browser notifications when the user opted in; highlight marks the card ●
 // until it is opened (app.highlights: key → colour, bus 'highlights'), as in the TUI.
 import { notify, enabled, supported, permission, setEnabled } from './notify.js';
+import { T } from './i18n.js';
 
 const subs = new Set();
 let es = null, last = 0, asked = false;
@@ -25,7 +26,7 @@ function connect(app) {
     last = Math.max(last, ev.ID);
     for (const fn of subs) fn(ev);
     if (ev.Action === 'highlight') { if (ev.Key && ev.Key !== app.panel.key) { app.highlights.set(ev.Key, ev.Color || ''); app.bus.emit('highlights'); } return; }
-    if (ev.Err) return app.ui.toast('Rule ' + (ev.Rule || '') + ': ' + ev.Err, { kind: 'err' });
+    if (ev.Err) return app.ui.toast(T('Rule %s: %s', ev.Rule || '', ev.Err), { kind: 'err' });
     if (ev.Action !== 'notify') return;
     const title = ev.Title || 'laneway';
     if (!document.hidden) app.ui.toast(title + ': ' + ev.Text, { ms: 6000 });
@@ -37,5 +38,5 @@ function connect(app) {
 function optIn(app) {
   if (asked || enabled() || !supported() || permission() === 'denied') return;
   asked = true;
-  app.ui.toast('Rules want to notify you. Allow browser notifications?', { ms: 12000, action: { label: 'Enable', run: () => setEnabled(true).then(on => app.ui.toast(on ? 'Notifications on' : 'Notifications not allowed')) } });
+  app.ui.toast(T('Rules want to notify you. Allow browser notifications?'), { ms: 12000, action: { label: T('Enable'), run: () => setEnabled(true).then(on => app.ui.toast(on ? T('Notifications on') : T('Notifications not allowed'))) } });
 }

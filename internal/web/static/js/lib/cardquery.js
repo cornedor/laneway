@@ -3,6 +3,7 @@
 //   due<7d  age>3d  updated<1d  created<7d  reporter:ada  component:api  pr:open
 //   deploy:prod  sprint:4  "test type":e2e  -label:ui
 import { isZero } from './fmt.js';
+import { T } from './i18n.js';
 
 const FIELDS = {
   status: 'status', assignee: 'assignee', who: 'assignee', type: 'type', prio: 'priority', priority: 'priority',
@@ -144,15 +145,15 @@ export function compile(q, env = {}) {
 
 // ---- the filter builder's vocabulary
 export const BUILDER_FIELDS = [
-  ['status', 'Status'], ['assignee', 'Assignee'], ['type', 'Type'], ['prio', 'Priority'], ['points', 'Story points'],
-  ['label', 'Label'], ['epic', 'Epic'], ['pr', 'Pull request'], ['deploy', 'Deployed to'], ['component', 'Component'],
-  ['reporter', 'Reporter'], ['is', 'Is: mine, overdue, flagged…'],
+  ['status', T('Status')], ['assignee', T('Assignee')], ['type', T('Type')], ['prio', T('Priority')], ['points', T('Story points')],
+  ['label', T('Label')], ['epic', T('Epic')], ['pr', T('Pull request')], ['deploy', T('Deployed to')], ['component', T('Component')],
+  ['reporter', T('Reporter')], ['is', T('Is: mine, overdue, flagged…')],
 ];
 export function builderOps(field) {
-  if (field === 'is') return [[':', 'is']];
-  if (field === 'prio') return [['>=', 'at least'], ['<=', 'at most'], ['=', 'exactly']];
-  if (field === 'points') return [['>=', 'at least'], ['<=', 'at most'], ['=', 'exactly'], ['empty', 'is empty'], ['-empty', 'is not empty']];
-  return [[':', 'is'], ['-:', 'is not'], ['empty', 'is empty']];
+  if (field === 'is') return [[':', T('is')]];
+  if (field === 'prio') return [['>=', T('at least')], ['<=', T('at most')], ['=', T('exactly')]];
+  if (field === 'points') return [['>=', T('at least')], ['<=', T('at most')], ['=', T('exactly')], ['empty', T('is empty')], ['-empty', T('is not empty')]];
+  return [[':', T('is')], ['-:', T('is not')], ['empty', T('is empty')]];
 }
 // Values of a field on the loaded cards: [{id, label, n}], most common first.
 export function builderValues(cards, field, env) {

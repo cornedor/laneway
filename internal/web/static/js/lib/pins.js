@@ -1,6 +1,7 @@
 // Pinned issues (★): kept in the `pins` pref as [[key, summary], …], each a
 // palette command first in the list; they outlive the view. `*` on the board,
 // the panel and the issue page toggles one; pins:changed tells the others.
+import { T } from './i18n.js';
 let cmds = [];
 
 export function list(app) {
@@ -22,5 +23,5 @@ export function toggle(app, key, summary) {
   app.prefs.set('pins', JSON.stringify(on ? l.filter(p => p[0] !== key) : [...l, [key, summary || '']]));
   register(app);
   app.bus.emit('pins:changed', { key, on: !on });
-  app.ui.toast(on ? 'Unpinned ' + key : 'Pinned ' + key + '  ·  first in the palette');
+  app.ui.toast(on ? T('Unpinned %s', key) : T('Pinned %s  ·  first in the palette', key));
 }

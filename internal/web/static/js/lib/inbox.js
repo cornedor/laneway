@@ -2,6 +2,7 @@
 import { $, h, openURL } from './dom.js';
 import { css } from './css.js';
 import { notify, enabled } from './notify.js';
+import { T, Tn } from './i18n.js';
 
 export const latest = t => Date.parse(t.Entries[t.Entries.length - 1].When);
 
@@ -23,7 +24,7 @@ export function setBadge(n) {
   if (!n) { if (b) b.remove(); return; }
   if (!b) { b = h('span.nav-badge'); a.append(b); }
   b.textContent = n > 99 ? '99+' : n;
-  b.title = n + ' unread';
+  b.title = T('%d unread', n);
 }
 
 const openThread = (app, data, t) => (t.Site !== data.site ? openURL(t.URL) : app.panel.open(t.Key));
@@ -38,7 +39,7 @@ function pingMentions(app, data) {
     if (!e.Mention || at <= mentionsSeen) continue;
     newest = Math.max(newest, at);
     pinged.add(t.ID);
-    notify(e.Who + ' mentioned you on ' + t.Key, t.Summary, () => openThread(app, data, t), 'mention:' + t.ID + ':' + at);
+    notify(T('%s mentioned you on %s', e.Who, t.Key), t.Summary, () => openThread(app, data, t), 'mention:' + t.ID + ':' + at);
   }
   mentionsSeen = newest;
   return pinged;
@@ -53,8 +54,8 @@ function pingNew(app, data, skip, now = Date.now()) {
   seen = cur;
   if (!fresh.length || !enabled()) return;
   const t = data.threads.find(x => x.ID === fresh[0][0]), e = t.Entries[t.Entries.length - 1];
-  const title = fresh.length === 1 ? t.Key + ' ' + t.Summary : fresh.length + ' issues have news';
-  notify(title, fresh.length === 1 ? (e.Who ? e.Who + ': ' : '') + (e.Body || e.What || 'updated') : fresh.map(([id]) => id.slice(id.indexOf('/') + 1)).slice(0, 5).join(', '),
+  const title = fresh.length === 1 ? t.Key + ' ' + t.Summary : Tn(fresh.length, '%d issue has news', '%d issues have news', fresh.length);
+  notify(title, fresh.length === 1 ? (e.Who ? e.Who + ': ' : '') + (e.Body || e.What || T('updated')) : fresh.map(([id]) => id.slice(id.indexOf('/') + 1)).slice(0, 5).join(', '),
     () => (fresh.length === 1 ? openThread(app, data, t) : app.go('/inbox')), 'inbox');
 }
 

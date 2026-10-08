@@ -16,6 +16,7 @@
 //   c.update(spec); c.destroy();
 import { h } from './dom.js';
 import { css } from './css.js';
+import { T } from './i18n.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 function S(tag, attrs, ...kids) {
@@ -202,7 +203,7 @@ export function chart(host, spec) {
 
   function apply() {
     svgBox.style.height = (spec.height || 260) + 'px'; // the drawing comes a frame later; keep its room meanwhile
-    box.setAttribute('aria-label', spec.title || 'chart');
+    box.setAttribute('aria-label', spec.title || T('chart'));
     if (spec.desc) box.setAttribute('aria-description', spec.desc);
     if (!raf) raf = requestAnimationFrame(draw);
   }

@@ -10,6 +10,7 @@ import { PRIO_ICON, ageText, setAvatar } from './cardlist.js';
 import { extraOf } from './cardquery.js';
 import { check, setCheck } from './selbar.js';
 import { colour } from './cardstyle.js';
+import { T } from './i18n.js';
 
 const brokenTypeIcons = new Set();
 const PR_ICON = { OPEN: ['git-pull-request', 'open'], MERGED: ['git-merge', 'merged'], DECLINED: ['git-pull-request-closed', 'declined'] };
@@ -17,7 +18,7 @@ export const catClass = c => (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo');
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
 const PART = {
-  type: () => h('span.ctype'), flagged: () => h('span.cflag', { title: 'Flagged' }, icon('flag', true)), priority: () => h('span.cprio'),
+  type: () => h('span.ctype'), flagged: () => h('span.cflag', { title: T('Flagged') }, icon('flag', true)), priority: () => h('span.cprio'),
   status: () => h('span.cstatus'), points: () => h('span.cpts'), parent: () => h('span.cparent'), subtasks: () => h('span.csub'),
   due: () => h('span.cdue'), pr: () => h('span.cpr'), deploy: () => h('span.cdep'), labels: () => h('span.clabels'), age: () => h('span.cage'),
   avatar: () => h('span.cav'), assignee: () => h('span.cav.cwho'),
@@ -43,8 +44,8 @@ export function buildCard(layout) {
   const part = f => {
     if (f === 'key') { // the key brings the marks along
       r.key = h('span.ckey');
-      return [r.key, r.pin = h('span.cpin', { title: 'Pinned' }, icon('pin')),
-        r.hl = h('span.chl', { title: 'A rule highlighted it; opening it clears the mark' }, icon('circle', true)), r.timer = h('span.ctimer', { title: 'Timer running · T stops it' })];
+      return [r.key, r.pin = h('span.cpin', { title: T('Pinned') }, icon('pin')),
+        r.hl = h('span.chl', { title: T('A rule highlighted it; opening it clears the mark') }, icon('circle', true)), r.timer = h('span.ctimer', { title: T('Timer running · T stops it') })];
     }
     return (r.f[f] = (PART[f] || (() => h('span.cextra', { dataset: { field: f } })))());
   };
@@ -78,21 +79,21 @@ export function fillCard(w, c, o = {}) {
     const po = prioOrd(c);
     F.priority.className = 'cprio p' + po; if (po < 5) setIcon(F.priority, PRIO_ICON[po]); else setIcon(F.priority, '', (c.Priority || '').slice(0, 3)); F.priority.title = c.Priority;
   }
-  if (show('status', !!c.Status)) { F.status.textContent = c.Status; F.status.className = 'cstatus cat-' + catClass(c); F.status.title = 'Status'; }
+  if (show('status', !!c.Status)) { F.status.textContent = c.Status; F.status.className = 'cstatus cat-' + catClass(c); F.status.title = T('Status'); }
   if (show('points', c.Points !== '' && c.Points != null)) F.points.textContent = c.Points;
   r.sum.textContent = c.Summary; r.sum.title = c.Summary;
   if (show('parent', !!c.ParentKey)) {
     F.parent.textContent = c.ParentSummary || c.ParentKey; F.parent.dataset.open = c.ParentKey; F.parent.title = c.ParentKey + ' ' + c.ParentSummary;
   } else if (F.parent) F.parent.dataset.open = '';
-  if (show('subtasks', !!c.Subtasks)) { F.subtasks.textContent = c.SubtasksDone + '/' + c.Subtasks; F.subtasks.style.setProperty('--p', Math.round(100 * c.SubtasksDone / c.Subtasks) + '%'); F.subtasks.title = 'Subtasks done'; }
+  if (show('subtasks', !!c.Subtasks)) { F.subtasks.textContent = c.SubtasksDone + '/' + c.Subtasks; F.subtasks.style.setProperty('--p', Math.round(100 * c.SubtasksDone / c.Subtasks) + '%'); F.subtasks.title = T('Subtasks done'); }
   const due = date(c.Due);
-  if (show('due', !!due)) { F.due.textContent = o.fdate ? o.fdate(c.Due, shortDate(c.Due)) : shortDate(c.Due); F.due.className = 'cdue' + (!c.Done && due.getTime() < startOfToday() ? ' overdue' : ''); F.due.title = 'Due ' + localDate(due); }
+  if (show('due', !!due)) { F.due.textContent = o.fdate ? o.fdate(c.Due, shortDate(c.Due)) : shortDate(c.Due); F.due.className = 'cdue' + (!c.Done && due.getTime() < startOfToday() ? ' overdue' : ''); F.due.title = T('Due %s', localDate(due)); }
   if (show('pr', !!c.PR)) { if (PR_ICON[c.PR]) setIcon(F.pr, ...PR_ICON[c.PR]); else setIcon(F.pr, '', c.PR || ''); F.pr.className = 'cpr pr-' + (c.PR || '').toLowerCase(); }
   if (show('deploy', !!c.Deploy)) setIcon(F.deploy, 'rocket', c.Deploy);
   const ls = c.Labels ? c.Labels.split(' ') : [];
   if (show('labels', ls.length > 0)) { F.labels.textContent = ls.slice(0, 2).map(l => '#' + l).join(' ') + (ls.length > 2 ? ' +' + (ls.length - 2) : ''); F.labels.title = c.Labels; }
   const a = F.age ? ageText(c) : '';
-  if (show('age', !!a)) { F.age.textContent = a; F.age.title = 'In status since ' + ago(!isZero(c.Since) ? c.Since : c.Created); }
+  if (show('age', !!a)) { F.age.textContent = a; F.age.title = T('In status since %s', ago(!isZero(c.Since) ? c.Since : c.Created)); }
   if (show('avatar', true)) setAvatar(F.avatar, c);
   if (show('assignee', true)) setAvatar(F.assignee, c, true);
   const ex = extraOf(c);

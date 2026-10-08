@@ -14,8 +14,11 @@
 // Modifiers: ctrl+ alt+ meta+ (shift is implied by the character).
 // In inputs/textareas only `input: true` bindings fire (and Escape always reaches modal scopes).
 import { actionFor, specFromTUI } from './keymap.js';
+import { T } from './i18n.js';
 
 const scopes = [];
+// A bind's group as shown: the id stays what the code compares.
+const groupName = g => ({ Global: T('Global'), Go: T('Go'), Issue: T('Issue'), Agents: T('Agents'), Roadmap: T('Roadmap'), Reports: T('Reports'), Settings: T('Settings'), Rules: T('Rules'), Planning: T('Planning'), Time: T('Time'), Standup: T('Standup'), Refine: T('Refine'), 'Card designer': T('Card designer'), Board: T('Board'), Actions: T('Actions'), Terminal: T('Terminal'), Pinned: T('Pinned'), 'My work': T('My work'), 'Lane layouts': T('Lane layouts'), JQL: T('JQL'), Inbox: T('Inbox'), Filters: T('Filters'), Editor: T('Editor'), Edit: T('Edit'), App: T('App'), Theme: T('Theme'), Branch: T('Branch') }[g] || g);
 let pending = [], timer = 0;
 // Remaps from the config file: `web` (ui.web_keys, bind id -> keys) beats `conf` (ui.keys, action -> keys).
 let web = {}, conf = {};
@@ -140,7 +143,8 @@ export const keys = {
   // Every bind seen in this browser: [{id, scope, group, desc, def, specs, changed, from}]; from names the config
   // option that remaps it: 'ui.web_keys', 'ui.keys' or ''.
   registry() {
-    return [...registry.values()].map(r => {
+    return [...registry.values()].map(r0 => {
+      const r = { ...r0, group: groupName(r0.group) };
       const specs = effective(r.id, r.def, r.action);
       const from = remap(web[r.id]) ? 'ui.web_keys' : r.action && remap(conf[r.action]) ? 'ui.keys' : '';
       return { ...r, specs, changed: specs.length !== 1 || specs[0] !== r.def, from };
@@ -166,7 +170,7 @@ export const keys = {
       const on = !b.when || b.when();
       if (!on && !b.help) continue;
       const id = b.spec + (on ? '' : '~'); if (seen.has(id)) continue; seen.add(id);
-      out.push({ group: on ? b.group : b.group + ' (Tab to focus)', spec: b.spec, specs: b.specs, desc: b.desc, bar: b.bar, rank: !on ? 1 : GLOBAL.has(s.name) ? 2 : 0, run: () => press(b) });
+      out.push({ gid: b.group, group: on ? groupName(b.group) : T('%s (Tab to focus)', groupName(b.group)), spec: b.spec, specs: b.specs, desc: b.desc, bar: b.bar, rank: !on ? 1 : GLOBAL.has(s.name) ? 2 : 0, run: () => press(b) });
     }
     return out;
   },
@@ -180,7 +184,7 @@ export const keys = {
         const k = b.spec || b.id;
         if (b.hidden || !b.desc || (b.when && !b.when()) || MOVES.test(b.spec || b.def) || seen.has(k)) continue;
         seen.add(k);
-        out.push({ id: b.id, group: b.group, spec: b.spec, desc: b.desc, run: () => press(b) });
+        out.push({ id: b.id, group: groupName(b.group), spec: b.spec, desc: b.desc, run: () => press(b) });
       }
     }
     return out;

@@ -18,6 +18,7 @@ import { jiraKey } from './issuepill.js';
 import { mdArea } from './mdarea.js';
 import { lines, enter, indent, toggleTask, pasteLink, tableTab, tableArrow, moveLines, wrapWith, backspace, inFence as fenced } from './mdhl.js';
 import { htmlToMd, rich } from './html2md.js';
+import { T } from './i18n.js';
 
 css('mdedit');
 
@@ -28,29 +29,29 @@ const PANELS = ['info', 'note', 'success', 'warning', 'error'];
 
 // Slash commands: apply(ctl) runs with the typed "/query" already removed.
 const SLASH = [
-  { name: 'h1', label: 'Heading 1', run: c => c.line('# ') },
-  { name: 'h2', label: 'Heading 2', run: c => c.line('## ') },
-  { name: 'h3', label: 'Heading 3', run: c => c.line('### ') },
-  { name: 'bullet', label: 'Bulleted list', run: c => c.line('- ') },
-  { name: 'numbered', label: 'Numbered list', run: c => c.line('1. ') },
-  { name: 'task', label: 'Task list', run: c => c.line('- [ ] ') },
-  { name: 'code', label: 'Code block', run: c => c.block('```\n', '\n```', '') },
-  { name: 'quote', label: 'Quote', run: c => c.line('> ') },
-  { name: 'rule', label: 'Horizontal rule', run: c => c.insert('---\n\n') },
-  { name: 'table', label: 'Table', run: c => c.insert('| Header | Header |\n| --- | --- |\n| Cell | Cell |\n', 2, 8) },
-  ...PANELS.map(p => ({ name: p, label: 'Panel: ' + p, run: c => c.block('<!-- panel:' + p + ' -->\n\n', '\n\n<!-- /panel -->', 'Text') })),
-  { name: 'expand', label: 'Expand (collapsible)', run: c => c.block('<!-- expand: Title -->\n\n', '\n\n<!-- /expand -->', 'Text') },
-  { name: 'mention', label: 'Mention someone', run: c => c.insert('@') },
-  { name: 'issue', label: 'Issue reference', run: c => c.issueRef() },
-  { name: 'emoji', label: 'Emoji', run: c => c.insert(':') },
-  { name: 'link', label: 'Link', run: c => c.link() },
-  { name: 'date', label: 'Today’s date', run: c => c.insert('<date>' + today() + '</date> ') },
-  { name: 'decision', label: 'Decision', run: c => c.line('<> ') },
+  { name: 'h1', label: T('Heading 1'), run: c => c.line('# ') },
+  { name: 'h2', label: T('Heading 2'), run: c => c.line('## ') },
+  { name: 'h3', label: T('Heading 3'), run: c => c.line('### ') },
+  { name: 'bullet', label: T('Bulleted list'), run: c => c.line('- ') },
+  { name: 'numbered', label: T('Numbered list'), run: c => c.line('1. ') },
+  { name: 'task', label: T('Task list'), run: c => c.line('- [ ] ') },
+  { name: 'code', label: T('Code block'), run: c => c.block('```\n', '\n```', '') },
+  { name: 'quote', label: T('Quote'), run: c => c.line('> ') },
+  { name: 'rule', label: T('Horizontal rule'), run: c => c.insert('---\n\n') },
+  { name: 'table', label: T('Table'), run: c => c.insert('| Header | Header |\n| --- | --- |\n| Cell | Cell |\n', 2, 8) },
+  ...PANELS.map(p => ({ name: p, label: T('Panel: %s', p), run: c => c.block('<!-- panel:' + p + ' -->\n\n', '\n\n<!-- /panel -->', 'Text') })),
+  { name: 'expand', label: T('Expand (collapsible)'), run: c => c.block('<!-- expand: Title -->\n\n', '\n\n<!-- /expand -->', 'Text') },
+  { name: 'mention', label: T('Mention someone'), run: c => c.insert('@') },
+  { name: 'issue', label: T('Issue reference'), run: c => c.issueRef() },
+  { name: 'emoji', label: T('Emoji'), run: c => c.insert(':') },
+  { name: 'link', label: T('Link'), run: c => c.link() },
+  { name: 'date', label: T('Today’s date'), run: c => c.insert('<date>' + today() + '</date> ') },
+  { name: 'decision', label: T('Decision'), run: c => c.line('<> ') },
   ...[['grey', 'neutral'], ['purple', 'purple'], ['blue', 'blue'], ['red', 'red'], ['yellow', 'yellow'], ['green', 'green']]
-    .map(([label, color]) => ({ name: 'status' + label, label: 'Status: ' + label, run: c => c.wrap('<status color="' + color + '">', '</status>', 'DONE') })),
-  { name: 'underline', label: 'Underline', run: c => c.wrap('<u>', '</u>', 'text') },
+    .map(([label, color]) => ({ name: 'status' + label, label: T('Status: %s', label), run: c => c.wrap('<status color="' + color + '">', '</status>', 'DONE') })),
+  { name: 'underline', label: T('Underline'), run: c => c.wrap('<u>', '</u>', 'text') },
   ...[['blue', '#0747a6'], ['teal', '#008da6'], ['green', '#006644'], ['orange', '#ff991f'], ['red', '#bf2600'], ['purple', '#403294'], ['grey', '#97a0af']]
-    .map(([label, hex]) => ({ name: 'colour' + label, label: 'Text colour: ' + label, run: c => c.wrap('<span style="color:' + hex + '">', '</span>', 'text') })),
+    .map(([label, hex]) => ({ name: 'colour' + label, label: T('Text colour: %s', label), run: c => c.wrap('<span style="color:' + hex + '">', '</span>', 'text') })),
 ];
 
 export function mdEdit(app, o) {
@@ -84,7 +85,7 @@ export function mdEdit(app, o) {
   const pop = h('div.mention-pop', { hidden: true, role: 'listbox' });
   const preview = h('div.md.ed-preview', { hidden: true });
   const fileIn = h('input', { type: 'file', multiple: true, hidden: true, onchange: () => { if (fileIn.files.length) files([...fileIn.files]); fileIn.value = ''; } });
-  const go = h('button.btn.primary', { onclick: () => run() }, o.label || 'Save');
+  const go = h('button.btn.primary', { onclick: () => run() }, o.label || T('Save'));
 
   // ---- text operations: each one undo step
   const replace = (from, to, text, s0 = text.length, s1 = s0) => {
@@ -121,7 +122,7 @@ export function mdEdit(app, o) {
       replace(a, b, '[' + (t || 'text') + '](https://)', t ? t.length + 3 : 7, t ? t.length + 11 : 7 + 8);
     },
     async issueRef() {
-      const c = await ui.pick({ title: 'Issue', items: [], label: x => x.Key + ' ' + x.Summary, placeholder: 'Find an issue…', empty: 'Type to search',
+      const c = await ui.pick({ title: T('Issue'), items: [], label: x => x.Key + ' ' + x.Summary, placeholder: T('Find an issue…'), empty: T('Type to search'),
         search: async q => (q.length > 1 ? (await api.get('/find?q=' + encodeURIComponent(q))).cards : []) });
       ta.focus();
       if (c) ctl.insert(c.Key + ' ');
@@ -202,7 +203,7 @@ export function mdEdit(app, o) {
     if (preview.hidden) return;
     let text = ta.value;
     for (const [n, g] of glyphs) text = text.split(':' + n + ':').join(g);
-    clear(preview).append(text.trim() ? md(text, o.mdOpts ? o.mdOpts() : {}) : h('p.faint', 'Nothing to preview.'));
+    clear(preview).append(text.trim() ? md(text, o.mdOpts ? o.mdOpts() : {}) : h('p.faint', T('Nothing to preview.')));
   };
   const livePreview = debounce(renderPreview, 120);
   const togglePreview = () => { preview.hidden = !preview.hidden; bPrev.classList.toggle('on', !preview.hidden); renderPreview(); ta.focus({ preventScroll: true }); };
@@ -212,7 +213,7 @@ export function mdEdit(app, o) {
   let uploads = 0;
   async function files(list) {
     if (!o.onFiles) return;
-    const marks = list.map(f => o.issueKey && f.type.startsWith('image/') ? '![Uploading ' + (f.name || 'image') + ' ' + (++uploads) + '…]()' : '');
+    const marks = list.map(f => o.issueKey && f.type.startsWith('image/') ? '![' + T('Uploading %s %d…', f.name || T('image'), ++uploads) + ']()' : '');
     const shown = marks.filter(Boolean);
     if (shown.length) {
       const [a] = sel();
@@ -232,8 +233,8 @@ export function mdEdit(app, o) {
 
   // ---- toolbar
   const btn = (label, title, fn, cls = '') => h('button.tb' + cls, { type: 'button', title, tabindex: -1, onmousedown: e => e.preventDefault(), onclick: fn }, label);
-  const bPrev = btn('Preview', 'Preview (ctrl+p)', togglePreview, '.txt');
-  const bSrc = btn('Source', 'Show the markdown everywhere, not only on the caret’s line', () => {
+  const bPrev = btn(T('Preview'), T('Preview (ctrl+p)'), togglePreview, '.txt');
+  const bSrc = btn(T('Source'), T('Show the markdown everywhere, not only on the caret’s line'), () => {
     const on = ta.classList.toggle('live');
     bSrc.classList.toggle('on', !on);
     try { localStorage.setItem(MODE, on ? '0' : '1'); } catch (e) { /* this time only */ }
@@ -244,22 +245,22 @@ export function mdEdit(app, o) {
     bFull.classList.toggle('on', on);
     ta.focus({ preventScroll: true });
   };
-  const bFull = btn(icon('maximize-2'), 'Full screen (esc leaves it)', full);
+  const bFull = btn(icon('maximize-2'), T('Full screen (esc leaves it)'), full);
   const toolbar = h('div.ed-tools', { role: 'toolbar' },
-    btn(icon('bold'), 'Bold (ctrl+b)', () => ctl.wrap('**', '**', 'bold')), btn(icon('italic'), 'Italic (ctrl+i)', () => ctl.wrap('*', '*', 'italic')),
-    btn(icon('strikethrough'), 'Strikethrough', () => ctl.wrap('~~', '~~', 'text')), btn(icon('code'), 'Inline code', () => ctl.wrap('`', '`', 'code')),
-    btn(icon('link'), 'Link (ctrl+k)', () => ctl.link()), h('i.sep'),
-    btn(icon('heading'), 'Heading (/h2)', () => ctl.line('## ')), btn(icon('list'), 'Bulleted list', () => ctl.line('- ')), btn(icon('list-ordered'), 'Numbered list', () => ctl.line('1. ')),
-    btn(icon('list-todo'), 'Task list', () => ctl.line('- [ ] ')), btn(icon('quote'), 'Quote', () => ctl.line('> ')), btn(icon('square-code'), 'Code block', () => ctl.block('```\n', '\n```', '')), h('i.sep'),
-    btn('/', 'Insert… (type / in the text)', () => { ctl.insert('/'); trigger(); }), btn(icon('at-sign'), 'Mention', () => { ctl.insert('@'); trigger(); }),
-    btn(icon('paperclip'), 'Attach files (or paste, or drop them)', () => fileIn.click()),
+    btn(icon('bold'), T('Bold (ctrl+b)'), () => ctl.wrap('**', '**', 'bold')), btn(icon('italic'), T('Italic (ctrl+i)'), () => ctl.wrap('*', '*', 'italic')),
+    btn(icon('strikethrough'), T('Strikethrough'), () => ctl.wrap('~~', '~~', 'text')), btn(icon('code'), T('Inline code'), () => ctl.wrap('`', '`', 'code')),
+    btn(icon('link'), T('Link (ctrl+k)'), () => ctl.link()), h('i.sep'),
+    btn(icon('heading'), T('Heading (/h2)'), () => ctl.line('## ')), btn(icon('list'), T('Bulleted list'), () => ctl.line('- ')), btn(icon('list-ordered'), T('Numbered list'), () => ctl.line('1. ')),
+    btn(icon('list-todo'), T('Task list'), () => ctl.line('- [ ] ')), btn(icon('quote'), T('Quote'), () => ctl.line('> ')), btn(icon('square-code'), T('Code block'), () => ctl.block('```\n', '\n```', '')), h('i.sep'),
+    btn('/', T('Insert… (type / in the text)'), () => { ctl.insert('/'); trigger(); }), btn(icon('at-sign'), T('Mention'), () => { ctl.insert('@'); trigger(); }),
+    btn(icon('paperclip'), T('Attach files (or paste, or drop them)'), () => fileIn.click()),
     h('span.spacer'), bSrc, bPrev, bFull);
   if (!o.onFiles) fileIn.remove();
 
   // ---- shell
   const node = h('div.ed', toolbar, ta, pop, preview, fileIn,
-    h('div.ed-foot', h('span.dim.hint', o.hint || ('ctrl+⏎ ' + (o.label || 'Save').toLowerCase() + (o.noCancel ? '' : ' · esc cancels') + ' · / formats')), h('span.spacer'),
-      !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => node._cancel() }, 'Cancel'), o.save && go));
+    h('div.ed-foot', h('span.dim.hint', o.hint || (o.noCancel ? T('ctrl+⏎ %s · / formats', (o.label || T('Save')).toLowerCase()) : T('ctrl+⏎ %s · esc cancels · / formats', (o.label || T('Save')).toLowerCase()))), h('span.spacer'),
+      !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => node._cancel() }, T('Cancel')), o.save && go));
   const size = () => {}; // the field grows with its text (css: max-height)
   let busy = false;
   async function run() {
@@ -273,7 +274,7 @@ export function mdEdit(app, o) {
   node._cancel = async () => {
     closePop();
     if (o.noCancel || !o.cancel) return ta.blur();
-    if (ta.value !== (o.value || '') && !await ui.confirm({ title: 'Discard your changes?', text: 'What you typed here is lost.', ok: 'Discard', danger: true })) return ta.focus();
+    if (ta.value !== (o.value || '') && !await ui.confirm({ title: T('Discard your changes?'), text: T('What you typed here is lost.'), ok: T('Discard'), danger: true })) return ta.focus();
     draft.drop(); o.cancel();
   };
 
@@ -291,7 +292,7 @@ export function mdEdit(app, o) {
     api.get(path, { fresh: true }).then(d => {
       if (!d || !d.Text || d.Text === ta.value || ta.value !== (o.value || '')) return;
       ta.value = d.Text; size();
-      ui.toast('Draft restored', { action: { label: 'Drop it', run: () => { ta.value = o.value || ''; size(); draft.drop(); } } });
+      ui.toast(T('Draft restored'), { action: { label: T('Drop it'), run: () => { ta.value = o.value || ''; size(); draft.drop(); } } });
     }).catch(() => {});
   }
   node._escape = () => {
@@ -362,12 +363,12 @@ export function mdEdit(app, o) {
     if (scope) return;
     scope = app.keys.scope('mdedit');
     const b = (spec, fn, desc) => scope.bind(spec, fn, desc, { input: true, group: 'Editor' });
-    b('ctrl+b', () => ctl.wrap('**', '**', 'bold'), 'bold');
-    b('ctrl+i', () => ctl.wrap('*', '*', 'italic'), 'italic');
-    b('ctrl+k', () => ctl.link(), 'link');
-    b('ctrl+shift+x', () => ctl.wrap('~~', '~~', 'text'), 'strikethrough');
-    b('ctrl+e', () => ctl.wrap('`', '`', 'code'), 'inline code');
-    b('ctrl+p', togglePreview, 'toggle preview');
+    b('ctrl+b', () => ctl.wrap('**', '**', 'bold'), T('bold'));
+    b('ctrl+i', () => ctl.wrap('*', '*', 'italic'), T('italic'));
+    b('ctrl+k', () => ctl.link(), T('link'));
+    b('ctrl+shift+x', () => ctl.wrap('~~', '~~', 'text'), T('strikethrough'));
+    b('ctrl+e', () => ctl.wrap('`', '`', 'code'), T('inline code'));
+    b('ctrl+p', togglePreview, T('toggle preview'));
   });
   const release = () => { draft.flush(); if (scope) { scope.dispose(); scope = null; } };
   ta.addEventListener('blur', release);

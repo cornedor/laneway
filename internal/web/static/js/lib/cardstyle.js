@@ -3,10 +3,11 @@
 //   layoutOf(ui) → {top, top_right, bottom, bottom_right}   field ids; a custom field by its configured name
 //   lookOf(styles, env) → card => {edge, tint, fade, bold, hidden: Set} | null without styles
 import { compile } from './cardquery.js';
+import { T } from './i18n.js';
 
 export const FIELDS = {
-  type: 'Type', key: 'Key', flagged: 'Flag', priority: 'Priority', status: 'Status', points: 'Points', parent: 'Epic',
-  subtasks: 'Subtasks', due: 'Due', pr: 'PR', deploy: 'Deploy', labels: 'Labels', age: 'Age', avatar: 'Avatar', assignee: 'Assignee',
+  type: T('Type'), key: T('Key'), flagged: T('Flag'), priority: T('Priority'), status: T('Status'), points: T('Points'), parent: T('Epic'),
+  subtasks: T('Subtasks'), due: T('Due'), pr: T('PR'), deploy: T('Deploy'), labels: T('Labels'), age: T('Age'), avatar: T('Avatar'), assignee: T('Assignee'),
 };
 export const SLOTS = ['top', 'top_right', 'bottom', 'bottom_right'];
 export const COLORS = ['accent', 'ok', 'warn', 'err', 'info'];

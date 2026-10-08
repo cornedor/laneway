@@ -7,11 +7,14 @@
 import { h, clear, $ } from './dom.js';
 import { icon } from './icons.js';
 import { kbd } from './keys.js';
+import { routeTitle } from './nav.js';
+import { T, Tn } from './i18n.js';
 
 // Most used first: a narrow bar folds the tail into More. The open view always stays.
 const PRIORITY = ['board', 'work', 'inbox', 'planning', 'reports', 'standup', 'roadmap', 'review', 'mrs', 'agents'];
 const GROUPS = ['Project', 'You', 'Tools'];
 const GROUP = { board: 'Project', planning: 'Project', reports: 'Project', roadmap: 'Project', work: 'You', inbox: 'You', standup: 'You', mrs: 'You' };
+const groupName = g => ({ Project: T('Project'), You: T('You'), Tools: T('Tools') }[g] || g);
 export const groupOf = r => r.group || GROUP[r.name] || 'Tools';
 const rank = n => { const i = PRIORITY.indexOf(n); return i < 0 ? PRIORITY.length : i; };
 
@@ -21,7 +24,7 @@ export function install(app) {
   const views = routes.filter(r => r.name !== 'issue');
   const inBar = views.filter(r => r.nav !== false).sort((a, b) => GROUPS.indexOf(groupOf(a)) - GROUPS.indexOf(groupOf(b)));
   for (const r of inBar) {
-    nav.insertBefore(h('a', { href: '/' + r.name, dataset: { name: r.name, group: groupOf(r) }, title: r.title + (r.key ? '  (g ' + r.key + ')' : '') }, r.title), more);
+    nav.insertBefore(h('a', { href: '/' + r.name, dataset: { name: r.name, group: groupOf(r) }, title: routeTitle(r) + (r.key ? '  (g ' + r.key + ')' : '') }, routeTitle(r)), more);
   }
   const links = [...nav.querySelectorAll('a')];
   let current = '';
@@ -32,7 +35,7 @@ export function install(app) {
   const say = (el, t) => { if (el.textContent !== t) el.textContent = t; }; // no-op writes would re-trigger the observer
   function fit() {
     for (const a of links) a.classList.remove('fold');
-    say(more, 'More'); more.classList.remove('solo');
+    say(more, T('More')); more.classList.remove('solo');
     const room = nav.clientWidth - more.offsetWidth;
     const w = new Map(links.map(a => [a, a.hidden ? 0 : a.offsetWidth + 2]));
     const cur = links.find(a => a.dataset.name === current);
@@ -41,7 +44,7 @@ export function install(app) {
     if (used > room) {
       // Not even the open view fits beside More: one button, named after the view, opens the list.
       const r = routes.find(x => x.name === current);
-      keep.clear(); say(more, r ? r.title : 'Views'); more.classList.add('solo');
+      keep.clear(); say(more, r ? routeTitle(r) : T('Views')); more.classList.add('solo');
     } else for (const a of [...links].sort((x, y) => rank(x.dataset.name) - rank(y.dataset.name))) {
       if (a === cur || a.hidden) continue;
       if (used + w.get(a) + 12 > room) break;
@@ -68,8 +71,8 @@ export function install(app) {
       on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current');
     }
     const r = routes.find(x => x.name === name);
-    $('#vtitle').textContent = r ? r.title : '';
-    $('#viewbar').setAttribute('aria-label', (r ? r.title : 'View') + ' controls');
+    $('#vtitle').textContent = r ? routeTitle(r) : '';
+    $('#viewbar').setAttribute('aria-label', r ? T('%s controls', routeTitle(r)) : T('View controls'));
     refit();
   }
 
@@ -80,9 +83,9 @@ export function install(app) {
     const first = new Set(GROUPS.map(g => shown.find(r => groupOf(r) === g)));
     const badge = r => { const a = links.find(l => l.dataset.name === r.name); const b = a && a.querySelector('.nav-badge'); return b ? b.textContent : ''; };
     const r = await app.ui.pick({
-      title: 'Go to', items: shown, placeholder: 'View…', label: r => r.title, detail: r => groupOf(r),
-      render: r => [h('span.pick-label', r.title, r.name === current && h('span.faint', '  · here')),
-        badge(r) && h('span.nav-badge', badge(r)), h('span.pick-detail', first.has(r) ? groupOf(r) : ''),
+      title: T('Go to'), items: shown, placeholder: T('View…'), label: r => routeTitle(r), detail: r => groupName(groupOf(r)),
+      render: r => [h('span.pick-label', routeTitle(r), r.name === current && h('span.faint', T('  · here'))),
+        badge(r) && h('span.nav-badge', badge(r)), h('span.pick-detail', first.has(r) ? groupName(groupOf(r)) : ''),
         r.key && h('span.menu-keys', kbd('g ' + r.key).map(k => h('kbd', k)))],
     });
     if (r) app.go('/' + r.name);
@@ -99,7 +102,7 @@ export function install(app) {
   }
 
   // Offline: the browser says the network is gone. Writes queue on the server meanwhile (lib/offline.js).
-  const off = add(h('span.warn', { hidden: true, role: 'status', title: 'Offline. You see what was loaded; writes wait until Jira is back.' }, 'Offline'), 5);
+  const off = add(h('span.warn', { hidden: true, role: 'status', title: T('Offline. You see what was loaded; writes wait until Jira is back.') }, T('Offline')), 5);
   const net = () => { off.hidden = navigator.onLine; document.body.classList.toggle('is-offline', !navigator.onLine); };
   addEventListener('online', net); addEventListener('offline', net); net();
 
@@ -110,8 +113,8 @@ export function install(app) {
     const blocked = as.filter(a => a.Status === 'blocked').length, working = as.filter(a => a.Status === 'working').length;
     ag.hidden = !blocked && !working;
     ag.className = 'ind' + (blocked ? ' warn' : ' quiet');
-    if (blocked) ag.replaceChildren(icon('hand'), ' ' + blocked + ' waiting'); else ag.textContent = working + (working === 1 ? ' agent' : ' agents');
-    ag.title = blocked ? blocked + (blocked === 1 ? ' agent waits' : ' agents wait') + ' on you' + (working ? ', ' + working + ' working' : '') : working + ' agent' + (working === 1 ? '' : 's') + ' working';
+    if (blocked) ag.replaceChildren(icon('hand'), ' ' + T('%d waiting', blocked)); else ag.textContent = Tn(working, '%d agent', '%d agents', working);
+    ag.title = blocked ? Tn(blocked, '%d agent waits on you', '%d agents wait on you', blocked) + (working ? T(', %d working', working) : '') : Tn(working, '%d agent working', '%d agents working', working);
     ag.setAttribute('aria-label', ag.title);
   });
 
@@ -126,10 +129,10 @@ export function install(app) {
     if (p !== wkFor) wkT = setTimeout(() => paintWK(p), wk.hidden ? 350 : 0);
   });
   function paintWK(p) {
-    const pre = p + ' ', rows = new Map();
-    for (const b of keys.active().sort((x, y) => (y.group === 'Go') - (x.group === 'Go'))) {
+    const pre = p + ' ', rows = new Map(), goTo = T('go to %s', '');
+    for (const b of keys.active().sort((x, y) => (y.gid === 'Go') - (x.gid === 'Go'))) {
       if (b.rank === 1) continue;
-      for (const s of b.specs || [b.spec]) if (s.startsWith(pre) && !rows.has(s.slice(pre.length))) rows.set(s.slice(pre.length), b.desc.replace(/^go to /, ''));
+      for (const s of b.specs || [b.spec]) if (s.startsWith(pre) && !rows.has(s.slice(pre.length))) rows.set(s.slice(pre.length), b.desc.startsWith(goTo) ? b.desc.slice(goTo.length) : b.desc);
     }
     if (!rows.size) return;
     wkFor = p;
@@ -140,13 +143,13 @@ export function install(app) {
 
   // ---- keys
   const g = keys.scope('chrome');
-  g.bind('M', menu, 'all views (More)', { group: 'Go' });
+  g.bind('M', menu, T('all views (More)'), { group: 'Go' });
   g.bind('g c', () => {
     const bar = $('#viewbar');
     const f = bar.querySelector('button:not([hidden]):not([disabled]), input, select, a[href]');
-    if (f && bar.offsetParent) f.focus(); else app.ui.toast('This view has no controls');
-  }, 'focus the view bar (context, filters)', { group: 'Go' });
-  app.commands.register({ id: 'nav:menu', title: 'All views', group: 'Go', run: menu });
+    if (f && bar.offsetParent) f.focus(); else app.ui.toast(T('This view has no controls'));
+  }, T('focus the view bar (context, filters)'), { group: 'Go' });
+  app.commands.register({ id: 'nav:menu', title: T('All views'), group: 'Go', run: menu });
 
   // ---- context switchers for ctx.context: crumb('Board (b)', pick) → button; label(btn, 'DEMO', 'Kanban') → "DEMO / Kanban"
   const crumb = (title, onclick) => h('button.crumb', { type: 'button', title, onclick });

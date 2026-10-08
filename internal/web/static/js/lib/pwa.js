@@ -1,6 +1,7 @@
 // Installable shell and phone behaviour: service worker, theme-color,
 // card menu on right-click / long-press (the TUI's card menu).
 import { h } from './dom.js';
+import { T } from './i18n.js';
 
 const KEY = /^[A-Z][A-Z0-9_]*-\d+$/;
 
@@ -16,7 +17,7 @@ function worker(app) {
   let told = false;
   const ready = w => {
     if (told || !w) return; told = true;
-    app.ui.toast('Update ready', { ms: 3600000, action: { label: 'Reload', run: () => w.postMessage('skip') } });
+    app.ui.toast(T('Update ready'), { ms: 3600000, action: { label: T('Reload'), run: () => w.postMessage('skip') } });
   };
   let reloading = false;
   sw.addEventListener('controllerchange', () => { if (!reloading && told) { reloading = true; location.reload(); } });
@@ -78,34 +79,34 @@ function cardMenu(app) {
     const sprintSub = async () => {
       const [s, m] = await Promise.all([app.api.get('/projects/' + encodeURIComponent(key.split('-')[0]) + '/sprints'), app.api.get('/issues/' + key + '/editmeta', { fresh: true })]);
       const cur = m.Sprint && m.Sprint.ID ? m.Sprint.ID : 0;
-      return [...(s.Sprints || []), { ID: 0, Name: 'Backlog' }].map(sp => ({ label: sp.Name, hint: sp.State || '', current: sp.ID === cur,
-        run: () => sp.ID !== cur && fields().then(f => f.setField(app, key, 'sprint', { Sprint: sp.ID }, sp.ID ? key + ' → ' + sp.Name : key + ' → backlog', sp.Name)) }));
+      return [...(s.Sprints || []), { ID: 0, Name: T('Backlog') }].map(sp => ({ label: sp.Name, hint: sp.State || '', current: sp.ID === cur,
+        run: () => sp.ID !== cur && fields().then(f => f.setField(app, key, 'sprint', { Sprint: sp.ID }, sp.ID ? T('%s → %s', key, sp.Name) : T('%s → backlog', key), sp.Name)) }));
     };
     return [
-      { label: 'Open', run: () => app.panel.open(key) },
-      { label: 'Open in new tab', run: () => window.open('/issue/' + key, '_blank', 'noopener') },
+      { label: T('Open'), run: () => app.panel.open(key) },
+      { label: T('Open in new tab'), run: () => window.open('/issue/' + key, '_blank', 'noopener') },
       '-',
-      { label: 'Status', hint: c.Status, sub: async () => (await app.api.get('/issues/' + key + '/transitions', { fresh: true })).map(t => ({
+      { label: T('Status'), hint: c.Status, sub: async () => (await app.api.get('/issues/' + key + '/transitions', { fresh: true })).map(t => ({
         label: t.Name, current: c.StatusID != null && String(t.StatusID) === String(c.StatusID), run: () => fields().then(f => f.takeMove(app, key, t)) })) },
-      { label: 'Assignee', hint: c.Assignee, sub: async () => {
+      { label: T('Assignee'), hint: c.Assignee, sub: async () => {
         const us = await app.api.get('/users?issue=' + key + '&q=');
         const me = (app.session.me && app.session.me.AccountID) || '';
-        const set = u => fields().then(f => f.setField(app, key, 'assignee', { ID: u ? u.AccountID : '' }, u ? key + ' → ' + u.DisplayName : key + ' unassigned', u ? { AccountID: u.AccountID, DisplayName: u.DisplayName } : null));
+        const set = u => fields().then(f => f.setField(app, key, 'assignee', { ID: u ? u.AccountID : '' }, u ? T('%s → %s', key, u.DisplayName) : T('%s unassigned', key), u ? { AccountID: u.AccountID, DisplayName: u.DisplayName } : null));
         const people = us.slice().sort((a, b) => (b.AccountID === me) - (a.AccountID === me)).slice(0, 15);
-        return [{ label: 'Unassigned', current: !!c.Key && !c.AssigneeID, run: () => set(null) }, ...people.map(u => ({ label: u.DisplayName + (u.AccountID === me ? ' (me)' : ''), current: u.AccountID === c.AssigneeID, run: () => set(u) })),
-          '-', { label: 'Someone else…', run: () => app.actions.edit(key, 'assignee') }];
+        return [{ label: T('Unassigned'), current: !!c.Key && !c.AssigneeID, run: () => set(null) }, ...people.map(u => ({ label: u.AccountID === me ? T('%s (me)', u.DisplayName) : u.DisplayName, current: u.AccountID === c.AssigneeID, run: () => set(u) })),
+          '-', { label: T('Someone else…'), run: () => app.actions.edit(key, 'assignee') }];
       } },
-      { label: 'Priority', hint: c.Priority, sub: async () => (await app.api.get('/priorities')).map(p => ({
-        label: p.Name, current: p.Name === c.Priority, run: () => fields().then(f => f.setField(app, key, 'priority', { ID: p.ID }, key + ' priority → ' + p.Name, p.Name)) })) },
-      extras.find(x => x.id === 'sprint') || { id: 'sprint', label: 'Sprint', hint: c.Sprint || '', sub: sprintSub },
-      { label: 'Story points…', hint: c.Points, run: () => app.actions.edit(key, 'points') },
-      { label: 'Labels…', hint: list(c.Labels), run: () => app.actions.edit(key, 'labels') },
-      { label: 'Summary…', run: () => app.actions.edit(key, 'summary') },
+      { label: T('Priority'), hint: c.Priority, sub: async () => (await app.api.get('/priorities')).map(p => ({
+        label: p.Name, current: p.Name === c.Priority, run: () => fields().then(f => f.setField(app, key, 'priority', { ID: p.ID }, T('%s priority → %s', key, p.Name), p.Name)) })) },
+      extras.find(x => x.id === 'sprint') || { id: 'sprint', label: T('Sprint'), hint: c.Sprint || '', sub: sprintSub },
+      { label: T('Story points…'), hint: c.Points, run: () => app.actions.edit(key, 'points') },
+      { label: T('Labels…'), hint: list(c.Labels), run: () => app.actions.edit(key, 'labels') },
+      { label: T('Summary…'), run: () => app.actions.edit(key, 'summary') },
       ...extras.filter(x => x.id !== 'sprint'),
       '-',
-      { label: 'Copy key', run: () => navigator.clipboard && navigator.clipboard.writeText(key).then(() => app.ui.toast('Copied ' + key)) },
-      { label: 'Copy link', run: () => navigator.clipboard && navigator.clipboard.writeText(url()).then(() => app.ui.toast('Copied link')) },
-      { label: 'Open in Jira', run: () => window.open(url(), '_blank', 'noopener') },
+      { label: T('Copy key'), run: () => navigator.clipboard && navigator.clipboard.writeText(key).then(() => app.ui.toast(T('Copied %s', key))) },
+      { label: T('Copy link'), run: () => navigator.clipboard && navigator.clipboard.writeText(url()).then(() => app.ui.toast(T('Copied link'))) },
+      { label: T('Open in Jira'), run: () => window.open(url(), '_blank', 'noopener') },
     ];
   }
   // at: where the menu goes; none (a long press on a phone) keeps the picker, a submenu a second one.
@@ -114,7 +115,7 @@ function cardMenu(app) {
     const its = items(key);
     if (at) return import('./ctxmenu.js').then(m => m.ctxMenu(its, at.x, at.y));
     const flat = its.filter(it => it !== '-');
-    app.ui.pick({ title: key, items: flat, label: i => i.label + (i.hint ? '  · ' + i.hint : '') + (i.sub ? '  ▸' : ''), placeholder: 'Action…' }).then(async r => {
+    app.ui.pick({ title: key, items: flat, label: i => i.label + (i.hint ? '  · ' + i.hint : '') + (i.sub ? '  ▸' : ''), placeholder: T('Action…') }).then(async r => {
       if (!r) return;
       if (!r.sub) return r.run && r.run();
       const sub = (await r.sub()).filter(it => it !== '-');

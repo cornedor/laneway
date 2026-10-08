@@ -8,6 +8,7 @@ import { prioOrd } from './cardsort.js';
 import * as cq from './cardquery.js';
 import { check, setCheck } from './selbar.js';
 import { FIXED, fixCols, moveCol, pickOrder } from './listcols.js';
+import { T } from './i18n.js';
 
 export { fixCols };
 
@@ -16,9 +17,9 @@ export const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', '
 export const PRIO_ICON = ['chevrons-up', 'chevron-up', 'equal', 'chevron-down', 'chevrons-down'];
 // List columns: id, header, width.
 export const COLS = {
-  mark: ['', '1.857rem'], key: ['Key', '6.143rem'], summary: ['Summary', 'minmax(8.571rem, 1fr)'], status: ['Status', '8.429rem'], priority: ['Prio', '2.429rem'],
-  points: ['Pts', '2.857rem'], assignee: ['Assignee', '10.714rem'], epic: ['Epic', '9.286rem'], labels: ['Labels', '7.857rem'], reporter: ['Reporter', '7.857rem'],
-  due: ['Due', '4.571rem'], updated: ['Updated', '6rem'], created: ['Created', '6rem'], age: ['Age', '3.143rem'],
+  mark: ['', '1.857rem'], key: [T('Key'), '6.143rem'], summary: [T('Summary'), 'minmax(8.571rem, 1fr)'], status: [T('Status'), '8.429rem'], priority: [T('Prio'), '2.429rem'],
+  points: [T('Pts'), '2.857rem'], assignee: [T('Assignee'), '10.714rem'], epic: [T('Epic'), '9.286rem'], labels: [T('Labels'), '7.857rem'], reporter: [T('Reporter'), '7.857rem'],
+  due: [T('Due'), '4.571rem'], updated: [T('Updated'), '6rem'], created: [T('Created'), '6rem'], age: [T('Age'), '3.143rem'],
 };
 export const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'points', 'assignee', 'due', 'updated'];
 
@@ -43,7 +44,7 @@ export function nextSort(sort, dir, id) {
 }
 
 const sortMark = (id, sort, dir) => (sort === id ? [' ', icon(dir > 0 ? 'arrow-up' : 'arrow-down')] : []);
-const grip = id => (resizable(id) ? [h('span.lh-grip', { title: 'Drag to resize, double-click to reset' })] : []);
+const grip = id => (resizable(id) ? [h('span.lh-grip', { title: T('Drag to resize, double-click to reset') })] : []);
 export function listHead(cols, sort, dir) {
   return h('div.bd-lhead', cols.map(id => h('span', { class: 'lh-' + id, draggable: id !== 'mark', dataset: { col: id, sort: sortable(id) ? id : '' } }, colLabel(id), sortMark(id, sort, dir), grip(id))));
 }
@@ -128,7 +129,7 @@ export function paintHead(head, sort, dir) {
 // The columns to pick from: every one but those every list has; null when cancelled.
 export async function pickCols(ui, all, cols) {
   const items = all.filter(c => !FIXED.includes(c));
-  const r = await ui.pick({ title: 'List columns', items, multi: true, selected: items.filter(c => cols.includes(c)), label: colLabel, placeholder: 'Columns…' });
+  const r = await ui.pick({ title: T('List columns'), items, multi: true, selected: items.filter(c => cols.includes(c)), label: colLabel, placeholder: T('Columns…') });
   return r ? pickOrder(all, cols, r) : null;
 }
 

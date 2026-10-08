@@ -8,6 +8,7 @@
 // except LEAVE (ctrl+\, the TUI's agent_back), which calls onLeave. ctrl+shift+c copies the selection;
 // shift+enter sends ESC CR (alt+enter), a newline in Claude Code.
 import fonts from './fonts.js';
+import { T } from './i18n.js';
 
 export const LEAVE = 'ctrl+\\';
 const V = '/vendor/xterm/';
@@ -96,7 +97,7 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
     typing = true;
     if (!scope) {
       scope = app.keys.scope('terminal', { modal: true });
-      scope.bind(LEAVE, () => onLeave(), 'back from the terminal', { input: true, group: 'Terminal' });
+      scope.bind(LEAVE, () => onLeave(), T('back from the terminal'), { input: true, group: 'Terminal' });
     }
     report();
   });
@@ -104,7 +105,7 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
   term.attachCustomKeyEventHandler(e => {
     if (e.type === 'keydown' && e.ctrlKey && e.shiftKey && !e.altKey && e.code === 'KeyC') {
       const sel = term.getSelection();
-      if (sel && navigator.clipboard) navigator.clipboard.writeText(sel).then(() => app.ui.toast('Copied'), () => {});
+      if (sel && navigator.clipboard) navigator.clipboard.writeText(sel).then(() => app.ui.toast(T('Copied')), () => {});
       e.preventDefault(); return false;
     }
     if (e.ctrlKey && e.shiftKey && e.code === 'KeyV') return false; // the browser pastes (bracketed when the program asked)
@@ -135,7 +136,7 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
     const sock = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/agents/' + encodeURIComponent(my) + '/terminal?' + q);
     sock.binaryType = 'arraybuffer';
     ws = sock;
-    report(tries ? 'retry' : 'connecting', tries ? 'reconnecting…' : 'connecting…');
+    report(tries ? 'retry' : 'connecting', tries ? T('reconnecting…') : T('connecting…'));
     let opened = false;
     sock.onopen = () => { opened = true; tries = 0; report('open', ''); };
     sock.onmessage = e => {
@@ -146,15 +147,15 @@ export async function terminal(host, { app, onState = () => {}, onLeave = () => 
       if (ws !== sock) return; // replaced
       ws = null;
       if (dead) return;
-      if (e.code === 4001) return report('taken', 'opened in another window');
-      if (e.code === 4002) return report('exited', text || 'the attach ended');
-      if (e.code === 4003) return report('idle', e.reason || 'closed after a while without activity');
+      if (e.code === 4001) return report('taken', T('opened in another window'));
+      if (e.code === 4002) return report('exited', text || T('the attach ended'));
+      if (e.code === 4003) return report('idle', e.reason || T('closed after a while without activity'));
       const gone = app.agents && app.agents.available && !app.agents.snapshot.Agents.some(a => a.PaneID === my);
-      if (gone) return report('gone', 'the agent is gone');
+      if (gone) return report('gone', T('the agent is gone'));
       if (e.code === 4004) { tries = 0; return connect(); }
-      if (tries >= 8) return report('closed', opened ? 'the connection dropped' : 'could not attach');
+      if (tries >= 8) return report('closed', opened ? T('the connection dropped') : T('could not attach'));
       const wait = Math.min(30000, 500 * 2 ** tries++);
-      report('retry', 'reconnecting in ' + Math.ceil(wait / 1000) + 's');
+      report('retry', T('reconnecting in %ds', Math.ceil(wait / 1000)));
       retryTimer = setTimeout(connect, wait);
     };
   }
