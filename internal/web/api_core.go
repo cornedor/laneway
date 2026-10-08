@@ -112,7 +112,8 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, id, cfg.Columns)}
+	names, _ := c.StatusNames(ctx)
+	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, id, cfg.Columns, names)}
 	quick := localQuick(s.UIConfig().QuickFilters)
 	if !strings.EqualFold(strings.TrimSpace(s.UIConfig().BoardQuickFilters), "off") {
 		qf, _ := c.QuickFilters(ctx, id)
@@ -127,7 +128,7 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 			out["closedSprints"] = sp
 		}
 	}
-	if names, err := c.StatusNames(ctx); err == nil {
+	if names != nil {
 		out["statusNames"] = names
 	}
 	return out, nil
@@ -143,7 +144,7 @@ type layoutLane struct {
 }
 
 // boardLayout is a ui.lane_layouts entry arranged over a board's columns,
-// with the statuses whose columns it hides.
+// with the statuses it hides.
 type boardLayout struct {
 	Name   string
 	Lanes  []layoutLane
@@ -152,16 +153,13 @@ type boardLayout struct {
 
 // boardLayouts are the lane layouts fitting board, arranged as the
 // terminal does (internal/lanes).
-func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column) []boardLayout {
+func boardLayouts(ls []config.LaneLayout, board int, cols []jira.Column, names map[string]string) []boardLayout {
 	out := []boardLayout{}
 	for _, l := range lanes.Fitting(ls, board, cols) {
-		arranged, hidden := lanes.Arrange(l, cols)
-		b := boardLayout{Name: l.Name, Hidden: []string{}}
+		arranged, hidden := lanes.Arrange(l, cols, names)
+		b := boardLayout{Name: l.Name, Hidden: append([]string{}, hidden...)}
 		for _, a := range arranged {
 			b.Lanes = append(b.Lanes, layoutLane{Name: a.Name, StatusIDs: a.StatusIDs(), Max: a.Max, Sections: a.Sections})
-		}
-		for _, ci := range hidden {
-			b.Hidden = append(b.Hidden, cols[ci].StatusIDs...)
 		}
 		out = append(out, b)
 	}

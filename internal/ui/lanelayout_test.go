@@ -182,3 +182,42 @@ func TestJiraArrange(t *testing.T) {
 		t.Errorf("after esc: arrange %v, lanes %d", m.jiraTab.arrange, len(m.jiraTab.lanes))
 	}
 }
+
+// TestJiraArrangeSplit: s splits Done into its statuses, H moves one onto
+// In progress's lane, where the board stacks it as a section of its own;
+// s on it gathers Done there whole.
+func TestJiraArrangeSplit(t *testing.T) {
+	m := jiraTabModel(t)
+	press := func(k string) {
+		t.Helper()
+		out, _ := m.handleJiraKey(keyMsg(t, k))
+		m = out.(Model)
+	}
+	press("alt+L")
+	press("l")
+	press("l") // Done
+	press("s")
+	if at := m.jiraTab.arrange.at; at.Col != 2 || at.Status != "5" {
+		t.Fatalf("after s the cursor is on %+v, want Done's first status", at)
+	}
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "▸ Done › ") {
+		t.Fatalf("split Done not listed by status:\n%s", view)
+	}
+	press("l") // Done's second status
+	press("H") // onto In progress
+	l := m.uiConfig.LaneLayouts[0]
+	if len(l.Lanes) != 3 || strings.Join(l.Lanes[1].Statuses, ",") != "3,6" || strings.Join(l.Lanes[2].Statuses, ",") != "5" {
+		t.Fatalf("lanes %+v, want 6 with In progress", l.Lanes)
+	}
+	press("esc")
+	if lane := m.jiraTab.lanes[1]; len(lane.sections) != 2 || strings.Join(lane.sections[1].statusIDs, ",") != "6" {
+		t.Fatalf("In progress's lane: %+v", lane.sections)
+	}
+	press("alt+L")
+	m.jiraTab.arrange.at.Col, m.jiraTab.arrange.at.Status = 2, "6"
+	press("s")
+	l = m.uiConfig.LaneLayouts[0]
+	if len(l.Lanes) != 2 || strings.Join(l.Lanes[1].Statuses, ",") != "3,5,6" || m.jiraTab.arrange.at.Status != "" {
+		t.Errorf("after gathering: lanes %+v, cursor %+v", l.Lanes, m.jiraTab.arrange.at)
+	}
+}

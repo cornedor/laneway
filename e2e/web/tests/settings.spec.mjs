@@ -63,6 +63,29 @@ test('a lane layout goes on every board it fits', async ({ page, app }) => {
   await expect(board).toBeChecked();
 });
 
+// A column splits into its statuses: one moved to another lane stays there after a reload, and gathering puts the
+// column back whole.
+test('a lane layout splits a column over lanes', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const g = page.getByRole('group', { name: 'lane_layouts' });
+  await g.getByRole('button', { name: 'New layout' }).click();
+  await g.getByRole('button', { name: 'Split In Review into statuses' }).click();
+  const testing = g.getByRole('button', { name: 'In Review › Testing', exact: true });
+  await expect(testing).toBeVisible();
+  await testing.click();
+  await page.keyboard.press('L');
+  const done = g.locator('.ln-lane').filter({ has: page.getByRole('button', { name: 'Done', exact: true }) });
+  await expect(done.getByRole('button', { name: 'In Review › Testing', exact: true })).toBeVisible();
+  await expect(done.getByRole('textbox', { name: 'Lane name' })).toHaveAttribute('placeholder', 'Done');
+  await page.waitForTimeout(600); // the debounced save
+  await page.reload();
+  await expect(done.getByRole('button', { name: 'In Review › Testing', exact: true })).toBeVisible();
+  await expect(g.getByRole('button', { name: 'In Review › In Review', exact: true })).toBeVisible();
+  await done.getByRole('button', { name: 'Gather In Review here' }).click();
+  await expect(done.getByRole('button', { name: 'In Review', exact: true })).toBeVisible();
+  await expect(g.getByRole('button', { name: 'In Review › Testing', exact: true })).toHaveCount(0);
+});
+
 // A drag in the card designer keeps the page where it is: the drop redraws the row, not the scroll.
 test('a card designer drag keeps the scroll', async ({ page, app }) => {
   await page.goto(new URL('#/settings', app.url).href);

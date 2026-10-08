@@ -181,7 +181,7 @@ func defaultKeys() keyMap {
 		Compact:         bind(i18n.T("one-line cards"), "c"),
 		EmptyLanes:      bind(i18n.T("hide / show empty lanes"), "alt+e"),
 		LaneLayout:      bind(i18n.T("next lane layout (ui.lane_layouts)"), "alt+l"),
-		ArrangeLanes:    bind(i18n.T("arrange the lanes: stack, move, rename, hide columns"), "alt+L", "alt+shift+l"),
+		ArrangeLanes:    bind(i18n.T("arrange the lanes: stack, split, move, rename, hide columns"), "alt+L", "alt+shift+l"),
 		Releases:        bind(i18n.T("releases: versions and their progress"), "V"),
 		Repeat:          bind(i18n.T("do the last change again on the selected card"), "."),
 		Refine:          bind(i18n.T("refine: the view's issues one at a time"), "ctrl+e"),

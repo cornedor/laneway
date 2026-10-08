@@ -114,7 +114,7 @@
   "any key closes · rebind in ui.keys": "elke toets sluit · wijzig toetsen in ui.keys",
   "approve": "goedkeuren",
   "approve without a review": "goedkeuren zonder review",
-  "arrange the lanes: stack, move, rename, hide columns": "banen indelen: stapelen, verplaatsen, hernoemen, kolommen verbergen",
+  "arrange the lanes: stack, split, move, rename, hide columns": "banen indelen: stapelen, splitsen, verplaatsen, hernoemen, kolommen verbergen",
   "ask ui.llm about the issue": "ui.llm over de issue vragen",
   "ask ui.llm: summary, acceptance criteria, subtasks, points": "ui.llm vragen: samenvatting, acceptatiecriteria, subtaken, punten",
   "assignee": "toegewezene",

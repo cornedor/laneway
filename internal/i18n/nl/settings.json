@@ -82,6 +82,6 @@
   "where an attached agent shows: fullscreen or in the panel": "waar een gekoppelde agent verschijnt: `fullscreen` of in het paneel",
   "where attachments are saved": "waar bijlagen worden opgeslagen",
   "your own commands on the issue: in the palette, on a key if given": "je eigen commando's op het issue: in het palet, op een toets als die is opgegeven",
-  "your own lanes over a board's columns: stacked, reordered, renamed, hidden; alt+l switches": "je eigen banen over de kolommen van een bord: gestapeld, herordend, hernoemd, verborgen; alt+l wisselt",
+  "your own lanes over a board's columns: stacked, split by status, reordered, renamed, hidden; alt+l switches": "je eigen banen over de kolommen van een bord: gestapeld, per status gesplitst, herordend, hernoemd, verborgen; alt+l wisselt",
   "your starred Jira filters as views": "je met een ster gemarkeerde Jira-filters als weergaven"
 }

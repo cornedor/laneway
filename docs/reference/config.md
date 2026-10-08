@@ -219,21 +219,26 @@ ui:
 ## Lane layouts
 
 `ui.lane_layouts` are your own lanes over a board's columns: in your order,
-several columns stacked in one lane under a header each, renamed, some
-hidden. `alt+l` steps through the board's own columns and each layout that
+several columns stacked in one lane under a header each, a column's
+statuses split over lanes, renamed, some hidden. `alt+l` steps through the board's own columns and each layout that
 fits it, remembered per board; nothing changes in Jira.
 
 The browser's settings draw a layout over a board's real columns: drag a
-column onto a lane, between lanes or onto Hidden, drag lanes to reorder,
+column onto a lane, between lanes or onto Hidden, split a column (its
+button, or `s`) to place its statuses one by one, drag lanes to reorder,
 type their names, tick the boards it is on or *Every board it fits*. In
 the terminal `alt+L` arranges the board's layout in place (a new one when
-it shows none). Both write the config for you; by hand:
+it shows none), `s` splitting a column there too. Both write the config
+for you; by hand:
 
-A lane lists the statuses whose columns it holds, by id, so boards on the
-same workflow share a layout. A layout fits a board where it places at
-least two columns; `boards:` limits it to those board ids. A column it
-doesn't place keeps a lane of its own after its left neighbour's;
-`hidden:` takes columns off the board, and the header counts their cards.
+A lane lists statuses by id, so boards on the same workflow share a
+layout. A column whose statuses are in one lane is stacked there whole; one
+whose statuses are spread over lanes is a section in each, named by its
+statuses there. A status a layout doesn't list stays with its column's
+first listed one. A layout fits a board where it places at least two
+columns; `boards:` limits it to those board ids. A column it doesn't place
+keeps a lane of its own after its left neighbour's; `hidden:` takes
+statuses off the board, and the header counts their cards.
 
 ```yaml
 ui:
@@ -249,7 +254,8 @@ ui:
       hidden: ["10030"]           # Won't do
 ```
 
-A lane's limit is its columns' limits added up, when each has one. `H` and
+A lane's limit is its columns' limits added up, when each has one; a
+split column's limit counts in none. `H` and
 `L` step a card through a stacked lane's columns one by one; a column of
 several statuses asks which one; a drag shows a drop zone per status. `z` folds a
 stacked column, remembered per board.

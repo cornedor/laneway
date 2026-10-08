@@ -47,7 +47,7 @@ func (m *Model) helpSections() []struct {
 			row(k.Compact, i18n.T("one-line cards / full")),
 			row(k.EmptyLanes, i18n.T("hide / show empty lanes")),
 			row(k.LaneLayout, i18n.T("next lane layout: the board's columns or a ui.lane_layouts entry")),
-			row(k.ArrangeLanes, i18n.T("arrange the lanes: stack, move, rename, hide columns")),
+			row(k.ArrangeLanes, i18n.T("arrange the lanes: stack, split, move, rename, hide columns")),
 			row(k.MergeRequests, i18n.T("merge requests waiting on you, every GitLab")),
 			row(k.Palette, i18n.T("command palette")),
 			row(k.JQL, i18n.T("JQL search with completion, as a view")),

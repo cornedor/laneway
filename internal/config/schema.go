@@ -145,7 +145,7 @@ var SettingDocs = map[string]string{
 	"card_styles":          i18n.N("restyle cards a board query matches: when, edge, tint, fade, bold, hide, show"),
 	"quick_filters":        i18n.N("JQL presets shown before every board's own"),
 	"views":                i18n.N("JQL-narrowed views of every board, after its own"),
-	"lane_layouts":         i18n.N("your own lanes over a board's columns: stacked, reordered, renamed, hidden; alt+l switches"),
+	"lane_layouts":         i18n.N("your own lanes over a board's columns: stacked, split by status, reordered, renamed, hidden; alt+l switches"),
 	"stale_days":           i18n.N("days in progress before a card's age shows red"),
 	"velocity_sprints":     i18n.N("how many closed sprints the velocity chart shows"),
 	"report_done":          i18n.N("the column the charts count as done from, by board id: {\"12\": In review}; d on the charts picks it"),

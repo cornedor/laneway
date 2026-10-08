@@ -1058,11 +1058,7 @@ func (m *Model) buildJiraLanes() {
 	board := m.jiraBoard()
 	ls, hidden := lanes.Board(board), []string(nil)
 	if l, ok := m.jiraLayout(); ok {
-		var cols []int
-		ls, cols = lanes.Arrange(l, board)
-		for _, ci := range cols {
-			hidden = append(hidden, board[ci].StatusIDs...)
-		}
+		ls, hidden = lanes.Arrange(l, board, t.statusNames)
 	}
 	col := map[string]int{}
 	for _, l := range ls {

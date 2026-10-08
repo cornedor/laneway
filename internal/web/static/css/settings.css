@@ -129,6 +129,10 @@
 .ln-head { display: flex; align-items: center; gap: .143rem; padding: .286rem; border-bottom: 1px solid var(--border); }
 .ln-name { flex: 1; min-width: 0; font-weight: 600; font-size: .857rem; padding: .143rem .286rem; }
 .ln-body { display: flex; flex-direction: column; align-items: flex-start; gap: .286rem; padding: .429rem; min-height: 4rem; }
+.ln-piece { display: inline-flex; align-items: center; max-width: 100%; }
+.ln-piece .cd-chip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ln-status { border-style: dashed; }
+.ln-split { opacity: .6; } .ln-split:hover { opacity: 1; color: var(--accent); }
 .ln-foreign { font-size: .786rem; }
 .ln-hidden { min-height: 1.857rem; }
 .ln select.input { width: auto; max-width: 16rem; }

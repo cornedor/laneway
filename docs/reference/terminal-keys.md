@@ -41,7 +41,7 @@ panel's page. Keys for the browser: [Browser keys](browser-keys.md).
 | `c` | one-line cards |
 | `alt+e` | hide or show lanes the filters leave empty |
 | `alt+l` | next lane layout (`ui.lane_layouts`), then the board's columns |
-| `alt+L` | arrange the lanes: `h` `l` pick a column, `H` `L` stack it on the lane before or after, `n` own lane, `x` hide or show, `<` `>` move its lane, `r` rename, `esc` done |
+| `alt+L` | arrange the lanes: `h` `l` pick a column, `H` `L` stack it on the lane before or after, `n` own lane, `x` hide or show, `s` split a column into its statuses (or gather them), `<` `>` move its lane, `r` rename, `esc` done |
 | `r` | refresh |
 
 ### Cards
