@@ -12,6 +12,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/emoji"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/textwidth"
 )
@@ -172,7 +173,7 @@ func (m Model) handleMentionFound(msg mentionFoundMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.err != nil {
-		m.fail("mention search: " + msg.err.Error())
+		m.fail(i18n.Tf("mention search: %s", msg.err.Error()))
 	}
 	m.jiraMention.searching = false
 	m.setMentionSugg(msg.users)
@@ -262,7 +263,7 @@ func (m *Model) renderCompletion() string {
 			rows = append(rows, "@"+u.DisplayName)
 		}
 	case ms.searching:
-		return completionBox([]string{refDimStyle.Render("searching…")})
+		return completionBox([]string{refDimStyle.Render(i18n.T("searching…"))})
 	default:
 		return ""
 	}
@@ -275,7 +276,7 @@ func (m *Model) renderCompletion() string {
 		}
 		rows[i] = r
 	}
-	rows = append(rows, refDimStyle.Render("tab takes · ↑/↓ · esc"))
+	rows = append(rows, refDimStyle.Render(i18n.T("tab takes · ↑/↓ · esc")))
 	return completionBox(rows)
 }
 

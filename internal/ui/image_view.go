@@ -7,6 +7,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // i in the panel: the issue's images one at a time across the whole body,
@@ -32,7 +34,7 @@ func (m *Model) readyImages() []string {
 func (m *Model) openImageView() tea.Cmd {
 	ids := m.readyImages()
 	if len(ids) == 0 {
-		m.status = "no images to show"
+		m.status = i18n.T("no images to show")
 		return nil
 	}
 	m.imageView, m.imageViewIdx = true, 0
@@ -156,7 +158,7 @@ func (m Model) handleImageViewKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *Model) renderImageView(width, height int) string {
 	ids := m.readyImages()
 	if len(ids) == 0 {
-		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, refDimStyle.Render("no images"))
+		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, refDimStyle.Render(i18n.T("no images")))
 	}
 	i := min(m.imageViewIdx, len(ids)-1)
 	e := m.viewImage()
@@ -166,7 +168,7 @@ func (m *Model) renderImageView(width, height int) string {
 			name = a.Filename
 		}
 	}
-	caption := refDimStyle.Render(fmt.Sprintf("%s  %d/%d  ← → · any key back", name, i+1, len(ids)))
+	caption := refDimStyle.Render(fmt.Sprintf(i18n.T("%s  %d/%d  ← → · any key back"), name, i+1, len(ids)))
 	img := strings.Join(kittyPlaceholder(e.id, e.rows, e.cols), "\n")
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Center, img, "", caption))
 }

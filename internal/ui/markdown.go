@@ -8,6 +8,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/safeterm"
 )
@@ -462,7 +463,7 @@ func renderInline(s string, ei *emojiImages, mr changeInlineFn, self string) str
 		sub := mdImageRe.FindStringSubmatch(m)
 		alt := sub[1]
 		if alt == "" {
-			alt = "image"
+			alt = i18n.T("image")
 		}
 		return attachmentStyle.Render(imgMark(sub[2]) + "🖼️ " + alt)
 	})

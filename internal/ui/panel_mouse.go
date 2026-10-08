@@ -9,6 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Clicks in the issue panel: a field is selected by one click and edited by
@@ -44,9 +46,9 @@ type panelHit struct {
 func (m *Model) panelHints() [][2]string {
 	k := m.keys
 	return [][2]string{
-		{helpKey(k.Tab) + " fields", firstKey(k.Tab)}, {"↵ edit", "enter"},
-		{helpKey(k.JiraComment) + " comment", firstKey(k.JiraComment)}, {helpKey(k.JiraReply) + " reply", firstKey(k.JiraReply)},
-		{helpKey(k.JiraStart) + " start work", firstKey(k.JiraStart)}, {helpKey(k.Help) + " keys", firstKey(k.Help)},
+		{i18n.Tf("%s fields", helpKey(k.Tab)), firstKey(k.Tab)}, {i18n.T("↵ edit"), "enter"},
+		{i18n.Tf("%s comment", helpKey(k.JiraComment)), firstKey(k.JiraComment)}, {i18n.Tf("%s reply", helpKey(k.JiraReply)), firstKey(k.JiraReply)},
+		{i18n.Tf("%s start work", helpKey(k.JiraStart)), firstKey(k.JiraStart)}, {i18n.Tf("%s keys", helpKey(k.Help)), firstKey(k.Help)},
 	}
 }
 
@@ -83,11 +85,11 @@ func (m *Model) indexPanelHits(content string) {
 			m.activityLine = i
 		case text == m.panelHintLine():
 			m.panelHits[i] = panelHit{field: -1, keys: m.panelHints()}
-		case m.descEdit == nil && (text == descHead+"  "+m.descHint(true) || text == descHead+"  "+m.descHint(false)):
+		case m.descEdit == nil && descHeadHint(text, m.descHint(true), m.descHint(false)) != "":
 			// Its hint edits; a double-click on the rest does too.
 			e := firstKey(m.keys.JiraDescription)
-			hint := strings.TrimPrefix(text, descHead+"  ")
-			m.panelHits[i] = panelHit{field: -1, press: e, double: true, keys: [][2]string{{hint, e}}, off: ansi.StringWidth(descHead + "  ")}
+			hint := descHeadHint(text, m.descHint(true), m.descHint(false))
+			m.panelHits[i] = panelHit{field: -1, press: e, double: true, keys: [][2]string{{hint, e}}, off: ansi.StringWidth(text) - ansi.StringWidth(hint)}
 		case text == fmt.Sprintf(emptyFieldsRow, m.hiddenFields()):
 			m.panelHits[i] = panelHit{field: -1, empty: true}
 		case strings.HasPrefix(text, "…and ") && strings.HasSuffix(text, "o opens in browser"):
@@ -132,13 +134,30 @@ func (m *Model) indexPanelHits(content string) {
 	for j, lk := range iss.Links {
 		keys[j] = lk.Key
 	}
-	m.indexKeyHits(lines, fmt.Sprintf("Links (%d)  L open", len(iss.Links)), keys)
+	m.indexKeyHits(lines, fmt.Sprintf(i18n.T("Links (%d)"), len(iss.Links)), keys)
 	kids := m.shownChildren()
 	keys = make([]string, len(kids))
 	for j, ch := range kids {
 		keys[j] = ch.Key
 	}
-	m.indexKeyHits(lines, childrenHead(kids)+"  L open", keys)
+	m.indexKeyHits(lines, childrenHead(kids), keys)
+}
+
+// headHint reports whether text is a heading, two spaces, hint.
+func headHint(text, hint string) bool {
+	head, ok := strings.CutSuffix(text, "  "+hint)
+	return ok && head != ""
+}
+
+// descHeadHint is the hint at the end of the Description heading line text
+// (either of the hints), "" when text is not that line.
+func descHeadHint(text string, hints ...string) string {
+	for _, h := range hints {
+		if headHint(text, h) {
+			return h
+		}
+	}
+	return ""
 }
 
 // indexKeyHits makes the section headed head press L, and the issue rows
@@ -148,7 +167,7 @@ func (m *Model) indexKeyHits(lines []string, head string, keys []string) {
 		return
 	}
 	for i, l := range lines {
-		if strings.TrimSpace(ansi.Strip(l)) != head {
+		if !strings.HasPrefix(strings.TrimSpace(ansi.Strip(l)), head) {
 			continue
 		}
 		m.panelHits[i] = panelHit{field: -1, press: "L"}
@@ -289,7 +308,7 @@ func (m Model) clickPanel(h panelHit, count int) (tea.Model, tea.Cmd) {
 		return m, m.attachAgent(m.jiraIssue.Key, h.agent)
 	}
 	if h.url != "" {
-		m.status = "opening " + h.url + "…"
+		m.status = i18n.Tf("opening %s…", h.url)
 		return m, m.openOpenable(openable{name: h.url, url: h.url})
 	}
 	if h.acts {
@@ -387,12 +406,12 @@ func (m *Model) indexAgentHits(lines []string, key string) {
 		return
 	}
 	keys := m.agentHints()
-	head := agentsHead + "  " + strings.Join(firsts(keys), " · ")
-	i := slices.IndexFunc(lines, func(l string) bool { return strings.TrimSpace(ansi.Strip(l)) == head })
+	hints := strings.Join(firsts(keys), " · ")
+	i := slices.IndexFunc(lines, func(l string) bool { return headHint(strings.TrimSpace(ansi.Strip(l)), hints) })
 	if i < 0 {
 		return
 	}
-	m.panelHits[i] = panelHit{field: -1, keys: keys, off: ansi.StringWidth(agentsHead + "  ")}
+	m.panelHits[i] = panelHit{field: -1, keys: keys, off: ansi.StringWidth(strings.TrimSpace(ansi.Strip(lines[i]))) - ansi.StringWidth(hints)}
 	for _, a := range as {
 		for n := 1 + min(len(a.Title), 1); n > 0 && i+1 < len(lines); n-- { // its row, and its title's
 			i++

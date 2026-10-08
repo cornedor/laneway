@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -103,7 +104,7 @@ func (m *Model) switchActivity(t int) tea.Cmd {
 
 // activityLabels are the tabs' names; comments counts them.
 func activityLabels(comments int) [activityTabs]string {
-	return [activityTabs]string{fmt.Sprintf("Comments (%d)", comments), "History", "Work log", "All"}
+	return [activityTabs]string{fmt.Sprintf(i18n.T("Comments (%d)"), comments), i18n.T("History"), i18n.T("Work log"), i18n.T("All")}
 }
 
 // activityTabAt is the tab under display column col of the tab row line,
@@ -169,7 +170,7 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 	a := m.activity
 	switch {
 	case a.key != iss.Key || a.loading:
-		b.WriteString(refDimStyle.Render("loading…") + "\n")
+		b.WriteString(refDimStyle.Render(i18n.T("loading…")) + "\n")
 		return
 	case a.err != nil:
 		b.WriteString(refErrStyle.Render(a.err.Error()) + "\n")
@@ -178,7 +179,7 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 	switch m.activityTab {
 	case activityHistory:
 		if len(a.changes) == 0 {
-			b.WriteString(refDimStyle.Render("no changes yet") + "\n")
+			b.WriteString(refDimStyle.Render(i18n.T("no changes yet")) + "\n")
 		}
 		for i, e := range a.changes {
 			if i > 0 {
@@ -188,7 +189,7 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 		}
 	case activityWorklog:
 		if len(a.logs) == 0 {
-			b.WriteString(refDimStyle.Render("no work logged") + "\n")
+			b.WriteString(refDimStyle.Render(i18n.T("no work logged")) + "\n")
 			return
 		}
 		total := 0
@@ -199,7 +200,7 @@ func (m *Model) renderJiraActivity(b *strings.Builder, iss *jira.Issue, width in
 			m.renderWorklog(b, w)
 			total += w.Seconds
 		}
-		b.WriteString("\n" + refDimStyle.Render(jira.FormatDuration(total)+" in all") + "\n")
+		b.WriteString("\n" + refDimStyle.Render(i18n.Tf("%s in all", jira.FormatDuration(total))) + "\n")
 	case activityAll:
 		m.renderActivityAll(b, iss)
 	}
@@ -224,7 +225,7 @@ func (m *Model) renderChangeFields(b *strings.Builder, e jira.InboxEntry) {
 				b.WriteString(refDimStyle.Render(c.Field+" ") + orDash(c.From) + " → " + orDash(c.To) + "\n")
 				continue
 			}
-			b.WriteString(refDimStyle.Render(c.Field+" changed") + "\n")
+			b.WriteString(refDimStyle.Render(i18n.Tf("%s changed", c.Field)) + "\n")
 			for _, l := range lineDiff(c.From, c.To, diffMaxLines) {
 				switch l[0] {
 				case '-':
@@ -285,7 +286,7 @@ func lineDiff(from, to string, limit int) []string {
 		}
 	}
 	if len(out) > limit {
-		out = append(out[:limit], fmt.Sprintf("  … %d more", len(out)-limit))
+		out = append(out[:limit], fmt.Sprintf(i18n.T("  … %d more"), len(out)-limit))
 	}
 	return out
 }
@@ -294,7 +295,7 @@ func lineDiff(from, to string, limit int) []string {
 // comment.
 func (m *Model) renderWorklog(b *strings.Builder, w jira.Worklog) {
 	b.WriteString(refDimStyle.Render(orDash(w.Author)+" · "+m.when(w.Started)) + "\n")
-	b.WriteString("logged " + refKeyStyle.Render(jira.FormatDuration(w.Seconds)) + "\n")
+	b.WriteString(i18n.Tf("logged %s", refKeyStyle.Render(jira.FormatDuration(w.Seconds))) + "\n")
 	if w.Comment != "" {
 		b.WriteString(renderMarkdown(w.Comment, m.emojiImg, nil, ""))
 	}
@@ -322,7 +323,7 @@ func (m *Model) renderActivityAll(b *strings.Builder, iss *jira.Issue) {
 	}
 	slices.SortStableFunc(items, func(x, y item) int { return cmp.Compare(x.at, y.at) })
 	if len(items) == 0 {
-		b.WriteString(refDimStyle.Render("nothing yet") + "\n")
+		b.WriteString(refDimStyle.Render(i18n.T("nothing yet")) + "\n")
 	}
 	for i, it := range items {
 		if i > 0 {

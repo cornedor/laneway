@@ -5,6 +5,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The centred multi-line composer box: a modal that asks for a paragraph of
@@ -37,7 +38,7 @@ func newModalComposer(placeholder string) editor.Model {
 	ta.MarkdownHighlight = true // bold, italic, strike and code styled, markers kept
 	ta.KeyMap.InsertNewline = key.NewBinding(
 		key.WithKeys("enter", "alt+enter", "shift+enter"),
-		key.WithHelp("↵", "newline"),
+		key.WithHelp("↵", i18n.T("newline")),
 	)
 	ta.Focus()
 	return ta

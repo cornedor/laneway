@@ -3,6 +3,7 @@ package ui
 import (
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 
 	tea "charm.land/bubbletea/v2"
@@ -113,7 +114,7 @@ func (m *Model) dragging() bool {
 // cancelDrag drops the drag in progress (esc): nothing is written and the
 // dragged thing is back where it was.
 func (m Model) cancelDrag() (tea.Model, tea.Cmd) {
-	m.status = "drag cancelled"
+	m.status = i18n.T("drag cancelled")
 	switch r, p := m.jiraTab.roadmap, m.jiraTab.plan; {
 	case m.panelResizing:
 		m.panelResizing = false
@@ -195,13 +196,13 @@ func (m Model) dragPlan(x, y int) (tea.Model, tea.Cmd) {
 	d.active, d.over = true, m.planSideAt(x)
 	switch {
 	case d.over != d.side:
-		m.status = "drop " + d.key + " on " + []string{"the backlog", p.sprints[p.target].name}[d.over]
+		m.status = i18n.Tf("drop %s on %s", d.key, []string{i18n.T("the backlog"), p.sprints[p.target].name}[d.over])
 	case p.filter != "":
-		m.status = "ranking needs every card: esc clears the filter"
+		m.status = i18n.T("ranking needs every card: esc clears the filter")
 	default:
 		n := len(p.sides[d.side])
 		d.slot = min(max(p.top[d.side]+y-jiraBodyTop-2, 0), max(n-1, 0))
-		m.status = "drop to rank " + d.key + " here"
+		m.status = i18n.Tf("drop to rank %s here", d.key)
 	}
 	return m, nil
 }

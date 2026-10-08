@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"slices"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // clipboardImage reads a PNG off the system clipboard with command
@@ -26,14 +28,14 @@ var clipboardImage = func(command []string) ([]byte, error) {
 		}
 		out, err := exec.Command(cmd[0], cmd[1:]...).Output()
 		if err != nil || !bytes.HasPrefix(out, []byte("\x89PNG")) {
-			return nil, errors.New("no image on the clipboard")
+			return nil, errors.New(i18n.T("no image on the clipboard"))
 		}
 		return out, nil
 	}
 	if len(command) > 0 {
-		return nil, errors.New("ui.clipboard_image: no " + command[0])
+		return nil, errors.New(i18n.Tf("ui.clipboard_image: no %s", command[0]))
 	}
-	return nil, errors.New("reading the clipboard needs wl-paste, xclip or pngpaste (or ui.clipboard_image)")
+	return nil, errors.New(i18n.T("reading the clipboard needs wl-paste, xclip or pngpaste (or ui.clipboard_image)"))
 }
 
 // screenshot captures a region of the screen as a PNG, with the first tool
@@ -61,10 +63,10 @@ var screenshot = func() ([]byte, error) {
 			_ = exec.Command(t.cmd[0], t.cmd[1:]...).Run()
 			img, _ := os.ReadFile(path)
 			if !bytes.HasPrefix(img, []byte("\x89PNG")) {
-				return nil, errors.New("no screenshot taken")
+				return nil, errors.New(i18n.T("no screenshot taken"))
 			}
 			return img, nil
 		}
 	}
-	return nil, errors.New("a screenshot needs grim and slurp, gnome-screenshot, spectacle or screencapture")
+	return nil, errors.New(i18n.T("a screenshot needs grim and slurp, gnome-screenshot, spectacle or screencapture"))
 }

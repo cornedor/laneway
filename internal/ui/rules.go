@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 )
@@ -173,7 +174,7 @@ func (m *Model) fireRules(events []rules.Event) tea.Cmd {
 // messages) says what it did, or why not, by rule and issue.
 func (m *Model) ruleJira(f rules.Firing) tea.Cmd {
 	ctx, c := m.ctx, m.jiraClient
-	done := "commented"
+	done := i18n.T("commented")
 	if f.Action == "transition" {
 		done = "→ " + f.To
 	}
@@ -184,7 +185,7 @@ func (m *Model) ruleJira(f rules.Firing) tea.Cmd {
 
 // handleRuleActed says what a rule did to an issue.
 func (m Model) handleRuleActed(msg ruleActedMsg) (tea.Model, tea.Cmd) {
-	who := fmt.Sprintf("rule %q: %s", msg.rule, msg.key)
+	who := fmt.Sprintf(i18n.T("rule %q: %s"), msg.rule, msg.key)
 	if msg.err != nil {
 		m.fail(who + ": " + msg.err.Error())
 		return m, nil

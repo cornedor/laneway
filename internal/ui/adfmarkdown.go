@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Jira's blocks and marks markdown lacks, as jira.adfToMarkdown writes
@@ -64,7 +66,7 @@ func renderContainer(lines []string, i int, ei *emojiImages, mr changeInlineFn, 
 	if expand != nil {
 		title := expand[3]
 		if title == "" {
-			title = "Details"
+			title = i18n.T("Details")
 		}
 		mark, fold := "", expand[2] == "-"
 		if expand[1] != "" {

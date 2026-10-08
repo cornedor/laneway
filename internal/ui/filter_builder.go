@@ -12,6 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -21,10 +22,10 @@ import (
 
 // filterFields are the builder's fields: the query name and a label.
 var filterFields = []struct{ name, label string }{
-	{"status", "Status"}, {"assignee", "Assignee"}, {"type", "Type"}, {"prio", "Priority"},
-	{"points", "Story points"}, {"label", "Label"}, {"epic", "Epic"}, {"pr", "Pull request"}, {"deploy", "Deployed to"},
-	{"component", "Component"}, {"reporter", "Reporter"},
-	{"is", "Is: mine, overdue, flagged…"},
+	{"status", i18n.N("Status")}, {"assignee", i18n.N("Assignee")}, {"type", i18n.N("Type")}, {"prio", i18n.N("Priority")},
+	{"points", i18n.N("Story points")}, {"label", i18n.N("Label")}, {"epic", i18n.N("Epic")}, {"pr", i18n.N("Pull request")}, {"deploy", i18n.N("Deployed to")},
+	{"component", i18n.N("Component")}, {"reporter", i18n.N("Reporter")},
+	{"is", i18n.N("Is: mine, overdue, flagged…")},
 }
 
 // filterBuilder is the open builder: three columns side by side (field,
@@ -41,7 +42,7 @@ type filterBuilder struct {
 func (m *Model) openFilterBuilder(plan bool) {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "type to narrow"
+	ti.Placeholder = i18n.T("type to narrow")
 	ti.SetWidth(30)
 	ti.Focus()
 	m.filterBuilder = &filterBuilder{filter: ti, plan: plan}
@@ -51,14 +52,14 @@ func (m *Model) openFilterBuilder(plan bool) {
 func filterOps(field string) []jiraPickerItem {
 	switch field {
 	case "is":
-		return []jiraPickerItem{{id: ":", label: "is"}}
+		return []jiraPickerItem{{id: ":", label: i18n.T("is")}}
 	case "prio":
-		return []jiraPickerItem{{id: ">=", label: "at least"}, {id: "<=", label: "at most"}, {id: "=", label: "exactly"}}
+		return []jiraPickerItem{{id: ">=", label: i18n.T("at least")}, {id: "<=", label: i18n.T("at most")}, {id: "=", label: i18n.T("exactly")}}
 	case "points":
-		return []jiraPickerItem{{id: ">=", label: "at least"}, {id: "<=", label: "at most"}, {id: "=", label: "exactly"},
-			{id: "empty", label: "is empty"}, {id: "-empty", label: "is not empty"}}
+		return []jiraPickerItem{{id: ">=", label: i18n.T("at least")}, {id: "<=", label: i18n.T("at most")}, {id: "=", label: i18n.T("exactly")},
+			{id: "empty", label: i18n.T("is empty")}, {id: "-empty", label: i18n.T("is not empty")}}
 	}
-	return []jiraPickerItem{{id: ":", label: "is"}, {id: "-:", label: "is not"}, {id: "empty", label: "is empty"}}
+	return []jiraPickerItem{{id: ":", label: i18n.T("is")}, {id: "-:", label: i18n.T("is not")}, {id: "empty", label: i18n.T("is empty")}}
 }
 
 // opNoValue is whether op makes a term without a value: is (not) empty.
@@ -90,7 +91,7 @@ func (m *Model) builderRows(col int) []jiraPickerItem {
 	switch col {
 	case 0:
 		for _, f := range filterFields {
-			rows = append(rows, jiraPickerItem{id: f.name, label: f.label})
+			rows = append(rows, jiraPickerItem{id: f.name, label: i18n.T(f.label)})
 		}
 	case 1:
 		rows = filterOps(m.builderPick(0).id)
@@ -217,7 +218,7 @@ func (b *filterBuilder) window(c, n, height int) (top, visible int) {
 func (m *Model) renderFilterBuilder(height int) string {
 	b := m.filterBuilder
 	widths := m.builderWidths()
-	titles := [3]string{"Field", "Compare", "Value"}
+	titles := [3]string{i18n.T("Field"), i18n.T("Compare"), i18n.T("Value")}
 	var cols []string
 	for c := range 3 {
 		rows := m.builderRows(c)
@@ -241,23 +242,23 @@ func (m *Model) renderFilterBuilder(height int) string {
 			lines = append(lines, label)
 		}
 		if len(rows) == 0 && c == 2 && opNoValue(m.builderPick(1).id) {
-			lines = append(lines, jiraDimStyle.Render("no value needed"))
+			lines = append(lines, jiraDimStyle.Render(i18n.T("no value needed")))
 		}
 		cols = append(cols, lipgloss.NewStyle().Width(widths[c]).Render(strings.Join(lines, "\n")))
 	}
 	body := lipgloss.JoinHorizontal(lipgloss.Top, cols[0], "  ", cols[1], "  ", cols[2])
 	term := m.builderTerm()
 	if term == "" {
-		term = jiraDimStyle.Render("pick a value")
+		term = jiraDimStyle.Render(i18n.T("pick a value"))
 	} else {
 		term = jiraKeyStyle.Render(term)
 	}
 	query := jiraDimStyle.Render("/" + m.builderQuery())
 	bodyW := widths[0] + widths[1] + widths[2] + 4
-	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate("↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close", bodyW))
+	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate(i18n.T("↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close"), bodyW))
 	query = ansi.Truncate(query, bodyW, "…")
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
-		Render(lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render("Filter"), query, "", b.filter.View(), "", body, "", "adds  "+term, "", hint))
+		Render(lipgloss.JoinVertical(lipgloss.Left, titleStyle.Render(i18n.T("Filter")), query, "", b.filter.View(), "", body, "", i18n.Tf("adds  %s", term), "", hint))
 }
 
 // filterValues counts each value of field over cards; labels is what a row
@@ -341,7 +342,7 @@ func (m *Model) addFilterTerm(term string) {
 		words = append(words, prefix+v)
 	}
 	m.setBuilderQuery(strings.Join(words, " "))
-	m.status = "/" + m.builderQuery() + " · esc clears"
+	m.status = "/" + m.builderQuery() + i18n.T(" · esc clears")
 }
 
 // builderCards are the cards the builder counts values over: the board's,
@@ -379,7 +380,7 @@ func (m *Model) setBuilderQuery(q string) {
 func filterLabel(field string) string {
 	for _, f := range filterFields {
 		if f.name == field {
-			return f.label
+			return i18n.T(f.label)
 		}
 	}
 	return field

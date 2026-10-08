@@ -9,6 +9,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The issue side panel: the selected card, fetched and rendered on the right
@@ -43,13 +45,13 @@ func (m *Model) currentRef() *reference {
 
 // refStatusHint builds the status-bar line for the current ref.
 func (m *Model) refStatusHint(r reference, n int) string {
-	shared := helpKey(m.keys.OpenAttach) + " browser · " + helpKey(m.keys.Refresh) + " refresh · esc closes"
+	shared := i18n.Tf("%s browser · %s refresh · esc closes", helpKey(m.keys.OpenAttach), helpKey(m.keys.Refresh))
 	edit := strings.Join([]string{
 		helpKey(m.keys.JiraStatus), helpKey(m.keys.JiraPriority),
 		helpKey(m.keys.JiraPoints), helpKey(m.keys.JiraAssignee),
 	}, "/")
-	return edit + " edit · " + helpKey(m.keys.JiraComment) + " comment · " +
-		helpKey(m.keys.JiraReply) + " reply · " + helpKey(m.keys.JiraStart) + " start work · " + shared
+	return i18n.Tf("%s edit · %s comment · %s reply · %s start work · %s", edit, helpKey(m.keys.JiraComment),
+		helpKey(m.keys.JiraReply), helpKey(m.keys.JiraStart), shared)
 }
 
 // loadCurrentRef puts the panel into its loading state for the current ref and
@@ -116,7 +118,7 @@ func (m Model) openCurrentRefURL() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	o := openable{name: m.jiraIssue.Key, url: m.jiraIssue.URL}
-	m.status = "opening " + o.url + "…"
+	m.status = i18n.Tf("opening %s…", o.url)
 	return m, m.openOpenable(o)
 }
 
@@ -244,7 +246,7 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if n := len(m.refBack); n > 0 {
 			return m.backToCrumb(n - 1)
 		}
-		m.status = "nothing to go back to: " + helpKey(m.keys.JiraLinks) + " opens a linked issue, then " + helpKey(m.keys.Back) + " returns"
+		m.status = i18n.Tf("nothing to go back to: %s opens a linked issue, then %s returns", helpKey(m.keys.JiraLinks), helpKey(m.keys.Back))
 		return m, nil
 	case key.Matches(msg, m.keys.CopyKey), key.Matches(msg, m.keys.CopyURL):
 		if m.jiraIssue != nil {
@@ -308,14 +310,14 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			if i, ok := m.selectedComment(); ok {
 				return m.commentAction(i, "delete")
 			}
-			m.status = "select a comment first (" + helpKey(m.keys.NextComment) + ")"
+			m.status = i18n.Tf("select a comment first (%s)", helpKey(m.keys.NextComment))
 			return m, nil
 		case key.Matches(msg, m.keys.JiraReply):
 			if i, ok := m.selectedComment(); ok {
 				return m.commentAction(i, "reply")
 			}
 			if len(m.jiraIssue.Comments) == 0 {
-				m.status = "no comments to reply to"
+				m.status = i18n.T("no comments to reply to")
 				return m, nil
 			}
 			m.openJiraReplyPicker()
@@ -362,7 +364,7 @@ func (m *Model) renderRef() {
 		if r != nil {
 			label = r.label()
 		}
-		m.refView.SetContent(refDimStyle.Render("loading " + label + "…"))
+		m.refView.SetContent(refDimStyle.Render(i18n.Tf("loading %s…", label)))
 	case m.jiraIssue != nil:
 		w := m.refView.Width()
 		refRowWidth = w
@@ -374,7 +376,7 @@ func (m *Model) renderRef() {
 		m.indexPanelHits(content)
 		m.panelPlain = plainLines(content)
 	default:
-		m.refView.SetContent(refDimStyle.Render("loading…"))
+		m.refView.SetContent(refDimStyle.Render(i18n.T("loading…")))
 	}
 }
 
@@ -475,7 +477,7 @@ func (m *Model) crumbLines(width int) []string {
 	var out []string
 	from := max(len(m.refBack)-refCrumbsShown, 0)
 	if from > 0 {
-		out = append(out, bar(refDimStyle.Render(fmt.Sprintf("↰ %d earlier", from)), width))
+		out = append(out, bar(refDimStyle.Render(fmt.Sprintf(i18n.T("↰ %d earlier"), from)), width))
 	}
 	for _, c := range m.refBack[from:] {
 		line := refKeyStyle.Render("↰ "+c.key) + "  " + refDimStyle.Render(c.status) + "  " + c.summary
