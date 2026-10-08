@@ -8,6 +8,7 @@ import { kbd, keys } from '../lib/keys.js';
 import bus from '../lib/bus.js';
 import api from '../lib/api.js';
 import { jqlComplete, jqlMatches, jqlWordsFor } from '../lib/jql.js';
+import { T, Tn } from '../lib/i18n.js';
 
 css('palette');
 
@@ -38,9 +39,9 @@ const BROWSE_RE = /(?:\/browse\/|selectedIssue=)([A-Za-z][A-Za-z0-9_]*-[0-9]+)/;
 const cat = c => (c.Done ? 'done' : c.InProgress ? 'indeterminate' : 'new');
 
 const MODES = {
-  search: { label: 'search', hint: 'Search issues…' },
-  cmd: { label: 'command', hint: 'Run a command…' },
-  jump: { label: 'jump', hint: 'Issue key (ABC-123), a number, or a pasted Jira link' },
+  search: { label: T('search'), hint: T('Search issues…') },
+  cmd: { label: T('command'), hint: T('Run a command…') },
+  jump: { label: T('jump'), hint: T('Issue key (ABC-123), a number, or a pasted Jira link') },
   jql: { label: 'jql', hint: 'assignee = currentUser() AND resolution = Unresolved' },
 };
 const PREFIX = { ':': 'cmd', '/': 'search', '#': 'jql' };
@@ -62,8 +63,8 @@ export function openPalette(app, mode = '') {
   let cur = m0, q = '', items = [], sel = 0, phase = 'edit', seq = 0, ctl = null, busy = false;
   let words = null, sugg = [], results = null, cmdCache = [];
   const screen = keys.screen(); // read before the palette's own modal hides them
-  const badge = h('button.pal-mode', { type: 'button', title: 'Backspace on an empty input returns to search', onclick: () => setMode('search') });
-  const input = h('input.pal-input', { type: 'text', spellcheck: false, autocomplete: 'off', autocapitalize: 'off', 'aria-label': 'Palette' });
+  const badge = h('button.pal-mode', { type: 'button', title: T('Backspace on an empty input returns to search'), onclick: () => setMode('search') });
+  const input = h('input.pal-input', { type: 'text', spellcheck: false, autocomplete: 'off', autocapitalize: 'off', 'aria-label': T('Palette') });
   const list = h('div.pal-list', { role: 'listbox' });
   const foot = h('div.pal-foot');
   const spin = h('span.pal-spin', { hidden: true });
@@ -92,7 +93,7 @@ export function openPalette(app, mode = '') {
     else if (cur === 'jump') buildJump(v);
     else if (cur === 'jql') buildJQL(v);
     else buildSearch(v);
-    if (!items.some(selectable)) items.push({ type: 'msg', text: cur === 'cmd' ? 'No commands match' : cur === 'jql' && phase === 'edit' ? 'Enter runs the query' : 'Nothing found' });
+    if (!items.some(selectable)) items.push({ type: 'msg', text: cur === 'cmd' ? T('No commands match') : cur === 'jql' && phase === 'edit' ? T('Enter runs the query') : T('Nothing found') });
     sel = Math.max(0, items.findIndex(selectable));
     draw();
   }
@@ -111,18 +112,18 @@ export function openPalette(app, mode = '') {
   function buildSearch(v) {
     if (!v) {
       const rec = readLS('recent', []).filter(c => c.Summary).slice(0, 12);
-      if (rec.length) { items.push({ type: 'hdr', text: 'Recent' }); rec.forEach(c => items.push(issueItem(c))); }
-      else items.push({ type: 'msg', text: 'Type to search issues. : commands · g jump · # JQL' });
+      if (rec.length) { items.push({ type: 'hdr', text: T('Recent') }); rec.forEach(c => items.push(issueItem(c))); }
+      else items.push({ type: 'msg', text: T('Type to search issues. : commands · g jump · # JQL') });
       return;
     }
     const seen = new Set();
     const pasted = /^https?:\/\//i.test(v) && BROWSE_RE.exec(v);
     if (KEY_RE.test(v) || pasted) { const k = (pasted ? pasted[1] : v).toUpperCase(); seen.add(k); items.push({ type: 'jump', key: k }); }
     const local = localMatches(v).filter(c => !seen.has(c.Key)).slice(0, 6);
-    if (local.length) { items.push({ type: 'hdr', text: 'Recent' }); local.forEach(c => { seen.add(c.Key); items.push(issueItem(c)); }); }
+    if (local.length) { items.push({ type: 'hdr', text: T('Recent') }); local.forEach(c => { seen.add(c.Key); items.push(issueItem(c)); }); }
     if (found && foundFor === v) {
       const rest = found.filter(c => !seen.has(c.Key));
-      if (rest.length) { items.push({ type: 'hdr', text: 'Issues' }); rest.forEach(c => items.push(issueItem(c))); }
+      if (rest.length) { items.push({ type: 'hdr', text: T('Issues') }); rest.forEach(c => items.push(issueItem(c))); }
     }
   }
   const searchRemote = debounce(() => {
@@ -138,9 +139,9 @@ export function openPalette(app, mode = '') {
     const all = cmdCache;
     if (!v) {
       const recent = readLS('cmdrecent', []).map(id => all.find(c => c.id === id)).filter(Boolean).slice(0, 5);
-      if (recent.length) { items.push({ type: 'hdr', text: 'Recent' }); recent.forEach(c => items.push({ type: 'cmd', cmd: c })); }
+      if (recent.length) { items.push({ type: 'hdr', text: T('Recent') }); recent.forEach(c => items.push({ type: 'cmd', cmd: c })); }
       const groups = new Map();
-      for (const c of all) (groups.get(c.group || 'Other') || groups.set(c.group || 'Other', []).get(c.group || 'Other')).push(c);
+      for (const c of all) (groups.get(c.group || T('Other')) || groups.set(c.group || T('Other'), []).get(c.group || T('Other'))).push(c);
       const first = g => (g === 'Branch' ? 0 : g === 'Pinned' ? 1 : 2);
       for (const [g, cs] of [...groups].sort((x, y) => first(x[0]) - first(y[0]))) { items.push({ type: 'hdr', text: g }); cs.forEach(c => items.push({ type: 'cmd', cmd: c })); }
       return;
@@ -169,8 +170,8 @@ export function openPalette(app, mode = '') {
     const seen = new Set();
     if (key) { seen.add(key); items.push({ type: 'jump', key, card: peek && peek.Key === key ? peek : null, missing: peek && peek.missing === key }); }
     const local = (v ? localMatches(v) : readLS('recent', []).filter(c => c.Summary)).filter(c => !seen.has(c.Key)).slice(0, 10);
-    if (local.length) { items.push({ type: 'hdr', text: 'Recent' }); local.forEach(c => items.push(issueItem(c))); }
-    else if (!key) items.push({ type: 'msg', text: 'Type an issue key, or a number for ' + (defaultProject() || 'your project') });
+    if (local.length) { items.push({ type: 'hdr', text: T('Recent') }); local.forEach(c => items.push(issueItem(c))); }
+    else if (!key) items.push({ type: 'msg', text: T('Type an issue key, or a number for %s', defaultProject() || T('your project')) });
   }
   const jumpRemote = debounce(() => {
     const key = jumpKey(q.trim());
@@ -182,15 +183,15 @@ export function openPalette(app, mode = '') {
   function buildJQL(v) {
     if (phase === 'results') {
       if (results.err) { items.push({ type: 'msg', text: results.err, err: true }); return; }
-      items.push({ type: 'hdr', text: results.cards.length + ' issue' + (results.cards.length === 1 ? '' : 's') + ' · ctrl+s stars as a view · ctrl+f saves as a filter' });
+      items.push({ type: 'hdr', text: Tn(results.cards.length, '%d issue · ctrl+s stars as a view · ctrl+f saves as a filter', '%d issues · ctrl+s stars as a view · ctrl+f saves as a filter', results.cards.length) });
       results.cards.forEach(c => items.push(issueItem(c)));
       return;
     }
     if (!v) {
       const hist = readLS('jqlhist', []);
       const saved = app.jqlFilters || [];
-      if (saved.length) { items.push({ type: 'hdr', text: 'Saved filters' }); saved.forEach(f => items.push({ type: 'fill', text: f.JQL, label: f.Name })); }
-      if (hist.length) { items.push({ type: 'hdr', text: 'Recent searches' }); hist.forEach(t => items.push({ type: 'fill', text: t })); }
+      if (saved.length) { items.push({ type: 'hdr', text: T('Saved filters') }); saved.forEach(f => items.push({ type: 'fill', text: f.JQL, label: f.Name })); }
+      if (hist.length) { items.push({ type: 'hdr', text: T('Recent searches') }); hist.forEach(t => items.push({ type: 'fill', text: t })); }
       return;
     }
     sugg.forEach(s => items.push({ type: 'sugg', text: s.text, kind: s.kind }));
@@ -222,7 +223,7 @@ export function openPalette(app, mode = '') {
     const v = text.trim(); if (!v) return;
     results = null; phase = 'results'; sugg = [];
     const hist = readLS('jqlhist', []).filter(t => t !== v); hist.unshift(v); writeLS('jqlhist', hist.slice(0, 20));
-    items = [{ type: 'msg', text: 'Searching…' }]; sel = 0; draw();
+    items = [{ type: 'msg', text: T('Searching…') }]; sel = 0; draw();
     fetchJSON('/search?jql=' + encodeURIComponent(v), (d, e) => {
       results = e ? { err: e.message } : { cards: d.cards || [] };
       build();
@@ -233,16 +234,16 @@ export function openPalette(app, mode = '') {
     const v = q.trim(); if (cur !== 'jql' || !v) return;
     try {
       const r = await api.post('/jql/starred', { JQL: v });
-      app.ui.toast(r.On ? 'Starred as a view of every board' : 'Unstarred', { kind: 'ok' });
+      app.ui.toast(r.On ? T('Starred as a view of every board') : T('Unstarred'), { kind: 'ok' });
       app.bus.emit('jql:starred');
     } catch (e) { app.ui.errToast(e); }
     input.focus();
   }
   async function saveFilter() {
     const v = q.trim(); if (cur !== 'jql' || !v) return;
-    const name = await app.ui.prompt({ title: 'Save filter as', placeholder: 'Name', ok: 'Save' });
+    const name = await app.ui.prompt({ title: T('Save filter as'), placeholder: T('Name'), ok: T('Save') });
     if (!name || !name.trim()) return;
-    try { await api.post('/filters', { Name: name.trim(), JQL: v }); app.ui.toast('Saved filter “' + name.trim() + '”', { kind: 'ok' }); api.get('/filters', { fresh: true }).then(d => { app.jqlFilters = d; }, () => {}); }
+    try { await api.post('/filters', { Name: name.trim(), JQL: v }); app.ui.toast(T('Saved filter “%s”', name.trim()), { kind: 'ok' }); api.get('/filters', { fresh: true }).then(d => { app.jqlFilters = d; }, () => {}); }
     catch (e) { app.ui.errToast(e); }
     input.focus();
   }
@@ -254,12 +255,12 @@ export function openPalette(app, mode = '') {
     clear(list).append(frag);
     scrollSel();
     const hints = {
-      search: '⏎ open · ⌃⏎ full page · ↑↓ move',
-      cmd: '⏎ run · ↑↓ move',
-      jump: '⏎ open · ⌃⏎ full page',
-      jql: phase === 'results' ? '⏎ open · ⌃⏎ full page · ⌃s star as a view · ⌃f save filter · type to edit' : 'tab completes · ⏎ runs · ⌃s star as a view · ⌃f save filter',
+      search: T('⏎ open · ⌃⏎ full page · ↑↓ move'),
+      cmd: T('⏎ run · ↑↓ move'),
+      jump: T('⏎ open · ⌃⏎ full page'),
+      jql: phase === 'results' ? T('⏎ open · ⌃⏎ full page · ⌃s star as a view · ⌃f save filter · type to edit') : T('tab completes · ⏎ runs · ⌃s star as a view · ⌃f save filter'),
     };
-    foot.textContent = hints[cur] + ' · esc closes';
+    foot.textContent = T('%s · esc closes', hints[cur]);
   }
   function row(it, i) {
     if (it.type === 'hdr') return h('div.pal-hdr', it.text);
@@ -277,7 +278,7 @@ export function openPalette(app, mode = '') {
     const key = it.key || c.Key;
     return h('div.pal-row.issue' + on, ev,
       h('span.pal-key.mono', key),
-      c.Status ? app.ui.statusPill(c.Status, cat(c)) : it.type === 'jump' && !it.card ? h('span.faint', it.missing ? 'not found' : 'open') : null,
+      c.Status ? app.ui.statusPill(c.Status, cat(c)) : it.type === 'jump' && !it.card ? h('span.faint', it.missing ? T('not found') : T('open')) : null,
       h('span.pal-title', c.Summary),
       c.Assignee ? app.ui.avatar(c.Assignee, c.AvatarURL, 18) : null);
   }

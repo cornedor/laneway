@@ -1,5 +1,6 @@
 import { h } from '../lib/dom.js';
 import { kbd } from '../lib/keys.js';
+import { T } from '../lib/i18n.js';
 
 // Lists every binding pressable right now: view, panel, global. One row per action (aliases merged).
 export function openHelp(app) {
@@ -13,5 +14,5 @@ export function openHelp(app) {
     h('dl', [...rows].map(([desc, specs]) => [
       h('dt', specs.map((s, i) => [i ? ' ' : '', kbd(s).map(k => h('kbd', k))])),
       h('dd', desc)])))));
-  app.ui.modal(body, { title: 'Keyboard', wide: true });
+  app.ui.modal(body, { title: T('Keyboard'), wide: true });
 }

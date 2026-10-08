@@ -10,6 +10,7 @@ import { icon } from '../lib/icons.js';
 import { kbd } from '../lib/keys.js';
 import { ICON, LABEL } from '../lib/agents.js';
 import { terminal, LEAVE } from '../lib/term.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const LIVE = ['open', 'connecting', 'retry']; // terminal states that keep keys in it
 const REST = 150; // ms the tab shows before the terminal attaches
@@ -31,7 +32,7 @@ export function mountTerm(key, { app, back, repaint }) {
   async function ensure() {
     if (tc || dead) return tc;
     making = making || terminal(host, { app, onState, onLeave: () => back() }).then(t => { if (dead) { t.dispose(); return null; } tc = t; return t; });
-    try { return await making; } catch (e) { making = null; ts = { state: 'closed', text: 'the terminal did not load: ' + e.message }; paint(); return null; }
+    try { return await making; } catch (e) { making = null; ts = { state: 'closed', text: T('the terminal did not load: %s', e.message) }; paint(); return null; }
   }
   function onState(s) {
     ts = s;
@@ -56,27 +57,27 @@ export function mountTerm(key, { app, back, repaint }) {
     none.hidden = !!a; box.hidden = !a;
     if (!a) {
       const start = app.agents && app.agents.available && !demo();
-      none.replaceChildren(h('p.dim', (demo() ? 'Agents are not available in demo.' : !app.agents || !app.agents.available ? 'herdr is not running.' : 'No agent works on ' + key + ' now.')),
-        start ? h('button.btn', { onclick: () => app.agents.start(key) }, 'Start work', h('kbd', 'S')) : '');
+      none.replaceChildren(h('p.dim', (demo() ? T('Agents are not available in demo.') : !app.agents || !app.agents.available ? T('herdr is not running.') : T('No agent works on %s now.', key))),
+        start ? h('button.btn', { onclick: () => app.agents.start(key) }, T('Start work'), h('kbd', 'S')) : '');
       meta.replaceChildren();
       return;
     }
     // Which agent: a line for one, buttons for several (4 again steps through them).
     meta.replaceChildren(...as.map(x => h('button.it-agent.st-' + x.Status + (x.PaneID === pane ? '.on' : ''), { title: x.Name + (x.Title ? ' · ' + x.Title : ''), onclick: () => pick(x.PaneID), disabled: as.length === 1 },
       h('span.g', icon(ICON[x.Status] || ICON.unknown)), h('span', x.Agent + ' · ' + (LABEL[x.Status] || x.Status)), x.Title ? h('span.dim.clip', x.Title) : '')),
-      as.length > 1 ? h('span.dim.it-more', K('4'), ' next agent') : '');
+      as.length > 1 ? h('span.dim.it-more', K('4'), ' ' + T('next agent')) : '');
     const s = ts, parts = [];
     const add = (...xs) => { if (parts.length) parts.push(h('span.dim', ' · ')); parts.push(...xs); };
     const dot = h('span.ag-dot.st-' + s.state);
     if (s.state === 'open') {
-      add(dot, s.typing ? h('b', 'typing') : 'attached');
-      if (s.typing) { add(K(leaveKey()), ' back to the issue'); add(K('⌃⇧C'), ' copy'); add('shift+drag selects'); }
-      else { add(K('⏎'), ' or ', K(leaveKey()), ' or click to type'); add(K('t'), ' take over input'); add(K('1'), ' details'); }
-    } else if (LIVE.includes(s.state)) add(dot, s.text || 'connecting…');
+      add(dot, s.typing ? h('b', T('typing')) : T('attached'));
+      if (s.typing) { add(K(leaveKey()), ' ' + T('back to the issue')); add(K('⌃⇧C'), ' ' + T('copy')); add(T('shift+drag selects')); }
+      else { add(K('⏎'), ' ' + T('or') + ' ', K(leaveKey()), ' ' + T('or click to type')); add(K('t'), ' ' + T('take over input')); add(K('1'), ' ' + T('details')); }
+    } else if (LIVE.includes(s.state)) add(dot, s.text || T('connecting…'));
     else {
-      add(dot, s.text || (s.state === 'closed' ? 'detached' : s.state));
-      if (s.state !== 'gone') add(K('⏎'), s.state === 'taken' ? ' take it back' : ' attach');
-      if (s.state === 'exited' || s.state === 'closed') add(K('t'), ' take over input');
+      add(dot, s.text || (s.state === 'closed' ? T('detached') : s.state));
+      if (s.state !== 'gone') add(K('⏎'), ' ' + (s.state === 'taken' ? T('take it back') : T('attach')));
+      if (s.state === 'exited' || s.state === 'closed') add(K('t'), ' ' + T('take over input'));
     }
     hint.replaceChildren(...parts);
     el.closest('.iss')?.classList.toggle('term-typing', !!s.typing);
@@ -94,7 +95,7 @@ export function mountTerm(key, { app, back, repaint }) {
   async function type(o = {}) {
     if (!on) return;
     clearTimeout(timer);
-    if (!choose()) return app.ui.toast(key + ' has no agent: S starts one');
+    if (!choose()) return app.ui.toast(T('%s has no agent: S starts one', key));
     const t = await ensure();
     if (!t || dead || !on) return;
     if (!LIVE.includes(t.state) || t.pane !== pane || o.takeover) { seen = sig(); t.attach(pane, { again: true, takeover: o.takeover }); }

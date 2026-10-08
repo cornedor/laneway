@@ -4,6 +4,7 @@
 import { h } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { keys } from '../lib/keys.js';
+import { T } from '../lib/i18n.js';
 
 css('forms');
 
@@ -14,7 +15,7 @@ let scope = null;
 export function installUndo(app) {
   if (scope) return;
   scope = keys.scope('undo');
-  scope.bind('u', () => undo(app), 'undo last edit', { group: 'Edit', when: () => stack.length > 0 });
+  scope.bind('u', () => undo(app), T('undo last edit'), { group: T('Edit'), when: () => stack.length > 0 });
 }
 
 // pushUndo(app, what, run): run() is an async function that takes the change back.
@@ -29,13 +30,13 @@ export function pushUndo(app, what, run) {
 
 export function undo(app, step) {
   step = step || stack[stack.length - 1];
-  if (!step) { app.ui.toast('Nothing to undo'); return Promise.resolve(false); }
+  if (!step) { app.ui.toast(T('Nothing to undo')); return Promise.resolve(false); }
   const i = stack.indexOf(step);
   if (i >= 0) stack.splice(i, 1);
-  return step.run().then(() => { app.ui.toast('Undid ' + step.what); return true; }, e => { app.ui.errToast(e); return false; });
+  return step.run().then(() => { app.ui.toast(T('Undid %s', step.what)); return true; }, e => { app.ui.errToast(e); return false; });
 }
 
-const undoAction = (app, step) => ({ label: 'Undo', run: () => undo(app, step) });
+const undoAction = (app, step) => ({ label: T('Undo'), run: () => undo(app, step) });
 
 // write: PUT one field. Views listening for 'issue:patch' {key, field, value} can show the
 // change at once; everything refetches on 'issue:changed'. Resolves true on success.
@@ -65,7 +66,7 @@ export function bulkUndo(app, what, res) {
     const r = await app.api.post('/bulk', { Each: res.Undo });
     for (const k of r.Done || []) app.bus.emit('issue:changed', { key: k });
     const bad = Object.keys(r.Failed || {});
-    if (bad.length) throw new Error(`${bad.length} not undone: ${bad.join(', ')}`);
+    if (bad.length) throw new Error(T('%d not undone: %s', bad.length, bad.join(', ')));
   });
 }
 
@@ -86,82 +87,82 @@ export async function editField(app, key, field, anchor) {
 
 async function priority(app, key) {
   const [iss, list] = await Promise.all([issueOf(app, key), app.api.get('/priorities')]);
-  const p = await app.ui.pick({ title: key + ' priority', items: list, label: p => p.Name, detail: p => (p.ID === iss.PriorityID ? 'current' : ''), placeholder: 'Priority…' });
+  const p = await app.ui.pick({ title: T('%s priority', key), items: list, label: p => p.Name, detail: p => (p.ID === iss.PriorityID ? T('current') : ''), placeholder: T('Priority…') });
   if (!p || p.ID === iss.PriorityID) return;
-  await write(app, key, 'priority', { ID: p.ID }, `${key} priority → ${p.Name}`, p.Name);
+  await write(app, key, 'priority', { ID: p.ID }, T('%s priority → %s', key, p.Name), p.Name);
 }
 
 async function assignee(app, key) {
-  const u = await pickUser(app, { issue: key, title: key + ' assignee', specials: true });
+  const u = await pickUser(app, { issue: key, title: T('%s assignee', key), specials: true });
   if (!u) return;
-  await write(app, key, 'assignee', { ID: u.AccountID }, u.none ? `${key} unassigned` : `${key} → ${u.DisplayName}`, u.none ? null : { AccountID: u.AccountID, DisplayName: u.DisplayName });
+  await write(app, key, 'assignee', { ID: u.AccountID }, u.none ? T('%s unassigned', key) : T('%s → %s', key, u.DisplayName), u.none ? null : { AccountID: u.AccountID, DisplayName: u.DisplayName });
 }
 
 async function reporter(app, key) {
-  const u = await pickUser(app, { issue: key, title: key + ' reporter' });
+  const u = await pickUser(app, { issue: key, title: T('%s reporter', key) });
   if (!u) return;
-  await write(app, key, 'reporter', { ID: u.AccountID }, `${key} reporter → ${u.DisplayName}`, u.DisplayName);
+  await write(app, key, 'reporter', { ID: u.AccountID }, T('%s reporter → %s', key, u.DisplayName), u.DisplayName);
 }
 
 async function points(app, key) {
   const iss = await issueOf(app, key);
-  const v = await app.ui.prompt({ title: key + ' story points (empty clears)', value: iss.StoryPoints || '', placeholder: '5' });
+  const v = await app.ui.prompt({ title: T('%s story points (empty clears)', key), value: iss.StoryPoints || '', placeholder: '5' });
   if (v === null || v.trim() === (iss.StoryPoints || '')) return;
-  if (v.trim() && isNaN(Number(v))) return app.ui.toast('Story points must be a number', { kind: 'err' });
-  await write(app, key, 'points', { Text: v.trim() }, `${key} points → ${v.trim() || 'none'}`, v.trim());
+  if (v.trim() && isNaN(Number(v))) return app.ui.toast(T('Story points must be a number'), { kind: 'err' });
+  await write(app, key, 'points', { Text: v.trim() }, T('%s points → %s', key, v.trim() || T('none')), v.trim());
 }
 
 async function summary(app, key) {
   const iss = await issueOf(app, key);
-  const v = await app.ui.prompt({ title: key + ' summary', value: iss.Summary });
+  const v = await app.ui.prompt({ title: T('%s summary', key), value: iss.Summary });
   if (v === null || !v.trim() || v.trim() === iss.Summary) return;
-  await write(app, key, 'summary', { Text: v.trim() }, key + ' summary changed', v.trim());
+  await write(app, key, 'summary', { Text: v.trim() }, T('%s summary changed', key), v.trim());
 }
 
 async function duedate(app, key) {
   const m = await app.api.get(`/issues/${key}/editmeta`, { fresh: true });
-  const v = await app.ui.prompt({ title: key + ' due date (2026-10-01, today, +3d, fri; empty clears)', value: m.Due || '' });
+  const v = await app.ui.prompt({ title: T('%s due date (2026-10-01, today, +3d, fri; empty clears)', key), value: m.Due || '' });
   if (v === null || v.trim() === (m.Due || '')) return;
-  await write(app, key, 'duedate', { Text: v.trim() }, `${key} due → ${v.trim() || 'none'}`, v.trim());
+  await write(app, key, 'duedate', { Text: v.trim() }, T('%s due → %s', key, v.trim() || T('none')), v.trim());
 }
 
 async function labels(app, key) {
   const iss = await issueOf(app, key);
   const cur = iss.Labels || [];
-  const next = await pickLabels(app, projectOf(key), cur, key + ' labels');
+  const next = await pickLabels(app, projectOf(key), cur, T('%s labels', key));
   if (!next) return;
   const Add = next.filter(l => !cur.includes(l)), Remove = cur.filter(l => !next.includes(l));
   if (!Add.length && !Remove.length) return;
-  await write(app, key, 'labels', { Add, Remove }, `${key} labels ${[...Add.map(l => '+' + l), ...Remove.map(l => '-' + l)].join(' ')}`, next);
+  await write(app, key, 'labels', { Add, Remove }, T('%s labels %s', key, [...Add.map(l => '+' + l), ...Remove.map(l => '-' + l)].join(' ')), next);
 }
 
 async function issuetype(app, key) {
   const [m, t] = await Promise.all([app.api.get(`/issues/${key}/editmeta`, { fresh: true }), app.api.get(`/projects/${projectOf(key)}/issuetypes`)]);
   const sub = (t.Subtasks || []).some(x => x.Name === m.Type);
   const list = (sub ? t.Subtasks : t.Types).filter(x => x.Name !== m.Type);
-  if (!list.length) return app.ui.toast('No other issue type to change to');
-  const o = await app.ui.pick({ title: `${key} type (now ${m.Type})`, items: list, label: x => x.Name });
-  if (o) await write(app, key, 'issuetype', { ID: o.ID }, `${key} type → ${o.Name}`, o.Name);
+  if (!list.length) return app.ui.toast(T('No other issue type to change to'));
+  const o = await app.ui.pick({ title: T('%s type (now %s)', key, m.Type), items: list, label: x => x.Name });
+  if (o) await write(app, key, 'issuetype', { ID: o.ID }, T('%s type → %s', key, o.Name), o.Name);
 }
 
 async function flag(app, key) {
   const m = await app.api.get(`/issues/${key}/editmeta`, { fresh: true });
-  if (m.Flagged === undefined) return app.ui.toast('This Jira has no Flagged field', { kind: 'err' });
-  await write(app, key, 'flag', { On: !m.Flagged }, m.Flagged ? `${key} unflagged` : `${key} flagged`, !m.Flagged);
+  if (m.Flagged === undefined) return app.ui.toast(T('This Jira has no Flagged field'), { kind: 'err' });
+  await write(app, key, 'flag', { On: !m.Flagged }, m.Flagged ? T('%s unflagged', key) : T('%s flagged', key), !m.Flagged);
 }
 
 async function sprint(app, key) {
   const [m, s] = await Promise.all([app.api.get(`/issues/${key}/editmeta`, { fresh: true }), app.api.get(`/projects/${projectOf(key)}/sprints`)]);
-  const items = [{ ID: 0, Name: 'Backlog' }, ...s.Sprints];
+  const items = [{ ID: 0, Name: T('Backlog') }, ...s.Sprints];
   const cur = m.Sprint && m.Sprint.ID ? m.Sprint.ID : 0;
-  const o = await app.ui.pick({ title: `${key} sprint`, items, label: x => x.Name, detail: x => (x.ID === cur ? 'current' : x.State || '') });
+  const o = await app.ui.pick({ title: T('%s sprint', key), items, label: x => x.Name, detail: x => (x.ID === cur ? T('current') : x.State || '') });
   if (!o || o.ID === cur) return;
-  await write(app, key, 'sprint', { Sprint: o.ID }, o.ID ? `${key} → ${o.Name}` : `${key} → backlog`, o.Name);
+  await write(app, key, 'sprint', { Sprint: o.ID }, o.ID ? T('%s → %s', key, o.Name) : T('%s → backlog', key), o.Name);
 }
 
 async function remove(app, key) {
   const iss = await issueOf(app, key);
-  if (!(await app.ui.confirm({ title: 'Delete ' + key + '?', text: iss.Summary + '. This cannot be undone.', ok: 'Delete', danger: true }))) return;
+  if (!(await app.ui.confirm({ title: T('Delete %s?', key), text: T('%s. This cannot be undone.', iss.Summary), ok: T('Delete'), danger: true }))) return;
   let sub = false;
   for (;;) {
     try {
@@ -169,29 +170,29 @@ async function remove(app, key) {
       break;
     } catch (e) {
       if (sub || !/subtask/i.test(e.message)) throw e;
-      if (!(await app.ui.confirm({ title: key + ' has subtasks', text: 'Delete them with it?', ok: 'Delete all', danger: true }))) return;
+      if (!(await app.ui.confirm({ title: T('%s has subtasks', key), text: T('Delete them with it?'), ok: T('Delete all'), danger: true }))) return;
       sub = true;
     }
   }
   if (app.panel.key === key) app.panel.close({ replace: true }); // not back to a deleted issue
   app.bus.emit('issue:changed', { key, deleted: true });
-  app.ui.toast(key + ' deleted', { kind: 'ok' });
+  app.ui.toast(T('%s deleted', key), { kind: 'ok' });
 }
 
 // Any other field id: the edit screen's own field, written from its kind.
 async function custom(app, key, id) {
   const m = await app.api.get(`/issues/${key}/editmeta`, { fresh: true });
   const fm = (m.Fields || []).find(f => f.ID === id || f.Name.toLowerCase() === id.toLowerCase());
-  if (!fm) return app.ui.toast(`${key} has no editable “${id}”`, { kind: 'err' });
+  if (!fm) return app.ui.toast(T('%s has no editable “%s”', key, id), { kind: 'err' });
   const w = fieldInput(app, fm, { issue: key, project: projectOf(key), value: (m.Values || {})[fm.ID] });
   formDialog(app, {
-    title: `${key} ${fm.Name}`, rows: [{ label: fm.Name, widget: w }],
+    title: T('%s %s', key, fm.Name), rows: [{ label: fm.Name, widget: w }],
     submit: async () => {
       const r = await app.api.put(`/issues/${key}/field/${fm.ID}`, { Kind: fm.Kind, Value: w.get() });
-      app.bus.emit('issue:changed', { key, what: `${key} ${fm.Name} changed` });
+      app.bus.emit('issue:changed', { key, what: T('%s %s changed', key, fm.Name) });
       const u = r && r.Undo;
-      const step = u && pushUndo(app, `${key} ${fm.Name}`, async () => { await app.api.put(`/issues/${key}/field/${u.Field}`, u); app.bus.emit('issue:changed', { key }); });
-      app.ui.toast(`${key} ${fm.Name} changed`, { kind: 'ok', action: step && undoAction(app, step) });
+      const step = u && pushUndo(app, T('%s %s', key, fm.Name), async () => { await app.api.put(`/issues/${key}/field/${u.Field}`, u); app.bus.emit('issue:changed', { key }); });
+      app.ui.toast(T('%s %s changed', key, fm.Name), { kind: 'ok', action: step && undoAction(app, step) });
     },
   });
 }
@@ -202,7 +203,7 @@ async function status(app, key) {
   metaP.catch(() => {});
   // Open at once; the moves fill in when Jira answers.
   const list = app.api.get(`/issues/${key}/transitions`, { fresh: true });
-  const t = await app.ui.pick({ title: `Move ${key}`, items: list, label: t => t.Name, placeholder: 'Move to…', empty: 'No moves from here' });
+  const t = await app.ui.pick({ title: T('Move %s', key), items: list, label: t => t.Name, placeholder: T('Move to…'), empty: T('No moves from here') });
   if (t) await takeMove(app, key, t, metaP);
 }
 
@@ -211,7 +212,7 @@ export async function takeMove(app, key, t, metaP) {
   installUndo(app);
   let meta;
   try { meta = ((await (metaP || app.api.get(`/issues/${key}/transitionmeta`, { fresh: true }))).Transitions || []).find(x => x.ID === t.ID); } catch (e) { meta = null; }
-  if (!meta || !meta.NeedsInput) return write(app, key, 'status', { ID: t.ID }, `${key} → ${t.Name}`, t.Name);
+  if (!meta || !meta.NeedsInput) return write(app, key, 'status', { ID: t.ID }, T('%s → %s', key, t.Name), t.Name);
   moveForm(app, key, meta);
 }
 
@@ -224,17 +225,17 @@ export function setField(app, key, field, body, what, patch) {
 export function moveForm(app, key, t) {
   const rows = t.Fields.map(f => ({ label: f.Name, required: f.Required && f.Kind !== 'other', widget: fieldInput(app, f, { issue: key, project: projectOf(key), value: f.Value, required: f.Required }) }));
   formDialog(app, {
-    title: `Move ${key} → ${t.ToName}`, intro: t.Message, rows, ok: 'Move',
+    title: T('Move %s → %s', key, t.ToName), intro: t.Message, rows, ok: T('Move'),
     submit: async () => {
       const out = [];
       rows.forEach((r, i) => { const f = t.Fields[i]; if (f.Kind !== 'other' && r.widget.touched()) out.push({ ID: f.ID, Kind: f.Kind, Value: r.widget.get() }); });
       app.bus.emit('issue:patch', { key, field: 'status', value: t.ToName });
       let r;
       try { r = await app.api.post(`/issues/${key}/transitionwith`, { ID: t.ID, Fields: out }); } catch (e) { app.bus.emit('issue:changed', { key }); throw e; }
-      app.bus.emit('issue:changed', { key, what: `${key} → ${t.ToName}` });
+      app.bus.emit('issue:changed', { key, what: T('%s → %s', key, t.ToName) });
       const u = r && r.Undo;
-      const step = u && pushUndo(app, `${key} → ${t.ToName}`, async () => { await app.api.put(`/issues/${key}/field/status`, u); app.bus.emit('issue:changed', { key }); });
-      app.ui.toast(`${key} → ${t.ToName}`, { kind: 'ok', action: step && undoAction(app, step) });
+      const step = u && pushUndo(app, T('%s → %s', key, t.ToName), async () => { await app.api.put(`/issues/${key}/field/status`, u); app.bus.emit('issue:changed', { key }); });
+      app.ui.toast(T('%s → %s', key, t.ToName), { kind: 'ok', action: step && undoAction(app, step) });
     },
   });
 }
@@ -242,14 +243,14 @@ export function moveForm(app, key, t) {
 // ---- pickers
 
 // pickUser → Promise<{AccountID, DisplayName, me?, none?} | null>. `specials` adds Me and Unassigned.
-export function pickUser(app, { issue, project, title = 'Person', specials = false } = {}) {
+export function pickUser(app, { issue, project, title = T('Person'), specials = false } = {}) {
   const me = app.session && app.session.me;
   const scopeQ = issue ? 'issue=' + encodeURIComponent(issue) : 'project=' + encodeURIComponent(project);
   const head = () => {
     if (!specials) return [];
     const out = [];
     if (me && me.AccountID) out.push({ AccountID: me.AccountID, DisplayName: me.DisplayName, me: true });
-    out.push({ AccountID: '', DisplayName: 'Unassigned', none: true });
+    out.push({ AccountID: '', DisplayName: T('Unassigned'), none: true });
     return out;
   };
   const search = async q => {
@@ -257,16 +258,16 @@ export function pickUser(app, { issue, project, title = 'Person', specials = fal
     return [...head(), ...us.filter(u => !(specials && me && u.AccountID === me.AccountID))];
   };
   return app.ui.pick({
-    title, items: head(), search, placeholder: 'Search people…',
-    label: u => (u.me ? 'Me · ' + u.DisplayName : u.DisplayName),
-    render: u => h('span.pick-user', u.none ? app.ui.avatar(null) : app.ui.avatar(u.DisplayName), h('span.pick-label', u.me ? 'Me · ' + u.DisplayName : u.DisplayName)),
+    title, items: head(), search, placeholder: T('Search people…'),
+    label: u => (u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
+    render: u => h('span.pick-user', u.none ? app.ui.avatar(null) : app.ui.avatar(u.DisplayName), h('span.pick-label', u.me ? T('Me · %s', u.DisplayName) : u.DisplayName)),
   });
 }
 
 // pickLabels → Promise<string[] | null>: toggle suggestions, type to create a new one.
 // pickLabels: the issue's and the project's recent labels, and Jira's as you type (TUI label_suggest.go);
 // clause is a custom labels field's JQL name (cf[10050]).
-export async function pickLabels(app, project, current = [], title = 'Labels', clause = 'labels') {
+export async function pickLabels(app, project, current = [], title = T('Labels'), clause = 'labels') {
   let recent = [];
   try { recent = (await app.api.get(`/projects/${project}/labels`)) || []; } catch (e) { /* suggestions are optional */ }
   const items = [...new Set([...current, ...recent])];
@@ -275,7 +276,7 @@ export async function pickLabels(app, project, current = [], title = 'Labels', c
     const found = await app.api.get('/labels?q=' + encodeURIComponent(q.trim()) + '&field=' + encodeURIComponent(clause)).catch(() => []);
     return [...new Set([...items, ...found])];
   };
-  return app.ui.pick({ title, items, search, multi: true, selected: current, create: q => q.trim().replace(/\s+/g, '-'), placeholder: 'Filter or type a new label…', empty: 'No labels yet: type one' });
+  return app.ui.pick({ title, items, search, multi: true, selected: current, create: q => q.trim().replace(/\s+/g, '-'), placeholder: T('Filter or type a new label…'), empty: T('No labels yet: type one') });
 }
 
 // ---- form widgets
@@ -286,22 +287,22 @@ export function formRow(label, el, required) {
 
 // formDialog({title, intro, rows:[{label, required, widget}], ok, submit}): a modal form. submit()
 // may throw; its message shows in the form and the dialog stays. ctrl+Enter submits.
-export function formDialog(app, { title, intro, rows, ok = 'Save', submit, wide = false }) {
+export function formDialog(app, { title, intro, rows, ok = T('Save'), submit, wide = false }) {
   const err = h('div.form-err', { role: 'alert' });
   const okBtn = h('button.btn.primary', { type: 'submit' }, ok);
   const form = h('form.form-dialog', { onsubmit: e => { e.preventDefault(); go(); } },
     intro && h('p.dim', intro),
     h('div.form', rows.map(r => formRow(r.label, r.widget.el, r.required))), err,
-    h('div.row.end', h('span.faint.form-hint', 'ctrl+⏎ saves'), h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), okBtn));
+    h('div.row.end', h('span.faint.form-hint', T('ctrl+⏎ saves')), h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), okBtn));
   const m = app.ui.modal(form, { title, wide });
-  m.scope.bind('ctrl+Enter', () => go(), 'submit', { input: true, hidden: true });
+  m.scope.bind('ctrl+Enter', () => go(), T('submit'), { input: true, hidden: true });
   const firstEmpty = rows.find(r => r.widget.empty());
   const target = firstEmpty && firstEmpty.widget.el.querySelector ? firstEmpty.widget.el : null;
   const focus = target && (target.matches('input,textarea,select,button') ? target : target.querySelector('input,textarea,select,button'));
   if (focus) focus.focus();
   async function go() {
     const missing = rows.filter(r => r.required && r.widget.empty()).map(r => r.label);
-    if (missing.length) { err.textContent = 'Fill in ' + missing.join(', '); return; }
+    if (missing.length) { err.textContent = T('Fill in %s', missing.join(', ')); return; }
     okBtn.disabled = true; err.textContent = '';
     try { await submit(); m.close(); } catch (e) { err.textContent = e.message; okBtn.disabled = false; }
   }
@@ -320,7 +321,7 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
   // A button-like control redrawn from state.
   const control = (render, choose) => {
     const box = h('div.field-btn');
-    const draw = () => { box.replaceChildren(...[render()].flat().filter(Boolean), h('button.btn', { type: 'button', onclick: async () => { await choose(); touch(); draw(); } }, 'Choose…')); };
+    const draw = () => { box.replaceChildren(...[render()].flat().filter(Boolean), h('button.btn', { type: 'button', onclick: async () => { await choose(); touch(); draw(); } }, T('Choose…'))); };
     draw();
     return box;
   };
@@ -339,19 +340,19 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
     case 'strings':
       if (fm.Clause) {
         let ls = (v.Text || '').split(/\s+/).filter(Boolean);
-        w.el = control(() => [ls.length ? h('span.chips', ls.map(l => app.ui.chip(l))) : h('span.faint', 'none')], async () => {
+        w.el = control(() => [ls.length ? h('span.chips', ls.map(l => app.ui.chip(l))) : h('span.faint', T('none'))], async () => {
           const next = await pickLabels(app, project || projectOf(issue || ''), ls, fm.Name, fm.Clause);
           if (next) ls = next;
         });
         w.get = () => ({ Text: ls.join(' ') }); w.empty = () => !ls.length;
       } else {
-        const i = h('input.input', { type: 'text', value: v.Text || '', placeholder: 'words, separated by spaces', oninput: touch });
+        const i = h('input.input', { type: 'text', value: v.Text || '', placeholder: T('words, separated by spaces'), oninput: touch });
         w.el = i; w.get = () => ({ Text: i.value }); w.empty = () => !i.value.trim();
       }
       break;
     case 'user': {
       let u = (v.Users || [])[0] || null;
-      w.el = control(() => [u ? h('span.pick-user', app.ui.avatar(u.DisplayName), u.DisplayName) : h('span.faint', 'none')], async () => {
+      w.el = control(() => [u ? h('span.pick-user', app.ui.avatar(u.DisplayName), u.DisplayName) : h('span.faint', T('none'))], async () => {
         const p = await pickUser(app, { issue, project, title: fm.Name, specials: true });
         if (p) u = p.none ? null : p;
       });
@@ -360,7 +361,7 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
     }
     case 'users': {
       let us = [...(v.Users || [])];
-      w.el = control(() => [us.length ? h('span.chips', us.map(u => app.ui.chip(u.DisplayName))) : h('span.faint', 'none')], async () => {
+      w.el = control(() => [us.length ? h('span.chips', us.map(u => app.ui.chip(u.DisplayName))) : h('span.faint', T('none'))], async () => {
         const p = await pickUser(app, { issue, project, title: fm.Name });
         if (p && !us.some(x => x.AccountID === p.AccountID)) us = [...us, p];
       });
@@ -386,7 +387,7 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
       break;
     }
     default:
-      w.el = h('span.faint', 'Not editable here' + (required ? ': set it in Jira' : ''));
+      w.el = h('span.faint', required ? T('Not editable here: set it in Jira') : T('Not editable here'));
   }
   return w;
 }

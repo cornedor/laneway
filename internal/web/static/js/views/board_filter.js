@@ -7,6 +7,7 @@ import { h, clear } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import * as cq from '../lib/cardquery.js';
 import { css } from '../lib/css.js';
+import { T } from '../lib/i18n.js';
 
 export function openFilterBuilder({ app, cards, env, query, apply }) {
   css('board');
@@ -27,9 +28,9 @@ export function openFilterBuilder({ app, cards, env, query, apply }) {
   const pick = c => rows(c)[idx[c]] || {};
   const term = () => cq.builderTerm(pick(0).id, pick(1).id, pick(2).id);
 
-  const input = h('input.input.fb-input', { type: 'text', placeholder: 'type to narrow', spellcheck: false, autocomplete: 'off', autofocus: true });
+  const input = h('input.input.fb-input', { type: 'text', placeholder: T('type to narrow'), spellcheck: false, autocomplete: 'off', autofocus: true });
   const colEls = [h('div.fb-col'), h('div.fb-col'), h('div.fb-col')];
-  const titles = ['Field', 'Compare', 'Value'];
+  const titles = [T('Field'), T('Compare'), T('Value')];
   const query_ = h('div.fb-query');
   const adds = h('div.fb-adds');
   const draw = () => {
@@ -39,16 +40,16 @@ export function openFilterBuilder({ app, cards, env, query, apply }) {
       clear(el).append(h('div.fb-title', titles[c]), ...rs.slice(0, 300).map((r, i) => h('div.fb-row' + (i === idx[c] ? '.sel' : ''), { dataset: { c, i } }, r.label)));
       el.classList.toggle('on', c === col);
       el.classList.toggle('later', c > col);
-      if (c === 2 && !rs.length && noValue(pick(1).id)) el.append(h('div.fb-none', 'no value needed'));
+      if (c === 2 && !rs.length && noValue(pick(1).id)) el.append(h('div.fb-none', T('no value needed')));
       const s = el.querySelector('.sel'); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' });
     });
     const ws = cq.words(q);
-    clear(query_).append(ws.length ? h('span.fb-slash', '/') : 'no filter yet', ...ws.map((w, i) => h('button.fchip.term', { dataset: { term: i }, title: 'Remove ' + w }, w, icon('x'))));
+    clear(query_).append(ws.length ? h('span.fb-slash', '/') : T('no filter yet'), ...ws.map((w, i) => h('button.fchip.term', { dataset: { term: i }, title: T('Remove %s', w) }, w, icon('x'))));
     const t = term();
-    adds.textContent = t ? 'adds  ' + t : 'pick a value';
+    adds.textContent = t ? T('adds  %s', t) : T('pick a value');
   };
-  const body = h('div.fb', query_, input, h('div.fb-cols', colEls), adds, h('div.fb-foot', '↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close'));
-  const m = app.ui.modal(body, { title: 'Filter', wide: true });
+  const body = h('div.fb', query_, input, h('div.fb-cols', colEls), adds, h('div.fb-foot', T('↑↓ pick · ←→ tab column · ↵ add · ctrl+x drop last · esc close')));
+  const m = app.ui.modal(body, { title: T('Filter'), wide: true });
   const go = c => {
     // The cursor indexes the narrowed rows: find its row in the full list before the filter goes.
     const id = pick(col).id;
