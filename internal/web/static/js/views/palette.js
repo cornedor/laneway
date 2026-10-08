@@ -183,7 +183,7 @@ export function openPalette(app, mode = '') {
   function buildJQL(v) {
     if (phase === 'results') {
       if (results.err) { items.push({ type: 'msg', text: results.err, err: true }); return; }
-      items.push({ type: 'hdr', text: Tn(results.cards.length, '%d issue · ctrl+s stars as a view · ctrl+f saves as a filter', '%d issues · ctrl+s stars as a view · ctrl+f saves as a filter', results.cards.length) });
+      items.push({ type: 'hdr', text: Tn(results.cards.length, '%d issue · ctrl+enter lists it as a view', '%d issues · ctrl+enter lists them as a view', results.cards.length) });
       results.cards.forEach(c => items.push(issueItem(c)));
       return;
     }
@@ -219,15 +219,26 @@ export function openPalette(app, mode = '') {
     });
   }, 150);
 
+  const rememberJQL = v => { const hist = readLS('jqlhist', []).filter(t => t !== v); hist.unshift(v); writeLS('jqlhist', hist.slice(0, 20)); };
   function runJQL(text) {
     const v = text.trim(); if (!v) return;
     results = null; phase = 'results'; sugg = [];
-    const hist = readLS('jqlhist', []).filter(t => t !== v); hist.unshift(v); writeLS('jqlhist', hist.slice(0, 20));
+    rememberJQL(v);
     items = [{ type: 'msg', text: T('Searching…') }]; sel = 0; draw();
     fetchJSON('/search?jql=' + encodeURIComponent(v), (d, e) => {
       results = e ? { err: e.message } : { cards: d.cards || [] };
       build();
     });
+  }
+  // The query as a board view of its own (TUI runJQLView), key open beside it: [ and ] in the panel step
+  // through the hits, and a reload keeps them.
+  function openAsView(key) {
+    const v = q.trim(); if (!v) return;
+    rememberJQL(v);
+    const p = new URLSearchParams({ sprint: 'jql:' + v, vname: T('Search') });
+    if (key) p.set('issue', key);
+    close();
+    app.go('/board?' + p);
   }
   // ctrl+s stars the query as a view of every board, or unstars it (TUI toggleSavedJQL).
   async function starQuery() {
@@ -258,7 +269,7 @@ export function openPalette(app, mode = '') {
       search: T('⏎ open · ⌃⏎ full page · ↑↓ move'),
       cmd: T('⏎ run · ↑↓ move'),
       jump: T('⏎ open · ⌃⏎ full page'),
-      jql: phase === 'results' ? T('⏎ open · ⌃⏎ full page · ⌃s star as a view · ⌃f save filter · type to edit') : T('tab completes · ⏎ runs · ⌃s star as a view · ⌃f save filter'),
+      jql: phase === 'results' ? T('⏎ open among the hits · ⌃⏎ list them as a view · ⌃s star · ⌃f save filter · type to edit') : T('tab completes · ⏎ runs · ⌃⏎ runs as a view · ⌃s star as a view · ⌃f save filter'),
     };
     foot.textContent = T('%s · esc closes', hints[cur]);
   }
@@ -303,6 +314,7 @@ export function openPalette(app, mode = '') {
     const key = it.key || (it.card && it.card.Key);
     if (!key) return;
     if (it.card) recordRecent(it.card);
+    if (cur === 'jql' && phase === 'results') return openAsView(full ? '' : key); // a hit, the next a ] away
     close();
     import('./issue.js').then(m => m.follow(key)).catch(() => {}).then(() => (full ? app.go('/issue/' + key) : app.panel.open(key, { push: true })));
   }
@@ -354,7 +366,7 @@ export function openPalette(app, mode = '') {
     }
     activate();
   }, '', { input: true, hidden: true });
-  k.bind('ctrl+Enter', () => activate(sel, true), '', { input: true, hidden: true });
+  k.bind('ctrl+Enter', () => (cur === 'jql' && q.trim() ? openAsView() : activate(sel, true)), '', { input: true, hidden: true });
   k.bind('ctrl+s', starQuery, '', { input: true, hidden: true });
   k.bind('ctrl+f', saveFilter, '', { input: true, hidden: true });
 

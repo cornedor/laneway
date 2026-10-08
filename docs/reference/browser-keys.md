@@ -16,7 +16,7 @@ terminal's is in the last column.
 | `:` `ctrl+k` | the palette: `:` commands, `/` search issues, `#` JQL, `g ` jump to a key | |
 | `/` | search issues | |
 | `g g` | go to an issue by key or pasted link | `#` |
-| `Q` | JQL, with completion | |
+| `Q` | JQL, with completion; a hit opens beside the rest, shown as a view (`ctrl+enter`: the view alone) | |
 | `n` | new issue | |
 | `alt+p` | switch project: its last board, or the view's project where it has one | `p` |
 | `g` then a letter | go to a view, see below | |
