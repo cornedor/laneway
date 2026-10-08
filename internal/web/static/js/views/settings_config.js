@@ -45,7 +45,7 @@ function make(app, host, st0, editable) {
   const o = { name: st0.Name, section: st0.Group, cfg: true, st: st0, err: '', wide: st0.Type === 'yaml', editable };
   const st = () => o.st;
   const current = () => { const s = st(); return s.Value != null ? show(s.Value) : (s.Type === 'bool' || s.Type === 'enum') && s.Choices && s.Name !== 'theme' && s.Name !== 'code_theme' ? s.Choices[0] : ''; };
-  o.desc = st0.Doc;
+  o.desc = T(st0.Doc);
   Object.defineProperty(o, 'meta', { get: () => (st().Restart ? T('restart needed') : '') });
 
   async function save(payload, quiet) {
@@ -127,7 +127,7 @@ function make(app, host, st0, editable) {
     if (o.edit) return;
     if (s.Type === 'bool') return o.change(1);
     if (s.Type === 'enum') {
-      const r = await app.ui.pick({ title: o.name, items: s.Choices, placeholder: s.Doc || T('Filter…'), selected: [] });
+      const r = await app.ui.pick({ title: o.name, items: s.Choices, placeholder: T(s.Doc) || T('Filter…'), selected: [] });
       if (r) save({ Value: r });
       return;
     }

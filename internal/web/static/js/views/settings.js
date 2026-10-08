@@ -39,7 +39,7 @@ const GROUPS = [
 ];
 // A section's name is its id (options carry it, the sidebar and anchors key on it); this is what shows.
 const SECTIONS = { Appearance: T('Appearance'), Fonts: T('Fonts'), Board: T('Board'), Notifications: T('Notifications'), 'Jira site': T('Jira site'), Server: T('Server'), GitLab: 'GitLab', Data: T('Data'), Keyboard: T('Keyboard') };
-const secName = sec => SECTIONS[sec] || sec;
+const secName = sec => SECTIONS[sec] || T(sec);
 const VAL = { compact: T('compact'), normal: T('normal'), roomy: T('roomy'), show: T('show'), hide: T('hide'), lanes: T('lanes'), list: T('list') };
 const CONFIG = GROUPS.findIndex(g => !g.sections);
 const groupOf = sec => { const i = GROUPS.findIndex(g => g.sections && g.sections.includes(sec)); return i < 0 ? CONFIG : i; };
