@@ -90,7 +90,7 @@ export function keyOptions(app, host) {
     const fold = { name: g, section: 'Keyboard', fold: g };
     Object.defineProperty(fold, 'desc', { get: () => { const n = app.keys.registry().filter(r => r.group === g && r.from).length; return Tn(keys.length, '%d key', '%d keys', keys.length) + (n ? T(' · %d remapped', n) : ''); } });
     fold.render = () => h('span.st-val', icon(host.folds.has(g) ? 'chevron-up' : 'chevron-down'));
-    fold.activate = fold.change = () => { host.folds.has(g) ? host.folds.delete(g) : host.folds.add(g); host.reload(); };
+    fold.activate = fold.change = () => host.fold(g);
     out.push(fold, ...keys.map(keyRow)); // each group's keys right under its row
   }
   return out;

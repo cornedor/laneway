@@ -184,6 +184,19 @@ export default function mount(el, { app, scope, toolbar }) {
     commit: () => editing && editing.commit(),
     cancel: () => editing && editing.cancel(),
     reload: () => { rebuildKeys(); draw(); },
+    // fold opens or shuts a key group in place: its rows, not the page (draw() redoes some 1200 elements).
+    // A filter decides which keys show, so with one it draws.
+    fold: g => {
+      folds.has(g) ? folds.delete(g) : folds.add(g);
+      const head = options.find(o => o.fold === g);
+      if (q || !head || !head.el || !head.el.isConnected) return draw();
+      const keys = options.filter(o => o.key && o.group === g);
+      if (folds.has(g)) { let at = head.el; for (const o of keys) { o.el = rowFor(o); at.after(o.el); at = o.el; } }
+      else for (const o of keys) { if (o.el) o.el.remove(); o.el = null; }
+      rows = shown().filter(o => !o.static);
+      host.redraw(head); // its chevron
+      spy();
+    },
     folds,
   };
   function rebuildKeys() {
@@ -212,7 +225,7 @@ export default function mount(el, { app, scope, toolbar }) {
     return vis.map((o, i) => [o, at(o.section), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map(x => x[0]);
   };
   function rowFor(o) {
-    return h('div.st-row' + (o.wide ? '.wide' : ''), { role: 'group', 'aria-label': o.name, onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } if (o.fold) o.activate(); } },
+    return h('div.st-row' + (o.wide ? '.wide' : '') + (o.fold ? '.st-fold' : ''), { role: 'group', 'aria-label': o.name, onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } if (o.fold) o.activate(); } },
       h('div.st-name', h('div', o.name, o.meta && h('span.chip', o.meta)), o.desc && h('div.st-desc', o.desc)), o.render());
   }
   function draw() {
@@ -238,7 +251,6 @@ export default function mount(el, { app, scope, toolbar }) {
         nav.append(h('a.st-nav-a', { href: '/settings', dataset: { sec: target }, onclick: e => { e.preventDefault(); const t = list.querySelector('#' + target); if (t) { jumped = target; t.scrollIntoView({ block: 'start' }); spy(); } } }, secName(sec)));
       }
       o.el = rowFor(o);
-      if (o.fold) o.el.classList.add('st-fold');
       body.append(o.el);
     }
     if (!vis.length) list.append(h('div.empty', T('No settings match “%s”', q)));

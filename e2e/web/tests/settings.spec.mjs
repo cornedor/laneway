@@ -73,3 +73,21 @@ test('a card designer drag keeps the scroll', async ({ page, app }) => {
   await expect(top).toHaveCount(n + 1);
   await expect(g.locator('.cd-card')).toBeInViewport();
 });
+
+// A fold opens and shuts in place: the cursor stays on it, j steps into its keys or past them.
+test('key groups fold by keyboard, the cursor stays', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const keys = page.getByRole('group', { name: 'Keyboard', exact: true });
+  const global = keys.locator('.st-fold', { hasText: 'Global' }), sel = page.locator('.st-row.sel');
+  await global.click(); // opens, and selects it
+  await expect(global).toHaveClass(/\bsel\b/);
+  await page.keyboard.press('j');
+  await expect(sel).toHaveAttribute('aria-label', 'command palette');
+  await page.keyboard.press('k');
+  await page.keyboard.press('Enter'); // shuts
+  await expect(keys.getByRole('group', { name: 'command palette' })).toHaveCount(0);
+  await expect(global).toHaveClass(/\bsel\b/);
+  await page.keyboard.press('j');
+  await expect(sel).toHaveClass(/\bst-fold\b/);
+  await expect(sel).not.toContainText('Global');
+});
