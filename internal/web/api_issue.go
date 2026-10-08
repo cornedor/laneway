@@ -116,6 +116,9 @@ func init() {
 			Visibility jira.Visibility
 			// Parent is the comment it replies to (which sets who reads it).
 			Parent string
+			// Check looks for it among the issue's newest comments first: a
+			// post that timed out may have landed. Found says it had.
+			Check bool
 		}](r)
 		if err != nil {
 			return nil, err
@@ -140,6 +143,11 @@ func init() {
 			}
 		}
 		doc, _ := json.Marshal(jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, b.Markdown), kept))
+		if b.Check {
+			if found, err := s.Client().HasComment(ctx, key, doc); err != nil || found {
+				return map[string]bool{"Found": found}, err
+			}
+		}
 		return nil, s.Client().AddCommentADFFor(ctx, key, doc, b.Visibility, b.Parent)
 	})
 	get("/issues/{key}/comments/{id}/edit", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

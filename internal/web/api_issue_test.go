@@ -137,6 +137,18 @@ func TestIssuePanelRoutes(t *testing.T) {
 	if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Raw": json.RawMessage(`{"type":"paragraph"}`)}, nil); code != 400 {
 		t.Errorf("not a doc: %d", code)
 	}
+	// After a timeout the same text again checks first: not there, it posts;
+	// there, it isn't posted twice.
+	var found struct{ Found bool }
+	for i, want := range []bool{false, true} {
+		if code := issueCall(t, "POST", iu+"/comments", map[string]any{"Markdown": "may have landed", "Check": true}, &found); code != 200 || found.Found != want {
+			t.Errorf("check %d: %d %v, want %v", i, code, found.Found, want)
+		}
+	}
+	issueCall(t, "GET", iu+"?fresh=1", nil, &is)
+	if n := len(is.Comments); n != len(back.Comments)+1 || is.Comments[n-1].Body != "may have landed" {
+		t.Errorf("after the checks: %+v", is.Comments)
+	}
 	for _, p := range []string{"/history", "/children", "/weblinks", "/timeinstatus", "/dev"} {
 		if code := issueCall(t, "GET", iu+p, nil, nil); code != 200 {
 			t.Errorf("%s: %d", p, code)

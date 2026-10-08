@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmp"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -228,6 +229,17 @@ type jiraMutatedMsg struct {
 	field string
 	err   error
 	text  string // a comment's text, kept when its post fails
+	// maybe is the comment as posted when the post may have landed (it
+	// timed out); found is a comment that had.
+	maybe json.RawMessage
+	found bool
+}
+
+// unsentComment is a comment whose post failed, on key; maybe is it as
+// posted when the post may have landed all the same.
+type unsentComment struct {
+	key, text string
+	maybe     json.RawMessage
 }
 
 // startJiraPicker resets the picker to a fresh loading state for the current
@@ -1290,12 +1302,19 @@ func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.fail(i18n.Tf("%s %s update failed: %v", msg.key, msg.field, msg.err))
 		if msg.text != "" {
-			m.unsent.key, m.unsent.text = msg.key, msg.text
-			m.fail(i18n.Tf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment)))
+			m.unsent = unsentComment{key: msg.key, text: msg.text, maybe: msg.maybe}
+			if msg.maybe != nil {
+				m.fail(i18n.Tf("%s comment may have posted: %v · %s brings it back, posting it looks first", msg.key, msg.err, helpKey(m.keys.JiraComment)))
+			} else {
+				m.fail(i18n.Tf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment)))
+			}
 		}
 		return m, nil
 	}
 	m.status = mutatedStatus(msg.key, msg.field)
+	if msg.found {
+		m.status = i18n.Tf("your comment was on %s already: not posted again", msg.key)
+	}
 	m.noteRefine(m.status)
 	if text, _, ok := m.draft(commentDraft(msg.key)); ok && msg.field == "comment" && strings.TrimSpace(text) == msg.text {
 		m.dropDraft(commentDraft(msg.key)) // posted

@@ -7,6 +7,7 @@ import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
+import { postComment } from '../lib/comment.js';
 import { issueActions } from './actions.js';
 import { mountDev } from './issue_dev.js';
 import { mountTerm } from './issue_term.js';
@@ -636,10 +637,11 @@ export function mountIssue(el, key, { app, full, card }) {
       st.pending.push(tmp); renderComments(); (newest() ? box.list.firstElementChild : box.list.lastElementChild)?.scrollIntoView({ block: 'nearest' });
       comp.ta.value = ''; drafts.delete(key); setReply(null); comp.size();
       try {
-        await api.post('/issues/' + key + '/comments', { Markdown: text, Mentions: mentions, Visibility: parent ? everyone() : st.vis, Parent: parent });
+        const found = await postComment(api, key, { Markdown: text, Mentions: mentions, Visibility: parent ? everyone() : st.vis, Parent: parent });
         st.pending = st.pending.filter(p => p !== tmp);
         st.vis = everyone(); paintVis(); // the next one is for everyone again
         await reload(true); changed(T('%s comment added', key));
+        if (found) ui.toast(T('Your comment was on %s already: not posted again', key));
       } catch (e) {
         st.pending = st.pending.filter(p => p !== tmp); renderComments();
         if (parent && !st.reply) setReply(st.issue.Comments.find(c => c.ID === parent) || null);

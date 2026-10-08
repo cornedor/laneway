@@ -177,7 +177,7 @@ func writeErr(w http.ResponseWriter, err error) {
 		code = http.StatusAccepted // kept for later: the browser counts it as sent
 	case errors.Is(err, jira.ErrNotFound):
 		code = http.StatusNotFound
-	case errors.Is(err, context.DeadlineExceeded):
+	case jira.TimedOut(err): // it may have landed: a comment posted again checks first (lib/comment.js)
 		code = http.StatusGatewayTimeout
 	case errors.As(err, &re):
 		code = http.StatusBadGateway

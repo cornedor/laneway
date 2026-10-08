@@ -3,6 +3,7 @@
 import { h, clear } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { render } from '../lib/md.js';
+import { postComment } from '../lib/comment.js';
 import { T } from '../lib/i18n.js';
 
 export function mountNotes(parent, key, { app, el, full }) {
@@ -48,7 +49,7 @@ export function mountNotes(parent, key, { app, el, full }) {
   }
   async function post() {
     if (!await ui.confirm({ title: T('Post notes'), text: T('Post your private notes on %s as a comment?', key), ok: T('Post') })) return;
-    try { await api.post('/issues/' + key + '/comments', { Markdown: text }); app.bus.emit('issue:changed', { key }); ui.toast(T('Comment posted')); } catch (e) { ui.errToast(e); }
+    try { const found = await postComment(api, key, { Markdown: text }); app.bus.emit('issue:changed', { key }); ui.toast(found ? T('Your comment was on %s already: not posted again', key) : T('Comment posted')); } catch (e) { ui.errToast(e); }
   }
   api.get('/issues/' + key + '/notes', { fresh: true }).then(r => { if (!dead) { text = (r.Text || '').trim(); paint(); } }).catch(() => {});
   return () => { dead = true; scope.dispose(); box.remove(); };

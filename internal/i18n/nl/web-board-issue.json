@@ -570,6 +570,7 @@
   "Write %s": "%s schrijven",
   "Write a comment… (@ to mention, markdown works)": "Schrijf een reactie… (@ om te vermelden, markdown werkt)",
   "You": "Jij",
+  "Your comment was on %s already: not posted again": "Je reactie stond al op %s: niet nog eens geplaatst",
   "a merge request's diff": "de diff van een merge request",
   "actions": "acties",
   "adds  %s": "voegt toe  %s",

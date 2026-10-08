@@ -767,6 +767,10 @@ func (c *Client) Writing() int {
 	return int(c.writing.Load())
 }
 
+// TimedOut reports whether err is a request that ran out of time: unlike
+// one that never left, Jira may have acted on it.
+func TimedOut(err error) bool { return isTimeout(err) }
+
 // isTimeout is whether err is a request running out of time.
 func isTimeout(err error) bool {
 	var ne net.Error
@@ -1378,13 +1382,39 @@ func (c *Client) AddCommentMentions(ctx context.Context, key, text string, menti
 	if strings.TrimSpace(text) == "" && mention == nil {
 		return fmt.Errorf("jira: empty comment")
 	}
+	return c.AddCommentADFFor(ctx, key, CommentADF(text, mention, inline), vis, parentID)
+}
+
+// CommentADF is the document AddCommentMentions posts for text.
+func CommentADF(text string, mention *Mention, inline []Mention) json.RawMessage {
 	doc := textToADF(text, mention)
 	inlineMentions(doc, inline)
-	body := commentRequest(doc, vis, parentID)
-	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment"
-	if err := c.do(ctx, http.MethodPost, path, key, body, nil); err != nil {
-		return err
+	b, _ := json.Marshal(doc)
+	return b
+}
+
+// HasComment reports whether one of key's newest comments is yours and
+// reads as doc does: a post that timed out may have landed all the same.
+func (c *Client) HasComment(ctx context.Context, key string, doc json.RawMessage) (bool, error) {
+	if !c.Enabled() {
+		return false, errNotConfigured
 	}
-	c.Invalidate(key)
-	return nil
+	me, err := c.Myself(ctx)
+	if err != nil {
+		return false, err
+	}
+	var resp struct {
+		Comments []apiComment `json:"comments"`
+	}
+	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/comment?orderBy=-created&maxResults=10"
+	if err := c.do(ctx, http.MethodGet, path, key, nil, &resp); err != nil {
+		return false, err
+	}
+	want := strings.Fields(adfToMarkdown(doc))
+	for _, ac := range resp.Comments {
+		if ac.Author != nil && ac.Author.AccountID == me.AccountID && slices.Equal(strings.Fields(adfToMarkdown(ac.Body)), want) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

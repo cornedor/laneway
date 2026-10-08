@@ -6,6 +6,7 @@ import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
 import { ago, dateTime } from '../lib/fmt.js';
 import { render as md } from '../lib/md.js';
 import { mdEdit } from '../lib/mdedit.js';
+import { postComment } from '../lib/comment.js';
 import { stateOf, latest, unreadCount, setBadge } from '../lib/inbox.js';
 import { dayStart, addDays, workdays } from '../lib/worktime.js';
 import { delightOn } from '../lib/delight.js';
@@ -152,8 +153,8 @@ export default function mount(el, { app, scope, toolbar }) {
     const ment = last && last.WhoID ? [{ AccountID: last.WhoID, DisplayName: last.Who }] : [];
     const ed = mdEdit(app, { value: at, rows: 3, issueKey: t.Key, label: reply ? T('Reply') : T('Comment'), placeholder: T('Comment on %s… (@ mentions, / formats)', t.Key),
       save: async (text, mentions) => {
-        await api.post('/issues/' + t.Key + '/comments', { Markdown: text, Mentions: [...ment.filter(m => text.includes('@' + m.DisplayName)), ...mentions] });
-        m.close(); ui.toast(T('Commented on %s', t.Key), { kind: 'ok' }); app.bus.emit('issue:changed', { key: t.Key }); load(true);
+        const found = await postComment(api, t.Key, { Markdown: text, Mentions: [...ment.filter(m => text.includes('@' + m.DisplayName)), ...mentions] });
+        m.close(); ui.toast(found ? T('Your comment was on %s already: not posted again', t.Key) : T('Commented on %s', t.Key), { kind: 'ok' }); app.bus.emit('issue:changed', { key: t.Key }); load(true);
       } });
     const m = ui.modal(h('div.prompt', ed.el), { title: (reply ? T('Reply on %s', t.Key) : T('Comment on %s', t.Key)) + '  ' + t.Summary, wide: true, onClose: () => ed.dispose() });
     m.scope.bind('ctrl+Enter', () => ed.el._save(), '', { input: true, hidden: true });

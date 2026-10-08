@@ -820,7 +820,7 @@ func TestTimeoutError(t *testing.T) {
 	defer srv.Close()
 	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", Timeout: 20 * time.Millisecond})
 	_, err := c.Get(context.Background(), "ABC-1")
-	if err == nil || !strings.Contains(err.Error(), "raise jira.timeout") {
+	if err == nil || !strings.Contains(err.Error(), "raise jira.timeout") || !TimedOut(err) {
 		t.Errorf("got %v", err)
 	}
 }
