@@ -74,8 +74,9 @@ copy and pin below.
 
 Any other field, custom ones too, edits in its row: text, numbers and dates
 right there, people and options in a list under it. Fields the edit screen
-has beyond the usual fold under a More row; `*` on one stars it, so it
-always shows, in the terminal and the browser alike.
+has beyond the usual fold under a More row. `*` on a field pins it, so it
+always shows, or unpins it into More: the usual ones too, in the terminal
+and the browser alike.
 
 === "Terminal"
 

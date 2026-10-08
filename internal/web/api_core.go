@@ -86,7 +86,7 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	return map[string]any{
 		"site": o.Site, "sites": o.Sites, "defaultName": o.DefaultName, "demo": o.Demo, "version": o.Version,
 		"baseURL": s.Client().BaseURL(), "me": me,
-		"projects": s.projects(), "ui": s.UIConfig(), "autostart": s.autostartInfo(), "starred": starred(s),
+		"projects": s.projects(), "ui": s.UIConfig(), "autostart": s.autostartInfo(), "pins": fieldPins(s),
 		"repos":   slices.Sorted(maps.Keys(o.Jira.Repos)), // projects with a checkout: draft PR, removing a worktree
 		"addSite": addSiteInfo(s), "home": homeInfo(s),
 	}, nil

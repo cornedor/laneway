@@ -219,21 +219,24 @@ func TestFlatReplies(t *testing.T) {
 	}
 }
 
-// TestStarsAndDocFields: a star is kept in the state file and comes with
-// editmeta; a rich-text field reads and writes as markdown.
-func TestStarsAndDocFields(t *testing.T) {
+// TestPinsAndDocFields: a pin, on or off, is kept in the state file and
+// comes with editmeta; a rich-text field reads and writes as markdown.
+func TestPinsAndDocFields(t *testing.T) {
 	ts, _ := toolsServer(t, nil)
-	var ids []string
-	if code := issueCall(t, "PUT", ts.URL+"/api/fields/starred/customfield_10030", map[string]any{"On": true}, &ids); code != 200 || len(ids) != 1 {
-		t.Fatalf("star: %d %v", code, ids)
+	var pins map[string]bool
+	if code := issueCall(t, "PUT", ts.URL+"/api/fields/pinned/customfield_10030", map[string]any{"On": true}, &pins); code != 200 || len(pins) != 1 {
+		t.Fatalf("pin: %d %v", code, pins)
 	}
-	if code := issueCall(t, "PUT", ts.URL+"/api/fields/starred/bad%20id", map[string]any{"On": true}, nil); code != 400 {
+	if code := issueCall(t, "PUT", ts.URL+"/api/fields/pinned/priority", map[string]any{"On": false}, &pins); code != 200 || len(pins) != 2 {
+		t.Fatalf("unpin: %d %v", code, pins)
+	}
+	if code := issueCall(t, "PUT", ts.URL+"/api/fields/pinned/bad%20id", map[string]any{"On": true}, nil); code != 400 {
 		t.Errorf("bad id: %d", code)
 	}
-	var meta struct{ Starred []string }
+	var meta struct{ Pins map[string]bool }
 	issueCall(t, "GET", ts.URL+"/api/issues/DEMO-4/editmeta", nil, &meta)
-	if len(meta.Starred) != 1 || meta.Starred[0] != "customfield_10030" {
-		t.Errorf("editmeta starred = %v", meta.Starred)
+	if on, ok := meta.Pins["priority"]; len(meta.Pins) != 2 || !meta.Pins["customfield_10030"] || on || !ok {
+		t.Errorf("editmeta pins = %v", meta.Pins)
 	}
 	iu := ts.URL + "/api/issues/DEMO-4/doc/customfield_10040"
 	var ed editable

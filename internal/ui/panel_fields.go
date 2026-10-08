@@ -12,17 +12,20 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 )
 
-// The panel's field cursor: tab / shift-tab walk the issue's editable fields,
-// enter edits the selected one with the same editor as its own key. After the
+// The panel's field cursor: tab / shift-tab walk the issue's fields, enter
+// edits the selected one with the same editor as its own key. After the
 // panel's own fields come the rest of the issue's edit screen (editmeta),
-// edited with the transition form's per-kind editors and written at once:
-// the starred ones (* on one, shared with the web) and filled rich text,
-// then a More row (enter opens it, for the session) over the others.
+// edited with the transition form's per-kind editors and written at once.
+// The pinned fields show (* on one pins or unpins it, shared with the web):
+// the panel's own unless unpinned, editmeta ones once pinned, and filled
+// rich text always; a More row (enter opens it, for the session) over the
+// others.
 
-// panelField is one editable field of the panel.
+// panelField is one of the panel's own fields.
 type panelField struct {
-	name string // the label its row shows
-	edit func(m *Model) tea.Cmd
+	id   string                 // its pin (jira.FieldPins), shared with the web; "" always shows
+	name string                 // the label its row shows
+	edit func(m *Model) tea.Cmd // nil: read-only, a row only while it has a value
 }
 
 // panelFields is set in init: its editors render the panel, which reads it.
@@ -30,14 +33,54 @@ var panelFields []panelField
 
 func init() {
 	panelFields = []panelField{
-		{"Summary", func(m *Model) tea.Cmd { m.openJiraSummaryInput(); return nil }},
-		{"Status", func(m *Model) tea.Cmd { return m.openJiraStatusPicker() }},
-		{"Priority", func(m *Model) tea.Cmd { return m.openJiraPriorityPicker() }},
-		{"Points", func(m *Model) tea.Cmd { m.openJiraPointsInput(); return nil }},
-		{"Assignee", func(m *Model) tea.Cmd { return m.openJiraAssigneePicker() }},
-		{"Reporter", func(m *Model) tea.Cmd { return m.openJiraReporterPicker() }},
-		{"Labels", func(m *Model) tea.Cmd { m.openJiraLabelsInput(); return nil }},
+		{"", "Summary", func(m *Model) tea.Cmd { m.openJiraSummaryInput(); return nil }},
+		{"status", "Status", func(m *Model) tea.Cmd { return m.openJiraStatusPicker() }},
+		{"priority", "Priority", func(m *Model) tea.Cmd { return m.openJiraPriorityPicker() }},
+		{"points", "Points", func(m *Model) tea.Cmd { m.openJiraPointsInput(); return nil }},
+		{"assignee", "Assignee", func(m *Model) tea.Cmd { return m.openJiraAssigneePicker() }},
+		{"reporter", "Reporter", func(m *Model) tea.Cmd { return m.openJiraReporterPicker() }},
+		{"labels", "Labels", func(m *Model) tea.Cmd { m.openJiraLabelsInput(); return nil }},
+		{"updated", "Updated", nil},
+		{"created", "Created", nil},
+		{"resolution", "Resolved", nil},
+		{"watches", "Watchers", nil},
+		{"votes", "Votes", nil},
+		{"timetracking", "Time", nil},
+		{"deployed", "Deployed", nil},
 	}
+}
+
+// panelRow is one stop of the field cursor: one of the panel's own fields,
+// an editmeta field, or the More row.
+type panelRow struct {
+	own  *panelField
+	ff   *jiraFormField
+	more bool
+}
+
+// name is the row's label, as the cursor reports it.
+func (r panelRow) name() string {
+	switch {
+	case r.own != nil:
+		return r.own.name
+	case r.ff != nil:
+		return r.ff.Name
+	}
+	return moreFieldsName
+}
+
+// pinID is the row's pin, "" for one that always shows. A sprint field's
+// is "sprint", as the web's own Sprint row.
+func (r panelRow) pinID() string {
+	switch {
+	case r.own != nil:
+		return r.own.id
+	case r.ff == nil || richField(*r.ff):
+		return ""
+	case r.ff.Kind == jira.KindSprint:
+		return "sprint"
+	}
+	return r.ff.ID
 }
 
 // panelExtraMsg is the shown issue's edit screen fetched.
@@ -122,51 +165,94 @@ func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
 // moreFieldsName is the More row's name for the field cursor.
 var moreFieldsName = i18n.N("More fields")
 
-// splitExtra is the shown issue's editmeta fields, none until they load:
-// those always shown (starred, filled rich text) and the ones More folds.
-func (m *Model) splitExtra() (top, rest []jiraFormField) {
-	if m.jiraIssue == nil || m.panelExtraKey != m.jiraIssue.Key {
+// pinned is whether row r shows on every issue rather than under More.
+func (m *Model) pinned(r panelRow) bool {
+	id := r.pinID()
+	return id == "" || jira.Pinned(m.fieldPins, id, r.own != nil)
+}
+
+// rowValue is row r's value as text, "" when empty.
+func (m *Model) rowValue(r panelRow) string {
+	if r.ff != nil {
+		return jiraValueText(r.ff.val)
+	}
+	if r.own == nil {
+		return ""
+	}
+	return m.ownValue(r.own.id)
+}
+
+// splitRows is the shown issue's field rows after Summary: those pinned
+// and the ones More folds, the panel's own first, then editmeta's once
+// they load. A read-only own field is a row only while it has a value.
+func (m *Model) splitRows() (top, rest []panelRow) {
+	if m.jiraIssue == nil {
 		return nil, nil
 	}
-	for _, ff := range m.panelExtra {
-		if m.starred[ff.ID] || richField(ff) {
-			top = append(top, ff)
+	add := func(r panelRow) {
+		if m.pinned(r) {
+			top = append(top, r)
 		} else {
-			rest = append(rest, ff)
+			rest = append(rest, r)
+		}
+	}
+	for i := range panelFields[1:] {
+		f := &panelFields[i+1]
+		if f.edit == nil && m.ownValue(f.id) == "" {
+			continue
+		}
+		add(panelRow{own: f})
+	}
+	if m.panelExtraKey == m.jiraIssue.Key {
+		for i := range m.panelExtra {
+			add(panelRow{ff: &m.panelExtra[i]})
 		}
 	}
 	return top, rest
 }
 
-// foldedShown is the More fields an open More shows: all, or the filled
-// ones with ui.empty_fields: hide.
-func (m *Model) foldedShown() []jiraFormField {
-	_, rest := m.splitExtra()
+// foldedShown is the rows an open More shows: all, or the filled ones
+// with ui.empty_fields: hide.
+func (m *Model) foldedShown(rest []panelRow) []panelRow {
 	if !m.moreFields {
 		return nil
 	}
 	if !m.opts.hideEmpty || m.showEmpty {
 		return rest
 	}
-	var out []jiraFormField
-	for _, ff := range rest {
-		if !ff.val.Empty() {
-			out = append(out, ff)
+	var out []panelRow
+	for _, r := range rest {
+		if m.rowValue(r) != "" {
+			out = append(out, r)
 		}
 	}
 	return out
 }
 
-// extraFields are the editmeta fields the panel shows, in its order.
-func (m *Model) extraFields() []jiraFormField {
-	top, _ := m.splitExtra()
-	return append(top, m.foldedShown()...)
+// panelRows are the field cursor's stops in the panel's order: Summary,
+// the pinned rows, then More and the rows it shows open.
+func (m *Model) panelRows() []panelRow {
+	if m.jiraIssue == nil {
+		return nil
+	}
+	top, rest := m.splitRows()
+	rows := append([]panelRow{{own: &panelFields[0]}}, top...)
+	if len(rest) > 0 {
+		rows = append(rows, panelRow{more: true})
+		rows = append(rows, m.foldedShown(rest)...)
+	}
+	return rows
 }
 
-// moreRow is whether the panel has a More row: fields to fold.
-func (m *Model) moreRow() bool {
-	_, rest := m.splitExtra()
-	return len(rest) > 0
+// extraFields are the editmeta fields the panel shows, in its order.
+func (m *Model) extraFields() []jiraFormField {
+	var out []jiraFormField
+	for _, r := range m.panelRows() {
+		if r.ff != nil {
+			out = append(out, *r.ff)
+		}
+	}
+	return out
 }
 
 // hiddenFields is how many empty fields ui.empty_fields: hide folds away
@@ -175,64 +261,46 @@ func (m *Model) hiddenFields() int {
 	if !m.moreFields {
 		return 0
 	}
-	_, rest := m.splitExtra()
-	return len(rest) - len(m.foldedShown())
+	_, rest := m.splitRows()
+	return len(rest) - len(m.foldedShown(rest))
 }
 
 func (m *Model) panelFieldCount() int {
-	n := len(panelFields) + len(m.extraFields())
-	if m.moreRow() {
-		n++
-	}
-	return n
+	return len(m.panelRows())
 }
 
-// panelSlot is what field cursor index i is on: an editmeta field, or the
-// More row (more); nil and false for the panel's own fields.
-func (m *Model) panelSlot(i int) (ff *jiraFormField, more bool) {
-	j := i - len(panelFields)
-	if j < 0 {
-		return nil, false
-	}
-	top, _ := m.splitExtra()
-	switch shown := m.foldedShown(); {
-	case j < len(top):
-		return &top[j], false
-	case j == len(top) && m.moreRow():
-		return nil, true
-	case j-len(top)-1 < len(shown):
-		return &shown[j-len(top)-1], false
-	}
-	return nil, false
-}
-
-// toggleStar stars the selected editmeta field, or takes its star off;
-// it reports whether one was selected.
-func (m *Model) toggleStar() bool {
-	ff, _ := m.panelSlot(m.panelFieldIdx())
-	if ff == nil || m.store == nil {
+// pinPanelField pins the selected field, or unpins it; it reports whether
+// one that can be was selected.
+func (m *Model) pinPanelField() bool {
+	i := m.panelFieldIdx()
+	if i < 0 || m.store == nil {
 		return false
 	}
-	ids, err := jira.SetStarred(m.store, ff.ID, !m.starred[ff.ID])
+	r := m.panelRows()[i]
+	id := r.pinID()
+	if id == "" {
+		return false
+	}
+	pins, err := jira.SetFieldPin(m.store, id, !m.pinned(r))
 	if err != nil {
-		m.fail(i18n.Tf("star not kept: %s", err.Error()))
+		m.fail(i18n.Tf("pin not kept: %s", err.Error()))
 		return true
 	}
-	m.starred = map[string]bool{}
-	for _, id := range ids {
-		m.starred[id] = true
-	}
-	if m.starred[ff.ID] {
-		m.status = i18n.Tf("%s starred: shown on every issue", ff.Name)
+	m.fieldPins = pins
+	name := i18n.T(r.name())
+	if pins[id] {
+		m.status = i18n.Tf("%s pinned: shown on every issue", name)
 	} else {
-		m.status = i18n.Tf("%s unstarred: under %s", ff.Name, i18n.T(moreFieldsName))
+		m.status = i18n.Tf("%s unpinned: under %s", name, i18n.T(moreFieldsName))
 	}
-	// the cursor follows the field to where it moved
-	id := ff.ID
-	for i := len(panelFields); i < m.panelFieldCount(); i++ {
-		if f, _ := m.panelSlot(i); f != nil && f.ID == id {
-			m.fieldCursor = i
-		}
+	// the cursor follows the field to where it moved, else onto More
+	rows := m.panelRows()
+	j := slices.IndexFunc(rows, func(r panelRow) bool { return r.pinID() == id })
+	if j < 0 {
+		j = slices.IndexFunc(rows, func(r panelRow) bool { return r.more })
+	}
+	if j >= 0 {
+		m.fieldCursor = j
 	}
 	m.renderRef()
 	return true
@@ -249,30 +317,16 @@ func (m *Model) panelFieldIdx() int {
 
 // panelFieldSel is the selected field's name, "" when none.
 func (m *Model) panelFieldSel() string {
-	i := m.panelFieldIdx()
-	switch {
-	case i < 0:
-		return ""
-	case i < len(panelFields):
-		return panelFields[i].name
-	}
-	if ff, more := m.panelSlot(i); more {
-		return moreFieldsName
-	} else if ff != nil {
-		return ff.Name
+	if i := m.panelFieldIdx(); i >= 0 {
+		return m.panelRows()[i].name()
 	}
 	return ""
 }
 
-// panelFieldRow is the index of the panel's own field name, -1 when none.
-func panelFieldRow(name string) int {
-	return slices.IndexFunc(panelFields, func(f panelField) bool { return f.name == name })
-}
-
-// panelFieldIs reports whether the cursor is on the panel's own field name.
-func (m *Model) panelFieldIs(name string) bool {
-	i := m.panelFieldIdx()
-	return i >= 0 && i < len(panelFields) && panelFields[i].name == name
+// panelFieldRow is the cursor index of the panel's own field name, -1 when
+// it has no row.
+func (m *Model) panelFieldRow(name string) int {
+	return slices.IndexFunc(m.panelRows(), func(r panelRow) bool { return r.own != nil && r.own.name == name })
 }
 
 // movePanelField steps the cursor by d; stepping off either end drops it,
@@ -313,22 +367,22 @@ func (m *Model) clearPanelField() {
 // editPanelField opens the selected field's editor.
 func (m *Model) editPanelField() tea.Cmd {
 	i := m.panelFieldIdx()
-	switch {
-	case i < 0:
+	if i < 0 {
 		return nil
-	case i < len(panelFields):
-		return panelFields[i].edit(m)
 	}
-	slot, more := m.panelSlot(i)
-	if more {
+	r := m.panelRows()[i]
+	switch {
+	case r.more:
 		m.moreFields = !m.moreFields
 		m.renderRef()
 		return nil
-	}
-	if slot == nil {
+	case r.own != nil && r.own.edit == nil:
+		m.status = i18n.Tf("%s is read-only", i18n.T(r.own.name))
 		return nil
+	case r.own != nil:
+		return r.own.edit(m)
 	}
-	ff := *slot
+	ff := *r.ff
 	if m.panelExtraEarly {
 		m.status = i18n.T("a moment: asking Jira what can be edited…")
 		return nil

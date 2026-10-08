@@ -1417,10 +1417,10 @@ func TestPanelEpicChildren(t *testing.T) {
 	}
 }
 
-// TestStarredAndMoreFields: starred fields and filled rich text show, the
-// rest fold under More (enter on it opens them); * on a field stars it in
+// TestPinnedAndMoreFields: pinned fields and filled rich text show, the
+// rest fold under More (enter on it opens them); * on a field pins it in
 // the state file; a read-only one says so instead of editing.
-func TestStarredAndMoreFields(t *testing.T) {
+func TestPinnedAndMoreFields(t *testing.T) {
 	m := panelModel(t)
 	tester := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c1", Name: "Tester", Kind: jira.KindText}, val: jira.Value{Text: "Ada"}}
 	legacy := jiraFormField{FieldMeta: jira.FieldMeta{ID: "c2", Name: "Legacy ref", Kind: jira.KindText, ReadOnly: true}, val: jira.Value{Text: "X-1"}}
@@ -1432,26 +1432,29 @@ func TestStarredAndMoreFields(t *testing.T) {
 		t.Fatalf("folded:\n%s", view)
 	}
 	// the cursor: past the own fields, Test notes (filled rich text), then More
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+1, "ABC-1"
+	if rowNamed(m, moreFieldsName) != rowNamed(m, "Test notes")+1 {
+		t.Fatalf("rows: %d, %d", rowNamed(m, moreFieldsName), rowNamed(m, "Test notes"))
+	}
+	m.fieldCursor, m.fieldCursorKey = rowNamed(m, moreFieldsName), "ABC-1"
 	out, _ = m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	if !strings.Contains(ansi.Strip(m.View().Content), "Tester") {
 		t.Fatal("enter on More did not open it")
 	}
-	m.fieldCursor = len(panelFields) + 3 // Legacy ref (in the order given)
+	m.fieldCursor = rowNamed(m, "Legacy ref")
 	if out, _ = m.handleRefKey(keyMsg(t, "enter")); !strings.Contains(out.(Model).status, "no one edit") {
 		t.Errorf("read-only: %q", out.(Model).status)
 	}
-	m.fieldCursor = len(panelFields) + 2 // Tester
+	m.fieldCursor = rowNamed(m, "Tester")
 	out, _ = m.handleRefKey(keyMsg(t, "*"))
 	m = out.(Model)
-	if got := jira.Starred(m.store); len(got) != 1 || got[0] != "c1" || m.panelFieldSel() != "Tester" {
-		t.Fatalf("starred %v, cursor on %q", got, m.panelFieldSel())
+	if got := jira.FieldPins(m.store); len(got) != 1 || !got["c1"] || m.panelFieldSel() != "Tester" {
+		t.Fatalf("pins %v, cursor on %q", got, m.panelFieldSel())
 	}
 	m.moreFields = false
 	m.renderRef()
-	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "★ Tester") || strings.Contains(view, "Legacy ref") {
-		t.Errorf("starred folded:\n%s", view)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Tester:") || strings.Contains(view, "Legacy ref") {
+		t.Errorf("pinned folded:\n%s", view)
 	}
 }
 
@@ -1459,16 +1462,16 @@ func TestStarredAndMoreFields(t *testing.T) {
 // editmeta; enter waits for it; editmeta then takes over.
 func TestEarlyExtraFields(t *testing.T) {
 	m := panelModel(t)
-	m.starred = map[string]bool{"c1": true}
+	m.fieldPins = map[string]bool{"c1": true}
 	m.jiraIssue.Screen = []jira.FieldMeta{{ID: "c1", Name: "Tester", Kind: jira.KindText}}
 	m.jiraIssue.ScreenValues = map[string]jira.Value{"c1": {Text: "Ada"}}
 	m.panelExtraKey = ""
 	m.earlyExtra()
 	m.renderRef()
-	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "★ Tester") || !strings.Contains(view, "Ada") {
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Tester:") || !strings.Contains(view, "Ada") {
 		t.Fatalf("early:\n%s", view)
 	}
-	m.fieldCursor, m.fieldCursorKey = len(panelFields), "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = rowNamed(m, "Tester"), "ABC-1"
 	if out, _ := m.handleRefKey(keyMsg(t, "enter")); !strings.Contains(out.(Model).status, "a moment") {
 		t.Errorf("enter before editmeta: %q", out.(Model).status)
 	}

@@ -224,6 +224,12 @@ export function mountIssue(el, key, { app, full, card }) {
   }
 
   // ---- fields
+  // The panel's own fields, then the rest of the edit screen (editmeta: components, custom fields), as the TUI's
+  // panel_fields.go; a click edits one. Pinned fields show (the pin on hover; the site's every project, shared
+  // with the TUI; own ones pinned till unpinned, the others once pinned), the others fold under More (the pref
+  // fields.more remembers it open); ui.empty_fields: hide folds their empty ones too. A filled rich-text field
+  // reads as a section under the description (renderDocs). Read-only: the screen Jira last offered for this
+  // project and type, on an issue it lets no one edit now.
   function renderFields() {
     const i = st.issue; if (!i) return clear(box.fields);
     const c = st.card || {};
@@ -235,60 +241,65 @@ export function mountIssue(el, key, { app, full, card }) {
     const parent = (c.ParentKey || parentLink());
     const pk = c.ParentKey || (parent && parent.Key), ps = c.ParentSummary || (parent && parent.Summary);
     const date = t => (isZero(t) ? null : shortDate(t));
-    clear(box.fields).append(
-      cell('status', T('Status'), ui.statusPill(i.Status, i.StatusCategory)),
-      cell('priority', T('Priority'), i.Priority),
-      cell('assignee', T('Assignee'), i.Assignee && h('span.who', ui.avatar(i.Assignee, c.AvatarURL, 18), i.Assignee)),
-      cell('reporter', T('Reporter'), i.Reporter),
-      cell('points', T('Points'), i.StoryPoints),
-      cell('labels', T('Labels'), i.Labels && i.Labels.length && h('span.chips', i.Labels.map(l => h('span.chip', l)))),
-      cell('parent', T('Parent'), pk && h('span.parent', h('a.issue-ref', { href: '/issue/' + pk, title: ps, onclick: e => { e.preventDefault(); e.stopPropagation(); open(pk); } }, pk), ps && h('span.dim.clip', ' ' + ps))),
-      cell('sprint', T('Sprint'), c.Sprint),
-      cell('due', T('Due'), date(c.Due)),
-      cell(null, T('Updated'), ago(i.Updated)),
-      cell(null, T('Created'), !isZero(c.Created) ? dateTime(c.Created) : null),
-      ...extraCells(cell));
+    // [pin id, field to edit, label, value]
+    const own = [
+      ['status', 'status', T('Status'), i.Status && ui.statusPill(i.Status, i.StatusCategory)],
+      ['priority', 'priority', T('Priority'), i.Priority],
+      ['assignee', 'assignee', T('Assignee'), i.Assignee && h('span.who', ui.avatar(i.Assignee, c.AvatarURL, 18), i.Assignee)],
+      ['reporter', 'reporter', T('Reporter'), i.Reporter],
+      ['points', 'points', T('Points'), i.StoryPoints],
+      ['labels', 'labels', T('Labels'), i.Labels && i.Labels.length ? h('span.chips', i.Labels.map(l => h('span.chip', l))) : null],
+      ['parent', 'parent', T('Parent'), pk && h('span.parent', h('a.issue-ref', { href: '/issue/' + pk, title: ps, onclick: e => { e.preventDefault(); e.stopPropagation(); open(pk); } }, pk), ps && h('span.dim.clip', ' ' + ps))],
+      ['sprint', 'sprint', T('Sprint'), c.Sprint],
+      ['duedate', 'due', T('Due'), date(c.Due)],
+      ['updated', null, T('Updated'), ago(i.Updated)],
+      ['created', null, T('Created'), !isZero(c.Created) ? dateTime(c.Created) : null],
+    ].map(([id, field, label, value]) => ({ id, name: label, def: true, filled: value != null && value !== '', el: cell(field, label, value) }));
+    clear(box.fields).append(...fieldRows([...own, ...extraRows(cell)]));
   }
-  // The rest of the edit screen (editmeta: components, custom fields), after the panel's own, as the TUI's
-  // panel_fields.go; a click edits one. Starred fields (★, every issue of the site, shared with the TUI) show
-  // here, the others fold under More (the pref fields.more remembers it open); ui.empty_fields: hide folds
-  // their empty ones too. A filled rich-text field reads as a section under the description (renderDocs).
-  // Read-only: the screen Jira last offered for this project and type, on an issue it lets no one edit now.
   const SHOWN = new Set(['parent', 'duedate']);
   const valueText = v => (!v ? '' : v.Text ? (v.Text.length > 80 ? v.Text.slice(0, 80) + '…' : v.Text) : [...(v.Users || []).map(u => u.DisplayName), ...(v.Options || []).map(o => o.Name)].join(', '));
   // editmeta once it answered; till then the screen last seen for the issue's project and type, which came
   // with the issue (jira.Issue.Screen): the fields draw at once, no jump when editmeta lands.
   const fieldMeta = () => st.meta || (st.issue && st.issue.Screen ? { Fields: st.issue.Screen, Values: st.issue.ScreenValues || {}, early: true } : null);
-  const starredIDs = () => (st.meta && st.meta.Starred) || app.session.starred || [];
+  const fieldPins = () => (st.meta && st.meta.Pins) || app.session.pins || {};
   const isDoc = f => f.Kind === 'doc' && !!valueText(fieldMeta().Values[f.ID]);
-  function extraCells(cell) {
+  function extraRows(cell) {
     const m = fieldMeta(); if (!m) return [];
-    const fs = (m.Fields || []).filter(f => !SHOWN.has(f.ID) && f.Kind !== 'sprint' && !isDoc(f));
-    const star = new Set(starredIDs());
-    const top = fs.filter(f => star.has(f.ID)), rest = fs.filter(f => !star.has(f.ID));
-    const out = top.map(f => fieldCell(cell, f, true));
+    return (m.Fields || []).filter(f => !SHOWN.has(f.ID) && f.Kind !== 'sprint' && !isDoc(f))
+      .map(f => ({ id: f.ID, name: f.Name, def: false, filled: !!valueText(m.Values[f.ID]), el: fieldCell(cell, f) }));
+  }
+  // fieldRows are the rows shown: the pinned, then More over the others.
+  function fieldRows(rows) {
+    const pins = fieldPins();
+    const pinned = r => (r.id in pins ? pins[r.id] : r.def);
+    const top = rows.filter(pinned), rest = rows.filter(r => !pinned(r));
+    const out = top.map(r => pinCell(r, true));
     if (!rest.length) return out;
     const open = app.prefs.get('fields.more', '') === 'open';
     out.push(h('button.fld.more', { 'aria-expanded': String(open), onclick: () => { app.prefs.set('fields.more', open ? '' : 'open'); renderFields(); } },
-      h('span.k', top.length ? T('More fields') : T('Fields')), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('star'), ' ' + T('keeps one shown')])));
+      h('span.k', top.length ? T('More fields') : T('Fields')), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('pin'), ' ' + T('keeps one shown')])));
     if (!open) return out;
     const hide = String((app.session.ui && app.session.ui.EmptyFields) || '').toLowerCase() === 'hide' && !st.showEmpty;
-    const shown = hide ? rest.filter(f => valueText(m.Values[f.ID])) : rest;
-    out.push(...shown.map(f => fieldCell(cell, f, false)));
+    const shown = hide ? rest.filter(r => r.filled) : rest;
+    out.push(...shown.map(r => pinCell(r, false)));
     if (rest.length > shown.length) out.push(h('button.fld.more', { onclick: () => { st.showEmpty = true; renderFields(); } }, h('span.k', T('Empty fields')), h('span.v.dim', T('+ %d more', rest.length - shown.length))));
     return out;
   }
-  function fieldCell(cell, f, on) {
+  function fieldCell(cell, f) {
     const v = valueText(fieldMeta().Values[f.ID]);
     let c;
     if (f.ReadOnly) { c = cell(null, f.Name, v); c.title = T('Jira lets no one edit this issue now'); }
     else if (f.Kind === 'doc') c = h('button.fld', { title: T('Write %s', f.Name.toLowerCase()), onclick: () => editDoc(f) }, h('span.k', f.Name), h('span.v', dash()));
     else c = cell(f.ID, f.Name, v);
-    return h('div.fld-star' + (on ? '.on' : ''), c, h('button.star', { title: on ? T('Unstar: fold it under More') : T('Star: show it on every issue'), 'aria-label': on ? T('Unstar %s', f.Name) : T('Star %s', f.Name), 'aria-pressed': String(on), onclick: () => starField(f, !on) }, icon('star', on)));
+    return c;
   }
-  async function starField(f, on) {
-    try { app.session.starred = await api.put('/fields/starred/' + encodeURIComponent(f.ID), { On: on }); } catch (e) { return fail(e); }
-    if (st.meta) st.meta.Starred = app.session.starred;
+  function pinCell(r, on) {
+    return h('div.fld-pin' + (on ? '.on' : ''), r.el, h('button.pin', { title: on ? T('Unpin: fold it under More') : T('Pin: show it on every issue'), 'aria-label': on ? T('Unpin %s', r.name) : T('Pin %s', r.name), 'aria-pressed': String(on), onclick: () => pinField(r.id, !on) }, icon('pin', on)));
+  }
+  async function pinField(id, on) {
+    try { app.session.pins = await api.put('/fields/pinned/' + encodeURIComponent(id), { On: on }); } catch (e) { return fail(e); }
+    if (st.meta) st.meta.Pins = app.session.pins;
     renderFields();
   }
 

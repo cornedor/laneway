@@ -430,20 +430,20 @@ func (m *Model) openJiraPointsInput() {
 	m.jiraFieldActive = true
 	m.jiraFieldName = "points"
 	m.jiraFieldKey = m.jiraIssue.Key
-	m.startFieldInline(panelFieldRow("Points"))
+	m.startFieldInline(m.panelFieldRow("Points"))
 }
 
 // openJiraSummaryInput shows the summary input seeded with the current one.
 func (m *Model) openJiraSummaryInput() {
 	m.openJiraTextInput("summary", m.jiraIssue.Summary, "", 255) // Jira's summary limit
-	m.startFieldInline(panelFieldRow("Summary"))
+	m.startFieldInline(m.panelFieldRow("Summary"))
 }
 
 // openJiraLabelsInput shows the labels, space separated: a label has no
 // spaces.
 func (m *Model) openJiraLabelsInput() {
 	m.openJiraTextInput("labels", strings.Join(m.jiraIssue.Labels, " "), i18n.T("space separated (empty clears)"), 0)
-	m.startFieldInline(panelFieldRow("Labels"))
+	m.startFieldInline(m.panelFieldRow("Labels"))
 }
 
 // openJiraTextInput opens the wide field input for field, seeded with value.

@@ -457,7 +457,7 @@ func TestReporter(t *testing.T) {
 		"/rest/api/3/user/viewissue/search": `[{"accountId":"a1","displayName":"Ada"},{"accountId":"b2","displayName":"Bob"}]`,
 	})
 	m.jiraIssue.Reporter, m.jiraIssue.ReporterAccountID = "Ada", "a1"
-	cmd := panelFields[panelFieldRow("Reporter")].edit(&m)
+	cmd := m.panelRows()[m.panelFieldRow("Reporter")].own.edit(&m)
 	out, _ := m.handleJiraPickerLoaded(cmd().(jiraPickerLoadedMsg))
 	m = out.(Model)
 	if it := m.jiraPicker.items; len(it) != 2 || !it[0].current || m.jiraPicker.inline != "Reporter" {

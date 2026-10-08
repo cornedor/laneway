@@ -86,7 +86,7 @@ panel's page. Keys for the browser: [Browser keys](browser-keys.md).
 | Key | Does |
 | --- | --- |
 | `j` `k`, `space` `b` | scroll a line, a page |
-| `tab` `shift+tab` | walk the fields; `enter` edits one, `*` stars it |
+| `tab` `shift+tab` | walk the fields; `enter` edits one, `*` pins or unpins it |
 | `s` `p` `P` | status, priority, points |
 | `e` `E` | summary, description |
 | `l` `a` | labels, assignee |

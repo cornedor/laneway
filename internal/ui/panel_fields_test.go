@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -39,7 +41,7 @@ func TestPanelFieldCursor(t *testing.T) {
 	if m.panelFieldSel() != "" || !m.refOpen {
 		t.Fatalf("esc: sel %q, open %v", m.panelFieldSel(), m.refOpen)
 	}
-	for range panelFields {
+	for range m.panelFieldCount() {
 		step("tab")
 	}
 	if m.panelFieldSel() != "Labels" || m.focus != focusRef {
@@ -48,6 +50,42 @@ func TestPanelFieldCursor(t *testing.T) {
 	step("tab")
 	if m.panelFieldSel() != "" || m.focus != focusJira {
 		t.Fatalf("past last: sel %q, focus %v", m.panelFieldSel(), m.focus)
+	}
+}
+
+// TestPinOwnFields: * unpins one of the panel's own fields, under More
+// with the cursor on it; a read-only one with a value is a stop to pin,
+// enter on it says so; * on Summary pins the issue instead.
+func TestPinOwnFields(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.jiraIssue.Updated = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	m.renderRef()
+	m.fieldCursor, m.fieldCursorKey = rowNamed(m, "Priority"), "ABC-1"
+	out, _ := m.handleRefKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if on, ok := jira.FieldPins(m.store)["priority"]; on || !ok || m.panelFieldSel() != moreFieldsName {
+		t.Fatalf("pins %v, cursor on %q", jira.FieldPins(m.store), m.panelFieldSel())
+	}
+	if view := ansi.Strip(m.View().Content); strings.Contains(view, "Priority:") || !strings.Contains(view, "More fields:") {
+		t.Fatalf("unpinned:\n%s", view)
+	}
+	m.moreFields = true
+	if rowNamed(m, "Priority") != rowNamed(m, moreFieldsName)+1 {
+		t.Fatalf("Priority at %d, More at %d", rowNamed(m, "Priority"), rowNamed(m, moreFieldsName))
+	}
+	m.fieldCursor = rowNamed(m, "Updated")
+	if out, _ = m.handleRefKey(keyMsg(t, "enter")); !strings.Contains(out.(Model).status, "read-only") {
+		t.Errorf("enter on Updated: %q", out.(Model).status)
+	}
+	out, _ = m.handleRefKey(keyMsg(t, "*"))
+	m = out.(Model)
+	if on, ok := m.fieldPins["updated"]; on || !ok || m.panelFieldSel() != "Updated" || rowNamed(m, "Updated") < rowNamed(m, moreFieldsName) {
+		t.Fatalf("pins %v, cursor on %q", m.fieldPins, m.panelFieldSel())
+	}
+	m.fieldCursor = 0
+	out, _ = m.handleRefKey(keyMsg(t, "*"))
+	if m = out.(Model); !m.pins["ABC-1"] {
+		t.Error("* on Summary did not pin the issue")
 	}
 }
 
@@ -87,6 +125,12 @@ func TestPanelFieldOtherIssue(t *testing.T) {
 	}
 }
 
+// rowNamed is the field cursor index of the panel row named name, -1 when
+// none.
+func rowNamed(m Model, name string) int {
+	return slices.IndexFunc(m.panelRows(), func(r panelRow) bool { return r.name() == name })
+}
+
 // withExtra gives the loaded issue two editmeta fields, writes going to a
 // fake Jira whose request bodies land in bodies.
 func withExtra(t *testing.T, bodies *[]string) Model {
@@ -106,7 +150,7 @@ func withExtra(t *testing.T, bodies *[]string) Model {
 		{FieldMeta: jira.FieldMeta{ID: "customfield_5", Name: "Ticket ref", Kind: jira.KindText}},
 	}})
 	m = out.(Model)
-	m.moreFields = true // unstarred: under More, opened; the More row is len(panelFields)
+	m.moreFields = true // unpinned: under More, opened
 	m.renderRef()
 	return m
 }
@@ -120,7 +164,7 @@ func TestPanelExtraFields(t *testing.T) {
 	if !strings.Contains(view, "Team:") || !strings.Contains(view, "Core") || !strings.Contains(view, "Ticket ref:") {
 		t.Fatal("extra fields not drawn")
 	}
-	for range len(panelFields) + 2 {
+	for range rowNamed(m, "Team") + 1 {
 		out, _ := m.handleRefKey(keyMsg(t, "tab"))
 		m = out.(Model)
 	}
@@ -154,7 +198,7 @@ func TestPanelExtraFields(t *testing.T) {
 func TestPanelExtraText(t *testing.T) {
 	var bodies []string
 	m := withExtra(t, &bodies)
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+2, "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = rowNamed(m, "Ticket ref"), "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	if !m.jiraFieldActive || m.jiraFieldName != "field" || strings.Contains(m.View().Content, "Edit Ticket ref") || !regexp.MustCompile(`Ticket ref: +❯`).MatchString(ansi.Strip(m.View().Content)) {
@@ -180,7 +224,7 @@ func TestPanelExtraDate(t *testing.T) {
 	var bodies []string
 	m := withExtra(t, &bodies)
 	m.panelExtra = append(m.panelExtra, jiraFormField{FieldMeta: jira.FieldMeta{ID: "duedate", Name: "Due date", Kind: jira.KindDate}})
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+3, "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = rowNamed(m, "Due date"), "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	m.jiraFieldInput.SetValue("soon")
@@ -206,7 +250,7 @@ func TestPanelExtraSprint(t *testing.T) {
 	m := withExtra(t, &bodies)
 	m.jiraTab.views = []jiraView{{kind: jiraViewSprint, name: "Sprint 9", sprint: 9}, {kind: jiraViewBacklog, name: "Backlog"}}
 	m.panelExtra = append(m.panelExtra, jiraFormField{FieldMeta: jira.FieldMeta{ID: "customfield_20", Name: "Sprint", Kind: jira.KindSprint}})
-	m.fieldCursor, m.fieldCursorKey = len(panelFields)+3, "ABC-1"
+	m.fieldCursor, m.fieldCursorKey = rowNamed(m, "Sprint"), "ABC-1"
 	out, _ := m.handleRefKey(keyMsg(t, "enter"))
 	m = out.(Model)
 	if !m.jiraPicker.active || len(m.jiraPicker.items) != 2 || m.jiraPicker.items[1].label != "Sprint 9" {

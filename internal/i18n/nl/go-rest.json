@@ -220,7 +220,7 @@
   "no rule has a watch:": "geen regel heeft een watch:",
   "no site %q in sites:; laneway setup adds one": "geen site %q in sites:; laneway setup voegt er een toe",
   "no state directory to keep fonts in": "geen statusmap om lettertypen te bewaren",
-  "no state file to keep stars in": "geen statusbestand om sterren te bewaren",
+  "no state file to keep pins in": "geen statusbestand om vastgezette velden te bewaren",
   "no such action": "geen zo'n actie",
   "no text": "geen tekst",
   "no transition to %s from here": "geen overgang naar %s vanaf hier",

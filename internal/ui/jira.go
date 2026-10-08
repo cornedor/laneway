@@ -82,98 +82,35 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	b.WriteString(header + "\n")
 	m.panelFieldLine = m.panelFieldLine[:0]
 	m.pickerLine, m.commentIndent = -1, 0
-	line := func() { m.panelFieldLine = append(m.panelFieldLine, strings.Count(b.String(), "\n")) }
-	line() // Summary
-	sel := m.panelFieldIs
-	lw := panelLabelW()
-	switch {
-	case m.fieldInlineOn("Summary"):
-		b.WriteString(m.fieldInlineView(0, width) + "\n")
-	case sel("Summary"):
-		b.WriteString(selectedRow.Render(orDash(iss.Summary)) + "\n")
-	case iss.Summary != "":
-		b.WriteString(titleStyle.Render(iss.Summary) + "\n")
-	}
-	b.WriteString("\n")
-
-	line()
-	if st, ok := statusLozenge[iss.StatusCategory]; ok && iss.Status != "" && !sel("Status") {
-		b.WriteString(refLabelStyle.Render(refMetaLabel(i18n.T("Status"), lw)) + st.Render(" "+strings.ToUpper(iss.Status)+" ") + "\n")
-	} else {
-		refField(&b, i18n.T("Status"), iss.Status, lw, sel("Status"))
-	}
-	m.inlinePickerUnder(&b, "Status", lw, width)
-	line()
-	refField(&b, i18n.T("Priority"), iss.Priority, lw, sel("Priority"))
-	m.inlinePickerUnder(&b, "Priority", lw, width)
-	line()
-	m.refFieldEdit(&b, "Points", i18n.T("Points"), iss.StoryPoints, lw, width)
-	line()
-	refField(&b, i18n.T("Assignee"), iss.Assignee, lw, sel("Assignee"))
-	m.inlinePickerUnder(&b, "Assignee", lw, width)
-	line()
-	refField(&b, i18n.T("Reporter"), iss.Reporter, lw, sel("Reporter"))
-	m.inlinePickerUnder(&b, "Reporter", lw, width)
-	line()
-	m.refFieldEdit(&b, "Labels", i18n.T("Labels"), strings.Join(iss.Labels, ", "), lw, width)
-	if m.jiraFieldActive && m.jiraFieldName == "labels" && m.fieldInline() {
-		for _, l := range m.labelLines(10) {
-			b.WriteString(l + "\n")
+	// The rows past the pinned own ones sit apart, their labels as wide as
+	// the widest name.
+	rows := m.panelRows()
+	split := slices.IndexFunc(rows, func(r panelRow) bool { return r.own == nil })
+	lw, w := panelLabelW(), panelLabelW()
+	if split >= 0 {
+		for _, r := range rows[split:] {
+			w = max(w, len([]rune(i18n.T(r.name())))+2)
 		}
 	}
-	if !iss.Updated.IsZero() {
-		refMeta(&b, i18n.T("Updated"), m.when(iss.Updated), lw)
-	}
-	if m.panelExtraKey == iss.Key {
-		m.writeFacts(&b, m.panelFacts)
-	}
-	// The deployment rides on the board's card (its Development field).
-	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 && m.jiraTab.cards[i].Deploy != "" {
-		refMeta(&b, i18n.T("Deployed"), m.jiraTab.cards[i].Deploy, lw)
-	}
-	if top, rest := m.splitExtra(); len(top)+len(rest) > 0 {
-		w := lw
-		for _, ff := range append(top, rest...) {
-			w = max(w, len(ff.Name)+2)
-			if m.starred[ff.ID] {
-				w = max(w, len(ff.Name)+4) // "★ "
-			}
+	for i, r := range rows {
+		if i == split {
+			b.WriteString("\n")
 		}
-		b.WriteString("\n")
-		idx := len(panelFields)
-		field := func(ff jiraFormField) {
-			line()
-			defer func() { idx++ }()
-			val := jiraValueText(ff.val)
-			if richField(ff) {
-				val = i18n.T("↓ below")
-			}
-			name := ff.Name
-			if m.starred[ff.ID] {
-				name = "★ " + name
-			}
-			if m.fieldInlineOn(ff.ID) {
-				b.WriteString(refLabelStyle.Render(refMetaLabel(name, w)) + m.fieldInlineView(w, width) + "\n")
-				if ff.Clause != "" {
-					for _, l := range m.labelLines(w) {
-						b.WriteString(l + "\n")
-					}
-				}
-				return
-			}
-			refField(&b, name, val, w, m.panelFieldIdx() == idx)
-			m.inlinePickerUnder(&b, ff.ID, w, width)
+		m.panelFieldLine = append(m.panelFieldLine, strings.Count(b.String(), "\n"))
+		sel, rw := m.panelFieldIdx() == i, lw
+		if split >= 0 && i >= split {
+			rw = w
 		}
-		for _, ff := range top {
-			field(ff)
-		}
-		if len(rest) > 0 {
-			line()
-			refField(&b, i18n.T(moreFieldsName), m.moreLabel(len(rest)), w, m.panelFieldIdx() == idx)
-			idx++
-			for _, ff := range m.foldedShown() {
-				field(ff)
-			}
+		switch {
+		case i == 0:
+			m.writeSummaryRow(&b, iss, sel, width)
+		case r.more:
+			_, rest := m.splitRows()
+			refField(&b, i18n.T(moreFieldsName), m.moreLabel(len(rest)), rw, sel)
+		case r.own != nil:
+			m.writeOwnRow(&b, iss, *r.own, sel, rw, width)
+		default:
+			m.writeExtraRow(&b, *r.ff, sel, rw, width)
 		}
 	}
 	if n := m.hiddenFields(); n > 0 {
@@ -238,12 +175,12 @@ func (m *Model) descHint(has bool) string {
 
 // refFieldEdit writes the panel's own field row: the inline input while it
 // is edited, else refField.
-func (m *Model) refFieldEdit(b *strings.Builder, name, label, value string, labelW, width int) {
+func (m *Model) refFieldEdit(b *strings.Builder, name, label, value string, labelW, width int, sel bool) {
 	if m.fieldInlineOn(name) {
 		b.WriteString(refLabelStyle.Render(refMetaLabel(label, labelW)) + m.fieldInlineView(labelW, width) + "\n")
 		return
 	}
-	refField(b, label, value, labelW, m.panelFieldIs(name))
+	refField(b, label, value, labelW, sel)
 }
 
 // inlinePickerUnder drops the inline picker under row name when it is open
@@ -661,33 +598,120 @@ func (m *Model) commentActionAt(c jira.Comment, col int) string {
 	return ""
 }
 
-// writeFacts writes the issue's read-only details: created, resolved,
-// watchers and votes (you among them), time tracking.
-func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
-	lw := panelLabelW()
-	if !f.Created.IsZero() {
-		refMeta(b, i18n.T("Created"), m.when(f.Created), lw)
+// writeSummaryRow writes the summary: the panel's title, an input while
+// it is edited.
+func (m *Model) writeSummaryRow(b *strings.Builder, iss *jira.Issue, sel bool, width int) {
+	switch {
+	case m.fieldInlineOn("Summary"):
+		b.WriteString(m.fieldInlineView(0, width) + "\n")
+	case sel:
+		b.WriteString(selectedRow.Render(orDash(iss.Summary)) + "\n")
+	case iss.Summary != "":
+		b.WriteString(titleStyle.Render(iss.Summary) + "\n")
 	}
-	if f.Resolution != "" {
-		res := f.Resolution
-		if !f.Resolved.IsZero() {
-			res += " · " + m.when(f.Resolved)
+	b.WriteString("\n")
+}
+
+// writeOwnRow writes one of the panel's own field rows, with its inline
+// editor when open.
+func (m *Model) writeOwnRow(b *strings.Builder, iss *jira.Issue, f panelField, sel bool, lw, width int) {
+	label := i18n.T(f.name)
+	switch f.id {
+	case "status":
+		if st, ok := statusLozenge[iss.StatusCategory]; ok && iss.Status != "" && !sel {
+			b.WriteString(refLabelStyle.Render(refMetaLabel(label, lw)) + st.Render(" "+strings.ToUpper(iss.Status)+" ") + "\n")
+		} else {
+			refField(b, label, iss.Status, lw, sel)
 		}
-		refMeta(b, i18n.T("Resolved"), res, lw)
+	case "points", "labels":
+		m.refFieldEdit(b, f.name, label, m.ownValue(f.id), lw, width, sel)
+		if f.id == "labels" && m.jiraFieldActive && m.jiraFieldName == "labels" && m.fieldInline() {
+			for _, l := range m.labelLines(10) {
+				b.WriteString(l + "\n")
+			}
+		}
+	default:
+		refField(b, label, m.ownValue(f.id), lw, sel)
+	}
+	m.inlinePickerUnder(b, f.name, lw, width)
+}
+
+// writeExtraRow writes an editmeta field's row, with its inline editor when
+// open.
+func (m *Model) writeExtraRow(b *strings.Builder, ff jiraFormField, sel bool, w, width int) {
+	val := jiraValueText(ff.val)
+	if richField(ff) {
+		val = i18n.T("↓ below")
+	}
+	if m.fieldInlineOn(ff.ID) {
+		b.WriteString(refLabelStyle.Render(refMetaLabel(ff.Name, w)) + m.fieldInlineView(w, width) + "\n")
+		if ff.Clause != "" {
+			for _, l := range m.labelLines(w) {
+				b.WriteString(l + "\n")
+			}
+		}
+		return
+	}
+	refField(b, ff.Name, val, w, sel)
+	m.inlinePickerUnder(b, ff.ID, w, width)
+}
+
+// ownValue is the shown issue's value of the panel's own field id, "" when
+// it has none. The read-only details past Updated come with editmeta; the
+// deployment rides on the board's card (its Development field).
+func (m *Model) ownValue(id string) string {
+	iss := m.jiraIssue
+	if iss == nil {
+		return ""
+	}
+	f := m.panelFacts
+	if m.panelExtraKey != iss.Key {
+		f = jira.Facts{}
 	}
 	count := func(n int, you bool) string {
-		if n == 0 {
+		switch {
+		case n == 0:
+			return ""
+		case you:
+			return i18n.Tf("%d (you)", n)
+		}
+		return strconv.Itoa(n)
+	}
+	switch id {
+	case "status":
+		return iss.Status
+	case "priority":
+		return iss.Priority
+	case "points":
+		return iss.StoryPoints
+	case "assignee":
+		return iss.Assignee
+	case "reporter":
+		return iss.Reporter
+	case "labels":
+		return strings.Join(iss.Labels, ", ")
+	case "updated":
+		if !iss.Updated.IsZero() {
+			return m.when(iss.Updated)
+		}
+	case "created":
+		if !f.Created.IsZero() {
+			return m.when(f.Created)
+		}
+	case "resolution":
+		res := f.Resolution
+		if res != "" && !f.Resolved.IsZero() {
+			res += " · " + m.when(f.Resolved)
+		}
+		return res
+	case "watches":
+		return count(f.Watchers, f.Watching)
+	case "votes":
+		return count(f.Votes, f.Voted)
+	case "timetracking":
+		if f.Spent <= 0 && f.Estimate <= 0 && f.Left <= 0 {
 			return ""
 		}
-		s := strconv.Itoa(n)
-		if you {
-			s = i18n.Tf("%d (you)", n)
-		}
-		return s
-	}
-	refMeta(b, i18n.T("Watchers"), count(f.Watchers, f.Watching), lw)
-	refMeta(b, i18n.T("Votes"), count(f.Votes, f.Voted), lw)
-	if f.Spent > 0 || f.Estimate > 0 || f.Left > 0 {
 		t := i18n.T("nothing logged")
 		if f.Spent > 0 {
 			t = i18n.Tf("%s logged", jira.FormatDuration(f.Spent))
@@ -698,14 +722,19 @@ func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
 		if f.Estimate > 0 {
 			t += i18n.Tf(" of %s", jira.FormatDuration(f.Estimate))
 		}
-		refMeta(b, i18n.T("Time"), t, lw)
+		return t
+	case "deployed":
+		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 {
+			return m.jiraTab.cards[i].Deploy
+		}
 	}
+	return ""
 }
 
 // moreLabel is the More row's value: how many it folds, and how to open it.
 func (m *Model) moreLabel(n int) string {
 	if m.moreFields {
-		return i18n.Tf("▾ %d · %s stars one to keep it shown", n, helpKey(m.keys.Pin))
+		return i18n.Tf("▾ %d · %s pins one to keep it shown", n, helpKey(m.keys.Pin))
 	}
 	return i18n.Tf("▸ %d · ↵ shows them", n)
 }

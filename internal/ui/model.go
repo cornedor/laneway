@@ -166,7 +166,7 @@ func defaultKeys() keyMap {
 		Standup:         bind(i18n.T("standup: go round the team"), "U"),
 		History:         bind(i18n.T("issue history"), "H"),
 		DevInfo:         bind(i18n.T("pull requests and branches"), "D"),
-		Pin:             bind(i18n.T("pin / unpin issue; on a panel field, star it"), "*"),
+		Pin:             bind(i18n.T("pin / unpin issue; on a panel field, pin it"), "*"),
 		Fold:            bind(i18n.T("fold the swimlane, or the stacked lane's section"), "z"),
 		UnfoldAll:       bind(i18n.T("unfold every swimlane and section"), "Z"),
 		NextBand:        bind(i18n.T("next swimlane or group"), "}"),
@@ -430,7 +430,7 @@ type Model struct {
 	moreFields    bool         // the panel's More row open, for the session
 	// panelExtraEarly: panelExtra is the remembered screen (earlyExtra), editmeta not in yet.
 	panelExtraEarly bool
-	starred         map[string]bool // editmeta field ids shown on every issue (jira.StarredMeta)
+	fieldPins       map[string]bool // the panel's field pins (jira.PinsMeta)
 	descOpen        map[string]bool // the description expands opened, by "KEY#n"; closed as in Jira
 	descTasks       []bool          // the action items the panel's description shows: done or not
 	// panelHits are the panel's clickable lines by content line: a field's
@@ -609,10 +609,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		m.createMore = v == "true"
 		m.jiraClient.SetQueue(queueTo(m.store))
 		m.jiraClient.SetLayouts(m.store)
-		m.starred = map[string]bool{}
-		for _, id := range jira.Starred(m.store) {
-			m.starred[id] = true
-		}
+		m.fieldPins = jira.FieldPins(m.store)
 		m.queued = len(readQueue(m.store))
 	}
 	return m

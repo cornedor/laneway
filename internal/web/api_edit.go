@@ -67,7 +67,7 @@ func init() {
 	})
 	get("/projects/{project}/sprints", projectSprints)
 	get("/issues/{key}/editmeta", editMeta)
-	put("/fields/starred/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
+	put("/fields/pinned/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		b, err := Body[struct{ On bool }](r)
 		if err != nil {
 			return nil, err
@@ -76,9 +76,9 @@ func init() {
 			return nil, badRequest(i18n.T("bad field id"))
 		}
 		if s.opt.Store == nil {
-			return nil, httpError{http.StatusNotImplemented, i18n.T("no state file to keep stars in")}
+			return nil, httpError{http.StatusNotImplemented, i18n.T("no state file to keep pins in")}
 		}
-		return jira.SetStarred(s.opt.Store, r.PathValue("id"), b.On)
+		return jira.SetFieldPin(s.opt.Store, r.PathValue("id"), b.On)
 	})
 	get("/issues/{key}/transitionmeta", transitionMeta)
 	post("/issues/{key}/transitionwith", transitionWith)
@@ -400,15 +400,12 @@ func projectSprints(ctx context.Context, s *Server, r *http.Request) (any, error
 
 var fieldIDRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
 
-// starred are the starred field ids (shared with the terminal), never null.
-func starred(s *Server) []string {
+// fieldPins are the field pins (shared with the terminal), never null.
+func fieldPins(s *Server) map[string]bool {
 	if s.opt.Store == nil {
-		return []string{}
+		return map[string]bool{}
 	}
-	if ids := jira.Starred(s.opt.Store); ids != nil {
-		return ids
-	}
-	return []string{}
+	return jira.FieldPins(s.opt.Store)
 }
 
 // editMeta is what editing an issue needs beyond the issue itself: the
@@ -432,7 +429,7 @@ func editMeta(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	var typ struct{ ID, Name string }
 	_ = json.Unmarshal(raw["issuetype"], &typ)
 	sp, _ := currentSprint(raw)
-	out := map[string]any{"Fields": fields, "Values": values, "Due": due, "TypeID": typ.ID, "Type": typ.Name, "Sprint": sp, "Starred": starred(s)}
+	out := map[string]any{"Fields": fields, "Values": values, "Due": due, "TypeID": typ.ID, "Type": typ.Name, "Sprint": sp, "Pins": fieldPins(s)}
 	if fl, err := c.Flagged(ctx, key); err == nil {
 		out["Flagged"] = fl
 	}

@@ -162,14 +162,13 @@ a.issue-ref { font-family: var(--font-mono); font-size: .95em; }
 .it-none kbd { margin-left: .286rem; }
 /* Room for a usable terminal beside a board (about 70 columns); the phone sheet is full width anyway. */
 @media (min-width: 901px) { #panel.term-on { min-width: min(40rem, 70%); } }
-/* an editmeta field with its star (outlined on hover, filled always) */
-.fld-star { position: relative; min-width: 0; display: flex; }
-.fld-star > .fld { flex: 1; padding-right: 1.714rem; }
-.fld-star .star { position: absolute; top: .214rem; right: .214rem; width: 1.429rem; height: 1.429rem; border: 0; border-radius: var(--radius); background: none; color: var(--fg-3); cursor: pointer; font: inherit; line-height: 1; opacity: 0; }
-.fld-star:hover .star, .fld-star .star:focus-visible, .fld-star.on .star { opacity: 1; }
-.fld-star.on .star { color: var(--warn); }
-.fld-star .star:hover { background: var(--bg-4); color: var(--fg); }
-@media (hover: none) { .fld-star .star { opacity: .6; } }
+/* a field with its pin (on hover: outlined to pin, filled to unpin) */
+.fld-pin { position: relative; min-width: 0; display: flex; }
+.fld-pin > .fld { flex: 1; padding-right: 1.714rem; }
+.fld-pin .pin { position: absolute; top: .214rem; right: .214rem; width: 1.429rem; height: 1.429rem; border: 0; border-radius: var(--radius); background: none; color: var(--fg-3); cursor: pointer; font: inherit; line-height: 1; opacity: 0; }
+.fld-pin:hover .pin, .fld-pin .pin:focus-visible { opacity: 1; }
+.fld-pin .pin:hover { background: var(--bg-4); color: var(--fg); }
+@media (hover: none) { .fld-pin .pin { opacity: .6; } }
 .fld.ro { cursor: default; }
 .docs .doc { margin-top: calc(var(--pad) * 1.5); }
 /* a linked Confluence page read in place (readPage) */
