@@ -24,7 +24,7 @@ func TestKanbanCards(t *testing.T) {
 			fmt.Fprint(w, `{"columnConfig":{"columns":[{"name":"Backlog","statuses":[{"id":"1"}]},{"name":"Doing","statuses":[{"id":"3"}]}]}}`)
 		case "/rest/agile/1.0/board/7/issue":
 			jql = r.URL.Query().Get("jql")
-			fmt.Fprint(w, `{"total":2,"issues":[{"key":"K-1","fields":{"status":{"id":"1"}}},{"key":"K-2","fields":{"status":{"id":"3"}}}]}`)
+			fmt.Fprint(w, `{"total":1,"issues":[{"key":"K-2","fields":{"status":{"id":"3"}}}]}`)
 		default:
 			fmt.Fprint(w, `[]`)
 		}
@@ -45,11 +45,11 @@ func TestKanbanCards(t *testing.T) {
 	if code := issueCall(t, "GET", ts.URL+"/api/boards/7/cards?kanban=1&jql=assignee%20%3D%20x", nil, &out); code != 200 {
 		t.Fatalf("status %d", code)
 	}
-	if want := "(statusCategory != Done OR updated >= -30d) AND (assignee = x)"; jql != want {
+	if want := "((statusCategory != Done OR updated >= -30d) AND (status not in (1))) AND (assignee = x)"; jql != want {
 		t.Errorf("jql = %q, want %q", jql, want)
 	}
 	if len(out.Cards) != 1 || out.Cards[0].Key != "K-2" || out.Total != 1 {
-		t.Errorf("backlog column not left out: %+v total %d", out.Cards, out.Total)
+		t.Errorf("cards = %+v total %d", out.Cards, out.Total)
 	}
 	if issueCall(t, "GET", ts.URL+"/api/boards/7/cards", nil, nil); strings.Contains(jql, "updated") {
 		t.Errorf("whole board filtered: %q", jql)

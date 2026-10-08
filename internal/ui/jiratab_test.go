@@ -2,6 +2,7 @@ package ui
 
 import (
 	"charm.land/lipgloss/v2"
+	"context"
 	"errors"
 	"fmt"
 	"image/color"
@@ -71,6 +72,46 @@ func TestJiraTabLanes(t *testing.T) {
 		if !strings.Contains(view, want) {
 			t.Errorf("board lacks %q", want)
 		}
+	}
+}
+
+// TestKanbanIssuesBigBacklog: 2000 backlog issues ranked above 100 in
+// progress still leave the 100 on the board; the backlog stays out of the
+// fetch, not just the view.
+func TestKanbanIssuesBigBacklog(t *testing.T) {
+	var jql string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/agile/1.0/board/7/issue" {
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		jql = r.URL.Query().Get("jql")
+		var issues []string
+		if !strings.Contains(jql, "status not in (1, 2)") {
+			for i := range 2000 {
+				issues = append(issues, fmt.Sprintf(`{"key":"K-%d","fields":{"status":{"id":"1"}}}`, i+1))
+			}
+		}
+		for i := range 100 {
+			issues = append(issues, fmt.Sprintf(`{"key":"K-%d","fields":{"status":{"id":"3"}}}`, 3000+i))
+		}
+		var start int
+		fmt.Sscan(r.URL.Query().Get("startAt"), &start)
+		page := issues[min(start, len(issues)):min(start+100, len(issues))]
+		fmt.Fprintf(w, `{"total":%d,"issues":[%s]}`, len(issues), strings.Join(page, ","))
+	}))
+	defer srv.Close()
+	c := jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	cfg := &jira.BoardConfig{Columns: []jira.Column{{Name: "Backlog", StatusIDs: []string{"1", "2"}}, {Name: "Doing", StatusIDs: []string{"3"}}}}
+	cards, total, err := KanbanIssues(context.Background(), c, 7, cfg, 0, "assignee = x", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "((statusCategory != Done OR updated >= -14d) AND (status not in (1, 2))) AND (assignee = x)"; jql != want {
+		t.Errorf("jql = %q, want %q", jql, want)
+	}
+	if len(cards) != 100 || total != 100 || cards[0].Key != "K-3000" {
+		t.Errorf("got %d cards of %d, want the 100 in progress", len(cards), total)
 	}
 }
 

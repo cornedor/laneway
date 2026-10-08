@@ -783,13 +783,24 @@ func kanbanBacklog(cfg *jira.BoardConfig) int {
 // jiraKanbanJQL hides what Jira's own kanban board hides: work done more than
 // days (two weeks by default) ago.
 func jiraKanbanJQL(days int) string {
-	if days <= 0 {
+	if days < 1 || days > 365 {
 		days = defaultKanbanDoneDays
 	}
 	return fmt.Sprintf("statusCategory != Done OR updated >= -%dd", days)
 }
 
 const defaultKanbanDoneDays = 14
+
+// KanbanIssues is a kanban board as Jira shows it, narrowed by filter: work
+// done more than days ago and its backlog column left out. The backlog goes
+// in the JQL, so the card limit counts only cards that show.
+func KanbanIssues(ctx context.Context, c *jira.Client, board int, cfg *jira.BoardConfig, days int, filter, pointsField string) ([]jira.Card, int, error) {
+	q := jiraKanbanJQL(days)
+	if i := kanbanBacklog(cfg); i >= 0 && len(cfg.Columns[i].StatusIDs) > 0 {
+		q = andJQL(q, "status not in ("+strings.Join(cfg.Columns[i].StatusIDs, ", ")+")")
+	}
+	return c.BoardIssues(ctx, board, andJQL(q, filter), pointsField)
+}
 
 func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.BoardConfig, v jiraView, filter string) ([]jira.Card, int, error) {
 	switch v.kind {
@@ -803,18 +814,7 @@ func fetchJiraView(ctx context.Context, c *jira.Client, board int, cfg *jira.Boa
 		cards, err := c.SearchCards(ctx, andOrderedJQL(v.jql, filter))
 		return cards, len(cards), err
 	}
-	cards, total, err := c.BoardIssues(ctx, board, andJQL(jiraKanbanJQL(v.doneDays), filter), cfg.PointsField)
-	if i := kanbanBacklog(cfg); i >= 0 && err == nil {
-		kept := cards[:0]
-		for _, cd := range cards {
-			if !slices.Contains(cfg.Columns[i].StatusIDs, cd.StatusID) {
-				kept = append(kept, cd)
-			}
-		}
-		total -= len(cards) - len(kept)
-		cards = kept
-	}
-	return cards, total, err
+	return KanbanIssues(ctx, c, board, cfg, v.doneDays, filter, cfg.PointsField)
 }
 
 // indexJQL answers q from the index for a search Jira can't take offline,
