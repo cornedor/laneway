@@ -3,7 +3,6 @@ package ui
 import (
 	"charm.land/bubbles/v2/key"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -14,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -54,15 +54,15 @@ var paletteAliases = map[string]string{
 // paletteDesc renames actions whose board description is wrong on a
 // screen over the board.
 var paletteDesc = map[string]map[string]string{
-	"roadmap": {"move_left": "move the bar a column earlier", "move_right": "move the bar a column later",
-		"end_earlier": "move its end earlier", "end_later": "move its end later", "quit": "close the roadmap"},
-	"planning": {"quit": "close planning"},
-	"panel":    {"search": "find in the issue"},
-	"charts":   {"quit": "close the charts"},
-	"standup":  {"quit": "close the standup", "open": "open the issue", "prev_view": "a workday further back", "next_view": "a workday later"},
-	"inbox":    {"quit": "close the inbox", "open": "open the thread's issue"},
-	"agents":   {"quit": "close the agents", "open": "attach to the agent", "toggle_panel": "open the issue"},
-	"week":     {"quit": "close the week", "open": "log work in the cell", "prev_view": "previous week", "next_view": "next week"},
+	"roadmap": {"move_left": i18n.N("move the bar a column earlier"), "move_right": i18n.N("move the bar a column later"),
+		"end_earlier": i18n.N("move its end earlier"), "end_later": i18n.N("move its end later"), "quit": i18n.N("close the roadmap")},
+	"planning": {"quit": i18n.N("close planning")},
+	"panel":    {"search": i18n.N("find in the issue")},
+	"charts":   {"quit": i18n.N("close the charts")},
+	"standup":  {"quit": i18n.N("close the standup"), "open": i18n.N("open the issue"), "prev_view": i18n.N("a workday further back"), "next_view": i18n.N("a workday later")},
+	"inbox":    {"quit": i18n.N("close the inbox"), "open": i18n.N("open the thread's issue")},
+	"agents":   {"quit": i18n.N("close the agents"), "open": i18n.N("attach to the agent"), "toggle_panel": i18n.N("open the issue")},
+	"week":     {"quit": i18n.N("close the week"), "open": i18n.N("log work in the cell"), "prev_view": i18n.N("previous week"), "next_view": i18n.N("next week")},
 }
 
 // helpDescs is what the ? help says each key does on scope's screen, by
@@ -70,7 +70,7 @@ var paletteDesc = map[string]map[string]string{
 func (m *Model) helpDescs(scope string) map[string]string {
 	out := map[string]string{}
 	for _, sec := range m.helpSections() {
-		if !strings.EqualFold(sec.title, scope) {
+		if !strings.EqualFold(sec.title, i18n.T(strings.ToUpper(scope[:1])+scope[1:])) {
 			continue
 		}
 		for _, r := range sec.rows {
@@ -85,8 +85,8 @@ func (m *Model) helpDescs(scope string) map[string]string {
 // openPalette fills the picker with the palette's rows.
 func (m *Model) openPalette() {
 	m.paletteFocus = m.focus
-	m.startJiraPicker(jiraPickPalette, "Command palette", true)
-	m.jiraPicker.filter.Placeholder = "action, view, filter, board or issue…"
+	m.startJiraPicker(jiraPickPalette, i18n.T("Command palette"), true)
+	m.jiraPicker.filter.Placeholder = i18n.T("action, view, filter, board or issue…")
 	scope := m.paletteScope()
 	onBoard := scope == "board" || scope == "panel"
 	names := m.keys.keyNames()
@@ -97,13 +97,13 @@ func (m *Model) openPalette() {
 		pinned = m.pinnedIssues()
 	}
 	if onBoard && m.branchKey != "" {
-		items = append(items, jiraPickerItem{id: "i:" + m.branchKey, label: "branch  " + m.branchKey})
+		items = append(items, jiraPickerItem{id: "i:" + m.branchKey, label: i18n.Tf("branch  %s", m.branchKey)})
 	}
 	for _, p := range pinned {
 		if p[0] == m.branchKey {
 			continue // the branch row has it
 		}
-		label := "pinned  " + p[0] + "  " + ansi.Strip(p[1])
+		label := i18n.Tf("pinned  %s  %s", p[0], ansi.Strip(p[1]))
 		if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == p[0] }); i >= 0 {
 			label += "  · " + m.jiraTab.cards[i].Status // on the board: its status now
 		}
@@ -121,7 +121,7 @@ func (m *Model) openPalette() {
 			}
 			desc, search := b.Help().Desc, paletteAliases[name]
 			if d, ok := paletteDesc[scope][name]; ok {
-				desc = d
+				desc = i18n.T(d)
 			} else if d, ok := help[keysLabel(*b)]; ok {
 				desc, search = d, strings.TrimSpace(search+" "+desc)
 			}
@@ -134,30 +134,30 @@ func (m *Model) openPalette() {
 	}
 	if scope == "board" {
 		for i, v := range t.views {
-			items = append(items, jiraPickerItem{id: "v:" + strconv.Itoa(i), label: "view  " + v.name, current: i == t.viewIdx})
+			items = append(items, jiraPickerItem{id: "v:" + strconv.Itoa(i), label: i18n.Tf("view  %s", v.name), current: i == t.viewIdx})
 		}
 		for i, q := range t.quick {
-			items = append(items, jiraPickerItem{id: "q:" + strconv.Itoa(i), label: "filter  " + q.Name, current: t.quickOn[q.ID]})
+			items = append(items, jiraPickerItem{id: "q:" + strconv.Itoa(i), label: i18n.Tf("filter  %s", q.Name), current: t.quickOn[q.ID]})
 		}
 		for i, f := range m.opts.filters {
-			items = append(items, jiraPickerItem{id: "s:" + strconv.Itoa(i), label: "search  " + f.Name + "  /" + f.Query,
+			items = append(items, jiraPickerItem{id: "s:" + strconv.Itoa(i), label: i18n.Tf("search  %s  /%s", f.Name, f.Query),
 				current: t.search.Value() == f.Query})
 		}
 		for _, b := range t.boards {
-			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: "board  " + b.Name, current: b.ID == m.jiraBoardID()})
+			items = append(items, jiraPickerItem{id: "b:" + strconv.Itoa(b.ID), label: i18n.Tf("board  %s", b.Name), current: b.ID == m.jiraBoardID()})
 		}
 	}
 	if onBoard {
 		for _, k := range slices.Sorted(maps.Keys(m.agents)) {
 			for _, a := range m.agents[k] {
 				items = append(items, jiraPickerItem{id: "g:" + k + ":" + a.PaneID,
-					label: "agent  " + k + "  " + string(a.Status) + "  " + a.Name, search: "agents herdr attach"})
+					label: i18n.Tf("agent  %s  %s  %s", k, string(a.Status), a.Name), search: "agents herdr attach"})
 			}
 		}
 	}
 	for i, a := range m.actions {
 		if actionOn(a, scope == "panel") && onBoard {
-			label := "action  " + a.Name
+			label := i18n.Tf("action  %s", a.Name)
 			if a.Key != "" {
 				label += "  " + a.Key
 			}
@@ -165,17 +165,17 @@ func (m *Model) openPalette() {
 		}
 	}
 	if n := m.hiddenFields(); n > 0 {
-		items = append(items, jiraPickerItem{id: "e:", label: fmt.Sprintf("show empty fields  %d hidden", n)})
+		items = append(items, jiraPickerItem{id: "e:", label: i18n.Tf("show empty fields  %d hidden", n)})
 	}
 	if m.lastDownload != "" {
-		items = append(items, jiraPickerItem{id: "d:", label: "open download  " + filepath.Base(m.lastDownload)})
+		items = append(items, jiraPickerItem{id: "d:", label: i18n.Tf("open download  %s", filepath.Base(m.lastDownload))})
 	}
 	if m.newRelease != "" {
-		items = append(items, jiraPickerItem{id: "u:", label: "update  " + m.newRelease + " is out  " + m.upgradeHint(), search: "upgrade release version"})
+		items = append(items, jiraPickerItem{id: "u:", label: i18n.Tf("update  %s is out  %s", m.newRelease, m.upgradeHint()), search: "upgrade release version"})
 	}
-	items = append(items, jiraPickerItem{id: "m:", label: fmt.Sprintf("messages  the status line's last %d", len(m.statusLog))})
+	items = append(items, jiraPickerItem{id: "m:", label: i18n.Tf("messages  the status line's last %d", len(m.statusLog))})
 	if m.queued > 0 {
-		items = append(items, jiraPickerItem{id: "w:", label: fmt.Sprintf("queue  %s waiting to reach Jira", plural(m.queued, "write")), search: "offline"})
+		items = append(items, jiraPickerItem{id: "w:", label: i18n.Tn(m.queued, "queue  %d write waiting to reach Jira", "queue  %d writes waiting to reach Jira", m.queued), search: "offline"})
 	}
 	if onBoard {
 		for _, c := range t.cards {
@@ -185,7 +185,7 @@ func (m *Model) openPalette() {
 		}
 		for _, r := range m.recentIssues() {
 			if id := "i:" + r[0]; !slices.ContainsFunc(items, func(it jiraPickerItem) bool { return it.id == id }) {
-				items = append(items, jiraPickerItem{id: id, label: "recent  " + r[0] + "  " + ansi.Strip(r[1])})
+				items = append(items, jiraPickerItem{id: id, label: i18n.Tf("recent  %s  %s", r[0], ansi.Strip(r[1]))})
 			}
 		}
 	}
@@ -260,7 +260,7 @@ func (m Model) applyPalette(id string) (tea.Model, tea.Cmd) {
 		m.renderRef()
 		return m, nil
 	case "d":
-		m.status = "opening " + m.lastDownload + "…"
+		m.status = i18n.Tf("opening %s…", m.lastDownload)
 		return m, m.openOpenable(openable{name: filepath.Base(m.lastDownload), url: m.lastDownload})
 	case "u":
 		return m, m.upgrade()
@@ -407,9 +407,9 @@ func (m Model) handlePaletteFound(msg paletteFoundMsg) (tea.Model, tea.Cmd) {
 		p.remote = nil
 		switch {
 		case msg.err != nil && jira.Offline(msg.err) && m.index != nil:
-			m.status = "offline: issues from the index"
+			m.status = i18n.T("offline: issues from the index")
 		case msg.err != nil:
-			m.fail("issue search: " + msg.err.Error()) // not "no matches"
+			m.fail(i18n.Tf("issue search: %s", msg.err.Error())) // not "no matches"
 		}
 		for _, c := range msg.cards {
 			p.remote = append(p.remote, jiraPickerItem{id: "i:" + c.Key, label: "⌕ " + c.Key + "  " + ansi.Strip(c.Summary)})
@@ -485,10 +485,10 @@ func (m *Model) togglePin(key, summary string) {
 	p := m.pinnedIssues()
 	if kept := slices.DeleteFunc(slices.Clone(p), func(e [2]string) bool { return e[0] == key }); len(kept) < len(p) {
 		p = kept
-		m.status = "unpinned " + key
+		m.status = i18n.Tf("unpinned %s", key)
 	} else {
 		p = append(p, [2]string{key, summary})
-		m.status = "pinned " + key + " · first in the palette"
+		m.status = i18n.Tf("pinned %s · first in the palette", key)
 	}
 	b, _ := json.Marshal(p)
 	_ = m.store.SetMeta(pinnedMeta, string(b))

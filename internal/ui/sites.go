@@ -1,6 +1,10 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
+)
 
 // @ switches between the config's Jira sites. The app ends with the pick
 // and main starts it again on that site, with that site's own state.
@@ -29,12 +33,12 @@ func (m Model) NextSite() (string, bool) {
 // openSitePicker lists the sites, the current one ticked, and a last row
 // that adds one.
 func (m *Model) openSitePicker() {
-	m.startJiraPicker(jiraPickSite, "Jira site", false)
+	m.startJiraPicker(jiraPickSite, i18n.T("Jira site"), false)
 	items := make([]jiraPickerItem, 0, len(m.sites)+1)
 	for _, s := range m.sites {
 		items = append(items, jiraPickerItem{id: s, label: m.siteLabel(s), current: s == m.site})
 	}
-	items = append(items, jiraPickerItem{id: addSiteID, label: "+ add a Jira site", focus: len(m.sites) < 2})
+	items = append(items, jiraPickerItem{id: addSiteID, label: i18n.T("+ add a Jira site"), focus: len(m.sites) < 2})
 	m.setJiraPickerItems(items)
 }
 
@@ -46,7 +50,7 @@ func (m Model) pickSite(site string) (tea.Model, tea.Cmd) {
 	}
 	if w := m.unsentWork(); w != "" && !m.quitAsked {
 		m.quitAsked = true // the next pick (or quit) goes
-		m.status = w + " · pick it again to switch anyway"
+		m.status = i18n.Tf("%s · pick it again to switch anyway", w)
 		return m, nil
 	}
 	if site == addSiteID {
@@ -64,5 +68,5 @@ func (m Model) siteLabel(s string) string {
 	if m.defaultSiteName != "" {
 		return m.defaultSiteName
 	}
-	return "default (jira:)"
+	return i18n.T("default (jira:)")
 }

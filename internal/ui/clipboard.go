@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -20,7 +20,7 @@ func (m *Model) copyJira(issueKey string, url bool) tea.Cmd {
 	if url {
 		s = m.jiraClient.BrowseURL(issueKey)
 	}
-	m.status = "copied " + s
+	m.status = i18n.Tf("copied %s", s)
 	return tea.SetClipboard(s)
 }
 
@@ -64,7 +64,7 @@ func (m *Model) copyBranch(issueKey, typ, summary string) tea.Cmd {
 		return nil
 	}
 	s := branchName(m.opts.branchTemplate, issueKey, typ, summary)
-	m.status = "copied " + s
+	m.status = i18n.Tf("copied %s", s)
 	return tea.SetClipboard(s)
 }
 
@@ -89,6 +89,6 @@ func (m *Model) copyJiraTable() tea.Cmd {
 	for i, c := range cards {
 		rows[i] = []string{"[" + c.Key + "](" + m.jiraClient.BrowseURL(c.Key) + ")", c.Summary, c.Status, c.Assignee, c.Points}
 	}
-	m.status = fmt.Sprintf("copied %d rows as a markdown table", len(cards))
-	return tea.SetClipboard(markdownTable([]string{"Key", "Summary", "Status", "Assignee", "Points"}, rows))
+	m.status = i18n.Tf("copied %d rows as a markdown table", len(cards))
+	return tea.SetClipboard(markdownTable([]string{i18n.T("Key"), i18n.T("Summary"), i18n.T("Status"), i18n.T("Assignee"), i18n.T("Points")}, rows))
 }

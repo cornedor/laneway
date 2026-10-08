@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -116,9 +117,9 @@ func sprintCheer(vel []jira.SprintVelocity) string {
 	pts := strings.TrimSuffix(strings.TrimRight(fmt.Sprintf("%.1f", last.Done), "0"), ".")
 	switch rank {
 	case 1:
-		return fmt.Sprintf("%sp, best of the last %d", pts, len(vel))
+		return i18n.Tf("%sp, best of the last %d", pts, len(vel))
 	case 2, 3:
-		return fmt.Sprintf("%sp, #%d of the last %d", pts, rank, len(vel))
+		return i18n.Tf("%sp, #%d of the last %d", pts, rank, len(vel))
 	}
-	return pts + "p done"
+	return i18n.Tf("%sp done", pts)
 }

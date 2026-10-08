@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/home"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/standup"
 )
@@ -120,7 +120,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		default:
 			d, err := time.ParseDuration(v)
 			if err != nil || d < 5*time.Second {
-				warn = append(warn, fmt.Sprintf("ui.%s: %q is not a duration of 5s or more", name, v))
+				warn = append(warn, i18n.Tf("ui.%s: %q is not a duration of 5s or more", name, v))
 				return
 			}
 			*dst = d
@@ -135,25 +135,25 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	case "hide":
 		o.hideEmpty = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.empty_fields: %q is not show or hide", c.EmptyFields))
+		warn = append(warn, i18n.Tf("ui.empty_fields: %q is not show or hide", c.EmptyFields))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.EmptyLanes)) {
 	case "", "show":
 	case "hide":
 		o.hideLanes = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.empty_lanes: %q is not show or hide", c.EmptyLanes))
+		warn = append(warn, i18n.Tf("ui.empty_lanes: %q is not show or hide", c.EmptyLanes))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Icons)) {
 	case "", "nerd":
 	case "plain":
 		o.plainIcons = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.icons: %q is not nerd or plain", c.Icons))
+		warn = append(warn, i18n.Tf("ui.icons: %q is not nerd or plain", c.Icons))
 	}
 	if v := strings.TrimSpace(c.DoubleClick); v != "" {
 		if d, err := time.ParseDuration(v); err != nil || d < 100*time.Millisecond || d > 2*time.Second {
-			warn = append(warn, fmt.Sprintf("ui.double_click: %q is not a duration from 100ms to 2s", v))
+			warn = append(warn, i18n.Tf("ui.double_click: %q is not a duration from 100ms to 2s", v))
 		} else {
 			o.doubleClick = d
 		}
@@ -163,18 +163,18 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	case "fullscreen", "panel":
 		o.agentView = v
 	default:
-		warn = append(warn, fmt.Sprintf("ui.agent_view: %q is not fullscreen or panel", c.AgentView))
+		warn = append(warn, i18n.Tf("ui.agent_view: %q is not fullscreen or panel", c.AgentView))
 	}
 	switch v := strings.ToLower(strings.TrimSpace(c.CardColors)); v {
 	case "":
 	case "ribbon", "off":
 		o.cardColors = v
 	default:
-		warn = append(warn, fmt.Sprintf("ui.card_colors: %q is not ribbon or off", c.CardColors))
+		warn = append(warn, i18n.Tf("ui.card_colors: %q is not ribbon or off", c.CardColors))
 	}
 	for i, f := range c.Filters {
 		if strings.TrimSpace(f.Name) == "" || strings.TrimSpace(f.Query) == "" {
-			warn = append(warn, fmt.Sprintf("ui.filters[%d]: needs name and query", i))
+			warn = append(warn, i18n.Tf("ui.filters[%d]: needs name and query", i))
 			continue
 		}
 		o.filters = append(o.filters, f)
@@ -193,7 +193,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	default:
 		d, err := time.ParseDuration(v)
 		if err != nil || d < time.Minute || d > 8*time.Hour {
-			warn = append(warn, fmt.Sprintf("ui.timer_round: %q is not a duration of 1m–8h", v))
+			warn = append(warn, i18n.Tf("ui.timer_round: %q is not a duration of 1m–8h", v))
 			break
 		}
 		o.timerRound = d
@@ -202,13 +202,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	switch n := c.InboxIssues; {
 	case n == 0:
 	case n < 1 || n > 200:
-		warn = append(warn, fmt.Sprintf("ui.inbox_issues: %d is not 1–200", n))
+		warn = append(warn, i18n.Tf("ui.inbox_issues: %d is not 1–200", n))
 	default:
 		o.inboxIssues = n
 	}
 	for name, pts := range c.Capacity {
 		if pts < 0 {
-			warn = append(warn, fmt.Sprintf("ui.capacity.%s: %v is below 0", name, pts))
+			warn = append(warn, i18n.Tf("ui.capacity.%s: %v is below 0", name, pts))
 			continue
 		}
 		if o.capacity == nil {
@@ -219,7 +219,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	switch n := c.StaleDays; {
 	case n == 0:
 	case n < 1:
-		warn = append(warn, fmt.Sprintf("ui.stale_days: %d is below 1", n))
+		warn = append(warn, i18n.Tf("ui.stale_days: %d is below 1", n))
 	default:
 		o.staleDays = n
 	}
@@ -228,7 +228,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	switch n := c.KanbanDoneDays; {
 	case n == 0:
 	case n < 1 || n > 365:
-		warn = append(warn, fmt.Sprintf("ui.kanban_done_days: %d is not 1–365", n))
+		warn = append(warn, i18n.Tf("ui.kanban_done_days: %d is not 1–365", n))
 	default:
 		o.kanbanDoneDays = n
 	}
@@ -236,7 +236,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		name := strings.ToLower(strings.TrimSpace(d)) + "   "
 		wd, ok := weekdays[name[:3]] // mon, Monday
 		if !ok {
-			warn = append(warn, fmt.Sprintf("ui.workdays: %q is not a weekday", d))
+			warn = append(warn, i18n.Tf("ui.workdays: %q is not a weekday", d))
 			continue
 		}
 		o.workdays = append(o.workdays, wd)
@@ -246,14 +246,14 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	switch k := strings.TrimSpace(c.MeetingKey); {
 	case k != "" && !jira.ValidKey(k):
-		warn = append(warn, fmt.Sprintf("ui.meeting_key: %q is no issue key", c.MeetingKey))
+		warn = append(warn, i18n.Tf("ui.meeting_key: %q is no issue key", c.MeetingKey))
 	case k == "" && strings.TrimSpace(c.Calendar) != "":
-		warn = append(warn, "ui.calendar: set ui.meeting_key, the issue meetings are logged on")
+		warn = append(warn, i18n.T("ui.calendar: set ui.meeting_key, the issue meetings are logged on"))
 	}
 	o.home = home.Pick(c.Home)
 	for _, w := range c.Home {
 		if len(home.Pick([]string{w})) == 0 && !slices.Contains(home.Retired, w) {
-			warn = append(warn, fmt.Sprintf("ui.home: %q is none of %s", w, strings.Join(home.Widgets, ", ")))
+			warn = append(warn, i18n.Tf("ui.home: %q is none of %s", w, strings.Join(home.Widgets, ", ")))
 		}
 	}
 	if t := strings.TrimSpace(c.RoadmapEpicType); t != "" {
@@ -262,19 +262,19 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	switch n := c.RoadmapDoneDays; {
 	case n == 0:
 	case n < 1 || n > 3650:
-		warn = append(warn, fmt.Sprintf("ui.roadmap_done_days: %d is not 1–3650", n))
+		warn = append(warn, i18n.Tf("ui.roadmap_done_days: %d is not 1–3650", n))
 	default:
 		o.roadmapDoneDays = n
 	}
 	switch n := c.VelocitySprints; {
 	case n == 0:
 	case n < 1 || n > 50:
-		warn = append(warn, fmt.Sprintf("ui.velocity_sprints: %d is not 1–50", n))
+		warn = append(warn, i18n.Tf("ui.velocity_sprints: %d is not 1–50", n))
 	default:
 		o.velocitySprints = n
 	}
 	if b := c.ReportBackwards; b != "" && b != "live" && b != "first" {
-		warn = append(warn, fmt.Sprintf("ui.report_backwards: %q is not live or first", b))
+		warn = append(warn, i18n.Tf("ui.report_backwards: %q is not live or first", b))
 	}
 	for typ, md := range c.Templates {
 		if o.templates == nil {
@@ -288,13 +288,13 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			o.codeTheme = t
 		}
 	case styles.Registry[name] == nil:
-		warn = append(warn, fmt.Sprintf("ui.code_theme: unknown style %q", name))
+		warn = append(warn, i18n.Tf("ui.code_theme: unknown style %q", name))
 	default:
 		o.codeTheme = name
 	}
 	if tmpl := strings.TrimSpace(c.BranchTemplate); tmpl != "" {
 		if bad := badBranchPlaceholder(tmpl); bad != "" {
-			warn = append(warn, fmt.Sprintf("ui.branch_template: unknown %s", bad))
+			warn = append(warn, i18n.Tf("ui.branch_template: unknown %s", bad))
 		} else {
 			o.branchTemplate, o.workBranch = tmpl, tmpl
 		}
@@ -308,7 +308,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	}
 	if tmpl := strings.TrimSpace(c.WorkBranchTemplate); tmpl != "" {
 		if bad := badBranchPlaceholder(tmpl); bad != "" {
-			warn = append(warn, fmt.Sprintf("ui.work_branch_template: unknown %s", bad))
+			warn = append(warn, i18n.Tf("ui.work_branch_template: unknown %s", bad))
 		} else {
 			o.workBranch = tmpl
 		}
@@ -318,12 +318,12 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	case "on":
 		o.startAssigns = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.start_assigns: %q is not on or off", c.StartAssigns))
+		warn = append(warn, i18n.Tf("ui.start_assigns: %q is not on or off", c.StartAssigns))
 	}
 	o.startStatus = strings.TrimSpace(c.StartStatus)
 	if v := strings.TrimSpace(c.WorkdayStart); v != "" {
 		if t, err := time.Parse("15:04", v); err != nil {
-			warn = append(warn, fmt.Sprintf("ui.workday_start: %q is not a time (09:00)", v))
+			warn = append(warn, i18n.Tf("ui.workday_start: %q is not a time (09:00)", v))
 		} else {
 			o.workdayStart = time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute
 		}
@@ -333,103 +333,103 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	case "on":
 		o.timerOnStart = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.timer_on_start: %q is not on or off", c.TimerOnStart))
+		warn = append(warn, i18n.Tf("ui.timer_on_start: %q is not on or off", c.TimerOnStart))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Mouse)) {
 	case "", "on":
 	case "off":
 		o.mouse = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.mouse: %q is not on or off", c.Mouse))
+		warn = append(warn, i18n.Tf("ui.mouse: %q is not on or off", c.Mouse))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.BoardQuickFilters)) {
 	case "", "on":
 	case "off":
 		o.boardQuick = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.board_quick_filters: %q is not on or off", c.BoardQuickFilters))
+		warn = append(warn, i18n.Tf("ui.board_quick_filters: %q is not on or off", c.BoardQuickFilters))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.SavedFilters)) {
 	case "", "on":
 	case "off":
 		o.savedFilters = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.saved_filters: %q is not on or off", c.SavedFilters))
+		warn = append(warn, i18n.Tf("ui.saved_filters: %q is not on or off", c.SavedFilters))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.RememberFilters)) {
 	case "", "on":
 	case "off":
 		o.rememberFilters = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.remember_filters: %q is not on or off", c.RememberFilters))
+		warn = append(warn, i18n.Tf("ui.remember_filters: %q is not on or off", c.RememberFilters))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.UpdateCheck)) {
 	case "", "on":
 	case "off":
 		o.updateCheck = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.update_check: %q is not on or off", c.UpdateCheck))
+		warn = append(warn, i18n.Tf("ui.update_check: %q is not on or off", c.UpdateCheck))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Delight)) {
 	case "", "on":
 	case "off":
 		o.delight = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.delight: %q is not on or off", c.Delight))
+		warn = append(warn, i18n.Tf("ui.delight: %q is not on or off", c.Delight))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.ThreadedReplies)) {
 	case "", "on":
 	case "off":
 		o.threaded = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.threaded_replies: %q is not on or off", c.ThreadedReplies))
+		warn = append(warn, i18n.Tf("ui.threaded_replies: %q is not on or off", c.ThreadedReplies))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.CommentOrder)) {
 	case "", "oldest":
 	case "newest":
 		o.newestFirst = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.comment_order: %q is not oldest or newest", c.CommentOrder))
+		warn = append(warn, i18n.Tf("ui.comment_order: %q is not oldest or newest", c.CommentOrder))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.CommentLayout)) {
 	case "", "threaded":
 	case "flat":
 		o.flatComments = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.comment_layout: %q is not threaded or flat", c.CommentLayout))
+		warn = append(warn, i18n.Tf("ui.comment_layout: %q is not threaded or flat", c.CommentLayout))
 	}
 	switch t := strings.ToLower(strings.TrimSpace(c.SkinTone)); t {
 	case "", "none":
 	case "light", "medium_light", "medium", "medium_dark", "dark":
 		o.skinTone = "_" + t + "_skin_tone"
 	default:
-		warn = append(warn, fmt.Sprintf("ui.skin_tone: %q is not light, medium_light, medium, medium_dark or dark", c.SkinTone))
+		warn = append(warn, i18n.Tf("ui.skin_tone: %q is not light, medium_light, medium, medium_dark or dark", c.SkinTone))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.Images)) {
 	case "", "auto":
 	case "off":
 		o.images = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.images: %q is not auto or off", c.Images))
+		warn = append(warn, i18n.Tf("ui.images: %q is not auto or off", c.Images))
 	}
 	switch n := c.ImageMaxRows; {
 	case n == 0:
 	case n < 1 || n > 200:
-		warn = append(warn, fmt.Sprintf("ui.image_max_rows: %d is not 1–200", n))
+		warn = append(warn, i18n.Tf("ui.image_max_rows: %d is not 1–200", n))
 	default:
 		o.imageMaxRows = n
 	}
 	switch n := c.PanelWidth; {
 	case n == 0:
 	case n < 20 || n > 80:
-		warn = append(warn, fmt.Sprintf("ui.panel_width: %d is not 20–80", n))
+		warn = append(warn, i18n.Tf("ui.panel_width: %d is not 20–80", n))
 	default:
 		o.panelPct = n
 	}
 	switch n := c.CardLimit; {
 	case n == 0:
 	case n < 50 || n > 5000:
-		warn = append(warn, fmt.Sprintf("ui.card_limit: %d is not 50–5000", n))
+		warn = append(warn, i18n.Tf("ui.card_limit: %d is not 50–5000", n))
 	default:
 		o.cardLimit = n
 	}
@@ -438,28 +438,28 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	case "list":
 		o.lanes = false
 	default:
-		warn = append(warn, fmt.Sprintf("ui.default_mode: %q is not lanes or list", c.DefaultMode))
+		warn = append(warn, i18n.Tf("ui.default_mode: %q is not lanes or list", c.DefaultMode))
 	}
 	if f := strings.TrimSpace(c.DateFormat); f != "" {
 		o.dateFormat = f
 	}
 	for i, q := range c.QuickFilters {
 		if strings.TrimSpace(q.Name) == "" || strings.TrimSpace(q.JQL) == "" {
-			warn = append(warn, fmt.Sprintf("ui.quick_filters[%d]: needs name and jql", i))
+			warn = append(warn, i18n.Tf("ui.quick_filters[%d]: needs name and jql", i))
 			continue
 		}
 		o.quick = append(o.quick, jira.QuickFilter{ID: -1 - len(o.quick), Name: q.Name, JQL: q.JQL})
 	}
 	for i, v := range c.Views {
 		if strings.TrimSpace(v.Name) == "" || strings.TrimSpace(v.JQL) == "" {
-			warn = append(warn, fmt.Sprintf("ui.views[%d]: needs name and jql", i))
+			warn = append(warn, i18n.Tf("ui.views[%d]: needs name and jql", i))
 			continue
 		}
 		o.views = append(o.views, jiraView{kind: jiraViewJQL, name: v.Name, jql: v.JQL, lanes: true})
 	}
 	for i, l := range c.LaneLayouts {
 		if strings.TrimSpace(l.Name) == "" || len(l.Lanes) == 0 {
-			warn = append(warn, fmt.Sprintf("ui.lane_layouts[%d]: needs name and lanes", i))
+			warn = append(warn, i18n.Tf("ui.lane_layouts[%d]: needs name and lanes", i))
 			continue
 		}
 		o.laneLayouts = append(o.laneLayouts, l)
@@ -495,7 +495,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 			case "avatar":
 				f.avatar = true
 			default:
-				warn = append(warn, fmt.Sprintf("ui.card_fields: unknown field %q", name))
+				warn = append(warn, i18n.Tf("ui.card_fields: unknown field %q", name))
 			}
 		}
 		o.fields = f

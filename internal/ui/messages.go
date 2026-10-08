@@ -1,13 +1,15 @@
 package ui
 
 import (
-	"fmt"
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The status line's messages, kept: the line shows one and cuts it to the
@@ -45,11 +47,23 @@ const noticeFor = 8 * time.Second
 // it is older than noticeFor. Errors stay until the next one, and so do the
 // panel's key hint and a "… again …" asking to confirm.
 func (m *Model) shownStatus(now time.Time) string {
-	notice := !m.statusIsErr() && m.status != m.panelHint && !strings.Contains(m.status, " again ")
+	notice := !m.statusIsErr() && m.status != m.panelHint && !asksAgain(m.status)
 	if notice && !m.statusAt.IsZero() && now.Sub(m.statusAt) > noticeFor {
 		return ""
 	}
 	return m.status
+}
+
+// againWords mark a status asking to confirm, in each language.
+var againWords = []string{" again ", " nogmaals ", " opnieuw "}
+
+func asksAgain(s string) bool {
+	for _, w := range againWords {
+		if strings.Contains(s, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // logStatus keeps the status line's message when it is a new one.
@@ -76,7 +90,7 @@ func (m *Model) startupStatus(warn []string) {
 	case 1:
 		m.status = warn[0]
 	default:
-		m.status = fmt.Sprintf("%d config warnings · %s messages lists them", len(warn), helpKey(m.keys.Palette))
+		m.status = i18n.Tf("%d config warnings · %s messages lists them", len(warn), helpKey(m.keys.Palette))
 	}
 	m.statusLogged, m.statusErr = m.status, m.status
 }
@@ -90,8 +104,8 @@ func (m Model) WithWarnings(warn []string) Model {
 
 // openMessages lists the kept messages, newest first.
 func (m *Model) openMessages() {
-	m.startJiraPicker(jiraPickMessages, "Messages · enter copies one", true)
-	m.jiraPicker.filter.Placeholder = "filter messages…"
+	m.startJiraPicker(jiraPickMessages, i18n.T("Messages · enter copies one"), true)
+	m.jiraPicker.filter.Placeholder = i18n.T("filter messages…")
 	items := make([]jiraPickerItem, 0, len(m.statusLog))
 	for i := len(m.statusLog) - 1; i >= 0; i-- {
 		e := m.statusLog[i]
@@ -102,7 +116,7 @@ func (m *Model) openMessages() {
 		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: e.at.Format("15:04:05") + "  " + mark + e.text, value: e.text})
 	}
 	if len(items) == 0 {
-		m.jiraPicker.err = fmt.Errorf("no messages yet")
+		m.jiraPicker.err = errors.New(i18n.T("no messages yet"))
 	}
 	m.setJiraPickerItems(items)
 }
@@ -113,7 +127,7 @@ func (m Model) applyMessage(it jiraPickerItem) (tea.Model, tea.Cmd) {
 	if it.value == "" {
 		return m, nil
 	}
-	m.status = "copied the message"
+	m.status = i18n.T("copied the message")
 	return m, tea.SetClipboard(it.value)
 }
 

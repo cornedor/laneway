@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/store"
 )
 
@@ -49,14 +49,20 @@ func (m Model) WithDemo() Model {
 // errOffInDemo: the demo runs nothing on this machine (no browser,
 // configured command, LLM, clipboard or screenshot tool), as the web's
 // demoGate.
-var errOffInDemo = errors.New("not in the demo, which runs nothing on this machine")
+var errOffInDemo error = demoError{}
+
+type demoError struct{}
+
+func (demoError) Error() string {
+	return i18n.T("not in the demo, which runs nothing on this machine")
+}
 
 // noHerdr says why there are no agents: none running, or the demo.
 func (m *Model) noHerdr() string {
 	if m.demo {
-		return "herdr is off in the demo"
+		return i18n.T("herdr is off in the demo")
 	}
-	return "no herdr running"
+	return i18n.T("no herdr running")
 }
 
 // checkRelease reads the latest release, from the store when looked up in
@@ -162,16 +168,16 @@ func (m *Model) upgradeHint() string {
 	if m.upgradeCmd != "" {
 		return m.upgradeCmd
 	}
-	return "open the release page"
+	return i18n.T("open the release page")
 }
 
 // upgrade copies the upgrade command, else opens the release page.
 func (m *Model) upgrade() tea.Cmd {
 	if m.upgradeCmd == "" {
-		m.status = "opening " + releasePage + "…"
-		return m.openOpenable(openable{name: "the release page", url: releasePage})
+		m.status = i18n.Tf("opening %s…", releasePage)
+		return m.openOpenable(openable{name: i18n.T("the release page"), url: releasePage})
 	}
-	m.status = "copied " + m.upgradeCmd
+	m.status = i18n.Tf("copied %s", m.upgradeCmd)
 	return tea.SetClipboard(m.upgradeCmd)
 }
 

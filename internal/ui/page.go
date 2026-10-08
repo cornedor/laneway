@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -38,7 +39,7 @@ func (m *Model) openPage(id, title string) tea.Cmd {
 	m.page = &panelPage{id: id, title: title, loading: true, gen: m.pageGen}
 	m.refView.GotoTop()
 	m.renderRef()
-	m.status = helpKey(m.keys.OpenAttach) + " Confluence · " + helpKey(m.keys.Refresh) + " reload · esc back to the issue"
+	m.status = i18n.Tf("%s Confluence · %s reload · esc back to the issue", helpKey(m.keys.OpenAttach), helpKey(m.keys.Refresh))
 	c, ctx, gen := m.jiraClient, m.ctx, m.pageGen
 	return func() tea.Msg {
 		p, err := c.ConfluencePage(ctx, id)
@@ -91,12 +92,12 @@ func (m *Model) renderPage(w int) string {
 	p := m.page
 	var b strings.Builder
 	b.WriteString(refKeyStyle.Render(cmp.Or(p.page.Title, p.title)) + "\n")
-	b.WriteString(refDimStyle.Render("Confluence · "+helpKey(m.keys.OpenAttach)+" opens it · esc back") + "\n\n")
+	b.WriteString(refDimStyle.Render(i18n.Tf("Confluence · %s opens it · esc back", helpKey(m.keys.OpenAttach))) + "\n\n")
 	switch {
 	case p.err != "":
 		b.WriteString(refErrStyle.Render(p.err))
 	case p.loading:
-		b.WriteString(refDimStyle.Render("loading the page…"))
+		b.WriteString(refDimStyle.Render(i18n.T("loading the page…")))
 	default:
 		b.WriteString(renderMarkdown(p.page.Markdown, m.emojiImg, nil, ""))
 	}
@@ -117,7 +118,7 @@ func (m Model) pageKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		if u == "" {
 			return m, nil, true
 		}
-		m.status = "opening " + u + "…"
+		m.status = i18n.Tf("opening %s…", u)
 		return m, m.openOpenable(openable{name: m.page.title, url: u}), true
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.openPage(m.page.id, m.page.title), true
