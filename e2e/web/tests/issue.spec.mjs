@@ -42,3 +42,36 @@ test('e renames it', async ({ page }) => {
   await expect(panel(page).locator('.iss-title')).toHaveText('Checkout as a guest');
   await expect(page.locator('.card', { hasText: 'DEMO-4' })).toContainText('Checkout as a guest');
 });
+
+test('e edits your own comment, d deletes it', async ({ page }) => {
+  await page.keyboard.press('c');
+  await page.keyboard.type('Ship it after the review');
+  await page.keyboard.press('Control+Enter');
+  const mine = panel(page).locator('article.cm', { hasText: 'Ship it after the review' });
+  await mine.click();
+  await page.keyboard.press('e');
+  await expect(panel(page).locator('[contenteditable]:focus')).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(', on Friday');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(mine).toContainText('Ship it after the review, on Friday');
+  await mine.click();
+  await page.keyboard.press('d');
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  await expect(mine).toHaveCount(0);
+  await page.reload();
+  await panel(page).locator('.tab', { hasText: 'Comments' }).click();
+  await expect(panel(page)).not.toContainText('Ship it after the review');
+});
+
+test('* pins it first among the commands, and it stays', async ({ page }) => {
+  await page.keyboard.press('*');
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.locator('.card', { hasText: 'DEMO-5' })).toBeVisible();
+  await page.keyboard.press(':');
+  const first = page.getByRole('option').first();
+  await expect(first).toContainText('★ DEMO-4');
+  await first.click();
+  await expect(panel(page).locator('.iss-key')).toHaveText('DEMO-4');
+});
