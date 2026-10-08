@@ -13,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -270,11 +271,11 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.String() == "esc" && r.grip == "" && r.filter != "":
 		r.filter, r.idx, r.top = "", 0, 0
-		m.status = "filter cleared"
+		m.status = i18n.T("filter cleared")
 	case key.Matches(msg, m.keys.Search):
 		r.find = textinput.New()
 		r.find.Prompt = "/"
-		r.find.Placeholder = "words in an epic's or child's key or summary"
+		r.find.Placeholder = i18n.T("words in an epic's or child's key or summary")
 		r.find.SetWidth(40)
 		r.find.SetValue(r.filter)
 		r.find.CursorEnd()
@@ -293,15 +294,18 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Sequence(m.saveRoadmap(), tea.Quit) // pending date moves first
 	case msg.String() == "esc" && r.grip != "":
 		r.grip = ""
-		m.status = "bar let go"
+		m.status = i18n.T("bar let go")
 	case key.Matches(msg, m.keys.RoadmapGrip):
 		r.grip = map[string]string{"": "start", "start": "end", "end": ""}[r.grip]
 		switch r.grip {
 		case "":
-			m.status = "bar let go"
+			m.status = i18n.T("bar let go")
 		default:
-			m.status = "holding the bar's " + r.grip + " · " + helpKey(m.keys.Left) + "/" + helpKey(m.keys.Right) + " move it · " +
-				helpKey(m.keys.RoadmapGrip) + " the other end · esc let go"
+			end := i18n.Tf("holding the bar's start · %s/%s move it · %s the other end · esc let go", helpKey(m.keys.Left), helpKey(m.keys.Right), helpKey(m.keys.RoadmapGrip))
+			if r.grip == "end" {
+				end = i18n.Tf("holding the bar's end · %s/%s move it · %s the other end · esc let go", helpKey(m.keys.Left), helpKey(m.keys.Right), helpKey(m.keys.RoadmapGrip))
+			}
+			m.status = end
 		}
 	case r.grip != "" && key.Matches(msg, m.keys.Left), r.grip != "" && key.Matches(msg, m.keys.Right):
 		d := zoom
@@ -354,19 +358,21 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if !ok {
 			break
 		}
-		name, k := "Parent: ", r.rowKey(row)
+		k := r.rowKey(row)
+		name := i18n.Tf("Parent: %s", k)
 		if row.epic >= 0 {
-			name, k = "Epic: ", r.epics[row.epic].Key
+			k = r.epics[row.epic].Key
+			name = i18n.Tf("Epic: %s", k)
 		}
 		save := m.saveRoadmap()
 		m.jiraTab.roadmap = nil
-		return m, tea.Batch(save, m.runNamedJQLView(name+k, "parent = "+k+" ORDER BY rank"))
+		return m, tea.Batch(save, m.runNamedJQLView(name, "parent = "+k+" ORDER BY rank"))
 	case key.Matches(msg, m.keys.Create):
 		return m, m.openCreateForm(createSpec{in: jira.NewIssue{Project: m.jiraTab.project}, types: []string{m.opts.epicType}, reload: true})
 	case key.Matches(msg, m.keys.OpenAttach):
 		if k := m.roadmapKey(); k != "" {
 			url := m.jiraClient.BrowseURL(k)
-			m.status = "opening " + url + "…"
+			m.status = i18n.Tf("opening %s…", url)
 			return m, m.openOpenable(openable{name: k, url: url})
 		}
 	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
@@ -375,11 +381,11 @@ func (m Model) handleRoadmapKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.CopyKey):
 		if len(r.epics) > 0 {
-			m.status = fmt.Sprintf("copied %d epics as a markdown table", len(r.epics))
+			m.status = i18n.Tf("copied %d epics as a markdown table", len(r.epics))
 			return m, tea.SetClipboard(m.roadmapTable())
 		}
 	case key.Matches(msg, m.keys.Help):
-		m.openHelp("Roadmap")
+		m.openHelp(i18n.T("Roadmap"))
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
 		if m.refOpen {
 			m.focus = focusRef
@@ -436,7 +442,7 @@ func (m *Model) foldRoadmap() {
 	}
 	e := r.epics[row.epic]
 	if len(e.Kids) == 0 {
-		m.status = e.Key + " has no child issues"
+		m.status = i18n.Tf("%s has no child issues", e.Key)
 		return
 	}
 	r.open[e.Key] = !r.open[e.Key]
@@ -457,11 +463,11 @@ func (m *Model) shiftRoadmap(ds, de int) tea.Cmd {
 		return nil
 	}
 	if row.epic < 0 {
-		m.status = "a parent spans its epics: move those"
+		m.status = i18n.T("a parent spans its epics: move those")
 		return nil
 	}
 	if ds != 0 && !m.jiraClient.CanSetStart(m.ctx) {
-		m.status = "no start date field in Jira: < > move the end"
+		m.status = i18n.T("no start date field in Jira: < > move the end")
 		return nil
 	}
 	key, start, end, fromSprints := r.rowDates(row)
@@ -498,7 +504,7 @@ func (m *Model) undoRoadmap() tea.Cmd {
 	r := m.jiraTab.roadmap
 	u := r.undo
 	if u == nil {
-		m.status = "nothing to undo"
+		m.status = i18n.T("nothing to undo")
 		return nil
 	}
 	r.undo = nil
@@ -510,11 +516,11 @@ func (m *Model) undoRoadmap() tea.Cmd {
 		*start, *end, *fromSprints = u.start, u.end, u.fromSprints
 		r.pending[key] = true
 		r.saveSeq++
-		m.status = fmt.Sprintf("%s back to %s – %s", key, roadmapDate(u.start), roadmapDate(u.end))
+		m.status = i18n.Tf("%s back to %s – %s", key, roadmapDate(u.start), roadmapDate(u.end))
 		seq := r.saveSeq
 		return tea.Tick(roadmapSaveDelay, func(time.Time) tea.Msg { return roadmapSaveMsg{seq} })
 	}
-	m.status = u.key + " is not on the roadmap now"
+	m.status = i18n.Tf("%s is not on the roadmap now", u.key)
 	return nil
 }
 
@@ -579,7 +585,7 @@ func (m *Model) saveRoadmap() tea.Cmd {
 	}
 	r.pending = map[string]bool{}
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "saving " + strings.Join(keys, ", ") + "…"
+	m.status = i18n.Tf("saving %s…", strings.Join(keys, ", "))
 	return func() tea.Msg {
 		for _, d := range todo {
 			if err := c.SetDates(ctx, d.key, d.start, d.end); err != nil {
@@ -594,13 +600,13 @@ func (m *Model) saveRoadmap() tea.Cmd {
 // dates again.
 func (m Model) handleRoadmapSaved(msg roadmapSavedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("dates not saved: " + msg.err.Error())
+		m.fail(i18n.Tf("dates not saved: %s", msg.err.Error()))
 		if m.jiraTab.roadmap != nil {
 			return m, m.loadRoadmap()
 		}
 		return m, nil
 	}
-	m.status = strings.Join(msg.keys, ", ") + " dates saved"
+	m.status = i18n.Tf("%s dates saved", strings.Join(msg.keys, ", "))
 	return m, nil
 }
 
@@ -612,7 +618,7 @@ func (m *Model) roadmapSayBlockers() {
 		return
 	}
 	if e := r.epics[row.epic]; len(e.BlockedBy) > 0 {
-		m.status = e.Key + " is blocked by " + strings.Join(e.BlockedBy, ", ")
+		m.status = i18n.Tf("%s is blocked by %s", e.Key, strings.Join(e.BlockedBy, ", "))
 	}
 }
 
@@ -693,13 +699,13 @@ func (m *Model) roadmapLine() string { return joinSegs(m.roadmapSegs()) }
 func roadmapZoomName(days int) string {
 	switch days {
 	case 1:
-		return "day"
+		return i18n.T("day")
 	case 7:
-		return "week"
+		return i18n.T("week")
 	case 14:
-		return "2 weeks"
+		return i18n.T("2 weeks")
 	}
-	return fmt.Sprintf("%d days", days)
+	return i18n.Tf("%d days", days)
 }
 
 // renderRoadmap draws the timeline into width × height.
@@ -710,10 +716,10 @@ func (m *Model) renderRoadmap(width, height int) string {
 		s, _ := jiraErrorState(r.err, width, height, m.screenErrHints()...)
 		return s
 	case len(r.epics) == 0 && r.loading:
-		return refDimStyle.Render("loading…")
+		return refDimStyle.Render(i18n.T("loading…"))
 	case len(r.epics) == 0:
-		s, _ := jiraEmptyState(fmt.Sprintf("No open %s in %s", strings.ToLower(m.opts.epicType)+"s", r.project), width, height,
-			plainSeg(refDimStyle.Render(helpKey(m.keys.Create)+" adds one · ui.roadmap_epic_type picks the type ("+m.opts.epicType+")")))
+		s, _ := jiraEmptyState(i18n.Tf("No open %s in %s", strings.ToLower(m.opts.epicType)+"s", r.project), width, height,
+			plainSeg(refDimStyle.Render(i18n.Tf("%s adds one · ui.roadmap_epic_type picks the type (%s)", helpKey(m.keys.Create), m.opts.epicType))))
 		return s
 	}
 	labelW, cols := roadmapLayout(width)
@@ -894,7 +900,7 @@ func roadmapBarCols(e jira.Epic, from time.Time, zoom int) (s, t int, ok bool) {
 func roadmapBar(e jira.Epic, from time.Time, cols, zoom, today int) string {
 	s, t, ok := roadmapBarCols(e, from, zoom)
 	if !ok {
-		return jiraDimStyle.Render("no dates")
+		return jiraDimStyle.Render(i18n.T("no dates"))
 	}
 	single := e.Start.IsZero() || e.End.IsZero()
 	done, _ := roadmapDone(e)

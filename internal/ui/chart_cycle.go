@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -30,7 +31,7 @@ func renderCycle(issues []jira.CycleIssue, ln chartLines, now time.Time, width, 
 		end = last.Label()
 	}
 	if len(issues) == 0 {
-		return refDimStyle.Render(fmt.Sprintf("nothing got to %s in the last %d weeks", end, cycleWeeks))
+		return refDimStyle.Render(i18n.Tf("nothing got to %s in the last %d weeks", end, cycleWeeks))
 	}
 	var cycles, leads, active, waits []time.Duration
 	for _, ci := range issues {
@@ -42,14 +43,14 @@ func renderCycle(issues []jira.CycleIssue, ln chartLines, now time.Time, width, 
 	}
 	p50, p85 := jira.Percentile(cycles, 50), jira.Percentile(cycles, 85)
 	lines := []string{
-		jiraViewActive.Render("Cycle time") + jiraDimStyle.Render(fmt.Sprintf("  %d done in %d weeks · in progress to %s: 50%% within %s days, 85%% within %s",
+		jiraViewActive.Render(i18n.T("Cycle time")) + jiraDimStyle.Render(i18n.Tf("  %d done in %d weeks · in progress to %s: 50%% within %s days, 85%% within %s",
 			len(issues), cycleWeeks, end, cycleDays(p50), cycleDays(p85))),
-		jiraDimStyle.Render(fmt.Sprintf("lead time, created to %s: 50%% within %s days, 85%% within %s", end, cycleDays(jira.Percentile(leads, 50)), cycleDays(jira.Percentile(leads, 85)))),
+		jiraDimStyle.Render(i18n.Tf("lead time, created to %s: 50%% within %s days, 85%% within %s", end, cycleDays(jira.Percentile(leads, 50)), cycleDays(jira.Percentile(leads, 85)))),
 	}
 	if ln.compare != nil {
 		first, _ := jira.Order(ln.done, ln.compare)
-		lines = append(lines, roadmapDoneStyle.Render(fmt.Sprintf("in progress to %s: 50%% within %s days, 85%% within %s", first.Label(), cycleDays(jira.Percentile(active, 50)), cycleDays(jira.Percentile(active, 85))))+
-			jiraDimStyle.Render("  ·  ")+roadmapTodayStyle.Render(fmt.Sprintf("%s to %s: 50%% within %s, 85%% within %s", first.Label(), end, cycleDays(jira.Percentile(waits, 50)), cycleDays(jira.Percentile(waits, 85)))))
+		lines = append(lines, roadmapDoneStyle.Render(i18n.Tf("in progress to %s: 50%% within %s days, 85%% within %s", first.Label(), cycleDays(jira.Percentile(active, 50)), cycleDays(jira.Percentile(active, 85))))+
+			jiraDimStyle.Render("  ·  ")+roadmapTodayStyle.Render(i18n.Tf("%s to %s: 50%% within %s, 85%% within %s", first.Label(), end, cycleDays(jira.Percentile(waits, 50)), cycleDays(jira.Percentile(waits, 85)))))
 	} else if ln.done != nil {
 		lines = append(lines, jiraDimStyle.Render(ln.by()))
 	}
@@ -95,15 +96,15 @@ func renderCycle(issues []jira.CycleIssue, ln chartLines, now time.Time, width, 
 		}
 		lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("%-6s ", label))+roadmapTodoStyle.Render(string(g)))
 	}
-	lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("       %s%*s", from.Format("2 Jan"), cols-6, "today")), "")
+	lines = append(lines, jiraDimStyle.Render(fmt.Sprintf("       %s%*s", from.Format("2 Jan"), cols-6, i18n.T("today"))), "")
 	slow := slices.Clone(issues)
 	slices.SortFunc(slow, func(a, b jira.CycleIssue) int { return int(b.Cycle - a.Cycle) })
-	lines = append(lines, jiraDimStyle.Render("slowest"))
+	lines = append(lines, jiraDimStyle.Render(i18n.T("slowest")))
 	for _, ci := range slow[:min(len(slow), max(height-len(lines)-1, 0), 5)] {
-		took := cycleDays(ci.Cycle) + " days"
+		took := i18n.Tf("%s days", cycleDays(ci.Cycle))
 		if ln.compare != nil {
 			first, _ := jira.Order(ln.done, ln.compare)
-			took += jiraDimStyle.Render(" (" + cycleDays(ci.Wait) + " after " + first.Label() + ")")
+			took += jiraDimStyle.Render(i18n.Tf(" (%s after %s)", cycleDays(ci.Wait), first.Label()))
 		}
 		lines = append(lines, fmt.Sprintf("  %s  %s  %s", jiraKeyStyle.Render(ci.Key), took, truncate(ci.Summary, max(width-40, 10))))
 	}

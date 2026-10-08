@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/calendar"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -128,7 +129,7 @@ func (m *Model) openPlanning() tea.Cmd {
 		}
 	}
 	if len(p.sprints) == 0 || t.cfg == nil {
-		m.status = "planning needs a scrum board with sprints"
+		m.status = i18n.T("planning needs a scrum board with sprints")
 		return nil
 	}
 	for i, v := range p.sprints {
@@ -225,7 +226,7 @@ func (m Model) handlePlanWrote(msg planWroteMsg) (tea.Model, tea.Cmd) {
 		m.status = msg.what
 		return m, nil
 	}
-	m.fail("not saved: " + msg.err.Error())
+	m.fail(i18n.Tf("not saved: %s", msg.err.Error()))
 	if m.jiraTab.plan != nil {
 		return m, m.loadPlan()
 	}
@@ -255,7 +256,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.quit()
 	case msg.String() == "esc" && p.filter != "":
 		p.setFilter("", m.jiraQueryEnv())
-		m.status = "filter cleared"
+		m.status = i18n.T("filter cleared")
 	case msg.String() == "esc", key.Matches(msg, m.keys.Quit), key.Matches(msg, m.keys.Plan): // q closes, as on every screen over the board
 		t.plan = nil
 		m.renderJira()
@@ -289,11 +290,11 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if c, ok := p.planCard(); ok {
 			t.toggleMark(c)
 			p.idx[p.side] = min(p.idx[p.side]+1, max(n-1, 0))
-			m.status = fmt.Sprintf("%d marked · %s or space moves them across", len(t.marked), helpKey(m.keys.MoveSprint))
+			m.status = i18n.Tf("%d marked · %s or space moves them across", len(t.marked), helpKey(m.keys.MoveSprint))
 		}
 	case key.Matches(msg, m.keys.MoveSprint), msg.String() == "space":
 		if n == 0 {
-			m.status = "nothing on this side to move"
+			m.status = i18n.T("nothing on this side to move")
 			return m, nil
 		}
 		return m, m.planMove()
@@ -301,34 +302,34 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		v := p.sprints[p.target]
 		switch {
 		case p.loading:
-			m.status = v.name + " is still loading"
+			m.status = i18n.Tf("%s is still loading", v.name)
 			return m, nil
 		case p.sideErr[1] != "":
-			m.status = v.name + " didn't load: " + helpKey(m.keys.Refresh) + " retries"
+			m.status = i18n.Tf("%s didn't load: %s retries", v.name, helpKey(m.keys.Refresh))
 			return m, nil
 		}
 		var rows [][]string
 		for _, c := range p.sides[1] {
 			rows = append(rows, []string{c.Key, c.Summary, c.Assignee, c.Points})
 		}
-		m.status = fmt.Sprintf("copied %s (%d issues) as a markdown table", v.name, len(rows))
+		m.status = i18n.Tf("copied %s (%d issues) as a markdown table", v.name, len(rows))
 		return m, tea.SetClipboard(markdownTable([]string{"Key", "Summary", "Assignee", "Points"}, rows))
 	case key.Matches(msg, m.keys.PlanStart):
 		return m, m.planStart()
 	case key.Matches(msg, m.keys.PlanGoal):
 		v := p.sprints[p.target]
-		m.openBulkInput("plan-goal", "the sprint's goal (empty clears)")
+		m.openBulkInput("plan-goal", i18n.T("the sprint's goal (empty clears)"))
 		m.jiraFieldInput.SetValue(v.goal)
 		m.jiraFieldInput.CursorEnd()
 		m.jiraFieldKey = v.name
 		return m, nil
 	case key.Matches(msg, m.keys.PlanRename):
-		m.openBulkInput("plan-rename", "sprint name")
+		m.openBulkInput("plan-rename", i18n.T("sprint name"))
 		m.jiraFieldInput.SetValue(p.sprints[p.target].name)
 		m.jiraFieldInput.CursorEnd()
 		return m, nil
 	case key.Matches(msg, m.keys.PlanNew):
-		m.openBulkInput("plan-new", "sprint name")
+		m.openBulkInput("plan-new", i18n.T("sprint name"))
 		m.jiraFieldInput.SetValue(nextSprintName(p.sprints))
 		m.jiraFieldInput.CursorEnd()
 		return m, nil
@@ -362,7 +363,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.OpenAttach):
 		if c, ok := p.planCard(); ok {
 			url := m.jiraClient.BrowseURL(c.Key)
-			m.status = "opening " + url + "…"
+			m.status = i18n.Tf("opening %s…", url)
 			return m, m.openOpenable(openable{name: c.Key, url: url})
 		}
 	case key.Matches(msg, m.keys.OpenChannel), key.Matches(msg, m.keys.OpenRef):
@@ -370,7 +371,7 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m.openJiraKey(c.Key)
 		}
 	case key.Matches(msg, m.keys.Help):
-		m.openHelp("Planning")
+		m.openHelp(i18n.T("Planning"))
 	}
 	return m, nil
 }
@@ -386,7 +387,7 @@ func (m *Model) planMove() tea.Cmd {
 func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 	t, p := m.jiraTab, m.jiraTab.plan
 	if p.sideErr != [2]string{} {
-		m.fail("a side didn't load · " + helpKey(m.keys.Refresh) + " retries before moving")
+		m.fail(i18n.Tf("a side didn't load · %s retries before moving", helpKey(m.keys.Refresh)))
 		return nil
 	}
 	from, to := p.side, 1-p.side
@@ -417,12 +418,12 @@ func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 	client, ctx, sprint := m.jiraClient, m.ctx, p.sprints[p.target]
 	if to == 1 {
 		p.sides[1] = append(p.sides[1], moving...)
-		m.status = "moving " + what + " to " + sprint.name + "…"
+		m.status = i18n.Tf("moving %s to %s…", what, sprint.name)
 		return planWrite(what+" → "+sprint.name, func() error { return client.MoveToSprint(ctx, sprint.sprint, keys...) })
 	}
 	p.sides[0] = append(slices.Clone(moving), p.sides[0]...)
-	m.status = "moving " + what + " to the backlog…"
-	return planWrite(what+" → backlog", func() error { return client.MoveToBacklog(ctx, keys...) })
+	m.status = i18n.Tf("moving %s to the backlog…", what)
+	return planWrite(i18n.Tf("%s → backlog", what), func() error { return client.MoveToBacklog(ctx, keys...) })
 }
 
 // planUndo takes the last move across back.
@@ -431,10 +432,10 @@ func (m *Model) planUndo() tea.Cmd {
 	u := p.undo
 	switch {
 	case u == nil:
-		m.status = "nothing to undo"
+		m.status = i18n.T("nothing to undo")
 		return nil
 	case u.target != p.target:
-		m.status = "the last move was on " + p.sprints[u.target].name + " · " + helpKey(m.keys.PrevView) + " " + helpKey(m.keys.NextView) + " goes back to it"
+		m.status = i18n.Tf("the last move was on %s · %s %s goes back to it", p.sprints[u.target].name, helpKey(m.keys.PrevView), helpKey(m.keys.NextView))
 		return nil
 	}
 	p.side = u.to
@@ -469,11 +470,11 @@ func (m *Model) planStart() tea.Cmd {
 	p := m.jiraTab.plan
 	v := p.sprints[p.target]
 	if v.lanes { // active: move its end instead
-		m.openBulkInput("plan-end", "new end: 2026-10-10, +3d, fri")
+		m.openBulkInput("plan-end", i18n.T("new end: 2026-10-10, +3d, fri"))
 		m.jiraFieldKey = v.name
 		return nil
 	}
-	m.openBulkInput("plan-start", "end: 2026-10-10, +2w, fri")
+	m.openBulkInput("plan-start", i18n.T("end: 2026-10-10, +2w, fri"))
 	m.jiraFieldInput.SetValue("+2w")
 	m.jiraFieldInput.CursorEnd()
 	m.jiraFieldKey = v.name
@@ -490,16 +491,16 @@ func (m Model) applyPlanStart(raw string) (tea.Model, tea.Cmd) {
 	now := time.Now()
 	end, err := jira.ParseDate(raw, now)
 	if err != nil || !end.After(now) {
-		m.status = "not a day after today: " + raw
+		m.status = i18n.Tf("not a day after today: %s", raw)
 		return m, nil
 	}
 	m.closeJiraField()
 	v, c, ctx := p.sprints[p.target], m.jiraClient, m.ctx
 	end = time.Date(end.Year(), end.Month(), end.Day(), 17, 0, 0, 0, end.Location())
-	m.status = "starting " + v.name + "…"
+	m.status = i18n.Tf("starting %s…", v.name)
 	return m, func() tea.Msg {
 		err := c.StartSprint(ctx, v.sprint, now, end)
-		return planSprintMsg{what: v.name + " started, ends " + end.Format("Mon 2 Jan"), err: err}
+		return planSprintMsg{what: i18n.Tf("%s started, ends %s", v.name, end.Format("Mon 2 Jan")), err: err}
 	}
 }
 
@@ -532,10 +533,10 @@ func (m Model) applyPlanSprint(field, raw string) (tea.Model, tea.Cmd) {
 	name, end, what := "", time.Time{}, ""
 	if field == "plan-rename" {
 		if name = strings.TrimSpace(raw); name == "" {
-			m.status = "a sprint needs a name"
+			m.status = i18n.T("a sprint needs a name")
 			return m, nil
 		}
-		what = v.name + " renamed to " + name
+		what = i18n.Tf("%s renamed to %s", v.name, name)
 	} else {
 		d, err := jira.ParseDate(raw, time.Now())
 		if err != nil {
@@ -543,7 +544,7 @@ func (m Model) applyPlanSprint(field, raw string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		end = time.Date(d.Year(), d.Month(), d.Day(), 17, 0, 0, 0, d.Location())
-		what = v.name + " now ends " + end.Format("Mon 2 Jan")
+		what = i18n.Tf("%s now ends %s", v.name, end.Format("Mon 2 Jan"))
 	}
 	m.closeJiraField()
 	return m, func() tea.Msg {
@@ -559,9 +560,9 @@ func (m Model) applyPlanGoal(raw string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	v, goal, c, ctx := p.sprints[p.target], strings.TrimSpace(raw), m.jiraClient, m.ctx
-	m.status = "setting the goal of " + v.name + "…"
+	m.status = i18n.Tf("setting the goal of %s…", v.name)
 	return m, func() tea.Msg {
-		return planSprintMsg{what: v.name + " goal set", err: c.SetSprintGoal(ctx, v.sprint, goal)}
+		return planSprintMsg{what: i18n.Tf("%s goal set", v.name), err: c.SetSprintGoal(ctx, v.sprint, goal)}
 	}
 }
 
@@ -569,14 +570,14 @@ func (m Model) applyPlanGoal(raw string) (tea.Model, tea.Cmd) {
 func (m Model) applyPlanNew(raw string) (tea.Model, tea.Cmd) {
 	name := strings.TrimSpace(raw)
 	if name == "" {
-		m.status = "a sprint needs a name"
+		m.status = i18n.T("a sprint needs a name")
 		return m, nil
 	}
 	m.closeJiraField()
 	c, ctx, board := m.jiraClient, m.ctx, m.jiraBoardID()
-	m.status = "creating " + name + "…"
+	m.status = i18n.Tf("creating %s…", name)
 	return m, func() tea.Msg {
-		return planSprintMsg{what: name + " created", err: c.CreateSprint(ctx, board, name)}
+		return planSprintMsg{what: i18n.Tf("%s created", name), err: c.CreateSprint(ctx, board, name)}
 	}
 }
 
@@ -587,7 +588,7 @@ func (m *Model) planClose() tea.Cmd {
 	t, p := m.jiraTab, m.jiraTab.plan
 	ai := slices.IndexFunc(p.sprints, func(v jiraView) bool { return v.lanes })
 	if ai < 0 {
-		m.status = "no active sprint"
+		m.status = i18n.T("no active sprint")
 		return nil
 	}
 	active := p.sprints[ai]
@@ -598,13 +599,13 @@ func (m *Model) planClose() tea.Cmd {
 			break
 		}
 	}
-	dest := "the backlog"
+	dest := i18n.T("the backlog")
 	if next >= 0 {
 		dest = p.sprints[next].name
 	}
 	if !p.closing {
 		p.closing = true
-		m.status = "C again completes " + active.name + ", unfinished issues to " + dest
+		m.status = i18n.Tf("C again completes %s, unfinished issues to %s", active.name, dest)
 		return nil
 	}
 	p.closing = false
@@ -617,7 +618,7 @@ func (m *Model) planClose() tea.Cmd {
 	if next >= 0 {
 		nextID = p.sprints[next].sprint
 	}
-	m.status = "completing " + active.name + "…"
+	m.status = i18n.Tf("completing %s…", active.name)
 	return func() tea.Msg {
 		// Only the unfinished are fetched, round after round until none are
 		// left, so a sprint bigger than the card limit still empties.
@@ -646,14 +647,14 @@ func (m *Model) planClose() tea.Cmd {
 				err = c.MoveToBacklog(ctx, open...)
 			}
 			if err != nil {
-				return planSprintMsg{err: fmt.Errorf("moving unfinished issues: %w", err)}
+				return planSprintMsg{err: fmt.Errorf("%s: %w", i18n.T("moving unfinished issues"), err)}
 			}
 			moved += len(open)
 		}
 		if err := c.CloseSprint(ctx, active.sprint); err != nil {
 			return planSprintMsg{err: err}
 		}
-		what := fmt.Sprintf("%s completed, %d unfinished to %s", active.name, moved, dest)
+		what := i18n.Tf("%s completed, %d unfinished to %s", active.name, moved, dest)
 		if delight {
 			if vel, err := c.Velocity(ctx, board, n, cfg.PointsField); err == nil {
 				if cheer := sprintCheer(vel); cheer != "" {
@@ -674,7 +675,7 @@ type planSprintMsg struct {
 
 func (m Model) handlePlanSprint(msg planSprintMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("sprint: " + msg.err.Error())
+		m.fail(i18n.Tf("sprint: %s", msg.err.Error()))
 		return m, nil
 	}
 	m.status = msg.what
@@ -688,7 +689,7 @@ func (m Model) handlePlanSprint(msg planSprintMsg) (tea.Model, tea.Cmd) {
 func (m *Model) planRank(d int) tea.Cmd {
 	p := m.jiraTab.plan
 	if p.filter != "" {
-		m.status = "ranking needs every card: esc clears the filter"
+		m.status = i18n.T("ranking needs every card: esc clears the filter")
 		return nil
 	}
 	s, i := p.sides[p.side], p.idx[p.side]
@@ -701,7 +702,7 @@ func (m *Model) planRank(d int) tea.Cmd {
 	p.sides[p.side], p.idx[p.side] = s, j
 	key, other := s[j].Key, s[i].Key
 	client, ctx := m.jiraClient, m.ctx
-	return planWrite(key+" ranked", func() error { return client.Rank(ctx, key, other, d > 0) })
+	return planWrite(i18n.Tf("%s ranked", key), func() error { return client.Rank(ctx, key, other, d > 0) })
 }
 
 // planRankTo moves key to row slot of side and ranks it before the card
@@ -723,7 +724,7 @@ func (m *Model) planRankTo(side int, key string, slot int) tea.Cmd {
 		other, after = s[slot-1].Key, true
 	}
 	client, ctx := m.jiraClient, m.ctx
-	return planWrite(key+" ranked", func() error { return client.Rank(ctx, key, other, after) })
+	return planWrite(i18n.Tf("%s ranked", key), func() error { return client.Rank(ctx, key, other, after) })
 }
 
 // dragOrder is side's cards with a card dragged within it shown at its
@@ -756,11 +757,11 @@ func (m *Model) renderPlan(width, height int) string {
 		s, _ := jiraErrorState(p.err, width, height, m.screenErrHints()...)
 		return s
 	case p.loading && p.sides[0] == nil && p.sides[1] == nil:
-		return refDimStyle.Render("loading…")
+		return refDimStyle.Render(i18n.T("loading…"))
 	}
 	leftW := (width - 3) / 2
 	rightW := width - 3 - leftW
-	left := m.renderPlanSide(0, "Backlog", leftW, height)
+	left := m.renderPlanSide(0, i18n.T("Backlog"), leftW, height)
 	right := m.renderPlanSide(1, p.sprints[p.target].name, rightW, height)
 	sep := strings.TrimSuffix(strings.Repeat(jiraDimStyle.Render(" │ ")+"\n", height), "\n")
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right)
@@ -779,7 +780,7 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		}
 	}
 	if unpointed > 0 {
-		pts += fmt.Sprintf("p · %d unestimated", unpointed)
+		pts += i18n.Tf("p · %d unestimated", unpointed)
 	} else {
 		pts += "p"
 	}
@@ -790,19 +791,19 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		headStyle = jiraViewActive
 	}
 	if p.drag.active && p.drag.over == side && side != p.drag.side {
-		headStyle, drop = jiraViewActive, "  ◂ drop"
+		headStyle, drop = jiraViewActive, i18n.T("  ◂ drop")
 	}
-	count := fmt.Sprintf("%d cards", len(cards))
+	count := i18n.Tn(len(cards), "%d card", "%d cards", len(cards))
 	if p.filter != "" {
-		count = fmt.Sprintf("%d of %d cards", len(cards), len(p.sides[side]))
+		count = i18n.Tf("%d of %d cards", len(cards), len(p.sides[side]))
 	}
 	head := headStyle.Render(fmt.Sprintf("%s  %s · %s", name, count, pts))
 	if side == 1 && p.velN > 0 {
 		// Against what the team got done a sprint lately, over it in the
 		// over colour.
-		vs := fmt.Sprintf(" of ~%sp (avg last %d)", chartNum(math.Round(p.velocity)), p.velN)
+		vs := i18n.Tf(" of ~%sp (avg last %d)", chartNum(math.Round(p.velocity)), p.velN)
 		if sum > p.velocity {
-			head += jiraOverStyle.Render(vs + " over")
+			head += jiraOverStyle.Render(vs + i18n.T(" over"))
 		} else {
 			head += jiraDimStyle.Render(vs)
 		}
@@ -813,7 +814,7 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		if sp := p.sprints[p.target]; p.me != "" && len(p.busy) > 0 {
 			caps, notes[p.me] = meetingCapacity(caps, p.me, p.busy, sp.start, sp.end, m.opts.workdays)
 		} else if p.calErr != "" {
-			note = "ui.calendar: " + p.calErr
+			note = i18n.Tf("ui.calendar: %s", p.calErr)
 		}
 		row := planByAssignee(cards, caps, notes)
 		if note != "" {
@@ -852,12 +853,12 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		lines = append(lines, row)
 	}
 	if e := p.sideErr[side]; e != "" {
-		lines = append(lines, "", refErrStyle.Render(ansi.Truncate(e, width, "…")), refDimStyle.Render(helpKey(m.keys.Refresh)+" retries"))
+		lines = append(lines, "", refErrStyle.Render(ansi.Truncate(e, width, "…")), refDimStyle.Render(i18n.Tf("%s retries", helpKey(m.keys.Refresh))))
 	}
 	if len(cards) == 0 && p.filter != "" && len(p.sides[side]) > 0 {
-		lines = append(lines, "", refDimStyle.Render(ansi.Truncate("none match the filter · esc clears it", width, "…")))
+		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(i18n.T("none match the filter · esc clears it"), width, "…")))
 	} else if len(cards) == 0 && p.sides[side] != nil {
-		hint := "empty · " + helpKey(m.keys.MoveSprint) + " or space on the other side moves cards here"
+		hint := i18n.Tf("empty · %s or space on the other side moves cards here", helpKey(m.keys.MoveSprint))
 		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(hint, width, "…")))
 	}
 	for len(lines) < height {
@@ -915,13 +916,17 @@ func planByAssignee(cards []jira.Card, capacity map[string]float64, notes map[st
 		if !ok && s.name != "unassigned" {
 			cp, ok = capacity["default"]
 		}
+		label := s.name
+		if label == "unassigned" {
+			label = i18n.T("unassigned")
+		}
 		switch {
 		case !ok:
-			parts[i] = jiraDimStyle.Render(s.name + " " + s.s)
+			parts[i] = jiraDimStyle.Render(label + " " + s.s)
 		case s.pts > cp:
-			parts[i] = jiraOverStyle.Render(fmt.Sprintf("%s %s/%s!", s.name, s.s, chartNum(cp)))
+			parts[i] = jiraOverStyle.Render(fmt.Sprintf("%s %s/%s!", label, s.s, chartNum(cp)))
 		default:
-			parts[i] = jiraDimStyle.Render(fmt.Sprintf("%s %s/%s", s.name, s.s, chartNum(cp)))
+			parts[i] = jiraDimStyle.Render(fmt.Sprintf("%s %s/%s", label, s.s, chartNum(cp)))
 		}
 		if n := notes[s.name]; n != "" {
 			parts[i] += jiraDimStyle.Render(" (" + n + ")")
@@ -939,5 +944,5 @@ func meetingCapacity(caps map[string]float64, me string, busy []calendar.Meeting
 	}
 	out := maps.Clone(caps)
 	out[me] = left
-	return out, jira.FormatDuration(int(hours.Seconds())) + " meetings off"
+	return out, i18n.Tf("%s meetings off", jira.FormatDuration(int(hours.Seconds())))
 }

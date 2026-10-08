@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/cornedor/laneway/internal/i18n"
 	"slices"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ import (
 func (m *Model) teamColumns() []standup.Column {
 	t := m.jiraTab
 	if len(t.lanes) == 0 {
-		return []standup.Column{{Name: "Issues", Cards: slices.Clone(t.cards)}}
+		return []standup.Column{{Name: i18n.T("Issues"), Cards: slices.Clone(t.cards)}}
 	}
 	out := make([]standup.Column, len(t.lanes))
 	for i, l := range t.lanes {
@@ -43,10 +44,11 @@ func (m *Model) teamHeader(now time.Time) string {
 	}
 	var parts []string
 	if g := strings.Join(strings.Fields(v.goal), " "); g != "" {
-		parts = append(parts, "goal: "+g)
+		parts = append(parts, i18n.Tf("goal: %s", g))
 	}
 	if !v.end.IsZero() && v.end.After(now) {
-		parts = append(parts, plural(workdaysLeft(now, v.end, m.opts.workdays), "workday")+" left")
+		n := workdaysLeft(now, v.end, m.opts.workdays)
+		parts = append(parts, i18n.Tn(n, "%d workday left", "%d workdays left", n))
 	}
 	return strings.Join(parts, " · ")
 }

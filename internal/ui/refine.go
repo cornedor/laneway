@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -35,7 +35,7 @@ func (m *Model) startRefine() tea.Cmd {
 		}
 	}
 	if len(cards) == 0 {
-		m.status = "no issues in this view to refine"
+		m.status = i18n.T("no issues in this view to refine")
 		return nil
 	}
 	slices.SortStableFunc(cards, func(a, b jira.Card) int {
@@ -65,7 +65,7 @@ func (m *Model) refineShow() tea.Cmd {
 	m.refBack = nil // stepping isn't a trail to walk back
 	m.focus = focusRef
 	m.resize()
-	m.status = fmt.Sprintf("refining %d of %d · J next · K back · esc done", r.idx+1, len(r.keys))
+	m.status = i18n.Tf("refining %d of %d · J next · K back · esc done", r.idx+1, len(r.keys))
 	return cmd
 }
 
@@ -78,14 +78,14 @@ func (m *Model) refineKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	switch msg.String() {
 	case "J":
 		if r.idx == len(r.keys)-1 {
-			m.status = "that was the last · esc ends refining"
+			m.status = i18n.T("that was the last · esc ends refining")
 			return nil, true
 		}
 		r.idx++
 		return m.refineShow(), true
 	case "K":
 		if r.idx == 0 {
-			m.status = "this is the first"
+			m.status = i18n.T("this is the first")
 			return nil, true
 		}
 		r.idx--
@@ -106,10 +106,10 @@ func (m *Model) endRefine() tea.Cmd {
 	m.opts.panelPct = r.pct
 	m.closeRef()
 	if len(r.changes) == 0 {
-		m.status = fmt.Sprintf("refined %d issues, nothing changed", r.idx+1)
+		m.status = i18n.Tn(r.idx+1, "refined %d issue, nothing changed", "refined %d issues, nothing changed", r.idx+1)
 		return nil
 	}
-	m.status = fmt.Sprintf("refined %d of %d issues, %s · copied as a list", r.idx+1, len(r.keys), plural(len(r.changes), "change"))
+	m.status = i18n.Tf("refined %d of %d issues, %s · copied as a list", r.idx+1, len(r.keys), i18n.Tn(len(r.changes), "%d change", "%d changes", len(r.changes)))
 	return tea.SetClipboard("- " + strings.Join(r.changes, "\n- "))
 }
 

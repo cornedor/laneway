@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -27,13 +28,13 @@ func retroTable(rs []jira.RetroSprint, ln chartLines) ([]string, [][]string) {
 	}
 	n := func(keys []string) string { return strconv.Itoa(len(keys)) }
 	rows := [][]string{
-		metric("committed", func(r jira.RetroSprint) string { return n(r.Committed) }),
-		metric("added during", func(r jira.RetroSprint) string { return n(r.Added) }),
-		metric("done", func(r jira.RetroSprint) string { return n(r.Done) }),
-		metric("carried over", func(r jira.RetroSprint) string { return n(r.Carried) }),
-		metric("moved backwards", func(r jira.RetroSprint) string { return n(r.Back) }),
-		metric("points done", func(r jira.RetroSprint) string {
-			return chartNum(r.DonePoints) + " of " + chartNum(r.Points)
+		metric(i18n.T("committed"), func(r jira.RetroSprint) string { return n(r.Committed) }),
+		metric(i18n.T("added during"), func(r jira.RetroSprint) string { return n(r.Added) }),
+		metric(i18n.T("done"), func(r jira.RetroSprint) string { return n(r.Done) }),
+		metric(i18n.T("carried over"), func(r jira.RetroSprint) string { return n(r.Carried) }),
+		metric(i18n.T("moved backwards"), func(r jira.RetroSprint) string { return n(r.Back) }),
+		metric(i18n.T("points done"), func(r jira.RetroSprint) string {
+			return i18n.Tf("%s of %s", chartNum(r.DonePoints), chartNum(r.Points))
 		}),
 	}
 	if ln.compare != nil {
@@ -45,16 +46,16 @@ func retroTable(rs []jira.RetroSprint, ln chartLines) ([]string, [][]string) {
 // betweenName names the issues past the left of two lines, not the right.
 func betweenName(ln chartLines) string {
 	first, last := jira.Order(ln.done, ln.compare)
-	return "past " + first.Label() + ", not " + last.Label()
+	return i18n.Tf("past %s, not %s", first.Label(), last.Label())
 }
 
 func renderRetro(rs []jira.RetroSprint, ln chartLines, width int) string {
 	if len(rs) == 0 {
-		return refDimStyle.Render("no closed sprints yet")
+		return refDimStyle.Render(i18n.T("no closed sprints yet"))
 	}
 	last := rs[len(rs)-1]
 	head, rows := retroTable(rs, ln)
-	lines := []string{jiraViewActive.Render("Retro — "+last.Name) + jiraDimStyle.Render(fmt.Sprintf("  %s – %s · %s", last.Start.Local().Format("2 Jan"), last.End.Local().Format("2 Jan"), ln.by())), ""}
+	lines := []string{jiraViewActive.Render(i18n.Tf("Retro — %s", last.Name)) + jiraDimStyle.Render(fmt.Sprintf("  %s – %s · %s", last.Start.Local().Format("2 Jan"), last.End.Local().Format("2 Jan"), ln.by())), ""}
 	colW, nameW := 14, 18
 	for _, r := range rows {
 		nameW = max(nameW, len(r[0])+2)
@@ -82,9 +83,9 @@ func renderRetro(rs []jira.RetroSprint, ln chartLines, width int) string {
 		}
 		lines = append(lines, "", jiraDimStyle.Render(name)+"  "+truncate(strings.Join(keys, " "), max(width-len(name)-4, 10)))
 	}
-	list("carried over", last.Carried)
-	list("added during", last.Added)
-	list("moved backwards", last.Back)
+	list(i18n.T("carried over"), last.Carried)
+	list(i18n.T("added during"), last.Added)
+	list(i18n.T("moved backwards"), last.Back)
 	if ln.compare != nil {
 		list(betweenName(ln), last.Between)
 	}

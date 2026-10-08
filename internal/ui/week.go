@@ -11,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -159,27 +160,27 @@ func (m Model) handleWeekKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			w.from = w.from.AddDate(0, 0, 7)
 			return m, m.loadWeek()
 		}
-		m.status = "this week is the last to show"
+		m.status = i18n.T("this week is the last to show")
 	case key.Matches(msg, m.keys.Refresh):
 		return m, m.loadWeek()
 	case key.Matches(msg, m.keys.OpenChannel):
 		if w.row >= len(w.rows) {
-			m.status = "nothing logged this week · " + helpKey(m.keys.LogWork) + " in the panel logs work"
+			m.status = i18n.Tf("nothing logged this week · %s in the panel logs work", helpKey(m.keys.LogWork))
 			break
 		}
 		r := w.rows[w.row]
 		m.openWorklogInput(r.key, "", w.from.AddDate(0, 0, w.col).Add(m.opts.workdayStart))
 	case key.Matches(msg, m.keys.Goto):
-		m.openBulkInput("week-add", "ABC-123 or 123")
-		m.jiraFieldKey = "the week"
+		m.openBulkInput("week-add", i18n.T("ABC-123 or 123"))
+		m.jiraFieldKey = i18n.T("the week")
 	case key.Matches(msg, m.keys.CopyKey):
 		if w.loading || w.err != "" {
 			break
 		}
-		m.status = "copied the week as a markdown table"
+		m.status = i18n.T("copied the week as a markdown table")
 		return m, tea.SetClipboard(m.weekTable())
 	case key.Matches(msg, m.keys.Help):
-		m.openHelp("Week")
+		m.openHelp(i18n.T("Week"))
 	}
 	return m, nil
 }
@@ -189,7 +190,7 @@ func (m Model) handleWeekKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) applyWeekAdd(raw string) (tea.Model, tea.Cmd) {
 	k := jiraGotoKey(raw, m.jiraTab.project)
 	if k == "" {
-		m.fail("not an issue key: " + raw)
+		m.fail(i18n.Tf("not an issue key: %s", raw))
 		return m, nil
 	}
 	m.closeJiraField()
@@ -198,7 +199,7 @@ func (m Model) applyWeekAdd(raw string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	client, ctx := m.jiraClient, m.ctx
-	m.status = "looking up " + k + "…"
+	m.status = i18n.Tf("looking up %s…", k)
 	return m, func() tea.Msg {
 		iss, err := client.Get(ctx, k)
 		msg := weekAddMsg{key: k, err: err}
@@ -264,12 +265,12 @@ func weekGap(secs int) string {
 func (m *Model) weekLine() string {
 	w := m.jiraTab.week
 	_, total := weekTotals(w.rows)
-	s := jiraViewActive.Render("Week of "+w.from.Format("Mon 2 Jan")) + jiraDimStyle.Render("  ·  "+jira.FormatDuration(total))
+	s := jiraViewActive.Render(i18n.Tf("Week of %s", w.from.Format("Mon 2 Jan"))) + jiraDimStyle.Render("  ·  "+jira.FormatDuration(total))
 	if w.loading {
-		s += jiraDimStyle.Render("  ·  loading…")
+		s += jiraDimStyle.Render(i18n.T("  ·  loading…"))
 	}
 	k := m.keys
-	return s + jiraDimStyle.Render(fmt.Sprintf("  ·  %s %s week · enter log in the cell · %s add an issue · %s copy · esc board",
+	return s + jiraDimStyle.Render(i18n.Tf("  ·  %s %s week · enter log in the cell · %s add an issue · %s copy · esc board",
 		helpKey(k.PrevView), helpKey(k.NextView), helpKey(k.Goto), helpKey(k.CopyKey)))
 }
 
@@ -283,17 +284,17 @@ func (m *Model) renderWeek(width, height int) string {
 		s, _ := jiraErrorState(w.err, width, height, m.screenErrHints()...)
 		return s
 	case w.loading && w.rows == nil:
-		return refDimStyle.Render("loading…")
+		return refDimStyle.Render(i18n.T("loading…"))
 	}
 	nameW := max(width-8*weekColW-2, 12)
 	cell := func(s string, st lipgloss.Style) string {
 		return st.Render(fmt.Sprintf("%*s", weekColW, ansi.Truncate(s, weekColW-1, "…")))
 	}
-	head := fmt.Sprintf("%-*s", nameW, "Issue")
+	head := fmt.Sprintf("%-*s", nameW, i18n.T("Issue"))
 	for d := range 7 {
 		head += cell(w.from.AddDate(0, 0, d).Format("Mon 2"), jiraDimStyle)
 	}
-	lines := []string{jiraDimStyle.Render(head) + cell("Total", jiraDimStyle)}
+	lines := []string{jiraDimStyle.Render(head) + cell(i18n.T("Total"), jiraDimStyle)}
 	for i, r := range w.rows {
 		name := ansi.Truncate(jiraKeyStyle.Render(r.key)+" "+r.summary, nameW-1, "…")
 		line := name + strings.Repeat(" ", max(nameW-ansi.StringWidth(name), 0))
@@ -312,11 +313,11 @@ func (m *Model) renderWeek(width, height int) string {
 		lines = append(lines, line+cell(jira.FormatDuration(sum), lipgloss.NewStyle().Bold(true)))
 	}
 	if len(w.rows) == 0 {
-		lines = append(lines, jiraDimStyle.Render("nothing logged this week · "+helpKey(m.keys.LogWork)+" in the panel logs work"))
+		lines = append(lines, jiraDimStyle.Render(i18n.Tf("nothing logged this week · %s in the panel logs work", helpKey(m.keys.LogWork))))
 	}
 	days, total := weekTotals(w.rows)
-	tot := fmt.Sprintf("%-*s", nameW, "Total")
-	gap := fmt.Sprintf("%-*s", nameW, "Short of 8h")
+	tot := fmt.Sprintf("%-*s", nameW, i18n.T("Total"))
+	gap := fmt.Sprintf("%-*s", nameW, i18n.T("Short of 8h"))
 	for d, s := range days {
 		tot += cell(weekCell(s), lipgloss.NewStyle().Bold(true))
 		g := ""

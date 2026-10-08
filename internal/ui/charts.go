@@ -14,6 +14,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -66,7 +67,7 @@ type chartsMsg struct {
 func (m *Model) openCharts() tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil || t.board >= len(t.boards) || t.boards[t.board].Type != "scrum" {
-		m.status = "charts need a scrum board"
+		m.status = i18n.T("charts need a scrum board")
 		return nil
 	}
 	ch := &chartsState{}
@@ -158,7 +159,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab),
 		key.Matches(msg, m.keys.PrevView), key.Matches(msg, m.keys.NextView):
 		if ch.sprint == nil {
-			m.status = "no active sprint: velocity only"
+			m.status = i18n.T("no active sprint: velocity only")
 			break
 		}
 		d := 1
@@ -173,7 +174,7 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.ChartCompare):
 		if ch.compare != "" {
 			ch.compare = ""
-			m.status = "one line again"
+			m.status = i18n.T("one line again")
 			return m, m.loadCharts()
 		}
 		m.openChartLinePicker(true)
@@ -182,16 +183,16 @@ func (m Model) handleChartsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			ch.tab < chartVelocity && ch.burnErr != "" {
 			break
 		}
-		m.status = "copied the numbers as a markdown table"
+		m.status = i18n.T("copied the numbers as a markdown table")
 		return m, tea.SetClipboard(m.chartTable(time.Now()))
 	case key.Matches(msg, m.keys.Help):
-		m.openHelp("Charts")
+		m.openHelp(i18n.T("Charts"))
 	}
 	return m, nil
 }
 
 // chartTabNames are the charts' tab labels, by tab.
-var chartTabNames = []string{"Burndown", "Burnup", "Flow", "Velocity", "Cycle", "Retro"}
+var chartTabNames = []string{i18n.N("Burndown"), i18n.N("Burnup"), i18n.N("Flow"), i18n.N("Velocity"), i18n.N("Cycle"), i18n.N("Retro")}
 
 const chartTabSep = "  │  "
 
@@ -228,7 +229,7 @@ func (m *Model) renderCharts(width, height int) string {
 		s, _ := jiraErrorState(failed, width, height, m.screenErrHints()...)
 		return s
 	case ch.loading && ch.burn == nil && ch.vel == nil:
-		return refDimStyle.Render("loading…")
+		return refDimStyle.Render(i18n.T("loading…"))
 	case ch.tab == chartBurndown:
 		return renderBurndown(*ch.sprint, ch.burn, m.chartLines(), time.Now(), width, height)
 	case ch.tab == chartBurnup:
@@ -393,11 +394,19 @@ func burnUnit(issues []jira.BurnIssue) ([]jira.BurnIssue, string) {
 	return counted, " issues"
 }
 
+// chartUnit is the burn unit as shown: "p" for points, " issues" counted.
+func chartUnit(unit string) string {
+	if unit == "p" {
+		return unit
+	}
+	return i18n.T(" issues")
+}
+
 // renderBurndown plots points (or issues) left per day against the ideal
 // line, and those not past the compared line beside them.
 func renderBurndown(v jiraView, issues []jira.BurnIssue, ln chartLines, now time.Time, width, height int) string {
 	if v.start.IsZero() || v.end.IsZero() {
-		return refDimStyle.Render(v.name + " has no dates")
+		return refDimStyle.Render(i18n.Tf("%s has no dates", v.name))
 	}
 	issues, unit := burnUnit(issues)
 	total, added, left := burnSeries(issues, ln.done, v.start, v.end, now)
@@ -411,7 +420,7 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, ln chartLines, now time
 	}
 	scope := ""
 	if added > 0 {
-		scope = fmt.Sprintf(" · +%s%s added since the start", chartNum(added), unit)
+		scope = i18n.Tf(" · +%s%s added since the start", chartNum(added), chartUnit(unit))
 	}
 	days := max(v.end.Sub(v.start).Hours()/24, 1)
 	elapsed := min(max(now.Sub(v.start).Hours()/24, 0), days)
@@ -420,20 +429,20 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, ln chartLines, now time
 	switch d := cur - ideal; {
 	case total == 0:
 	case d >= 0.5:
-		pace = fmt.Sprintf(" · %s%s behind", chartNum(d), unit)
+		pace = i18n.Tf(" · %s%s behind", chartNum(d), chartUnit(unit))
 	case d <= -0.5:
-		pace = fmt.Sprintf(" · %s%s ahead", chartNum(-d), unit)
+		pace = i18n.Tf(" · %s%s ahead", chartNum(-d), chartUnit(unit))
 	default:
-		pace = " · on track"
+		pace = i18n.T(" · on track")
 	}
-	legend := "   " + roadmapDoneStyle.Render("⣿ left") + "  " + jiraDimStyle.Render("⠉ ideal")
+	legend := "   " + roadmapDoneStyle.Render(i18n.T("⣿ left")) + "  " + jiraDimStyle.Render(i18n.T("⠉ ideal"))
 	if ln.compare != nil {
-		legend += "  " + roadmapTodayStyle.Render("⣿ before "+ln.compare.Name)
+		legend += "  " + roadmapTodayStyle.Render(i18n.Tf("⣿ before %s", ln.compare.Name))
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %s%s left · ideal %s%s%s%s · %s",
-		chartNum(cur), chartNum(total), unit, chartNum(ideal), unit, pace, scope, ln.by())) + legend
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(i18n.Tf("  %s of %s%s left · ideal %s%s%s%s · %s",
+		chartNum(cur), chartNum(total), chartUnit(unit), chartNum(ideal), chartUnit(unit), pace, scope, ln.by())) + legend
 	if total == 0 {
-		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
+		return title + "\n\n" + refDimStyle.Render(i18n.T("no issues in this sprint"))
 	}
 	axisW := len(chartNum(total)) + 1
 	cw, chh := max(width-axisW-1, 4), min(max(height-5, 3), 16)
@@ -465,9 +474,10 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, ln chartLines, now time
 	}
 	if now.After(v.start) && now.Before(v.end) {
 		col := min(x(elapsed)/2, cw-1)
-		mark := "▲ today"
-		if col+len("▲ today") > cw {
-			mark, col = "today ▲", max(col-len("today "), 0)
+		today := i18n.T("today")
+		mark := "▲ " + today
+		if col+len(mark) > cw {
+			mark, col = today+" ▲", max(col-len(today)-1, 0)
 		}
 		lines = append(lines, strings.Repeat(" ", axisW+1+col)+roadmapTodayStyle.Render(mark))
 	}
@@ -479,7 +489,7 @@ func renderBurndown(v jiraView, issues []jira.BurnIssue, ln chartLines, now time
 // renderVelocity is a bar per closed sprint: done filled, the rest shaded.
 func renderVelocity(vel []jira.SprintVelocity, width int) string {
 	if len(vel) == 0 {
-		return refDimStyle.Render("no closed sprints yet")
+		return refDimStyle.Render(i18n.T("no closed sprints yet"))
 	}
 	nameW, most, done := 0, 0.0, 0.0
 	for _, s := range vel {
@@ -488,7 +498,7 @@ func renderVelocity(vel []jira.SprintVelocity, width int) string {
 		done += s.Done
 	}
 	nameW = min(nameW, max(width/4, 8))
-	lines := []string{jiraViewActive.Render("Velocity") + jiraDimStyle.Render(fmt.Sprintf("  last %d sprints · average %sp done", len(vel), chartNum(done/float64(len(vel))))), ""}
+	lines := []string{jiraViewActive.Render(i18n.T("Velocity")) + jiraDimStyle.Render(i18n.Tf("  last %d sprints · average %sp done", len(vel), chartNum(done/float64(len(vel))))), ""}
 	barW := max(width-nameW-12, 4)
 	for _, s := range vel {
 		full, filled := 0, 0
@@ -538,7 +548,7 @@ func burnupSeries(issues []jira.BurnIssue, line *jira.Line, start, end, now time
 // those past the compared line beside them.
 func renderBurnup(v jiraView, issues []jira.BurnIssue, ln chartLines, now time.Time, width, height int) string {
 	if v.start.IsZero() || v.end.IsZero() {
-		return refDimStyle.Render(v.name + " has no dates")
+		return refDimStyle.Render(i18n.Tf("%s has no dates", v.name))
 	}
 	issues, unit := burnUnit(issues)
 	scope, done := burnupSeries(issues, ln.done, v.start, v.end, now)
@@ -554,12 +564,12 @@ func renderBurnup(v jiraView, issues []jira.BurnIssue, ln chartLines, now time.T
 	if n := len(done); n > 0 {
 		cur, all = done[n-1], scope[n-1]
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(fmt.Sprintf("  %s of %s%s done · scope dotted · %s", chartNum(cur), chartNum(all), unit, ln.by()))
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(i18n.Tf("  %s of %s%s done · scope dotted · %s", chartNum(cur), chartNum(all), chartUnit(unit), ln.by()))
 	if n := len(past); n > 0 {
-		title += "   " + roadmapDoneStyle.Render("⣿ done") + "  " + roadmapTodayStyle.Render(fmt.Sprintf("⣿ past %s: %s%s", ln.compare.Name, chartNum(past[n-1]), unit))
+		title += "   " + roadmapDoneStyle.Render(i18n.T("⣿ done")) + "  " + roadmapTodayStyle.Render(i18n.Tf("⣿ past %s: %s%s", ln.compare.Name, chartNum(past[n-1]), chartUnit(unit)))
 	}
 	if top == 0 {
-		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
+		return title + "\n\n" + refDimStyle.Render(i18n.T("no issues in this sprint"))
 	}
 	axisW := len(chartNum(top)) + 1
 	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)
@@ -640,7 +650,7 @@ func flowStyle(i, n int) lipgloss.Style {
 // done at the bottom, one slice per day.
 func renderFlow(v jiraView, issues []jira.BurnIssue, cols []jira.Column, ln chartLines, now time.Time, width, height int) string {
 	if v.start.IsZero() || v.end.IsZero() {
-		return refDimStyle.Render(v.name + " has no dates")
+		return refDimStyle.Render(i18n.Tf("%s has no dates", v.name))
 	}
 	days := flowSeries(issues, cols, v.start, v.end, now)
 	top := 0
@@ -661,9 +671,9 @@ func renderFlow(v jiraView, issues []jira.BurnIssue, cols []jira.Column, ln char
 		}
 		legend = append(legend, item)
 	}
-	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render("  issues per column, day by day   ") + strings.Join(legend, "  ")
+	title := jiraViewActive.Render(v.name) + jiraDimStyle.Render(i18n.T("  issues per column, day by day   ")) + strings.Join(legend, "  ")
 	if top == 0 || len(days) == 0 {
-		return title + "\n\n" + refDimStyle.Render("no issues in this sprint")
+		return title + "\n\n" + refDimStyle.Render(i18n.T("no issues in this sprint"))
 	}
 	axisW := len(strconv.Itoa(top)) + 1
 	cw, chh := max(width-axisW-1, 4), min(max(height-4, 3), 16)

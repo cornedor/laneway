@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 )
@@ -243,7 +244,7 @@ func (m *Model) notifyMentions() tea.Cmd {
 				continue
 			}
 			newest = maxTime(newest, e.When)
-			cmds = append(cmds, tea.Raw(rules.NotifySeq(e.Who+" mentioned you on "+t.Key, t.Summary)))
+			cmds = append(cmds, tea.Raw(rules.NotifySeq(i18n.Tf("%s mentioned you on %s", e.Who, t.Key), t.Summary)))
 		}
 	}
 	m.mentionsSeen = newest
@@ -299,7 +300,7 @@ const (
 	inboxTabs
 )
 
-var inboxTabNames = [inboxTabs]string{"Inbox", "Mentions", "All"}
+var inboxTabNames = [inboxTabs]string{i18n.N("Inbox"), i18n.N("Mentions"), i18n.N("All")}
 
 type inboxScreen struct {
 	tab  int
@@ -434,7 +435,7 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	t, ok := m.inboxThread(s.cursorID())
 	needThread := func() bool {
 		if !ok {
-			m.status = "no thread here"
+			m.status = i18n.T("no thread here")
 		}
 		return ok
 	}
@@ -470,13 +471,13 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		m.readInboxThread(t.id())
 		if t.site != m.site {
-			m.status = "opening " + t.url + "…"
+			m.status = i18n.Tf("opening %s…", t.url)
 			return m, m.openOpenable(openable{name: t.Key, url: t.url})
 		}
 		return m.openJiraKey(t.Key)
 	case key.Matches(msg, k.OpenAttach):
 		if needThread() {
-			m.status = "opening " + t.url + "…"
+			m.status = i18n.Tf("opening %s…", t.url)
 			return m, m.openOpenable(openable{name: t.Key, url: t.url})
 		}
 	case key.Matches(msg, k.InboxDone):
@@ -486,11 +487,11 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		mk := m.inboxMark(t.id())
 		if m.inboxStateOf(t, now).done {
 			mk.Done = 0
-			m.status = t.Key + " back in the inbox"
+			m.status = i18n.Tf("%s back in the inbox", t.Key)
 		} else {
 			mk.Done, mk.Snooze = ms(t.latest()), 0
 			mk.Read = max(mk.Read, ms(t.latest()))
-			m.status = t.Key + " done · until something new happens · " + helpKey(k.InboxDone) + " in All brings it back"
+			m.status = i18n.Tf("%s done · until something new happens · %s in All brings it back", t.Key, helpKey(k.InboxDone))
 		}
 		m.putInboxMark(t.id(), mk)
 		m.inboxDrop()
@@ -506,7 +507,7 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.putInboxMark(id, mk)
 			n++
 		}
-		m.status = plural(n, "read thread") + " done"
+		m.status = i18n.Tn(n, "%d read thread done", "%d read threads done", n)
 		m.buildInboxRows()
 		m.readInboxRow()
 	case key.Matches(msg, k.InboxUnread):
@@ -516,11 +517,11 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		mk := m.inboxMark(t.id())
 		if m.inboxStateOf(t, now).unread {
 			mk.Read = ms(t.latest())
-			m.status = t.Key + " read"
+			m.status = i18n.Tf("%s read", t.Key)
 		} else {
 			mk.Read = ms(t.latest()) - 1 // the newest entry unread again
 			delete(s.newFrom, t.id())
-			m.status = t.Key + " unread · it stays so until you move off it and back"
+			m.status = i18n.Tf("%s unread · it stays so until you move off it and back", t.Key)
 		}
 		m.putInboxMark(t.id(), mk)
 	case key.Matches(msg, k.InboxSnooze):
@@ -530,11 +531,11 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		mk := m.inboxMark(t.id())
 		if m.inboxStateOf(t, now).snoozed {
 			mk.Snooze = 0
-			m.status = t.Key + " back in the inbox"
+			m.status = i18n.Tf("%s back in the inbox", t.Key)
 		} else {
 			till := m.snoozeTill(now)
 			mk.Snooze = ms(till)
-			m.status = t.Key + " snoozed till " + inboxWhen(till, now)
+			m.status = i18n.Tf("%s snoozed till %s", t.Key, inboxWhen(till, now))
 		}
 		m.putInboxMark(t.id(), mk)
 		m.inboxDrop()
@@ -543,7 +544,7 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			break
 		}
 		if t.site != m.site {
-			m.status = "on " + t.site + ": " + helpKey(k.OpenAttach) + " opens it in the browser"
+			m.status = i18n.Tf("on %s: %s opens it in the browser", t.site, helpKey(k.OpenAttach))
 			break
 		}
 		if key.Matches(msg, k.JiraComment) {
@@ -555,7 +556,7 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			i--
 		}
 		if i < 0 {
-			m.status = "no comments to reply to"
+			m.status = i18n.T("no comments to reply to")
 			break
 		}
 		c := t.entries[i]
@@ -564,11 +565,11 @@ func (m Model) handleInboxKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.syncInbox()
 	case key.Matches(msg, k.CopyKey):
 		if needThread() {
-			m.status = t.Key + " copied"
+			m.status = i18n.Tf("%s copied", t.Key)
 			return m, tea.SetClipboard(t.Key)
 		}
 	case key.Matches(msg, k.Help):
-		m.openHelp("Inbox")
+		m.openHelp(i18n.T("Inbox"))
 	}
 	return m, nil
 }
@@ -614,7 +615,7 @@ func (m *Model) inboxViewLine() string {
 	}
 	var tabs []string
 	for i, name := range inboxTabNames {
-		label := fmt.Sprintf("%s %d", name, counts[i])
+		label := fmt.Sprintf("%s %d", i18n.T(name), counts[i])
 		if i == s.tab {
 			tabs = append(tabs, jiraViewActive.Render(label))
 		} else {
@@ -623,13 +624,13 @@ func (m *Model) inboxViewLine() string {
 	}
 	line := strings.Join(tabs, jiraDimStyle.Render(" · "))
 	if m.inboxUnread > 0 {
-		line += jiraDimStyle.Render(fmt.Sprintf("  ·  %d unread", m.inboxUnread))
+		line += jiraDimStyle.Render(i18n.Tf("  ·  %d unread", m.inboxUnread))
 	}
 	if d.syncing {
-		line += jiraDimStyle.Render(" · syncing…")
+		line += jiraDimStyle.Render(i18n.T(" · syncing…"))
 	}
 	k := m.keys
-	keys := fmt.Sprintf("  ·  %s view · %s open · %s comment · %s reply · %s done · %s unread · %s snooze · %s browser · esc board",
+	keys := i18n.Tf("  ·  %s view · %s open · %s comment · %s reply · %s done · %s unread · %s snooze · %s browser · esc board",
 		helpKey(k.Tab), helpKey(k.OpenChannel), helpKey(k.JiraComment), helpKey(k.JiraReply), helpKey(k.InboxDone),
 		helpKey(k.InboxUnread), helpKey(k.InboxSnooze), helpKey(k.OpenAttach))
 	return line + jiraDimStyle.Render(keys)
@@ -644,7 +645,7 @@ func (m *Model) renderInbox(width, height int) string {
 		out, _ := jiraErrorState(d.err, width, height, m.screenErrHints()...)
 		return out
 	case !d.loaded:
-		return refDimStyle.Render("  reading your issues' news…")
+		return refDimStyle.Render(i18n.T("  reading your issues' news…"))
 	case len(s.rows) == 0:
 		return m.renderInboxEmpty()
 	}
@@ -685,16 +686,16 @@ func (m *Model) renderInboxEmpty() string {
 			snoozed++
 		}
 	}
-	msg := "nothing new since " + inboxWhen(now.Add(-m.opts.inboxLookback), now)
+	msg := i18n.Tf("nothing new since %s", inboxWhen(now.Add(-m.opts.inboxLookback), now))
 	if s.tab == inboxTabMentions {
-		msg = "no one mentioned you"
+		msg = i18n.T("no one mentioned you")
 	}
 	if m.opts.delight && s.tab == inboxTabInbox {
-		msg += " · all caught up ✓"
+		msg += i18n.T(" · all caught up ✓")
 	}
 	out := []string{"", "  " + msg}
 	if s.tab != inboxTabAll && done+snoozed > 0 {
-		out = append(out, "", refDimStyle.Render(fmt.Sprintf("  %d done, %d snoozed · %s shows All", done, snoozed, helpKey(m.keys.Tab))))
+		out = append(out, "", refDimStyle.Render(i18n.Tf("  %d done, %d snoozed · %s shows All", done, snoozed, helpKey(m.keys.Tab))))
 	}
 	return strings.Join(out, "\n")
 }
@@ -740,7 +741,7 @@ func (m *Model) renderInboxList(width, height int) []string {
 		}
 		tail := ""
 		if n > 1 {
-			tail = fmt.Sprintf(" %d new", n)
+			tail = i18n.Tf(" %d new", n)
 		}
 		newsW := max(width-4-ansi.StringWidth(tail), 8)
 		line2 := "    " + ansi.Truncate(news, newsW, "…")
@@ -786,15 +787,15 @@ func (m *Model) renderInboxThread(width, height int) []string {
 		newFrom = st.readTo
 	}
 	head := []string{jiraKeyStyle.Render(t.Key) + " " + titleStyle.Render(ansi.Truncate(t.Summary, max(width-len(t.Key)-1, 1), "…"))}
-	facts := []string{t.Status, cmp.Or(t.Assignee, "unassigned")}
+	facts := []string{t.Status, cmp.Or(t.Assignee, i18n.T("unassigned"))}
 	if t.site != m.site {
-		facts = append(facts, "on "+t.site)
+		facts = append(facts, i18n.Tf("on %s", t.site))
 	}
 	switch {
 	case st.done:
-		facts = append(facts, "done ✓")
+		facts = append(facts, i18n.T("done ✓"))
 	case st.snoozed:
-		facts = append(facts, "snoozed till "+inboxWhen(st.snoozeTill, now))
+		facts = append(facts, i18n.Tf("snoozed till %s", inboxWhen(st.snoozeTill, now)))
 	}
 	head = append(head, refDimStyle.Render(ansi.Truncate(strings.Join(facts, " · "), width, "…")), "")
 
@@ -811,11 +812,11 @@ func (m *Model) renderInboxThread(width, height int) []string {
 		by := e.Who + " · " + m.when(e.When)
 		switch {
 		case e.Mention:
-			by += " · mentioned you"
+			by += i18n.T(" · mentioned you")
 		case e.Assigned:
-			by += " · assigned you"
+			by += i18n.T(" · assigned you")
 		case e.CommentID != "":
-			by += " · commented"
+			by += i18n.T(" · commented")
 		}
 		if fresh {
 			b.WriteString(refKeyStyle.Render("● "+by) + "\n")
@@ -845,7 +846,7 @@ func (m *Model) renderInboxThread(width, height int) []string {
 	s.detailTop = min(s.detailTop, max(len(body)-room, 0))
 	body = body[s.detailTop:min(len(body), s.detailTop+room)]
 	if s.detailTop > 0 {
-		body[0] = refDimStyle.Render(fmt.Sprintf("  ↑ %d earlier lines · %s", s.detailTop, helpKey(m.keys.PageUp)))
+		body[0] = refDimStyle.Render(i18n.Tf("  ↑ %d earlier lines · %s", s.detailTop, helpKey(m.keys.PageUp)))
 	}
 	return append(head, body...)
 }

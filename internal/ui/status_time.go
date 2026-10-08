@@ -7,13 +7,15 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // A → Time in each status: how long the issue sat in each status it went
 // through, all its visits added up, from its changelog.
 
 func (m *Model) openStatusTime(key string) tea.Cmd {
-	gen := m.startJiraPicker(jiraPickStatusTime, "Time in status — "+key, false)
+	gen := m.startJiraPicker(jiraPickStatusTime, i18n.Tf("Time in status — %s", key), false)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -32,12 +34,12 @@ func (m *Model) openStatusTime(key string) tea.Cmd {
 				label += fmt.Sprintf("  %d×", st.Visits)
 			}
 			if st.Now {
-				label += "  ← now"
+				label += i18n.T("  ← now")
 			}
 			items[i] = jiraPickerItem{label: label}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStatusTime, items: items, err: err,
-			title: "Time in status — " + key + " · " + spanText(total) + " since created"}
+			title: i18n.Tf("Time in status — %s · %s since created", key, spanText(total))}
 	}
 }
 

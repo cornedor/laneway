@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -19,9 +20,9 @@ type chartLines struct{ done, compare *jira.Line }
 // by is what the charts say they count done by.
 func (ln chartLines) by() string {
 	if ln.done == nil {
-		return "by resolution date"
+		return i18n.T("by resolution date")
 	}
-	return "done = " + ln.done.Name + " →"
+	return i18n.Tf("done = %s →", ln.done.Name)
 }
 
 func (m *Model) chartLines() chartLines {
@@ -45,11 +46,11 @@ func (m *Model) openChartLinePicker(compare bool) {
 	}
 	ln := m.chartLines()
 	var items []jiraPickerItem
-	kind, title := jiraPickChartDone, "Count done from"
+	kind, title := jiraPickChartDone, i18n.T("Count done from")
 	if compare {
-		kind, title = jiraPickChartCompare, "Compare with a line at"
+		kind, title = jiraPickChartCompare, i18n.T("Compare with a line at")
 	} else {
-		items = append(items, jiraPickerItem{id: "", label: "Jira: the resolution date", current: ln.done == nil})
+		items = append(items, jiraPickerItem{id: "", label: i18n.T("Jira: the resolution date"), current: ln.done == nil})
 	}
 	for _, c := range t.cfg.Columns {
 		if compare && ln.done != nil && ln.done.Name == c.Name {
@@ -91,7 +92,7 @@ func (m *Model) applyChartLine(compare bool, name string) {
 		ch.compare = ""
 	}
 	if m.configPath == "" {
-		m.status = "no config file to write to: the done line lasts till you quit"
+		m.status = i18n.T("no config file to write to: the done line lasts till you quit")
 		return
 	}
 	var v any
@@ -99,6 +100,6 @@ func (m *Model) applyChartLine(compare bool, name string) {
 		v = next
 	}
 	if err := config.SetUI(m.configPath, "report_done", v); err != nil {
-		m.fail("ui.report_done: " + err.Error())
+		m.fail(i18n.Tf("ui.report_done: %s", err.Error()))
 	}
 }
