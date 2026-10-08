@@ -38,8 +38,37 @@ func (d *descEdit) draftID() string {
 	return id
 }
 
-// saveDraft keeps text as id, dropping it when blank.
-func (m *Model) saveDraft(id, text string) {
+// Draft is a kept draft: its text, when it was written and, for one that
+// edits a document, the jira.DocBase of the document it was written on,
+// for the save to check against Jira.
+type Draft struct {
+	Text, Base string
+	At         time.Time
+}
+
+// EncodeDraft is how a draft is kept: "unix base\ntext", or "unix\ntext"
+// without a base.
+func EncodeDraft(d Draft) string {
+	head := strconv.FormatInt(d.At.Unix(), 10)
+	if d.Base != "" {
+		head += " " + d.Base
+	}
+	return head + "\n" + d.Text
+}
+
+// DecodeDraft reads a kept draft; false for none.
+func DecodeDraft(v string) (Draft, bool) {
+	head, text, _ := strings.Cut(v, "\n")
+	unix, base, _ := strings.Cut(head, " ")
+	sec, err := strconv.ParseInt(unix, 10, 64)
+	if err != nil || text == "" {
+		return Draft{}, false
+	}
+	return Draft{Text: text, Base: base, At: time.Unix(sec, 0)}, true
+}
+
+// saveDraft keeps text as id, written on base; blank drops it.
+func (m *Model) saveDraft(id, text, base string) {
 	if m.store == nil {
 		return
 	}
@@ -47,21 +76,19 @@ func (m *Model) saveDraft(id, text string) {
 		_ = m.store.DeleteMeta(draftPrefix + id)
 		return
 	}
-	_ = m.store.SetMeta(draftPrefix+id, strconv.FormatInt(time.Now().Unix(), 10)+"\n"+text)
+	_ = m.store.SetMeta(draftPrefix+id, EncodeDraft(Draft{Text: text, Base: base, At: time.Now()}))
 }
 
-// draft is id's kept text and when it was written; false for none.
-func (m *Model) draft(id string) (string, time.Time, bool) {
+// draft is id's kept draft; false for none.
+func (m *Model) draft(id string) (Draft, bool) {
 	if m.store == nil {
-		return "", time.Time{}, false
+		return Draft{}, false
 	}
 	v, ok, _ := m.store.GetMeta(draftPrefix + id)
-	unix, text, _ := strings.Cut(v, "\n")
-	sec, err := strconv.ParseInt(unix, 10, 64)
-	if !ok || err != nil || text == "" {
-		return "", time.Time{}, false
+	if !ok {
+		return Draft{}, false
 	}
-	return text, time.Unix(sec, 0), true
+	return DecodeDraft(v)
 }
 
 func (m *Model) dropDraft(id string) {
@@ -74,10 +101,10 @@ func (m *Model) dropDraft(id string) {
 // differs from where they started.
 func (m *Model) saveOpenDrafts() {
 	if m.jiraCommentActive && m.jiraCommentReplyTo == "" && m.jiraCommentInput.Value() != m.jiraCommentBefore {
-		m.saveDraft(commentDraft(m.jiraCommentKey), m.jiraCommentInput.Value())
+		m.saveDraft(commentDraft(m.jiraCommentKey), m.jiraCommentInput.Value(), "")
 	}
 	if d := m.descEdit; d != nil && d.input.Value() != d.before {
-		m.saveDraft(d.draftID(), d.input.Value())
+		m.saveDraft(d.draftID(), d.input.Value(), d.base)
 	}
 }
 

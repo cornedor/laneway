@@ -3,7 +3,10 @@ package jira
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -68,16 +71,57 @@ func (c *Client) RawField(ctx context.Context, key, id string) (json.RawMessage,
 }
 
 // SetDescription writes markdown as the issue's description, placeholder
-// lines put back from kept; blank clears it.
-func (c *Client) SetDescription(ctx context.Context, key, md string, kept []json.RawMessage) error {
+// lines put back from kept; blank clears it. base is as SetDoc's.
+func (c *Client) SetDescription(ctx context.Context, key, md string, kept []json.RawMessage, base string) error {
+	return c.SetDoc(ctx, key, "description", md, kept, base)
+}
+
+// ErrDocChanged is a save refused because the document changed in Jira
+// since the editor opened on it.
+var ErrDocChanged = errors.New("it changed in Jira since you opened it")
+
+// DocChangedError is ErrDocChanged with the document Jira has now.
+type DocChangedError struct{ Raw json.RawMessage }
+
+func (e *DocChangedError) Error() string   { return ErrDocChanged.Error() }
+func (e *DocChangedError) Is(t error) bool { return t == ErrDocChanged }
+
+// DocBase marks a rich-text field's document as Jira had it (null when
+// empty), for SetDoc to tell whether someone changed it since.
+func DocBase(raw json.RawMessage) string {
+	var v any
+	if len(raw) > 0 && json.Unmarshal(raw, &v) != nil {
+		v = string(raw)
+	}
+	b, _ := json.Marshal(v) // keys sorted: the same document, the same mark
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:12])
+}
+
+// SetDoc writes markdown as field id of key (the description, a rich-text
+// field), placeholder lines put back from kept; blank clears it. With a
+// base (DocBase) it reads the field first and, when it is no longer that
+// document, fails with a *DocChangedError, writing nothing. Jira has no
+// conditional write for an issue, so the moment between the two is open.
+// When Jira can't be reached the check is skipped: the write is queued.
+func (c *Client) SetDoc(ctx context.Context, key, id, md string, kept []json.RawMessage, base string) error {
 	if !c.Enabled() {
 		return errNotConfigured
+	}
+	if base != "" {
+		raw, err := c.RawField(ctx, key, id)
+		switch {
+		case err != nil && !unreached(err):
+			return err
+		case err == nil && DocBase(raw) != base:
+			return &DocChangedError{Raw: raw}
+		}
 	}
 	var doc any
 	if strings.TrimSpace(md) != "" {
 		doc = MarkdownToADFKept(c.EmbedImages(ctx, md), kept)
 	}
-	body := map[string]any{"fields": map[string]any{"description": doc}}
+	body := map[string]any{"fields": map[string]any{id: doc}}
 	if err := c.do(ctx, http.MethodPut, "/rest/api/3/issue/"+url.PathEscape(key), key, body, nil); err != nil {
 		return err
 	}

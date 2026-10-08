@@ -71,6 +71,37 @@ test('description, in the markdown editor', async ({ page }) => {
   await expect(page.locator('.iss li', { hasText: 'keep their cart' })).toBeVisible();
 });
 
+test('a description being typed is back after a reload', async ({ page }) => {
+  await page.keyboard.press('E');
+  await expect(page.locator('.iss [data-placeholder^="Description"]')).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(' Typed just now.');
+  await page.reload(); // at once: the page sends it as it goes
+  await expect(page.locator('.iss .fld[data-field="status"]')).toBeVisible();
+  await page.keyboard.press('E');
+  await expect(page.locator('.iss [data-placeholder^="Description"]')).toContainText('Typed just now.');
+});
+
+test('a description changed in Jira meanwhile is not saved over unasked', async ({ page, app }) => {
+  await page.keyboard.press('E');
+  await expect(page.locator('.iss [data-placeholder^="Description"]')).toBeFocused();
+  // A colleague's edit, unchecked, while the editor is open.
+  await page.request.put(new URL('/api/issues/DEMO-4/description', app.url).href, { data: { Markdown: 'Acceptance: guests check out.' } });
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(' Mine.');
+  await page.keyboard.press('ControlOrMeta+Enter');
+  const dialog = page.getByRole('dialog', { name: 'Description changed in Jira' });
+  await expect(dialog).toContainText('- Acceptance: guests check out.');
+  await dialog.getByRole('button', { name: 'Keep editing' }).click();
+  await expect(page.locator('.iss [data-placeholder^="Description"]')).toBeVisible();
+  // Kept editing, the next save goes over theirs.
+  await page.locator('.iss [data-placeholder^="Description"]').click();
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(page.locator('.iss .desc:not(.doc)')).toContainText('Mine.');
+  await expect(page.locator('.iss .desc:not(.doc)')).not.toContainText('Acceptance');
+  app.errors.splice(0, app.errors.length, ...app.errors.filter(e => !/^409 PUT .*\/description$/.test(e)));
+});
+
 test('a custom field: Team, under Fields', async ({ page }) => {
   await page.getByRole('button', { name: /^Fields/ }).click();
   const team = page.locator('.iss').getByRole('button', { name: /^Team/ });

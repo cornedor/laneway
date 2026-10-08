@@ -19,13 +19,21 @@ func TestDrafts(t *testing.T) {
 	if issueCall(t, "GET", u+"comment:DEMO-1", nil, &d) != 200 || d.Text != "" {
 		t.Fatalf("no draft = %+v", d)
 	}
-	for _, id := range []string{"desc:DEMO-1", "desc:DEMO-1:comment:10001", "comment:DEMO-2"} {
+	for _, id := range []string{"desc:DEMO-1", "desc:DEMO-1:comment:10001", "comment:DEMO-2", "create"} {
 		if code := issueCall(t, "PUT", u+id, map[string]string{"Text": "half a\nthought"}, nil); code != 200 {
 			t.Fatalf("put %s: %d", id, code)
 		}
 		if issueCall(t, "GET", u+id, nil, &d); d.Text != "half a\nthought" {
 			t.Errorf("%s = %q", id, d.Text)
 		}
+	}
+	var db struct{ Text, Base string }
+	issueCall(t, "PUT", u+"desc:DEMO-1", map[string]string{"Text": "x", "Base": "0a1b"}, nil)
+	if issueCall(t, "GET", u+"desc:DEMO-1", nil, &db); db.Text != "x" || db.Base != "0a1b" {
+		t.Errorf("draft with a base = %+v", db)
+	}
+	if code := issueCall(t, "PUT", u+"desc:DEMO-1", map[string]string{"Text": "x", "Base": "a b\nc"}, nil); code != 400 {
+		t.Errorf("bad base: %d", code)
 	}
 	issueCall(t, "DELETE", u+"desc:DEMO-1", nil, nil)
 	if issueCall(t, "GET", u+"desc:DEMO-1", nil, &d); d.Text != "" {

@@ -343,7 +343,7 @@ func (m *Model) editPanelField() tea.Cmd {
 		key := m.jiraIssue.Key
 		return func() tea.Msg {
 			ed, err := jira.EditableDescription(ff.raw)
-			return descLoadedMsg{key: key, field: ff.ID, md: ed.Markdown, kept: ed.Kept, err: err}
+			return descLoadedMsg{key: key, field: ff.ID, md: ed.Markdown, kept: ed.Kept, base: jira.DocBase(ff.raw), err: err}
 		}
 	case jira.KindText, jira.KindStrings, jira.KindNumber, jira.KindDate, jira.KindTime, jira.KindIssue:
 		hint := ""

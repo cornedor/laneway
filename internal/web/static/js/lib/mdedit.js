@@ -8,9 +8,11 @@
 //
 //   const e = mdEdit(app, {value, rows, placeholder, mono, issueKey, project, label, save(text, mentions), cancel,
 //                          allowEmpty, noCancel, people() → Map(name → accountId), mdOpts() → render options, onFiles(files), hint,
-//                          draft: an id ("comment:KEY", "desc:KEY", "desc:KEY:comment:ID") kept in the state file as the TUI's drafts})
-//   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.ta, e.mentions, e.size(), e.focus()
-import { h, clear, debounce } from './dom.js';
+//                          draft: an id ("comment:KEY", "desc:KEY", "desc:KEY:comment:ID") kept in the state file as the TUI's drafts,
+//                          base: the Base of the document it edits, kept with the draft and handed to save(text, mentions, base)})
+//   e.el (with ._save ._cancel ._escape for the Escape/ctrl+Enter bindings), e.ta, e.mentions, e.size(), e.focus(), e.rebase(base)
+//   save answering false keeps the editor and its draft (a save Jira refused).
+import { h, clear, debounce, onLeave } from './dom.js';
 import { icon } from './icons.js';
 import { css } from './css.js';
 import { render as md, glyph } from './md.js';
@@ -263,11 +265,12 @@ export function mdEdit(app, o) {
       !o.noCancel && o.cancel && h('button.btn.ghost', { onclick: () => node._cancel() }, T('Cancel')), o.save && go));
   const size = () => {}; // the field grows with its text (css: max-height)
   let busy = false;
+  let base = o.base || '';
   async function run() {
     if (busy || !o.save || (!o.allowEmpty && !ta.value.trim())) return;
     busy = true; go.disabled = true; ta.readOnly = true;
     const text = ta.value;
-    try { await o.save(text, mentions.filter(m => text.includes('@' + m.DisplayName))); draft.drop(); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
+    try { if (await o.save(text, mentions.filter(m => text.includes('@' + m.DisplayName)), base) !== false) draft.drop(); } catch (e) { ui.errToast(e); } finally { busy = false; go.disabled = false; ta.readOnly = false; }
   }
   node._save = run;
   // Cancelling with changes asks first (TUI: esc in the description editor); it drops the draft too.
@@ -278,21 +281,26 @@ export function mdEdit(app, o) {
     draft.drop(); o.cancel();
   };
 
-  // ---- drafts: what is typed is kept a moment after each change (TUI drafts.go: "unix\ntext" under jira_tab:draft:),
-  // so a reload or the terminal brings it back; saving or discarding drops it.
+  // ---- drafts: what is typed is kept a moment after each change (TUI drafts.go: "unix base\ntext" under jira_tab:draft:),
+  // so a reload or the terminal brings it back; saving or discarding drops it. Leaving the page sends the last
+  // moment's typing (keepalive: it outlives the page). A restored draft saves against the document it was written on:
+  // one Jira changed since asks first.
   const draft = { save: () => {}, drop: () => {}, flush: () => {} };
   if (o.draft) {
     const path = '/drafts/' + encodeURIComponent(o.draft);
     let typed = false;
-    const keep = () => (ta.value.trim() && ta.value !== (o.value || '') ? api.put(path, { Text: ta.value }) : api.del(path)).catch(() => {});
+    const keep = (keepalive = false) => (ta.value.trim() && ta.value !== (o.value || '') ? api.put(path, { Text: ta.value, Base: base }, { keepalive }) : api.del(path, undefined, { keepalive })).catch(() => {});
     const later = debounce(() => { if (typed) keep(); }, 2000);
     draft.save = () => { typed = true; later(); };
     draft.drop = () => { typed = false; api.del(path).catch(() => {}); };
-    draft.flush = () => { if (typed) keep(); typed = false; };
+    draft.flush = keepalive => { if (typed) keep(keepalive); typed = false; };
     api.get(path, { fresh: true }).then(d => {
       if (!d || !d.Text || d.Text === ta.value || ta.value !== (o.value || '')) return;
       ta.value = d.Text; size();
-      ui.toast(T('Draft restored'), { action: { label: T('Drop it'), run: () => { ta.value = o.value || ''; size(); draft.drop(); } } });
+      const was = base;
+      if (d.Base && base) base = d.Base;
+      ui.toast(base !== was ? T('Draft restored; Jira’s has changed since') : T('Draft restored'),
+        { action: { label: T('Drop it'), run: () => { ta.value = o.value || ''; base = was; size(); draft.drop(); } } });
     }).catch(() => {});
   }
   node._escape = () => {
@@ -372,8 +380,9 @@ export function mdEdit(app, o) {
   });
   const release = () => { draft.flush(); if (scope) { scope.dispose(); scope = null; } };
   ta.addEventListener('blur', release);
+  const unLeave = o.draft ? onLeave(() => draft.flush(true)) : () => {};
 
   requestAnimationFrame(size);
   return { el: node, ta, mentions, size, focus: () => { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length); },
-    preview: togglePreview, dispose: release, dropDraft: () => draft.drop() };
+    preview: togglePreview, dispose: () => { release(); unLeave(); }, dropDraft: () => draft.drop(), rebase: b => { base = b; } };
 }

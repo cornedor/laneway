@@ -27,12 +27,14 @@ export function lists(v) {
   return v;
 }
 
-async function call(method, path, body, signal) {
+// keepalive lets a write outlive the page (a draft sent as it unloads; at most 64KB).
+async function call(method, path, body, signal, keepalive = false) {
   const res = await fetch('/api' + path, {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
+    keepalive,
   });
   let data = null;
   try { data = lists(await res.json()); } catch (e) { /* empty body */ }
@@ -49,13 +51,14 @@ export function get(path, { fresh = false, signal } = {}) {
   inflight.set(path, p);
   return p;
 }
+// put and del take { keepalive } (call's).
 export const post = (path, body = {}) => write('POST', path, body);
-export const put = (path, body = {}) => write('PUT', path, body);
-export const del = (path, body) => write('DELETE', path, body);
-function write(method, path, body) {
+export const put = (path, body = {}, { keepalive } = {}) => write('PUT', path, body, keepalive);
+export const del = (path, body, { keepalive } = {}) => write('DELETE', path, body, keepalive);
+function write(method, path, body, keepalive) {
   // Any write may change what cached reads say.
   for (const k of mem.keys()) mem.delete(k);
-  return call(method, path, body);
+  return call(method, path, body, undefined, keepalive);
 }
 
 const lsKey = p => 'lw:c:' + site + ':' + p;

@@ -116,6 +116,10 @@ What you write is kept as a draft as you type, shared by the terminal and
 the browser: after a crash or a closed tab, opening the editor on that
 issue brings it back.
 
+A colleague's edit is never saved over unasked: when the description
+changed in Jira since you opened it, laneway writes nothing and lets you
+see theirs before you save yours over it.
+
 ## Talk
 
 - `c` writes a comment after the thread; `R` replies to a comment, in
@@ -187,7 +191,8 @@ markers dropped.
 === "Browser"
 
     `ctrl+enter` creates it. Tick *Create another* to keep the form for the
-    next. Drop files on it to attach them.
+    next. Drop files on it to attach them. A form closed unsent, or lost to
+    a reload or a closed tab, is back the next time `n` opens it.
 
 A subtask, an epic's child, a roadmap epic and a clone open the same form,
 the parent or the clone's copy filled in.

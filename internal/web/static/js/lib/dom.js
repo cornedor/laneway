@@ -47,3 +47,11 @@ export function delegate(root, type, sel, fn) {
 // rAF-coalesced function: many calls in a frame, one run.
 export function frame(fn) { let q = 0; return (...a) => { if (q) return; q = requestAnimationFrame(() => { q = 0; fn(...a); }); }; }
 export function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+// onLeave(fn) runs fn when the page may go: hidden (a tab switched, the phone locked) or unloading (a reload, a closed tab).
+// A request sent from fn needs keepalive to outlive the page. Answers a function that stops it.
+export function onLeave(fn) {
+  const hidden = () => { if (document.visibilityState === 'hidden') fn(); };
+  window.addEventListener('pagehide', fn);
+  document.addEventListener('visibilitychange', hidden);
+  return () => { window.removeEventListener('pagehide', fn); document.removeEventListener('visibilitychange', hidden); };
+}
