@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"github.com/cornedor/laneway/internal/i18n"
 	"os/exec"
 	"strings"
 	"time"
@@ -43,16 +44,16 @@ func (m *Model) openPullRequest(key string) tea.Cmd {
 	iss := m.jiraIssue
 	repo := expandUserPath(m.jiraRepos[issueProject(key)])
 	if iss == nil || iss.Key != key || repo == "" {
-		m.status = "no jira.repos entry for " + issueProject(key)
+		m.status = i18n.Tf("no jira.repos entry for %s", issueProject(key))
 		return nil
 	}
 	branch := issueBranch(repo, m.opts.workBranch, key, iss.Type)
 	if branch == "" {
-		m.status = "no branch for " + key + " in " + repo + " · " + helpKey(m.keys.JiraStart) + " starts one"
+		m.status = i18n.Tf("no branch for %s in %s · %s starts one", key, repo, helpKey(m.keys.JiraStart))
 		return nil
 	}
 	title, body := key+" "+iss.Summary, "Jira: "+m.jiraClient.BrowseURL(key)
-	m.status = "pushing " + branch + " and opening a draft…"
+	m.status = i18n.Tf("pushing %s and opening a draft…", branch)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
@@ -85,6 +86,6 @@ func (m Model) handlePullRequest(msg pullRequestMsg) (tea.Model, tea.Cmd) {
 		m.fail(msg.key + ": " + msg.err.Error())
 		return m, nil
 	}
-	m.status = "draft opened for " + msg.key + ": " + msg.url + " · " + helpKey(m.keys.DevInfo) + " lists it"
+	m.status = i18n.Tf("draft opened for %s: %s · %s lists it", msg.key, msg.url, helpKey(m.keys.DevInfo))
 	return m, nil
 }

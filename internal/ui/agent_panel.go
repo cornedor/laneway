@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/cornedor/laneway/internal/i18n"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -38,12 +39,12 @@ func (m *Model) openAgentPanel(key, pane, bin string) tea.Cmd {
 		env:   []string{"HERDR_SOCKET_PATH=" + m.herdr.Path()},
 	}, w, h)
 	if err != nil {
-		m.fail(key + ": attach: " + err.Error())
+		m.fail(i18n.Tf("%s: attach: %s", key, err.Error()))
 		return cmd
 	}
 	m.agentTerm, m.agentTermKey = t, key
 	m.focus = focusRef
-	m.status = key + ": attached · " + helpKey(m.keys.AgentBack) + " back to the issue"
+	m.status = i18n.Tf("%s: attached · %s back to the issue", key, helpKey(m.keys.AgentBack))
 	return tea.Batch(cmd, waitTermOutput(t))
 }
 
@@ -109,7 +110,7 @@ func (m Model) handleAgentTermKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) leaveAgentPanel() (tea.Model, tea.Cmd) {
 	key := m.agentTermKey
 	m.closeAgentPanel()
-	m.status = key + ": back from its agent"
+	m.status = i18n.Tf("%s: back from its agent", key)
 	m.renderRef()
 	return m, m.fetchAgents()
 }
@@ -130,7 +131,7 @@ func (m Model) handleTermOutput(t *termSession, exited bool) (tea.Model, tea.Cmd
 		why := t.exitStatus() + lastLine(t.view())
 		out, cmd := m.leaveAgentPanel()
 		if om := out.(Model); failed {
-			om.fail(om.status + " · attach " + why)
+			om.fail(i18n.Tf("%s · attach %s", om.status, why))
 			return om, cmd
 		}
 		return out, cmd
@@ -205,14 +206,14 @@ func (m *Model) renderAgentPane(height, width int) string {
 	innerH := max(height, 1)
 	width = max(width, refPaneMinWidth)
 	t := m.agentTerm
-	title := "Agent  " + t.title
+	title := i18n.Tf("Agent  %s", t.title)
 	switch {
 	case t.exited():
-		title += " · " + t.exitStatus() + " · esc back"
+		title += i18n.Tf(" · %s · esc back", t.exitStatus())
 	case m.focus == focusRef:
-		title += " · " + helpKey(m.keys.AgentBack) + " back"
+		title += i18n.Tf(" · %s back", helpKey(m.keys.AgentBack))
 	default:
-		title += " · click to type"
+		title += i18n.T(" · click to type")
 	}
 	strip := refKeyStyle.Render("↰ " + m.agentTermKey)
 	if iss := m.jiraIssue; iss != nil && iss.Key == m.agentTermKey {

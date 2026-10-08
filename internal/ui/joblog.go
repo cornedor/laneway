@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"strconv"
 	"strings"
 	"time"
@@ -61,10 +62,10 @@ type mrPipelineTickMsg struct{ gen int }
 func (m *Model) openJobPicker() tea.Cmd {
 	p := m.mr
 	if p == nil || p.mr == nil || p.mr.Checks == nil {
-		m.status = "no pipeline on this merge request"
+		m.status = i18n.T("no pipeline on this merge request")
 		return nil
 	}
-	m.startJiraPicker(jiraPickJob, "Jobs — "+p.ref.Repo+"!"+strconv.Itoa(p.ref.Number), true)
+	m.startJiraPicker(jiraPickJob, i18n.Tf("Jobs — %s!%d", p.ref.Repo, p.ref.Number), true)
 	var look, passed []jiraPickerItem
 	for _, g := range p.mr.Checks.Groups {
 		for _, j := range g.Jobs {
@@ -82,7 +83,7 @@ func (m *Model) openJobPicker() tea.Cmd {
 	m.jiraPicker.items, m.jiraPicker.all = append(look, passed...), append(look, passed...)
 	m.jiraPicker.loading = false
 	if len(m.jiraPicker.items) == 0 {
-		m.jiraPicker.items = []jiraPickerItem{{label: "GitLab sent no jobs"}}
+		m.jiraPicker.items = []jiraPickerItem{{label: i18n.T("GitLab sent no jobs")}}
 	}
 	return nil
 }
@@ -91,7 +92,7 @@ func (m *Model) openJobPicker() tea.Cmd {
 func (m *Model) openJobLog(c *gitlab.Client, repo string, id int, name string) tea.Cmd {
 	m.jobLogGen++
 	m.jobLog = &jobLogState{c: c, repo: repo, id: id, name: name, gen: m.jobLogGen, loading: true, follow: true}
-	m.status = "reading " + name + "…"
+	m.status = i18n.Tf("reading %s…", name)
 	return m.fetchJobLog()
 }
 
@@ -123,7 +124,7 @@ func (m Model) handleJobLog(msg jobLogMsg) (tea.Model, tea.Cmd) {
 	j.loading = false
 	if msg.err != nil {
 		j.err = msg.err
-		m.status = "job log failed: " + msg.err.Error()
+		m.status = i18n.Tf("job log failed: %s", msg.err.Error())
 		return m, nil
 	}
 	wasLive := j.job != nil && !j.job.Done()
@@ -189,9 +190,9 @@ func checksRunning(s string) bool { return s == forge.StatusRunning || s == forg
 func jobWord(s string) string {
 	switch s {
 	case forge.StatusSuccess:
-		return "passed"
+		return i18n.T("passed")
 	case forge.StatusWarning:
-		return "failed, allowed to"
+		return i18n.T("failed, allowed to")
 	}
 	return s
 }
@@ -207,7 +208,7 @@ func (j *jobLogState) scroll(n int) {
 func (m Model) handleJobLogKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	j := m.jobLog
 	if key.Matches(msg, m.keys.Help) {
-		m.openHelp("Job log")
+		m.openHelp(i18n.T("Job log"))
 		return m, nil
 	}
 	page := max(j.viewH-1, 1)
@@ -238,7 +239,7 @@ func (m Model) handleJobLogKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.fetchJobLog()
 	case "o":
 		if j.job != nil && j.job.WebURL != "" {
-			m.status = "opening " + j.job.WebURL + "…"
+			m.status = i18n.Tf("opening %s…", j.job.WebURL)
 			return m, m.openOpenable(openable{name: j.name, url: j.job.WebURL})
 		}
 	}
@@ -263,9 +264,9 @@ func (m *Model) renderJobLog(bodyH int) string {
 	case j.err != nil && j.job == nil:
 		body = append(body, refErrStyle.Render(truncate(j.err.Error(), inner)))
 	case j.job == nil:
-		body = append(body, refDimStyle.Render("reading the job's log…"))
+		body = append(body, refDimStyle.Render(i18n.T("reading the job's log…")))
 	case len(j.lines) == 0:
-		body = append(body, refDimStyle.Render("no output yet"))
+		body = append(body, refDimStyle.Render(i18n.T("no output yet")))
 	default:
 		for i := j.top; i < len(j.lines) && i < j.top+h; i++ {
 			text := j.lines[i]
@@ -280,9 +281,9 @@ func (m *Model) renderJobLog(bodyH int) string {
 	for len(body) < h {
 		body = append(body, "")
 	}
-	hint := "↑/↓ scroll · G the end, following · ←/→ pan · o GitLab · r reload · " + helpKey(m.keys.Help) + " keys · esc close"
+	hint := i18n.Tf("↑/↓ scroll · G the end, following · ←/→ pan · o GitLab · r reload · %s keys · esc close", helpKey(m.keys.Help))
 	if j.job != nil && j.job.Truncated {
-		hint = "the log's start is cut: o has all of it · " + hint
+		hint = i18n.T("the log's start is cut: o has all of it · ") + hint
 	}
 	body = append(body, refDimStyle.Render(truncate(hint, inner)))
 	return m.renderModalFrame(outerW, j.title(), j.scrollHint(), strings.Join(body, "\n"))
@@ -312,9 +313,9 @@ func (j *jobLogState) scrollHint() string {
 	s := fmt.Sprintf("%d–%d/%d", j.top+1, min(j.top+j.viewH, len(j.lines)), len(j.lines))
 	if j.job != nil && !j.job.Done() {
 		if j.follow {
-			s += " · " + lipgloss.NewStyle().Foreground(focusedColor).Render("● following")
+			s += " · " + lipgloss.NewStyle().Foreground(focusedColor).Render(i18n.T("● following"))
 		} else {
-			s += " · G follows"
+			s += i18n.T(" · G follows")
 		}
 	}
 	return s

@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"github.com/cornedor/laneway/internal/i18n"
 	"os/exec"
 	"strings"
 
@@ -58,16 +59,16 @@ func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
 func worktreeGone(repo, path, branch, base string) string {
 	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
 	if err != nil {
-		return "git status: " + err.Error()
+		return i18n.Tf("git status: %s", err.Error())
 	}
 	if len(strings.TrimSpace(string(out))) > 0 {
-		return "it has uncommitted changes"
+		return i18n.T("it has uncommitted changes")
 	}
 	if base == "" {
 		base = "HEAD"
 	}
 	if exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", branch, base).Run() != nil {
-		return branch + " is not merged into " + base
+		return i18n.Tf("%s is not merged into %s", branch, base)
 	}
 	return ""
 }
@@ -80,18 +81,18 @@ func (m *Model) removeWorktree(key string) tea.Cmd {
 	case iss == nil || iss.Key != key || repo == "":
 		return nil
 	case c == nil:
-		m.status = "removing a worktree needs herdr running"
+		m.status = i18n.T("removing a worktree needs herdr running")
 		return nil
 	}
 	tmpl, typ := m.opts.workBranch, iss.Type
-	m.status = key + ": removing its worktree…"
-	return agentCall(key, "worktree removed", func(ctx context.Context) error {
+	m.status = i18n.Tf("%s: removing its worktree…", key)
+	return agentCall(key, i18n.T("worktree removed"), func(ctx context.Context) error {
 		path, branch := issueWorktree(repo, tmpl, key, typ)
 		if path == "" {
-			return errors.New("no worktree")
+			return errors.New(i18n.T("no worktree"))
 		}
 		if why := worktreeGone(repo, path, branch, defaultBase(repo)); why != "" {
-			return errors.New("keeping " + homeShort(path) + ": " + why)
+			return errors.New(i18n.Tf("keeping %s: %s", homeShort(path), why))
 		}
 		wt, err := c.OpenWorktree(ctx, repo, branch)
 		if err != nil {

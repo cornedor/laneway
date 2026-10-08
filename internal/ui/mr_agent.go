@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"github.com/cornedor/laneway/internal/i18n"
 	"maps"
 	"os"
 	"os/exec"
@@ -56,7 +57,7 @@ func (m *Model) startMRReview(mr *forge.Change, ref forge.Ref) tea.Cmd {
 		m.status = m.noHerdr()
 		return nil
 	case mr.State != forge.StateOpen:
-		m.status = label + " is " + mr.State
+		m.status = i18n.Tf("%s is %s", label, mr.State)
 		return nil
 	case m.mrReviewing[label]:
 		return nil
@@ -65,7 +66,7 @@ func (m *Model) startMRReview(mr *forge.Change, ref forge.Ref) tea.Cmd {
 		m.mrReviewing = map[string]bool{}
 	}
 	m.mrReviewing[label] = true
-	m.status = label + ": starting the review…"
+	m.status = i18n.Tf("%s: starting the review…", label)
 	c, repos, kind, extra, create := m.herdr, m.gitlabRepos, m.opts.workAgent, m.opts.workArgs, m.opts.workCreate
 	known := slices.Collect(maps.Values(m.jiraRepos))
 	return func() tea.Msg {
@@ -98,7 +99,7 @@ func StartMRReview(ctx context.Context, c *herdr.Client, repos map[string]string
 		repo = checkoutOf(ref.Repo, dirs)
 	}
 	if repo == "" {
-		return "", "", false, errors.New("no checkout of " + ref.Repo + ": add one under gitlab: repos:, or to jira.repos")
+		return "", "", false, errors.New(i18n.Tf("no checkout of %s: add one under gitlab: repos:, or to jira.repos", ref.Repo))
 	}
 	for _, b := range []string{mr.SourceBranch, mr.TargetBranch} {
 		if !work.ValidBranch(ctx, b) {
@@ -117,12 +118,12 @@ func (m Model) handleMRReview(msg mrReviewMsg) (tea.Model, tea.Cmd) {
 	delete(m.mrReviewing, msg.ref)
 	switch {
 	case msg.err != nil:
-		m.fail(msg.ref + ": review: " + msg.err.Error())
+		m.fail(i18n.Tf("%s: review: %s", msg.ref, msg.err.Error()))
 		return m, nil
 	case msg.running:
-		m.status = msg.ref + ": already reviewing in " + msg.path
+		m.status = i18n.Tf("%s: already reviewing in %s", msg.ref, msg.path)
 	default:
-		m.status = msg.ref + ": " + m.opts.workAgent + " reviewing in " + msg.path + " · its notes wait in your review"
+		m.status = i18n.Tf("%s: %s reviewing in %s · its notes wait in your review", msg.ref, m.opts.workAgent, msg.path)
 	}
 	return m, m.attachAgentIn(msg.ref, msg.pane, false)
 }

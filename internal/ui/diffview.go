@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"image/color"
 	"maps"
 	"slices"
@@ -206,7 +207,7 @@ func (m Model) openDiffView() (tea.Model, tea.Cmd) {
 		loading: true,
 		gen:     1,
 	}
-	m.status = "loading diff for " + m.diff.label + "…"
+	m.status = i18n.Tf("loading diff for %s…", m.diff.label)
 	return m, m.fetchDiff()
 }
 
@@ -229,7 +230,7 @@ func (m *Model) closeDiffView() {
 		m.renderRef()
 	}
 	if n := len(d.drafts); n > 0 && d.version == 0 {
-		m.status = plural(n, "pending note") + " unpublished: d, then S submits your review"
+		m.status = i18n.Tf("%s unpublished: d, then S submits your review", i18n.Tn(n, "%d pending note", "%d pending notes", n))
 	}
 }
 
@@ -282,7 +283,7 @@ func (m Model) handleDiffLoaded(msg diffLoadedMsg) (tea.Model, tea.Cmd) {
 	d.loading = false
 	d.err = msg.err
 	if msg.err != nil {
-		m.status = "diff failed: " + msg.err.Error()
+		m.status = i18n.Tf("diff failed: %s", msg.err.Error())
 		return m, nil
 	}
 	anchor := d.cursorAnchor()
@@ -302,12 +303,12 @@ func (d *diffState) summary() string {
 	if d.diff == nil {
 		return ""
 	}
-	s := d.label + " · " + plural(len(d.diff.Files), "file")
+	s := d.label + " · " + i18n.Tn(len(d.diff.Files), "%d file", "%d files", len(d.diff.Files))
 	if n := len(forge.InlineThreads(d.threads)); n > 0 {
-		s += " · " + plural(n, "inline thread")
+		s += " · " + i18n.Tn(n, "%d inline thread", "%d inline threads", n)
 	}
 	if d.diff.Truncated {
-		s += " · diff truncated by the forge"
+		s += i18n.T(" · diff truncated by the forge")
 	}
 	return s
 }
@@ -467,11 +468,11 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, drafts []forge.Draft, full
 		b.fileHead[fi] = len(b.rows)
 		b.rows = append(b.rows, diffRow{kind: diffRowFile, file: fi, thread: -1, text: fileHeaderText(f)})
 		if f.Binary {
-			b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: fi, thread: -1, text: "binary file — not shown"})
+			b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: fi, thread: -1, text: i18n.T("binary file — not shown")})
 			continue
 		}
 		if f.TooLarge {
-			b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: fi, thread: -1, text: "too large for GitLab to send — o opens it there"})
+			b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: fi, thread: -1, text: i18n.T("too large for GitLab to send — o opens it there")})
 			continue
 		}
 		lines := forge.ParseUnifiedDiff(f.Diff)
@@ -501,16 +502,16 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, drafts []forge.Draft, full
 		}
 	}
 	if len(rest) > 0 {
-		b.rows = append(b.rows, diffRow{kind: diffRowFile, file: -1, thread: -1, text: "Discussions"})
+		b.rows = append(b.rows, diffRow{kind: diffRowFile, file: -1, thread: -1, text: i18n.T("Discussions")})
 		for _, ti := range rest {
 			t := threads[ti]
 			if t.Inline() {
 				n, old := t.Line()
 				where := t.Path + ":" + strconv.Itoa(n)
 				if old {
-					where += " (removed)"
+					where += i18n.T(" (removed)")
 				}
-				b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: -1, thread: -1, text: "outdated · " + where})
+				b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: -1, thread: -1, text: i18n.Tf("outdated · %s", where)})
 			}
 			b.rows = append(b.rows, withDraftReplies(diffThreadRows(t, ti, -1), threads, drafts)...)
 		}
@@ -523,13 +524,13 @@ func buildDiff(d *forge.Diff, threads []forge.Thread, drafts []forge.Draft, full
 	}
 	if len(general) > 0 {
 		if len(rest) == 0 {
-			b.rows = append(b.rows, diffRow{kind: diffRowFile, file: -1, thread: -1, text: "Discussions"})
+			b.rows = append(b.rows, diffRow{kind: diffRowFile, file: -1, thread: -1, text: i18n.T("Discussions")})
 		}
 		b.rows = append(b.rows, general...)
 	}
 	if d.Truncated {
 		b.rows = append(b.rows, diffRow{kind: diffRowMeta, file: -1, thread: -1,
-			text: "the forge truncated this diff — the rest is only on the web"})
+			text: i18n.T("the forge truncated this diff — the rest is only on the web")})
 	}
 	b.tree, b.treeOf = buildDiffTree(d, stats)
 	return b
@@ -576,12 +577,12 @@ func fileHeaderText(f forge.FileDiff) string {
 	case f.Renamed && f.OldPath != "" && f.OldPath != f.NewPath:
 		path = f.OldPath + " → " + f.NewPath
 	case f.New:
-		path += "  (new)"
+		path += i18n.T("  (new)")
 	case f.Deleted:
-		path += "  (deleted)"
+		path += i18n.T("  (deleted)")
 	}
 	if f.Generated {
-		path += "  (generated)"
+		path += i18n.T("  (generated)")
 	}
 	return path
 }
@@ -654,7 +655,7 @@ func noteRowsFor(idx map[string][]int, threads []forge.Thread, f forge.FileDiff,
 // draftRows draws a pending note, marked as such: only you see it until the
 // review is submitted.
 func draftRows(dr forge.Draft, di, fi int) []diffRow {
-	out := []diffRow{{kind: diffRowNote, file: fi, thread: -1, draft: di + 1, text: "✎ you (pending)", noteHead: true}}
+	out := []diffRow{{kind: diffRowNote, file: fi, thread: -1, draft: di + 1, text: i18n.T("✎ you (pending)"), noteHead: true}}
 	for _, ln := range strings.Split(strings.TrimRight(dr.Body, "\n"), "\n") {
 		out = append(out, diffRow{kind: diffRowNote, file: fi, thread: -1, draft: di + 1, text: "  " + ln})
 	}
@@ -705,10 +706,10 @@ func diffThreadRows(t forge.Thread, ti, fi int) []diffRow {
 			head = "↳ " + n.Author
 		}
 		if !n.Created.IsZero() {
-			head += " · " + age(n.Created) + " ago"
+			head += i18n.Tf(" · %s ago", age(n.Created))
 		}
 		if t.Resolved && i == 0 {
-			head += " · resolved"
+			head += i18n.T(" · resolved")
 		}
 		out = append(out, diffRow{kind: diffRowNote, file: fi, thread: ti, text: head, noteHead: true})
 		for _, ln := range strings.Split(strings.TrimRight(n.Body, "\n"), "\n") {
@@ -934,7 +935,7 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.handleDiffMergeKey(msg)
 	}
 	if key.Matches(msg, m.keys.Help) {
-		m.openHelp("Diff review")
+		m.openHelp(i18n.T("Diff review"))
 		return m, nil
 	}
 	switch msg.String() {
@@ -972,7 +973,7 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.startMRReview(m.mr.mr, m.mr.ref)
 	case "v":
 		if len(d.versions) < 2 {
-			m.status = "one version: nothing pushed since it opened"
+			m.status = i18n.T("one version: nothing pushed since it opened")
 			return m, nil
 		}
 		d.picking = true
@@ -982,7 +983,7 @@ func (m Model) handleDiffKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if d.webURL == "" {
 			return m, nil
 		}
-		m.status = "opening " + d.webURL + "…"
+		m.status = i18n.Tf("opening %s…", d.webURL)
 		return m, m.openOpenable(openable{name: d.label, url: d.webURL})
 	}
 	if d.treeFocus {
@@ -1015,7 +1016,7 @@ func (m Model) handleDiffVersionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		d.version, d.gen, d.loading, d.err = id, d.gen+1, true, nil
 		d.collapsed, d.full = nil, nil
-		m.status = "loading " + d.versionName(d.pick) + "…"
+		m.status = i18n.Tf("loading %s…", d.versionName(d.pick))
 		return m, m.fetchDiff()
 	}
 	return m, nil
@@ -1024,19 +1025,19 @@ func (m Model) handleDiffVersionKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // versionName is version i as the list and the title name it: v3, the
 // newest the highest.
 func (d *diffState) versionName(i int) string {
-	return "version " + strconv.Itoa(len(d.versions)-i)
+	return i18n.Tf("version %d", len(d.versions)-i)
 }
 
 // versionLines are v's list, the cursor's row marked.
 func (d *diffState) versionLines(width int) []string {
-	lines := []string{refKeyStyle.Render("Versions") + refDimStyle.Render("  ↵ show · esc close")}
+	lines := []string{refKeyStyle.Render(i18n.T("Versions")) + refDimStyle.Render(i18n.T("  ↵ show · esc close"))}
 	for i, v := range d.versions {
 		line := d.versionName(i)
 		if i == 0 {
-			line += " (newest)"
+			line += i18n.T(" (newest)")
 		}
 		if !v.Created.IsZero() {
-			line += refDimStyle.Render(" · " + age(v.Created) + " ago")
+			line += refDimStyle.Render(i18n.Tf(" · %s ago", age(v.Created)))
 		}
 		if sha := v.Refs.HeadSHA; len(sha) >= 8 {
 			line += refDimStyle.Render(" · " + sha[:8])
@@ -1122,11 +1123,11 @@ func (m Model) handleDiffCodeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		d.moveFile(-1)
 	case "n":
 		if !d.moveThread(1) {
-			m.status = "no further inline threads"
+			m.status = i18n.T("no further inline threads")
 		}
 	case "N":
 		if !d.moveThread(-1) {
-			m.status = "no earlier inline threads"
+			m.status = i18n.T("no earlier inline threads")
 		}
 	case "e":
 		return m, m.expandDiffFile(d.cursorFile())
@@ -1177,12 +1178,12 @@ func (m *Model) expandDiffFile(fi int) tea.Cmd {
 	switch {
 	case expanded:
 		delete(full, fi)
-		m.status = f.Path() + ": the changes only"
+		m.status = i18n.Tf("%s: the changes only", f.Path())
 	case f.Deleted, f.New, f.Binary, f.TooLarge:
-		m.status = f.Path() + ": nothing more to show here"
+		m.status = i18n.Tf("%s: nothing more to show here", f.Path())
 		return nil
 	default:
-		m.status = "reading " + f.Path() + "…"
+		m.status = i18n.Tf("reading %s…", f.Path())
 	}
 	c, ctx, gen, diff, threads, drafts, repo, ref := d.c, m.ctx, d.gen, d.diff, d.threads, d.drafts, d.repo, d.diff.Refs.HeadSHA
 	return func() tea.Msg {
@@ -1203,7 +1204,7 @@ func (m Model) handleDiffExpanded(msg diffExpandedMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.err != nil {
-		m.status = "expand failed: " + msg.err.Error()
+		m.status = i18n.Tf("expand failed: %s", msg.err.Error())
 		return m, nil
 	}
 	anchor := d.cursorAnchor()
@@ -1225,7 +1226,7 @@ func (m Model) refreshDiffView() (tea.Model, tea.Cmd) {
 	d.gen++
 	d.loading = true
 	d.err = nil
-	m.status = "reloading diff…"
+	m.status = i18n.T("reloading diff…")
 	return m, m.fetchDiff()
 }
 
@@ -1284,9 +1285,9 @@ func (m *Model) renderDiffView(bodyH int) string {
 	case d.err != nil:
 		body = append(body, refErrStyle.Render(truncate(d.err.Error(), codeW)))
 	case d.loading && d.diff == nil:
-		body = append(body, refDimStyle.Render("loading diff…"))
+		body = append(body, refDimStyle.Render(i18n.T("loading diff…")))
 	case len(d.rows) == 0:
-		body = append(body, refDimStyle.Render("this change request has no diff"))
+		body = append(body, refDimStyle.Render(i18n.T("this change request has no diff")))
 	default:
 		for p := d.top; p < len(d.visible) && p < d.top+h; p++ {
 			i := d.visible[p]
@@ -1358,7 +1359,7 @@ func (d *diffState) frameTitle() string {
 		t += " · " + d.title
 	}
 	if i := slices.IndexFunc(d.versions, func(v forge.Version) bool { return v.ID == d.version }); d.version != 0 && i >= 0 {
-		t += " · " + d.versionName(i) + " of " + strconv.Itoa(len(d.versions))
+		t += " · " + i18n.Tf("%s of %d", d.versionName(i), len(d.versions))
 	}
 	return t
 }
@@ -1372,7 +1373,7 @@ func (d *diffState) scrollHint() string {
 	r := d.rows[min(d.cursor, len(d.rows)-1)]
 	pos := fmt.Sprintf("%d/%d", max(d.pos(), 0)+1, len(d.visible))
 	if r.file >= 0 && r.file < len(d.diff.Files) {
-		return fmt.Sprintf("%s · file %d/%d · %s",
+		return i18n.Tf("%s · file %d/%d · %s",
 			truncate(d.diff.Files[r.file].Path(), 40), r.file+1, len(d.diff.Files), pos)
 	}
 	return pos
@@ -1391,40 +1392,40 @@ func (m *Model) diffHint() string {
 	if d.note.active { // the composer has its own
 		return ""
 	}
-	keys := helpKey(m.keys.Help) + " keys · esc close"
+	keys := i18n.Tf("%s keys · esc close", helpKey(m.keys.Help))
 	tab := ""
 	if m.diffTreeShown() {
-		tab = "tab files · "
+		tab = i18n.T("tab files · ")
 		if d.treeFocus {
-			tab = "tab diff · "
+			tab = i18n.T("tab diff · ")
 		}
 	}
 	if d.treeFocus {
-		return "↑/↓ file · z/Z fold · " + tab + keys
+		return i18n.T("↑/↓ file · z/Z fold · ") + tab + keys
 	}
-	note, resolve := "c note · s suggest · V range · ", ""
+	note, resolve := i18n.T("c note · s suggest · V range · "), ""
 	if d.mark > 0 {
-		note = "c note the range · s suggest · esc drop it · "
+		note = i18n.T("c note the range · s suggest · esc drop it · ")
 	}
 	if d.cursor < len(d.rows) && d.rows[d.cursor].draft > 0 {
-		note, resolve = "", "E edit · x drop · "
+		note, resolve = "", i18n.T("E edit · x drop · ")
 	}
-	review := "S submit · A approve · "
+	review := i18n.T("S submit · A approve · ")
 	if n := len(d.drafts); n > 0 {
-		review = "S submit " + plural(n, "pending note") + " · A approve · "
+		review = i18n.Tf("S submit %s · A approve · ", i18n.Tn(n, "%d pending note", "%d pending notes", n))
 	}
 	if ti := d.threadAtCursor(); ti >= 0 {
 		if d.rows[d.cursor].kind == diffRowNote {
-			note = "c reply · "
+			note = i18n.T("c reply · ")
 		}
 		switch t := d.threads[ti]; {
 		case t.Resolved:
-			resolve = "R reopen · "
+			resolve = i18n.T("R reopen · ")
 		case t.Resolvable:
-			resolve = "R resolve · "
+			resolve = i18n.T("R resolve · ")
 		}
 	}
-	return note + resolve + review + "]/[ file · n/N thread · " + tab + keys
+	return note + resolve + review + i18n.T("]/[ file · n/N thread · ") + tab + keys
 }
 
 // renderRow draws one row to exactly width cells: the line-number gutter, the
@@ -1439,7 +1440,7 @@ func (d *diffState) renderRow(i, width int, cursor bool) string {
 		// keeping back so the row is not a dead end.
 		text := "▾ " + r.text
 		if r.file >= 0 && r.file < len(d.collapsed) && d.collapsed[r.file] {
-			text = "▸ " + r.text + refDimStyle.Render(fmt.Sprintf("  (%d lines folded)", d.hiddenRows(r.file)))
+			text = "▸ " + r.text + refDimStyle.Render(i18n.Tf("  (%d lines folded)", d.hiddenRows(r.file)))
 		}
 		return diffPaint(diffPiece(diffFileStyle, " ")+keepBG(ansi.Truncate(text, width-1, "…"), ""), width, bg)
 	case diffRowNote:

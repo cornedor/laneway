@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"github.com/cornedor/laneway/internal/i18n"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,7 +115,7 @@ func (m Model) handleAgents(msg agentsMsg) (tea.Model, tea.Cmd) {
 		if a.Status == herdr.Blocked && m.agents != nil && !slices.ContainsFunc(m.agents[k], func(o herdr.Agent) bool {
 			return o.PaneID == a.PaneID && o.Status == herdr.Blocked
 		}) {
-			cmds = append(cmds, tea.Raw(rules.NotifySeq(k+": the agent waits on you", a.Title)))
+			cmds = append(cmds, tea.Raw(rules.NotifySeq(i18n.Tf("%s: the agent waits on you", k), a.Title)))
 		}
 	}
 	for _, as := range next {
@@ -180,12 +181,12 @@ func (m *Model) attachAgent(key, pane string) tea.Cmd { return m.attachAgentIn(k
 // for an issue on another site).
 func (m *Model) attachAgentIn(key, pane string, panel bool) tea.Cmd {
 	if m.herdr == nil {
-		m.status = "attach needs herdr running"
+		m.status = i18n.T("attach needs herdr running")
 		return nil
 	}
 	bin, err := exec.LookPath(herdrBin)
 	if err != nil {
-		m.fail("attach: no herdr on PATH")
+		m.fail(i18n.T("attach: no herdr on PATH"))
 		return nil
 	}
 	done := func(err error) tea.Msg { return agentAttachedMsg{key: key, err: err} }
@@ -194,10 +195,10 @@ func (m *Model) attachAgentIn(key, pane string, panel bool) tea.Cmd {
 	}
 	if os.Getenv("HERDR_ENV") == "1" {
 		cmd := herdrCommand(bin, m.herdr.Path(), "agent", "focus", pane)
-		m.status = key + ": focusing its agent"
+		m.status = i18n.Tf("%s: focusing its agent", key)
 		return func() tea.Msg { return done(cmd.Run()) }
 	}
-	m.status = key + ": attached to its agent"
+	m.status = i18n.Tf("%s: attached to its agent", key)
 	return tea.ExecProcess(herdrCommand(bin, m.herdr.Path(), "agent", "attach", pane), done)
 }
 
@@ -210,9 +211,9 @@ func herdrCommand(bin, socket string, args ...string) *exec.Cmd {
 
 func (m Model) handleAgentAttached(msg agentAttachedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail(msg.key + ": attach: " + msg.err.Error())
+		m.fail(i18n.Tf("%s: attach: %s", msg.key, msg.err.Error()))
 	} else {
-		m.status = msg.key + ": back from its agent"
+		m.status = i18n.Tf("%s: back from its agent", msg.key)
 	}
 	return m, m.fetchAgents()
 }
@@ -238,8 +239,8 @@ const agentsHead = "Agents (herdr)"
 // agentHints are the Agents heading's keys: attach, and the A menu.
 func (m *Model) agentHints() [][2]string {
 	return [][2]string{
-		{helpKey(m.keys.JiraStart) + " attach", firstKey(m.keys.JiraStart)},
-		{helpKey(m.keys.IssueActions) + " more", firstKey(m.keys.IssueActions)},
+		{i18n.Tf("%s attach", helpKey(m.keys.JiraStart)), firstKey(m.keys.JiraStart)},
+		{i18n.Tf("%s more", helpKey(m.keys.IssueActions)), firstKey(m.keys.IssueActions)},
 	}
 }
 
@@ -260,12 +261,12 @@ func (m *Model) agentActions(key string) []jiraPickerItem {
 	seen := map[string]bool{}
 	for _, a := range m.agents[key] {
 		items = append(items,
-			jiraPickerItem{id: "agent-attach:" + a.PaneID, label: "Attach to agent " + a.Name + " (" + string(a.Status) + ")"},
-			jiraPickerItem{id: "agent-prompt:" + a.PaneID, label: "Send agent " + a.Name + " a prompt"},
-			jiraPickerItem{id: "agent-stop:" + a.PaneID, label: "Stop agent " + a.Name + " (closes its tab)"})
+			jiraPickerItem{id: "agent-attach:" + a.PaneID, label: i18n.Tf("Attach to agent %s (%s)", a.Name, string(a.Status))},
+			jiraPickerItem{id: "agent-prompt:" + a.PaneID, label: i18n.Tf("Send agent %s a prompt", a.Name)},
+			jiraPickerItem{id: "agent-stop:" + a.PaneID, label: i18n.Tf("Stop agent %s (closes its tab)", a.Name)})
 		if a.CWD != "" && !seen[a.CWD] {
 			seen[a.CWD] = true
-			items = append(items, jiraPickerItem{id: "agent-new:" + a.PaneID, label: "New agent in " + homeShort(a.CWD)})
+			items = append(items, jiraPickerItem{id: "agent-new:" + a.PaneID, label: i18n.Tf("New agent in %s", homeShort(a.CWD))})
 		}
 	}
 	return items
@@ -289,7 +290,7 @@ type agentDoneMsg struct {
 func (m *Model) applyAgentAction(key, what, pane string) tea.Cmd {
 	a, ok := m.agentByPane(key, pane)
 	if !ok || m.herdr == nil {
-		m.status = key + ": that agent is gone"
+		m.status = i18n.Tf("%s: that agent is gone", key)
 		return nil
 	}
 	c := m.herdr
@@ -297,17 +298,17 @@ func (m *Model) applyAgentAction(key, what, pane string) tea.Cmd {
 	case "agent-attach":
 		return m.attachAgent(key, pane)
 	case "agent-prompt":
-		m.openBulkInput("agent-prompt", "what "+a.Name+" should do next")
+		m.openBulkInput("agent-prompt", i18n.Tf("what %s should do next", a.Name))
 		m.jiraFieldKey, m.agentPane = key, pane
 		return nil
 	case "agent-stop":
-		m.status = key + ": stopping " + a.Name + "…"
-		return agentCall(key, "stopped "+a.Name, func(ctx context.Context) error { return c.CloseTab(ctx, a.TabID) })
+		m.status = i18n.Tf("%s: stopping %s…", key, a.Name)
+		return agentCall(key, i18n.Tf("stopped %s", a.Name), func(ctx context.Context) error { return c.CloseTab(ctx, a.TabID) })
 	case "agent-new":
 		kind, name := m.opts.workAgent, jiraAgentName(key, time.Now())
 		args := workArgs(m.opts.workArgs, m.jiraStartPrompt, key)
-		m.status = key + ": starting " + kind + " in " + homeShort(a.CWD) + "…"
-		return agentCall(key, kind+" started in "+homeShort(a.CWD), func(ctx context.Context) error {
+		m.status = i18n.Tf("%s: starting %s in %s…", key, kind, homeShort(a.CWD))
+		return agentCall(key, i18n.Tf("%s started in %s", kind, homeShort(a.CWD)), func(ctx context.Context) error {
 			_, p, err := c.NewTab(ctx, a.WorkspaceID, key, a.CWD, nil)
 			if err != nil {
 				return err
@@ -326,11 +327,11 @@ func (m Model) applyAgentPrompt(raw string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	c := m.herdr
-	m.status = key + ": sending the prompt…"
-	return m, agentCall(key, "prompt sent", func(ctx context.Context) error {
+	m.status = i18n.Tf("%s: sending the prompt…", key)
+	return m, agentCall(key, i18n.T("prompt sent"), func(ctx context.Context) error {
 		err := c.Prompt(ctx, pane, text)
 		if herdr.IsCode(err, "agent_blocked") {
-			return errors.New("the agent waits on an approval or question: attach to answer it")
+			return errors.New(i18n.T("the agent waits on an approval or question: attach to answer it"))
 		}
 		return err
 	})
