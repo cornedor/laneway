@@ -173,7 +173,7 @@ export default function mount(el, { app, scope, toolbar }) {
   setFoot();
 
   const host = {
-    redraw: o => { if (o.el && o.el.isConnected) { const n = rowFor(o); o.el.replaceWith(n); o.el = n; mark(); } },
+    redraw: o => { if (o.el && o.el.isConnected) { const n = rowFor(o); o.el.replaceWith(n); o.el = n; mark(false); } },
     begin: e => { editing = e; },
     end: () => { editing = null; el.focus(); },
     commit: () => editing && editing.commit(),
@@ -252,13 +252,15 @@ export default function mount(el, { app, scope, toolbar }) {
     for (const a of nav.children) if (a.dataset.sec) a.classList.toggle('on', a.dataset.sec === cur);
   }
   el.addEventListener('scroll', spy, { passive: true });
-  function mark() {
+  // mark highlights the selected row and scrolls to it; a row re-rendered in place keeps the scroll (a drag never
+  // selects its row, so scrolling would jump to the old selection).
+  function mark(scroll = true) {
     for (const o of options) if (o.el) o.el.classList.toggle('sel', rows[sel] === o);
-    const o = rows[sel]; if (o && o.el && o.el.scrollIntoView) o.el.scrollIntoView({ block: 'nearest' });
+    const o = rows[sel]; if (scroll && o && o.el && o.el.scrollIntoView) o.el.scrollIntoView({ block: 'nearest' });
   }
   function refresh() { // re-render the rows in place: a value changed
     for (const o of options) if (o.el && o.el.isConnected) { const n = rowFor(o); o.el.replaceWith(n); o.el = n; }
-    mark();
+    mark(false);
   }
   const change = d => { const o = rows[sel]; if (o && o.change) o.change(d); };
   const activate = () => { const o = rows[sel]; if (o) (o.activate || o.change || (() => {}))(1); };
@@ -299,6 +301,6 @@ export default function mount(el, { app, scope, toolbar }) {
     draw();
   }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
-  const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(); } });
+  const offMetrics = onMetrics(() => { if (fontSize.el && fontSize.el.isConnected) { const n = rowFor(fontSize); fontSize.el.replaceWith(n); fontSize.el = n; mark(false); } });
   return () => { dead = true; el.removeEventListener('scroll', spy); offMetrics(); if (offCards) offCards(); if (offJQL) offJQL(); if (offLanes) offLanes(); editor = null; editing = null; };
 }

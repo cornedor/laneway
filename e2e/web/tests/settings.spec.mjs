@@ -61,3 +61,15 @@ test('a lane layout goes on every board it fits', async ({ page, app }) => {
   await every.uncheck();
   await expect(board).toBeChecked();
 });
+
+// A drag in the card designer keeps the page where it is: the drop redraws the row, not the scroll.
+test('a card designer drag keeps the scroll', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const g = page.getByRole('group', { name: 'card_layout' });
+  const chip = g.locator('.cd-tray .cd-chip').first(), top = g.locator('.cd-top .cd-chip');
+  await expect(chip).toBeVisible();
+  const n = await top.count();
+  await chip.dragTo(g.locator('.cd-top'));
+  await expect(top).toHaveCount(n + 1);
+  await expect(g.locator('.cd-card')).toBeInViewport();
+});
