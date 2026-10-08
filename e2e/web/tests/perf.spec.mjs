@@ -106,4 +106,13 @@ test.describe('the rest', () => {
     await fold.click();
     await expect(page.getByRole('group', { name: 'command palette' })).toHaveCount(0);
   });
+
+  test('settings show the advanced options', async ({ page, app }) => {
+    await page.goto(new URL('#/settings', app.url).href);
+    await expect(page.getByRole('group', { name: 'lane_layouts' })).toBeVisible();
+    await page.keyboard.press('a');
+    await expect(page.getByRole('group', { name: 'panel_width' })).toBeVisible();
+    await page.keyboard.press('a');
+    await expect(page.getByRole('group', { name: 'panel_width' })).toHaveCount(0);
+  });
 });

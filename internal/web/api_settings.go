@@ -49,16 +49,17 @@ func (s *Server) UIConfig() config.UIConfig {
 // Setting is one ui: option for the settings screen. Type is bool, enum,
 // duration, number, list, text or yaml (too big for a line).
 type Setting struct {
-	Name    string
-	Group   string
-	Type    string
-	Default string
-	Doc     string
-	Choices []string `json:",omitempty"`
-	Restart bool
-	Set     bool   // the file gives it a value
-	Value   any    // string, number or []string; nil when unset
-	YAML    string `json:",omitempty"` // the value as YAML, for type yaml
+	Name     string
+	Group    string
+	Type     string
+	Default  string
+	Doc      string
+	Choices  []string `json:",omitempty"`
+	Restart  bool
+	Advanced bool   // not in config.SettingsBasic: behind the page's Advanced
+	Set      bool   // the file gives it a value
+	Value    any    // string, number or []string; nil when unset
+	YAML     string `json:",omitempty"` // the value as YAML, for type yaml
 }
 
 var durations = map[string]bool{"auto_refresh": true, "stale_after": true, "full_refresh": true, "inbox_every": true, "inbox_lookback": true, "double_click": true, "timer_round": true, "standup_length": true, "standup_timebox": true}
@@ -134,7 +135,7 @@ func settings(c config.UIConfig) []Setting {
 }
 
 func describe(name, group string, f reflect.Value) Setting {
-	st := Setting{Name: name, Group: group, Default: config.SettingDefaults[name], Doc: config.SettingDocs[name], Restart: config.SettingsRestart[name], Set: !f.IsZero()}
+	st := Setting{Name: name, Group: group, Default: config.SettingDefaults[name], Doc: config.SettingDocs[name], Restart: config.SettingsRestart[name], Advanced: !config.SettingsBasic[name], Set: !f.IsZero()}
 	st.Choices = ui.SettingChoices(name)
 	switch f.Kind() {
 	case reflect.String:

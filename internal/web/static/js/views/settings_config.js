@@ -42,7 +42,7 @@ export function saver(app, o, value) {
 }
 
 function make(app, host, st0, editable) {
-  const o = { name: st0.Name, section: st0.Group, cfg: true, st: st0, err: '', wide: st0.Type === 'yaml', editable };
+  const o = { name: st0.Name, section: st0.Group, cfg: true, st: st0, err: '', wide: st0.Type === 'yaml', editable, advanced: st0.Advanced };
   const st = () => o.st;
   const current = () => { const s = st(); return s.Value != null ? show(s.Value) : (s.Type === 'bool' || s.Type === 'enum') && s.Choices && s.Name !== 'theme' && s.Name !== 'code_theme' ? s.Choices[0] : ''; };
   o.desc = T(st0.Doc);

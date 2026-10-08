@@ -42,7 +42,7 @@ export function terminalOptions(app, refresh) {
     }
     paint();
     return {
-      name: T('Terminal font'), desc: T('the agents’ terminal; h/l cycle, enter types a custom family; icons come from the bundled Symbols Nerd Font'), section: 'Fonts', wide: true,
+      name: T('Terminal font'), desc: T('the agents’ terminal; h/l cycle, enter types a custom family; icons come from the bundled Symbols Nerd Font'), section: 'Fonts', wide: true, advanced: true,
       render: () => h('div.st-fonts', grid, h('div.st-fcustom', input), sample),
       change: d => pick(cycle(presets().map(p => p[0]), fonts.terminalFont(), d)),
       activate: () => { input.tabIndex = 0; input.focus(); input.select(); },
@@ -54,7 +54,7 @@ export function terminalOptions(app, refresh) {
   const setSize = px => { fonts.setTerminalSize(px); app.bus.emit('prefs', { key: 'terminal.size', value: px || '' }); refresh(); };
   return [
     fontRow(),
-    { name: T('Terminal font size'), desc: T('the agents’ terminal; h/l step'), section: 'Fonts',
+    { name: T('Terminal font size'), desc: T('the agents’ terminal; h/l step'), section: 'Fonts', advanced: true,
       render: () => h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: () => setSize(cycle(SIZES, fonts.terminalSize(), 1)) }, sizeLabel())),
       change: d => setSize(cycle(SIZES, fonts.terminalSize(), d)), reset: () => setSize(0) },
   ];

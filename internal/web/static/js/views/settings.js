@@ -3,6 +3,8 @@
 // and Server: settings_site.js; GitLab, Data), every ui: option of the config file by topic (settings_config.js),
 // shared with the terminal app, and Keyboard (remaps, settings_keys.js, a row per folded group). With room a sidebar
 // lists the sections and marks the one in view.
+// Advanced (a; per browser) shows the options for specifics and tuning (`advanced`: config.SettingsBasic lacks the
+// ui: one); off, one shows only when the filter finds it or the config file sets it, marked.
 //
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
@@ -92,28 +94,28 @@ export default function mount(el, { app, scope, toolbar }) {
     ...fontOptions(app, () => refresh()),
     choice(T('Motion'), T('animations and transitions'), 'Appearance', ['auto', 'reduce'], () => theme.motion, v => { theme.setMotion(v); refresh(); }, v => (v === 'reduce' ? T('reduced') : T('system'))),
     choice(T('Key bar'), T('the main keys here at the bottom, a click presses one; messages show in it'), 'Appearance', ['show', 'hide'], () => pref('keybar', 'show'), v => { setPref('keybar', v); refresh(); }),
-    { name: T('Custom tokens'), desc: T('CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies'), section: 'Appearance', wide: true, render: customEditor, change: () => editor && editor.focus() },
+    { name: T('Custom tokens'), desc: T('CSS variables as JSON, e.g. {"--bg": "#101010", "--radius": "2px"}; ctrl+enter applies'), section: 'Appearance', wide: true, advanced: true, render: customEditor, change: () => editor && editor.focus() },
 
     { name: T('Browser notifications'), desc: T('inbox news while this tab is in the background; the browser asks when you turn them on'), section: 'Notifications',
       render: () => { const on = notifier.enabled(); return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': T('Browser notifications'), tabindex: -1, onclick: () => toggleNotify() }, h('i')), h('span.st-state', notifier.permission() === 'denied' ? T('blocked by the browser') : on ? T('on') : T('off'))); },
       change: () => toggleNotify() },
-    action(T('Test notification'), T('shows one now'), 'Notifications', () => { if (!notifier.notify('laneway', T('Notifications work.'))) app.ui.toast(T('Turn notifications on first'), { kind: 'err' }); }),
+    { ...action(T('Test notification'), T('shows one now'), 'Notifications', () => { if (!notifier.notify('laneway', T('Notifications work.'))) app.ui.toast(T('Turn notifications on first'), { kind: 'err' }); }), advanced: true },
 
     choice(T('Default mode'), T('how the board opens'), 'Board', ['lanes', 'list'], () => pref('board.mode', ui.DefaultMode || 'lanes'), v => { setPref('board.mode', v); refresh(); }),
     choice(T('Empty lanes'), T('columns the filters leave without a card (alt+e)'), 'Board', ['show', 'hide'], () => pref('board.empty_lanes', String(ui.EmptyLanes || '').toLowerCase() === 'hide' ? 'hide' : 'show'), v => { setPref('board.empty_lanes', v); refresh(); }),
-    choice(T('Auto refresh'), T('refetch an idle board'), 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')),
+    { ...choice(T('Auto refresh'), T('refetch an idle board'), 'Board', ['0', '30', '60', '120', '300'], () => pref('board.refresh', '120'), v => { setPref('board.refresh', v); refresh(); }, v => (v === '0' ? 'off' : v >= 60 ? v / 60 + 'm' : v + 's')), advanced: true },
 
-    s.autostart && { name: T('Start at login'), desc: T('runs laneway web in the background when you log in, on %s (%s)', location.host, s.autostart.path), section: 'Server',
+    s.autostart && { name: T('Start at login'), desc: T('runs laneway web in the background when you log in, on %s (%s)', location.host, s.autostart.path), section: 'Server', advanced: true,
       render: () => { const on = s.autostart.enabled; return h('span.st-val', h('button.st-switch' + (on ? '.on' : ''), { role: 'switch', 'aria-checked': on, 'aria-label': T('Start at login'), tabindex: -1, onclick: () => toggleLogin() }, h('i')), h('span.st-state', on ? T('on') : T('off'))); },
       change: () => toggleLogin() },
     ...siteOptions(app, () => refresh()),
     info(T('Site'), s.site || '-', 'Jira site'), info('Jira', s.baseURL || '-', 'Jira site'),
-    info(T('Signed in as'), (s.me && s.me.DisplayName) || '-', 'Jira site'), info(T('Version'), s.version || 'dev', 'Server'),
-    action(T('Clear cached data'), T('the browser copy of API answers; reloaded on demand'), 'Data', () => { api.forget(); app.ui.toast(T('Caches cleared'), { kind: 'ok' }); }),
-    action(T('Clear recent issues'), T('the palette’s recent list and search history'), 'Data', () => {
+    info(T('Signed in as'), (s.me && s.me.DisplayName) || '-', 'Jira site'), { ...info(T('Version'), s.version || 'dev', 'Server'), advanced: true },
+    { ...action(T('Clear cached data'), T('the browser copy of API answers; reloaded on demand'), 'Data', () => { api.forget(); app.ui.toast(T('Caches cleared'), { kind: 'ok' }); }), advanced: true },
+    { ...action(T('Clear recent issues'), T('the palette’s recent list and search history'), 'Data', () => {
       try { for (const k of Object.keys(localStorage)) if (/^lw:(recent|jqlhist|cmdrecent):/.test(k)) localStorage.removeItem(k); } catch (e) { /* ignore */ }
       app.ui.toast(T('Recents cleared'), { kind: 'ok' });
-    }),
+    }), advanced: true },
   ].filter(Boolean);
   async function toggleLogin() {
     try {
@@ -172,9 +174,12 @@ export default function mount(el, { app, scope, toolbar }) {
   const list = h('div.st-list');
   const foot = h('div.st-foot');
   const nav = h('nav.st-nav', { 'aria-label': T('Settings sections') });
-  toolbar.append(filter);
+  let adv = false;
+  try { adv = localStorage.getItem('lw:settings.advanced') === '1'; } catch (e) { /* ignore */ }
+  const advBtn = h('button.btn', { 'aria-pressed': String(adv), title: T('Show the options for specifics and tuning too  (a)'), onclick: () => setAdv(!adv) }, T('Advanced'));
+  toolbar.append(filter, advBtn);
   el.append(h('div.st', nav, h('div.st-main', list, foot)));
-  const setFoot = () => { foot.textContent = T('j/k move · enter/space change · ←/→ cycle · del reset · / filter · esc leaves') + (cfg && cfg.path ? T(' · ui: options write to %s', cfg.path) : ''); };
+  const setFoot = () => { foot.textContent = T('j/k move · enter/space change · ←/→ cycle · del reset · / filter · a advanced · esc leaves') + (cfg && cfg.path ? T(' · ui: options write to %s', cfg.path) : ''); };
   setFoot();
 
   const host = {
@@ -205,7 +210,8 @@ export default function mount(el, { app, scope, toolbar }) {
     options.push(...keyRows);
   }
 
-  const hay = o => (o.name + ' ' + o.name.replace(/_/g, ' ') + ' ' + (o.desc || '') + ' ' + o.section + ' ' + (o.meta || '') + ' ' + (o.key ? app.keys.registry().filter(r => r.desc === o.name).map(r => r.specs.join(' ')).join(' ') : '')).toLowerCase();
+  const hay = o => (o.name + ' ' + o.name.replace(/_/g, ' ') + ' ' + (o.desc || '') + ' ' + o.section + ' ' + (o.meta || '') + ' ' + (o.advanced ? T('advanced') + ' ' : '') + (o.key ? app.keys.registry().filter(r => r.desc === o.name).map(r => r.specs.join(' ')).join(' ') : '')).toLowerCase();
+  const hid = o => o.advanced && !adv && !(o.st && o.st.Set); // a config option the file sets stays in sight
   const shown = () => {
     const words = q.split(/\s+/).filter(Boolean);
     const match = o => { const t = hay(o); return words.every(w => t.includes(w)); };
@@ -213,7 +219,7 @@ export default function mount(el, { app, scope, toolbar }) {
     const vis = options.filter(o => {
       if (o.key) return folds.has(o.group) || (words.length > 0 && match(o));
       if (o.fold) return !words.length || match(o) || options.some(k => k.key && k.group === o.fold && match(k));
-      return !words.length || match(o);
+      return words.length ? match(o) : !hid(o);
     });
     const topics = (cfg && cfg.groups) || [];
     const seen = []; for (const o of vis) if (!seen.includes(o.section)) seen.push(o.section);
@@ -226,7 +232,7 @@ export default function mount(el, { app, scope, toolbar }) {
   };
   function rowFor(o) {
     return h('div.st-row' + (o.wide ? '.wide' : '') + (o.fold ? '.st-fold' : ''), { role: 'group', 'aria-label': o.name, onclick: e => { const i = rows.indexOf(o); if (i >= 0) { sel = i; mark(); } if (o.fold) o.activate(); } },
-      h('div.st-name', h('div', o.name, o.meta && h('span.chip', o.meta)), o.desc && h('div.st-desc', o.desc)), o.render());
+      h('div.st-name', h('div', o.name, o.meta && h('span.chip', o.meta), o.advanced && !adv && h('span.chip', T('advanced'))), o.desc && h('div.st-desc', o.desc)), o.render());
   }
   function draw() {
     const vis = shown();
@@ -280,6 +286,16 @@ export default function mount(el, { app, scope, toolbar }) {
     for (const o of options) if (o.el && o.el.isConnected) { const n = rowFor(o); o.el.replaceWith(n); o.el = n; }
     mark(false);
   }
+  // setAdv shows or hides the advanced options, the cursor staying on its option while that shows.
+  function setAdv(on) {
+    const cur = rows[sel];
+    adv = on;
+    try { localStorage.setItem('lw:settings.advanced', on ? '1' : '0'); } catch (e) { /* ignore */ }
+    advBtn.setAttribute('aria-pressed', String(on));
+    draw();
+    const i = rows.indexOf(cur);
+    if (i >= 0) { sel = i; mark(); }
+  }
   const change = d => { const o = rows[sel]; if (o && o.change) o.change(d); };
   const activate = () => { const o = rows[sel]; if (o) (o.activate || o.change || (() => {}))(1); };
   const go = d => { if (rows.length) { sel = (sel + d + rows.length) % rows.length; mark(); } };
@@ -290,6 +306,7 @@ export default function mount(el, { app, scope, toolbar }) {
   scope.bind(['ArrowRight', 'l'], () => change(1), T('next value'), { group: T('Settings') });
   scope.bind(['ArrowLeft', 'h'], () => change(-1), T('previous value'), { group: T('Settings') });
   scope.bind(['Delete', 'Backspace'], () => { const o = rows[sel]; if (o && o.reset) o.reset(); }, T('reset to the default'), { group: T('Settings'), bar: T('reset') });
+  scope.bind('a', () => setAdv(!adv), T('show or hide the advanced options'), { group: T('Settings') });
   scope.bind('/', () => { filter.focus(); filter.select(); }, T('filter settings'), { group: T('Settings'), bar: T('filter') });
   scope.bind('Escape', () => { if (q) { filter.value = ''; q = ''; draw(); } else app.back('/board'); }, T('leave settings'), { group: T('Settings'), bar: T('leave') });
   scope.bind('Escape', () => { if (editing) editing.cancel(); else { filter.blur(); el.focus(); } }, '', { input: true, hidden: true });
@@ -308,14 +325,14 @@ export default function mount(el, { app, scope, toolbar }) {
     offJQL = designJQL(app, host, c.options);
     offLanes = designLanes(app, host, c.options);
     options.push(...c.options);
-    if (c.path) options.push(info(T('Config file'), c.path, 'Server', c.editable ? T('ui: options are written here, comments kept') : T('read-only')));
+    if (c.path) options.push({ ...info(T('Config file'), c.path, 'Server', c.editable ? T('ui: options are written here, comments kept') : T('read-only')), advanced: true });
     for (const w of c.warnings) options.push(info(T('Config warning'), w, 'Server'));
     setFoot(); draw();
   }).catch(e => app.ui.errToast(e));
   // Each GitLab instance (the gitlab: config's, then glab's logins), signed in to.
   api.get('/gitlab', { fresh: true }).then(list => {
     if (dead || !list.length) return;
-    options.push(...list.map(g => info(g.Host, g.OK ? g.User + ' (' + g.From + ')' : g.From ? T('fails') : T('no token'), 'GitLab', g.Summary)));
+    options.push(...list.map(g => ({ ...info(g.Host, g.OK ? g.User + ' (' + g.From + ')' : g.From ? T('fails') : T('no token'), 'GitLab', g.Summary), advanced: true })));
     draw();
   }).catch(() => {});
   // Density or font size changed elsewhere (palette, phone breakpoint): the shown size follows.
