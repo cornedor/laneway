@@ -75,3 +75,14 @@ test('* pins it first among the commands, and it stays', async ({ page }) => {
   await first.click();
   await expect(panel(page).locator('.iss-key')).toHaveText('DEMO-4');
 });
+
+test('< widens the panel, and it stays', async ({ page }) => {
+  const width = async () => (await page.locator('#panel').boundingBox()).width;
+  const w0 = await width();
+  await page.keyboard.press('<');
+  await expect.poll(width).toBeGreaterThan(w0 + 50); // 5% of 1400
+  const w1 = await width();
+  await page.reload();
+  await expect(panel(page).locator('.iss-key')).toHaveText('DEMO-4');
+  expect(Math.abs(await width() - w1)).toBeLessThan(2);
+});

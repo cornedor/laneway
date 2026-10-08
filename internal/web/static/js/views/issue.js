@@ -881,7 +881,7 @@ export function mountIssue(el, key, { app, full, card }) {
   if (!full) {
     const pw = Number(app.session.ui && app.session.ui.PanelWidth);
     const def = pw >= 20 && pw <= 80 ? pw : 50;
-    const show = p => document.documentElement.style.setProperty('--panel-w', p + '%');
+    const show = p => el.style.setProperty('--panel-w', p + '%'); // on <html> it would restyle every element
     const keep = p => { pct = p; show(p); app.prefs.set('panelPct', p === def ? '' : String(p)); };
     const clamp = grip(root.querySelector('.iss-grip'), { def, show, keep, pct: ev => (el.getBoundingClientRect().right - ev.clientX) * 100 / window.innerWidth });
     const px = Number(app.prefs.get('panelW', '')); // the width in pixels, before percentages
