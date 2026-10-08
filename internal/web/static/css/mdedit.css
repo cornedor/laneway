@@ -104,7 +104,7 @@
 /* full screen: the editor over the page */
 .ed.full { position: fixed; inset: 0; z-index: 95; display: flex; flex-direction: column; background: var(--bg); padding: .857rem max(.857rem, calc((100vw - 52rem) / 2)); }
 .ed.full .ed-ta { flex: 1; max-height: none; font-size: 1.08em; } .ed.full .ed-preview { max-height: 35vh; }
-body:has(.ed.full) { overflow: hidden; } #view:has(.ed.full) { contain: none; } /* contain would hold it under the header */
+#view:has(.ed.full) { contain: none; } /* contain would hold it under the header; body:has() would cost every keystroke a walk of the page */
 .ed-files { display: flex; flex-wrap: wrap; gap: .286rem; margin-top: .429rem; }
 
 /* find in issue, image viewer */

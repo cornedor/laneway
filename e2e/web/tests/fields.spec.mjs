@@ -95,3 +95,17 @@ test('a rich-text custom field: Test notes', async ({ page }) => {
   await page.reload();
   await expect(page.locator('.iss')).toContainText('Also on iOS.');
 });
+
+// The full-screen editor covers the page, in the panel and on the issue page (#view's containment off).
+for (const where of ['panel', 'page']) test(`the editor goes full screen, in the ${where}`, async ({ page, app }) => {
+  if (where === 'page') await page.goto(new URL('#/issue/DEMO-4', app.url).href);
+  await expect(page.locator('.iss .iss-key')).toHaveText('DEMO-4');
+  await page.keyboard.press('E');
+  const ed = page.locator('.iss .ed', { has: page.locator('[data-placeholder^="Description"]') });
+  await ed.getByRole('button', { name: /^Full screen/ }).click();
+  await expect(ed).toHaveClass(/\bfull\b/);
+  const vp = page.viewportSize();
+  await expect.poll(async () => { const b = await ed.boundingBox(); return b.x === 0 && b.width === vp.width && b.y < 10 && b.height > vp.height - 20; }).toBe(true); // its margin aside
+  await page.keyboard.press('Escape');
+  await expect(ed).not.toHaveClass(/\bfull\b/);
+});
