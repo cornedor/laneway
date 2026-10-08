@@ -221,9 +221,9 @@ back to the config file (your comments kept) and applied at once. The
 
     The page opens on the options that make laneway yours: theme, cards,
     lanes, views, keys. **Advanced** (`a`) shows the specifics and tuning
-    too (`panel_width`, `stale_after`, `velocity_sprints`, …), remembered
-    per browser. Off, `/` still finds them, and one your config sets stays
-    in sight.
+    too (`panel_width`, `card_limit`, `velocity_sprints`, …) and the
+    terminal's own options, remembered per browser. Off, `/` still finds
+    them.
 
     ![Settings in the browser](../screenshots/web/settings.png)
 

@@ -55,8 +55,11 @@ func TestSettingsEdit(t *testing.T) {
 		if !st.Advanced {
 			basic++
 		}
-		if want := st.Name == "panel_width" || st.Name == "stale_after" || st.Name == "velocity_sprints"; want && !st.Advanced || st.Name == "theme" && st.Advanced {
+		if want := st.Name == "panel_width" || st.Name == "stale_after" || st.Name == "velocity_sprints" || st.Name == "theme"; want && !st.Advanced || st.Name == "lane_layouts" && st.Advanced {
 			t.Errorf("%s: advanced %v", st.Name, st.Advanced)
+		}
+		if st.Terminal != config.SettingsTerminal[st.Name] || st.Name == "theme" && !st.Terminal {
+			t.Errorf("%s: terminal %v", st.Name, st.Terminal)
 		}
 	}
 	if basic != len(config.SettingsBasic) { // a name there that is no option

@@ -1105,6 +1105,7 @@
   "reset to the default": "herstellen naar de standaard",
   "resolved": "opgelost",
   "restart needed": "herstart nodig",
+  "terminal only": "alleen terminal",
   "review": "review",
   "roomy": "ruim",
   "runs laneway web in the background when you log in, on %s (%s)": "draait laneway web op de achtergrond als je inlogt, op %s (%s)",

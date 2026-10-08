@@ -46,7 +46,7 @@ function make(app, host, st0, editable) {
   const st = () => o.st;
   const current = () => { const s = st(); return s.Value != null ? show(s.Value) : (s.Type === 'bool' || s.Type === 'enum') && s.Choices && s.Name !== 'theme' && s.Name !== 'code_theme' ? s.Choices[0] : ''; };
   o.desc = T(st0.Doc);
-  Object.defineProperty(o, 'meta', { get: () => (st().Restart ? T('restart needed') : '') });
+  Object.defineProperty(o, 'meta', { get: () => [st().Terminal && T('terminal only'), st().Restart && T('restart needed')].filter(Boolean).join(' · ') });
 
   async function save(payload, quiet) {
     if (!editable) { app.ui.toast(T('No config file to write to'), { kind: 'err' }); return false; }

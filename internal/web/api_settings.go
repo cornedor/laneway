@@ -57,6 +57,7 @@ type Setting struct {
 	Choices  []string `json:",omitempty"`
 	Restart  bool
 	Advanced bool   // not in config.SettingsBasic: behind the page's Advanced
+	Terminal bool   // config.SettingsTerminal: the browser ignores it
 	Set      bool   // the file gives it a value
 	Value    any    // string, number or []string; nil when unset
 	YAML     string `json:",omitempty"` // the value as YAML, for type yaml
@@ -135,7 +136,7 @@ func settings(c config.UIConfig) []Setting {
 }
 
 func describe(name, group string, f reflect.Value) Setting {
-	st := Setting{Name: name, Group: group, Default: config.SettingDefaults[name], Doc: config.SettingDocs[name], Restart: config.SettingsRestart[name], Advanced: !config.SettingsBasic[name], Set: !f.IsZero()}
+	st := Setting{Name: name, Group: group, Default: config.SettingDefaults[name], Doc: config.SettingDocs[name], Restart: config.SettingsRestart[name], Advanced: !config.SettingsBasic[name], Terminal: config.SettingsTerminal[name], Set: !f.IsZero()}
 	st.Choices = ui.SettingChoices(name)
 	switch f.Kind() {
 	case reflect.String:

@@ -7,13 +7,17 @@ import "github.com/cornedor/laneway/internal/i18n"
 // SettingsRestart are options read once at startup.
 var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true, "language": true}
 
+// SettingsTerminal are options only the terminal reads; the browser has
+// its own for some (theme, under Appearance).
+var SettingsTerminal = map[string]bool{"theme": true, "icons": true, "mouse": true, "double_click": true, "images": true, "image_max_rows": true, "code_theme": true, "full_refresh": true}
+
 // SettingsCommand are options laneway runs as commands (or passes to one).
 var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": true, "open": true, "clipboard_image": true, "work_agent": true, "work_args": true, "work_create": true}
 
 // SettingsBasic are the options for making laneway your own: looks, layouts,
 // views. The rest are specifics and tuning, which the browser's settings
-// show behind Advanced.
-var SettingsBasic = map[string]bool{"default_mode": true, "card_fields": true, "list_columns": true, "card_colors": true, "empty_lanes": true, "card_layout": true, "card_styles": true, "lane_layouts": true, "icons": true, "home": true, "quick_filters": true, "views": true, "saved_filters": true, "filters": true, "empty_fields": true, "templates": true, "comment_order": true, "comment_layout": true, "agent_view": true, "theme": true, "delight": true, "skin_tone": true, "language": true}
+// show behind Advanced, with SettingsTerminal.
+var SettingsBasic = map[string]bool{"default_mode": true, "card_fields": true, "list_columns": true, "card_colors": true, "empty_lanes": true, "card_layout": true, "card_styles": true, "lane_layouts": true, "home": true, "quick_filters": true, "views": true, "saved_filters": true, "filters": true, "empty_fields": true, "templates": true, "comment_order": true, "comment_layout": true, "agent_view": true, "delight": true, "skin_tone": true, "language": true}
 
 // SettingDefaults is each ui: option's default as the docs show it.
 var SettingDefaults = map[string]string{
@@ -182,7 +186,7 @@ var SettingDocs = map[string]string{
 	"llm":                  i18n.N("a command answering ctrl+a's questions about the issue, piped on stdin"),
 	"delight":              i18n.N("small celebrations: confetti on a card into done, a line on a completed sprint"),
 	"language":             i18n.N("the language laneway shows (LANEWAY_LANG overrides it)"),
-	"skin_tone":            i18n.N("the tone : completion offers for people and hands"),
+	"skin_tone":            i18n.N("the skin tone emoji completion (:) offers for people and hands"),
 	"threaded_replies":     i18n.N("a reply goes under its comment in Jira's thread (and shows there); off: replies are new comments, quoted"),
 	"comment_order":        i18n.N("the Comments tab's order: oldest or newest first (a thread by its first comment, replies oldest first)"),
 	"comment_layout":       i18n.N("threaded: replies under their comment; flat: by date, a reply under a line quoting its parent"),
