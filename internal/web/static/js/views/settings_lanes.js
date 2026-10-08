@@ -199,7 +199,7 @@ export function designLanes(app, host, options) {
     h('input.input.ln-name', { type: 'text', value: l.name, placeholder: laneName(l), spellcheck: false, autocomplete: 'off', 'aria-label': T('Lane name'),
       oninput: e => { l.name = e.target.value.trim(); write(); } })),
   h('div.ln-body', l.cols.map(chip),
-    l.foreign.length > 0 && h('span.faint.ln-foreign', { title: l.foreign.join(', ') }, (l.cols.length ? '+ ' : '') + Tn(l.foreign.length, '%d status on other boards', '%d statuses on other boards', l.foreign.length)))));
+    l.foreign.length > 0 && h('span.faint.ln-foreign', { title: l.foreign.join(', ') }, (l.cols.length ? '+ ' : '') + Tn(l.foreign.length, '%d status on other boards', '%d statuses on other boards', l.foreign.length))));
 
   O.render = () => {
     const spec = specs[cur], projects = (app.session && app.session.projects) || [];

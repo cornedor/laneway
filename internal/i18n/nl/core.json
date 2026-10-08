@@ -1,3 +1,9 @@
 {
-  "%d empty fields · a click shows them": "%d lege velden · klik om ze te tonen"
+  "%d empty fields · a click shows them": "%d lege velden · klik om ze te tonen",
+  "Search": "Zoeken",
+  "Search (/) · commands (:) · jump to a key (g g)": "Zoeken (/) · commando's (:) · naar een sleutel springen (g g)",
+  "Search issues": "Issues zoeken",
+  "Skip to content": "Naar inhoud springen",
+  "View controls": "Weergaveopties",
+  "Views": "Weergaven"
 }

@@ -259,7 +259,15 @@ function globalKeys() {
 
 function chrome() {
   chromeBars.install(app);
-  $('#search-btn').addEventListener('click', () => app.actions.palette('/'));
+  const sb = $('#search-btn');
+  sb.addEventListener('click', () => app.actions.palette('/'));
+  // index.html's own text, in ui.language.
+  sb.setAttribute('aria-label', T('Search issues'));
+  sb.title = T('Search (/) · commands (:) · jump to a key (g g)');
+  sb.querySelector('.pal-text').textContent = T('Search');
+  $('a.skip').textContent = T('Skip to content');
+  $('#nav').setAttribute('aria-label', T('Views'));
+  $('#viewbar').setAttribute('aria-label', T('View controls'));
   // An in-app link is an app.go: no step for the view shown, the panel along. Modified clicks stay the browser's.
   document.addEventListener('click', e => {
     if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
