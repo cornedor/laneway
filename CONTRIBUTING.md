@@ -34,7 +34,9 @@ LWC is a company-managed fixture project; keep its data varied.
 `cd e2e/web && npm ci && npx playwright test` (`CHROMIUM=/path` uses an
 installed browser). Both fail on a request the demo can't answer
 (`LANEWAY_DEMO_UNHANDLED`); serve it in `internal/demo`, shaped as the
-contract recording has it.
+contract recording has it. Each web test's worst INP and CLS (web-vitals)
+go to `test-results/vitals.json` and the CI job summary; measured, not
+enforced.
 
 ## Pull requests
 

@@ -3,6 +3,9 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const vitalsJS = fileURLToPath(new URL('node_modules/web-vitals/dist/web-vitals.attribution.iife.js', import.meta.url));
 
 // start runs `laneway web -demo` on a free port, in a home of its own, and
 // resolves to the URL it prints.
@@ -33,13 +36,31 @@ function start(unhandled) {
   return { url, stop, log: () => log };
 }
 
+// watchVitals keeps the test's worst INP and CLS, over every page load, in
+// vitals. INP counts interactions from 16ms (web-vitals' floor is 40).
+async function watchVitals(page, vitals) {
+  await page.exposeBinding('__vital', (_, m) => {
+    if (m.value < (vitals[m.name]?.value ?? -1)) return;
+    vitals[m.name] = m;
+  });
+  // One script: Playwright runs each in a scope of its own.
+  await page.addInitScript(readFileSync(vitalsJS, 'utf8') + `
+    const send = m => window.__vital({ name: m.name, value: m.value, target: m.attribution.interactionTarget || m.attribution.largestShiftTarget || '',
+      type: m.attribution.interactionType || '', url: location.pathname + location.hash });
+    webVitals.onINP(send, { reportAllChanges: true, durationThreshold: 16 });
+    webVitals.onCLS(send, { reportAllChanges: true });`);
+}
+
 // test is Playwright's with app: a fresh demo, the page on its board. A
 // test fails on an error in the page or a request the demo can't answer.
+// Its INP and CLS go along as the attachment vitals (vitals-reporter.mjs).
 export const test = base.extend({
   app: async ({ page }, use, info) => {
     const unhandled = info.outputPath('unhandled.txt');
     const server = start(unhandled);
     const errors = [];
+    const vitals = {};
+    await watchVitals(page, vitals);
     page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
     // A failed request is reported with its URL below, not as the console's
     // "Failed to load resource".
@@ -55,6 +76,7 @@ export const test = base.extend({
     } finally {
       await server.stop();
     }
+    await info.attach('vitals', { body: JSON.stringify(vitals), contentType: 'application/json' });
     let missed = '';
     try { missed = readFileSync(unhandled, 'utf8'); } catch {}
     expect(missed, 'requests the demo could not answer').toBe('');
