@@ -1,6 +1,7 @@
 // Time helpers and the log-work dialog, shared by the timer, My work and the issue panel.
 import { h } from './dom.js';
 import { duration } from './fmt.js';
+import { T } from './i18n.js';
 
 const UNIT = { d: 8 * 3600, h: 3600, m: 60 };
 
@@ -51,15 +52,15 @@ export function logDialog(app, o) {
     const time = h('input.input', { type: 'text', value: o.seconds ? duration(o.seconds) : '', placeholder: '1h 30m · 1.5h · 45m · 2d', autofocus: true, spellcheck: false });
     const base = o.started || new Date();
     const date = h('input.input', { type: 'date', value: ymd(base) });
-    const comment = h('textarea.input', { rows: 3, placeholder: 'What you did', value: o.comment || '' });
-    const left = h('select.input', {}, h('option', { value: '' }, 'Reduce automatically'), h('option', { value: 'keep' }, 'Leave unchanged'), h('option', { value: 'set' }, 'Set to…'));
+    const comment = h('textarea.input', { rows: 3, placeholder: T('What you did'), value: o.comment || '' });
+    const left = h('select.input', {}, h('option', { value: '' }, T('Reduce automatically')), h('option', { value: 'keep' }, T('Leave unchanged')), h('option', { value: 'set' }, T('Set to…')));
     const leftVal = h('input.input', { type: 'text', placeholder: '2h', hidden: true });
     left.addEventListener('change', () => { leftVal.hidden = left.value !== 'set'; if (!leftVal.hidden) leftVal.focus(); });
     const err = h('div.wl-err', { hidden: true });
     const row = (label, ...nodes) => h('label.wl-row', h('span.wl-label', label), h('span.wl-field', nodes));
     const submit = async () => {
       const secs = parseDuration(time.value);
-      if (secs < 60) { err.hidden = false; err.textContent = 'Start with a time of at least a minute: 1h 30m, 1.5h, 45m'; time.focus(); return; }
+      if (secs < 60) { err.hidden = false; err.textContent = T('Start with a time of at least a minute: 1h 30m, 1.5h, 45m'); time.focus(); return; }
       const changedDay = date.value !== ymd(base);
       let started = '';
       if (changedDay) {
@@ -71,26 +72,26 @@ export function logDialog(app, o) {
       else {
         body.Comment = comment.value;
         body.Left = left.value === 'set' ? leftVal.value.trim() : left.value;
-        if (left.value === 'set' && !parseDuration(body.Left)) { err.hidden = false; err.textContent = 'Remaining estimate is not a time: 2h'; leftVal.focus(); return; }
+        if (left.value === 'set' && !parseDuration(body.Left)) { err.hidden = false; err.textContent = T('Remaining estimate is not a time: 2h'); leftVal.focus(); return; }
       }
       save.disabled = true;
       try {
         if (o.edit) await api.put('/worklog/' + o.key + '/' + o.edit, body); else await api.post('/worklog/' + o.key, body);
       } catch (e) { save.disabled = false; err.hidden = false; err.textContent = e.message; return; }
       result = 'logged';
-      ui.toast((o.edit ? 'Updated ' : 'Logged ') + duration(secs) + ' on ' + o.key, { kind: 'ok' });
+      ui.toast(o.edit ? T('Updated %s on %s', duration(secs), o.key) : T('Logged %s on %s', duration(secs), o.key), { kind: 'ok' });
       bus.emit('issue:changed', { key: o.key });
       m.close();
     };
-    const save = h('button.btn.primary', { type: 'submit' }, o.edit ? 'Save' : 'Log work');
+    const save = h('button.btn.primary', { type: 'submit' }, o.edit ? T('Save') : T('Log work'));
     const form = h('form.wl-form', { onsubmit: e => { e.preventDefault(); submit(); } },
       o.note && h('div.dim.wl-note', o.note),
-      row('Time', time), row('Date', date), row('Comment', comment),
-      !o.edit && row('Remaining', left, leftVal), err,
-      h('div.row.end', o.discard && h('button.btn.ghost', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, 'Discard timer'),
-        o.move && h('button.btn.ghost', { type: 'button', title: 'Its time goes along; nothing is logged', onclick: () => { result = 'move'; m.close(); } }, 'Move timer to ' + o.move), h('span.spacer'),
-        h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), save));
-    const title = (o.edit ? 'Edit work on ' : 'Log work on ') + o.key + (o.summary ? ' · ' + o.summary : '');
+      row(T('Time'), time), row(T('Date'), date), row(T('Comment'), comment),
+      !o.edit && row(T('Remaining'), left, leftVal), err,
+      h('div.row.end', o.discard && h('button.btn.ghost', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, T('Discard timer')),
+        o.move && h('button.btn.ghost', { type: 'button', title: T('Its time goes along; nothing is logged'), onclick: () => { result = 'move'; m.close(); } }, T('Move timer to %s', o.move)), h('span.spacer'),
+        h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), save));
+    const title = (o.edit ? T('Edit work on %s', o.key) : T('Log work on %s', o.key)) + (o.summary ? ' · ' + o.summary : '');
     const m = ui.modal(form, { title, onClose: () => resolve(result) });
     m.scope.bind('ctrl+Enter', submit, 'save', { input: true, hidden: true });
     time.select();

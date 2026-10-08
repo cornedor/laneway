@@ -6,6 +6,7 @@
 // A submenu's items load when it opens; `current` marks the value the issue has.
 import { h } from './dom.js';
 import { icon } from './icons.js';
+import { T } from './i18n.js';
 
 let shown = null;
 
@@ -70,12 +71,12 @@ export function ctxMenu(items, x, y) {
     if (!it.sub) { close(); if (it.run) it.run(); return; }
     const d = levels.indexOf(lv), row = lv.el.querySelector(`.ctx-item[data-i="${i}"]`).getBoundingClientRect();
     if (levels[d + 1] && levels[d + 1].from === i) { if (keys) first(levels[d + 1]); return; }
-    const sub = open([{ label: 'Loading…', disabled: true }], d + 1, row.right - 2, row.top - 4, row);
+    const sub = open([{ label: T('Loading…'), disabled: true }], d + 1, row.right - 2, row.top - 4, row);
     sub.from = i;
     let list;
-    try { list = await it.sub(); } catch (e) { list = [{ label: e.message || 'Could not load', disabled: true }]; }
+    try { list = await it.sub(); } catch (e) { list = [{ label: e.message || T('Could not load'), disabled: true }]; }
     if (dead || levels[d + 1] !== sub) return;
-    sub.items = list && list.length ? list : [{ label: 'Nothing here', disabled: true }];
+    sub.items = list && list.length ? list : [{ label: T('Nothing here'), disabled: true }];
     paint(sub);
     place(sub.el, row.right - 2, row.top - 4, row);
     if (keys) first(sub);

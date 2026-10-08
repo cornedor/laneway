@@ -6,11 +6,12 @@ import { setIcon } from './icons.js';
 import { css } from './css.js';
 import { target } from './timer.js';
 import { notify } from './notify.js';
+import { T } from './i18n.js';
 
 export const GLYPH = { working: '⚙', blocked: '✋', done: '✓', idle: '○', unknown: '?', worktree: '◌' };
 // ICON: the same states drawn (lib/icons.js); GLYPH stays for plain-text labels (palette rows).
 export const ICON = { working: 'cog', blocked: 'hand', done: 'circle-check', idle: 'circle', unknown: 'circle-help', worktree: 'circle-dashed' };
-export const LABEL = { working: 'working', blocked: 'waiting on you', done: 'done', idle: 'idle', unknown: 'unknown', worktree: 'worktree, no agent' };
+export const LABEL = { working: T('working'), blocked: T('waiting on you'), done: T('done'), idle: T('idle'), unknown: T('unknown'), worktree: T('worktree, no agent') };
 export const RANK = { blocked: 0, working: 1, done: 2, idle: 3, unknown: 4 };
 
 export function install(app) {
@@ -37,7 +38,7 @@ export function install(app) {
     if (!s) return;
     el.className = 'agent-chip st-' + s.status;
     setIcon(el, ICON[s.status] || ICON.unknown, s.count > 1 ? String(s.count) : '');
-    el.title = (s.count ? s.agents.map(a => a.Name + ': ' + (LABEL[a.Status] || a.Status)).join('\n') : LABEL.worktree + ' ' + s.worktree) + '\nclick: show in Agents';
+    el.title = (s.count ? s.agents.map(a => a.Name + ': ' + (LABEL[a.Status] || a.Status)).join('\n') : LABEL.worktree + ' ' + s.worktree) + '\n' + T('click: show in Agents');
   }
   const chip = key => { const el = h('span.agent-chip', { dataset: { agentKey: key } }); paintChip(el, key); return el; };
   // A card's or row's key element carries the chip as its last child.
@@ -65,8 +66,8 @@ export function install(app) {
     if (!first) for (const a of snap.Agents) {
       if (a.Status === 'blocked' && was.get(a.PaneID) !== 'blocked' && a.Key) {
         const show = () => app.go('/agents?agent=' + encodeURIComponent(a.Key));
-        ui.toast(a.Key + ': the agent waits on you', { action: { label: 'Open', run: show }, ms: 8000 });
-        notify(a.Key + ': the agent waits on you', a.Name || '', show, 'agent:' + a.PaneID);
+        ui.toast(T('%s: the agent waits on you', a.Key), { action: { label: T('Open'), run: show }, ms: 8000 });
+        notify(T('%s: the agent waits on you', a.Key), a.Name || '', show, 'agent:' + a.PaneID);
       }
     }
     first = false;
@@ -113,23 +114,23 @@ export function install(app) {
 
   // ---- keys and commands
   const demo = () => !!(app.session && app.session.demo);
-  const pick = fn => () => { const k = target(app); if (k) fn(k); else ui.toast('Select an issue first'); };
-  const need = fn => () => (demo() ? ui.toast('Not available in demo') : pick(fn)());
+  const pick = fn => () => { const k = target(app); if (k) fn(k); else ui.toast(T('Select an issue first')); };
+  const need = fn => () => (demo() ? ui.toast(T('Not available in demo')) : pick(fn)());
   const herdr = () => !demo() && snap.Available; // as the TUI: start work needs herdr
   const copyBranch = async key => {
     try {
       const { Name } = await api.get('/issues/' + key + '/branch');
       await navigator.clipboard.writeText(Name);
-      ui.toast('Copied ' + Name);
+      ui.toast(T('Copied %s', Name));
     } catch (e) { ui.errToast(e); }
   };
   const draftPR = async key => {
-    if (!await ui.confirm({ title: 'Draft pull request', text: 'Push the branch of ' + key + ' and open a draft pull request?', ok: 'Open draft' })) return;
-    const close = ui.toast('Pushing ' + key + ' and opening a draft…', { ms: 120000 });
+    if (!await ui.confirm({ title: T('Draft pull request'), text: T('Push the branch of %s and open a draft pull request?', key), ok: T('Open draft') })) return;
+    const close = ui.toast(T('Pushing %s and opening a draft…', key), { ms: 120000 });
     try {
       const r = await api.post('/issues/' + key + '/pr');
       close();
-      ui.toast('Draft opened: ' + r.URL, { action: { label: 'Open', run: () => openURL(r.URL) }, ms: 10000 });
+      ui.toast(T('Draft opened: %s', r.URL), { action: { label: T('Open'), run: () => openURL(r.URL) }, ms: 10000 });
     } catch (e) { close(); ui.errToast(e); }
   };
   // A chip (card, row, panel) opens the agents screen on that issue's agent.
@@ -142,19 +143,19 @@ export function install(app) {
     app.go('/agents?agent=' + encodeURIComponent(key));
   }, true);
   const k = app.keys.scope('agents-global');
-  k.bind('S', need(key => start(key)), 'start work: the form (agent, branch, prompt); focuses its agent if one runs', { group: 'Agents', when: herdr });
-  k.bind('alt+s', need(key => start(key, { another: true })), 'start another agent in the issue\'s worktree', { group: 'Agents', when: herdr });
-  k.bind('ctrl+y', pick(copyBranch), 'copy branch name', { group: 'Agents' });
+  k.bind('S', need(key => start(key)), T('start work: the form (agent, branch, prompt); focuses its agent if one runs'), { group: 'Agents', when: herdr });
+  k.bind('alt+s', need(key => start(key, { another: true })), T('start another agent in the issue\'s worktree'), { group: 'Agents', when: herdr });
+  k.bind('ctrl+y', pick(copyBranch), T('copy branch name'), { group: 'Agents' });
   // The issue's agent's terminal in the issue's Terminal tab, typing (ctrl+\ there goes back to the issue, as the TUI's agent_back).
-  const typeInto = key => { const s = stateFor(key); if (!s || !s.count) return ui.toast(key + ' has no agent: S starts one'); import('../views/issue.js').then(m => m.showTerminal(app, key)).catch(e => ui.errToast(e)); };
-  k.bind('ctrl+\\', need(typeInto), 'type into the issue\'s agent (its terminal in the panel)', { group: 'Agents', when: () => !demo() && snap.Available });
+  const typeInto = key => { const s = stateFor(key); if (!s || !s.count) return ui.toast(T('%s has no agent: S starts one', key)); import('../views/issue.js').then(m => m.showTerminal(app, key)).catch(e => ui.errToast(e)); };
+  k.bind('ctrl+\\', need(typeInto), T('type into the issue\'s agent (its terminal in the panel)'), { group: 'Agents', when: () => !demo() && snap.Available });
   const cmd = (id, title, run, when, keys) => app.commands.register({ id, group: 'Agents', get title() { return title(); }, keys, run, when });
-  cmd('agents:start', () => { const s = stateFor(target(app)); return (s && s.count ? 'Focus the agent of ' : 'Start work on ') + target(app); }, need(key => start(key)), () => herdr() && !!target(app), 'S');
-  cmd('agents:another', () => 'Start another agent on ' + target(app), need(key => start(key, { another: true })), () => herdr() && !!target(app), 'alt+s');
-  cmd('agents:terminal', () => 'Type into the agent of ' + target(app) + ' (its terminal in the panel)', need(typeInto), () => !demo() && !!target(app) && !!(stateFor(target(app)) || {}).count, 'ctrl+\\');
-  cmd('agents:show', () => 'Show the agent of ' + target(app) + ' in Agents', need(key => app.go('/agents?agent=' + encodeURIComponent(key))), () => !demo() && !!target(app) && !!stateFor(target(app)));
-  cmd('agents:branch', () => 'Copy branch name of ' + target(app), pick(copyBranch), () => !!target(app), 'ctrl+y');
+  cmd('agents:start', () => { const s = stateFor(target(app)); return s && s.count ? T('Focus the agent of %s', target(app)) : T('Start work on %s', target(app)); }, need(key => start(key)), () => herdr() && !!target(app), 'S');
+  cmd('agents:another', () => T('Start another agent on %s', target(app)), need(key => start(key, { another: true })), () => herdr() && !!target(app), 'alt+s');
+  cmd('agents:terminal', () => T('Type into the agent of %s (its terminal in the panel)', target(app)), need(typeInto), () => !demo() && !!target(app) && !!(stateFor(target(app)) || {}).count, 'ctrl+\\');
+  cmd('agents:show', () => T('Show the agent of %s in Agents', target(app)), need(key => app.go('/agents?agent=' + encodeURIComponent(key))), () => !demo() && !!target(app) && !!stateFor(target(app)));
+  cmd('agents:branch', () => T('Copy branch name of %s', target(app)), pick(copyBranch), () => !!target(app), 'ctrl+y');
   const hasRepo = key => !!key && ((app.session && app.session.repos) || []).includes(key.slice(0, key.lastIndexOf('-'))); // as the TUI: jira.repos has it
-  cmd('agents:pr', () => 'Open draft pull request for ' + target(app), need(draftPR), () => !demo() && hasRepo(target(app)));
-  app.agents.draftPR = demo() ? () => ui.toast('Not available in demo') : draftPR;
+  cmd('agents:pr', () => T('Open draft pull request for %s', target(app)), need(draftPR), () => !demo() && hasRepo(target(app)));
+  app.agents.draftPR = demo() ? () => ui.toast(T('Not available in demo')) : draftPR;
 }

@@ -3,6 +3,7 @@ import { h, clear } from './dom.js';
 import { icon } from './icons.js';
 import { keys } from './keys.js';
 import { fuzzy } from './fuzzy.js';
+import { T } from './i18n.js';
 
 
 // toast('Moved', {kind:'ok'|'err'|'info', action:{label, run}, ms})
@@ -78,7 +79,7 @@ export function pick(o) {
     let loading = !!(o.items && typeof o.items.then === 'function'), status = '', enterLater = false, ticked = false;
     let items = loading ? [] : o.items || [], shown = [], sel = o.query || o.current == null ? 0 : Math.max(0, items.indexOf(o.current)), q = o.query || '';
     const chosen = new Set(o.selected || []);
-    const input = h('input.pick-input', { type: 'text', value: q, placeholder: o.placeholder || 'Filter…', autofocus: true, spellcheck: false, autocomplete: 'off' });
+    const input = h('input.pick-input', { type: 'text', value: q, placeholder: o.placeholder || T('Filter…'), autofocus: true, spellcheck: false, autocomplete: 'off' });
     const list = h('div.pick-list', { role: 'listbox' });
     let done = false;
     const finish = v => { if (done) return; done = true; m.close(); resolve(v); };
@@ -102,7 +103,7 @@ export function pick(o) {
           o.detail && !o.render && h('span.pick-detail', o.detail(r.it)));
         frag.append(row);
       });
-      if (!rows.length) list.append(h('div.pick-empty', loading ? 'Loading…' : status || (o.create && q ? `Enter creates “${q}”` : (o.empty || 'No matches'))));
+      if (!rows.length) list.append(h('div.pick-empty', loading ? T('Loading…') : status || (o.create && q ? T('Enter creates “%s”', q) : (o.empty || T('No matches')))));
       list.append(frag);
       scrollSel();
     };
@@ -117,7 +118,7 @@ export function pick(o) {
     input.addEventListener('input', () => { q = input.value; sel = 0; render(); if (o.search) remote(q); });
     let rt = 0;
     const remote = q => { clearTimeout(rt); rt = setTimeout(async () => { try { const r = await o.search(q); if (input.value === q) { items = r; render(); } } catch (e) { /* keep list */ } }, 180); };
-    const foot = o.multi && h('div.pick-foot.row', h('span', o.enterPicks ? 'space / tab / box ticks · click picks · enter applies' : 'space / tab / click ticks · enter applies'), h('span.spacer'), h('button.btn.primary.sm', { type: 'button', onclick: () => { ticked = true; enter(); } }, 'Apply'));
+    const foot = o.multi && h('div.pick-foot.row', h('span', o.enterPicks ? T('space / tab / box ticks · click picks · enter applies') : T('space / tab / click ticks · enter applies')), h('span.spacer'), h('button.btn.primary.sm', { type: 'button', onclick: () => { ticked = true; enter(); } }, T('Apply')));
     const m = modal(h('div.pick', o.title && h('div.pick-title', o.title), input, list, foot), { className: 'pick-modal', onClose: () => finish(null) });
     const move = d => { if (!shown.length) return; sel = (sel + d + Math.min(shown.length, 200)) % Math.min(shown.length, 200); mark(); };
     // Tab on typed text without a match ticks it as a new item (create) instead of finishing.
@@ -144,21 +145,21 @@ export function pick(o) {
 }
 
 // prompt({title, value, placeholder, multiline}) → Promise<string|null>
-export function prompt({ title, value = '', placeholder = '', multiline = false, ok = 'OK' } = {}) {
+export function prompt({ title, value = '', placeholder = '', multiline = false, ok = T('OK') } = {}) {
   return new Promise(resolve => {
     const f = multiline ? h('textarea.input', { rows: 6, value, placeholder, autofocus: true }) : h('input.input', { type: 'text', value, placeholder, autofocus: true });
     let v = null;
     const m = modal(h('form.prompt', { onsubmit: e => { e.preventDefault(); v = f.value; m.close(); } }, f,
-      h('div.row.end', h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel'), h('button.btn.primary', { type: 'submit' }, ok))), { title, onClose: () => resolve(v) });
+      h('div.row.end', h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), h('button.btn.primary', { type: 'submit' }, ok))), { title, onClose: () => resolve(v) });
     m.scope.bind('ctrl+Enter', () => { v = f.value; m.close(); }, '', { input: true, hidden: true });
     f.select && f.select();
   });
 }
-export function confirm({ title, text = '', ok = 'OK', danger = false } = {}) {
+export function confirm({ title, text = '', ok = T('OK'), danger = false } = {}) {
   return new Promise(resolve => {
     let v = false;
     const b = h('button.btn.' + (danger ? 'danger' : 'primary'), { autofocus: true, onclick: () => { v = true; m.close(); } }, ok);
-    const m = modal(h('div', h('p', text), h('div.row.end', h('button.btn', { onclick: () => m.close() }, 'Cancel'), b)), { title, onClose: () => resolve(v) });
+    const m = modal(h('div', h('p', text), h('div.row.end', h('button.btn', { onclick: () => m.close() }, T('Cancel')), b)), { title, onClose: () => resolve(v) });
     m.scope.bind('y', () => { v = true; m.close(); }, '', { hidden: true });
     m.scope.bind('n', () => m.close(), '', { hidden: true });
   });

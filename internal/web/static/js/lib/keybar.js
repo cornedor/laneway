@@ -5,6 +5,7 @@
 import { h, $ } from './dom.js';
 import { kbd } from './keys.js';
 import { statusLine } from './ui.js';
+import { T } from './i18n.js';
 
 // The hints for keys.active() rows: [{label, keys: [{spec, run}], global}]. Binds sharing a label are one hint
 // ("[ ] view"); the panel's or view's come before the global ones, a panel waiting for focus has none.
@@ -19,7 +20,7 @@ export function barHints(rows) {
 }
 
 export function install(app) {
-  const bar = h('footer#keybar', { 'aria-label': 'Keys' });
+  const bar = h('footer#keybar', { 'aria-label': T('Keys') });
   $('#body').after(bar);
   const on = () => app.prefs.get('keybar', 'show') !== 'hide';
   const phone = matchMedia('(max-width: 700px), (hover: none) and (pointer: coarse)');
@@ -69,6 +70,6 @@ export function install(app) {
   });
 
   const toggle = () => { app.prefs.set('keybar', on() ? 'hide' : 'show'); later(); };
-  app.commands.register({ id: 'keybar', get title() { return 'Key bar: ' + (on() ? 'hide' : 'show') + ' the keys at the bottom'; }, group: 'App', run: toggle });
+  app.commands.register({ id: 'keybar', get title() { return on() ? T('Key bar: hide the keys at the bottom') : T('Key bar: show the keys at the bottom'); }, group: 'App', run: toggle });
   paint();
 }

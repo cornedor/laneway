@@ -6,6 +6,7 @@ import { duration } from './fmt.js';
 import { logDialog, parseDuration, hm } from './worktime.js';
 import { installBadge } from './inbox.js';
 import * as store from './store.js';
+import { T } from './i18n.js';
 
 const MIN5 = 5 * 60000;
 
@@ -37,7 +38,7 @@ export function install(app) {
   const label = () => [h('span.tk', timer.key), since()];
   function paint() {
     chip.hidden = !timer;
-    if (timer) { chip.replaceChildren(...label()); chip.title = 'Timer on ' + timer.key + ' since ' + hm(new Date(timer.start)) + ' · T stops it'; }
+    if (timer) { chip.replaceChildren(...label()); chip.title = T('Timer on %s since %s · T stops it', timer.key, hm(new Date(timer.start))); }
     arm();
   }
   // Redraw while the tab is visible and a timer runs; nothing otherwise.
@@ -57,7 +58,7 @@ export function install(app) {
     gen++;
     show(t);
     app.api.put('/timer', t ? { Key: t.key, Start: new Date(t.start).toISOString() } : { Key: '' })
-      .catch(e => app.ui.toast('Timer kept in this browser only: ' + e.message, { kind: 'err' }));
+      .catch(e => app.ui.toast(T('Timer kept in this browser only: %s', e.message), { kind: 'err' }));
   }
   // What the TUI (or another window) did: read on start, on coming back to the tab and twice a minute.
   async function sync() {
@@ -82,17 +83,17 @@ export function install(app) {
 
   function start(key) {
     set({ key, start: Math.floor(Date.now() / 1000) * 1000 }); // the state file keeps seconds
-    app.ui.toast('Timer started on ' + key);
+    app.ui.toast(T('Timer started on %s', key));
   }
 
   // Stop into the log dialog. The timer keeps running until the work is in; `next` starts afterwards.
   async function stop(next) {
     if (!timer) return;
     const t = timer;
-    const res = await logDialog(app, { key: t.key, seconds: round(Date.now() - t.start), started: new Date(t.start), discard: true, move: next, note: next && 'Then the timer starts on ' + next });
+    const res = await logDialog(app, { key: t.key, seconds: round(Date.now() - t.start), started: new Date(t.start), discard: true, move: next, note: next && T('Then the timer starts on %s', next) });
     if (res === 'move') return move(next);
     if (res === 'discard') {
-      if (Date.now() - t.start >= MIN5 && !(await app.ui.confirm({ title: 'Discard timer', text: duration(Math.floor((Date.now() - t.start) / 1000)) + ' on ' + t.key + ' will not be logged.', ok: 'Discard', danger: true }))) return;
+      if (Date.now() - t.start >= MIN5 && !(await app.ui.confirm({ title: T('Discard timer'), text: T('%s on %s will not be logged.', duration(Math.floor((Date.now() - t.start) / 1000)), t.key), ok: T('Discard'), danger: true }))) return;
     } else if (res !== 'logged') return;
     if (timer && timer.start === t.start) set(null);
     if (next) start(next);
@@ -102,25 +103,25 @@ export function install(app) {
   function move(key) {
     if (!timer || !key || key === timer.key) return;
     set({ key, start: timer.start });
-    app.ui.toast('Timer moved to ' + key + ', ' + since() + ' on it');
+    app.ui.toast(T('Timer moved to %s, %s on it', key, since()));
   }
 
   function toggle(key) {
-    if (!timer) return key ? start(key) : app.ui.toast('No timer running · T on an issue starts one');
+    if (!timer) return key ? start(key) : app.ui.toast(T('No timer running · T on an issue starts one'));
     if (!key || key === timer.key) return stop();
     return stop(key);
   }
 
   const k = app.keys.scope('timer');
-  k.bind('T', () => { const key = target(app); if (!key && !timer) return app.ui.toast('Select an issue first'); toggle(key); }, 'start / stop timer', { group: 'Time' });
-  k.bind('w', () => { const key = target(app); if (key) logDialog(app, { key }); else app.ui.toast('Select an issue first'); }, 'log work', { group: 'Time' });
+  k.bind('T', () => { const key = target(app); if (!key && !timer) return app.ui.toast(T('Select an issue first')); toggle(key); }, T('start / stop timer'), { group: 'Time' });
+  k.bind('w', () => { const key = target(app); if (key) logDialog(app, { key }); else app.ui.toast(T('Select an issue first')); }, T('log work'), { group: 'Time' });
 
   const cmd = (id, title, run, when) => app.commands.register({ id, group: 'Time', get title() { return title(); }, run, when });
-  cmd('timer:toggle', () => !timer ? 'Start timer on ' + target(app) : target(app) && target(app) !== timer.key ? 'Switch timer to ' + target(app) : 'Stop timer and log ' + timer.key,
+  cmd('timer:toggle', () => !timer ? T('Start timer on %s', target(app)) : target(app) && target(app) !== timer.key ? T('Switch timer to %s', target(app)) : T('Stop timer and log %s', timer.key),
     () => toggle(target(app)), () => !!timer || !!target(app));
-  cmd('timer:stop', () => 'Stop timer on ' + timer.key, () => toggle(''), () => !!timer && !!target(app) && target(app) !== timer.key);
-  cmd('timer:move', () => 'Move timer to ' + target(app) + ' (' + since() + ', nothing logged)', () => move(target(app)), () => !!timer && !!target(app) && target(app) !== timer.key);
-  cmd('worklog:add', () => 'Log work on ' + target(app), () => logDialog(app, { key: target(app) }), () => !!target(app));
+  cmd('timer:stop', () => T('Stop timer on %s', timer.key), () => toggle(''), () => !!timer && !!target(app) && target(app) !== timer.key);
+  cmd('timer:move', () => T('Move timer to %s (%s, nothing logged)', target(app), since()), () => move(target(app)), () => !!timer && !!target(app) && target(app) !== timer.key);
+  cmd('worklog:add', () => T('Log work on %s', target(app)), () => logDialog(app, { key: target(app) }), () => !!target(app));
 
   // mark(key): "12m" (beside a timer icon) on the timed issue's card, row and panel, '' on any other. Redraw on bus 'timer' and 'timer:tick'.
   const mark = key => (timer && timer.key === key ? since() : '');

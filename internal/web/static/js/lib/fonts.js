@@ -9,17 +9,18 @@
 //   terminal.size                  terminal font size in px, '' = the UI font size
 // For the terminal: fonts.terminalStack() (family list to hand to the terminal), fonts.ready() (promise: the face is
 // loaded, safe to measure cells), fonts.on(fn) (fn() on any change; bus 'prefs' {key:'font.*'} fires too).
+import { T } from './i18n.js';
 export const SYS_UI = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 export const SYS_MONO = 'ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace';
 const p = (id, name, note = '') => ({ id, name, note, stack: '"' + name + '", ' });
 export const uiPresets = [
-  { id: 'system', name: 'System UI', stack: '' },
-  p('inter', 'Inter', 'neutral, tall x-height'), p('plex-sans', 'IBM Plex Sans'), p('atkinson', 'Atkinson Hyperlegible Next', 'built for legibility'),
-  p('source-sans', 'Source Sans 3'), p('lexend', 'Lexend', 'easier reading'),
+  { id: 'system', name: T('System UI'), stack: '' },
+  p('inter', 'Inter', T('neutral, tall x-height')), p('plex-sans', 'IBM Plex Sans'), p('atkinson', 'Atkinson Hyperlegible Next', T('built for legibility')),
+  p('source-sans', 'Source Sans 3'), p('lexend', 'Lexend', T('easier reading')),
 ];
 export const monoPresets = [
-  { id: 'system', name: 'System mono', stack: '' },
-  p('jetbrains', 'JetBrains Mono', 'ligatures'), p('fira', 'Fira Code', 'ligatures'), p('cascadia', 'Cascadia Code', 'ligatures'),
+  { id: 'system', name: T('System mono'), stack: '' },
+  p('jetbrains', 'JetBrains Mono', T('ligatures')), p('fira', 'Fira Code', T('ligatures')), p('cascadia', 'Cascadia Code', T('ligatures')),
   p('plex-mono', 'IBM Plex Mono'), p('source-code', 'Source Code Pro'),
 ];
 const ROLES = { ui: { presets: uiPresets, sys: SYS_UI }, mono: { presets: monoPresets, sys: SYS_MONO } };
@@ -102,13 +103,13 @@ export async function refreshFiles(api) { declare(await api.get('/fonts', { fres
 export async function upload(name, blob) {
   const r = await fetch('/api/fonts?name=' + encodeURIComponent(name), { method: 'POST', body: blob, headers: { 'Content-Type': 'application/octet-stream' } });
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || 'upload failed (' + r.status + ')');
+  if (!r.ok) throw new Error(d.error || T('upload failed (%d)', r.status));
   declare(d); return d;
 }
 export async function remove(name) {
   const r = await fetch('/api/fonts/' + encodeURIComponent(name), { method: 'DELETE' });
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || 'delete failed (' + r.status + ')');
+  if (!r.ok) throw new Error(d.error || T('delete failed (%d)', r.status));
   declare(d); return d;
 }
 export const fileFamily = n => upName(n);

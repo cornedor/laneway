@@ -1,5 +1,9 @@
 // App URLs and where a navigation leads: pure, so node tests it (jstest/nav.test.mjs).
 // A URL is '/path?query' (the '#/path?query' of old links reads the same); ?issue=KEY is the issue panel, on any route.
+import { T } from './i18n.js';
+
+// routeTitle: a route's title, translated (the table in views/index.js holds the English).
+export const routeTitle = r => ({ Home: T('Home'), Board: T('Board'), Issue: T('Issue'), Planning: T('Planning'), Reports: T('Reports'), Roadmap: T('Roadmap'), 'My work': T('My work'), Inbox: T('Inbox'), Standup: T('Standup'), Agents: T('Agents'), 'Merge request': T('Merge request'), 'Merge requests': T('Merge requests'), Rules: T('Rules'), Settings: T('Settings') }[r.title] || r.title);
 
 export function split(url) {
   const s = String(url || '').replace(/^#/, '');

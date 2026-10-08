@@ -1,13 +1,13 @@
 // Themes are CSS variable sets (css/themes.css) picked with data-theme on <html>.
 // `auto` follows prefers-color-scheme. The accent and density are overrides.
 export const presets = [
-  { id: 'auto', group: 'Basic', name: 'System' },
-  { id: 'light', group: 'Basic', name: 'Light' },
-  { id: 'dark', group: 'Basic', name: 'Dark' },
-  { id: 'mono', group: 'Basic', name: 'Mono' },
-  { id: 'nord', group: 'More dark', name: 'Nord' },
-  { id: 'dracula', group: 'More dark', name: 'Dracula' },
-  { id: 'monokai', group: 'More dark', name: 'Monokai' },
+  { id: 'auto', group: T('Basic'), name: T('System') },
+  { id: 'light', group: T('Basic'), name: T('Light') },
+  { id: 'dark', group: T('Basic'), name: T('Dark') },
+  { id: 'mono', group: T('Basic'), name: T('Mono') },
+  { id: 'nord', group: T('More dark'), name: 'Nord' },
+  { id: 'dracula', group: T('More dark'), name: 'Dracula' },
+  { id: 'monokai', group: T('More dark'), name: 'Monokai' },
   { id: 'gruvbox', group: 'Gruvbox', name: 'Gruvbox' },
   { id: 'gruvbox-light', group: 'Gruvbox', name: 'Gruvbox Light' },
   { id: 'solarized-dark', group: 'Solarized', name: 'Solarized Dark' },
@@ -30,6 +30,7 @@ export const presets = [
 ];
 export const accents = ['#5b8def', '#e5484d', '#f76b15', '#e0a100', '#30a46c', '#12a594', '#8e4ec6', '#d6409f'];
 import { changed } from './metrics.js';
+import { T } from './i18n.js';
 const root = document.documentElement;
 const get = (k, d) => { try { return localStorage.getItem('lw:' + k) || d; } catch (e) { return d; } };
 const local = (k, v) => { try { v == null ? localStorage.removeItem('lw:' + k) : localStorage.setItem('lw:' + k, v); } catch (e) { /* ignore */ } };

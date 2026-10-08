@@ -4,16 +4,17 @@ import { h, clear } from './dom.js';
 import { css } from './css.js';
 import { render } from './md.js';
 import { target } from './timer.js';
+import { T } from './i18n.js';
 
 export function install(app) {
   const ask = () => {
-    if (app.session && app.session.demo) return app.ui.toast('Not available in demo');
+    if (app.session && app.session.demo) return app.ui.toast(T('Not available in demo'));
     const key = app.panel.key || target(app);
-    if (!key) return app.ui.toast('Select an issue first');
+    if (!key) return app.ui.toast(T('Select an issue first'));
     openAsk(app, key);
   };
-  app.keys.scope('ask').bind('ctrl+a', ask, 'ask the LLM about the issue', { group: 'Issue' });
-  app.commands.register({ id: 'ask', title: 'Ask the LLM about the issue', group: 'Issue', run: ask });
+  app.keys.scope('ask').bind('ctrl+a', ask, T('ask the LLM about the issue'), { group: 'Issue' });
+  app.commands.register({ id: 'ask', title: T('Ask the LLM about the issue'), group: 'Issue', run: ask });
   app.askIssue = openAsk.bind(null, app);
 }
 
@@ -41,23 +42,23 @@ export async function openAsk(app, key) {
   css('ask');
   let info;
   try { info = await app.api.get('/ask'); } catch (e) { return app.ui.errToast(e); }
-  if (!info.Available) return app.ui.toast('Asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH', { kind: 'err' });
+  if (!info.Available) return app.ui.toast(T('Asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH'), { kind: 'err' });
   let abort = null, text = '', busy = false;
-  const out = h('div.ask-out.md', { tabindex: 0 }, h('div.dim', 'Pick a question, or type your own.'));
+  const out = h('div.ask-out.md', { tabindex: 0 }, h('div.dim', T('Pick a question, or type your own.')));
   const status = h('span.dim');
-  const free = h('input.input', { type: 'text', placeholder: 'Ask anything about ' + key + '…', autofocus: true, spellcheck: true });
-  const copy = h('button.btn', { disabled: true, onclick: async () => { try { await navigator.clipboard.writeText(text); app.ui.toast('Copied'); } catch (e) { app.ui.toast('Could not copy', { kind: 'err' }); } } }, 'Copy');
-  const post = h('button.btn.primary', { disabled: true, title: 'The answer in the comment composer, to edit and post (ctrl+enter)', onclick: () => {
+  const free = h('input.input', { type: 'text', placeholder: T('Ask anything about %s…', key), autofocus: true, spellcheck: true });
+  const copy = h('button.btn', { disabled: true, onclick: async () => { try { await navigator.clipboard.writeText(text); app.ui.toast(T('Copied')); } catch (e) { app.ui.toast(T('Could not copy'), { kind: 'err' }); } } }, T('Copy'));
+  const post = h('button.btn.primary', { disabled: true, title: T('The answer in the comment composer, to edit and post (ctrl+enter)'), onclick: () => {
     m.close();
     import('../views/issue.js').then(v => v.composeWith(app, key, text)).catch(e => app.ui.errToast(e));
-  } }, 'Edit as comment');
-  const stop = h('button.btn', { hidden: true, onclick: () => abort && abort.abort() }, 'Stop');
+  } }, T('Edit as comment'));
+  const stop = h('button.btn', { hidden: true, onclick: () => abort && abort.abort() }, T('Stop'));
 
   async function run(body, label) {
     if (busy) return;
     busy = true; text = ''; abort = new AbortController();
     clear(out); out.classList.add('streaming');
-    status.textContent = label + '…'; stop.hidden = false; copy.disabled = post.disabled = true;
+    status.textContent = T('%s…', label); stop.hidden = false; copy.disabled = post.disabled = true;
     const pre = h('pre.ask-raw'); out.append(pre);
     try {
       await sse('/api/issues/' + key + '/ask', body, abort.signal, (ev, d) => {
@@ -65,23 +66,23 @@ export async function openAsk(app, key) {
         else if (ev === 'error') throw new Error(d);
       });
       text = text.trim();
-      clear(out).append(text ? render(text) : h('div.dim', 'The answer came back empty.'));
+      clear(out).append(text ? render(text) : h('div.dim', T('The answer came back empty.')));
       copy.disabled = post.disabled = !text;
       status.textContent = '';
     } catch (e) {
-      status.textContent = e.name === 'AbortError' ? 'stopped' : '';
+      status.textContent = e.name === 'AbortError' ? T('stopped') : '';
       if (e.name !== 'AbortError') app.ui.errToast(e);
       if (text) { copy.disabled = post.disabled = false; }
     } finally { busy = false; abort = null; stop.hidden = true; out.classList.remove('streaming'); }
   }
 
   const canned = info.Asks.map((a, i) => h('button.btn.ask-q', { title: 'Alt+' + (i + 1), onclick: () => run({ Question: a.ID }, a.Label) }, h('kbd', i + 1), ' ' + a.Label));
-  const ask = () => { const t = free.value.trim(); if (t) run({ Text: t }, 'Asking'); };
+  const ask = () => { const t = free.value.trim(); if (t) run({ Text: t }, T('Asking')); };
   const m = app.ui.modal(h('div.ask',
     h('div.ask-qs', canned),
-    h('form.ask-free', { onsubmit: e => { e.preventDefault(); ask(); } }, free, h('button.btn.primary', { type: 'submit' }, 'Ask')),
+    h('form.ask-free', { onsubmit: e => { e.preventDefault(); ask(); } }, free, h('button.btn.primary', { type: 'submit' }, T('Ask'))),
     out,
-    h('div.row.end', status, h('span.spacer'), stop, copy, post, h('button.btn', { onclick: () => m.close() }, 'Close'))),
-  { title: 'Ask ' + info.Command + ' about ' + key, wide: true, onClose: () => abort && abort.abort() });
+    h('div.row.end', status, h('span.spacer'), stop, copy, post, h('button.btn', { onclick: () => m.close() }, T('Close')))),
+  { title: T('Ask %s about %s', info.Command, key), wide: true, onClose: () => abort && abort.abort() });
   info.Asks.forEach((a, i) => m.scope.bind('alt+' + (i + 1), () => run({ Question: a.ID }, a.Label), '', { input: true, hidden: true }));
 }

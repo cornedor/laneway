@@ -12,6 +12,8 @@ import * as chromeBars from './lib/chrome.js';
 import * as store from './lib/store.js';
 import { emojiTable } from './lib/md.js';
 import * as nav from './lib/nav.js';
+import { T } from './lib/i18n.js';
+
 
 // ---- commands: the palette lists these. register({id, title, keys?, group?, run, when?}) → unregister
 const cmds = new Map();
@@ -102,13 +104,13 @@ export const app = {
       app.panel.key = key; el.hidden = false; el.dataset.key = key;
       document.body.classList.add('has-panel');
       app.panel.cleanup && app.panel.cleanup(); app.panel.cleanup = null;
-      clear(el).append(h('div.loading', 'Loading ' + key + '…'));
+      clear(el).append(h('div.loading', T('Loading %s…', key)));
       try {
         const m = await import('./views/issue.js');
         if (app.panel.key !== key) return;
         clear(el);
         app.panel.cleanup = m.mountIssue(el, key, { app, full: false, card: opts.card }) || null;
-      } catch (e) { if (reloadOnce(e)) return; clear(el).append(h('div.empty', 'Issue panel not available: ' + e.message)); }
+      } catch (e) { if (reloadOnce(e)) return; clear(el).append(h('div.empty', T('Issue panel not available: %s', e.message))); }
       bus.emit('panel', { key });
     },
     close(opts = {}) {
@@ -192,30 +194,30 @@ async function navigate({ force = false } = {}) {
   clear($('#toolbar')); clear($('#context'));
   if (!hit) {
     app.route = { name: '', params: {}, query: {} };
-    viewTitle = 'Not found · laneway'; document.title = viewTitle;
+    viewTitle = T('Not found · laneway'); document.title = viewTitle;
     app.chrome.mark('');
-    clear(view).append(h('div.empty', h('h2', 'Nothing at ' + path), h('p', h('a', { href: '/board' }, 'Back to the board'))));
+    clear(view).append(h('div.empty', h('h2', T('Nothing at %s', path)), h('p', h('a', { href: '/board' }, T('Back to the board')))));
     bus.emit('route', app.route);
     return;
   }
   current = { name: hit.name, path, scope: keys.scope(hit.name) };
   app.route = { name: hit.name, params, query };
   syncPanel(query.issue); // beside the view while it loads
-  viewTitle = hit.title + ' · laneway'; document.title = viewTitle;
+  viewTitle = T('%s · laneway', nav.routeTitle(hit)); document.title = viewTitle;
   app.chrome.mark(hit.name);
-  clear(view).append(h('div.loading', 'Loading…'));
+  clear(view).append(h('div.loading', T('Loading…')));
   let mod;
   try { mod = await hit.load(); } catch (e) {
     if (token !== viewToken) return;
     if (reloadOnce(e)) return;
-    clear(view).append(h('div.empty', h('h2', hit.title), h('p', 'This view is not built yet.'), h('pre.dim', String(e.message))));
+    clear(view).append(h('div.empty', h('h2', nav.routeTitle(hit)), h('p', T('This view is not built yet.')), h('pre.dim', String(e.message))));
     return;
   }
   if (token !== viewToken) return;
   clear(view);
   try {
     current.cleanup = await (mod.default || mod.mount)(view, { app, params, query: app.route.query, scope: current.scope, context: $('#context'), toolbar: $('#toolbar') });
-  } catch (e) { console.error(e); clear(view).append(h('div.empty', h('h2', 'Something broke'), h('pre', e.stack || e.message))); }
+  } catch (e) { console.error(e); clear(view).append(h('div.empty', h('h2', T('Something broke')), h('pre', e.stack || e.message))); }
   if (token === viewToken) $('#viewbar').classList.remove('hold');
   bus.emit('route', app.route);
 }
@@ -223,36 +225,36 @@ async function navigate({ force = false } = {}) {
 // ---- global keys
 function globalKeys() {
   const g = keys.scope('global');
-  g.bind(':', () => app.actions.palette(':'), 'command palette', { group: 'Global', bar: 'commands' });
-  g.bind('ctrl+k', () => app.actions.palette(':'), 'command palette', { group: 'Global', input: true, hidden: true });
-  g.bind('/', () => app.actions.palette('/'), 'search issues', { group: 'Global', bar: 'search' });
-  g.bind('g g', () => app.actions.jump(), 'jump to issue by key', { group: 'Global' });
-  g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), 'show keys', { group: 'Global', bar: 'keys' });
-  g.bind('alt+p', () => import('./views/plan_ctx.js').then(m => m.openProject(app)), 'switch project (its last board)', { group: 'Global' });
-  g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), 'new issue', { group: 'Global' });
-  g.bind('Q', () => app.actions.palette('#'), 'JQL search', { group: 'Global' });
-  g.bind('ctrl+e', () => import('./views/refine.js').then(m => m.startRefine(app)), 'refine: the view\'s issues one at a time', { group: 'Global' });
-  g.bind('g t', () => { const t = theme.next(); ui.toast('Theme: ' + t); }, 'next theme', { group: 'Global' });
-  g.bind('Tab', () => { const p = $('#panel'); if (app.panel.focused()) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, 'focus panel / view', { group: 'Global', when: () => app.panel.key });
-  g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, 'close panel', { group: 'Global', hidden: true });
-  for (const r of routes) if (r.key) g.bind('g ' + r.key, () => app.go('/' + r.name), 'go to ' + r.title.toLowerCase(), { group: 'Go' });
-  g.bind(['g ,', ','], () => app.go('/settings'), 'go to settings', { group: 'Go' });
+  g.bind(':', () => app.actions.palette(':'), T('command palette'), { group: 'Global', bar: T('commands') });
+  g.bind('ctrl+k', () => app.actions.palette(':'), T('command palette'), { group: 'Global', input: true, hidden: true });
+  g.bind('/', () => app.actions.palette('/'), T('search issues'), { group: 'Global', bar: T('search') });
+  g.bind('g g', () => app.actions.jump(), T('jump to issue by key'), { group: 'Global' });
+  g.bind('?', () => import('./views/help.js').then(m => m.openHelp(app)), T('show keys'), { group: 'Global', bar: T('keys') });
+  g.bind('alt+p', () => import('./views/plan_ctx.js').then(m => m.openProject(app)), T('switch project (its last board)'), { group: 'Global' });
+  g.bind('n', () => app.actions.create({ project: app.route && app.route.params.project }), T('new issue'), { group: 'Global' });
+  g.bind('Q', () => app.actions.palette('#'), T('JQL search'), { group: 'Global' });
+  g.bind('ctrl+e', () => import('./views/refine.js').then(m => m.startRefine(app)), T('refine: the view\'s issues one at a time'), { group: 'Global' });
+  g.bind('g t', () => { const t = theme.next(); ui.toast(T('Theme: %s', t)); }, T('next theme'), { group: 'Global' });
+  g.bind('Tab', () => { const p = $('#panel'); if (app.panel.focused()) { $('#view').focus(); } else { p.tabIndex = -1; p.focus(); } }, T('focus panel / view'), { group: 'Global', when: () => app.panel.key });
+  g.bind('Escape', () => { if (app.panel.key) app.panel.close(); }, T('close panel'), { group: 'Global', hidden: true });
+  for (const r of routes) if (r.key) g.bind('g ' + r.key, () => app.go('/' + r.name), T('go to %s', nav.routeTitle(r).toLowerCase()), { group: 'Go' });
+  g.bind(['g ,', ','], () => app.go('/settings'), T('go to settings'), { group: 'Go' });
   // The TUI's own view keys; a view's key of the same name wins there (board O sorts, My work W switches day/week).
-  g.bind('W', () => app.go('/work?tab=day'), "today's worklogs", { group: 'Go' });
-  g.bind('O', () => app.go('/work?tab=issues'), 'my work, every project', { group: 'Go' });
-  g.bind('I', () => app.go('/inbox'), 'go to inbox', { group: 'Go' });
-  g.bind('U', () => app.go('/standup'), 'go to standup', { group: 'Go' });
-  g.bind('ctrl+g', () => app.go('/agents'), 'go to agents', { group: 'Go' });
-  for (const r of routes) commands.register({ id: 'go:' + r.name, title: 'Go to ' + r.title, group: 'Go', run: () => app.go('/' + r.name) });
-  commands.register({ id: 'theme:next', title: 'Theme: next', group: 'Theme', run: () => ui.toast('Theme: ' + theme.next()) });
-  for (const p of theme.presets) commands.register({ id: 'theme:' + p.id, title: 'Theme: ' + p.name, group: 'Theme', run: () => theme.set(p.id) });
-  commands.register({ id: 'refine', title: 'Refine the view\'s issues one at a time', group: 'Issue', run: () => import('./views/refine.js').then(m => m.startRefine(app)) });
-  commands.register({ id: 'create', title: 'Create issue', group: 'Issue', run: () => app.actions.create({}) });
+  g.bind('W', () => app.go('/work?tab=day'), T("today's worklogs"), { group: 'Go' });
+  g.bind('O', () => app.go('/work?tab=issues'), T('my work, every project'), { group: 'Go' });
+  g.bind('I', () => app.go('/inbox'), T('go to inbox'), { group: 'Go' });
+  g.bind('U', () => app.go('/standup'), T('go to standup'), { group: 'Go' });
+  g.bind('ctrl+g', () => app.go('/agents'), T('go to agents'), { group: 'Go' });
+  for (const r of routes) commands.register({ id: 'go:' + r.name, title: T('Go to %s', nav.routeTitle(r)), group: 'Go', run: () => app.go('/' + r.name) });
+  commands.register({ id: 'theme:next', title: T('Theme: next'), group: 'Theme', run: () => ui.toast(T('Theme: %s', theme.next())) });
+  for (const p of theme.presets) commands.register({ id: 'theme:' + p.id, title: T('Theme: %s', p.name), group: 'Theme', run: () => theme.set(p.id) });
+  commands.register({ id: 'refine', title: T('Refine the view\'s issues one at a time'), group: 'Issue', run: () => import('./views/refine.js').then(m => m.startRefine(app)) });
+  commands.register({ id: 'create', title: T('Create issue'), group: 'Issue', run: () => app.actions.create({}) });
   // A view with its own project switch (planning, reports…) lists that one instead.
-  commands.register({ id: 'project', title: 'Switch project (its last board)', group: 'Go', when: () => !keys.screen().some(b => b.id.endsWith(':alt+p')), run: () => import('./views/plan_ctx.js').then(m => m.openProject(app)) });
-  commands.register({ id: 'reload', title: 'Reload data (drop caches)', group: 'App', run: () => { api.forget(); navigate({ force: true }); ui.toast('Reloaded'); } });
-  commands.register({ id: 'help', title: 'Keyboard help', group: 'App', run: () => import('./views/help.js').then(m => m.openHelp(app)) });
-  commands.register({ id: 'messages', group: 'App', get title() { return 'Messages: the last ' + ui.messages.length + ' (enter copies one)'; }, run: openMessages });
+  commands.register({ id: 'project', title: T('Switch project (its last board)'), group: 'Go', when: () => !keys.screen().some(b => b.id.endsWith(':alt+p')), run: () => import('./views/plan_ctx.js').then(m => m.openProject(app)) });
+  commands.register({ id: 'reload', title: T('Reload data (drop caches)'), group: 'App', run: () => { api.forget(); navigate({ force: true }); ui.toast(T('Reloaded')); } });
+  commands.register({ id: 'help', title: T('Keyboard help'), group: 'App', run: () => import('./views/help.js').then(m => m.openHelp(app)) });
+  commands.register({ id: 'messages', group: 'App', get title() { return T('Messages: the last %d (enter copies one)', ui.messages.length); }, run: openMessages });
 }
 
 function chrome() {
@@ -270,11 +272,11 @@ function chrome() {
 
 // The toasts so far, newest first; enter copies one whole (TUI: the palette's messages row).
 async function openMessages() {
-  if (!ui.messages.length) return ui.toast('No messages yet');
+  if (!ui.messages.length) return ui.toast(T('No messages yet'));
   const pad = n => String(n).padStart(2, '0');
   const at = d => pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
-  const m = await ui.pick({ title: 'Messages · enter copies one', items: [...ui.messages].reverse(), label: e => (e.err ? '✗ ' : '') + e.text, detail: e => at(e.at), placeholder: 'Filter messages…' });
-  if (m) navigator.clipboard.writeText(m.text).then(() => ui.toast('Copied the message'), () => ui.toast('Could not copy', { kind: 'err' }));
+  const m = await ui.pick({ title: T('Messages · enter copies one'), items: [...ui.messages].reverse(), label: e => (e.err ? '✗ ' : '') + e.text, detail: e => at(e.at), placeholder: T('Filter messages…') });
+  if (m) navigator.clipboard.writeText(m.text).then(() => ui.toast(T('Copied the message')), () => ui.toast(T('Could not copy'), { kind: 'err' }));
 }
 
 async function boot() {
@@ -299,7 +301,7 @@ async function boot() {
     onMetrics(kind => { bus.emit(kind); bus.emit('metrics', kind); });
     theme.attach(app.prefs); theme.fonts.attach(app.prefs); theme.fonts.refreshFiles(api).catch(() => {});
     keys.configure({ conf: session.ui.Keys || {}, web: session.ui.WebKeys || {} });
-  } catch (e) { $('#top').classList.remove('boot'); $('#viewbar').classList.remove('hold'); clear($('#view')).append(h('div.empty', h('h2', 'Cannot reach Jira'), h('pre', e.message))); return; }
+  } catch (e) { $('#top').classList.remove('boot'); $('#viewbar').classList.remove('hold'); clear($('#view')).append(h('div.empty', h('h2', T('Cannot reach Jira')), h('pre', e.message))); return; }
   import('./lib/keybar.js').then(m => m.install(app)).catch(e => console.error('keybar', e));
   import('./lib/timer.js').then(m => m.install(app)).catch(e => console.error('timer', e));
   import('./lib/tools.js').then(m => m.install(app)).catch(e => console.error('tools', e));
@@ -307,14 +309,14 @@ async function boot() {
   api.get('/update').then(u => { // as the TUI's ↑ v1.2: a newer release, copy its command or open its page
     if (!u.Tag) return;
     const desk = window.__lanewayDesktop; // the desktop app updates itself
-    const up = () => desk ? desk.update() : (u.Command ? navigator.clipboard.writeText(u.Command).then(() => ui.toast('Copied ' + u.Command), () => ui.toast(u.Command)) : window.open(u.Page, '_blank', 'noopener'));
-    const what = desk ? 'update and restart' : u.Command || 'open the release page';
-    $('#site').append(h('button.site-chip', { type: 'button', title: 'laneway ' + u.Tag + ' is out · ' + (desk ? 'click updates the app' : u.Command ? 'click copies ' + u.Command : 'click opens the release page'), onclick: up }, '↑ ' + u.Tag));
-    commands.register({ id: 'update', title: 'Update laneway to ' + u.Tag + ': ' + what, group: 'App', run: up });
+    const up = () => desk ? desk.update() : (u.Command ? navigator.clipboard.writeText(u.Command).then(() => ui.toast(T('Copied %s', u.Command)), () => ui.toast(u.Command)) : window.open(u.Page, '_blank', 'noopener'));
+    const what = desk ? T('update and restart') : u.Command || T('open the release page');
+    $('#site').append(h('button.site-chip', { type: 'button', title: T('laneway %s is out · %s', u.Tag, desk ? T('click updates the app') : u.Command ? T('click copies %s', u.Command) : T('click opens the release page')), onclick: up }, '↑ ' + u.Tag));
+    commands.register({ id: 'update', title: T('Update laneway to %s: %s', u.Tag, what), group: 'App', run: up });
   }).catch(() => {});
   api.get('/branch').then(b => { if (b.Key) commands.register({ id: 'branch', title: '⎇ ' + b.Key + '  ' + (b.Summary || ''), group: 'Branch', run: () => app.panel.open(b.Key) }); }).catch(() => {}); // the cwd's, as the TUI: first in the palette
   $('.brand').title = 'laneway · ' + app.session.baseURL + (app.session.demo ? ' (demo)' : '');
-  if (app.session.demo) $('#site').append(h('span.demo-badge', { title: 'Demo data, no Jira behind it' }, 'demo'));
+  if (app.session.demo) $('#site').append(h('span.demo-badge', { title: T('Demo data, no Jira behind it') }, T('demo')));
   await import('./views/plan_ctx.js').then(m => m.sanitize(app)).catch(e => console.warn('ctx', e));
   if (lw()) depth = lw().d; else history.replaceState({ ...(history.state || {}), lw: { d: 0 } }, '');
   if (location.hash.startsWith('#/')) history.replaceState(history.state, '', location.hash.slice(1)); // an old #/ link or bookmark

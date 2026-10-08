@@ -6,6 +6,7 @@
 // tab, a task box click, a pasted link or a moved line do to the text
 // ({from, to, text, a, b}: replace [from, to) with text, then select [a, b)).
 // Pure: no DOM, tested with node (internal/web/jstest).
+import { T } from './i18n.js';
 
 const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const span = (cls, inner) => '<span class="' + cls + '">' + inner + '</span>';
@@ -92,8 +93,8 @@ const BLOCK = /^(\s*<!-- block:\d+ )(.*?)( -->\s*)$/;
 const SHELL = /^(\s*<!-- table:\d+ )(.*?)( -->\s*)$/;
 const CARD = /^(\s*<!-- card: )(.*?)( -->\s*)$/;
 // KEPT names a kept block's ADF type as a reader would.
-const KEPT = { mediaSingle: 'image', mediaGroup: 'attachments', media: 'attachment', table: 'table', blockCard: 'link card', embedCard: 'embed', extension: 'macro', bodiedExtension: 'macro', codeBlock: 'code block', taskList: 'checklist', decisionList: 'decisions', nestedExpand: 'expand', layoutSection: 'columns', rule: 'divider' };
-const keptLabel = n => { const [t, ...more] = n.split(' with '); return (KEPT[t] || t) + (more.length ? ' with ' + more.join(' with ') : ''); };
+const KEPT = { mediaSingle: T('image'), mediaGroup: T('attachments'), media: T('attachment'), table: T('table'), blockCard: T('link card'), embedCard: T('embed'), extension: T('macro'), bodiedExtension: T('macro'), codeBlock: T('code block'), taskList: T('checklist'), decisionList: T('decisions'), nestedExpand: T('expand'), layoutSection: T('columns'), rule: T('divider') };
+const keptLabel = n => { const [t, ...more] = n.split(' with '); return (KEPT[t] || t) + (more.length ? T(' with %s', more.join(' with ')) : ''); };
 const isRow = l => /^\s*\|/.test(l) && (l.match(/(?<!\\)\|/g) || []).length > 1;
 const isTable = (l, next) => isRow(l) || (l.includes('|') && DELIM.test(next || '') && next.includes('|'));
 const cols = s => [...s].reduce((n, c) => (c === '\t' ? n + 4 - (n % 4) : n + 1), 0);
@@ -145,7 +146,7 @@ export function lines(text, o = {}) {
     if (m) { push('h h' + m[1].length, mk(m[1] + m[2]) + inl(m[3])); continue; }
     if (/^ {0,3}([-*_])(?: *\1){2,} *$/.test(l)) { push('hr', span('hl-hr', esc(l))); continue; }
     if ((m = PANEL.exec(l))) { push('tag pno', mk(m[1]) + span('hl-pn', esc(m[2])) + mk(m[3])); frames.push({ kind: 'panel', type: m[2] }); out[out.length - 1].c += ' pn pn-' + m[2]; continue; }
-    if ((m = EXPAND.exec(l)) && !l.includes('<!-- /')) { push('tag exo', mk(m[1]) + span('hl-exp', esc(m[2] || 'Details')) + mk(m[3])); frames.push({ kind: 'expand' }); continue; }
+    if ((m = EXPAND.exec(l)) && !l.includes('<!-- /')) { push('tag exo', mk(m[1]) + span('hl-exp', esc(m[2] || T('Details'))) + mk(m[3])); frames.push({ kind: 'expand' }); continue; }
     if ((m = CLOSE.exec(l))) {
       const kind = m[2].slice(1), at = frames.map(f => f.kind).lastIndexOf(kind);
       const c = frame();
@@ -154,7 +155,7 @@ export function lines(text, o = {}) {
       continue;
     }
     if ((m = BLOCK.exec(l))) { push('tag blo', mk(m[1]) + span('hl-blk', esc(m[2])) + mk(m[3])); frames.push({ kind: 'block' }); continue; }
-    if ((m = KEEP.exec(l))) { push('keep atom', mk(m[1]) + '<span class="hl-kn" data-l="' + esc(keptLabel(m[2])) + '" title="Kept as it is in Jira: move or delete this line">' + mk(m[2]) + '</span>' + mk(m[3])); continue; }
+    if ((m = KEEP.exec(l))) { push('keep atom', mk(m[1]) + '<span class="hl-kn" data-l="' + esc(keptLabel(m[2])) + '" title="' + esc(T('Kept as it is in Jira: move or delete this line')) + '">' + mk(m[2]) + '</span>' + mk(m[3])); continue; }
     if ((m = SHELL.exec(l))) { push('tag shell', mk(m[1]) + span('hl-shell', esc(m[2])) + mk(m[3])); continue; }
     if ((m = CARD.exec(l))) { push('card atom', mk(m[1]) + '<span class="hl-lt hl-card"' + href(m[2]) + '>' + esc(m[2]) + '</span>' + mk(m[3])); continue; }
     if (/^\s*<!--.*-->\s*$/.test(l)) { push(/^\s*<!-- ?keep:/.test(l) ? 'keep' : 'tag', span(/^\s*<!-- ?keep:/.test(l) ? 'hl-keep' : 'hl-tag', esc(l))); continue; }

@@ -6,6 +6,7 @@
 // With onKey, a link to an issue on site (the Jira base URL) opens it here: a pill when it shows its URL.
 import { h } from './dom.js';
 import { jiraKey, issuePill } from './issuepill.js';
+import { T } from './i18n.js';
 
 const SAFE_HREF = /^(https?:|mailto:|#)/i;
 const KEY = /[A-Z][A-Z0-9]+-\d+/y;
@@ -254,7 +255,7 @@ function blocks(lines, o) {
       out.push(h('div.md-panel.p-' + PANEL.exec(l.trim())[1], blocks(lines.slice(i + 1, end), o))); i = end + 1;
     } else if ((m = EXPAND.exec(l.trim()))) {
       const end = closer(lines, i + 1);
-      out.push(h('details.md-expand', h('summary', m[1] || 'Details'), blocks(lines.slice(i + 1, end), o))); i = end + 1;
+      out.push(h('details.md-expand', h('summary', m[1] || T('Details')), blocks(lines.slice(i + 1, end), o))); i = end + 1;
     } else if (BLOCK.test(l.trim()) || SHELL.test(l.trim())) { i++; }
     else if (CLOSE.test(l.trim())) { i++; }
     else if ((m = CARD.exec(l.trim()))) { out.push(h('p', urlLink(m[1], o))); i++; }

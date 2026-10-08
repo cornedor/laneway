@@ -3,6 +3,7 @@
 import { h } from './dom.js';
 import { css } from './css.js';
 import { target } from './timer.js';
+import { T } from './i18n.js';
 
 export async function install(app) {
   css('ask');
@@ -22,15 +23,15 @@ export async function install(app) {
   };
   async function run(a) {
     const ks = keysOf();
-    if (!ks.length) return app.ui.toast(a.Name + ': no issue selected');
-    const done = app.ui.toast('Running ' + a.Name + ' on ' + ks.join(', ') + '…', { ms: 60000 });
+    if (!ks.length) return app.ui.toast(T('%s: no issue selected', a.Name));
+    const done = app.ui.toast(T('Running %s on %s…', a.Name, ks.join(', ')), { ms: 60000 });
     let r;
     try { r = await app.api.post('/actions/' + a.ID + '/run', { Keys: ks }); } catch (e) { done(); return app.ui.errToast(e); }
     done();
     const last = (r.Output.split('\n').pop() || '').trim();
-    if (r.Error) app.ui.toast(a.Name + ': ' + r.Error + ' ' + last, { kind: 'err' });
+    if (r.Error) app.ui.toast(T('%s: %s %s', a.Name, r.Error, last), { kind: 'err' });
     else if (a.Show === 'pager' && r.Output) app.ui.modal(h('pre.action-out', r.Output), { title: a.Name, wide: true });
-    else app.ui.toast(last ? a.Name + ': ' + last : a.Name + ' done');
+    else app.ui.toast(last ? T('%s: %s', a.Name, last) : T('%s done', a.Name));
     if (r.Refresh) for (const k of ks) app.bus.emit('issue:changed', { key: k });
   }
   for (const a of list) {

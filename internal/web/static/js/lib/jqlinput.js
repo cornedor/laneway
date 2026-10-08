@@ -4,7 +4,9 @@
 import { h, clear, debounce } from './dom.js';
 import api from './api.js';
 import { jqlComplete, jqlMatches, jqlWordsFor } from './jql.js';
+import { T } from './i18n.js';
 
+const KIND = { function: T('function'), value: T('value'), field: T('field'), operator: T('operator'), keyword: T('keyword') };
 let words = null; // /api/jql/words, once a page
 let shut = null; // closes the list that is open
 
@@ -32,7 +34,7 @@ export function jqlInput(o = {}) {
   const paint = () => {
     if (!items.length || document.activeElement !== input) { close(); return; }
     clear(pop).append(...items.map((it, i) => h('div.mp' + (i === sel ? '.sel' : ''), { role: 'option', 'aria-selected': String(i === sel), onmousedown: e => { e.preventDefault(); accept(i); } },
-      h('span.mono.jqi-word', it.text), h('span.chip', it.kind))));
+      h('span.mono.jqi-word', it.text), h('span.chip', KIND[it.kind] || it.kind))));
     pop.hidden = false; input.setAttribute('aria-expanded', 'true');
     if (shut && shut !== close) shut();
     shut = close;
