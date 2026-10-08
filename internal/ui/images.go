@@ -20,6 +20,7 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi/kitty"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -298,7 +299,7 @@ func (m Model) handleResendImages() (tea.Model, tea.Cmd) {
 // the transmitted pixel size.
 func encodeKittyImage(id uint32, b []byte, maxPx, box, maxRows int, cell cellPx) (seq string, w, h int, err error) {
 	if c, _, err := image.DecodeConfig(bytes.NewReader(b)); err == nil && c.Width*c.Height > imgMaxPixels {
-		return "", 0, 0, fmt.Errorf("image is %d×%d: too large to decode", c.Width, c.Height)
+		return "", 0, 0, fmt.Errorf(i18n.T("image is %d×%d: too large to decode"), c.Width, c.Height)
 	}
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {

@@ -7,6 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Selecting text in the panel: a drag over its body selects from where the
@@ -79,7 +81,7 @@ func (m Model) endPanelSel() (tea.Model, tea.Cmd) {
 	if text == "" {
 		return m, nil
 	}
-	m.status = fmt.Sprintf("copied %d characters", len([]rune(text)))
+	m.status = fmt.Sprintf(i18n.T("copied %d characters"), len([]rune(text)))
 	return m, tea.SetClipboard(text)
 }
 

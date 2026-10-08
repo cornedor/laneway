@@ -4,6 +4,8 @@ import (
 	"strconv"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Dragging the panel's left border resizes it, within ui.panel_width's
@@ -29,7 +31,7 @@ func (m Model) resizePanel(x int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.opts.panelPct = pct
-	m.status = "panel " + strconv.Itoa(pct) + "%"
+	m.status = i18n.Tf("panel %s", strconv.Itoa(pct)+"%")
 	if pct == def {
 		m.status += " (ui.panel_width)"
 	}
@@ -52,7 +54,7 @@ func (m *Model) stepPanel(d int) {
 		next = def
 	}
 	m.opts.panelPct = next
-	m.status = "panel " + strconv.Itoa(next) + "%"
+	m.status = i18n.Tf("panel %s", strconv.Itoa(next)+"%")
 	if next == def {
 		m.status += " (ui.panel_width)"
 	}

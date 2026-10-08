@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -117,7 +118,7 @@ func (m Model) handleJQLWords(msg jqlWordsMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.err != nil {
-		m.fail("jql completion: " + msg.err.Error())
+		m.fail(i18n.Tf("jql completion: %s", msg.err.Error()))
 	}
 	m.jql.words = msg.words
 	return m, m.suggestJQL()
@@ -128,7 +129,7 @@ func (m Model) handleJQLValues(msg jqlValuesMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.err != nil {
-		m.fail("completions: " + msg.err.Error())
+		m.fail(i18n.Tf("completions: %s", msg.err.Error()))
 	}
 	m.jql.sugg, m.jql.idx = msg.values, 0
 	return m, nil
@@ -176,7 +177,7 @@ func (m Model) handleJQLKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+f":
 		if q := strings.TrimSpace(j.input.Value()); q != "" {
 			m.jql = nil
-			m.openBulkInput("jql-filter", "filter name")
+			m.openBulkInput("jql-filter", i18n.T("filter name"))
 			m.jiraFieldKey = q
 		}
 		return m, nil
@@ -224,7 +225,7 @@ func (m *Model) runJQLView(q string) tea.Cmd {
 func (m *Model) runNamedJQLView(name, q string) tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil {
-		m.status = "open a board first"
+		m.status = i18n.T("open a board first")
 		return nil
 	}
 	v := jiraView{kind: jiraViewFilter, name: name, jql: q}
@@ -264,7 +265,7 @@ func (j *jqlState) top() int {
 func (m *Model) renderJQL() string {
 	j := m.jql
 	inner := j.input.Width() + 2
-	lines := []string{lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render("JQL search"), "", j.input.View(), ""}
+	lines := []string{lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(i18n.T("JQL search")), "", j.input.View(), ""}
 	top := j.top()
 	for i := top; i < len(j.sugg) && i < top+jqlShown; i++ {
 		s := ansi.Truncate(j.sugg[i], inner-2, "…")
@@ -275,10 +276,10 @@ func (m *Model) renderJQL() string {
 		}
 	}
 	if len(j.sugg) == 0 {
-		lines = append(lines, refDimStyle.Render("  no completions"))
+		lines = append(lines, refDimStyle.Render(i18n.T("  no completions")))
 	}
 	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).
-		Render("tab complete · ↑↓ choose · ↵ search · ctrl+s star as a view · ctrl+f save as a Jira filter · esc cancel")
+		Render(i18n.T("tab complete · ↑↓ choose · ↵ search · ctrl+s star as a view · ctrl+f save as a Jira filter · esc cancel"))
 	lines = append(lines, "", hint)
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(focusedColor).Padding(1, 3).
 		Render(strings.Join(lines, "\n"))
@@ -324,11 +325,11 @@ func (m *Model) toggleSavedJQL(q string) {
 	saved := m.jqlList(jqlSavedMeta)
 	if i := slices.Index(saved, q); i >= 0 {
 		m.setJQLList(jqlSavedMeta, slices.Delete(saved, i, i+1))
-		m.status = "unstarred; its view goes on the next board load"
+		m.status = i18n.T("unstarred; its view goes on the next board load")
 		return
 	}
 	m.setJQLList(jqlSavedMeta, append(saved, q))
-	m.status = "starred as a view of every board"
+	m.status = i18n.T("starred as a view of every board")
 }
 
 // applySaveFilter saves the query as a starred Jira filter named name,
@@ -337,11 +338,11 @@ func (m Model) applySaveFilter(name string) (tea.Model, tea.Cmd) {
 	q := m.jiraFieldKey
 	m.closeJiraField()
 	if name = strings.TrimSpace(name); name == "" {
-		m.status = "a filter needs a name"
+		m.status = i18n.T("a filter needs a name")
 		return m, nil
 	}
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "saving the filter " + name + "…"
+	m.status = i18n.Tf("saving the filter %s…", name)
 	return m, func() tea.Msg {
 		return filterSavedMsg{name: name, err: c.SaveFilter(ctx, name, q)}
 	}
@@ -354,12 +355,12 @@ type filterSavedMsg struct {
 
 func (m Model) handleFilterSaved(msg filterSavedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("save filter: " + msg.err.Error())
+		m.fail(i18n.Tf("save filter: %s", msg.err.Error()))
 		return m, nil
 	}
-	m.status = "saved the Jira filter " + msg.name + " · starred"
+	m.status = i18n.Tf("saved the Jira filter %s · starred", msg.name)
 	if !m.opts.savedFilters {
-		m.status += " (ui.saved_filters is off, so it isn't a view here)"
+		m.status += i18n.T(" (ui.saved_filters is off, so it isn't a view here)")
 		return m, nil
 	}
 	return m, m.loadJiraBoard(m.jiraTab.project, m.jiraBoardID(), "", false)

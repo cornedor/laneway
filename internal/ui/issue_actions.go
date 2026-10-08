@@ -12,6 +12,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -33,48 +34,48 @@ func (m *Model) openIssueActions() {
 	}
 	iss := m.jiraIssue
 	m.startJiraPicker(jiraPickIssueActions, iss.Key, false)
-	items := []jiraPickerItem{{id: "subtask", label: "New subtask"}}
+	items := []jiraPickerItem{{id: "subtask", label: i18n.T("New subtask")}}
 	if strings.EqualFold(iss.Type, "epic") {
-		items = []jiraPickerItem{{id: "child", label: "New issue in this epic"}}
+		items = []jiraPickerItem{{id: "child", label: i18n.T("New issue in this epic")}}
 	}
 	items = append(items,
-		jiraPickerItem{id: "link", label: "Link to another issue"},
-		jiraPickerItem{id: "weblink", label: "Add a web link"},
-		jiraPickerItem{id: "estimate", label: "Set the original estimate"},
-		jiraPickerItem{id: "status-time", label: "Time in each status"},
-		jiraPickerItem{id: "deps", label: "Dependency tree: what holds it up"},
-		jiraPickerItem{id: "clone", label: "Clone"},
-		jiraPickerItem{id: "type", label: "Change the issue type"},
-		jiraPickerItem{id: "move", label: "Move to another project"},
-		jiraPickerItem{id: "delete", label: "Delete the issue"},
-		jiraPickerItem{id: "watch", label: "Watch / stop watching"},
-		jiraPickerItem{id: "watchers", label: "Add or remove watchers"},
-		jiraPickerItem{id: "vote", label: "Vote / take back the vote"},
-		jiraPickerItem{id: "flag", label: "Flag as an impediment / clear the flag"},
-		jiraPickerItem{id: "upload", label: "Upload a file"},
-		jiraPickerItem{id: "paste", label: "Upload the image on the clipboard"},
-		jiraPickerItem{id: "screenshot", label: "Screenshot a region and attach it"},
+		jiraPickerItem{id: "link", label: i18n.T("Link to another issue")},
+		jiraPickerItem{id: "weblink", label: i18n.T("Add a web link")},
+		jiraPickerItem{id: "estimate", label: i18n.T("Set the original estimate")},
+		jiraPickerItem{id: "status-time", label: i18n.T("Time in each status")},
+		jiraPickerItem{id: "deps", label: i18n.T("Dependency tree: what holds it up")},
+		jiraPickerItem{id: "clone", label: i18n.T("Clone")},
+		jiraPickerItem{id: "type", label: i18n.T("Change the issue type")},
+		jiraPickerItem{id: "move", label: i18n.T("Move to another project")},
+		jiraPickerItem{id: "delete", label: i18n.T("Delete the issue")},
+		jiraPickerItem{id: "watch", label: i18n.T("Watch / stop watching")},
+		jiraPickerItem{id: "watchers", label: i18n.T("Add or remove watchers")},
+		jiraPickerItem{id: "vote", label: i18n.T("Vote / take back the vote")},
+		jiraPickerItem{id: "flag", label: i18n.T("Flag as an impediment / clear the flag")},
+		jiraPickerItem{id: "upload", label: i18n.T("Upload a file")},
+		jiraPickerItem{id: "paste", label: i18n.T("Upload the image on the clipboard")},
+		jiraPickerItem{id: "screenshot", label: i18n.T("Screenshot a region and attach it")},
 	)
 	if slices.ContainsFunc(iss.Links, func(l jira.Link) bool { return l.LinkID != "" }) {
-		items = append(items, jiraPickerItem{id: "unlink", label: "Remove a link"})
+		items = append(items, jiraPickerItem{id: "unlink", label: i18n.T("Remove a link")})
 	}
 	items = append(items, m.agentActions(iss.Key)...)
 	if iss.StatusCategory == "done" && m.canOpenPullRequest(iss.Key) {
-		items = append(items, jiraPickerItem{id: "worktree-remove", label: "Remove its worktree (merged, no uncommitted changes)"})
+		items = append(items, jiraPickerItem{id: "worktree-remove", label: i18n.T("Remove its worktree (merged, no uncommitted changes)")})
 	}
 	if m.canOpenPullRequest(iss.Key) {
-		items = append(items, jiraPickerItem{id: "pr", label: "Open a pull request (draft)"})
+		items = append(items, jiraPickerItem{id: "pr", label: i18n.T("Open a pull request (draft)")})
 	}
 	if len(iss.Comments) > 0 {
-		items = append(items, jiraPickerItem{id: "edit-comment", label: "Edit a comment of yours"},
-			jiraPickerItem{id: "delete-comment", label: "Delete a comment of yours"})
+		items = append(items, jiraPickerItem{id: "edit-comment", label: i18n.T("Edit a comment of yours")},
+			jiraPickerItem{id: "delete-comment", label: i18n.T("Delete a comment of yours")})
 	}
 	if m.notes(iss.Key) != "" {
-		items = append(items, jiraPickerItem{id: "post-notes", label: "Post your local notes as a comment"})
+		items = append(items, jiraPickerItem{id: "post-notes", label: i18n.T("Post your local notes as a comment")})
 	}
 	if len(iss.Attachments) > 0 {
-		items = append(items, jiraPickerItem{id: "download", label: "Download an attachment"},
-			jiraPickerItem{id: "delete-attachment", label: "Delete an attachment"})
+		items = append(items, jiraPickerItem{id: "download", label: i18n.T("Download an attachment")},
+			jiraPickerItem{id: "delete-attachment", label: i18n.T("Delete an attachment")})
 	}
 	m.setJiraPickerItems(items)
 }
@@ -97,16 +98,16 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 	case "deps":
 		return m.openDependencies(key)
 	case "link":
-		gen := m.startJiraPicker(jiraPickLinkType, "Link "+key, true)
+		gen := m.startJiraPicker(jiraPickLinkType, i18n.Tf("Link %s", key), true)
 		m.jiraPicker.issueKey = key
 		seq := m.jiraPicker.fetchSeq
 		return func() tea.Msg {
 			types, err := c.LinkTypes(ctx)
 			var items []jiraPickerItem
 			for _, t := range types {
-				items = append(items, jiraPickerItem{id: "out|" + t.Name, label: key + " " + t.Outward + " …"})
+				items = append(items, jiraPickerItem{id: "out|" + t.Name, label: i18n.Tf("%s %s …", key, t.Outward)})
 				if t.Inward != t.Outward {
-					items = append(items, jiraPickerItem{id: "in|" + t.Name, label: key + " " + t.Inward + " …"})
+					items = append(items, jiraPickerItem{id: "in|" + t.Name, label: i18n.Tf("%s %s …", key, t.Inward)})
 				}
 			}
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickLinkType, items: items, err: err}
@@ -116,7 +117,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			return nil
 		}
 		current, project := m.jiraIssue.Type, issueProject(key)
-		gen := m.startJiraPicker(jiraPickChangeType, key+" is a "+current+": change to", false)
+		gen := m.startJiraPicker(jiraPickChangeType, i18n.Tf("%s is a %s: change to", key, current), false)
 		m.jiraPicker.issueKey = key
 		seq := m.jiraPicker.fetchSeq
 		return func() tea.Msg {
@@ -128,24 +129,24 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickChangeType, items: items, err: err}
 		}
 	case "watchers":
-		gen := m.startJiraPicker(jiraPickWatchers, "Watchers of "+key+" · ↵ adds or removes", true)
+		gen := m.startJiraPicker(jiraPickWatchers, i18n.Tf("Watchers of %s · ↵ adds or removes", key), true)
 		m.jiraPicker.issueKey = key
 		return m.fetchWatchers(gen, m.jiraPicker.fetchSeq, key, "")
 	case "delete":
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil
 		}
-		m.startJiraPicker(jiraPickDeleteIssue, "Delete "+key+"?", false)
-		it := jiraPickerItem{id: key, label: "Delete " + key + "  " + m.jiraIssue.Summary}
+		m.startJiraPicker(jiraPickDeleteIssue, i18n.Tf("Delete %s?", key), false)
+		it := jiraPickerItem{id: key, label: i18n.Tf("Delete %s  %s", key, m.jiraIssue.Summary)}
 		switch n := countSubtasks(m.jiraIssue.Links); {
 		case n == 1:
-			it.label, it.value = "Delete "+key+" and its subtask", "subtasks"
+			it.label, it.value = i18n.Tf("Delete %s and its subtask", key), "subtasks"
 		case n > 1:
-			it.label, it.value = fmt.Sprintf("Delete %s and its %d subtasks", key, n), "subtasks"
+			it.label, it.value = fmt.Sprintf(i18n.T("Delete %s and its %d subtasks"), key, n), "subtasks"
 		}
 		m.setJiraPickerItems([]jiraPickerItem{it})
 	case "move":
-		gen := m.startJiraPicker(jiraPickMoveProject, "Move "+key+" to", true)
+		gen := m.startJiraPicker(jiraPickMoveProject, i18n.Tf("Move %s to", key), true)
 		m.jiraPicker.issueKey = key
 		seq, from := m.jiraPicker.fetchSeq, issueProject(key)
 		return func() tea.Msg {
@@ -164,17 +165,17 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		m.openBulkInput("estimate", "2d 4h")
 		m.jiraFieldKey = key
 	case "weblink":
-		m.openBulkInput("weblink", "https://… and a title")
+		m.openBulkInput("weblink", i18n.T("https://… and a title"))
 		m.jiraFieldKey = key
 	case "upload":
-		m.openBulkInput("upload", "file path (~ works)")
+		m.openBulkInput("upload", i18n.T("file path (~ works)"))
 		m.jiraFieldKey = key
 	case "paste":
 		if m.demo { // the clipboard tools are this machine's
-			m.status = "paste: " + errOffInDemo.Error()
+			m.status = i18n.Tf("paste: %s", errOffInDemo.Error())
 			return nil
 		}
-		m.status = "uploading the clipboard image to " + key + "…"
+		m.status = i18n.Tf("uploading the clipboard image to %s…", key)
 		name, command := time.Now().Format("pasted-20060102-150405.png"), m.opts.clipboardImage
 		return jiraMutateCmd(key, "attachments", func() error {
 			img, err := clipboardImage(command)
@@ -186,10 +187,10 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		})
 	case "screenshot":
 		if m.demo { // the screen tools are this machine's
-			m.status = "screenshot: " + errOffInDemo.Error()
+			m.status = i18n.Tf("screenshot: %s", errOffInDemo.Error())
 			return nil
 		}
-		m.status = "pick a region to attach to " + key + "…"
+		m.status = i18n.Tf("pick a region to attach to %s…", key)
 		name := time.Now().Format("screenshot-20060102-150405.png")
 		return jiraMutateCmd(key, "attachments", func() error {
 			img, err := screenshot()
@@ -203,7 +204,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil
 		}
-		m.startJiraPicker(jiraPickAttachment, "Download to "+downloadDir(strings.TrimSpace(m.uiConfig.DownloadDir)), true)
+		m.startJiraPicker(jiraPickAttachment, i18n.Tf("Download to %s", downloadDir(strings.TrimSpace(m.uiConfig.DownloadDir))), true)
 		var items []jiraPickerItem
 		for _, a := range m.jiraIssue.Attachments {
 			items = append(items, jiraPickerItem{id: a.ID + "/" + a.Filename, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size))})
@@ -213,7 +214,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil
 		}
-		m.startJiraPicker(jiraPickDeleteAttachment, "Delete an attachment from "+key, true)
+		m.startJiraPicker(jiraPickDeleteAttachment, i18n.Tf("Delete an attachment from %s", key), true)
 		var items []jiraPickerItem
 		for _, a := range m.jiraIssue.Attachments {
 			items = append(items, jiraPickerItem{id: a.ID, label: fmt.Sprintf("%s  %s", a.Filename, byteSize(a.Size)), value: a.Filename})
@@ -223,7 +224,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		if m.jiraIssue == nil || m.jiraIssue.Key != key {
 			return nil
 		}
-		m.startJiraPicker(jiraPickUnlink, "Remove a link from "+key, true)
+		m.startJiraPicker(jiraPickUnlink, i18n.Tf("Remove a link from %s", key), true)
 		m.jiraPicker.issueKey = key
 		var items []jiraPickerItem
 		for _, l := range m.jiraIssue.Links {
@@ -243,7 +244,7 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 		// The board's card tells the flag; an issue off it is asked.
 		i := slices.IndexFunc(m.jiraTab.cards, func(cd jira.Card) bool { return cd.Key == key })
 		onBoard := i >= 0 && m.jiraTab.cards[i].Flagged
-		m.status = "setting the flag on " + key + "…"
+		m.status = i18n.Tf("setting the flag on %s…", key)
 		return func() tea.Msg {
 			flagged := onBoard
 			if i < 0 {
@@ -252,9 +253,9 @@ func (m *Model) applyIssueAction(key, id string) tea.Cmd {
 					return jiraMutatedMsg{key: key, field: "flag", err: err}
 				}
 			}
-			what := "flagged"
+			what := i18n.T("flagged")
 			if flagged {
-				what = "flag cleared"
+				what = i18n.T("flag cleared")
 			}
 			return jiraMutatedMsg{key: key, field: what, err: c.SetFlagged(ctx, key, !flagged)}
 		}
@@ -279,7 +280,7 @@ func (m *Model) openMoveTypes(key, project string) tea.Cmd {
 		return nil
 	}
 	current := m.jiraIssue.Type
-	gen := m.startJiraPicker(jiraPickMoveType, "Move "+key+" to "+project+" as", false)
+	gen := m.startJiraPicker(jiraPickMoveType, i18n.Tf("Move %s to %s as", key, project), false)
 	m.jiraPicker.issueKey = key
 	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -339,7 +340,7 @@ type jiraDeletedMsg struct {
 // deleteIssue deletes key, its subtasks too when subtasks is set.
 func (m *Model) deleteIssue(key string, subtasks bool) tea.Cmd {
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "deleting " + key + "…"
+	m.status = i18n.Tf("deleting %s…", key)
 	return func() tea.Msg { return jiraDeletedMsg{key: key, err: c.DeleteIssue(ctx, key, subtasks)} }
 }
 
@@ -347,13 +348,13 @@ func (m *Model) deleteIssue(key string, subtasks bool) tea.Cmd {
 // board without it.
 func (m Model) handleJiraDeleted(msg jiraDeletedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail(msg.key + " not deleted: " + msg.err.Error())
+		m.fail(i18n.Tf("%s not deleted: %s", msg.key, msg.err.Error()))
 		return m, nil
 	}
 	if r := m.currentRef(); r != nil && r.jiraKey == msg.key {
 		m.closeRef()
 	}
-	m.status = "deleted " + msg.key
+	m.status = i18n.Tf("deleted %s", msg.key)
 	return m, m.refreshJiraAfterEdit()
 }
 
@@ -367,7 +368,7 @@ type jiraRelocatedMsg struct {
 func (m *Model) moveIssue(key string, it jiraPickerItem) tea.Cmd {
 	project, typeID, _ := strings.Cut(it.id, ",")
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "moving " + key + " to " + project + "…"
+	m.status = i18n.Tf("moving %s to %s…", key, project)
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, c.Scaled(2*time.Minute))
 		defer cancel()
@@ -379,13 +380,13 @@ func (m *Model) moveIssue(key string, it jiraPickerItem) tea.Cmd {
 // handleJiraRelocated opens the moved issue under its new key.
 func (m Model) handleJiraRelocated(msg jiraRelocatedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail(msg.key + " not moved: " + msg.err.Error())
+		m.fail(i18n.Tf("%s not moved: %s", msg.key, msg.err.Error()))
 		return m, nil
 	}
 	board := m.refreshJiraAfterEdit()
 	out, cmd := m.openJiraKey(msg.next)
 	m = out.(Model)
-	m.status = "moved " + msg.key + " to " + msg.next
+	m.status = i18n.Tf("moved %s to %s", msg.key, msg.next)
 	return m, tea.Batch(cmd, board)
 }
 
@@ -393,12 +394,12 @@ func (m Model) handleJiraRelocated(msg jiraRelocatedMsg) (tea.Model, tea.Cmd) {
 func (m Model) applyEstimate(raw string) (tea.Model, tea.Cmd) {
 	key, raw := m.jiraFieldKey, strings.TrimSpace(raw)
 	if secs, extra, err := jira.ParseDuration(raw); err != nil || secs == 0 || extra != "" {
-		m.status = raw + " is not a time: 2d 4h, 90m"
+		m.status = i18n.Tf("%s is not a time: 2d 4h, 90m", raw)
 		return m, nil
 	}
 	m.closeJiraField()
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "estimating " + key + " at " + raw + "…"
+	m.status = i18n.Tf("estimating %s at %s…", key, raw)
 	return m, jiraMutateCmd(key, "estimate", func() error { return c.SetEstimate(ctx, key, raw) })
 }
 
@@ -407,18 +408,18 @@ func (m Model) applyWebLink(raw string) (tea.Model, tea.Cmd) {
 	key := m.jiraFieldKey
 	u, title, _ := strings.Cut(strings.TrimSpace(raw), " ")
 	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
-		m.status = "a web link starts with http:// or https://"
+		m.status = i18n.T("a web link starts with http:// or https://")
 		return m, nil
 	}
 	m.closeJiraField()
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "linking " + key + " to " + u + "…"
+	m.status = i18n.Tf("linking %s to %s…", key, u)
 	return m, jiraMutateCmd(key, "links", func() error { return c.AddWebLink(ctx, key, u, strings.TrimSpace(title)) })
 }
 
 // openLinkTarget asks which issue the picked link goes to.
 func (m *Model) openLinkTarget(key string, it jiraPickerItem) {
-	m.openBulkInput("link", "a key, a number in "+issueProject(key)+", or words to search")
+	m.openBulkInput("link", i18n.Tf("a key, a number in %s, or words to search", issueProject(key)))
 	m.jiraFieldKey = key
 	m.jiraLinkChoice = it
 	m.linkFind = linkFind{seq: m.linkFind.seq + 1}
@@ -431,11 +432,11 @@ func (m Model) applyLink(raw string) (tea.Model, tea.Cmd) {
 	if !ok {
 		switch {
 		case strings.TrimSpace(raw) == "":
-			m.status = "type a key or words to find the issue"
+			m.status = i18n.T("type a key or words to find the issue")
 		case m.linkFind.loading:
-			m.status = "still looking…"
+			m.status = i18n.T("still looking…")
 		default:
-			m.status = "no issue to link: " + raw
+			m.status = i18n.Tf("no issue to link: %s", raw)
 		}
 		return m, nil
 	}
@@ -446,7 +447,7 @@ func (m Model) applyLink(raw string) (tea.Model, tea.Cmd) {
 	}
 	m.closeJiraField()
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "linking " + key + " and " + target + "…"
+	m.status = i18n.Tf("linking %s and %s…", key, target)
 	return m, jiraMutateCmd(key, "links", func() error { return c.LinkIssues(ctx, typ, out, in) })
 }
 
@@ -460,11 +461,11 @@ type jiraVoteMsg struct {
 func (m Model) handleJiraVote(msg jiraVoteMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		m.fail(msg.key + " vote: " + msg.err.Error())
+		m.fail(i18n.Tf("%s vote: %s", msg.key, msg.err.Error()))
 	case msg.on:
-		m.status = "voted for " + msg.key
+		m.status = i18n.Tf("voted for %s", msg.key)
 	default:
-		m.status = "took back the vote on " + msg.key
+		m.status = i18n.Tf("took back the vote on %s", msg.key)
 	}
 	return m, nil
 }
@@ -472,18 +473,18 @@ func (m Model) handleJiraVote(msg jiraVoteMsg) (tea.Model, tea.Cmd) {
 // unlinkJira removes the picked link from key.
 func (m *Model) unlinkJira(key string, it jiraPickerItem) tea.Cmd {
 	c, ctx, id := m.jiraClient, m.ctx, it.id
-	m.status = "removing link " + it.label + "…"
+	m.status = i18n.Tf("removing link %s…", it.label)
 	return jiraMutateCmd(key, "links", func() error { return c.DeleteLink(ctx, key, id) })
 }
 
 func (m Model) handleJiraWatch(msg jiraWatchMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		m.fail(msg.key + " watch: " + msg.err.Error())
+		m.fail(i18n.Tf("%s watch: %s", msg.key, msg.err.Error()))
 	case msg.on:
-		m.status = "watching " + msg.key
+		m.status = i18n.Tf("watching %s", msg.key)
 	default:
-		m.status = "stopped watching " + msg.key
+		m.status = i18n.Tf("stopped watching %s", msg.key)
 	}
 	return m, nil
 }
@@ -514,7 +515,7 @@ func downloadDir(dir string) string {
 func (m *Model) downloadAttachment(pick string) tea.Cmd {
 	id, name, _ := strings.Cut(pick, "/")
 	c, ctx, dir := m.jiraClient, m.ctx, downloadDir(strings.TrimSpace(m.uiConfig.DownloadDir))
-	m.status = "downloading " + name + "…"
+	m.status = i18n.Tf("downloading %s…", name)
 	return func() tea.Msg {
 		path, err := c.DownloadAttachment(ctx, id, name, dir)
 		return jiraDownloadedMsg{path: path, err: err}
@@ -523,10 +524,10 @@ func (m *Model) downloadAttachment(pick string) tea.Cmd {
 
 func (m Model) handleJiraDownloaded(msg jiraDownloadedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("download: " + msg.err.Error())
+		m.fail(i18n.Tf("download: %s", msg.err.Error()))
 	} else {
 		m.lastDownload, _ = filepath.Abs(msg.path) // opener opens only absolute paths
-		m.status = "saved " + msg.path + " · " + helpKey(m.keys.Palette) + " open download"
+		m.status = i18n.Tf("saved %s · %s open download", msg.path, helpKey(m.keys.Palette))
 	}
 	return m, nil
 }
@@ -539,12 +540,12 @@ func (m Model) applyUpload(raw string) (tea.Model, tea.Cmd) {
 		path = filepath.Join(home, rest)
 	}
 	if fi, err := os.Stat(path); err != nil || fi.IsDir() {
-		m.status = "no such file: " + raw
+		m.status = i18n.Tf("no such file: %s", raw)
 		return m, nil
 	}
 	key, c, ctx := m.jiraFieldKey, m.jiraClient, m.ctx
 	m.closeJiraField()
-	m.status = "uploading " + filepath.Base(path) + " to " + key + "…"
+	m.status = i18n.Tf("uploading %s to %s…", filepath.Base(path), key)
 	return m, jiraMutateCmd(key, "attachments", func() error { return c.UploadAttachment(ctx, key, path) })
 }
 

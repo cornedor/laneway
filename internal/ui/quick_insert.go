@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // "/" quick insert, after Jira's: "/" at a line's start in the description
@@ -30,34 +31,34 @@ func quickItems(today time.Time) []quickItem {
 		return quickItem{label, "<!-- panel:" + typ + " -->\n\n‸\n\n<!-- /panel -->", []string{"panel", typ}}
 	}
 	status := func(label, color string) quickItem {
-		return quickItem{"Status: " + label, `<status color="` + color + `">‸</status>`, []string{"lozenge", "label"}}
+		return quickItem{i18n.Tf("Status: %s", label), `<status color="` + color + `">‸</status>`, []string{"lozenge", "label"}}
 	}
 	colour := func(label, hex string) quickItem {
-		return quickItem{"Text colour: " + label, `<span style="color:` + hex + `">‸</span>`, []string{"color", "colour"}}
+		return quickItem{i18n.Tf("Text colour: %s", label), `<span style="color:` + hex + `">‸</span>`, []string{"color", "colour"}}
 	}
 	return []quickItem{
-		{"Action item", "- [ ] ‸", []string{"task", "todo", "checkbox"}},
-		{"Decision", "<> ‸", []string{"decided"}},
-		panel("Info panel", "info"), panel("Note panel", "note"), panel("Success panel", "success"),
-		panel("Warning panel", "warning"), panel("Error panel", "error"),
-		{"Expand", "<!-- expand: ‸ -->\n\n\n\n<!-- /expand -->", []string{"spoiler", "collapse", "details"}},
-		{"Table", "| ‸ |  |  |\n| --- | --- | --- |\n|  |  |  |", nil},
-		{"Code block", "```\n‸\n```", []string{"snippet"}},
-		{"Quote", "> ‸", []string{"blockquote"}},
-		{"Divider", "---\n‸", []string{"rule", "hr", "line"}},
-		{"Heading 1", "# ‸", []string{"h1", "title"}},
-		{"Heading 2", "## ‸", []string{"h2"}},
-		{"Heading 3", "### ‸", []string{"h3"}},
-		{"Bullet list", "- ‸", []string{"ul", "unordered"}},
-		{"Numbered list", "1. ‸", []string{"ol", "ordered"}},
-		{"Date: today", "<date>" + today.Format(time.DateOnly) + "</date>‸", []string{"now"}},
-		status("grey", "neutral"), status("purple", "purple"), status("blue", "blue"),
-		status("red", "red"), status("yellow", "yellow"), status("green", "green"),
-		{"Mention", "@‸", []string{"person", "user"}},
-		{"Link", "[‸](https://)", []string{"url"}},
-		{"Underline", "<u>‸</u>", nil},
-		colour("blue", "#0747a6"), colour("teal", "#008da6"), colour("green", "#006644"),
-		colour("orange", "#ff991f"), colour("red", "#bf2600"), colour("purple", "#403294"), colour("grey", "#97a0af"),
+		{i18n.T("Action item"), "- [ ] ‸", []string{"task", "todo", "checkbox"}},
+		{i18n.T("Decision"), "<> ‸", []string{"decided"}},
+		panel(i18n.T("Info panel"), "info"), panel(i18n.T("Note panel"), "note"), panel(i18n.T("Success panel"), "success"),
+		panel(i18n.T("Warning panel"), "warning"), panel(i18n.T("Error panel"), "error"),
+		{i18n.T("Expand"), "<!-- expand: ‸ -->\n\n\n\n<!-- /expand -->", []string{"spoiler", "collapse", "details"}},
+		{i18n.T("Table"), "| ‸ |  |  |\n| --- | --- | --- |\n|  |  |  |", nil},
+		{i18n.T("Code block"), "```\n‸\n```", []string{"snippet"}},
+		{i18n.T("Quote"), "> ‸", []string{"blockquote"}},
+		{i18n.T("Divider"), "---\n‸", []string{"rule", "hr", "line"}},
+		{i18n.T("Heading 1"), "# ‸", []string{"h1", "title"}},
+		{i18n.T("Heading 2"), "## ‸", []string{"h2"}},
+		{i18n.T("Heading 3"), "### ‸", []string{"h3"}},
+		{i18n.T("Bullet list"), "- ‸", []string{"ul", "unordered"}},
+		{i18n.T("Numbered list"), "1. ‸", []string{"ol", "ordered"}},
+		{i18n.T("Date: today"), "<date>" + today.Format(time.DateOnly) + "</date>‸", []string{"now"}},
+		status(i18n.T("grey"), "neutral"), status(i18n.T("purple"), "purple"), status(i18n.T("blue"), "blue"),
+		status(i18n.T("red"), "red"), status(i18n.T("yellow"), "yellow"), status(i18n.T("green"), "green"),
+		{i18n.T("Mention"), "@‸", []string{"person", "user"}},
+		{i18n.T("Link"), "[‸](https://)", []string{"url"}},
+		{i18n.T("Underline"), "<u>‸</u>", nil},
+		colour(i18n.T("blue"), "#0747a6"), colour(i18n.T("teal"), "#008da6"), colour(i18n.T("green"), "#006644"),
+		colour(i18n.T("orange"), "#ff991f"), colour(i18n.T("red"), "#bf2600"), colour(i18n.T("purple"), "#403294"), colour(i18n.T("grey"), "#97a0af"),
 	}
 }
 

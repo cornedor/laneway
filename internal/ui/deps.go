@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -12,7 +13,7 @@ import (
 // blockers, and what it holds up; enter opens a row's issue.
 
 func (m *Model) openDependencies(key string) tea.Cmd {
-	gen := m.startJiraPicker(jiraPickDeps, "Dependencies — "+key, true)
+	gen := m.startJiraPicker(jiraPickDeps, i18n.Tf("Dependencies — %s", key), true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -20,7 +21,7 @@ func (m *Model) openDependencies(key string) tea.Cmd {
 		items := []jiraPickerItem{{id: root.Key, label: depLabel(root)}}
 		section := func(title string, nodes []jira.DepNode) {
 			if len(nodes) == 0 {
-				items = append(items, jiraPickerItem{label: "  " + title + ": nothing"})
+				items = append(items, jiraPickerItem{label: i18n.Tf("  %s: nothing", title)})
 				return
 			}
 			items = append(items, jiraPickerItem{label: "  " + title})
@@ -37,8 +38,8 @@ func (m *Model) openDependencies(key string) tea.Cmd {
 			}
 			walk(nodes, "    ")
 		}
-		section("held up by", by)
-		section("holds up", blocks)
+		section(i18n.T("held up by"), by)
+		section(i18n.T("holds up"), blocks)
 		open := 0
 		var count func(ns []jira.DepNode)
 		count = func(ns []jira.DepNode) {
@@ -50,9 +51,9 @@ func (m *Model) openDependencies(key string) tea.Cmd {
 			}
 		}
 		count(by)
-		title := "Dependencies — " + key
+		title := i18n.Tf("Dependencies — %s", key)
 		if open > 0 {
-			title += " · held up by " + plural(open, "open issue")
+			title += " · " + i18n.Tf("held up by %s", i18n.Tn(open, "%d open issue", "%d open issues", open))
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickDeps, items: items, err: err, title: title}
 	}

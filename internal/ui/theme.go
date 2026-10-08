@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // theme names the app's colours: ANSI numbers ("12") or hex ("#7aa2f7").
@@ -342,7 +344,7 @@ func themeFrom(over map[string]string) (theme, []string) {
 		if pt, ok := themePresets[p]; ok {
 			maps.Copy(th, pt)
 		} else {
-			warn = append(warn, fmt.Sprintf("ui.theme: unknown preset %q", p))
+			warn = append(warn, fmt.Sprintf(i18n.T("ui.theme: unknown preset %q"), p))
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(over)) {
@@ -351,7 +353,7 @@ func themeFrom(over map[string]string) (theme, []string) {
 			continue
 		}
 		if _, ok := th[name]; !ok {
-			warn = append(warn, fmt.Sprintf("ui.theme: unknown colour %q", name))
+			warn = append(warn, fmt.Sprintf(i18n.T("ui.theme: unknown colour %q"), name))
 			continue
 		}
 		if name == "shade" && (v == "auto" || v == "off") {
@@ -359,7 +361,7 @@ func themeFrom(over map[string]string) (theme, []string) {
 			continue
 		}
 		if n, err := strconv.Atoi(v); !(hexColor.MatchString(v) || err == nil && n >= 0 && n <= 255) {
-			warn = append(warn, fmt.Sprintf("ui.theme.%s: %q is not 0–255 or #rrggbb", name, v))
+			warn = append(warn, fmt.Sprintf(i18n.T("ui.theme.%s: %q is not 0–255 or #rrggbb"), name, v))
 			continue
 		}
 		th[name] = v

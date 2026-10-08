@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -119,7 +120,7 @@ func (m Model) handlePanelExtra(msg panelExtraMsg) (tea.Model, tea.Cmd) {
 }
 
 // moreFieldsName is the More row's name for the field cursor.
-const moreFieldsName = "More fields"
+var moreFieldsName = i18n.N("More fields")
 
 // splitExtra is the shown issue's editmeta fields, none until they load:
 // those always shown (starred, filled rich text) and the ones More folds.
@@ -214,7 +215,7 @@ func (m *Model) toggleStar() bool {
 	}
 	ids, err := jira.SetStarred(m.store, ff.ID, !m.starred[ff.ID])
 	if err != nil {
-		m.fail("star not kept: " + err.Error())
+		m.fail(i18n.Tf("star not kept: %s", err.Error()))
 		return true
 	}
 	m.starred = map[string]bool{}
@@ -222,9 +223,9 @@ func (m *Model) toggleStar() bool {
 		m.starred[id] = true
 	}
 	if m.starred[ff.ID] {
-		m.status = ff.Name + " starred: shown on every issue"
+		m.status = i18n.Tf("%s starred: shown on every issue", ff.Name)
 	} else {
-		m.status = ff.Name + " unstarred: under " + moreFieldsName
+		m.status = i18n.Tf("%s unstarred: under %s", ff.Name, i18n.T(moreFieldsName))
 	}
 	// the cursor follows the field to where it moved
 	id := ff.ID
@@ -329,11 +330,11 @@ func (m *Model) editPanelField() tea.Cmd {
 	}
 	ff := *slot
 	if m.panelExtraEarly {
-		m.status = "a moment: asking Jira what can be edited…"
+		m.status = i18n.T("a moment: asking Jira what can be edited…")
 		return nil
 	}
 	if ff.ReadOnly {
-		m.status = "Jira lets no one edit " + ff.Name + " on " + m.jiraIssue.Key + " now"
+		m.status = i18n.Tf("Jira lets no one edit %s on %s now", ff.Name, m.jiraIssue.Key)
 		return nil
 	}
 	m.panelEditID = ff.ID
@@ -348,11 +349,11 @@ func (m *Model) editPanelField() tea.Cmd {
 		hint := ""
 		switch ff.Kind {
 		case jira.KindDate:
-			hint = "2006-01-02, today, +3d, fri"
+			hint = i18n.T("2006-01-02, today, +3d, fri")
 		case jira.KindTime:
-			hint = "fri 14:00, 2026-10-01 9:30"
+			hint = i18n.T("fri 14:00, 2026-10-01 9:30")
 		case jira.KindIssue:
-			hint = "issue key (empty clears)"
+			hint = i18n.T("issue key (empty clears)")
 		}
 		m.openJiraTextInput("field", ff.val.Text, hint, 0)
 		m.startFieldInline(i)
@@ -368,7 +369,7 @@ func (m *Model) editPanelField() tea.Cmd {
 
 // sprintOptions are the board's sprints to pick, and none.
 func (m *Model) sprintOptions() []jira.Option {
-	opts := []jira.Option{{ID: "", Name: "none (backlog)"}}
+	opts := []jira.Option{{ID: "", Name: i18n.T("none (backlog)")}}
 	for _, v := range m.jiraTab.views {
 		if v.kind == jiraViewSprint {
 			opts = append(opts, jira.Option{ID: strconv.Itoa(v.sprint), Name: v.name})
@@ -434,6 +435,6 @@ func (m *Model) writePanelExtra(key string, ff jiraFormField) (tea.Cmd, error) {
 		return nil, err
 	}
 	c, ctx, name := m.jiraClient, m.ctx, strings.ToLower(ff.Name)
-	m.status = fmt.Sprintf("updating %s %s…", key, name)
+	m.status = fmt.Sprintf(i18n.T("updating %s %s…"), key, name)
 	return jiraMutateCmd(key, name, func() error { return c.SetField(ctx, key, ff.ID, v) }), nil
 }

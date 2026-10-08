@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Find in the panel: / asks for text, the panel scrolls to its first line
@@ -16,7 +18,7 @@ func (m *Model) openPanelFind() {
 	if m.jiraIssue == nil {
 		return
 	}
-	m.openBulkInput("find", "text in "+m.jiraIssue.Key)
+	m.openBulkInput("find", i18n.Tf("text in %s", m.jiraIssue.Key))
 	m.jiraFieldKey = m.jiraIssue.Key
 	m.jiraFieldInput.SetValue(m.panelFind)
 	m.jiraFieldInput.CursorEnd()
@@ -72,7 +74,7 @@ func (m *Model) findInPanel(dir int) {
 	}
 	m.panelFindAt = hits[n]
 	m.refView.SetYOffset(max(hits[n]-2, 0)) // two lines of context above
-	m.status = fmt.Sprintf("%q %d of %d · n next · N previous", m.panelFind, n+1, len(hits))
+	m.status = fmt.Sprintf(i18n.T("%q %d of %d · n next · N previous"), m.panelFind, n+1, len(hits))
 }
 
 // jiraFieldKeyOr is the panel issue's key, for messages.
@@ -80,7 +82,7 @@ func (m *Model) jiraFieldKeyOr() string {
 	if m.jiraIssue != nil {
 		return m.jiraIssue.Key
 	}
-	return "the issue"
+	return i18n.T("the issue")
 }
 
 // plainLines is content's lines without styling, for find.

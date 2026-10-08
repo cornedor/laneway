@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -54,7 +55,7 @@ func (m *Model) editDescription() tea.Cmd {
 		return nil
 	}
 	key, c, ctx := m.jiraIssue.Key, m.jiraClient, m.ctx
-	m.status = "loading " + key + " description…"
+	m.status = i18n.Tf("loading %s description…", key)
 	return func() tea.Msg {
 		raw, err := c.Description(ctx, key)
 		if err != nil {
@@ -69,13 +70,13 @@ func (m *Model) editDescription() tea.Cmd {
 // panel moved on from the issue or something else opened meanwhile.
 func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	if r := m.currentRef(); r == nil || r.jiraKey != msg.key || m.jiraIssue == nil || m.jiraIssue.Key != msg.key || m.modalOpen() {
-		if strings.HasPrefix(m.status, "loading "+msg.key) {
+		if m.status == i18n.Tf("loading %s description…", msg.key) {
 			m.status = ""
 		}
 		return m, nil
 	}
 	if msg.err != nil {
-		m.fail(msg.key + ": " + msg.err.Error() + " — edit it in Jira (o)")
+		m.fail(i18n.Tf("%s: %s — edit it in Jira (o)", msg.key, msg.err.Error()))
 		return m, nil
 	}
 	ed := newModalComposer("")
@@ -85,7 +86,7 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 	m.status = ""
 	if text, at, ok := m.draft(m.descEdit.draftID()); ok && text != msg.md {
 		m.descEdit.input.SetValue(text)
-		m.status = "your draft from " + draftWhen(at, time.Now()) + " is back · esc twice keeps Jira's"
+		m.status = i18n.Tf("your draft from %s is back · esc twice keeps Jira's", draftWhen(at, time.Now()))
 	}
 	if m.descEditInline() {
 		m.descEdit.input.MaxHeight = max(m.refView.Height()-4, 6)
@@ -100,7 +101,7 @@ func (m Model) handleDescLoaded(msg descLoadedMsg) (tea.Model, tea.Cmd) {
 const descEditMark = "\x00descedit\x00"
 
 // descEditHint is the editor's keys.
-const descEditHint = "ctrl+s save · ctrl+e $EDITOR · esc cancel"
+var descEditHint = i18n.N("ctrl+s save · ctrl+e $EDITOR · esc cancel")
 
 // descEditInline is whether the editor sits in the panel's body, in place of
 // the description, field or comment it edits.
@@ -156,13 +157,13 @@ func (m *Model) placeInlineEditor(content string, width int) string {
 	ed.SetWidth(max(width-2*indent, 8))
 	view := strings.Split(ed.View(), "\n")
 	if mark == commentMark {
-		hint := "ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel"
+		hint := i18n.T("ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel")
 		if v := m.jiraCommentVis; v != (jira.Visibility{}) {
-			hint = "for " + v.Label() + " · " + hint
+			hint = i18n.Tf("for %s", v.Label()) + " · " + hint
 		}
 		view = append(view, refDimStyle.Render(hint))
 	} else if m.descEdit.comment != "" {
-		view = append(view, refDimStyle.Render(descEditHint))
+		view = append(view, refDimStyle.Render(i18n.T(descEditHint)))
 	}
 	bars := refDimStyle.Render(strings.Repeat("│ ", indent))
 	for j := range view {
@@ -234,7 +235,7 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		if d.input.Value() != d.before && !d.discard {
 			d.discard = true
-			m.status = "esc again discards your changes · ctrl+s saves"
+			m.status = i18n.T("esc again discards your changes · ctrl+s saves")
 			return m, nil
 		}
 		m.dropDraft(d.draftID())
@@ -257,7 +258,7 @@ func (m Model) handleDescEditKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) renderDescEdit() string {
 	d := m.descEdit
-	return m.renderModalComposer(d.title(), nil, "ctrl+s save · ctrl+e $EDITOR · : emoji · esc cancel", &d.input)
+	return m.renderModalComposer(d.title(), nil, i18n.T("ctrl+s save · ctrl+e $EDITOR · : emoji · esc cancel"), &d.input)
 }
 
 // openExternalEditor writes md to a file and opens $VISUAL / $EDITOR on it;
@@ -269,10 +270,10 @@ func (m Model) openExternalEditor(msg descLoadedMsg, before string) (tea.Model, 
 		err = firstErr(err, f.Close())
 	}
 	if err != nil {
-		m.fail("description: " + err.Error())
+		m.fail(i18n.Tf("description: %s", err.Error()))
 		return m, nil
 	}
-	m.status = "editing " + msg.key + " description…"
+	m.status = i18n.Tf("editing %s description…", msg.key)
 	key, comment, field, path, kept := msg.key, msg.comment, msg.field, f.Name(), msg.kept
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
 		return descEditedMsg{key: key, comment: comment, field: field, path: path, before: before, kept: kept, err: err}
@@ -297,12 +298,12 @@ func editorCommand(path string) *exec.Cmd {
 func (m Model) handleDescEdited(msg descEditedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		os.Remove(msg.path)
-		m.fail("editor: " + msg.err.Error())
+		m.fail(i18n.Tf("editor: %s", msg.err.Error()))
 		return m, nil
 	}
 	b, err := os.ReadFile(msg.path)
 	if err != nil {
-		m.fail("description: " + err.Error())
+		m.fail(i18n.Tf("description: %s", err.Error()))
 		return m, nil
 	}
 	return m.saveDesc(msg, string(b))
@@ -317,7 +318,7 @@ func (m Model) saveDesc(msg descEditedMsg, text string) (tea.Model, tea.Cmd) {
 		if msg.path != "" {
 			os.Remove(msg.path)
 		}
-		m.status = msg.key + " unchanged"
+		m.status = i18n.Tf("%s unchanged", msg.key)
 		return m, nil
 	}
 	c, ctx, key, kept, comment, path := m.jiraClient, m.ctx, msg.key, msg.kept, msg.comment, msg.path
@@ -330,9 +331,9 @@ func (m Model) saveDesc(msg descEditedMsg, text string) (tea.Model, tea.Cmd) {
 			}
 			_, _ = f.WriteString(after + "\n")
 			f.Close()
-			return fmt.Errorf("%w — your text is kept in %s", err, f.Name())
+			return fmt.Errorf(i18n.T("%w — your text is kept in %s"), err, f.Name())
 		case err != nil:
-			return fmt.Errorf("%w — your text is kept in %s", err, path)
+			return fmt.Errorf(i18n.T("%w — your text is kept in %s"), err, path)
 		case path != "":
 			os.Remove(path)
 		}
@@ -343,14 +344,14 @@ func (m Model) saveDesc(msg descEditedMsg, text string) (tea.Model, tea.Cmd) {
 		if after != "" {
 			doc = jira.MarkdownToADFKept(after, kept)
 		}
-		m.status = "saving " + key + " " + field + "…"
+		m.status = i18n.Tf("saving %s %s…", key, field)
 		return m, jiraMutateCmd(key, field, func() error { return keep(c.SetField(ctx, key, field, doc)) })
 	}
 	if comment != "" {
-		m.status = "saving the comment on " + key + "…"
+		m.status = i18n.Tf("saving the comment on %s…", key)
 		return m, jiraMutateCmd(key, "comment", func() error { return keep(c.SetComment(ctx, key, comment, after, kept)) })
 	}
-	m.status = "saving " + key + " description…"
+	m.status = i18n.Tf("saving %s description…", key)
 	return m, jiraMutateCmd(key, "description", func() error { return keep(c.SetDescription(ctx, key, after, kept)) })
 }
 
@@ -361,9 +362,9 @@ func (m *Model) openCommentPicker(kind jiraPickerKind) tea.Cmd {
 		return nil
 	}
 	iss := m.jiraIssue
-	title := "Edit a comment on " + iss.Key
+	title := i18n.Tf("Edit a comment on %s", iss.Key)
 	if kind == jiraPickDeleteComment {
-		title = "Delete a comment on " + iss.Key
+		title = i18n.Tf("Delete a comment on %s", iss.Key)
 	}
 	gen := m.startJiraPicker(kind, title, false)
 	seq, c, ctx := m.jiraPicker.fetchSeq, m.jiraClient, m.ctx
@@ -378,7 +379,7 @@ func (m *Model) openCommentPicker(kind jiraPickerKind) tea.Cmd {
 			}
 		}
 		if err == nil && len(items) == 0 {
-			items = []jiraPickerItem{{id: "", label: "no comments of yours here"}}
+			items = []jiraPickerItem{{id: "", label: i18n.T("no comments of yours here")}}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: kind, items: items, err: err}
 	}
@@ -403,6 +404,10 @@ func (m *Model) toggleTask(n int) tea.Cmd {
 	}
 	key, done, total := m.jiraIssue.Key, !m.descTasks[n-1], len(m.descTasks)
 	c, ctx := m.jiraClient, m.ctx
-	m.status = map[bool]string{true: "checking", false: "unchecking"}[done] + " the action item…"
+	if done {
+		m.status = i18n.T("checking the action item…")
+	} else {
+		m.status = i18n.T("unchecking the action item…")
+	}
 	return jiraMutateCmd(key, "action item", func() error { return c.ToggleTask(ctx, key, n, total, done) })
 }

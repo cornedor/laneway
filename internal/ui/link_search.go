@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -136,11 +137,11 @@ func (m *Model) linkLines(width int) []string {
 	case strings.TrimSpace(m.jiraFieldInput.Value()) == "":
 		return nil
 	case f.loading && len(f.hits) == 0:
-		return []string{"", dim("looking…")}
+		return []string{"", dim(i18n.T("looking…"))}
 	case f.err != "":
 		return []string{"", refErrStyle.Render(truncate(f.err, width))}
 	case len(f.hits) == 0:
-		return []string{"", dim("no issue found")}
+		return []string{"", dim(i18n.T("no issue found"))}
 	}
 	out := []string{""}
 	for i, c := range f.hits {
@@ -150,9 +151,9 @@ func (m *Model) linkLines(width int) []string {
 			continue
 		}
 		out = append(out, jiraKeyStyle.Render(truncate("▸ "+line, width)))
-		details := []string{cmp.Or(c.Type, "issue"), cmp.Or(c.Status, "no status"), cmp.Or(c.Assignee, "unassigned")}
+		details := []string{cmp.Or(c.Type, i18n.T("issue")), cmp.Or(c.Status, i18n.T("no status")), cmp.Or(c.Assignee, i18n.T("unassigned"))}
 		if c.ParentKey != "" {
-			details = append(details, "in "+c.ParentKey)
+			details = append(details, i18n.Tf("in %s", c.ParentKey))
 		}
 		out = append(out, lipgloss.NewStyle().Italic(true).Render(dim(truncate("    "+strings.Join(details, " · "), width))))
 	}
