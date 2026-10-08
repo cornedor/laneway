@@ -10,6 +10,11 @@ var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, 
 // SettingsCommand are options laneway runs as commands (or passes to one).
 var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": true, "open": true, "clipboard_image": true, "work_agent": true, "work_args": true, "work_create": true}
 
+// SettingsBasic are the options for making laneway your own: looks, layouts,
+// views. The rest are specifics and tuning, which the browser's settings
+// show behind Advanced.
+var SettingsBasic = map[string]bool{"default_mode": true, "card_fields": true, "list_columns": true, "card_colors": true, "empty_lanes": true, "card_layout": true, "card_styles": true, "lane_layouts": true, "icons": true, "home": true, "quick_filters": true, "views": true, "saved_filters": true, "filters": true, "empty_fields": true, "templates": true, "comment_order": true, "comment_layout": true, "agent_view": true, "theme": true, "delight": true, "skin_tone": true, "language": true}
+
 // SettingDefaults is each ui: option's default as the docs show it.
 var SettingDefaults = map[string]string{
 	"auto_refresh":         "2m",

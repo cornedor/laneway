@@ -46,11 +46,21 @@ func TestSettingsEdit(t *testing.T) {
 	res, _ := http.Get(ts.URL + "/api/settings")
 	json.NewDecoder(res.Body).Decode(&list)
 	types := map[string]string{}
+	basic := 0
 	for _, st := range list.Settings {
 		types[st.Name] = st.Type
 		if st.Doc == "" || st.Group == "" {
 			t.Errorf("%s: no doc or group", st.Name)
 		}
+		if !st.Advanced {
+			basic++
+		}
+		if want := st.Name == "panel_width" || st.Name == "stale_after" || st.Name == "velocity_sprints"; want && !st.Advanced || st.Name == "theme" && st.Advanced {
+			t.Errorf("%s: advanced %v", st.Name, st.Advanced)
+		}
+	}
+	if basic != len(config.SettingsBasic) { // a name there that is no option
+		t.Errorf("%d basic options, config.SettingsBasic names %d", basic, len(config.SettingsBasic))
 	}
 	for n, want := range map[string]string{"stale_days": "number", "auto_refresh": "duration", "mouse": "bool", "icons": "enum", "card_fields": "list", "branch_template": "text", "quick_filters": "yaml", "keys": "yaml", "theme": "enum"} {
 		if types[n] != want {

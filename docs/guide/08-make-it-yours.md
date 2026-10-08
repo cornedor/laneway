@@ -219,6 +219,12 @@ back to the config file (your comments kept) and applied at once. The
     get a JQL editor: a name and a query per row, completions as you type,
     and how many issues each finds.
 
+    The page opens on the options that make laneway yours: theme, cards,
+    lanes, views, keys. **Advanced** (`a`) shows the specifics and tuning
+    too (`panel_width`, `stale_after`, `velocity_sprints`, …), remembered
+    per browser. Off, `/` still finds them, and one your config sets stays
+    in sight.
+
     ![Settings in the browser](../screenshots/web/settings.png)
 
 ## Look

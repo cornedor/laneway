@@ -16,6 +16,7 @@ test('projects are removed and picked again', async ({ page, app }) => {
 // Restart serves the app again and the page comes back by itself.
 test('restart comes back', async ({ page, app }) => {
   await page.goto(new URL('#/settings', app.url).href);
+  await page.getByRole('button', { name: 'Advanced' }).click();
   const reloaded = page.waitForEvent('load');
   await page.getByRole('group', { name: 'Restart' }).getByRole('button', { name: 'Restart' }).click();
   await reloaded;
@@ -90,4 +91,29 @@ test('key groups fold by keyboard, the cursor stays', async ({ page, app }) => {
   await page.keyboard.press('j');
   await expect(sel).toHaveClass(/\bst-fold\b/);
   await expect(sel).not.toContainText('Global');
+});
+
+// Advanced hides the options for specifics and tuning (a group of only those too); the filter still finds one,
+// marked, and the choice outlasts a reload.
+test('advanced options hide behind a toggle', async ({ page, app }) => {
+  await page.goto(new URL('#/settings', app.url).href);
+  const pw = page.getByRole('group', { name: 'panel_width' }), adv = page.getByRole('button', { name: 'Advanced' });
+  await expect(page.getByRole('group', { name: 'lane_layouts' })).toBeVisible();
+  await expect(pw).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Refresh', exact: true })).toHaveCount(0);
+  const filter = page.getByRole('searchbox', { name: 'Filter settings' });
+  await filter.fill('panel_width');
+  await expect(pw.locator('.chip', { hasText: 'advanced' })).toBeVisible();
+  await filter.fill('');
+  await expect(pw).toHaveCount(0);
+  await adv.click();
+  await expect(adv).toHaveAttribute('aria-pressed', 'true');
+  await expect(pw).toBeVisible();
+  await expect(pw.locator('.chip', { hasText: 'advanced' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Refresh', exact: true })).toBeVisible();
+  await page.reload();
+  await expect(pw).toBeVisible();
+  await page.keyboard.press('a');
+  await expect(pw).toHaveCount(0);
+  await expect(adv).toHaveAttribute('aria-pressed', 'false');
 });

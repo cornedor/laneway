@@ -30,7 +30,7 @@ export function siteOptions(app, refresh) {
         mine().length ? mine().map(k => h('span.chip.st-proj', k, h('button.st-proj-x', { tabindex: -1, title: T('Remove %s', k), 'aria-label': T('Remove %s', k), onclick: e => { e.stopPropagation(); drop(k); } }, '×'))) : h('span.faint', T('none')),
         h('button.btn.ghost', { tabindex: -1, onclick: edit }, T('Edit'))),
       change: edit, reset: () => { if (mine().length) save([]); } },
-    { name: 'Restart', section: 'Server',
+    { name: 'Restart', section: 'Server', advanced: true,
       desc: T('starts laneway web again: the config read anew, for options marked restart needed'),
       render: () => h('span.st-val', h('button.btn', { tabindex: -1, onclick: () => restart(app) }, T('Restart'))),
       change: () => restart(app) },
