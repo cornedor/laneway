@@ -5,6 +5,8 @@ import { h } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { keys } from '../lib/keys.js';
 import { T } from '../lib/i18n.js';
+import { mdEdit } from '../lib/mdedit.js';
+import { mentionsIn } from '../lib/comment.js';
 
 css('forms');
 
@@ -225,7 +227,7 @@ export function setField(app, key, field, body, what, patch) {
 export function moveForm(app, key, t) {
   const rows = t.Fields.map(f => ({ label: f.Name, required: f.Required && f.Kind !== 'other', widget: fieldInput(app, f, { issue: key, project: projectOf(key), value: f.Value, required: f.Required }) }));
   formDialog(app, {
-    title: T('Move %s → %s', key, t.ToName), intro: t.Message, rows, ok: T('Move'),
+    title: T('Move %s → %s', key, t.ToName), intro: t.Message, rows, ok: T('Move'), wide: t.Fields.some(f => f.Kind === 'doc' || f.Kind === 'comment'),
     submit: async () => {
       const out = [];
       rows.forEach((r, i) => { const f = t.Fields[i]; if (f.Kind !== 'other' && r.widget.touched()) out.push({ ID: f.ID, Kind: f.Kind, Value: r.widget.get() }); });
@@ -294,11 +296,11 @@ export function formDialog(app, { title, intro, rows, ok = T('Save'), submit, wi
     intro && h('p.dim', intro),
     h('div.form', rows.map(r => formRow(r.label, r.widget.el, r.required))), err,
     h('div.row.end', h('span.faint.form-hint', T('ctrl+⏎ saves')), h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel')), okBtn));
-  const m = app.ui.modal(form, { title, wide });
+  const m = app.ui.modal(form, { title, wide, onClose: () => rows.forEach(r => r.widget.dispose && r.widget.dispose()) });
   m.scope.bind('ctrl+Enter', () => go(), T('submit'), { input: true, hidden: true });
   const firstEmpty = rows.find(r => r.widget.empty());
   const target = firstEmpty && firstEmpty.widget.el.querySelector ? firstEmpty.widget.el : null;
-  const focus = target && (target.matches('input,textarea,select,button') ? target : target.querySelector('input,textarea,select,button'));
+  const focus = target && (firstEmpty.widget.focusEl || (target.matches('input,textarea,select,button') ? target : target.querySelector('input,textarea,select,button')));
   if (focus) focus.focus();
   async function go() {
     const missing = rows.filter(r => r.required && r.widget.empty()).map(r => r.label);
@@ -333,8 +335,11 @@ export function fieldInput(app, fm, { project, issue, value, required } = {}) {
       break;
     }
     case 'doc': case 'comment': {
-      const t = h('textarea.input', { rows: 4, value: v.Text || '', oninput: touch });
-      w.el = t; w.get = () => ({ Text: t.value }); w.empty = () => !t.value.trim();
+      // Markdown, @ mentions and all, as the comment composer (sent as Users).
+      const e = mdEdit(app, { value: v.Text || '', rows: 4, issueKey: issue, project, noCancel: true, hint: T('@ mentions · / formats') });
+      e.ta.addEventListener('input', touch);
+      w.el = e.el; w.focusEl = e.ta; w.dispose = e.dispose;
+      w.get = () => ({ Text: e.ta.value, Users: mentionsIn(e.ta.value, e.mentions, []) }); w.empty = () => !e.ta.value.trim();
       break;
     }
     case 'strings':

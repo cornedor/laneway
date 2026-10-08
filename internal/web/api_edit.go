@@ -517,23 +517,31 @@ type fieldVal struct {
 	Value jira.Value
 }
 
-func encodeFields(fs []fieldVal) (map[string]any, string, error) {
+// encodeFields is the fields to write, and the comment (Text, the people
+// it mentions as Users) apart.
+func encodeFields(fs []fieldVal) (map[string]any, jira.Value, error) {
 	out := map[string]any{}
-	comment := ""
+	var comment jira.Value
 	for _, f := range fs {
 		if f.Kind == jira.KindComment {
-			comment = f.Value.Text
+			comment = f.Value
 			continue
 		}
 		v, ok, err := jira.EncodeValue(f.Kind, f.Value)
 		if err != nil {
-			return nil, "", badRequest(fmt.Sprintf("%s: %v", f.ID, err))
+			return nil, jira.Value{}, badRequest(fmt.Sprintf("%s: %v", f.ID, err))
 		}
 		if ok {
 			out[f.ID] = v
 		}
 	}
 	return out, comment, nil
+}
+
+// commentDoc is markdown as a comment's document, each "@Name" of people a
+// mention.
+func commentDoc(ctx context.Context, s *Server, md string, people []jira.User) map[string]any {
+	return jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, md), jira.MentionNodes(people))
 }
 
 // transitionWith moves the issue writing the form's fields and comment in
@@ -555,7 +563,11 @@ func transitionWith(ctx context.Context, s *Server, r *http.Request) (any, error
 		return nil, err
 	}
 	iss, _ := s.Client().Get(ctx, key)
-	if err := s.Client().TransitionWith(ctx, key, b.ID, fields, comment); err != nil {
+	var doc any
+	if strings.TrimSpace(comment.Text) != "" {
+		doc = commentDoc(ctx, s, comment.Text, comment.Users)
+	}
+	if err := s.Client().TransitionWithDoc(ctx, key, b.ID, fields, doc); err != nil {
 		return nil, err
 	}
 	var undo *edit

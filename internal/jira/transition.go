@@ -382,7 +382,7 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 		if strings.TrimSpace(v.Text) == "" {
 			return nil, true, nil
 		}
-		return MarkdownToADF(v.Text), true, nil
+		return MarkdownToADFKept(v.Text, MentionNodes(v.Users)), true, nil
 	case KindOption:
 		if len(v.Options) == 0 {
 			return nil, true, nil
@@ -398,10 +398,32 @@ func EncodeValue(kind string, v Value) (any, bool, error) {
 	return nil, false, nil
 }
 
+// MentionNodes are users as the kept mentions MarkdownToADFKept turns
+// their "@Name" into.
+func MentionNodes(users []User) []json.RawMessage {
+	var out []json.RawMessage
+	for _, u := range users {
+		if u.AccountID != "" && u.DisplayName != "" {
+			out = append(out, MentionNode("mention", map[string]any{"id": u.AccountID, "text": "@" + u.DisplayName}))
+		}
+	}
+	return out
+}
+
 // TransitionWith moves the issue along transitionID, writing fields (id →
 // EncodeValue output) and adding comment in the same request — the only way
 // the validators judge the new values rather than the stored ones.
 func (c *Client) TransitionWith(ctx context.Context, key, transitionID string, fields map[string]any, comment string) error {
+	var doc any
+	if strings.TrimSpace(comment) != "" {
+		doc = textToADF(comment, nil)
+	}
+	return c.TransitionWithDoc(ctx, key, transitionID, fields, doc)
+}
+
+// TransitionWithDoc is TransitionWith with the comment as a document
+// (nil for none).
+func (c *Client) TransitionWithDoc(ctx context.Context, key, transitionID string, fields map[string]any, comment any) error {
 	if !c.Enabled() {
 		return errNotConfigured
 	}
@@ -409,9 +431,9 @@ func (c *Client) TransitionWith(ctx context.Context, key, transitionID string, f
 	if len(fields) > 0 {
 		body["fields"] = fields
 	}
-	if strings.TrimSpace(comment) != "" {
+	if comment != nil {
 		body["update"] = map[string]any{
-			"comment": []any{map[string]any{"add": map[string]any{"body": textToADF(comment, nil)}}},
+			"comment": []any{map[string]any{"add": map[string]any{"body": comment}}},
 		}
 	}
 	path := "/rest/api/3/issue/" + url.PathEscape(key) + "/transitions"

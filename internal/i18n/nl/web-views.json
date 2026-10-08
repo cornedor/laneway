@@ -1228,5 +1228,6 @@
   "↵ or space toggle · tab/↑↓ field · ctrl+s start · esc cancel": "↵ of spatie schakelt · tab/↑↓ veld · ctrl+s start · esc annuleren",
   "↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel": "↵ of typ om te kiezen · ←→ wisselt · tab/↑↓ veld · ctrl+s start · esc annuleren",
   "↵ start · tab/↑↓ field · ctrl+s start · esc cancel": "↵ start · tab/↑↓ veld · ctrl+s start · esc annuleren",
-  "↵ start · tab/↑↓ field · esc cancel": "↵ start · tab/↑↓ veld · esc annuleren"
+  "↵ start · tab/↑↓ field · esc cancel": "↵ start · tab/↑↓ veld · esc annuleren",
+  "@ mentions · / formats": "@ vermelden · / voor opmaak"
 }

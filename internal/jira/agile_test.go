@@ -155,6 +155,11 @@ func TestDecodeValue(t *testing.T) {
 	if !DecodeValue(KindUser, json.RawMessage(`null`)).Empty() {
 		t.Error("null not empty")
 	}
+	// The people a doc mentions (Users) are written as mentions.
+	enc, _, _ = EncodeValue(KindDoc, Value{Text: "Hi @Gaia Giovanelli, @Bo", Users: []User{{AccountID: "g1", DisplayName: "Gaia Giovanelli"}}})
+	if b, _ := json.Marshal(enc); !strings.Contains(string(b), `"type":"mention"`) || !strings.Contains(string(b), `"id":"g1"`) || !strings.Contains(string(b), `"text":", @Bo"`) {
+		t.Errorf("mention encoded = %s", b)
+	}
 }
 
 // TestCardLimit: paging stops at the configured limit, the total stays the

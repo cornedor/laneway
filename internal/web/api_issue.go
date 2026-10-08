@@ -105,7 +105,7 @@ func init() {
 		}
 		b, err := Body[struct {
 			Markdown string
-			Mentions []jira.Mention
+			Mentions []jira.User
 			// Raw posts a document as it is: a deleted comment's, to undo the delete.
 			Raw json.RawMessage
 			// Visibility limits who reads it: an internal note, a role or a group.
@@ -132,13 +132,7 @@ func init() {
 		if strings.TrimSpace(b.Markdown) == "" {
 			return nil, badRequest(i18n.T("empty comment"))
 		}
-		var kept []json.RawMessage
-		for _, m := range b.Mentions {
-			if m.AccountID != "" && m.DisplayName != "" {
-				kept = append(kept, jira.MentionNode("mention", map[string]any{"id": m.AccountID, "text": "@" + m.DisplayName}))
-			}
-		}
-		doc, _ := json.Marshal(jira.MarkdownToADFKept(s.Client().EmbedImages(ctx, b.Markdown), kept))
+		doc, _ := json.Marshal(commentDoc(ctx, s, b.Markdown, b.Mentions))
 		if b.Check {
 			if found, err := s.Client().HasComment(ctx, key, doc); err != nil || found {
 				return map[string]bool{"Found": found}, err

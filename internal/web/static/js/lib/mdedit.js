@@ -256,7 +256,7 @@ export function mdEdit(app, o) {
     btn(icon('heading'), T('Heading (/h2)'), () => ctl.line('## ')), btn(icon('list'), T('Bulleted list'), () => ctl.line('- ')), btn(icon('list-ordered'), T('Numbered list'), () => ctl.line('1. ')),
     btn(icon('list-todo'), T('Task list'), () => ctl.line('- [ ] ')), btn(icon('quote'), T('Quote'), () => ctl.line('> ')), btn(icon('square-code'), T('Code block'), () => ctl.block('```\n', '\n```', '')), h('i.sep'),
     btn('/', T('Insert… (type / in the text)'), () => { ctl.insert('/'); trigger(); }), btn(icon('at-sign'), T('Mention'), () => { ctl.insert('@'); trigger(); }),
-    btn(icon('paperclip'), T('Attach files (or paste, or drop them)'), () => fileIn.click()),
+    o.onFiles && btn(icon('paperclip'), T('Attach files (or paste, or drop them)'), () => fileIn.click()),
     h('span.spacer'), bSrc, bPrev, bFull);
   if (!o.onFiles) fileIn.remove();
 
@@ -378,6 +378,7 @@ export function mdEdit(app, o) {
     b('ctrl+shift+x', () => ctl.wrap('~~', '~~', 'text'), T('strikethrough'));
     b('ctrl+e', () => ctl.wrap('`', '`', 'code'), T('inline code'));
     b('ctrl+p', togglePreview, T('toggle preview'));
+    scope.bind('Escape', closePop, '', { input: true, hidden: true, when: () => !pop.hidden }); // the list, not the dialog the editor is in
   });
   const release = () => { draft.flush(); if (scope) { scope.dispose(); scope = null; } };
   ta.addEventListener('blur', release);

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -257,5 +258,30 @@ func TestCreateFieldErrors(t *testing.T) {
 	code := issueCall(t, "POST", ts.URL+"/api/issues", map[string]any{"Project": "DEMO", "Type": "Task", "Summary": "x"}, &out)
 	if code == 200 || out.Fields["summary"] != "Summary is too long" || out.Fields["customfield_10030"] != "Team is required" {
 		t.Fatalf("%d %+v", code, out)
+	}
+}
+
+// TestTransitionWithMentions: the move's comment is markdown whose people
+// (Users) are written as mentions, in the transition request itself.
+func TestTransitionWithMentions(t *testing.T) {
+	var sent map[string]any
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/transitions") {
+			_ = json.NewDecoder(r.Body).Decode(&sent)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(fake.Close)
+	ts := issueServer(t, fake.URL)
+	body := map[string]any{"ID": "13", "Fields": []map[string]any{{"ID": "comment", "Kind": "comment",
+		"Value": map[string]any{"Text": "**Waiting** on @Gaia Giovanelli", "Users": []map[string]string{{"AccountID": "g1", "DisplayName": "Gaia Giovanelli"}}}}}}
+	if code := issueCall(t, "POST", ts.URL+"/api/issues/DEMO-1/transitionwith", body, nil); code != 200 {
+		t.Fatalf("transitionwith: %d", code)
+	}
+	b, _ := json.Marshal(sent["update"])
+	if !strings.Contains(string(b), `"type":"mention"`) || !strings.Contains(string(b), `"id":"g1"`) || !strings.Contains(string(b), `"strong"`) {
+		t.Errorf("update = %s", b)
 	}
 }
