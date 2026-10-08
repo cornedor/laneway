@@ -125,7 +125,7 @@ func (c *Client) StatusMoves(ctx context.Context, keys []string) (map[string][]S
 	}
 	out := map[string][]StatusMove{}
 	for chunk := range slices.Chunk(keys, 100) {
-		raw, err := c.searchUpTo(ctx, "key in ("+strings.Join(chunk, ",")+")", []string{"status"}, "changelog", len(chunk))
+		raw, _, err := c.searchUpTo(ctx, "key in ("+strings.Join(chunk, ",")+")", []string{"status"}, "changelog", len(chunk))
 		if err != nil {
 			return nil, err
 		}

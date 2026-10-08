@@ -30,6 +30,9 @@ type planState struct {
 	sprints []jiraView // the board's sprint views, the targets
 	target  int        // index into sprints
 	sides   [2][]jira.Card
+	// rest is how many issues of a side the card limit left in Jira; moves
+	// leave it be.
+	rest    [2]int
 	side    int // 0 backlog, 1 sprint
 	idx     [2]int
 	top     [2]int
@@ -104,6 +107,7 @@ type planDrag struct {
 type planMsg struct {
 	seq         int
 	left, right []jira.Card
+	totals      [2]int   // per side, in Jira
 	errs        [2]error // per side
 	vel         []jira.SprintVelocity
 	velRead     bool
@@ -175,9 +179,12 @@ func (m *Model) loadPlan() tea.Cmd {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			msg.left, _, errL = fetchJiraView(ctx, c, board, cfg, jiraView{kind: jiraViewBacklog}, "")
+			msg.left, msg.totals[0], errL = fetchJiraView(ctx, c, board, cfg, jiraView{kind: jiraViewBacklog}, "")
 		}()
-		go func() { defer wg.Done(); msg.right, _, errR = fetchJiraView(ctx, c, board, cfg, sprint, "") }()
+		go func() {
+			defer wg.Done()
+			msg.right, msg.totals[1], errR = fetchJiraView(ctx, c, board, cfg, sprint, "")
+		}()
 		wg.Wait()
 		msg.seq, msg.errs = seq, [2]error{errL, errR}
 		return msg
@@ -216,6 +223,7 @@ func (m Model) handlePlan(msg planMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	for s := range p.sides {
+		p.rest[s] = max(msg.totals[s]-len(p.sides[s]), 0)
 		p.idx[s] = min(p.idx[s], max(len(p.view(s))-1, 0))
 	}
 	return m, nil
@@ -794,8 +802,8 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 		headStyle, drop = jiraViewActive, i18n.T("  ◂ drop")
 	}
 	count := i18n.Tn(len(cards), "%d card", "%d cards", len(cards))
-	if p.filter != "" {
-		count = i18n.Tf("%d of %d cards", len(cards), len(p.sides[side]))
+	if all := len(p.sides[side]) + p.rest[side]; p.filter != "" || all > len(cards) {
+		count = i18n.Tf("%d of %d cards", len(cards), all)
 	}
 	head := headStyle.Render(fmt.Sprintf("%s  %s · %s", name, count, pts))
 	if side == 1 && p.velN > 0 {

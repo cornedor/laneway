@@ -183,7 +183,9 @@ export function openPalette(app, mode = '') {
   function buildJQL(v) {
     if (phase === 'results') {
       if (results.err) { items.push({ type: 'msg', text: results.err, err: true }); return; }
-      items.push({ type: 'hdr', text: Tn(results.cards.length, '%d issue · ctrl+s stars as a view · ctrl+f saves as a filter', '%d issues · ctrl+s stars as a view · ctrl+f saves as a filter', results.cards.length) });
+      const n = results.cards.length;
+      items.push({ type: 'hdr', text: results.total > n ? T('First %d of %d issues · ctrl+s stars as a view · ctrl+f saves as a filter', n, results.total)
+        : Tn(n, '%d issue · ctrl+s stars as a view · ctrl+f saves as a filter', '%d issues · ctrl+s stars as a view · ctrl+f saves as a filter', n) });
       results.cards.forEach(c => items.push(issueItem(c)));
       return;
     }
@@ -225,7 +227,7 @@ export function openPalette(app, mode = '') {
     const hist = readLS('jqlhist', []).filter(t => t !== v); hist.unshift(v); writeLS('jqlhist', hist.slice(0, 20));
     items = [{ type: 'msg', text: T('Searching…') }]; sel = 0; draw();
     fetchJSON('/search?jql=' + encodeURIComponent(v), (d, e) => {
-      results = e ? { err: e.message } : { cards: d.cards || [] };
+      results = e ? { err: e.message } : { cards: d.cards || [], total: d.total || 0 };
       build();
     });
   }

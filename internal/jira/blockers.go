@@ -15,7 +15,7 @@ func (c *Client) Blockers(ctx context.Context, keys []string) (map[string][]stri
 	}
 	out := map[string][]string{}
 	for chunk := range slices.Chunk(keys, 100) {
-		raw, err := c.searchUpTo(ctx, "key in ("+strings.Join(chunk, ",")+")", []string{"issuelinks"}, "", len(chunk))
+		raw, _, err := c.searchUpTo(ctx, "key in ("+strings.Join(chunk, ",")+")", []string{"issuelinks"}, "", len(chunk))
 		if err != nil {
 			return nil, err
 		}

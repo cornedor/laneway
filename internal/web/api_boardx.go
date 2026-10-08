@@ -68,11 +68,11 @@ func viewCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	c := s.Client()
 	q := andOrderedJQL(Q(r, "jql"), Q(r, "filter"))
 	if Q(r, "kind") == "filter" {
-		cards, err := c.SearchCards(ctx, q)
+		cards, total, err := c.SearchCardsTotal(ctx, q)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"cards": cards, "total": len(cards)}, nil
+		return map[string]any{"cards": cards, "total": total}, nil
 	}
 	pf := Q(r, "points")
 	if pf == "" {

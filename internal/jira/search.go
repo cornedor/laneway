@@ -12,8 +12,27 @@ import (
 // paging by the enhanced search's nextPageToken. Points come from the first
 // story point field an issue fills.
 func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
+	cards, _, err := c.searchCards(ctx, jql)
+	return cards, err
+}
+
+// SearchCardsTotal is SearchCards with how many issues jql finds: past the
+// card limit by Jira's approximate count, else the cards'.
+func (c *Client) SearchCardsTotal(ctx context.Context, jql string) ([]Card, int, error) {
+	cards, cut, err := c.searchCards(ctx, jql)
+	total := len(cards)
+	if cut && err == nil {
+		if n, cerr := c.Count(ctx, jql); cerr == nil {
+			total = max(n, total)
+		}
+	}
+	return cards, total, err
+}
+
+// searchCards is SearchCards, saying whether the card limit cut it off.
+func (c *Client) searchCards(ctx context.Context, jql string) ([]Card, bool, error) {
 	if !c.Enabled() {
-		return nil, errNotConfigured
+		return nil, false, errNotConfigured
 	}
 	sp := c.resolveStoryPointFields(ctx)
 	fields := append(strings.Split(cardFields, ","), sp...)
@@ -24,9 +43,9 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 			fields = append(fields, id)
 		}
 	}
-	issues, err := c.search(ctx, jql, fields)
+	issues, cut, err := c.searchUpTo(ctx, jql, fields, "", c.cardLimit)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	out := make([]Card, 0, len(issues))
 	for _, is := range issues {
@@ -48,7 +67,7 @@ func (c *Client) SearchCards(ctx context.Context, jql string) ([]Card, error) {
 	if c.index != nil {
 		c.index.PutCards(out)
 	}
-	return out, nil
+	return out, cut, nil
 }
 
 // rawIssue is a search hit with its fields undecoded.
@@ -75,7 +94,8 @@ func (c *Client) search(ctx context.Context, jql string, fields []string) ([]raw
 
 // searchExpand is search with expand ("changelog"), "" for none.
 func (c *Client) searchExpand(ctx context.Context, jql string, fields []string, expand string) ([]rawIssue, error) {
-	return c.searchUpTo(ctx, jql, fields, expand, c.cardLimit)
+	out, _, err := c.searchUpTo(ctx, jql, fields, expand, c.cardLimit)
+	return out, err
 }
 
 // chartLimit bounds the searches charts and the roadmap count from: past
@@ -86,17 +106,19 @@ const chartLimit = 5000
 // searchChart is searchExpand up to chartLimit (or the card limit, when
 // higher).
 func (c *Client) searchChart(ctx context.Context, jql string, fields []string, expand string) ([]rawIssue, error) {
-	return c.searchUpTo(ctx, jql, fields, expand, max(c.cardLimit, chartLimit))
+	out, _, err := c.searchUpTo(ctx, jql, fields, expand, max(c.cardLimit, chartLimit))
+	return out, err
 }
 
 // searchAll is search without the card limit, for totals that must be whole.
 func (c *Client) searchAll(ctx context.Context, jql string, fields []string) ([]rawIssue, error) {
-	return c.searchUpTo(ctx, jql, fields, "", math.MaxInt)
+	out, _, err := c.searchUpTo(ctx, jql, fields, "", math.MaxInt)
+	return out, err
 }
 
-// searchUpTo pages through jql's issues until it has limit of them.
-func (c *Client) searchUpTo(ctx context.Context, jql string, fields []string, expand string, limit int) ([]rawIssue, error) {
-	var out []rawIssue
+// searchUpTo pages through jql's issues until it has limit of them; cut is
+// whether jql finds issues past them.
+func (c *Client) searchUpTo(ctx context.Context, jql string, fields []string, expand string, limit int) (out []rawIssue, cut bool, err error) {
 	token := ""
 	for len(out) < limit {
 		body := map[string]any{"jql": jql, "fields": fields, "maxResults": cardPage}
@@ -111,17 +133,19 @@ func (c *Client) searchUpTo(ctx context.Context, jql string, fields []string, ex
 			NextPageToken string     `json:"nextPageToken"`
 		}
 		if err := c.do(ctx, http.MethodPost, "/rest/api/3/search/jql", "search", body, &resp); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		out = append(out, resp.Issues...)
 		if token = resp.NextPageToken; token == "" || len(resp.Issues) == 0 {
 			break
 		}
 	}
+	// Stopped at the limit with a page left, or past it on the last page.
+	cut = len(out) > limit || len(out) == limit && token != ""
 	if len(out) > limit {
 		out = out[:limit]
 	}
-	return out, nil
+	return out, cut, nil
 }
 
 // Count is how many issues jql finds, by Jira's approximate count (exact for

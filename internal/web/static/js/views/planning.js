@@ -116,8 +116,10 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     data = d; columns = d.Columns || [];
     statusAt = new Map();
     columns.forEach((c, i) => (c.StatusIDs || []).forEach(id => statusAt.set(String(id), i)));
-    sections = (d.Sprints || []).map(s => ({ id: s.ID, sprint: s, name: s.Name, cards: s.Cards || [] }));
-    sections.push({ id: 0, sprint: null, name: T('Backlog'), cards: (d.Backlog && d.Backlog.Cards) || [] });
+    // rest: the issues the card limit left in Jira, which moves leave be.
+    const sec = (id, sprint, name, cards, total) => ({ id, sprint, name, cards, rest: Math.max((total || 0) - cards.length, 0) });
+    sections = (d.Sprints || []).map(s => sec(s.ID, s, s.Name, s.Cards || [], s.Total));
+    sections.push(sec(0, null, T('Backlog'), (d.Backlog && d.Backlog.Cards) || [], d.Backlog && d.Backlog.Total));
     for (const k of [...sel]) if (!sections.some(s => s.cards.some(c => c.Key === k))) sel.delete(k);
     if (side != null && !secOf(side)) side = defaultSide();
     paintSide();
@@ -308,7 +310,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       dates && h('span.pl-dates', dates),
       sp && h('span.pl-goal', { title: sp.Goal || T('No goal') }, sp.Goal || ''),
       !sp || !sp.Goal ? h('span.spacer') : null,
-      h('span.pl-tot' + (over ? '.over' : ''), Tn(cs.length, '%d issue', '%d issues', cs.length), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && T(' of ~%sp (avg last %d)', fmtP(velAvg), velN),
+      h('span.pl-tot' + (over ? '.over' : ''), s.rest ? T('%d of %d issues', cs.length, cs.length + s.rest) : Tn(cs.length, '%d issue', '%d issues', cs.length), ' · ', h('b', fmtP(sum) + 'p'), sp && velAvg > 0 && T(' of ~%sp (avg last %d)', fmtP(velAvg), velN),
         unest(cs) ? h('span.pl-unest', { title: T('Issues without story points') }, T(' · %d unestimated', unest(cs))) : null),
       sp && sp.State === 'future' && h('button.btn.pl-act', { dataset: { act: 'start' }, tabindex: -1 }, T('Start')),
       sp && sp.State === 'active' && h('button.btn.pl-act', { dataset: { act: 'close' }, tabindex: -1 }, T('Complete')),
