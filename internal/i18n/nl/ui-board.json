@@ -226,7 +226,7 @@
   "⏲ as of %s": "⏲ per %s",
   "⏲ reading history…": "⏲ geschiedenis lezen…",
   "▸ %d · ↵ shows them": "▸ %d · ↵ toont ze",
-  "▾ %d · %s pins one to keep it shown": "▾ %d · %s zet er een vast om hem te tonen",
+  "▾ %d · %s to pin/unpin": "▾ %d · %s vastzetten/losmaken",
   "✎ edit": "✎ bewerken",
   "✕ delete": "✕ verwijderen",
   "✕ delete? again": "✕ verwijderen? nogmaals"

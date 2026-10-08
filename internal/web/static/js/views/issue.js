@@ -278,7 +278,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (!rest.length) return out;
     const open = app.prefs.get('fields.more', '') === 'open';
     out.push(h('button.fld.more', { 'aria-expanded': String(open), onclick: () => { app.prefs.set('fields.more', open ? '' : 'open'); renderFields(); } },
-      h('span.k', top.length ? T('More fields') : T('Fields')), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('pin'), ' ' + T('keeps one shown')])));
+      h('span.k', top.length ? T('More fields') : T('Fields')), h('span.v.dim', icon(open ? 'chevron-down' : 'chevron-right'), ' ' + rest.length, open ? '' : [' · ', icon('pin'), ' ' + T('to pin/unpin')])));
     if (!open) return out;
     const hide = String((app.session.ui && app.session.ui.EmptyFields) || '').toLowerCase() === 'hide' && !st.showEmpty;
     const shown = hide ? rest.filter(r => r.filled) : rest;

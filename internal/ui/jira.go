@@ -734,7 +734,7 @@ func (m *Model) ownValue(id string) string {
 // moreLabel is the More row's value: how many it folds, and how to open it.
 func (m *Model) moreLabel(n int) string {
 	if m.moreFields {
-		return i18n.Tf("▾ %d · %s pins one to keep it shown", n, helpKey(m.keys.Pin))
+		return i18n.Tf("▾ %d · %s to pin/unpin", n, helpKey(m.keys.Pin))
 	}
 	return i18n.Tf("▸ %d · ↵ shows them", n)
 }
