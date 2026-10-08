@@ -4,7 +4,7 @@
 // shared with the terminal app, and Keyboard (remaps, settings_keys.js, a row per folded group). With room a sidebar
 // lists the sections and marks the one in view.
 // Advanced (a; per browser) shows the options for specifics and tuning (`advanced`: config.SettingsBasic lacks the
-// ui: one); off, one shows only when the filter finds it, marked.
+// ui: one); off, one shows only when the filter finds it or the config file sets it, marked.
 //
 // Board prefs (app.prefs, per site) for the board views:
 //   board.mode     'lanes' | 'list'                  (default: session.ui.DefaultMode or 'lanes')
@@ -211,7 +211,7 @@ export default function mount(el, { app, scope, toolbar }) {
   }
 
   const hay = o => (o.name + ' ' + o.name.replace(/_/g, ' ') + ' ' + (o.desc || '') + ' ' + o.section + ' ' + (o.meta || '') + ' ' + (o.advanced ? T('advanced') + ' ' : '') + (o.key ? app.keys.registry().filter(r => r.desc === o.name).map(r => r.specs.join(' ')).join(' ') : '')).toLowerCase();
-  const hid = o => o.advanced && !adv;
+  const hid = o => o.advanced && !adv && !(o.st && o.st.Set); // a config option the file sets stays in sight
   const shown = () => {
     const words = q.split(/\s+/).filter(Boolean);
     const match = o => { const t = hay(o); return words.every(w => t.includes(w)); };

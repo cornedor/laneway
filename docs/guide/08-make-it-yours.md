@@ -223,7 +223,7 @@ back to the config file (your comments kept) and applied at once. The
     lanes, views, keys. **Advanced** (`a`) shows the specifics and tuning
     too (`panel_width`, `card_limit`, `velocity_sprints`, …) and the
     terminal's own options, remembered per browser. Off, `/` still finds
-    them.
+    them, and one your config sets stays in sight.
 
     ![Settings in the browser](../screenshots/web/settings.png)
 
