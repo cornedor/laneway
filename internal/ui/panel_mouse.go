@@ -90,9 +90,9 @@ func (m *Model) indexPanelHits(content string) {
 			e := firstKey(m.keys.JiraDescription)
 			hint := descHeadHint(text, m.descHint(true), m.descHint(false))
 			m.panelHits[i] = panelHit{field: -1, press: e, double: true, keys: [][2]string{{hint, e}}, off: ansi.StringWidth(text) - ansi.StringWidth(hint)}
-		case text == fmt.Sprintf(emptyFieldsRow, m.hiddenFields()):
+		case text == i18n.Tf(emptyFieldsRow, m.hiddenFields()):
 			m.panelHits[i] = panelHit{field: -1, empty: true}
-		case strings.HasPrefix(text, "…and ") && strings.HasSuffix(text, "o opens in browser"):
+		case isMoreRow(text):
 			m.panelHits[i] = panelHit{field: -1, press: "o"}
 		}
 		if att := m.imageOn(l); att != "" {
@@ -141,6 +141,13 @@ func (m *Model) indexPanelHits(content string) {
 		keys[j] = ch.Key
 	}
 	m.indexKeyHits(lines, childrenHead(kids), keys)
+}
+
+// isMoreRow reports whether text is the "…and %d more" row under the
+// links, in the language shown.
+func isMoreRow(text string) bool {
+	before, after, _ := strings.Cut(i18n.T(moreLinksRow), "%d")
+	return strings.HasPrefix(text, before) && strings.HasSuffix(text, after)
 }
 
 // headHint reports whether text is a heading, two spaces, hint.

@@ -177,7 +177,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		}
 	}
 	if n := m.hiddenFields(); n > 0 {
-		b.WriteString("\n" + refDimStyle.Render(fmt.Sprintf(emptyFieldsRow, n)) + "\n")
+		b.WriteString("\n" + refDimStyle.Render(i18n.Tf(emptyFieldsRow, n)) + "\n")
 	}
 
 	// Edit affordances: the field cursor (panel_fields.go), comments
@@ -189,7 +189,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		b.WriteString(descEditMark + "\n")
 	} else {
 		desc := strings.TrimSpace(iss.Description)
-		b.WriteString(sectionHead(descHead, "  "+m.descHint(desc != ""), max(width, 1)))
+		b.WriteString(sectionHead(i18n.T(descHead), "  "+m.descHint(desc != ""), max(width, 1)))
 		if desc != "" {
 			b.WriteString(renderMarkdown(m.numberDesc(iss.Key, desc), m.emojiImg, nil, ""))
 		}
@@ -215,7 +215,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	return b.String()
 }
 
-const descHead = "Description"
+var descHead = i18n.N("Description")
 
 // panelLabelW is the width of the panel's label column: the translated
 // labels fit.
@@ -287,7 +287,7 @@ func (m *Model) renderJiraLinks(b *strings.Builder, iss *jira.Issue, width int) 
 	if len(iss.Links) == 0 {
 		return
 	}
-	b.WriteString(sectionHead(i18n.Tf("Links (%d)", len(iss.Links)), "  L open", width))
+	b.WriteString(sectionHead(i18n.Tf("Links (%d)", len(iss.Links)), "  L "+i18n.T("open"), width))
 	for _, l := range iss.Links {
 		line := refDimStyle.Render(l.Rel+" ") + jiraKeyStyle.Render(l.Key) + " " + l.Summary
 		if l.Status != "" {
@@ -309,7 +309,7 @@ func (m *Model) renderChildren(b *strings.Builder, width int) {
 	if len(kids) == 0 {
 		return
 	}
-	b.WriteString(sectionHead(childrenHead(kids), "  L open", width))
+	b.WriteString(sectionHead(childrenHead(kids), "  L "+i18n.T("open"), width))
 	for _, ch := range kids {
 		line := jiraKeyStyle.Render(ch.Key) + " " + ch.Summary
 		meta := ch.Status
@@ -360,7 +360,7 @@ func (m *Model) renderWebLinks(b *strings.Builder, iss *jira.Issue, width int) {
 	if len(links) == 0 {
 		return
 	}
-	b.WriteString(sectionHead(i18n.Tf("Web links (%d)", len(links)), "  L open", width))
+	b.WriteString(sectionHead(i18n.Tf("Web links (%d)", len(links)), "  L "+i18n.T("open"), width))
 	for _, l := range links {
 		line := osc8Link(l.URL, mdLinkStyle.Render(safeterm.Line(l.Title)))
 		if l.App != "" {
@@ -594,7 +594,7 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 	}
 
 	if extra := iss.CommentTotal - len(iss.Comments); extra > 0 {
-		b.WriteString("\n" + refDimStyle.Render(i18n.Tf("…and %d more — o opens in browser", extra)) + "\n")
+		b.WriteString("\n" + refDimStyle.Render(i18n.Tf(moreLinksRow, extra)) + "\n")
 	}
 }
 
@@ -712,4 +712,7 @@ func (m *Model) moreLabel(n int) string {
 
 // emptyFieldsRow stands for the empty fields ui.empty_fields: hide folds;
 // a click (or the palette) shows them.
-const emptyFieldsRow = "%d empty fields · a click shows them"
+var emptyFieldsRow = i18n.N("%d empty fields · a click shows them")
+
+// moreLinksRow ends a list cut short.
+var moreLinksRow = i18n.N("…and %d more — o opens in browser")
