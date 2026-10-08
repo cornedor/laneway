@@ -43,10 +43,10 @@ func startServer(t *testing.T, repo string, ui config.UIConfig) *httptest.Server
 func withHerdr(t *testing.T) *fakeHerdr {
 	t.Helper()
 	f, c := newFakeHerdr(t)
-	old, oldWait := herdrClient, startAgentWait
+	old, oldWait, oldPrompt := herdrClient, startAgentWait, herdr.PromptWait
 	herdrClient = func() *herdr.Client { return c }
-	startAgentWait = time.Millisecond
-	t.Cleanup(func() { herdrClient, startAgentWait = old, oldWait })
+	startAgentWait, herdr.PromptWait = time.Millisecond, time.Millisecond
+	t.Cleanup(func() { herdrClient, startAgentWait, herdr.PromptWait = old, oldWait, oldPrompt })
 	return f
 }
 
@@ -156,6 +156,7 @@ func TestWorkFormSpec(t *testing.T) {
 func TestStartStreamsSteps(t *testing.T) {
 	f := withHerdr(t)
 	f.startFails = 2 // the fresh shell isn't ready twice
+	f.notReady = 2   // nor is the agent herdr just started
 	ts := startServer(t, gitRepo(t), config.UIConfig{StartAssigns: "on", StartStatus: "In Progress", TimerOnStart: "on"})
 	steps, done, errMsg := streamStart(t, ts.URL+"/api/issues/DEMO-5/work", `{"Agent":"claude","Branch":"issue/DEMO-5-new","Prompt":"line one\nline two {key}","Actions":true}`)
 	if errMsg != "" || done == nil {
@@ -173,11 +174,13 @@ func TestStartStreamsSteps(t *testing.T) {
 	}
 	f.mu.Lock()
 	args := f.params["agent.start"]["args"]
+	text := f.params["agent.prompt"]["text"]
 	create := f.params["worktree.create"]
 	f.mu.Unlock()
-	// The multi-line prompt goes as one argument, {key} filled in.
-	if a, _ := args.([]any); len(a) != 1 || a[0] != "line one\nline two DEMO-5" {
-		t.Errorf("args = %#v", args)
+	// herdr refuses an argument with a newline: the prompt is pasted once
+	// the agent runs, {key} filled in.
+	if args != nil || text != "line one\nline two DEMO-5" {
+		t.Errorf("args = %#v, prompt %q", args, text)
 	}
 	if create["branch"] != "issue/DEMO-5-new" {
 		t.Errorf("worktree.create = %v", create)

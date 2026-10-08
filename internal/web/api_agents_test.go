@@ -34,7 +34,9 @@ type fakeHerdr struct {
 	open   bool // worktree.open finds the worktree
 	// startFails: agent.start fails this many times first, always when < 0.
 	startFails int
-	createErr  string // worktree.create fails with it
+	// notReady: agent.prompt says agent_not_ready this many times first.
+	notReady  int
+	createErr string // worktree.create fails with it
 }
 
 func newFakeHerdr(t *testing.T) (*fakeHerdr, *herdr.Client) {
@@ -111,7 +113,10 @@ func (f *fakeHerdr) serve(conn net.Conn) {
 	case "tab.create":
 		result = map[string]any{"tab": map[string]any{"tab_id": "t3"}, "root_pane": map[string]any{"pane_id": "p3"}}
 	case "agent.prompt":
-		if req.Params["text"] == "block" {
+		if f.notReady > 0 {
+			f.notReady--
+			errObj = map[string]any{"code": "agent_not_ready", "message": "not ready"}
+		} else if req.Params["text"] == "block" {
 			errObj = map[string]any{"code": "agent_blocked", "message": "blocked"}
 		}
 	case "events.subscribe":
@@ -410,10 +415,11 @@ func TestStartWorkSequence(t *testing.T) {
 	start := f.params["agent.start"]
 	rename := f.params["tab.rename"]
 	f.mu.Unlock()
-	if !strings.Contains(order, "worktree.open,worktree.create,tab.rename,agent.start") {
+	prompt := f.params["agent.prompt"]
+	if !strings.Contains(order, "worktree.open,worktree.create,tab.rename,agent.start,agent.prompt") {
 		t.Errorf("calls = %s", order)
 	}
-	if fmt.Sprint(start["args"]) != "[Do DEMO-5 now]" || start["pane_id"] != "p2" || start["kind"] != "claude" {
+	if start["args"] != nil || start["pane_id"] != "p2" || start["kind"] != "claude" || prompt["text"] != "Do DEMO-5 now" || prompt["target"] != "p2" {
 		t.Errorf("agent.start = %v", start)
 	}
 	if fmt.Sprint(rename["label"]) != "DEMO-5" {

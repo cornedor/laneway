@@ -395,6 +395,7 @@ type startPlan struct {
 	cfg                     workConfig
 	key, repo, kind, branch string
 	args                    []string
+	prompt                  string // submitted once the agent runs
 	actions, another        bool
 	spot                    *WorkSpot // another: the directory to start in
 	iss                     *jira.Issue
@@ -440,7 +441,7 @@ func planStart(ctx context.Context, s *Server, r *http.Request) (*startPlan, err
 	} else if strings.HasPrefix(prompt, "-") {
 		return nil, badRequest(i18n.T("prompt must not start with -"))
 	}
-	p.args = workArgs(cfg.Args, prompt, key)
+	p.args, p.prompt = workArgs(cfg.Args, prompt, key)
 	if b.Another {
 		spots := workSpots(repo, key, runningOn(ctx, c, key))
 		if path := strings.TrimSpace(b.Path); path != "" {
@@ -609,7 +610,7 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 // ready yet.
 func (p *startPlan) startIn(ctx context.Context, pane string, step func(name, state, text string)) error {
 	step("agent", "run", i18n.Tf("Starting %s", p.kind))
-	err := startAgentTries(ctx, p.c, p.kind, agentName(p.key, time.Now()), pane, p.args, func(try int) {
+	err := startAgentTries(ctx, p.c, p.kind, agentName(p.key, time.Now()), pane, p.args, p.prompt, func(try int) {
 		step("agent", "run", i18n.Tf("Starting %s: waiting for the shell (try %d of 10)", p.kind, try+1))
 	})
 	if err != nil {
@@ -751,17 +752,16 @@ func openPullRequest(ctx context.Context, s *Server, r *http.Request) (any, erro
 	return map[string]string{"URL": url, "Branch": branch}, nil
 }
 
-// workArgs are the agent's arguments: extra with {key} replaced, then the
-// start prompt, left out when it is "none".
-func workArgs(extra []string, prompt, key string) []string {
-	var out []string
+// workArgs are the agent's arguments, extra with {key} replaced, and its
+// start prompt, "" when it is "none".
+func workArgs(extra []string, prompt, key string) (args []string, start string) {
 	for _, a := range extra {
-		out = append(out, strings.ReplaceAll(a, "{key}", key))
+		args = append(args, strings.ReplaceAll(a, "{key}", key))
 	}
 	if !strings.EqualFold(strings.TrimSpace(prompt), "none") && strings.TrimSpace(prompt) != "" {
-		out = append(out, strings.ReplaceAll(prompt, "{key}", key))
+		start = strings.ReplaceAll(prompt, "{key}", key)
 	}
-	return out
+	return args, start
 }
 
 // agentName names the herdr agent: [a-z][a-z0-9_-]{0,31}, stamped because
@@ -821,18 +821,23 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 	}
 }
 
-// startAgent retries: a fresh pane's shell isn't at its prompt yet, and herdr
-// won't start an agent in a busy pane.
+// startAgent starts the agent with args, then submits prompt ("" for none)
+// to it: herdr refuses arguments with a newline, a prompt it pastes. It
+// retries: a fresh pane's shell isn't at its prompt yet, and herdr won't
+// start an agent in a busy pane.
 var startAgentWait = time.Second
 
-func startAgent(ctx context.Context, c *herdr.Client, kind, name, pane string, args []string) error {
-	return startAgentTries(ctx, c, kind, name, pane, args, nil)
+func startAgent(ctx context.Context, c *herdr.Client, kind, name, pane string, args []string, prompt string) error {
+	return startAgentTries(ctx, c, kind, name, pane, args, prompt, nil)
 }
 
 // startAgentTries is startAgent telling retry each try after the first.
-func startAgentTries(ctx context.Context, c *herdr.Client, kind, name, pane string, args []string, retry func(try int)) error {
+func startAgentTries(ctx context.Context, c *herdr.Client, kind, name, pane string, args []string, prompt string, retry func(try int)) error {
 	for try := 0; ; try++ {
 		err := c.StartAgent(ctx, name, kind, pane, args)
+		if err == nil && prompt != "" {
+			return c.PromptStarted(ctx, pane, prompt)
+		}
 		if err == nil || try == 9 || ctx.Err() != nil {
 			return err
 		}

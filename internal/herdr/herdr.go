@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 // Status is an agent's lifecycle state as herdr reports it.
@@ -188,6 +189,26 @@ func (c *Client) Workspaces(ctx context.Context) ([]Workspace, error) {
 // an agent sitting at an approval or question with code "agent_blocked".
 func (c *Client) Prompt(ctx context.Context, pane, text string) error {
 	return c.call(ctx, "agent.prompt", map[string]any{"target": pane, "text": text}, nil)
+}
+
+// PromptWait is how long PromptStarted waits between tries; tests shorten it.
+var PromptWait = time.Second
+
+// PromptStarted submits text to the agent just started in pane. herdr may
+// not know or classify it yet; those refusals come before any input is
+// sent, so it retries them.
+func (c *Client) PromptStarted(ctx context.Context, pane, text string) error {
+	for try := 0; ; try++ {
+		err := c.Prompt(ctx, pane, text)
+		if err == nil || try == 9 || !IsCode(err, "agent_not_ready") && !IsCode(err, "agent_not_found") {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(PromptWait):
+		}
+	}
 }
 
 // Workspace returns the id of the workspace labelled label, creating it at cwd

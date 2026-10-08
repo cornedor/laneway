@@ -306,14 +306,14 @@ func (m *Model) applyAgentAction(key, what, pane string) tea.Cmd {
 		return agentCall(key, i18n.Tf("stopped %s", a.Name), func(ctx context.Context) error { return c.CloseTab(ctx, a.TabID) })
 	case "agent-new":
 		kind, name := m.opts.workAgent, jiraAgentName(key, time.Now())
-		args := workArgs(m.opts.workArgs, m.jiraStartPrompt, key)
+		args, prompt := workArgs(m.opts.workArgs, m.jiraStartPrompt, key)
 		m.status = i18n.Tf("%s: starting %s in %s…", key, kind, homeShort(a.CWD))
 		return agentCall(key, i18n.Tf("%s started in %s", kind, homeShort(a.CWD)), func(ctx context.Context) error {
 			_, p, err := c.NewTab(ctx, a.WorkspaceID, key, a.CWD, nil)
 			if err != nil {
 				return err
 			}
-			return startAgent(ctx, c, kind, name, p, args)
+			return startAgent(ctx, c, kind, name, p, args, prompt)
 		})
 	}
 	return nil

@@ -111,7 +111,8 @@ func StartMRReview(ctx context.Context, c *herdr.Client, repos map[string]string
 	}
 	name := "mr-" + strconv.Itoa(ref.Number) + "-" + strconv.FormatInt(time.Now().Unix(), 36)
 	wt := worktreeIn(c, repo, mr.SourceBranch, "origin/"+mr.SourceBranch, "", create)
-	return agentInWorktree(ctx, c, wt, pathpkg.Base(ref.Repo)+"!"+strconv.Itoa(ref.Number), kind, name, workArgs(extra, prompt, label))
+	args, prompt := workArgs(extra, prompt, label)
+	return agentInWorktree(ctx, c, wt, pathpkg.Base(ref.Repo)+"!"+strconv.Itoa(ref.Number), kind, name, args, prompt)
 }
 
 func (m Model) handleMRReview(msg mrReviewMsg) (tea.Model, tea.Cmd) {

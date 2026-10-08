@@ -455,8 +455,8 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := workArgs(workConfigOf(s).Args, b.Prompt, key)
-	if err := startAgent(ctx, c, kind, agentName(key, time.Now()), pane, args); err != nil {
+	args, prompt := workArgs(workConfigOf(s).Args, b.Prompt, key)
+	if err := startAgent(ctx, c, kind, agentName(key, time.Now()), pane, args, prompt); err != nil {
 		return nil, err
 	}
 	return map[string]string{"Pane": pane}, nil

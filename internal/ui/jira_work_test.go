@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -100,7 +101,7 @@ func TestWorkAgent(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ln.Close()
-	kinds := make(chan string, 1)
+	kinds, calls := make(chan string, 1), make(chan string, 2)
 	go func() {
 		for {
 			conn, err := ln.Accept()
@@ -119,15 +120,22 @@ func TestWorkAgent(t *testing.T) {
 			case "agent.start":
 				kinds <- req.Params["kind"].(string)
 				fallthrough
+			case "agent.prompt":
+				calls <- fmt.Sprintln(req.Method, req.Params["args"], req.Params["text"])
+				fallthrough
 			default:
 				conn.Write([]byte(`{"id":"x","result":{}}` + "\n"))
 			}
 			conn.Close()
 		}
 	}()
-	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "", "codex", "ABC-1", "Bug", "Fix", []string{"go"}, nil)().(jiraWorkMsg)
+	msg := jiraWork(herdr.New(sock), t.TempDir(), defaultWorkBranch, "", "codex", "ABC-1", "Bug", "Fix", []string{"go"}, "one\ntwo", nil)().(jiraWorkMsg)
 	if msg.err != nil || msg.agent != "codex" || <-kinds != "codex" {
 		t.Fatalf("msg = %+v", msg)
+	}
+	// herdr refuses an argument with a newline: the prompt is pasted after.
+	if start, prompt := <-calls, <-calls; start != "agent.start [go] <nil>\n" || prompt != "agent.prompt <nil> one\ntwo\n" {
+		t.Errorf("calls %q, %q", start, prompt)
 	}
 	m := jiraTabModel(t)
 	out, _ := m.handleJiraWork(msg)
@@ -136,18 +144,19 @@ func TestWorkAgent(t *testing.T) {
 	}
 }
 
-// TestWorkArgs: ui.work_args come before the prompt, {key} replaced; a
+// TestWorkArgs: ui.work_args and the prompt get {key} replaced; a
 // start_prompt of none leaves the prompt out.
 func TestWorkArgs(t *testing.T) {
 	extra := []string{"--append-system-prompt", "User is working on {key}"}
-	if got := workArgs(extra, "Start on {key}.", "ABC-1"); !slices.Equal(got, []string{"--append-system-prompt", "User is working on ABC-1", "Start on ABC-1."}) {
-		t.Errorf("with a prompt: %q", got)
+	want := []string{"--append-system-prompt", "User is working on ABC-1"}
+	if got, prompt := workArgs(extra, "Start on {key}.", "ABC-1"); !slices.Equal(got, want) || prompt != "Start on ABC-1." {
+		t.Errorf("with a prompt: %q %q", got, prompt)
 	}
-	if got := workArgs(extra, " None ", "ABC-1"); !slices.Equal(got, []string{"--append-system-prompt", "User is working on ABC-1"}) {
-		t.Errorf("start_prompt none: %q", got)
+	if got, prompt := workArgs(extra, " None ", "ABC-1"); !slices.Equal(got, want) || prompt != "" {
+		t.Errorf("start_prompt none: %q %q", got, prompt)
 	}
-	if got := workArgs(nil, "none", "ABC-1"); len(got) != 0 {
-		t.Errorf("nothing: %q", got)
+	if got, prompt := workArgs(nil, "none", "ABC-1"); len(got) != 0 || prompt != "" {
+		t.Errorf("nothing: %q %q", got, prompt)
 	}
 }
 
