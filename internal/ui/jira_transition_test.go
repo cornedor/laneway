@@ -51,6 +51,23 @@ func TestJiraFormLayout(t *testing.T) {
 	}
 }
 
+// TestJiraFormOffersComment: a screen whose rules ask for no comment still
+// offers one, last and optional, as Jira's dialog does: a validator the
+// rules can't read may want it.
+func TestJiraFormOffersComment(t *testing.T) {
+	tm := jira.TransitionMeta{ID: "13", ToName: "Waiting for", HasScreen: true, Fields: []jira.FieldMeta{
+		{ID: "customfield_10052", Name: "Waiting for", Kind: jira.KindUser},
+	}}
+	f := buildJiraForm("ABC-1", tm, jira.TransitionRule{}, jira.IssueContext{})
+	if len(f.fields) != 2 || f.fields[1].ID != jira.CommentField || f.fields[1].Kind != jira.KindComment || f.fields[1].required {
+		t.Fatalf("fields = %+v", f.fields)
+	}
+	tm.HasScreen = false
+	if f := buildJiraForm("ABC-1", tm, jira.TransitionRule{}, jira.IssueContext{}); len(f.fields) != 1 {
+		t.Errorf("no screen: fields = %+v", f.fields)
+	}
+}
+
 // TestJiraFormSubmit: a move with a required field empty is held back; once
 // filled it goes, carrying only what changed plus the comment.
 func TestJiraFormSubmit(t *testing.T) {

@@ -226,6 +226,10 @@ func buildJiraForm(key string, t jira.TransitionMeta, rule jira.TransitionRule, 
 		}
 		f.fields = append(f.fields, ff)
 	}
+	// Jira's own dialog offers a comment on every screen: a validator may want one the rules can't tell.
+	if t.HasScreen && !slices.ContainsFunc(f.fields, func(ff jiraFormField) bool { return ff.ID == jira.CommentField }) {
+		f.fields = append(f.fields, jiraFormField{FieldMeta: jira.FieldMeta{ID: jira.CommentField, Name: i18n.T("Comment"), Kind: jira.KindComment}})
+	}
 	slices.SortStableFunc(f.fields, func(a, b jiraFormField) int {
 		switch {
 		case a.required == b.required:

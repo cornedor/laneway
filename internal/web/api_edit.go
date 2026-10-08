@@ -494,6 +494,10 @@ func transitionMeta(ctx context.Context, s *Server, r *http.Request) (any, error
 			}
 			mo.Fields = append(mo.Fields, moveField{FieldMeta: fm, Required: true, Value: jira.DecodeValue(fm.Kind, ic.Values[id])})
 		}
+		// Jira's own dialog offers a comment on every screen: a validator may want one the rules can't tell.
+		if t.HasScreen && !slices.ContainsFunc(mo.Fields, func(f moveField) bool { return f.ID == jira.CommentField }) {
+			mo.Fields = append(mo.Fields, moveField{FieldMeta: jira.FieldMeta{ID: jira.CommentField, Name: "Comment", Kind: jira.KindComment}})
+		}
 		sort.SliceStable(mo.Fields, func(i, j int) bool { return mo.Fields[i].Required && !mo.Fields[j].Required })
 		for _, f := range mo.Fields {
 			mo.NeedsInput = mo.NeedsInput || (f.Required && f.Value.Empty())
