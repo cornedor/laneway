@@ -169,7 +169,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 		}
 		if len(rest) > 0 {
 			line()
-			refField(&b, moreFieldsName, m.moreLabel(len(rest)), w, m.panelFieldIdx() == idx)
+			refField(&b, i18n.T(moreFieldsName), m.moreLabel(len(rest)), w, m.panelFieldIdx() == idx)
 			idx++
 			for _, ff := range m.foldedShown() {
 				field(ff)
@@ -185,7 +185,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	b.WriteString("\n" + refDimStyle.Render(m.panelHintLine()) + "\n")
 
 	if m.descEditOn("") {
-		b.WriteString(sectionHead(i18n.T("Description"), "  "+descEditHint, max(width, 1)))
+		b.WriteString(sectionHead(i18n.T("Description"), "  "+i18n.T(descEditHint), max(width, 1)))
 		b.WriteString(descEditMark + "\n")
 	} else {
 		desc := strings.TrimSpace(iss.Description)
@@ -197,7 +197,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	// Rich-text fields read like the description, under their own heads.
 	for _, ff := range m.extraFields() {
 		if m.descEditOn(ff.ID) {
-			b.WriteString(sectionHead(ff.Name, "  "+descEditHint, max(width, 1)))
+			b.WriteString(sectionHead(ff.Name, "  "+i18n.T(descEditHint), max(width, 1)))
 			b.WriteString(descEditMark + "\n")
 		} else if richField(ff) {
 			b.WriteString(sectionHead(ff.Name, "", max(width, 1)))

@@ -239,7 +239,7 @@ export default async function mount(el, { app, params, query, scope, context, to
       legend: [{ name: T('Left'), color: 'var(--accent)' }, before && { name: T('Before %s', L.compare.name), color: CMP }, { name: T('Ideal'), color: 'var(--fg-3)', dash: true }].filter(Boolean),
     };
     const view = h('div.rp-in', sprintHead(sp, L),
-      h('div.rp-stats', stat(num(curLeft) + unit, T('left')), stat(num(total) + unit, T('in sprint')), stat(num(idealNow) + unit, now < end ? T('ideal today') : T('ideal at the end')),
+      h('div.rp-stats', stat(num(curLeft) + unit, T('remaining')), stat(num(total) + unit, T('in sprint')), stat(num(idealNow) + unit, now < end ? T('ideal today') : T('ideal at the end')),
         pace && stat(pace, T('pace'), d >= 0.5 ? 'bad' : d <= -0.5 ? 'ok' : ''), added > 0 && stat('+' + num(added) + unit, T('added after start'), 'warn'),
         before && stat(num(gap) + unit, T('past %s, not %s', label(first), label(last)), 'cmp')),
       card('', wrap), h('p.rp-note', lineNote(L) + T(' Left/right arrows step through the days.')));

@@ -403,7 +403,7 @@ func (m *Model) chartsSegs() []headSeg {
 		if i == ch.tab {
 			style = jiraViewActive
 		}
-		segs = append(segs, headSeg{s: style.Render(chartTabNames[i]), kind: "chart", i: i})
+		segs = append(segs, headSeg{s: style.Render(i18n.T(chartTabNames[i])), kind: "chart", i: i})
 	}
 	if ch.loading {
 		segs = append(segs, plainSeg(jiraDimStyle.Render(i18n.T("  ·  loading…"))))

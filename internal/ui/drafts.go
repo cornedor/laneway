@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/standup"
 )
 
@@ -100,7 +101,7 @@ func (m Model) handleDraftSave() (tea.Model, tea.Cmd) {
 
 // draftWhen is "15:04" today, "Mon 2 Jan 15:04" before.
 func draftWhen(t, now time.Time) string {
-	if standup.Day(t, now) == "Today" {
+	if standup.Day(t, now) == i18n.T("Today") {
 		return t.Local().Format("15:04")
 	}
 	return t.Local().Format("Mon 2 Jan 15:04")

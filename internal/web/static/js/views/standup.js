@@ -261,8 +261,8 @@ export default function mount(el, { app, scope, context, toolbar }) {
   function rowEl(l, i) {
     return h('div.strow' + (i === sel ? '.sel' : '') + (l.parked ? '.parked' : ''), { dataset: l.Key ? { key: l.Key, i } : { i } },
       h('span.wkey.mono', l.Key), h('div.main', h('span.wsum', l.Key ? l.Title.slice(l.Key.length + 1) : l.Title),
-        h('span.what' + (l.What === T('no activity') ? '.quiet' : ''), l.What || '')),
-      h('span.stwho' + ((l.Age || '').includes(T('stale')) ? '.stale' : ''), cells(l).join(' · ')));
+        h('span.what' + (l.What === 'no activity' ? '.quiet' : ''), l.What === 'no activity' ? T('no activity') : l.What || '')),
+      h('span.stwho' + ((l.Age || '').includes('stale') ? '.stale' : ''), cells(l).join(' · ')));
   }
 
   function stepSel(d) {
