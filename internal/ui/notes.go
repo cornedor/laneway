@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -72,10 +73,10 @@ func (m *Model) editNotes(key string) tea.Cmd {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
-		m.fail("notes: " + err.Error())
+		m.fail(i18n.Tf("notes: %s", err.Error()))
 		return nil
 	}
-	m.status = "editing your notes on " + key + "…"
+	m.status = i18n.Tf("editing your notes on %s…", key)
 	return tea.ExecProcess(editorCommand(p), func(err error) tea.Msg {
 		return notesEditedMsg{key: key, err: err}
 	})
@@ -84,14 +85,14 @@ func (m *Model) editNotes(key string) tea.Cmd {
 // handleNotesEdited drops an emptied file and redraws the panel.
 func (m Model) handleNotesEdited(msg notesEditedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("notes: " + msg.err.Error())
+		m.fail(i18n.Tf("notes: %s", msg.err.Error()))
 		return m, nil
 	}
 	if p := m.notesPath(msg.key); m.notes(msg.key) == "" {
 		_ = os.Remove(p)
-		m.status = "no notes on " + msg.key
+		m.status = i18n.Tf("no notes on %s", msg.key)
 	} else {
-		m.status = "notes on " + msg.key + " saved, on this machine only"
+		m.status = i18n.Tf("notes on %s saved, on this machine only", msg.key)
 	}
 	m.renderRef()
 	m.applyJiraSearch()
@@ -106,10 +107,10 @@ func (m *Model) renderNotes(b *strings.Builder, key string, width int) {
 		return
 	}
 	lines := strings.Split(text, "\n")
-	b.WriteString(sectionHead("Notes (local)", "  "+helpKey(m.keys.Notes)+" edit", width))
+	b.WriteString(sectionHead(i18n.T("Notes (local)"), i18n.Tf("  %s edit", helpKey(m.keys.Notes)), width))
 	b.WriteString(truncate(lines[0], max(width, 1)) + "\n")
 	if n := len(lines) - 1; n > 0 {
-		b.WriteString(refDimStyle.Render("+"+plural(n, "more line")) + "\n")
+		b.WriteString(refDimStyle.Render(i18n.Tn(n, "+%d more line", "+%d more lines", n)) + "\n")
 	}
 }
 
@@ -120,5 +121,5 @@ func (m *Model) postNotes() {
 	m.openJiraCommentInput()
 	m.jiraCommentInput.SetValue(text)
 	m.jiraCommentInput.CursorEnd()
-	m.status = "your notes, as a comment · ctrl+s posts"
+	m.status = i18n.T("your notes, as a comment · ctrl+s posts")
 }

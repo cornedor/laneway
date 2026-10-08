@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/safeterm"
 )
 
@@ -54,17 +55,17 @@ func actionsFrom(as []config.Action, k *keyMap) ([]config.Action, []string) {
 		}
 		switch {
 		case a.Name == "" || len(a.Command) == 0:
-			warn = append(warn, label+": needs a name and a command")
+			warn = append(warn, i18n.Tf("%s: needs a name and a command", label))
 			continue
 		case !slices.Contains([]string{"", "board", "panel", "both"}, a.Where):
-			warn = append(warn, fmt.Sprintf("%s: where %q is not board, panel or both", label, a.Where))
+			warn = append(warn, i18n.Tf("%s: where %q is not board, panel or both", label, a.Where))
 			continue
 		case !slices.Contains([]string{"", "status", "pager"}, a.Show):
-			warn = append(warn, fmt.Sprintf("%s: show %q is not status or pager", label, a.Show))
+			warn = append(warn, i18n.Tf("%s: show %q is not status or pager", label, a.Show))
 			continue
 		}
 		if owner, ok := taken[a.Key]; a.Key != "" && ok {
-			warn = append(warn, fmt.Sprintf("%s: %q is %s already; the action stays in the palette", label, a.Key, owner))
+			warn = append(warn, i18n.Tf("%s: %q is %s already; the action stays in the palette", label, a.Key, owner))
 			a.Key = ""
 		}
 		if a.Key != "" {
@@ -119,12 +120,12 @@ type actionDoneMsg struct {
 func (m *Model) runAction(i int, panel bool) tea.Cmd {
 	a := m.actions[i]
 	if m.demo {
-		m.status = a.Name + ": " + errOffInDemo.Error()
+		m.status = i18n.Tf("%s: %s", a.Name, errOffInDemo.Error())
 		return nil
 	}
 	issues := m.actionIssues(panel)
 	if len(issues) == 0 {
-		m.status = a.Name + ": no issue selected"
+		m.status = i18n.Tf("%s: no issue selected", a.Name)
 		return nil
 	}
 	keys := make([]string, len(issues))
@@ -137,7 +138,7 @@ func (m *Model) runAction(i int, panel bool) tea.Cmd {
 	} else {
 		in, _ = json.Marshal(issues)
 	}
-	m.status = "running " + a.Name + " on " + strings.Join(keys, ", ") + "…"
+	m.status = i18n.Tf("running %s on %s…", a.Name, strings.Join(keys, ", "))
 	ctx := m.ctx
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, actionTimeout)
@@ -159,7 +160,7 @@ func (m Model) handleActionDone(msg actionDoneMsg) (tea.Model, tea.Cmd) {
 	last := strings.TrimSpace(lines[len(lines)-1])
 	switch {
 	case msg.err != nil:
-		m.fail(a.Name + ": " + msg.err.Error() + " " + last)
+		m.fail(i18n.Tf("%s: %s %s", a.Name, msg.err.Error(), last))
 	case a.Show == "pager" && msg.out != "":
 		m.startJiraPicker(jiraPickActionOutput, a.Name, false)
 		items := make([]jiraPickerItem, len(lines))
@@ -168,9 +169,9 @@ func (m Model) handleActionDone(msg actionDoneMsg) (tea.Model, tea.Cmd) {
 		}
 		m.setJiraPickerItems(items)
 	case last != "":
-		m.status = a.Name + ": " + last
+		m.status = i18n.Tf("%s: %s", a.Name, last)
 	default:
-		m.status = a.Name + " done"
+		m.status = i18n.Tf("%s done", a.Name)
 	}
 	if !a.Refresh || msg.err != nil {
 		return m, nil

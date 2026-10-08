@@ -1,12 +1,12 @@
 package ui
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/offline"
 )
 
@@ -57,15 +57,15 @@ func (m *Model) replayQueue(force bool) tea.Cmd {
 func (m Model) handleQueueReplayed(msg queueReplayedMsg) (tea.Model, tea.Cmd) {
 	m.queued = msg.left
 	for _, f := range msg.failed {
-		m.fail("queued write refused, dropped: " + f)
+		m.fail(i18n.Tf("queued write refused, dropped: %s", f))
 	}
 	switch {
 	case msg.conflict != "":
-		m.status = fmt.Sprintf("%s changed in Jira since you queued a write · %s → queue sends it anyway or drops it", msg.conflict, helpKey(m.keys.Palette))
+		m.status = i18n.Tf("%s changed in Jira since you queued a write · %s → queue sends it anyway or drops it", msg.conflict, helpKey(m.keys.Palette))
 	case msg.sent > 0:
-		m.status = fmt.Sprintf("back online: sent %s", plural(msg.sent, "queued write"))
+		m.status = i18n.Tn(msg.sent, "back online: sent %d queued write", "back online: sent %d queued writes", msg.sent)
 		if msg.left > 0 {
-			m.status += fmt.Sprintf(", %d left", msg.left)
+			m.status += i18n.Tf(", %d left", msg.left)
 		}
 		return m, m.refreshJiraAfterEdit()
 	}
@@ -83,10 +83,10 @@ func (m *Model) queueBadge() string {
 // openQueue lists the queued writes: send them now, or drop one (enter
 // twice).
 func (m *Model) openQueue() {
-	m.startJiraPicker(jiraPickQueue, "Offline writes", false)
-	items := []jiraPickerItem{{id: "send", label: "Send them now (also over changes made in Jira since)"}}
+	m.startJiraPicker(jiraPickQueue, i18n.T("Offline writes"), false)
+	items := []jiraPickerItem{{id: "send", label: i18n.T("Send them now (also over changes made in Jira since)")}}
 	for i, w := range readQueue(m.store) {
-		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: fmt.Sprintf("%s  %s %s  · %s ago · enter twice drops it", w.What, w.Method, w.Path, age(w.At))})
+		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: i18n.Tf("%s  %s %s  · %s ago · enter twice drops it", w.What, w.Method, w.Path, age(w.At))})
 	}
 	m.setJiraPickerItems(items)
 }
@@ -94,17 +94,17 @@ func (m *Model) openQueue() {
 func (m Model) applyQueuePick(it jiraPickerItem) (tea.Model, tea.Cmd) {
 	if it.id == "send" {
 		m.closeJiraPicker()
-		m.status = "sending the queued writes…"
+		m.status = i18n.T("sending the queued writes…")
 		return m, m.replayQueue(true)
 	}
 	if m.jiraPicker.pendingDelete != it.id {
 		m.jiraPicker.pendingDelete = it.id
-		m.status = "enter again drops this write"
+		m.status = i18n.T("enter again drops this write")
 		return m, nil
 	}
 	m.closeJiraPicker()
 	i, _ := strconv.Atoi(it.id)
 	m.queued = offline.Drop(m.store, i)
-	m.status = "dropped the write"
+	m.status = i18n.T("dropped the write")
 	return m, nil
 }

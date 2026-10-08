@@ -12,6 +12,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/standup"
 )
@@ -125,9 +126,9 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 	}
 	m.timer = workTimer{key: key, start: time.Unix(time.Now().Unix(), 0)} // as the store keeps it
 	m.redrawTimed()
-	m.status = "timer started on " + key + " · " + helpKey(m.keys.Timer) + " stops it"
+	m.status = i18n.Tf("timer started on %s · %s stops it", key, helpKey(m.keys.Timer))
 	if err := m.saveTimer(); err != nil {
-		m.fail("timer started on " + key + ", but a restart loses it: " + err.Error())
+		m.fail(i18n.Tf("timer started on %s, but a restart loses it: %s", key, err.Error()))
 	}
 	if m.store != nil {
 		return nil // the ticks run already
@@ -158,7 +159,7 @@ func (m *Model) timerLabel() string {
 func (m *Model) openWorklogInput(key, value string, started time.Time) {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "1h 30m what you did (yesterday 2h: another day; left:2h: what's left)"
+	ti.Placeholder = i18n.T("1h 30m what you did (yesterday 2h: another day; left:2h: what's left)")
 	ti.SetWidth(max(min(m.width-16, 60), 16))
 	ti.SetValue(value)
 	ti.CursorEnd()
@@ -185,24 +186,24 @@ func (m Model) timerStopKey(msg tea.KeyPressMsg) (_ tea.Model, _ tea.Cmd, ok boo
 	case "ctrl+d":
 		if !m.timerDropArmed && time.Since(m.timer.start) >= timerDropAfter {
 			m.timerDropArmed = true
-			m.status = "ctrl+d again drops the timer: " + ran + " on " + m.timer.key + " not logged"
+			m.status = i18n.Tf("ctrl+d again drops the timer: %s on %s not logged", ran, m.timer.key)
 			return m, nil, true
 		}
 		key := m.timer.key
 		m.timer = workTimer{}
-		m.status = "timer dropped: " + ran + " on " + key + " not logged"
+		m.status = i18n.Tf("timer dropped: %s on %s not logged", ran, key)
 	case "ctrl+t":
 		if m.timerNext == "" {
 			return m, nil, false
 		}
 		m.timer.key = m.timerNext
-		m.status = "timer moved to " + m.timerNext + ", " + ran + " on it"
+		m.status = i18n.Tf("timer moved to %s, %s on it", m.timerNext, ran)
 	default:
 		m.timerDropArmed = false
 		return m, nil, false
 	}
 	if err := m.saveTimer(); err != nil {
-		m.fail("timer: " + err.Error())
+		m.fail(i18n.Tf("timer: %s", err.Error()))
 	}
 	m.closeJiraField()
 	m.redrawTimed()
@@ -223,7 +224,7 @@ func worklogLeft(raw string) (left, rest string, err error) {
 		return jira.LeftKeep, rest, nil
 	}
 	if secs, extra, err := jira.ParseDuration(left); err != nil || secs == 0 || extra != "" {
-		return "", "", fmt.Errorf("left:%s is not a time (left:2h, left:keep)", left)
+		return "", "", errors.New(i18n.Tf("left:%s is not a time (left:2h, left:keep)", left))
 	}
 	return left, rest, nil
 }
@@ -255,7 +256,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	day, raw, onDay := worklogDay(raw, time.Now())
 	left, raw, err := worklogLeft(raw)
 	if err == nil && left != "" && m.worklogEdit != "" {
-		err = errors.New("left: is for new work, not an edit")
+		err = errors.New(i18n.T("left: is for new work, not an edit"))
 	}
 	if err != nil {
 		m.fail(err.Error())
@@ -281,7 +282,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		m.closeJiraField()
 		c, ctx := m.jiraClient, m.ctx
 		reload := m.openTimesheetDay(showDay)
-		m.status = "updating the worklog on " + key + "…"
+		m.status = i18n.Tf("updating the worklog on %s…", key)
 		return m, func() tea.Msg {
 			if err := c.UpdateWorklog(ctx, key, id, secs, moved, newComment); err != nil {
 				return worklogFailedMsg{key: key, id: id, day: editDay, input: input, err: err}
@@ -297,7 +298,7 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	}
 	m.closeJiraField()
 	c, ctx, fromTimer, next := m.jiraClient, m.ctx, m.worklogFromTimer, m.timerNext
-	m.status = fmt.Sprintf("logging %s on %s…", jira.FormatDuration(secs), key)
+	m.status = i18n.Tf("logging %s on %s…", jira.FormatDuration(secs), key)
 	return m, func() tea.Msg {
 		return worklogLoggedMsg{key: key, fromTimer: fromTimer, next: next, err: c.AddWorklog(ctx, key, secs, started, comment, left)}
 	}
@@ -345,11 +346,11 @@ func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
 		m.timer = workTimer{}
 		m.redrawTimed()
 		if err := m.saveTimer(); err != nil {
-			m.logError("timer: still in the state file, a restart brings it back: " + err.Error())
+			m.logError(i18n.Tf("timer: still in the state file, a restart brings it back: %s", err.Error()))
 		}
 	}
 	if msg.err != nil && msg.fromTimer {
-		msg.err = fmt.Errorf("%w (the timer keeps running)", msg.err)
+		msg.err = fmt.Errorf("%w (%s)", msg.err, i18n.T("the timer keeps running"))
 	}
 	out, cmd := m.handleJiraMutated(jiraMutatedMsg{key: msg.key, field: "worklog", err: msg.err})
 	if m = out.(Model); m.jiraTab.week != nil && msg.err == nil {
@@ -358,7 +359,7 @@ func (m Model) handleWorklogLogged(msg worklogLoggedMsg) (tea.Model, tea.Cmd) {
 	if stopped && msg.next != "" {
 		logged := m.status
 		cmd = tea.Batch(cmd, m.toggleTimer(msg.next))
-		m.status = logged + " · timer started on " + msg.next
+		m.status = i18n.Tf("%s · timer started on %s", logged, msg.next)
 	}
 	return m, cmd
 }
@@ -375,10 +376,9 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	m.jiraPicker.day = day
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, k := m.jiraClient, m.ctx, m.keys
-	empty := fmt.Sprintf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
-	hint := fmt.Sprintf("  ·  %s %s day · %s edit · %s %s delete · %s copy · %s week", helpKey(k.PrevView), helpKey(k.NextView),
-		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.CopyKey), helpKey(k.Timesheet))
-	hint = strings.Replace(hint, " · "+helpKey(k.CopyKey)+" copy", " · "+helpKey(k.ProposeWork)+" propose · "+helpKey(k.CopyKey)+" copy", 1)
+	empty := i18n.Tf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
+	hint := i18n.Tf("  ·  %s %s day · %s edit · %s %s delete · %s propose · %s copy · %s week", helpKey(k.PrevView), helpKey(k.NextView),
+		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.ProposeWork), helpKey(k.CopyKey), helpKey(k.Timesheet))
 	return func() tea.Msg {
 		logs, err := c.MyWorklogs(ctx, day)
 		total := 0
@@ -396,10 +396,10 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 		if err == nil && len(items) == 0 {
 			items = []jiraPickerItem{{label: empty}}
 		}
-		rows = append(rows, []string{"", jira.FormatDuration(total), "total", "", ""})
+		rows = append(rows, []string{"", jira.FormatDuration(total), i18n.T("total"), "", ""})
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickTimesheet, items: items, err: err,
 			title: standup.Day(day, time.Now()) + " — " + jira.FormatDuration(total) + hint,
-			text:  markdownTable([]string{"Started", "Time", "Issue", "Summary", "Comment"}, rows)}
+			text:  markdownTable([]string{i18n.T("Started"), i18n.T("Time"), i18n.T("Issue"), i18n.T("Summary"), i18n.T("Comment")}, rows)}
 	}
 }
 
@@ -415,7 +415,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		return m.openTimesheetDay(p.day.AddDate(0, 0, -1)), true
 	case k == helpKey(m.keys.NextView):
 		if y, mo, d := time.Now().Date(); !p.day.Before(time.Date(y, mo, d, 0, 0, 0, 0, time.Local)) {
-			m.status = "today is the last day to show"
+			m.status = i18n.T("today is the last day to show")
 			return nil, true
 		}
 		return m.openTimesheetDay(p.day.AddDate(0, 0, 1)), true
@@ -428,7 +428,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		if p.loading || p.err != nil {
 			return nil, true
 		}
-		m.status = "copied the day as a markdown table"
+		m.status = i18n.T("copied the day as a markdown table")
 		return tea.SetClipboard(p.text), true
 	case is(m.keys.EditEntry):
 		if p.idx >= len(p.items) || !strings.Contains(p.items[p.idx].id, "/") {
@@ -449,12 +449,12 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		it := p.items[p.idx]
 		if p.pendingDelete != it.id {
 			p.pendingDelete = it.id
-			m.status = helpKey(m.keys.DeleteEntry) + " again deletes this worklog"
+			m.status = i18n.Tf("%s again deletes this worklog", helpKey(m.keys.DeleteEntry))
 			return nil, true
 		}
 		key, id, _ := strings.Cut(it.id, "/")
 		day, c, ctx := p.day, m.jiraClient, m.ctx
-		m.status = "deleting a worklog on " + key + "…"
+		m.status = i18n.Tf("deleting a worklog on %s…", key)
 		reload := m.openTimesheetDay(day)
 		return func() tea.Msg {
 			if err := c.DeleteWorklog(ctx, key, id); err != nil {

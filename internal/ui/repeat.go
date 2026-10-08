@@ -1,6 +1,10 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
+)
 
 // . does the last change again, on the card under the cursor: a lane move
 // or a quick or bulk edit (status, priority, assignee, sprint, labels,
@@ -21,12 +25,12 @@ func (m *Model) repeatOnSelected() tea.Cmd {
 	c, ok := m.selectedJiraCard()
 	switch {
 	case m.repeat == nil:
-		m.status = "nothing to repeat yet"
+		m.status = i18n.T("nothing to repeat yet")
 		return nil
 	case !ok:
-		m.status = "no card selected"
+		m.status = i18n.T("no card selected")
 		return nil
 	}
-	m.status = "repeating " + m.repeat.what + " on " + c.Key + "…"
+	m.status = i18n.Tf("repeating %s on %s…", m.repeat.what, c.Key)
 	return m.repeat.apply(m, c.Key)
 }

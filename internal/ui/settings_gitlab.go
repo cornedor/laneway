@@ -4,6 +4,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/forge/gitlab"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The settings overlay's GitLab group: each instance (the gitlab: config's,
@@ -31,12 +32,12 @@ func (m *Model) checkGitLab() tea.Cmd {
 func gitlabRows(sites []gitlab.Status) []settingRow {
 	var rows []settingRow
 	for _, st := range sites {
-		v := "no token"
+		v := i18n.T("no token")
 		switch {
 		case st.Err == nil:
 			v = st.User.Username + " (" + st.From + ")"
 		case st.From != "":
-			v = "fails"
+			v = i18n.T("fails")
 		}
 		rows = append(rows, settingRow{name: st.Host, value: v, def: st.BaseURL, group: "GitLab", info: true, doc: st.Summary()})
 	}

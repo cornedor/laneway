@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/key"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // keyNames names every rebindable action for the ui.keys config.
@@ -50,10 +50,10 @@ func (k *keyMap) applyKeys(over map[string]config.KeyList) []string {
 		case slices.Contains(retiredKeys, name):
 			continue
 		case !ok:
-			warn = append(warn, fmt.Sprintf("ui.keys: unknown action %q", name))
+			warn = append(warn, i18n.Tf("ui.keys: unknown action %q", name))
 			continue
 		case len(keys) == 0 || slices.Contains(keys, ""):
-			warn = append(warn, fmt.Sprintf("ui.keys.%s: no key", name))
+			warn = append(warn, i18n.Tf("ui.keys.%s: no key", name))
 			continue
 		case slices.Equal(keys, []string{config.NoKey}):
 			*b = key.NewBinding(key.WithHelp("", b.Help().Desc), key.WithDisabled())
@@ -110,7 +110,7 @@ func (k *keyMap) clashes() []string {
 		for _, name := range s.actions {
 			for _, kk := range names[name].Keys() {
 				if prev, ok := owner[kk]; ok {
-					warn = append(warn, fmt.Sprintf("ui.keys: %q is both %s and %s on the %s", kk, prev, name, s.name))
+					warn = append(warn, i18n.Tf("ui.keys: %q is both %s and %s on the %s", kk, prev, name, s.name))
 					continue
 				}
 				owner[kk] = name

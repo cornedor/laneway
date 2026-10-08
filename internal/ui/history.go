@@ -5,6 +5,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // H in the panel: the issue's history, newest first — who changed what, and
@@ -15,7 +17,7 @@ func (m *Model) openHistory() tea.Cmd {
 		return nil
 	}
 	key := m.jiraIssue.Key
-	gen := m.startJiraPicker(jiraPickHistory, "History — "+key, true)
+	gen := m.startJiraPicker(jiraPickHistory, i18n.Tf("History — %s", key), true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
@@ -26,7 +28,7 @@ func (m *Model) openHistory() tea.Cmd {
 			items[i] = jiraPickerItem{label: fmt.Sprintf("%s  %s  %s", inboxWhen(e.When, now), orDash(e.Who), e.What)}
 		}
 		if err == nil && len(items) == 0 {
-			items = []jiraPickerItem{{label: "no history yet"}}
+			items = []jiraPickerItem{{label: i18n.T("no history yet")}}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickHistory, items: items, err: err}
 	}

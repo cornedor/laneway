@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/home"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -39,7 +40,7 @@ func (m *Model) openHome() tea.Cmd {
 	if len(widgets) == 0 {
 		widgets = home.Widgets
 	}
-	gen := m.startJiraPicker(jiraPickHome, "Home  ·  enter opens · esc the board", false)
+	gen := m.startJiraPicker(jiraPickHome, i18n.T("Home  ·  enter opens · esc the board"), false)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, o := m.jiraClient, m.ctx, m.opts
 	board := 0
@@ -70,7 +71,7 @@ func (m *Model) openHome() tea.Cmd {
 				case "work":
 					cards, err := c.SearchCards(ctx, o.myWorkJQL)
 					cards = slices.DeleteFunc(cards, func(c jira.Card) bool { return c.Done })
-					items = homeList("My work", homeGo+"work", fmt.Sprintf("%d open", len(cards)), homeCards(cards), err, "nothing open is yours")
+					items = homeList(i18n.T("My work"), homeGo+"work", i18n.Tf("%d open", len(cards)), homeCards(cards), err, i18n.T("nothing open is yours"))
 				case "inbox":
 					rows := make([]jiraPickerItem, len(inbox))
 					for i, t := range inbox {
@@ -79,16 +80,16 @@ func (m *Model) openHome() tea.Cmd {
 							rows[i].id, rows[i].value = homeURL+t.url, t.Key
 						}
 					}
-					items = homeList("Inbox", homeGo+"inbox", fmt.Sprintf("%d unread", len(inbox)), rows, nil, "all caught up")
+					items = homeList(i18n.T("Inbox"), homeGo+"inbox", i18n.Tf("%d unread", len(inbox)), rows, nil, i18n.T("all caught up"))
 				case "sprint":
 					items = homeSprint(ctx, c, board, now)
 				case "timer":
-					row := jiraPickerItem{label: "  no timer running · " + helpKey(timerKey) + " starts one on the selected card"}
+					row := jiraPickerItem{label: "  " + i18n.Tf("no timer running · %s starts one on the selected card", helpKey(timerKey))}
 					if timer != "" {
 						key, _, _ := strings.Cut(strings.TrimPrefix(timer, "⏱ "), " ")
 						row = jiraPickerItem{id: homeIssue + key, label: "  " + timer}
 					}
-					items = []jiraPickerItem{{label: "Timer"}, row}
+					items = []jiraPickerItem{{label: i18n.T("Timer")}, row}
 				case "filters":
 					fs, err := home.Filters(ctx, c, o.savedFilters, starred)
 					rows := make([]jiraPickerItem, len(fs))
@@ -99,7 +100,7 @@ func (m *Model) openHome() tea.Cmd {
 						}
 						rows[i] = jiraPickerItem{id: homeJQL + f.JQL, value: f.Name, label: "  " + f.Name + "  ·  " + n}
 					}
-					items = homeList("Saved searches", "", "", rows, err, "none · star a Jira filter, or a search with ctrl+s in Q")
+					items = homeList(i18n.T("Saved searches"), "", "", rows, err, i18n.T("none · star a Jira filter, or a search with ctrl+s in Q"))
 				}
 				mu.Lock()
 				parts[w] = items
@@ -143,9 +144,9 @@ func homeCards(cards []jira.Card) []jiraPickerItem {
 
 // homeSprint is the board's active sprint: done against the time gone.
 func homeSprint(ctx context.Context, c *jira.Client, board int, now time.Time) []jiraPickerItem {
-	head := jiraPickerItem{id: homeGo + "board", label: "Sprint"}
+	head := jiraPickerItem{id: homeGo + "board", label: i18n.T("Sprint")}
 	if board == 0 {
-		return []jiraPickerItem{head, {label: "  open a scrum board first"}}
+		return []jiraPickerItem{head, {label: "  " + i18n.T("open a scrum board first")}}
 	}
 	fail := func(err error) []jiraPickerItem { return []jiraPickerItem{head, {label: "  ! " + err.Error()}} }
 	sprints, err := c.Sprints(ctx, board)
@@ -154,7 +155,7 @@ func homeSprint(ctx context.Context, c *jira.Client, board int, now time.Time) [
 	}
 	i := slices.IndexFunc(sprints, func(s jira.Sprint) bool { return s.State == "active" })
 	if i < 0 {
-		return []jiraPickerItem{head, {label: "  no active sprint on this board"}}
+		return []jiraPickerItem{head, {label: "  " + i18n.T("no active sprint on this board")}}
 	}
 	cfg, err := c.BoardConfiguration(ctx, board)
 	if err != nil {
@@ -165,24 +166,22 @@ func homeSprint(ctx context.Context, c *jira.Client, board int, now time.Time) [
 		return fail(err)
 	}
 	s := home.Health(sprints[i], issues, now)
-	days := fmt.Sprintf("%d days left", s.DaysLeft)
+	days := i18n.Tn(s.DaysLeft, "%d day left", "%d days left", s.DaysLeft)
 	switch {
-	case s.DaysLeft == 1:
-		days = "1 day left"
 	case s.DaysLeft == 0:
-		days = "last day"
+		days = i18n.T("last day")
 	case s.DaysLeft < 0:
-		days = fmt.Sprintf("%d days over", -s.DaysLeft)
+		days = i18n.Tn(-s.DaysLeft, "%d day over", "%d days over", -s.DaysLeft)
 	}
-	head.label = "Sprint  ·  " + s.Name + " · " + days
-	done := fmt.Sprintf("%d of %d issues", s.Done, s.Issues)
+	head.label = i18n.Tf("Sprint  ·  %s · %s", s.Name, days)
+	done := i18n.Tf("%d of %d issues", s.Done, s.Issues)
 	if s.Points > 0 {
 		pts := func(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
-		done = fmt.Sprintf("%s of %s points", pts(s.DonePoints), pts(s.Points))
+		done = i18n.Tf("%s of %s points", pts(s.DonePoints), pts(s.Points))
 	}
-	line := fmt.Sprintf("  %s %s done  ·  %d%% of the time gone", homeBar(s.Progress(), s.Elapsed), done, int(s.Elapsed*100+0.5))
+	line := i18n.Tf("  %s %s done  ·  %d%% of the time gone", homeBar(s.Progress(), s.Elapsed), done, int(s.Elapsed*100+0.5))
 	if s.Behind() {
-		line += "  ·  behind"
+		line += i18n.T("  ·  behind")
 	}
 	out := []jiraPickerItem{head, {id: head.id, label: line}}
 	if g := strings.TrimSpace(s.Goal); g != "" {
@@ -218,13 +217,13 @@ func (m Model) applyHomePick(it jiraPickerItem) (tea.Model, tea.Cmd) {
 	case strings.HasPrefix(it.id, homeURL):
 		m.closeJiraPicker()
 		url := strings.TrimPrefix(it.id, homeURL)
-		m.status = "opening " + url + "…"
+		m.status = i18n.Tf("opening %s…", url)
 		return m, m.openOpenable(openable{name: it.value, url: url})
 	case strings.HasPrefix(it.id, homeJQL):
 		m.closeJiraPicker()
-		return m, m.runNamedJQLView(cmp.Or(it.value, "Search"), strings.TrimPrefix(it.id, homeJQL))
+		return m, m.runNamedJQLView(cmp.Or(it.value, i18n.T("Search")), strings.TrimPrefix(it.id, homeJQL))
 	case it.id == "":
-		m.status = "nothing to open on this row" // the screen stays
+		m.status = i18n.T("nothing to open on this row") // the screen stays
 		return m, nil
 	}
 	m.closeJiraPicker()

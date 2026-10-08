@@ -2,7 +2,6 @@ package ui
 
 import (
 	"cmp"
-	"fmt"
 	"reflect"
 	"slices"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The settings overlay (,): every ui: option with the value the config
@@ -42,7 +42,7 @@ func settingRows(c config.UIConfig) []settingRow {
 	var names []string
 	for i := range v.NumField() {
 		name, _, _ := strings.Cut(v.Type().Field(i).Tag.Get("yaml"), ",")
-		byName[name] = settingRow{name: name, value: settingValue(v.Field(i)), def: settingDefaults[name], group: "Other"}
+		byName[name] = settingRow{name: name, value: settingValue(v.Field(i)), def: settingDefaults[name], group: i18n.N("Other")}
 		names = append(names, name)
 	}
 	var rows []settingRow
@@ -81,7 +81,7 @@ func settingValue(f reflect.Value) string {
 		if f.Type().Elem().Kind() == reflect.String {
 			return strings.Join(f.Interface().([]string), ", ")
 		}
-		return fmt.Sprintf("%d set", f.Len())
+		return i18n.Tf("%d set", f.Len())
 	case reflect.Map:
 		if f.Len() == 0 {
 			return ""
@@ -89,7 +89,7 @@ func settingValue(f reflect.Value) string {
 		if t, ok := f.Interface().(config.Theme); ok && len(t) == 1 && t["preset"] != "" {
 			return t["preset"]
 		}
-		return fmt.Sprintf("%d set", f.Len())
+		return i18n.Tf("%d set", f.Len())
 	}
 	return ""
 }
@@ -159,7 +159,7 @@ func (s *settingsView) rowAtLine(first, n int) int {
 func (m *Model) openSettings() tea.Cmd {
 	all := settingRows(m.uiConfig)
 	if m.gitlab != nil {
-		all = append(all, settingRow{name: "checking…", group: "GitLab", info: true, doc: "signing in to each GitLab instance"})
+		all = append(all, settingRow{name: i18n.T("checking…"), group: "GitLab", info: true, doc: i18n.T("signing in to each GitLab instance")})
 	}
 	m.settings = &settingsView{all: all, rows: all}
 	return m.checkGitLab()
@@ -171,7 +171,7 @@ func (s *settingsView) applySettingsFilter() {
 	words := strings.Fields(strings.ToLower(s.filter))
 	s.rows = nil
 	for _, r := range s.all {
-		hay := strings.ToLower(r.name + " " + strings.ReplaceAll(r.name, "_", " ") + " " + settingDocs[r.name] + " " + r.doc + " " + r.group)
+		hay := strings.ToLower(r.name + " " + strings.ReplaceAll(r.name, "_", " ") + " " + settingDocs[r.name] + " " + i18n.T(settingDocs[r.name]) + " " + r.doc + " " + i18n.T(r.group))
 		if !slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(hay, w) }) {
 			s.rows = append(s.rows, r)
 		}
@@ -263,7 +263,7 @@ func (m *Model) editSetting() {
 	s := m.settings
 	r := s.rows[s.idx]
 	if r.info {
-		s.err = "set in the gitlab: list of your config file, or with glab auth login"
+		s.err = i18n.T("set in the gitlab: list of your config file, or with glab auth login")
 		return
 	}
 	if choices := settingChoices(r.name); choices != nil {
@@ -272,7 +272,7 @@ func (m *Model) editSetting() {
 		return
 	}
 	if !editable(settingField(&m.uiConfig, r.name)) {
-		s.err = r.name + " holds more than a line: edit it in the file"
+		s.err = i18n.Tf("%s holds more than a line: edit it in the file", r.name)
 		return
 	}
 	ti := textinput.New()
@@ -356,7 +356,7 @@ func (m *Model) saveSetting(name, text string) string {
 		if text != "" {
 			var err error
 			if n, err = strconv.Atoi(text); err != nil {
-				return fmt.Sprintf("%s: %q is not a number", name, text)
+				return i18n.Tf("%s: %q is not a number", name, text)
 			}
 		}
 		f.SetInt(int64(n))
@@ -376,7 +376,7 @@ func (m *Model) saveSetting(name, text string) string {
 		}
 	}
 	if m.configPath == "" {
-		return "no config file to write to"
+		return i18n.T("no config file to write to")
 	}
 	if err := config.SetUI(m.configPath, name, value); err != nil {
 		return err.Error()
@@ -397,9 +397,9 @@ func (m *Model) saveSetting(name, text string) string {
 	if m.refOpen {
 		m.renderRef() // code blocks, dates
 	}
-	m.status = "saved ui." + name
+	m.status = i18n.Tf("saved ui.%s", name)
 	if settingsRestart[name] {
-		m.status += " · takes effect on restart"
+		m.status += i18n.T(" · takes effect on restart")
 	}
 	return ""
 }
@@ -418,16 +418,16 @@ func (m *Model) renderSettings(height int) string {
 		v = truncate(v, w)
 		return v + strings.Repeat(" ", w-lipgloss.Width(v))
 	}
-	find := jiraDimStyle.Render("/ filter")
+	find := jiraDimStyle.Render(i18n.T("/ filter"))
 	switch {
 	case s.finding:
 		find = "/" + s.filter + "█"
 	case s.filter != "":
-		find = jiraKeyStyle.Render("/"+s.filter) + jiraDimStyle.Render(fmt.Sprintf("  %d of %d · esc clears", len(s.rows), len(s.all)))
+		find = jiraKeyStyle.Render("/"+s.filter) + jiraDimStyle.Render(i18n.Tf("  %d of %d · esc clears", len(s.rows), len(s.all)))
 	}
-	lines := []string{helpTitle("Settings", width), find, jiraDimStyle.Render(pad("", nameW) + "  " + pad("value", valW) + "  " + "default")}
+	lines := []string{helpTitle(i18n.T("Settings"), width), find, jiraDimStyle.Render(pad("", nameW) + "  " + pad(i18n.T("value"), valW) + "  " + i18n.T("default"))}
 	if len(s.rows) == 0 {
-		lines = append(lines, jiraDimStyle.Render("no option matches"))
+		lines = append(lines, jiraDimStyle.Render(i18n.T("no option matches")))
 	}
 	used := 0
 	for i := top; i < len(s.rows); i++ {
@@ -436,7 +436,7 @@ func (m *Model) renderSettings(height int) string {
 			if used+2 > visible {
 				break
 			}
-			lines = append(lines, jiraViewActive.Render(r.group))
+			lines = append(lines, jiraViewActive.Render(i18n.T(r.group)))
 			used++
 		} else if used+1 > visible {
 			break
@@ -484,6 +484,7 @@ func (m *Model) renderSettings(height int) string {
 		r = s.rows[s.idx]
 	}
 	if doc := cmp.Or(r.doc, settingDocs[r.name]); doc != "" {
+		doc = i18n.T(doc)
 		lines = append(lines, "", jiraDimStyle.Render(truncate(r.name+": "+doc, width)))
 	}
 	if full := settingFull(m.uiConfig, r.name); r.name != "" && full != "" {
@@ -495,16 +496,16 @@ func (m *Model) renderSettings(height int) string {
 			lines = append(lines, jiraKeyStyle.Render("  "+truncate(l, width-2)))
 		}
 	}
-	where := "your config file"
+	where := i18n.T("your config file")
 	if m.configPath != "" {
 		where = m.configPath
 	}
-	hintText := "↵ edit · / filter · esc closes · writes ui: in " + where
+	hintText := i18n.Tf("↵ edit · / filter · esc closes · writes ui: in %s", where)
 	switch {
 	case s.input != nil:
-		hintText = "↵ save · tab/↑↓ save and move · empty for the default · esc cancel"
+		hintText = i18n.T("↵ save · tab/↑↓ save and move · empty for the default · esc cancel")
 	case s.choices != nil:
-		hintText = "↑ ↓ choose · ↵ save · esc cancel"
+		hintText = i18n.T("↑ ↓ choose · ↵ save · esc cancel")
 	}
 	hint := lipgloss.NewStyle().Foreground(dimColor).Italic(true).Render(truncate(hintText, max(m.width-8, width)))
 	foot := []string{strings.Join(lines, "\n"), "", hint}

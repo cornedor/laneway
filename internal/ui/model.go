@@ -4,7 +4,6 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/cornedor/laneway/internal/editor"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
@@ -97,135 +97,135 @@ func bind(help string, keys ...string) key.Binding {
 
 func defaultKeys() keyMap {
 	return keyMap{
-		Tab:          bind("focus next", "tab"),
-		ShiftTab:     bind("focus prev", "shift+tab"),
-		Up:           bind("up", "up", "k"),
-		Down:         bind("down", "down", "j"),
-		Left:         bind("left", "left", "h"),
-		Right:        bind("right", "right", "l"),
-		Home:         bind("top", "home", "g"),
-		End:          bind("bottom", "end", "G"),
-		InputUp:      bind("up", "up", "ctrl+p"),
-		InputDown:    bind("down", "down", "ctrl+n"),
-		PageUp:       bind("page up", "pgup", "ctrl+u"),
-		PageDown:     bind("page down", "pgdown", "ctrl+d"),
-		OpenChannel:  bind("open", "enter"),
-		OpenRef:      bind("open issue", "v"),
-		OpenAttach:   bind("open in browser", "o"),
-		Refresh:      bind("refresh", "r"),
-		JiraStatus:   bind("change status", "s"),
-		JiraPriority: bind("change priority", "p"),
-		JiraPoints:   bind("set story points", "P"),
-		JiraSummary:  bind("edit summary", "e"),
-		JiraLabels:   bind("edit labels", "l"),
-		JiraAssignee: bind("change assignee", "a"),
-		JiraComment:  bind("add comment", "c"),
-		JiraReply:    bind("reply to comment", "R"),
-		JiraStart:    bind("start work: agent, branch and prompt, then a herdr worktree", "S"),
-		JiraLinks:    bind("go to linked issue or web link (a Confluence page reads in the panel)", "L"),
-		Back:         bind("previous issue", "backspace"),
-		Image:        bind("view images", "i"),
+		Tab:          bind(i18n.T("focus next"), "tab"),
+		ShiftTab:     bind(i18n.T("focus prev"), "shift+tab"),
+		Up:           bind(i18n.T("up"), "up", "k"),
+		Down:         bind(i18n.T("down"), "down", "j"),
+		Left:         bind(i18n.T("left"), "left", "h"),
+		Right:        bind(i18n.T("right"), "right", "l"),
+		Home:         bind(i18n.T("top"), "home", "g"),
+		End:          bind(i18n.T("bottom"), "end", "G"),
+		InputUp:      bind(i18n.T("up"), "up", "ctrl+p"),
+		InputDown:    bind(i18n.T("down"), "down", "ctrl+n"),
+		PageUp:       bind(i18n.T("page up"), "pgup", "ctrl+u"),
+		PageDown:     bind(i18n.T("page down"), "pgdown", "ctrl+d"),
+		OpenChannel:  bind(i18n.T("open"), "enter"),
+		OpenRef:      bind(i18n.T("open issue"), "v"),
+		OpenAttach:   bind(i18n.T("open in browser"), "o"),
+		Refresh:      bind(i18n.T("refresh"), "r"),
+		JiraStatus:   bind(i18n.T("change status"), "s"),
+		JiraPriority: bind(i18n.T("change priority"), "p"),
+		JiraPoints:   bind(i18n.T("set story points"), "P"),
+		JiraSummary:  bind(i18n.T("edit summary"), "e"),
+		JiraLabels:   bind(i18n.T("edit labels"), "l"),
+		JiraAssignee: bind(i18n.T("change assignee"), "a"),
+		JiraComment:  bind(i18n.T("add comment"), "c"),
+		JiraReply:    bind(i18n.T("reply to comment"), "R"),
+		JiraStart:    bind(i18n.T("start work: agent, branch and prompt, then a herdr worktree"), "S"),
+		JiraLinks:    bind(i18n.T("go to linked issue or web link (a Confluence page reads in the panel)"), "L"),
+		Back:         bind(i18n.T("previous issue"), "backspace"),
+		Image:        bind(i18n.T("view images"), "i"),
 
-		Quit:            bind("quit", "q"),
-		Help:            bind("help", "?"),
-		Search:          bind("search", "/"),
-		Goto:            bind("go to issue by key", "#"),
-		Create:          bind("new issue", "n"),
-		CopyKey:         bind("copy key", "y"),
-		CopyURL:         bind("copy URL", "Y"),
-		CopyBranch:      bind("copy branch name", "ctrl+y"),
-		MoveCardLeft:    bind("move card left", "H", "shift+left"),
-		MoveCardRight:   bind("move card right", "L", "shift+right"),
-		Project:         bind("project", "p"),
-		Board:           bind("board", "b"),
-		NextView:        bind("next view", "]"),
-		PrevView:        bind("previous view", "["),
-		ToggleMode:      bind("lanes / list", "t"),
-		MoveSprint:      bind("move to sprint / backlog", "M"),
-		Sort:            bind("sort the list", "s"),
-		Assignee:        bind("assignee filter", "a"),
-		Mine:            bind("only mine", "m"),
-		ClearFilters:    bind("clear filters", "0"),
-		Roadmap:         bind("roadmap", "R"),
-		Palette:         bind("command palette", ":"),
-		Mark:            bind("mark card", "x"),
-		MarkAll:         bind("mark the lane / every row", "X"),
-		Undo:            bind("undo the last change", "u"),
-		Bulk:            bind("edit marked cards", "B"),
-		Plan:            bind("sprint planning", "P"),
-		Charts:          bind("sprint charts", "C"),
-		ChartDone:       bind("charts: the column done counts from", "d"),
-		ChartCompare:    bind("charts: a second line beside done", "c"),
-		LogWork:         bind("log work", "w"),
-		JiraDescription: bind("edit description", "E"),
-		Timer:           bind("start / stop the timer", "T"),
-		Timesheet:       bind("today's worklogs", "W"),
-		Inbox:           bind("inbox", "I"),
-		IssueActions:    bind("subtask, link, clone, watch", "A"),
-		Site:            bind("switch or add a Jira site", "@"),
-		Standup:         bind("standup: go round the team", "U"),
-		History:         bind("issue history", "H"),
-		DevInfo:         bind("pull requests and branches", "D"),
-		Pin:             bind("pin / unpin issue; on a panel field, star it", "*"),
-		Fold:            bind("fold the swimlane, or the stacked lane's section", "z"),
-		UnfoldAll:       bind("unfold every swimlane and section", "Z"),
-		NextBand:        bind("next swimlane or group", "}"),
-		PrevBand:        bind("previous swimlane or group", "{"),
-		JQL:             bind("JQL search", "Q"),
-		Settings:        bind("settings", ","),
-		FilterBuilder:   bind("filter builder", "F"),
-		PanelWider:      bind("widen the panel", "<"),
-		PanelNarrower:   bind("narrow the panel", ">"),
-		QuickEdit:       bind("quick edit the card", "e"),
-		MyWork:          bind("my work, every project", "O"),
-		Compact:         bind("one-line cards", "c"),
-		EmptyLanes:      bind("hide / show empty lanes", "alt+e"),
-		LaneLayout:      bind("next lane layout (ui.lane_layouts)", "alt+l"),
-		ArrangeLanes:    bind("arrange the lanes: stack, move, rename, hide columns", "alt+L", "alt+shift+l"),
-		Releases:        bind("releases: versions and their progress", "V"),
-		Repeat:          bind("do the last change again on the selected card", "."),
-		Refine:          bind("refine: the view's issues one at a time", "ctrl+e"),
-		Notes:           bind("private notes on the issue ($EDITOR)", "N"),
-		Ask:             bind("ask ui.llm about the issue", "ctrl+a"),
-		TimeMachine:     bind("time machine: the board on earlier days", "ctrl+t"),
-		ClosedSprint:    bind("closed sprints: one as it ended", "ctrl+o"),
-		StartScreen:     bind("home: my work, inbox, sprint, timer, saved searches", "~"),
-		AgentBack:       bind("back from the agent's terminal to its issue", "ctrl+\\"),
-		Agents:          bind("agents: every herdr agent and worktree, by state", "ctrl+g"),
-		MergeRequests:   bind("merge requests waiting on you, every GitLab", "alt+m"),
-		AgentPrompt:     bind("agents: send the agent a prompt", "p"),
-		AgentStop:       bind("agents: stop the agent (twice)", "d"),
-		PlanStart:       bind("start the sprint / move its end", "S"),
-		PlanGoal:        bind("edit the sprint's goal", "E"),
-		PlanRename:      bind("rename the sprint", "R"),
-		PlanNew:         bind("new sprint", "N"),
-		PlanComplete:    bind("complete the sprint (twice)", "C"),
-		RankUp:          bind("rank up", "K"),
-		RankDown:        bind("rank down", "J"),
-		RankTop:         bind("rank to the top", "alt+k"),
-		RankBottom:      bind("rank to the bottom", "alt+j"),
-		NextComment:     bind("next comment", "}"),
-		PrevComment:     bind("previous comment", "{"),
-		DeleteComment:   bind("delete the comment (twice)", "delete"),
-		StandupPause:    bind("standup: start / pause the timer", "space"),
-		StandupShuffle:  bind("standup: a random order / the board's", "s"),
-		StandupPark:     bind("standup: park the card for after", "P"),
-		InboxDone:       bind("inbox: done, until something new", "e"),
-		InboxDoneAll:    bind("inbox: every read thread done", "E"),
-		InboxUnread:     bind("inbox: read / unread", "u"),
-		InboxSnooze:     bind("inbox: snooze till the next workday", "s"),
-		RoadmapGrip:     bind("grip the bar's start, end, let go", "e"),
-		RoadmapFold:     bind("fold the epic's issues", "space"),
-		ZoomIn:          bind("zoom in", "+", "="),
-		ZoomOut:         bind("zoom out", "-"),
-		Today:           bind("back to today", "."),
-		EndEarlier:      bind("end a column earlier", "<"),
-		EndLater:        bind("end a column later", ">"),
-		RoadmapIssues:   bind("the epic's issues as a view", "f"),
-		RoadmapEdit:     bind("quick edit the row's issue", "E"),
-		EditEntry:       bind("edit the entry", "e"),
-		DeleteEntry:     bind("delete the entry (twice)", "d", "delete"),
-		ProposeWork:     bind("propose worklogs from git and ui.activity", "p"),
+		Quit:            bind(i18n.T("quit"), "q"),
+		Help:            bind(i18n.T("help"), "?"),
+		Search:          bind(i18n.T("search"), "/"),
+		Goto:            bind(i18n.T("go to issue by key"), "#"),
+		Create:          bind(i18n.T("new issue"), "n"),
+		CopyKey:         bind(i18n.T("copy key"), "y"),
+		CopyURL:         bind(i18n.T("copy URL"), "Y"),
+		CopyBranch:      bind(i18n.T("copy branch name"), "ctrl+y"),
+		MoveCardLeft:    bind(i18n.T("move card left"), "H", "shift+left"),
+		MoveCardRight:   bind(i18n.T("move card right"), "L", "shift+right"),
+		Project:         bind(i18n.T("project"), "p"),
+		Board:           bind(i18n.T("board"), "b"),
+		NextView:        bind(i18n.T("next view"), "]"),
+		PrevView:        bind(i18n.T("previous view"), "["),
+		ToggleMode:      bind(i18n.T("lanes / list"), "t"),
+		MoveSprint:      bind(i18n.T("move to sprint / backlog"), "M"),
+		Sort:            bind(i18n.T("sort the list"), "s"),
+		Assignee:        bind(i18n.T("assignee filter"), "a"),
+		Mine:            bind(i18n.T("only mine"), "m"),
+		ClearFilters:    bind(i18n.T("clear filters"), "0"),
+		Roadmap:         bind(i18n.T("roadmap"), "R"),
+		Palette:         bind(i18n.T("command palette"), ":"),
+		Mark:            bind(i18n.T("mark card"), "x"),
+		MarkAll:         bind(i18n.T("mark the lane / every row"), "X"),
+		Undo:            bind(i18n.T("undo the last change"), "u"),
+		Bulk:            bind(i18n.T("edit marked cards"), "B"),
+		Plan:            bind(i18n.T("sprint planning"), "P"),
+		Charts:          bind(i18n.T("sprint charts"), "C"),
+		ChartDone:       bind(i18n.T("charts: the column done counts from"), "d"),
+		ChartCompare:    bind(i18n.T("charts: a second line beside done"), "c"),
+		LogWork:         bind(i18n.T("log work"), "w"),
+		JiraDescription: bind(i18n.T("edit description"), "E"),
+		Timer:           bind(i18n.T("start / stop the timer"), "T"),
+		Timesheet:       bind(i18n.T("today's worklogs"), "W"),
+		Inbox:           bind(i18n.T("inbox"), "I"),
+		IssueActions:    bind(i18n.T("subtask, link, clone, watch"), "A"),
+		Site:            bind(i18n.T("switch or add a Jira site"), "@"),
+		Standup:         bind(i18n.T("standup: go round the team"), "U"),
+		History:         bind(i18n.T("issue history"), "H"),
+		DevInfo:         bind(i18n.T("pull requests and branches"), "D"),
+		Pin:             bind(i18n.T("pin / unpin issue; on a panel field, star it"), "*"),
+		Fold:            bind(i18n.T("fold the swimlane, or the stacked lane's section"), "z"),
+		UnfoldAll:       bind(i18n.T("unfold every swimlane and section"), "Z"),
+		NextBand:        bind(i18n.T("next swimlane or group"), "}"),
+		PrevBand:        bind(i18n.T("previous swimlane or group"), "{"),
+		JQL:             bind(i18n.T("JQL search"), "Q"),
+		Settings:        bind(i18n.T("settings"), ","),
+		FilterBuilder:   bind(i18n.T("filter builder"), "F"),
+		PanelWider:      bind(i18n.T("widen the panel"), "<"),
+		PanelNarrower:   bind(i18n.T("narrow the panel"), ">"),
+		QuickEdit:       bind(i18n.T("quick edit the card"), "e"),
+		MyWork:          bind(i18n.T("my work, every project"), "O"),
+		Compact:         bind(i18n.T("one-line cards"), "c"),
+		EmptyLanes:      bind(i18n.T("hide / show empty lanes"), "alt+e"),
+		LaneLayout:      bind(i18n.T("next lane layout (ui.lane_layouts)"), "alt+l"),
+		ArrangeLanes:    bind(i18n.T("arrange the lanes: stack, move, rename, hide columns"), "alt+L", "alt+shift+l"),
+		Releases:        bind(i18n.T("releases: versions and their progress"), "V"),
+		Repeat:          bind(i18n.T("do the last change again on the selected card"), "."),
+		Refine:          bind(i18n.T("refine: the view's issues one at a time"), "ctrl+e"),
+		Notes:           bind(i18n.T("private notes on the issue ($EDITOR)"), "N"),
+		Ask:             bind(i18n.T("ask ui.llm about the issue"), "ctrl+a"),
+		TimeMachine:     bind(i18n.T("time machine: the board on earlier days"), "ctrl+t"),
+		ClosedSprint:    bind(i18n.T("closed sprints: one as it ended"), "ctrl+o"),
+		StartScreen:     bind(i18n.T("home: my work, inbox, sprint, timer, saved searches"), "~"),
+		AgentBack:       bind(i18n.T("back from the agent's terminal to its issue"), "ctrl+\\"),
+		Agents:          bind(i18n.T("agents: every herdr agent and worktree, by state"), "ctrl+g"),
+		MergeRequests:   bind(i18n.T("merge requests waiting on you, every GitLab"), "alt+m"),
+		AgentPrompt:     bind(i18n.T("agents: send the agent a prompt"), "p"),
+		AgentStop:       bind(i18n.T("agents: stop the agent (twice)"), "d"),
+		PlanStart:       bind(i18n.T("start the sprint / move its end"), "S"),
+		PlanGoal:        bind(i18n.T("edit the sprint's goal"), "E"),
+		PlanRename:      bind(i18n.T("rename the sprint"), "R"),
+		PlanNew:         bind(i18n.T("new sprint"), "N"),
+		PlanComplete:    bind(i18n.T("complete the sprint (twice)"), "C"),
+		RankUp:          bind(i18n.T("rank up"), "K"),
+		RankDown:        bind(i18n.T("rank down"), "J"),
+		RankTop:         bind(i18n.T("rank to the top"), "alt+k"),
+		RankBottom:      bind(i18n.T("rank to the bottom"), "alt+j"),
+		NextComment:     bind(i18n.T("next comment"), "}"),
+		PrevComment:     bind(i18n.T("previous comment"), "{"),
+		DeleteComment:   bind(i18n.T("delete the comment (twice)"), "delete"),
+		StandupPause:    bind(i18n.T("standup: start / pause the timer"), "space"),
+		StandupShuffle:  bind(i18n.T("standup: a random order / the board's"), "s"),
+		StandupPark:     bind(i18n.T("standup: park the card for after"), "P"),
+		InboxDone:       bind(i18n.T("inbox: done, until something new"), "e"),
+		InboxDoneAll:    bind(i18n.T("inbox: every read thread done"), "E"),
+		InboxUnread:     bind(i18n.T("inbox: read / unread"), "u"),
+		InboxSnooze:     bind(i18n.T("inbox: snooze till the next workday"), "s"),
+		RoadmapGrip:     bind(i18n.T("grip the bar's start, end, let go"), "e"),
+		RoadmapFold:     bind(i18n.T("fold the epic's issues"), "space"),
+		ZoomIn:          bind(i18n.T("zoom in"), "+", "="),
+		ZoomOut:         bind(i18n.T("zoom out"), "-"),
+		Today:           bind(i18n.T("back to today"), "."),
+		EndEarlier:      bind(i18n.T("end a column earlier"), "<"),
+		EndLater:        bind(i18n.T("end a column later"), ">"),
+		RoadmapIssues:   bind(i18n.T("the epic's issues as a view"), "f"),
+		RoadmapEdit:     bind(i18n.T("quick edit the row's issue"), "E"),
+		EditEntry:       bind(i18n.T("edit the entry"), "e"),
+		DeleteEntry:     bind(i18n.T("delete the entry (twice)"), "d", "delete"),
+		ProposeWork:     bind(i18n.T("propose worklogs from git and ui.activity"), "p"),
 	}
 }
 
@@ -987,7 +987,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleRuleActed(msg)
 	case rulesLoggedMsg:
 		if msg.err != nil {
-			m.fail("rule: " + msg.err.Error())
+			m.fail(i18n.Tf("rule: %s", msg.err.Error()))
 		}
 		return m, nil
 	case loadingTickMsg:
@@ -1024,7 +1024,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleMRReview(msg)
 	case openedMsg:
 		if msg.err != nil {
-			m.fail("open " + msg.name + ": " + msg.err.Error())
+			m.fail(i18n.Tf("open %s: %s", msg.name, msg.err.Error()))
 		}
 		return m, nil
 	}
@@ -1409,15 +1409,15 @@ func (m *Model) renderOverlay(bodyH int) string {
 func (m *Model) unsentWork() string {
 	var what []string
 	if n := m.jiraClient.Writing(); n == 1 {
-		what = append(what, "a write is still sending")
+		what = append(what, i18n.T("a write is still sending"))
 	} else if n > 1 {
-		what = append(what, fmt.Sprintf("%d writes are still sending", n))
+		what = append(what, i18n.Tf("%d writes are still sending", n))
 	}
 	if d := m.descEdit; d != nil && d.input.Value() != d.before {
-		what = append(what, "your edit is unsaved")
+		what = append(what, i18n.T("your edit is unsaved"))
 	}
 	if m.jiraCommentActive && strings.TrimSpace(m.jiraCommentInput.Value()) != strings.TrimSpace(m.jiraCommentBefore) {
-		what = append(what, "your comment is unsent")
+		what = append(what, i18n.T("your comment is unsent"))
 	}
 	return strings.Join(what, " · ")
 }
@@ -1426,7 +1426,7 @@ func (m *Model) unsentWork() string {
 func (m Model) quit() (tea.Model, tea.Cmd) {
 	if w := m.unsentWork(); w != "" && !m.quitAsked {
 		m.quitAsked = true
-		m.status = w + " · quit again to leave anyway (a comment or edit is kept as a draft)"
+		m.status = i18n.Tf("%s · quit again to leave anyway (a comment or edit is kept as a draft)", w)
 		return m, nil
 	}
 	m.saveOpenDrafts()
