@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -100,7 +101,7 @@ func (s *Server) openSite(name string) (Options, error) {
 		return base, nil
 	}
 	if base.Open == nil || !slices.Contains(base.Sites, name) {
-		return base, httpError{http.StatusNotFound, "unknown site"}
+		return base, httpError{http.StatusNotFound, i18n.T("unknown site")}
 	}
 	s.sites.mu.Lock()
 	defer s.sites.mu.Unlock()

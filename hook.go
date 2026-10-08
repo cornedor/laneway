@@ -15,11 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/ui"
 )
 
-const hookUsage = `usage: laneway hook install [-strict] [-force]
+var hookUsage = i18n.N(`usage: laneway hook install [-strict] [-force]
 
 Installs two git hooks in the repository you are in:
   commit-msg     a message without an issue key gets the branch's
@@ -28,7 +29,7 @@ Installs two git hooks in the repository you are in:
                  keys Jira doesn't know.
   post-checkout  checking out an issue's branch while the issue is still to
                  do asks to move it in progress.
-An existing hook that isn't laneway's is kept unless -force.`
+An existing hook that isn't laneway's is kept unless -force.`)
 
 // hookMark tells laneway's hooks from others.
 const hookMark = "# laneway hook"
@@ -39,16 +40,16 @@ var issueKeyRe = regexp.MustCompile(`\b[A-Z][A-Z0-9_]+-[0-9]+\b`)
 // hookCmd installs the hooks, or runs one of them as git calls it.
 func hookCmd(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(errOut, hookUsage)
+		fmt.Fprintln(errOut, i18n.T(hookUsage))
 		return 2
 	}
 	fs := flag.NewFlagSet("hook "+args[0], flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	fs.Usage = func() { fmt.Fprintln(errOut, hookUsage) }
-	cfgPath := fs.String("config", "", "config file")
-	site := fs.String("site", "", "Jira site from the config's sites:")
-	strict := fs.Bool("strict", false, "commit-msg: refuse keys Jira doesn't know")
-	force := fs.Bool("force", false, "install: replace hooks that aren't laneway's")
+	fs.Usage = func() { fmt.Fprintln(errOut, i18n.T(hookUsage)) }
+	cfgPath := fs.String("config", "", i18n.T("config file"))
+	site := fs.String("site", "", i18n.T("Jira site from the config's sites:"))
+	strict := fs.Bool("strict", false, i18n.T("commit-msg: refuse keys Jira doesn't know"))
+	force := fs.Bool("force", false, i18n.T("install: replace hooks that aren't laneway's"))
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -57,7 +58,7 @@ func hookCmd(args []string, out, errOut io.Writer) int {
 		return hookInstall(*strict, *force, *cfgPath, *site, out, errOut)
 	case "commit-msg":
 		if fs.NArg() != 1 {
-			fmt.Fprintln(errOut, "laneway hook commit-msg: the message file, as git passes it")
+			fmt.Fprintln(errOut, "laneway hook commit-msg:", i18n.T("the message file, as git passes it"))
 			return 2
 		}
 		return hookCommitMsg(fs.Arg(0), *strict, *cfgPath, *site, errOut)
@@ -68,7 +69,7 @@ func hookCmd(args []string, out, errOut io.Writer) int {
 		}
 		return 0
 	}
-	fmt.Fprintln(errOut, hookUsage)
+	fmt.Fprintln(errOut, i18n.T(hookUsage))
 	return 2
 }
 
@@ -76,7 +77,7 @@ func hookCmd(args []string, out, errOut io.Writer) int {
 func hookInstall(strict, force bool, cfgPath, site string, out, errOut io.Writer) int {
 	dirOut, err := exec.Command("git", "rev-parse", "--git-path", "hooks").Output()
 	if err != nil {
-		fmt.Fprintln(errOut, "laneway hook install: not in a git repository")
+		fmt.Fprintln(errOut, "laneway hook install:", i18n.T("not in a git repository"))
 		return 1
 	}
 	dir := strings.TrimSpace(string(dirOut))
@@ -104,7 +105,7 @@ func hookInstall(strict, force bool, cfgPath, site string, out, errOut io.Writer
 	for _, name := range []string{"commit-msg", "post-checkout"} {
 		path := filepath.Join(dir, name)
 		if b, err := os.ReadFile(path); err == nil && !strings.Contains(string(b), hookMark) && !force {
-			fmt.Fprintf(errOut, "laneway hook install: %s is someone else's hook, kept (-force replaces it)\n", path)
+			fmt.Fprintf(errOut, "laneway hook install: %s\n", i18n.Tf("%s is someone else's hook, kept (-force replaces it)", path))
 			code = 1
 			continue
 		}
@@ -114,7 +115,7 @@ func hookInstall(strict, force bool, cfgPath, site string, out, errOut io.Writer
 			fmt.Fprintln(errOut, "laneway hook install:", err)
 			return 1
 		}
-		fmt.Fprintln(out, "installed", path)
+		fmt.Fprintln(out, i18n.Tf("installed %s", path))
 	}
 	return code
 }
@@ -167,7 +168,7 @@ func keyedMessage(msg, branchKey string) (string, error) {
 		}
 	}
 	if branchKey == "" {
-		return "", errors.New("no issue key in the message, nor in the branch name (issue/ABC-12-…)")
+		return "", errors.New(i18n.T("no issue key in the message, nor in the branch name (issue/ABC-12-…)"))
 	}
 	lines[first] = branchKey + " " + lines[first]
 	return strings.Join(lines, "\n"), nil
@@ -206,9 +207,9 @@ func checkKeys(cfgPath, site string, keys []string) error {
 	defer cancel()
 	for _, k := range keys {
 		if _, err := c.Get(ctx, k); errors.Is(err, jira.ErrNotFound) {
-			return fmt.Errorf("%s is not an issue in Jira", k)
+			return fmt.Errorf(i18n.T("%s is not an issue in Jira"), k)
 		} else if err != nil {
-			fmt.Fprintf(os.Stderr, "laneway: couldn't check %s: %v\n", k, err)
+			fmt.Fprintf(os.Stderr, "laneway: %s\n", i18n.Tf("couldn't check %s: %v", k, err))
 		}
 	}
 	return nil
@@ -255,14 +256,14 @@ func offerStart(ctx context.Context, c *jira.Client, key string, rw io.ReadWrite
 	if err != nil || !ok {
 		return
 	}
-	fmt.Fprintf(rw, "laneway: move %s (%s) to %s? [y/N] ", key, is.Status, t.Name)
+	fmt.Fprintf(rw, "laneway: %s ", i18n.Tf("move %s (%s) to %s? [y/N]", key, is.Status, t.Name))
 	answer, _ := bufio.NewReader(rw).ReadString('\n')
-	if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+	if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" && a != "j" && a != "ja" {
 		return
 	}
 	if err := c.DoTransition(ctx, key, t.ID); err != nil {
 		fmt.Fprintln(errOut, "laneway:", err)
 		return
 	}
-	fmt.Fprintf(rw, "laneway: %s is %s\n", key, t.Name)
+	fmt.Fprintf(rw, "laneway: %s\n", i18n.Tf("%s is %s", key, t.Name))
 }

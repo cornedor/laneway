@@ -13,26 +13,27 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/forge"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
-const mrUsage = `usage: laneway mr note [-config FILE] LINK [FILE:LINE] TEXT
+var mrUsage = i18n.N(`usage: laneway mr note [-config FILE] LINK [FILE:LINE] TEXT
 
 Adds TEXT to your pending review of the GitLab merge request at LINK, on
 LINE of FILE as it is on the merge request's head (FILE:-LINE: a removed
 line, numbered as it was), or on the merge request as a whole without one.
 Only you see it until the review is submitted (S in its diff). An agent
-reviewing the merge request (C) leaves its findings this way.`
+reviewing the merge request (C) leaves its findings this way.`)
 
 // mrCmd runs laneway mr.
 func mrCmd(args []string, out, errOut io.Writer) int {
 	if len(args) == 0 || args[0] != "note" {
-		fmt.Fprintln(errOut, mrUsage)
+		fmt.Fprintln(errOut, i18n.T(mrUsage))
 		return 2
 	}
 	fs := flag.NewFlagSet("mr note", flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	fs.Usage = func() { fmt.Fprintln(errOut, mrUsage) }
-	cfgPath := fs.String("config", "", "config file")
+	fs.Usage = func() { fmt.Fprintln(errOut, i18n.T(mrUsage)) }
+	cfgPath := fs.String("config", "", i18n.T("config file"))
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -47,7 +48,7 @@ func mrCmd(args []string, out, errOut io.Writer) int {
 		text = strings.Join(rest[2:], " ")
 	}
 	if strings.TrimSpace(text) == "" {
-		fmt.Fprintln(errOut, "laneway mr note: no text")
+		fmt.Fprintln(errOut, "laneway mr note:", i18n.T("no text"))
 		return 2
 	}
 	cfg, _, err := config.Load(*cfgPath)
@@ -61,12 +62,12 @@ func mrCmd(args []string, out, errOut io.Writer) int {
 	}
 	c := sites.For(link)
 	if c == nil {
-		fmt.Fprintln(errOut, "laneway mr note: no GitLab token for", forge.HostOf(link))
+		fmt.Fprintln(errOut, "laneway mr note:", i18n.Tf("no GitLab token for %s", forge.HostOf(link)))
 		return 1
 	}
 	ref, okRef := c.Parse(link)
 	if !okRef {
-		fmt.Fprintln(errOut, "laneway mr note: not a merge request link:", link)
+		fmt.Fprintln(errOut, "laneway mr note:", i18n.Tf("not a merge request link: %s", link))
 		return 2
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -89,7 +90,7 @@ func mrCmd(args []string, out, errOut io.Writer) int {
 		fmt.Fprintln(errOut, "laneway mr note:", err)
 		return 1
 	}
-	fmt.Fprintln(out, "pending note added to", ref.Repo+"!"+strconv.Itoa(ref.Number))
+	fmt.Fprintln(out, i18n.Tf("pending note added to %s", ref.Repo+"!"+strconv.Itoa(ref.Number)))
 	return 0
 }
 
@@ -122,7 +123,7 @@ func mrNoteLine(d *forge.Diff, path string, line int, old bool) (forge.NewNote, 
 				return forge.NewNote{OldPath: cmp.Or(f.OldPath, f.Path()), NewPath: cmp.Or(f.NewPath, f.Path()), OldLine: l.OldLine, NewLine: l.NewLine}, nil
 			}
 		}
-		return forge.NewNote{}, fmt.Errorf("%s:%d is not in the diff: note a changed line or one beside it, or the merge request as a whole (no FILE:LINE)", path, line)
+		return forge.NewNote{}, fmt.Errorf(i18n.T("%s:%d is not in the diff: note a changed line or one beside it, or the merge request as a whole (no FILE:LINE)"), path, line)
 	}
-	return forge.NewNote{}, fmt.Errorf("%s is not in the diff", path)
+	return forge.NewNote{}, fmt.Errorf(i18n.T("%s is not in the diff"), path)
 }

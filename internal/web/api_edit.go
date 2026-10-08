@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -40,7 +41,7 @@ func init() {
 	get("/projects/{project}/createfields", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		typ := Q(r, "type")
 		if typ == "" {
-			return nil, badRequest("type is required")
+			return nil, badRequest(i18n.T("type is required"))
 		}
 		return s.Client().CreateFields(ctx, r.PathValue("project"), typ)
 	})
@@ -56,7 +57,7 @@ func init() {
 	get("/labels", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		field := cmpOr(Q(r, "field"), "labels")
 		if field != "labels" && !labelClause.MatchString(field) {
-			return nil, badRequest("bad labels field")
+			return nil, badRequest(i18n.T("bad labels field"))
 		}
 		ls, err := s.Client().JQLValues(ctx, field, strings.TrimSpace(Q(r, "q")))
 		return nonNil(ls), err
@@ -72,10 +73,10 @@ func init() {
 			return nil, err
 		}
 		if !fieldIDRe.MatchString(r.PathValue("id")) {
-			return nil, badRequest("bad field id")
+			return nil, badRequest(i18n.T("bad field id"))
 		}
 		if s.opt.Store == nil {
-			return nil, httpError{http.StatusNotImplemented, "no state file to keep stars in"}
+			return nil, httpError{http.StatusNotImplemented, i18n.T("no state file to keep stars in")}
 		}
 		return jira.SetStarred(s.opt.Store, r.PathValue("id"), b.On)
 	})
@@ -96,7 +97,7 @@ func init() {
 	del("/issues/{key}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key := r.PathValue("key")
 		if !jira.ValidKey(key) {
-			return nil, badRequest("bad issue key")
+			return nil, badRequest(i18n.T("bad issue key"))
 		}
 		return nil, s.Client().DeleteIssue(ctx, key, Q(r, "subtasks") != "")
 	})
@@ -124,7 +125,7 @@ type edit struct {
 
 func applyEdit(ctx context.Context, c *jira.Client, key string, e edit) (*edit, error) {
 	if !jira.ValidKey(key) {
-		return nil, badRequest("bad issue key")
+		return nil, badRequest(i18n.T("bad issue key"))
 	}
 	switch e.Field {
 	case "status":
@@ -148,7 +149,7 @@ func editStatus(ctx context.Context, c *jira.Client, key string, e edit) (*edit,
 		}
 		i := slices.IndexFunc(trs, func(t jira.Option) bool { return strings.EqualFold(t.Name, e.To) })
 		if i < 0 {
-			return nil, badRequest("no transition to " + e.To + " from here")
+			return nil, badRequest(i18n.Tf("no transition to %s from here", e.To))
 		}
 		id = trs[i].ID
 	}
@@ -173,7 +174,7 @@ func editBasic(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 	switch e.Field {
 	case "priority":
 		if e.ID == "" {
-			return nil, badRequest("priority needs an ID")
+			return nil, badRequest(i18n.T("priority needs an ID"))
 		}
 		if err := c.SetPriority(ctx, key, e.ID); err != nil {
 			return nil, err
@@ -186,7 +187,7 @@ func editBasic(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		return &edit{Field: "assignee", ID: iss.AssigneeAccountID}, nil
 	case "reporter":
 		if e.ID == "" {
-			return nil, badRequest("reporter needs an ID")
+			return nil, badRequest(i18n.T("reporter needs an ID"))
 		}
 		if err := c.SetReporter(ctx, key, e.ID); err != nil {
 			return nil, err
@@ -199,7 +200,7 @@ func editBasic(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		return &edit{Field: "points", Text: iss.StoryPoints}, nil
 	case "summary":
 		if strings.TrimSpace(e.Text) == "" {
-			return nil, badRequest("summary can't be empty")
+			return nil, badRequest(i18n.T("summary can't be empty"))
 		}
 		if err := c.SetSummary(ctx, key, strings.TrimSpace(e.Text)); err != nil {
 			return nil, err
@@ -271,7 +272,7 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		return &edit{Field: "duedate", Text: prev}, nil
 	case "estimate":
 		if secs, extra, err := jira.ParseDuration(e.Text); err != nil || secs == 0 || extra != "" {
-			return nil, badRequest("an estimate is a time: 2d 4h, 1.5h, 45m")
+			return nil, badRequest(i18n.T("an estimate is a time: 2d 4h, 1.5h, 45m"))
 		}
 		var prev struct {
 			Original string `json:"originalEstimate"`
@@ -287,7 +288,7 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		var v any // no parent: cleared
 		if k := strings.TrimSpace(e.Text); k != "" {
 			if !jira.ValidKey(k) {
-				return nil, badRequest("bad parent key")
+				return nil, badRequest(i18n.T("bad parent key"))
 			}
 			v = map[string]string{"key": k}
 		}
@@ -297,7 +298,7 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		return &edit{Field: "parent", Text: prev.Key}, nil
 	case "issuetype":
 		if e.ID == "" {
-			return nil, badRequest("issuetype needs an ID")
+			return nil, badRequest(i18n.T("issuetype needs an ID"))
 		}
 		if err := c.SetIssueType(ctx, key, e.ID); err != nil {
 			return nil, err
@@ -305,7 +306,7 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		return undoIf(ic.TypeID != "", edit{Field: "issuetype", ID: ic.TypeID}), nil
 	case "sprint":
 		if e.Sprint == nil {
-			return nil, badRequest("sprint needs a Sprint id (0 for the backlog)")
+			return nil, badRequest(i18n.T("sprint needs a Sprint id (0 for the backlog)"))
 		}
 		prev, _ := currentSprint(ic.Values)
 		var err error
@@ -321,14 +322,14 @@ func editOther(ctx context.Context, c *jira.Client, key string, e edit) (*edit, 
 		return &edit{Field: "sprint", Sprint: &prev.ID}, nil
 	}
 	if !strings.HasPrefix(e.Field, "customfield_") && !slices.Contains(screenFields, e.Field) {
-		return nil, badRequest("unknown field " + e.Field)
+		return nil, badRequest(i18n.Tf("unknown field %s", e.Field))
 	}
 	v, ok, err := jira.EncodeValue(e.Kind, e.Value)
 	if err != nil {
 		return nil, badRequest(err.Error())
 	}
 	if !ok {
-		return nil, badRequest("can't write a " + e.Kind + " field")
+		return nil, badRequest(i18n.Tf("can't write a %s field", e.Kind))
 	}
 	if err := c.SetField(ctx, key, e.Field, v); err != nil {
 		return nil, err
@@ -372,7 +373,7 @@ func users(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		where = Q(r, "project")
 	}
 	if where == "" {
-		return nil, badRequest("issue or project is required")
+		return nil, badRequest(i18n.T("issue or project is required"))
 	}
 	us, err := s.Client().AssignableUsers(ctx, where, Q(r, "q"))
 	if us == nil {
@@ -416,7 +417,7 @@ func starred(s *Server) []string {
 func editMeta(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	c, key := s.Client(), r.PathValue("key")
 	if !jira.ValidKey(key) {
-		return nil, badRequest("bad issue key")
+		return nil, badRequest(i18n.T("bad issue key"))
 	}
 	fields, raw, err := c.EditMeta(ctx, key)
 	if err != nil {
@@ -458,7 +459,7 @@ type moveOption struct {
 func transitionMeta(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	c, key := s.Client(), r.PathValue("key")
 	if !jira.ValidKey(key) {
-		return nil, badRequest("bad issue key")
+		return nil, badRequest(i18n.T("bad issue key"))
 	}
 	var (
 		metas      []jira.TransitionMeta
@@ -546,7 +547,7 @@ func transitionWith(ctx context.Context, s *Server, r *http.Request) (any, error
 	}
 	key := r.PathValue("key")
 	if !jira.ValidKey(key) || b.ID == "" {
-		return nil, badRequest("bad issue key or transition")
+		return nil, badRequest(i18n.T("bad issue key or transition"))
 	}
 	fields, comment, err := encodeFields(b.Fields)
 	if err != nil {
@@ -578,7 +579,7 @@ func cloneDraft(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	out := map[string]string{"Project": d.Project, "Type": d.Type, "Summary": d.Summary, "Parent": d.Parent}
 	if ed, err := jira.EditableDescription(d.DescriptionADF); err != nil {
-		out["Note"] = "The description is copied from " + key + " as it is."
+		out["Note"] = i18n.Tf("The description is copied from %s as it is.", key)
 	} else {
 		out["Description"] = ed.Markdown
 	}
@@ -607,7 +608,7 @@ func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	in := jira.NewIssue{Description: b.Description}
 	if b.CloneOf != "" {
 		if !jira.ValidKey(b.CloneOf) {
-			return nil, badRequest("bad CloneOf key")
+			return nil, badRequest(i18n.T("bad CloneOf key"))
 		}
 		if in, err = cloneInput(ctx, c, b.CloneOf, b.Description); err != nil {
 			return nil, err
@@ -632,7 +633,7 @@ func createIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	if b.Sprint > 0 {
 		if err := c.MoveToSprint(ctx, b.Sprint, key); err != nil {
-			out["Warning"] = "created, but not moved to the sprint: " + err.Error()
+			out["Warning"] = i18n.Tf("created, but not moved to the sprint: %s", err.Error())
 		}
 	}
 	return out, nil
@@ -683,7 +684,7 @@ func bulk(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		sort.Strings(keys)
 	}
 	if len(keys) == 0 {
-		return nil, badRequest("no issues")
+		return nil, badRequest(i18n.T("no issues"))
 	}
 	var (
 		mu     sync.Mutex

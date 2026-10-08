@@ -29,6 +29,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
@@ -142,7 +143,7 @@ func Body[T any](r *http.Request) (T, error) {
 	var v T
 	err := json.NewDecoder(io.LimitReader(r.Body, 8<<20)).Decode(&v)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return v, badRequest("bad JSON: " + err.Error())
+		return v, badRequest(i18n.Tf("bad JSON: %s", err.Error()))
 	}
 	return v, nil
 }
@@ -319,7 +320,7 @@ func (s *Server) tokenOK(w http.ResponseWriter, r *http.Request) bool {
 	if c, err := r.Cookie(tokenCookie); err == nil && subtle.ConstantTimeCompare([]byte(c.Value), want) == 1 {
 		return true
 	}
-	http.Error(w, "open the URL with ?token= that laneway printed at start", http.StatusUnauthorized)
+	http.Error(w, i18n.T("open the URL with ?token= that laneway printed at start"), http.StatusUnauthorized)
 	return false
 }
 
@@ -347,7 +348,7 @@ func secureRequest(r *http.Request) bool {
 // this origin, and with a Token every request needs its cookie.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.hostAllowed(r.Host) {
-		http.Error(w, "unknown host refused", http.StatusForbidden)
+		http.Error(w, i18n.T("unknown host refused"), http.StatusForbidden)
 		return
 	}
 	safe := r.Method == http.MethodGet || r.Method == http.MethodHead
@@ -355,14 +356,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if o := r.Header.Get("Origin"); o != "" {
 			u, err := url.Parse(o)
 			if err != nil || u.Host != r.Host {
-				http.Error(w, "cross-origin request refused", http.StatusForbidden)
+				http.Error(w, i18n.T("cross-origin request refused"), http.StatusForbidden)
 				return
 			}
 		}
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {
 		if f := r.Header.Get("Sec-Fetch-Site"); f != "" && f != "same-origin" && f != "none" {
-			http.Error(w, "cross-site request refused", http.StatusForbidden)
+			http.Error(w, i18n.T("cross-site request refused"), http.StatusForbidden)
 			return
 		}
 	}
@@ -463,10 +464,10 @@ func Serve(ctx context.Context, addr string, allowRemote bool, certFile, keyFile
 	}
 	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
 		if !allowRemote {
-			return fmt.Errorf("%s is not a loopback address: the web UI acts as you on Jira; pass -remote to allow it", addr)
+			return fmt.Errorf(i18n.T("%s is not a loopback address: the web UI acts as you on Jira; pass -remote to allow it"), addr)
 		}
 		if certFile == "" {
-			return fmt.Errorf("%s is not a loopback address: -remote needs -cert and -key, or an SSH tunnel to a loopback address", addr)
+			return fmt.Errorf(i18n.T("%s is not a loopback address: -remote needs -cert and -key, or an SSH tunnel to a loopback address"), addr)
 		}
 	}
 	srv := &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}

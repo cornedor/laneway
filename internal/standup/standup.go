@@ -8,10 +8,10 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/work"
 )
@@ -149,7 +149,7 @@ func walk(b Board, entries []jira.InboxEntry, p Person, since, now time.Time) St
 		}
 		text.WriteString(b.Columns[i].Name + "\n")
 		for _, c := range in {
-			r := row(c, cmp.Or(c.card.Assignee, "unassigned"), b, now)
+			r := row(c, cmp.Or(c.card.Assignee, i18n.T("unassigned")), b, now)
 			st.Rows = append(st.Rows, r)
 			text.WriteString("- " + r.Text() + "\n")
 		}
@@ -164,10 +164,10 @@ func walk(b Board, entries []jira.InboxEntry, p Person, since, now time.Time) St
 		off = append(off, card{card: jira.Card{Key: e.Key, Summary: e.Summary}, events: byKey[e.Key]})
 	}
 	if len(st.Rows) == 0 {
-		text.WriteString("no changes since " + Day(since, now))
+		text.WriteString(i18n.Tf("no changes since %s", Day(since, now)))
 	}
 	if len(off) > 0 {
-		st.Rows = append(st.Rows, Row{Head: fmt.Sprintf("Off the board (%d)", len(off)), Unfold: true})
+		st.Rows = append(st.Rows, Row{Head: i18n.Tf("Off the board (%d)", len(off)), Unfold: true})
 		for _, c := range off {
 			var who []string
 			for _, e := range c.events {
@@ -263,22 +263,22 @@ func What(events []jira.InboxEntry) string {
 		out = append(out, cmp.Or(from, "—")+" → "+to)
 	}
 	if logged > 0 {
-		out = append(out, "logged "+jira.FormatDuration(logged))
+		out = append(out, i18n.Tf("logged %s", jira.FormatDuration(logged)))
 	}
 	switch {
 	case comments == 1:
-		out = append(out, "commented")
+		out = append(out, i18n.T("commented"))
 	case comments > 1:
-		out = append(out, fmt.Sprintf("%d comments", comments))
+		out = append(out, i18n.Tf("%d comments", comments))
 	}
 	switch {
 	case commits == 1:
-		out = append(out, "1 commit")
+		out = append(out, i18n.Tn(1, "%d commit", "%d commits", 1))
 	case commits > 1:
-		out = append(out, strconv.Itoa(commits)+" commits")
+		out = append(out, i18n.Tn(commits, "%d commit", "%d commits", commits))
 	}
 	if len(fields) > 0 {
-		out = append(out, "edited "+strings.Join(fields, ", "))
+		out = append(out, i18n.Tf("edited %s", strings.Join(fields, ", ")))
 	}
 	return strings.Join(append(out, other...), ", ")
 }
@@ -303,9 +303,9 @@ func Day(t, now time.Time) string {
 	y, mo, d := now.Date()
 	switch {
 	case t.Year() == y && t.Month() == mo && t.Day() == d:
-		return "Today"
+		return i18n.T("Today")
 	case t.Format(time.DateOnly) == now.AddDate(0, 0, -1).Format(time.DateOnly):
-		return "Yesterday"
+		return i18n.T("Yesterday")
 	}
 	return t.Format("Mon 2 Jan")
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/cli"
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/work"
 )
@@ -309,7 +310,7 @@ func paneIDs(as []herdr.Agent) []string {
 func needHerdr() (*herdr.Client, error) {
 	c := herdrClient()
 	if c == nil {
-		return nil, httpError{http.StatusServiceUnavailable, "herdr is not running"}
+		return nil, httpError{http.StatusServiceUnavailable, i18n.T("herdr is not running")}
 	}
 	return c, nil
 }
@@ -325,7 +326,7 @@ func findAgent(ctx context.Context, c *herdr.Client, pane string) (herdr.Agent, 
 			return a, nil
 		}
 	}
-	return herdr.Agent{}, httpError{http.StatusNotFound, "that agent is gone"}
+	return herdr.Agent{}, httpError{http.StatusNotFound, i18n.T("that agent is gone")}
 }
 
 // paneAgent is the agent in the request's {pane}: unknown panes and values
@@ -333,7 +334,7 @@ func findAgent(ctx context.Context, c *herdr.Client, pane string) (herdr.Agent, 
 func paneAgent(ctx context.Context, c *herdr.Client, r *http.Request) (herdr.Agent, error) {
 	pane := r.PathValue("pane")
 	if pane == "" || strings.HasPrefix(pane, "-") {
-		return herdr.Agent{}, badRequest("bad pane")
+		return herdr.Agent{}, badRequest(i18n.T("bad pane"))
 	}
 	return findAgent(ctx, c, pane)
 }
@@ -354,7 +355,7 @@ func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	bin, err := exec.LookPath(herdrBin)
 	if err != nil {
-		return nil, httpError{http.StatusNotImplemented, "no herdr on PATH to read the terminal"}
+		return nil, httpError{http.StatusNotImplemented, i18n.T("no herdr on PATH to read the terminal")}
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -378,7 +379,7 @@ func agentPrompt(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	text := strings.TrimSpace(b.Text)
 	if text == "" {
-		return nil, badRequest("empty prompt")
+		return nil, badRequest(i18n.T("empty prompt"))
 	}
 	a, err := paneAgent(ctx, c, r)
 	if err != nil {
@@ -386,7 +387,7 @@ func agentPrompt(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	err = c.Prompt(ctx, a.PaneID, text)
 	if herdr.IsCode(err, "agent_blocked") {
-		return nil, httpError{http.StatusConflict, "the agent waits on an approval or question: answer it in its terminal"}
+		return nil, httpError{http.StatusConflict, i18n.T("the agent waits on an approval or question: answer it in its terminal")}
 	}
 	return nil, err
 }
@@ -403,7 +404,7 @@ func agentFocus(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	bin, err := exec.LookPath(herdrBin)
 	if err != nil {
-		return nil, httpError{http.StatusNotImplemented, "no herdr on PATH"}
+		return nil, httpError{http.StatusNotImplemented, i18n.T("no herdr on PATH")}
 	}
 	cmd := exec.CommandContext(ctx, bin, "agent", "focus", a.PaneID)
 	cmd.Env = append(os.Environ(), "HERDR_SOCKET_PATH="+c.Path())
@@ -437,7 +438,7 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	if strings.HasPrefix(strings.TrimSpace(b.Prompt), "-") {
-		return nil, badRequest("prompt must not start with -")
+		return nil, badRequest(i18n.T("prompt must not start with -"))
 	}
 	a, err := paneAgent(ctx, c, r)
 	if err != nil {
@@ -448,7 +449,7 @@ func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if kind == "" {
 		kind = workConfigOf(s).Agent
 	} else if !slices.Contains(agentKinds, kind) {
-		return nil, badRequest("unknown agent " + kind)
+		return nil, badRequest(i18n.Tf("unknown agent %s", kind))
 	}
 	_, pane, err := c.NewTab(ctx, a.WorkspaceID, cmpOr(key, a.Name), a.CWD, nil)
 	if err != nil {

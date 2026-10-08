@@ -11,14 +11,15 @@ import (
 	"text/tabwriter"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 )
 
-const rulesUsage = `usage: laneway rules list [-config path] [-site name]
+var rulesUsage = i18n.N(`usage: laneway rules list [-config path] [-site name]
        laneway rules watch [-config path] [-site name]
        laneway rules test [-config path] [-site name] [-on kind] [-key K] [-summary S] [-type T]
-                          [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B] [-watch JQL]`
+                          [-status S] [-from-status S] [-assignee A] [-priority P] [-points N] [-by-me B] [-watch JQL]`)
 
 // rulesCmd lists the config's rules, or says which a described change
 // would fire and what stopped the rest; nothing runs. watch runs them.
@@ -27,26 +28,26 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 		return rulesWatch(args[1:], out, errOut)
 	}
 	if len(args) == 0 || (args[0] != "list" && args[0] != "test") {
-		fmt.Fprintln(errOut, rulesUsage)
+		fmt.Fprintln(errOut, i18n.T(rulesUsage))
 		return 2
 	}
 	fs := flag.NewFlagSet("rules "+args[0], flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	cfgPath := fs.String("config", "", "config file")
-	site := fs.String("site", "", "Jira site from the config's sites: (default jira:)")
-	on := fs.String("on", rules.New, "change kind: new status assignee priority points summary")
+	cfgPath := fs.String("config", "", i18n.T("config file"))
+	site := fs.String("site", "", i18n.T("Jira site from the config's sites: (default jira:)"))
+	on := fs.String("on", rules.New, i18n.T("change kind: new status assignee priority points summary"))
 	c := jira.Card{}
 	var fromStatus string
-	fs.StringVar(&c.Key, "key", "TEST-1", "issue key")
-	fs.StringVar(&c.Summary, "summary", "", "summary")
-	fs.StringVar(&c.Type, "type", "", "issue type (default: rules_test.type, else the project's Task or first type)")
-	fs.StringVar(&c.Status, "status", "", "status (default: rules_test.status, else the type's first to-do status)")
-	fs.StringVar(&fromStatus, "from-status", "", "the status before, for -on status")
-	fs.StringVar(&c.Assignee, "assignee", "", "assignee display name, empty for unassigned")
-	fs.StringVar(&c.Priority, "priority", "Medium", "priority")
-	fs.StringVar(&c.Points, "points", "", "story points")
-	watch := fs.String("watch", "", "the rule watch's JQL that saw the change; empty for a board")
-	byMe := fs.String("by-me", "", "true or false: you made the change; unset leaves by_me unknown")
+	fs.StringVar(&c.Key, "key", "TEST-1", i18n.T("issue key"))
+	fs.StringVar(&c.Summary, "summary", "", i18n.T("summary"))
+	fs.StringVar(&c.Type, "type", "", i18n.T("issue type (default: rules_test.type, else the project's Task or first type)"))
+	fs.StringVar(&c.Status, "status", "", i18n.T("status (default: rules_test.status, else the type's first to-do status)"))
+	fs.StringVar(&fromStatus, "from-status", "", i18n.T("the status before, for -on status"))
+	fs.StringVar(&c.Assignee, "assignee", "", i18n.T("assignee display name, empty for unassigned"))
+	fs.StringVar(&c.Priority, "priority", "Medium", i18n.T("priority"))
+	fs.StringVar(&c.Points, "points", "", i18n.T("story points"))
+	watch := fs.String("watch", "", i18n.T("the rule watch's JQL that saw the change; empty for a board"))
+	byMe := fs.String("by-me", "", i18n.T("true or false: you made the change; unset leaves by_me unknown"))
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
@@ -63,14 +64,14 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 	}
 	set, warn := rules.Compile(cfg.Rules)
 	for _, w := range warn {
-		fmt.Fprintln(errOut, "skipped:", w)
+		fmt.Fprintln(errOut, i18n.T("skipped:"), w)
 	}
-	fmt.Fprintf(out, "%s: %d rules\n", path, set.Len())
+	fmt.Fprintf(out, "%s: %s\n", path, i18n.Tf("%d rules", set.Len()))
 	tw := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 	defer tw.Flush()
 	if args[0] == "list" {
 		for _, r := range set.Rules() {
-			on := "any change"
+			on := i18n.T("any change")
 			if len(r.On) > 0 {
 				on = strings.Join(r.On, ", ")
 			}
@@ -79,13 +80,13 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 				if every == "" {
 					every = strings.TrimSuffix(rules.DefaultEvery.String(), "0s")
 				}
-				on += " of " + r.Watch + " every " + every
+				on += " " + i18n.Tf("of %s every %s", r.Watch, every)
 			}
 			var acts []string
 			for _, a := range r.Actions {
 				acts = append(acts, a.Type)
 			}
-			fmt.Fprintf(tw, "  %s\ton %s\t%s\n", name(r.Name), on, strings.Join(acts, ", "))
+			fmt.Fprintf(tw, "  %s\t%s\t%s\n", name(r.Name), i18n.Tf("on %s", on), strings.Join(acts, ", "))
 		}
 		return 0
 	}
@@ -117,7 +118,7 @@ func rulesCmd(args []string, out, errOut io.Writer) int {
 		if ev.ByMe == nil || *ev.ByMe {
 			for _, a := range all[i].Actions {
 				if rules.JiraAction(a.Type) {
-					fmt.Fprintf(tw, "  · %s\t%s\tonly on others' changes (-by-me=false)\n", name(x.Rule), a.Type)
+					fmt.Fprintf(tw, "  · %s\t%s\t%s\n", name(x.Rule), a.Type, i18n.T("only on others' changes (-by-me=false)"))
 				}
 			}
 		}
@@ -198,7 +199,7 @@ func projectDefaults(cfg *config.Config, project, typ string) (string, string) {
 
 func name(n string) string {
 	if n == "" {
-		return "(unnamed)"
+		return i18n.T("(unnamed)")
 	}
 	return n
 }
@@ -216,7 +217,7 @@ func describe(f rules.Firing) string {
 		if f.Color != "" {
 			return f.Color
 		}
-		return "theme highlight"
+		return i18n.T("theme highlight")
 	}
 	return f.Text
 }

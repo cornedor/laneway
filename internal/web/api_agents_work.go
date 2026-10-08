@@ -20,6 +20,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/cli"
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/work"
 )
@@ -103,7 +104,7 @@ func startStatus(s *Server, key string) string {
 
 // noRepo is the error for a project without a checkout, with the fix.
 func noRepo(project string) string {
-	return "no repo for " + project + ": set jira.repos." + project + " to its git checkout in the config (Settings, or config.yaml)"
+	return i18n.Tf("no repo for %s: set jira.repos.%s to its git checkout in the config (Settings, or config.yaml)", project, project)
 }
 
 func repoFor(s *Server, key string) string {
@@ -145,14 +146,14 @@ func removeWorktree(ctx context.Context, s *Server, r *http.Request) (any, error
 		return nil, err
 	}
 	if iss.StatusCategory != "done" {
-		return nil, badRequest(key + " is not done yet")
+		return nil, badRequest(i18n.Tf("%s is not done yet", key))
 	}
 	path, branch := issueWorktree(repo, workConfigOf(s).Branch, key, iss.Type)
 	if path == "" {
-		return nil, badRequest(key + " has no worktree")
+		return nil, badRequest(i18n.Tf("%s has no worktree", key))
 	}
 	if why := worktreeKept(repo, path, branch, defaultBase(repo)); why != "" {
-		return nil, badRequest("keeping " + path + ": " + why)
+		return nil, badRequest(i18n.Tf("keeping %s: %s", path, why))
 	}
 	wt, err := c.OpenWorktree(ctx, repo, branch)
 	if err != nil {
@@ -182,16 +183,16 @@ func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
 func worktreeKept(repo, path, branch, base string) string {
 	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
 	if err != nil {
-		return "git status: " + cli.Error(err)
+		return i18n.Tf("git status: %s", cli.Error(err))
 	}
 	if len(strings.TrimSpace(string(out))) > 0 {
-		return "it has uncommitted changes"
+		return i18n.T("it has uncommitted changes")
 	}
 	if base == "" {
 		base = "HEAD"
 	}
 	if exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", branch, base).Run() != nil {
-		return branch + " is not merged into " + base
+		return i18n.Tf("%s is not merged into %s", branch, base)
 	}
 	return ""
 }
@@ -338,13 +339,13 @@ func workForm(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		f.Missing = append(f.Missing, cfg.Agent)
 	}
 	if !f.Herdr {
-		f.Problems = append(f.Problems, "herdr is not running: start herdr (the agents run in it), then open this again")
+		f.Problems = append(f.Problems, i18n.T("herdr is not running: start herdr (the agents run in it), then open this again"))
 	}
 	switch {
 	case f.Repo == "":
 		f.Problems = append(f.Problems, noRepo(project))
 	case !isRepo(f.Repo):
-		f.Problems = append(f.Problems, "jira.repos."+project+" is "+f.Repo+", which is not a git checkout: point it at the repository (Settings, or config.yaml)")
+		f.Problems = append(f.Problems, i18n.Tf("jira.repos.%s is %s, which is not a git checkout: point it at the repository (Settings, or config.yaml)", project, f.Repo))
 		f.Repo = ""
 	}
 	if f.Repo != "" {
@@ -368,13 +369,13 @@ func workForm(ctx context.Context, s *Server, r *http.Request) (any, error) {
 func startActions(s *Server, key string, cfg workConfig) []string {
 	acts := []string{}
 	if cfg.Assigns {
-		acts = append(acts, "assign to you")
+		acts = append(acts, i18n.T("assign to you"))
 	}
 	if st := startStatus(s, key); st != "" {
-		acts = append(acts, "move to "+st)
+		acts = append(acts, i18n.Tf("move to %s", st))
 	}
 	if cfg.Timer {
-		acts = append(acts, "start timer")
+		acts = append(acts, i18n.T("start timer"))
 	}
 	return acts
 }
@@ -426,18 +427,18 @@ func planStart(ctx context.Context, s *Server, r *http.Request) (*startPlan, err
 	cfg := workConfigOf(s)
 	kind := cmp.Or(strings.TrimSpace(b.Agent), cfg.Agent)
 	if kind != cfg.Agent && !slices.Contains(agentKinds, kind) {
-		return nil, badRequest("unknown agent " + kind + ": pick one herdr knows")
+		return nil, badRequest(i18n.Tf("unknown agent %s: pick one herdr knows", kind))
 	}
 	branch := strings.TrimSpace(b.Branch)
 	if branch != "" && !work.ValidBranch(ctx, branch) {
-		return nil, badRequest("bad branch name " + branch + ": git refuses it (no spaces, .., ~^:?*[\\, leading - or trailing .lock)")
+		return nil, badRequest(i18n.Tf("bad branch name %s: git refuses it (no spaces, .., ~^:?*[\\, leading - or trailing .lock)", branch))
 	}
 	p := &startPlan{s: s, c: c, cfg: cfg, key: key, repo: repo, kind: kind, branch: branch, actions: b.Actions, another: b.Another}
 	prompt := strings.TrimSpace(b.Prompt)
 	if prompt == "" {
 		prompt = "none"
 	} else if strings.HasPrefix(prompt, "-") {
-		return nil, badRequest("prompt must not start with -")
+		return nil, badRequest(i18n.T("prompt must not start with -"))
 	}
 	p.args = workArgs(cfg.Args, prompt, key)
 	if b.Another {
@@ -445,7 +446,7 @@ func planStart(ctx context.Context, s *Server, r *http.Request) (*startPlan, err
 		if path := strings.TrimSpace(b.Path); path != "" {
 			i := slices.IndexFunc(spots, func(w WorkSpot) bool { return w.Path == path })
 			if i < 0 {
-				return nil, badRequest(path + " is not a worktree of " + key + ": pick one the form lists")
+				return nil, badRequest(i18n.Tf("%s is not a worktree of %s: pick one the form lists", path, key))
 			}
 			p.spot = &spots[i]
 		} else if len(spots) > 0 && len(spots[0].Agents) > 0 {
@@ -481,7 +482,7 @@ func startWorkRoute(s *Server, w http.ResponseWriter, r *http.Request) {
 	startingMu.Lock()
 	if starting[p.key] {
 		startingMu.Unlock()
-		writeErr(w, httpError{http.StatusConflict, p.key + " is starting already"})
+		writeErr(w, httpError{http.StatusConflict, i18n.Tf("%s is starting already", p.key)})
 		return
 	}
 	starting[p.key] = true
@@ -539,12 +540,12 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 	// Another agent where one runs: a tab of its own beside it.
 	if p.another && p.spot != nil && len(p.spot.Agents) > 0 {
 		out["Branch"], out["Path"] = cmp.Or(p.spot.Branch, p.branch), p.spot.Path
-		step("tab", "run", "Opening a tab in "+homeShort(p.spot.Path))
+		step("tab", "run", i18n.Tf("Opening a tab in %s", homeShort(p.spot.Path)))
 		tab, pane, err := c.NewTab(ctx, p.spot.Agents[0].WorkspaceID, key, p.spot.Path, nil)
 		if err != nil {
 			return fail("tab", err)
 		}
-		step("tab", "ok", "Opened a tab in "+homeShort(p.spot.Path))
+		step("tab", "ok", i18n.Tf("Opened a tab in %s", homeShort(p.spot.Path)))
 		if err := p.startIn(ctx, pane, step); err != nil {
 			_ = c.CloseTab(context.WithoutCancel(ctx), tab)
 			return fail("agent", err)
@@ -553,7 +554,7 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 		return out, nil
 	}
 
-	step("worktree", "run", "Opening the worktree on "+p.branch)
+	step("worktree", "run", i18n.Tf("Opening the worktree on %s", p.branch))
 	wt, how, err := worktreeIn(c, p.repo, p.branch, defaultBase(p.repo), key, p.cfg.Create)(ctx)
 	if err != nil {
 		return fail("worktree", err)
@@ -564,7 +565,7 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 		if as, err := c.Agents(ctx); err == nil {
 			for _, a := range as {
 				if a.WorkspaceID == wt.Workspace && a.Agent != "" {
-					step("agent", "ok", "Its agent runs already: "+cmp.Or(a.Name, a.Agent))
+					step("agent", "ok", i18n.Tf("Its agent runs already: %s", cmp.Or(a.Name, a.Agent)))
 					out["Running"], out["Pane"] = true, a.PaneID
 					return out, nil
 				}
@@ -573,12 +574,12 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 	}
 	pane := wt.Pane
 	if p.another && wt.AlreadyOpen {
-		step("tab", "run", "Opening a tab in "+homeShort(wt.Path))
+		step("tab", "run", i18n.Tf("Opening a tab in %s", homeShort(wt.Path)))
 		tab, np, err := c.NewTab(ctx, wt.Workspace, key, wt.Path, nil)
 		if err != nil {
 			return fail("tab", err)
 		}
-		step("tab", "ok", "Opened a tab in "+homeShort(wt.Path))
+		step("tab", "ok", i18n.Tf("Opened a tab in %s", homeShort(wt.Path)))
 		if err := p.startIn(ctx, np, step); err != nil {
 			_ = c.CloseTab(context.WithoutCancel(ctx), tab)
 			return fail("agent", err)
@@ -607,14 +608,14 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 // startIn starts the plan's agent in pane, saying so while the shell isn't
 // ready yet.
 func (p *startPlan) startIn(ctx context.Context, pane string, step func(name, state, text string)) error {
-	step("agent", "run", "Starting "+p.kind)
+	step("agent", "run", i18n.Tf("Starting %s", p.kind))
 	err := startAgentTries(ctx, p.c, p.kind, agentName(p.key, time.Now()), pane, p.args, func(try int) {
-		step("agent", "run", fmt.Sprintf("Starting %s: waiting for the shell (try %d of 10)", p.kind, try+1))
+		step("agent", "run", i18n.Tf("Starting %s: waiting for the shell (try %d of 10)", p.kind, try+1))
 	})
 	if err != nil {
-		return fmt.Errorf("%s did not start: %w: look at its tab in herdr", p.kind, err)
+		return fmt.Errorf(i18n.T("%s did not start: %w: look at its tab in herdr"), p.kind, err)
 	}
-	step("agent", "ok", p.kind+" started")
+	step("agent", "ok", i18n.Tf("%s started", p.kind))
 	return nil
 }
 
@@ -626,17 +627,17 @@ func startError(key, repo string, err error) error {
 	}
 	switch {
 	case herdr.IsCode(err, "worktree_dirty"), has("uncommitted"):
-		return fmt.Errorf("%s: the worktree has uncommitted changes: commit or stash them in %s, then start again", key, repo)
+		return fmt.Errorf(i18n.T("%s: the worktree has uncommitted changes: commit or stash them in %s, then start again"), key, repo)
 	case has("already exists", "already checked out", "is already used by worktree"):
-		return fmt.Errorf("%s: the branch is taken (%w): pick another branch name, or its worktree", key, err)
+		return fmt.Errorf(i18n.T("%s: the branch is taken (%w): pick another branch name, or its worktree"), key, err)
 	case has("invalid reference", "not a valid object name", "unknown revision"):
-		return fmt.Errorf("%s: git doesn't know the base (%w): git fetch in %s, then start again", key, err, repo)
+		return fmt.Errorf(i18n.T("%s: git doesn't know the base (%w): git fetch in %s, then start again"), key, err, repo)
 	case errors.Is(err, context.DeadlineExceeded):
-		return fmt.Errorf("%s: herdr took too long: what it opened stays open; start again to go on", key)
+		return fmt.Errorf(i18n.T("%s: herdr took too long: what it opened stays open; start again to go on"), key)
 	case errors.Is(err, syscall.ECONNREFUSED), errors.Is(err, syscall.ENOENT) && has("dial"):
-		return fmt.Errorf("%s: herdr stopped answering (%w): is it still running?", key, err)
+		return fmt.Errorf(i18n.T("%s: herdr stopped answering (%w): is it still running?"), key, err)
 	}
-	return fmt.Errorf("%s: start work: %w", key, err)
+	return fmt.Errorf("%s: %s: %w", key, i18n.T("start work"), err)
 }
 
 // startWrites assigns the issue to you and moves it to its start status, when
@@ -645,37 +646,37 @@ func startWrites(ctx context.Context, s *Server, key, current string, assign boo
 	did := []string{}
 	c := s.Client()
 	if assign {
-		step("assign", "run", "Assigning to you")
+		step("assign", "run", i18n.T("Assigning to you"))
 		me, err := c.Myself(ctx)
 		if err == nil {
 			err = c.SetAssignee(ctx, key, me.AccountID)
 		}
 		if err != nil {
-			step("assign", "warn", "Not assigned: "+err.Error())
+			step("assign", "warn", i18n.Tf("Not assigned: %s", err.Error()))
 			return did, err
 		}
-		did = append(did, "assigned to you")
-		step("assign", "ok", "Assigned to you")
+		did = append(did, i18n.T("assigned to you"))
+		step("assign", "ok", i18n.T("Assigned to you"))
 	}
 	if st := startStatus(s, key); st != "" && !strings.EqualFold(current, st) {
-		step("move", "run", "Moving to "+st)
+		step("move", "run", i18n.Tf("Moving to %s", st))
 		ts, err := c.TransitionsMeta(ctx, key)
 		if err == nil {
 			i := slices.IndexFunc(ts, func(t jira.TransitionMeta) bool { return strings.EqualFold(t.ToName, st) })
 			switch {
 			case i < 0:
-				err = fmt.Errorf("no move to %s from here", st)
+				err = fmt.Errorf(i18n.T("no move to %s from here"), st)
 			case ts[i].HasScreen:
-				err = fmt.Errorf("the move to %s asks for fields: move it with s", st)
+				err = fmt.Errorf(i18n.T("the move to %s asks for fields: move it with s"), st)
 			default:
 				if err = c.DoTransition(ctx, key, ts[i].ID); err == nil {
-					did = append(did, "moved to "+ts[i].ToName)
-					step("move", "ok", "Moved to "+ts[i].ToName)
+					did = append(did, i18n.Tf("moved to %s", ts[i].ToName))
+					step("move", "ok", i18n.Tf("Moved to %s", ts[i].ToName))
 				}
 			}
 		}
 		if err != nil {
-			step("move", "warn", "Not moved: "+err.Error())
+			step("move", "warn", i18n.Tf("Not moved: %s", err.Error()))
 			return did, err
 		}
 	}
@@ -722,7 +723,7 @@ func openPullRequest(ctx context.Context, s *Server, r *http.Request) (any, erro
 	}
 	branch := issueBranch(repo, workConfigOf(s).Branch, key, iss.Type)
 	if branch == "" {
-		return nil, badRequest("no branch for " + key + " in " + repo + ": start work creates one")
+		return nil, badRequest(i18n.Tf("no branch for %s in %s: start work creates one", key, repo))
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
@@ -782,15 +783,15 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 		wt, err := c.OpenWorktree(ctx, repo, branch)
 		switch {
 		case err == nil && wt.AlreadyOpen:
-			return wt, "already open in herdr", nil
+			return wt, i18n.T("already open in herdr"), nil
 		case err == nil:
-			return wt, "its worktree", nil
+			return wt, i18n.T("its worktree"), nil
 		case !herdr.IsCode(err, "worktree_not_found"):
 			return wt, "", err
 		}
-		how := "new worktree on the existing branch"
+		how := i18n.T("new worktree on the existing branch")
 		if !branchExists(repo, branch) {
-			how = "new worktree, branch from " + cmp.Or(base, "herdr's default")
+			how = i18n.Tf("new worktree, branch from %s", cmp.Or(base, i18n.T("herdr's default")))
 		}
 		if len(create) == 0 {
 			wt, err := c.CreateWorktree(ctx, repo, branch, base)
@@ -799,7 +800,7 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 		base = cmp.Or(base, "HEAD")
 		for _, v := range []string{branch, base, key} {
 			if !safeArg.MatchString(v) {
-				return wt, "", fmt.Errorf("create: %q is not safe to hand to a command", v)
+				return wt, "", fmt.Errorf(i18n.T("create: %q is not safe to hand to a command"), v)
 			}
 		}
 		// The program is the configured one as written; only its arguments
@@ -816,7 +817,7 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 			return wt, "", fmt.Errorf("%s: %w: %s", argv[0], err, strings.TrimSpace(string(out)))
 		}
 		wt, err = c.OpenWorktree(ctx, repo, branch)
-		return wt, "made by " + argv[0], err
+		return wt, i18n.Tf("made by %s", argv[0]), err
 	}
 }
 

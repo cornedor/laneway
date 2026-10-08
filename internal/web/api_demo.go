@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/cornedor/laneway/internal/i18n"
 	"net/http"
 	"regexp"
 	"strings"
@@ -53,7 +54,7 @@ func demoGate(s *Server, w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	if strings.HasPrefix(p, "/api/agents/") || strings.HasPrefix(p, "/api/actions/") || demoIssueBlocked.MatchString(p) {
-		writeErr(w, httpError{http.StatusServiceUnavailable, "not available in demo"})
+		writeErr(w, httpError{http.StatusServiceUnavailable, i18n.T("not available in demo")})
 		return true
 	}
 	return false

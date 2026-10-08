@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/lanes"
 )
@@ -29,7 +30,7 @@ func init() {
 	get("/issues/{key}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		key := r.PathValue("key")
 		if !jira.ValidKey(key) {
-			return nil, badRequest("bad issue key")
+			return nil, badRequest(i18n.T("bad issue key"))
 		}
 		if Q(r, "fresh") != "" {
 			s.Client().Invalidate(key)
@@ -94,7 +95,7 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 func boardID(r *http.Request) (int, error) {
 	id, err := strconv.Atoi(r.PathValue("board"))
 	if err != nil {
-		return 0, badRequest("bad board id")
+		return 0, badRequest(i18n.T("bad board id"))
 	}
 	return id, nil
 }
@@ -232,7 +233,7 @@ func boardCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	case Q(r, "sprint") != "":
 		sp, e := strconv.Atoi(Q(r, "sprint"))
 		if e != nil {
-			return nil, badRequest("bad sprint id")
+			return nil, badRequest(i18n.T("bad sprint id"))
 		}
 		cards, total, err = c.SprintIssues(ctx, id, sp, jql, pf)
 	case Q(r, "backlog") != "":

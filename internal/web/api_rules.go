@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 )
@@ -374,7 +375,7 @@ func ruleTest(ctx context.Context, s *Server, r *http.Request) (any, error) {
 			if ev.ByMe == nil || *ev.ByMe {
 				for _, a := range all[i].Actions {
 					if rules.JiraAction(a.Type) {
-						row.Actions = append(row.Actions, act{Type: a.Type, Note: "only on others' changes (by_me false)"})
+						row.Actions = append(row.Actions, act{Type: a.Type, Note: i18n.T("only on others' changes (by_me false)")})
 					}
 				}
 			}
@@ -397,7 +398,7 @@ func describeFiring(f rules.Firing) string {
 		if f.Color != "" {
 			return f.Color
 		}
-		return "theme highlight"
+		return i18n.T("theme highlight")
 	}
 	return f.Text
 }

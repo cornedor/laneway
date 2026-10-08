@@ -9,6 +9,7 @@ import (
 	"unicode"
 
 	"github.com/cornedor/laneway/internal/emoji"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -110,7 +111,7 @@ func init() {
 		}
 		b, err := Body[struct{ ID string }](r)
 		if err != nil || b.ID == "" {
-			return nil, badRequest("need a type id")
+			return nil, badRequest(i18n.T("need a type id"))
 		}
 		return nil, s.Client().SetIssueType(ctx, key, b.ID)
 	})
@@ -121,7 +122,7 @@ func init() {
 		}
 		to := Q(r, "project")
 		if !jira.ValidKey(to + "-1") {
-			return nil, badRequest("bad project")
+			return nil, badRequest(i18n.T("bad project"))
 		}
 		ts, err := s.Client().MoveTypes(ctx, projectOf(key), Q(r, "current"), to)
 		if ts == nil {
@@ -136,7 +137,7 @@ func init() {
 		}
 		b, err := Body[struct{ Project, TypeID string }](r)
 		if err != nil || b.TypeID == "" || !jira.ValidKey(b.Project+"-1") {
-			return nil, badRequest("need a project and a type id")
+			return nil, badRequest(i18n.T("need a project and a type id"))
 		}
 		nk, err := s.Client().MoveIssue(ctx, key, b.Project, b.TypeID)
 		return map[string]string{"Key": nk}, err
@@ -150,7 +151,7 @@ func init() {
 		r.Body = http.MaxBytesReader(nil, r.Body, 32<<20)
 		f, hdr, err := r.FormFile("file")
 		if err != nil {
-			return nil, badRequest("need a file: " + err.Error())
+			return nil, badRequest(i18n.Tf("need a file: %s", err.Error()))
 		}
 		defer f.Close()
 		name := strings.NewReplacer("/", "_", "\\", "_").Replace(hdr.Filename)
@@ -262,7 +263,7 @@ func emojiUsage(s *Server) map[string]int {
 func emojiUsed(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	b, err := Body[struct{ Name string }](r)
 	if err != nil || emoji.Glyph(b.Name) == "" {
-		return nil, badRequest("unknown emoji")
+		return nil, badRequest(i18n.T("unknown emoji"))
 	}
 	inboxMu.Lock()
 	defer inboxMu.Unlock()

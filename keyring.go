@@ -4,6 +4,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The OS keyring for setup: secret-tool (libsecret) on Linux, security
@@ -40,7 +42,7 @@ func keyringOn(goos, baseURL, email string) *keyring {
 					args := []string{"add-generic-password", "-U", "-a", email, "-s", service, "-w", token}
 					for i, a := range args {
 						if strings.ContainsAny(a, "\"\\\n") {
-							return "", errorString("security takes no \", \\ or line break here")
+							return "", errorString(i18n.T("security takes no \", \\ or line break here"))
 						}
 						args[i] = `"` + a + `"`
 					}
@@ -95,7 +97,7 @@ func (k *keyring) put(token string) error {
 		return err
 	}
 	if strings.TrimSpace(got) != token {
-		return errorString("it did not keep the token")
+		return errorString(i18n.T("it did not keep the token"))
 	}
 	return nil
 }

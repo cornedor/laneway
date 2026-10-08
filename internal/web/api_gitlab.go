@@ -8,6 +8,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/ui"
 )
 
@@ -164,7 +165,7 @@ func init() {
 		}
 		id, _ := strconv.Atoi(r.URL.Query().Get("job"))
 		if id <= 0 {
-			return nil, FieldError{Field: "job", Msg: "a job id"}
+			return nil, FieldError{Field: "job", Msg: i18n.T("a job id")}
 		}
 		j, err := c.JobLog(ctx, ref.Repo, id)
 		if err != nil {
@@ -229,5 +230,5 @@ func gitlabLink(s *Server, r *http.Request) (*gitlab.Client, forge.Ref, error) {
 	if h := forge.HostOf(link); h != "" && gitlab.IsMRLink(link) {
 		return nil, forge.Ref{}, signInErr{http.StatusNotFound, gitlab.SignInFor(h)}
 	}
-	return nil, forge.Ref{}, httpError{http.StatusNotFound, "no GitLab token for " + cmp.Or(forge.HostOf(link), "this link")}
+	return nil, forge.Ref{}, httpError{http.StatusNotFound, i18n.Tf("no GitLab token for %s", cmp.Or(forge.HostOf(link), i18n.T("this link")))}
 }

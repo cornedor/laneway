@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/index"
 )
 
@@ -24,14 +25,14 @@ func indexCmd(args []string, site string, out, errOut io.Writer) int {
 			fmt.Fprintln(errOut, "laneway:", err)
 			return 1
 		}
-		fmt.Fprintln(out, "cleared", path)
+		fmt.Fprintln(out, i18n.Tf("cleared %s", path))
 		return 0
 	case len(args) > 0:
-		fmt.Fprintln(errOut, "usage: laneway [-site NAME] index [clear]")
+		fmt.Fprintln(errOut, i18n.T("usage: laneway [-site NAME] index [clear]"))
 		return 2
 	}
 	if _, err := os.Stat(path); err != nil {
-		fmt.Fprintln(out, path, "(empty)")
+		fmt.Fprintln(out, path, i18n.T("(empty)"))
 		return 0
 	}
 	ix, err := index.Open(path)
@@ -59,7 +60,7 @@ func indexCmd(args []string, site string, out, errOut io.Writer) int {
 	}
 	slices.Sort(projects)
 	for _, p := range projects {
-		fmt.Fprintf(out, "%s\t%d issues\t%d people\n", p, n[p], people[p])
+		fmt.Fprintf(out, "%s\t%s\t%s\n", p, i18n.Tf("%d issues", n[p]), i18n.Tf("%d people", people[p]))
 	}
 	return 0
 }

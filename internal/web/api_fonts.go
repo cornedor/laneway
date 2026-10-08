@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"github.com/cornedor/laneway/internal/i18n"
 	"io"
 	"net/http"
 	"os"
@@ -77,24 +78,24 @@ func init() {
 	api("POST /fonts", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		d := fontsDir(s.opt)
 		if d == "" {
-			return nil, badRequest("no state directory to keep fonts in")
+			return nil, badRequest(i18n.T("no state directory to keep fonts in"))
 		}
 		name := cleanFontName(Q(r, "name"))
 		if !fontName.MatchString(name) || fontExts[strings.ToLower(filepath.Ext(name))] == "" {
-			return nil, badRequest("the file must be .woff2, .woff, .ttf or .otf")
+			return nil, badRequest(i18n.T("the file must be .woff2, .woff, .ttf or .otf"))
 		}
 		b, err := io.ReadAll(io.LimitReader(r.Body, maxFontBytes+1))
 		if err != nil {
 			return nil, err
 		}
 		if len(b) > maxFontBytes {
-			return nil, badRequest("font too large (max 4 MB)")
+			return nil, badRequest(i18n.T("font too large (max 4 MB)"))
 		}
 		if !fontMagic(b) {
-			return nil, badRequest("not a font file")
+			return nil, badRequest(i18n.T("not a font file"))
 		}
 		if len(listFonts(s.opt)) >= 20 {
-			return nil, badRequest("20 fonts are enough; remove one first")
+			return nil, badRequest(i18n.T("20 fonts are enough; remove one first"))
 		}
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return nil, err
@@ -107,7 +108,7 @@ func init() {
 	api("DELETE /fonts/{name}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		d, name := fontsDir(s.opt), r.PathValue("name")
 		if d == "" || !fontName.MatchString(name) {
-			return nil, badRequest("bad name")
+			return nil, badRequest(i18n.T("bad name"))
 		}
 		if err := os.Remove(filepath.Join(d, name)); err != nil && !os.IsNotExist(err) {
 			return nil, err

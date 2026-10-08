@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -39,7 +40,7 @@ func init() {
 			return nil, s.opt.Store.SetMeta(timerMeta, "")
 		}
 		if !jira.ValidKey(b.Key) || b.Start.IsZero() {
-			return nil, badRequest("timer needs an issue key and a start")
+			return nil, badRequest(i18n.T("timer needs an issue key and a start"))
 		}
 		return nil, s.opt.Store.SetMeta(timerMeta, b.Key+" "+strconv.FormatInt(b.Start.Unix(), 10))
 	})

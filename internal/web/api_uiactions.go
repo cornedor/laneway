@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/llm"
 	"github.com/cornedor/laneway/internal/safeterm"
@@ -89,20 +90,20 @@ func runAction(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	a, ok := usableActions(s.UIConfig().Actions)[id]
 	if err != nil || !ok {
-		return nil, httpError{http.StatusNotFound, "no such action"}
+		return nil, httpError{http.StatusNotFound, i18n.T("no such action")}
 	}
 	b, err := Body[struct{ Keys []string }](r)
 	if err != nil {
 		return nil, err
 	}
 	if len(b.Keys) == 0 || len(b.Keys) > 200 {
-		return nil, badRequest("no issue")
+		return nil, badRequest(i18n.T("no issue"))
 	}
 	c := s.Client()
 	var issues []actionIssue
 	for _, k := range b.Keys {
 		if !jira.ValidKey(k) {
-			return nil, badRequest("bad issue key " + k)
+			return nil, badRequest(i18n.Tf("bad issue key %s", k))
 		}
 		is, err := c.Get(ctx, k)
 		if err != nil {
@@ -136,7 +137,7 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 	fail := func(code int, msg string) { writeErr(w, httpError{code, msg}) }
 	key := r.PathValue("key")
 	if !jira.ValidKey(key) {
-		fail(http.StatusBadRequest, "bad issue key")
+		fail(http.StatusBadRequest, i18n.T("bad issue key"))
 		return
 	}
 	b, err := Body[struct{ Question, Text string }](r)
@@ -146,7 +147,7 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 	}
 	command := llm.Command(strings.Fields(s.UIConfig().LLM))
 	if command == nil {
-		fail(http.StatusNotImplemented, "asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH")
+		fail(http.StatusNotImplemented, i18n.T("asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH"))
 		return
 	}
 	prompt := strings.TrimSpace(b.Text)
@@ -157,11 +158,11 @@ func askIssue(s *Server, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if prompt == "" {
-		fail(http.StatusBadRequest, "no question")
+		fail(http.StatusBadRequest, i18n.T("no question"))
 		return
 	}
 	if b.Text != "" && (strings.HasPrefix(prompt, "-") || utf8.RuneCountInString(prompt) > maxQuestion) {
-		fail(http.StatusBadRequest, "question must not start with - and is at most 2000 characters")
+		fail(http.StatusBadRequest, i18n.T("question must not start with - and is at most 2000 characters"))
 		return
 	}
 	c := s.Client()
