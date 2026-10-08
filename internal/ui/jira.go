@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/safeterm"
 )
@@ -84,6 +85,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	line := func() { m.panelFieldLine = append(m.panelFieldLine, strings.Count(b.String(), "\n")) }
 	line() // Summary
 	sel := m.panelFieldIs
+	lw := panelLabelW()
 	switch {
 	case m.fieldInlineOn("Summary"):
 		b.WriteString(m.fieldInlineView(0, width) + "\n")
@@ -96,41 +98,41 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 
 	line()
 	if st, ok := statusLozenge[iss.StatusCategory]; ok && iss.Status != "" && !sel("Status") {
-		b.WriteString(refLabelStyle.Render(refMetaLabel("Status", 10)) + st.Render(" "+strings.ToUpper(iss.Status)+" ") + "\n")
+		b.WriteString(refLabelStyle.Render(refMetaLabel(i18n.T("Status"), lw)) + st.Render(" "+strings.ToUpper(iss.Status)+" ") + "\n")
 	} else {
-		refField(&b, "Status", iss.Status, 10, sel("Status"))
+		refField(&b, i18n.T("Status"), iss.Status, lw, sel("Status"))
 	}
-	m.inlinePickerUnder(&b, "Status", 10, width)
+	m.inlinePickerUnder(&b, "Status", lw, width)
 	line()
-	refField(&b, "Priority", iss.Priority, 10, sel("Priority"))
-	m.inlinePickerUnder(&b, "Priority", 10, width)
+	refField(&b, i18n.T("Priority"), iss.Priority, lw, sel("Priority"))
+	m.inlinePickerUnder(&b, "Priority", lw, width)
 	line()
-	m.refFieldEdit(&b, "Points", iss.StoryPoints, 10, width)
+	m.refFieldEdit(&b, "Points", i18n.T("Points"), iss.StoryPoints, lw, width)
 	line()
-	refField(&b, "Assignee", iss.Assignee, 10, sel("Assignee"))
-	m.inlinePickerUnder(&b, "Assignee", 10, width)
+	refField(&b, i18n.T("Assignee"), iss.Assignee, lw, sel("Assignee"))
+	m.inlinePickerUnder(&b, "Assignee", lw, width)
 	line()
-	refField(&b, "Reporter", iss.Reporter, 10, sel("Reporter"))
-	m.inlinePickerUnder(&b, "Reporter", 10, width)
+	refField(&b, i18n.T("Reporter"), iss.Reporter, lw, sel("Reporter"))
+	m.inlinePickerUnder(&b, "Reporter", lw, width)
 	line()
-	m.refFieldEdit(&b, "Labels", strings.Join(iss.Labels, ", "), 10, width)
+	m.refFieldEdit(&b, "Labels", i18n.T("Labels"), strings.Join(iss.Labels, ", "), lw, width)
 	if m.jiraFieldActive && m.jiraFieldName == "labels" && m.fieldInline() {
 		for _, l := range m.labelLines(10) {
 			b.WriteString(l + "\n")
 		}
 	}
 	if !iss.Updated.IsZero() {
-		refMeta(&b, "Updated", m.when(iss.Updated), 10)
+		refMeta(&b, i18n.T("Updated"), m.when(iss.Updated), lw)
 	}
 	if m.panelExtraKey == iss.Key {
 		m.writeFacts(&b, m.panelFacts)
 	}
 	// The deployment rides on the board's card (its Development field).
 	if i := slices.IndexFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == iss.Key }); i >= 0 && m.jiraTab.cards[i].Deploy != "" {
-		refMeta(&b, "Deployed", m.jiraTab.cards[i].Deploy, 10)
+		refMeta(&b, i18n.T("Deployed"), m.jiraTab.cards[i].Deploy, lw)
 	}
 	if top, rest := m.splitExtra(); len(top)+len(rest) > 0 {
-		w := 10
+		w := lw
 		for _, ff := range append(top, rest...) {
 			w = max(w, len(ff.Name)+2)
 			if m.starred[ff.ID] {
@@ -144,7 +146,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 			defer func() { idx++ }()
 			val := jiraValueText(ff.val)
 			if richField(ff) {
-				val = "↓ below"
+				val = i18n.T("↓ below")
 			}
 			name := ff.Name
 			if m.starred[ff.ID] {
@@ -183,7 +185,7 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 	b.WriteString("\n" + refDimStyle.Render(m.panelHintLine()) + "\n")
 
 	if m.descEditOn("") {
-		b.WriteString(sectionHead("Description", "  "+descEditHint, max(width, 1)))
+		b.WriteString(sectionHead(i18n.T("Description"), "  "+descEditHint, max(width, 1)))
 		b.WriteString(descEditMark + "\n")
 	} else {
 		desc := strings.TrimSpace(iss.Description)
@@ -215,22 +217,33 @@ func (m *Model) renderJiraIssue(iss *jira.Issue, width int) string {
 
 const descHead = "Description"
 
+// panelLabelW is the width of the panel's label column: the translated
+// labels fit.
+func panelLabelW() int {
+	w := 10
+	for _, l := range []string{i18n.T("Status"), i18n.T("Priority"), i18n.T("Points"), i18n.T("Assignee"), i18n.T("Reporter"), i18n.T("Labels"),
+		i18n.T("Updated"), i18n.T("Deployed"), i18n.T("Created"), i18n.T("Resolved"), i18n.T("Watchers"), i18n.T("Votes"), i18n.T("Time")} {
+		w = max(w, len([]rune(l))+2)
+	}
+	return w
+}
+
 // descHint is the Description heading's key: edit it, or add one.
 func (m *Model) descHint(has bool) string {
 	if has {
-		return helpKey(m.keys.JiraDescription) + " edit"
+		return i18n.Tf("%s edit", helpKey(m.keys.JiraDescription))
 	}
-	return helpKey(m.keys.JiraDescription) + " add one"
+	return i18n.Tf("%s add one", helpKey(m.keys.JiraDescription))
 }
 
 // refFieldEdit writes the panel's own field row: the inline input while it
 // is edited, else refField.
-func (m *Model) refFieldEdit(b *strings.Builder, name, value string, labelW, width int) {
+func (m *Model) refFieldEdit(b *strings.Builder, name, label, value string, labelW, width int) {
 	if m.fieldInlineOn(name) {
-		b.WriteString(refLabelStyle.Render(refMetaLabel(name, labelW)) + m.fieldInlineView(labelW, width) + "\n")
+		b.WriteString(refLabelStyle.Render(refMetaLabel(label, labelW)) + m.fieldInlineView(labelW, width) + "\n")
 		return
 	}
-	refField(b, name, value, labelW, m.panelFieldIs(name))
+	refField(b, label, value, labelW, m.panelFieldIs(name))
 }
 
 // inlinePickerUnder drops the inline picker under row name when it is open
@@ -274,7 +287,7 @@ func (m *Model) renderJiraLinks(b *strings.Builder, iss *jira.Issue, width int) 
 	if len(iss.Links) == 0 {
 		return
 	}
-	b.WriteString(sectionHead(fmt.Sprintf("Links (%d)", len(iss.Links)), "  L open", width))
+	b.WriteString(sectionHead(i18n.Tf("Links (%d)", len(iss.Links)), "  L open", width))
 	for _, l := range iss.Links {
 		line := refDimStyle.Render(l.Rel+" ") + jiraKeyStyle.Render(l.Key) + " " + l.Summary
 		if l.Status != "" {
@@ -319,7 +332,7 @@ func childrenHead(kids []jira.Child) string {
 			done++
 		}
 	}
-	return fmt.Sprintf("Children (%d/%d done)", done, len(kids))
+	return i18n.Tf("Children (%d/%d done)", done, len(kids))
 }
 
 // shownChildren are the panel epic's child issues, open ones first, once
@@ -347,7 +360,7 @@ func (m *Model) renderWebLinks(b *strings.Builder, iss *jira.Issue, width int) {
 	if len(links) == 0 {
 		return
 	}
-	b.WriteString(sectionHead(fmt.Sprintf("Web links (%d)", len(links)), "  L open", width))
+	b.WriteString(sectionHead(i18n.Tf("Web links (%d)", len(links)), "  L open", width))
 	for _, l := range links {
 		line := osc8Link(l.URL, mdLinkStyle.Render(safeterm.Line(l.Title)))
 		if l.App != "" {
@@ -370,23 +383,23 @@ func (m *Model) shownWebLinks() []jira.WebLink {
 func (m *Model) openJiraLinkPicker() {
 	web, kids := m.shownWebLinks(), m.shownChildren()
 	if m.jiraIssue == nil || len(m.jiraIssue.Links)+len(kids)+len(web) == 0 {
-		m.status = "no links"
+		m.status = i18n.T("no links")
 		return
 	}
-	m.startJiraPicker(jiraPickLink, "Go to a link", true)
+	m.startJiraPicker(jiraPickLink, i18n.T("Go to a link"), true)
 	var items []jiraPickerItem
 	for _, l := range m.jiraIssue.Links {
 		items = append(items, jiraPickerItem{id: l.Key, label: l.Rel + " " + l.Key + " " + l.Summary})
 	}
 	for _, ch := range kids {
-		items = append(items, jiraPickerItem{id: ch.Key, label: "child " + ch.Key + " " + ch.Summary})
+		items = append(items, jiraPickerItem{id: ch.Key, label: i18n.Tf("child %s %s", ch.Key, ch.Summary)})
 	}
 	for _, l := range web {
-		kind := "web " // opens in the browser; a page of this site's Confluence reads in the panel
+		label := i18n.Tf("web %s", safeterm.Line(l.Title)) // opens in the browser; a page of this site's Confluence reads in the panel
 		if m.jiraClient.PageID(l.URL) != "" {
-			kind = "page "
+			label = i18n.Tf("page %s", safeterm.Line(l.Title))
 		}
-		items = append(items, jiraPickerItem{id: l.URL, label: kind + safeterm.Line(l.Title), value: "web"})
+		items = append(items, jiraPickerItem{id: l.URL, label: label, value: "web"})
 	}
 	m.setJiraPickerItems(items)
 }
@@ -403,7 +416,7 @@ func (m *Model) renderJiraAttachments(b *strings.Builder, iss *jira.Issue, width
 	if len(rest) == 0 {
 		return
 	}
-	b.WriteString(sectionHead(fmt.Sprintf("Attachments (%d)", len(rest)), "", width))
+	b.WriteString(sectionHead(i18n.Tf("Attachments (%d)", len(rest)), "", width))
 	for _, a := range rest {
 		name := attachmentStyle.Render("📎 " + a.Filename)
 		if u := m.jiraClient.AttachmentURL(a.ID); u != "" {
@@ -504,7 +517,7 @@ func parentRef(cs []jira.Comment, c jira.Comment, width int) string {
 	p := cs[i]
 	who := p.Author
 	if who == "" {
-		who = "Unknown"
+		who = i18n.T("Unknown")
 	}
 	return truncate("↪ "+who+": "+strings.Join(strings.Fields(p.Body), " "), width)
 }
@@ -541,7 +554,7 @@ func byteSize(n int64) string {
 // browser.
 func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width int) {
 	if len(iss.Comments) == 0 && iss.CommentTotal == 0 {
-		b.WriteString(refDimStyle.Render("no comments yet") + "\n")
+		b.WriteString(refDimStyle.Render(i18n.T("no comments yet")) + "\n")
 		return
 	}
 	thread := m.commentOrder(iss.Comments)
@@ -581,7 +594,7 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 	}
 
 	if extra := iss.CommentTotal - len(iss.Comments); extra > 0 {
-		b.WriteString("\n" + refDimStyle.Render(fmt.Sprintf("…and %d more — o opens in browser", extra)) + "\n")
+		b.WriteString("\n" + refDimStyle.Render(i18n.Tf("…and %d more — o opens in browser", extra)) + "\n")
 	}
 }
 
@@ -590,7 +603,7 @@ func (m *Model) renderJiraComments(b *strings.Builder, iss *jira.Issue, width in
 func (m *Model) commentByline(c jira.Comment) string {
 	line := c.Author
 	if line == "" {
-		line = "Unknown"
+		line = i18n.T("Unknown")
 	}
 	if !c.Created.IsZero() {
 		line += " · " + m.when(c.Created)
@@ -618,13 +631,13 @@ func (m *Model) renderComment(b *strings.Builder, c jira.Comment) {
 // commentActions are what a click on comment c's action row can do: reply,
 // and on your own edit and delete. Each is its label and action.
 func (m *Model) commentActions(c jira.Comment) [][2]string {
-	acts := [][2]string{{"↩ reply", "reply"}}
+	acts := [][2]string{{i18n.T("↩ reply"), "reply"}}
 	if me := m.jiraClient.KnownMyself(); me != "" && c.AuthorID == me && c.ID != "" {
-		del := "✕ delete"
+		del := i18n.T("✕ delete")
 		if m.commentDelete == c.ID {
-			del = "✕ delete? again"
+			del = i18n.T("✕ delete? again")
 		}
-		acts = append(acts, [2]string{"✎ edit", "edit"}, [2]string{del, "delete"})
+		acts = append(acts, [2]string{i18n.T("✎ edit"), "edit"}, [2]string{del, "delete"})
 	}
 	return acts
 }
@@ -651,15 +664,16 @@ func (m *Model) commentActionAt(c jira.Comment, col int) string {
 // writeFacts writes the issue's read-only details: created, resolved,
 // watchers and votes (you among them), time tracking.
 func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
+	lw := panelLabelW()
 	if !f.Created.IsZero() {
-		refMeta(b, "Created", m.when(f.Created), 10)
+		refMeta(b, i18n.T("Created"), m.when(f.Created), lw)
 	}
 	if f.Resolution != "" {
 		res := f.Resolution
 		if !f.Resolved.IsZero() {
 			res += " · " + m.when(f.Resolved)
 		}
-		refMeta(b, "Resolved", res, 10)
+		refMeta(b, i18n.T("Resolved"), res, lw)
 	}
 	count := func(n int, you bool) string {
 		if n == 0 {
@@ -667,33 +681,33 @@ func (m *Model) writeFacts(b *strings.Builder, f jira.Facts) {
 		}
 		s := strconv.Itoa(n)
 		if you {
-			s += " (you)"
+			s = i18n.Tf("%d (you)", n)
 		}
 		return s
 	}
-	refMeta(b, "Watchers", count(f.Watchers, f.Watching), 10)
-	refMeta(b, "Votes", count(f.Votes, f.Voted), 10)
+	refMeta(b, i18n.T("Watchers"), count(f.Watchers, f.Watching), lw)
+	refMeta(b, i18n.T("Votes"), count(f.Votes, f.Voted), lw)
 	if f.Spent > 0 || f.Estimate > 0 || f.Left > 0 {
-		t := "nothing logged"
+		t := i18n.T("nothing logged")
 		if f.Spent > 0 {
-			t = jira.FormatDuration(f.Spent) + " logged"
+			t = i18n.Tf("%s logged", jira.FormatDuration(f.Spent))
 		}
 		if f.Left > 0 || f.Estimate > 0 {
-			t += " · " + jira.FormatDuration(f.Left) + " left"
+			t += i18n.Tf(" · %s left", jira.FormatDuration(f.Left))
 		}
 		if f.Estimate > 0 {
-			t += " of " + jira.FormatDuration(f.Estimate)
+			t += i18n.Tf(" of %s", jira.FormatDuration(f.Estimate))
 		}
-		refMeta(b, "Time", t, 10)
+		refMeta(b, i18n.T("Time"), t, lw)
 	}
 }
 
 // moreLabel is the More row's value: how many it folds, and how to open it.
 func (m *Model) moreLabel(n int) string {
 	if m.moreFields {
-		return fmt.Sprintf("▾ %d · %s stars one to keep it shown", n, helpKey(m.keys.Pin))
+		return i18n.Tf("▾ %d · %s stars one to keep it shown", n, helpKey(m.keys.Pin))
 	}
-	return fmt.Sprintf("▸ %d · ↵ shows them", n)
+	return i18n.Tf("▸ %d · ↵ shows them", n)
 }
 
 // emptyFieldsRow stands for the empty fields ui.empty_fields: hide folds;

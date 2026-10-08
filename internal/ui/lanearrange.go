@@ -7,7 +7,6 @@ package ui
 // from the board's columns.
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/lanes"
 )
@@ -53,9 +53,9 @@ func (m *Model) openJiraArrange() {
 	}
 	board := m.jiraBoard()
 	if _, ok := m.jiraLayout(); !ok {
-		name := "My lanes"
+		name := i18n.T("My lanes")
 		for n := 2; slices.ContainsFunc(m.uiConfig.LaneLayouts, func(l config.LaneLayout) bool { return l.Name == name }); n++ {
-			name = fmt.Sprintf("My lanes %d", n)
+			name = i18n.Tf("My lanes %d", n)
 		}
 		l := config.LaneLayout{Name: name}
 		m.writeLaneLayout("", lanes.NewDraft(l, board).Apply(l, board))
@@ -64,7 +64,7 @@ func (m *Model) openJiraArrange() {
 			_ = m.store.SetMeta(jiraLayoutKey(m.jiraBoardID()), name)
 		}
 		if _, ok := m.jiraLayout(); !ok {
-			m.status = "this board has too few columns for a lane layout"
+			m.status = i18n.T("this board has too few columns for a lane layout")
 			return
 		}
 	}
@@ -73,7 +73,7 @@ func (m *Model) openJiraArrange() {
 		t.arrange.col = o[0]
 	}
 	m.buildJiraLanes()
-	m.status = "arrange " + m.jiraLayoutName() + ": h l pick · H L stack · n own lane · x hide · < > move lane · r rename · esc done"
+	m.status = i18n.Tf("arrange %s: h l pick · H L stack · n own lane · x hide · < > move lane · r rename · esc done", m.jiraLayoutName())
 	m.renderJira()
 }
 
@@ -136,11 +136,11 @@ func (m *Model) writeLaneLayout(old string, l config.LaneLayout) {
 	opts, _ := optionsFrom(next)
 	m.uiConfig.LaneLayouts, m.opts.laneLayouts = ls, opts.laneLayouts
 	if m.configPath == "" {
-		m.status = "no config file to write to: the layout lasts till you quit"
+		m.status = i18n.T("no config file to write to: the layout lasts till you quit")
 		return
 	}
 	if err := config.SetUI(m.configPath, "lane_layouts", ls); err != nil {
-		m.fail("ui.lane_layouts: " + err.Error())
+		m.fail(i18n.Tf("ui.lane_layouts: %s", err.Error()))
 	}
 }
 
@@ -161,7 +161,7 @@ func (m Model) handleJiraArrangeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch s := msg.String(); {
 	case s == "esc" || s == "enter" || key.Matches(msg, m.keys.ArrangeLanes):
 		t.arrange = nil
-		m.status = "lanes: " + m.jiraLayoutName()
+		m.status = i18n.Tf("lanes: %s", m.jiraLayoutName())
 		m.buildJiraLanes()
 		m.renderJira()
 	case s == "h" || s == "left" || s == "k" || s == "up":
@@ -212,7 +212,7 @@ func (m Model) handleJiraArrangeKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		m.arrangeEdit(func(d *lanes.Draft) { d.Lanes[li], d.Lanes[to] = d.Lanes[to], d.Lanes[li] })
 	case s == "r" && li >= 0:
-		m.openBulkInput("lane-rename", "lane name (empty: its first column's)")
+		m.openBulkInput("lane-rename", i18n.T("lane name (empty: its first column's)"))
 		m.jiraFieldInput.SetValue(d.Lanes[li].Name)
 		m.jiraFieldInput.CursorEnd()
 		m.jiraFieldKey = m.jiraLayoutName()
@@ -265,7 +265,7 @@ func (m *Model) renderJiraArrange(width, height int) string {
 			lines = append(lines, col(ci))
 		}
 		if n := len(l.Foreign); n > 0 {
-			lines = append(lines, jiraDimStyle.Render(ansi.Truncate(fmt.Sprintf("  + %d on other boards", n), inner, "…")))
+			lines = append(lines, jiraDimStyle.Render(ansi.Truncate(i18n.Tf("  + %d on other boards", n), inner, "…")))
 		}
 		cols = append(cols, lines)
 	}
@@ -285,16 +285,16 @@ func (m *Model) renderJiraArrange(width, height int) string {
 		}
 		out[y] = b.String()
 	}
-	hidden := []string{jiraDimStyle.Render("hidden:")}
+	hidden := []string{jiraDimStyle.Render(i18n.T("hidden:"))}
 	for _, ci := range d.Hidden {
 		hidden = append(hidden, strings.TrimSpace(col(ci)))
 	}
 	if len(d.Hidden) == 0 {
-		hidden = append(hidden, jiraDimStyle.Render("none (x hides a column)"))
+		hidden = append(hidden, jiraDimStyle.Render(i18n.T("none (x hides a column)")))
 	}
 	if height >= 3 {
 		out[height-2] = ansi.Truncate(" "+strings.Join(hidden, " "), width, "…")
-		out[height-1] = jiraDimStyle.Render(ansi.Truncate(" h l pick · H L stack · n own lane · x hide/show · < > move lane · r rename · esc done", width, "…"))
+		out[height-1] = jiraDimStyle.Render(ansi.Truncate(i18n.T(" h l pick · H L stack · n own lane · x hide/show · < > move lane · r rename · esc done"), width, "…"))
 	}
 	return strings.Join(out, "\n")
 }

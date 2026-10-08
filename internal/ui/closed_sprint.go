@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/safeterm"
 )
@@ -30,10 +31,10 @@ func (m *Model) inClosedSprint() bool {
 func (m *Model) openClosedSprintPicker() tea.Cmd {
 	t := m.jiraTab
 	if t.cfg == nil || t.board >= len(t.boards) || t.boards[t.board].Type != "scrum" {
-		m.status = "closed sprints are a scrum board's"
+		m.status = i18n.T("closed sprints are a scrum board's")
 		return nil
 	}
-	gen := m.startJiraPicker(jiraPickClosedSprint, "Closed sprints", true)
+	gen := m.startJiraPicker(jiraPickClosedSprint, i18n.T("Closed sprints"), true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, board := m.jiraClient, m.ctx, m.jiraBoardID()
 	return func() tea.Msg {
@@ -42,7 +43,7 @@ func (m *Model) openClosedSprintPicker() tea.Cmd {
 		for i, s := range sprints {
 			label := safeterm.Line(s.Name)
 			if d := cmp.Or(s.Complete, s.End); !d.IsZero() {
-				label += "  closed " + d.Local().Format("Jan 2 2006")
+				label += i18n.Tf("  closed %s", d.Local().Format("Jan 2 2006"))
 			}
 			if g := safeterm.Line(strings.Join(strings.Fields(s.Goal), " ")); g != "" {
 				label += "  · " + g
@@ -71,7 +72,7 @@ func (m *Model) openClosedSprint(id string) tea.Cmd {
 		t.views = append(t.views, v)
 	}
 	t.past = nil
-	m.status = "reading " + v.name + "…"
+	m.status = i18n.Tf("reading %s…", v.name)
 	return m.loadJiraCards(len(t.views)-1, false)
 }
 
@@ -122,11 +123,11 @@ func closedSprintLine(cards []jira.Card) string {
 		carried++
 	}
 	if carried == 0 {
-		return fmt.Sprintf("%d done", done)
+		return i18n.Tf("%d done", done)
 	}
 	var parts []string
 	for _, s := range slices.Sorted(maps.Keys(to)) {
 		parts = append(parts, fmt.Sprintf("%d → %s", to[s], s))
 	}
-	return fmt.Sprintf("%d done · %d carried over: %s", done, carried, strings.Join(parts, ", "))
+	return i18n.Tf("%d done · %d carried over: %s", done, carried, strings.Join(parts, ", "))
 }

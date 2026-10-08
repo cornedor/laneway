@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // listColumnIDs are the list view's columns in their default order.
@@ -21,7 +21,7 @@ func listColumnsFrom(names []string) (order, warn []string) {
 		n = strings.ToLower(strings.TrimSpace(n))
 		switch {
 		case !slices.Contains(listColumnIDs, n):
-			warn = append(warn, fmt.Sprintf("ui.list_columns: unknown column %q", n))
+			warn = append(warn, i18n.Tf("ui.list_columns: unknown column %q", n))
 		case !slices.Contains(order, n):
 			order = append(order, n)
 		}
@@ -145,22 +145,23 @@ func (m *Model) jiraListHeader(cols listCols) (string, []headCell, []headCell) {
 		start := x
 		switch c.id {
 		case "key":
-			cell("Key", c.w, jiraSortKey, false)
+			cell(i18n.T("Key"), c.w, jiraSortKey, false)
 		case "priority":
-			cell("P", c.w, jiraSortPriority, false)
+			cell(i18n.T("P"), c.w, jiraSortPriority, false)
 		case "status":
-			cell("Status", c.w, jiraSortStatus, false)
+			cell(i18n.T("Status"), c.w, jiraSortStatus, false)
 		case "points":
-			cell("Pts", c.w, jiraSortPoints, true)
+			cell(i18n.T("Pts"), c.w, jiraSortPoints, true)
 		case "assignee":
-			cell("Assignee", c.w, jiraSortAssignee, false)
+			cell(i18n.T("Assignee"), c.w, jiraSortAssignee, false)
 		case "summary":
 			end := x + c.w
-			cell("Summary", min(len("Summary"), c.w), jiraSortRank, false)
-			if f.parent && x+3+len("Epic")+1 <= end {
+			epic, sum := i18n.T("Epic"), i18n.T("Summary")
+			cell(sum, min(len(sum), c.w), jiraSortRank, false)
+			if f.parent && x+3+len(epic)+1 <= end {
 				b.WriteString(jiraDimStyle.Render(" · "))
 				x += 3
-				cell("Epic", len("Epic")+1, jiraSortEpic, false)
+				cell(epic, len(epic)+1, jiraSortEpic, false)
 			}
 			if by := cur.by.String(); !shown[cur.by] && x+len(by)+2 <= end {
 				w := len(by) + 1
@@ -210,9 +211,9 @@ func (m Model) dragJiraHead(x int) (tea.Model, tea.Cmd) {
 		}
 	}
 	d.to, d.after = s.col, x-1 >= (s.x0+s.x1)/2
-	m.status = "drop to move " + listColumnName(d.col) + " here"
+	m.status = i18n.Tf("drop to move %s here", listColumnName(d.col))
 	if d.to == d.col {
-		m.status = "drag " + listColumnName(d.col) + " onto another column to move it"
+		m.status = i18n.Tf("drag %s onto another column to move it", listColumnName(d.col))
 	}
 	return m, nil
 }
@@ -246,16 +247,15 @@ func (m *Model) moveListColumn(id, to string, after bool) {
 	m.opts.listCols = order
 	m.jiraTab.rows = nil
 	m.renderJira()
-	where := " before "
+	m.status = i18n.Tf("%s before %s", listColumnName(id), listColumnName(to))
 	if after {
-		where = " after "
+		m.status = i18n.Tf("%s after %s", listColumnName(id), listColumnName(to))
 	}
-	m.status = listColumnName(id) + where + listColumnName(to)
 	if m.configPath == "" {
-		m.status += "; no config file to write to: it lasts till you quit"
+		m.status += i18n.T("; no config file to write to: it lasts till you quit")
 		return
 	}
 	if err := config.SetUI(m.configPath, "list_columns", order); err != nil {
-		m.fail("ui.list_columns: " + err.Error())
+		m.fail(i18n.Tf("ui.list_columns: %s", err.Error()))
 	}
 }

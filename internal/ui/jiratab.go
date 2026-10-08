@@ -19,6 +19,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/lanes"
@@ -103,9 +104,9 @@ func (m *Model) toggleCompact() {
 			_ = m.store.DeleteMeta(jiraCompactMeta)
 		}
 	}
-	m.status = "cards: full"
+	m.status = i18n.T("cards: full")
 	if t.compact {
-		m.status = "cards: one line"
+		m.status = i18n.T("cards: one line")
 	}
 	m.renderJira()
 }
@@ -136,11 +137,11 @@ func (m *Model) toggleEmptyLanes() {
 	}
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
-	m.status = "empty lanes: shown"
+	m.status = i18n.T("empty lanes: shown")
 	if t.emptyLanes == "hide" {
-		m.status = "empty lanes: hidden"
+		m.status = i18n.T("empty lanes: hidden")
 		if n := len(t.cols) - len(t.lanes); n > 0 {
-			m.status = fmt.Sprintf("empty lanes: %d hidden", n)
+			m.status = i18n.Tf("empty lanes: %d hidden", n)
 		}
 	}
 	m.renderJira()
@@ -180,7 +181,7 @@ func (m *Model) cycleJiraLayout() {
 	}
 	fit := lanes.Fitting(m.opts.laneLayouts, m.jiraBoardID(), t.cfg.Columns)
 	if len(fit) == 0 {
-		m.status = "no lane layout fits this board: add one to ui.lane_layouts"
+		m.status = i18n.T("no lane layout fits this board: add one to ui.lane_layouts")
 		return
 	}
 	next := fit[0].Name
@@ -199,9 +200,9 @@ func (m *Model) cycleJiraLayout() {
 	t.laneTop = nil
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
-	m.status = "lanes: the board's columns"
+	m.status = i18n.T("lanes: the board's columns")
 	if next != "" {
-		m.status = "lanes: " + next
+		m.status = i18n.Tf("lanes: %s", next)
 	}
 	m.renderJira()
 }
@@ -665,7 +666,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 				return msg
 			}
 			if len(ps) == 0 {
-				msg.err = fmt.Errorf("jira: no projects visible")
+				msg.err = fmt.Errorf("%s", i18n.T("jira: no projects visible"))
 				return msg
 			}
 			project = ps[0].Key
@@ -677,7 +678,7 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 			return msg
 		}
 		if len(boards) == 0 {
-			msg.err = fmt.Errorf("jira: %s has no boards", project)
+			msg.err = fmt.Errorf("%s", i18n.Tf("jira: %s has no boards", project))
 			return msg
 		}
 		msg.boards = boards
@@ -728,11 +729,11 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 				msg.views = append(msg.views, jiraView{kind: jiraViewSprint, name: s.Name, sprint: s.ID, lanes: s.State == "active",
 					start: s.Start, end: s.End, goal: s.Goal})
 			}
-			msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: "Backlog"})
+			msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: i18n.T("Backlog")})
 		} else {
 			msg.views = append(msg.views, jiraView{kind: jiraViewBoard, name: "Board", lanes: true, doneDays: doneDays})
 			if kanbanBacklog(cfg) >= 0 {
-				msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: "Backlog"})
+				msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: i18n.T("Backlog")})
 			}
 		}
 		msg.views = append(msg.views, localViews...)
@@ -829,9 +830,9 @@ func indexJQL(ctx context.Context, c *jira.Client, ix *index.Index, q string, ms
 		msg.cards = append(msg.cards, h.Card)
 	}
 	msg.total = len(msg.cards)
-	msg.note = "offline: " + plural(len(msg.cards), "issue") + " from the index"
+	msg.note = i18n.Tn(len(msg.cards), "offline: %d issue from the index", "offline: %d issues from the index", len(msg.cards))
 	if len(dropped) > 0 {
-		msg.note += " · left out " + strings.Join(dropped, ", ")
+		msg.note += i18n.Tf(" · left out %s", strings.Join(dropped, ", "))
 	}
 	return msg
 }
@@ -899,7 +900,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil && msg.cfg == nil && t.cfg != nil && len(t.cards) > 0 && t.project == msg.project {
 		// Offline, or Jira down: keep the cached board, say so.
 		t.offline = msg.err.Error()
-		m.fail("offline: " + msg.err.Error())
+		m.fail(i18n.Tf("offline: %s", msg.err.Error()))
 		m.renderJira()
 		return m, nil
 	}
@@ -927,9 +928,9 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if msg.quickErr != nil {
-		warn := "quick filters: " + msg.quickErr.Error()
+		warn := i18n.Tf("quick filters: %s", msg.quickErr.Error())
 		if len(msg.quickOn) > 0 {
-			warn += " · the board shows unfiltered, " + helpKey(m.keys.Refresh) + " retries"
+			warn += i18n.Tf(" · the board shows unfiltered, %s retries", helpKey(m.keys.Refresh))
 		}
 		m.fail(warn)
 	}
@@ -1012,9 +1013,9 @@ func (m *Model) sortJiraList(sort viewSort) {
 	m.buildJiraLanes()
 	m.selectJiraKey(keep)
 	m.renderJira()
-	m.status = "sorted by " + t.sort.String()
+	m.status = i18n.Tf("sorted by %s", t.sort.String())
 	if t.desc {
-		m.status += ", reversed"
+		m.status = i18n.Tf("sorted by %s, reversed", t.sort.String())
 	}
 }
 
@@ -1026,7 +1027,7 @@ func (m *Model) installJiraCards(cards []jira.Card, total int, err error, keep s
 	case err != nil && len(cards) == 0 && len(t.cards) > 0:
 		// Offline, or Jira down: the cards already shown stay.
 		t.offline = err.Error()
-		m.fail("offline: " + err.Error())
+		m.fail(i18n.Tf("offline: %s", err.Error()))
 		m.renderJira()
 		return
 	case err != nil:
@@ -1196,10 +1197,10 @@ func (m *Model) toggleJiraSection(l, s int) {
 	}
 	if t.secFold[k] {
 		delete(t.secFold, k)
-		m.status = "unfolded " + lane.sections[s].name
+		m.status = i18n.Tf("unfolded %s", lane.sections[s].name)
 	} else {
 		t.secFold[k] = true
-		m.status = "folded " + lane.sections[s].name + " · " + helpKey(m.keys.UnfoldAll) + " unfolds all"
+		m.status = i18n.Tf("folded %s · %s unfolds all", lane.sections[s].name, helpKey(m.keys.UnfoldAll))
 	}
 	m.saveJiraSecFold()
 	m.skipJiraFolded(1)
@@ -1305,7 +1306,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	lanes := m.jiraShowsLanes()
 	if m.needsCard(msg) {
 		if _, ok := m.selectedJiraCard(); !ok {
-			m.status = "no card selected"
+			m.status = i18n.T("no card selected")
 			return m, nil
 		}
 	}
@@ -1352,7 +1353,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.OpenAttach):
 		if c, ok := m.selectedJiraCard(); ok {
 			url := m.jiraClient.BrowseURL(c.Key)
-			m.status = "opening " + url + "…"
+			m.status = i18n.Tf("opening %s…", url)
 			return m, m.openOpenable(openable{name: c.Key, url: url})
 		}
 	case key.Matches(msg, m.keys.Refresh):
@@ -1431,7 +1432,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if t.assignee.id == "me" {
 			return m, m.setJiraAssignee("", "")
 		}
-		return m, m.setJiraAssignee("me", "Me")
+		return m, m.setJiraAssignee("me", i18n.T("Me"))
 	case key.Matches(msg, m.keys.ClearFilters):
 		return m, m.clearJiraFilters()
 	case key.Matches(msg, m.keys.Search):
@@ -1478,9 +1479,9 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.buildJiraLanes()
 			m.selectJiraKey(keep)
 			m.renderJira()
-			m.status = "swimlanes by " + t.swim.String()
+			m.status = i18n.Tf("swimlanes by %s", t.swim.String())
 			if t.swim == jiraSortRank {
-				m.status = "no swimlanes"
+				m.status = i18n.T("no swimlanes")
 			}
 			if m.store != nil {
 				_ = m.store.SetMeta(jiraSwimKey(m.jiraBoardID()), t.swim.String())
@@ -1504,7 +1505,7 @@ func (m Model) handleJiraKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.clearJiraSearch()
 	case msg.String() == "esc" && len(t.marked) > 0:
 		m.clearJiraMarks()
-		m.status = "marks cleared"
+		m.status = i18n.T("marks cleared")
 	case len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9":
 		return m, m.toggleJiraQuick(int(msg.String()[0] - '1'))
 	case key.Matches(msg, m.keys.Tab), key.Matches(msg, m.keys.ShiftTab):
@@ -1595,7 +1596,7 @@ func (m *Model) foldJiraSwimlane() {
 		return
 	}
 	if t.swim == jiraSortRank || !m.jiraShowsLanes() {
-		m.status = "fold needs swimlanes (" + helpKey(m.keys.Sort) + " in lanes) or a stacked lane"
+		m.status = i18n.Tf("fold needs swimlanes (%s in lanes) or a stacked lane", helpKey(m.keys.Sort))
 		return
 	}
 	if !ok {
@@ -1608,7 +1609,7 @@ func (m *Model) foldJiraSwimlane() {
 	t.swimFold[g] = true
 	m.skipJiraFolded(1)
 	m.renderJira()
-	m.status = "folded " + g + " · " + helpKey(m.keys.UnfoldAll) + " unfolds all"
+	m.status = i18n.Tf("folded %s · %s unfolds all", g, helpKey(m.keys.UnfoldAll))
 }
 
 // jiraSwimGroups are the swimlanes in order, with a card of each.
@@ -1639,7 +1640,7 @@ func (m *Model) jumpJiraBand(dir int) {
 	if !m.jiraShowsLanes() {
 		g, grouped := jiraGroupOf(t.sort, c)
 		if !grouped {
-			m.status = "bands need swimlanes or a grouped list (" + helpKey(m.keys.Sort) + ")"
+			m.status = i18n.Tf("bands need swimlanes or a grouped list (%s)", helpKey(m.keys.Sort))
 			return
 		}
 		groupAt := func(i int) string { g, _ := jiraGroupOf(t.sort, t.cards[t.order[i]]); return g }
@@ -1657,7 +1658,7 @@ func (m *Model) jumpJiraBand(dir int) {
 		return
 	}
 	if t.swim == jiraSortRank {
-		m.status = "bands need swimlanes or a grouped list (" + helpKey(m.keys.Sort) + ")"
+		m.status = i18n.Tf("bands need swimlanes or a grouped list (%s)", helpKey(m.keys.Sort))
 		return
 	}
 	if !ok {
@@ -1729,7 +1730,7 @@ func (m *Model) cycleJiraView(delta int) tea.Cmd {
 func (m *Model) toggleJiraMode() tea.Cmd {
 	t := m.jiraTab
 	if v, ok := m.jiraCurrentView(); ok && !v.lanes {
-		m.status = v.name + " is a list"
+		m.status = i18n.Tf("%s is a list", v.name)
 		return nil
 	}
 	keep := m.selectedJiraKey()
@@ -1846,14 +1847,14 @@ func (m *Model) rankJiraCard(d int) tea.Cmd {
 	var at int
 	switch {
 	case m.jiraShowsLanes() && t.swim != jiraSortRank:
-		m.status = "ranking needs the swimlanes off (" + helpKey(m.keys.Sort) + ")"
+		m.status = i18n.Tf("ranking needs the swimlanes off (%s)", helpKey(m.keys.Sort))
 		return nil
 	case m.jiraShowsLanes():
 		if t.lane < len(t.lanes) {
 			shown, at = t.lanes[t.lane].cards, t.row
 		}
 	case t.sort != jiraSortRank:
-		m.status = "ranking needs the list sorted by rank (" + helpKey(m.keys.Sort) + ")"
+		m.status = i18n.Tf("ranking needs the list sorted by rank (%s)", helpKey(m.keys.Sort))
 		return nil
 	default:
 		shown, at = t.order, t.idx
@@ -1864,10 +1865,10 @@ func (m *Model) rankJiraCard(d int) tea.Cmd {
 	to := min(max(at+d, 0), len(shown)-1)
 	switch key := t.cards[shown[at]].Key; {
 	case to == at && d < 0:
-		m.status = key + " is ranked first already"
+		m.status = i18n.Tf("%s is ranked first already", key)
 		return nil
 	case to == at:
-		m.status = key + " is ranked last already"
+		m.status = i18n.Tf("%s is ranked last already", key)
 		return nil
 	}
 	return m.rankJiraCardTo(shown, at, to)
@@ -1883,10 +1884,10 @@ func (m *Model) rankJiraCardTo(shown []int, at, to int) tea.Cmd {
 	client := m.jiraClient
 	if at+1 < len(shown) {
 		next := t.cards[shown[at+1]].Key
-		m.recordUndo(c.Key+"'s rank", func(ctx context.Context) error { return client.Rank(ctx, c.Key, next, false) })
+		m.recordUndo(i18n.Tf("%s's rank", c.Key), func(ctx context.Context) error { return client.Rank(ctx, c.Key, next, false) })
 	} else if at > 0 {
 		prev := t.cards[shown[at-1]].Key
-		m.recordUndo(c.Key+"'s rank", func(ctx context.Context) error { return client.Rank(ctx, c.Key, prev, true) })
+		m.recordUndo(i18n.Tf("%s's rank", c.Key), func(ctx context.Context) error { return client.Rank(ctx, c.Key, prev, true) })
 	}
 	i := shown[at]
 	t.cards = slices.Delete(t.cards, i, i+1)
@@ -1898,7 +1899,7 @@ func (m *Model) rankJiraCardTo(shown []int, at, to int) tea.Cmd {
 	m.buildJiraLanes()
 	m.selectJiraKey(c.Key)
 	m.renderJira()
-	m.status = "ranking " + c.Key + "…"
+	m.status = i18n.Tf("ranking %s…", c.Key)
 	ctx := m.ctx
 	return func() tea.Msg {
 		return jiraRankedMsg{key: c.Key, err: client.Rank(ctx, c.Key, other.Key, after)}
@@ -1907,10 +1908,10 @@ func (m *Model) rankJiraCardTo(shown []int, at, to int) tea.Cmd {
 
 func (m Model) handleJiraRanked(msg jiraRankedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("rank " + msg.key + ": " + msg.err.Error())
+		m.fail(i18n.Tf("rank %s: %s", msg.key, msg.err.Error()))
 		return m, m.loadJiraCards(m.jiraTab.viewIdx, false)
 	}
-	m.status = "ranked " + msg.key
+	m.status = i18n.Tf("ranked %s", msg.key)
 	return m, nil
 }
 
@@ -1944,13 +1945,13 @@ func (m *Model) moveJiraCardBy(delta int) tea.Cmd {
 	to := from + delta
 	switch {
 	case from < 0:
-		m.status = c.Key + "'s status is in no column of this board"
+		m.status = i18n.Tf("%s's status is in no column of this board", c.Key)
 		return nil
 	case to < 0:
-		m.status = c.Key + " is in the first lane already"
+		m.status = i18n.Tf("%s is in the first lane already", c.Key)
 		return nil
 	case to >= len(stops):
-		m.status = c.Key + " is in the last lane already"
+		m.status = i18n.Tf("%s is in the last lane already", c.Key)
 		return nil
 	}
 	if ids := stops[to].ids; len(ids) > 1 {
@@ -2012,15 +2013,15 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	if t.undoing {
 		t.undoneMove = key
 	}
-	m.pushUndo(key+" back to "+m.jiraStatusName(cur), func(m *Model) tea.Cmd {
+	m.pushUndo(i18n.Tf("%s back to %s", key, m.jiraStatusName(cur)), func(m *Model) tea.Cmd {
 		to := slices.IndexFunc(m.jiraTab.cols, func(l jiraLane) bool { return slices.Contains(l.statusIDs, cur) })
 		if to < 0 {
-			m.status = key + ": its old status is not on this board"
+			m.status = i18n.Tf("%s: its old status is not on this board", key)
 			return nil
 		}
 		return m.moveJiraCard(key, to, cur)
 	})
-	m.setRepeat("move to "+lane.name, func(m *Model, key string) tea.Cmd { return m.moveJiraCard(key, to, statusID) })
+	m.setRepeat(i18n.Tf("move to %s", lane.name), func(m *Model, key string) tea.Cmd { return m.moveJiraCard(key, to, statusID) })
 	target, name := lane.statusIDs[0], lane.name
 	want := func(tm jira.TransitionMeta) bool { return slices.Contains(lane.statusIDs, tm.ToID) }
 	if statusID != "" {
@@ -2037,7 +2038,7 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 	m.buildJiraLanes()
 	m.selectJiraKey(key)
 	m.renderJira()
-	m.status = fmt.Sprintf("moving %s → %s…", key, name)
+	m.status = i18n.Tf("moving %s → %s…", key, name)
 	return m.prepareJiraMove(key, name, jiraFromBoard, want)
 }
 
@@ -2046,7 +2047,7 @@ func (m *Model) moveJiraCard(key string, to int, statusID string) tea.Cmd {
 func (m *Model) undoJiraMove() tea.Cmd {
 	t := m.jiraTab
 	if len(t.undo) == 0 {
-		m.status = "nothing to undo"
+		m.status = i18n.T("nothing to undo")
 		return nil
 	}
 	step := t.undo[len(t.undo)-1]
@@ -2059,10 +2060,10 @@ func (m *Model) undoJiraMove() tea.Cmd {
 
 func (m Model) handleJiraMoved(msg jiraMovedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail(fmt.Sprintf("%s: move failed: %v", msg.key, msg.err))
+		m.fail(i18n.Tf("%s: move failed: %v", msg.key, msg.err))
 	} else if t := m.jiraTab; t.undoneMove == msg.key {
 		t.undoneMove = ""
-		m.status = fmt.Sprintf("undone: %s back to %s%s", msg.key, msg.lane, t.undoMore())
+		m.status = i18n.Tf("undone: %s back to %s%s", msg.key, msg.lane, t.undoMore())
 	} else {
 		m.status = fmt.Sprintf("%s → %s", msg.key, msg.lane)
 	}
@@ -2081,7 +2082,7 @@ func (m *Model) refreshJiraAfterEdit() tea.Cmd {
 // openJiraProjectPicker lists the projects, configured ones first, in a
 // filterable picker.
 func (m *Model) openJiraProjectPicker() tea.Cmd {
-	gen := m.startJiraPicker(jiraPickProject, "Project", true)
+	gen := m.startJiraPicker(jiraPickProject, i18n.T("Project"), true)
 	t := m.jiraTab
 	cur, configured := t.project, m.jiraProjects
 	if t.projects != nil {
@@ -2112,9 +2113,9 @@ func jiraProjectItems(ps []jira.Project, configured []string, cur string) []jira
 // noBoardYet says why a key that needs the board did nothing.
 func (m *Model) noBoardYet() string {
 	if m.jiraTab.loading {
-		return "the board is still loading"
+		return i18n.T("the board is still loading")
 	}
-	return "no board loaded · " + helpKey(m.keys.Refresh) + " retries"
+	return i18n.Tf("no board loaded · %s retries", helpKey(m.keys.Refresh))
 }
 
 // openJiraBoardPicker lists the project's boards.
@@ -2123,15 +2124,15 @@ func (m *Model) openJiraBoardPicker() {
 	if len(t.boards) == 0 {
 		switch {
 		case t.loading:
-			m.status = "the boards are still loading"
+			m.status = i18n.T("the boards are still loading")
 		case t.project != "":
-			m.status = t.project + " has no boards · " + helpKey(m.keys.Project) + " picks another project"
+			m.status = i18n.Tf("%s has no boards · %s picks another project", t.project, helpKey(m.keys.Project))
 		default:
-			m.status = helpKey(m.keys.Project) + " picks a project first"
+			m.status = i18n.Tf("%s picks a project first", helpKey(m.keys.Project))
 		}
 		return
 	}
-	m.startJiraPicker(jiraPickBoard, "Board — "+t.project, true)
+	m.startJiraPicker(jiraPickBoard, i18n.Tf("Board — %s", t.project), true)
 	items := make([]jiraPickerItem, len(t.boards))
 	for i, b := range t.boards {
 		items[i] = jiraPickerItem{id: strconv.Itoa(b.ID), label: b.Name + "  " + b.Type, current: i == t.board}
@@ -2172,7 +2173,7 @@ func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 		m.status = m.noBoardYet()
 		return nil
 	}
-	gen := m.startJiraPicker(jiraPickBoardAssignee, "Assignee", true)
+	gen := m.startJiraPicker(jiraPickBoardAssignee, i18n.T("Assignee"), true)
 	cur := t.assignee.id
 	m.jiraPicker.checked = map[string]string{}
 	seen := cardAssignees(t.cards)
@@ -2221,7 +2222,7 @@ func boardAssigneeItems(people map[string]string, cur string) []jiraPickerItem {
 		rows = append(rows, jiraPickerItem{id: id, label: name})
 	}
 	slices.SortFunc(rows, func(a, b jiraPickerItem) int { return strings.Compare(a.label, b.label) })
-	items := append([]jiraPickerItem{{id: "", label: "Everyone"}, {id: "me", label: "Me"}, {id: "none", label: "Unassigned"}}, rows...)
+	items := append([]jiraPickerItem{{id: "", label: i18n.T("Everyone")}, {id: "me", label: i18n.T("Me")}, {id: "none", label: i18n.T("Unassigned")}}, rows...)
 	for i := range items {
 		items[i].current = items[i].id == cur || (items[i].id != "" && slices.Contains(strings.Split(cur, ","), items[i].id))
 	}
@@ -2404,13 +2405,13 @@ func jiraDueMark(c jira.Card, now time.Time) string {
 	days := int(math.Round(due.Sub(today).Hours() / 24))
 	switch {
 	case days < 0:
-		return jiraOverStyle.Render(fmt.Sprintf("overdue %dd", -days))
+		return jiraOverStyle.Render(i18n.Tf("overdue %dd", -days))
 	case days == 0:
-		return jiraOverStyle.Render("due today")
+		return jiraOverStyle.Render(i18n.T("due today"))
 	case days < 7:
-		return jiraDimStyle.Render("due " + strings.ToLower(due.Format("Mon")))
+		return jiraDimStyle.Render(i18n.Tf("due %s", strings.ToLower(due.Format("Mon"))))
 	}
-	return jiraDimStyle.Render(fmt.Sprintf("due in %dd", days))
+	return jiraDimStyle.Render(i18n.Tf("due in %dd", days))
 }
 
 // jiraSubtaskMark is "☑ 2/5" for a card with subtasks, "" without; all
@@ -2474,29 +2475,29 @@ func (m *Model) renderJira() {
 	dim := refDimStyle.Render
 	switch {
 	case t.err != "":
-		msg, t.empty = jiraErrorState(t.err, w, h, keySeg(dim(helpKey(m.keys.Refresh)+" retries"), m.keys.Refresh), plainSeg(dim(" · ")),
-			keySeg(dim(helpKey(m.keys.Project)+" picks a project"), m.keys.Project), plainSeg(dim(" · ")),
-			keySeg(dim(helpKey(m.keys.JQL)+" runs JQL"), m.keys.JQL))
+		msg, t.empty = jiraErrorState(t.err, w, h, keySeg(dim(i18n.Tf("%s retries", helpKey(m.keys.Refresh))), m.keys.Refresh), plainSeg(dim(" · ")),
+			keySeg(dim(i18n.Tf("%s picks a project", helpKey(m.keys.Project))), m.keys.Project), plainSeg(dim(" · ")),
+			keySeg(dim(i18n.Tf("%s runs JQL", helpKey(m.keys.JQL))), m.keys.JQL))
 	case t.cfg == nil:
-		what := "loading"
+		what := i18n.T("loading")
 		if t.project != "" {
-			what += " " + t.project
+			what = i18n.Tf("loading %s", t.project)
 		}
 		msg, _ = jiraEmptyState(what+"…"+loadingFor(t.loadingSince), w, h)
 	case len(t.order) == 0 && t.jiraSearchQuery() != "":
-		msg, t.empty = jiraEmptyState("No card matches /"+t.search.Value(), w, h,
-			headSeg{s: dim("esc clears the search"), kind: "esc"}, plainSeg(dim(" · ")), keySeg(dim(helpKey(m.keys.FilterBuilder)+" builds a filter"), m.keys.FilterBuilder))
+		msg, t.empty = jiraEmptyState(i18n.Tf("No card matches /%s", t.search.Value()), w, h,
+			headSeg{s: dim(i18n.T("esc clears the search")), kind: "esc"}, plainSeg(dim(" · ")), keySeg(dim(i18n.Tf("%s builds a filter", helpKey(m.keys.FilterBuilder))), m.keys.FilterBuilder))
 	case len(t.cards) == 0 && t.jiraFiltered():
-		msg, t.empty = jiraEmptyState("No card matches the filters", w, h, keySeg(dim(helpKey(m.keys.ClearFilters)+" clears them"), m.keys.ClearFilters))
+		msg, t.empty = jiraEmptyState(i18n.T("No card matches the filters"), w, h, keySeg(dim(i18n.Tf("%s clears them", helpKey(m.keys.ClearFilters))), m.keys.ClearFilters))
 	case len(t.order) == 0:
-		title := "No issues here"
-		hint := []headSeg{keySeg(dim(helpKey(m.keys.Refresh)+" refreshes"), m.keys.Refresh), plainSeg(dim(" · ")), keySeg(dim(helpKey(m.keys.Create)+" adds one"), m.keys.Create)}
+		title := i18n.T("No issues here")
+		hint := []headSeg{keySeg(dim(i18n.Tf("%s refreshes", helpKey(m.keys.Refresh))), m.keys.Refresh), plainSeg(dim(" · ")), keySeg(dim(i18n.Tf("%s adds one", helpKey(m.keys.Create))), m.keys.Create)}
 		if v, ok := m.jiraCurrentView(); ok {
 			switch v.kind {
 			case jiraViewBacklog:
-				title, hint = "The backlog is empty", []headSeg{keySeg(dim(helpKey(m.keys.Create)+" adds an issue"), m.keys.Create)}
+				title, hint = i18n.T("The backlog is empty"), []headSeg{keySeg(dim(i18n.Tf("%s adds an issue", helpKey(m.keys.Create))), m.keys.Create)}
 			case jiraViewSprint:
-				title, hint = "Nothing in this sprint yet", []headSeg{keySeg(dim(helpKey(m.keys.Plan)+" plans it from the backlog"), m.keys.Plan)}
+				title, hint = i18n.T("Nothing in this sprint yet"), []headSeg{keySeg(dim(i18n.Tf("%s plans it from the backlog", helpKey(m.keys.Plan))), m.keys.Plan)}
 			}
 		}
 		msg, t.empty = jiraEmptyState(title, w, h, hint...)
@@ -2590,17 +2591,17 @@ func jiraGroupOf(s jiraSort, c jira.Card) (string, bool) {
 	switch s {
 	case jiraSortAssignee:
 		if c.Assignee == "" {
-			return "Unassigned", true
+			return i18n.T("Unassigned"), true
 		}
 		return c.Assignee, true
 	case jiraSortPriority:
 		if c.Priority == "" {
-			return "No priority", true
+			return i18n.T("No priority"), true
 		}
 		return c.Priority, true
 	case jiraSortEpic:
 		if c.ParentSummary == "" {
-			return "No epic", true
+			return i18n.T("No epic"), true
 		}
 		return c.ParentSummary, true
 	case jiraSortStatus:
@@ -2633,7 +2634,7 @@ func (m *Model) jiraGroupHeader(g string, from int) string {
 // jiraGroupAvatar is the chip before a group by assignee's name, "" for
 // other groupings and the unassigned.
 func (m *Model) jiraGroupAvatar(by jiraSort, g string) string {
-	if by != jiraSortAssignee || !m.opts.fields.avatar || g == "Unassigned" {
+	if by != jiraSortAssignee || !m.opts.fields.avatar || g == i18n.T("Unassigned") {
 		return ""
 	}
 	return jiraAvatar(g) + " "
@@ -2951,7 +2952,7 @@ func (m *Model) jiraDropZones(lane jiraLane, ghost, width, height int) []string 
 	for i, id := range lane.statusIDs {
 		name := m.jiraStatusName(id)
 		if id == cur {
-			name += " (now)"
+			name = i18n.Tf("%s (now)", name)
 		}
 		style := jiraGhostStyle
 		if i == t.drag.zone {
@@ -3093,7 +3094,7 @@ func (m *Model) renderJiraLanes(width, height int) string {
 			}
 		}
 		if len(slots) == 0 {
-			col = append(col, jiraGhostStyle.Render(" nothing here"))
+			col = append(col, jiraGhostStyle.Render(i18n.T(" nothing here")))
 		}
 		cols = append(cols, col)
 		t.laneAt = append(t.laneAt, at)
@@ -3147,7 +3148,7 @@ func (m *Model) jiraSectionHead(s jiraSection, inner int, folded bool) string {
 // failed: retry, or back to the board.
 func (m *Model) screenErrHints() []headSeg {
 	dim := refDimStyle.Render
-	return []headSeg{plainSeg(dim(helpKey(m.keys.Refresh) + " retries · esc back to the board"))}
+	return []headSeg{plainSeg(dim(i18n.Tf("%s retries · esc back to the board", helpKey(m.keys.Refresh))))}
 }
 
 // jiraErrorState is a failed load: the error wrapped to the width, centred
@@ -3758,19 +3759,19 @@ func jiraSprintLine(v jiraView, now time.Time, workdays []time.Weekday) string {
 	days := func(t time.Time) int { return int(math.Ceil(t.Sub(now).Hours() / 24)) }
 	switch {
 	case !v.closed.IsZero():
-		parts = append(parts, "closed "+v.closed.Local().Format("Jan 2"))
+		parts = append(parts, i18n.Tf("closed %s", v.closed.Local().Format("Jan 2")))
 	case !v.start.IsZero() && v.start.After(now):
-		parts = append(parts, "starts "+v.start.Local().Format("Jan 2"))
+		parts = append(parts, i18n.Tf("starts %s", v.start.Local().Format("Jan 2")))
 	case !v.end.IsZero() && days(v.end) > 0:
-		left := strconv.Itoa(days(v.end)) + "d left"
+		left := i18n.Tf("%dd left", days(v.end))
 		if n := workdaysLeft(now, v.end, workdays); n != 1 {
-			left += " · " + strconv.Itoa(n) + " workdays"
+			left += i18n.Tf(" · %d workdays", n)
 		} else {
-			left += " · 1 workday"
+			left += i18n.T(" · 1 workday")
 		}
 		parts = append(parts, left)
 	case !v.end.IsZero():
-		parts = append(parts, "ended "+v.end.Local().Format("Jan 2"))
+		parts = append(parts, i18n.Tf("ended %s", v.end.Local().Format("Jan 2")))
 	}
 	if g := safeterm.Line(strings.Join(strings.Fields(v.goal), " ")); g != "" {
 		parts = append(parts, ansi.Truncate(g, jiraGoalMax, "…")) // a click shows it whole
@@ -3951,7 +3952,7 @@ func (m Model) dragJira(x, y int) (tea.Model, tea.Cmd) {
 func (m Model) dragJiraList(y int) (tea.Model, tea.Cmd) {
 	t := m.jiraTab
 	if t.sort != jiraSortRank {
-		m.status = "ranking needs the list sorted by rank (" + helpKey(m.keys.Sort) + ")"
+		m.status = i18n.Tf("ranking needs the list sorted by rank (%s)", helpKey(m.keys.Sort))
 		return m, nil
 	}
 	switch line := y - jiraBodyTop; {
@@ -3966,7 +3967,7 @@ func (m Model) dragJiraList(y int) (tea.Model, tea.Cmd) {
 	}
 	if slot != t.drag.slot || !t.drag.slotOK {
 		t.drag.slot, t.drag.slotOK = slot, true
-		m.status = "drop to rank " + t.drag.key + " here"
+		m.status = i18n.Tf("drop to rank %s here", t.drag.key)
 		m.renderJira()
 	}
 	return m, nil
@@ -4108,27 +4109,27 @@ func (m *Model) jiraSetBand(key string, swim jiraSort, b jira.Card) tea.Cmd {
 	c := &t.cards[ci]
 	prev := *c
 	client, ctx := m.jiraClient, m.ctx
-	var field string
+	var field, fieldName string
 	var run func() error
 	switch {
 	case swim == jiraSortAssignee && b.AssigneeID != c.AssigneeID:
 		c.Assignee, c.AssigneeID = b.Assignee, b.AssigneeID
-		field, run = "assignee", func() error { return client.SetAssignee(ctx, key, b.AssigneeID) }
+		field, fieldName, run = "assignee", i18n.T("assignee"), func() error { return client.SetAssignee(ctx, key, b.AssigneeID) }
 	case swim == jiraSortEpic && b.ParentKey != c.ParentKey:
 		c.ParentKey, c.ParentSummary = b.ParentKey, b.ParentSummary
 		var v any // no epic: cleared
 		if b.ParentKey != "" {
 			v = map[string]string{"key": b.ParentKey}
 		}
-		field, run = "parent", func() error { return client.SetField(ctx, key, "parent", v) }
+		field, fieldName, run = "parent", i18n.T("parent"), func() error { return client.SetField(ctx, key, "parent", v) }
 	default:
 		return nil
 	}
-	m.pushUndo(key+" back to its "+field, func(m *Model) tea.Cmd { return m.jiraSetBand(key, swim, prev) })
+	m.pushUndo(i18n.Tf("%s back to its %s", key, fieldName), func(m *Model) tea.Cmd { return m.jiraSetBand(key, swim, prev) })
 	m.buildJiraLanes()
 	m.selectJiraKey(key)
 	m.renderJira()
-	m.status = fmt.Sprintf("updating %s %s…", key, field)
+	m.status = i18n.Tf("updating %s %s…", key, fieldName)
 	return jiraMutateCmd(key, field, run)
 }
 

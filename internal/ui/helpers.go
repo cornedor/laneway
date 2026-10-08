@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"image/color"
 	"strconv"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/emoji"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/opener"
 	"github.com/cornedor/laneway/internal/textwidth"
 	"github.com/cornedor/laneway/internal/work"
@@ -167,7 +167,7 @@ func age(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Minute:
-		return "now"
+		return i18n.T("now")
 	case d < time.Hour:
 		return strconv.Itoa(int(d.Minutes())) + "m"
 	case d < 24*time.Hour:
@@ -258,11 +258,11 @@ func relativeDate(t, now time.Time, layout string) string {
 	case d < 0 || d >= 7*24*time.Hour:
 		return t.Local().Format(layout)
 	case d < time.Minute:
-		return "just now"
+		return i18n.T("just now")
 	case d < time.Hour:
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+		return i18n.Tf("%dm ago", int(d.Minutes()))
 	case d < 24*time.Hour:
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
+		return i18n.Tf("%dh ago", int(d.Hours()))
 	}
-	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	return i18n.Tf("%dd ago", int(d.Hours()/24))
 }

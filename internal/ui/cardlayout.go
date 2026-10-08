@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -75,7 +76,7 @@ func cardLayoutFrom(c config.CardLayout, custom []string) (*cardLayout, []string
 			id, ok := cardFieldID(n, custom)
 			switch {
 			case !ok:
-				warn = append(warn, fmt.Sprintf("ui.card_layout: unknown field %q", n))
+				warn = append(warn, i18n.Tf("ui.card_layout: unknown field %q", n))
 			case !seen[id]:
 				seen[id] = true
 				out = append(out, id)
@@ -124,7 +125,7 @@ func cardStylesFrom(list []config.CardStyle, custom []string) ([]cardStyle, []st
 	for i, s := range list {
 		at := fmt.Sprintf("ui.card_styles[%d]", i)
 		if strings.TrimSpace(s.When) == "" {
-			warn = append(warn, at+": when is empty")
+			warn = append(warn, i18n.Tf("%s: when is empty", at))
 			continue
 		}
 		cs := cardStyle{when: jiraParseQuery(strings.ToLower(strings.TrimSpace(s.When))), fade: s.Fade, bold: s.Bold}
@@ -136,7 +137,7 @@ func cardStylesFrom(list []config.CardStyle, custom []string) ([]cardStyle, []st
 			if _, ok := cardStyleColours[strings.ToLower(v)]; ok {
 				return strings.ToLower(v)
 			}
-			warn = append(warn, fmt.Sprintf("%s.%s: %q is not accent, ok, warn, err, info or #rrggbb", at, name, v))
+			warn = append(warn, i18n.Tf("%s.%s: %q is not accent, ok, warn, err, info or #rrggbb", at, name, v))
 			return ""
 		}
 		cs.edge, cs.tint = colour("edge", s.Edge), colour("tint", s.Tint)
@@ -146,7 +147,7 @@ func cardStylesFrom(list []config.CardStyle, custom []string) ([]cardStyle, []st
 				if id, ok := cardFieldID(n, custom); ok {
 					ids = append(ids, id)
 				} else {
-					warn = append(warn, fmt.Sprintf("%s.%s: unknown field %q", at, name, n))
+					warn = append(warn, i18n.Tf("%s.%s: unknown field %q", at, name, n))
 				}
 			}
 			return ids
@@ -288,7 +289,7 @@ func layoutCardLines(c jira.Card, l *cardLayout, styled bool, stale int, lk card
 			}
 		case "assignee":
 			if c.Assignee == "" {
-				return dimmed("unassigned")
+				return dimmed(i18n.T("unassigned"))
 			}
 			return dimmed(c.Assignee)
 		case "x:*":
