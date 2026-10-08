@@ -106,7 +106,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		send(map[string]any{"issues": s.list(s.search(jql), strings.Contains(expand, "changelog"), want), "isLast": true})
+		// A page of maxResults (Jira's default 50), on from nextPageToken: here an offset.
+		found, n := s.search(jql), 50
+		if m, ok := body["maxResults"].(float64); ok && m > 0 {
+			n = int(m)
+		}
+		from, _ := strconv.Atoi(fmt.Sprint(body["nextPageToken"]))
+		from = min(from, len(found))
+		to := min(from+n, len(found))
+		resp := map[string]any{"issues": s.list(found[from:to], strings.Contains(expand, "changelog"), want), "isLast": to == len(found)}
+		if to < len(found) {
+			resp["nextPageToken"] = strconv.Itoa(to)
+		}
+		send(resp)
 		return
 	}
 	switch {

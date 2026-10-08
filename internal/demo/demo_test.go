@@ -265,3 +265,19 @@ func TestDemoInbox(t *testing.T) {
 		t.Errorf("DEMO-9's inbox: mention %v, priority %v in %+v", mention, priority, entries)
 	}
 }
+
+// TestDemoSearchPages: search/jql answers maxResults at a time, as Jira does:
+// the palette's find gets its 25, a search pages to every match.
+func TestDemoSearchPages(t *testing.T) {
+	c, s := demoClient(t)
+	s.Bulk(120)
+	ctx := context.Background()
+	found, err := c.FindIssues(ctx, "filler", 25)
+	if err != nil || len(found) != 25 {
+		t.Fatalf("find: %d cards, %v; want 25", len(found), err)
+	}
+	all, err := c.SearchCards(ctx, `text ~ "filler*"`)
+	if err != nil || len(all) != 120 {
+		t.Fatalf("search: %d cards, %v; want 120", len(all), err)
+	}
+}
