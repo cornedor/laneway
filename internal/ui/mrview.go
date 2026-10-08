@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"regexp"
 	"slices"
 	"strconv"
@@ -125,7 +126,7 @@ func (m *Model) retryMR() tea.Cmd {
 		return m.openMR(c, r, p.link, p.title, true)
 	}
 	m.openMRSignIn(p.link, p.title)
-	m.status = "still no GitLab token for " + forge.HostOf(p.link)
+	m.status = i18n.Tf("still no GitLab token for %s", forge.HostOf(p.link))
 	return nil
 }
 
@@ -177,22 +178,22 @@ func (m Model) handleMR(msg mrMsg) (tea.Model, tea.Cmd) {
 // its label and the key a click on it presses.
 func (m *Model) mrHints() [][2]string {
 	if m.mr != nil && m.mr.signIn != nil {
-		return [][2]string{{helpKey(m.keys.Refresh) + " try again", firstKey(m.keys.Refresh)}, {helpKey(m.keys.OpenAttach) + " GitLab", firstKey(m.keys.OpenAttach)}}
+		return [][2]string{{i18n.Tf("%s try again", helpKey(m.keys.Refresh)), firstKey(m.keys.Refresh)}, {i18n.Tf("%s GitLab", helpKey(m.keys.OpenAttach)), firstKey(m.keys.OpenAttach)}}
 	}
-	hints := [][2]string{{"d diff", "d"}, {"A approve", "A"}}
+	hints := [][2]string{{i18n.T("d diff"), "d"}, {i18n.T("A approve"), "A"}}
 	if p := m.mr; p != nil && p.mr != nil && p.mr.State == forge.StateOpen {
-		hints = append(hints, [2]string{"M merge", "M"})
+		hints = append(hints, [2]string{i18n.T("M merge"), "M"})
 	}
-	hints = append(hints, [2]string{"e edit", "e"}, [2]string{"C agent review", "C"})
+	hints = append(hints, [2]string{i18n.T("e edit"), "e"}, [2]string{i18n.T("C agent review"), "C"})
 	if p := m.mr; p != nil && p.mr != nil && p.mr.Checks != nil {
-		hints = append(hints, [2]string{"p jobs", "p"})
+		hints = append(hints, [2]string{i18n.T("p jobs"), "p"})
 	}
 	if p := m.mr; p != nil && p.mr != nil && len(m.refs) == 0 {
 		if k := mrIssueKey(p.mr); k != "" {
 			hints = append(hints, [2]string{"i " + k, "i"})
 		}
 	}
-	return append(hints, [2]string{helpKey(m.keys.Help) + " keys", firstKey(m.keys.Help)})
+	return append(hints, [2]string{i18n.Tf("%s keys", helpKey(m.keys.Help)), firstKey(m.keys.Help)})
 }
 
 // issueKeyRe finds a Jira key.
@@ -215,20 +216,20 @@ func (m *Model) mrHintLine() string {
 
 // mrStatusHint is the status line while a merge request shows.
 func (m *Model) mrStatusHint() string {
-	back := "esc back to the issue"
+	back := i18n.T("esc back to the issue")
 	if len(m.refs) == 0 {
-		back = "esc back"
+		back = i18n.T("esc back")
 	}
-	return helpKey(m.keys.OpenAttach) + " GitLab · " + helpKey(m.keys.Refresh) + " reload · " + back
+	return i18n.Tf("%s GitLab · %s reload · %s", helpKey(m.keys.OpenAttach), helpKey(m.keys.Refresh), back)
 }
 
 // mrState is a merge request's state in words.
 func mrState(mr *forge.Change) string {
 	switch {
 	case mr.State == forge.StateOpen && mr.Draft:
-		return "draft"
+		return i18n.T("draft")
 	case mr.State == forge.StateOpen:
-		return "open"
+		return i18n.T("open")
 	}
 	return mr.State
 }
@@ -276,7 +277,7 @@ func (m *Model) renderMR(w int) string {
 	case p.err != "":
 		b.WriteString(refErrStyle.Render(p.err))
 	case p.loading || p.mr == nil:
-		b.WriteString(refDimStyle.Render("loading the merge request…"))
+		b.WriteString(refDimStyle.Render(i18n.T("loading the merge request…")))
 	default:
 		b.WriteString(m.mrBody(p.mr))
 	}
@@ -287,17 +288,17 @@ func (m *Model) mrBody(mr *forge.Change) string {
 	var b strings.Builder
 	row := func(label, v string) {
 		if v != "" {
-			b.WriteString(refLabelStyle.Render(fmt.Sprintf("%-10s", label)) + " " + v + "\n")
+			b.WriteString(refLabelStyle.Render(fmt.Sprintf("%-10s", i18n.T(label))) + " " + v + "\n")
 		}
 	}
 	state := mrState(mr)
 	if !mr.UpdatedAt.IsZero() {
-		state += refDimStyle.Render(" · updated " + age(mr.UpdatedAt) + " ago")
+		state += refDimStyle.Render(i18n.Tf(" · updated %s ago", age(mr.UpdatedAt)))
 	}
-	row("State", state)
-	row("Branches", mr.SourceBranch+" → "+mr.TargetBranch)
+	row(i18n.N("State"), state)
+	row(i18n.N("Branches"), mr.SourceBranch+" → "+mr.TargetBranch)
 	if mr.ChangesCount != "" {
-		row("Changes", mr.ChangesCount+" files")
+		row(i18n.N("Changes"), i18n.Tf("%s files", mr.ChangesCount))
 	}
 	if mr.State == forge.StateOpen {
 		merge := mr.MergeStatus
@@ -307,13 +308,13 @@ func (m *Model) mrBody(mr *forge.Change) string {
 		case mr.Mergeable:
 			merge = laneMark["done"].Render(merge)
 		}
-		row("Merge", merge)
+		row(i18n.N("Merge"), merge)
 	}
-	row("Author", mr.Author)
-	row("Assignees", strings.Join(mr.Assignees, ", "))
-	row("Reviewers", strings.Join(mr.Reviewers, ", "))
-	row("Approvals", approvalsText(mr))
-	row("Labels", strings.Join(mr.Labels, ", "))
+	row(i18n.N("Author"), mr.Author)
+	row(i18n.N("Assignees"), strings.Join(mr.Assignees, ", "))
+	row(i18n.N("Reviewers"), strings.Join(mr.Reviewers, ", "))
+	row(i18n.N("Approvals"), approvalsText(mr))
+	row(i18n.N("Labels"), strings.Join(mr.Labels, ", "))
 	if ts := m.mr.threads; len(ts) > 0 {
 		open, done := 0, 0
 		for _, t := range ts {
@@ -326,25 +327,25 @@ func (m *Model) mrBody(mr *forge.Change) string {
 		}
 		var parts []string
 		if open > 0 {
-			parts = append(parts, strconv.Itoa(open)+" open")
+			parts = append(parts, i18n.Tf("%d open", open))
 		}
 		if done > 0 {
-			parts = append(parts, strconv.Itoa(done)+" resolved")
+			parts = append(parts, i18n.Tf("%d resolved", done))
 		}
 		if n := len(ts) - open - done; n > 0 {
-			parts = append(parts, plural(n, "comment"))
+			parts = append(parts, i18n.Tn(n, "%d comment", "%d comments", n))
 		}
-		row("Threads", strings.Join(parts, " · "))
+		row(i18n.N("Threads"), strings.Join(parts, " · "))
 	}
 	if n := len(m.mr.drafts); n > 0 {
-		row("Review", mdPanelStyles["warning"].Render(plural(n, "pending note"))+refDimStyle.Render(" · unpublished until S in the diff"))
+		row(i18n.N("Review"), mdPanelStyles["warning"].Render(i18n.Tn(n, "%d pending note", "%d pending notes", n))+refDimStyle.Render(i18n.T(" · unpublished until S in the diff")))
 	}
 	if c := mr.Checks; c != nil {
 		v := checkGlyph(c.Status) + " " + c.Label
 		if c.Duration > 0 {
 			v += refDimStyle.Render(" · " + spanText(time.Duration(c.Duration)*time.Second))
 		}
-		row("Pipeline", v+refDimStyle.Render(" · p jobs and logs"))
+		row(i18n.N("Pipeline"), v+refDimStyle.Render(i18n.T(" · p jobs and logs")))
 		// A stage's jobs that want a look, by name; the passed ones counted, as a
 		// big pipeline's names (docker/build:branch: [...]) fill the panel.
 		stageW := 0
@@ -363,9 +364,9 @@ func (m *Model) mrBody(mr *forge.Change) string {
 			}
 			switch {
 			case passed > 0 && len(jobs) == 0:
-				jobs = append(jobs, checkGlyph(forge.StatusSuccess)+" "+plural(passed, "job")+" passed")
+				jobs = append(jobs, checkGlyph(forge.StatusSuccess)+" "+i18n.Tn(passed, "%d job passed", "%d jobs passed", passed))
 			case passed > 0:
-				jobs = append(jobs, checkGlyph(forge.StatusSuccess)+" "+strconv.Itoa(passed)+" more passed")
+				jobs = append(jobs, checkGlyph(forge.StatusSuccess)+" "+i18n.Tf("%d more passed", passed))
 			}
 			b.WriteString("  " + refDimStyle.Render(g.Name+strings.Repeat(" ", stageW-ansi.StringWidth(g.Name))) + " " + strings.Join(jobs, "  ") + "\n")
 		}
@@ -385,10 +386,10 @@ func approvalsText(mr *forge.Change) string {
 	}
 	v := strconv.Itoa(len(a.By))
 	if a.Required > 0 {
-		v = fmt.Sprintf("%d of %d", a.Required-a.Left, a.Required)
+		v = i18n.Tf("%d of %d", a.Required-a.Left, a.Required)
 	}
 	if a.Approved {
-		v = laneMark["done"].Render("approved") + " · " + v
+		v = laneMark["done"].Render(i18n.T("approved")) + " · " + v
 	}
 	if len(a.By) > 0 {
 		v += refDimStyle.Render(" · " + strings.Join(a.By, ", "))
@@ -401,7 +402,7 @@ func approvalsText(mr *forge.Change) string {
 			}
 		}
 		if len(waiting) > 0 {
-			v += refDimStyle.Render(" · waiting on " + strings.Join(waiting, ", "))
+			v += refDimStyle.Render(i18n.Tf(" · waiting on %s", strings.Join(waiting, ", ")))
 		}
 	}
 	return v
@@ -428,7 +429,7 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		if m.mr.mr != nil {
 			u = cmp.Or(m.mr.mr.WebURL, u)
 		}
-		m.status = "opening " + u + "…"
+		m.status = i18n.Tf("opening %s…", u)
 		return m, m.openOpenable(openable{name: m.mr.title, url: u}), true
 	case key.Matches(msg, m.keys.Refresh) && m.mr.signIn != nil:
 		return m, m.retryMR(), true
@@ -436,13 +437,13 @@ func (m Model) mrKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		p := m.mr
 		return m, m.openMR(p.c, p.ref, p.link, p.title, true), true
 	case key.Matches(msg, m.keys.Help):
-		m.openHelp("Merge request")
+		m.openHelp(i18n.T("Merge request"))
 		return m, nil, true
 	case msg.String() == "i" && m.mr.mr != nil:
 		k := mrIssueKey(m.mr.mr)
 		switch {
 		case k == "":
-			m.status = "it names no Jira issue"
+			m.status = i18n.T("it names no Jira issue")
 			return m, nil, true
 		case len(m.refs) > 0 && m.refs[0].jiraKey == k: // opened from it: back to it
 			m.mr, m.status = nil, ""

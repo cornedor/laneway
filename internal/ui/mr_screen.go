@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"strconv"
 	"strings"
 
@@ -35,7 +36,7 @@ type mrInboxMsg struct {
 // openMRs swaps the board for the merge requests screen.
 func (m *Model) openMRs() tea.Cmd {
 	if m.gitlab == nil {
-		m.status = "no GitLab: add one under gitlab: in the config, or glab auth login"
+		m.status = i18n.T("no GitLab: add one under gitlab: in the config, or glab auth login")
 		return nil
 	}
 	m.jiraTab.mrs = &mrScreen{}
@@ -76,14 +77,14 @@ func (m Model) handleMRInbox(msg mrInboxMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) mrsViewLine() string {
 	s := m.jiraTab.mrs
-	line := "Merge requests waiting on you"
+	line := i18n.T("Merge requests waiting on you")
 	switch {
 	case s.loading:
-		line += " · reading GitLab…"
+		line += i18n.T(" · reading GitLab…")
 	default:
 		line += fmt.Sprintf(" · %d", len(s.rows))
 	}
-	return jiraViewActive.Render(line) + jiraDimStyle.Render("  "+helpKey(m.keys.OpenChannel)+" read · d review the diff · "+helpKey(m.keys.OpenAttach)+" GitLab · esc board")
+	return jiraViewActive.Render(line) + jiraDimStyle.Render("  "+i18n.Tf("%s read · d review the diff · %s GitLab · esc board", helpKey(m.keys.OpenChannel), helpKey(m.keys.OpenAttach)))
 }
 
 // mrRowLine is one merge request's row, w wide.
@@ -92,13 +93,13 @@ func mrRowLine(r MRRow, w int) string {
 	ref := mr.Repo + "!" + strconv.Itoa(mr.Number)
 	var tail []string
 	if mr.Draft {
-		tail = append(tail, "draft")
+		tail = append(tail, i18n.T("draft"))
 	}
 	if mr.Author != "" {
 		tail = append(tail, mr.Author)
 	}
 	if mr.Notes > 0 {
-		tail = append(tail, strconv.Itoa(mr.Notes)+" comments")
+		tail = append(tail, i18n.Tn(mr.Notes, "%d comment", "%d comments", mr.Notes))
 	}
 	if a := age(mr.UpdatedAt); a != "" {
 		tail = append(tail, a)
@@ -122,7 +123,7 @@ func (m *Model) renderMRs(w, h int) string {
 			if i > 0 {
 				lines = append(lines, "")
 			}
-			lines = append(lines, jiraViewActive.Render(r.Group))
+			lines = append(lines, jiraViewActive.Render(i18n.T(r.Group)))
 		}
 		rowLine[i] = len(lines)
 		line := mrRowLine(r, w-2)
@@ -133,9 +134,9 @@ func (m *Model) renderMRs(w, h int) string {
 	}
 	switch {
 	case s.loading && len(s.rows) == 0:
-		lines = append(lines, jiraDimStyle.Render("reading the merge requests waiting on you…"))
+		lines = append(lines, jiraDimStyle.Render(i18n.T("reading the merge requests waiting on you…")))
 	case len(s.rows) == 0:
-		lines = append(lines, jiraDimStyle.Render("nothing waits on you"))
+		lines = append(lines, jiraDimStyle.Render(i18n.T("nothing waits on you")))
 	}
 	for _, e := range s.errs {
 		lines = append(lines, "", refErrStyle.Render(truncate(e, w)))
@@ -185,7 +186,7 @@ func (m Model) handleMRsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if cur == nil {
 			return m, nil
 		}
-		m.status = "opening " + cur.WebURL + "…"
+		m.status = i18n.Tf("opening %s…", cur.WebURL)
 		return m, m.openOpenable(openable{name: cur.Title, url: cur.WebURL})
 	default:
 		s.row, _ = m.keys.listNav(msg, s.row, len(s.rows), max(m.jiraTab.view.Height()/2, 1), false)

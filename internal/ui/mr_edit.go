@@ -2,6 +2,7 @@ package ui
 
 import (
 	"cmp"
+	"github.com/cornedor/laneway/internal/i18n"
 	"os"
 	"slices"
 	"strconv"
@@ -41,20 +42,20 @@ func mrLabel(r forge.Ref) string { return r.Repo + "!" + strconv.Itoa(r.Number) 
 func (m *Model) openMREdit() {
 	p := m.mr
 	mr := p.mr
-	m.startJiraPicker(jiraPickMREdit, "Edit "+mrLabel(p.ref), false)
-	now := func(v string) string { return refDimStyle.Render("  " + cmp.Or(v, "none")) }
-	draft := jiraPickerItem{id: "draft", label: "Mark as draft"}
+	m.startJiraPicker(jiraPickMREdit, i18n.Tf("Edit %s", mrLabel(p.ref)), false)
+	now := func(v string) string { return refDimStyle.Render("  " + cmp.Or(v, i18n.T("none"))) }
+	draft := jiraPickerItem{id: "draft", label: i18n.T("Mark as draft")}
 	if mr.Draft {
-		draft.label = "Mark as ready"
+		draft.label = i18n.T("Mark as ready")
 	}
 	m.setJiraPickerItems([]jiraPickerItem{
-		{id: "title", label: "Title" + now(mr.Title)},
+		{id: "title", label: i18n.T("Title") + now(mr.Title)},
 		draft,
-		{id: "reviewers", label: "Reviewers" + now(strings.Join(mr.Reviewers, ", "))},
-		{id: "assignees", label: "Assignees" + now(strings.Join(mr.Assignees, ", "))},
-		{id: "labels", label: "Labels" + now(strings.Join(mr.Labels, ", "))},
-		{id: "target", label: "Target branch" + now(mr.TargetBranch)},
-		{id: "description", label: "Description, in $EDITOR"},
+		{id: "reviewers", label: i18n.T("Reviewers") + now(strings.Join(mr.Reviewers, ", "))},
+		{id: "assignees", label: i18n.T("Assignees") + now(strings.Join(mr.Assignees, ", "))},
+		{id: "labels", label: i18n.T("Labels") + now(strings.Join(mr.Labels, ", "))},
+		{id: "target", label: i18n.T("Target branch") + now(mr.TargetBranch)},
+		{id: "description", label: i18n.T("Description, in $EDITOR")},
 	})
 }
 
@@ -99,7 +100,11 @@ func (m Model) applyMRPick(kind jiraPickerKind, it jiraPickerItem) (Model, tea.C
 				e.AssigneeIDs = &nums
 			}
 		}
-		return m, m.updateMR(e, field+" changed")
+		what := i18n.T("assignees changed")
+		if field == "reviewers" {
+			what = i18n.T("reviewers changed")
+		}
+		return m, m.updateMR(e, what)
 	}
 	m.closeJiraPicker()
 	mr := p.mr
@@ -109,9 +114,9 @@ func (m Model) applyMRPick(kind jiraPickerKind, it jiraPickerItem) (Model, tea.C
 	case "target":
 		m.openMRTextInput("mr-target", mr.TargetBranch)
 	case "draft":
-		title, what := gitlab.DraftTitle(mr.Title, !mr.Draft), "marked as draft"
+		title, what := gitlab.DraftTitle(mr.Title, !mr.Draft), i18n.T("marked as draft")
 		if mr.Draft {
-			what = "marked as ready"
+			what = i18n.T("marked as ready")
 		}
 		return m, m.updateMR(gitlab.Edit{Title: &title}, what)
 	case "reviewers", "assignees":
@@ -132,7 +137,7 @@ func (m *Model) openMRPeople(field string) tea.Cmd {
 	if field == "assignees" {
 		names, ids = p.mr.Assignees, p.mr.AssigneeIDs
 	}
-	gen := m.startJiraPicker(jiraPickMRPeople, strings.ToUpper(field[:1])+field[1:]+" of "+mrLabel(p.ref), true)
+	gen := m.startJiraPicker(jiraPickMRPeople, i18n.Tf("%s of %s", i18n.T(strings.ToUpper(field[:1])+field[1:]), mrLabel(p.ref)), true)
 	m.jiraPicker.issueKey = field // what the ticks are
 	m.jiraPicker.checked = map[string]string{}
 	for i, id := range ids {
@@ -149,7 +154,7 @@ func (m *Model) openMRPeople(field string) tea.Cmd {
 		}
 		var items []jiraPickerItem
 		if single {
-			items = append(items, jiraPickerItem{id: "", label: "Nobody", current: len(ids) == 0})
+			items = append(items, jiraPickerItem{id: "", label: i18n.T("Nobody"), current: len(ids) == 0})
 		}
 		for _, mb := range ms {
 			items = append(items, jiraPickerItem{id: strconv.Itoa(mb.ID), label: mb.Name, search: mb.Username, current: slices.Contains(ids, mb.ID)})
@@ -166,7 +171,7 @@ func (m *Model) openMRPeople(field string) tea.Cmd {
 // openMRLabels ticks the merge request's labels among the project's.
 func (m *Model) openMRLabels() tea.Cmd {
 	p := m.mr
-	gen := m.startJiraPicker(jiraPickMRLabels, "Labels of "+mrLabel(p.ref), true)
+	gen := m.startJiraPicker(jiraPickMRLabels, i18n.Tf("Labels of %s", mrLabel(p.ref)), true)
 	m.jiraPicker.issueKey = "labels"
 	m.jiraPicker.checked = map[string]string{}
 	for _, l := range p.mr.Labels {
@@ -213,12 +218,12 @@ func (m Model) applyMRText(field, raw string) (Model, tea.Cmd) {
 	}
 	switch {
 	case raw == "":
-		m.status = "it can't be empty"
+		m.status = i18n.T("it can't be empty")
 		return m, nil
 	case field == "mr-title" && raw != p.mr.Title:
-		return m, m.updateMR(gitlab.Edit{Title: &raw}, "title changed")
+		return m, m.updateMR(gitlab.Edit{Title: &raw}, i18n.T("title changed"))
 	case field == "mr-target" && raw != p.mr.TargetBranch:
-		return m, m.updateMR(gitlab.Edit{TargetBranch: &raw}, "target branch changed")
+		return m, m.updateMR(gitlab.Edit{TargetBranch: &raw}, i18n.T("target branch changed"))
 	}
 	return m, nil
 }
@@ -232,11 +237,11 @@ func (m Model) editMRDescription() (Model, tea.Cmd) {
 		err = firstErr(err, f.Close())
 	}
 	if err != nil {
-		m.fail("description: " + err.Error())
+		m.fail(i18n.Tf("description: %s", err.Error()))
 		return m, nil
 	}
 	c, ref, path, before := p.c, p.ref, f.Name(), p.mr.Description
-	m.status = "editing " + mrLabel(ref) + " description…"
+	m.status = i18n.Tf("editing %s description…", mrLabel(ref))
 	return m, tea.ExecProcess(editorCommand(path), func(err error) tea.Msg {
 		return mrDescEditedMsg{c: c, ref: ref, path: path, before: before, err: err}
 	})
@@ -247,17 +252,17 @@ func (m Model) editMRDescription() (Model, tea.Cmd) {
 func (m Model) handleMRDescEdited(msg mrDescEditedMsg) (tea.Model, tea.Cmd) {
 	b, err := os.ReadFile(msg.path)
 	if err = firstErr(msg.err, err); err != nil {
-		m.fail("description: " + err.Error())
+		m.fail(i18n.Tf("description: %s", err.Error()))
 		return m, nil
 	}
 	text := strings.TrimSpace(string(b))
 	if text == strings.TrimSpace(msg.before) {
 		os.Remove(msg.path)
-		m.status = mrLabel(msg.ref) + " unchanged"
+		m.status = i18n.Tf("%s unchanged", mrLabel(msg.ref))
 		return m, nil
 	}
 	ctx, c, ref, path := m.ctx, msg.c, msg.ref, msg.path
-	m.status = "saving the description…"
+	m.status = i18n.T("saving the description…")
 	return m, func() tea.Msg {
 		err := c.Update(ctx, ref.Repo, ref.Number, gitlab.Edit{Description: &text})
 		if err == nil {
@@ -265,7 +270,7 @@ func (m Model) handleMRDescEdited(msg mrDescEditedMsg) (tea.Model, tea.Cmd) {
 		} else {
 			err = &keptErr{err: err, path: path}
 		}
-		return mrWroteMsg{what: "description saved", err: err}
+		return mrWroteMsg{what: i18n.T("description saved"), err: err}
 	}
 }
 
@@ -275,13 +280,13 @@ type keptErr struct {
 	path string
 }
 
-func (e *keptErr) Error() string { return e.err.Error() + " — your text is in " + e.path }
+func (e *keptErr) Error() string { return i18n.Tf("%s — your text is in %s", e.err.Error(), e.path) }
 
 // updateMR writes e to the panel's merge request; what is the status after.
 func (m *Model) updateMR(e gitlab.Edit, what string) tea.Cmd {
 	p := m.mr
 	c, ctx, ref := p.c, m.ctx, p.ref
-	m.status = "saving " + mrLabel(ref) + "…"
+	m.status = i18n.Tf("saving %s…", mrLabel(ref))
 	return func() tea.Msg {
 		return mrWroteMsg{what: what, err: c.Update(ctx, ref.Repo, ref.Number, e)}
 	}
@@ -300,13 +305,13 @@ func MergeChoices(mr *forge.Change) []MergeChoice {
 	out := []MergeChoice{}
 	for _, o := range []forge.MergeOptions{def, {Squash: !def.Squash, DeleteBranch: def.DeleteBranch},
 		{Squash: def.Squash, DeleteBranch: !def.DeleteBranch}, {Squash: !def.Squash, DeleteBranch: !def.DeleteBranch}} {
-		how := "Its commits"
+		how := i18n.T("Its commits")
 		if o.Squash {
-			how = "Squashed"
+			how = i18n.T("Squashed")
 		}
-		branch := ", keep the branch"
+		branch := i18n.T(", keep the branch")
 		if o.DeleteBranch {
-			branch = ", delete the branch"
+			branch = i18n.T(", delete the branch")
 		}
 		out = append(out, MergeChoice{MergeOptions: o, Label: how + branch})
 	}
@@ -318,7 +323,7 @@ func mergeRows(mr *forge.Change) []string {
 	var rows []string
 	for i, c := range MergeChoices(mr) {
 		if i == 0 {
-			c.Label += refDimStyle.Render("  GitLab's default")
+			c.Label += refDimStyle.Render(i18n.T("  GitLab's default"))
 		}
 		rows = append(rows, c.Label)
 	}
@@ -327,16 +332,16 @@ func mergeRows(mr *forge.Change) []string {
 
 // MergeTitle is the question over MergeChoices.
 func MergeTitle(mr *forge.Change) string {
-	return "Merge " + mr.SourceBranch + " into " + mr.TargetBranch + "?"
+	return i18n.Tf("Merge %s into %s?", mr.SourceBranch, mr.TargetBranch)
 }
 
 // MergeReady is why mr can't be merged now, "" when it can.
 func MergeReady(mr *forge.Change) string {
 	switch {
 	case mr.State != forge.StateOpen:
-		return "it is " + mrState(mr)
+		return i18n.Tf("it is %s", mrState(mr))
 	case !mr.Mergeable:
-		return "not ready to merge: " + mr.MergeStatus
+		return i18n.Tf("not ready to merge: %s", mr.MergeStatus)
 	}
 	return ""
 }
@@ -360,9 +365,9 @@ func (m *Model) openMRMerge() {
 func (m *Model) mergeMR(o forge.MergeOptions) tea.Cmd {
 	p := m.mr
 	c, ctx, ref := p.c, m.ctx, p.ref
-	m.status = "merging " + mrLabel(ref) + "…"
+	m.status = i18n.Tf("merging %s…", mrLabel(ref))
 	return func() tea.Msg {
-		return mrWroteMsg{what: "merged " + mrLabel(ref), err: c.Merge(ctx, ref.Repo, ref.Number, o)}
+		return mrWroteMsg{what: i18n.Tf("merged %s", mrLabel(ref)), err: c.Merge(ctx, ref.Repo, ref.Number, o)}
 	}
 }
 
@@ -386,7 +391,7 @@ func (m Model) handleMRWrote(msg mrWroteMsg) (tea.Model, tea.Cmd) {
 
 // mergeLines are the diff's M list, the cursor's row marked.
 func (d *diffState) mergeLines(width int) []string {
-	lines := []string{refKeyStyle.Render(d.mergeTitle) + refDimStyle.Render("  ↵ merge · esc close")}
+	lines := []string{refKeyStyle.Render(d.mergeTitle) + refDimStyle.Render(i18n.T("  ↵ merge · esc close"))}
 	for i, row := range d.merges {
 		line := truncate("  "+row, width)
 		if i == d.mergeAt {

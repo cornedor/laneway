@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"regexp"
 	"slices"
 	"strings"
@@ -24,7 +25,7 @@ func (m *Model) openDevInfo() tea.Cmd {
 		return nil
 	}
 	key := m.jiraIssue.Key
-	gen := m.startJiraPicker(jiraPickDev, "Development — "+key, true)
+	gen := m.startJiraPicker(jiraPickDev, i18n.Tf("Development — %s", key), true)
 	seq := m.jiraPicker.fetchSeq
 	c, ctx, gl := m.jiraClient, m.ctx, m.gitlab
 	return func() tea.Msg {
@@ -34,19 +35,19 @@ func (m *Model) openDevInfo() tea.Cmd {
 		}
 		rows := make([]jiraPickerItem, len(items))
 		for i, d := range items {
-			label := fmt.Sprintf("branch  %s", d.Name)
+			label := i18n.Tf("branch  %s", d.Name)
 			switch d.Kind {
 			case "pr":
 				label = fmt.Sprintf("%-8s %s%s  (%s)", d.Status, prNumber(d.URL), d.Name, d.Branch)
 			case "build":
-				label = fmt.Sprintf("%-8s build %s", d.Status, d.Name)
+				label = i18n.Tf("%-8s build %s", d.Status, d.Name)
 				if d.Branch != "" {
 					label += "  (" + d.Branch + ")"
 				}
 			case "deploy":
-				label = fmt.Sprintf("%-8s deploy %s → %s", d.Status, d.Name, d.Branch)
+				label = i18n.Tf("%-8s deploy %s → %s", d.Status, d.Name, d.Branch)
 			case "commit":
-				label = fmt.Sprintf("commit  %s  — %s", d.Name, d.Status)
+				label = i18n.Tf("commit  %s  — %s", d.Name, d.Status)
 			}
 			if d.Repo != "" {
 				label += "  " + d.Repo
@@ -61,7 +62,7 @@ func (m *Model) openDevInfo() tea.Cmd {
 			rows[i] = jiraPickerItem{id: d.URL, label: label, value: branch}
 		}
 		if err == nil && len(rows) == 0 {
-			rows = []jiraPickerItem{{label: "no development work linked"}}
+			rows = []jiraPickerItem{{label: i18n.T("no development work linked")}}
 		}
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickDev, items: rows, err: err}
 	}

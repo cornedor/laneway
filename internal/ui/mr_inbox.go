@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"github.com/cornedor/laneway/internal/i18n"
 	"strconv"
 
 	"github.com/cornedor/laneway/internal/forge"
@@ -13,7 +14,9 @@ import (
 // Jira key or not: review asked, assigned, and yours with comments since you
 // last opened them. The TUI's merge requests screen and the web's share it.
 
-// MR inbox groups, in order.
+// MR inbox groups, in order. Shown through T; the marks keep them in the catalog.
+var _ = []string{i18n.N("Review requested"), i18n.N("Assigned to you"), i18n.N("Yours, new comments")}
+
 const (
 	MRReview   = "Review requested"
 	MRAssigned = "Assigned to you"

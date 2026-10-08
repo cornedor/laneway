@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"io"
 	"os"
 	"os/exec"
@@ -62,7 +63,7 @@ const termFrame = 16 * time.Millisecond
 
 func startTerm(spec termSpec, w, h int) (*termSession, error) {
 	if len(spec.argv) == 0 {
-		return nil, errors.New("no command")
+		return nil, errors.New(i18n.T("no command"))
 	}
 	w, h = max(w, 10), max(h, 3)
 	cmd := exec.Command(spec.argv[0], spec.argv[1:]...)
@@ -284,9 +285,9 @@ func (t *termSession) stop() {
 
 func (t *termSession) exitStatus() string {
 	if t.exitErr == nil {
-		return "exited"
+		return i18n.T("exited")
 	}
-	return fmt.Sprintf("exited: %v", t.exitErr)
+	return i18n.Tf("exited: %v", t.exitErr)
 }
 
 // encodeKey turns a key press into the bytes a legacy xterm sends for it —

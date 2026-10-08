@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/cornedor/laneway/internal/i18n"
 	"os/exec"
 	"strings"
 	"time"
@@ -46,14 +47,14 @@ var runLLM = func(ctx context.Context, command []string, prompt, input string) (
 // openAsk lists the questions.
 func (m *Model) openAsk() {
 	if m.demo {
-		m.status = "asking: " + errOffInDemo.Error()
+		m.status = i18n.Tf("asking: %s", errOffInDemo.Error())
 		return
 	}
 	if llmCommand(m.opts.llm) == nil {
-		m.status = "asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH"
+		m.status = i18n.T("asking needs ui.llm (claude -p, llm, ollama run …) or claude on the PATH")
 		return
 	}
-	m.startJiraPicker(jiraPickAsk, "Ask about "+m.jiraIssue.Key, false)
+	m.startJiraPicker(jiraPickAsk, i18n.Tf("Ask about %s", m.jiraIssue.Key), false)
 	items := make([]jiraPickerItem, len(asks))
 	for i, a := range asks {
 		items[i] = jiraPickerItem{id: a.ID, label: a.Label}
@@ -76,7 +77,7 @@ func (m *Model) askLLM(id string) tea.Cmd {
 	if prompt == "" {
 		return nil
 	}
-	m.status = "asking " + command[0] + ": " + strings.ToLower(label) + "…"
+	m.status = i18n.Tf("asking %s: %s…", command[0], strings.ToLower(label))
 	c, ctx, is := m.jiraClient, m.ctx, *iss
 	return func() tea.Msg {
 		hist, _ := c.History(ctx, is.Key) // the issue alone still answers
@@ -95,16 +96,16 @@ func (m Model) handleLLMDone(msg llmDoneMsg) (tea.Model, tea.Cmd) {
 	msg.out = strings.TrimSpace(msg.out)
 	switch {
 	case msg.err != nil:
-		m.fail("ask: " + msg.err.Error())
+		m.fail(i18n.Tf("ask: %s", msg.err.Error()))
 	case msg.out == "":
-		m.status = "the answer came back empty"
+		m.status = i18n.T("the answer came back empty")
 	case m.jiraIssue == nil || m.jiraIssue.Key != msg.key:
-		m.status = "the answer about " + msg.key + " came after you moved on"
+		m.status = i18n.Tf("the answer about %s came after you moved on", msg.key)
 	default:
 		m.openJiraCommentInput()
 		m.jiraCommentInput.SetValue(msg.out)
 		m.jiraCommentInput.CursorEnd()
-		m.status = strings.ToLower(msg.label) + " · ctrl+s posts it as a comment · ctrl+e $EDITOR · esc drops it"
+		m.status = i18n.Tf("%s · ctrl+s posts it as a comment · ctrl+e $EDITOR · esc drops it", strings.ToLower(msg.label))
 		m.renderRef()
 	}
 	return m, nil

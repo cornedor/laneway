@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"strconv"
 	"strings"
 
@@ -72,7 +73,7 @@ func (m Model) openDiffNote() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	r := d.rows[d.cursor]
-	note := diffNoteState{active: true, input: newModalComposer("note…")}
+	note := diffNoteState{active: true, input: newModalComposer(i18n.T("note…"))}
 	switch {
 	case r.kind == diffRowNote:
 		if r.thread < 0 || r.thread >= len(d.threads) {
@@ -82,9 +83,9 @@ func (m Model) openDiffNote() (tea.Model, tea.Cmd) {
 		note.replyTo = t.ID
 		where := t.Path
 		if where == "" {
-			where = "the merge request"
+			where = i18n.T("the merge request")
 		}
-		note.context = "↩ replying to " + threadAuthor(t) + " on " + where
+		note.context = i18n.Tf("↩ replying to %s on %s", threadAuthor(t), where)
 	case r.kind.commentable():
 		f := d.diff.Files[r.file]
 		note.newPath, note.oldPath = f.NewPath, f.OldPath
@@ -97,7 +98,7 @@ func (m Model) openDiffNote() (tea.Model, tea.Cmd) {
 		note.oldLine, note.newLine = r.old, r.new
 		note.context = f.Path() + ":" + lineLabel(r) + "  " + strings.TrimSpace(ansi.Strip(r.text))
 	default:
-		m.status = "no line here to comment on — move to a line of the diff"
+		m.status = i18n.T("no line here to comment on — move to a line of the diff")
 		return m, nil
 	}
 	d.note = note
@@ -110,7 +111,7 @@ func (m Model) openDiffNote() (tea.Model, tea.Cmd) {
 // threadAuthor is who started a conversation, for the "replying to" line.
 func threadAuthor(t forge.Thread) string {
 	if len(t.Notes) == 0 || t.Notes[0].Author == "" {
-		return "the thread"
+		return i18n.T("the thread")
 	}
 	return t.Notes[0].Author
 }
@@ -171,9 +172,9 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		c, ctx, repo, number, gen := d.c, m.ctx, d.repo, d.number, d.gen
-		m.status = "changing the pending note…"
+		m.status = i18n.T("changing the pending note…")
 		return m, func() tea.Msg {
-			return diffReviewedMsg{gen: gen, what: "pending note changed", err: c.EditDraft(ctx, repo, number, n.edit, text)}
+			return diffReviewedMsg{gen: gen, what: i18n.T("pending note changed"), err: c.EditDraft(ctx, repo, number, n.edit, text)}
 		}
 	}
 	if text == "" {
@@ -192,7 +193,7 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 	}
 	ctx, repo, number, gen := m.ctx, d.repo, d.number, d.gen
 	reply := n.replyTo != ""
-	m.status = "adding to your review…"
+	m.status = i18n.T("adding to your review…")
 	return m, func() tea.Msg {
 		return diffNotePostedMsg{gen: gen, reply: reply, err: rv.AddDraft(ctx, repo, number, note)}
 	}
@@ -203,14 +204,14 @@ func (m Model) applyDiffNote() (tea.Model, tea.Cmd) {
 // cache hit, so that reload is one request.
 func (m Model) handleDiffNotePosted(msg diffNotePostedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "note failed: " + msg.err.Error()
+		m.status = i18n.Tf("note failed: %s", msg.err.Error())
 		return m, nil
 	}
 	if m.diff == nil || msg.gen != m.diff.gen {
-		m.status = "in your review"
+		m.status = i18n.T("in your review")
 		return m, nil
 	}
-	m.status = "in your review: S submits it"
+	m.status = i18n.T("in your review: S submits it")
 	return m, m.reloadDiffThreads()
 }
 
@@ -222,14 +223,14 @@ func (m *Model) renderDiffNote() string {
 		return ""
 	}
 	n := &m.diff.note
-	title, hint := "Note — "+m.diff.label, "↵ add to your review · alt+↵ newline · esc cancel"
+	title, hint := i18n.Tf("Note — %s", m.diff.label), i18n.T("↵ add to your review · alt+↵ newline · esc cancel")
 	switch {
 	case n.edit != 0:
-		title, hint = "Pending note — "+m.diff.label, "↵ save · alt+↵ newline · esc cancel"
+		title, hint = i18n.Tf("Pending note — %s", m.diff.label), i18n.T("↵ save · alt+↵ newline · esc cancel")
 	case n.submit != "":
-		title, hint = "Submit review — "+m.diff.label, "↵ submit (empty: no summary) · alt+↵ newline · esc cancel"
+		title, hint = i18n.Tf("Submit review — %s", m.diff.label), i18n.T("↵ submit (empty: no summary) · alt+↵ newline · esc cancel")
 	case n.replyTo != "":
-		title = "Reply — " + m.diff.label
+		title = i18n.Tf("Reply — %s", m.diff.label)
 	}
 	var above []string
 	if n.context != "" {
@@ -302,21 +303,21 @@ func (m Model) toggleDiffResolve() (tea.Model, tea.Cmd) {
 	}
 	ti := d.threadAtCursor()
 	if ti < 0 || ti >= len(d.threads) {
-		m.status = "no inline thread here to resolve"
+		m.status = i18n.T("no inline thread here to resolve")
 		return m, nil
 	}
 	rv := d.c
 	t := d.threads[ti]
 	if !t.Resolvable && !t.Resolved {
-		m.status = "a plain comment: nothing to resolve"
+		m.status = i18n.T("a plain comment: nothing to resolve")
 		return m, nil
 	}
 	want := !t.Resolved
 	ctx, repo, number, gen := m.ctx, d.repo, d.number, d.gen
 	if want {
-		m.status = "resolving thread…"
+		m.status = i18n.T("resolving thread…")
 	} else {
-		m.status = "reopening thread…"
+		m.status = i18n.T("reopening thread…")
 	}
 	return m, func() tea.Msg {
 		return diffResolvedMsg{gen: gen, resolved: want, err: rv.ResolveThread(ctx, repo, number, t.ID, want)}
@@ -327,12 +328,12 @@ func (m Model) toggleDiffResolve() (tea.Model, tea.Cmd) {
 // the thread's new state is the forge's answer rather than our guess.
 func (m Model) handleDiffResolved(msg diffResolvedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "resolve failed: " + msg.err.Error()
+		m.status = i18n.Tf("resolve failed: %s", msg.err.Error())
 		return m, nil
 	}
-	m.status = "thread resolved"
+	m.status = i18n.T("thread resolved")
 	if !msg.resolved {
-		m.status = "thread reopened"
+		m.status = i18n.T("thread reopened")
 	}
 	if m.diff == nil || msg.gen != m.diff.gen {
 		return m, nil
@@ -344,20 +345,20 @@ func (m Model) handleDiffResolved(msg diffResolvedMsg) (tea.Model, tea.Cmd) {
 
 // reviewVerdicts are S's choices, in order.
 var reviewVerdicts = []struct{ id, label string }{
-	{forge.VerdictComment, "Comment"},
-	{forge.VerdictApprove, "Approve"},
-	{forge.VerdictChanges, "Request changes"},
+	{forge.VerdictComment, i18n.N("Comment")},
+	{forge.VerdictApprove, i18n.N("Approve")},
+	{forge.VerdictChanges, i18n.N("Request changes")},
 }
 
 // verdictLines are S's list, the cursor's row marked.
 func (d *diffState) verdictLines(width int) []string {
-	head := "Submit your review"
+	head := i18n.T("Submit your review")
 	if n := len(d.drafts); n > 0 {
-		head += ": " + plural(n, "pending note")
+		head += ": " + i18n.Tn(n, "%d pending note", "%d pending notes", n)
 	}
-	lines := []string{refKeyStyle.Render(head) + refDimStyle.Render("  ↵ pick, then a summary · esc close")}
+	lines := []string{refKeyStyle.Render(head) + refDimStyle.Render(i18n.T("  ↵ pick, then a summary · esc close"))}
 	for i, v := range reviewVerdicts {
-		line := truncate("  "+v.label, width)
+		line := truncate("  "+i18n.T(v.label), width)
 		if i == d.verdict {
 			line = selectedRow.Render(line)
 		}
@@ -381,8 +382,8 @@ func (m Model) handleDiffVerdictKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		d.verdicts = false
 		v := reviewVerdicts[d.verdict]
-		d.note = diffNoteState{active: true, input: newModalComposer("a summary, or nothing"), submit: v.id,
-			context: v.label + " · " + plural(len(d.drafts), "pending note")}
+		d.note = diffNoteState{active: true, input: newModalComposer(i18n.T("a summary, or nothing")), submit: v.id,
+			context: i18n.T(v.label) + " · " + i18n.Tn(len(d.drafts), "%d pending note", "%d pending notes", len(d.drafts))}
 	}
 	return m, nil
 }
@@ -398,9 +399,9 @@ type diffReviewedMsg struct {
 func (m *Model) submitReview(verdict, summary string) tea.Cmd {
 	d := m.diff
 	c, ctx, repo, number, gen := d.c, m.ctx, d.repo, d.number, d.gen
-	m.status = "submitting your review…"
-	what := map[string]string{forge.VerdictComment: "review submitted", forge.VerdictApprove: "review submitted, approved",
-		forge.VerdictChanges: "review submitted, changes requested"}[verdict]
+	m.status = i18n.T("submitting your review…")
+	what := map[string]string{forge.VerdictComment: i18n.T("review submitted"), forge.VerdictApprove: i18n.T("review submitted, approved"),
+		forge.VerdictChanges: i18n.T("review submitted, changes requested")}[verdict]
 	return func() tea.Msg {
 		return diffReviewedMsg{gen: gen, what: what, err: c.SubmitReview(ctx, repo, number, summary, verdict)}
 	}
@@ -413,15 +414,15 @@ func (m *Model) approveMR(c *gitlab.Client, repo string, number int) tea.Cmd {
 		gen = m.diff.gen
 	}
 	ctx := m.ctx
-	m.status = "approving " + repo + "!" + strconv.Itoa(number) + "…"
+	m.status = i18n.Tf("approving %s!%d…", repo, number)
 	return func() tea.Msg {
-		return diffReviewedMsg{gen: gen, what: "approved", err: c.Approve(ctx, repo, number)}
+		return diffReviewedMsg{gen: gen, what: i18n.T("approved"), err: c.Approve(ctx, repo, number)}
 	}
 }
 
 func (m Model) handleDiffReviewed(msg diffReviewedMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.status = "review failed: " + msg.err.Error()
+		m.status = i18n.Tf("review failed: %s", msg.err.Error())
 		return m, nil
 	}
 	m.status = msg.what
@@ -440,11 +441,11 @@ func (m Model) handleDiffReviewed(msg diffReviewedMsg) (tea.Model, tea.Cmd) {
 func (m Model) editDiffDraft() (tea.Model, tea.Cmd) {
 	d := m.diff
 	if d == nil || d.cursor >= len(d.rows) || d.rows[d.cursor].draft == 0 {
-		m.status = "no pending note here"
+		m.status = i18n.T("no pending note here")
 		return m, nil
 	}
 	dr := d.drafts[d.rows[d.cursor].draft-1]
-	d.note = diffNoteState{active: true, input: newModalComposer("note…"), edit: dr.ID, context: "✎ your pending note"}
+	d.note = diffNoteState{active: true, input: newModalComposer(i18n.T("note…")), edit: dr.ID, context: i18n.T("✎ your pending note")}
 	d.note.input.SetValue(strings.ReplaceAll(dr.Body, "\t", suggestTab))
 	return m, nil
 }
@@ -453,14 +454,14 @@ func (m Model) editDiffDraft() (tea.Model, tea.Cmd) {
 func (m Model) deleteDiffDraft() (tea.Model, tea.Cmd) {
 	d := m.diff
 	if d == nil || d.cursor >= len(d.rows) || d.rows[d.cursor].draft == 0 {
-		m.status = "no pending note here"
+		m.status = i18n.T("no pending note here")
 		return m, nil
 	}
 	dr := d.drafts[d.rows[d.cursor].draft-1]
 	c, ctx, repo, number, gen := d.c, m.ctx, d.repo, d.number, d.gen
-	m.status = "dropping the pending note…"
+	m.status = i18n.T("dropping the pending note…")
 	return m, func() tea.Msg {
-		return diffReviewedMsg{gen: gen, what: "pending note dropped", err: c.DeleteDraft(ctx, repo, number, dr.ID)}
+		return diffReviewedMsg{gen: gen, what: i18n.T("pending note dropped"), err: c.DeleteDraft(ctx, repo, number, dr.ID)}
 	}
 }
 
@@ -476,9 +477,9 @@ func (m Model) toggleDiffMark() (tea.Model, tea.Cmd) {
 		m.status = ""
 	case d.cursor < len(d.rows) && d.rows[d.cursor].kind.commentable():
 		d.mark = d.cursor + 1
-		m.status = "a range from here: move to its end, c notes it, s suggests, esc drops it"
+		m.status = i18n.T("a range from here: move to its end, c notes it, s suggests, esc drops it")
 	default:
-		m.status = "V on a line of the diff starts a range"
+		m.status = i18n.T("V on a line of the diff starts a range")
 	}
 	return m, nil
 }
@@ -535,14 +536,14 @@ func (m Model) openDiffSuggestion() (tea.Model, tea.Cmd) {
 		from, to = d.cursor, d.cursor
 	}
 	if from >= len(d.rows) || !d.rows[from].kind.commentable() {
-		m.status = "s on a line of the diff suggests a change to it"
+		m.status = i18n.T("s on a line of the diff suggests a change to it")
 		return m, nil
 	}
 	var lines []string
 	for i := from; i <= to; i++ {
 		switch r := d.rows[i]; {
 		case r.kind == diffRowDel:
-			m.status = "a suggestion replaces new lines: leave the removed ones out of the range"
+			m.status = i18n.T("a suggestion replaces new lines: leave the removed ones out of the range")
 			return m, nil
 		case r.kind.commentable():
 			lines = append(lines, strings.ReplaceAll(r.raw, "\t", suggestTab))

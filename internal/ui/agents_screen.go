@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"github.com/cornedor/laneway/internal/i18n"
 	"maps"
 	"os/exec"
 	"slices"
@@ -69,7 +70,7 @@ type agentTermDueMsg struct{ seq int }
 const agentTermWait = 150 * time.Millisecond
 
 // agentGroups name the list's groups, by agentGroup.
-var agentGroups = []string{"Waiting on you", "Working", "Done", "Idle", "Worktrees without an agent"}
+var agentGroups = []string{i18n.N("Waiting on you"), i18n.N("Working"), i18n.N("Done"), i18n.N("Idle"), i18n.N("Worktrees without an agent")}
 
 func agentGroup(r agentRow) int {
 	if r.agent.PaneID == "" {
@@ -82,15 +83,15 @@ func agentGroup(r agentRow) int {
 func agentState(s herdr.Status) string {
 	switch s {
 	case herdr.Blocked:
-		return "waiting on you"
+		return i18n.T("waiting on you")
 	case herdr.Working:
-		return "working"
+		return i18n.T("working")
 	case herdr.Done:
-		return "done"
+		return i18n.T("done")
 	case herdr.Idle:
-		return "idle"
+		return i18n.T("idle")
 	}
-	return "unknown"
+	return i18n.T("unknown")
 }
 
 // openAgents swaps the board for the agents screen.
@@ -99,7 +100,7 @@ func (m *Model) openAgents() tea.Cmd {
 		if m.herdr == nil {
 			m.status = m.noHerdr()
 		} else {
-			m.status = "no issue has a herdr agent or a worktree · " + helpKey(m.keys.JiraStart) + " starts one"
+			m.status = i18n.Tf("no issue has a herdr agent or a worktree · %s starts one", helpKey(m.keys.JiraStart))
 		}
 		return nil
 	}
@@ -246,7 +247,7 @@ func (m Model) handleAgentTermDue(msg agentTermDueMsg) (tea.Model, tea.Cmd) {
 	s.termFor, s.termErr, s.typing = r.agent.PaneID, "", false
 	bin, err := exec.LookPath(herdrBin)
 	if err != nil {
-		s.termErr = "no herdr on PATH"
+		s.termErr = i18n.T("no herdr on PATH")
 		return m, nil
 	}
 	w, h := m.agentsTermSize()
@@ -288,7 +289,7 @@ func (m Model) agentsTermExited(t *termSession) (tea.Model, tea.Cmd) {
 	}
 	m.closeAgentsTerm()
 	if s := m.jiraTab.agentsView; s != nil {
-		s.termFor, s.termErr = pane, "detached · "+why
+		s.termFor, s.termErr = pane, i18n.Tf("detached · %s", why)
 	}
 	return m, m.fetchAgents()
 }
@@ -350,7 +351,7 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	here := !is.found || is.site == m.site
 	needAgent := func() bool {
 		if r.agent.PaneID == "" {
-			m.status = r.key + " has no agent here, only its worktree"
+			m.status = i18n.Tf("%s has no agent here, only its worktree", r.key)
 		}
 		return r.agent.PaneID != ""
 	}
@@ -390,7 +391,7 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		fallthrough
 	case key.Matches(msg, k.OpenRef):
 		if !here {
-			m.status = "opening " + is.url + "…"
+			m.status = i18n.Tf("opening %s…", is.url)
 			return m, m.openOpenable(openable{name: r.key, url: is.url})
 		}
 		return m.openJiraKey(r.key)
@@ -399,7 +400,7 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if url == "" {
 			url = m.jiraClient.BrowseURL(r.key)
 		}
-		m.status = "opening " + url + "…"
+		m.status = i18n.Tf("opening %s…", url)
 		return m, m.openOpenable(openable{name: r.key, url: url})
 	case key.Matches(msg, k.AgentPrompt):
 		if needAgent() {
@@ -411,13 +412,13 @@ func (m Model) handleAgentsKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		if s.stopAsk != r.agent.PaneID {
 			s.stopAsk = r.agent.PaneID
-			m.status = "stop " + r.agent.Name + " and close its tab? " + helpKey(k.AgentStop) + " again"
+			m.status = i18n.Tf("stop %s and close its tab? %s again", r.agent.Name, helpKey(k.AgentStop))
 			break
 		}
 		s.stopAsk = ""
 		return m, m.applyAgentAction(r.key, "agent-stop", r.agent.PaneID)
 	case key.Matches(msg, k.CopyKey):
-		m.status = r.key + " copied"
+		m.status = i18n.Tf("%s copied", r.key)
 		return m, tea.SetClipboard(r.key)
 	case key.Matches(msg, k.Refresh):
 		clear(s.issues)
@@ -483,11 +484,11 @@ func (m *Model) agentsViewLine() string {
 			parts = append(parts, fmt.Sprintf("%s %d", mark, n[i]))
 		}
 	}
-	show := "shows"
+	show := i18n.T("shows")
 	if s.bare {
-		show = "hides"
+		show = i18n.T("hides")
 	}
-	keys := fmt.Sprintf("  ·  %s %s ◌ · %s type · %s issue · %s prompt · %s stop · %s browser · esc board",
+	keys := i18n.Tf("  ·  %s %s ◌ · %s type · %s issue · %s prompt · %s stop · %s browser · esc board",
 		helpKey(k.Tab), show, helpKey(k.OpenChannel), helpKey(k.OpenRef), helpKey(k.AgentPrompt), helpKey(k.AgentStop), helpKey(k.OpenAttach))
 	return parts[0] + jiraDimStyle.Render("  "+strings.Join(parts[1:], "  ")+keys)
 }
@@ -499,9 +500,9 @@ func (m *Model) renderAgentsScreen(width, height int) string {
 	if len(s.rows) == 0 {
 		s.lineRow = nil
 		if !s.bare {
-			return "\n  no agents · " + helpKey(m.keys.Tab) + " shows the worktrees without one"
+			return "\n  " + i18n.Tf("no agents · %s shows the worktrees without one", helpKey(m.keys.Tab))
 		}
-		return "\n  no agents or worktrees left · esc goes back to the board"
+		return "\n  " + i18n.T("no agents or worktrees left · esc goes back to the board")
 	}
 	listW := m.agentsListW(width)
 	s.listW = listW
@@ -543,7 +544,7 @@ func (m *Model) renderAgentsList(width, height int) []string {
 				add(-1, "")
 			}
 			group = g
-			add(-1, refLabelStyle.Render(agentGroups[g]))
+			add(-1, refLabelStyle.Render(i18n.T(agentGroups[g])))
 		}
 		is, looked := s.issues[r.key]
 		summary := is.card.Summary
@@ -551,9 +552,9 @@ func (m *Model) renderAgentsList(width, height int) []string {
 		case !looked:
 			summary = "…"
 		case !is.found:
-			summary = "not found on any site"
+			summary = i18n.T("not found on any site")
 		case is.site != m.site:
-			summary = "[" + is.site + "] " + summary
+			summary = i18n.Tf("[%s] %s", is.site, summary)
 		}
 		mark := jiraDimStyle.Render("◌")
 		if r.agent.PaneID != "" {
@@ -605,29 +606,29 @@ func (m *Model) renderAgentDetail(width, height int) []string {
 	out := []string{fit(jiraKeyStyle.Render(r.key) + " " + titleStyle.Render(is.card.Summary))}
 	var facts []string
 	if is.found {
-		facts = append(facts, is.card.Status, cmp.Or(is.card.Assignee, "unassigned"))
+		facts = append(facts, is.card.Status, cmp.Or(is.card.Assignee, i18n.T("unassigned")))
 		if is.site != m.site {
-			facts = append(facts, "on "+is.site)
+			facts = append(facts, i18n.Tf("on %s", is.site))
 		}
 	}
 	a := r.agent
 	if a.PaneID == "" {
-		facts = append(facts, "a worktree, no agent in it")
+		facts = append(facts, i18n.T("a worktree, no agent in it"))
 		return append(out, refDimStyle.Render(fit(strings.Join(facts, " · "))), "", refDimStyle.Render(fit("◌ "+homeShort(r.path))))
 	}
 	shown := m.agentsTermShown() && s.termFor == a.PaneID
 	switch {
 	case shown && s.typing:
-		facts = append(facts, "typing · "+helpKey(m.keys.AgentBack)+" back to the list")
+		facts = append(facts, i18n.Tf("typing · %s back to the list", helpKey(m.keys.AgentBack)))
 	case shown:
-		facts = append(facts, helpKey(m.keys.OpenChannel)+" or a click to type")
+		facts = append(facts, i18n.Tf("%s or a click to type", helpKey(m.keys.OpenChannel)))
 	}
 	out = append(out, fit(statusMark(a.Status)+" "+agentState(a.Status)+refDimStyle.Render("  "+strings.Join(facts, " · "))))
 	switch {
 	case !shown && s.termErr != "" && s.termFor == a.PaneID:
 		return append(out, refDimStyle.Render(fit("  "+s.termErr)))
 	case !shown:
-		return append(out, refDimStyle.Render("  attaching…"))
+		return append(out, refDimStyle.Render(i18n.T("  attaching…")))
 	}
 	w, h := m.agentsTermSize()
 	m.agentTerm.resize(w, h)
