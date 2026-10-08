@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -30,7 +31,7 @@ func init() {
 		}
 		for _, k := range b.Keys {
 			if !jira.ValidKey(k) {
-				return nil, badRequest("bad issue key")
+				return nil, badRequest(i18n.T("bad issue key"))
 			}
 		}
 		return s.Client().StatusMoves(ctx, b.Keys)

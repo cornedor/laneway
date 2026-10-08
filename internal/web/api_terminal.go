@@ -18,6 +18,7 @@ import (
 	"github.com/creack/pty"
 
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // The browser terminal: GET /api/agents/{pane}/terminal upgrades to a
@@ -84,7 +85,7 @@ func agentTerminal(s *Server, w http.ResponseWriter, r *http.Request) {
 	// sends one, so its absence is refused too.
 	o, err := url.Parse(r.Header.Get("Origin"))
 	if err != nil || o.Host == "" || o.Host != r.Host || o.Scheme != "http" && o.Scheme != "https" {
-		http.Error(w, "the terminal needs a same-origin Origin", http.StatusForbidden)
+		http.Error(w, i18n.T("the terminal needs a same-origin Origin"), http.StatusForbidden)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
@@ -100,7 +101,7 @@ func agentTerminal(s *Server, w http.ResponseWriter, r *http.Request) {
 	}
 	bin, err := exec.LookPath(herdrBin)
 	if err != nil {
-		writeErr(w, httpError{http.StatusNotImplemented, "no herdr on PATH to attach to the agent"})
+		writeErr(w, httpError{http.StatusNotImplemented, i18n.T("no herdr on PATH to attach to the agent")})
 		return
 	}
 	cols, rows := termDim(Q(r, "cols"), 80, 10, 500), termDim(Q(r, "rows"), 24, 3, 300)
@@ -112,7 +113,7 @@ func agentTerminal(s *Server, w http.ResponseWriter, r *http.Request) {
 	termMu.Lock()
 	if termCount >= termMaxSessions {
 		termMu.Unlock()
-		writeErr(w, httpError{http.StatusServiceUnavailable, "too many terminals open"})
+		writeErr(w, httpError{http.StatusServiceUnavailable, i18n.T("too many terminals open")})
 		return
 	}
 	if old := termPanes[key]; old != nil {

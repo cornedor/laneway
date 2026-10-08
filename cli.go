@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -59,19 +60,19 @@ type cliComment struct {
 func cliCmd(name string, args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	cfgPath := fs.String("config", "", "config file")
-	site := fs.String("site", "", "Jira site from the config's sites:")
-	format := fs.String("format", "plain", "plain, csv or json")
-	jql := fs.String("jql", defaultListJQL, "list: the query")
-	project := fs.String("project", "", "create: the project key")
-	typ := fs.String("type", "Task", "create: the issue type")
-	summary := fs.String("summary", "", "create: the summary")
-	desc := fs.String("description", "", "create: the description (markdown)")
+	cfgPath := fs.String("config", "", i18n.T("config file"))
+	site := fs.String("site", "", i18n.T("Jira site from the config's sites:"))
+	format := fs.String("format", "plain", i18n.T("plain, csv or json"))
+	jql := fs.String("jql", defaultListJQL, i18n.T("list: the query"))
+	project := fs.String("project", "", i18n.T("create: the project key"))
+	typ := fs.String("type", "Task", i18n.T("create: the issue type"))
+	summary := fs.String("summary", "", i18n.T("create: the summary"))
+	desc := fs.String("description", "", i18n.T("create: the description (markdown)"))
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *format != "plain" && *format != "csv" && *format != "json" {
-		fmt.Fprintf(errOut, "laneway %s: -format is plain, csv or json\n", name)
+		fmt.Fprintf(errOut, i18n.T("laneway %s: -format is plain, csv or json")+"\n", name)
 		return 2
 	}
 	c, err := siteClient(*cfgPath, *site)
@@ -86,13 +87,13 @@ func cliCmd(name string, args []string, out, errOut io.Writer) int {
 		err = cliList(ctx, c, *jql, *format, out)
 	case "view":
 		if fs.NArg() != 1 {
-			fmt.Fprintln(errOut, "usage: laneway view [-format plain|json] KEY")
+			fmt.Fprintln(errOut, i18n.T("usage: laneway view [-format plain|json] KEY"))
 			return 2
 		}
 		err = cliView(ctx, c, fs.Arg(0), *format, out)
 	case "create":
 		if *project == "" || *summary == "" {
-			fmt.Fprintln(errOut, "usage: laneway create -project ABC [-type Task] -summary TEXT [-description MD]")
+			fmt.Fprintln(errOut, i18n.T("usage: laneway create -project ABC [-type Task] -summary TEXT [-description MD]"))
 			return 2
 		}
 		var key string
@@ -102,7 +103,7 @@ func cliCmd(name string, args []string, out, errOut io.Writer) int {
 		}
 	case "move":
 		if fs.NArg() != 2 {
-			fmt.Fprintln(errOut, "usage: laneway move KEY STATUS")
+			fmt.Fprintln(errOut, i18n.T("usage: laneway move KEY STATUS"))
 			return 2
 		}
 		err = cliMove(ctx, c, fs.Arg(0), fs.Arg(1), out)
@@ -163,12 +164,12 @@ func cliView(ctx context.Context, c *jira.Client, key, format string, out io.Wri
 	case "json":
 		return cliJSON(out, v)
 	case "csv":
-		return errors.New("view: -format is plain or json")
+		return errors.New(i18n.T("view: -format is plain or json"))
 	}
 	fmt.Fprintf(out, "%s  %s\n\n", v.Key, v.Summary)
 	tw := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-	for _, f := range [][2]string{{"Type", v.Type}, {"Status", v.Status}, {"Priority", v.Priority}, {"Assignee", orNone(v.Assignee)},
-		{"Reporter", v.Reporter}, {"Points", orNone(v.Points)}, {"Labels", orNone(strings.Join(v.Labels, ", "))}, {"URL", v.URL}} {
+	for _, f := range [][2]string{{i18n.T("Type"), v.Type}, {i18n.T("Status"), v.Status}, {i18n.T("Priority"), v.Priority}, {i18n.T("Assignee"), orNone(v.Assignee)},
+		{i18n.T("Reporter"), v.Reporter}, {i18n.T("Points"), orNone(v.Points)}, {i18n.T("Labels"), orNone(strings.Join(v.Labels, ", "))}, {"URL", v.URL}} {
 		fmt.Fprintf(tw, "%s\t%s\n", f[0], f[1])
 	}
 	_ = tw.Flush()
@@ -198,7 +199,7 @@ func cliMove(ctx context.Context, c *jira.Client, key, status string, out io.Wri
 		}
 		names = append(names, t.Name)
 	}
-	return fmt.Errorf("%s can't move to %q; it can to %s", key, status, strings.Join(names, ", "))
+	return fmt.Errorf(i18n.T("%s can't move to %q; it can to %s"), key, status, strings.Join(names, ", "))
 }
 
 // cliWrite writes v as JSON, else plain.

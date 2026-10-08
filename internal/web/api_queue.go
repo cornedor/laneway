@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/offline"
 )
@@ -42,13 +43,13 @@ func (n *queueNotes) record(res offline.Result) {
 		what, msg, _ := strings.Cut(f, ": ")
 		n.next++
 		n.failed = append(n.failed, queueFailure{n.next, what, msg, time.Now()})
-		evs = append(evs, RuleEvent{Rule: "queue", Action: "queue", Title: "Queued write refused", Text: what, Err: msg})
+		evs = append(evs, RuleEvent{Rule: "queue", Action: "queue", Title: i18n.T("Queued write refused"), Text: what, Err: msg})
 	}
 	if len(n.failed) > maxFailures {
 		n.failed = n.failed[len(n.failed)-maxFailures:]
 	}
 	if res.Conflict != "" && res.Conflict != n.conflict {
-		evs = append(evs, RuleEvent{Rule: "queue", Action: "queue", Title: "Queued write held", Text: res.Conflict + " changed in Jira since", Key: res.Conflict})
+		evs = append(evs, RuleEvent{Rule: "queue", Action: "queue", Title: i18n.T("Queued write held"), Text: i18n.Tf("%s changed in Jira since", res.Conflict), Key: res.Conflict})
 	}
 	n.conflict = res.Conflict
 	n.mu.Unlock()
@@ -119,7 +120,7 @@ func init() {
 	del("/queue/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		id := r.PathValue("id")
 		if !strings.HasPrefix(id, "w") {
-			return nil, badRequest("bad id")
+			return nil, badRequest(i18n.T("bad id"))
 		}
 		return map[string]int{"Left": offline.DropID(s.opt.Store, id)}, nil
 	})

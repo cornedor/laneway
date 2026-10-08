@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -24,7 +25,7 @@ func draftKey(r *http.Request) (string, error) {
 	id := r.PathValue("id")
 	m := draftID.FindStringSubmatch(id)
 	if m == nil || (m[1] == "comment" && m[3] != "") || !jira.ValidKey(m[2]) {
-		return "", badRequest("bad draft id")
+		return "", badRequest(i18n.T("bad draft id"))
 	}
 	return draftPrefix + id, nil
 }

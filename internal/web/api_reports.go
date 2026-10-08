@@ -11,6 +11,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -40,7 +41,7 @@ func init() {
 		day := time.Now()
 		if b.Day != "" {
 			if day, err = time.ParseInLocation(time.DateOnly, b.Day, time.Local); err != nil {
-				return nil, badRequest("bad day")
+				return nil, badRequest(i18n.T("bad day"))
 			}
 		}
 		return nil, s.Client().ReleaseVersion(ctx, r.PathValue("id"), day)
@@ -166,11 +167,11 @@ func planMove(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	if len(b.Keys) == 0 {
-		return nil, badRequest("no issues")
+		return nil, badRequest(i18n.T("no issues"))
 	}
 	for _, k := range b.Keys {
 		if !jira.ValidKey(k) {
-			return nil, badRequest("bad issue key")
+			return nil, badRequest(i18n.T("bad issue key"))
 		}
 	}
 	if b.Sprint == 0 {
@@ -188,7 +189,7 @@ func planCreateSprint(ctx context.Context, s *Server, r *http.Request) (any, err
 		return nil, err
 	}
 	if b.Name == "" || b.Board == 0 {
-		return nil, badRequest("a sprint needs a board and a name")
+		return nil, badRequest(i18n.T("a sprint needs a board and a name"))
 	}
 	return nil, s.Client().CreateSprint(ctx, b.Board, b.Name)
 }
@@ -196,7 +197,7 @@ func planCreateSprint(ctx context.Context, s *Server, r *http.Request) (any, err
 func sprintID(r *http.Request) (int, error) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return 0, badRequest("bad sprint id")
+		return 0, badRequest(i18n.T("bad sprint id"))
 	}
 	return id, nil
 }
@@ -214,7 +215,7 @@ func planStartSprint(ctx context.Context, s *Server, r *http.Request) (any, erro
 	now := time.Now()
 	end, err := endOfDay(b.End)
 	if err != nil || !end.After(now) {
-		return nil, badRequest("the end must be a day after today")
+		return nil, badRequest(i18n.T("the end must be a day after today"))
 	}
 	return nil, s.Client().StartSprint(ctx, id, now, end)
 }
@@ -243,7 +244,7 @@ func planUpdateSprint(ctx context.Context, s *Server, r *http.Request) (any, err
 	var end time.Time
 	if b.End != "" {
 		if end, err = endOfDay(b.End); err != nil {
-			return nil, badRequest("bad end day")
+			return nil, badRequest(i18n.T("bad end day"))
 		}
 	}
 	c := s.Client()
@@ -471,7 +472,7 @@ func roadmapDates(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	}
 	key := r.PathValue("key")
 	if !jira.ValidKey(key) {
-		return nil, badRequest("bad issue key")
+		return nil, badRequest(i18n.T("bad issue key"))
 	}
 	parse := func(v string) (time.Time, error) {
 		if v == "" {
@@ -482,7 +483,7 @@ func roadmapDates(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	start, err1 := parse(b.Start)
 	end, err2 := parse(b.End)
 	if err1 != nil || err2 != nil {
-		return nil, badRequest("bad date")
+		return nil, badRequest(i18n.T("bad date"))
 	}
 	return nil, s.Client().SetDates(ctx, key, start, end)
 }

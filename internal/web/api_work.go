@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -41,7 +42,7 @@ func init() {
 func validKey(r *http.Request) (string, error) {
 	key := r.PathValue("key")
 	if !jira.ValidKey(key) {
-		return "", badRequest("bad issue key")
+		return "", badRequest(i18n.T("bad issue key"))
 	}
 	return key, nil
 }
@@ -62,7 +63,7 @@ func myWork(ctx context.Context, s *Server, r *http.Request) (any, error) {
 func day(r *http.Request, name string) (time.Time, error) {
 	t, err := time.ParseInLocation(time.DateOnly, Q(r, name), time.Local)
 	if err != nil {
-		return t, badRequest("bad " + name + ": want YYYY-MM-DD")
+		return t, badRequest(i18n.Tf("bad %s: want YYYY-MM-DD", name))
 	}
 	return t, nil
 }
@@ -78,7 +79,7 @@ func myWorklogs(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	if !to.After(from) || to.Sub(from) > 62*24*time.Hour {
-		return nil, badRequest("to must follow from, within two months")
+		return nil, badRequest(i18n.T("to must follow from, within two months"))
 	}
 	logs, err := s.Client().MyWorklogsBetween(ctx, from, to)
 	if logs == nil {
@@ -100,7 +101,7 @@ func (b worklogBody) start() (time.Time, error) {
 	}
 	t, err := time.Parse(time.RFC3339, b.Started)
 	if err != nil {
-		return t, badRequest("bad Started: want RFC 3339")
+		return t, badRequest(i18n.T("bad Started: want RFC 3339"))
 	}
 	return t, nil
 }
@@ -320,7 +321,7 @@ func putInboxState(ctx context.Context, s *Server, r *http.Request) (any, error)
 	site := s.opt.Site
 	if b.Site != nil && *b.Site != site {
 		if !slices.Contains(s.opt.Sites, *b.Site) {
-			return nil, httpError{http.StatusBadRequest, "unknown site"}
+			return nil, httpError{http.StatusBadRequest, i18n.T("unknown site")}
 		}
 		site = *b.Site
 	}

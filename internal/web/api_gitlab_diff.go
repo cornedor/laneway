@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/forge"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/ui"
 )
 
@@ -109,11 +110,11 @@ func init() {
 		path := r.URL.Query().Get("path")
 		i := slices.IndexFunc(d.Files, func(f forge.FileDiff) bool { return f.Path() == path })
 		if i < 0 {
-			return nil, httpError{http.StatusNotFound, path + " is not in this diff"}
+			return nil, httpError{http.StatusNotFound, i18n.Tf("%s is not in this diff", path)}
 		}
 		f := d.Files[i]
 		if f.Deleted || f.Binary || f.TooLarge {
-			return nil, httpError{http.StatusBadRequest, path + ": nothing more to show"}
+			return nil, httpError{http.StatusBadRequest, i18n.Tf("%s: nothing more to show", path)}
 		}
 		text, err := c.File(ctx, ref.Repo, f.NewPath, d.Refs.HeadSHA)
 		if err != nil {
@@ -217,7 +218,7 @@ func init() {
 			return nil, err
 		}
 		if strings.TrimSpace(f.Body) == "" {
-			return nil, FieldError{Field: "Body", Msg: "a note needs text"}
+			return nil, FieldError{Field: "Body", Msg: i18n.T("a note needs text")}
 		}
 		n := forge.NewNote{Body: f.Body, ReplyTo: f.ReplyTo, OldPath: f.OldPath, NewPath: f.NewPath, OldLine: f.OldLine, NewLine: f.NewLine, Range: f.Range}
 		if f.ReplyTo == "" { // a position is anchored to the diff's commits
@@ -240,7 +241,7 @@ func init() {
 			return nil, err
 		}
 		if strings.TrimSpace(b.Body) == "" {
-			return nil, FieldError{Field: "Body", Msg: "a note needs text"}
+			return nil, FieldError{Field: "Body", Msg: i18n.T("a note needs text")}
 		}
 		id, _ := strconv.Atoi(r.URL.Query().Get("draft"))
 		return map[string]bool{"OK": true}, c.EditDraft(ctx, ref.Repo, ref.Number, id, b.Body)
@@ -254,14 +255,14 @@ func init() {
 		}
 		h := herdrClient()
 		if h == nil {
-			return nil, httpError{http.StatusServiceUnavailable, "herdr is not running"}
+			return nil, httpError{http.StatusServiceUnavailable, i18n.T("herdr is not running")}
 		}
 		mr, err := c.Get(ctx, ref.Repo, ref.Number)
 		if err != nil {
 			return nil, err
 		}
 		if mr.State != forge.StateOpen {
-			return nil, httpError{http.StatusConflict, ref.Repo + "!" + strconv.Itoa(ref.Number) + " is " + mr.State}
+			return nil, httpError{http.StatusConflict, i18n.Tf("%s is %s", ref.Repo+"!"+strconv.Itoa(ref.Number), mr.State)}
 		}
 		w := workConfigOf(s)
 		path, pane, running, err := ui.StartMRReview(ctx, h, s.opt.GitLabRepos, slices.Collect(maps.Values(s.opt.Jira.Repos)), mr, ref, w.Agent, w.Args, w.Create)
@@ -299,7 +300,7 @@ func init() {
 		case b.Verdict == forge.VerdictComment, b.Verdict == forge.VerdictApprove, b.Verdict == forge.VerdictChanges:
 			err = c.SubmitReview(ctx, ref.Repo, ref.Number, b.Summary, b.Verdict)
 		default:
-			return nil, FieldError{Field: "Verdict", Msg: "comment, approve or changes"}
+			return nil, FieldError{Field: "Verdict", Msg: i18n.T("comment, approve or changes")}
 		}
 		return map[string]bool{"OK": true}, err
 	})

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/calendar"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/standup"
 	"github.com/cornedor/laneway/internal/work"
@@ -41,7 +42,7 @@ func standupLines(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	}
 	board, _ := strconv.Atoi(Q(r, "board"))
 	if board == 0 {
-		return nil, badRequest("need a board")
+		return nil, badRequest(i18n.T("need a board"))
 	}
 	sprint, _ := strconv.Atoi(Q(r, "sprint"))
 	v := standupView{sprint: sprint, backlog: Q(r, "backlog") != "", jql: Q(r, "jql"), filter: Q(r, "kind") == "filter"}
@@ -129,23 +130,17 @@ func teamStandup(ctx context.Context, s *Server, board int, v standupView, since
 				}
 				var parts []string
 				if g := strings.Join(strings.Fields(sp.Goal), " "); g != "" {
-					parts = append(parts, "goal: "+g)
+					parts = append(parts, i18n.Tf("goal: %s", g))
 				}
 				if !sp.End.IsZero() && sp.End.After(now) {
-					parts = append(parts, plural(workdaysLeft(now, sp.End, workdays(s)), "workday")+" left")
+					n := workdaysLeft(now, sp.End, workdays(s))
+					parts = append(parts, i18n.Tn(n, "%d workday left", "%d workdays left", n))
 				}
 				head = strings.Join(parts, " · ")
 			}
 		}
 	}
 	return standup.Stops(b, people, entries, since, now), head, nil
-}
-
-func plural(n int, what string) string {
-	if n == 1 {
-		return "1 " + what
-	}
-	return strconv.Itoa(n) + " " + what + "s"
 }
 
 func workdaysLeft(now, end time.Time, wds []time.Weekday) int {

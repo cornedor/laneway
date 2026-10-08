@@ -24,6 +24,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/autostart"
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/offline"
 	"github.com/cornedor/laneway/internal/store"
@@ -35,17 +36,17 @@ import (
 func webCmd(args []string, cfgPath, site string, errOut io.Writer) int {
 	fs := flag.NewFlagSet("web", flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	addr := fs.String("addr", "127.0.0.1:8484", "address to listen on")
-	remote := fs.Bool("remote", false, "allow a non-loopback address; needs -cert, -key and the printed ?token= URL. WARNING: grants shell access via ui.actions and ui.llm to whoever holds the token")
-	cert := fs.String("cert", "", "TLS certificate file (PEM); serves https")
-	key := fs.String("key", "", "TLS private key file (PEM) for -cert")
-	noOpen := fs.Bool("no-open", false, "do not open the browser")
-	demoFlag := fs.Bool("demo", false, "serve a generated project instead of Jira")
+	addr := fs.String("addr", "127.0.0.1:8484", i18n.T("address to listen on"))
+	remote := fs.Bool("remote", false, i18n.T("allow a non-loopback address; needs -cert, -key and the printed ?token= URL. WARNING: grants shell access via ui.actions and ui.llm to whoever holds the token"))
+	cert := fs.String("cert", "", i18n.T("TLS certificate file (PEM); serves https"))
+	key := fs.String("key", "", i18n.T("TLS private key file (PEM) for -cert"))
+	noOpen := fs.Bool("no-open", false, i18n.T("do not open the browser"))
+	demoFlag := fs.Bool("demo", false, i18n.T("serve a generated project instead of Jira"))
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if (*cert == "") != (*key == "") {
-		fmt.Fprintln(errOut, "laneway: -cert and -key go together")
+		fmt.Fprintln(errOut, i18n.T("laneway: -cert and -key go together"))
 		return 2
 	}
 	if err := runWeb(cfgPath, site, *addr, *cert, *key, *remote, !*noOpen, *demoFlag); err != nil {
@@ -73,7 +74,7 @@ func runWeb(cfgPath, site, addr, cert, key string, remote, open, demoMode bool) 
 		if errors.Is(err, syscall.EADDRINUSE) && runningWeb(addr) {
 			// Started at login, most likely: open that one.
 			url := "http://" + addr
-			fmt.Fprintln(os.Stderr, "laneway web already runs on", url)
+			fmt.Fprintln(os.Stderr, i18n.Tf("laneway web already runs on %s", url))
 			if open {
 				openBrowser(url)
 			}
@@ -207,9 +208,9 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 		}
 		switch {
 		case opt.Setup != nil:
-			fmt.Fprintln(os.Stderr, "laneway web on", url, "· connect it to Jira there")
+			fmt.Fprintln(os.Stderr, i18n.Tf("laneway web on %s · connect it to Jira there", url))
 		default:
-			fmt.Fprintln(os.Stderr, "laneway web on", url)
+			fmt.Fprintln(os.Stderr, i18n.Tf("laneway web on %s", url))
 		}
 		if open {
 			openBrowser(url)
@@ -287,15 +288,15 @@ func webAddSite(ctx context.Context, cfg config.Config, path, name string, f web
 	}
 	for _, n := range cfg.SiteNames() {
 		if j, err := cfg.Site(n); err == nil && strings.TrimRight(j.BaseURL, "/") == strings.TrimRight(base, "/") {
-			return "", "", web.FieldError{Field: "site", Msg: base + " is the site " + siteName(n) + " already."}
+			return "", "", web.FieldError{Field: "site", Msg: i18n.Tf("%s is the site %s already.", base, siteName(n))}
 		}
 	}
 	name = cmp.Or(strings.TrimSpace(name), config.SiteName(base))
 	switch {
 	case !config.ValidSiteName(name):
-		return "", "", web.FieldError{Field: "name", Msg: "Lower-case letters, digits, - and _ only."}
+		return "", "", web.FieldError{Field: "name", Msg: i18n.T("Lower-case letters, digits, - and _ only.")}
 	case slices.Contains(cfg.SiteNames(), name):
-		return "", "", web.FieldError{Field: "name", Msg: "There is a site " + name + " already."}
+		return "", "", web.FieldError{Field: "name", Msg: i18n.Tf("There is a site %s already.", name)}
 	}
 	if who, err = webSetupSave(ctx, path, name, f); err != nil {
 		return "", "", err
@@ -330,7 +331,7 @@ func webSetupSave(ctx context.Context, path, site string, f web.SetupForm) (stri
 	}
 	j := config.JiraConfig{BaseURL: base, Email: strings.TrimSpace(f.Email), APIToken: strings.TrimSpace(f.Token)}
 	if !strings.Contains(j.Email, "@") {
-		return "", web.FieldError{Field: "email", Msg: "Type the email address you sign in to Jira with."}
+		return "", web.FieldError{Field: "email", Msg: i18n.T("Type the email address you sign in to Jira with.")}
 	}
 	check := j
 	if strings.HasPrefix(base, "https://") && strings.HasSuffix(strings.ToLower(base), ".atlassian.net") {
@@ -339,17 +340,17 @@ func webSetupSave(ctx context.Context, path, site string, f web.SetupForm) (stri
 		check.APIToken = cmp.Or(j.APIToken, os.Getenv("JIRA_API_TOKEN"))
 	}
 	if check.APIToken == "" {
-		return "", web.FieldError{Field: "token", Msg: "Paste the API token."}
+		return "", web.FieldError{Field: "token", Msg: i18n.T("Paste the API token.")}
 	}
 	who, err := signIn(ctx, check)
 	switch {
 	case err == nil:
 	case errors.Is(err, jira.ErrUnauthorized):
-		return "", web.FieldError{Field: "token", Msg: "Jira did not accept this email and token. Check the email is the one you sign in with, and copy the token again."}
+		return "", web.FieldError{Field: "token", Msg: i18n.T("Jira did not accept this email and token. Check the email is the one you sign in with, and copy the token again.")}
 	case errors.Is(err, jira.ErrNotFound):
-		return "", web.FieldError{Field: "site", Msg: base + " answers, but not as Jira Cloud. Check the address."}
+		return "", web.FieldError{Field: "site", Msg: i18n.Tf("%s answers, but not as Jira Cloud. Check the address.", base)}
 	default:
-		return "", web.FieldError{Field: "site", Msg: "Could not reach " + base + ": " + err.Error()}
+		return "", web.FieldError{Field: "site", Msg: i18n.Tf("Could not reach %s: %s", base, err.Error())}
 	}
 	if f.Keyring && j.APIToken != "" {
 		if k := keyringFor(j.BaseURL, j.Email); k != nil && k.put(j.APIToken) == nil {
@@ -401,7 +402,7 @@ func webSite(cfg config.Config, site string, opt web.Options) (web.Options, erro
 		return opt, err
 	}
 	if err := jc.Check(siteName(site)); err != nil {
-		return opt, fmt.Errorf("%w\n`laneway setup` asks for them and checks they work", err)
+		return opt, fmt.Errorf("%w\n%s", err, i18n.T("`laneway setup` asks for them and checks they work"))
 	}
 	path, err := config.SiteStatePath(site)
 	if err != nil {

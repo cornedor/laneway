@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/ui"
 )
@@ -27,7 +28,7 @@ func init() {
 			return nil, err
 		}
 		if len(cards) == 0 {
-			return nil, httpError{http.StatusNotFound, key + " not found"}
+			return nil, httpError{http.StatusNotFound, i18n.Tf("%s not found", key)}
 		}
 		return cards[0], nil
 	})
@@ -60,7 +61,7 @@ func init() {
 			return nil, err
 		}
 		if !docField.MatchString(r.PathValue("field")) {
-			return nil, badRequest("not a rich-text field")
+			return nil, badRequest(i18n.T("not a rich-text field"))
 		}
 		raw, err := s.Client().RawField(ctx, key, r.PathValue("field"))
 		if err != nil {
@@ -74,7 +75,7 @@ func init() {
 			return nil, err
 		}
 		if !docField.MatchString(r.PathValue("field")) {
-			return nil, badRequest("not a rich-text field")
+			return nil, badRequest(i18n.T("not a rich-text field"))
 		}
 		b, err := Body[mdBody](r)
 		if err != nil {
@@ -125,12 +126,12 @@ func init() {
 		if len(b.Raw) > 0 {
 			var doc struct{ Type string }
 			if json.Unmarshal(b.Raw, &doc) != nil || doc.Type != "doc" {
-				return nil, badRequest("Raw is not a document")
+				return nil, badRequest(i18n.T("Raw is not a document"))
 			}
 			return nil, s.Client().AddCommentADFFor(ctx, key, b.Raw, jira.Visibility{}, b.Parent)
 		}
 		if strings.TrimSpace(b.Markdown) == "" {
-			return nil, badRequest("empty comment")
+			return nil, badRequest(i18n.T("empty comment"))
 		}
 		var kept []json.RawMessage
 		for _, m := range b.Mentions {
@@ -252,7 +253,7 @@ func init() {
 	get("/confluence/pages/{id}", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		id := r.PathValue("id")
 		if id == "" || strings.Trim(id, "0123456789") != "" {
-			return nil, badRequest("bad page id")
+			return nil, badRequest(i18n.T("bad page id"))
 		}
 		return s.Client().ConfluencePage(ctx, id)
 	})
@@ -273,7 +274,7 @@ func init() {
 			return nil, err
 		}
 		if !jira.ValidKey(b.Other) || b.Type == "" {
-			return nil, badRequest("need a type and an issue key")
+			return nil, badRequest(i18n.T("need a type and an issue key"))
 		}
 		from, to := key, b.Other
 		if !b.Outward {
@@ -298,7 +299,7 @@ func init() {
 			return nil, err
 		}
 		if !strings.HasPrefix(b.URL, "https://") && !strings.HasPrefix(b.URL, "http://") {
-			return nil, badRequest("a link needs an http(s) URL")
+			return nil, badRequest(i18n.T("a link needs an http(s) URL"))
 		}
 		return nil, s.Client().AddWebLink(ctx, key, b.URL, b.Title)
 	})
@@ -322,7 +323,7 @@ type mdBody struct {
 func issueKey(r *http.Request) (string, error) {
 	key := r.PathValue("key")
 	if !jira.ValidKey(key) {
-		return "", badRequest("bad issue key")
+		return "", badRequest(i18n.T("bad issue key"))
 	}
 	return key, nil
 }
@@ -362,7 +363,7 @@ var inlineTypes = map[string]bool{"image/png": true, "image/jpeg": true, "image/
 func attachment(s *Server, w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !attachmentID.MatchString(id) {
-		writeErr(w, badRequest("bad attachment id"))
+		writeErr(w, badRequest(i18n.T("bad attachment id")))
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
@@ -376,7 +377,7 @@ func attachment(s *Server, w http.ResponseWriter, r *http.Request) {
 func pageImage(s *Server, w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" || len(id) > 20 || strings.Trim(id, "0123456789") != "" {
-		writeErr(w, badRequest("bad image id"))
+		writeErr(w, badRequest(i18n.T("bad image id")))
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)

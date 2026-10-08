@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/cornedor/laneway/internal/i18n"
 	"net/http"
 	"regexp"
 	"strings"
@@ -50,12 +51,12 @@ func serveAvatar(s *Server, w http.ResponseWriter, r *http.Request) {
 			if strings.Contains(err.Error(), "bad url") || strings.Contains(err.Error(), "refused") {
 				code = http.StatusBadRequest
 			}
-			http.Error(w, "avatar unavailable", code)
+			http.Error(w, i18n.T("avatar unavailable"), code)
 			return
 		}
 		img = avatarImg{body, avatarType(body)}
 		if img.ctyp == "" {
-			http.Error(w, "not an image", http.StatusUnsupportedMediaType)
+			http.Error(w, i18n.T("not an image"), http.StatusUnsupportedMediaType)
 			return
 		}
 		avatars.Lock()

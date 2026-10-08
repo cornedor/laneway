@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/ui"
 )
 
@@ -191,7 +192,7 @@ func editUI(c config.UIConfig, name string, raw any) (config.UIConfig, any, erro
 	next := c
 	dst := fieldByName(reflect.ValueOf(&next).Elem(), name)
 	if !dst.IsValid() {
-		return c, nil, badRequest("unknown option " + name)
+		return c, nil, badRequest(i18n.Tf("unknown option %s", name))
 	}
 	if s, ok := raw.(string); ok {
 		raw = strings.TrimSpace(s)
@@ -209,12 +210,12 @@ func editUI(c config.UIConfig, name string, raw any) (config.UIConfig, any, erro
 		case string:
 			i, err := strconv.Atoi(n)
 			if err != nil {
-				return c, nil, badRequest(fmt.Sprintf("%s: %q is not a number", name, n))
+				return c, nil, badRequest(i18n.Tf("%s: %q is not a number", name, n))
 			}
 			raw = i
 		case float64:
 			if n != float64(int(n)) {
-				return c, nil, badRequest(fmt.Sprintf("%s: %v is not a whole number", name, n))
+				return c, nil, badRequest(i18n.Tf("%s: %v is not a whole number", name, n))
 			}
 			raw = int(n)
 		}
@@ -262,11 +263,11 @@ func putSetting(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		}
 	}
 	if s.opt.ConfigPath == "" {
-		return nil, httpError{http.StatusConflict, "no config file to write to"}
+		return nil, httpError{http.StatusConflict, i18n.T("no config file to write to")}
 	}
 	// With -remote the token holder could otherwise make laneway run any command.
 	if s.opt.Token != "" && config.SettingsCommand[name] {
-		return nil, httpError{http.StatusForbidden, "ui." + name + " runs commands: edit it in the config file, not over -remote"}
+		return nil, httpError{http.StatusForbidden, i18n.Tf("ui.%s runs commands: edit it in the config file, not over -remote", name)}
 	}
 	s.sites.uiMu.Lock()
 	defer s.sites.uiMu.Unlock()
@@ -306,14 +307,14 @@ func init() {
 		for _, k := range b.Projects {
 			k = strings.ToUpper(strings.TrimSpace(k))
 			if !projectKey.MatchString(k) {
-				return nil, badRequest(fmt.Sprintf("%q is not a project key", k))
+				return nil, badRequest(i18n.Tf("%q is not a project key", k))
 			}
 			if !slices.Contains(keys, k) {
 				keys = append(keys, k)
 			}
 		}
 		if s.opt.ConfigPath == "" {
-			return nil, httpError{http.StatusConflict, "no config file to write to"}
+			return nil, httpError{http.StatusConflict, i18n.T("no config file to write to")}
 		}
 		if err := config.SetProjects(s.opt.ConfigPath, s.opt.Site, keys); err != nil {
 			return nil, err
@@ -327,7 +328,7 @@ func init() {
 	// address, site and -remote token.
 	post("/restart", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		if s.sites.base.Restart == nil {
-			return nil, httpError{http.StatusNotImplemented, "this server can't restart itself"}
+			return nil, httpError{http.StatusNotImplemented, i18n.T("this server can't restart itself")}
 		}
 		s.sites.base.Restart()
 		return map[string]any{}, nil

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/ui"
 )
@@ -15,7 +16,7 @@ import (
 // __complete for the words: subcommands, flags, -site names and, for
 // view and move, the issue keys on the boards laneway last loaded.
 
-const completionUsage = "usage: laneway completion bash|zsh|fish   (e.g. source <(laneway completion bash))"
+var completionUsage = i18n.N("usage: laneway completion bash|zsh|fish   (e.g. source <(laneway completion bash))")
 
 var completionScripts = map[string]string{
 	"bash": `_laneway() {
@@ -65,7 +66,7 @@ var commandArgs = map[string][]string{
 
 func completionCmd(args []string, out, errOut io.Writer) int {
 	if len(args) != 1 || completionScripts[args[0]] == "" {
-		fmt.Fprintln(errOut, completionUsage)
+		fmt.Fprintln(errOut, i18n.T(completionUsage))
 		return 2
 	}
 	fmt.Fprint(out, completionScripts[args[0]])

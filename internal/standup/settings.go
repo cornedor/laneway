@@ -1,11 +1,11 @@
 package standup
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Settings are the ui.standup_* options.
@@ -30,12 +30,12 @@ func Parse(c config.UIConfig) (Settings, []string) {
 	case "first":
 		s.First = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.standup_start: %q is not everyone or first", v))
+		warn = append(warn, i18n.Tf("ui.standup_start: %q is not everyone or first", v))
 	}
 	switch n := c.StandupLookback; {
 	case n == 0:
 	case n < 1 || n > 10:
-		warn = append(warn, fmt.Sprintf("ui.standup_lookback: %d is not 1–10", n))
+		warn = append(warn, i18n.Tf("ui.standup_lookback: %d is not 1–10", n))
 	default:
 		s.Lookback = n
 	}
@@ -45,7 +45,7 @@ func Parse(c config.UIConfig) (Settings, []string) {
 		}
 		d, err := time.ParseDuration(v)
 		if err != nil || d < 10*time.Second || d > 2*time.Hour {
-			warn = append(warn, fmt.Sprintf("ui.%s: %q is not a duration from 10s to 2h", name, v))
+			warn = append(warn, i18n.Tf("ui.%s: %q is not a duration from 10s to 2h", name, v))
 			return
 		}
 		*dst = d
@@ -57,14 +57,14 @@ func Parse(c config.UIConfig) (Settings, []string) {
 	case "on":
 		s.Shuffle = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.standup_shuffle: %q is not on or off", v))
+		warn = append(warn, i18n.Tf("ui.standup_shuffle: %q is not on or off", v))
 	}
 	switch v := strings.TrimSpace(c.StandupTimer); v {
 	case "", "off":
 	case "on":
 		s.Timer = true
 	default:
-		warn = append(warn, fmt.Sprintf("ui.standup_timer: %q is not on or off", v))
+		warn = append(warn, i18n.Tf("ui.standup_timer: %q is not on or off", v))
 	}
 	return s, warn
 }

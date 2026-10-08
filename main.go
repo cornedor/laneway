@@ -18,6 +18,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/demo"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
@@ -28,10 +29,10 @@ import (
 var version = "dev"
 
 func main() {
-	showVersion := flag.Bool("version", false, "print the version and exit")
-	cfgPath := flag.String("config", "", "config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)")
-	site := flag.String("site", "", "Jira site from the config's sites: (default the one last picked with @, else jira:)")
-	demoFlag := flag.Bool("demo", false, "try laneway on a generated project, without Jira; writes are kept in memory (-config: its ui: only)")
+	showVersion := flag.Bool("version", false, i18n.T("print the version and exit"))
+	cfgPath := flag.String("config", "", i18n.T("config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)"))
+	site := flag.String("site", "", i18n.T("Jira site from the config's sites: (default the one last picked with @, else jira:)"))
+	demoFlag := flag.Bool("demo", false, i18n.T("try laneway on a generated project, without Jira; writes are kept in memory (-config: its ui: only)"))
 	flag.Parse()
 	version = buildVersion(version)
 	if *showVersion {
@@ -105,7 +106,7 @@ func subcommand(args []string, cfgPath, site string, out, errOut io.Writer) int 
 		}
 		return cliCmd(args[0], append(global, args[1:]...), out, errOut)
 	}
-	fmt.Fprintf(errOut, "laneway: unknown command %q (list, view, create, move, web, rules, setup, prompt, hook, index, completion)\n", args[0])
+	fmt.Fprintf(errOut, i18n.T("laneway: unknown command %q (list, view, create, move, web, rules, setup, prompt, hook, index, completion)")+"\n", args[0])
 	return 2
 }
 
@@ -144,7 +145,7 @@ func run(cfgPath, site string) error {
 				_ = config.SetLastSite(site)
 			} else if !errors.Is(err, errCancelled) {
 				fmt.Fprintln(os.Stderr, "laneway:", err)
-				fmt.Fprint(os.Stderr, "enter goes back to the board… ")
+				fmt.Fprint(os.Stderr, i18n.T("enter goes back to the board… "))
 				fmt.Scanln()
 			}
 		default:
@@ -169,7 +170,7 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 		return "", endQuit, err
 	}
 	if err := jc.Check(siteName(site)); err != nil {
-		return "", endQuit, fmt.Errorf("%w\n`laneway setup` asks for them and checks they work", err)
+		return "", endQuit, fmt.Errorf("%w\n%s", err, i18n.T("`laneway setup` asks for them and checks they work"))
 	}
 	path, err := config.SiteStatePath(site)
 	if err != nil {

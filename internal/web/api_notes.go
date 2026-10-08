@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -35,7 +36,7 @@ func init() {
 	get("/issues/{key}/notes", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		p := notesPath(s.opt, r.PathValue("key"))
 		if p == "" {
-			return nil, badRequest("no notes here")
+			return nil, badRequest(i18n.T("no notes here"))
 		}
 		raw, _ := os.ReadFile(p)
 		return map[string]string{"Text": strings.TrimSpace(string(raw))}, nil
@@ -43,7 +44,7 @@ func init() {
 	put("/issues/{key}/notes", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		p := notesPath(s.opt, r.PathValue("key"))
 		if p == "" {
-			return nil, badRequest("no notes here")
+			return nil, badRequest(i18n.T("no notes here"))
 		}
 		b, err := Body[struct{ Text string }](r)
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -16,7 +17,7 @@ func init() {
 	get("/search", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		jql := strings.TrimSpace(Q(r, "jql"))
 		if jql == "" {
-			return nil, badRequest("jql is empty")
+			return nil, badRequest(i18n.T("jql is empty"))
 		}
 		cards, err := s.Client().SearchCards(ctx, jql)
 		return map[string]any{"cards": cards}, err
@@ -45,7 +46,7 @@ func init() {
 		}
 		q := strings.TrimSpace(b.JQL)
 		if q == "" {
-			return nil, badRequest("no query")
+			return nil, badRequest(i18n.T("no query"))
 		}
 		list := starredJQL(s)
 		on := !slices.Contains(list, q)
@@ -62,7 +63,7 @@ func init() {
 	get("/jql/count", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		jql := strings.TrimSpace(Q(r, "jql"))
 		if jql == "" {
-			return nil, badRequest("jql is empty")
+			return nil, badRequest(i18n.T("jql is empty"))
 		}
 		n, err := s.Client().Count(ctx, jql)
 		return map[string]int{"Count": n}, err
@@ -73,7 +74,7 @@ func init() {
 	get("/jql/values", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		field := Q(r, "field")
 		if field == "" {
-			return nil, badRequest("field is empty")
+			return nil, badRequest(i18n.T("field is empty"))
 		}
 		v, err := s.Client().JQLValues(ctx, field, Q(r, "prefix"))
 		if v == nil {
@@ -95,7 +96,7 @@ func init() {
 		}
 		b.Name, b.JQL = strings.TrimSpace(b.Name), strings.TrimSpace(b.JQL)
 		if b.Name == "" || b.JQL == "" {
-			return nil, badRequest("name and jql are required")
+			return nil, badRequest(i18n.T("name and jql are required"))
 		}
 		return nil, s.Client().SaveFilter(ctx, b.Name, b.JQL)
 	})

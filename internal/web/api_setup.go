@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Setup is the first start: no site to talk to yet. With Options.Setup set
@@ -51,7 +52,7 @@ func setupOnly(s *Server, w http.ResponseWriter, r *http.Request) bool {
 	if s.opt.Setup == nil || r.URL.Path == "/api/session" || r.URL.Path == "/api/i18n.js" || r.URL.Path == "/api/setup" || r.URL.Path == "/api/autostart" {
 		return false
 	}
-	writeErr(w, httpError{http.StatusServiceUnavailable, "laneway is not connected to Jira yet"})
+	writeErr(w, httpError{http.StatusServiceUnavailable, i18n.T("laneway is not connected to Jira yet")})
 	return true
 }
 
@@ -59,7 +60,7 @@ func init() {
 	post("/sites", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		a := s.sites.base.AddSite
 		if a == nil || s.opt.Demo {
-			return nil, httpError{http.StatusNotImplemented, "adding a site needs the config file"}
+			return nil, httpError{http.StatusNotImplemented, i18n.T("adding a site needs the config file")}
 		}
 		f, err := Body[struct {
 			SetupForm
@@ -77,7 +78,7 @@ func init() {
 	})
 	post("/setup", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		if s.opt.Setup == nil {
-			return nil, httpError{http.StatusConflict, "already set up"}
+			return nil, httpError{http.StatusConflict, i18n.T("already set up")}
 		}
 		f, err := Body[SetupForm](r)
 		if err != nil {

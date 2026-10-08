@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/cornedor/laneway/internal/config"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 )
@@ -19,8 +20,8 @@ import (
 func rulesWatch(args []string, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("rules watch", flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	cfgPath := fs.String("config", "", "config file")
-	site := fs.String("site", "", "Jira site from the config's sites: (default jira:)")
+	cfgPath := fs.String("config", "", i18n.T("config file"))
+	site := fs.String("site", "", i18n.T("Jira site from the config's sites: (default jira:)"))
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -31,11 +32,11 @@ func rulesWatch(args []string, out, errOut io.Writer) int {
 	}
 	set, warn := rules.Compile(cfg.Rules)
 	for _, w := range warn {
-		fmt.Fprintln(errOut, "skipped:", w)
+		fmt.Fprintln(errOut, i18n.T("skipped:"), w)
 	}
 	watches := set.Watches()
 	if len(watches) == 0 {
-		fmt.Fprintln(errOut, "laneway: no rule has a watch:")
+		fmt.Fprintln(errOut, "laneway:", i18n.T("no rule has a watch:"))
 		return 1
 	}
 	if err := cfg.Jira.Check(siteName(*site)); err != nil {
@@ -62,7 +63,7 @@ func rulesWatch(args []string, out, errOut io.Writer) int {
 		w.Notify = func(f rules.Firing) { w.Print(rules.NotifySeq(f.Title, f.Text)) }
 	}
 	for _, wt := range watches {
-		fmt.Fprintf(out, "watching %s every %s\n", wt.JQL, wt.Every)
+		fmt.Fprintf(out, i18n.T("watching %s every %s")+"\n", wt.JQL, wt.Every)
 	}
 	w.Run(ctx)
 	return 0
