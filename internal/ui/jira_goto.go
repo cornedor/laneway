@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -20,7 +21,7 @@ var jiraKeyRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*-[0-9]+$`)
 func (m *Model) openJiraGoto() {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "ABC-123, 123 or a URL"
+	ti.Placeholder = i18n.T("ABC-123, 123 or a URL")
 	ti.CharLimit = 300
 	ti.SetWidth(24)
 	ti.Focus()
@@ -59,7 +60,7 @@ func (m Model) handleJiraGotoKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		k := jiraGotoKey(m.jiraGotoInput.Value(), m.jiraTab.project)
 		if k == "" {
-			m.status = "not an issue key: " + m.jiraGotoInput.Value()
+			m.status = i18n.Tf("not an issue key: %s", m.jiraGotoInput.Value())
 			return m, nil
 		}
 		if slices.ContainsFunc(m.jiraTab.cards, func(c jira.Card) bool { return c.Key == k }) {
@@ -109,12 +110,12 @@ func (m Model) gotoJiraKey(k string) (tea.Model, tea.Cmd) {
 
 func (m *Model) renderJiraGoto() string {
 	inner := 32
-	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render("Go to issue")
-	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render("↵ open · esc cancel")
+	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(i18n.T("Go to issue"))
+	hint := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(i18n.T("↵ open · esc cancel"))
 	parts := []string{header, "", m.jiraGotoInput.View()}
 	switch {
 	case m.jiraGotoKey != "":
-		parts = append(parts, refDimStyle.Render("looking up "+m.jiraGotoKey+"…"))
+		parts = append(parts, refDimStyle.Render(i18n.Tf("looking up %s…", m.jiraGotoKey)))
 	case m.jiraGotoErr != "":
 		parts = append(parts, lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(m.jiraGotoErr)))
 	}

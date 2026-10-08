@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -31,7 +31,7 @@ const commentQuoteMaxLines = 8
 // newCommentTextarea is the shared modal composer, seeded with Jira's
 // placeholder. See modalcomposer.go for the box it is drawn in.
 func newCommentTextarea() editor.Model {
-	return newModalComposer("comment…")
+	return newModalComposer(i18n.T("comment…"))
 }
 
 // openJiraCommentInput opens an empty composer for a new top-level comment on
@@ -51,11 +51,11 @@ func (m *Model) openJiraCommentInputFor(key string) {
 		m.jiraCommentInput.SetValue(m.unsent.text)
 		m.jiraCommentInput.CursorEnd()
 		m.unsent = struct{ key, text string }{}
-		m.status = "your unsent comment is back"
+		m.status = i18n.T("your unsent comment is back")
 	} else if text, at, ok := m.draft(commentDraft(m.jiraCommentKey)); ok {
 		m.jiraCommentInput.SetValue(text)
 		m.jiraCommentInput.CursorEnd()
-		m.status = "your draft from " + draftWhen(at, time.Now()) + " is back · esc twice drops it"
+		m.status = i18n.Tf("your draft from %s is back · esc twice drops it", draftWhen(at, time.Now()))
 	}
 }
 
@@ -144,7 +144,7 @@ func (m Model) handleJiraCommentKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		if strings.TrimSpace(m.jiraCommentInput.Value()) != strings.TrimSpace(m.jiraCommentBefore) && !m.jiraCommentDiscard {
 			m.jiraCommentDiscard = true
-			m.status = "esc again discards your comment · ctrl+s posts it"
+			m.status = i18n.T("esc again discards your comment · ctrl+s posts it")
 			return m, nil
 		}
 		if m.jiraCommentReplyTo == "" {
@@ -176,11 +176,10 @@ func (m Model) applyJiraComment() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	client, ctx := m.jiraClient, m.ctx
-	verb := "comment on"
+	m.status = i18n.Tf("posting comment on %s…", key)
 	if mention != nil {
-		verb = "reply to"
+		m.status = i18n.Tf("posting reply to %s…", key)
 	}
-	m.status = fmt.Sprintf("posting %s %s…", verb, key)
 	return m, func() tea.Msg {
 		err := client.AddCommentMentions(ctx, key, text, mention, inline, vis, parent)
 		return jiraMutatedMsg{key: key, field: "comment", err: err, text: text}
@@ -207,19 +206,19 @@ func (m *Model) renderJiraCommentInput() string {
 	if !m.jiraCommentActive {
 		return ""
 	}
-	titleTxt := "Comment — " + m.jiraCommentKey
+	titleTxt := i18n.Tf("Comment — %s", m.jiraCommentKey)
 	var above []string
 	if m.jiraCommentReplyTo != "" {
-		titleTxt = "Reply — " + m.jiraCommentKey
+		titleTxt = i18n.Tf("Reply — %s", m.jiraCommentKey)
 	}
 	if v := m.jiraCommentVis; v != (jira.Visibility{}) {
 		titleTxt += " · " + v.Label()
 	}
 	if m.jiraCommentReplyTo != "" {
 		above = append(above, lipgloss.NewStyle().Foreground(dimColor).Italic(true).
-			Render("↩ replying to "+m.jiraCommentReplyTo))
+			Render(i18n.Tf("↩ replying to %s", m.jiraCommentReplyTo)))
 	}
-	return m.renderModalComposer(titleTxt, above, "ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel", &m.jiraCommentInput)
+	return m.renderModalComposer(titleTxt, above, i18n.T("ctrl+s post · @ mention · : emoji · ctrl+o who sees it · esc cancel"), &m.jiraCommentInput)
 }
 
 // commentVisMsg is who a comment in project can be limited to.
@@ -234,13 +233,13 @@ type commentVisMsg struct {
 // press asks Jira.
 func (m *Model) cycleCommentVis() tea.Cmd {
 	if m.replyParent() != "" {
-		m.status = "a reply is for whoever its comment is for"
+		m.status = i18n.T("a reply is for whoever its comment is for")
 		return nil
 	}
 	project := issueProject(m.jiraCommentKey)
 	opts, ok := m.commentVis[project]
 	if !ok {
-		m.status = "asking who a comment can be for…"
+		m.status = i18n.T("asking who a comment can be for…")
 		c, ctx := m.jiraClient, m.ctx
 		return func() tea.Msg {
 			vis, err := c.CommentVisibilities(ctx, project)
@@ -250,13 +249,13 @@ func (m *Model) cycleCommentVis() tea.Cmd {
 	all := append([]jira.Visibility{{}}, opts...)
 	i := slices.Index(all, m.jiraCommentVis)
 	m.jiraCommentVis = all[(i+1)%len(all)]
-	m.status = "the comment is for " + m.jiraCommentVis.Label()
+	m.status = i18n.Tf("the comment is for %s", m.jiraCommentVis.Label())
 	return nil
 }
 
 func (m Model) handleCommentVis(msg commentVisMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("who can see comments: " + msg.err.Error())
+		m.fail(i18n.Tf("who can see comments: %s", msg.err.Error()))
 		return m, nil
 	}
 	if m.commentVis == nil {
@@ -264,7 +263,7 @@ func (m Model) handleCommentVis(msg commentVisMsg) (tea.Model, tea.Cmd) {
 	}
 	m.commentVis[msg.project] = msg.vis
 	if len(msg.vis) == 0 {
-		m.status = "comments in " + msg.project + " are for everyone: you're in no role or group to limit them to"
+		m.status = i18n.Tf("comments in %s are for everyone: you're in no role or group to limit them to", msg.project)
 		return m, nil
 	}
 	if m.jiraCommentActive && issueProject(m.jiraCommentKey) == msg.project {
@@ -277,7 +276,7 @@ func (m Model) handleCommentVis(msg commentVisMsg) (tea.Model, tea.Cmd) {
 func (m *Model) deleteComment(i int) tea.Cmd {
 	key, id, c, ctx := m.jiraIssue.Key, m.jiraIssue.Comments[i].ID, m.jiraClient, m.ctx
 	m.undoDeleteComment(key, m.jiraIssue.Comments[i])
-	m.status = "deleting the comment…"
+	m.status = i18n.T("deleting the comment…")
 	return jiraMutateCmd(key, "comment deleted", func() error { return c.DeleteComment(ctx, key, id) })
 }
 
@@ -310,12 +309,12 @@ func (m Model) commentAction(i int, act string) (tea.Model, tea.Cmd) {
 	case act == "edit" && own:
 		return m, m.editComment(i)
 	case act == "delete" && !own:
-		m.status = "only your own comments can be deleted"
+		m.status = i18n.T("only your own comments can be deleted")
 	case act == "delete" && confirm:
 		return m, m.deleteComment(i)
 	case act == "delete":
 		m.commentDelete = c.ID
-		m.status = "delete again to delete the comment"
+		m.status = i18n.T("delete again to delete the comment")
 	}
 	m.renderRef()
 	return m, nil
@@ -337,7 +336,7 @@ func (m *Model) moveCommentCursor(d int) tea.Cmd {
 	iss := m.jiraIssue
 	thread := m.commentOrder(iss.Comments)
 	if len(thread) == 0 {
-		m.status = "no comments"
+		m.status = i18n.T("no comments")
 		return nil
 	}
 	at := -1

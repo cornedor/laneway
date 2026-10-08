@@ -10,6 +10,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -23,7 +24,7 @@ func (m *Model) startJiraSearch() {
 		q := t.search.Value()
 		t.search = textinput.New()
 		t.search.Prompt = "/"
-		t.search.Placeholder = "text, status:review points>2 prio>=high -label:ui"
+		t.search.Placeholder = i18n.T("text, status:review points>2 prio>=high -label:ui")
 		t.search.SetWidth(40)
 		t.search.SetValue(q)
 		t.search.CursorEnd()

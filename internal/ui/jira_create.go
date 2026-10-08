@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -51,7 +51,7 @@ func (m *Model) openJiraCreate() tea.Cmd {
 	if project == "" {
 		return nil
 	}
-	m.status = "new issue in " + project + "…"
+	m.status = i18n.Tf("new issue in %s…", project)
 	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
 		go c.WarmUsers(ctx, project) // @ in the description answers at once
@@ -64,7 +64,10 @@ func (m *Model) openJiraCreate() tea.Cmd {
 // child ("child") of parent can be, for the create form.
 func (m *Model) openJiraCreateChild(parent, what string) tea.Cmd {
 	project, c, ctx := issueProject(parent), m.jiraClient, m.ctx
-	m.status = "new " + what + " of " + parent + "…"
+	m.status = i18n.Tf("new child of %s…", parent)
+	if what == "subtask" {
+		m.status = i18n.Tf("new subtask of %s…", parent)
+	}
 	return func() tea.Msg {
 		go c.WarmUsers(ctx, project) // @ in the description answers at once
 		types, err := c.IssueTypes(ctx, project)
@@ -80,7 +83,7 @@ func (m *Model) openJiraCreateChild(parent, what string) tea.Cmd {
 // the project (else Task, else the first).
 func (m Model) handleJiraCreateTypes(msg jiraCreateTypesMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil || len(msg.types) == 0 {
-		m.fail("new issue: " + cmp.Or(errText(msg.err), "no issue types in "+msg.project))
+		m.fail(i18n.Tf("new issue: %s", cmp.Or(errText(msg.err), i18n.Tf("no issue types in %s", msg.project))))
 		return m, nil
 	}
 	if m.modalOpen() {
@@ -103,7 +106,7 @@ type jiraCloneDraftMsg struct {
 // openJiraClone copies key into the create form.
 func (m *Model) openJiraClone(key string) tea.Cmd {
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "copying " + key + "…"
+	m.status = i18n.Tf("copying %s…", key)
 	return func() tea.Msg {
 		in, err := c.CloneDraft(ctx, key)
 		return jiraCloneDraftMsg{cloneOf: key, in: in, err: err}
@@ -112,7 +115,7 @@ func (m *Model) openJiraClone(key string) tea.Cmd {
 
 func (m Model) handleJiraCloneDraft(msg jiraCloneDraftMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.fail("clone: " + msg.err.Error())
+		m.fail(i18n.Tf("clone: %s", msg.err.Error()))
 		return m, nil
 	}
 	if m.modalOpen() {
@@ -155,16 +158,16 @@ func (m *Model) openCreateForm(s createSpec) tea.Cmd {
 		ed, err := jira.EditableDescription(s.in.DescriptionADF)
 		desc, cr.descKept = ed.Markdown, ed.Kept
 		if err != nil {
-			desc, message = "", "The description is copied from "+s.cloneOf+" as it is."
+			desc, message = "", i18n.Tf("The description is copied from %s as it is.", s.cloneOf)
 		}
 	}
 	f := &jiraFormState{key: m.jiraCreateTitle(), idx: 1, create: cr, message: message}
 	f.fields = []jiraFormField{
-		{FieldMeta: jira.FieldMeta{ID: createTypeField, Name: "Type", Kind: jira.KindOption, Options: opts}, required: true,
+		{FieldMeta: jira.FieldMeta{ID: createTypeField, Name: i18n.T("Type"), Kind: jira.KindOption, Options: opts}, required: true,
 			val: jira.Value{Options: []jira.Option{{ID: typ, Name: typ}}}},
-		{FieldMeta: jira.FieldMeta{ID: createSummaryField, Name: "Summary", Kind: jira.KindText}, required: true,
+		{FieldMeta: jira.FieldMeta{ID: createSummaryField, Name: i18n.T("Summary"), Kind: jira.KindText}, required: true,
 			val: jira.Value{Text: summary}, changed: summary != ""},
-		{FieldMeta: jira.FieldMeta{ID: createDescField, Name: "Description", Kind: jira.KindDoc}, val: jira.Value{Text: desc}},
+		{FieldMeta: jira.FieldMeta{ID: createDescField, Name: i18n.T("Description"), Kind: jira.KindDoc}, val: jira.Value{Text: desc}},
 	}
 	m.jiraForm = f
 	m.status = ""
@@ -256,9 +259,9 @@ func (m *Model) setCreateRows(fields []jira.CreateField) {
 		}
 	}
 	if len(more) > 0 {
-		label := fmt.Sprintf("+ %d more fields", len(more))
+		label := i18n.Tf("+ %d more fields", len(more))
 		if m.createMore {
-			label = "− fewer fields"
+			label = i18n.T("− fewer fields")
 		}
 		own = append(own, jiraFormField{FieldMeta: jira.FieldMeta{ID: createMoreField, Name: label}})
 		if m.createMore {
@@ -335,7 +338,7 @@ func formErrors(f *jiraFormState, err error) string {
 		f.create.fieldErrs[id] = fieldErr{msg: msg, val: jiraValueText(f.fields[i].val)}
 	}
 	if len(rest) == 0 {
-		return "Jira refused it: see the fields marked"
+		return i18n.T("Jira refused it: see the fields marked")
 	}
 	slices.Sort(rest[len(re.Messages):])
 	return strings.Join(rest, "; ")
@@ -503,7 +506,9 @@ func buildCreateForm(title string, cr jiraFormCreate, fields []jira.CreateField)
 // jiraCreateSprintErr is a create that worked but did not reach the sprint.
 type jiraCreateSprintErr struct{ err error }
 
-func (e *jiraCreateSprintErr) Error() string { return "not added to the sprint: " + e.err.Error() }
+func (e *jiraCreateSprintErr) Error() string {
+	return i18n.Tf("not added to the sprint: %s", e.err.Error())
+}
 
 // handleJiraCreated opens the new issue and refetches the board; a refused
 // create keeps the form.
@@ -528,7 +533,7 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 		m.jiraForm = nil
 	}
 	if msg.key == "" {
-		m.fail("create: " + msg.err.Error()) // the form was closed meanwhile
+		m.fail(i18n.Tf("create: %s", msg.err.Error())) // the form was closed meanwhile
 		return m, nil
 	}
 	refresh := m.refreshJiraAfterEdit()
@@ -538,7 +543,7 @@ func (m Model) handleJiraCreated(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 	}
 	out, cmd := m.openJiraKey(msg.key)
 	om := out.(Model)
-	om.status = "created " + msg.key
+	om.status = i18n.Tf("created %s", msg.key)
 	if msg.err != nil {
 		om.status += ", " + msg.err.Error()
 	}
@@ -562,7 +567,7 @@ func (m Model) createdAnother(msg jiraCreatedMsg) (tea.Model, tea.Cmd) {
 			ff.val, ff.changed = jira.Value{Text: m.opts.templates[strings.ToLower(createFormType(f))]}, false
 		}
 	}
-	m.status = fmt.Sprintf("created %s · %d made: %s", msg.key, len(f.create.made), strings.Join(f.create.made, ", "))
+	m.status = i18n.Tf("created %s · %d made: %s", msg.key, len(f.create.made), strings.Join(f.create.made, ", "))
 	if msg.err != nil {
 		m.status += " · " + msg.err.Error()
 	}
@@ -582,10 +587,10 @@ func (m *Model) createSprint() (int, string) {
 // joins the sprint shown), or "New Sub-task of ABC-1".
 func (m *Model) jiraCreateTitle() string {
 	if m.jiraCreateClone != "" {
-		return "Clone of " + m.jiraCreateClone + " · " + m.jiraCreateType
+		return i18n.Tf("Clone of %s · %s", m.jiraCreateClone, m.jiraCreateType)
 	}
 	if m.jiraCreateParent != "" {
-		return "New " + m.jiraCreateType + " of " + m.jiraCreateParent
+		return i18n.Tf("New %s of %s", m.jiraCreateType, m.jiraCreateParent)
 	}
 	id, name := m.createSprint()
 	if f := m.jiraForm; f != nil && f.create != nil {
@@ -599,7 +604,7 @@ func (m *Model) jiraCreateTitle() string {
 		}
 	}
 	if id != 0 {
-		return "New " + m.jiraCreateType + " in " + m.jiraTab.project + " → " + name
+		return i18n.Tf("New %s in %s → %s", m.jiraCreateType, m.jiraTab.project, name)
 	}
-	return "New " + m.jiraCreateType + " in " + m.jiraTab.project
+	return i18n.Tf("New %s in %s", m.jiraCreateType, m.jiraTab.project)
 }
