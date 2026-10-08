@@ -100,6 +100,17 @@ func boardID(r *http.Request) (int, error) {
 	return id, nil
 }
 
+// boardQuick is the board's quick filters: ui.quick_filters, then the
+// board's own unless ui.board_quick_filters is off.
+func boardQuick(ctx context.Context, s *Server, id int) []jira.QuickFilter {
+	quick := localQuick(s.UIConfig().QuickFilters)
+	if !strings.EqualFold(strings.TrimSpace(s.UIConfig().BoardQuickFilters), "off") {
+		qf, _ := s.Client().QuickFilters(ctx, id)
+		quick = append(quick, qf...)
+	}
+	return quick
+}
+
 // boardBundle is everything a board view needs besides its cards: columns,
 // quick filters, sprints (open and future; closed with ?closed=1).
 func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -114,12 +125,7 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	names, _ := c.StatusNames(ctx)
 	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, lanes.Site(c.BaseURL()), id, cfg.Columns, names)}
-	quick := localQuick(s.UIConfig().QuickFilters)
-	if !strings.EqualFold(strings.TrimSpace(s.UIConfig().BoardQuickFilters), "off") {
-		qf, _ := c.QuickFilters(ctx, id)
-		quick = append(quick, qf...)
-	}
-	out["quickFilters"] = quick
+	out["quickFilters"] = boardQuick(ctx, s, id)
 	if sp, err := c.Sprints(ctx, id); err == nil {
 		out["sprints"] = sp
 	}

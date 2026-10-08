@@ -69,7 +69,8 @@ type planMine struct {
 }
 
 // planBundle is the planning view in one call: the board's open and future
-// sprints with their cards, and the backlog.
+// sprints with their cards, and the backlog, narrowed by ?jql= (the quick
+// filters on); and the quick filters.
 func planBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	id, err := boardID(r)
 	if err != nil {
@@ -84,7 +85,7 @@ func planBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	pf := cfg.PointsField
+	pf, jql := cfg.PointsField, Q(r, "jql")
 	out := make([]planSprint, len(sprints))
 	errs := make([]error, len(sprints)+1)
 	var backlog []jira.Card
@@ -95,14 +96,16 @@ func planBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			out[i].Cards, out[i].Total, errs[i] = c.SprintIssues(ctx, id, sp.ID, "", pf)
+			out[i].Cards, out[i].Total, errs[i] = c.SprintIssues(ctx, id, sp.ID, jql, pf)
 		}()
 	}
-	wg.Add(1)
+	var quick []jira.QuickFilter
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		backlog, btotal, errs[len(sprints)] = c.BacklogIssues(ctx, id, "", pf)
+		backlog, btotal, errs[len(sprints)] = c.BacklogIssues(ctx, id, jql, pf)
 	}()
+	go func() { defer wg.Done(); quick = boardQuick(ctx, s, id) }()
 	// Your meetings over every dated sprint, read once.
 	var me jira.User
 	var meetings []calendar.Meeting
@@ -142,7 +145,7 @@ func planBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	res := map[string]any{
 		"Sprints": out, "Backlog": map[string]any{"Cards": backlog, "Total": btotal},
-		"PointsField": pf, "Columns": cfg.Columns,
+		"PointsField": pf, "Columns": cfg.Columns, "QuickFilters": quick,
 	}
 	if calErr != nil {
 		res["Calendar"] = calErr.Error()

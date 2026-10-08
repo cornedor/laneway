@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,23 @@ func TestReportsAndPlanning(t *testing.T) {
 	}
 	if c := searchGet(t, at("/plan/"+itoa(b)), &plan); c != 200 || len(plan.Sprints) == 0 || len(plan.Backlog.Cards) == 0 {
 		t.Fatalf("plan: %d %+v", c, plan)
+	}
+	// ?jql= narrows every section (the quick filters on); QuickFilters lists them.
+	var narrowed struct {
+		Sprints      []struct{ Cards []struct{ Key string } }
+		Backlog      struct{ Cards []struct{ Key string } }
+		QuickFilters []struct{ ID int }
+	}
+	only := plan.Backlog.Cards[0].Key
+	if c := searchGet(t, at("/plan/"+itoa(b)+"?jql="+url.QueryEscape("key = "+only)), &narrowed); c != 200 || narrowed.QuickFilters == nil {
+		t.Fatalf("plan ?jql: %d %+v", c, narrowed)
+	}
+	n := len(narrowed.Backlog.Cards)
+	for _, s := range narrowed.Sprints {
+		n += len(s.Cards)
+	}
+	if n != 1 || len(narrowed.Backlog.Cards) != 1 || narrowed.Backlog.Cards[0].Key != only {
+		t.Errorf("plan ?jql=key = %s: %+v", only, narrowed)
 	}
 
 	var sp struct {

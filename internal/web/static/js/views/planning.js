@@ -1,6 +1,6 @@
 // Planning: the backlog and the open sprints as stacked, collapsible sections.
 // One scroller per pane, rows of known height, only the visible ones in the DOM; | splits off a second pane.
-import { h, clear, frame } from '../lib/dom.js';
+import { h, clear, frame, delegate } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
@@ -49,7 +49,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   if (!board) { el.append(noBoard(T('Planning'), project)); return; }
 
   const caps = (app.session.ui && app.session.ui.Capacity) || {};
-  let data = null, sections = [], cur = '', anchor = '', filter = '', who = null, velAvg = 0, velN = 0, columns = [];
+  let data = null, sections = [], cur = '', anchor = '', filter = '', who = null, mine = false, velAvg = 0, velN = 0, columns = [];
   const sel = new Set(), folded = new Set();
   app.marked = () => [...sel];
   let ROW = 32, drag = null, token = 0, writing = 0, lastWrite = 0;
@@ -105,15 +105,25 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   el.append(root);
 
   const filterIn = h('input.input.pl-filter', { type: 'search', placeholder: T('Filter  f'), 'aria-label': T('Filter issues'), title: T('words, status:review  points>2  is:mine  -label:ui  (F builds a query)'), oninput: () => setFilter(filterIn.value) });
-  const whoBtn = h('button.btn.ghost', { title: T('Assignee (A)'), onclick: () => pickWho() }, T('Assignee'));
+  // The board's filter chips: Mine, Assignee, its quick filters (Jira narrows the issues: ?jql=), clear.
+  const chips = h('div.bd-chips.pl-chips');
+  const qf = new Set();
+  delegate(chips, 'click', 'button', (e, b) => {
+    if (b.dataset.qf) toggleQF(Number(b.dataset.qf));
+    else if (b.dataset.act === 'mine') toggleMine();
+    else if (b.dataset.act === 'who') pickWho();
+    else clearFilters();
+  });
   const colsBtn = h('button.btn.ghost', { title: T('List columns'), onclick: () => pickCols() }, icon('columns-3'), T('Columns'));
   const splitBtn = h('button.btn.ghost.pl-split', { title: T('Keep a sprint in view beside the list (|)'), onclick: () => setSide(side == null ? defaultSide() : null) }, T('Split'));
-  toolbar.append(filterIn, whoBtn, h('span.spacer'), colsBtn, splitBtn, h('button.btn.nw', { title: T('New sprint (N)'), onclick: () => newSprint() }, T('+ Sprint')));
+  toolbar.append(filterIn, chips, h('span.spacer'), colsBtn, splitBtn, h('button.btn.nw', { title: T('New sprint (N)'), onclick: () => newSprint() }, T('+ Sprint')));
 
   // ---- data
   const secOf = id => sections.find(s => s.id === id);
   function build(d) {
     data = d; columns = d.Columns || [];
+    for (const id of qf) if (!qfs().some(q => q.ID === id)) qf.delete(id);
+    renderChips();
     statusAt = new Map();
     columns.forEach((c, i) => (c.StatusIDs || []).forEach(id => statusAt.set(String(id), i)));
     // rest: the issues the card limit left in Jira, which moves leave be.
@@ -140,7 +150,8 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   async function load(fresh) {
     const my = ++token;
     try {
-      const d = await app.api.get('/plan/' + board.ID, { fresh });
+      const jql = qfs().filter(q => qf.has(q.ID)).map(q => '(' + q.JQL + ')').join(' AND ');
+      const d = await app.api.get('/plan/' + board.ID + (jql ? '?jql=' + encodeURIComponent(jql) : ''), { fresh });
       if (my !== token) return;
       if (d.Calendar && !data) app.ui.toast('ui.calendar: ' + d.Calendar, { kind: 'err' });
       build(d); relayout(true);
@@ -163,22 +174,46 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const me = (app.session.me && app.session.me.AccountID) || '';
   const env = () => ({ me, pins: new Set(pins.list(app).map(p => p[0])), text });
   let match = null;
-  function setFilter(t) { filter = t.trim(); match = cq.compile(filter, env()); relayout(); }
+  function setFilter(t) { filter = t.trim(); match = cq.compile(filter, env()); renderChips(); relayout(); }
   function openBuilder() {
     if (!data) return;
     openFilterBuilder({ app, cards: sections.flatMap(s => s.cards), env: env(), query: filter, apply: t => { filterIn.value = t; setFilter(t); } });
   }
   // who: null for anyone, else a Set of AccountIDs ('-' unassigned), lib/who.js.
   const tmark = key => (app.timer ? app.timer.mark(key) : '');
-  const filtering = () => !!match || who != null;
-  const visible = c => passesWho(who, c) && (!match || match(c));
+  const filtering = () => !!match || who != null || mine || qf.size > 0;
+  const visible = c => (!mine || c.AssigneeID === me) && passesWho(who, c) && (!match || match(c));
   const shown = (s, p) => sortCards(filtering() ? s.cards.filter(visible) : s.cards, CMP, p.sort, p.dir);
   const names = new Map();
+  const qfs = () => (data && data.QuickFilters) || [];
+  function renderChips() {
+    const kids = [
+      h('button.fchip' + (mine ? '.on' : ''), { dataset: { act: 'mine' }, title: T('Assigned to me') }, T('Mine')),
+      h('button.fchip' + (who != null ? '.on' : ''), { dataset: { act: 'who' }, title: T('Assignee  (A)') }, h('kbd', 'A'), who == null ? T('Assignee') : whoLabel(who, id => names.get(id) || id)),
+      ...qfs().slice(0, 9).map((q, i) => h('button.fchip' + (qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)),
+    ];
+    if (filtering()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: T('Clear filters  (0)') }, icon('x'), T('clear')));
+    clear(chips).append(...kids);
+  }
   function setWho(w) {
     who = w;
-    whoBtn.textContent = w == null ? T('Assignee') : whoLabel(w, id => names.get(id) || id);
-    whoBtn.classList.toggle('on', w != null);
-    relayout();
+    if (w != null) mine = false;
+    renderChips(); relayout();
+  }
+  function toggleMine() {
+    mine = !mine;
+    if (mine) who = null;
+    renderChips(); relayout();
+  }
+  function toggleQF(id) {
+    qf.has(id) ? qf.delete(id) : qf.add(id);
+    renderChips(); load();
+  }
+  function clearFilters() {
+    const reload = qf.size > 0;
+    filterIn.value = ''; filter = ''; match = null; who = null; mine = false; qf.clear();
+    renderChips(); relayout();
+    if (reload) load();
   }
   async function pickWho() {
     const seen = new Map();
@@ -632,9 +667,11 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('f', () => filterIn.focus(), T('filter'), { ...G, bar: T('filter') });
   scope.bind('F', openBuilder, T('filter builder'), { ...G, bar: T('filter builder') });
   scope.bind('A', pickWho, T('filter by assignee'), G);
+  scope.bind('0', clearFilters, T('clear filters'), G);
+  for (let i = 1; i <= 9; i++) scope.bind(String(i), () => { const q = qfs()[i - 1]; if (q) toggleQF(q.ID); }, i === 1 ? T('toggle quick filter 1-9') : '', { ...G, hidden: i > 1 });
   scope.bind('Escape', () => {
     if (document.activeElement === filterIn) { filterIn.value = ''; filterIn.blur(); setFilter(''); return; }
-    if (filtering()) { filterIn.value = ''; filter = ''; match = null; setWho(null); return; }
+    if (filtering()) { clearFilters(); return; }
     clearSel();
   }, T('clear filters and selection'), { ...G, input: true, when: () => document.activeElement === filterIn || filtering() || sel.size > 0 });
 
