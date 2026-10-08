@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,6 +29,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 
 	"github.com/cornedor/laneway/internal/safeterm"
 )
@@ -91,7 +94,11 @@ type Client struct {
 	// peopleTried are the projects synced this session, behind mu.
 	people      People
 	peopleTried map[string]bool
-	writing     atomic.Int32 // writes (not GETs) on their way
+	writing     atomic.Int32  // writes (not GETs) on their way
+	slots       chan struct{} // requests on their way, at most inFlight
+	// shared lets concurrent asks for the same session-wide answer (who
+	// you are, the field metadata) send one request.
+	shared singleflight.Group
 
 	mu    sync.Mutex
 	cache map[string]cachedIssue
@@ -116,6 +123,8 @@ type Client struct {
 	boardMeta boardMetaCache
 	// roadmapFields are the date and sprint field ids (roadmap.go), behind mu.
 	roadmapFields *roadmapFieldIDs
+	// fields is the field metadata (fieldMeta), behind mu; nil until read.
+	fields []apiField
 	// mediaIDs are attachments' Media Services file ids (attachment.go),
 	// behind mu.
 	mediaIDs map[string]string
@@ -135,6 +144,7 @@ func New(cfg Config) *Client {
 		flat:       cfg.FlatReplies,
 		cache:      map[string]cachedIssue{},
 		gens:       map[string]int{},
+		slots:      make(chan struct{}, inFlight),
 	}
 	c.http = &http.Client{Timeout: c.timeout}
 	c.transfer = &http.Client{}
@@ -519,56 +529,120 @@ func (c *Client) doRaw(ctx context.Context, method, path, what string, body any)
 	return c.send(ctx, method, path, what, body, true)
 }
 
+// inFlight caps the requests one client has on their way: a cold start's
+// fan-out (inbox, home, prefetch) otherwise sends dozens at once, which is
+// what draws Jira's 429s.
+const inFlight = 8
+
+// A request Jira turned away for load (a 429, or a 503 on a read) is sent
+// again up to retries times: after its Retry-After, or else after
+// retryWait doubled per try, with jitter. A Retry-After past maxRetryWait
+// fails at once.
+const retries = 2
+
+var (
+	retryWait    = time.Second
+	maxRetryWait = 10 * time.Second
+)
+
 // send is doRaw; queue lets a write that never reached Jira go to the
 // offline queue (queue.go).
 func (c *Client) send(ctx context.Context, method, path, what string, body any, queue bool) ([]byte, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-
-	var rdr io.Reader
+	var buf []byte
 	if body != nil {
-		buf, err := json.Marshal(body)
-		if err != nil {
+		var err error
+		if buf, err = json.Marshal(body); err != nil {
 			return nil, fmt.Errorf("encode request: %w", err)
 		}
-		rdr = bytes.NewReader(buf)
 	}
-	req, err := http.NewRequestWithContext(reqCtx, method, c.baseURL+path, rdr)
-	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Authorization", c.auth)
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
 	if method != http.MethodGet {
 		c.writing.Add(1)
 		defer c.writing.Add(-1)
 	}
+	for try := 0; ; try++ {
+		out, wait, err := c.attempt(ctx, method, path, what, body, buf, queue, try)
+		if wait < 0 || try == retries {
+			return out, err
+		}
+		t := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			t.Stop()
+			return nil, err
+		case <-t.C:
+		}
+	}
+}
+
+// attempt sends the request once, holding one of the client's in-flight
+// slots. wait is how long to hold off before sending it again, or -1 when
+// the answer stands.
+func (c *Client) attempt(ctx context.Context, method, path, what string, body any, buf []byte, queue bool, try int) (_ []byte, wait time.Duration, _ error) {
+	select {
+	case c.slots <- struct{}{}:
+		defer func() { <-c.slots }()
+	case <-ctx.Done():
+		return nil, -1, fmt.Errorf("call jira: %w", ctx.Err())
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	var rdr io.Reader
+	if buf != nil {
+		rdr = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequestWithContext(reqCtx, method, c.baseURL+path, rdr)
+	if err != nil {
+		return nil, -1, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Authorization", c.auth)
+	req.Header.Set("Accept", "application/json")
+	if buf != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
 	resp, err := c.http.Do(req)
 	if err != nil {
 		if queue && c.queueWrite(method, path, what, body, err) {
-			return nil, fmt.Errorf("%s: %w", what, ErrQueued)
+			return nil, -1, fmt.Errorf("%s: %w", what, ErrQueued)
 		}
 		if ctx.Err() == nil && isTimeout(err) {
-			return nil, fmt.Errorf("jira: %s timed out after %s · raise jira.timeout for a slow instance: %w", what, c.timeout, err)
+			return nil, -1, fmt.Errorf("jira: %s timed out after %s · raise jira.timeout for a slow instance: %w", what, c.timeout, err)
 		}
-		return nil, fmt.Errorf("call jira: %w", err)
+		return nil, -1, fmt.Errorf("call jira: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+		return nil, -1, fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, statusError(resp.StatusCode, what, respBody, resp.Header.Get("Retry-After"))
+		retryAfter := resp.Header.Get("Retry-After")
+		return nil, retryIn(method, resp.StatusCode, retryAfter, try), statusError(resp.StatusCode, what, respBody, retryAfter)
 	}
 	// Jira's text reaches the terminal by many paths; no string in it may
 	// carry an escape.
-	return safeterm.JSON(respBody), nil
+	return safeterm.JSON(respBody), -1, nil
+}
+
+// retryIn is how long to wait before sending a request again that came
+// back with code, or -1 not to. A 429 was refused before Jira acted on it,
+// so any method goes again; a 503 only when it reads.
+func retryIn(method string, code int, retryAfter string, try int) time.Duration {
+	if code != http.StatusTooManyRequests && (code != http.StatusServiceUnavailable || method != http.MethodGet) {
+		return -1
+	}
+	if s, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && s >= 0 {
+		d := time.Duration(s) * time.Second
+		if d > maxRetryWait {
+			return -1
+		}
+		// Sent early, it fails again with as long a wait: jitter only adds.
+		return d + rand.N(retryWait/2+1)
+	}
+	d := retryWait << try
+	return d/2 + rand.N(d/2+1)
 }
 
 // do is doRaw plus JSON decode into out (skip with out=nil, e.g. a 204 mutation
@@ -807,14 +881,8 @@ func (c *Client) StoryPointsField(ctx context.Context) string {
 // of every field named like story points. Order follows the API response, so
 // extractStoryPoints prefers whichever candidate the issue actually populates.
 func (c *Client) fetchStoryPointFieldIDs(ctx context.Context) ([]string, error) {
-	var fields []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		// UntranslatedName is the English name when the site shows
-		// field names in the user's language.
-		UntranslatedName string `json:"untranslatedName"`
-	}
-	if err := c.do(ctx, http.MethodGet, "/rest/api/3/field", "field metadata", nil, &fields); err != nil {
+	fields, err := c.fieldMeta(ctx)
+	if err != nil {
 		return nil, err
 	}
 	var ids []string
@@ -1046,18 +1114,21 @@ func (c *Client) Myself(ctx context.Context) (User, error) {
 	}
 	c.mu.Unlock()
 
-	var resp struct {
-		AccountID   string `json:"accountId"`
-		DisplayName string `json:"displayName"`
-	}
-	if err := c.do(ctx, http.MethodGet, "/rest/api/3/myself", "current user", nil, &resp); err != nil {
-		return User{}, err
-	}
-	u := User{AccountID: resp.AccountID, DisplayName: resp.DisplayName}
-	c.mu.Lock()
-	c.myself = &u
-	c.mu.Unlock()
-	return u, nil
+	v, err, _ := c.shared.Do("myself", func() (any, error) {
+		var resp struct {
+			AccountID   string `json:"accountId"`
+			DisplayName string `json:"displayName"`
+		}
+		if err := c.do(ctx, http.MethodGet, "/rest/api/3/myself", "current user", nil, &resp); err != nil {
+			return User{}, err
+		}
+		u := User{AccountID: resp.AccountID, DisplayName: resp.DisplayName}
+		c.mu.Lock()
+		c.myself = &u
+		c.mu.Unlock()
+		return u, nil
+	})
+	return v.(User), err
 }
 
 // SetAssignee assigns the issue to accountID, or unassigns it when accountID is

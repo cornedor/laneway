@@ -87,7 +87,9 @@ func inboxThreads(ctx context.Context, sites map[string]*jira.Client, shown stri
 }
 
 // siteThreads are one site's threads, the issues without news by others
-// too, so they are not read again while unchanged.
+// too, so they are not read again while unchanged. An issue that fails to
+// read keeps its last thread, or is left out, and is read again next time;
+// only when every read fails does the site fail.
 func siteThreads(ctx context.Context, c *jira.Client, site string, since time.Time, known map[string]inboxThread) ([]inboxThread, error) {
 	issues, err := c.InboxIssues(ctx, since)
 	if err != nil {
@@ -96,17 +98,36 @@ func siteThreads(ctx context.Context, c *jira.Client, site string, since time.Ti
 	out := make([]inboxThread, len(issues))
 	errs := make([]error, len(issues))
 	var wg sync.WaitGroup
+	sem := make(chan struct{}, 6)
+	read := 0
 	for i, is := range issues {
 		out[i] = inboxThread{InboxIssue: is, site: site, url: c.BrowseURL(is.Key)}
 		if k, ok := known[out[i].id()]; ok && k.Updated.Equal(is.Updated) {
 			out[i].entries = slices.DeleteFunc(slices.Clone(k.entries), func(e jira.InboxEntry) bool { return !e.When.After(since) })
 			continue
 		}
-		wg.Go(func() { out[i].entries, errs[i] = c.IssueInbox(ctx, is.Key, is.Summary, since) })
+		read++
+		wg.Go(func() {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			out[i].entries, errs[i] = c.IssueInbox(ctx, is.Key, is.Summary, since)
+		})
 	}
 	wg.Wait()
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
+	failed := 0
+	for i, err := range errs {
+		if err == nil {
+			continue
+		}
+		failed++
+		if k, ok := known[out[i].id()]; ok {
+			out[i] = k // its old Updated: read again next time
+		} else {
+			out[i] = inboxThread{}
+		}
 	}
-	return out, nil
+	if failed > 0 && failed == read {
+		return nil, errors.Join(errs...)
+	}
+	return slices.DeleteFunc(out, func(t inboxThread) bool { return t.Key == "" }), nil
 }

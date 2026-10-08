@@ -26,6 +26,7 @@ type fakeInbox struct {
 	comment map[string]string // a comment by Ann, "@" first to mention you
 	updated time.Time
 	reads   int
+	fail    map[string]bool // keys whose changelog read fails
 }
 
 func (f *fakeInbox) client(t *testing.T) *jira.Client {
@@ -46,6 +47,10 @@ func (f *fakeInbox) client(t *testing.T) *jira.Client {
 			io.WriteString(w, `{"issues":[`+strings.Join(rows, ",")+`]}`)
 		case strings.HasSuffix(r.URL.Path, "/changelog"):
 			f.reads++
+			if f.fail[key] {
+				http.Error(w, "boom", http.StatusInternalServerError)
+				return
+			}
 			age := f.age[key]
 			if age == 0 {
 				age = time.Minute
@@ -196,6 +201,35 @@ func TestInboxSyncReadsOnlyUpdated(t *testing.T) {
 	syncInbox(t, m, m.syncInbox())
 	if f.reads != 4 {
 		t.Errorf("changelog read %d times after an update, want 4", f.reads)
+	}
+}
+
+// TestInboxIssueFailsAlone: an issue whose read fails is left out, the
+// others stay, and it is read again next time; only when all fail does the
+// site fail.
+func TestInboxIssueFailsAlone(t *testing.T) {
+	f := &fakeInbox{issues: []string{"ABC-1 First", "ABC-2 Second"}, updated: time.Now().Add(-time.Minute), fail: map[string]bool{"ABC-2": true}}
+	c := f.client(t)
+	since := time.Now().Add(-time.Hour)
+	ts, err := siteThreads(t.Context(), c, "s", since, nil)
+	if err != nil || len(ts) != 1 || ts[0].Key != "ABC-1" {
+		t.Fatalf("got %d threads, %v; want ABC-1 alone", len(ts), err)
+	}
+	known := map[string]inboxThread{}
+	for _, th := range ts {
+		known[th.id()] = th
+	}
+	f.mu.Lock()
+	f.fail, f.reads = nil, 0
+	f.mu.Unlock()
+	if ts, err = siteThreads(t.Context(), c, "s", since, known); err != nil || len(ts) != 2 || f.reads != 1 {
+		t.Errorf("next time: %d threads, %d reads, %v; want 2 threads, ABC-2 read alone", len(ts), f.reads, err)
+	}
+	f.mu.Lock()
+	f.fail = map[string]bool{"ABC-1": true, "ABC-2": true}
+	f.mu.Unlock()
+	if _, err := siteThreads(t.Context(), c, "s", since, nil); err == nil {
+		t.Error("every read failed: want the site's error")
 	}
 }
 

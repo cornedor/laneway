@@ -233,7 +233,9 @@ func inbox(ctx context.Context, s *Server, r *http.Request) (any, error) {
 }
 
 // siteInbox is one site's threads with news, those of issues not updated
-// since the last read reused.
+// since the last read reused. An issue that fails to read keeps its last
+// thread, or is left out, and is read again next time; only when every read
+// fails does the site fail.
 func siteInbox(ctx context.Context, c *jira.Client, site string, since time.Time) ([]InboxThread, error) {
 	issues, err := c.InboxIssues(ctx, since)
 	if err != nil {
@@ -243,6 +245,7 @@ func siteInbox(ctx context.Context, c *jira.Client, site string, since time.Time
 	errs := make([]error, len(issues))
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 6)
+	read := 0
 	for i, is := range issues {
 		out[i] = InboxThread{InboxIssue: is, ID: site + "/" + is.Key, Site: site, URL: c.BrowseURL(is.Key)}
 		inboxMu.Lock()
@@ -252,6 +255,7 @@ func siteInbox(ctx context.Context, c *jira.Client, site string, since time.Time
 			out[i].Entries = slices.DeleteFunc(slices.Clone(k.Entries), func(e jira.InboxEntry) bool { return !e.When.After(since) })
 			continue
 		}
+		read++
 		wg.Go(func() {
 			sem <- struct{}{}
 			defer func() { <-sem }()
@@ -259,14 +263,20 @@ func siteInbox(ctx context.Context, c *jira.Client, site string, since time.Time
 		})
 	}
 	wg.Wait()
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
-	}
+	failed := 0
 	inboxMu.Lock()
-	for _, t := range out {
-		inboxCache[t.ID] = t
+	for i, t := range out {
+		if errs[i] == nil {
+			inboxCache[t.ID] = t
+			continue
+		}
+		failed++
+		out[i] = inboxCache[t.ID] // its old Updated: read again next time
 	}
 	inboxMu.Unlock()
+	if failed > 0 && failed == read {
+		return nil, errors.Join(errs...)
+	}
 	return slices.DeleteFunc(out, func(t InboxThread) bool { return len(t.Entries) == 0 }), nil
 }
 

@@ -88,7 +88,8 @@ func roadmapFieldsOf(fields []apiField) roadmapFieldIDs {
 	return ids
 }
 
-// apiField is one entry of /rest/api/3/field.
+// apiField is one entry of /rest/api/3/field. UntranslatedName is the
+// English name when the site shows field names in the user's language.
 type apiField struct {
 	ID               string `json:"id"`
 	Name             string `json:"name"`
@@ -96,6 +97,34 @@ type apiField struct {
 	Schema           struct {
 		Custom string `json:"custom"`
 	} `json:"schema"`
+}
+
+// fieldMeta is the site's field metadata, read once a session: on a large
+// site it runs to megabytes, and story points and the roadmap both want it.
+func (c *Client) fieldMeta(ctx context.Context) ([]apiField, error) {
+	c.mu.Lock()
+	f := c.fields
+	c.mu.Unlock()
+	if f != nil {
+		return f, nil
+	}
+	v, err, _ := c.shared.Do("field", func() (any, error) {
+		var fields []apiField
+		if err := c.do(ctx, http.MethodGet, "/rest/api/3/field", "field metadata", nil, &fields); err != nil {
+			return nil, err
+		}
+		if fields == nil {
+			fields = []apiField{} // read, though empty
+		}
+		c.mu.Lock()
+		c.fields = fields
+		c.mu.Unlock()
+		return fields, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.([]apiField), nil
 }
 
 func (c *Client) resolveRoadmapFields(ctx context.Context) (roadmapFieldIDs, error) {
@@ -106,8 +135,8 @@ func (c *Client) resolveRoadmapFields(ctx context.Context) (roadmapFieldIDs, err
 		return ids, nil
 	}
 	c.mu.Unlock()
-	var fields []apiField
-	if err := c.do(ctx, http.MethodGet, "/rest/api/3/field", "field metadata", nil, &fields); err != nil {
+	fields, err := c.fieldMeta(ctx)
+	if err != nil {
 		return roadmapFieldIDs{}, err
 	}
 	ids := roadmapFieldsOf(fields)

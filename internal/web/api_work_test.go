@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -164,5 +167,44 @@ func TestInboxEverySite(t *testing.T) {
 	}
 	if unread() != strconv.Itoa(before-1) {
 		t.Fatalf("inbox_unread = %s, was %d", unread(), before)
+	}
+}
+
+// TestInboxIssueFailsAlone: an issue whose read fails is left out and the
+// others stay; only when all fail does the site fail.
+func TestInboxIssueFailsAlone(t *testing.T) {
+	base, stop, err := demo.New(time.Now()).Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	u, _ := url.Parse(base)
+	proxy := httputil.NewSingleHostReverseProxy(u)
+	var fail func(path string) bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/rest/api/3/issue/") && fail(r.URL.Path) {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	cl := jira.New(jira.Config{BaseURL: srv.URL, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
+	since := time.Now().AddDate(0, 0, -30)
+
+	fail = func(string) bool { return false }
+	all, err := siteInbox(t.Context(), cl, "fails-alone-all", since)
+	if err != nil || len(all) < 2 {
+		t.Fatalf("all = %d threads, %v", len(all), err)
+	}
+	bad := "/rest/api/3/issue/" + all[0].Key + "/"
+	fail = func(p string) bool { return strings.HasPrefix(p, bad) }
+	some, err := siteInbox(t.Context(), cl, "fails-alone-some", since)
+	if err != nil || len(some) != len(all)-1 || slices.ContainsFunc(some, func(th InboxThread) bool { return th.Key == all[0].Key }) {
+		t.Fatalf("one failing: %d threads, %v; want %d without %s", len(some), err, len(all)-1, all[0].Key)
+	}
+	fail = func(string) bool { return true }
+	if _, err := siteInbox(t.Context(), cl, "fails-alone-none", since); err == nil {
+		t.Error("every read failed: want the site's error")
 	}
 }
