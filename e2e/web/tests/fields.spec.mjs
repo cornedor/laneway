@@ -102,8 +102,8 @@ test('a description changed in Jira meanwhile is not saved over unasked', async 
   app.errors.splice(0, app.errors.length, ...app.errors.filter(e => !/^409 PUT .*\/description$/.test(e)));
 });
 
-test('a custom field: Team, under Fields', async ({ page }) => {
-  await page.getByRole('button', { name: /^Fields/ }).click();
+test('a custom field: Team, under More fields', async ({ page }) => {
+  await page.getByRole('button', { name: /^More fields/ }).click();
   const team = page.locator('.iss').getByRole('button', { name: /^Team/ });
   await team.click();
   const dialog = page.getByRole('dialog', { name: 'DEMO-4 Team' });
@@ -111,7 +111,7 @@ test('a custom field: Team, under Fields', async ({ page }) => {
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(team).toContainText('Platform');
   await page.reload();
-  await expect(page.getByRole('button', { name: /^Fields/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: /^More fields/ })).toHaveAttribute('aria-expanded', 'true');
   await expect(team).toContainText('Platform');
 });
 
