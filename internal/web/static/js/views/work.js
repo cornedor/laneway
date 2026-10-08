@@ -9,6 +9,7 @@ import { ymd, addDays, weekStart, hm, dayStart, targetSeconds, workdays, logDial
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
 import { openFilterBuilder } from './board_filter.js';
+import { T } from '../lib/i18n.js';
 
 const KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/;
 const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
@@ -45,20 +46,20 @@ export default function mount(el, { app, scope, toolbar, query }) {
   const me = (app.session.me && app.session.me.AccountID) || '';
   const env = () => ({ me, pins: new Set(pins.list(app).map(p => p[0])), text });
   const setFilter = t => { filter = cq.compile(t, env()); buildRows(); };
-  const filterIn = h('input.input.work-filter', { type: 'search', placeholder: 'Filter (f)', spellcheck: false, title: 'words, status:review  prio>=high  is:overdue  -type:bug  (F builds a query)', oninput: debounce(() => setFilter(filterIn.value), 80) });
+  const filterIn = h('input.input.work-filter', { type: 'search', placeholder: T('Filter (f)'), spellcheck: false, title: T('words, status:review  prio>=high  is:overdue  -type:bug  (F builds a query)'), oninput: debounce(() => setFilter(filterIn.value), 80) });
   function openBuilder() {
     if (!loaded) return;
     openFilterBuilder({ app, cards, env: env(), query: filterIn.value.trim(), apply: t => { filterIn.value = t; setFilter(t); } });
   }
   filterIn.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.stopPropagation(); filterIn.blur(); } });
-  const groupSel = h('select.input.work-group', { title: 'Group by (v)', onchange: () => { group = groupSel.value; prefs.set('work_group', group); buildRows(); } },
-    ['status', 'project', 'none'].map(g => h('option', { value: g, selected: g === group }, g === 'none' ? 'No grouping' : 'By ' + g)));
-  const doneBtn = h('button.btn.ghost', { title: 'Hide done (d)', onclick: () => toggleDone() });
+  const groupSel = h('select.input.work-group', { title: T('Group by (v)'), onchange: () => { group = groupSel.value; prefs.set('work_group', group); buildRows(); } },
+    ['status', 'project', 'none'].map(g => h('option', { value: g, selected: g === group }, g === 'none' ? T('No grouping') : g === 'status' ? T('By status') : T('By project'))));
+  const doneBtn = h('button.btn.ghost', { title: T('Hide done (d)'), onclick: () => toggleDone() });
   function paintToolbar() {
     clear(toolbar).append(...kids([
-      h('div.seg', [['issues', 'Issues', '1'], ['day', 'Day', '2'], ['week', 'Week', '3']].map(([t, n, k]) => h('button.btn' + (tab === t ? '.on' : ''), { onclick: () => setTab(t), title: k }, n))),
+      h('div.seg', [['issues', T('Issues'), '1'], ['day', T('Day'), '2'], ['week', T('Week'), '3']].map(([t, n, k]) => h('button.btn' + (tab === t ? '.on' : ''), { onclick: () => setTab(t), title: k }, n))),
       tab === 'issues' && [filterIn, groupSel, doneBtn], h('span.spacer')]));
-    doneBtn.textContent = hideDone ? 'Done hidden' : 'Hide done';
+    doneBtn.textContent = hideDone ? T('Done hidden') : T('Hide done');
     doneBtn.classList.toggle('on', hideDone);
   }
   function toggleDone() { hideDone = !hideDone; prefs.set('work_hide_done', hideDone); paintToolbar(); buildRows(); }
@@ -89,7 +90,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
     if (!list) return;
     list.setCount(rows.length);
     empty.hidden = rows.length > 0;
-    empty.textContent = cards.length ? 'Nothing matches' : loaded ? 'Nothing assigned to you' : 'Loading…';
+    empty.textContent = cards.length ? T('Nothing matches') : loaded ? T('Nothing assigned to you') : T('Loading…');
     if (sel >= 0) list.scrollTo(sel);
   }
   function bindRow(elRow, i) {
@@ -98,7 +99,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
     if (r.head !== undefined) {
       elRow.className = 'vl-row wrow head';
       delete elRow.dataset.key;
-      elRow.replaceChildren(h('span.wname', r.head || 'Assigned to me'), h('span.chip', r.count));
+      elRow.replaceChildren(h('span.wname', r.head || T('Assigned to me')), h('span.chip', r.count));
       return;
     }
     const c = r.card, t = app.timer && app.timer.current;
@@ -108,8 +109,8 @@ export default function mount(el, { app, scope, toolbar, query }) {
     elRow.replaceChildren(...kids([
       h('span.wkey.mono', c.Key),
       h('span.wsum', c.Summary),
-      t && t.key === c.Key && h('span.wtimer', { title: 'Timer running · T stops it' }, icon('timer'), ' ' + app.timer.mark(c.Key)),
-      c.Flagged && h('span.wflag', { title: 'Flagged' }, icon('flag', true)),
+      t && t.key === c.Key && h('span.wtimer', { title: T('Timer running · T stops it') }, icon('timer'), ' ' + app.timer.mark(c.Key)),
+      c.Flagged && h('span.wflag', { title: T('Flagged') }, icon('flag', true)),
       due && h('span.wdue' + (!c.Done && due < new Date() ? '.late' : ''), shortDate(c.Due)),
       c.Points && h('span.chip', c.Points),
       group !== 'status' && ui.statusPill(c.Status, catOf(c)),
@@ -150,12 +151,12 @@ export default function mount(el, { app, scope, toolbar, query }) {
   const curProp = () => dayProps()[wsel - dayLogs(day).length];
   async function propose() {
     const d = day;
-    ui.toast('Reading git and ui.activity…');
+    ui.toast(T('Reading git and ui.activity…'));
     try {
       const r = await api.get('/worklog/proposals?day=' + ymd(d), { fresh: true });
       props = r.Items || []; propsDay = ymd(d);
-      const failed = (r.Failed.length ? ' · ui.activity failed: ' + r.Failed.join(', ') : '') + (r.Calendar ? ' · ui.calendar: ' + r.Calendar : '');
-      ui.toast((props.length ? props.length + ' proposed' : 'Nothing to propose: every session is logged') + failed, failed ? { kind: 'err' } : undefined);
+      const failed = (r.Failed.length ? T(' · ui.activity failed: %s', r.Failed.join(', ')) : '') + (r.Calendar ? T(' · ui.calendar: %s', r.Calendar) : '');
+      ui.toast((props.length ? T('%d proposed', props.length) : T('Nothing to propose: every session is logged')) + failed, failed ? { kind: 'err' } : undefined);
       wsel = dayLogs(d).length; paintTime();
     } catch (e) { ui.errToast(e); }
   }
@@ -163,25 +164,25 @@ export default function mount(el, { app, scope, toolbar, query }) {
   async function logProposal() {
     const p = curProp(); if (!p) return;
     const started = new Date(p.Start);
-    if (await logDialog(app, { key: p.Key, summary: (cards.find(c => c.Key === p.Key) || {}).Summary, seconds: p.Seconds, started, comment: p.Comment || '', note: 'Proposed from ' + sources(p) }) === 'logged') {
+    if (await logDialog(app, { key: p.Key, summary: (cards.find(c => c.Key === p.Key) || {}).Summary, seconds: p.Seconds, started, comment: p.Comment || '', note: T('Proposed from %s', sources(p)) }) === 'logged') {
       props = props.filter(x => x !== p); refreshSoon();
     }
   }
   function paintTime() { clear(body); tab === 'week' ? paintWeek() : paintDay(); }
   function nav(label, sub) {
     return h('div.time-head',
-      h('button.btn.ghost', { onclick: () => step(-1), title: 'Previous (h)', 'aria-label': 'Previous' }, icon('chevron-left')),
+      h('button.btn.ghost', { onclick: () => step(-1), title: T('Previous (h)'), 'aria-label': T('Previous') }, icon('chevron-left')),
       h('div.time-title', h('h2', label), h('div.dim', sub)),
-      h('button.btn.ghost', { onclick: () => step(1), title: 'Next (l)', 'aria-label': 'Next' }, icon('chevron-right')),
-      h('button.btn', { onclick: goToday, title: '0' }, 'Today'),
+      h('button.btn.ghost', { onclick: () => step(1), title: T('Next (l)'), 'aria-label': T('Next') }, icon('chevron-right')),
+      h('button.btn', { onclick: goToday, title: '0' }, T('Today')),
       h('span.spacer'),
-      h('button.btn', { onclick: () => addLog(), title: 'a' }, 'Log work'),
-      h('button.btn', { onclick: copyText, title: 'y' }, 'Copy'));
+      h('button.btn', { onclick: () => addLog(), title: 'a' }, T('Log work')),
+      h('button.btn', { onclick: copyText, title: 'y' }, T('Copy')));
   }
   // As the TUI: nothing after today (day) or this week (week) to step to.
   const step = n => {
     const next = addDays(day, tab === 'week' ? 7 * n : n);
-    if (n > 0 && (tab === 'week' ? weekStart(next) > today() : next > today())) return ui.toast(tab === 'week' ? 'This week is the last to show' : 'Today is the last day to show');
+    if (n > 0 && (tab === 'week' ? weekStart(next) > today() : next > today())) return ui.toast(tab === 'week' ? T('This week is the last to show') : T('Today is the last day to show'));
     day = next; reload();
   };
   const goToday = () => { day = today(); reload(); };
@@ -191,9 +192,9 @@ export default function mount(el, { app, scope, toolbar, query }) {
   function paintDay() {
     const ws = dayLogs(day), total = sum(ws), target = targetSeconds(app);
     wsel = Math.min(wsel, Math.max(ws.length + dayProps().length - 1, 0));
-    body.append(nav(day.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }), duration(total) + ' of ' + duration(target)),
+    body.append(nav(day.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }), T('%s of %s', duration(total), duration(target))),
       h('div.wbar', h('div.wbar-fill' + (total >= target ? '.full' : ''), { style: { width: Math.min(100, (total / target) * 100) + '%' } })));
-    if (!ws.length && !dayProps().length) { body.append(h('div.empty', logsPath ? 'Nothing logged. ' : 'Loading…', logsPath && h('button.btn.link', { onclick: () => addLog() }, 'Log work (a)'), logsPath && h('button.btn.link', { onclick: propose }, ' Propose from git (p)'))); return; }
+    if (!ws.length && !dayProps().length) { body.append(h('div.empty', logsPath ? T('Nothing logged. ') : T('Loading…'), logsPath && h('button.btn.link', { onclick: () => addLog() }, T('Log work (a)')), logsPath && h('button.btn.link', { onclick: propose }, T(' Propose from git (p)')))); return; }
     const t = h('div.wlist');
     ws.forEach((w, i) => t.append(h('div.wlog' + (i === wsel ? '.sel' : ''), { dataset: { key: w.Key, i } },
       h('span.wtime.dim', hm(w.at)), h('span.wkey.mono', w.Key),
@@ -201,7 +202,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
       h('span.wdur', duration(w.Seconds)))));
     const ps = dayProps();
     if (ps.length) {
-      t.append(h('div.wprop-head.dim', 'Proposed · enter logs one'));
+      t.append(h('div.wprop-head.dim', T('Proposed · enter logs one')));
       ps.forEach((p, i) => t.append(h('div.wlog.wprop' + (ws.length + i === wsel ? '.sel' : ''), { dataset: { i: ws.length + i } },
         h('span.wtime.dim', '≈ ' + hm(new Date(p.Start))), h('span.wkey.mono', p.Key),
         h('span.wsum.dim', p.Comment || sources(p)), h('span.wdur', duration(p.Seconds)))));
@@ -220,18 +221,18 @@ export default function mount(el, { app, scope, toolbar, query }) {
     for (const k of extra.keys()) if (!byKey.has(k)) byKey.set(k, { key: k, summary: extra.get(k) || (cards.find(c => c.Key === k) || {}).Summary || '', days: days.map(() => []) });
     weekRows = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }));
     cell.row = Math.min(cell.row, Math.max(weekRows.length - 1, 0));
-    body.append(nav(s.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' – ' + addDays(s, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), duration(sum(logs)) + ' this week'));
+    body.append(nav(s.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' – ' + addDays(s, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }), T('%s this week', duration(sum(logs)))));
     const tbl = h('table.wweek');
-    tbl.append(h('thead', h('tr', h('th.wissue', h('button.btn.link', { onclick: addRow, title: 'Add row (+)' }, '+ row')),
+    tbl.append(h('thead', h('tr', h('th.wissue', h('button.btn.link', { onclick: addRow, title: T('Add row (+)') }, T('+ row'))),
       days.map(d => h('th.wcol' + (wd.includes(d.getDay()) ? '' : '.off') + (ymd(d) === ymd(now) ? '.today' : ''), { onclick: () => openDay(d) },
-        d.toLocaleDateString(undefined, { weekday: 'short' }), h('div.dim', d.getDate()))), h('th.wcol', 'Total'))));
+        d.toLocaleDateString(undefined, { weekday: 'short' }), h('div.dim', d.getDate()))), h('th.wcol', T('Total')))));
     const tb = h('tbody');
     weekRows.forEach((r, ri) => tb.append(h('tr' + (ri === cell.row ? '.sel' : ''), { dataset: { key: r.key } },
       h('td.wissue', h('span.wkey.mono', r.key), h('span.wsum', r.summary)),
       r.days.map((ws, ci) => h('td.wcell' + (ri === cell.row && ci === cell.col ? '.cur' : '') + (ws.length ? '.has' : ''), { dataset: { r: ri, c: ci } }, ws.length ? duration(sum(ws)) : '')),
       h('td.wcell.tot', duration(sum(r.days.flat()))))));
-    if (!weekRows.length) tb.append(h('tr', h('td', { colSpan: 9 }, h('div.empty', logsPath ? 'Nothing logged this week.' : 'Loading…'))));
-    tbl.append(tb, h('tfoot', h('tr', h('td.wissue', 'Total'), days.map(d => {
+    if (!weekRows.length) tb.append(h('tr', h('td', { colSpan: 9 }, h('div.empty', logsPath ? T('Nothing logged this week.') : T('Loading…')))));
+    tbl.append(tb, h('tfoot', h('tr', h('td.wissue', T('Total')), days.map(d => {
       const t = sum(dayLogs(d)), past = d < now && wd.includes(d.getDay()), miss = target - t;
       return h('td.wcell.foot' + (past ? (miss > 0 ? '.short' : '.ok') : ''), t ? duration(t) : '', past && miss > 0 && h('div.miss', '−' + duration(miss)));
     }), h('td.wcell.tot', duration(sum(logs))))));
@@ -239,11 +240,11 @@ export default function mount(el, { app, scope, toolbar, query }) {
   }
 
   async function pickIssue() {
-    const c = await ui.pick({ title: 'Log work on', items: cards, label: c => c.Key + ' ' + c.Summary, placeholder: 'Issue key, or filter your work',
-      create: q => ({ Key: q.trim().toUpperCase(), Summary: '' }), empty: 'Type an issue key',
+    const c = await ui.pick({ title: T('Log work on'), items: cards, label: c => c.Key + ' ' + c.Summary, placeholder: T('Issue key, or filter your work'),
+      create: q => ({ Key: q.trim().toUpperCase(), Summary: '' }), empty: T('Type an issue key'),
       first: q => { const k = q.trim().toUpperCase(); return KEY_RE.test(k) ? cards.find(c => c.Key === k) || { Key: k, Summary: '' } : null; } });
     if (!c) return null;
-    if (!KEY_RE.test(c.Key)) { ui.toast('Not an issue key: ' + c.Key, { kind: 'err' }); return null; }
+    if (!KEY_RE.test(c.Key)) { ui.toast(T('Not an issue key: %s', c.Key), { kind: 'err' }); return null; }
     return c;
   }
   async function addLog(key, d) {
@@ -272,10 +273,10 @@ export default function mount(el, { app, scope, toolbar, query }) {
   }
   async function delLog() {
     const w = curLog(); if (!w) return;
-    if (!(await ui.confirm({ title: 'Delete worklog', text: duration(w.Seconds) + ' on ' + w.Key + (w.Comment ? ' — ' + w.Comment : ''), ok: 'Delete', danger: true }))) return;
+    if (!(await ui.confirm({ title: T('Delete worklog'), text: T('%s on %s', duration(w.Seconds), w.Key) + (w.Comment ? ' — ' + w.Comment : ''), ok: T('Delete'), danger: true }))) return;
     try {
       await api.del('/worklog/' + w.Key + '/' + w.ID);
-      ui.toast('Deleted ' + duration(w.Seconds) + ' on ' + w.Key);
+      ui.toast(T('Deleted %s on %s', duration(w.Seconds), w.Key));
       bus.emit('issue:changed', { key: w.Key });
     } catch (e) { ui.errToast(e); }
   }
@@ -293,7 +294,7 @@ export default function mount(el, { app, scope, toolbar, query }) {
       t = markdownTable(['Started', 'Time', 'Issue', 'Summary', 'Comment'],
         [...ws.map(w => [hm(new Date(w.Started)), duration(w.Seconds), w.Key, w.Summary, w.Comment || '']), ['', duration(sum(ws)), 'total', '', '']]);
     }
-    navigator.clipboard.writeText(t).then(() => ui.toast('Copied as a markdown table'), e => ui.errToast(e));
+    navigator.clipboard.writeText(t).then(() => ui.toast(T('Copied as a markdown table')), e => ui.errToast(e));
   }
   const refreshSoon = debounce(() => { if (dead) return; if (tab !== 'issues') loadLogs(); loadWork(); }, 150);
 
@@ -335,40 +336,40 @@ export default function mount(el, { app, scope, toolbar, query }) {
   delegate(root, 'click', '.wweek td.wissue', (e, td) => { const k = td.parentNode.dataset.key; if (k) app.panel.open(k); });
 
   // ---- keys
-  const G = { group: 'My work' };
-  const I = inTab('issues'), D = inTab('day'), W = inTab('week'), T = inTab('day', 'week');
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next', { ...G, ...I });
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', { ...G, ...I });
-  scope.bind('Enter', () => { const c = cur(); if (c) app.panel.open(c.Key); }, 'open issue', { ...G, ...I, bar: 'open' });
-  scope.bind('f', () => filterIn.focus(), 'filter', { ...G, ...I, bar: 'filter' });
-  scope.bind('F', openBuilder, 'filter builder', { ...G, ...I });
-  scope.bind('v', () => { group = { status: 'project', project: 'none', none: 'status' }[group]; prefs.set('work_group', group); groupSel.value = group; buildRows(); }, 'group by status / project / none', { ...G, ...I, bar: 'group' });
-  scope.bind('d', toggleDone, 'hide done', { ...G, ...I, bar: 'hide done' });
-  scope.bind('r', () => { api.forget(); loadWork(); ui.toast('Refreshed'); }, 'refresh', { ...G, ...I });
-  scope.bind('1', () => setTab('issues'), 'issues', { ...G, bar: 'tabs' });
-  scope.bind('2', () => setTab('day'), 'worklogs of a day', { ...G, bar: 'tabs' });
-  scope.bind('3', () => setTab('week'), 'worklogs of a week', { ...G, bar: 'tabs' });
-  scope.bind('W', () => setTab(tab === 'day' ? 'week' : 'day'), 'worklogs: day / week', G);
-  scope.bind('h', () => step(-1), 'previous day / week', { ...G, ...T, bar: 'day / week' });
-  scope.bind('l', () => step(1), 'next day / week', { ...G, ...T, bar: 'day / week' });
-  scope.bind('0', goToday, 'today / this week', { ...G, ...T });
-  scope.bind('y', copyText, 'copy as a markdown table', { ...G, ...T });
-  scope.bind('a', () => addLog(), 'log work', { ...G, ...T, bar: 'log work' });
-  scope.bind(['j', 'ArrowDown'], () => { wsel = Math.min(wsel + 1, dayLogs(day).length + dayProps().length - 1); paintTime(); }, 'next', { ...G, ...D });
-  scope.bind(['k', 'ArrowUp'], () => { wsel = Math.max(wsel - 1, 0); paintTime(); }, 'previous', { ...G, ...D });
-  scope.bind('ArrowLeft', () => step(-1), 'previous day', { ...G, hidden: true, ...D });
-  scope.bind('ArrowRight', () => step(1), 'next day', { ...G, hidden: true, ...D });
-  scope.bind('e', editLog, 'edit worklog', { ...G, ...D, bar: 'edit' });
-  scope.bind(['d', 'Delete'], delLog, 'delete worklog', { ...G, ...D });
-  scope.bind('Enter', () => { const w = curLog(); if (w) app.panel.open(w.Key); else logProposal(); }, 'open issue / log the proposed work', { ...G, ...D });
-  scope.bind('p', propose, 'propose worklogs from git commits and ui.activity', { ...G, ...D, bar: 'propose' });
-  scope.bind(['j', 'ArrowDown'], () => moveCell(1, 0), 'next row', { ...G, ...W });
-  scope.bind(['k', 'ArrowUp'], () => moveCell(-1, 0), 'previous row', { ...G, ...W });
-  scope.bind('ArrowLeft', () => moveCell(0, -1), 'previous day', { ...G, ...W });
-  scope.bind('ArrowRight', () => moveCell(0, 1), 'next day', { ...G, ...W });
-  scope.bind('Enter', cellEnter, 'log work in the cell, or open its day', { ...G, ...W, bar: 'log' });
-  scope.bind('+', addRow, 'add an issue row', { ...G, ...W, bar: 'add row' });
-  scope.bind('o', () => { const r = weekRows[cell.row]; if (r) app.panel.open(r.key); }, 'open issue', { ...G, ...W });
+  const G = { group: T('My work') };
+  const I = inTab('issues'), D = inTab('day'), W = inTab('week'), TT = inTab('day', 'week');
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next'), { ...G, ...I });
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous'), { ...G, ...I });
+  scope.bind('Enter', () => { const c = cur(); if (c) app.panel.open(c.Key); }, T('open issue'), { ...G, ...I, bar: T('open') });
+  scope.bind('f', () => filterIn.focus(), T('filter'), { ...G, ...I, bar: T('filter') });
+  scope.bind('F', openBuilder, T('filter builder'), { ...G, ...I });
+  scope.bind('v', () => { group = { status: 'project', project: 'none', none: 'status' }[group]; prefs.set('work_group', group); groupSel.value = group; buildRows(); }, T('group by status / project / none'), { ...G, ...I, bar: T('group') });
+  scope.bind('d', toggleDone, T('hide done'), { ...G, ...I, bar: T('hide done') });
+  scope.bind('r', () => { api.forget(); loadWork(); ui.toast(T('Refreshed')); }, T('refresh'), { ...G, ...I });
+  scope.bind('1', () => setTab('issues'), T('issues'), { ...G, bar: T('tabs') });
+  scope.bind('2', () => setTab('day'), T('worklogs of a day'), { ...G, bar: T('tabs') });
+  scope.bind('3', () => setTab('week'), T('worklogs of a week'), { ...G, bar: T('tabs') });
+  scope.bind('W', () => setTab(tab === 'day' ? 'week' : 'day'), T('worklogs: day / week'), G);
+  scope.bind('h', () => step(-1), T('previous day / week'), { ...G, ...TT, bar: T('day / week') });
+  scope.bind('l', () => step(1), T('next day / week'), { ...G, ...TT, bar: T('day / week') });
+  scope.bind('0', goToday, T('today / this week'), { ...G, ...TT });
+  scope.bind('y', copyText, T('copy as a markdown table'), { ...G, ...TT });
+  scope.bind('a', () => addLog(), T('log work'), { ...G, ...TT, bar: T('log work') });
+  scope.bind(['j', 'ArrowDown'], () => { wsel = Math.min(wsel + 1, dayLogs(day).length + dayProps().length - 1); paintTime(); }, T('next'), { ...G, ...D });
+  scope.bind(['k', 'ArrowUp'], () => { wsel = Math.max(wsel - 1, 0); paintTime(); }, T('previous'), { ...G, ...D });
+  scope.bind('ArrowLeft', () => step(-1), T('previous day'), { ...G, hidden: true, ...D });
+  scope.bind('ArrowRight', () => step(1), T('next day'), { ...G, hidden: true, ...D });
+  scope.bind('e', editLog, T('edit worklog'), { ...G, ...D, bar: T('edit') });
+  scope.bind(['d', 'Delete'], delLog, T('delete worklog'), { ...G, ...D });
+  scope.bind('Enter', () => { const w = curLog(); if (w) app.panel.open(w.Key); else logProposal(); }, T('open issue / log the proposed work'), { ...G, ...D });
+  scope.bind('p', propose, T('propose worklogs from git commits and ui.activity'), { ...G, ...D, bar: T('propose') });
+  scope.bind(['j', 'ArrowDown'], () => moveCell(1, 0), T('next row'), { ...G, ...W });
+  scope.bind(['k', 'ArrowUp'], () => moveCell(-1, 0), T('previous row'), { ...G, ...W });
+  scope.bind('ArrowLeft', () => moveCell(0, -1), T('previous day'), { ...G, ...W });
+  scope.bind('ArrowRight', () => moveCell(0, 1), T('next day'), { ...G, ...W });
+  scope.bind('Enter', cellEnter, T('log work in the cell, or open its day'), { ...G, ...W, bar: T('log') });
+  scope.bind('+', addRow, T('add an issue row'), { ...G, ...W, bar: T('add row') });
+  scope.bind('o', () => { const r = weekRows[cell.row]; if (r) app.panel.open(r.key); }, T('open issue'), { ...G, ...W });
 
   const off = [bus.on('issue:changed', refreshSoon), bus.on('focus', refreshSoon), bus.on('timer', () => list && list.refresh()), bus.on('timer:tick', () => list && list.refresh()), onMetrics(() => render())];
   paintToolbar();

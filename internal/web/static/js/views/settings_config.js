@@ -2,6 +2,7 @@
 // default, value, description, choices) and writes the file the terminal app reads, comments kept.
 import { h } from '../lib/dom.js';
 import { restart } from '../lib/sites.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const cycle = (list, cur, d) => list[(Math.max(0, list.indexOf(cur)) + d + list.length) % list.length];
 const show = v => (Array.isArray(v) ? v.join(', ') : String(v));
@@ -27,12 +28,12 @@ export function saver(app, o, value) {
   let busy = false, again = false;
   const say = (t, bad) => { const s = o.el && o.el.querySelector('.cd-status'); if (s) { s.textContent = t; s.classList.toggle('bad', !!bad); } };
   async function run() {
-    if (!o.editable) { say('No config file to write to', true); return; }
+    if (!o.editable) { say(T('No config file to write to'), true); return; }
     if (busy) { again = true; return; }
-    busy = true; say('Saving…');
+    busy = true; say(T('Saving…'));
     try {
       o.st = await put(app, o.name, { Value: value() });
-      say('Saved to the config file');
+      say(T('Saved to the config file'));
     } catch (e) { say(e.message, true); }
     busy = false;
     if (again) { again = false; run(); }
@@ -45,14 +46,14 @@ function make(app, host, st0, editable) {
   const st = () => o.st;
   const current = () => { const s = st(); return s.Value != null ? show(s.Value) : (s.Type === 'bool' || s.Type === 'enum') && s.Choices && s.Name !== 'theme' && s.Name !== 'code_theme' ? s.Choices[0] : ''; };
   o.desc = st0.Doc;
-  Object.defineProperty(o, 'meta', { get: () => (st().Restart ? 'restart needed' : '') });
+  Object.defineProperty(o, 'meta', { get: () => (st().Restart ? T('restart needed') : '') });
 
   async function save(payload, quiet) {
-    if (!editable) { app.ui.toast('No config file to write to', { kind: 'err' }); return false; }
+    if (!editable) { app.ui.toast(T('No config file to write to'), { kind: 'err' }); return false; }
     try {
       o.st = await put(app, o.name, payload);
       o.err = '';
-      if (!quiet) app.ui.toast('Saved ui.' + o.name + (st().Restart ? ' · takes effect on restart' : ''), { kind: 'ok', action: st().Restart ? { label: 'Restart', run: () => restart(app) } : undefined });
+      if (!quiet) app.ui.toast(st().Restart ? T('Saved ui.%s · takes effect on restart', o.name) : T('Saved ui.%s', o.name), { kind: 'ok', action: st().Restart ? { label: T('Restart'), run: () => restart(app) } : undefined });
       host.redraw(o);
       return true;
     } catch (e) { o.err = e.message; host.redraw(o); return false; }
@@ -62,10 +63,10 @@ function make(app, host, st0, editable) {
   const tag = (cls, text, title) => h('span.st-tag' + cls, { title }, text);
   const valueText = () => {
     const s = st();
-    if (s.Type === 'yaml') return s.Set ? s.YAML.split('\n').length + (s.YAML.includes('\n') ? ' lines' : ' line') : '';
+    if (s.Type === 'yaml') return s.Set ? Tn(s.YAML.split('\n').length, '%d line', '%d lines', s.YAML.split('\n').length) : '';
     return s.Set ? show(s.Value) : '';
   };
-  const def = () => h('span.faint', 'default: ' + (st().Default || '-'));
+  const def = () => h('span.faint', T('default: %s', st().Default || '-'));
 
   o.edit = null;
   function begin(multi) {
@@ -95,21 +96,21 @@ function make(app, host, st0, editable) {
     if (o.edit) {
       const ed = o.edit;
       return h('div.st-edit', ed.input, o.err && h('div.st-err', o.err),
-        h('div.row', h('button.btn', { tabindex: -1, onclick: () => host.commit() }, 'Save'), h('button.btn.ghost', { tabindex: -1, onclick: () => host.cancel() }, 'Cancel'),
-          h('span.faint', ed.multi ? 'ctrl+enter saves · esc cancels · empty resets' : 'enter saves · esc cancels · empty resets')));
+        h('div.row', h('button.btn', { tabindex: -1, onclick: () => host.commit() }, T('Save')), h('button.btn.ghost', { tabindex: -1, onclick: () => host.cancel() }, T('Cancel')),
+          h('span.faint', ed.multi ? T('ctrl+enter saves · esc cancels · empty resets') : T('enter saves · esc cancels · empty resets'))));
     }
-    const reset = s.Set && h('button.btn.ghost.st-x', { tabindex: -1, title: 'Back to the default (del)', 'aria-label': 'Reset ' + o.name, onclick: e => { e.stopPropagation(); o.reset(); } }, '×');
+    const reset = s.Set && h('button.btn.ghost.st-x', { tabindex: -1, title: T('Back to the default (del)'), 'aria-label': T('Reset %s', o.name), onclick: e => { e.stopPropagation(); o.reset(); } }, '×');
     const err = o.err && h('div.st-err', o.err);
     switch (s.Type) {
       case 'bool': {
         const on = current() === 'on';
         return h('span.st-val', h('button.st-switch' + (on ? '.on' : '') + (s.Set ? '' : '.unset'), { role: 'switch', 'aria-checked': on, 'aria-label': o.name, tabindex: -1, onclick: () => o.change(1) }, h('i')),
-          h('span.st-state', on ? 'on' : 'off'), reset, err);
+          h('span.st-state', on ? T('on') : T('off')), reset, err);
       }
       case 'enum':
-        return h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: () => o.activate() }, s.Set ? show(s.Value) : h('span.faint', current() || 'default')), reset, err);
+        return h('span.st-val', h('button.btn.ghost', { tabindex: -1, onclick: () => o.activate() }, s.Set ? show(s.Value) : h('span.faint', current() || T('default'))), reset, err);
       case 'yaml':
-        return h('div.st-yaml', h('div.row', s.Set ? h('span.chip', valueText()) : def(), h('span.spacer'), h('button.btn.ghost', { tabindex: -1, onclick: () => o.activate() }, 'Edit'), reset),
+        return h('div.st-yaml', h('div.row', s.Set ? h('span.chip', valueText()) : def(), h('span.spacer'), h('button.btn.ghost', { tabindex: -1, onclick: () => o.activate() }, T('Edit')), reset),
           s.Set && h('pre.st-pre', s.YAML.split('\n').slice(0, 8).join('\n') + (s.YAML.split('\n').length > 8 ? '\n…' : '')), err);
       default:
         return h('span.st-val.mono', s.Set ? h('button.btn.ghost.st-text', { tabindex: -1, onclick: () => o.activate() }, valueText()) : h('button.btn.ghost.st-text', { tabindex: -1, onclick: () => o.activate() }, def()), reset, err);
@@ -126,7 +127,7 @@ function make(app, host, st0, editable) {
     if (o.edit) return;
     if (s.Type === 'bool') return o.change(1);
     if (s.Type === 'enum') {
-      const r = await app.ui.pick({ title: o.name, items: s.Choices, placeholder: s.Doc || 'Filter…', selected: [] });
+      const r = await app.ui.pick({ title: o.name, items: s.Choices, placeholder: s.Doc || T('Filter…'), selected: [] });
       if (r) save({ Value: r });
       return;
     }

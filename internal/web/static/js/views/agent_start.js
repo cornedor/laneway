@@ -8,6 +8,7 @@ import { h, clear } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { LABEL } from '../lib/agents.js';
+import { T } from '../lib/i18n.js';
 
 const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
 const ICON = { run: 'circle-dashed', ok: 'check', warn: 'triangle-alert', err: 'x' };
@@ -16,13 +17,13 @@ let openFor = '';
 // refProblem is why git would refuse a branch name (git check-ref-format --branch), '' when it takes it.
 export function refProblem(b) {
   if (!b) return '';
-  if (b.startsWith('-')) return 'a branch name can\'t start with -';
-  if (/[\s~^:?*[\\\x00-\x1f\x7f]/.test(b)) return 'no spaces or ~ ^ : ? * [ \\ in a branch name';
-  if (b.includes('..')) return 'no .. in a branch name';
-  if (b.includes('@{') || b === '@') return 'no @{ in a branch name';
-  if (b.startsWith('/') || b.endsWith('/') || b.includes('//')) return 'no empty parts between slashes';
-  if (b.endsWith('.')) return 'a branch name can\'t end with .';
-  if (b.split('/').some(p => p.startsWith('.') || p.endsWith('.lock'))) return 'no part may start with . or end in .lock';
+  if (b.startsWith('-')) return T("a branch name can't start with -");
+  if (/[\s~^:?*[\\\x00-\x1f\x7f]/.test(b)) return T('no spaces or ~ ^ : ? * [ \\ in a branch name');
+  if (b.includes('..')) return T('no .. in a branch name');
+  if (b.includes('@{') || b === '@') return T('no @{ in a branch name');
+  if (b.startsWith('/') || b.endsWith('/') || b.includes('//')) return T('no empty parts between slashes');
+  if (b.endsWith('.')) return T("a branch name can't end with .");
+  if (b.split('/').some(p => p.startsWith('.') || p.endsWith('.lock'))) return T('no part may start with . or end in .lock');
   return '';
 }
 
@@ -30,7 +31,7 @@ export function refProblem(b) {
 // (path: which one, as an agent's directory).
 export async function openStartAgent(app, key, { another = false, path = '' } = {}) {
   const { api, ui } = app;
-  if (app.session && app.session.demo) return ui.toast('Not available in demo');
+  if (app.session && app.session.demo) return ui.toast(T('Not available in demo'));
   if (!key || openFor === key) return;
   css('agent_start');
   openFor = key;
@@ -42,8 +43,8 @@ export async function openStartAgent(app, key, { another = false, path = '' } = 
     try {
       await api.post('/agents/' + encodeURIComponent(a.PaneID) + '/focus');
       openFor = '';
-      return ui.toast(key + ': focused ' + a.Name + ' in herdr', { ms: 6000, action: { label: 'Another agent', run: () => openStartAgent(app, key, { another: true, path: a.CWD }) } });
-    } catch (e) { notice = 'Focus failed: ' + e.message; another = true; path = a.CWD; }
+      return ui.toast(T('%s: focused %s in herdr', key, a.Name), { ms: 6000, action: { label: T('Another agent'), run: () => openStartAgent(app, key, { another: true, path: a.CWD }) } });
+    } catch (e) { notice = T('Focus failed: %s', e.message); another = true; path = a.CWD; }
   }
   try { form(app, key, f, { another, path, notice }); } catch (e) { openFor = ''; ui.errToast(e); }
 }
@@ -58,11 +59,11 @@ function form(app, key, f, { another, path, notice }) {
   // Where the work goes: the issue's worktrees and agents, then a new worktree.
   const where = [];
   for (const w of f.Worktrees) {
-    if (w.Agents.length) where.push({ id: 'another', path: w.Path, branch: w.Branch, label: 'Another agent in ' + home(w.Path), detail: w.Agents.map(a => a.Agent + ' ' + (LABEL[a.Status] || a.Status)).join(', ') });
-    else if (w.Branch) where.push({ id: 'in', path: w.Path, branch: w.Branch, label: 'Its worktree ' + home(w.Path), detail: w.Branch });
+    if (w.Agents.length) where.push({ id: 'another', path: w.Path, branch: w.Branch, label: T('Another agent in %s', home(w.Path)), detail: w.Agents.map(a => a.Agent + ' ' + (LABEL[a.Status] || a.Status)).join(', ') });
+    else if (w.Branch) where.push({ id: 'in', path: w.Path, branch: w.Branch, label: T('Its worktree %s', home(w.Path)), detail: w.Branch });
   }
-  for (const a of f.Running) where.push({ id: 'focus', pane: a.PaneID, label: 'Focus ' + a.Name + ' in herdr', detail: a.Agent + ' ' + (LABEL[a.Status] || a.Status) });
-  where.push({ id: 'new', label: 'New worktree', detail: 'on the branch below' });
+  for (const a of f.Running) where.push({ id: 'focus', pane: a.PaneID, label: T('Focus %s in herdr', a.Name), detail: a.Agent + ' ' + (LABEL[a.Status] || a.Status) });
+  where.push({ id: 'new', label: T('New worktree'), detail: T('on the branch below') });
   let at = where.findIndex(w => another ? w.id === 'another' && (!path || w.path === path) : w.id === 'in');
   if (at < 0 && another) at = where.findIndex(w => w.id === 'another');
   if (at < 0) at = where.findIndex(w => w.id === 'in');
@@ -77,7 +78,7 @@ function form(app, key, f, { another, path, notice }) {
   const branch = h('input.input.mono#sw-branch', { type: 'text', value: f.Branch, placeholder: f.Branch, autocomplete: 'off', autocapitalize: 'off' });
   branch.setAttribute('list', 'sw-branches'); // a getter only: h() can't set it
   const branchHint = h('span.sw-hint-l');
-  const prompt = h('textarea.input.mono#sw-prompt', { rows: 6, value: f.Prompt, placeholder: 'Empty starts the agent without a prompt' });
+  const prompt = h('textarea.input.mono#sw-prompt', { rows: 6, value: f.Prompt, placeholder: T('Empty starts the agent without a prompt') });
   for (const x of [branch, prompt]) x.setAttribute('spellcheck', 'false'); // h() drops false values
   const promptHint = h('span.sw-hint-l');
   const also = h('input#sw-also', { type: 'checkbox', checked: true });
@@ -85,16 +86,16 @@ function form(app, key, f, { another, path, notice }) {
   const err = h('div.form-err.sw-err', { role: 'alert' });
   const steps = h('ol.sw-steps', { hidden: true, 'aria-live': 'polite' });
   const go = h('button.btn.primary.sw-go', { type: 'submit', autofocus: true });
-  const cancel = h('button.btn', { type: 'button', onclick: () => m.close() }, 'Cancel');
+  const cancel = h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel'));
   const hint = h('div.sw-keys');
 
   const row = (id, label, forId, ...kids) => h('div.sw-row', { dataset: { row: id } }, h('label.sw-label', { htmlFor: forId }, label), h('div.sw-field', ...kids));
   const rows = {
-    agent: row('agent', 'Agent', 'sw-agent', agentBtn, agentHint),
-    where: row('where', 'Where', 'sw-where', whereBtn),
-    branch: row('branch', 'Branch', 'sw-branch', branch, list, branchHint),
-    prompt: row('prompt', 'Prompt', 'sw-prompt', prompt, promptHint),
-    also: row('also', 'Also', 'sw-also', h('label.check.sw-check', also, alsoText)),
+    agent: row('agent', T('Agent'), 'sw-agent', agentBtn, agentHint),
+    where: row('where', T('Where'), 'sw-where', whereBtn),
+    branch: row('branch', T('Branch'), 'sw-branch', branch, list, branchHint),
+    prompt: row('prompt', T('Prompt'), 'sw-prompt', prompt, promptHint),
+    also: row('also', T('Also'), 'sw-also', h('label.check.sw-check', also, alsoText)),
   };
   rows.where.hidden = where.length < 2;
   rows.also.hidden = !f.Actions.length;
@@ -103,7 +104,7 @@ function form(app, key, f, { another, path, notice }) {
   function paint() {
     const w = cur();
     clear(agentBtn).append(h('span.sw-val', kind), h('span.sw-caret', icon('chevron-down')));
-    agentHint.textContent = f.Missing.includes(kind) ? kind + ' is not on PATH here: herdr may not find it' : '';
+    agentHint.textContent = f.Missing.includes(kind) ? T('%s is not on PATH here: herdr may not find it', kind) : '';
     clear(whereBtn).append(h('span.sw-val', w.label), h('span.sw-detail', w.detail), h('span.sw-caret', icon('chevron-down')));
     const fixed = w.id === 'in' || w.id === 'another';
     branch.readOnly = fixed;
@@ -115,7 +116,7 @@ function form(app, key, f, { another, path, notice }) {
     rows.also.hidden = !f.Actions.length || w.id !== 'new' && w.id !== 'in';
     paintBranch();
     paintPrompt();
-    go.textContent = w.id === 'focus' ? 'Focus agent' : w.id === 'another' ? 'Start agent' : 'Start work';
+    go.textContent = w.id === 'focus' ? T('Focus agent') : w.id === 'another' ? T('Start agent') : T('Start work');
     go.disabled = busy || problems.length > 0;
   }
   function paintBranch() {
@@ -124,26 +125,26 @@ function form(app, key, f, { another, path, notice }) {
     branchHint.className = 'sw-hint-l' + (bad ? ' bad' : '');
     branch.setAttribute('aria-invalid', bad ? 'true' : 'false');
     if (bad) { branchHint.textContent = bad; return; }
-    if (w.id !== 'new') { branchHint.textContent = 'the worktree\'s branch'; return; }
+    if (w.id !== 'new') { branchHint.textContent = T("the worktree's branch"); return; }
     const reuse = (v || f.Branch) === f.Branch ? f.BranchExists : f.Existing.includes(v);
-    branchHint.textContent = (reuse ? 'exists: its worktree opens, or one is made on it' : 'new, from ' + (f.Base || 'herdr\'s default base')) + ' · ' + home(f.Repo);
+    branchHint.textContent = (reuse ? T('exists: its worktree opens, or one is made on it') : f.Base ? T('new, from %s', f.Base) : T("new, from herdr's default base")) + ' · ' + home(f.Repo);
   }
   function paintPrompt() {
     const v = prompt.value;
-    promptHint.textContent = !v.trim() ? 'the agent starts without a prompt' : v.includes('{key}') ? '{key} becomes ' + key : '';
+    promptHint.textContent = !v.trim() ? T('the agent starts without a prompt') : v.includes('{key}') ? T('{key} becomes %s', key) : '';
   }
   branch.addEventListener('input', () => { if (!branch.readOnly) branch.dataset.typed = branch.value; paintBranch(); });
   prompt.addEventListener('input', paintPrompt);
 
   // ---- pickers: enter, a click or typing opens one (typing filters); ←/→ cycle
-  const kindDetail = k => (k === f.Agent ? 'ui.work_agent' : '') + (f.Missing.includes(k) ? (k === f.Agent ? ' · ' : '') + 'not on PATH' : '');
+  const kindDetail = k => (k === f.Agent ? 'ui.work_agent' : '') + (f.Missing.includes(k) ? (k === f.Agent ? ' · ' : '') + T('not on PATH') : '');
   async function pickAgent(query = '') {
-    const k = await ui.pick({ title: 'Agent — ' + key, items: f.Agents, current: kind, query, detail: kindDetail });
+    const k = await ui.pick({ title: T('Agent — %s', key), items: f.Agents, current: kind, query, detail: kindDetail });
     if (k) { kind = k; err.textContent = ''; paint(); }
     agentBtn.focus();
   }
   async function pickWhere(query = '') {
-    const w = await ui.pick({ title: 'Where — ' + key, items: where, current: cur(), query, label: w => w.label, detail: w => w.detail });
+    const w = await ui.pick({ title: T('Where — %s', key), items: where, current: cur(), query, label: w => w.label, detail: w => w.detail });
     if (w) { at = where.indexOf(w); err.textContent = ''; paint(); }
     whereBtn.focus();
   }
@@ -188,25 +189,25 @@ function form(app, key, f, { another, path, notice }) {
     if (t === also && e.key === 'Enter') { e.preventDefault(); also.checked = !also.checked; }
   });
   const hints = {
-    agent: '↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel',
-    where: '↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel',
-    branch: '↵ start · tab/↑↓ field · ctrl+s start · esc cancel',
-    prompt: '↵ newline · ctrl+s or ctrl+↵ start · tab field · esc cancel',
-    also: '↵ or space toggle · tab/↑↓ field · ctrl+s start · esc cancel',
-    go: '↵ start · tab/↑↓ field · esc cancel',
+    agent: T('↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel'),
+    where: T('↵ or type to pick · ←→ cycle · tab/↑↓ field · ctrl+s start · esc cancel'),
+    branch: T('↵ start · tab/↑↓ field · ctrl+s start · esc cancel'),
+    prompt: T('↵ newline · ctrl+s or ctrl+↵ start · tab field · esc cancel'),
+    also: T('↵ or space toggle · tab/↑↓ field · ctrl+s start · esc cancel'),
+    go: T('↵ start · tab/↑↓ field · esc cancel'),
   };
   body.addEventListener('focusin', e => {
     const r = e.target.closest('.sw-row');
-    hint.textContent = busy ? 'esc closes; the start goes on and reports when done' : hints[r ? r.dataset.row : 'go'] || hints.go;
+    hint.textContent = busy ? T('esc closes; the start goes on and reports when done') : hints[r ? r.dataset.row : 'go'] || hints.go;
   });
 
   // ---- start
   let busy = false, closed = false;
-  const m = ui.modal(body, { title: 'Start work on ' + key, wide: true, className: 'sw-modal', onClose: () => { closed = true; openFor = ''; } });
+  const m = ui.modal(body, { title: T('Start work on %s', key), wide: true, className: 'sw-modal', onClose: () => { closed = true; openFor = ''; } });
   m.scope.bind(['ctrl+s', 'ctrl+Enter'], () => submit(), '', { input: true, hidden: true });
   paint();
   (problems.length ? cancel : go).focus(); // as the TUI: the cursor waits on the button
-  hint.textContent = problems.length ? 'esc cancel' : hints.go;
+  hint.textContent = problems.length ? T('esc cancel') : hints.go;
 
   const stepEls = new Map();
   function showStep(s) {
@@ -219,7 +220,7 @@ function form(app, key, f, { another, path, notice }) {
     busy = on;
     for (const x of [agentBtn, whereBtn, branch, prompt, also]) x.disabled = on;
     go.disabled = on || problems.length > 0;
-    go.textContent = on ? 'Starting…' : go.textContent;
+    go.textContent = on ? T('Starting…') : go.textContent;
     body.classList.toggle('busy', on);
     if (!on) paint();
   }
@@ -230,11 +231,11 @@ function form(app, key, f, { another, path, notice }) {
     err.textContent = '';
     if (problems.length) { err.textContent = problems[0]; return; }
     if (w.id === 'focus') {
-      try { await app.api.post('/agents/' + encodeURIComponent(w.pane) + '/focus'); m.close(); ui.toast(key + ': focused in herdr'); }
-      catch (e) { err.textContent = e.message + ' (the herdr CLI does the focusing: is it on PATH?)'; }
+      try { await app.api.post('/agents/' + encodeURIComponent(w.pane) + '/focus'); m.close(); ui.toast(T('%s: focused in herdr', key)); }
+      catch (e) { err.textContent = T('%s (the herdr CLI does the focusing: is it on PATH?)', e.message); }
       return;
     }
-    if (!kind) { err.textContent = 'pick an agent'; agentBtn.focus(); return; }
+    if (!kind) { err.textContent = T('pick an agent'); agentBtn.focus(); return; }
     const b = branch.value.trim();
     if (w.id === 'new' && refProblem(b)) { branch.focus(); return; } // said under the field
     const req = {
@@ -245,7 +246,7 @@ function form(app, key, f, { another, path, notice }) {
     lock(true);
     clear(steps); stepEls.clear(); steps.hidden = false;
     go.focus();
-    hint.textContent = 'esc closes; the start goes on and reports when done';
+    hint.textContent = T('esc closes; the start goes on and reports when done');
     let done = null, fail = '';
     try {
       const res = await fetch('/api/issues/' + encodeURIComponent(key) + '/work', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' }, body: JSON.stringify(req) });
@@ -258,7 +259,7 @@ function form(app, key, f, { another, path, notice }) {
         if (value) { buf += dec.decode(value, { stream: true }); const ls = buf.split('\n'); buf = ls.pop(); ls.forEach(line); }
         if (end) { line(buf); break; }
       }
-      if (!done && !fail) fail = 'the server stopped answering mid-start: look in herdr, then start again';
+      if (!done && !fail) fail = T('the server stopped answering mid-start: look in herdr, then start again');
     } catch (e) { fail = e.message || String(e); }
     app.agents && app.agents.refresh();
     if (fail) {
@@ -273,14 +274,14 @@ function form(app, key, f, { another, path, notice }) {
 
   function finish(r) {
     if (!closed) m.close();
-    const show = { label: 'Agents', run: () => app.go('/agents?agent=' + encodeURIComponent(key)) };
+    const show = { label: T('Agents'), run: () => app.go('/agents?agent=' + encodeURIComponent(key)) };
     if (r.Running) {
       app.api.post('/agents/' + encodeURIComponent(r.Pane) + '/focus').catch(() => {});
-      return ui.toast(key + ': its agent runs already, focused', { action: show });
+      return ui.toast(T('%s: its agent runs already, focused', key), { action: show });
     }
     const did = [...(r.Did || [])];
-    if (r.Timer && app.timer && !app.timer.current) { app.timer.start(key); did.push('timer started'); }
-    ui.toast(key + ': ' + r.Agent + ' started in ' + home(r.Path) + (did.length ? ' · ' + did.join(', ') : ''), { ms: 8000, action: show });
+    if (r.Timer && app.timer && !app.timer.current) { app.timer.start(key); did.push(T('timer started')); }
+    ui.toast(T('%s: %s started in %s', key, r.Agent, home(r.Path)) + (did.length ? ' · ' + did.join(', ') : ''), { ms: 8000, action: show });
     if (r.Warn) ui.toast(key + ': ' + r.Warn, { kind: 'err', ms: 10000 });
     app.bus.emit('issue:changed', { key });
   }

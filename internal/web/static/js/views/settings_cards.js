@@ -10,11 +10,12 @@ import { compile } from '../lib/cardquery.js';
 import { buildCard, fillCard } from '../lib/card.js';
 import { FIELDS, SLOTS, COLORS, fieldLabel, layoutOf, layoutIsSet, normStyle, lookOf, layoutValue, styleValue } from '../lib/cardstyle.js';
 import { saver } from './settings_config.js';
+import { T } from '../lib/i18n.js';
 
 css('board');
 
 const ZONES = [...SLOTS, 'tray'];
-const ZONE_NAME = { top: 'Top', top_right: 'Top right', bottom: 'Bottom', bottom_right: 'Bottom right', tray: 'Not on cards' };
+const ZONE_NAME = { top: T('Top'), top_right: T('Top right'), bottom: T('Bottom'), bottom_right: T('Bottom right'), tray: T('Not on cards') };
 const DRAG_TYPE = 'text/x-laneway-field';
 
 // Sample cards for the preview: something for most conditions to match.
@@ -50,7 +51,7 @@ export function designCards(app, host, options) {
       box.append(w);
     }
   }
-  const preview = () => { const p = h('div.cd-prev', { 'aria-label': 'Preview' }); previews.add(p); paintPreview(p); return p; };
+  const preview = () => { const p = h('div.cd-prev', { 'aria-label': T('Preview') }); previews.add(p); paintPreview(p); return p; };
 
   const saveLayout = saver(app, L, () => (state.layoutSet ? layoutValue(state.layout) : null));
   const saveStyles = debounce(saver(app, S, () => { const v = state.styles.filter(s => s.when.trim()).map(styleValue); return v.length ? v : null; }), 400);
@@ -63,7 +64,7 @@ export function designCards(app, host, options) {
     if (keys) keys.dispose();
     else document.addEventListener('mousedown', outside, true);
     keys = app.keys.scope('cards', { layer: 2, covers: () => true });
-    keys.bind('Escape', () => { leave(); redrawAll(); }, 'leave the designer', { group: 'Card designer', bar: 'leave', input: true });
+    keys.bind('Escape', () => { leave(); redrawAll(); }, T('leave the designer'), { group: T('Card designer'), bar: T('leave'), input: true });
     bind(keys);
   };
   const redrawAll = () => { host.redraw(L); host.redraw(S); };
@@ -76,7 +77,7 @@ export function designCards(app, host, options) {
   const list = z => (z === 'tray' ? tray() : state.layout[z]);
   const order = () => ZONES.flatMap(list);
   function move(f, to, at) {
-    if (f === 'key' && to === 'tray') { app.ui.toast('The key stays on the card', { kind: 'err' }); return; }
+    if (f === 'key' && to === 'tray') { app.ui.toast(T('The key stays on the card'), { kind: 'err' }); return; }
     const from = zoneOf(f);
     if (from !== 'tray') {
       const i = state.layout[from].indexOf(f);
@@ -109,15 +110,15 @@ export function designCards(app, host, options) {
     pick = pick || state.layout.top[0] || 'key';
     host.begin({ o: L, commit: () => {}, cancel: () => { leave(); host.redraw(L); } });
     enter(k => {
-      const g = { group: 'Card designer' };
-      k.bind(['h', 'ArrowLeft'], () => choose(-1), 'previous field', { ...g, bar: 'h l pick' });
-      k.bind(['l', 'ArrowRight'], () => choose(1), 'next field', g);
-      k.bind('H', () => step(-1), 'move the field left', { ...g, bar: 'H L move' });
-      k.bind('L', () => step(1), 'move the field right', g);
-      k.bind('J', () => jump(1), 'move the field a line down', { ...g, bar: 'J K line' });
-      k.bind('K', () => jump(-1), 'move the field a line up', g);
-      k.bind(['x', 'Delete', 'Backspace'], toggle, 'take the field off the card, or put it back', { ...g, bar: 'x off/on' });
-      k.bind(['Enter', 'Space'], () => { leave(); host.redraw(L); }, 'done', g);
+      const g = { group: T('Card designer') };
+      k.bind(['h', 'ArrowLeft'], () => choose(-1), T('previous field'), { ...g, bar: T('h l pick') });
+      k.bind(['l', 'ArrowRight'], () => choose(1), T('next field'), g);
+      k.bind('H', () => step(-1), T('move the field left'), { ...g, bar: T('H L move') });
+      k.bind('L', () => step(1), T('move the field right'), g);
+      k.bind('J', () => jump(1), T('move the field a line down'), { ...g, bar: T('J K line') });
+      k.bind('K', () => jump(-1), T('move the field a line up'), g);
+      k.bind(['x', 'Delete', 'Backspace'], toggle, T('take the field off the card, or put it back'), { ...g, bar: T('x off/on') });
+      k.bind(['Enter', 'Space'], () => { leave(); host.redraw(L); }, T('done'), g);
     });
     host.redraw(L);
   };
@@ -126,7 +127,7 @@ export function designCards(app, host, options) {
     const editing = !!keys && pick;
     let marker = null;
     const chip = f => h('button.cd-chip' + (editing && f === pick ? '.on' : '') + (FIELDS[f] ? '' : '.custom'), {
-      type: 'button', tabindex: -1, draggable: true, dataset: { field: f }, title: FIELDS[f] ? f : 'custom field ' + f,
+      type: 'button', tabindex: -1, draggable: true, dataset: { field: f }, title: FIELDS[f] ? f : T('custom field %s', f),
       ondragstart: e => { e.dataTransfer.setData(DRAG_TYPE, f); e.dataTransfer.effectAllowed = 'move'; e.currentTarget.classList.add('dragging'); },
       ondragend: e => { e.currentTarget.classList.remove('dragging'); if (marker) marker.remove(); },
       onclick: () => { pick = f; if (!keys) L.activate(); else host.redraw(L); },
@@ -156,18 +157,18 @@ export function designCards(app, host, options) {
         pick = f;
         move(f, z, at(e.currentTarget, e).i);
       },
-    }, list(z).map(chip), z === 'tray' && !tray().length && h('span.faint', 'every field is on the card'));
+    }, list(z).map(chip), z === 'tray' && !tray().length && h('span.faint', T('every field is on the card')));
     return h('div.cd',
       h('div.cd-card',
         h('div.cd-line', zone('top'), zone('top_right')),
-        h('div.cd-sum', 'Summary'),
+        h('div.cd-sum', T('Summary')),
         h('div.cd-line', zone('bottom'), zone('bottom_right'))),
       h('div.cd-trayrow', h('span.cd-label', ZONE_NAME.tray), zone('tray')),
       preview(),
       h('div.row.cd-foot',
-        h('span.faint', keys && pick ? 'h l pick · H L move · J K line · x off/on · esc done' : state.layoutSet ? 'Drag fields onto the card; enter for keys. List rows keep card_fields.' : 'From card_fields until you move a field. Drag fields onto the card; enter for keys.'),
+        h('span.faint', keys && pick ? T('h l pick · H L move · J K line · x off/on · esc done') : state.layoutSet ? T('Drag fields onto the card; enter for keys. List rows keep card_fields.') : T('From card_fields until you move a field. Drag fields onto the card; enter for keys.')),
         h('span.spacer'), h('span.cd-status'),
-        state.layoutSet && h('button.btn.ghost', { tabindex: -1, onclick: () => L.reset() }, 'Reset')));
+        state.layoutSet && h('button.btn.ghost', { tabindex: -1, onclick: () => L.reset() }, T('Reset'))));
   };
 
   // ---- styles
@@ -175,26 +176,26 @@ export function designCards(app, host, options) {
   const changed = () => { drawPreviews(); saveStyles(); };
   const env = () => ({ me: app.session && app.session.me && app.session.me.AccountID });
   const hits = s => { const f = s.when.trim() ? compile(s.when.trim().toLowerCase(), env()) : null; return f ? samples(custom()).filter(f).length : 0; };
-  function swatches(s, k) {
+  function swatches(s, k, label) {
     const set = v => { s[k] = v; host.redraw(S); changed(); };
     return h('span.cd-sw',
-      h('button.st-dot.none' + (s[k] ? '' : '.on'), { type: 'button', title: 'None', 'aria-label': 'No ' + k, onclick: () => set('') }, icon('ban')),
-      COLORS.map(c => h('button.st-dot' + (s[k] === c ? '.on' : ''), { type: 'button', title: c, 'aria-label': k + ' ' + c, style: { background: 'var(--' + c + ')' }, onclick: () => set(c) })),
-      h('input.st-color', { type: 'color', title: 'Your own colour', 'aria-label': k + ' colour', value: /^#[0-9a-f]{6}$/i.test(s[k]) ? s[k] : '#888888', onchange: e => set(e.target.value), class: s[k] && s[k].startsWith('#') ? 'on' : '' }));
+      h('button.st-dot.none' + (s[k] ? '' : '.on'), { type: 'button', title: T('None'), 'aria-label': T('No %s', label), onclick: () => set('') }, icon('ban')),
+      COLORS.map(c => h('button.st-dot' + (s[k] === c ? '.on' : ''), { type: 'button', title: c, 'aria-label': label + ' ' + c, style: { background: 'var(--' + c + ')' }, onclick: () => set(c) })),
+      h('input.st-color', { type: 'color', title: T('Your own colour'), 'aria-label': T('%s colour', label), value: /^#[0-9a-f]{6}$/i.test(s[k]) ? s[k] : '#888888', onchange: e => set(e.target.value), class: s[k] && s[k].startsWith('#') ? 'on' : '' }));
   }
   function fieldsPick(s, k, title) {
     const all = () => [...Object.keys(FIELDS), ...custom()];
     return h('span.cd-fields',
-      s[k].map(f => h('span.chip.cd-fchip', fieldLabel(f), h('button.cd-fx', { type: 'button', 'aria-label': 'Remove ' + f, onclick: () => { s[k] = s[k].filter(x => x !== f); host.redraw(S); changed(); } }, '×'))),
+      s[k].map(f => h('span.chip.cd-fchip', fieldLabel(f), h('button.cd-fx', { type: 'button', 'aria-label': T('Remove %s', f), onclick: () => { s[k] = s[k].filter(x => x !== f); host.redraw(S); changed(); } }, '×'))),
       h('button.btn.ghost.cd-add', { type: 'button', onclick: async () => {
         const r = await app.ui.pick({ title, items: all(), label: fieldLabel, multi: true, selected: s[k] });
         if (r) { s[k] = all().filter(f => [].concat(r).includes(f)); host.redraw(S); changed(); }
-      } }, icon('plus'), s[k].length ? '' : 'fields'));
+      } }, icon('plus'), s[k].length ? '' : T('fields')));
   }
   let dragRule = -1;
   function rule(s, i) {
     const n = hits(s);
-    const when = h('input.input.cd-when', { type: 'text', value: s.when, placeholder: 'prio>=high  label:urgent  age>3d  "team":core', spellcheck: false, autocomplete: 'off', 'aria-label': 'When',
+    const when = h('input.input.cd-when', { type: 'text', value: s.when, placeholder: 'prio>=high  label:urgent  age>3d  "team":core', spellcheck: false, autocomplete: 'off', 'aria-label': T('When'),
       oninput: e => { s.when = e.target.value; const c = e.target.closest('.cd-rule').querySelector('.cd-hits'); if (c) c.textContent = hitText(hits(s)); changed(); } });
     const tog = (k, label) => h('button.btn.ghost.st-pick' + (s[k] ? '.on' : ''), { type: 'button', 'aria-pressed': !!s[k], onclick: () => { s[k] = !s[k]; host.redraw(S); changed(); } }, label);
     return h('div.cd-rule', {
@@ -204,17 +205,17 @@ export function designCards(app, host, options) {
       ondrop: e => { if (dragRule < 0) return; e.preventDefault(); const [r] = state.styles.splice(dragRule, 1); state.styles.splice(i, 0, r); dragRule = -1; host.redraw(S); changed(); },
     },
     h('div.cd-rhead',
-      h('span.cd-grip', { draggable: true, title: 'Drag to reorder: a later style wins', ondragstart: e => { dragRule = i; e.dataTransfer.setData('text/plain', String(i)); e.dataTransfer.effectAllowed = 'move'; }, ondragend: () => { dragRule = -1; } }, icon('grip-vertical')),
-      h('span.cd-label', 'When'), when, h('span.cd-hits.faint', hitText(n)),
-      h('button.btn.ghost.st-x', { type: 'button', title: 'Remove this style', 'aria-label': 'Remove style', onclick: () => { state.styles.splice(i, 1); host.redraw(S); changed(); } }, '×')),
+      h('span.cd-grip', { draggable: true, title: T('Drag to reorder: a later style wins'), ondragstart: e => { dragRule = i; e.dataTransfer.setData('text/plain', String(i)); e.dataTransfer.effectAllowed = 'move'; }, ondragend: () => { dragRule = -1; } }, icon('grip-vertical')),
+      h('span.cd-label', T('When')), when, h('span.cd-hits.faint', hitText(n)),
+      h('button.btn.ghost.st-x', { type: 'button', title: T('Remove this style'), 'aria-label': T('Remove style'), onclick: () => { state.styles.splice(i, 1); host.redraw(S); changed(); } }, '×')),
     h('div.cd-rbody',
-      h('span.cd-label', 'Edge'), swatches(s, 'edge'),
-      h('span.cd-label', 'Tint'), swatches(s, 'tint'),
-      h('span.cd-label', 'Text'), h('span.cd-tog', tog('fade', 'Fade'), tog('bold', 'Bold summary')),
-      h('span.cd-label', 'Hide'), fieldsPick(s, 'hide', 'Fields this style hides'),
-      h('span.cd-label', { title: 'These fields stay off every card this style does not match' }, 'Only show'), fieldsPick(s, 'show', 'Fields shown only when this matches')));
+      h('span.cd-label', T('Edge')), swatches(s, 'edge', T('Edge')),
+      h('span.cd-label', T('Tint')), swatches(s, 'tint', T('Tint')),
+      h('span.cd-label', T('Text')), h('span.cd-tog', tog('fade', T('Fade')), tog('bold', T('Bold summary'))),
+      h('span.cd-label', T('Hide')), fieldsPick(s, 'hide', T('Fields this style hides')),
+      h('span.cd-label', { title: T('These fields stay off every card this style does not match') }, T('Only show')), fieldsPick(s, 'show', T('Fields shown only when this matches'))));
   }
-  const hitText = n => n + ' of ' + samples(custom()).length + ' samples';
+  const hitText = n => T('%d of %d samples', n, samples(custom()).length);
   const editStyles = () => { if (!keys) { host.begin({ o: S, commit: () => {}, cancel: leave }); enter(() => {}); } };
   S.activate = S.change = () => {
     editStyles();
@@ -223,9 +224,9 @@ export function designCards(app, host, options) {
   };
   S.reset = () => { state.styles = []; host.redraw(S); drawPreviews(); saveStyles(); };
   S.render = () => h('div.cd', { onfocusin: editStyles },
-    state.styles.length ? state.styles.map(rule) : h('div.faint', 'No styles yet. A style changes how the cards a board query matches look.'),
-    h('div.row', h('button.btn.cd-new', { type: 'button', onclick: () => { state.styles.push(normStyle({ when: '' })); host.redraw(S); const ins = S.el.querySelectorAll('.cd-when'); if (ins.length) ins[ins.length - 1].focus(); } }, icon('plus'), 'Add style'),
-      h('span.spacer'), h('span.cd-status'), state.styles.length > 0 && h('button.btn.ghost', { type: 'button', onclick: () => S.reset() }, 'Remove all')),
+    state.styles.length ? state.styles.map(rule) : h('div.faint', T('No styles yet. A style changes how the cards a board query matches look.')),
+    h('div.row', h('button.btn.cd-new', { type: 'button', onclick: () => { state.styles.push(normStyle({ when: '' })); host.redraw(S); const ins = S.el.querySelectorAll('.cd-when'); if (ins.length) ins[ins.length - 1].focus(); } }, icon('plus'), T('Add style')),
+      h('span.spacer'), h('span.cd-status'), state.styles.length > 0 && h('button.btn.ghost', { type: 'button', onclick: () => S.reset() }, T('Remove all'))),
     state.styles.length > 0 && preview());
   return () => leave();
 }

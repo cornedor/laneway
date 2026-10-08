@@ -1,6 +1,7 @@
 // Lines across a board, as the Go client's jira.Line: an issue is past a line while its status sits in the line's
 // column or one right of it; with `first`, from its first crossing on. No line (null) is Jira's done: the resolution.
 import { isZero } from '../lib/fmt.js';
+import { T } from '../lib/i18n.js';
 
 // makeLine is the line at the column named name (any case), null for '' or a name no column has.
 export function makeLine(cols, name, first) {
@@ -10,7 +11,7 @@ export function makeLine(cols, name, first) {
   return { name: cols[at].Name, at, first: !!first, ids: new Set(cols.slice(at).flatMap(c => c.StatusIDs || [])) };
 }
 
-export const label = l => (l ? l.name : 'done');
+export const label = l => (l ? l.name : T('done'));
 
 // statusAt is the issue's status id at t (ms), replayed from its moves.
 export function statusAt(is, t) {

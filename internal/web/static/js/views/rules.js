@@ -5,6 +5,7 @@ import { icon } from '../lib/icons.js';
 import { css } from '../lib/css.js';
 import { onRuleEvent } from '../lib/rules_feed.js';
 import { enabled, supported, permission, setEnabled } from '../lib/notify.js';
+import { T } from '../lib/i18n.js';
 
 const list = v => (Array.isArray(v) ? v : v ? [v] : []);
 const MATCH = [['Key', 'key'], ['Type', 'type'], ['Status', 'status'], ['FromStatus', 'from'], ['Assignee', 'assignee'], ['Priority', 'priority']];
@@ -14,9 +15,9 @@ function matchChips(m, prefix = '') {
   if (!m) return [];
   const out = [];
   for (const [f, label] of MATCH) if (list(m[f]).length) out.push(h('span.chip', prefix + label + ' ' + list(m[f]).join(' | ')));
-  if (m.Summary) out.push(h('span.chip', prefix + 'summary /' + m.Summary + '/'));
-  if (m.ByMe != null) out.push(h('span.chip', prefix + (m.ByMe ? 'by me' : 'by others')));
-  if (m.Not) out.push(...matchChips(m.Not, 'not '));
+  if (m.Summary) out.push(h('span.chip', prefix + T('summary /%s/', m.Summary)));
+  if (m.ByMe != null) out.push(h('span.chip', prefix + (m.ByMe ? T('by me') : T('by others'))));
+  if (m.Not) out.push(...matchChips(m.Not, T('not ')));
   return out;
 }
 
@@ -35,33 +36,33 @@ export default function mount(el, { app, scope, toolbar }) {
   const testEl = h('form.rules-test', { onsubmit: e => { e.preventDefault(); test(); } });
   const resEl = h('div.rules-res');
   const logEl = h('div.rules-log');
-  root.append(h('section.rules-col', h('h3', 'Rules'), listEl),
-    h('section.rules-col', h('h3', 'Try a change'), testEl, resEl),
-    h('section.rules-log-wrap', h('h3', 'Firing log'), logEl));
+  root.append(h('section.rules-col', h('h3', T('Rules')), listEl),
+    h('section.rules-col', h('h3', T('Try a change')), testEl, resEl),
+    h('section.rules-log-wrap', h('h3', T('Firing log')), logEl));
   el.append(root);
 
   const notifyBtn = h('button.btn.ghost', { onclick: async () => { await setEnabled(!enabled()); paintNotify(); } });
   function paintNotify() {
     notifyBtn.hidden = !supported() || permission() === 'denied';
-    notifyBtn.textContent = enabled() ? 'Notify: on' : 'Notify: off';
-    notifyBtn.title = 'Show notify actions as browser notifications (N)';
+    notifyBtn.textContent = enabled() ? T('Notify: on') : T('Notify: off');
+    notifyBtn.title = T('Show notify actions as browser notifications (N)');
   }
   toolbar.append(notifyBtn);
   paintNotify();
 
   function paintList() {
     clear(listEl);
-    if (!info) return listEl.append(h('div.loading', 'Loading…'));
-    if (!info.Rules.length) listEl.append(h('div.empty', h('p', 'No rules in the config.'), h('p.dim', 'Add a rules: list; docs/guide has the syntax.')));
+    if (!info) return listEl.append(h('div.loading', T('Loading…')));
+    if (!info.Rules.length) listEl.append(h('div.empty', h('p', T('No rules in the config.')), h('p.dim', T('Add a rules: list; docs/guide has the syntax.'))));
     info.Rules.forEach((r, i) => {
       const on = list(r.On);
       listEl.append(h('div.rule' + (i === sel ? '.sel' : ''), { dataset: { i }, onclick: () => { sel = i; paintList(); } },
-        h('div.rule-top', h('b', r.Name || '(unnamed)'), h('span.spacer'), info.Counts[r.Name] ? h('span.chip', info.Counts[r.Name] + ' fired') : null),
-        h('div.rule-on.dim', 'on ' + (on.length ? on.join(', ') : 'any change') + (r.Watch ? ' of ' + r.Watch + ' every ' + (r.Every || '5m') : ' (board)')),
+        h('div.rule-top', h('b', r.Name || T('(unnamed)')), h('span.spacer'), info.Counts[r.Name] ? h('span.chip', T('%d fired', info.Counts[r.Name])) : null),
+        h('div.rule-on.dim', T('on %s', on.length ? on.join(', ') : T('any change')) + (r.Watch ? T(' of %s every %s', r.Watch, r.Every || '5m') : T(' (board)'))),
         h('div.rule-match', matchChips(r.Match)),
         h('div.rule-acts', (r.Actions || []).map(a => h('span.chip.act-' + a.Type, a.Type + (a.To ? ' → ' + a.To : '') + (a.Command ? ' ' + a.Command.join(' ') : ''))))));
     });
-    for (const w of info.Warnings || []) listEl.append(h('div.rule-warn', 'Skipped: ' + w));
+    for (const w of info.Warnings || []) listEl.append(h('div.rule-warn', T('Skipped: %s', w)));
     const s = listEl.querySelector('.rule.sel'); s && s.scrollIntoView({ block: 'nearest' });
   }
 
@@ -71,12 +72,12 @@ export default function mount(el, { app, scope, toolbar }) {
   const txt = (name, label, ph = '', val = '') => field(name, label, h('input.input', { name, type: 'text', placeholder: ph, value: val, autocomplete: 'off', spellcheck: false }));
   function buildForm() {
     clear(testEl);
-    const kinds = field('On', 'Change', h('select.input', { name: 'On' }, info.Kinds.map(k => h('option', { value: k }, k))));
-    const watch = field('Watch', 'Seen by', h('select.input', { name: 'Watch' }, h('option', { value: '' }, 'a board'), (info.Watches || []).map(w => h('option', { value: w.JQL }, 'watch: ' + w.JQL))));
-    const byMe = field('ByMe', 'Made by you', h('select.input', { name: 'ByMe' }, h('option', { value: '' }, 'unknown'), h('option', { value: 'true' }, 'yes'), h('option', { value: 'false' }, 'no')));
-    testEl.append(kinds, txt('Key', 'Key', 'TEST-1'), txt('Summary', 'Summary'), txt('Type', 'Type', info.Test.Type || 'Task'), txt('Status', 'Status', info.Test.Status || 'To Do'),
-      txt('FromStatus', 'From status'), txt('Assignee', 'Assignee', 'empty: unassigned'), txt('Priority', 'Priority', 'Medium'), txt('Points', 'Points'), watch, byMe,
-      h('div.rt-go', h('button.btn.primary', { type: 'submit' }, 'Test'), h('span.dim', 'Nothing runs; it shows what would fire.')));
+    const kinds = field('On', T('Change'), h('select.input', { name: 'On' }, info.Kinds.map(k => h('option', { value: k }, k))));
+    const watch = field('Watch', T('Seen by'), h('select.input', { name: 'Watch' }, h('option', { value: '' }, T('a board')), (info.Watches || []).map(w => h('option', { value: w.JQL }, T('watch: %s', w.JQL)))));
+    const byMe = field('ByMe', T('Made by you'), h('select.input', { name: 'ByMe' }, h('option', { value: '' }, T('unknown')), h('option', { value: 'true' }, T('yes')), h('option', { value: 'false' }, T('no'))));
+    testEl.append(kinds, txt('Key', T('Key'), 'TEST-1'), txt('Summary', T('Summary')), txt('Type', T('Type'), info.Test.Type || 'Task'), txt('Status', T('Status'), info.Test.Status || 'To Do'),
+      txt('FromStatus', T('From status')), txt('Assignee', T('Assignee'), T('empty: unassigned')), txt('Priority', T('Priority'), 'Medium'), txt('Points', T('Points')), watch, byMe,
+      h('div.rt-go', h('button.btn.primary', { type: 'submit' }, T('Test')), h('span.dim', T('Nothing runs; it shows what would fire.'))));
     let t = 0;
     testEl.addEventListener('input', () => { clearTimeout(t); t = setTimeout(test, 300); });
   }
@@ -86,10 +87,10 @@ export default function mount(el, { app, scope, toolbar }) {
     let res;
     try { res = await api.post('/rules/test', body); } catch (e) { return ui.errToast(e); }
     clear(resEl);
-    if (!res || !res.length) return resEl.append(h('div.dim', 'No rules.'));
+    if (!res || !res.length) return resEl.append(h('div.dim', T('No rules.')));
     for (const r of res) {
       resEl.append(h('div.rt-row' + (r.Fires ? '.fires' : ''),
-        h('span.rt-mark', icon(r.Fires ? 'check' : 'x')), h('b', r.Rule || '(unnamed)'),
+        h('span.rt-mark', icon(r.Fires ? 'check' : 'x')), h('b', r.Rule || T('(unnamed)')),
         r.Fires ? h('span.rt-acts', r.Actions.map(a => h('div.rt-act', h('span.chip', a.Type), ' ', a.Note ? h('span.dim', a.Note) : a.Text)))
           : h('span.dim', r.Why)));
     }
@@ -104,10 +105,10 @@ export default function mount(el, { app, scope, toolbar }) {
   function paintLog() {
     clear(logEl);
     const r = rows();
-    if (!r.length) return logEl.append(h('div.dim', 'Nothing has fired yet.' + (info && info.Log ? ' Log actions are kept in ' + info.Log + '.' : '')));
+    if (!r.length) return logEl.append(h('div.dim', T('Nothing has fired yet.') + (info && info.Log ? T(' Log actions are kept in %s.', info.Log) : '')));
     for (const e of r) logEl.append(h('div.lg' + (e.err ? '.err' : ''), h('span.dim.lg-at', e.at), e.action !== 'log' && h('span.chip', e.action), h('b.lg-rule', e.rule), h('span', e.err || e.text)));
   }
-  const toRow = ev => ({ at: stamp(new Date(ev.Time)), rule: ev.Rule || '(unnamed)', text: ev.Text, action: ev.Action, err: ev.Err });
+  const toRow = ev => ({ at: stamp(new Date(ev.Time)), rule: ev.Rule || T('(unnamed)'), text: ev.Text, action: ev.Action, err: ev.Err });
   let logTimer = 0;
   async function loadLog() {
     try { file = (await api.get('/rules/log?n=300', { fresh: true })).Lines.map(parseLine); } catch (e) { file = []; }
@@ -128,11 +129,11 @@ export default function mount(el, { app, scope, toolbar }) {
   }
 
   const move = d => { if (!info || !info.Rules.length) return; sel = (sel + d + info.Rules.length) % info.Rules.length; paintList(); };
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next rule', { group: 'Rules' });
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous rule', { group: 'Rules' });
-  scope.bind('t', () => { const f = F.Key; f && f.focus(); }, 'try a change (form)', { group: 'Rules', bar: 'try' });
-  scope.bind('R', () => load(), 'reload', { group: 'Rules' });
-  scope.bind('N', async () => { paintNotify(); await setEnabled(!enabled()); paintNotify(); }, 'toggle browser notifications', { group: 'Rules', bar: 'notifications' });
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next rule'), { group: T('Rules') });
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous rule'), { group: T('Rules') });
+  scope.bind('t', () => { const f = F.Key; f && f.focus(); }, T('try a change (form)'), { group: T('Rules'), bar: T('try') });
+  scope.bind('R', () => load(), T('reload'), { group: T('Rules') });
+  scope.bind('N', async () => { paintNotify(); await setEnabled(!enabled()); paintNotify(); }, T('toggle browser notifications'), { group: T('Rules'), bar: T('notifications') });
   scope.bind('Escape', () => { if (document.activeElement && root.contains(document.activeElement)) document.activeElement.blur(); }, '', { input: true, hidden: true });
   load();
   return () => { dead = true; off(); clearTimeout(logTimer); };

@@ -4,10 +4,11 @@
 import { h, delegate, openURL } from '../lib/dom.js';
 import { css } from '../lib/css.js';
 import { stateOf, latest } from '../lib/inbox.js';
-import { duration, plural, ago } from '../lib/fmt.js';
+import { duration, ago } from '../lib/fmt.js';
 import { projectOf, boardOf } from './plan_ctx.js';
+import { T, Tn } from '../lib/i18n.js';
 
-const TITLE = { work: 'My work', inbox: 'Inbox', sprint: 'Sprint', timer: 'Timer', filters: 'Saved searches' };
+const TITLE = { work: T('My work'), inbox: T('Inbox'), sprint: T('Sprint'), timer: T('Timer'), filters: T('Saved searches') };
 const MAX = 8; // rows a list widget shows; its head says how many more
 
 export default function mount(el, { app, scope }) {
@@ -28,7 +29,7 @@ export default function mount(el, { app, scope }) {
     async work() {
       const d = await api.get('/work');
       const open = (d.cards || []).filter(c => !c.Done);
-      return { head: plural(open.length, 'open issue'), rows: open.map(c => issueRow(c.Key, c.Summary, statusPill(c))), more: () => app.go('/work'), note: 'Nothing open is yours.' };
+      return { head: Tn(open.length, '%d open issue', '%d open issues', open.length), rows: open.map(c => issueRow(c.Key, c.Summary, statusPill(c))), more: () => app.go('/work'), note: T('Nothing open is yours.') };
     },
     async inbox() {
       const d = await api.get('/inbox');
@@ -36,7 +37,7 @@ export default function mount(el, { app, scope }) {
       const news = d.threads.filter(t => { const s = stateOf(t, d.marks[t.ID], d.floor, now); return s.unread && !s.done && !s.snoozed; })
         .sort((a, b) => latest(b) - latest(a));
       return {
-        head: news.length + ' unread', more: () => app.go('/inbox'), note: 'All caught up.',
+        head: T('%d unread', news.length), more: () => app.go('/inbox'), note: T('All caught up.'),
         rows: news.map(t => issueRow(t.Key, t.Summary, h('span.faint', ago(latest(t))),
           () => (t.Site !== d.site ? openURL(t.URL) : app.panel.open(t.Key)))), // another site's opens in Jira
       };
@@ -44,23 +45,23 @@ export default function mount(el, { app, scope }) {
     async sprint() {
       const project = projectOf(app);
       const board = project && await boardOf(app, project);
-      if (!board) return { note: project ? project + ' has no scrum board.' : 'No project configured.', rows: [] };
+      if (!board) return { note: project ? T('%s has no scrum board.', project) : T('No project configured.'), rows: [] };
       const d = await api.get('/home/sprint/' + board.ID);
-      if (!d) return { head: board.Name, note: 'No active sprint on ' + board.Name + '.', rows: [{ kids: [h('span.hs', 'Plan the next one')], open: () => app.go('/planning/' + project + '/' + board.ID) }] };
+      if (!d) return { head: board.Name, note: T('No active sprint on %s.', board.Name), rows: [{ kids: [h('span.hs', T('Plan the next one'))], open: () => app.go('/planning/' + project + '/' + board.ID) }] };
       const s = d.Sprint, pct = n => Math.round(n * 100) + '%';
-      const days = s.DaysLeft > 0 ? plural(s.DaysLeft, 'day') + ' left' : s.DaysLeft === 0 ? 'last day' : plural(-s.DaysLeft, 'day') + ' over';
-      const done = s.Points > 0 ? s.DonePoints + ' of ' + s.Points + ' points' : s.Done + ' of ' + s.Issues + ' issues';
-      const bar = h('div.hbar' + (d.Behind ? '.behind' : ''), { title: pct(d.Progress) + ' done, ' + pct(s.Elapsed) + ' of the time gone' },
+      const days = s.DaysLeft > 0 ? Tn(s.DaysLeft, '%d day left', '%d days left', s.DaysLeft) : s.DaysLeft === 0 ? T('last day') : Tn(-s.DaysLeft, '%d day over', '%d days over', -s.DaysLeft);
+      const done = s.Points > 0 ? T('%s of %s points', s.DonePoints, s.Points) : T('%s of %s issues', s.Done, s.Issues);
+      const bar = h('div.hbar' + (d.Behind ? '.behind' : ''), { title: T('%s done, %s of the time gone', pct(d.Progress), pct(s.Elapsed)) },
         h('span.done', { style: { width: pct(d.Progress) } }), h('span.time', { style: { left: pct(s.Elapsed) } }));
       return {
         head: s.Name + ' · ' + days,
-        rows: [{ kids: [h('div.hsprint', bar, h('div.hline', h('span', done + ' done'), h('span.spacer'), d.Behind ? h('span.warn', 'behind') : h('span.faint', pct(s.Elapsed) + ' of the time gone')), s.Goal && h('div.faint.hgoal', s.Goal))],
+        rows: [{ kids: [h('div.hsprint', bar, h('div.hline', h('span', T('%s done', done)), h('span.spacer'), d.Behind ? h('span.warn', T('behind')) : h('span.faint', T('%s of the time gone', pct(s.Elapsed)))), s.Goal && h('div.faint.hgoal', s.Goal))],
           open: () => app.go('/board/' + project + '/' + board.ID) }],
       };
     },
     async timer() {
       const t = app.timer && app.timer.current;
-      if (!t) return { note: 'No timer running. T starts one on the selected issue.', rows: [] };
+      if (!t) return { note: T('No timer running. T starts one on the selected issue.'), rows: [] };
       if (!(t.key in sums)) {
         try { sums[t.key] = (await api.get('/issues/' + t.key + '/card')).Summary || ''; } catch (e) { sums[t.key] = ''; }
       }
@@ -70,7 +71,7 @@ export default function mount(el, { app, scope }) {
     async filters() {
       const fs = await api.get('/home/filters', { fresh: true });
       return {
-        note: 'No saved searches. Star a Jira filter, or a search with ctrl+s in Q.',
+        note: T('No saved searches. Star a Jira filter, or a search with ctrl+s in Q.'),
         rows: fs.map(f => ({ kids: [h('span.hs', { title: f.JQL }, f.Name), f.Err ? h('span.err', { title: f.Err }, '!') : h('span.mono.hn', String(f.Count))], open: () => asView(f.JQL, f.Name) })),
       };
     },
@@ -85,8 +86,8 @@ export default function mount(el, { app, scope }) {
     if (s) s.shown = rows;
     const more = s && s.rows && s.rows.length > MAX ? s.rows.length - MAX : 0;
     const head = h('div.hhead', h('span.ht', TITLE[w]), h('span.spacer'), s && s.head && h('span.faint', s.head),
-      s && s.more && h('button.btn.link.sm', { onclick: s.more }, more ? '+' + more + ' more' : 'Open'));
-    const body = !s ? h('div.hnote.faint', 'Loading…') : s.error ? h('div.hnote.err', s.error) : !rows.length ? h('div.hnote.faint', s.note || 'Nothing here.') : null;
+      s && s.more && h('button.btn.link.sm', { onclick: s.more }, more ? T('+%d more', more) : T('Open')));
+    const body = !s ? h('div.hnote.faint', T('Loading…')) : s.error ? h('div.hnote.err', s.error) : !rows.length ? h('div.hnote.faint', s.note || T('Nothing here.')) : null;
     box.replaceChildren(head, body || h('div.hrows', ...rows.map(r => h('div.hrow', { dataset: { w } }, ...r.kids))));
     mark();
   }
@@ -107,13 +108,13 @@ export default function mount(el, { app, scope }) {
     widgets.forEach(w => { delete state[w]; paintOne(w); load(w); });
   }
 
-  const G = 'Home';
+  const G = T('Home');
   const move = d => { const n = flat().length; if (n) { sel = Math.max(0, Math.min(n - 1, sel + d)); mark(true); } };
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next row', { group: G });
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous row', { group: G });
-  scope.bind('Enter', () => { const r = flat()[sel]; if (r) r.open(); }, 'open', { group: G, bar: 'open' });
-  scope.bind('Escape', () => app.go('/board'), 'to the board', { group: G, bar: 'board' });
-  scope.bind('r', loadAll, 'refresh', { group: G, bar: 'refresh' });
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next row'), { group: G });
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous row'), { group: G });
+  scope.bind('Enter', () => { const r = flat()[sel]; if (r) r.open(); }, T('open'), { group: G, bar: T('open') });
+  scope.bind('Escape', () => app.go('/board'), T('to the board'), { group: G, bar: T('board') });
+  scope.bind('r', loadAll, T('refresh'), { group: G, bar: T('refresh') });
   delegate(grid, 'click', '.hrow', (e, t) => { sel = [...grid.querySelectorAll('.hrow')].indexOf(t); mark(); const r = flat()[sel]; if (r) r.open(); });
 
   const offs = [

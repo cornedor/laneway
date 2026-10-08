@@ -6,6 +6,7 @@
 // board when one is remembered.
 import { h } from '../lib/dom.js';
 import * as store from '../lib/store.js';
+import { T } from '../lib/i18n.js';
 
 function pref(app, k) {
   const v = app.prefs.get(k, '');
@@ -102,8 +103,8 @@ export async function pickProject(app) {
   let items = [];
   try { items = [...(await app.api.get('/projects'))].sort((a, b) => (mine.includes(b.Key) - mine.includes(a.Key))); } catch (e) { items = []; }
   if (!items.length) mine.forEach(k => items.push({ Key: k, Name: k }));
-  if (!items.length) { app.ui.toast('No projects', { kind: 'err' }); return null; }
-  const p = await app.ui.pick({ title: 'Project', items, label: x => x.Key + ' ' + x.Name, detail: x => (mine.includes(x.Key) ? '\u2605' : '') });
+  if (!items.length) { app.ui.toast(T('No projects'), { kind: 'err' }); return null; }
+  const p = await app.ui.pick({ title: T('Project'), items, label: x => x.Key + ' ' + x.Name, detail: x => (mine.includes(x.Key) ? '\u2605' : '') });
   return p ? p.Key : null;
 }
 
@@ -113,7 +114,7 @@ export async function openProject(app) {
   let b;
   try { b = await boardOf(app, p, { scrum: false }); } catch (e) { return app.ui.errToast(e); }
   if (b) app.go('/board/' + p + '/' + b.ID);
-  else app.ui.toast('No boards in ' + p, { kind: 'err' });
+  else app.ui.toast(T('No boards in %s', p), { kind: 'err' });
 }
 
 // boardOf → the project's remembered board of the wanted type, else its first; null when none. Never asks.
@@ -126,9 +127,9 @@ export async function boardOf(app, project, { scrum = true } = {}) {
 export async function pickBoard(app, project, { scrum = true } = {}) {
   let list;
   try { list = (await boardsOf(app, project)).filter(b => !scrum || b.Type === 'scrum'); } catch (e) { app.ui.errToast(e); return null; }
-  if (!list.length) { app.ui.toast('No boards in ' + project, { kind: 'err' }); return null; }
+  if (!list.length) { app.ui.toast(T('No boards in %s', project), { kind: 'err' }); return null; }
   if (list.length === 1) return list[0];
-  return app.ui.pick({ title: project + ' board', items: list, label: x => x.Name, detail: x => x.Type });
+  return app.ui.pick({ title: T('%s board', project), items: list, label: x => x.Name, detail: x => x.Type });
 }
 
 // switcher: separate project and board crumbs for a view's context slot. Board key B
@@ -148,8 +149,8 @@ export function switcher(app, { scope, context, project, board, scrum = true, bo
     if (!boards) return runProject();
     const b = await pickBoard(app, cur, { scrum }); if (b) done(cur, b);
   };
-  const btn = app.chrome.crumb('Project  (alt+p' + (boards ? '' : ', ' + key) + ')', runProject);
-  const boardBtn = boards ? app.chrome.crumb('Board  (' + key + ')', runBoard) : null;
+  const btn = app.chrome.crumb(boards ? T('Project  (alt+p)') : T('Project  (alt+p, %s)', key), runProject);
+  const boardBtn = boards ? app.chrome.crumb(T('Board  (%s)', key), runBoard) : null;
   const label = (p, b) => {
     cur = p; app.chrome.label(btn, p || '\u2014');
     if (boardBtn) app.chrome.label(boardBtn, b && b.Name || '\u2014');
@@ -158,10 +159,10 @@ export function switcher(app, { scope, context, project, board, scrum = true, bo
   context.append(btn);
   if (boardBtn) context.append(boardBtn);
   if (scope) {
-    scope.bind('alt+p', runProject, 'switch project (its last board)', { group });
-    scope.bind(key, runBoard, boards ? 'switch board (same project)' : 'switch project', { group });
+    scope.bind('alt+p', runProject, T('switch project (its last board)'), { group });
+    scope.bind(key, runBoard, boards ? T('switch board (same project)') : T('switch project'), { group });
   }
   return { btn, boardBtn, label, run: runBoard, runProject };
 }
 
-export const noBoard = (what, project) => h('div.empty', h('h2', what), h('p', project ? project + ' has no scrum board. ' + what + ' need sprints.' : 'No project configured.'));
+export const noBoard = (what, project) => h('div.empty', h('h2', what), h('p', project ? T('%s has no scrum board. %s need sprints.', project, what) : T('No project configured.')));

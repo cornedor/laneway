@@ -8,9 +8,10 @@ import { css } from '../lib/css.js';
 import { kbd } from '../lib/keys.js';
 import { ICON, LABEL } from '../lib/agents.js';
 import { terminal, LEAVE } from '../lib/term.js';
+import { T, Tn } from '../lib/i18n.js';
 
 const GROUPS = ['blocked', 'working', 'done', 'idle', 'worktree'];
-const GROUP_NAME = { blocked: 'Waiting on you', working: 'Working', done: 'Done', idle: 'Idle', unknown: 'Unknown', worktree: 'Worktrees without an agent' };
+const GROUP_NAME = { blocked: T('Waiting on you'), working: T('Working'), done: T('Done'), idle: T('Idle'), unknown: T('Unknown'), worktree: T('Worktrees without an agent') };
 const home = p => { const m = p && p.match(/^\/(?:home|Users)\/[^/]+/); return m ? '~' + p.slice(m[0].length) : p || ''; };
 const LIVE = ['open', 'connecting', 'retry']; // terminal states that keep keys in it
 const REST = 150; // ms the cursor rests on a row before its terminal attaches: holding j attaches nothing
@@ -32,7 +33,7 @@ export default async function mount(el, { app, scope, query }) {
   const empty = h('div.empty', { hidden: true });
   const info = h('div.ag-info'); // title, meta, actions: repainted when the row changes
   const host = h('div.ag-term'), hint = h('div.ag-hint', { 'aria-live': 'polite' });
-  const box = h('div.ag-termbox', host, hint), none = h('div.dim', { hidden: true }, 'A worktree without an agent. S starts one in it.');
+  const box = h('div.ag-termbox', host, hint), none = h('div.dim', { hidden: true }, T('A worktree without an agent. S starts one in it.'));
   const detail = h('div.ag-detail', info, box, none);
   const root = h('div.agents', h('div.ag-list', head, list, empty), detail);
   el.append(root);
@@ -68,15 +69,15 @@ export default async function mount(el, { app, scope, query }) {
   function summary(key) {
     const is = issues.get(key);
     if (!is) return '…';
-    if (!is.Found) return 'not found on any site';
+    if (!is.Found) return T('not found on any site');
     return (away(key) ? '[' + siteName(key) + '] ' : '') + is.Card.Summary;
   }
 
   function paintList() {
     const s = snap();
     const n = s.Agents.filter(a => a.Key).length, blocked = s.Agents.filter(a => a.Status === 'blocked').length;
-    clear(head).append(h('span', n + (n === 1 ? ' agent' : ' agents')), blocked ? h('span.chip', { style: { color: 'var(--warn)' } }, blocked + ' waiting on you') : '',
-      h('span.spacer'), h('button.btn.ghost.sm', { title: 'Tab', onclick: toggleBare }, bare ? 'Hide worktrees' : 'Show worktrees'));
+    clear(head).append(h('span', Tn(n, '%d agent', '%d agents', n)), blocked ? h('span.chip', { style: { color: 'var(--warn)' } }, T('%d waiting on you', blocked)) : '',
+      h('span.spacer'), h('button.btn.ghost.sm', { title: 'Tab', onclick: toggleBare }, bare ? T('Hide worktrees') : T('Show worktrees')));
     const kids = [];
     let g = '';
     rows.forEach((r, i) => {
@@ -88,7 +89,7 @@ export default async function mount(el, { app, scope, query }) {
     });
     list.replaceChildren(...kids);
     empty.hidden = rows.length > 0;
-    empty.textContent = !s.Available ? 'herdr is not running.' : bare ? 'No agents or worktrees for an issue.' : 'No agent works on an issue. S on an issue starts one, Tab lists worktrees.';
+    empty.textContent = !s.Available ? T('herdr is not running.') : bare ? T('No agents or worktrees for an issue.') : T('No agent works on an issue. S on an issue starts one, Tab lists worktrees.');
     const r = list.querySelector('.ag-row.sel'); if (r) r.scrollIntoView({ block: 'nearest' });
   }
 
@@ -110,12 +111,12 @@ export default async function mount(el, { app, scope, query }) {
       clear(info);
       if (r) info.append(
         h('h2', h('a.issue-ref', { href: away(r.key) ? issues.get(r.key).URL : '/issue/' + r.key, onclick: e => { e.preventDefault(); openIssue(r.key); } }, r.key), ' ' + summary(r.key)),
-        h('div.ag-meta', h('span.chip', icon(ICON[r.group] || ICON.unknown), ' ' + (LABEL[r.group] || r.group)), c && h('span', c.Status + ' · ' + (c.Assignee || 'unassigned')), away(r.key) && h('span', 'on ' + siteName(r.key)),
+        h('div.ag-meta', h('span.chip', icon(ICON[r.group] || ICON.unknown), ' ' + (LABEL[r.group] || r.group)), c && h('span', c.Status + ' · ' + (c.Assignee || T('unassigned'))), away(r.key) && h('span', T('on %s', siteName(r.key))),
           a && h('span', a.Agent + ' · ' + a.Name), h('span.mono', home(r.path)), a && a.Title && h('span', a.Title)),
         h('div.ag-actions',
-          a && btn('Focus in herdr', 'f', () => act('focus')), a && btn('Prompt', 'p', () => act('prompt')), a && btn('New agent here', 'N', () => act('new')),
-          btn(a ? 'Another agent' : 'Start agent', a ? 'alt+s' : 'S', () => app.agents.start(r.key, { another: !!a, path: a ? a.CWD : '' })),
-          a && btn('Stop', 'd', () => act('stop'), '.danger')));
+          a && btn(T('Focus in herdr'), 'f', () => act('focus')), a && btn(T('Prompt'), 'p', () => act('prompt')), a && btn(T('New agent here'), 'N', () => act('new')),
+          btn(a ? T('Another agent') : T('Start agent'), a ? 'alt+s' : 'S', () => app.agents.start(r.key, { another: !!a, path: a ? a.CWD : '' })),
+          a && btn(T('Stop'), 'd', () => act('stop'), '.danger')));
     }
     box.hidden = !a; none.hidden = !r || !!a;
     schedule();
@@ -123,7 +124,7 @@ export default async function mount(el, { app, scope, query }) {
 
   // ---- the terminal: one, re-attached to the cursor's agent once it rests there
   let tc = null, making = null, restTimer = 0, full = false;
-  let ts = { state: 'connecting', text: 'loading the terminal…', typing: false }; // as the terminal last said
+  let ts = { state: 'connecting', text: T('loading the terminal…'), typing: false }; // as the terminal last said
   const visible = () => host.clientWidth > 0 && host.clientHeight > 0;
   function schedule() {
     clearTimeout(restTimer);
@@ -134,7 +135,7 @@ export default async function mount(el, { app, scope, query }) {
   async function ensure() {
     if (tc || dead) return tc;
     making = making || terminal(host, { app, onState: st => { ts = st; if (st.typing && tc && !LIVE.includes(st.state)) { tc.blur(); list.focus({ preventScroll: true }); } paintHint(); }, onLeave: leave }).then(t => { if (dead) { t.dispose(); return null; } tc = t; return t; });
-    try { return await making; } catch (e) { making = null; ts = { state: 'closed', text: 'the terminal did not load: ' + e.message }; paintHint(); return null; }
+    try { return await making; } catch (e) { making = null; ts = { state: 'closed', text: T('the terminal did not load: %s', e.message) }; paintHint(); return null; }
   }
   async function attach(pane, o) {
     if (!pane) { if (tc) tc.detach(); return; }
@@ -175,15 +176,15 @@ export default async function mount(el, { app, scope, query }) {
     const parts = [];
     const add = (...xs) => { if (parts.length) parts.push(h('span.dim', ' · ')); parts.push(...xs); };
     if (s.state === 'open') {
-      add(dot, s.typing ? h('b', 'typing') : 'attached');
-      if (s.typing) { add(K(leaveKey()), ' back to the list'); add(K('⌃⇧C'), ' copy'); add('shift+drag selects'); }
-      else { add(K('⏎'), ' or click to type'); add(K('z'), full ? ' leave full screen' : ' full screen'); add(K('t'), ' take over input'); }
+      add(dot, s.typing ? h('b', T('typing')) : T('attached'));
+      if (s.typing) { add(K(leaveKey()), T(' back to the list')); add(K('⌃⇧C'), T(' copy')); add(T('shift+drag selects')); }
+      else { add(K('⏎'), T(' or click to type')); add(K('z'), full ? T(' leave full screen') : T(' full screen')); add(K('t'), T(' take over input')); }
     } else if (LIVE.includes(s.state)) {
-      add(dot, s.text || 'connecting…');
+      add(dot, s.text || T('connecting…'));
     } else {
       add(dot, s.text || s.state);
-      if (s.state !== 'gone') add(K('⏎'), s.state === 'taken' ? ' take it back' : ' attach again');
-      if (s.state === 'exited' || s.state === 'closed') add(K('t'), ' take over input');
+      if (s.state !== 'gone') add(K('⏎'), s.state === 'taken' ? T(' take it back') : T(' attach again'));
+      if (s.state === 'exited' || s.state === 'closed') add(K('t'), T(' take over input'));
     }
     hint.replaceChildren(...parts);
     root.classList.toggle('term-typing', !!s.typing);
@@ -191,19 +192,19 @@ export default async function mount(el, { app, scope, query }) {
 
   // ---- actions
   async function act(what) {
-    const r = cur(); if (!r || !r.agent) return r && ui.toast(r.key + ' has no agent here, only its worktree');
+    const r = cur(); if (!r || !r.agent) return r && ui.toast(T('%s has no agent here, only its worktree', r.key));
     const a = r.agent;
     try {
-      if (what === 'focus') { await api.post('/agents/' + a.PaneID + '/focus'); ui.toast('Focused ' + a.Name + ' in herdr'); }
+      if (what === 'focus') { await api.post('/agents/' + a.PaneID + '/focus'); ui.toast(T('Focused %s in herdr', a.Name)); }
       else if (what === 'prompt') {
-        const text = await ui.prompt({ title: 'Prompt for ' + a.Name, multiline: true, placeholder: 'What should it do next?', ok: 'Send' });
-        if (text && text.trim()) { await api.post('/agents/' + a.PaneID + '/prompt', { Text: text }); ui.toast('Prompt sent'); }
+        const text = await ui.prompt({ title: T('Prompt for %s', a.Name), multiline: true, placeholder: T('What should it do next?'), ok: T('Send') });
+        if (text && text.trim()) { await api.post('/agents/' + a.PaneID + '/prompt', { Text: text }); ui.toast(T('Prompt sent')); }
       } else if (what === 'new') {
         return app.agents.start(r.key, { another: true, path: a.CWD });
       } else if (what === 'stop') {
-        if (stopAsk !== a.PaneID) { stopAsk = a.PaneID; ui.toast('Stop ' + a.Name + ' and close its tab? d again'); return; }
+        if (stopAsk !== a.PaneID) { stopAsk = a.PaneID; ui.toast(T('Stop %s and close its tab? d again', a.Name)); return; }
         stopAsk = '';
-        await api.post('/agents/' + a.PaneID + '/stop'); ui.toast('Stopped ' + a.Name);
+        await api.post('/agents/' + a.PaneID + '/stop'); ui.toast(T('Stopped %s', a.Name));
       }
     } catch (e) { ui.errToast(e); }
     app.agents.refresh();
@@ -212,26 +213,26 @@ export default async function mount(el, { app, scope, query }) {
   function toggleBare() { bare = !bare; app.prefs.set('agents_bare', bare); build(); }
   const move = d => { if (!rows.length) return; sel = Math.max(0, Math.min(rows.length - 1, sel + d)); mark(); };
 
-  const G = 'Agents';
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next', { group: G });
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', { group: G });
-  scope.bind('Home', () => move(-rows.length), 'first', { group: G, hidden: true });
-  scope.bind('End', () => move(rows.length), 'last', { group: G, hidden: true });
-  scope.bind('Tab', toggleBare, 'show / hide worktrees without an agent', { group: G, when: () => !app.panel.key });
-  scope.bind('Enter', () => type(), 'type into the agent\'s terminal (' + LEAVE + ' back to the list; a worktree: open the issue)', { group: G, bar: 'type' });
-  scope.bind(LEAVE, () => type(), 'type into the terminal / back to the list', { group: G });
-  scope.bind('z', () => { setFull(!full); if (full) type(); }, 'terminal full screen', { group: G, bar: 'full screen' });
-  scope.bind('t', () => type({ takeover: true }), 'take over the agent\'s input from another herdr attach', { group: G });
-  scope.bind('Escape', () => setFull(false), 'leave full screen', { group: G, when: () => full });
-  scope.bind('v', () => { const r = cur(); if (r) openIssue(r.key); }, 'open issue (another site\'s in Jira)', { group: G, bar: 'issue' });
-  scope.bind('o', () => { const r = cur(); if (r) openURL(away(r.key) ? issues.get(r.key).URL : app.session.baseURL + '/browse/' + r.key); }, 'open in Jira', { group: G });
-  scope.bind('f', () => act('focus'), 'focus the agent in herdr', { group: G });
-  scope.bind('p', () => act('prompt'), 'send the agent a prompt', { group: G, bar: 'prompt' });
-  scope.bind('N', () => act('new'), 'new agent in its directory (the start form)', { group: G, bar: 'new agent' });
-  scope.bind('S', () => { const r = cur(); if (r) app.agents.start(r.key, { another: !!r.agent, path: r.agent ? r.agent.CWD : '' }); }, 'start work on the issue (the start form; with an agent: another one beside it)', { group: G, bar: 'start work' });
-  scope.bind('d', () => act('stop'), 'stop the agent (twice)', { group: G, bar: 'stop' });
-  scope.bind('y', () => { const r = cur(); if (r && navigator.clipboard) navigator.clipboard.writeText(r.key).then(() => ui.toast('Copied ' + r.key)); }, 'copy key', { group: G });
-  scope.bind('r', () => { app.agents.refresh(); ui.toast('Refreshed'); }, 'refresh', { group: G });
+  const G = T('Agents');
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next'), { group: G });
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous'), { group: G });
+  scope.bind('Home', () => move(-rows.length), T('first'), { group: G, hidden: true });
+  scope.bind('End', () => move(rows.length), T('last'), { group: G, hidden: true });
+  scope.bind('Tab', toggleBare, T('show / hide worktrees without an agent'), { group: G, when: () => !app.panel.key });
+  scope.bind('Enter', () => type(), T("type into the agent's terminal (%s back to the list; a worktree: open the issue)", LEAVE), { group: G, bar: T('type') });
+  scope.bind(LEAVE, () => type(), T('type into the terminal / back to the list'), { group: G });
+  scope.bind('z', () => { setFull(!full); if (full) type(); }, T('terminal full screen'), { group: G, bar: T('full screen') });
+  scope.bind('t', () => type({ takeover: true }), T("take over the agent's input from another herdr attach"), { group: G });
+  scope.bind('Escape', () => setFull(false), T('leave full screen'), { group: G, when: () => full });
+  scope.bind('v', () => { const r = cur(); if (r) openIssue(r.key); }, T("open issue (another site's in Jira)"), { group: G, bar: T('issue') });
+  scope.bind('o', () => { const r = cur(); if (r) openURL(away(r.key) ? issues.get(r.key).URL : app.session.baseURL + '/browse/' + r.key); }, T('open in Jira'), { group: G });
+  scope.bind('f', () => act('focus'), T('focus the agent in herdr'), { group: G });
+  scope.bind('p', () => act('prompt'), T('send the agent a prompt'), { group: G, bar: T('prompt') });
+  scope.bind('N', () => act('new'), T('new agent in its directory (the start form)'), { group: G, bar: T('new agent') });
+  scope.bind('S', () => { const r = cur(); if (r) app.agents.start(r.key, { another: !!r.agent, path: r.agent ? r.agent.CWD : '' }); }, T('start work on the issue (the start form; with an agent: another one beside it)'), { group: G, bar: T('start work') });
+  scope.bind('d', () => act('stop'), T('stop the agent (twice)'), { group: G, bar: T('stop') });
+  scope.bind('y', () => { const r = cur(); if (r && navigator.clipboard) navigator.clipboard.writeText(r.key).then(() => ui.toast(T('Copied %s', r.key))); }, T('copy key'), { group: G });
+  scope.bind('r', () => { app.agents.refresh(); ui.toast(T('Refreshed')); }, T('refresh'), { group: G });
 
   delegate(list, 'click', '.ag-row', (e, t) => { sel = +t.dataset.i; mark(); });
   delegate(list, 'dblclick', '.ag-row', (e, t) => openIssue(t.dataset.key));

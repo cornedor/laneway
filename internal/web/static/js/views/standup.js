@@ -12,8 +12,9 @@ import { projectOf, boardsOf, lastBoard, setCtx, switcher, recover } from './pla
 import { ymd, addDays, workdays } from '../lib/worktime.js';
 import { grip } from '../lib/grip.js';
 import mountBoard from './board.js';
+import { T, Tn } from '../lib/i18n.js';
 
-const PARK = 'Parking lot';
+const PARK = T('Parking lot');
 
 export default function mount(el, { app, scope, context, toolbar }) {
   css('work'); css('standup');
@@ -29,7 +30,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const heard = new Set();
 
   // The standup on the left, the board on the right, split at a share of the width kept in prefs (50% by default).
-  const root = h('div.standup'), boardEl = h('div.stboard'), gripEl = h('div.stgrip', { title: 'Drag to resize', role: 'separator' });
+  const root = h('div.standup'), boardEl = h('div.stboard'), gripEl = h('div.stgrip', { title: T('Drag to resize'), role: 'separator' });
   const split = h('div.stsplit', root, gripEl, boardEl);
   el.append(split);
   const showSplit = p => split.style.setProperty('--st-split', p + '%');
@@ -120,9 +121,9 @@ export default function mount(el, { app, scope, context, toolbar }) {
   const timerOn = () => !!(data && data.Settings.Timer);
   function pause() {
     const t = now();
-    if (!started) { started = t; run(); ui.toast("The standup's timer runs"); }
-    else if (!paused) { paused = t; clearInterval(tick); ui.toast('The timer is paused'); }
-    else { const away = t - paused; started += away; if (turn) turn += away; paused = 0; run(); ui.toast('The timer runs again'); }
+    if (!started) { started = t; run(); ui.toast(T("The standup's timer runs")); }
+    else if (!paused) { paused = t; clearInterval(tick); ui.toast(T('The timer is paused')); }
+    else { const away = t - paused; started += away; if (turn) turn += away; paused = 0; run(); ui.toast(T('The timer runs again')); }
     paintTimer();
   }
   // The timer's parts keep their width whatever it shows, so nothing beside them moves: the turn and the total in
@@ -136,15 +137,15 @@ export default function mount(el, { app, scope, context, toolbar }) {
     const left = started && turn && turnMs() ? turnMs() - (t - turn) : null;
     timerEl.append(
       h('span.stleft' + (left !== null && left < 0 ? '.over' + (paused ? '' : '.flash') : '') + (left === null ? '.idle' : ''),
-        h('span.stnum', left === null ? clock(turnMs()) : left < 0 ? '+' + clock(-left) : clock(left + 999)), h('span.dim', left !== null && left < 0 ? 'over' : 'left')),
-      h('span.sttotal' + (total > length ? '.over' : ''), h('span.stnum', clock(total)), ' of ', h('span.stnum', clock(length))),
-      h('button.btn.ghost.sm.stgo' + (paused ? '.on' : ''), { onclick: pause, title: started ? 'space' : 'space or → starts the timer' },
-        icon(!started || paused ? 'play' : 'pause'), !started ? 'Start' : paused ? 'Resume' : 'Pause'));
+        h('span.stnum', left === null ? clock(turnMs()) : left < 0 ? '+' + clock(-left) : clock(left + 999)), h('span.dim', left !== null && left < 0 ? T('over') : T('left'))),
+      h('span.sttotal' + (total > length ? '.over' : ''), h('span.stnum', clock(total)), T(' of '), h('span.stnum', clock(length))),
+      h('button.btn.ghost.sm.stgo' + (paused ? '.on' : ''), { onclick: pause, title: started ? 'space' : T('space or → starts the timer') },
+        icon(!started || paused ? 'play' : 'pause'), !started ? T('Start') : paused ? T('Resume') : T('Pause')));
   }
 
   // go moves to stop i, marking the person left heard; a turn starts on a person's stop, the timer with the first.
   function go(i) {
-    if (stops.length < 2) return ui.toast('No one is assigned a card on the board');
+    if (stops.length < 2) return ui.toast(T('No one is assigned a card on the board'));
     if (person().ID) heard.add(person().ID);
     at = (i + stops.length) % stops.length;
     turn = 0;
@@ -190,7 +191,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
     if (!ids || !ids.length) { if (at !== 0) go(0); return; }
     if (ids.length > 1) return;
     const i = stops.findIndex(s => s.Person.ID === ids[0]);
-    if (i < 0) return ui.toast("They aren't in the round: A picks who takes part");
+    if (i < 0) return ui.toast(T("They aren't in the round: A picks who takes part"));
     embedded.who = ids[0];
     if (i !== at) go(i);
   }
@@ -201,8 +202,8 @@ export default function mount(el, { app, scope, context, toolbar }) {
     const chips = stops.map((st, i) => {
       const p = st.Person;
       const cls = 'button.stchip' + (i === at ? '.cur' : '') + (p.ID && heard.has(p.ID) ? '.heard' : '') + (st.Quiet ? '.quiet' : '');
-      return h(cls, { onclick: () => go(i), title: p.ID ? p.Name + (st.Quiet ? ' · no changes' : '') : 'Everyone: the board walked right to left' },
-        p.ID ? avatar(p.Name, p.Avatar, 26) : h('span.stall', 'Everyone'),
+      return h(cls, { onclick: () => go(i), title: p.ID ? p.Name + (st.Quiet ? T(' · no changes') : '') : T('Everyone: the board walked right to left') },
+        p.ID ? avatar(p.Name, p.Avatar, 26) : h('span.stall', T('Everyone')),
         p.ID && heard.has(p.ID) && h('span.sttick', '✓'));
     });
     const st = stops[at] || { Person: {} }, all = (data.Stops || []).length - 1;
@@ -210,10 +211,10 @@ export default function mount(el, { app, scope, context, toolbar }) {
       h('div.stround', h('button.btn.ghost.sm', { onclick: () => go(at - 1), title: '←' }, icon('chevron-left')), h('div.stpeople', ...chips),
         h('button.btn.ghost.sm', { onclick: () => go(at + 1), title: '→' }, icon('chevron-right'))),
       h('div.stbar',
-        h('div.stwhom', st.Person.ID ? [h('span.stname', st.Person.Name), st.Quiet && h('span.dim', ' · no changes')] : h('span.stname', 'Everyone'),
-          h('span.dim', ' · ' + (at ? at + ' of ' + (stops.length - 1) : 'the board'))),
-        h('button.btn.ghost.sm', { onclick: pickPeople, title: 'A' }, "Who's in ", h('span.stnum.stcount', (stops.length - 1) + '/' + all)),
-        h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), 'Shuffle'),
+        h('div.stwhom', st.Person.ID ? [h('span.stname', st.Person.Name), st.Quiet && h('span.dim', T(' · no changes'))] : h('span.stname', T('Everyone')),
+          h('span.dim', ' · ' + (at ? T('%d of %d', at, stops.length - 1) : T('the board')))),
+        h('button.btn.ghost.sm', { onclick: pickPeople, title: 'A' }, T("Who's in "), h('span.stnum.stcount', (stops.length - 1) + '/' + all)),
+        h('button.btn.ghost.sm' + (shuffled ? '.on' : ''), { onclick: shuffle, title: 's' }, icon('shuffle'), T('Shuffle')),
         timerOn() && timerEl));
   }
 
@@ -234,21 +235,21 @@ export default function mount(el, { app, scope, context, toolbar }) {
     const was = (root.querySelector('.stpeople') || {}).scrollLeft || 0;
     clear(root);
     const label = since ? since.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' }) : '…';
-    root.append(h('div.sthead', h('div.sttitle', h('h2', 'Standup'), view && view.name && h('span.chip', { title: 'The view the board showed last' }, view.name), h('span.dim', 'since ' + label), data && data.Head && h('span.dim', data.Head), loading && data && h('span.dim', 'loading…')),
-      h('div.stbtns', h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, icon('chevron-left'), 'earlier'), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, 'later', icon('chevron-right')),
-        h('button.btn', { onclick: copy, title: 'y' }, 'Copy'))));
+    root.append(h('div.sthead', h('div.sttitle', h('h2', T('Standup')), view && view.name && h('span.chip', { title: T('The view the board showed last') }, view.name), h('span.dim', T('since %s', label)), data && data.Head && h('span.dim', data.Head), loading && data && h('span.dim', T('loading…'))),
+      h('div.stbtns', h('button.btn.ghost', { onclick: () => step(-1), title: '[' }, icon('chevron-left'), T('earlier')), h('button.btn.ghost', { onclick: () => step(1), title: ']' }, T('later'), icon('chevron-right')),
+        h('button.btn', { onclick: copy, title: 'y' }, T('Copy')))));
     if (err) return root.append(h('div.empty', err));
-    if (!data) return root.append(h('div.loading', 'Loading…'));
+    if (!data) return root.append(h('div.loading', T('Loading…')));
     root.append(strip());
     seePerson(was);
     paintTimer();
-    if (!lines.length) return root.append(h('div.empty', 'No changes since ' + label));
+    if (!lines.length) return root.append(h('div.empty', T('No changes since %s', label)));
     sel = Math.max(0, Math.min(sel, lines.length - 1));
     if (!picks(lines[sel])) stepSel(1);
     let sec = null;
     lines.forEach((l, i) => {
       if (l.Head) {
-        sec = h('section.stsec', h('h3', l.Head, l.Unfold && h('button.btn.ghost.sm', { onclick: () => { sel = i; unfold(); } }, ' show (z)')));
+        sec = h('section.stsec', h('h3', l.Head, l.Unfold && h('button.btn.ghost.sm', { onclick: () => { sel = i; unfold(); } }, T(' show (z)'))));
         return root.append(sec);
       }
       (sec || root).append(rowEl(l, i));
@@ -260,8 +261,8 @@ export default function mount(el, { app, scope, context, toolbar }) {
   function rowEl(l, i) {
     return h('div.strow' + (i === sel ? '.sel' : '') + (l.parked ? '.parked' : ''), { dataset: l.Key ? { key: l.Key, i } : { i } },
       h('span.wkey.mono', l.Key), h('div.main', h('span.wsum', l.Key ? l.Title.slice(l.Key.length + 1) : l.Title),
-        h('span.what' + (l.What === 'no activity' ? '.quiet' : ''), l.What || '')),
-      h('span.stwho' + (/stale/.test(l.Age || '') ? '.stale' : ''), cells(l).join(' · ')));
+        h('span.what' + (l.What === T('no activity') ? '.quiet' : ''), l.What || '')),
+      h('span.stwho' + ((l.Age || '').includes(T('stale')) ? '.stale' : ''), cells(l).join(' · ')));
   }
 
   function stepSel(d) {
@@ -273,7 +274,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   function unfold() {
     const i = lines.findIndex(l => l.Unfold);
-    if (i < 0) return ui.toast('Nothing folded');
+    if (i < 0) return ui.toast(T('Nothing folded'));
     lines[i] = { ...lines[i], Unfold: false };
     lines.splice(i + 1, 0, ...folded);
     folded = [];
@@ -282,35 +283,35 @@ export default function mount(el, { app, scope, context, toolbar }) {
 
   function park() {
     const l = lines[sel];
-    if (!l || !l.Key) return ui.toast('No card to park');
+    if (!l || !l.Key) return ui.toast(T('No card to park'));
     const i = parkedKeys.indexOf(l.Key);
     if (i >= 0) parkedKeys.splice(i, 1); else parkedKeys.push(l.Key);
     prefs.set(parkId(), parkedKeys.join(' '));
     const was = l.Key;
     build();
     sel = Math.max(0, lines.findIndex(x => x.Key === was && !x.parked));
-    ui.toast(was + (i >= 0 ? ' out of the parking lot' : ' parked for after the standup'));
+    ui.toast(i >= 0 ? T('%s out of the parking lot', was) : T('%s parked for after the standup', was));
     paint();
   }
 
   async function pickPeople() {
     const all = (data && data.Stops || []).slice(1).map(s => s.Person);
-    if (!all.length) return ui.toast('No one is assigned a card on the board');
-    const everyone = { ID: '', Name: 'Everyone on the board' };
-    const r = await ui.pick({ title: 'Who takes part', items: [everyone, ...all], multi: true, enterPicks: true, selected: all.filter(p => inPeople.includes(p.ID)), label: p => p.Name, placeholder: 'People…' });
+    if (!all.length) return ui.toast(T('No one is assigned a card on the board'));
+    const everyone = { ID: '', Name: T('Everyone on the board') };
+    const r = await ui.pick({ title: T('Who takes part'), items: [everyone, ...all], multi: true, enterPicks: true, selected: all.filter(p => inPeople.includes(p.ID)), label: p => p.Name, placeholder: T('People…') });
     if (!r || dead) return;
     inPeople = r.includes(everyone) ? [] : r.map(p => p.ID);
     prefs.set(peopleId(), inPeople.join(' '));
     order(person().ID, false);
     build(); sel = 0; if (lines.length && !picks(lines[0])) stepSel(1);
-    ui.toast(inPeople.length ? (stops.length - 1) + (stops.length === 2 ? ' person takes' : ' people take') + ' part' : 'Everyone on the board takes part');
+    ui.toast(inPeople.length ? Tn(stops.length - 1, '%d person takes part', '%d people take part', stops.length - 1) : T('Everyone on the board takes part'));
     paint();
   }
 
   function shuffle() {
     shuffled = !shuffled;
     if (data) { order(person().ID, true); build(); }
-    ui.toast(shuffled ? 'A random order' : "The board's order");
+    ui.toast(shuffled ? T('A random order') : T("The board's order"));
     paint();
   }
 
@@ -320,7 +321,7 @@ export default function mount(el, { app, scope, context, toolbar }) {
     try {
       await resolveBoard();
       if (sw && !dead) sw.label(project, board);
-      if (!board) throw new Error('No board found for ' + (project || 'this site') + '. alt+p picks a project.');
+      if (!board) throw new Error(project ? T('No board found for %s. alt+p picks a project.', project) : T('No board found for this site. alt+p picks a project.'));
       view = app.lastView && app.lastView.board === board.ID ? app.lastView : null;
       loadParked(); loadPeople();
       const q = (since ? 'since=' + ymd(since) + '&' : '') + 'board=' + board.ID + '&' + (view ? view.query : 'sprint=' + (sprint || 0));
@@ -350,34 +351,34 @@ export default function mount(el, { app, scope, context, toolbar }) {
     else {
       let x = addDays(since, 1);
       while (!wd.includes(x.getDay())) x = addDays(x, 1);
-      if (x < midnight) since = x; else return ui.toast('The previous workday is the latest to start from');
+      if (x < midnight) since = x; else return ui.toast(T('The previous workday is the latest to start from'));
     }
     sel = 0; load();
   }
   function copy() {
     if (!data) return;
-    navigator.clipboard.writeText(copyText()).then(() => ui.toast('Copied the standup'), e => ui.errToast(e));
+    navigator.clipboard.writeText(copyText()).then(() => ui.toast(T('Copied the standup')), e => ui.errToast(e));
   }
   const open = () => { const l = lines[sel]; if (!l) return; if (l.Unfold) unfold(); else if (l.Key) app.panel.open(l.Key); };
 
   delegate(root, 'click', '.strow', (e, row) => { sel = +row.dataset.i; paint(); if (row.dataset.key) app.panel.open(row.dataset.key); });
 
-  const G = { group: 'Standup' };
-  scope.bind(['j', 'ArrowDown'], () => move(1), 'next', G);
-  scope.bind(['k', 'ArrowUp'], () => move(-1), 'previous', G);
-  scope.bind(['l', 'ArrowRight'], () => go(at + 1), 'next person', { ...G, bar: 'person' });
-  scope.bind(['h', 'ArrowLeft'], () => go(at - 1), 'previous person', G);
-  scope.bind('Space', pause, 'start / pause the timer', { ...G, bar: 'timer', when: timerOn });
-  scope.bind('A', pickPeople, 'who takes part', { ...G, bar: "who's in" });
-  scope.bind('s', shuffle, 'a random order / the board\'s', G);
-  scope.bind('Enter', open, 'open issue (or show Off the board)', { ...G, bar: 'open' });
-  scope.bind('z', unfold, 'show Off the board', G);
-  scope.bind('P', park, 'park the card for after the standup', { ...G, bar: 'park' });
-  scope.bind('[', () => step(-1), 'a workday further back', { ...G, bar: 'day' });
-  scope.bind(']', () => step(1), 'a workday forward', { ...G, bar: 'day' });
-  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: 'Standup', onPick: r => { project = r.project; board = r.board; sprint = null; view = null; reset(); load(); } });
-  scope.bind('y', copy, 'copy the stop as markdown, parking lot included', { ...G, bar: 'copy' });
-  scope.bind('r', load, 'refresh', G);
+  const G = { group: T('Standup') };
+  scope.bind(['j', 'ArrowDown'], () => move(1), T('next'), G);
+  scope.bind(['k', 'ArrowUp'], () => move(-1), T('previous'), G);
+  scope.bind(['l', 'ArrowRight'], () => go(at + 1), T('next person'), { ...G, bar: T('person') });
+  scope.bind(['h', 'ArrowLeft'], () => go(at - 1), T('previous person'), G);
+  scope.bind('Space', pause, T('start / pause the timer'), { ...G, bar: T('timer'), when: timerOn });
+  scope.bind('A', pickPeople, T('who takes part'), { ...G, bar: T("who's in") });
+  scope.bind('s', shuffle, T("a random order / the board's"), G);
+  scope.bind('Enter', open, T('open issue (or show Off the board)'), { ...G, bar: T('open') });
+  scope.bind('z', unfold, T('show Off the board'), G);
+  scope.bind('P', park, T('park the card for after the standup'), { ...G, bar: T('park') });
+  scope.bind('[', () => step(-1), T('a workday further back'), { ...G, bar: T('day') });
+  scope.bind(']', () => step(1), T('a workday forward'), { ...G, bar: T('day') });
+  sw = switcher(app, { scope, context, project, board: null, scrum: false, group: T('Standup'), onPick: r => { project = r.project; board = r.board; sprint = null; view = null; reset(); load(); } });
+  scope.bind('y', copy, T('copy the stop as markdown, parking lot included'), { ...G, bar: T('copy') });
+  scope.bind('r', load, T('refresh'), G);
 
   clear(toolbar);
   load();
