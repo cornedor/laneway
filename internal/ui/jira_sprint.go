@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // jiraBacklogID is the sprint picker's backlog row.
@@ -25,14 +26,14 @@ func (m *Model) openJiraSprintPicker() {
 		case jiraViewSprint:
 			items = append(items, jiraPickerItem{id: strconv.Itoa(v.sprint), label: v.name, current: cur})
 		case jiraViewBacklog:
-			items = append(items, jiraPickerItem{id: jiraBacklogID, label: "Backlog", current: cur})
+			items = append(items, jiraPickerItem{id: jiraBacklogID, label: i18n.T("Backlog"), current: cur})
 		}
 	}
 	if len(items) == 0 {
-		m.status = "this board has no sprints"
+		m.status = i18n.T("this board has no sprints")
 		return
 	}
-	m.startJiraPicker(jiraPickSprint, "Move "+c.Key+" to", true)
+	m.startJiraPicker(jiraPickSprint, i18n.Tf("Move %s to", c.Key), true)
 	m.jiraPicker.issueKey = c.Key
 	m.setJiraPickerItems(items)
 }
@@ -50,6 +51,6 @@ func (m *Model) moveJiraToSprint(keys []string, it jiraPickerItem) tea.Cmd {
 	}
 	m.undoSprintMove(keys)
 	key := strings.Join(keys, ", ")
-	m.status = "moving " + key + " to " + it.label + "…"
+	m.status = i18n.Tf("moving %s to %s…", key, it.label)
 	return jiraMutateCmd(key, "sprint", run)
 }

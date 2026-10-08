@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/cornedor/laneway/internal/editor"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -161,7 +163,7 @@ func (m *Model) prepareJiraMove(key, to string, origin jiraFormOrigin, want func
 		}
 		i := slices.IndexFunc(metas, want)
 		if i < 0 {
-			msg.err = fmt.Errorf("no transition to %s from here", to)
+			msg.err = errors.New(i18n.Tf("no transition to %s from here", to))
 			return msg
 		}
 		t := metas[i]
@@ -216,7 +218,7 @@ func buildJiraForm(key string, t jira.TransitionMeta, rule jira.TransitionRule, 
 		}
 		fm := jira.FieldMeta{ID: id, Name: id, Kind: jira.KindOther}
 		if id == jira.CommentField {
-			fm.Name, fm.Kind = "Comment", jira.KindComment
+			fm.Name, fm.Kind = i18n.T("Comment"), jira.KindComment
 		}
 		ff := jiraFormField{FieldMeta: fm, required: true}
 		if fm.Kind == jira.KindOther {
@@ -244,14 +246,14 @@ func buildJiraForm(key string, t jira.TransitionMeta, rule jira.TransitionRule, 
 // startJiraMoveFromPanel moves the panel's issue along a transition picked in
 // the status picker.
 func (m *Model) startJiraMoveFromPanel(key, transitionID, to string) tea.Cmd {
-	m.status = fmt.Sprintf("moving %s → %s…", key, to)
+	m.status = i18n.Tf("moving %s → %s…", key, to)
 	return m.prepareJiraMove(key, to, jiraFromPanel, func(t jira.TransitionMeta) bool { return t.ID == transitionID })
 }
 
 func (m Model) handleJiraPrepared(msg jiraPreparedMsg) (tea.Model, tea.Cmd) {
 	if msg.form != nil {
 		m.jiraForm = msg.form
-		m.status = fmt.Sprintf("%s → %s needs a few fields", msg.key, msg.to)
+		m.status = i18n.Tf("%s → %s needs a few fields", msg.key, msg.to)
 		return m, nil
 	}
 	return m.finishJiraMove(msg.key, msg.to, msg.origin, msg.err)
@@ -288,17 +290,17 @@ func (m *Model) cancelJiraForm() tea.Cmd {
 		if typed && !f.create.discard {
 			m.jiraForm = f // kept: a second esc drops it
 			f.create.discard = true
-			f.err = "esc again drops what you typed"
+			f.err = i18n.T("esc again drops what you typed")
 			return nil
 		}
-		m.status = "create cancelled"
+		m.status = i18n.T("create cancelled")
 		return nil
 	}
 	if f.work {
-		m.status = f.key + ": start work cancelled"
+		m.status = i18n.Tf("%s: start work cancelled", f.key)
 		return nil
 	}
-	m.status = f.key + ": move cancelled"
+	m.status = i18n.Tf("%s: move cancelled", f.key)
 	if f.origin == jiraFromBoard {
 		return m.loadJiraCards(m.jiraTab.viewIdx, false)
 	}
@@ -495,7 +497,7 @@ func (m *Model) editJiraFormField() tea.Cmd {
 		ff.Options = m.sprintOptions()
 		return m.openFieldPicker(*ff, f.key)
 	default:
-		f.err = ff.Name + " can't be set here — set it in Jira (esc, then o)"
+		f.err = i18n.Tf("%s can't be set here — set it in Jira (esc, then o)", ff.Name)
 	}
 	return nil
 }
@@ -537,7 +539,8 @@ func (m *Model) pickJiraFormValue(kind jiraPickerKind, it jiraPickerItem) {
 func pickFieldValue(ff *jiraFormField, kind jiraPickerKind, it jiraPickerItem) {
 	ff.changed = true
 	if kind == jiraPickFormUser {
-		label := strings.TrimSuffix(strings.TrimPrefix(it.label, "Assign to me ("), ")")
+		pre, post, _ := strings.Cut(i18n.T("Assign to me (%s)"), "%s")
+		label := strings.TrimSuffix(strings.TrimPrefix(it.label, pre), post)
 		u := jira.User{AccountID: it.id, DisplayName: label}
 		switch {
 		case it.id == "":
@@ -623,7 +626,7 @@ func (m *Model) submitJiraForm() tea.Cmd {
 		}
 		v, ok, err := jira.EncodeValue(ff.Kind, ff.val)
 		if err != nil {
-			f.err = ff.Name + ": " + err.Error()
+			f.err = fmt.Sprintf("%s: %s", ff.Name, err.Error())
 			return nil
 		}
 		if ok {
@@ -631,7 +634,7 @@ func (m *Model) submitJiraForm() tea.Cmd {
 		}
 	}
 	if len(missing) > 0 {
-		f.err = "fill in " + strings.Join(missing, ", ")
+		f.err = i18n.Tf("fill in %s", strings.Join(missing, ", "))
 		return nil
 	}
 	if f.create != nil {
@@ -768,12 +771,12 @@ func (m *Model) renderJiraForm() string {
 	outerW := min(max(confirmDialogMaxWidth+16, 40), m.width-4)
 	inner := max(outerW-8, 1)
 	center := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center)
-	title, button, busy := f.key+" → "+f.to, "[ Move to "+f.to+" ]", "moving…"
+	title, button, busy := f.key+" → "+f.to, i18n.Tf("[ Move to %s ]", f.to), i18n.T("moving…")
 	if f.create != nil {
-		title, button, busy = f.key, "[ Create ]", "creating…"
+		title, button, busy = f.key, i18n.T("[ Create ]"), i18n.T("creating…")
 	}
 	if f.work {
-		title, button, busy = "Start work on "+f.key, "[ Start work ]", "starting…"
+		title, button, busy = i18n.Tf("Start work on %s", f.key), i18n.T("[ Start work ]"), i18n.T("starting…")
 	}
 	parts := []string{center.Bold(true).Render(title)}
 	onCreate := f.create != nil && f.create.form
@@ -832,16 +835,13 @@ func (m *Model) renderJiraForm() string {
 			f.input.SetWidth(max(inner-2-nameW-3, 8)) // its cell, so the cursor stays in view
 			val = f.input.View()
 		case ff.val.Empty() && ff.required:
-			val = gitlabWarnStyle.Render("required")
+			val = gitlabWarnStyle.Render(i18n.T("required"))
 		case ff.val.Empty():
 			val = refDimStyle.Render("—")
 		default:
 			val = jiraValueText(ff.val)
 			if lines := strings.Split(strings.TrimSpace(ff.val.Text), "\n"); len(ff.val.Users)+len(ff.val.Options) == 0 && len(lines) > 1 {
-				more := " +1 line"
-				if len(lines) > 2 {
-					more = fmt.Sprintf(" +%d lines", len(lines)-1)
-				}
+				more := i18n.Tn(len(lines)-1, " +%d line", " +%d lines", len(lines)-1)
 				more = refDimStyle.Render(more)
 				val = ansi.Truncate(lines[0], max(inner-2-nameW-2-lipgloss.Width(more), 1), "…") + more
 			}
@@ -869,36 +869,36 @@ func (m *Model) renderJiraForm() string {
 	}
 	var foot []string
 	if f.create != nil && f.create.loading {
-		foot = append(foot, refDimStyle.Render("  "+createFormType(f)+"'s fields loading…"))
+		foot = append(foot, refDimStyle.Render(i18n.Tf("  %s's fields loading…", createFormType(f))))
 	}
 	foot = append(foot, "", button)
 	if f.err != "" && !onCreate {
 		foot = append(foot, "", lipgloss.NewStyle().Width(inner).Render(refErrStyle.Render(f.err)))
 	}
-	hint := "tab/↑↓ field · ↵ edit · del clear · ctrl+s move · esc cancel"
+	hint := i18n.T("tab/↑↓ field · ↵ edit · del clear · ctrl+s move · esc cancel")
 	if f.create != nil {
-		hint = "tab/↑↓ field · ↵ edit · del clear · ctrl+s create · esc back"
+		hint = i18n.T("tab/↑↓ field · ↵ edit · del clear · ctrl+s create · esc back")
 	}
 	if f.work {
-		hint = "tab/↑↓ field · ↵ edit · del clear · ctrl+s start · esc cancel"
+		hint = i18n.T("tab/↑↓ field · ↵ edit · del clear · ctrl+s start · esc cancel")
 	}
 	if onCreate {
-		hint = "tab/↑↓ field · ↵ edit · ← → type · ctrl+s create · alt+↵ create another · esc cancel"
+		hint = i18n.T("tab/↑↓ field · ↵ edit · ← → type · ctrl+s create · alt+↵ create another · esc cancel")
 		if missing := missingFields(f); len(missing) > 0 {
-			hint = "fill in " + strings.Join(missing, ", ") + " to create · tab/↑↓ field · esc cancel"
+			hint = i18n.Tf("fill in %s to create · tab/↑↓ field · esc cancel", strings.Join(missing, ", "))
 		}
 	}
 	switch {
 	case f.multiline && onCreate && f.fields[f.idx].ID == createDescField:
-		hint = "ctrl+s keep · tab field · ↵ newline · @ mention · : emoji · esc undo"
+		hint = i18n.T("ctrl+s keep · tab field · ↵ newline · @ mention · : emoji · esc undo")
 	case f.multiline:
-		hint = "ctrl+s keep · tab field · ↵ newline · esc undo"
+		hint = i18n.T("ctrl+s keep · tab field · ↵ newline · esc undo")
 	case f.editing && onCreate && f.fields[f.idx].ID == createSummaryField:
-		hint = "↵ create · alt+↵ create another · tab/↑↓ field · esc undo"
+		hint = i18n.T("↵ create · alt+↵ create another · tab/↑↓ field · esc undo")
 	case f.editing:
-		hint = "↵ keep · tab/↑↓ field · esc undo"
+		hint = i18n.T("↵ keep · tab/↑↓ field · esc undo")
 	case f.work && f.idx < len(f.fields) && f.fields[f.idx].ID == workActionsField:
-		hint = "tab/↑↓ field · ↵ toggle · ctrl+s start · esc cancel"
+		hint = i18n.T("tab/↑↓ field · ↵ toggle · ctrl+s start · esc cancel")
 	}
 	foot = append(foot, "", center.Foreground(dimColor).Italic(true).Render(hint))
 
@@ -911,7 +911,7 @@ func (m *Model) renderJiraForm() string {
 	lo, hi := f.fieldWindow(blocks, room)
 	f.rowField = nil
 	if lo > 0 {
-		parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↑ %d more", lo)))
+		parts = append(parts, refDimStyle.Render(i18n.Tf("  ↑ %d more", lo)))
 		f.rowField = append(f.rowField, -1)
 	}
 	for i := lo; i < hi; i++ {
@@ -928,7 +928,7 @@ func (m *Model) renderJiraForm() string {
 		}
 	}
 	if hi < len(blocks) {
-		parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↓ %d more", len(blocks)-hi)))
+		parts = append(parts, refDimStyle.Render(i18n.Tf("  ↓ %d more", len(blocks)-hi)))
 		f.rowField = append(f.rowField, -1)
 	}
 	f.buttonRow = len(f.rowField) + slices.Index(foot, button)

@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -14,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -59,7 +61,7 @@ func (m *Model) toggleJiraMark() {
 	t.toggleMark(c)
 	t.rows = nil
 	m.moveJiraCursor(1)
-	m.status = fmt.Sprintf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
+	m.status = i18n.Tf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
 }
 
 // toggleJiraMarkAll marks every card the cursor's lane shows (the list's
@@ -90,7 +92,7 @@ func (m *Model) toggleJiraMarkAll() {
 	}
 	t.rows = nil
 	m.renderJira()
-	m.status = fmt.Sprintf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
+	m.status = i18n.Tf("%d marked · %s edits them · esc clears", len(t.marked), helpKey(m.keys.Bulk))
 }
 
 // markedKeys are the marked cards, sorted; a quick edit's one card instead
@@ -122,13 +124,15 @@ func (m *Model) jiraMark(key string) string {
 }
 
 // bulkFields are what a bulk or quick edit changes.
-var bulkFields = []jiraPickerItem{
-	{id: "status", label: "Status"},
-	{id: "priority", label: "Priority"},
-	{id: "assignee", label: "Assignee"},
-	{id: "labels", label: "Labels (+add -remove)"},
-	{id: "points", label: "Story points"},
-	{id: "sprint", label: "Sprint / backlog"},
+func bulkFields() []jiraPickerItem {
+	return []jiraPickerItem{
+		{id: "status", label: i18n.T("Status")},
+		{id: "priority", label: i18n.T("Priority")},
+		{id: "assignee", label: i18n.T("Assignee")},
+		{id: "labels", label: i18n.T("Labels (+add -remove)")},
+		{id: "points", label: i18n.T("Story points")},
+		{id: "sprint", label: i18n.T("Sprint / backlog")},
+	}
 }
 
 // withValues shows each field's value on cards dim after its label: the
@@ -144,14 +148,14 @@ func withValues(items []jiraPickerItem, cards []jira.Card) []jiraPickerItem {
 		case "priority":
 			return c.Priority
 		case "assignee":
-			return cmp.Or(c.Assignee, "unassigned")
+			return cmp.Or(c.Assignee, i18n.T("unassigned"))
 		case "labels":
 			return c.Labels
 		case "points":
 			return c.Points
 		case "sprint":
 			if c.Sprint == "" {
-				return "backlog"
+				return i18n.T("backlog")
 			}
 			return c.Sprint
 		}
@@ -165,7 +169,7 @@ func withValues(items []jiraPickerItem, cards []jira.Card) []jiraPickerItem {
 		v := value(it.id, cards[0])
 		for _, c := range cards[1:] {
 			if value(it.id, c) != v {
-				v = "mixed"
+				v = i18n.T("mixed")
 			}
 		}
 		if v == "" {
@@ -194,11 +198,11 @@ func (m *Model) openBulkMenu() {
 	m.quickKey = ""
 	keys := m.markedKeys()
 	if len(keys) == 0 {
-		m.status = "mark cards with " + helpKey(m.keys.Mark) + " first"
+		m.status = i18n.Tf("mark cards with %s first", helpKey(m.keys.Mark))
 		return
 	}
-	m.startJiraPicker(jiraPickBulk, fmt.Sprintf("Edit %d marked", len(keys)), false)
-	m.setJiraPickerItems(append(withValues(slices.Clone(bulkFields), m.cardsByKey(keys...)), jiraPickerItem{id: "clear", label: "Clear marks"}))
+	m.startJiraPicker(jiraPickBulk, i18n.Tf("Edit %d marked", len(keys)), false)
+	m.setJiraPickerItems(append(withValues(bulkFields(), m.cardsByKey(keys...)), jiraPickerItem{id: "clear", label: i18n.T("Clear marks")}))
 }
 
 // openQuickEdit edits the selected card from the board with the bulk
@@ -212,8 +216,8 @@ func (m *Model) openQuickEdit() {
 // openQuickEditKey edits key with the bulk editors.
 func (m *Model) openQuickEditKey(key string) {
 	m.quickKey = key
-	m.startJiraPicker(jiraPickBulk, "Edit "+key, false)
-	m.setJiraPickerItems(withValues(slices.Clone(bulkFields), m.cardsByKey(key)))
+	m.startJiraPicker(jiraPickBulk, i18n.Tf("Edit %s", key), false)
+	m.setJiraPickerItems(withValues(bulkFields(), m.cardsByKey(key)))
 }
 
 // submenuHint marks a card menu row that opens a list beside it.
@@ -222,23 +226,23 @@ const submenuHint = "▸"
 // cardMenu is what a right-click on a card offers: the quick edit's fields,
 // then the card's own keys, each shown with its key.
 func (m *Model) cardMenu() []jiraPickerItem {
-	items := slices.Clone(bulkFields)
+	items := bulkFields()
 	for i, it := range items {
 		switch it.id {
 		case "status", "priority", "assignee", "sprint":
 			items[i].hint = submenuHint
 		case "labels":
-			items[i].label = "Labels"
+			items[i].label = i18n.T("Labels")
 		}
 	}
 	for _, a := range []struct {
 		id, label string
 		b         key.Binding
 	}{
-		{"open", "Open in the panel", m.keys.OpenChannel},
-		{"browser", "Open in the browser", m.keys.OpenAttach},
-		{"copy-key", "Copy the key", m.keys.CopyKey},
-		{"pin", "Pin / unpin", m.keys.Pin},
+		{"open", i18n.T("Open in the panel"), m.keys.OpenChannel},
+		{"browser", i18n.T("Open in the browser"), m.keys.OpenAttach},
+		{"copy-key", i18n.T("Copy the key"), m.keys.CopyKey},
+		{"pin", i18n.T("Pin / unpin"), m.keys.Pin},
 	} {
 		items = append(items, jiraPickerItem{id: "key:" + firstKey(a.b), label: a.label, hint: helpKey(a.b)})
 	}
@@ -285,12 +289,12 @@ func (m Model) rightClickJira(h hit, x, y int) (tea.Model, tea.Cmd) {
 // applyBulkMenu opens the picked field's editor for the marked cards.
 func (m *Model) applyBulkMenu(id string) tea.Cmd {
 	keys := m.markedKeys()
-	title := func(what string) string { return fmt.Sprintf("%s — %d issues", what, len(keys)) }
+	title := func(what string) string { return i18n.Tf("%s — %d issues", what, len(keys)) }
 	client, ctx := m.jiraClient, m.ctx
 	switch id {
 	case "status":
 		// Moves are per issue; the first one's names stand for all.
-		gen := m.startJiraPicker(jiraPickStatus, title("Set status"), false)
+		gen := m.startJiraPicker(jiraPickStatus, title(i18n.T("Set status")), false)
 		seq := m.jiraPicker.fetchSeq
 		m.jiraPicker.bulk = keys
 		return func() tea.Msg {
@@ -302,7 +306,7 @@ func (m *Model) applyBulkMenu(id string) tea.Cmd {
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickStatus, items: items, err: err}
 		}
 	case "priority":
-		gen := m.startJiraPicker(jiraPickPriority, title("Set priority"), false)
+		gen := m.startJiraPicker(jiraPickPriority, title(i18n.T("Set priority")), false)
 		seq := m.jiraPicker.fetchSeq
 		m.jiraPicker.bulk = keys
 		return func() tea.Msg {
@@ -314,19 +318,19 @@ func (m *Model) applyBulkMenu(id string) tea.Cmd {
 			return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickPriority, items: items, err: err}
 		}
 	case "assignee":
-		gen := m.startJiraPicker(jiraPickAssignee, title("Set assignee"), true)
+		gen := m.startJiraPicker(jiraPickAssignee, title(i18n.T("Set assignee")), true)
 		m.jiraPicker.issueKey = keys[0]
 		m.jiraPicker.curAssignee = "-" // no ✓: the marked cards differ
 		m.jiraPicker.bulk = keys
 		return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, keys[0], "")
 	case "labels":
-		m.openBulkInput("bulk-labels", "ui -old: add ui, remove old")
+		m.openBulkInput("bulk-labels", i18n.T("ui -old: add ui, remove old"))
 	case "points":
-		m.openBulkInput("bulk-points", "number (empty clears)")
+		m.openBulkInput("bulk-points", i18n.T("number (empty clears)"))
 	case "sprint":
 		m.openJiraSprintPicker()
 		if m.jiraPicker.active {
-			m.jiraPicker.title = title("Move")
+			m.jiraPicker.title = title(i18n.T("Move"))
 			m.jiraPicker.bulk = keys
 		}
 	case "clear":
@@ -345,7 +349,7 @@ func (m *Model) openBulkInput(field, placeholder string) {
 	m.jiraFieldInput = ti
 	m.jiraFieldActive = true
 	m.jiraFieldName = field
-	m.jiraFieldKey = fmt.Sprintf("%d issues", len(m.markedKeys()))
+	m.jiraFieldKey = i18n.Tf("%d issues", len(m.markedKeys()))
 	if keys := m.markedKeys(); len(keys) == 1 {
 		m.jiraFieldKey = keys[0] // a quick edit, or one marked
 	}
@@ -364,11 +368,11 @@ func (m *Model) applyBulkPick(kind jiraPickerKind, keys []string, it jiraPickerI
 	case jiraPickStatus:
 		return m.prepareBulkMove(keys, it.id)
 	case jiraPickPriority:
-		return m.runBulk("priority "+it.label, keys, func(ctx context.Context, key string) error {
+		return m.runBulk(i18n.Tf("priority %s", it.label), keys, func(ctx context.Context, key string) error {
 			return client.SetPriority(ctx, key, it.id)
 		})
 	case jiraPickAssignee:
-		return m.runBulk("assignee", keys, func(ctx context.Context, key string) error {
+		return m.runBulk(i18n.T("assignee"), keys, func(ctx context.Context, key string) error {
 			return client.SetAssignee(ctx, key, it.id)
 		})
 	case jiraPickSprint:
@@ -392,7 +396,7 @@ type bulkMoveMsg struct {
 func (m *Model) prepareBulkMove(keys []string, to string) tea.Cmd {
 	want := func(t jira.TransitionMeta) bool { return strings.EqualFold(t.ToName, to) }
 	c, ctx := m.jiraClient, m.ctx
-	m.status = "checking what " + to + " needs…"
+	m.status = i18n.Tf("checking what %s needs…", to)
 	return func() tea.Msg {
 		// Only look: prepareJiraMove would move a card that needs nothing.
 		metas, err := c.TransitionsMeta(ctx, keys[0])
@@ -422,11 +426,11 @@ func (m *Model) prepareBulkMove(keys []string, to string) tea.Cmd {
 func (m Model) handleBulkMove(msg bulkMoveMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		m.fail("status: " + msg.err.Error())
+		m.fail(i18n.Tf("status: %s", msg.err.Error()))
 		return m, nil
 	case msg.form != nil:
 		m.jiraForm = msg.form
-		m.status = fmt.Sprintf("→ %s needs a few fields, for all %d cards", msg.to, len(msg.keys))
+		m.status = i18n.Tf("→ %s needs a few fields, for all %d cards", msg.to, len(msg.keys))
 		return m, nil
 	}
 	return m, m.bulkTransition(msg.keys, msg.to, nil, "")
@@ -436,7 +440,7 @@ func (m Model) handleBulkMove(msg bulkMoveMsg) (tea.Model, tea.Cmd) {
 // issue's workflow offers, with fields and comment when given.
 func (m *Model) bulkTransition(keys []string, to string, fields map[string]any, comment string) tea.Cmd {
 	c := m.jiraClient
-	return m.runBulk("status "+to, keys, func(ctx context.Context, key string) error {
+	return m.runBulk(i18n.Tf("status %s", to), keys, func(ctx context.Context, key string) error {
 		metas, err := c.TransitionsMeta(ctx, key)
 		if err != nil {
 			return err
@@ -446,7 +450,7 @@ func (m *Model) bulkTransition(keys []string, to string, fields map[string]any, 
 				return c.TransitionWith(ctx, key, t.ID, fields, comment)
 			}
 		}
-		return fmt.Errorf("no move to %s", to)
+		return errors.New(i18n.Tf("no move to %s", to))
 	})
 }
 
@@ -454,13 +458,13 @@ func (m *Model) bulkTransition(keys []string, to string, fields map[string]any, 
 func bulkAsk(kind jiraPickerKind, label string, n int) string {
 	switch kind {
 	case jiraPickStatus, jiraPickSprint:
-		return fmt.Sprintf("enter again moves %d issues to %s", n, label)
+		return i18n.Tf("enter again moves %d issues to %s", n, label)
 	case jiraPickPriority:
-		return fmt.Sprintf("enter again sets priority %s on %d issues", label, n)
+		return i18n.Tf("enter again sets priority %s on %d issues", label, n)
 	case jiraPickAssignee:
-		return fmt.Sprintf("enter again assigns %d issues to %s", n, label)
+		return i18n.Tf("enter again assigns %d issues to %s", n, label)
 	}
-	return fmt.Sprintf("enter again sets %s on %d issues", label, n)
+	return i18n.Tf("enter again sets %s on %d issues", label, n)
 }
 
 // applyBulkField writes the bulk input's labels or points, on more than one
@@ -469,11 +473,11 @@ func (m Model) applyBulkField(field, raw string) (tea.Model, tea.Cmd) {
 	keys := m.markedKeys()
 	if len(keys) > 1 && m.jiraFieldAsked != raw {
 		m.jiraFieldAsked = raw
-		what := "points " + cmp.Or(strings.TrimSpace(raw), "cleared")
+		what := i18n.Tf("points %s", cmp.Or(strings.TrimSpace(raw), i18n.T("cleared")))
 		if field == "bulk-labels" {
-			what = "labels " + raw
+			what = i18n.Tf("labels %s", raw)
 		}
-		m.status = fmt.Sprintf("enter again sets %s on %d issues", what, len(keys))
+		m.status = i18n.Tf("enter again sets %s on %d issues", what, len(keys))
 		return m, nil
 	}
 	m.closeJiraField()
@@ -489,7 +493,7 @@ func (m *Model) bulkFieldWrite(field, raw string, keys []string) tea.Cmd {
 	client := m.jiraClient
 	if field == "bulk-points" {
 		m.undoEach("points", keys, func(ctx context.Context, cd jira.Card) error { return client.SetStoryPoints(ctx, cd.Key, cd.Points) })
-		return m.runBulk("points", keys, func(ctx context.Context, key string) error {
+		return m.runBulk(i18n.T("points"), keys, func(ctx context.Context, key string) error {
 			return client.SetStoryPoints(ctx, key, raw)
 		})
 	}
@@ -507,7 +511,7 @@ func (m *Model) bulkFieldWrite(field, raw string, keys []string) tea.Cmd {
 	m.undoEach("labels", keys, func(ctx context.Context, cd jira.Card) error {
 		return client.SetLabels(ctx, cd.Key, strings.Fields(cd.Labels))
 	})
-	return m.runBulk("labels", keys, func(ctx context.Context, key string) error {
+	return m.runBulk(i18n.T("labels"), keys, func(ctx context.Context, key string) error {
 		return client.EditLabels(ctx, key, add, remove)
 	})
 }
@@ -518,7 +522,7 @@ const bulkWorkers = 4
 
 // runBulk runs write for every key, a few at a time.
 func (m *Model) runBulk(what string, keys []string, write func(ctx context.Context, key string) error) tea.Cmd {
-	m.status = fmt.Sprintf("updating %s on %d issues…", what, len(keys))
+	m.status = i18n.Tf("updating %s on %d issues…", what, len(keys))
 	ctx, quick := m.ctx, m.quickKey != ""
 	return func() tea.Msg {
 		failed := map[string]error{}
@@ -552,10 +556,10 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 		if m.quickKey == msg.keys[0] {
 			m.quickKey = ""
 		}
-		m.status = msg.what + " set on " + strings.Join(msg.keys, ", ")
+		m.status = i18n.Tf("%s set on %s", msg.what, strings.Join(msg.keys, ", "))
 		m.noteRefine(m.status)
 		for k, err := range msg.failed {
-			m.fail(k + ": " + msg.what + ": " + err.Error())
+			m.fail(fmt.Sprintf("%s: %s: %s", k, msg.what, err.Error()))
 		}
 		t.rows = nil
 		m.renderJira()
@@ -581,17 +585,17 @@ func (m Model) handleBulkDone(msg bulkDoneMsg) (tea.Model, tea.Cmd) {
 	}
 	t.rows = nil
 	ok := len(msg.keys) - len(msg.failed)
-	m.status = fmt.Sprintf("%s set on %d", msg.what, ok)
+	m.status = i18n.Tf("%s set on %d", msg.what, ok)
 	if len(msg.failed) > 0 {
 		for _, k := range slices.Sorted(maps.Keys(msg.failed)) {
 			m.logError(k + ": " + msg.what + ": " + msg.failed[k].Error()) // each reason, in messages
 		}
 		if len(msg.failed) == 1 {
 			for k, err := range msg.failed {
-				m.fail(m.status + fmt.Sprintf(" · %s failed (still marked): %v", k, err))
+				m.fail(m.status + i18n.Tf(" · %s failed (still marked): %v", k, err))
 			}
 		} else {
-			m.fail(m.status + fmt.Sprintf(" · %d failed (still marked) · %s messages says why", len(msg.failed), helpKey(m.keys.Palette)))
+			m.fail(m.status + i18n.Tf(" · %d failed (still marked) · %s messages says why", len(msg.failed), helpKey(m.keys.Palette)))
 		}
 	}
 	cmds := []tea.Cmd{m.refreshJiraAfterEdit()}

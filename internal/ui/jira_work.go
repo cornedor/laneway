@@ -3,6 +3,7 @@ package ui
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -14,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -59,7 +61,7 @@ var agentKinds = []string{"claude", "codex", "gemini", "opencode", "cursor", "co
 func (m *Model) startJiraWork() tea.Cmd {
 	iss := m.jiraIssue
 	if m.herdr == nil {
-		m.status = "start work needs herdr: " + m.noHerdr()
+		m.status = i18n.Tf("start work needs herdr: %s", m.noHerdr())
 		return nil
 	}
 	if as := m.agents[iss.Key]; len(as) > 0 {
@@ -67,7 +69,7 @@ func (m *Model) startJiraWork() tea.Cmd {
 	}
 	project, _, _ := strings.Cut(iss.Key, "-")
 	if m.jiraRepos[project] == "" {
-		m.status = "no jira.repos entry for " + project
+		m.status = i18n.Tf("no jira.repos entry for %s", project)
 		return nil
 	}
 	if m.jiraStarting[iss.Key] {
@@ -109,12 +111,12 @@ func (m *Model) openWorkForm(iss *jira.Issue) {
 		prompt = ""
 	}
 	f := &jiraFormState{key: iss.Key, origin: jiraFromPanel, work: true, fields: []jiraFormField{
-		{FieldMeta: jira.FieldMeta{ID: workAgentField, Name: "Agent", Kind: jira.KindOption, Options: kinds}, val: jira.Value{Options: kinds[:1]}},
-		{FieldMeta: jira.FieldMeta{ID: workBranchField, Name: "Branch", Kind: jira.KindText}, val: jira.Value{Text: branch}},
-		{FieldMeta: jira.FieldMeta{ID: workPromptField, Name: "Prompt", Kind: jira.KindDoc}, val: jira.Value{Text: prompt}},
+		{FieldMeta: jira.FieldMeta{ID: workAgentField, Name: i18n.T("Agent"), Kind: jira.KindOption, Options: kinds}, val: jira.Value{Options: kinds[:1]}},
+		{FieldMeta: jira.FieldMeta{ID: workBranchField, Name: i18n.T("Branch"), Kind: jira.KindText}, val: jira.Value{Text: branch}},
+		{FieldMeta: jira.FieldMeta{ID: workPromptField, Name: i18n.T("Prompt"), Kind: jira.KindDoc}, val: jira.Value{Text: prompt}},
 	}}
 	if acts := m.startActions(iss.Key); len(acts) > 0 {
-		f.fields = append(f.fields, jiraFormField{FieldMeta: jira.FieldMeta{ID: workActionsField, Name: "Also"},
+		f.fields = append(f.fields, jiraFormField{FieldMeta: jira.FieldMeta{ID: workActionsField, Name: i18n.T("Also")},
 			val: jira.Value{Text: strings.Join(acts, " · ")}})
 	}
 	f.idx = len(f.fields)
@@ -136,13 +138,13 @@ func (m *Model) startStatus(key string) string {
 func (m *Model) startActions(key string) []string {
 	var acts []string
 	if m.opts.startAssigns {
-		acts = append(acts, "assign to you")
+		acts = append(acts, i18n.T("assign to you"))
 	}
 	if s := m.startStatus(key); s != "" {
-		acts = append(acts, "move to "+s)
+		acts = append(acts, i18n.Tf("move to %s", s))
 	}
 	if m.opts.timerOnStart {
-		acts = append(acts, "start timer")
+		acts = append(acts, i18n.T("start timer"))
 	}
 	return acts
 }
@@ -171,7 +173,7 @@ func (m *Model) submitWorkForm() tea.Cmd {
 		kind = o[0].ID
 	}
 	if kind == "" {
-		f.err = "pick an agent"
+		f.err = i18n.T("pick an agent")
 		return nil
 	}
 	skip := false
@@ -190,7 +192,7 @@ func (m *Model) submitWorkForm() tea.Cmd {
 		m.jiraStarting = map[string]bool{}
 	}
 	m.jiraStarting[key] = true
-	m.status = key + ": starting work…"
+	m.status = i18n.Tf("%s: starting work…", key)
 	project, _, _ := strings.Cut(key, "-")
 	work := jiraWork(m.herdr, expandUserPath(m.jiraRepos[project]), m.opts.workBranch, branch, kind, key, iss.Type, iss.Summary,
 		workArgs(m.opts.workArgs, prompt, key), m.opts.workCreate)
@@ -284,12 +286,12 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	delete(m.jiraStarting, msg.key)
 	switch {
 	case msg.err != nil:
-		m.fail(msg.key + ": start work: " + msg.err.Error())
+		m.fail(i18n.Tf("%s: start work: %s", msg.key, msg.err.Error()))
 		return m, nil
 	case msg.running:
 		return m, m.attachAgent(msg.key, msg.pane)
 	default:
-		m.status = msg.key + ": " + msg.agent + " started in " + msg.path
+		m.status = i18n.Tf("%s: %s started in %s", msg.key, msg.agent, msg.path)
 	}
 	if msg.skipActions {
 		return m, nil
@@ -298,7 +300,7 @@ func (m Model) handleJiraWork(msg jiraWorkMsg) (tea.Model, tea.Cmd) {
 	if m.opts.timerOnStart && m.timer.key == "" {
 		status := m.status
 		cmd := m.toggleTimer(msg.key)
-		m.status = status + " · timer started"
+		m.status = i18n.Tf("%s · timer started", status)
 		return m, tea.Batch(cmd, writes)
 	}
 	return m, writes
@@ -446,7 +448,7 @@ func (m *Model) startWrites(key string) tea.Cmd {
 			if err != nil {
 				return startWritesMsg{key: key, did: did, err: err}
 			}
-			did = append(did, "assigned to you")
+			did = append(did, i18n.T("assigned to you"))
 		}
 		if status != "" && !strings.EqualFold(cur, status) {
 			ts, err := c.TransitionsMeta(ctx, key)
@@ -456,14 +458,14 @@ func (m *Model) startWrites(key string) tea.Cmd {
 			i := slices.IndexFunc(ts, func(t jira.TransitionMeta) bool { return strings.EqualFold(t.ToName, status) })
 			switch {
 			case i < 0:
-				return startWritesMsg{key: key, did: did, err: fmt.Errorf("no move to %s from here", status)}
+				return startWritesMsg{key: key, did: did, err: errors.New(i18n.Tf("no move to %s from here", status))}
 			case ts[i].HasScreen:
-				return startWritesMsg{key: key, did: did, err: fmt.Errorf("the move to %s asks for fields: %s moves it", status, moveKey)}
+				return startWritesMsg{key: key, did: did, err: errors.New(i18n.Tf("the move to %s asks for fields: %s moves it", status, moveKey))}
 			}
 			if err := c.DoTransition(ctx, key, ts[i].ID); err != nil {
 				return startWritesMsg{key: key, did: did, err: err}
 			}
-			did = append(did, "moved to "+ts[i].ToName)
+			did = append(did, i18n.Tf("moved to %s", ts[i].ToName))
 		}
 		return startWritesMsg{key: key, did: did}
 	}

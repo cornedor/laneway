@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 )
 
@@ -251,7 +252,7 @@ func (m *Model) startJiraPicker(kind jiraPickerKind, title string, filterable bo
 	if filterable {
 		ti := textinput.New()
 		ti.Prompt = "❯ "
-		ti.Placeholder = "filter…"
+		ti.Placeholder = i18n.T("filter…")
 		ti.SetWidth(40)
 		ti.Focus()
 		m.jiraPicker.filter = ti
@@ -262,7 +263,7 @@ func (m *Model) startJiraPicker(kind jiraPickerKind, title string, filterable bo
 // openJiraStatusPicker loads the issue's workflow transitions (the only status
 // changes Jira accepts) into the picker.
 func (m *Model) openJiraStatusPicker() tea.Cmd {
-	gen := m.startJiraPicker(jiraPickStatus, "Set status — "+m.jiraIssue.Key, false)
+	gen := m.startJiraPicker(jiraPickStatus, i18n.Tf("Set status — %s", m.jiraIssue.Key), false)
 	m.jiraPicker.inline = "Status"
 	seq := m.jiraPicker.fetchSeq
 	key, cur := m.jiraIssue.Key, m.jiraIssue.Status
@@ -282,7 +283,7 @@ func (m *Model) openJiraStatusPicker() tea.Cmd {
 
 // openJiraPriorityPicker loads the instance priority list into the picker.
 func (m *Model) openJiraPriorityPicker() tea.Cmd {
-	gen := m.startJiraPicker(jiraPickPriority, "Set priority — "+m.jiraIssue.Key, false)
+	gen := m.startJiraPicker(jiraPickPriority, i18n.Tf("Set priority — %s", m.jiraIssue.Key), false)
 	m.jiraPicker.inline = "Priority"
 	seq := m.jiraPicker.fetchSeq
 	curID := m.jiraIssue.PriorityID
@@ -304,7 +305,7 @@ func (m *Model) openJiraPriorityPicker() tea.Cmd {
 // initial (empty-query) search. Typing re-runs it server-side (see
 // handleJiraPickerKey / jiraAssigneeDebounceMsg).
 func (m *Model) openJiraAssigneePicker() tea.Cmd {
-	gen := m.startJiraPicker(jiraPickAssignee, "Set assignee — "+m.jiraIssue.Key, true)
+	gen := m.startJiraPicker(jiraPickAssignee, i18n.Tf("Set assignee — %s", m.jiraIssue.Key), true)
 	m.jiraPicker.curAssignee = m.jiraIssue.AssigneeAccountID
 	m.jiraPicker.inline = "Assignee"
 	return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
@@ -312,7 +313,7 @@ func (m *Model) openJiraAssigneePicker() tea.Cmd {
 
 // openJiraReporterPicker opens the reporter picker under its row.
 func (m *Model) openJiraReporterPicker() tea.Cmd {
-	gen := m.startJiraPicker(jiraPickReporter, "Set reporter — "+m.jiraIssue.Key, true)
+	gen := m.startJiraPicker(jiraPickReporter, i18n.Tf("Set reporter — %s", m.jiraIssue.Key), true)
 	m.jiraPicker.issueKey = m.jiraIssue.Key
 	m.jiraPicker.curAssignee = m.jiraIssue.ReporterAccountID
 	m.jiraPicker.inline = "Reporter"
@@ -347,14 +348,14 @@ func (m Model) fetchAssignees(gen, seq int, key, query string) tea.Cmd {
 		var items []jiraPickerItem
 		meID := ""
 		if strings.TrimSpace(query) == "" {
-			items = append(items, jiraPickerItem{id: "", label: "Unassigned", current: curID == ""})
+			items = append(items, jiraPickerItem{id: "", label: i18n.T("Unassigned"), current: curID == ""})
 			// "Assign to me" is a convenience pinned near the top; a Myself
 			// failure just omits it (and the dedup below is skipped).
 			if me, meErr := client.Myself(ctx); meErr == nil && me.AccountID != "" {
 				meID = me.AccountID
 				items = append(items, jiraPickerItem{
 					id:      me.AccountID,
-					label:   "Assign to me (" + me.DisplayName + ")",
+					label:   i18n.Tf("Assign to me (%s)", me.DisplayName),
 					current: me.AccountID == curID,
 					focus:   me.AccountID != curID, // a enter takes it
 				})
@@ -375,7 +376,7 @@ func (m Model) fetchAssignees(gen, seq int, key, query string) tea.Cmd {
 // so the picker opens populated — there's no fetch. Each row's id is the index
 // into m.jiraIssue.Comments, so applyJiraPick can recover the chosen comment.
 func (m *Model) openJiraReplyPicker() {
-	m.startJiraPicker(jiraPickReplyTarget, "Reply to comment — "+m.jiraIssue.Key, false)
+	m.startJiraPicker(jiraPickReplyTarget, i18n.Tf("Reply to comment — %s", m.jiraIssue.Key), false)
 	items := make([]jiraPickerItem, 0, len(m.jiraIssue.Comments))
 	for i := len(m.jiraIssue.Comments) - 1; i >= 0; i-- {
 		items = append(items, jiraPickerItem{id: strconv.Itoa(i), label: commentPickerLabel(m.jiraIssue.Comments[i])})
@@ -389,7 +390,7 @@ func (m *Model) openJiraReplyPicker() {
 func commentPickerLabel(c jira.Comment) string {
 	author := c.Author
 	if author == "" {
-		author = "Unknown"
+		author = i18n.T("Unknown")
 	}
 	snippet := strings.Join(strings.Fields(c.Body), " ")
 	const max = 60
@@ -407,7 +408,7 @@ func commentPickerLabel(c jira.Comment) string {
 func (m *Model) openJiraPointsInput() {
 	ti := textinput.New()
 	ti.Prompt = "❯ "
-	ti.Placeholder = "number (empty clears)"
+	ti.Placeholder = i18n.T("number (empty clears)")
 	ti.CharLimit = 12
 	ti.SetWidth(24)
 	ti.SetValue(m.jiraIssue.StoryPoints)
@@ -429,7 +430,7 @@ func (m *Model) openJiraSummaryInput() {
 // openJiraLabelsInput shows the labels, space separated: a label has no
 // spaces.
 func (m *Model) openJiraLabelsInput() {
-	m.openJiraTextInput("labels", strings.Join(m.jiraIssue.Labels, " "), "space separated (empty clears)", 0)
+	m.openJiraTextInput("labels", strings.Join(m.jiraIssue.Labels, " "), i18n.T("space separated (empty clears)"), 0)
 	m.startFieldInline(panelFieldRow("Labels"))
 }
 
@@ -492,11 +493,11 @@ func (m Model) handleJiraPickerLoaded(msg jiraPickerLoadedMsg) (tea.Model, tea.C
 func (p *jiraPickerState) emptyText() string {
 	switch {
 	case p.filterable && strings.TrimSpace(p.filter.Value()) != "":
-		return "no matches"
+		return i18n.T("no matches")
 	case p.kind == jiraPickStatus:
-		return "no transitions from here (the workflow, or your permissions)"
+		return i18n.T("no transitions from here (the workflow, or your permissions)")
 	}
-	return "nothing here"
+	return i18n.T("nothing here")
 }
 
 // setJiraPickerItems fills an open picker and parks the cursor on the current
@@ -693,10 +694,10 @@ func (m Model) handleJiraPickerKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			text = strings.TrimSpace(it.label) // the row as read
 		}
 		if text == "" {
-			m.status = "nothing to copy on this row"
+			m.status = i18n.T("nothing to copy on this row")
 			return m, nil
 		}
-		m.status = "copied " + text
+		m.status = i18n.Tf("copied %s", text)
 		return m, tea.SetClipboard(text)
 	}
 	if m.jiraPicker.filterable {
@@ -904,7 +905,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		}
 		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
 			m.jiraPicker.pendingDelete = it.id
-			m.status = "enter again deletes the comment " + strings.TrimSpace(it.label)
+			m.status = i18n.Tf("enter again deletes the comment %s", strings.TrimSpace(it.label))
 			return m, nil
 		}
 		m.closeJiraPicker()
@@ -917,7 +918,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		c, ctx := m.jiraClient, m.ctx
-		m.status = "setting " + key + "'s reporter to " + it.label + "…"
+		m.status = i18n.Tf("setting %s's reporter to %s…", key, it.label)
 		return m, jiraMutateCmd(key, "reporter", func() error { return c.SetReporter(ctx, key, it.id) })
 	}
 	if kind == jiraPickWatchers {
@@ -933,7 +934,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickDeleteIssue {
 		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
 			m.jiraPicker.pendingDelete = it.id
-			m.status = "enter again deletes " + it.id + ", for good"
+			m.status = i18n.Tf("enter again deletes %s, for good", it.id)
 			return m, nil
 		}
 		m.closeJiraPicker()
@@ -953,13 +954,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
 		c, ctx := m.jiraClient, m.ctx
-		m.status = "changing " + key + " to " + it.value + "…"
+		m.status = i18n.Tf("changing %s to %s…", key, it.value)
 		return m, jiraMutateCmd(key, "type", func() error { return c.SetIssueType(ctx, key, it.id) })
 	}
 	if kind == jiraPickUnlink {
 		if m.jiraPicker.pendingDelete != it.id { // a removal is confirmed by a second enter on it
 			m.jiraPicker.pendingDelete = it.id
-			m.status = "enter again removes the link " + it.label
+			m.status = i18n.Tf("enter again removes the link %s", it.label)
 			return m, nil
 		}
 		key := m.jiraPicker.issueKey
@@ -969,13 +970,13 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickDeleteAttachment {
 		if m.jiraPicker.pendingDelete != it.id { // confirmed by a second enter on it
 			m.jiraPicker.pendingDelete = it.id
-			m.status = "enter again deletes " + it.value
+			m.status = i18n.Tf("enter again deletes %s", it.value)
 			return m, nil
 		}
 		key := m.jiraPicker.issueKey
 		m.closeJiraPicker()
 		c, ctx := m.jiraClient, m.ctx
-		m.status = "deleting the attachment…"
+		m.status = i18n.T("deleting the attachment…")
 		return m, jiraMutateCmd(key, "attachments", func() error { return c.DeleteAttachment(ctx, key, it.id) })
 	}
 	if kind == jiraPickAttachment {
@@ -995,7 +996,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickDev {
 		if it.id == "" {
-			m.status = "no link for this row"
+			m.status = i18n.T("no link for this row")
 			return m, nil
 		}
 		m.closeJiraPicker()
@@ -1003,7 +1004,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			m.focus = focusRef
 			return m, cmd
 		}
-		m.status = "opening " + it.id + "…"
+		m.status = i18n.Tf("opening %s…", it.id)
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}
 	if kind == jiraPickHistory {
@@ -1021,7 +1022,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	if kind == jiraPickTimesheet {
 		key, _, _ := strings.Cut(it.id, "/") // a worklog row is key/id
 		if key == "" {
-			m.status = "no issue on this row" // a day's heading: the list stays
+			m.status = i18n.T("no issue on this row") // a day's heading: the list stays
 			return m, nil
 		}
 		m.closeJiraPicker()
@@ -1116,7 +1117,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		if id := m.jiraClient.PageID(it.id); id != "" {
 			return m, m.openPage(id, strings.TrimPrefix(it.label, "page "))
 		}
-		m.status = "opening " + it.id + "…"
+		m.status = i18n.Tf("opening %s…", it.id)
 		return m, m.openOpenable(openable{name: it.label, url: it.id})
 	}
 	if kind == jiraPickLink {
@@ -1156,7 +1157,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.undoPanelPick(kind, key)
-	m.status = fmt.Sprintf("updating %s %s…", key, field)
+	m.status = i18n.Tf("updating %s %s…", key, field)
 	return m, jiraMutateCmd(key, field, run)
 }
 
@@ -1170,7 +1171,7 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	if field == "summary" {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
-			m.status = "a summary can't be empty"
+			m.status = i18n.T("a summary can't be empty")
 			return m, nil
 		}
 		if m.jiraIssue != nil && m.jiraIssue.Key == key && raw == m.jiraIssue.Summary {
@@ -1241,7 +1242,7 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 	}
 	m.undoPanelField(field, key)
 	m.closeJiraField()
-	m.status = fmt.Sprintf("updating %s %s…", key, field)
+	m.status = i18n.Tf("updating %s %s…", key, field)
 	return m, jiraMutateCmd(key, field, run)
 }
 
@@ -1250,23 +1251,25 @@ func (m Model) applyJiraField() (tea.Model, tea.Cmd) {
 func mutatedStatus(key, field string) string {
 	switch field {
 	case "comment":
-		return "commented on " + key
+		return i18n.Tf("commented on %s", key)
 	case "worklog":
-		return "logged work on " + key
+		return i18n.Tf("logged work on %s", key)
 	case "flagged":
-		return "flagged " + key
+		return i18n.Tf("flagged %s", key)
 	case "flag cleared":
-		return "cleared the flag on " + key
+		return i18n.Tf("cleared the flag on %s", key)
 	case "comment deleted":
-		return "deleted a comment on " + key
-	case "watcher added", "watcher removed":
-		return field + " on " + key
+		return i18n.Tf("deleted a comment on %s", key)
+	case "watcher added":
+		return i18n.Tf("watcher added on %s", key)
+	case "watcher removed":
+		return i18n.Tf("watcher removed on %s", key)
 	case "links", "attachments":
-		return key + " " + field + " changed"
+		return i18n.Tf("%s %s changed", key, field)
 	case "release":
-		return key + " released"
+		return i18n.Tf("%s released", key)
 	}
-	return key + " " + field + " updated"
+	return i18n.Tf("%s %s updated", key, field)
 }
 
 // jiraMutateCmd runs a field write in the background and reports the result.
@@ -1281,14 +1284,14 @@ func jiraMutateCmd(key, field string, run func() error) tea.Cmd {
 func (m Model) handleJiraMutated(msg jiraMutatedMsg) (tea.Model, tea.Cmd) {
 	if errors.Is(msg.err, jira.ErrQueued) {
 		m.queued = len(readQueue(m.store))
-		m.status = fmt.Sprintf("offline: %s %s kept for later · %s", msg.key, msg.field, m.queueBadge())
+		m.status = i18n.Tf("offline: %s %s kept for later · %s", msg.key, msg.field, m.queueBadge())
 		return m, nil
 	}
 	if msg.err != nil {
-		m.fail(fmt.Sprintf("%s %s update failed: %v", msg.key, msg.field, msg.err))
+		m.fail(i18n.Tf("%s %s update failed: %v", msg.key, msg.field, msg.err))
 		if msg.text != "" {
 			m.unsent.key, m.unsent.text = msg.key, msg.text
-			m.fail(fmt.Sprintf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment)))
+			m.fail(i18n.Tf("%s comment not posted: %v · %s brings it back", msg.key, msg.err, helpKey(m.keys.JiraComment)))
 		}
 		return m, nil
 	}
@@ -1393,7 +1396,7 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 	}
 	switch {
 	case p.loading:
-		b.WriteString(pad + refDimStyle.Render("loading…") + "\n")
+		b.WriteString(pad + refDimStyle.Render(i18n.T("loading…")) + "\n")
 	case p.err != nil:
 		b.WriteString(pad + refErrStyle.Render(ansi.Truncate(p.err.Error(), inner, "…")) + "\n")
 	case len(p.items) == 0:
@@ -1401,7 +1404,7 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 	default:
 		start, end := m.pickerWindow(inlinePickerRows)
 		if start > 0 {
-			b.WriteString(pad + refDimStyle.Render(fmt.Sprintf("  ↑ %d more", start)) + "\n")
+			b.WriteString(pad + refDimStyle.Render(i18n.Tf("  ↑ %d more", start)) + "\n")
 		}
 		m.pickerLine, m.pickerStart = strings.Count(b.String(), "\n"), start
 		cursorStyle := lipgloss.NewStyle().Foreground(focusedColor).Bold(true)
@@ -1419,15 +1422,15 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 			}
 		}
 		if end < len(p.items) {
-			b.WriteString(pad + refDimStyle.Render(fmt.Sprintf("  ↓ %d more", len(p.items)-end)) + "\n")
+			b.WriteString(pad + refDimStyle.Render(i18n.Tf("  ↓ %d more", len(p.items)-end)) + "\n")
 		}
 	}
-	hint := "↵ apply · esc cancel"
+	hint := i18n.T("↵ apply · esc cancel")
 	if p.checked != nil {
-		hint = "space/tab/click ticks · [ ↵ apply ] · esc cancel"
+		hint = i18n.T("space/tab/click ticks · [ ↵ apply ] · esc cancel")
 	}
 	if p.filterable {
-		hint = "type to filter · " + hint
+		hint = i18n.Tf("type to filter · %s", hint)
 	}
 	b.WriteString(pad + refDimStyle.Render(ansi.Truncate(hint, inner, "…")) + "\n")
 }
@@ -1491,7 +1494,7 @@ func (m *Model) renderJiraPicker(maxH int) string {
 	listed := len(parts)
 	switch {
 	case m.jiraPicker.loading:
-		parts = append(parts, "", refDimStyle.Render("loading…"))
+		parts = append(parts, "", refDimStyle.Render(i18n.T("loading…")))
 	case m.jiraPicker.err != nil:
 		parts = append(parts, "", refErrStyle.Render(ansi.Truncate(m.jiraPicker.err.Error(), inner, "…")))
 	default:
@@ -1530,13 +1533,13 @@ func (m *Model) renderJiraPicker(maxH int) string {
 		// sized assuming both can appear, so the popup stays within maxH).
 		parts = append(parts, "")
 		if start > 0 {
-			parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↑ %d more", start)))
+			parts = append(parts, refDimStyle.Render(i18n.Tf("  ↑ %d more", start)))
 		} else if fixed {
 			parts = append(parts, "")
 		}
 		parts = append(parts, strings.Join(rows, "\n"))
 		if end < len(vis) {
-			parts = append(parts, refDimStyle.Render(fmt.Sprintf("  ↓ %d more", len(vis)-end)))
+			parts = append(parts, refDimStyle.Render(i18n.Tf("  ↓ %d more", len(vis)-end)))
 		}
 	}
 	if fixed { // pad the list to its full height: blank, marker, win rows, marker
@@ -1549,18 +1552,18 @@ func (m *Model) renderJiraPicker(maxH int) string {
 		}
 	}
 
-	hintTxt := "↑/↓ move · ↵ apply · esc cancel"
+	hintTxt := i18n.T("↑/↓ move · ↵ apply · esc cancel")
 	if m.jiraPicker.checked != nil {
-		hintTxt = "↑/↓ move · space/tab/click ticks · [ ↵ apply ] · esc cancel"
+		hintTxt = i18n.T("↑/↓ move · space/tab/click ticks · [ ↵ apply ] · esc cancel")
 	}
 	if m.jiraPicker.kind == jiraPickJob {
-		hintTxt = "↑/↓ move · ↵ its log · esc close"
+		hintTxt = i18n.T("↑/↓ move · ↵ its log · esc close")
 	}
 	if m.jiraPicker.kind == jiraPickDev {
-		hintTxt = "↵ open: GitLab here, the rest in the browser · " + helpKey(m.keys.CopyBranch) + " branch · esc close"
+		hintTxt = i18n.Tf("↵ open: GitLab here, the rest in the browser · %s branch · esc close", helpKey(m.keys.CopyBranch))
 	}
 	if m.jiraPicker.filterable {
-		hintTxt = "type to filter · " + hintTxt
+		hintTxt = i18n.Tf("type to filter · %s", hintTxt)
 	}
 	parts = append(parts, "", lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hintTxt))
 
@@ -1573,58 +1576,58 @@ func (m *Model) renderJiraFieldInput() string {
 	if !m.jiraFieldActive {
 		return ""
 	}
-	title, hint, outerW := "Set story points", "↵ save · empty clears · esc cancel", 40
+	title, hint, outerW := i18n.T("Set story points"), i18n.T("↵ save · empty clears · esc cancel"), 40
 	switch m.jiraFieldName {
 	case "summary":
-		title, hint, outerW = "Edit summary", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Edit summary"), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "labels":
-		title, hint, outerW = "Edit labels", "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Edit labels"), i18n.T("↵ save · empty clears · esc cancel"), m.jiraFieldInput.Width()+12
 	case "mr-title":
-		title, hint, outerW = "Title of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Title of %s", m.jiraFieldKey), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "mr-target":
-		title, hint, outerW = "Target branch of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Target branch of %s", m.jiraFieldKey), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "plan-rename":
-		title, hint, outerW = "Rename the sprint", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Rename the sprint"), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "plan-end":
-		title, hint, outerW = "End "+m.jiraFieldKey+" on", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("End %s on", m.jiraFieldKey), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "plan-goal":
-		title, hint, outerW = "Goal of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Goal of %s", m.jiraFieldKey), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "lane-rename":
-		title, hint, outerW = "Rename the lane", "↵ save · empty: its first column's · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Rename the lane"), i18n.T("↵ save · empty: its first column's · esc cancel"), m.jiraFieldInput.Width()+12
 	case "jql-filter":
-		title, hint, outerW = "Save as a Jira filter", "↵ save, starred · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Save as a Jira filter"), i18n.T("↵ save, starred · esc cancel"), m.jiraFieldInput.Width()+12
 	case "week-add":
-		title, hint, outerW = "Add an issue", "↵ add its row · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Add an issue"), i18n.T("↵ add its row · esc cancel"), m.jiraFieldInput.Width()+12
 	case "plan-new":
-		title, hint, outerW = "New sprint", "↵ create · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("New sprint"), i18n.T("↵ create · esc cancel"), m.jiraFieldInput.Width()+12
 	case "plan-start":
-		title, hint, outerW = "Start "+m.jiraFieldKey+" today", "↵ start · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Start %s today", m.jiraFieldKey), i18n.T("↵ start · esc cancel"), m.jiraFieldInput.Width()+12
 	case "upload":
-		title, hint, outerW = "Upload a file", "tab complete · ↵ upload · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Upload a file"), i18n.T("tab complete · ↵ upload · esc cancel"), m.jiraFieldInput.Width()+12
 	case "link":
-		title, hint, outerW = "Link "+m.jiraLinkChoice.label, "↑↓ pick · ↵ link · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Link %s", m.jiraLinkChoice.label), i18n.T("↑↓ pick · ↵ link · esc cancel"), m.jiraFieldInput.Width()+12
 	case "weblink":
-		title, hint, outerW = "Web link on "+m.jiraFieldKey, "↵ add · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Web link on %s", m.jiraFieldKey), i18n.T("↵ add · esc cancel"), m.jiraFieldInput.Width()+12
 	case "estimate":
-		title, hint, outerW = "Original estimate of "+m.jiraFieldKey, "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Original estimate of %s", m.jiraFieldKey), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "agent-prompt":
-		title, hint, outerW = "Prompt for "+m.jiraFieldKey+"'s agent", "↵ send · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Prompt for %s's agent", m.jiraFieldKey), i18n.T("↵ send · esc cancel"), m.jiraFieldInput.Width()+12
 	case "find":
-		title, hint, outerW = "Find in "+m.jiraFieldKey, "↵ find · n / N next / previous · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Find in %s", m.jiraFieldKey), i18n.T("↵ find · n / N next / previous · esc cancel"), m.jiraFieldInput.Width()+12
 	case "worklog":
-		title, hint, outerW = "Log work", "↵ log · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Log work"), i18n.T("↵ log · esc cancel"), m.jiraFieldInput.Width()+12
 		switch {
 		case m.worklogFromTimer && m.timerNext != "":
-			hint = "↵ log, then time " + m.timerNext + " · ctrl+t move the timer there · ctrl+d drop · esc keep timing"
+			hint = i18n.Tf("↵ log, then time %s · ctrl+t move the timer there · ctrl+d drop · esc keep timing", m.timerNext)
 		case m.worklogFromTimer:
-			hint = "↵ log · ctrl+d drop the timer · esc keep timing"
+			hint = i18n.T("↵ log · ctrl+d drop the timer · esc keep timing")
 		}
 	case "bulk-labels":
-		title, hint, outerW = "Edit labels", "↵ save · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.T("Edit labels"), i18n.T("↵ save · esc cancel"), m.jiraFieldInput.Width()+12
 	case "bulk-points":
-		title = "Set story points"
+		title = i18n.T("Set story points")
 	case "field":
-		title, hint, outerW = "Edit "+m.panelEditField().Name, "↵ save · empty clears · esc cancel", m.jiraFieldInput.Width()+12
+		title, hint, outerW = i18n.Tf("Edit %s", m.panelEditField().Name), i18n.T("↵ save · empty clears · esc cancel"), m.jiraFieldInput.Width()+12
 	}
 	if outerW > m.width-4 {
 		outerW = m.width - 4
@@ -1636,7 +1639,7 @@ func (m *Model) renderJiraFieldInput() string {
 	if inner < 1 {
 		inner = 1
 	}
-	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(title + " — " + m.jiraFieldKey)
+	header := lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Bold(true).Render(i18n.Tf("%s — %s", title, m.jiraFieldKey))
 	hint = lipgloss.NewStyle().Width(inner).Align(lipgloss.Center).Foreground(dimColor).Italic(true).Render(hint)
 	rows := append([]string{header, "", m.jiraFieldInput.View()}, m.labelLines(2)...)
 	rows = append(rows, m.linkLines(inner)...)

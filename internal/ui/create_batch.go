@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cornedor/laneway/internal/i18n"
 )
 
 // Several issues at once: a list pasted into the create form's summary,
@@ -43,7 +44,7 @@ func (m *Model) pasteBatch(text string) bool {
 	f.create.batch = lines
 	f.input.SetValue(lines[0])
 	f.input.CursorEnd()
-	f.message = fmt.Sprintf("%d issues from the pasted lines, each with this form's type and fields · ↵ creates them all · typing here drops the list", len(lines))
+	f.message = i18n.Tf("%d issues from the pasted lines, each with this form's type and fields · ↵ creates them all · typing here drops the list", len(lines))
 	return true
 }
 
@@ -64,7 +65,7 @@ type batchCreatedMsg struct {
 // stopping at the first refused.
 func (m *Model) createBatch(cr jiraFormCreate) tea.Cmd {
 	c, ctx, lines := m.jiraClient, m.ctx, cr.batch
-	m.status = fmt.Sprintf("creating %d issues…", len(lines))
+	m.status = i18n.Tf("creating %d issues…", len(lines))
 	return func() tea.Msg {
 		var keys []string
 		for i, s := range lines {
@@ -85,11 +86,11 @@ func (m *Model) createBatch(cr jiraFormCreate) tea.Cmd {
 // handleBatchCreated closes the form when all were made; a refusal keeps
 // it with the summaries left.
 func (m Model) handleBatchCreated(msg batchCreatedMsg) (tea.Model, tea.Cmd) {
-	made := fmt.Sprintf("created %d: %s", len(msg.keys), strings.Join(msg.keys, ", "))
+	made := i18n.Tf("created %d: %s", len(msg.keys), strings.Join(msg.keys, ", "))
 	if f := m.jiraForm; msg.err != nil && f != nil && f.create != nil {
 		f.busy, f.create.batch = false, msg.left
 		f.err = fmt.Sprintf("%q: %v", msg.left[0], msg.err)
-		f.message = fmt.Sprintf("%d issues left to create · ↵ tries again", len(msg.left))
+		f.message = i18n.Tf("%d issues left to create · ↵ tries again", len(msg.left))
 		if len(msg.keys) > 0 {
 			m.status = made
 		}
@@ -98,7 +99,7 @@ func (m Model) handleBatchCreated(msg batchCreatedMsg) (tea.Model, tea.Cmd) {
 	m.jiraForm = nil
 	m.status = made
 	if msg.err != nil {
-		m.fail(made + " · then " + msg.err.Error())
+		m.fail(i18n.Tf("%s · then %s", made, msg.err.Error()))
 	}
 	return m, m.refreshJiraAfterEdit()
 }
