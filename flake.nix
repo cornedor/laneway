@@ -15,7 +15,7 @@
           pname = "laneway";
           inherit version;
           src = self;
-          vendorHash = "sha256-321mOYdr+OlIiNiR4lsDgIlRUG2mKu7bJ3Y/39e4yZg=";
+          vendorHash = "sha256-Am1xDQKXp5TVk047wrFh9Z1Gxe0mXqN2MOadi9dAW28=";
           env.CGO_ENABLED = 0;
           ldflags = [ "-s" "-w" "-X main.version=${version}" ];
           subPackages = [ "." ];
