@@ -26,19 +26,16 @@ export function personInput(o = {}) {
 
   const name = u => (me && u.AccountID === me.AccountID ? T('Me · %s', u.DisplayName) : u.DisplayName);
   const row = u => [avatar(u.DisplayName), h('span.iin-text', name(u)), u.Why && h('span.faint.pin-why', reasons[u.Why] || '')];
-  // Ranked first, then you, then the rest in Jira's order; the ones chosen left out. With nothing typed only
-  // OTHERS of the rest: typing finds everyone.
-  const OTHERS = 5;
-  const list = (us, q) => {
+  // Ranked first, then you, then the rest in Jira's order; the ones chosen left out.
+  const list = us => {
     us = us.filter(u => !people.some(p => p.AccountID === u.AccountID));
     const i = me ? us.findIndex(u => u.AccountID === me.AccountID) : -1;
     const mine = i >= 0 ? us.splice(i, 1) : [];
-    const rest = us.filter(u => !u.Why);
-    return [...us.filter(u => u.Why), ...mine, ...(q ? rest : rest.slice(0, OTHERS))];
+    return [...us.filter(u => u.Why), ...mine, ...us.filter(u => !u.Why)];
   };
   let suggested = null, asked = false; // the list with the merge requests' part, once it came
-  const find = q => (!q && suggested ? Promise.resolve(list(suggested, q))
-    : api.get('/users?' + scopeQ + '&q=' + encodeURIComponent(q), { fresh: true }).then(us => list(us, q)));
+  const find = q => (!q && suggested ? Promise.resolve(list(suggested))
+    : api.get('/users?' + scopeQ + '&q=' + encodeURIComponent(q), { fresh: true }).then(list));
 
   const draw = () => {
     clear(chosen).append(...people.map(u => h('span.pin-person', avatar(u.DisplayName), h('span', name(u)),
@@ -62,7 +59,7 @@ export function personInput(o = {}) {
     input.addEventListener('focus', () => {
       if (asked) return;
       asked = true;
-      api.get('/users?' + scopeQ + '&q=&suggest=1', { fresh: true }).then(us => { suggested = us; cb.update('', list(us, '')); }, () => { asked = false; });
+      api.get('/users?' + scopeQ + '&q=&suggest=1', { fresh: true }).then(us => { suggested = us; cb.update('', list(us)); }, () => { asked = false; });
     });
   }
   draw();
