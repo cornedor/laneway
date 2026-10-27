@@ -581,5 +581,8 @@
   "Key or words of its summary": "Key of woorden uit de samenvatting",
   "No issue matches “%s”": "Geen issue past bij “%s”",
   "Not an issue key": "Geen issue-key",
-  "Nothing open to choose": "Niets open om te kiezen"
+  "Nothing open to choose": "Niets open om te kiezen",
+  "Add someone…": "Iemand toevoegen…",
+  "No one matches “%s”": "Niemand past bij “%s”",
+  "No one to choose": "Niemand om te kiezen"
 }
