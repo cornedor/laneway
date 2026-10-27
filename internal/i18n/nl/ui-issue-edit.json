@@ -240,5 +240,9 @@
   "↵ send · esc cancel": "↵ versturen · esc annuleren",
   "↵ start · esc cancel": "↵ starten · esc annuleren",
   "− fewer fields": "− minder velden",
-  "↵ move · esc cancel": "↵ verplaatsen · esc annuleren"
+  "↵ move · esc cancel": "↵ verplaatsen · esc annuleren",
+  "code owner": "code-eigenaar",
+  "reviewed this code": "reviewde deze code",
+  "wrote this code": "schreef deze code",
+  "picked often": "vaak gekozen"
 }

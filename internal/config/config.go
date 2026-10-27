@@ -20,6 +20,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/cornedor/laneway/internal/i18n"
+	"github.com/cornedor/laneway/internal/people"
 	"github.com/cornedor/laneway/internal/rules"
 )
 
@@ -50,6 +51,13 @@ type JiraConfig struct {
 	// Timeout is one API request's limit ("20s"); the longer actions
 	// (a board load, a move) stretch with it. For slow instances.
 	Timeout string `yaml:"timeout,omitempty"`
+	// Pickers rank a person field's picker (internal/people); a field no
+	// rule names ranks by who was picked in it.
+	Pickers []people.Rule `yaml:"pickers,omitempty"`
+	// GitPeople are the forge's people as Jira knows them: a GitLab
+	// username or git email to a Jira account id or name, where the
+	// picker's own guess fails.
+	GitPeople map[string]string `yaml:"git_people,omitempty"`
 }
 
 // RequestTimeout is Timeout read, 0 (the client's default) when unset.
@@ -476,6 +484,7 @@ func Load(path string) (Config, string, error) {
 		} else {
 			c.Warnings, err = decode(raw, &c)
 			c.Warnings = append(unknownKeys(raw), c.Warnings...)
+			c.Warnings = append(c.Warnings, people.Check(c.Jira.Pickers)...)
 		}
 		if err != nil {
 			return Config{}, p, fmt.Errorf("%s: %w", p, err)

@@ -364,5 +364,6 @@
   "your Atlassian sign-in doesn't include %s; sign in again and pick it": "je Atlassian-aanmelding omvat %s niet; meld je opnieuw aan en kies die site",
   "Signed out of laneway": "Afgemeld bij laneway",
   "Sign in again": "Log opnieuw in",
-  "Also sign out of laneway-server in this browser": "Ook afmelden bij laneway-server in deze browser"
+  "Also sign out of laneway-server in this browser": "Ook afmelden bij laneway-server in deze browser",
+  "where, field and account are required": "where, field en account zijn verplicht"
 }

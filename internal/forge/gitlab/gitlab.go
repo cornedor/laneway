@@ -254,7 +254,7 @@ func toChange(a apiMR, project string) *forge.Change {
 	}
 	ch.MergeStatus = mergeStatusText(a)
 	if a.Author != nil {
-		ch.Author = a.Author.Name
+		ch.Author, ch.AuthorUsername = a.Author.Name, a.Author.Username
 	}
 	for _, u := range a.Assignees {
 		ch.Assignees = append(ch.Assignees, u.Name)

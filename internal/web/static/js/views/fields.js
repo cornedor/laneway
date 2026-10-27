@@ -116,14 +116,14 @@ async function priority(app, key) {
 }
 
 async function assignee(app, key) {
-  const u = await pickUser(app, { issue: key, title: T('%s assignee', key), specials: true });
+  const u = await pickUser(app, { issue: key, title: T('%s assignee', key), specials: true, field: 'assignee', name: 'Assignee' });
   if (!u) return;
   if (u.none && await mustFill(app, key, 'assignee')) return refuseEmpty(app, T('Assignee'));
   await write(app, key, 'assignee', { ID: u.AccountID }, u.none ? T('%s unassigned', key) : T('%s → %s', key, u.DisplayName), u.none ? null : { AccountID: u.AccountID, DisplayName: u.DisplayName });
 }
 
 async function reporter(app, key) {
-  const u = await pickUser(app, { issue: key, title: T('%s reporter', key) });
+  const u = await pickUser(app, { issue: key, title: T('%s reporter', key), field: 'reporter', name: 'Reporter' });
   if (!u) return;
   await write(app, key, 'reporter', { ID: u.AccountID }, T('%s reporter → %s', key, u.DisplayName), u.DisplayName);
 }
@@ -290,10 +290,16 @@ export function moveForm(app, key, t) {
 
 // ---- pickers
 
+// Why a person ranks high in a picker (people.Rank's source).
+const why = { frequent: T('picked often'), codeowners: T('code owner'), reviewers: T('reviewed this code'), blame: T('wrote this code') };
+
 // pickUser → Promise<{AccountID, DisplayName, me?, none?} | null>. `specials` adds Me and Unassigned.
-export function pickUser(app, { issue, project, title = T('Person'), specials = false } = {}) {
+// `field` (an id, 'assignee', 'reporter') and `name` rank the people for that field (internal/people) and count the pick;
+// the merge requests' suggestions come in after the list.
+export async function pickUser(app, { issue, project, title = T('Person'), specials = false, field = '', name = '' } = {}) {
   const me = app.session && app.session.me;
-  const scopeQ = issue ? 'issue=' + encodeURIComponent(issue) : 'project=' + encodeURIComponent(project);
+  const scopeQ = (issue ? 'issue=' + encodeURIComponent(issue) : 'project=' + encodeURIComponent(project)) +
+    (field ? `&field=${encodeURIComponent(field)}&name=${encodeURIComponent(name)}` : '');
   const head = () => {
     if (!specials) return [];
     const out = [];
@@ -301,15 +307,28 @@ export function pickUser(app, { issue, project, title = T('Person'), specials = 
     out.push({ AccountID: '', DisplayName: T('Unassigned'), none: true });
     return out;
   };
+  // Ranked people go above Me and Unassigned, as in the terminal.
+  const list = us => {
+    const meRow = specials && me && us.find(u => u.AccountID === me.AccountID);
+    const rest = us.filter(u => !(specials && me && u.AccountID === me.AccountID));
+    const top = rest.filter(u => u.Why), sp = head();
+    if (meRow && meRow.Why) sp[0] = { ...sp[0], Why: meRow.Why };
+    return [...top, ...sp, ...rest.filter(u => !u.Why)];
+  };
+  let suggested = null;
   const search = async q => {
     const us = await app.api.get(`/users?${scopeQ}&q=${encodeURIComponent(q)}`, { fresh: true });
-    return [...head(), ...us.filter(u => !(specials && me && u.AccountID === me.AccountID))];
+    return !q && suggested ? suggested : list(us);
   };
-  return app.ui.pick({
-    title, items: head(), search, placeholder: T('Search people…'),
+  const more = field && issue ? () => app.api.get(`/users?${scopeQ}&q=&suggest=1`, { fresh: true }).then(us => (suggested = list(us))) : null;
+  const u = await app.ui.pick({
+    title, items: head(), search, more, placeholder: T('Search people…'),
     label: u => (u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
-    render: u => h('span.pick-user', u.none ? app.ui.avatar(null) : app.ui.avatar(u.DisplayName), h('span.pick-label', u.me ? T('Me · %s', u.DisplayName) : u.DisplayName)),
+    render: u => h('span.pick-user', u.none ? app.ui.avatar(null) : app.ui.avatar(u.DisplayName), h('span.pick-label', u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
+      u.Why && h('span.pick-detail', why[u.Why] || '')),
   });
+  if (u && field && u.AccountID) app.api.post('/users/picked', { Where: issue || project, Field: field, Account: u.AccountID }).catch(() => {});
+  return u;
 }
 
 // pickLabels → Promise<string[] | null>: toggle suggestions, type to create a new one.
@@ -413,7 +432,7 @@ export function fieldInput(app, fm, { project, issue, type, value, required, onC
     case 'user': {
       let u = (v.Users || [])[0] || null;
       w.el = control(() => [u ? h('span.pick-user', app.ui.avatar(u.DisplayName), u.DisplayName) : h('span.faint', T('none'))], async () => {
-        const p = await pickUser(app, { issue, project, title: fm.Name, specials: true });
+        const p = await pickUser(app, { issue, project, title: fm.Name, specials: true, field: fm.ID, name: fm.Name });
         if (p) u = p.none ? null : p;
       });
       w.get = () => ({ Users: u ? [{ AccountID: u.AccountID, DisplayName: u.DisplayName }] : [] }); w.empty = () => !u;
@@ -422,7 +441,7 @@ export function fieldInput(app, fm, { project, issue, type, value, required, onC
     case 'users': {
       let us = [...(v.Users || [])];
       w.el = control(() => [us.length ? h('span.chips', us.map(u => app.ui.chip(u.DisplayName))) : h('span.faint', T('none'))], async () => {
-        const p = await pickUser(app, { issue, project, title: fm.Name });
+        const p = await pickUser(app, { issue, project, title: fm.Name, field: fm.ID, name: fm.Name });
         if (p && !us.some(x => x.AccountID === p.AccountID)) us = [...us, p];
       });
       w.get = () => ({ Users: us.map(u => ({ AccountID: u.AccountID, DisplayName: u.DisplayName })) }); w.empty = () => !us.length;

@@ -86,6 +86,12 @@ and the browser alike.
 
     Click a field to edit it.
 
+A person list puts first who you picked most in that field, in that
+project, recent picks counting more; the row says why. A field can also
+rank by the issue's merge requests: its code owners, who reviewed those
+files before, who wrote the lines it changes. Set that per field with
+[`jira.pickers`](../reference/config.md#person-pickers).
+
 A field Jira's field configuration requires is marked `*`, as on the create
 form, and won't empty: laneway refuses before sending, with what you typed
 still in the editor.

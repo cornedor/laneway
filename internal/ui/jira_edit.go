@@ -19,6 +19,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/people"
 )
 
 // jiraAssigneeDebounce delays the assignable-user search after a keystroke so
@@ -197,6 +198,11 @@ type jiraPickerState struct {
 	// top its first row shown.
 	at  *point
 	top int
+	// field is the person field a person picker fills ("assignee",
+	// "reporter", a field id), its picks counted; ranks order its rows
+	// (people_rank.go).
+	field string
+	ranks map[string]people.Rank
 }
 
 // jiraPickerLoadedMsg carries the fetched option list for an open picker. gen +
@@ -320,7 +326,8 @@ func (m *Model) openJiraAssigneePicker() tea.Cmd {
 	gen := m.startJiraPicker(jiraPickAssignee, i18n.Tf("Set assignee — %s", m.jiraIssue.Key), true)
 	m.jiraPicker.curAssignee = m.jiraIssue.AssigneeAccountID
 	m.jiraPicker.inline = "Assignee"
-	return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
+	rank := m.rankPeople(m.jiraIssue.Key, "assignee", "Assignee")
+	return tea.Batch(m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, ""), rank)
 }
 
 // openJiraReporterPicker opens the reporter picker under its row.
@@ -329,19 +336,21 @@ func (m *Model) openJiraReporterPicker() tea.Cmd {
 	m.jiraPicker.issueKey = m.jiraIssue.Key
 	m.jiraPicker.curAssignee = m.jiraIssue.ReporterAccountID
 	m.jiraPicker.inline = "Reporter"
-	return m.fetchReporters(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
+	rank := m.rankPeople(m.jiraIssue.Key, "reporter", "Reporter")
+	return tea.Batch(m.fetchReporters(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, ""), rank)
 }
 
 // fetchReporters lists the people who can see key matching query, the
 // reporter marked.
 func (m *Model) fetchReporters(gen, seq int, key, query string) tea.Cmd {
-	c, ctx, cur := m.jiraClient, m.ctx, m.jiraPicker.curAssignee
+	c, ctx, cur, ranks := m.jiraClient, m.ctx, m.jiraPicker.curAssignee, m.jiraPicker.ranks
 	return func() tea.Msg {
 		users, err := c.ViewUsers(ctx, key, query)
 		items := make([]jiraPickerItem, 0, len(users))
 		for _, u := range users {
 			items = append(items, jiraPickerItem{id: u.AccountID, label: u.DisplayName, current: u.AccountID == cur})
 		}
+		rankItems(items, ranks)
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: jiraPickReporter, items: items, err: err}
 	}
 }
@@ -351,7 +360,7 @@ func (m *Model) fetchReporters(gen, seq int, key, query string) tea.Cmd {
 // "Assign to me"; while searching it shows server matches only.
 func (m Model) fetchAssignees(gen, seq int, key, query string) tea.Cmd {
 	client, ctx := m.jiraClient, m.ctx
-	curID, kind := m.jiraPicker.curAssignee, m.jiraPicker.kind
+	curID, kind, ranks := m.jiraPicker.curAssignee, m.jiraPicker.kind, m.jiraPicker.ranks
 	return func() tea.Msg {
 		users, err := client.AssignableUsers(ctx, key, query)
 		if err != nil {
@@ -379,6 +388,7 @@ func (m Model) fetchAssignees(gen, seq int, key, query string) tea.Cmd {
 			}
 			items = append(items, jiraPickerItem{id: u.AccountID, label: u.DisplayName, current: u.AccountID == curID})
 		}
+		rankItems(items, ranks)
 		return jiraPickerLoadedMsg{gen: gen, seq: seq, kind: kind, items: items}
 	}
 }
@@ -876,6 +886,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 			m.status = bulkAsk(kind, it.label, len(bulk))
 			return m, nil
 		}
+		if kind == jiraPickAssignee {
+			m.recordPick(bulk[0], it.id)
+		}
 		m.closeJiraPicker()
 		return m, m.applyBulkPick(kind, bulk, it)
 	}
@@ -925,6 +938,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickReporter {
 		key := m.jiraPicker.issueKey
+		m.recordPick(key, it.id)
 		m.closeJiraPicker()
 		if it.current {
 			return m, nil
@@ -1110,6 +1124,7 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 	if kind == jiraPickFormUser || kind == jiraPickFormOption {
 		key := m.jiraPicker.issueKey
+		m.recordPick(key, it.id)
 		m.closeJiraPicker()
 		if m.jiraForm == nil {
 			return m, m.pickPanelExtra(key, kind, it)
@@ -1150,6 +1165,9 @@ func (m Model) applyJiraPick() (tea.Model, tea.Cmd) {
 	}
 
 	key := m.jiraPicker.issueKey
+	if kind == jiraPickAssignee {
+		m.recordPick(key, it.id)
+	}
 	m.closeJiraPicker()
 
 	client, ctx := m.jiraClient, m.ctx
@@ -1436,7 +1454,11 @@ func (m *Model) renderInlinePicker(b *strings.Builder, indent, width int) {
 			if it.current {
 				marker = "✓"
 			}
-			text := ansi.Truncate(marker+" "+it.label, inner-2, "…")
+			text := marker + " " + it.label
+			if it.hint != "" {
+				text += "  · " + it.hint
+			}
+			text = ansi.Truncate(text, inner-2, "…")
 			if i == p.idx {
 				b.WriteString(pad + cursorStyle.Render("▸ "+text) + "\n")
 			} else {

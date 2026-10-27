@@ -144,6 +144,25 @@ func (s *Sites) Search(ctx context.Context, key string) []*forge.Change {
 	return slices.Concat(found...)
 }
 
+// Candidates are the people the merge requests naming key suggest as
+// reviewers (see Client.Candidates): the newest few that are not closed,
+// their scores summed. A merge request that fails is left out.
+func (s *Sites) Candidates(ctx context.Context, key string, sources []string) []forge.Candidate {
+	found := s.Search(ctx, key)
+	slices.SortStableFunc(found, func(a, b *forge.Change) int { return b.UpdatedAt.Compare(a.UpdatedAt) })
+	found = slices.DeleteFunc(found, func(ch *forge.Change) bool { return ch.State == forge.StateClosed })
+	found = found[:min(len(found), candidateMRs)]
+	each := make([][]forge.Candidate, len(found))
+	var wg sync.WaitGroup
+	for i, ch := range found {
+		if c := s.For(ch.WebURL); c != nil {
+			wg.Go(func() { each[i], _ = c.Candidates(ctx, ch.Repo, ch.Number, sources) })
+		}
+	}
+	wg.Wait()
+	return mergeCandidates(slices.Concat(each...))
+}
+
 // SiteWaiting is one instance's merge requests waiting on you, or why
 // they could not be read.
 type SiteWaiting struct {

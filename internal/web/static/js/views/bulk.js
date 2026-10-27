@@ -31,7 +31,7 @@ async function ask(app, id, keys, project) {
       return s && { edit: { Field: 'status', To: s }, what: T('%d moved to %s', n, s) };
     }
     case 'assignee': {
-      const u = await pickUser(app, { project, title: T('Assign %d issues', n), specials: true });
+      const u = await pickUser(app, { project, title: T('Assign %d issues', n), specials: true, field: 'assignee', name: 'Assignee' });
       return u && { edit: { Field: 'assignee', ID: u.AccountID }, what: u.none ? T('%d unassigned', n) : T('%d assigned to %s', n, u.DisplayName) };
     }
     case 'priority': {

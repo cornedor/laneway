@@ -25,7 +25,6 @@ func init() {
 	get("/priorities", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return s.Client().Priorities(ctx)
 	})
-	get("/users", users)
 	get("/projects/creatable", func(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return s.Client().Projects(ctx)
 	})
@@ -395,22 +394,6 @@ func currentSprint(values map[string]json.RawMessage) (jira.Sprint, bool) {
 		}
 	}
 	return jira.Sprint{}, false
-}
-
-// users: ?issue=KEY or ?project=P narrows to who can be assigned; q filters.
-func users(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	where := Q(r, "issue")
-	if where == "" {
-		where = Q(r, "project")
-	}
-	if where == "" {
-		return nil, badRequest(i18n.T("issue or project is required"))
-	}
-	us, err := s.Client().AssignableUsers(ctx, where, Q(r, "q"))
-	if us == nil {
-		us = []jira.User{}
-	}
-	return us, err
 }
 
 // projectSprints are the open and future sprints of the project's first

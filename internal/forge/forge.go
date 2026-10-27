@@ -101,6 +101,8 @@ type Change struct {
 	TargetBranch string
 	Assignees    []string
 	Reviewers    []string
+	// AuthorUsername is the author's forge account; Author is their name.
+	AuthorUsername string
 	// AssigneeIDs and ReviewerIDs are the same people as the forge's account
 	// ids, in the same order: what an edit sends back.
 	AssigneeIDs  []int
@@ -124,6 +126,15 @@ type Change struct {
 
 	Checks    *Checks    // nil when the change request has no CI
 	Approvals *Approvals // nil when approvals couldn't be read (best-effort)
+}
+
+// Candidate is a person a change's history suggests for a role, as the forge
+// knows them. Scores are by source: "codeowners", "reviewers", "blame".
+type Candidate struct {
+	Username string // the forge account; "" when only git knows them (blame)
+	Name     string
+	Email    string // commit or CODEOWNERS email, "" when unknown
+	Scores   map[string]float64
 }
 
 // Checks is the CI verdict for the change request's head commit: an overall

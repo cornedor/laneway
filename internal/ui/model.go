@@ -21,6 +21,7 @@ import (
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/people"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
 	"github.com/cornedor/laneway/internal/viewport"
@@ -272,6 +273,7 @@ type Model struct {
 	eventRefreshPending bool
 	eventInboxPending   bool              // a change-stream inbox sync is armed
 	gitlab              *gitlab.Sites     // nil: none
+	pickers             people.Picker     // ranks the person pickers (people_rank.go)
 	gitlabRepos         map[string]string // checkouts by GitLab project path
 	mrReviewing         map[string]bool   // agent reviews starting, by group/project!iid
 	index               *index.Index      // nil: none
@@ -594,6 +596,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		jiraRepos:       cfg.Repos,
 		jiraStartPrompt: prompt,
 		jiraStartStatus: cfg.StartStatuses,
+		pickers:         people.Picker{Rules: cfg.Pickers, Known: cfg.GitPeople, Memo: &people.Memo{}},
 		jiraTab:         newJiraTabState(),
 		inbox:           &inboxData{}, // Init syncs it on a copy: the pointer must be there already
 		images:          newPanelImages(opts.images, opts.imageMaxRows),
@@ -942,6 +945,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePanelExtra(msg)
 	case jiraPickerLoadedMsg:
 		return m.handleJiraPickerLoaded(msg)
+	case peopleRanksMsg:
+		return m.handlePeopleRanks(msg)
 	case jiraAssigneeDebounceMsg:
 		return m.handleJiraAssigneeDebounce(msg)
 	case jiraMutatedMsg:

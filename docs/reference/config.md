@@ -45,6 +45,41 @@ completion start on the last one picked; the script commands, `rules` and
 laneway only reads your Jira until you act: moving a card, editing a field
 or commenting.
 
+### Person pickers
+
+Every person list ranks by who was picked in that field of the project, a
+pick counting half after 30 days. `pickers:` (under `jira:` or a site)
+changes that for a field, by its name or id; the first rule that names it
+counts.
+
+```yaml
+jira:
+  pickers:
+    - field: Code Reviewer          # or customfield_10042, assignee, reporter
+      suggest: [codeowners, reviewers, blame, frequent]
+    - field: Tester
+      projects: [ABC]               # only there; none for every project
+      suggest: [frequent]
+    - field: reporter
+      suggest: []                   # Jira's order
+  git_people:                       # when a GitLab person isn't found in Jira by email or name
+    ada: Ada Lovelace               # GitLab username or git email → Jira name or account id
+    bo@example.com: 5b10ac8d82e05b22cc7d4ef5
+```
+
+| Source | Ranks by |
+| --- | --- |
+| `frequent` | who was picked in this field before |
+| `codeowners` | the CODEOWNERS owners of the files the issue's merge requests change |
+| `reviewers` | who reviewed earlier merge requests touching those files |
+| `blame` | who wrote the lines those merge requests change or remove, recent lines weighing more |
+
+The first source weighs most; someone several sources name rises above
+someone one does. The merge requests are the ones naming the issue key on
+the `gitlab:` instances, open or merged; their part fills in a moment after
+the list. A GitLab person is matched to Jira by `git_people`, then by
+email, then by a name exactly one Jira user has.
+
 ## ui options
 
 Every option is optional. `,` (terminal) and `g ,` (browser) list them by

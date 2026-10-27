@@ -201,6 +201,7 @@ off POST /api/setup/probe
 off POST /api/site
 on  POST /api/site/tokens
 off POST /api/sites
+on  POST /api/users/picked
 on  POST /api/worklog/{key}
 on  POST /api/worklog/{key}/move
 off PUT /api/autostart
