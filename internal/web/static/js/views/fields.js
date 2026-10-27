@@ -7,7 +7,6 @@ import { keys, keyHint, modText } from '../lib/keys.js';
 import { T } from '../lib/i18n.js';
 import { mdEdit } from '../lib/mdedit.js';
 import { issueInput } from '../lib/issueinput.js';
-import { personInput, why } from '../lib/personinput.js';
 
 css('forms');
 
@@ -291,6 +290,9 @@ export function moveForm(app, key, t) {
 
 // ---- pickers
 
+// Why a person ranks high in a picker (people.Rank's source).
+const why = { frequent: T('picked often'), codeowners: T('code owner'), reviewers: T('reviewed this code'), blame: T('wrote this code') };
+
 // pickUser → Promise<{AccountID, DisplayName, me?, none?} | null>. `specials` adds Me and Unassigned.
 // `field` (an id, 'assignee', 'reporter') and `name` rank the people for that field (internal/people) and count the pick;
 // the merge requests' suggestions come in after the list.
@@ -323,7 +325,7 @@ export async function pickUser(app, { issue, project, title = T('Person'), speci
     title, items: head(), search, more, placeholder: T('Search people…'),
     label: u => (u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
     render: u => h('span.pick-user', u.none ? app.ui.avatar(null) : app.ui.avatar(u.DisplayName), h('span.pick-label', u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
-      u.Why && h('span.pick-detail', why()[u.Why] || '')),
+      u.Why && h('span.pick-detail', why[u.Why] || '')),
   });
   if (u && field && u.AccountID) app.api.post('/users/picked', { Where: issue || project, Field: field, Account: u.AccountID }).catch(() => {});
   return u;
@@ -427,12 +429,22 @@ export function fieldInput(app, fm, { project, issue, type, value, required, onC
         w.el = i; w.get = () => ({ Text: i.value }); w.empty = () => !i.value.trim();
       }
       break;
-    case 'user': case 'users': {
-      // As the parent's input: type to search, the field's likely people first (internal/people).
-      const pi = personInput({ issue, project, field: fm.ID, name: fm.Name, label: fm.Name, multi: fm.Kind === 'users',
-        value: (v.Users || []).map(u => ({ AccountID: u.AccountID, DisplayName: u.DisplayName })), me: app.session && app.session.me, onchange: touch });
-      w.el = pi.el; w.focusEl = pi.input;
-      w.get = () => ({ Users: pi.get() }); w.empty = () => !pi.get().length;
+    case 'user': {
+      let u = (v.Users || [])[0] || null;
+      w.el = control(() => [u ? h('span.pick-user', app.ui.avatar(u.DisplayName), u.DisplayName) : h('span.faint', T('none'))], async () => {
+        const p = await pickUser(app, { issue, project, title: fm.Name, specials: true, field: fm.ID, name: fm.Name });
+        if (p) u = p.none ? null : p;
+      });
+      w.get = () => ({ Users: u ? [{ AccountID: u.AccountID, DisplayName: u.DisplayName }] : [] }); w.empty = () => !u;
+      break;
+    }
+    case 'users': {
+      let us = [...(v.Users || [])];
+      w.el = control(() => [us.length ? h('span.chips', us.map(u => app.ui.chip(u.DisplayName))) : h('span.faint', T('none'))], async () => {
+        const p = await pickUser(app, { issue, project, title: fm.Name, field: fm.ID, name: fm.Name });
+        if (p && !us.some(x => x.AccountID === p.AccountID)) us = [...us, p];
+      });
+      w.get = () => ({ Users: us.map(u => ({ AccountID: u.AccountID, DisplayName: u.DisplayName })) }); w.empty = () => !us.length;
       break;
     }
     case 'option': case 'sprint': {

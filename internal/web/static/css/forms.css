@@ -38,8 +38,3 @@ label.check { display: inline-flex; align-items: center; gap: .286rem; cursor: p
 .iin-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .iin-row .pill, .iin-sum .pill { flex: none; }
 .iin-none { padding: .286rem .571rem; }
-.pin-chosen { flex-wrap: wrap; gap: .286rem; }
-.pin-person { display: inline-flex; align-items: center; gap: .286rem; padding: .071rem .143rem .071rem .214rem; border-radius: 12px; background: var(--bg-3); }
-.pin-x { border: 0; background: none; color: var(--fg-3); cursor: pointer; padding: 0 .286rem; font-size: 1rem; line-height: 1; border-radius: 50%; }
-.pin-x:hover { color: var(--fg); background: var(--bg-4); }
-.pin-why { flex: none; font-size: .857rem; }
