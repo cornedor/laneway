@@ -31,7 +31,6 @@ import (
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
-	"github.com/cornedor/laneway/internal/people"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
 )
@@ -92,9 +91,6 @@ type Server struct {
 	mux   *http.ServeMux
 	ctx   context.Context
 	sites *siteSet
-	// people keeps what the merge requests suggest for a person picker a
-	// while (api_people.go).
-	people *people.Memo
 }
 
 // Client is the Jira client; handlers take it from the request's Server.
@@ -279,7 +275,7 @@ func emptySlices(buf *bytes.Buffer) {
 
 // New builds the handler.
 func New(ctx context.Context, opt Options) *Server {
-	s := &Server{opt: opt, mux: http.NewServeMux(), ctx: ctx, sites: newSiteSet(opt), people: &people.Memo{}}
+	s := &Server{opt: opt, mux: http.NewServeMux(), ctx: ctx, sites: newSiteSet(opt)}
 	routesMu.Lock()
 	for _, rt := range routes {
 		h, pattern := rt.h, rt.pattern

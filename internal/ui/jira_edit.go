@@ -326,8 +326,8 @@ func (m *Model) openJiraAssigneePicker() tea.Cmd {
 	gen := m.startJiraPicker(jiraPickAssignee, i18n.Tf("Set assignee — %s", m.jiraIssue.Key), true)
 	m.jiraPicker.curAssignee = m.jiraIssue.AssigneeAccountID
 	m.jiraPicker.inline = "Assignee"
-	rank := m.rankPeople(m.jiraIssue.Key, "assignee", "Assignee")
-	return tea.Batch(m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, ""), rank)
+	m.rankPeople(m.jiraIssue.Key, "assignee", "Assignee")
+	return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
 }
 
 // openJiraReporterPicker opens the reporter picker under its row.
@@ -336,8 +336,8 @@ func (m *Model) openJiraReporterPicker() tea.Cmd {
 	m.jiraPicker.issueKey = m.jiraIssue.Key
 	m.jiraPicker.curAssignee = m.jiraIssue.ReporterAccountID
 	m.jiraPicker.inline = "Reporter"
-	rank := m.rankPeople(m.jiraIssue.Key, "reporter", "Reporter")
-	return tea.Batch(m.fetchReporters(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, ""), rank)
+	m.rankPeople(m.jiraIssue.Key, "reporter", "Reporter")
+	return m.fetchReporters(gen, m.jiraPicker.fetchSeq, m.jiraIssue.Key, "")
 }
 
 // fetchReporters lists the people who can see key matching query, the

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,13 +10,6 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/people"
 )
-
-// peopleRanksMsg is a person picker's ranking with the merge requests'
-// part, for the picker of gen.
-type peopleRanksMsg struct {
-	gen   int
-	ranks map[string]people.Rank
-}
 
 // peoplePicker is m.pickers with the site's state and GitLab.
 func (m Model) peoplePicker() people.Picker {
@@ -32,51 +24,30 @@ func (m Model) peoplePicker() people.Picker {
 }
 
 // rankPeople ranks the person picker just opened on key's field (its id,
-// "assignee" or "reporter", and name) by what was picked in it, and
-// returns the read of its merge requests when the field's rule asks for
-// one. Call it before the picker's fetch, which orders by the ranks.
-func (m *Model) rankPeople(key, field, name string) tea.Cmd {
+// "assignee" or "reporter", and name): by what was picked in it and what
+// warmPeople kept of key's merge requests. Call it before the picker's
+// fetch, which orders by the ranks; the list never reorders after.
+func (m *Model) rankPeople(key, field, name string) {
 	pp := m.peoplePicker()
-	project := people.Project(key)
-	sources := pp.Sources(project, field, name)
 	m.jiraPicker.field = field
-	m.jiraPicker.ranks = pp.Local(sources, project, field)
-	if pp.Forge == nil || !people.Remote(sources) || !strings.Contains(key, "-") {
-		return nil
-	}
-	gen, c, ctx := m.jiraPicker.gen, m.jiraClient, m.ctx
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		ranks := pp.Ranks(ctx, key, sources, field, func(ctx context.Context, q string) ([]jira.User, error) {
-			return c.AssignableUsers(ctx, key, q)
-		})
-		return peopleRanksMsg{gen: gen, ranks: ranks}
-	}
+	m.jiraPicker.ranks = pp.Ranks(key, pp.Sources(people.Project(key), field, name), field)
 }
 
-// handlePeopleRanks reorders the open picker by the full ranking, the
-// cursor kept on its person.
-func (m Model) handlePeopleRanks(msg peopleRanksMsg) (tea.Model, tea.Cmd) {
-	p := &m.jiraPicker
-	if !p.active || msg.gen != p.gen {
-		return m, nil
+// warmPeople reads key's merge requests for the person pickers' rules in
+// the background, when the issue opens, so its pickers need not wait.
+func (m Model) warmPeople(key string) tea.Cmd {
+	pp, c, ctx := m.peoplePicker(), m.jiraClient, m.ctx
+	if !pp.Wants(key) {
+		return nil
 	}
-	p.ranks = msg.ranks
-	chosen := ""
-	if p.idx < len(p.items) {
-		chosen = p.items[p.idx].id
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, time.Minute)
+		defer cancel()
+		pp.Warm(ctx, key, func(ctx context.Context, q string) ([]jira.User, error) {
+			return c.AssignableUsers(ctx, key, q)
+		})
+		return nil
 	}
-	rankItems(p.items, p.ranks)
-	if !p.loading {
-		for i, it := range p.items {
-			if it.id == chosen {
-				p.idx = i
-				break
-			}
-		}
-	}
-	return m, nil
 }
 
 // rankItems orders a person picker's rows by ranks, each ranked one saying

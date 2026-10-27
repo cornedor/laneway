@@ -62,7 +62,7 @@ func (m Model) handleJiraLoaded(msg jiraLoadedMsg) (tea.Model, tea.Cmd) {
 	activity := m.loadActivity()
 	m.earlyExtra()
 	m.renderRef()
-	return m, tea.Batch(m.swapIssueImages(m.jiraIssue), m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra(), activity)
+	return m, tea.Batch(m.swapIssueImages(m.jiraIssue), m.fetchIssueImages(m.jiraIssue), m.fetchPanelExtra(), activity, m.warmPeople(r.jiraKey))
 }
 
 // renderJiraIssue formats one issue for the viewport: a key + type header, the

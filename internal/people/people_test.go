@@ -16,6 +16,16 @@ type memStore map[string]string
 
 func (m memStore) GetMeta(k string) (string, bool, error) { v, ok := m[k]; return v, ok, nil }
 func (m memStore) SetMeta(k, v string) error              { m[k] = v; return nil }
+func (m memStore) DeleteMeta(k string) error              { delete(m, k); return nil }
+func (m memStore) Prefixed(p string) map[string]string {
+	out := map[string]string{}
+	for k, v := range m {
+		if strings.HasPrefix(k, p) {
+			out[k] = v
+		}
+	}
+	return out
+}
 
 // The first rule naming the field (by id or name) in the project counts;
 // none ranks by picks.
@@ -128,29 +138,47 @@ type finder []forge.Candidate
 
 func (f *finder) Candidates(context.Context, string, []string) []forge.Candidate {
 	c := *f
-	*f = nil // a second call finds nothing: the memo must answer
+	*f = nil // a second call finds nothing: what was kept must answer
 	return c
 }
 
-// Ranks adds the forge's part to the picks, kept in the memo; a project
-// key (a new issue) never asks the forge.
-func TestRanks(t *testing.T) {
+// A picker ranks by the picks until Warm read the merge requests; after,
+// by both, from the store, without asking the forge again. A project key
+// (a new issue) is never warmed.
+func TestWarm(t *testing.T) {
 	st := memStore{}
 	Record(st, "ABC", "customfield_1", "id-bo", time.Now())
 	f := &finder{{Username: "ada", Name: "Ada", Scores: map[string]float64{Blame: 5}}}
-	p := Picker{Rules: []Rule{{Field: "Code Reviewer", Suggest: []string{Blame, Frequent}}}, Store: st, Forge: f, Memo: &Memo{}}
+	p := Picker{Rules: []Rule{{Field: "Code Reviewer", Suggest: []string{Blame, Frequent}}}, Store: st, Forge: f}
 	lookup := func(_ context.Context, q string) ([]jira.User, error) {
 		return []jira.User{{AccountID: "id-ada", DisplayName: "Ada"}}, nil
 	}
 	src := p.Sources("ABC", "customfield_1", "Code Reviewer")
+	if r := p.Ranks("ABC-1", src, "customfield_1"); len(r) != 1 || r["id-bo"].Why != Frequent {
+		t.Fatalf("before Warm: %v", r)
+	}
+	if !p.Wants("ABC-1") || p.Wants("ABC") {
+		t.Fatal("Wants")
+	}
+	p.Warm(context.Background(), "ABC-1", lookup)
+	if p.Wants("ABC-1") {
+		t.Error("still wants after Warm")
+	}
 	for range 2 {
-		r := p.Ranks(context.Background(), "ABC-1", src, "customfield_1", lookup)
+		r := p.Ranks("ABC-1", src, "customfield_1")
 		if r["id-ada"].Why != Blame || r["id-ada"].Score <= r["id-bo"].Score || r["id-bo"].Why != Frequent {
 			t.Fatalf("Ranks = %v", r)
 		}
 	}
-	*f = finder{{Username: "x", Scores: map[string]float64{Blame: 1}}}
-	if r := p.Ranks(context.Background(), "ABC", src, "customfield_1", lookup); len(r) != 1 {
-		t.Errorf("a project key asked the forge: %v", r)
+	if r := p.Ranks("ABC-1", []string{Frequent}, "customfield_1"); r["id-ada"].Score != 0 {
+		t.Errorf("a field without blame ranked by it: %v", r)
+	}
+	st[warmPrefix+"ABC-2"] = `{"t":1}` // long expired
+	p.prune()
+	if _, ok := st[warmPrefix+"ABC-2"]; ok {
+		t.Error("an expired issue's suggestions kept")
+	}
+	if _, ok := st[warmPrefix+"ABC-1"]; !ok {
+		t.Error("a fresh issue's suggestions pruned")
 	}
 }

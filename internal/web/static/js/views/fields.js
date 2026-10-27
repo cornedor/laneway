@@ -294,8 +294,7 @@ export function moveForm(app, key, t) {
 const why = { frequent: T('picked often'), codeowners: T('code owner'), reviewers: T('reviewed this code'), blame: T('wrote this code') };
 
 // pickUser → Promise<{AccountID, DisplayName, me?, none?} | null>. `specials` adds Me and Unassigned.
-// `field` (an id, 'assignee', 'reporter') and `name` rank the people for that field (internal/people) and count the pick;
-// the merge requests' suggestions come in after the list.
+// `field` (an id, 'assignee', 'reporter') and `name` rank the people for that field (internal/people) and count the pick.
 export async function pickUser(app, { issue, project, title = T('Person'), specials = false, field = '', name = '' } = {}) {
   const me = app.session && app.session.me;
   const scopeQ = (issue ? 'issue=' + encodeURIComponent(issue) : 'project=' + encodeURIComponent(project)) +
@@ -315,14 +314,9 @@ export async function pickUser(app, { issue, project, title = T('Person'), speci
     if (meRow && meRow.Why) sp[0] = { ...sp[0], Why: meRow.Why };
     return [...top, ...sp, ...rest.filter(u => !u.Why)];
   };
-  let suggested = null;
-  const search = async q => {
-    const us = await app.api.get(`/users?${scopeQ}&q=${encodeURIComponent(q)}`, { fresh: true });
-    return !q && suggested ? suggested : list(us);
-  };
-  const more = field && issue ? () => app.api.get(`/users?${scopeQ}&q=&suggest=1`, { fresh: true }).then(us => (suggested = list(us))) : null;
+  const search = async q => list(await app.api.get(`/users?${scopeQ}&q=${encodeURIComponent(q)}`, { fresh: true }));
   const u = await app.ui.pick({
-    title, items: head(), search, more, placeholder: T('Search people…'),
+    title, items: head(), search, placeholder: T('Search people…'),
     label: u => (u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
     render: u => h('span.pick-user', u.none ? app.ui.avatar(null) : app.ui.avatar(u.DisplayName), h('span.pick-label', u.me ? T('Me · %s', u.DisplayName) : u.DisplayName),
       u.Why && h('span.pick-detail', why[u.Why] || '')),

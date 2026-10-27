@@ -13,8 +13,7 @@ import (
 )
 
 // A person picker lists who was picked in the field first, saying why, and
-// counts a pick; the merge requests' ranking reorders it, the cursor kept
-// on its person.
+// counts a pick.
 func TestPeopleRanked(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -45,18 +44,9 @@ func TestPeopleRanked(t *testing.T) {
 		t.Errorf("cursor on %q, want Assign to me", it.label)
 	}
 
-	updated, _ = m.handlePeopleRanks(peopleRanksMsg{gen: m.jiraPicker.gen, ranks: map[string]people.Rank{"a3": {Score: 3, Why: people.Blame}, "a2": {Score: 1, Why: people.Frequent}}})
-	m = updated.(Model)
-	if it := m.jiraPicker.items[0]; it.id != "a3" || it.hint != "wrote this code" {
-		t.Errorf("first row after the merge requests = %+v", it)
-	}
-	if it := m.jiraPicker.items[m.jiraPicker.idx]; it.id != "me-1" {
-		t.Errorf("cursor moved to %q", it.label)
-	}
-
 	m.jiraPicker.idx = 0
 	m.applyJiraPick()
-	if got := people.Picked(st, people.Project(key), "assignee", time.Now()); got["a3"] < 0.99 {
+	if got := people.Picked(st, people.Project(key), "assignee", time.Now()); got["a2"] < 1.99 {
 		t.Errorf("the pick was not counted: %v", got)
 	}
 }

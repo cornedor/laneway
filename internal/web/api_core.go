@@ -36,6 +36,7 @@ func init() {
 		if Q(r, "fresh") != "" {
 			s.Client().Invalidate(key)
 		}
+		s.warmPeople(key)
 		return s.Client().Get(ctx, key)
 	})
 	get("/issues/{key}/transitions", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

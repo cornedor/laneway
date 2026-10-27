@@ -17,6 +17,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/people"
 )
 
 // Bulk edit: x marks cards (across views), B edits every marked one at once
@@ -322,7 +323,7 @@ func (m *Model) applyBulkMenu(id string) tea.Cmd {
 		m.jiraPicker.issueKey = keys[0]
 		m.jiraPicker.curAssignee = "-" // no ✓: the marked cards differ
 		m.jiraPicker.bulk = keys
-		m.rankPeople(keys[0], "assignee", "Assignee") // picks only: the cards' merge requests differ
+		m.rankPeople(people.Project(keys[0]), "assignee", "Assignee") // the project's picks: the cards' merge requests differ
 		return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, keys[0], "")
 	case "labels":
 		m.openBulkInput("bulk-labels", i18n.T("ui -old: add ui, remove old"))

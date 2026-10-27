@@ -515,8 +515,8 @@ func (m *Model) openFieldPicker(ff jiraFormField, key string) tea.Cmd {
 		if len(ff.val.Users) > 0 {
 			m.jiraPicker.curAssignee = ff.val.Users[0].AccountID
 		}
-		rank := m.rankPeople(key, ff.ID, ff.Name)
-		return tea.Batch(m.fetchAssignees(gen, m.jiraPicker.fetchSeq, key, ""), rank)
+		m.rankPeople(key, ff.ID, ff.Name)
+		return m.fetchAssignees(gen, m.jiraPicker.fetchSeq, key, "")
 	}
 	m.startJiraPicker(jiraPickFormOption, ff.Name+" — "+key, true)
 	m.jiraPicker.issueKey = key

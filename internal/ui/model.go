@@ -596,7 +596,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		jiraRepos:       cfg.Repos,
 		jiraStartPrompt: prompt,
 		jiraStartStatus: cfg.StartStatuses,
-		pickers:         people.Picker{Rules: cfg.Pickers, Known: cfg.GitPeople, Memo: &people.Memo{}},
+		pickers:         people.Picker{Rules: cfg.Pickers, Known: cfg.GitPeople},
 		jiraTab:         newJiraTabState(),
 		inbox:           &inboxData{}, // Init syncs it on a copy: the pointer must be there already
 		images:          newPanelImages(opts.images, opts.imageMaxRows),
@@ -945,8 +945,6 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handlePanelExtra(msg)
 	case jiraPickerLoadedMsg:
 		return m.handleJiraPickerLoaded(msg)
-	case peopleRanksMsg:
-		return m.handlePeopleRanks(msg)
 	case jiraAssigneeDebounceMsg:
 		return m.handleJiraAssigneeDebounce(msg)
 	case jiraMutatedMsg:

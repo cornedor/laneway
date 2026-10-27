@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/cornedor/laneway/internal/i18n"
@@ -12,7 +13,8 @@ import (
 
 // Person pickers rank who they offer (internal/people): by who was picked
 // in the field before, and as its jira.pickers rule says by the issue's
-// merge requests. The terminal's are people_rank.go.
+// merge requests, read in the background when the issue opens. The
+// terminal's are people_rank.go.
 
 func init() {
 	get("/users", users)
@@ -28,7 +30,7 @@ type rankedUser struct {
 
 // peoplePicker ranks s's person pickers.
 func (s *Server) peoplePicker() people.Picker {
-	p := people.Picker{Rules: s.opt.Jira.Pickers, Known: s.opt.Jira.GitPeople, Memo: s.people}
+	p := people.Picker{Rules: s.opt.Jira.Pickers, Known: s.opt.Jira.GitPeople}
 	if s.opt.Store != nil {
 		p.Store = s.opt.Store
 	}
@@ -38,9 +40,48 @@ func (s *Server) peoplePicker() people.Picker {
 	return p
 }
 
+// warmPeople reads key's merge requests for the person pickers in the
+// background, so a picker opened later need not wait.
+func (s *Server) warmPeople(key string) {
+	pp, c := s.peoplePicker(), s.Client()
+	if !pp.Wants(key) {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(s.ctx, time.Minute)
+		defer cancel()
+		pp.Warm(ctx, key, func(ctx context.Context, q string) ([]jira.User, error) { return c.AssignableUsers(ctx, key, q) })
+	}()
+}
+
+// usersFor is how long an answer of /users is kept: the web keeps no index
+// of people, as the terminal does, and a picker opened twice should not ask
+// Jira twice.
+const usersFor = 5 * time.Minute
+
+var usersKept sync.Map // site + where + query → usersHit
+
+type usersHit struct {
+	us []jira.User
+	at time.Time
+}
+
+// assignable is AssignableUsers, its answers kept usersFor.
+func (s *Server) assignable(ctx context.Context, where, q string) ([]jira.User, error) {
+	k := s.opt.Site + "\x00" + where + "\x00" + q
+	if v, ok := usersKept.Load(k); ok && time.Since(v.(usersHit).at) < usersFor {
+		return v.(usersHit).us, nil
+	}
+	us, err := s.Client().AssignableUsers(ctx, where, q)
+	if err == nil {
+		usersKept.Store(k, usersHit{us, time.Now()})
+	}
+	return us, err
+}
+
 // users: ?issue=KEY or ?project=P narrows to who can be assigned; q filters.
 // ?field= (an id, "assignee", "reporter") and ?name= rank them for that
-// field; ?suggest=1 waits for its merge requests' part too.
+// field.
 func users(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	where := Q(r, "issue")
 	if where == "" {
@@ -49,8 +90,7 @@ func users(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if where == "" {
 		return nil, badRequest(i18n.T("issue or project is required"))
 	}
-	c := s.Client()
-	us, err := c.AssignableUsers(ctx, where, Q(r, "q"))
+	us, err := s.assignable(ctx, where, Q(r, "q"))
 	if err != nil {
 		return []rankedUser{}, err
 	}
@@ -63,17 +103,7 @@ func users(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return out, nil
 	}
 	pp := s.peoplePicker()
-	sources := pp.Sources(people.Project(where), field, Q(r, "name"))
-	var ranks map[string]people.Rank
-	if Q(r, "suggest") == "1" {
-		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-		ranks = pp.Ranks(ctx, where, sources, field, func(ctx context.Context, q string) ([]jira.User, error) {
-			return c.AssignableUsers(ctx, where, q)
-		})
-	} else {
-		ranks = pp.Local(sources, people.Project(where), field)
-	}
+	ranks := pp.Ranks(where, pp.Sources(people.Project(where), field, Q(r, "name")), field)
 	for i := range out {
 		if rk, ok := ranks[out[i].AccountID]; ok {
 			out[i].Why = rk.Why

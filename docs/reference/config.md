@@ -76,8 +76,9 @@ jira:
 
 The first source weighs most; someone several sources name rises above
 someone one does. The merge requests are the ones naming the issue key on
-the `gitlab:` instances, open or merged; their part fills in a moment after
-the list. A GitLab person is matched to Jira by `git_people`, then by
+the `gitlab:` instances, open or merged. They are read in the background
+when the issue opens and kept a day; a list opened before that ranks by
+the picks alone, and a list never reorders once open. A GitLab person is matched to Jira by `git_people`, then by
 email, then by a name exactly one Jira user has.
 
 ## ui options

@@ -70,8 +70,7 @@ export function modal(content, { title, wide = false, onClose, className = '' } 
 // and a click outside a row's box picks that row alone at once.
 // `first: q => item | null` puts that item at the top for what is typed (an issue key typed in full).
 // With `create: q => item` and no match, Enter on typed text creates an item.
-// With `search: async q => items` the list is also fed by the server (debounced); `more: async () => items` then
-// replaces the list once, while nothing is typed (slower suggestions).
+// With `search: async q => items` the list is also fed by the server (debounced).
 // With `star: {on: item → bool, toggle: async item}` each row has a star button, and ctrl+s stars the row under the
 // cursor; neither picks.
 // `items` may be a Promise: the picker opens at once, says Loading… and fills in (typing filters,
@@ -146,7 +145,6 @@ export function pick(o) {
     render();
     if (q) input.setSelectionRange(q.length, q.length);
     if (o.search) remote(q);
-    if (o.more) o.more().then(r => { if (!done && r && !input.value) { const at = shown[sel]; items = r; render(); sel = Math.max(0, shown.indexOf(at)); mark(); } }, () => {});
     if (loading) o.items.then(r => { items = r || []; if (o.current != null && !q) sel = Math.max(0, items.indexOf(o.current)); }, e => { status = e && e.message ? e.message : String(e); })
       .finally(() => { loading = false; if (done) return; render(); if (enterLater && shown.length) enter(); });
   });
