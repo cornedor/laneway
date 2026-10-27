@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/updater"
@@ -25,7 +27,7 @@ const (
 	sumAsset = appAsset + ".sha256"
 )
 
-const releasesPage = "https://github.com/cornedor/laneway/releases/latest"
+const releasesPage = "https://github.com/cornedor/laneway/releases"
 
 // initUpdates sets up the updater and looks for a release now and daily.
 // Only macOS has an app to update; a dev build never looks.
@@ -33,15 +35,11 @@ func (d *desktop) initUpdates() {
 	if runtime.GOOS != "darwin" || version == "dev" {
 		return
 	}
-	gh, err := github.New(github.Config{
-		Repository:    "cornedor/laneway",
-		ChecksumAsset: sumAsset,
-		AssetMatcher:  appAssetIndex,
-	})
+	ch, err := newChannel(&d.beta)
 	if err == nil {
 		err = d.app.Updater.Init(updater.Config{
 			CurrentVersion: version,
-			Providers:      []updater.Provider{gh},
+			Providers:      []updater.Provider{ch},
 			Window:         updater.WindowNone,
 		})
 	}
@@ -108,7 +106,7 @@ func (d *desktop) offerUpdate(rel *updater.Release) {
 	install := dlg.AddButton("Update and Restart")
 	install.OnClick(func() { go d.installUpdate() })
 	notes := dlg.AddButton("Release Notes")
-	notes.OnClick(d.openReleases)
+	notes.OnClick(func() { d.openURL(releasesPage + "/tag/v" + rel.Version) })
 	later := dlg.AddButton("Not Now")
 	later.OnClick(func() { d.declined.Store(rel.Version) })
 	dlg.SetDefaultButton(install).SetCancelButton(later).Show()
@@ -169,9 +167,82 @@ func appAssetIndex(_ updater.CheckRequest, assets []github.ReleaseAsset) int {
 	return -1
 }
 
-func (d *desktop) openReleases() {
-	if err := d.app.Browser.OpenURL(releasesPage); err != nil {
+func (d *desktop) openReleases() { d.openURL(releasesPage) }
+
+func (d *desktop) openURL(u string) {
+	if err := d.app.Browser.OpenURL(u); err != nil {
 		log.Print("open: ", err)
+	}
+}
+
+// channel checks the stable releases, or with beta set also prereleases.
+// The updater takes its providers once; this lets the menu switch without a
+// restart.
+type channel struct {
+	stable, pre *github.Provider
+	beta        *atomic.Bool
+}
+
+func newChannel(beta *atomic.Bool) (*channel, error) {
+	cfg := github.Config{
+		Repository:    "cornedor/laneway",
+		ChecksumAsset: sumAsset,
+		AssetMatcher:  appAssetIndex,
+	}
+	stable, err := github.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Prerelease = true
+	pre, err := github.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &channel{stable: stable, pre: pre, beta: beta}, nil
+}
+
+func (c *channel) Name() string { return "github" }
+
+func (c *channel) Check(ctx context.Context, req updater.CheckRequest) (*updater.Release, error) {
+	if c.beta.Load() {
+		return c.pre.Check(ctx, req)
+	}
+	return c.stable.Check(ctx, req)
+}
+
+// Download is the same for both: it fetches the asset Check picked.
+func (c *channel) Download(ctx context.Context, r *updater.Release, dst io.Writer, onProgress func(written, total int64)) error {
+	return c.stable.Download(ctx, r, dst, onProgress)
+}
+
+// betaPath is a file whose presence opts in to beta updates.
+func betaPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(dir, "laneway", "desktop-beta")
+}
+
+func loadBeta() bool {
+	_, err := os.Stat(betaPath())
+	return err == nil
+}
+
+// setBeta saves on and, when turned on, looks for a beta now.
+func (d *desktop) setBeta(on bool) {
+	d.beta.Store(on)
+	var err error
+	if on {
+		if err = os.MkdirAll(filepath.Dir(betaPath()), 0o700); err == nil {
+			err = os.WriteFile(betaPath(), nil, 0o600)
+		}
+		go d.checkUpdate(false)
+	} else if err = os.Remove(betaPath()); errors.Is(err, os.ErrNotExist) {
+		err = nil
+	}
+	if err != nil {
+		log.Print("updates: ", err)
 	}
 }
 

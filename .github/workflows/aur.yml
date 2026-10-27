@@ -2,7 +2,7 @@ name: AUR
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*", "!v*-*"] # not betas
   workflow_dispatch:
     inputs:
       package:
@@ -40,7 +40,7 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/v}" >>"$GITHUB_OUTPUT"
           else
             git config --global --add safe.directory "$GITHUB_WORKSPACE"
-            echo "version=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')" >>"$GITHUB_OUTPUT"
+            echo "version=$(git describe --tags --abbrev=0 --exclude '*-*' 2>/dev/null | sed 's/^v//')" >>"$GITHUB_OUTPUT"
           fi
 
       - name: Set up the AUR key

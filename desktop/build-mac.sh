@@ -16,7 +16,7 @@ for arch in arm64 amd64; do
 done
 lipo -create -output "$app/Contents/MacOS/laneway-desktop" dist/desktop-arm64 dist/desktop-amd64
 lipo -create -output "$app/Contents/MacOS/laneway" dist/laneway-arm64 dist/laneway-amd64
-sed "s/VERSION/$version/g" darwin/Info.plist > "$app/Contents/Info.plist"
+sed -e "s/VERSION/$version/g" -e "s/BUILD/${version%%-*}/g" darwin/Info.plist > "$app/Contents/Info.plist"
 
 icons=dist/icon.iconset
 mkdir -p "$icons"
