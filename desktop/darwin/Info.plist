@@ -8,7 +8,7 @@
 	<key>CFBundleIdentifier</key><string>com.github.cornedor.laneway</string>
 	<key>CFBundleIconFile</key><string>icon</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleVersion</key><string>VERSION</string>
+	<key>CFBundleVersion</key><string>BUILD</string>
 	<key>CFBundleShortVersionString</key><string>VERSION</string>
 	<key>LSMinimumSystemVersion</key><string>13.0</string>
 	<key>NSHighResolutionCapable</key><true/>

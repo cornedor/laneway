@@ -39,6 +39,7 @@ type desktop struct {
 	dock *dock.DockService
 
 	updates  bool         // the updater is set up: see initUpdates
+	beta     atomic.Bool  // also offer prereleases
 	checking atomic.Bool  // a check runs
 	declined atomic.Value // the version Not Now was given for
 }
@@ -57,6 +58,7 @@ func main() {
 	})
 
 	d := &desktop{ns: notifications.New(), dock: dock.New()}
+	d.beta.Store(loadBeta())
 	origin := "http://" + addr
 	mac := runtime.GOOS == "darwin"
 
@@ -164,6 +166,8 @@ func (d *desktop) menu() *application.Menu {
 	app := m.AddSubmenu("Laneway")
 	app.AddRole(application.About)
 	app.Add("Check for Updates…").OnClick(func(*application.Context) { go d.checkUpdate(true) })
+	beta := app.AddCheckbox("Beta Updates", d.beta.Load())
+	beta.OnClick(func(*application.Context) { d.setBeta(beta.Checked()) })
 	app.AddSeparator()
 	app.Add("Settings…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) {
 		d.show()

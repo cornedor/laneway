@@ -21,8 +21,12 @@ archives:
         formats: [zip]
     files: [LICENSE, README.md]
 
+release:
+  prerelease: auto # a -beta.1 tag
+
 homebrew_casks:
   - name: laneway
+    skip_upload: auto # not for prereleases
     repository:
       owner: cornedor
       name: homebrew-tap
