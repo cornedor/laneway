@@ -15,7 +15,8 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
 	github.com/rivo/uniseg v0.4.7
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.24.0
+	golang.org/x/text v0.43.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.59.0
 )

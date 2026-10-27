@@ -21,7 +21,7 @@ const matchCap = 8
 // source and account. A candidate is found through known (jira.git_people:
 // a forge username or git email to an account id or a Jira name), a match
 // remembered in st, its email, else its name when exactly one person bears
-// it. One not found is left out.
+// it or it finds one person. One not found is left out.
 func Match(ctx context.Context, cands []forge.Candidate, lookup Lookup, known map[string]string, st Store) map[string]map[string]float64 {
 	cands = append([]forge.Candidate(nil), cands...)
 	total := func(c forge.Candidate) (t float64) {
@@ -111,17 +111,17 @@ func accountID(s string) bool {
 	return len(s) >= 20 && !strings.ContainsAny(s, " @")
 }
 
-// find is the one account q names: a search with one result, or, byName,
-// the one result whose name is q.
+// find is the one account q names: a search with one result (by name, of
+// four letters or more), or, byName, the one result whose name is q.
 func find(ctx context.Context, q string, lookup Lookup, byName bool) string {
 	us, err := lookup(ctx, q)
 	if err != nil {
 		return ""
 	}
+	if len(us) == 1 && (!byName || len([]rune(q)) >= 4) { // a git handle (SBernards) finds its one person
+		return us[0].AccountID
+	}
 	if !byName {
-		if len(us) == 1 {
-			return us[0].AccountID
-		}
 		return ""
 	}
 	found := ""

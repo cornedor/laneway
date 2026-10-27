@@ -4,14 +4,18 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/cornedor/laneway/internal/forge"
 )
@@ -255,7 +259,7 @@ func (c *Client) isMR(a apiMR, project string, iid int) bool {
 func (c *Client) blameCandidates(ctx context.Context, lim limiter, project, base string, files []changed) []forge.Candidate {
 	var picked []changed
 	for _, f := range files {
-		if !f.New && !f.Binary && f.n > 0 && len(picked) < blameFiles {
+		if !f.New && !f.Binary && !generated(f.FileDiff) && f.n > 0 && len(picked) < blameFiles {
 			picked = append(picked, f)
 		}
 	}
@@ -268,47 +272,87 @@ func (c *Client) blameCandidates(ctx context.Context, lim limiter, project, base
 	return mergeCandidates(slices.Concat(found...))
 }
 
-// blame reads f's blame at ref and weighs its authors' touched lines.
+// blameSpanGap joins touched lines this close into one blame request;
+// blameSpans caps the requests a file gets.
+const (
+	blameSpanGap = 20
+	blameSpans   = 5
+)
+
+// blame reads f's blame at ref over the spans it touches (a generated file's
+// whole blame runs to megabytes) and weighs its authors' touched lines.
 func (c *Client) blame(ctx context.Context, lim limiter, project, ref string, f changed) []forge.Candidate {
 	want := blamedLines(f.lines)
 	if len(want) == 0 {
 		return nil
 	}
-	var ranges []struct {
-		Commit struct {
-			AuthorName    string `json:"author_name"`
-			AuthorEmail   string `json:"author_email"`
-			CommittedDate string `json:"committed_date"`
-		} `json:"commit"`
-		Lines []string `json:"lines"`
-	}
-	p := fmt.Sprintf("/projects/%s/repository/files/%s/blame?ref=%s", encodePath(project),
-		strings.ReplaceAll(url.PathEscape(f.OldPath), "/", "%2F"), url.QueryEscape(ref))
-	if lim.do(ctx, func() error { return c.rest.Do(ctx, http.MethodGet, p, "blame", nil, &ranges) }) != nil {
-		return nil
-	}
 	t := now()
 	var out []forge.Candidate
-	line := 1
-	for _, r := range ranges {
-		n := 0
-		for l := line; l < line+len(r.Lines); l++ {
-			if want[l] {
-				n++
-			}
+	for _, sp := range spans(want) {
+		var ranges []struct {
+			Commit struct {
+				AuthorName    string `json:"author_name"`
+				AuthorEmail   string `json:"author_email"`
+				CommittedDate string `json:"committed_date"`
+			} `json:"commit"`
+			Lines []string `json:"lines"`
 		}
-		line += len(r.Lines)
-		if n == 0 {
+		p := fmt.Sprintf("/projects/%s/repository/files/%s/blame?ref=%s&range[start]=%d&range[end]=%d", encodePath(project),
+			strings.ReplaceAll(url.PathEscape(f.OldPath), "/", "%2F"), url.QueryEscape(ref), sp[0], sp[1])
+		if lim.do(ctx, func() error { return c.rest.Do(ctx, http.MethodGet, p, "blame", nil, &ranges) }) != nil {
 			continue
 		}
-		age := 0.0
-		if at, err := time.Parse(time.RFC3339, r.Commit.CommittedDate); err == nil {
-			age = max(0, t.Sub(at).Hours()/24)
+		line := sp[0]
+		for _, r := range ranges {
+			n := 0
+			for l := line; l < line+len(r.Lines); l++ {
+				if want[l] {
+					n++
+				}
+			}
+			line += len(r.Lines)
+			if n == 0 {
+				continue
+			}
+			age := 0.0
+			if at, err := time.Parse(time.RFC3339, r.Commit.CommittedDate); err == nil {
+				age = max(0, t.Sub(at).Hours()/24)
+			}
+			// git keeps a name as typed: é may come as e and a combining accent.
+			out = append(out, forge.Candidate{Name: norm.NFC.String(r.Commit.AuthorName), Email: r.Commit.AuthorEmail,
+				Scores: map[string]float64{"blame": float64(n) * math.Pow(0.5, age/365)}})
 		}
-		out = append(out, forge.Candidate{Name: r.Commit.AuthorName, Email: r.Commit.AuthorEmail,
-			Scores: map[string]float64{"blame": float64(n) * math.Pow(0.5, age/365)}})
 	}
 	return out
+}
+
+// spans are the touched lines as [first, last] runs, lines blameSpanGap
+// apart joined, the first blameSpans.
+func spans(lines map[int]bool) [][2]int {
+	ls := slices.Sorted(maps.Keys(lines))
+	var out [][2]int
+	for _, l := range ls {
+		if n := len(out); n > 0 && l-out[n-1][1] <= blameSpanGap {
+			out[n-1][1] = l
+			continue
+		}
+		if len(out) == blameSpans {
+			break
+		}
+		out = append(out, [2]int{l, l})
+	}
+	return out
+}
+
+// lockfiles are files no one writes by hand.
+var lockfiles = []string{"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock", "go.sum", "Cargo.lock", "Gemfile.lock", "poetry.lock"}
+
+// generated is whether f is written by a tool: its blame names whoever ran
+// it, and GitLab blames a large one slowly (seconds for a schema).
+func generated(f forge.FileDiff) bool {
+	p := f.OldPath
+	return f.Generated || strings.Contains(p, ".generated.") || strings.Contains(p, "/generated/") ||
+		strings.HasPrefix(p, "generated/") || slices.Contains(lockfiles, path.Base(p))
 }
 
 // blamedLines are the old side's lines a diff touches: the ones it removes

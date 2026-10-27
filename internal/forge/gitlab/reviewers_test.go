@@ -103,7 +103,8 @@ web/legacy/ @legacy
 
 // TestCandidatesBlame: the lines a change removes or rewrites, and the line
 // before a pure insertion, count for their author, halved per year of age;
-// new and binary files are not blamed; the author is left out.
+// new, binary and generated files are not blamed; the author is left out. Only the
+// span touched is asked for, and a decomposed name comes back composed.
 func TestCandidatesBlame(t *testing.T) {
 	pinNow(t)
 	srv, hits := fakeGitLab(t, map[string]string{
@@ -111,10 +112,11 @@ func TestCandidatesBlame(t *testing.T) {
 		"/api/v4/projects/g/p/merge_requests/7/diffs": `[
   {"old_path": "a.go", "new_path": "a.go", "diff": "@@ -1,5 +1,5 @@\n a\n-b\n+B\n c\n+new\n d\n-e\n"},
   {"old_path": "n.go", "new_path": "n.go", "new_file": true, "diff": "@@ -0,0 +1 @@\n+x\n"},
-  {"old_path": "i.png", "new_path": "i.png", "diff": "Binary files a/i.png and b/i.png differ\n"}]`,
-		"/api/v4/projects/g/p/repository/files/a.go/blame?ref=base1": `[
-  {"commit": {"author_name": "Ann", "author_email": "ann@x", "committed_date": "2025-12-31T00:00:00Z"}, "lines": ["a"]},
-  {"commit": {"author_name": "Bob", "author_email": "bob@x", "committed_date": "2025-01-01T00:00:00Z"}, "lines": ["b"]},
+  {"old_path": "i.png", "new_path": "i.png", "diff": "Binary files a/i.png and b/i.png differ\n"},
+  {"old_path": "s.generated.ts", "new_path": "s.generated.ts", "diff": "@@ -1 +1 @@\n-x\n+y\n"},
+  {"old_path": "web/yarn.lock", "new_path": "web/yarn.lock", "diff": "@@ -1 +1 @@\n-x\n+y\n"}]`,
+		"/api/v4/projects/g/p/repository/files/a.go/blame?ref=base1&range[start]=2&range[end]=5": `[
+  {"commit": {"author_name": "Bo\u0301b", "author_email": "bob@x", "committed_date": "2025-01-01T00:00:00Z"}, "lines": ["b"]},
   {"commit": {"author_name": "Carol", "author_email": "carol@x", "committed_date": "2026-01-01T00:00:00Z"}, "lines": ["c", "d"]},
   {"commit": {"author_name": "me author", "author_email": "me@x", "committed_date": "2026-01-01T00:00:00Z"}, "lines": ["e"]}]`,
 	})
@@ -124,13 +126,14 @@ func TestCandidatesBlame(t *testing.T) {
 	}
 	want := []forge.Candidate{
 		{Name: "Carol", Email: "carol@x", Scores: map[string]float64{"blame": 1}},
-		{Name: "Bob", Email: "bob@x", Scores: map[string]float64{"blame": 0.5}},
+		{Name: "Bób", Email: "bob@x", Scores: map[string]float64{"blame": 0.5}}, // as one character
 	}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("candidates\n got %v\nwant %v", got, want)
 	}
-	if hits["/api/v4/projects/g/p/repository/files/n.go/blame"]+hits["/api/v4/projects/g/p/repository/files/i.png/blame"] != 0 {
-		t.Errorf("blamed a new or binary file: %v", hits)
+	if hits["/api/v4/projects/g/p/repository/files/n.go/blame"]+hits["/api/v4/projects/g/p/repository/files/i.png/blame"]+
+		hits["/api/v4/projects/g/p/repository/files/s.generated.ts/blame"]+hits["/api/v4/projects/g/p/repository/files/web/yarn.lock/blame"] != 0 {
+		t.Errorf("blamed a new, binary or generated file: %v", hits)
 	}
 }
 
@@ -177,9 +180,9 @@ func TestCandidatesOwners(t *testing.T) {
 		"/api/v4/projects/g/p/repository/files/docs/CODEOWNERS/raw?ref=main":    "* @nobody\n",
 		"/api/v4/users?username=ada":                                            `[{"username": "ada", "name": "Ada Lovelace"}]`,
 		"/api/v4/users?username=ghost":                                          `[]`,
-		"/api/v4/projects/g/p/repository/files/a.go/blame?ref=base1": `[
+		"/api/v4/projects/g/p/repository/files/a.go/blame?ref=base1&range[start]=1&range[end]=1": `[
   {"commit": {"author_name": "ada lovelace", "author_email": "ada@home", "committed_date": "2026-01-01T00:00:00Z"}, "lines": ["x"]}]`,
-		"/api/v4/projects/g/p/repository/files/b.go/blame?ref=base1": `[
+		"/api/v4/projects/g/p/repository/files/b.go/blame?ref=base1&range[start]=1&range[end]=1": `[
   {"commit": {"author_name": "Team Bot", "author_email": "TEAM@example.com", "committed_date": "2026-01-01T00:00:00Z"}, "lines": ["x"]}]`,
 	})
 	got, err := newTestClient(srv).Candidates(context.Background(), "g/p", 7, []string{"blame", "codeowners", "nonsense"})
@@ -242,5 +245,17 @@ func TestSitesCandidates(t *testing.T) {
 	}
 	if !slices.ContainsFunc(got, func(c forge.Candidate) bool { return c.Name == "Bob" }) {
 		t.Errorf("names not filled: %+v", got)
+	}
+}
+
+// Touched lines close together are one blame request; at most blameSpans.
+func TestSpans(t *testing.T) {
+	lines := map[int]bool{3: true, 10: true, 40: true, 41: true}
+	for i := range 10 {
+		lines[100+i*100] = true
+	}
+	got := spans(lines)
+	if len(got) != blameSpans || got[0] != [2]int{3, 10} || got[1] != [2]int{40, 41} || got[2] != [2]int{100, 100} {
+		t.Errorf("spans = %v", got)
 	}
 }
