@@ -44,8 +44,9 @@ func TestLoadFallsBackToJiratui(t *testing.T) {
 	}
 }
 
-// TestMatterboxRulesIgnored: matterbox's rules: are chat rules, not ours.
-func TestMatterboxRulesIgnored(t *testing.T) {
+// TestMatterboxMigrated: matterbox's jira: is copied to laneway's config;
+// its rules: are chat rules, not ours.
+func TestMatterboxMigrated(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", home)
 	t.Setenv("HOME", home)
@@ -53,9 +54,15 @@ func TestMatterboxRulesIgnored(t *testing.T) {
 	p := filepath.Join(d, "matterbox", "config.yaml")
 	_ = os.MkdirAll(filepath.Dir(p), 0o700)
 	_ = os.WriteFile(p, []byte("jira:\n  base_url: https://x.test\nrules:\n  - match: {channel: Ops, frequency: {count: 3}}\n    actions: [{type: send, text: hi}]\n"), 0o600)
-	c, _, err := Load("")
+	c, got, err := Load("")
 	if err != nil || c.Jira.BaseURL != "https://x.test" || c.Rules != nil {
 		t.Errorf("Load = %+v rules %v, %v", c.Jira, c.Rules, err)
+	}
+	if want := filepath.Join(d, "laneway", "config.yaml"); got != want {
+		t.Errorf("path = %q, want %q", got, want)
+	}
+	if raw, _ := os.ReadFile(p); !strings.Contains(string(raw), "rules:") {
+		t.Errorf("matterbox's config changed: %s", raw)
 	}
 }
 

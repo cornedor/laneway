@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -145,9 +144,6 @@ func setupSite(ctx context.Context, cfgPath, site string, p prompter, verify fun
 			return "", fmt.Errorf(i18n.T("no site %q in sites:; laneway setup adds one"), site)
 		}
 		j.BaseURL = known.BaseURL
-	}
-	if filepath.Base(filepath.Dir(path)) == "matterbox" {
-		return "", fmt.Errorf(i18n.T("the config in use is matterbox's (%s), whose sites laneway doesn't read; copy its jira: to a laneway config (-config) first"), path)
 	}
 	first := errors.Is(err, config.ErrNoConfig) || cfg.Jira.BaseURL == "" && len(cfg.Sites) == 0
 	if first {
