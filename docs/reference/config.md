@@ -7,8 +7,7 @@ the browser) edit the `ui:` options in place, comments kept.
 
 A bad value keeps its default and is reported; an unknown key warns with a
 "did you mean". One value where a list goes (`projects: ABC`) is a list of
-one. An existing `~/.config/jiratui` config is picked up as a fallback; without
-either, a matterbox config's `jira:` and `ui:` are copied to laneway's.
+one. An existing `~/.config/jiratui` config is picked up as a fallback.
 
 ## Jira
 
