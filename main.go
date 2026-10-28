@@ -31,7 +31,7 @@ var version = "dev"
 
 func main() {
 	showVersion := flag.Bool("version", false, i18n.T("print the version and exit"))
-	cfgPath := flag.String("config", "", i18n.T("config file (default ~/.config/laneway/config.yaml, then jiratui's and matterbox's)"))
+	cfgPath := flag.String("config", "", i18n.T("config file (default ~/.config/laneway/config.yaml, then jiratui's)"))
 	site := flag.String("site", "", i18n.T("Jira site from the config's sites: (default the one last picked with @, else jira:)"))
 	demoFlag := flag.Bool("demo", false, i18n.T("try laneway on a generated project, without Jira; writes are kept in memory (-config: its ui: only)"))
 	flag.Parse()

@@ -1,6 +1,6 @@
 // Package config loads the Jira connection from
-// ~/.config/laneway/config.yaml, falling back to the old jiratui name and
-// then the jira: section of matterbox's config so an existing setup just works.
+// ~/.config/laneway/config.yaml, falling back to the old jiratui name. A
+// matterbox config's jira: is copied to laneway's once (migrateMatterbox).
 package config
 
 import (
@@ -461,7 +461,9 @@ func Load(path string) (Config, string, error) {
 		candidates = []string{
 			filepath.Join(d, "laneway", "config.yaml"),
 			filepath.Join(d, "jiratui", "config.yaml"),
-			filepath.Join(d, "matterbox", "config.yaml"),
+		}
+		if err := migrateMatterbox(d, candidates); err != nil {
+			return Config{}, candidates[0], err
 		}
 	}
 	for _, p := range candidates {
@@ -473,19 +475,9 @@ func Load(path string) (Config, string, error) {
 			return Config{}, p, err
 		}
 		var c Config
-		if filepath.Base(filepath.Dir(p)) == "matterbox" {
-			// Its rules: are chat rules; only jira: and ui: carry over.
-			var mb struct {
-				Jira JiraConfig `yaml:"jira"`
-				UI   UIConfig   `yaml:"ui"`
-			}
-			c.Warnings, err = decode(raw, &mb)
-			c.Jira, c.UI = mb.Jira, mb.UI
-		} else {
-			c.Warnings, err = decode(raw, &c)
-			c.Warnings = append(unknownKeys(raw), c.Warnings...)
-			c.Warnings = append(c.Warnings, people.Check(c.Jira.Pickers)...)
-		}
+		c.Warnings, err = decode(raw, &c)
+		c.Warnings = append(unknownKeys(raw), c.Warnings...)
+		c.Warnings = append(c.Warnings, people.Check(c.Jira.Pickers)...)
 		if err != nil {
 			return Config{}, p, fmt.Errorf("%s: %w", p, err)
 		}
@@ -496,6 +488,51 @@ func Load(path string) (Config, string, error) {
 		return c, p, nil
 	}
 	return Config{}, candidates[0], fmt.Errorf("%w; run `laneway setup`, or create %s with:\n\n%s\nA token: %s", ErrNoConfig, candidates[0], starterConfig, TokenURL)
+}
+
+// migrateMatterbox writes matterbox's jira: and ui: to laneway's config
+// (configs[0]) when none of configs exists; its other keys are matterbox's
+// own. Matterbox's file is left as it is.
+func migrateMatterbox(dir string, configs []string) error {
+	for _, p := range configs {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			return nil
+		}
+	}
+	src := filepath.Join(dir, "matterbox", "config.yaml")
+	raw, err := os.ReadFile(src)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return fmt.Errorf("%s: %w", src, err)
+	}
+	if len(doc.Content) == 0 || doc.Content[0].Kind != yaml.MappingNode {
+		return nil
+	}
+	top := doc.Content[0]
+	kept := []*yaml.Node{}
+	for i := 0; i+1 < len(top.Content); i += 2 {
+		if k := top.Content[i].Value; k == "jira" || k == "ui" {
+			kept = append(kept, top.Content[i], top.Content[i+1])
+		}
+	}
+	if len(kept) == 0 {
+		return nil
+	}
+	top.Content = kept
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(configs[0]), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(configs[0], out, 0o600)
 }
 
 // decode reads raw into v, skipping each value of the wrong type with a
