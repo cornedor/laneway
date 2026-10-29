@@ -1,6 +1,5 @@
 // Package config loads the Jira connection from
-// ~/.config/laneway/config.yaml, falling back to the old jiratui name and
-// then the jira: section of matterbox's config so an existing setup just works.
+// ~/.config/laneway/config.yaml, falling back to the old jiratui name.
 package config
 
 import (
@@ -24,7 +23,7 @@ import (
 	"github.com/cornedor/laneway/internal/rules"
 )
 
-// JiraConfig is matterbox's jira: section.
+// JiraConfig is the jira: section.
 type JiraConfig struct {
 	// Name labels the default site (jira:) in the site pickers and the web
 	// header; sites: entries are labelled by their key.
@@ -461,7 +460,6 @@ func Load(path string) (Config, string, error) {
 		candidates = []string{
 			filepath.Join(d, "laneway", "config.yaml"),
 			filepath.Join(d, "jiratui", "config.yaml"),
-			filepath.Join(d, "matterbox", "config.yaml"),
 		}
 	}
 	for _, p := range candidates {
@@ -473,19 +471,9 @@ func Load(path string) (Config, string, error) {
 			return Config{}, p, err
 		}
 		var c Config
-		if filepath.Base(filepath.Dir(p)) == "matterbox" {
-			// Its rules: are chat rules; only jira: and ui: carry over.
-			var mb struct {
-				Jira JiraConfig `yaml:"jira"`
-				UI   UIConfig   `yaml:"ui"`
-			}
-			c.Warnings, err = decode(raw, &mb)
-			c.Jira, c.UI = mb.Jira, mb.UI
-		} else {
-			c.Warnings, err = decode(raw, &c)
-			c.Warnings = append(unknownKeys(raw), c.Warnings...)
-			c.Warnings = append(c.Warnings, people.Check(c.Jira.Pickers)...)
-		}
+		c.Warnings, err = decode(raw, &c)
+		c.Warnings = append(unknownKeys(raw), c.Warnings...)
+		c.Warnings = append(c.Warnings, people.Check(c.Jira.Pickers)...)
 		if err != nil {
 			return Config{}, p, fmt.Errorf("%s: %w", p, err)
 		}

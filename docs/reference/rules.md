@@ -38,8 +38,7 @@ issue's changelog shows someone else made: never on yours, and never on
 their own writes coming back on the next refresh. A transition to the
 status the issue has does nothing; one its workflow doesn't offer is logged.
 
-A bad rule is skipped and reported. A matterbox config's `rules:` are
-ignored.
+A bad rule is skipped and reported.
 
 ## Watch a search
 
