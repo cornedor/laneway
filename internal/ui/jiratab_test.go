@@ -325,6 +325,47 @@ func TestJiraTabDragRank(t *testing.T) {
 	}
 }
 
+// TestJiraTabDragHeadNoRank: a card dropped on its lane's header stays
+// where it was ranked.
+func TestJiraTabDragHeadNoRank(t *testing.T) {
+	ranked := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/agile/1.0/issue/rank" {
+			ranked = true
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Summary: "Fifth", StatusID: "1", Status: "New"})
+	m.buildJiraLanes()
+	m.renderJira()
+	lane := func() string {
+		var keys []string
+		for _, i := range m.jiraTab.lanes[0].cards {
+			keys = append(keys, m.jiraTab.cards[i].Key)
+		}
+		return strings.Join(keys, " ")
+	}
+	before := lane()
+	last := jiraBodyTop + 1 + 2*m.cardSlot() // ABC-5, the lane's last card
+	out, _ := m.Update(tea.MouseClickMsg{X: 2, Y: last, Button: tea.MouseLeft})
+	out, _ = out.(Model).Update(tea.MouseMotionMsg{X: 2, Y: jiraBodyTop, Button: tea.MouseLeft})
+	m = out.(Model)
+	if d := m.jiraTab.drag; !d.active || d.key != "ABC-5" || d.over != 0 || d.slotOK {
+		t.Fatalf("drag = %+v, want ABC-5 over lane 0's header, no slot", d)
+	}
+	out, cmd := m.Update(tea.MouseReleaseMsg{X: 2, Y: jiraBodyTop, Button: tea.MouseLeft})
+	m = out.(Model)
+	if cmd != nil {
+		cmd()
+	}
+	if got := lane(); got != before || ranked {
+		t.Errorf("lane = %s (was %s), ranked %v", got, before, ranked)
+	}
+}
+
 // TestJiraTabDropZones: a lane of several statuses splits into a zone per
 // status while dragged over, and the drop lands on the zone's status.
 func TestJiraTabDropZones(t *testing.T) {

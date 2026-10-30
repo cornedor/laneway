@@ -3999,10 +3999,10 @@ func (m *Model) jiraLaneOthers(l int) []int {
 
 // jiraDropSlot is where among lane over's other cards a drop at row y
 // lands: the gap between cards nearest the pointer. ok only where a drop
-// can rank: a lane of one status, the swimlanes off.
+// can rank: a lane of one status, the swimlanes off, below its header.
 func (m *Model) jiraDropSlot(over, y int) (int, bool) {
 	t := m.jiraTab
-	if t.swim != jiraSortRank || over < 0 || over >= len(t.lanes) || len(t.lanes[over].statusIDs) != 1 {
+	if t.swim != jiraSortRank || over < 0 || over >= len(t.lanes) || len(t.lanes[over].statusIDs) != 1 || y <= jiraBodyTop {
 		return 0, false
 	}
 	n := len(m.jiraLaneOthers(over))

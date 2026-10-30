@@ -895,6 +895,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const y = e.clientY - r.top + p.body.scrollTop;
     return Math.max(0, Math.min(p.cards.length, Math.round(y / (p.rh || 96))));
   }
+  // A drop on a lane's header moves the card without ranking it.
+  const unranked = (p, e) => !!p.head && p.head.contains(e.target);
   function clearDrop() {
     for (const p of S.panes) { if (p.drop) p.drop.hidden = true; if (p.el) p.el.classList.remove('drop'); }
     for (const z of main.querySelectorAll('.bd-zone.over')) z.classList.remove('over');
@@ -963,7 +965,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
     clearDrop();
     if (S.mode === 'lanes') p.el.classList.add('drop');
-    if (p.drop) { p.drop.hidden = false; p.drop.style.top = (dropIndex(p, e) * p.rh - 3) + 'px'; }
+    if (p.drop && !unranked(p, e)) { p.drop.hidden = false; p.drop.style.top = (dropIndex(p, e) * p.rh - 3) + 'px'; }
   });
   main.addEventListener('dragleave', e => { if (!main.contains(e.relatedTarget)) clearDrop(); });
   main.addEventListener('dragend', () => { S.drag = null; clearDrop(); clearZones(); for (const d of main.querySelectorAll('.dragging')) d.classList.remove('dragging'); });
@@ -972,7 +974,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (!p) return;
     e.preventDefault();
     const z = e.target.closest && e.target.closest('.bd-zone');
-    const key = S.drag, idx = z ? 0 : dropIndex(p, e);
+    const key = S.drag, idx = z ? 0 : unranked(p, e) ? null : dropIndex(p, e);
     S.drag = null; clearDrop(); clearZones();
     if (z) { const card = S.cards.find(c => c.Key === key); if (card) moveCol(card, p.col, null, z.dataset.status); return; }
     dropCard(key, p, idx);
@@ -988,6 +990,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       if (from && from.p.col === pane.col) return;
       return moveCol(S.cards.find(c => c.Key === key), pane.col, null);
     }
+    if (idx === null) return same ? undefined : moveCol(card, pane.col, null);
     if (same && (idx === from.i || idx === from.i + 1)) return;
     const L = pane.cards.filter(c => c.Key !== key);
     let k = idx; if (same && from.i < idx) k--;
