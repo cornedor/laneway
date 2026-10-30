@@ -229,6 +229,7 @@
   "fold the swimlane, or the stacked lane's section": "swimlane of sectie van gestapelde baan inklappen",
   "from the agent in the panel back to its issue": "van de agent in het paneel terug naar de issue",
   "from the terminal back to the list": "van de terminal terug naar de lijst",
+  "go to  %s": "naar  %s",
   "go to issue by key": "naar issue via sleutel",
   "go to linked issue or web link (a Confluence page reads in the panel)": "naar gekoppelde issue of weblink (een Confluence-pagina leest in het paneel)",
   "go to linked issue, child or web link": "naar gekoppelde issue, kind of weblink",

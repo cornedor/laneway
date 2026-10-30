@@ -266,3 +266,25 @@ func TestPaletteSaysWhatHelpSays(t *testing.T) {
 		t.Errorf("swim = %q", got)
 	}
 }
+
+// TestPaletteExactKey: a typed key (any case) ranks its own issue above the
+// keys it prefixes; a key not listed gets a go to row on top.
+func TestPaletteExactKey(t *testing.T) {
+	base := jiraTabModel(t)
+	base.jiraTab.cards = append([]jira.Card{ // ranked above ABC-1
+		{Key: "ABC-10", Summary: "Tenth", StatusID: "1", Status: "New"},
+		{Key: "ABC-12", Summary: "Twelfth", StatusID: "1", Status: "New"}}, base.jiraTab.cards...)
+	base.buildJiraLanes()
+	m := typePalette(t, base, "abc-1")
+	if got := m.jiraPicker.items; len(got) < 3 || got[0].id != "i:ABC-1" {
+		t.Errorf("abc-1 = %q, want ABC-1 first", paletteLabels(m))
+	}
+	m = typePalette(t, base, "ABC-99")
+	if got := m.jiraPicker.items; len(got) == 0 || got[0].id != "i:ABC-99" || got[0].label != "go to  ABC-99" {
+		t.Errorf("ABC-99 = %q, want a go to row first", paletteLabels(m))
+	}
+	m = typePalette(t, base, "abc thi")
+	if got := paletteLabels(m); len(got) != 1 || got[0] != "ABC-3  Third" {
+		t.Errorf("not a key = %q", got)
+	}
+}

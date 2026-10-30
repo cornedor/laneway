@@ -605,7 +605,22 @@ func (m *Model) filterJiraPicker() {
 		}
 	}
 	m.jiraPicker.items = append(m.jiraPicker.items, m.jiraPicker.found...)
+	if key := strings.ToUpper(strings.TrimSpace(m.jiraPicker.filter.Value())); m.jiraPicker.kind == jiraPickPalette && jiraKeyRe.MatchString(key) {
+		m.jiraPicker.items = exactKeyFirst(m.jiraPicker.items, key)
+	}
 	m.jiraPicker.idx = 0
+}
+
+// exactKeyFirst puts the palette's row for key on top (ABC-1 before ABC-10),
+// or a go to row when none lists it.
+func exactKeyFirst(items []jiraPickerItem, key string) []jiraPickerItem {
+	id := "i:" + key
+	at := slices.IndexFunc(items, func(it jiraPickerItem) bool { return it.id == id })
+	if at < 0 {
+		return slices.Insert(items, 0, jiraPickerItem{id: id, label: i18n.Tf("go to  %s", key)})
+	}
+	it := items[at]
+	return slices.Insert(slices.Delete(items, at, at+1), 0, it)
 }
 
 // closeJiraPicker tears the picker down, preserving gen so a late load is
