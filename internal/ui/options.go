@@ -91,7 +91,7 @@ var allCardFields = cardFields{true, true, true, true, true, true, true, true, t
 
 func defaultOptions() options {
 	return options{autoRefresh: 2 * time.Minute, staleAfter: time.Minute, images: true, imageMaxRows: 16, panelPct: 50, panelDefault: 50,
-		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, boardQuick: true, savedFilters: true, rememberFilters: true, delight: true, dropRanks: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, standup: standup.Defaults, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
+		lanes: true, dateFormat: "2006-01-02 15:04", fields: allCardFields, boardQuick: true, savedFilters: true, rememberFilters: true, delight: true, threaded: true, updateCheck: true, velocitySprints: 8, staleDays: 5, branchTemplate: defaultBranchTemplate, workBranch: defaultWorkBranch, workAgent: "claude", agentView: "fullscreen", kanbanDoneDays: defaultKanbanDoneDays, epicType: "Epic", myWorkJQL: myWorkJQL, inboxEvery: 5 * time.Minute, fullRefresh: 10 * time.Minute, inboxLookback: 7 * 24 * time.Hour, roadmapDoneDays: 90, standup: standup.Defaults, codeTheme: fallbackCodeTheme, cardColors: "ribbon", mouse: true, workdayStart: 9 * time.Hour, doubleClick: 400 * time.Millisecond}
 }
 
 // weekdays reads a day by its first three letters.
@@ -146,9 +146,9 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 		warn = append(warn, i18n.Tf("ui.empty_lanes: %q is not show or hide", c.EmptyLanes))
 	}
 	switch strings.ToLower(strings.TrimSpace(c.DropRanks)) {
-	case "", "on":
-	case "off":
-		o.dropRanks = false
+	case "", "off":
+	case "on":
+		o.dropRanks = true
 	default:
 		warn = append(warn, i18n.Tf("ui.drop_ranks: %q is not on or off", c.DropRanks))
 	}

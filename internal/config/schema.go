@@ -55,7 +55,7 @@ var SettingDefaults = map[string]string{
 	"saved_filters":        "on",
 	"remember_filters":     "on",
 	"delight":              "on",
-	"drop_ranks":           "on",
+	"drop_ranks":           "off",
 	"language":             "en",
 	"threaded_replies":     "on",
 	"comment_order":        "oldest",
@@ -154,7 +154,7 @@ var SettingDocs = map[string]string{
 	"templates":            i18n.N("the description a new issue starts with, by type (markdown)"),
 	"timer_on_start":       i18n.N("start the timer when S starts work on an issue"),
 	"start_assigns":        i18n.N("assign the issue to you when S starts work on it"),
-	"drop_ranks":           i18n.N("a card dragged into another lane lands where it is dropped; off: it keeps its rank, ranking it is a move of its own"),
+	"drop_ranks":           i18n.N("a card dragged into another lane keeps its rank, ranking it is a move of its own; on: it lands where it is dropped"),
 	"start_status":         i18n.N("the status S moves the issue to (In Progress); empty for none"),
 	"workday_start":        i18n.N("when work logged on another day starts"),
 	"capacity":             i18n.N("story points per person a sprint holds; default for everyone else"),
@@ -225,13 +225,13 @@ func SettingChoices(name string) []string {
 		return []string{"nerd", "plain"}
 	case "empty_fields", "empty_lanes":
 		return []string{"show", "hide"}
-	case "board_quick_filters", "saved_filters", "remember_filters", "mouse", "delight", "drop_ranks", "update_check", "threaded_replies":
+	case "board_quick_filters", "saved_filters", "remember_filters", "mouse", "delight", "update_check", "threaded_replies":
 		return []string{"on", "off"}
 	case "language":
 		return append([]string{"en"}, i18n.Langs...)
 	case "skin_tone":
 		return []string{"none", "light", "medium_light", "medium", "medium_dark", "dark"}
-	case "timer_on_start", "start_assigns", "standup_shuffle", "standup_timer":
+	case "timer_on_start", "start_assigns", "drop_ranks", "standup_shuffle", "standup_timer":
 		return []string{"off", "on"}
 	case "comment_order":
 		return []string{"oldest", "newest"}

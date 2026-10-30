@@ -265,8 +265,8 @@ func TestJiraTabDragDrop(t *testing.T) {
 }
 
 // TestJiraTabDragRank: dragging a card down its own lane ranks it where it
-// is dropped, the ghost showing the spot on the way; a drop into another
-// lane lands at the spot too.
+// is dropped, the ghost showing the spot on the way; with ui.drop_ranks on a
+// drop into another lane lands at the spot too.
 func TestJiraTabDragRank(t *testing.T) {
 	var body string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -278,6 +278,7 @@ func TestJiraTabDragRank(t *testing.T) {
 	}))
 	defer srv.Close()
 	m := jiraTabModel(t)
+	m.opts.dropRanks = true
 	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
 	m.jiraTab.cards = append(m.jiraTab.cards, jira.Card{Key: "ABC-5", Summary: "Fifth", StatusID: "1", Status: "New"})
 	m.buildJiraLanes()
@@ -366,12 +367,11 @@ func TestJiraTabDragHeadNoRank(t *testing.T) {
 	}
 }
 
-// TestJiraTabDropRanksOff: with ui.drop_ranks off a card dragged into another
-// lane has no slot to rank into (dropJira ranks only on one); its own lane
-// still has.
+// TestJiraTabDropRanksOff: with ui.drop_ranks off (the default) a card
+// dragged into another lane has no slot to rank into (dropJira ranks only on
+// one); its own lane still has.
 func TestJiraTabDropRanksOff(t *testing.T) {
 	m := jiraTabModel(t)
-	m.opts.dropRanks = false
 	y := jiraBodyTop + 1
 	out, _ := m.Update(tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft})
 	out, _ = out.(Model).Update(tea.MouseMotionMsg{X: m.jiraTab.laneW + 3, Y: y, Button: tea.MouseLeft})

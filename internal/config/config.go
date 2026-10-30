@@ -305,9 +305,9 @@ type UIConfig struct {
 	// EmptyLanes is "show" (default) or "hide": board columns without a
 	// card after the filters make way for the rest, until toggled.
 	EmptyLanes string `yaml:"empty_lanes"`
-	// DropRanks is "on" (default: a card dragged into another lane lands
-	// where it is dropped) or "off" (it keeps its rank; ranking is a move
-	// of its own).
+	// DropRanks is "off" (default: a card dragged into another lane keeps
+	// its rank; ranking is a move of its own) or "on" (it lands where it is
+	// dropped).
 	DropRanks string `yaml:"drop_ranks"`
 	// CustomFields are Jira fields by name that cards and list rows show
 	// (values only) and / searches ("test type":e2e).
