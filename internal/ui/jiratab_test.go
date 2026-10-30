@@ -366,6 +366,24 @@ func TestJiraTabDragHeadNoRank(t *testing.T) {
 	}
 }
 
+// TestJiraTabDropRanksOff: with ui.drop_ranks off a card dragged into another
+// lane has no slot to rank into (dropJira ranks only on one); its own lane
+// still has.
+func TestJiraTabDropRanksOff(t *testing.T) {
+	m := jiraTabModel(t)
+	m.opts.dropRanks = false
+	y := jiraBodyTop + 1
+	out, _ := m.Update(tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft})
+	out, _ = out.(Model).Update(tea.MouseMotionMsg{X: m.jiraTab.laneW + 3, Y: y, Button: tea.MouseLeft})
+	if d := out.(Model).jiraTab.drag; d.over != 1 || d.slotOK {
+		t.Errorf("drag into lane 1 = %+v, want no slot", d)
+	}
+	out, _ = out.(Model).Update(tea.MouseMotionMsg{X: 2, Y: y + 2*m.cardSlot(), Button: tea.MouseLeft})
+	if d := out.(Model).jiraTab.drag; d.over != 0 || !d.slotOK {
+		t.Errorf("drag in its own lane = %+v, want a slot", d)
+	}
+}
+
 // TestJiraTabDropZones: a lane of several statuses splits into a zone per
 // status while dragged over, and the drop lands on the zone's status.
 func TestJiraTabDropZones(t *testing.T) {

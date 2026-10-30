@@ -97,6 +97,7 @@ Restart starts `laneway web` again); the rest apply at once.
 | `card_styles` | | restyle the cards a `/` query matches: `when`, `edge`, `tint` (`accent ok warn err info` or `#rrggbb`), `fade`, `bold`, `hide`, `show`; a later match wins |
 | `card_colors` | `ribbon` | the board's own card colours as a bar on cards and rows; `off` |
 | `empty_lanes` | `show` | `hide`: lanes the filters leave empty |
+| `drop_ranks` | `on` | a card dragged into another lane lands where it is dropped; `off`: it keeps its rank, and ranking it is a move of its own |
 | `lane_layouts` | | your own lanes over a board's columns, `alt+l` switches; see [Lane layouts](#lane-layouts) |
 | `custom_fields` | | Jira fields by name on cards and rows, searchable as `"test type":e2e`. *Restart* |
 | `card_limit` | `500` | most cards one view fetches (50–5000); a view, search or planning side it cuts off says how many Jira has. Charts and the roadmap count up to 5000. *Restart* |

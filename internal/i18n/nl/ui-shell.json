@@ -508,6 +508,7 @@
   "ui.comment_order: %q is not oldest or newest": "ui.comment_order: %q is niet oldest of newest",
   "ui.default_mode: %q is not lanes or list": "ui.default_mode: %q is niet lanes of list",
   "ui.delight: %q is not on or off": "ui.delight: %q is niet on of off",
+  "ui.drop_ranks: %q is not on or off": "ui.drop_ranks: %q is niet on of off",
   "ui.double_click: %q is not a duration from 100ms to 2s": "ui.double_click: %q is geen duur van 100ms tot 2s",
   "ui.empty_fields: %q is not show or hide": "ui.empty_fields: %q is niet show of hide",
   "ui.empty_lanes: %q is not show or hide": "ui.empty_lanes: %q is niet show of hide",

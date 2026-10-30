@@ -895,8 +895,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const y = e.clientY - r.top + p.body.scrollTop;
     return Math.max(0, Math.min(p.cards.length, Math.round(y / (p.rh || 96))));
   }
-  // A drop on a lane's header moves the card without ranking it.
-  const unranked = (p, e) => !!p.head && p.head.contains(e.target);
+  // A drop on a lane's header moves the card without ranking it, as does any drop into another lane with
+  // ui.drop_ranks off.
+  const dropRanks = () => String((app.session && app.session.ui && app.session.ui.DropRanks) || '').toLowerCase() !== 'off';
+  const unranked = (p, e) => (!!p.head && p.head.contains(e.target)) || (!dropRanks() && S.mode === 'lanes' && (S.where.get(S.drag) || {}).p !== p);
   function clearDrop() {
     for (const p of S.panes) { if (p.drop) p.drop.hidden = true; if (p.el) p.el.classList.remove('drop'); }
     for (const z of main.querySelectorAll('.bd-zone.over')) z.classList.remove('over');

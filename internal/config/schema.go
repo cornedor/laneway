@@ -17,7 +17,7 @@ var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": 
 // SettingsBasic are the options for making laneway your own: looks, layouts,
 // views. The rest are specifics and tuning, which the browser's settings
 // show behind Advanced, with SettingsTerminal.
-var SettingsBasic = map[string]bool{"default_mode": true, "card_fields": true, "list_columns": true, "card_colors": true, "empty_lanes": true, "card_layout": true, "card_styles": true, "lane_layouts": true, "home": true, "quick_filters": true, "views": true, "saved_filters": true, "filters": true, "empty_fields": true, "templates": true, "comment_order": true, "comment_layout": true, "agent_view": true, "delight": true, "skin_tone": true, "language": true}
+var SettingsBasic = map[string]bool{"default_mode": true, "card_fields": true, "list_columns": true, "card_colors": true, "empty_lanes": true, "drop_ranks": true, "card_layout": true, "card_styles": true, "lane_layouts": true, "home": true, "quick_filters": true, "views": true, "saved_filters": true, "filters": true, "empty_fields": true, "templates": true, "comment_order": true, "comment_layout": true, "agent_view": true, "delight": true, "skin_tone": true, "language": true}
 
 // SettingDefaults is each ui: option's default as the docs show it.
 var SettingDefaults = map[string]string{
@@ -55,6 +55,7 @@ var SettingDefaults = map[string]string{
 	"saved_filters":        "on",
 	"remember_filters":     "on",
 	"delight":              "on",
+	"drop_ranks":           "on",
 	"language":             "en",
 	"threaded_replies":     "on",
 	"comment_order":        "oldest",
@@ -111,7 +112,7 @@ type SettingGroup struct {
 // SettingGroups are the settings screen's headings and their options, in
 // order; an option in none shows under Other.
 var SettingGroups = []SettingGroup{
-	{i18n.N("Board and cards"), []string{"default_mode", "card_fields", "list_columns", "card_colors", "empty_lanes", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
+	{i18n.N("Board and cards"), []string{"default_mode", "card_fields", "list_columns", "card_colors", "empty_lanes", "drop_ranks", "custom_fields", "card_layout", "card_styles", "lane_layouts", "card_limit", "kanban_done_days", "stale_days", "flag_value", "icons"}},
 	{i18n.N("Views and filters"), []string{"home", "quick_filters", "board_quick_filters", "views", "saved_filters", "remember_filters", "filters", "my_work_jql"}},
 	{i18n.N("Panel"), []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies", "comment_order", "comment_layout"}},
 	{i18n.N("Refresh"), []string{"auto_refresh", "stale_after", "full_refresh"}},
@@ -153,6 +154,7 @@ var SettingDocs = map[string]string{
 	"templates":            i18n.N("the description a new issue starts with, by type (markdown)"),
 	"timer_on_start":       i18n.N("start the timer when S starts work on an issue"),
 	"start_assigns":        i18n.N("assign the issue to you when S starts work on it"),
+	"drop_ranks":           i18n.N("a card dragged into another lane lands where it is dropped; off: it keeps its rank, ranking it is a move of its own"),
 	"start_status":         i18n.N("the status S moves the issue to (In Progress); empty for none"),
 	"workday_start":        i18n.N("when work logged on another day starts"),
 	"capacity":             i18n.N("story points per person a sprint holds; default for everyone else"),
@@ -223,7 +225,7 @@ func SettingChoices(name string) []string {
 		return []string{"nerd", "plain"}
 	case "empty_fields", "empty_lanes":
 		return []string{"show", "hide"}
-	case "board_quick_filters", "saved_filters", "remember_filters", "mouse", "delight", "update_check", "threaded_replies":
+	case "board_quick_filters", "saved_filters", "remember_filters", "mouse", "delight", "drop_ranks", "update_check", "threaded_replies":
 		return []string{"on", "off"}
 	case "language":
 		return append([]string{"en"}, i18n.Langs...)

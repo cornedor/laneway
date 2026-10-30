@@ -15,7 +15,9 @@ screen at once; Jira catches up behind it. With the mouse, drag it.
   change: a move, a rank, an edit, a bulk edit or a deleted comment. `u`
   again takes back the one before.
 - `K` and `J` rank a card up or down within its lane, `alt+k` and `alt+j`
-  to its top or bottom. With the mouse, drag it up or down the lane.
+  to its top or bottom. With the mouse, drag it up or down the lane. A
+  card dragged into another lane lands where you drop it; with
+  `ui.drop_ranks: off` it keeps its rank there.
 - `M` sends it to another sprint or the backlog.
 - `.` does the last move or edit again, on the card you're on.
 

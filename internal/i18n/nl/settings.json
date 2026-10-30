@@ -46,6 +46,7 @@
   "rebinds browser keys no terminal action covers, by bind id: \"board:alt+e\": ctrl+e": "wijst browsertoetsen opnieuw toe die geen terminalactie dekt, op bind-id: \"board:alt+e\": ctrl+e",
   "restyle cards a board query matches: when, edge, tint, fade, bold, hide, show": "geef kaarten die een bordquery vindt een andere stijl: when, edge, tint, fade, bold, hide, show",
   "rounds the timer's logged time up to a step (15m)": "rondt de gelogde tijd van de timer naar boven af op een stap (15m)",
+  "a card dragged into another lane lands where it is dropped; off: it keeps its rank, ranking it is a move of its own": "een kaart die je naar een andere baan sleept, komt waar je hem loslaat; off: hij houdt zijn rang, rangschikken is een eigen stap",
   "small celebrations: confetti on a card into done, a line on a completed sprint": "kleine vieringen: confetti bij een kaart naar klaar, een regel bij een afgeronde sprint",
   "start the timer when S starts work on an issue": "start de timer wanneer S het werk aan een issue start",
   "story points per person a sprint holds; default for everyone else": "storypunten per persoon die een sprint aankan; standaard voor alle anderen",
