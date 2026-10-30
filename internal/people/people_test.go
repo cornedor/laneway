@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -97,9 +98,12 @@ func TestCombineOrder(t *testing.T) {
 // name only one person has.
 func TestMatch(t *testing.T) {
 	jiraUsers := []jira.User{{AccountID: "id-ada", DisplayName: "Ada Lovelace"}, {AccountID: "id-bo", DisplayName: "Bo"}, {AccountID: "id-bo2", DisplayName: "Bo"}, {AccountID: "id-cy", DisplayName: "Cy Young"}}
+	var mu sync.Mutex // Match looks people up at once
 	var asked []string
 	lookup := func(_ context.Context, q string) ([]jira.User, error) {
+		mu.Lock()
 		asked = append(asked, q)
+		mu.Unlock()
 		if strings.EqualFold(q, "cy@example.com") {
 			return jiraUsers[3:], nil
 		}
