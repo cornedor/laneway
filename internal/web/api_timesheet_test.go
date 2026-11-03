@@ -75,3 +75,49 @@ func TestSessionTimesheet(t *testing.T) {
 		t.Fatalf("session timesheet = %+v", s.Timesheet)
 	}
 }
+
+// TestServerTimer: on a timesheet that runs the timer, /timer is its
+// running entry: started, moved and discarded there, mirrored for the TUI.
+func TestServerTimer(t *testing.T) {
+	ts, sheet := sheetServer(t)
+	start := time.Now().Add(-10 * time.Minute).Truncate(time.Second)
+	if c := workCall(t, "PUT", ts.URL+"/api/timer", `{"Key":"ABC-1","Start":"`+start.Format(time.RFC3339)+`"}`, nil); c != 200 {
+		t.Fatalf("start = %d", c)
+	}
+	var got workTimer
+	workCall(t, "GET", ts.URL+"/api/timer", "", &got)
+	if got.Key != "ABC-1" || !got.Start.Equal(start) || got.ID == "" {
+		t.Fatalf("timer = %+v", got)
+	}
+	// Started elsewhere: the server's switch shows.
+	sheet.Lock()
+	run := sheet.Running()
+	end := start.Add(5 * time.Minute)
+	run.End = &end
+	sheet.Entries = append(sheet.Entries, &sheettest.Entry{ID: "99", Key: "ABC-2", Start: end})
+	sheet.Unlock()
+	workCall(t, "GET", ts.URL+"/api/timer", "", &got)
+	if got.Key != "ABC-2" || got.ID != "99" {
+		t.Fatalf("after a switch elsewhere: %+v", got)
+	}
+	workCall(t, "PUT", ts.URL+"/api/timer", `{"Key":"ABC-3","Start":"`+end.Format(time.RFC3339)+`"}`, nil)
+	sheet.Lock()
+	if r := sheet.Running(); r == nil || r.ID != "99" || r.Key != "ABC-3" {
+		t.Fatalf("moved = %+v", r)
+	}
+	sheet.Unlock()
+	// A clear after logging leaves the entry; a discard deletes it.
+	workCall(t, "PUT", ts.URL+"/api/timer", `{"Key":""}`, nil)
+	workCall(t, "PUT", ts.URL+"/api/timer", `{"Key":"","Drop":"ABC-1"}`, nil)
+	sheet.Lock()
+	if sheet.Running() == nil {
+		t.Fatal("a clear or another issue's discard deleted the running entry")
+	}
+	sheet.Unlock()
+	workCall(t, "PUT", ts.URL+"/api/timer", `{"Key":"","Drop":"ABC-3"}`, nil)
+	sheet.Lock()
+	defer sheet.Unlock()
+	if sheet.Running() != nil || len(sheet.Entries) != 1 {
+		t.Fatalf("after discard: %+v", sheet.Entries)
+	}
+}

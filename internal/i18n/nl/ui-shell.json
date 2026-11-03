@@ -480,6 +480,7 @@
   "the worktrees without an agent too / not": "ook de worktrees zonder agent / niet",
   "this Jira can't move worklogs": "deze Jira kan geen werklogs verplaatsen",
   "%s can't move worklogs": "%s kan geen werklogs verplaatsen",
+  "the timer on %s no longer runs in %s": "de timer op %s loopt niet meer in %s",
   "left: sets Jira's estimate; %s has none": "left: zet de schatting in Jira; %s heeft die niet",
   "time machine: the board on earlier days": "tijdmachine: het bord op eerdere dagen",
   "time machine: ← → the board a day earlier / later, esc now": "tijdmachine: ← → het bord een dag eerder / later, esc nu",

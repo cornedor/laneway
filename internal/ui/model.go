@@ -272,6 +272,7 @@ type Model struct {
 	jiraClient *jira.Client
 	// sheetProvider is where time is logged; nil: worklogs on jiraClient.
 	sheetProvider timesheet.Provider
+	timerSyncErr  string // the last failed read of the backend's timer, logged once
 	// eventRefreshPending: a change-stream refresh is armed (events.go).
 	eventRefreshPending bool
 	eventInboxPending   bool              // a change-stream inbox sync is armed
@@ -918,6 +919,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleWorklogFailed(msg)
 	case timerTickMsg:
 		return m.handleTimerTick()
+	case timerSyncMsg:
+		return m.handleTimerSync(msg)
 	case standupMsg:
 		return m.handleStandup(msg)
 	case standupTickMsg:
