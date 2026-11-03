@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -211,7 +212,8 @@ func runSite(cfg config.Config, cfgPath, site string) (string, int, error) {
 	defer cancel()
 	rulesLog := filepath.Join(filepath.Dir(path), "rules.log")
 	gl, glWarn := gitlabSites(cfg)
-	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(append(cfg.Warnings, glWarn...)).WithIndex(ix).WithVersion(version, upgradeCmd()).WithGitLab(gl).WithGitLabRepos(gitlabRepos(cfg)).
+	sheet, sheetWarn := timesheetProvider(cfg)
+	m := ui.New(ctx, jc, cfg.UI, cfg.Rules, rulesLog, st).WithSites(cfg.SiteNames(), site, cfg.Jira.Name).WithConfigPath(cfgPath).WithWarnings(slices.Concat(cfg.Warnings, glWarn, sheetWarn)).WithTimesheet(sheet).WithIndex(ix).WithVersion(version, upgradeCmd()).WithGitLab(gl).WithGitLabRepos(gitlabRepos(cfg)).
 		WithSiteClients(func(other string) (*jira.Client, error) {
 			j, err := cfg.Site(other)
 			if err != nil || j.Check(siteName(other)) != nil {

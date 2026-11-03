@@ -11,3 +11,4 @@ Every option, key and command. New to laneway? Start with the
 - [Markdown editor](editor.md): how Jira's rich text edits as markdown.
 - [Rules](rules.md): react to changes on your boards.
 - [Command line](cli.md): flags, scripts, the prompt, git hooks.
+- [Timesheet API](timesheet-api.md): log time somewhere other than Jira.

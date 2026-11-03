@@ -79,7 +79,10 @@ type Config struct {
 	// GitLab are the GitLab instances merge requests are read from; a host
 	// none names uses glab's login there.
 	GitLab []GitLabConfig `yaml:"gitlab"`
-	UI     UIConfig       `yaml:"ui"`
+	// Timesheet is where time is logged: Jira's worklogs, or a server
+	// speaking laneway's timesheet API.
+	Timesheet TimesheetConfig `yaml:"timesheet"`
+	UI        UIConfig        `yaml:"ui"`
 	// Rules fire on the changes a board refresh shows; see internal/rules.
 	Rules []rules.Rule `yaml:"rules"`
 	// RulesTest overrides the issue type and status `laneway rules test`
@@ -103,6 +106,44 @@ type GitLabConfig struct {
 	// an agent's review (C); a project not here is looked for among
 	// jira.repos by its origin.
 	Repos map[string]string `yaml:"repos,omitempty"`
+}
+
+// TimesheetConfig picks the timesheet provider
+// (docs/reference/timesheet-api.md).
+type TimesheetConfig struct {
+	// Provider is "jira" (the default: worklogs on the site) or "http".
+	Provider string `yaml:"provider,omitempty"`
+	// URL is the http provider's API root, without /v1.
+	URL string `yaml:"url,omitempty"`
+	// Token is sent as a bearer token; unset, token_cmd prints it.
+	Token    string   `yaml:"token,omitempty"`
+	TokenCmd []string `yaml:"token_cmd,omitempty"`
+}
+
+// IsHTTP reports whether time goes to an http provider; an error is a
+// provider laneway doesn't know or an http one without a URL.
+func (t TimesheetConfig) IsHTTP() (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(t.Provider)) {
+	case "", "jira":
+		return false, nil
+	case "http":
+		u, err := url.Parse(strings.TrimSpace(t.URL))
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return false, fmt.Errorf("timesheet.url: %q is not an http(s) URL", t.URL)
+		}
+		return true, nil
+	}
+	return false, fmt.Errorf("timesheet.provider: %q is not jira or http", t.Provider)
+}
+
+// WithToken runs token_cmd for the token when token is unset.
+func (t TimesheetConfig) WithToken() (TimesheetConfig, error) {
+	if strings.TrimSpace(t.Token) != "" || len(t.TokenCmd) == 0 {
+		return t, nil
+	}
+	tok, err := runTokenCmd("timesheet token_cmd", t.TokenCmd)
+	t.Token = tok
+	return t, err
 }
 
 // WithToken runs token_cmd for the token when token is unset.
@@ -805,6 +846,8 @@ func unknownKeys(raw []byte) []string {
 			check("ui.", v, reflect.TypeFor[UIConfig]())
 		case "rules_test":
 			check("rules_test.", v, reflect.TypeFor[RulesTest]())
+		case "timesheet":
+			check("timesheet.", v, reflect.TypeFor[TimesheetConfig]())
 		case "gitlab":
 			if v.Kind == yaml.SequenceNode {
 				for j, it := range v.Content {

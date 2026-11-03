@@ -58,5 +58,6 @@ nav:
       - reference/editor.md
       - reference/rules.md
       - reference/cli.md
+      - reference/timesheet-api.md
       - extension-privacy.md
   - Privacy: privacy.md

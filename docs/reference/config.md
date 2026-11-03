@@ -80,6 +80,22 @@ when the issue opens and kept a day; a list opened before that ranks by
 the picks alone, and a list never reorders once open. A GitLab person is matched to Jira by `git_people`, then by
 email, then by a name exactly one Jira user has.
 
+## Timesheet
+
+Time goes to Jira's worklogs unless `timesheet:` names another place: a
+server speaking laneway's [timesheet API](timesheet-api.md).
+
+```yaml
+timesheet:
+  provider: http                          # jira (default) or http
+  url: http://127.0.0.1:29174/laneway     # the API's root
+  token_cmd: [pass, show, timesheet]      # optional bearer token, or token:
+```
+
+The timer, the timesheet, the week view and proposals then use that
+server, on every site. `left:` (Jira's remaining estimate) is Jira's only.
+laneway web for many people always uses Jira.
+
 ## ui options
 
 Every option is optional. `,` (terminal) and `g ,` (browser) list them by
