@@ -50,7 +50,9 @@ starts timing that one.
 
 === "Browser"
 
-    The running timer sits in the bar on top; a click stops it.
+    The running timer sits in the bar on top and in the issue's header. A
+    click on either opens its menu: open the issue, stop and log, move the
+    timer to the issue you're on, or discard it.
 
 > **Try it:** `T` on the card you're about to work on. When you're done,
 > `T` again, type what you did, `enter`. Your time is logged.

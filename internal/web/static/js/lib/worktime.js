@@ -44,7 +44,9 @@ export function workdays(app) {
   return out.length ? out : [1, 2, 3, 4, 5];
 }
 
-// logDialog(app, {key, summary?, seconds?, started?: Date, comment?, edit?: worklog id, discard?: bool, move?: key, note?})
+// logDialog(app, {key, summary?, seconds?, started?: Date, comment?, edit?: worklog id, timer?: bool, ran?: seconds, move?: key, note?})
+// timer: stopping the running timer (edit is then the timesheet's running entry): it logs, and offers Discard;
+// ran is how long it ran, said beside seconds when timer_round made them differ.
 // → Promise<'logged' | 'discard' | 'move' | null>. Posts (or puts, when editing) before it resolves.
 export function logDialog(app, o) {
   const { ui, api, bus } = app;
@@ -58,6 +60,8 @@ export function logDialog(app, o) {
     const leftVal = h('input.input', { type: 'text', placeholder: '2h', hidden: true });
     left.addEventListener('change', () => { leftVal.hidden = left.value !== 'set'; if (!leftVal.hidden) leftVal.focus(); });
     const err = h('div.wl-err', { hidden: true });
+    const rounded = o.ran && o.seconds && Math.abs(o.seconds - o.ran) >= 60;
+    const since = o.timer && o.started && h('div.dim.wl-note', T('Timer ran from %s to %s', hm(o.started), hm(new Date())) + (rounded ? ' · ' + T('%s, rounded to %s', duration(o.ran), duration(o.seconds)) : ''));
     const row = (label, ...nodes) => h('label.wl-row', h('span.wl-label', label), h('span.wl-field', nodes));
     const submit = async () => {
       const secs = parseDuration(time.value);
@@ -80,19 +84,21 @@ export function logDialog(app, o) {
         if (o.edit) await api.put('/worklog/' + o.key + '/' + o.edit, body); else await api.post('/worklog/' + o.key, body);
       } catch (e) { save.disabled = false; err.hidden = false; err.textContent = e.message; return; }
       result = 'logged';
-      ui.toast(o.edit ? T('Updated %s on %s', duration(secs), o.key) : T('Logged %s on %s', duration(secs), o.key), { kind: 'ok' });
+      ui.toast(editing ? T('Updated %s on %s', duration(secs), o.key) : T('Logged %s on %s', duration(secs), o.key), { kind: 'ok' });
       bus.emit('issue:changed', { key: o.key });
       m.close();
     };
-    const save = h('button.btn.primary', { type: 'submit' }, o.edit ? T('Save') : T('Log work'), keyHint('mod+Enter'));
+    const editing = o.edit && !o.timer;
+    const save = h('button.btn.primary', { type: 'submit' }, editing ? T('Save') : T('Log work'), keyHint('mod+Enter'));
     const form = h('form.wl-form', { onsubmit: e => { e.preventDefault(); submit(); } },
+      o.summary && h('div.wl-sum', o.summary),
       o.note && h('div.dim.wl-note', o.note),
-      row(T('Time'), time), row(T('Date'), date), row(T('Comment'), comment),
+      row(T('Time'), time, since), row(T('Date'), date), row(T('Comment'), comment),
       !o.edit && !(app.session && app.session.timesheet && app.session.timesheet.remaining === false) && row(T('Remaining'), left, leftVal), err,
-      h('div.row.end', o.discard && h('button.btn.ghost', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, T('Discard timer')),
+      h('div.row.end', o.timer && h('button.btn.ghost.wl-discard', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, T('Discard timer')),
         o.move && h('button.btn.ghost', { type: 'button', title: T('Its time goes along; nothing is logged'), onclick: () => { result = 'move'; m.close(); } }, T('Move timer to %s', o.move)), h('span.spacer'),
         h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel'), keyHint('Escape')), save));
-    const title = (o.edit ? T('Edit work on %s', o.key) : T('Log work on %s', o.key)) + (o.summary ? ' · ' + o.summary : '');
+    const title = editing ? T('Edit work on %s', o.key) : o.timer ? T('Stop timer on %s', o.key) : T('Log work on %s', o.key);
     const m = ui.modal(form, { title, onClose: () => resolve(result) });
     m.scope.bind('mod+Enter', submit, 'save', { input: true, hidden: true });
     time.select();
