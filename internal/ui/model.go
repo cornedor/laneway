@@ -24,6 +24,7 @@ import (
 	"github.com/cornedor/laneway/internal/people"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/timesheet"
 	"github.com/cornedor/laneway/internal/viewport"
 )
 
@@ -269,6 +270,8 @@ type Model struct {
 	rulesLog string
 
 	jiraClient *jira.Client
+	// sheetProvider is where time is logged; nil: worklogs on jiraClient.
+	sheetProvider timesheet.Provider
 	// eventRefreshPending: a change-stream refresh is armed (events.go).
 	eventRefreshPending bool
 	eventInboxPending   bool              // a change-stream inbox sync is armed

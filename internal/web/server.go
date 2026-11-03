@@ -33,6 +33,8 @@ import (
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/timesheet"
+	"github.com/cornedor/laneway/internal/timesheet/jirasheet"
 )
 
 //go:embed static
@@ -83,6 +85,8 @@ type Options struct {
 	// GitLabRepos their projects' checkouts by path (gitlab: repos:).
 	GitLab      *gitlab.Sites
 	GitLabRepos map[string]string
+	// Timesheet is where time is logged; nil: the site's Jira worklogs.
+	Timesheet timesheet.Provider
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.
@@ -95,6 +99,15 @@ type Server struct {
 
 // Client is the Jira client; handlers take it from the request's Server.
 func (s *Server) Client() *jira.Client { return s.opt.Client }
+
+// Sheet is where time is logged: Options.Timesheet, else the site's
+// worklogs.
+func (s *Server) Sheet() timesheet.Provider {
+	if s.opt.Timesheet != nil {
+		return s.opt.Timesheet
+	}
+	return jirasheet.New(s.opt.Client)
+}
 
 // Options returns the server's options.
 func (s *Server) Options() Options { return s.opt }

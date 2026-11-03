@@ -15,6 +15,7 @@ import (
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/standup"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // Time tracking: w logs work on the panel's issue ("1h 30m what you did"),
@@ -255,8 +256,12 @@ func worklogDay(raw string, now time.Time) (day time.Time, rest string, ok bool)
 func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	day, raw, onDay := worklogDay(raw, time.Now())
 	left, raw, err := worklogLeft(raw)
-	if err == nil && left != "" && m.worklogEdit != "" {
+	switch {
+	case err != nil || left == "":
+	case m.worklogEdit != "":
 		err = errors.New(i18n.T("left: is for new work, not an edit"))
+	case !m.sheet().Caps().Remaining:
+		err = errors.New(i18n.Tf("left: sets Jira's estimate; %s has none", m.sheet().Name()))
 	}
 	if err != nil {
 		m.fail(err.Error())
@@ -280,11 +285,11 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		input, editDay := m.jiraFieldInput.Value(), m.worklogEditDay
 		m.worklogEdit = ""
 		m.closeJiraField()
-		c, ctx := m.jiraClient, m.ctx
+		sh, ctx := m.sheet(), m.ctx
 		reload := m.openTimesheetDay(showDay)
 		m.status = i18n.Tf("updating the worklog on %s…", key)
 		return m, func() tea.Msg {
-			if err := c.UpdateWorklog(ctx, key, id, secs, moved, newComment); err != nil {
+			if err := sh.Update(ctx, key, id, secs, moved, newComment); err != nil {
 				return worklogFailedMsg{key: key, id: id, day: editDay, input: input, err: err}
 			}
 			return reload()
@@ -297,10 +302,11 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
 	m.closeJiraField()
-	c, ctx, fromTimer, next := m.jiraClient, m.ctx, m.worklogFromTimer, m.timerNext
+	sh, ctx, fromTimer, next := m.sheet(), m.ctx, m.worklogFromTimer, m.timerNext
 	m.status = i18n.Tf("logging %s on %s…", jira.FormatDuration(secs), key)
 	return m, func() tea.Msg {
-		return worklogLoggedMsg{key: key, fromTimer: fromTimer, next: next, err: c.AddWorklog(ctx, key, secs, started, comment, left)}
+		err := sh.Add(ctx, timesheet.New{Key: key, Seconds: secs, Started: started, Comment: comment, Left: left})
+		return worklogLoggedMsg{key: key, fromTimer: fromTimer, next: next, err: err}
 	}
 }
 
@@ -376,16 +382,16 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	gen := m.startJiraPicker(jiraPickTimesheet, standup.Day(day, time.Now()), false)
 	m.jiraPicker.day = day
 	seq := m.jiraPicker.fetchSeq
-	c, ctx, k := m.jiraClient, m.ctx, m.keys
+	sh, ctx, k := m.sheet(), m.ctx, m.keys
 	empty := i18n.Tf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
 	hint := i18n.Tf("  ·  %s %s day · %s edit · %s %s delete · %s mark", helpKey(k.PrevView), helpKey(k.NextView),
 		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.Mark))
-	if c.MovesWorklogs() {
+	if sh.Caps().Move {
 		hint += i18n.Tf(" · %s move", helpKey(k.MoveEntry))
 	}
 	hint += i18n.Tf(" · %s propose · %s copy · %s week", helpKey(k.ProposeWork), helpKey(k.CopyKey), helpKey(k.Timesheet))
 	return func() tea.Msg {
-		logs, err := c.MyWorklogs(ctx, day)
+		logs, err := timesheet.Day(ctx, sh, day)
 		total := 0
 		items := make([]jiraPickerItem, len(logs))
 		rows := make([][]string, len(logs))
@@ -478,7 +484,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 			return nil, true
 		}
 		keys, ids := worklogsByIssue(rows)
-		day, c, ctx := p.day, m.jiraClient, m.ctx
+		day, sh, ctx := p.day, m.sheet(), m.ctx
 		m.status = i18n.Tf("deleting a worklog on %s…", keys[0])
 		if len(rows) > 1 {
 			m.status = i18n.Tf("deleting %d worklogs…", len(rows))
@@ -486,7 +492,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		reload := m.openTimesheetDay(day)
 		return func() tea.Msg {
 			for _, key := range keys { // the API takes one issue's at a time
-				if err := c.DeleteWorklogs(ctx, key, ids[key]); err != nil {
+				if err := sh.Delete(ctx, key, ids[key]); err != nil {
 					return worklogFailedMsg{key: key, day: day, err: err}
 				}
 			}
@@ -497,8 +503,11 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		if len(rows) == 0 {
 			return nil, true
 		}
-		if !m.jiraClient.MovesWorklogs() {
+		if sh := m.sheet(); !sh.Caps().Move {
 			m.status = i18n.T("this Jira can't move worklogs")
+			if sh.Name() != "Jira" {
+				m.status = i18n.Tf("%s can't move worklogs", sh.Name())
+			}
 			return nil, true
 		}
 		day := p.day
@@ -572,12 +581,12 @@ func (m Model) applyWorklogMove(raw string) (tea.Model, tea.Cmd) {
 	m.closeJiraField()
 	keys, ids := worklogsByIssue(rows)
 	keys = slices.DeleteFunc(keys, func(k string) bool { return k == to }) // there already
-	c, ctx := m.jiraClient, m.ctx
+	sh, ctx := m.sheet(), m.ctx
 	reload := m.openTimesheetDay(day)
 	m.status = i18n.Tf("moving %s to %s…", i18n.Tn(len(rows), "%d worklog", "%d worklogs", len(rows)), to)
 	return m, func() tea.Msg {
 		for _, key := range keys {
-			if err := c.MoveWorklogs(ctx, key, ids[key], to); err != nil {
+			if err := sh.Move(ctx, key, ids[key], to); err != nil {
 				return worklogFailedMsg{key: key, day: day, err: err}
 			}
 		}

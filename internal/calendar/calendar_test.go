@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // A week of a calendar as apps export it: a daily standup (not on the 2nd,
@@ -143,7 +143,7 @@ func TestRead(t *testing.T) {
 func TestProposals(t *testing.T) {
 	at := time.Date(2026, 10, 1, 11, 0, 0, 0, time.Local)
 	ms := []Meeting{{Start: at, End: at.Add(15 * time.Minute), Summary: "Standup"}, {Start: at.Add(2 * time.Hour), End: at.Add(3 * time.Hour), Summary: "Review"}}
-	logs := []jira.Worklog{{Key: "OPS-1", Started: at.Add(5 * time.Minute)}, {Key: "ABC-1", Started: at.Add(2 * time.Hour)}}
+	logs := []timesheet.Entry{{Key: "OPS-1", Started: at.Add(5 * time.Minute)}, {Key: "ABC-1", Started: at.Add(2 * time.Hour)}}
 	ps := Proposals(ms, "OPS-1", logs)
 	if len(ps) != 1 || ps[0].Key != "OPS-1" || ps[0].Seconds != 3600 || ps[0].Comment != "Review" || !ps[0].Start.Equal(at.Add(2*time.Hour)) {
 		t.Errorf("proposals %+v", ps)

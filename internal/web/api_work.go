@@ -15,6 +15,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // Personal views: my work, time tracking and the inbox.
@@ -83,14 +84,18 @@ func myWorklogs(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if !to.After(from) || to.Sub(from) > 62*24*time.Hour {
 		return nil, badRequest(i18n.T("to must follow from, within two months"))
 	}
-	logs, err := s.Client().MyWorklogsBetween(ctx, from, to)
+	sh := s.Sheet()
+	logs, err := sh.Entries(ctx, from, to)
 	if logs == nil {
-		logs = []jira.Worklog{}
+		logs = []timesheet.Entry{}
 	}
-	// canMove is false on Server and DC (serverInfo, read here first) and
-	// once the site turned a move away.
-	s.Client().Laneway(ctx)
-	return map[string]any{"worklogs": logs, "canMove": s.Client().MovesWorklogs()}, err
+	if s.opt.Timesheet == nil {
+		// canMove is false on Server and DC (serverInfo, read here first)
+		// and once the site turned a move away.
+		s.Client().Laneway(ctx)
+	}
+	caps := sh.Caps()
+	return map[string]any{"worklogs": logs, "canMove": caps.Move, "canLeave": caps.Remaining}, err
 }
 
 type worklogBody struct {
@@ -131,7 +136,10 @@ func addWorklog(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if b.Comment != nil {
 		comment = *b.Comment
 	}
-	return nil, s.Client().AddWorklog(ctx, key, b.Seconds, started, comment, b.Left)
+	if b.Left != "" && !s.Sheet().Caps().Remaining {
+		return nil, badRequest(i18n.Tf("left: sets Jira's estimate; %s has none", s.Sheet().Name()))
+	}
+	return nil, s.Sheet().Add(ctx, timesheet.New{Key: key, Seconds: b.Seconds, Started: started, Comment: comment, Left: b.Left})
 }
 
 func updateWorklog(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -147,7 +155,7 @@ func updateWorklog(ctx context.Context, s *Server, r *http.Request) (any, error)
 	if err != nil {
 		return nil, err
 	}
-	return nil, s.Client().UpdateWorklog(ctx, key, r.PathValue("id"), b.Seconds, started, b.Comment)
+	return nil, s.Sheet().Update(ctx, key, r.PathValue("id"), b.Seconds, started, b.Comment)
 }
 
 func deleteWorklog(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -155,7 +163,7 @@ func deleteWorklog(ctx context.Context, s *Server, r *http.Request) (any, error)
 	if err != nil {
 		return nil, err
 	}
-	return nil, s.Client().DeleteWorklog(ctx, key, r.PathValue("id"))
+	return nil, s.Sheet().Delete(ctx, key, []string{r.PathValue("id")})
 }
 
 // worklogsBody is a bulk delete's or move's worklogs, all on the path's
@@ -177,7 +185,7 @@ func deleteWorklogs(ctx context.Context, s *Server, r *http.Request) (any, error
 	if len(b.IDs) == 0 {
 		return nil, badRequest(i18n.T("no worklogs"))
 	}
-	return nil, s.Client().DeleteWorklogs(ctx, key, b.IDs)
+	return nil, s.Sheet().Delete(ctx, key, b.IDs)
 }
 
 func moveWorklogs(ctx context.Context, s *Server, r *http.Request) (any, error) {
@@ -195,7 +203,7 @@ func moveWorklogs(ctx context.Context, s *Server, r *http.Request) (any, error) 
 	case !jira.ValidKey(b.To):
 		return nil, badRequest(i18n.T("bad issue key"))
 	}
-	return nil, s.Client().MoveWorklogs(ctx, key, b.IDs, b.To)
+	return nil, s.Sheet().Move(ctx, key, b.IDs, b.To)
 }
 
 // ---- inbox

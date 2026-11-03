@@ -13,6 +13,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/calendar"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/timesheet"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -48,11 +49,11 @@ type proposalsMsg struct {
 // loadProposals reads the day's work and what is logged, for p.
 func (m *Model) loadProposals() tea.Cmd {
 	p := m.jiraPicker
-	gen, day, c, ctx, repos, acts := p.gen, p.day, m.jiraClient, m.ctx, work.Repos(m.jiraRepos), m.uiConfig.Activity
+	gen, day, sh, ctx, repos, acts := p.gen, p.day, m.sheet(), m.ctx, work.Repos(m.jiraRepos), m.uiConfig.Activity
 	cal, meetingKey := m.uiConfig.Calendar, strings.TrimSpace(m.uiConfig.MeetingKey)
 	m.status = i18n.T("reading git and ui.activity…")
 	return func() tea.Msg {
-		logs, err := c.MyWorklogs(ctx, day)
+		logs, err := timesheet.Day(ctx, sh, day)
 		if err != nil {
 			return proposalsMsg{gen: gen, day: day, err: err}
 		}

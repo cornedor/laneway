@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // NoTicket names the keyless commits' group.
@@ -187,7 +188,7 @@ func Propose(events []Event, logged map[string]int) []Proposal {
 // Day is day's proposals: git in repos and the activity commands' sessions,
 // less what logs has, and extra (a calendar's meetings), by start; failed
 // are the activity commands that failed.
-func Day(repos, activity []string, day time.Time, logs []jira.Worklog, extra []Proposal) (ps []Proposal, failed []string) {
+func Day(repos, activity []string, day time.Time, logs []timesheet.Entry, extra []Proposal) (ps []Proposal, failed []string) {
 	logged := map[string]int{}
 	for _, w := range logs {
 		logged[w.Key] += w.Seconds
