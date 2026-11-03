@@ -66,7 +66,7 @@ All under the configured root.
 
 - `serverTimer`: the server runs a timer (`GET /v1/running`, `POST` without `seconds`).
 - `move`: an entry's `key` can change (`PATCH` with `key`).
-- `keyless`: entries without an issue exist.
+- `keyless`: entries without an issue exist. The server may still refuse to create one (`422`).
 
 ### `GET /v1/entries?from=…&to=…`
 
@@ -89,7 +89,8 @@ Logs an entry; answers `201` with the Entry. Without `seconds` it starts the tim
 ### `PATCH /v1/entries/{id}`
 
 Any of `key`, `description`, `start`, `seconds`; answers the Entry. `seconds` sets the end to
-the start (the new one when `start` is given) plus `seconds`: on a running entry that stops it.
+the start (the new one when `start` is given) plus `seconds`: on a running entry that stops it. `start`
+without `seconds` keeps the end.
 `key` moves the entry to another issue (`move`).
 
 ### `DELETE /v1/entries/{id}`
