@@ -19,7 +19,7 @@ export function ctxMenu(items, x, y, { head = null } = {}) {
     if (dead) return;
     dead = true; shown = null;
     for (const l of levels) l.el.remove();
-    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('keydown', onKey, true);
     document.removeEventListener('pointerdown', onDown, true);
     window.removeEventListener('resize', close);
     window.removeEventListener('blur', close);
@@ -111,7 +111,7 @@ export function ctxMenu(items, x, y, { head = null } = {}) {
   function onScroll(e) { if (!levels.some(l => l.el.contains(e.target))) close(); }
 
   open(items, 0, x, y, null, head);
-  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('keydown', onKey, true); // before lib/keys.js on document: esc closes the menu, not the panel
   document.addEventListener('pointerdown', onDown, true);
   window.addEventListener('resize', close);
   window.addEventListener('blur', close);

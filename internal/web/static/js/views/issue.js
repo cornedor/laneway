@@ -178,7 +178,7 @@ export function mountIssue(el, key, { app, full, card }) {
       h('h1.iss-title', { title: T('Edit summary'), onclick: e => edit('summary', e.currentTarget) }, summary || '…'),
       ...(i || c ? [h('div.iss-sub', h('button.pill-btn', { title: T('Change status'), onclick: () => app.actions.transition(key) }, i ? ui.statusPill(i.Status, i.StatusCategory) : ui.statusPill(c.Status, catOf(c))),
         ...(c && c.Flagged ? [h('span.chip.flag', T('Flagged'))] : []),
-        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: T('Timer running · T stops it'), onclick: () => app.timer.toggle(key) }, icon('timer'), ' ' + app.timer.mark(key))] : []),
+        ...(app.timer && app.timer.mark(key) ? [h('button.chip.timer-mark', { title: T('Timer running · T stops it'), 'aria-haspopup': 'menu', onclick: e => app.timer.menu(e.currentTarget) }, icon('timer'), app.timer.mark(key))] : []),
         ...(app.agents ? [app.agents.chip(key)] : []),
         h('span.dim', T('updated %s', ago((i || c).Updated))))]
         // its height held, or the tabs below jump down as it comes
