@@ -13,6 +13,7 @@ import (
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/standup"
+	"github.com/cornedor/laneway/internal/timesheet"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -167,7 +168,7 @@ func worklogProposals(ctx context.Context, s *Server, r *http.Request) (any, err
 	if err != nil {
 		return nil, err
 	}
-	logs, err := s.Client().MyWorklogs(ctx, d)
+	logs, err := timesheet.Day(ctx, s.Sheet(), d)
 	if err != nil {
 		return nil, err
 	}

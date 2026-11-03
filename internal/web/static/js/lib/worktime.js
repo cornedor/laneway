@@ -88,7 +88,7 @@ export function logDialog(app, o) {
     const form = h('form.wl-form', { onsubmit: e => { e.preventDefault(); submit(); } },
       o.note && h('div.dim.wl-note', o.note),
       row(T('Time'), time), row(T('Date'), date), row(T('Comment'), comment),
-      !o.edit && row(T('Remaining'), left, leftVal), err,
+      !o.edit && !(app.session && app.session.timesheet && app.session.timesheet.remaining === false) && row(T('Remaining'), left, leftVal), err,
       h('div.row.end', o.discard && h('button.btn.ghost', { type: 'button', onclick: () => { result = 'discard'; m.close(); } }, T('Discard timer')),
         o.move && h('button.btn.ghost', { type: 'button', title: T('Its time goes along; nothing is logged'), onclick: () => { result = 'move'; m.close(); } }, T('Move timer to %s', o.move)), h('span.spacer'),
         h('button.btn', { type: 'button', onclick: () => m.close() }, T('Cancel'), keyHint('Escape')), save));

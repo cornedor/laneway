@@ -8,7 +8,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // TestWeek: W in the timesheet opens the week grid with day and week
@@ -28,7 +28,7 @@ func TestWeek(t *testing.T) {
 	}
 	w.from, w.col = time.Date(2026, 9, 21, 0, 0, 0, 0, time.Local), 0 // a past week, all its gaps show
 	at := func(d, h int) time.Time { return w.from.AddDate(0, 0, d).Add(time.Duration(h) * time.Hour) }
-	out, _ = m.Update(weekMsg{seq: w.seq, logs: []jira.Worklog{
+	out, _ = m.Update(weekMsg{seq: w.seq, logs: []timesheet.Entry{
 		{Key: "ABC-10", Summary: "Tenth", Seconds: 3600, Started: at(0, 9)},
 		{Key: "ABC-2", Summary: "Second", Seconds: 5 * 3600, Started: at(0, 10)},
 		{Key: "ABC-2", Summary: "Second", Seconds: 2 * 3600, Started: at(1, 9)},

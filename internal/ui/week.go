@@ -13,6 +13,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // W in today's worklogs opens the week in place of the board: an issue per
@@ -41,7 +42,7 @@ type weekRow struct {
 
 type weekMsg struct {
 	seq  int
-	logs []jira.Worklog
+	logs []timesheet.Entry
 	err  error
 }
 
@@ -61,9 +62,9 @@ func (m *Model) loadWeek() tea.Cmd {
 	w := m.jiraTab.week
 	w.seq++
 	w.loading = true
-	seq, from, c, ctx := w.seq, w.from, m.jiraClient, m.ctx
+	seq, from, sh, ctx := w.seq, w.from, m.sheet(), m.ctx
 	return func() tea.Msg {
-		logs, err := c.MyWorklogsBetween(ctx, from, from.AddDate(0, 0, 7))
+		logs, err := sh.Entries(ctx, from, from.AddDate(0, 0, 7))
 		return weekMsg{seq: seq, logs: logs, err: err}
 	}
 }
@@ -85,7 +86,7 @@ func (m Model) handleWeek(msg weekMsg) (tea.Model, tea.Cmd) {
 }
 
 // weekRows sums logs per issue and day, the issues by key.
-func weekRows(logs []jira.Worklog, from time.Time) []weekRow {
+func weekRows(logs []timesheet.Entry, from time.Time) []weekRow {
 	var rows []weekRow
 	for _, l := range logs {
 		d := int(l.Started.In(from.Location()).Sub(from).Hours() / 24)

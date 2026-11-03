@@ -57,9 +57,30 @@ func TestRequestTimeout(t *testing.T) {
 	}
 }
 
+// TestTimesheetIsHTTP: jira by default, http with an http(s) URL, and
+// anything else an error.
+func TestTimesheetIsHTTP(t *testing.T) {
+	for _, tc := range []struct {
+		in      TimesheetConfig
+		is, bad bool
+	}{
+		{TimesheetConfig{}, false, false},
+		{TimesheetConfig{Provider: "Jira"}, false, false},
+		{TimesheetConfig{Provider: "http", URL: "http://127.0.0.1:29174/laneway"}, true, false},
+		{TimesheetConfig{Provider: "http"}, false, true},
+		{TimesheetConfig{Provider: "http", URL: "file:///tmp/x"}, false, true},
+		{TimesheetConfig{Provider: "statz"}, false, true},
+	} {
+		is, err := tc.in.IsHTTP()
+		if is != tc.is || (err != nil) != tc.bad {
+			t.Errorf("%+v = %v %v", tc.in, is, err)
+		}
+	}
+}
+
 // TestUnknownKeys: a key no option reads warns, with the nearest known one.
 func TestUnknownKeys(t *testing.T) {
-	raw := []byte("jira:\n  base_url: x\n  emial: a@b\nui:\n  panel_widht: 40\n  card_colors: off\n  keys: {search: f}\nsites:\n  work:\n    api_tokn: t\ngitlab:\n  - base_url: x\n    tokn: t\nbogus: 1\n")
+	raw := []byte("jira:\n  base_url: x\n  emial: a@b\nui:\n  panel_widht: 40\n  card_colors: off\n  keys: {search: f}\nsites:\n  work:\n    api_tokn: t\ngitlab:\n  - base_url: x\n    tokn: t\ntimesheet:\n  ur: x\nbogus: 1\n")
 	got := unknownKeys(raw)
 	want := []string{
 		"bogus: unknown option",
@@ -67,6 +88,7 @@ func TestUnknownKeys(t *testing.T) {
 		"ui.panel_widht: unknown option, did you mean panel_width?",
 		"sites.work.api_tokn: unknown option, did you mean api_token?",
 		"gitlab[0].tokn: unknown option, did you mean token?",
+		"timesheet.ur: unknown option, did you mean url?",
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %q\nwant %q", got, want)

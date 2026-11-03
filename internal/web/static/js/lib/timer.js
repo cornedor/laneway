@@ -16,7 +16,7 @@ function load() {
 function save(t) {
   try { store.set('timer', t ? JSON.stringify(t) : ''); } catch (e) { /* private mode */ }
 }
-const same = (a, b) => (a && a.key) === (b && b.key) && (a && a.start) === (b && b.start);
+const same = (a, b) => (a && a.key) === (b && b.key) && (a && a.start) === (b && b.start) && (a && a.id) === (b && b.id);
 
 // The issue `T` and `w` act on: the panel's while it has the focus, else the selected row of the view, else the
 // open panel, else the route's issue.
@@ -30,6 +30,7 @@ export function target(app) {
 
 export function install(app) {
   let timer = load();
+  const serverTimer = () => !!(app.session && app.session.timesheet && app.session.timesheet.serverTimer);
   const chip = app.chrome.add(h('button.timer-chip.accent', { hidden: true, onclick: () => toggle('') }), 30);
   let tick = 0;
 
@@ -54,10 +55,12 @@ export function install(app) {
     timer = t; save(t); paint(); app.bus.emit('timer', timer);
   }
   let gen = 0; // a sync that started before a local change must not undo it
-  function set(t) {
+  // set(null, key) discards the timer on key: a timesheet that runs the timer deletes its running entry.
+  function set(t, drop) {
     gen++;
     show(t);
-    app.api.put('/timer', t ? { Key: t.key, Start: new Date(t.start).toISOString() } : { Key: '' })
+    app.api.put('/timer', t ? { Key: t.key, Start: new Date(t.start).toISOString() } : { Key: '', Drop: drop || '' })
+      .then(() => { if (serverTimer()) sync(); })
       .catch(e => app.ui.toast(T('Timer kept in this browser only: %s', e.message), { kind: 'err' }));
   }
   // What the TUI (or another window) did: read on start, on coming back to the tab and twice a minute.
@@ -69,7 +72,7 @@ export function install(app) {
       // A timer from before the state file kept it: hand it over once.
       if (!(t && t.Key) && timer && !store.get('timer.shared')) { store.set('timer.shared', '1'); return set(timer); }
       store.set('timer.shared', '1');
-      show(t && t.Key ? { key: t.Key, start: Date.parse(t.Start) } : null);
+      show(t && t.Key ? { key: t.Key, start: Date.parse(t.Start), id: t.ID || undefined } : null);
     } catch (e) { /* offline: the mirror stands */ }
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
@@ -87,15 +90,18 @@ export function install(app) {
   }
 
   // Stop into the log dialog. The timer keeps running until the work is in; `next` starts afterwards.
+  // A timesheet that runs the timer stops its running entry with the logged time: the dialog edits it.
   async function stop(next) {
     if (!timer) return;
+    if (serverTimer() && !timer.id) await sync();
+    if (!timer) return;
     const t = timer;
-    const res = await logDialog(app, { key: t.key, seconds: round(Date.now() - t.start), started: new Date(t.start), discard: true, move: next, note: next && T('Then the timer starts on %s', next) });
+    const res = await logDialog(app, { key: t.key, seconds: round(Date.now() - t.start), started: new Date(t.start), edit: t.id, discard: true, move: next, note: next && T('Then the timer starts on %s', next) });
     if (res === 'move') return move(next);
     if (res === 'discard') {
       if (Date.now() - t.start >= MIN5 && !(await app.ui.confirm({ title: T('Discard timer'), text: T('%s on %s will not be logged.', duration(Math.floor((Date.now() - t.start) / 1000)), t.key), ok: T('Discard'), danger: true }))) return;
     } else if (res !== 'logged') return;
-    if (timer && timer.start === t.start) set(null);
+    if (timer && timer.start === t.start) set(null, res === 'discard' ? t.key : '');
     if (next) start(next);
   }
 

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -15,16 +16,36 @@ import (
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/standup"
+	"github.com/cornedor/laneway/internal/timesheet"
 )
 
 // Time tracking: w logs work on the panel's issue ("1h 30m what you did"),
 // T starts a timer on an issue and stops it into that log, W lists what you
 // logged today. The timer is kept in the store, so it outlives a restart.
 
-// workTimer is the running timer, zero when none.
+// workTimer is the running timer, zero when none. With a provider that
+// runs the timer (Caps.ServerTimer) it is that one: id is its running
+// entry, "" until read back after a start.
 type workTimer struct {
 	key   string
 	start time.Time
+	id    string
+}
+
+// same is whether t and o are the one timer.
+func (t workTimer) same(o workTimer) bool {
+	return t.key == o.key && t.start.Equal(o.start) && t.id == o.id
+}
+
+// parseTimer reads the store's "KEY unix [id]".
+func parseTimer(v string) workTimer {
+	key, rest, _ := strings.Cut(v, " ")
+	unix, id, _ := strings.Cut(rest, " ")
+	sec, err := strconv.ParseInt(unix, 10, 64)
+	if key == "" || err != nil {
+		return workTimer{}
+	}
+	return workTimer{key: key, start: time.Unix(sec, 0), id: id}
 }
 
 const timerMeta = jiraMetaPrefix + "timer"
@@ -43,13 +64,9 @@ func (m *Model) loadTimer() bool {
 	if m.store == nil || m.worklogFromTimer {
 		return false
 	}
-	var t workTimer
 	v, _, _ := m.store.GetMeta(timerMeta)
-	key, unix, _ := strings.Cut(v, " ")
-	if sec, err := strconv.ParseInt(unix, 10, 64); key != "" && err == nil {
-		t = workTimer{key: key, start: time.Unix(sec, 0)}
-	}
-	if t.key == m.timer.key && t.start.Equal(m.timer.start) {
+	t := parseTimer(v)
+	if t.same(m.timer) {
 		return false
 	}
 	m.timer = t
@@ -73,6 +90,9 @@ func (m *Model) saveTimer() error {
 	v := ""
 	if m.timer.key != "" {
 		v = m.timer.key + " " + strconv.FormatInt(m.timer.start.Unix(), 10)
+		if m.timer.id != "" {
+			v += " " + m.timer.id
+		}
 	}
 	return m.store.SetMeta(timerMeta, v)
 }
@@ -81,10 +101,102 @@ func (m Model) handleTimerTick() (tea.Model, tea.Cmd) {
 	if m.loadTimer() || m.timer.key != "" {
 		m.redrawTimed()
 	}
-	if m.store == nil && m.timer.key == "" {
+	if m.store == nil && m.timer.key == "" && m.sheetProvider == nil {
 		return m, nil
 	}
-	return m, timerTick()
+	return m, tea.Batch(timerTick(), m.syncTimer())
+}
+
+// serverTimer is whether the timesheet runs the timer itself.
+func (m *Model) serverTimer() bool { return m.sheet().Caps().ServerTimer }
+
+// timerSyncMsg is the backend's running entry as read; err is a failed
+// timer action (op) or read.
+type timerSyncMsg struct {
+	run    *timesheet.Entry
+	server bool
+	op     string
+	err    error
+}
+
+// syncTimer reads the backend's running entry, so a timer started or
+// stopped elsewhere shows here. Not while its stop prompt is open.
+func (m *Model) syncTimer() tea.Cmd {
+	if m.sheetProvider == nil || m.worklogFromTimer {
+		return nil
+	}
+	sh, ctx := m.sheetProvider, m.ctx
+	return func() tea.Msg {
+		run, err := sh.Running(ctx)
+		return timerSyncMsg{run: run, server: sh.Caps().ServerTimer, err: err}
+	}
+}
+
+// timerOp runs op on the backend's running entry (its id read first when
+// the timer has none yet), then reads the timer back.
+func (m *Model) timerOp(what string, op func(sh timesheet.Provider, id string) error) tea.Cmd {
+	sh, ctx, t := m.sheet(), m.ctx, m.timer
+	return func() tea.Msg {
+		id, err := runningID(ctx, sh, t)
+		if err == nil {
+			err = op(sh, id)
+		}
+		run, rerr := sh.Running(ctx)
+		if err == nil {
+			err = rerr
+		}
+		return timerSyncMsg{run: run, server: true, op: what, err: err}
+	}
+}
+
+// runningID is t's entry on the backend: its id, else the running one's
+// when it is on t's issue.
+func runningID(ctx context.Context, sh timesheet.Provider, t workTimer) (string, error) {
+	if t.id != "" {
+		return t.id, nil
+	}
+	run, err := sh.Running(ctx)
+	switch {
+	case err != nil:
+		return "", err
+	case run == nil || run.Key != t.key:
+		return "", errors.New(i18n.Tf("the timer on %s no longer runs in %s", t.key, sh.Name()))
+	}
+	return run.ID, nil
+}
+
+// handleTimerSync takes the backend's timer as laneway's. A failed read
+// goes to the log once per error; a failed action shows.
+func (m Model) handleTimerSync(msg timerSyncMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		if text := i18n.Tf("timer: %s", msg.err.Error()); msg.op != "" {
+			m.fail(text)
+		} else if text != m.timerSyncErr {
+			m.logError(text)
+		}
+		m.timerSyncErr = msg.err.Error()
+		if msg.op == "" {
+			return m, nil
+		}
+		return m, m.syncTimer()
+	}
+	m.timerSyncErr = ""
+	if !msg.server || m.worklogFromTimer {
+		return m, nil
+	}
+	var t workTimer
+	if r := msg.run; r != nil && r.Key != "" { // an entry without an issue is no timer of laneway's
+		t = workTimer{key: r.Key, start: time.Unix(r.Started.Unix(), 0), id: r.ID}
+	}
+	if t.same(m.timer) {
+		return m, nil
+	}
+	m.timer = t
+	m.redrawTimed()
+	if err := m.saveTimer(); err != nil {
+		m.logError(i18n.Tf("timer: %s", err.Error()))
+	}
+	return m, nil
 }
 
 // timerMark is "⏱ 12m" on the timed issue's card, row and panel; "" on
@@ -130,10 +242,22 @@ func (m *Model) toggleTimer(key string) tea.Cmd {
 	if err := m.saveTimer(); err != nil {
 		m.fail(i18n.Tf("timer started on %s, but a restart loses it: %s", key, err.Error()))
 	}
-	if m.store != nil {
-		return nil // the ticks run already
+	var start tea.Cmd
+	if m.serverTimer() {
+		sh, ctx, at := m.sheet(), m.ctx, m.timer.start
+		start = func() tea.Msg {
+			err := sh.Start(ctx, key, "", at)
+			run, rerr := sh.Running(ctx)
+			if err == nil {
+				err = rerr
+			}
+			return timerSyncMsg{run: run, server: true, op: "start", err: err}
+		}
 	}
-	return timerTick()
+	if m.store != nil {
+		return start // the ticks run already
+	}
+	return tea.Batch(start, timerTick())
 }
 
 // timerSeconds is the time a stopped timer logs: to the minute (at least
@@ -182,6 +306,7 @@ const timerDropAfter = 5 * time.Minute
 // card T was pressed on. ok is false for any other key.
 func (m Model) timerStopKey(msg tea.KeyPressMsg) (_ tea.Model, _ tea.Cmd, ok bool) {
 	ran := jira.FormatDuration(max(int(time.Since(m.timer.start).Seconds()), 0))
+	var cmd tea.Cmd
 	switch msg.String() {
 	case "ctrl+d":
 		if !m.timerDropArmed && time.Since(m.timer.start) >= timerDropAfter {
@@ -190,11 +315,26 @@ func (m Model) timerStopKey(msg tea.KeyPressMsg) (_ tea.Model, _ tea.Cmd, ok boo
 			return m, nil, true
 		}
 		key := m.timer.key
+		if m.serverTimer() {
+			cmd = m.timerOp("drop", func(sh timesheet.Provider, id string) error {
+				return sh.Delete(m.ctx, key, []string{id})
+			})
+		}
 		m.timer = workTimer{}
 		m.status = i18n.Tf("timer dropped: %s on %s not logged", ran, key)
 	case "ctrl+t":
 		if m.timerNext == "" {
 			return m, nil, false
+		}
+		if m.serverTimer() {
+			if sh := m.sheet(); !sh.Caps().Move {
+				m.fail(i18n.Tf("%s can't move worklogs", sh.Name()))
+				return m, nil, true
+			}
+			from, to := m.timer.key, m.timerNext
+			cmd = m.timerOp("move", func(sh timesheet.Provider, id string) error {
+				return sh.Move(m.ctx, from, []string{id}, to)
+			})
 		}
 		m.timer.key = m.timerNext
 		m.status = i18n.Tf("timer moved to %s, %s on it", m.timerNext, ran)
@@ -207,7 +347,7 @@ func (m Model) timerStopKey(msg tea.KeyPressMsg) (_ tea.Model, _ tea.Cmd, ok boo
 	}
 	m.closeJiraField()
 	m.redrawTimed()
-	return m, nil, true
+	return m, cmd, true
 }
 
 // worklogLeft takes a left:2h (the remaining estimate after this work) or
@@ -255,8 +395,12 @@ func worklogDay(raw string, now time.Time) (day time.Time, rest string, ok bool)
 func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 	day, raw, onDay := worklogDay(raw, time.Now())
 	left, raw, err := worklogLeft(raw)
-	if err == nil && left != "" && m.worklogEdit != "" {
+	switch {
+	case err != nil || left == "":
+	case m.worklogEdit != "":
 		err = errors.New(i18n.T("left: is for new work, not an edit"))
+	case !m.sheet().Caps().Remaining:
+		err = errors.New(i18n.Tf("left: sets Jira's estimate; %s has none", m.sheet().Name()))
 	}
 	if err != nil {
 		m.fail(err.Error())
@@ -280,11 +424,11 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		input, editDay := m.jiraFieldInput.Value(), m.worklogEditDay
 		m.worklogEdit = ""
 		m.closeJiraField()
-		c, ctx := m.jiraClient, m.ctx
+		sh, ctx := m.sheet(), m.ctx
 		reload := m.openTimesheetDay(showDay)
 		m.status = i18n.Tf("updating the worklog on %s…", key)
 		return m, func() tea.Msg {
-			if err := c.UpdateWorklog(ctx, key, id, secs, moved, newComment); err != nil {
+			if err := sh.Update(ctx, key, id, secs, moved, newComment); err != nil {
 				return worklogFailedMsg{key: key, id: id, day: editDay, input: input, err: err}
 			}
 			return reload()
@@ -297,10 +441,25 @@ func (m Model) applyWorklog(raw string) (tea.Model, tea.Cmd) {
 		started = time.Now().Add(-time.Duration(secs) * time.Second)
 	}
 	m.closeJiraField()
-	c, ctx, fromTimer, next := m.jiraClient, m.ctx, m.worklogFromTimer, m.timerNext
+	sh, ctx, fromTimer, next := m.sheet(), m.ctx, m.worklogFromTimer, m.timerNext
 	m.status = i18n.Tf("logging %s on %s…", jira.FormatDuration(secs), key)
+	if fromTimer && m.serverTimer() {
+		// The backend's running entry stops with the time and comment typed.
+		t, moved := m.timer, time.Time{}
+		if onDay {
+			moved = started
+		}
+		return m, func() tea.Msg {
+			id, err := runningID(ctx, sh, t)
+			if err == nil {
+				err = sh.Update(ctx, key, id, secs, moved, &comment)
+			}
+			return worklogLoggedMsg{key: key, fromTimer: true, next: next, err: err}
+		}
+	}
 	return m, func() tea.Msg {
-		return worklogLoggedMsg{key: key, fromTimer: fromTimer, next: next, err: c.AddWorklog(ctx, key, secs, started, comment, left)}
+		err := sh.Add(ctx, timesheet.New{Key: key, Seconds: secs, Started: started, Comment: comment, Left: left})
+		return worklogLoggedMsg{key: key, fromTimer: fromTimer, next: next, err: err}
 	}
 }
 
@@ -376,16 +535,16 @@ func (m *Model) openTimesheetDay(day time.Time) tea.Cmd {
 	gen := m.startJiraPicker(jiraPickTimesheet, standup.Day(day, time.Now()), false)
 	m.jiraPicker.day = day
 	seq := m.jiraPicker.fetchSeq
-	c, ctx, k := m.jiraClient, m.ctx, m.keys
+	sh, ctx, k := m.sheet(), m.ctx, m.keys
 	empty := i18n.Tf("nothing logged · %s in the panel logs work · %s %s another day", helpKey(k.LogWork), helpKey(k.PrevView), helpKey(k.NextView))
 	hint := i18n.Tf("  ·  %s %s day · %s edit · %s %s delete · %s mark", helpKey(k.PrevView), helpKey(k.NextView),
 		helpKey(k.EditEntry), helpKey(k.DeleteEntry), helpKey(k.DeleteEntry), helpKey(k.Mark))
-	if c.MovesWorklogs() {
+	if sh.Caps().Move {
 		hint += i18n.Tf(" · %s move", helpKey(k.MoveEntry))
 	}
 	hint += i18n.Tf(" · %s propose · %s copy · %s week", helpKey(k.ProposeWork), helpKey(k.CopyKey), helpKey(k.Timesheet))
 	return func() tea.Msg {
-		logs, err := c.MyWorklogs(ctx, day)
+		logs, err := timesheet.Day(ctx, sh, day)
 		total := 0
 		items := make([]jiraPickerItem, len(logs))
 		rows := make([][]string, len(logs))
@@ -478,7 +637,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 			return nil, true
 		}
 		keys, ids := worklogsByIssue(rows)
-		day, c, ctx := p.day, m.jiraClient, m.ctx
+		day, sh, ctx := p.day, m.sheet(), m.ctx
 		m.status = i18n.Tf("deleting a worklog on %s…", keys[0])
 		if len(rows) > 1 {
 			m.status = i18n.Tf("deleting %d worklogs…", len(rows))
@@ -486,7 +645,7 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		reload := m.openTimesheetDay(day)
 		return func() tea.Msg {
 			for _, key := range keys { // the API takes one issue's at a time
-				if err := c.DeleteWorklogs(ctx, key, ids[key]); err != nil {
+				if err := sh.Delete(ctx, key, ids[key]); err != nil {
 					return worklogFailedMsg{key: key, day: day, err: err}
 				}
 			}
@@ -497,8 +656,11 @@ func (m *Model) timesheetKey(k string) (tea.Cmd, bool) {
 		if len(rows) == 0 {
 			return nil, true
 		}
-		if !m.jiraClient.MovesWorklogs() {
+		if sh := m.sheet(); !sh.Caps().Move {
 			m.status = i18n.T("this Jira can't move worklogs")
+			if sh.Name() != "Jira" {
+				m.status = i18n.Tf("%s can't move worklogs", sh.Name())
+			}
 			return nil, true
 		}
 		day := p.day
@@ -572,12 +734,12 @@ func (m Model) applyWorklogMove(raw string) (tea.Model, tea.Cmd) {
 	m.closeJiraField()
 	keys, ids := worklogsByIssue(rows)
 	keys = slices.DeleteFunc(keys, func(k string) bool { return k == to }) // there already
-	c, ctx := m.jiraClient, m.ctx
+	sh, ctx := m.sheet(), m.ctx
 	reload := m.openTimesheetDay(day)
 	m.status = i18n.Tf("moving %s to %s…", i18n.Tn(len(rows), "%d worklog", "%d worklogs", len(rows)), to)
 	return m, func() tea.Msg {
 		for _, key := range keys {
-			if err := c.MoveWorklogs(ctx, key, ids[key], to); err != nil {
+			if err := sh.Move(ctx, key, ids[key], to); err != nil {
 				return worklogFailedMsg{key: key, day: day, err: err}
 			}
 		}

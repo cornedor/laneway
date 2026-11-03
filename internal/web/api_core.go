@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/i18n"
@@ -103,7 +104,22 @@ func session(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		"projects": s.projects(), "ui": s.UIConfig(), "autostart": s.autostartInfo(), "pins": fieldPins(s),
 		"repos":   slices.Sorted(maps.Keys(o.Jira.Repos)), // projects with a checkout: draft PR, removing a worktree
 		"addSite": addSiteInfo(s), "home": homeInfo(s), "hosted": o.Hosted,
+		"timesheet": timesheetInfo(ctx, s),
 	}, nil
+}
+
+// timesheetInfo is where time is logged and what it takes, for the log
+// dialog and the timer. An http provider reads its caps on its first
+// call: a short one here, whose failure leaves them off.
+func timesheetInfo(ctx context.Context, s *Server) map[string]any {
+	sh := s.Sheet()
+	if s.opt.Timesheet != nil {
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		_, _ = sh.Running(ctx)
+	}
+	caps := sh.Caps()
+	return map[string]any{"name": sh.Name(), "remaining": caps.Remaining, "serverTimer": caps.ServerTimer}
 }
 
 func boardID(r *http.Request) (int, error) {

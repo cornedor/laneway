@@ -23,7 +23,7 @@ func TestTimer(t *testing.T) {
 		t.Fatalf("no timer = %+v", got)
 	}
 	start := time.Unix(1700000000, 0)
-	if code := issueCall(t, "PUT", ts.URL+"/api/timer", workTimer{"DEMO-3", start}, nil); code != 200 {
+	if code := issueCall(t, "PUT", ts.URL+"/api/timer", workTimer{Key: "DEMO-3", Start: start}, nil); code != 200 {
 		t.Fatalf("put: %d", code)
 	}
 	if v, _, _ := st.GetMeta(timerMeta); v != "DEMO-3 1700000000" {

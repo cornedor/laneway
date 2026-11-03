@@ -23,8 +23,8 @@ import (
 
 	"github.com/emersion/go-ical"
 
-	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/safeterm"
+	"github.com/cornedor/laneway/internal/timesheet"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -226,10 +226,10 @@ func localZones(e *ical.Event) {
 
 // Proposals are the meetings as worklogs on key, each its own with its
 // summary as the comment; one a worklog on key already starts in is left out.
-func Proposals(ms []Meeting, key string, logs []jira.Worklog) []work.Proposal {
+func Proposals(ms []Meeting, key string, logs []timesheet.Entry) []work.Proposal {
 	out := []work.Proposal{}
 	for _, m := range ms {
-		if slices.ContainsFunc(logs, func(w jira.Worklog) bool {
+		if slices.ContainsFunc(logs, func(w timesheet.Entry) bool {
 			return w.Key == key && !w.Started.Before(m.Start) && w.Started.Before(m.End)
 		}) {
 			continue
@@ -241,7 +241,7 @@ func Proposals(ms []Meeting, key string, logs []jira.Worklog) []work.Proposal {
 }
 
 // Day is source's meetings on day as proposals on key; none without either.
-func Day(ctx context.Context, source, key string, day time.Time, logs []jira.Worklog) ([]work.Proposal, error) {
+func Day(ctx context.Context, source, key string, day time.Time, logs []timesheet.Entry) ([]work.Proposal, error) {
 	if strings.TrimSpace(source) == "" || key == "" {
 		return nil, nil
 	}

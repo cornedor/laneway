@@ -31,10 +31,9 @@ type Prompt struct {
 func ReadPrompt(st *store.Store, now time.Time) Prompt {
 	p := Prompt{Key: BranchIssue()}
 	if v, ok, _ := st.GetMeta(timerMeta); ok {
-		key, unix, _ := strings.Cut(v, " ")
-		if sec, err := strconv.ParseInt(unix, 10, 64); key != "" && err == nil {
-			p.TimerKey = key
-			p.Timer = jira.FormatDuration(max(int(now.Sub(time.Unix(sec, 0)).Seconds()), 0))
+		if t := parseTimer(v); t.key != "" {
+			p.TimerKey = t.key
+			p.Timer = jira.FormatDuration(max(int(now.Sub(t.start).Seconds()), 0))
 		}
 	}
 	if v, ok, _ := st.GetMeta(inboxUnreadMeta); ok {

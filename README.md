@@ -18,7 +18,7 @@ config:
 - Issue panel with description (edited as markdown), comments, links, subtasks, an epic's children, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases
 - A home screen of your day: your work, inbox, sprint health, timer and saved searches
-- Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git, your agents' activity and your calendar
+- Time tracking: log work, a timer, the day's and the week's worklogs, proposals from git, your agents' activity and your calendar; to Jira or to your own time registration
 - Inbox: a thread per issue others changed, on every site; a standup that walks the board, with a timer
 - Git: branch keys in commits, draft pull requests, a prompt segment
 - GitLab merge requests: the ones waiting on you; pipelines and job logs, a diff to review line by line with notes and suggestions, or a coding agent reviews it for you; merge and edit them (reviewers, assignees, labels, draft)

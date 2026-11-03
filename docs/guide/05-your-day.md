@@ -99,6 +99,15 @@ totals and how short each past workday is of 8h. Log on any cell.
 > **Try it:** on Friday, open the week, fill the gaps, `y`, paste it into
 > the time registration.
 
+### Your own time registration
+
+Time goes to Jira's worklogs unless `timesheet:` in the config points at
+a server speaking laneway's [timesheet API](../reference/timesheet-api.md):
+a time registration tool of your own, or an adapter in front of one. The
+timer, the day, the week and proposals then use it. When that server runs
+a timer itself, `T` starts and stops that one, and a timer started there
+shows in laneway within half a minute. `left:` is Jira's only.
+
 ## Standup
 
 The standup since the previous workday (Friday on a Monday;
