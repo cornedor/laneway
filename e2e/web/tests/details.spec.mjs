@@ -69,7 +69,7 @@ test('T starts a timer and T again stops it into a work log', async ({ page }) =
   await reload(page);
   await expect(chip).toContainText('DEMO-4'); // the state file keeps it
   await page.keyboard.press('T');
-  const dialog = page.getByRole('dialog', { name: 'Log work on DEMO-4' });
+  const dialog = page.getByRole('dialog', { name: 'Stop timer on DEMO-4' });
   await expect(dialog.getByRole('textbox', { name: 'Time' })).toHaveValue(/m$/);
   await dialog.getByRole('textbox', { name: 'Comment' }).fill('Timed');
   await dialog.getByRole('button', { name: 'Log work' }).click();
