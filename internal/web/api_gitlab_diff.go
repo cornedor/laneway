@@ -253,7 +253,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		h := herdrClient()
+		h := muxClient(s)
 		if h == nil {
 			return nil, httpError{http.StatusServiceUnavailable, i18n.T("herdr is not running")}
 		}

@@ -209,6 +209,7 @@ ui:
 | `work_args` | | its arguments before the prompt; `{key}` is replaced |
 | `work_create` | | the command that makes a missing worktree (`{branch} {base} {key}`); unset: herdr |
 | `agent_view` | `fullscreen` | `panel` attaches an agent in the panel. Terminal |
+| `multiplexer` | herdr | another multiplexer speaking herdr's socket API and CLI: `command` (its CLI), `socket` (its API socket), `inside_env` (the variable it sets in its panes) |
 | `llm` | `claude -p` when on the PATH | the ask command: the question last, the issue on stdin (`llm`, `ollama run llama3`) |
 | `actions` | | your own commands on an issue, see [Actions](#actions) |
 

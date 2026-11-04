@@ -166,6 +166,11 @@ func gitRepo(t *testing.T) string {
 
 func agentsServer(t *testing.T, repo string) *httptest.Server {
 	t.Helper()
+	return agentsServerUI(t, repo, config.UIConfig{StartAssigns: "on", StartStatus: "In Progress", TimerOnStart: "on"})
+}
+
+func agentsServerUI(t *testing.T, repo string, ui config.UIConfig) *httptest.Server {
+	t.Helper()
 	base, stop, err := demo.New(time.Now()).Start()
 	if err != nil {
 		t.Fatal(err)
@@ -176,7 +181,7 @@ func agentsServer(t *testing.T, repo string) *httptest.Server {
 	opt := Options{
 		Client: cl, Store: st, Site: "demo",
 		Jira: config.JiraConfig{Repos: map[string]string{"DEMO": repo}},
-		UI:   config.UIConfig{StartAssigns: "on", StartStatus: "In Progress", TimerOnStart: "on"},
+		UI:   ui,
 	}
 	ts := httptest.NewServer(New(context.Background(), opt))
 	t.Cleanup(ts.Close)
@@ -210,6 +215,30 @@ func TestAgentsUnavailable(t *testing.T) {
 	}
 	if c := workCall(t, "POST", ts.URL+"/api/agents/p1/prompt", `{"Text":"hi"}`, nil); c != http.StatusServiceUnavailable {
 		t.Errorf("prompt without herdr = %d", c)
+	}
+}
+
+// TestAgentsConfiguredMultiplexer: ui.multiplexer's socket and CLI stand in
+// for herdr's when herdr itself is not running.
+func TestAgentsConfiguredMultiplexer(t *testing.T) {
+	_, c := newFakeHerdr(t)
+	old := herdrClient
+	herdrClient = func() *herdr.Client { return nil }
+	defer func() { herdrClient = old }()
+	bin := filepath.Join(t.TempDir(), "othermux")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ts := agentsServerUI(t, t.TempDir(), config.UIConfig{Multiplexer: config.MultiplexerConfig{Command: bin, Socket: c.Path()}})
+	var st map[string]any
+	workCall(t, "GET", ts.URL+"/api/agents/status", "", &st)
+	if st["Available"] != true || st["CLI"] != true {
+		t.Errorf("status = %v", st)
+	}
+	var snap AgentsSnapshot
+	workCall(t, "GET", ts.URL+"/api/agents", "", &snap)
+	if !snap.Available || len(snap.Agents) != 1 {
+		t.Errorf("snapshot = %+v", snap)
 	}
 }
 

@@ -137,7 +137,7 @@ func removeWorktree(ctx context.Context, s *Server, r *http.Request) (any, error
 		project, _, _ := strings.Cut(key, "-")
 		return nil, badRequest(noRepo(project))
 	}
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func workForm(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	}
 	cfg := workConfigOf(s)
 	project, _, _ := strings.Cut(key, "-")
-	c := herdrClient()
+	c := muxClient(s)
 	f := WorkForm{Key: key, Summary: iss.Summary, Type: iss.Type, Status: iss.Status, Herdr: c != nil, Repo: repoFor(s, key),
 		Agent: cfg.Agent, Agents: []string{cfg.Agent}, Missing: []string{}, Existing: []string{}, Template: cfg.Branch,
 		Actions: startActions(s, key, cfg), Problems: []string{}}
@@ -416,7 +416,7 @@ func planStart(ctx context.Context, s *Server, r *http.Request) (*startPlan, err
 	if err != nil {
 		return nil, err
 	}
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}

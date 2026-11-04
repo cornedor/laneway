@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
 )
@@ -345,5 +347,37 @@ func TestAgentMarkClick(t *testing.T) {
 				t.Fatalf("the title only selects: %q", mm.status)
 			}
 		})
+	}
+}
+
+// TestAttachUsesConfiguredMultiplexer: with ui.multiplexer set, attaching from
+// inside it runs its CLI's agent focus, not herdr's, and its inside_env counts.
+func TestAttachUsesConfiguredMultiplexer(t *testing.T) {
+	t.Setenv("HERDR_ENV", "")
+	t.Setenv("OTHER_MUX_PANE", "p9")
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls")
+	bin := filepath.Join(dir, "othermux")
+	script := "#!/bin/sh\necho \"$@\" >> " + log + "\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	opts, warn := optionsFrom(config.UIConfig{Multiplexer: config.MultiplexerConfig{Command: bin, InsideEnv: "OTHER_MUX_PANE"}})
+	if len(warn) > 0 {
+		t.Fatalf("warnings: %v", warn)
+	}
+	m := jiraTabModel(t)
+	m.opts.muxCommand, m.opts.muxInsideEnv = opts.muxCommand, opts.muxInsideEnv
+	m.herdr = herdr.New("/nowhere.sock")
+	cmd := m.attachAgent("ABC-1", "p1")
+	if cmd == nil {
+		t.Fatalf("attach gave no command: %q", m.status)
+	}
+	if msg, ok := cmd().(agentAttachedMsg); !ok || msg.err != nil {
+		t.Fatalf("attach: %#v", msg)
+	}
+	got, err := os.ReadFile(log)
+	if err != nil || strings.TrimSpace(string(got)) != "agent focus p1" {
+		t.Fatalf("multiplexer CLI got %q (%v), want agent focus p1", got, err)
 	}
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"github.com/cornedor/laneway/internal/i18n"
@@ -154,6 +155,23 @@ func (m *Model) agentMark(key string) string {
 // herdrBin is the herdr CLI; tests swap it.
 var herdrBin = "herdr"
 
+// multiplexer is the API client for ui.multiplexer's socket, else herdr's;
+// nil when nothing runs.
+func multiplexer(o options) *herdr.Client {
+	if o.muxSocket != "" {
+		return herdr.At(expandUserPath(o.muxSocket))
+	}
+	return herdr.Default()
+}
+
+// muxBin is the multiplexer CLI: ui.multiplexer.command, else herdr.
+func (m *Model) muxBin() string { return cmp.Or(m.opts.muxCommand, herdrBin) }
+
+// insideMux is whether laneway runs in one of the multiplexer's panes.
+func (m *Model) insideMux() bool {
+	return os.Getenv(cmp.Or(m.opts.muxInsideEnv, "HERDR_ENV")) != ""
+}
+
 // statusMark is one agent's state as a mark.
 func statusMark(s herdr.Status) string {
 	switch s {
@@ -184,16 +202,16 @@ func (m *Model) attachAgentIn(key, pane string, panel bool) tea.Cmd {
 		m.status = i18n.T("attach needs herdr running")
 		return nil
 	}
-	bin, err := exec.LookPath(herdrBin)
+	bin, err := exec.LookPath(m.muxBin())
 	if err != nil {
 		m.fail(i18n.T("attach: no herdr on PATH"))
 		return nil
 	}
 	done := func(err error) tea.Msg { return agentAttachedMsg{key: key, err: err} }
-	if os.Getenv("HERDR_ENV") != "1" && panel && m.opts.agentView == "panel" {
+	if !m.insideMux() && panel && m.opts.agentView == "panel" {
 		return m.openAgentPanel(key, pane, bin)
 	}
-	if os.Getenv("HERDR_ENV") == "1" {
+	if m.insideMux() {
 		cmd := herdrCommand(bin, m.herdr.Path(), "agent", "focus", pane)
 		m.status = i18n.Tf("%s: focusing its agent", key)
 		return func() tea.Msg { return done(cmd.Run()) }

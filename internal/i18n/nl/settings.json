@@ -81,6 +81,7 @@
   "where U opens: everyone, or the first person": "waar U opent: `everyone` of de eerste persoon",
   "where a lane card's fields sit: top, top_right, bottom, bottom_right around the summary": "waar de velden van een kaart in een baan staan: top, top_right, bottom, bottom_right rond de samenvatting",
   "where an attached agent shows: fullscreen or in the panel": "waar een gekoppelde agent verschijnt: `fullscreen` of in het paneel",
+  "the herdr-compatible multiplexer agents run in: its command, socket and inside_env": "de herdr-compatibele multiplexer waarin agents draaien: zijn `command`, `socket` en `inside_env`",
   "where attachments are saved": "waar bijlagen worden opgeslagen",
   "your own commands on the issue: in the palette, on a key if given": "je eigen commando's op het issue: in het palet, op een toets als die is opgegeven",
   "your own lanes over a board's columns: stacked, split by status, reordered, renamed, hidden; alt+l switches": "je eigen banen over de kolommen van een bord: gestapeld, per status gesplitst, herordend, hernoemd, verborgen; alt+l wisselt",

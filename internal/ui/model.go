@@ -610,7 +610,7 @@ func New(ctx context.Context, cfg config.JiraConfig, ui config.UIConfig, rs []ru
 		rules:           ruleSet,
 		actions:         actions,
 		rulesLog:        rulesLog,
-		herdr:           herdr.Default(),
+		herdr:           multiplexer(opts),
 		refView:         viewport.New(),
 		fieldCursor:     -1,
 		started:         time.Now(),

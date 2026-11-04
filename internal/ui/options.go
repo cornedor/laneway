@@ -55,6 +55,9 @@ type options struct {
 	workBranch      string              // start work's new branch
 	workAgent       string              // the herdr agent kind start work launches
 	agentView       string              // where an attached agent shows: fullscreen or panel
+	muxCommand      string              // multiplexer CLI; "" is herdrBin
+	muxSocket       string              // multiplexer API socket; "" finds herdr's
+	muxInsideEnv    string              // env var the multiplexer sets in its panes; "" is HERDR_ENV
 	workArgs        []string            // its arguments before the start prompt
 	workCreate      []string            // the command that makes a missing worktree, nil: herdr's
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
@@ -173,6 +176,9 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	default:
 		warn = append(warn, i18n.Tf("ui.agent_view: %q is not fullscreen or panel", c.AgentView))
 	}
+	o.muxCommand = strings.TrimSpace(c.Multiplexer.Command)
+	o.muxSocket = strings.TrimSpace(c.Multiplexer.Socket)
+	o.muxInsideEnv = strings.TrimSpace(c.Multiplexer.InsideEnv)
 	switch v := strings.ToLower(strings.TrimSpace(c.CardColors)); v {
 	case "":
 	case "ribbon", "off":
