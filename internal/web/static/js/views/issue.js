@@ -530,53 +530,6 @@ export function mountIssue(el, key, { app, full, card }) {
     if (it.k) open(it.k); else if (it.w.Page) readPage(it.w); else window.open(safeHref(it.url), '_blank', 'noopener');
   }
 
-  // Find in the issue: marks matches in all tabs; n / N (or enter) step, esc clears.
-  const find = { on: false, marks: [], at: -1 };
-  const findBar = h('div.iss-find', { hidden: true });
-  const findIn = h('input.input', { type: 'text', placeholder: T('Find in this issue…'), spellcheck: false, oninput: () => findRun(findIn.value) });
-  const findCount = h('span.dim');
-  findBar.append(findIn, findCount, h('button.btn.ghost.sm', { onclick: () => findStep(-1), title: T('Previous (N)'), 'aria-label': T('Previous') }, icon('arrow-up'), keyHint('N')), h('button.btn.ghost.sm', { onclick: () => findStep(1), title: T('Next (n)'), 'aria-label': T('Next') }, icon('arrow-down'), keyHint('n')), h('button.btn.ghost.sm', { onclick: () => findClose(), title: T('Close (esc)'), 'aria-label': T('Close') }, icon('x'), keyHint('Escape')));
-  findIn.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); findStep(e.shiftKey ? -1 : 1); findIn.blur(); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); findClose(); }
-  });
-  head.after(findBar);
-  function findClear() {
-    for (const m of find.marks) { const t = document.createTextNode(m.textContent); m.replaceWith(t); t.parentNode && t.parentNode.normalize(); }
-    find.marks = []; find.at = -1;
-  }
-  function findOpen() { find.on = true; findBar.hidden = false; findIn.focus(); findIn.select(); }
-  function findClose() { findClear(); find.on = false; findBar.hidden = true; findIn.value = ''; findCount.textContent = ''; scroll.focus({ preventScroll: true }); }
-  function findRun(q) {
-    findClear();
-    q = q.trim().toLowerCase();
-    if (q.length < 2) { findCount.textContent = ''; return; }
-    const hits = [], w = document.createTreeWalker(scroll, NodeFilter.SHOW_TEXT);
-    for (let n = w.nextNode(); n && hits.length < 500; n = w.nextNode()) {
-      if (n.parentElement.closest('textarea,script,style,.ed')) continue;
-      const t = n.nodeValue.toLowerCase();
-      for (let i = t.indexOf(q); i >= 0; i = t.indexOf(q, i + q.length)) hits.push([n, i]);
-    }
-    for (let k = hits.length - 1; k >= 0; k--) {
-      const [n, i] = hits[k];
-      const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + q.length);
-      const mk = h('mark.find'); r.surroundContents(mk); find.marks.unshift(mk);
-    }
-    findCount.textContent = find.marks.length ? T('%d found', find.marks.length) : T('none');
-    if (find.marks.length) findStep(1, true);
-  }
-  function findStep(d, first) {
-    if (!find.marks.length) return;
-    find.marks[find.at]?.classList.remove('cur');
-    find.at = first ? 0 : (find.at + d + find.marks.length) % find.marks.length;
-    const m = find.marks[find.at]; m.classList.add('cur');
-    const pane = Object.entries(panes).find(([, p]) => p.contains(m));
-    if (pane && pane[0] !== st.tab) setTab(pane[0]);
-    for (let d = m.closest('details'); d; d = d.parentElement.closest('details')) d.open = true; // a folded expand opens to show it
-    m.scrollIntoView({ block: 'center' });
-    findCount.textContent = find.at + 1 + '/' + find.marks.length;
-  }
-
   // ---- comments
   // Who a comment is for, as the composer and a comment's lock name it.
   const visWho = v => (v.Internal ? T('internal note') : v.Role || v.Group || '');
@@ -944,7 +897,6 @@ export function mountIssue(el, key, { app, full, card }) {
   // ---- keys
   const G = T('Issue');
   scope.bind('Escape', e => {
-    if (find.on && !(e.target.closest && e.target.closest('.ed'))) return findClose();
     const ed = e.target.closest && e.target.closest('.ed');
     if (ed) { if (ed._escape && ed._escape()) return; if (ed._cancel) return ed._cancel(); }
     if (document.activeElement && document.activeElement.matches && document.activeElement.matches('input,textarea,select')) return document.activeElement.blur();
@@ -973,9 +925,6 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('Backspace', back, T('back along the trail of followed issues'), { group: G });
   scope.bind('G', linked, T('go to a linked issue, child or web link'), { group: G });
   scope.bind('i', () => gallery(0), T('view images'), { group: G });
-  scope.bind('/', () => findOpen(), T('find in the issue (n / N next, previous)'), { group: G });
-  scope.bind('n', () => findStep(1), T('next match'), { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
-  scope.bind('N', () => findStep(-1), T('previous match'), { group: G, hidden: true, when: () => find.on && (full || app.panel.focused()) });
   scope.bind('1', () => setTab('details'), T('details tab'), { group: G, bar: T('tabs') });
   scope.bind('2', () => setTab('comments'), T('comments tab'), { group: G, bar: T('tabs') });
   scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), T('history tab (again: work log, all)'), { group: G, bar: T('tabs') });

@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-// TestPanelFind: / finds text in the panel, n steps on and wraps round, a
+// TestPanelFind: ctrl+f finds text in the panel, n steps on and wraps round, a
 // miss says so.
 func TestPanelFind(t *testing.T) {
 	m := loadedJiraModel(t)
 	m.jiraIssue.Description = strings.Repeat("filler\n\n", 40) + "the widget broke\n\n" + strings.Repeat("more\n\n", 40)
 	m.renderRef()
-	out, _ := m.handleRefKey(keyMsg(t, "/"))
+	out, _ := m.handleRefKey(keyMsg(t, "ctrl+f"))
 	if m = out.(Model); !m.jiraFieldActive || m.jiraFieldName != "find" {
-		t.Fatal("/ should ask what to find")
+		t.Fatal("ctrl+f should ask what to find")
 	}
 	m.jiraFieldInput.SetValue("WIDGET")
 	out, _ = m.applyJiraField()
@@ -35,6 +35,18 @@ func TestPanelFind(t *testing.T) {
 	m.findInPanel(1)
 	if !strings.Contains(m.status, `no "nowhere"`) {
 		t.Errorf("miss: %q", m.status)
+	}
+}
+
+// TestPanelSlashSearchesBoard: / in the panel is the board's search, not
+// the find in the issue.
+func TestPanelSlashSearchesBoard(t *testing.T) {
+	m := loadedJiraModel(t)
+	m.focus = focusRef
+	out, _ := m.handleKey(keyMsg(t, "/"))
+	m = out.(Model)
+	if m.jiraFieldActive || !m.jiraTab.searching || m.focus != focusJira {
+		t.Fatalf("field %v, searching %v, focus %v", m.jiraFieldActive, m.jiraTab.searching, m.focus)
 	}
 }
 

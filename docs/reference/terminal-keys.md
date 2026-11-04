@@ -104,7 +104,8 @@ panel's page. Keys for the browser: [Browser keys](browser-keys.md).
 | `S` | start work, or attach to its agent |
 | `N` | private notes in `$EDITOR` |
 | `ctrl+a` | ask `ui.llm` about the issue |
-| `/`, `n` `N` | find in the issue, next, previous hit |
+| `ctrl+f`, `n` `N` | find in the issue, next, previous hit |
+| `/` | search the board |
 | `i` | images full size |
 | `*` | pin |
 | `o`, `y` `Y`, `ctrl+y` | browser, copy key, URL, branch |
@@ -271,7 +272,7 @@ A key bound to two actions on one screen is reported. The actions:
 | Screen | Actions |
 | --- | --- |
 | Board | `up down left right top bottom page_up page_down open toggle_panel browser refresh quit help search goto create copy_key copy_url copy_branch move_left move_right rank_up rank_down rank_top rank_bottom move_sprint project board next_view prev_view toggle_mode sort fold unfold_all next_band prev_band compact empty_lanes lane_layout arrange_lanes assignee_filter mine clear_filters filter_builder jql mark mark_all undo bulk quick_edit repeat refine pin palette roadmap plan charts releases timer timesheet inbox standup my_work review closed_sprint time_machine agents merge_requests home site settings panel_wider panel_narrower` |
-| Panel | `status priority points summary labels assign description comment reply next_comment prev_comment delete_comment log_work start_work linked_issue back image issue_actions history development notes ask` |
+| Panel | `status priority points summary labels assign description comment reply next_comment prev_comment delete_comment log_work start_work linked_issue back image find issue_actions history development notes ask` |
 | Agent terminal | `agent_back` |
 | Planning | `plan_start plan_goal plan_rename plan_new plan_complete` |
 | Charts | `chart_done chart_compare` |

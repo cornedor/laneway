@@ -20,7 +20,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"status": &k.JiraStatus, "priority": &k.JiraPriority, "points": &k.JiraPoints, "summary": &k.JiraSummary, "labels": &k.JiraLabels,
 		"assign": &k.JiraAssignee, "comment": &k.JiraComment, "reply": &k.JiraReply,
 		"start_work": &k.JiraStart, "linked_issue": &k.JiraLinks, "back": &k.Back, "image": &k.Image,
-		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "goto": &k.Goto, "create": &k.Create,
+		"quit": &k.Quit, "help": &k.Help, "search": &k.Search, "find": &k.Find, "goto": &k.Goto, "create": &k.Create,
 		"copy_key": &k.CopyKey, "copy_url": &k.CopyURL, "copy_branch": &k.CopyBranch,
 		"move_left": &k.MoveCardLeft, "move_right": &k.MoveCardRight,
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
@@ -77,7 +77,7 @@ var keyScopes = []struct {
 		"next_view", "prev_view", "toggle_mode", "sort", "move_sprint", "assignee_filter", "mine", "clear_filters", "roadmap", "palette", "mark", "mark_all", "undo", "bulk", "plan", "charts", "timer", "timesheet", "inbox", "site", "standup", "jql", "pin", "fold", "unfold_all", "next_band", "prev_band", "settings", "filter_builder", "panel_wider", "panel_narrower", "quick_edit", "my_work", "compact", "empty_lanes", "releases", "repeat", "refine", "rank_up", "rank_down", "rank_top", "rank_bottom", "closed_sprint", "agents", "merge_requests", "home",
 	}},
 	{"panel", []string{
-		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work", "search",
+		"status", "priority", "points", "summary", "labels", "assign", "comment", "reply", "start_work", "search", "find",
 		"linked_issue", "back", "image", "browser", "copy_key", "copy_url", "copy_branch", "help", "refresh", "toggle_panel", "palette",
 		"log_work", "timer", "timesheet", "description", "inbox", "issue_actions", "standup", "history", "development", "pin", "next_view", "prev_view", "settings", "panel_wider", "panel_narrower", "undo", "next_comment", "prev_comment", "delete_comment", "agents",
 	}},
