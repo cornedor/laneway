@@ -94,6 +94,14 @@ func Default() *Client {
 	return &Client{path: path}
 }
 
+// At addresses the socket at path, nil when nothing listens there.
+func At(path string) *Client {
+	if fi, err := os.Stat(path); err != nil || fi.Mode()&os.ModeSocket == 0 {
+		return nil
+	}
+	return &Client{path: path}
+}
+
 // New addresses the socket at path.
 func New(path string) *Client { return &Client{path: path} }
 

@@ -187,6 +187,18 @@ type RulesTest struct {
 
 // UIConfig tunes the app; every field is optional and "" / 0 keeps the
 // default (see ui.optionsFrom).
+// MultiplexerConfig points laneway at a terminal multiplexer that speaks
+// herdr's socket API and CLI (`<command> agent attach|focus <pane>`).
+type MultiplexerConfig struct {
+	// Command is its CLI ("herdr").
+	Command string `yaml:"command"`
+	// Socket is its API socket; empty finds herdr's.
+	Socket string `yaml:"socket"`
+	// InsideEnv is the environment variable it sets in its panes, telling
+	// laneway it runs inside it ("HERDR_ENV").
+	InsideEnv string `yaml:"inside_env"`
+}
+
 type UIConfig struct {
 	// AutoRefresh is how often an idle board refetches ("2m"); "off" stops it.
 	AutoRefresh string `yaml:"auto_refresh"`
@@ -362,6 +374,9 @@ type UIConfig struct {
 	// AgentView is where an attached agent shows: fullscreen (laneway steps
 	// aside) or panel (in the issue panel).
 	AgentView string `yaml:"agent_view"`
+	// Multiplexer is the herdr-compatible terminal multiplexer agents run in;
+	// unset, herdr.
+	Multiplexer MultiplexerConfig `yaml:"multiplexer"`
 	// WorkArgs are arguments the agent gets before the start prompt, with
 	// {key} replaced ([--append-system-prompt, "User is working on {key}"]).
 	WorkArgs []string `yaml:"work_args"`

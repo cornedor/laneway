@@ -133,3 +133,18 @@ func TestWorktree(t *testing.T) {
 		t.Errorf("worktree = %+v", wt)
 	}
 }
+
+func TestAtNeedsASocket(t *testing.T) {
+	if At(filepath.Join(t.TempDir(), "missing.sock")) != nil {
+		t.Fatal("At must be nil without a socket")
+	}
+	path := filepath.Join(t.TempDir(), "s.sock")
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	if c := At(path); c == nil || c.Path() != path {
+		t.Fatalf("At(%s) = %v", path, c)
+	}
+}

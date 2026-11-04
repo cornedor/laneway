@@ -5,14 +5,14 @@ import "github.com/cornedor/laneway/internal/i18n"
 // What the settings screens (terminal and web) say about each ui: option.
 
 // SettingsRestart are options read once at startup.
-var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true, "language": true}
+var SettingsRestart = map[string]bool{"images": true, "threaded_replies": true, "image_max_rows": true, "card_limit": true, "default_mode": true, "flag_value": true, "inbox_issues": true, "custom_fields": true, "language": true, "multiplexer": true}
 
 // SettingsTerminal are options only the terminal reads; the browser has
 // its own for some (theme, under Appearance).
 var SettingsTerminal = map[string]bool{"theme": true, "icons": true, "mouse": true, "double_click": true, "images": true, "image_max_rows": true, "code_theme": true, "full_refresh": true}
 
 // SettingsCommand are options laneway runs as commands (or passes to one).
-var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": true, "open": true, "clipboard_image": true, "work_agent": true, "work_args": true, "work_create": true}
+var SettingsCommand = map[string]bool{"actions": true, "llm": true, "activity": true, "open": true, "clipboard_image": true, "work_agent": true, "work_args": true, "work_create": true, "multiplexer": true}
 
 // SettingsBasic are the options for making laneway your own: looks, layouts,
 // views. The rest are specifics and tuning, which the browser's settings
@@ -95,6 +95,7 @@ var SettingDefaults = map[string]string{
 	"flag_value":           "Impediment",
 	"work_agent":           "claude",
 	"agent_view":           "fullscreen",
+	"multiplexer":          "herdr",
 	"work_args":            "none",
 	"work_create":          "herdr creates the worktree",
 	"code_theme":           "the preset's, else monokai",
@@ -117,7 +118,7 @@ var SettingGroups = []SettingGroup{
 	{i18n.N("Panel"), []string{"panel_width", "empty_fields", "date_format", "images", "image_max_rows", "templates", "code_theme", "threaded_replies", "comment_order", "comment_layout"}},
 	{i18n.N("Refresh"), []string{"auto_refresh", "stale_after", "full_refresh"}},
 	{i18n.N("Time and worklogs"), []string{"timer_round", "timer_on_start", "workday_start", "workdays", "capacity", "activity", "calendar", "meeting_key"}},
-	{i18n.N("Start work and agents"), []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "llm", "actions"}},
+	{i18n.N("Start work and agents"), []string{"start_assigns", "start_status", "branch_template", "work_branch_template", "work_agent", "work_args", "work_create", "agent_view", "multiplexer", "llm", "actions"}},
 	{i18n.N("Planning, roadmap and charts"), []string{"velocity_sprints", "report_done", "report_backwards", "roadmap_epic_type", "roadmap_done_days"}},
 	{i18n.N("Inbox"), []string{"inbox_every", "inbox_lookback", "inbox_issues"}},
 	{i18n.N("Standup"), []string{"standup_start", "standup_lookback", "standup_length", "standup_timebox", "standup_shuffle", "standup_timer"}},
@@ -201,6 +202,7 @@ var SettingDocs = map[string]string{
 	"flag_value":           i18n.N("the Flagged field's option flagging sets"),
 	"work_agent":           i18n.N("the herdr agent kind S launches"),
 	"agent_view":           i18n.N("where an attached agent shows: fullscreen or in the panel"),
+	"multiplexer":          i18n.N("the herdr-compatible multiplexer agents run in: its command, socket and inside_env"),
 	"work_args":            i18n.N("the agent's arguments before the start prompt, {key} replaced"),
 	"work_create":          i18n.N("a command that makes a missing worktree: {branch}, {base}, {key}"),
 	"code_theme":           i18n.N("the chroma style code blocks use (terminal only: the browser's follow its theme)"),
