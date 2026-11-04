@@ -57,7 +57,7 @@ var paletteDesc = map[string]map[string]string{
 	"roadmap": {"move_left": i18n.N("move the bar a column earlier"), "move_right": i18n.N("move the bar a column later"),
 		"end_earlier": i18n.N("move its end earlier"), "end_later": i18n.N("move its end later"), "quit": i18n.N("close the roadmap")},
 	"planning": {"quit": i18n.N("close planning")},
-	"panel":    {"search": i18n.N("find in the issue")},
+	"panel":    {"search": i18n.N("search the board")},
 	"charts":   {"quit": i18n.N("close the charts")},
 	"standup":  {"quit": i18n.N("close the standup"), "open": i18n.N("open the issue"), "prev_view": i18n.N("a workday further back"), "next_view": i18n.N("a workday later")},
 	"inbox":    {"quit": i18n.N("close the inbox"), "open": i18n.N("open the thread's issue")},

@@ -120,7 +120,8 @@ red once breached.
     | `backspace` | back to the issue you came from |
     | `N` | your private notes on it, a file on this machine (`$EDITOR`) |
     | `ctrl+a` | ask `ui.llm` (`claude -p` by default): a summary, acceptance criteria, subtasks, points |
-    | `/` | find text in the issue; `n` / `N` step through the hits |
+    | `ctrl+f` | find text in the issue; `n` / `N` step through the hits |
+    | `/` | search the board |
     | `i` | the issue's images full size |
     | `o` | open it in the browser |
     | `y` / `Y` / `ctrl+y` | copy the key / the URL / a branch name |
@@ -143,7 +144,6 @@ red once breached.
     | `[` `]` | the previous, next issue of the list you came from |
     | `N` | your private notes on it, edited in place |
     | `ctrl+a` | ask `ui.llm` (`claude -p` by default): a summary, acceptance criteria, subtasks, points |
-    | `/` | find text in the issue; `n` / `N` step through the hits |
     | `i` | the issue's images, larger |
     | `o` | open it in Jira |
     | `y` / `Y` / `ctrl+y` | copy the key / the link / a branch name |

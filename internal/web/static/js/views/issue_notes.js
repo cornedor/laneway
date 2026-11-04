@@ -15,7 +15,7 @@ export function mountNotes(parent, key, { app, el, full }) {
   let text = '', dead = false, editing = false, open = false;
   const scope = app.keys.scope('issue-notes');
   const inPanel = () => full || app.panel.focused();
-  scope.bind('N', () => edit(), T('edit your private notes'), { group: T('Issue'), when: () => inPanel() && !el.querySelector('.iss-find:not([hidden])') });
+  scope.bind('N', () => edit(), T('edit your private notes'), { group: T('Issue'), when: () => inPanel() });
 
   async function save(v) {
     try { await api.put('/issues/' + key + '/notes', { Text: v }); } catch (e) { return ui.errToast(e); }

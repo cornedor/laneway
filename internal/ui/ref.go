@@ -169,8 +169,12 @@ func (m Model) handleRefKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Palette):
 		m.openPalette()
 		return m, nil
-	case key.Matches(msg, m.keys.Search):
+	case key.Matches(msg, m.keys.Find):
 		m.openPanelFind()
+		return m, nil
+	case key.Matches(msg, m.keys.Search):
+		m.focus = focusJira
+		m.startJiraSearch()
 		return m, nil
 	case m.panelFind != "" && (msg.String() == "n" || msg.String() == "N"):
 		if msg.String() == "n" {

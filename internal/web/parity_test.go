@@ -24,6 +24,7 @@ import (
 // tuiOnly: TUI action -> why the web binds no key to it.
 var tuiOnly = map[string]string{
 	"quit":          "the browser closes its tab",
+	"find":          "the browser's own ctrl+f finds in the page",
 	"plan_goal":     "one form edits the sprint's name, goal and end: plan_rename (E)",
 	"arrange_lanes": "the browser arranges lanes in the settings' lane editor, by dragging",
 }

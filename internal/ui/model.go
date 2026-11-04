@@ -65,7 +65,7 @@ type keyMap struct {
 	History, DevInfo, JQL, Pin         key.Binding
 	Fold, UnfoldAll, Settings          key.Binding
 	NextBand, PrevBand                 key.Binding
-	FilterBuilder, PanelWider          key.Binding
+	FilterBuilder, PanelWider, Find    key.Binding
 	PanelNarrower, QuickEdit, MyWork   key.Binding
 	Compact, Releases, Repeat          key.Binding
 	EmptyLanes, MergeRequests          key.Binding
@@ -132,6 +132,7 @@ func defaultKeys() keyMap {
 		Quit:            bind(i18n.T("quit"), "q"),
 		Help:            bind(i18n.T("help"), "?"),
 		Search:          bind(i18n.T("search"), "/"),
+		Find:            bind(i18n.T("find in the issue"), "ctrl+f"),
 		Goto:            bind(i18n.T("go to issue by key"), "#"),
 		Create:          bind(i18n.T("new issue"), "n"),
 		CopyKey:         bind(i18n.T("copy key"), "y"),

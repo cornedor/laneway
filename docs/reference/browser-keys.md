@@ -127,7 +127,6 @@ are its tabs.
 | `[` `]` | previous, next issue of the list you came from | |
 | `backspace` | back along the trail | |
 | `i` | images | |
-| `/`, `n` `N` | find in the issue | |
 | `<` `>` | widen, narrow the panel | |
 | `*` `o` `y` `Y` | pin, Jira, copy key, link | |
 | `ctrl+\` | its agent's terminal; `t` takes over | |
