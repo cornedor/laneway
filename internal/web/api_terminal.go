@@ -89,7 +89,7 @@ func agentTerminal(s *Server, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	var a herdr.Agent
 	if err == nil {
 		a, err = paneAgent(ctx, c, r)
@@ -99,7 +99,7 @@ func agentTerminal(s *Server, w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	bin, err := exec.LookPath(herdrBin)
+	bin, err := exec.LookPath(muxBin(s))
 	if err != nil {
 		writeErr(w, httpError{http.StatusNotImplemented, i18n.T("no herdr on PATH to attach to the agent")})
 		return

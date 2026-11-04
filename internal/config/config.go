@@ -185,8 +185,6 @@ type RulesTest struct {
 	Status string `yaml:"status"`
 }
 
-// UIConfig tunes the app; every field is optional and "" / 0 keeps the
-// default (see ui.optionsFrom).
 // MultiplexerConfig points laneway at a terminal multiplexer that speaks
 // herdr's socket API and CLI (`<command> agent attach|focus <pane>`).
 type MultiplexerConfig struct {
@@ -199,6 +197,8 @@ type MultiplexerConfig struct {
 	InsideEnv string `yaml:"inside_env"`
 }
 
+// UIConfig tunes the app; every field is optional and "" / 0 keeps the
+// default (see ui.optionsFrom).
 type UIConfig struct {
 	// AutoRefresh is how often an idle board refetches ("2m"); "off" stops it.
 	AutoRefresh string `yaml:"auto_refresh"`

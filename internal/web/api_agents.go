@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,6 +30,20 @@ var herdrClient = herdr.Default
 
 // herdrBin is the herdr CLI, for reading a pane and focusing it.
 var herdrBin = "herdr"
+
+// muxClient is ui.multiplexer's API socket, else the running herdr server;
+// nil for none.
+func muxClient(s *Server) *herdr.Client {
+	if p := strings.TrimSpace(s.UIConfig().Multiplexer.Socket); p != "" {
+		return herdr.At(expandUserPath(p))
+	}
+	return herdrClient()
+}
+
+// muxBin is ui.multiplexer's CLI, else herdr.
+func muxBin(s *Server) string {
+	return cmp.Or(strings.TrimSpace(s.UIConfig().Multiplexer.Command), herdrBin)
+}
 
 // AgentOut is one agent as the browser gets it.
 type AgentOut struct {
@@ -119,9 +134,9 @@ func agentIssues(ctx context.Context, s *Server, r *http.Request) (any, error) {
 }
 
 func agentsStatus(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	_, cliErr := exec.LookPath(herdrBin)
+	_, cliErr := exec.LookPath(muxBin(s))
 	return map[string]any{
-		"Available": herdrClient() != nil,
+		"Available": muxClient(s) != nil,
 		"CLI":       cliErr == nil,
 		"GH":        cli.Have("gh"),
 		"GLab":      cli.Have("glab"),
@@ -176,7 +191,7 @@ func unavailable() AgentsSnapshot {
 }
 
 func snapshot(ctx context.Context, s *Server) AgentsSnapshot {
-	c := herdrClient()
+	c := muxClient(s)
 	if c == nil {
 		return unavailable()
 	}
@@ -221,7 +236,7 @@ func agentEvents(s *Server, w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "retry: 3000\n\n")
 	fl.Flush()
 	for ctx.Err() == nil {
-		c := herdrClient()
+		c := muxClient(s)
 		if c == nil {
 			send(unavailable())
 			if !sleep(10 * time.Second) {
@@ -307,8 +322,8 @@ func paneIDs(as []herdr.Agent) []string {
 	return ids
 }
 
-func needHerdr() (*herdr.Client, error) {
-	c := herdrClient()
+func needHerdr(s *Server) (*herdr.Client, error) {
+	c := muxClient(s)
 	if c == nil {
 		return nil, httpError{http.StatusServiceUnavailable, i18n.T("herdr is not running")}
 	}
@@ -341,7 +356,7 @@ func paneAgent(ctx context.Context, c *herdr.Client, r *http.Request) (herdr.Age
 
 // agentOutput is the pane's recent terminal text, read through the herdr CLI.
 func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +368,7 @@ func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if n, err := strconv.Atoi(Q(r, "lines")); err == nil && n > 0 && n <= 1000 {
 		lines = n
 	}
-	bin, err := exec.LookPath(herdrBin)
+	bin, err := exec.LookPath(muxBin(s))
 	if err != nil {
 		return nil, httpError{http.StatusNotImplemented, i18n.T("no herdr on PATH to read the terminal")}
 	}
@@ -369,7 +384,7 @@ func agentOutput(ctx context.Context, s *Server, r *http.Request) (any, error) {
 }
 
 func agentPrompt(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +409,7 @@ func agentPrompt(ctx context.Context, s *Server, r *http.Request) (any, error) {
 
 // agentFocus brings the pane to the front in herdr.
 func agentFocus(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +417,7 @@ func agentFocus(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	bin, err := exec.LookPath(herdrBin)
+	bin, err := exec.LookPath(muxBin(s))
 	if err != nil {
 		return nil, httpError{http.StatusNotImplemented, i18n.T("no herdr on PATH")}
 	}
@@ -416,7 +431,7 @@ func agentFocus(ctx context.Context, s *Server, r *http.Request) (any, error) {
 
 // agentStop closes the agent's tab.
 func agentStop(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +444,7 @@ func agentStop(ctx context.Context, s *Server, r *http.Request) (any, error) {
 
 // agentNew starts another agent in the same directory as the one in pane.
 func agentNew(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	c, err := needHerdr()
+	c, err := needHerdr(s)
 	if err != nil {
 		return nil, err
 	}

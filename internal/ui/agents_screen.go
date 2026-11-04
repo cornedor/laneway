@@ -245,7 +245,7 @@ func (m Model) handleAgentTermDue(msg agentTermDueMsg) (tea.Model, tea.Cmd) {
 	}
 	m.closeAgentPanel() // the one terminal, in the panel or here
 	s.termFor, s.termErr, s.typing = r.agent.PaneID, "", false
-	bin, err := exec.LookPath(herdrBin)
+	bin, err := exec.LookPath(m.muxBin())
 	if err != nil {
 		s.termErr = i18n.T("no herdr on PATH")
 		return m, nil
