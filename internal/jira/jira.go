@@ -823,6 +823,20 @@ type RequestError struct {
 
 func (e *RequestError) Error() string { return e.msg }
 
+// Refusal is Jira's reason for turning down a request it understood (400),
+// such as a workflow validator refusing a move: its own messages, or the
+// whole error without them. ok is false for any other error.
+func Refusal(err error) (reason string, ok bool) {
+	re, isRe := errors.AsType[*RequestError](err)
+	if !isRe || re.code != http.StatusBadRequest {
+		return "", false
+	}
+	if len(re.Messages) == 0 {
+		return re.msg, true
+	}
+	return strings.Join(re.Messages, "; "), true
+}
+
 // jiraMessages reads Jira's error body, {"errorMessages": [...], "errors":
 // {field: message}}, as "message; field: message", "" for another body.
 func jiraMessages(body []byte) string {

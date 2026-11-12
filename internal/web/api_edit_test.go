@@ -331,3 +331,28 @@ func TestTransitionWithMentions(t *testing.T) {
 		t.Errorf("update = %s", b)
 	}
 }
+
+// TestTransitionRefused: a move Jira's workflow turns down (a validator that
+// wants a comment the rules didn't show) answers 422 with Jira's reason, so
+// the board opens the move's form instead of only reporting the failure.
+func TestTransitionRefused(t *testing.T) {
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/transitions") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errorMessages":["Add a comment, or comment first and then move the work item (within 10 minutes)."],"errors":{}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(fake.Close)
+	ts := issueServer(t, fake.URL)
+	var out struct{ Error string }
+	code := issueCall(t, "POST", ts.URL+"/api/issues/DEMO-1/transition", map[string]any{"ID": "13"}, &out)
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("transition: %d, want 422", code)
+	}
+	if want := "Add a comment, or comment first and then move the work item (within 10 minutes)."; out.Error != want {
+		t.Errorf("error = %q, want %q", out.Error, want)
+	}
+}

@@ -51,6 +51,11 @@ func init() {
 		key := r.PathValue("key")
 		err = s.Client().DoTransition(ctx, key, b.ID)
 		s.Client().Invalidate(key)
+		// A move the workflow turns down (a validator wanting a comment the
+		// rules can't tell) is 422 with Jira's reason: the board opens its form.
+		if reason, ok := jira.Refusal(err); ok {
+			return nil, httpError{http.StatusUnprocessableEntity, reason}
+		}
 		return nil, err
 	})
 	post("/issues/{key}/rank", func(ctx context.Context, s *Server, r *http.Request) (any, error) {

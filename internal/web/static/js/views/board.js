@@ -1076,7 +1076,10 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       bus.emit('issue:changed', { key: card.Key, what: card.Key + ' → ' + t.Name });
       if (done) confetti(app, [...main.querySelectorAll('.bd-lane-head.kdone')].find(e => e.querySelector('.bd-lane-name').textContent === col.Name));
     } catch (e) {
-      revertCard(card.Key, before); ui.toast(T('Could not move %s: %s', card.Key, e.message), { kind: 'err' });
+      revertCard(card.Key, before);
+      // Jira refused the bare move (422: a validator wants a comment the rules didn't show): open its form with Jira's reason.
+      if (e.status === 422 && meta && meta.Fields && meta.Fields.length) return import('./fields.js').then(m => m.moveForm(app, card.Key, { ...meta, Message: e.message }));
+      ui.toast(T('Could not move %s: %s', card.Key, e.message), { kind: 'err' });
     }
   }
   // A drop into another swimlane gives the card that band's assignee or epic, as Jira's board (TUI jiraSetBand).
