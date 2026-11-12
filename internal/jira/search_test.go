@@ -134,3 +134,42 @@ func TestSearchCardsTotal(t *testing.T) {
 		}
 	}
 }
+
+// TestSearchCardsPageAndKeys: a page past the card limit carries resolution
+// fields; Keys asks for keys only, thousands a page, and pages on.
+func TestSearchCardsPageAndKeys(t *testing.T) {
+	var asked []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/field" {
+			fmt.Fprint(w, `[]`)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		asked = append(asked, body)
+		switch {
+		case fmt.Sprint(body["fields"]) == "[key]" && body["nextPageToken"] == nil:
+			fmt.Fprint(w, `{"issues": [{"key": "ABC-1"}, {"key": "../x"}], "nextPageToken": "k2"}`)
+		case fmt.Sprint(body["fields"]) == "[key]":
+			fmt.Fprint(w, `{"issues": [{"key": "ABC-2"}]}`)
+		default:
+			fmt.Fprint(w, `{"issues": [{"key": "ABC-1", "fields": {"resolution": {"id": "1", "name": "Won't Do"}, "resolutiondate": "2026-11-02T10:00:00.000+0000"}}], "nextPageToken": "p2"}`)
+		}
+	}))
+	defer srv.Close()
+	c := New(Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok", CardLimit: 50})
+	cards, next, err := c.SearchCardsPage(context.Background(), "project = ABC", "")
+	if err != nil || next != "p2" || len(cards) != 1 || cards[0].Resolution != "Won't Do" || cards[0].Resolved.Day() != 2 {
+		t.Fatalf("SearchCardsPage = %+v, %q, %v", cards, next, err)
+	}
+	if fmt.Sprint(asked[0]["maxResults"]) != fmt.Sprint(cardPage) {
+		t.Errorf("a page asked %v, want %d whatever the card limit", asked[0]["maxResults"], cardPage)
+	}
+	keys, err := c.Keys(context.Background(), "project = ABC")
+	if err != nil || fmt.Sprint(keys) != "[ABC-1 ABC-2]" {
+		t.Fatalf("Keys = %v, %v; want both pages, the bad key dropped", keys, err)
+	}
+	if fmt.Sprint(asked[1]["maxResults"]) != fmt.Sprint(keysPage) || asked[2]["nextPageToken"] != "k2" {
+		t.Errorf("keys asked %v then %v", asked[1], asked[2])
+	}
+}

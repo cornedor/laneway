@@ -13,7 +13,7 @@ config:
 ![The board in the browser](docs/screenshots/web/board.png)
 
 - Swim lanes or a sortable list, with drag and drop between lanes and to rank
-- Sprints, backlog and kanban boards; the board's quick filters plus your own
+- Sprints, backlog and kanban boards, and all of a project's issues, closed ones too, sorted and filtered offline; the board's quick filters plus your own
 - Local search, JQL with completion, a command palette, jump to any issue by key
 - Issue panel with description (edited as markdown), comments, links, subtasks, an epic's children, attachments and private notes; ask an LLM command about it
 - Sprint planning and refinement; burndown, velocity, cycle time and retro charts; an epic roadmap; releases

@@ -230,5 +230,16 @@
   "✎ edit": "✎ bewerken",
   "✕ delete": "✕ verwijderen",
   "✕ delete? again": "✕ verwijderen? nogmaals",
-  "%s has closed · showing %s": "%s is gesloten · %s staat er nu"
+  "%s has closed · showing %s": "%s is gesloten · %s staat er nu",
+  " · %d shown": " · %d getoond",
+  "%d issues · %d open": "%d issues · %d open",
+  "All issues": "Alle issues",
+  "Reading every issue of %s…": "Alle issues van %s worden gelezen…",
+  "Resolution": "Resolutie",
+  "all issues: %s": "alle issues: %s",
+  "bad project key": "ongeldige projectsleutel",
+  "offline: left out %s": "offline: weggelaten %s",
+  "reading all issues: %d of %d": "alle issues lezen: %d van %d",
+  "the issue index is not available": "de issue-index is niet beschikbaar",
+  "this site keeps no issue index": "deze site houdt geen issue-index bij"
 }

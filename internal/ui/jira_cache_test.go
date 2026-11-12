@@ -70,10 +70,10 @@ func TestJiraRememberFiltersOff(t *testing.T) {
 	msg := jiraBoardMsg{project: "ABC", boards: []jira.Board{{ID: 1, Name: "B"}}, cfg: &jira.BoardConfig{}, views: []jiraView{{name: "Board"}},
 		assignee: jiraAssignee{id: "me", label: "Me"}}
 	saveJiraCache(m.store, 1, "Board", cacheOf(msg, "assignee = currentUser()"))
-	if got := jiraBoardFromCache(m.store, 1, "ABC", 1, "Board", nil, false, false)(); got != nil {
+	if got := jiraBoardFromCache(m.store, nil, 1, "ABC", 1, "Board", nil, false, false)(); got != nil {
 		t.Errorf("filtered cache shown: %+v", got)
 	}
-	if got := jiraBoardFromCache(m.store, 1, "ABC", 1, "Board", nil, false, true)(); got == nil {
+	if got := jiraBoardFromCache(m.store, nil, 1, "ABC", 1, "Board", nil, false, true)(); got == nil {
 		t.Error("filtered cache dropped with remember on")
 	}
 }

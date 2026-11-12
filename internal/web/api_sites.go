@@ -28,6 +28,8 @@ type siteSet struct {
 	rules map[string]*ruleRunner
 	// projects are sites' projects: saved since the start, over the config's.
 	projects map[string][]string
+	// mirrors are the all issues view's runs reading a project whole.
+	mirrors mirrorRuns
 }
 
 func newSiteSet(base Options) *siteSet {

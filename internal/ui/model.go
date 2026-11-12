@@ -813,6 +813,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		out, cmd := m.handleJiraBoard(msg)
 		mm := out.(Model)
 		return mm, tea.Batch(cmd, mm.fetchAvatars(), mm.fetchCardColors())
+	case mirrorMsg:
+		return m.handleMirror(msg)
 	case jiraCardsMsg:
 		out, cmd := m.handleJiraCards(msg)
 		mm := out.(Model)
@@ -1319,7 +1321,7 @@ func (m Model) handleWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 		m.moveJiraCursor(delta / 3)
 		return m, nil
 	}
-	m.jiraTab.view.SetYOffset(m.jiraTab.view.YOffset() + delta)
+	m.fillJiraList(max(m.jiraTab.view.YOffset()+delta, 0))
 	return m, nil
 }
 
