@@ -59,6 +59,27 @@ The [search reference](../reference/search.md) has every field.
 > field, a comparison and a value from lists, and it writes the query for
 > you. Each term shows as a chip; a click removes it.
 
+## Every issue of the project
+
+The sprint shows this sprint; **All issues**, the view after the backlog
+(`[` `]`, or pick it from the views; in the browser a page of its own in
+the top bar), lists the whole project, open and closed, as a list only. Search, the filter builder and sort work on all of them at once,
+offline too: laneway keeps a copy of the project in its local index. The
+first time a project is opened here it is read whole in the background,
+newest first, the title row saying how far it got; after that only what
+changed is read.
+
+- The title row counts the issues, the open ones and, with a search, the
+  ones shown: `9812 issues · 312 open · 87 shown`.
+- `-is:done` leaves the closed ones out, `resolved<30d` keeps what was
+  closed this month and `resolution:duplicate` how it was closed. The list
+  sorts by resolved too, the newest first.
+- The assignee filter, mine and the quick filters ask Jira which issues
+  they find, so they mean what they mean on the board.
+
+The filter builder counts each value over what the rest of your search
+leaves, so every value it offers finds something.
+
 ## Arrange it
 
 - Lanes or a list: `t` swaps them. The list sorts by rank, priority,

@@ -10,7 +10,7 @@
 .fchip.on { background: var(--on-bg); color: var(--on-fg); border-color: var(--on-border); }
 .fchip.clear { padding-left: .643rem; color: var(--fg-3); background: transparent; }
 .fchip kbd { font-size: .714rem; padding: 0 .286rem; line-height: 1rem; }
-.bd-filter { flex: 0 1 15.714rem; min-width: 7rem; max-width: 40vw; }
+.bd-filter-box { flex: 0 1 15.714rem; min-width: 7rem; max-width: 40vw; }
 .bd-stats { flex: none; font-size: .857rem; white-space: nowrap; }
 /* the sprint line, beside its crumb: it takes what the toolbar leaves, the goal giving way first, then the days left;
    short of its minimum the toolbar wraps under it. A class, not :has(:not(:empty)): WebKit misses that as the line fills. */
@@ -136,7 +136,7 @@ body.panel-focus .lrow.sel { background: var(--bg-3); box-shadow: inset 3px 0 va
 
 @media (max-width: 700px) {
   .bd-bar { flex-wrap: wrap; } .bd-chips { flex-wrap: wrap; }
-  .bd-filter { flex-basis: 100%; max-width: none; }
+  .bd-filter-box { flex-basis: 100%; max-width: none; }
   .bd-lhead, .lrow { grid-template-columns: 1.857rem 5.714rem minmax(7.143rem, 1fr) 7.143rem; }
   .bd-lhead > :not(.lh-mark, .lh-key, .lh-summary, .lh-status), .lrow > :not(.l-mark, .l-key, .l-summary, .l-status) { display: none; }
   .lh-key, .l-key { order: 1; } .lh-summary, .l-summary { order: 2; } .lh-status, .l-status { order: 3; }

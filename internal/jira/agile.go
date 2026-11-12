@@ -24,7 +24,7 @@ import (
 const DefaultCardLimit = 500
 
 // cardFields is what a card shows. The points field is appended per board.
-const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate,statuscategorychangedate,labels,updated,created,reporter,components"
+const cardFields = "summary,status,assignee,issuetype,priority,parent,subtasks,duedate,statuscategorychangedate,labels,updated,created,reporter,components,resolution,resolutiondate"
 
 // boardMetaCache keeps what a board is made of — a project's boards, a
 // board's columns and quick filters — for the session: they change about as
@@ -158,6 +158,10 @@ type Card struct {
 	Updated, Created time.Time
 	// Reporter is the reporter's name, "" for none.
 	Reporter string
+	// Resolution is how it was resolved ("Done", "Won't Do"), "" while
+	// unresolved; Resolved when, zero while unresolved.
+	Resolution string
+	Resolved   time.Time
 	// Components are its components' names joined by ExtraSep (names hold
 	// spaces), so a Card stays comparable.
 	Components string
@@ -607,6 +611,10 @@ func toCard(key string, f map[string]json.RawMessage, pointsField string) Card {
 		card.Created, _ = time.Parse(jiraTime, created)
 	}
 	_, card.Reporter = obj("reporter")
+	_, card.Resolution = obj("resolution")
+	if resolved := str("resolutiondate"); resolved != "" {
+		card.Resolved, _ = time.Parse(jiraTime, resolved)
+	}
 	var comps []struct {
 		Name string `json:"name"`
 	}

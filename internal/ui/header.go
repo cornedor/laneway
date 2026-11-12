@@ -61,7 +61,9 @@ func (m *Model) jiraTitleSegs() []headSeg {
 		segs = append(segs, plainSeg(dim(i18n.Tf("  refreshing…%s", loadingFor(t.loadingSince)))))
 	case !t.fetched.IsZero():
 		segs = append(segs, plainSeg(dim("  ")), keySeg(dim(i18n.Tf("updated %s", age(t.fetched))), k.Refresh))
-		if t.total > len(t.cards) {
+		if m.inAllIssues() {
+			segs = append(segs, plainSeg(dim("  ·  "+m.allIssuesCounts())))
+		} else if t.total > len(t.cards) {
 			segs = append(segs, plainSeg(dim(i18n.Tf("  ·  first %d of %d", len(t.cards), t.total))))
 		}
 	}

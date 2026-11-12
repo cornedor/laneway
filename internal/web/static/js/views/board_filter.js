@@ -17,7 +17,7 @@ export function openFilterBuilder({ app, cards, env, query, apply }) {
   const base = c => {
     if (c === 0) return cq.BUILDER_FIELDS.map(([id, label]) => ({ id, label }));
     if (c === 1) return cq.builderOps(pick(0).id).map(([id, label]) => ({ id, label }));
-    return noValue(pick(1).id) ? [] : cq.builderValues(cards, pick(0).id, env).map(v => ({ id: v.id, label: v.label + ' · ' + v.n }));
+    return noValue(pick(1).id) ? [] : cq.builderValues(cards, pick(0).id, env, q).map(v => ({ id: v.id, label: v.label + ' · ' + v.n }));
   };
   const rows = c => {
     const all = base(c);

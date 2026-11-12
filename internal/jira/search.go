@@ -36,40 +36,119 @@ func (c *Client) searchCards(ctx context.Context, jql string) ([]Card, bool, err
 	if !c.Enabled() {
 		return nil, false, errNotConfigured
 	}
-	sp := c.resolveStoryPointFields(ctx)
-	fields := append(strings.Split(cardFields, ","), sp...)
-	dev, flag := c.devField(ctx), c.flagField(ctx)
-	more := c.moreCardFields(ctx)
-	for _, id := range append([]string{dev, flag}, more.ids()...) {
-		if id != "" {
-			fields = append(fields, id)
-		}
-	}
-	issues, cut, err := c.searchUpTo(ctx, jql, fields, "", c.cardLimit)
+	cf := c.cardSearchFields(ctx)
+	issues, cut, err := c.searchUpTo(ctx, jql, cf.fields, "", c.cardLimit)
 	if err != nil {
 		return nil, false, err
 	}
+	return c.toCards(issues, cf), cut, nil
+}
+
+// SearchCardsPage is one page of the cards jql finds, from token ("" for the
+// first page), with the token of the next page, "" after the last. Unlike
+// SearchCards no card limit applies: the caller pages as far as it wants.
+func (c *Client) SearchCardsPage(ctx context.Context, jql, token string) (cards []Card, next string, err error) {
+	if !c.Enabled() {
+		return nil, "", errNotConfigured
+	}
+	cf := c.cardSearchFields(ctx)
+	body := map[string]any{"jql": jql, "fields": cf.fields, "maxResults": cardPage}
+	if token != "" {
+		body["nextPageToken"] = token
+	}
+	var resp struct {
+		Issues        []rawIssue `json:"issues"`
+		NextPageToken string     `json:"nextPageToken"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/rest/api/3/search/jql", "search", body, &resp); err != nil {
+		return nil, "", err
+	}
+	if len(resp.Issues) == 0 {
+		resp.NextPageToken = ""
+	}
+	return c.toCards(resp.Issues, cf), resp.NextPageToken, nil
+}
+
+// keysPage is how many keys one Keys request asks for: Jira answers up to
+// 5000 a page when only keys are asked, fewer otherwise (then it pages).
+const keysPage = 5000
+
+// Keys is every key jql finds, without the card limit: only keys are read,
+// which Jira pages thousands at a time.
+func (c *Client) Keys(ctx context.Context, jql string) ([]string, error) {
+	if !c.Enabled() {
+		return nil, errNotConfigured
+	}
+	var out []string
+	token := ""
+	for {
+		body := map[string]any{"jql": jql, "fields": []string{"key"}, "maxResults": keysPage}
+		if token != "" {
+			body["nextPageToken"] = token
+		}
+		var resp struct {
+			Issues []struct {
+				Key string `json:"key"`
+			} `json:"issues"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		if err := c.do(ctx, http.MethodPost, "/rest/api/3/search/jql", "search", body, &resp); err != nil {
+			return nil, err
+		}
+		for _, is := range resp.Issues {
+			if ValidKey(is.Key) {
+				out = append(out, is.Key)
+			}
+		}
+		if token = resp.NextPageToken; token == "" || len(resp.Issues) == 0 {
+			return out, nil
+		}
+	}
+}
+
+// cardSearch is what a card search asks for: the fields, and the ids of the
+// story point, development and flag fields among them.
+type cardSearch struct {
+	fields    []string
+	sp        []string
+	dev, flag string
+	more      moreFields
+}
+
+func (c *Client) cardSearchFields(ctx context.Context) cardSearch {
+	cf := cardSearch{sp: c.resolveStoryPointFields(ctx), dev: c.devField(ctx), flag: c.flagField(ctx), more: c.moreCardFields(ctx)}
+	cf.fields = append(strings.Split(cardFields, ","), cf.sp...)
+	for _, id := range append([]string{cf.dev, cf.flag}, cf.more.ids()...) {
+		if id != "" {
+			cf.fields = append(cf.fields, id)
+		}
+	}
+	return cf
+}
+
+// toCards turns search hits into cards, and mirrors them in the index.
+func (c *Client) toCards(issues []rawIssue, cf cardSearch) []Card {
 	out := make([]Card, 0, len(issues))
 	for _, is := range issues {
 		if !ValidKey(is.Key) {
 			continue
 		}
 		card := toCard(is.Key, is.Fields, "")
-		for _, id := range sp {
+		for _, id := range cf.sp {
 			if card = toCard(is.Key, is.Fields, id); card.Points != "" {
 				break
 			}
 		}
-		card.PR = prState(is.Fields[dev])
-		card.Deploy = deployEnv(is.Fields[dev])
-		card.Flagged = flagSet(is.Fields[flag])
-		more.fill(&card, is.Fields)
+		card.PR = prState(is.Fields[cf.dev])
+		card.Deploy = deployEnv(is.Fields[cf.dev])
+		card.Flagged = flagSet(is.Fields[cf.flag])
+		cf.more.fill(&card, is.Fields)
 		out = append(out, card)
 	}
 	if c.index != nil {
 		c.index.PutCards(out)
 	}
-	return out, cut, nil
+	return out
 }
 
 // rawIssue is a search hit with its fields undecoded.

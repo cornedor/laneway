@@ -13,13 +13,14 @@ import { T } from './i18n.js';
 export { fixCols };
 
 // What O steps the list's order through.
-export const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created'];
+export const SORTS = ['rank', 'priority', 'points', 'assignee', 'epic', 'key', 'status', 'updated', 'due', 'created', 'resolved'];
 export const PRIO_ICON = ['chevrons-up', 'chevron-up', 'equal', 'chevron-down', 'chevrons-down'];
 // List columns: id, header, width.
 export const COLS = {
   mark: ['', '1.857rem'], key: [T('Key'), '6.143rem'], summary: [T('Summary'), 'minmax(8.571rem, 1fr)'], status: [T('Status'), '8.429rem'], priority: [T('Prio'), '2.429rem'],
   points: [T('Pts'), '2.857rem'], assignee: [T('Assignee'), '10.714rem'], epic: [T('Epic'), '9.286rem'], labels: [T('Labels'), '7.857rem'], reporter: [T('Reporter'), '7.857rem'],
   due: [T('Due'), '4.571rem'], updated: [T('Updated'), '6rem'], created: [T('Created'), '6rem'], age: [T('Age'), '3.143rem'],
+  resolution: [T('Resolution'), '7.143rem'], resolved: [T('Resolved'), '6rem'],
 };
 export const DEFAULT_COLS = ['mark', 'key', 'summary', 'status', 'priority', 'points', 'assignee', 'due', 'updated'];
 
@@ -186,4 +187,6 @@ const FILL = {
   updated: (e, c, o) => { e.textContent = ago(c.Updated); e.title = o.fdate(c.Updated, ''); },
   created: (e, c, o) => { e.textContent = ago(c.Created); e.title = o.fdate(c.Created, ''); },
   age: (e, c) => { e.textContent = ageText(c); },
+  resolution: (e, c) => { e.textContent = c.Resolution || ''; },
+  resolved: (e, c, o) => { e.textContent = isZero(c.Resolved) ? '' : ago(c.Resolved); e.title = o.fdate(c.Resolved, ''); },
 };

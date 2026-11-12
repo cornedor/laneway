@@ -15,6 +15,7 @@ import * as pins from '../lib/pins.js';
 import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
+import { filterBox } from '../lib/filterbox.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
 import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, dragCols, resizeCols, readWidths, buildRow as listRow, fillCells } from '../lib/cardlist.js';
@@ -46,7 +47,9 @@ function parseEvery(s) {
 // embed mounts the board inside another view (the standup's): it leaves the URL, the context crumbs, the palette's
 // board commands and app.lastView alone, takes its keys from the scope it is given (none, for the standup), and
 // gains embed.setWho(ids) and embed.select(key); embed.onWho(ids) hears the assignee filter change on it.
-export default function mount(el, { app, params, query, scope, context, toolbar, embed }) {
+// issues mounts it as the All issues page (views/issues.js): the all issues view under /issues/PROJECT/BOARD, the
+// other views a step to the Board page, and back.
+export default function mount(el, { app, params, query, scope, context, toolbar, embed, issues }) {
   const { api, bus, ui } = app;
   const me = (app.session.me && app.session.me.AccountID) || '';
   const UI = app.session.ui || {};
@@ -61,7 +64,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const S = {
     project: '', boards: [], board: null, bundle: null, people: new Map(),
     cards: [], total: 0, loaded: false, path: '', fetched: 0, busy: 0,
-    scope: query.sprint || 'active', saved: [], queues: [],
+    scope: issues ? 'issues' : query.sprint || 'active', saved: [], queues: [],
     qf: new Set(), mine: false, who: null, text: '', textFn: null,
     mode: 'lanes', sort: 'rank', dir: 1, swim: 'none', fold: new Set(), compact: false, hideEmpty: false, hidden: 0, cols: DEFAULT_COLS, colw: readWidths(app.prefs.get('board.colw', '')),
     layout: '', layoutHidden: 0, secFold: new Set(), laneFold: new Set(),
@@ -80,7 +83,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const filterIn = h('input.input.bd-filter', { type: 'text', placeholder: T('Filter  (f)'), spellcheck: false, autocomplete: 'off', title: T('words, status:review,test  points>2  prio>=high  is:flagged  age>3d  due<7d  epic:  -negate  (F builds a query)') });
   const chips = h('div.bd-chips');
   const stats = h('span.bd-stats.dim'), sprintEl = h('span.bd-sprint.dim');
-  const bar = h('div.bd-bar', chips, h('span.sp'), filterIn, stats);
+  const bar = h('div.bd-bar', chips, h('span.sp'), filterBox(filterIn, () => openBuilder()), stats);
   const banner = h('div.bd-banner', { hidden: true });
   const main = h('div.bd-main');
   const selbar = selBar({ edit: () => bulk(), clear: () => clearMarks() });
@@ -91,7 +94,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // ---- toolbar
   const projectBtn = app.chrome.crumb(T('Project  (alt+p): switches to its last board'), () => openProject(app));
   const boardBtn = app.chrome.crumb(T('Board  (B)'), () => pickBoard());
-  const sprintBtn = app.chrome.crumb(T('View: sprint, backlog, whole board, your views  (v, [ ])'), () => pickSprint());
+  const sprintBtn = app.chrome.crumb(T('View: sprint, backlog, whole board, all issues, your views  (v, [ ])'), () => pickSprint());
   const modeBtn = h('button.btn', { title: T('Lanes / list  (t)'), onclick: () => setMode(S.mode === 'lanes' ? 'list' : 'lanes') });
   const swimBtn = h('button.btn', { title: T('Swimlanes: none, assignee, epic, priority  (O)'), onclick: () => cycleSwim() });
   const colsBtn = h('button.btn', { title: T('List columns  (C)'), onclick: () => pickCols() }, icon('columns-3'), T('Columns'), keyHint('C'));
@@ -110,6 +113,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     sprintBtn.textContent = sp;
     sprintBtn.hidden = !isScrum() && !viewItems().some(i => i.id.includes(':') && !i.id.startsWith('closed'));
     if (S.mode === 'lanes') keyIcon(modeBtn, 't', 'kanban', T('Lanes')); else keyIcon(modeBtn, 't', 'list', T('List'));
+    modeBtn.hidden = !!issues;
     swimBtn.hidden = S.mode !== 'lanes'; colsBtn.hidden = S.mode !== 'list'; compactBtn.hidden = S.mode !== 'lanes'; emptyBtn.hidden = S.mode !== 'lanes';
     keyIcon(swimBtn, 'O', 'rows-3', S.swim === 'none' ? T('Swimlanes') : T('by %s', SWIMNAME[S.swim]));
     if (S.compact) keyIcon(compactBtn, 'c', 'fold-vertical', T('Compact')); else keyIcon(compactBtn, 'c', 'unfold-vertical', T('Full'));
@@ -122,7 +126,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
   const isScrum = () => !!S.board && S.board.Type !== 'kanban';
   const sprints = () => (S.bundle && S.bundle.sprints) || [];
-  // Everything [ ] walks through: sprints, backlog, whole board, then ui.views, starred filters and service desk queues.
+  // Everything [ ] walks through: sprints, backlog, whole board, all issues, then ui.views, starred filters and
+  // service desk queues.
   function viewItems() {
     const out = [];
     if (isScrum()) {
@@ -133,6 +138,8 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
       const cols = (S.bundle && S.bundle.config && S.bundle.config.Columns) || [];
       if (cols.length && cols[0].Name.toLowerCase() === 'backlog') out.push({ id: 'backlog', name: T('Backlog') });
     }
+    // The project's every issue, open and closed, from the site's index (the TUI's jiraViewAll).
+    if (S.bundle && S.bundle.allIssues) out.push({ id: 'issues', name: T('All issues'), info: T('the whole project') });
     ((app.session.ui && app.session.ui.Views) || []).forEach((v, i) => { if (v.Name && v.JQL) out.push({ id: 'view:' + i, name: v.Name, info: T('view'), jql: v.JQL, kind: 'jql' }); });
     for (const f of S.saved) out.push({ id: 'filter:' + f.ID, name: f.Name, info: T('saved filter'), jql: f.JQL, kind: 'filter' });
     for (const qu of S.queues) out.push({ id: 'queue:' + qu.Desk + ':' + qu.ID, name: qu.Project + ' · ' + qu.Name, info: T('queue · %d', qu.Count), jql: qu.JQL, kind: 'filter' });
@@ -147,6 +154,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (it && (it.kind || !isScrum())) return it.name;
     if (S.scope === 'backlog') return T('Backlog');
     if (S.scope === 'all') return T('Whole board');
+    if (S.scope === 'issues') return T('All issues');
     const r = resolveScope();
     const sp = r.sprint && sprints().find(s => s.ID === r.sprint);
     return sp ? sp.Name : T('Whole board');
@@ -228,6 +236,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     let pts = 0;
     for (const c of vis) pts += Number(c.Points) || 0;
     const filtered = vis.length !== S.cards.length;
+    if (resolveScope().issues) {
+      // All issues: how many, how many open, how many the search leaves (TUI allIssuesCounts); while the
+      // project is read whole the first time, how far that got.
+      if (S.sync) { stats.textContent = T('reading all issues: %d of %d', S.sync.Done, S.sync.Total); return; }
+      const open = S.cards.reduce((n, c) => n + (c.Done ? 0 : 1), 0);
+      stats.textContent = T('%d issues · %d open', S.cards.length, open) + (filtered ? T(' · %d shown', vis.length) : '');
+      return;
+    }
     stats.textContent = (filtered ? T('%d of %d issues', vis.length, S.cards.length) : Tn(S.cards.length, '%d issue', '%d issues', S.cards.length)) + (pts ? ' · ' + T('%s pts', Math.round(pts * 10) / 10) : '') + (S.total > S.cards.length ? ' ' + T('(%d in Jira)', S.total) : '');
   }
 
@@ -237,6 +253,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (S.closed) return { sprint: S.closed.ID };
     const vi = viewItems().find(i => i.id === S.scope);
     if (vi && vi.kind) return { view: vi };
+    if (S.scope === 'issues') return { issues: 1 };
     if (S.scope === 'backlog') return { backlog: 1 };
     if (!isScrum()) return { kanban: 1 };
     if (S.scope === 'all') return {};
@@ -266,6 +283,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     if (r.sprint) p.set('sprint', r.sprint);
     if (r.backlog) p.set('backlog', 1);
     if (r.kanban) p.set('kanban', 1);
+    if (r.issues) { p.set('allissues', 1); p.set('project', S.project); }
     const jql = qfs().filter(q => S.qf.has(q.ID)).map(q => '(' + q.JQL + ')').join(' AND ');
     if (r.view) {
       p.set('kind', r.view.kind); p.set('jql', r.view.jql);
@@ -336,11 +354,21 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
   function setCards(d) {
     const list = d.cards || [];
-    if (S.loaded && sameCards(S.cards, list)) { S.total = d.total || list.length; return; }
+    syncing(d);
+    if (S.loaded && sameCards(S.cards, list)) { S.total = d.total || list.length; renderStats(); return; }
     S.cards = list; S.total = d.total || list.length; S.loaded = true;
     layout();
     renderBar();
     if (S.past && !S.past.moves && !S.past.fetching) { S.past.fetching = true; fetchMoves(); }
+  }
+  // All issues on a project read whole for the first time: the answer says how far that got, and the page asks
+  // again until it's done. Offline, note says what the filters' answer left out.
+  function syncing(d) {
+    const was = S.sync;
+    S.sync = d.sync || null;
+    if (S.sync) later(() => { if (S.sync && !S.dead) refresh(false); }, 1500);
+    if (d.note && !was && d.note !== S.note) ui.toast(d.note);
+    S.note = d.note || '';
   }
   function sameCards(a, b) {
     if (a.length !== b.length) return false;
@@ -1258,6 +1286,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   }
   function setMode(m) {
     if (m === S.mode) return;
+    if (issues) return ui.toast(T('All issues is a list only'));
     S.mode = m; S.built = '';
     app.prefs.set('board.mode.' + S.board.ID, m);
     renderToolbar(); layout();
@@ -1309,7 +1338,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // ---- filter builder, named filters
   function openBuilder() {
     if (!S.loaded) return;
-    openFilterBuilder({ app, cards: S.base || S.cards, env: env(), query: S.text, apply: t => { filterIn.value = t; setText(t); } });
+    openFilterBuilder({ app, cards: (S.base || S.cards).filter(c => (!S.mine || c.AssigneeID === me) && passesWho(S.who, c)), env: env(), query: S.text, apply: t => { filterIn.value = t; setText(t); } });
   }
   let filterCmds = [];
   function registerNamedFilters() {
@@ -1441,7 +1470,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   // ---- pickers
   async function pickBoard() {
     const b = await pickBoardOf(app, S.project, { scrum: false });
-    if (b) app.go('/board/' + S.project + '/' + b.ID);
+    if (b) app.go((issues ? '/issues/' : '/board/') + S.project + '/' + b.ID);
   }
   async function pickSprint() {
     const items = viewItems();
@@ -1449,7 +1478,13 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     const r = await ui.pick({ title: T('View'), items, label: i => i.name, detail: i => i.info || '' });
     if (r) setScope(r.id);
   }
+  // The page a view lives on: all issues on the All issues page, the rest on the Board page.
+  const pageOf = id => (id === 'issues' ? '/issues/' : '/board/') + S.project + '/' + S.board.ID;
   function setScope(id) {
+    if (!embed && S.board && (id === 'issues') !== !!issues) {
+      app.go(pageOf(id) + (id === 'issues' || id === 'active' ? '' : '?sprint=' + encodeURIComponent(id)));
+      return;
+    }
     if (S.past) leavePast(true);
     S.closed = null;
     S.scope = id;
@@ -1691,13 +1726,14 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
     }
     if (S.dead) return;
     if (!embed) {
-      const canon = '/board/' + S.project + '/' + S.board.ID;
+      const canon = (issues ? '/issues/' : '/board/') + S.project + '/' + S.board.ID;
       if (location.pathname !== canon) app.setURL(canon + location.search);
       if (app.route) { app.route.params.project = S.project; app.route.params.board = String(S.board.ID); }
       setCtx(app, S.project, S.board);
     }
     const dm = app.session.ui && app.session.ui.DefaultMode;
     S.mode = app.prefs.get('board.mode.' + S.board.ID, app.prefs.get('board.mode', dm === 'list' ? 'list' : 'lanes')) === 'list' ? 'list' : 'lanes';
+    if (issues) S.mode = 'list'; // thousands of issues: a list only
     const [sort, dir] = String(app.prefs.get('board.sort.' + S.board.ID, 'rank:1')).split(':');
     S.sort = SORTS.includes(sort) || allCols().includes(sort) ? sort : 'rank'; S.dir = dir === '-1' ? -1 : 1;
     const sw = app.prefs.get('board.swim.' + S.board.ID, 'none'); S.swim = SWIMS.includes(sw) ? sw : 'none';

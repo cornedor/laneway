@@ -35,3 +35,9 @@ test('age sorts stalest first, done last', () => {
   const done = { Key: 'A-3', Done: true, Since: '2025-01-01T00:00:00Z', Created: '2025-01-01T00:00:00Z' };
   assert.equal(keys(sortCards([done, fresh, old], cmps, 'age', 1)), 'A-1 A-2 A-3');
 });
+
+test('resolved sorts the newest first, the unresolved last', () => {
+  const zero = '0001-01-01T00:00:00Z';
+  const old = { Key: 'R-1', Resolved: '2026-10-01T00:00:00Z' }, open = { Key: 'R-2', Resolved: zero }, recent = { Key: 'R-3', Resolved: '2026-11-01T00:00:00Z' };
+  assert.equal(keys(sortCards([old, open, recent], cmps, 'resolved', 1)), 'R-3 R-1 R-2');
+});

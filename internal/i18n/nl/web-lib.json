@@ -586,5 +586,7 @@
   "Key or words of its summary": "Key of woorden uit de samenvatting",
   "No issue matches “%s”": "Geen issue past bij “%s”",
   "Not an issue key": "Geen issue-key",
-  "Nothing open to choose": "Niets open om te kiezen"
+  "Nothing open to choose": "Niets open om te kiezen",
+  "Filter builder": "Filterbouwer",
+  "Filter builder  (F)": "Filterbouwer  (F)"
 }

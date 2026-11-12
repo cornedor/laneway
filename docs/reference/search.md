@@ -16,6 +16,8 @@ is:flagged           also done, pr, unassigned, mine, overdue, notes (has: too)
 due<7d age>3d        due within a week, in progress over 3 days (h, d, w)
 updated<1d           changed within a day (updated>7d: quiet a week)
 created<7d           made within a week
+resolved<7d          resolved within a week
+resolution:dup       how it was resolved (resolution: unresolved)
 reporter:bob         who reported it
 component:api        one of its components
 pr:open deploy:prod  pull request state, deployed environment
@@ -26,8 +28,9 @@ sprint:4             the sprint it is in now
 
 Fields: `status`, `assignee` (`who`), `type`, `prio` (`priority`), `epic`
 (`parent`), `label` (`labels`), `key`, `points` (`sp`), `due`, `age`,
-`updated`, `created`, `reporter`, `component` (`components`), `pr`,
-`deploy`, `sprint`, `is` (`has`), and `ui.custom_fields` quoted.
+`updated`, `created`, `resolved`, `resolution`, `reporter`, `component`
+(`components`), `pr`, `deploy`, `sprint`, `is` (`has`), and
+`ui.custom_fields` quoted.
 
 - `:` matches part of a value, `=` the whole of it.
 - Spans take a whole number and `h`, `d` or `w`; `age` counts cards in
@@ -35,7 +38,8 @@ Fields: `status`, `assignee` (`who`), `type`, `prio` (`priority`), `epic`
 - `is:notes` finds issues with private notes.
 
 The filter builder (`F` in both) writes these terms from three columns:
-field, comparison and value. Each term shows as a chip; a click removes it.
+field, comparison and value, each value with how many issues the rest of
+the search leaves it. Each term shows as a chip; a click removes it.
 `ui.filters` names queries to recall from the palette.
 
 ## JQL
