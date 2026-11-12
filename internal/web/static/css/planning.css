@@ -2,7 +2,7 @@
 .pl-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
 .pl-space { position: relative; width: 100%; }
 .pl-abs { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
-.pl-filter { width: 15.714rem; flex: none; }
+.pl-filter-box { width: 15.714rem; flex: none; }
 #toolbar > .pl-chips { flex-shrink: 1; } /* the board's chips scroll when the toolbar is short */
 .pl-panes { flex-direction: row; }
 .pl-pane { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; container-type: inline-size; }
@@ -51,5 +51,5 @@
   #viewbar:has(> #toolbar > .pl-chips) { flex-wrap: wrap; row-gap: .286rem; }
   #toolbar:has(> .pl-chips) { flex: 1 1 100%; flex-wrap: wrap; row-gap: .286rem; }
   #toolbar > .pl-chips { flex: 1 1 100%; flex-wrap: nowrap; order: 1; }
-  .pl-filter { flex: 1; width: auto; }
+  .pl-filter-box { flex: 1; width: auto; }
 }

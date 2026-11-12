@@ -15,6 +15,7 @@ import * as pins from '../lib/pins.js';
 import { confetti } from '../lib/delight.js';
 import { passesWho, pickWho as pickPeople, whoLabel } from '../lib/who.js';
 import { openFilterBuilder } from './board_filter.js';
+import { filterBox } from '../lib/filterbox.js';
 import { comparators, sortCards, prioOrd, num } from '../lib/cardsort.js';
 import { selBar } from '../lib/selbar.js';
 import { COLS, DEFAULT_COLS, SORTS, gridCols, fixCols, nextSort, listHead, paintHead as paintListHead, pickCols as pickListCols, dragCols, resizeCols, readWidths, buildRow as listRow, fillCells } from '../lib/cardlist.js';
@@ -82,7 +83,7 @@ export default function mount(el, { app, params, query, scope, context, toolbar,
   const filterIn = h('input.input.bd-filter', { type: 'text', placeholder: T('Filter  (f)'), spellcheck: false, autocomplete: 'off', title: T('words, status:review,test  points>2  prio>=high  is:flagged  age>3d  due<7d  epic:  -negate  (F builds a query)') });
   const chips = h('div.bd-chips');
   const stats = h('span.bd-stats.dim'), sprintEl = h('span.bd-sprint.dim');
-  const bar = h('div.bd-bar', chips, h('span.sp'), filterIn, stats);
+  const bar = h('div.bd-bar', chips, h('span.sp'), filterBox(filterIn, () => openBuilder()), stats);
   const banner = h('div.bd-banner', { hidden: true });
   const main = h('div.bd-main');
   const selbar = selBar({ edit: () => bulk(), clear: () => clearMarks() });

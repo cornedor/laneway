@@ -43,6 +43,13 @@ body.panel-focus #panel { border-left-color: var(--accent); box-shadow: inset 1p
 html[data-btn-keys="hide"] .btn-key, html[data-btn-keys="hide"] .key-off, html:not([data-btn-keys="hide"]) .key-dup { display: none; } /* .key-dup: a hint the buttons' keys repeat; .key-off: its stand-in */
 .input, select.input, textarea.input { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: .357rem .571rem; width: 100%; }
 .input:focus { border-color: var(--accent); outline: none; }
+/* a filter input with the filter builder's button at its end (lib/filterbox.js) */
+.fbox { position: relative; display: inline-flex; align-items: center; min-width: 0; }
+.fbox > .fbox-in { padding-right: 2rem; }
+.fbox-btn { position: absolute; right: .214rem; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center;
+  width: 1.571rem; height: 1.571rem; padding: 0; border: 0; border-radius: var(--radius); background: transparent; color: var(--fg-3); cursor: pointer; }
+.fbox-btn:hover { background: var(--bg-3); color: var(--fg); }
+.fbox-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 kbd { font-size: .85em; background: var(--bg-3); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 .357rem; color: var(--fg-2); }
 .row { display: flex; gap: var(--pad); align-items: center; } .row.end { justify-content: flex-end; margin-top: var(--pad); }
 .spacer { flex: 1; }
