@@ -26,6 +26,9 @@ type Attachment struct {
 	Filename string
 	MimeType string
 	Size     int64
+	// Author is who uploaded it; Created when. Both are zero when Jira leaves them out.
+	Author  string
+	Created time.Time
 }
 
 // IsImage reports whether the attachment is a picture the panel can draw.
@@ -38,6 +41,20 @@ type apiAttachment struct {
 	Filename string `json:"filename"`
 	MimeType string `json:"mimeType"`
 	Size     int64  `json:"size"`
+	Author   *user  `json:"author"`
+	Created  string `json:"created"`
+}
+
+// attachment is the file as the panels show it.
+func (a apiAttachment) attachment() Attachment {
+	at := Attachment{ID: a.ID, Filename: safeterm.Line(a.Filename), MimeType: a.MimeType, Size: a.Size}
+	if a.Author != nil {
+		at.Author = safeterm.Line(a.Author.DisplayName)
+	}
+	if t, err := time.Parse("2006-01-02T15:04:05.999-0700", a.Created); err == nil {
+		at.Created = t
+	}
+	return at
 }
 
 // mediaRef is the placeholder target adfToMarkdown writes for a media node;
@@ -337,7 +354,7 @@ func (c *Client) issueMedia(ctx context.Context, a apiIssue) (files map[string]s
 	}
 	atts := make([]Attachment, len(a.Fields.Attachment))
 	for i, at := range a.Fields.Attachment {
-		atts[i] = Attachment{ID: at.ID, Filename: safeterm.Line(at.Filename), MimeType: at.MimeType, Size: at.Size}
+		atts[i] = at.attachment()
 	}
 	media = c.mediaFiles(ctx, atts)
 	if inline {

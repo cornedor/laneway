@@ -476,15 +476,32 @@ export function mountIssue(el, key, { app, full, card }) {
   const mediaURL = a => '/api/attachments/' + encodeURIComponent(a.ID) + (isVideo(a) ? '?type=' + encodeURIComponent(a.MimeType) : '');
   const poster = a => '/api/attachments/' + encodeURIComponent(a.ID) + '/thumbnail';
   const size = n => (n > 1 << 20 ? (n / (1 << 20)).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
+  // Images and videos as thumbnails, or every file as a row with who added it and when (alt+i, pref issue.files).
+  const filesAsList = () => app.prefs.get('issue.files', '') === 'list';
+  function toggleFiles() { app.prefs.set('issue.files', filesAsList() ? '' : 'list'); renderFiles(); }
+  const download = a => '/api/attachments/' + encodeURIComponent(a.ID) + '?download=1&name=' + encodeURIComponent(a.Filename);
+  function fileRow(a) {
+    const media = isImage(a) || isVideo(a);
+    const open = h('a.clip', { href: media ? mediaURL(a) : download(a), download: media ? null : a.Filename, title: a.Filename + ' · ' + size(a.Size),
+      onclick: media ? e => { e.preventDefault(); gallery(0, mediaURL(a)); } : null }, a.Filename);
+    return h('div.row-link.file', { onclick: e => { if (!e.target.closest('a')) open.click(); } },
+      media ? h('img.file-thumb', { src: isVideo(a) ? poster(a) : mediaURL(a), alt: '', loading: 'lazy', decoding: 'async' }) : h('span.file-thumb', icon('file')),
+      open,
+      a.Author && h('span.file-by.dim', ui.avatar(a.Author, null, 16), a.Author),
+      !isZero(a.Created) && h('time.dim', { title: dateTime(a.Created) }, ago(a.Created)),
+      h('span.dim', size(a.Size)),
+      h('a.btn.ghost.sm.x', { href: download(a), download: a.Filename, title: T('Download'), 'aria-label': T('Download') }, icon('download')));
+  }
   function renderFiles() {
     const fs = (st.issue && st.issue.Attachments) || [];
     if (!fs.length) return clear(box.files);
-    const shown = fs.filter(a => isImage(a) || isVideo(a)), rest = fs.filter(a => !shown.includes(a));
-    fill(box.files,h('div.sec-head', h('h3', T('Attachments')), h('span.dim', String(fs.length))),
-      shown.length > 0 && h('div.thumbs', shown.map(a => h('a.thumb', { href: mediaURL(a), title: a.Filename + ' · ' + size(a.Size), onclick: e => { e.preventDefault(); gallery(0, mediaURL(a)); } },
+    const list = filesAsList(), shown = list ? [] : fs.filter(a => isImage(a) || isVideo(a)), rest = fs.filter(a => !shown.includes(a));
+    const toggle = fs.some(a => isImage(a) || isVideo(a)) && h('button.btn.ghost.sm', { title: (list ? T('Show as thumbnails') : T('Show as list')) + ' (alt+i)', 'aria-label': list ? T('Show as thumbnails') : T('Show as list'), onclick: toggleFiles }, icon(list ? 'layout-grid' : 'list'));
+    fill(box.files, h('div.sec-head', h('h3', T('Attachments')), h('span.dim', String(fs.length)), toggle),
+      shown.length > 0 && h('div.thumbs', shown.map(a => h('a.thumb', { href: mediaURL(a), title: [a.Filename, a.Author, !isZero(a.Created) && dateTime(a.Created), size(a.Size)].filter(Boolean).join(' · '), onclick: e => { e.preventDefault(); gallery(0, mediaURL(a)); } },
         isVideo(a) ? h('span.thumb-video', h('img', { src: poster(a), alt: a.Filename, loading: 'lazy', decoding: 'async' }), icon('play'))
           : h('img', { src: mediaURL(a), alt: a.Filename, loading: 'lazy', decoding: 'async' }), h('span.clip', a.Filename)))),
-      rest.map(a => h('a.row-link', { href: '/api/attachments/' + encodeURIComponent(a.ID) + '?download=1&name=' + encodeURIComponent(a.Filename), download: a.Filename }, h('span.clip', a.Filename), h('span.dim', size(a.Size)))));
+      rest.map(fileRow));
   }
   // In-page viewer: the attachments' images and videos, then the images drawn in the text. ← → step, esc closes.
   function galleryList() {
@@ -925,6 +942,7 @@ export function mountIssue(el, key, { app, full, card }) {
   scope.bind('Backspace', back, T('back along the trail of followed issues'), { group: G });
   scope.bind('G', linked, T('go to a linked issue, child or web link'), { group: G });
   scope.bind('i', () => gallery(0), T('view images'), { group: G });
+  scope.bind('alt+i', toggleFiles, T('attachments as list or thumbnails'), { group: G, when: () => ((st.issue && st.issue.Attachments) || []).length > 0 && (full || app.panel.focused()) });
   scope.bind('1', () => setTab('details'), T('details tab'), { group: G, bar: T('tabs') });
   scope.bind('2', () => setTab('comments'), T('comments tab'), { group: G, bar: T('tabs') });
   scope.bind('3', () => (st.tab === 'history' ? stepHist() : setTab('history')), T('history tab (again: work log, all)'), { group: G, bar: T('tabs') });

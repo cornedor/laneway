@@ -107,6 +107,29 @@ test('< widens the panel, and it stays', async ({ page }) => {
   expect(Math.abs(await width() - w1)).toBeLessThan(2);
 });
 
+test('alt+i lists the attachments with who added them, and it stays', async ({ page, app }) => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  for (const [name, mimeType, buffer] of [['shot.png', 'image/png', png], ['export.csv', 'text/csv', Buffer.from('a,b\n')]]) {
+    const res = await page.request.post(app.url + '/api/issues/DEMO-4/attachments', { multipart: { file: { name, mimeType, buffer } } });
+    expect(res.ok()).toBeTruthy();
+  }
+  await page.reload();
+  const files = panel(page).locator('.sec-head', { hasText: 'Attachments' }).locator('..');
+  await expect(files.locator('.thumb', { hasText: 'shot.png' })).toBeVisible();
+  await expect(files.locator('.row-link', { hasText: 'export.csv' })).toContainText('Jamie Rivers');
+  await panel(page).click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Alt+i');
+  await expect(files.locator('.thumb')).toHaveCount(0);
+  const row = files.locator('.row-link.file', { hasText: 'shot.png' });
+  await expect(row).toContainText('Jamie Rivers');
+  await expect(row.locator('time')).toBeVisible();
+  await page.reload();
+  await expect(files.locator('.row-link.file', { hasText: 'shot.png' })).toBeVisible();
+  await expect(files.locator('.thumb')).toHaveCount(0);
+  await files.getByRole('button', { name: 'Show as thumbnails' }).click();
+  await expect(files.locator('.thumb', { hasText: 'shot.png' })).toBeVisible();
+});
+
 // laneway-server's change stream (the demo has none: this stands in for it): someone else's comment
 // shows in the open issue without a reload.
 test.describe('on laneway-server', () => {
