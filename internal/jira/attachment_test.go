@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestIssueResolvesMedia(t *testing.T) {
@@ -37,6 +38,31 @@ func TestIssueResolvesMedia(t *testing.T) {
 	}
 	if len(iss.Attachments) != 1 || !iss.Attachments[0].IsImage() {
 		t.Errorf("attachments = %+v", iss.Attachments)
+	}
+}
+
+func TestIssueAttachmentUploader(t *testing.T) {
+	body := `{"key":"ABC-1","fields":{"summary":"s","attachment":[
+		{"id":"10","filename":"shot.png","mimeType":"image/png","size":5,
+		 "author":{"accountId":"a1","displayName":"Ann Lee"},"created":"2026-11-03T09:15:00.000+0100"},
+		{"id":"11","filename":"old.pdf","mimeType":"application/pdf","size":7}]}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	iss, err := New(Config{BaseURL: srv.URL, Email: "e", APIToken: "t"}).Get(context.Background(), "ABC-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(iss.Attachments) != 2 {
+		t.Fatalf("attachments = %+v", iss.Attachments)
+	}
+	a := iss.Attachments[0]
+	if a.Author != "Ann Lee" || a.Created.UTC().Format(time.RFC3339) != "2026-11-03T08:15:00Z" {
+		t.Errorf("first = %+v, want Ann Lee at 2026-11-03T08:15:00Z", a)
+	}
+	if b := iss.Attachments[1]; b.Author != "" || !b.Created.IsZero() {
+		t.Errorf("without author or date = %+v, want both zero", b)
 	}
 }
 

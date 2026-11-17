@@ -820,5 +820,8 @@
   "picture-in-picture": "beeld-in-beeld",
   "View: sprint, backlog, whole board, all issues, your views  (v, [ ])": "Weergave: sprint, backlog, heel bord, alle issues, je eigen weergaven  (v, [ ])",
   "the whole project": "het hele project",
-  "All issues is a list only": "Alle issues is alleen een lijst"
+  "All issues is a list only": "Alle issues is alleen een lijst",
+  "Show as list": "Als lijst tonen",
+  "Show as thumbnails": "Als miniaturen tonen",
+  "attachments as list or thumbnails": "bijlagen als lijst of miniaturen"
 }
