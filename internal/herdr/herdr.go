@@ -249,6 +249,9 @@ func (c *Client) NewTab(ctx context.Context, workspace, label, cwd string, env m
 			ID string `json:"pane_id"`
 		} `json:"root_pane"`
 	}
+	if env == nil {
+		env = map[string]string{} // herdr rejects "env": null
+	}
 	err = c.call(ctx, "tab.create", map[string]any{
 		"workspace_id": workspace, "label": label, "cwd": cwd, "env": env,
 	}, &res)
@@ -258,6 +261,9 @@ func (c *Client) NewTab(ctx context.Context, workspace, label, cwd string, env m
 // StartAgent launches the kind's executable with args in pane, which must be
 // at its shell prompt, and waits until it takes input.
 func (c *Client) StartAgent(ctx context.Context, name, kind, pane string, args []string) error {
+	if args == nil {
+		args = []string{} // herdr rejects "args": null
+	}
 	return c.call(ctx, "agent.start", map[string]any{
 		"name": name, "kind": kind, "pane_id": pane, "args": args,
 	}, nil)

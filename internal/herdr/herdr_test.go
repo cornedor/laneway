@@ -62,6 +62,42 @@ func TestAgents(t *testing.T) {
 	}
 }
 
+func TestStartAgentWithoutArgs(t *testing.T) {
+	c := fakeServer(t, func(method string, p json.RawMessage) []string {
+		var params struct {
+			Args []string `json:"args"`
+		}
+		_ = json.Unmarshal(p, &params)
+		if method != "agent.start" || params.Args == nil {
+			return []string{`{"id":"x","error":{"code":"invalid_request","message":"invalid type: null, expected a sequence"}}`}
+		}
+		return []string{`{"id":"x","result":{"type":"agent_started"}}`}
+	})
+	if err := c.StartAgent(context.Background(), "jira-prot-1", "claude", "w1:p1", nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNewTabWithoutEnv(t *testing.T) {
+	c := fakeServer(t, func(method string, p json.RawMessage) []string {
+		var params struct {
+			Env map[string]string `json:"env"`
+		}
+		_ = json.Unmarshal(p, &params)
+		if method != "tab.create" || params.Env == nil {
+			return []string{`{"id":"x","error":{"code":"invalid_request","message":"invalid type: null, expected a map"}}`}
+		}
+		return []string{`{"id":"x","result":{"type":"tab_created","tab":{"tab_id":"w1:t2"},"root_pane":{"pane_id":"w1:p2"}}}`}
+	})
+	tab, pane, err := c.NewTab(context.Background(), "w1", "PROT-1", "/src/a", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tab != "w1:t2" || pane != "w1:p2" {
+		t.Fatalf("tab, pane = %q, %q", tab, pane)
+	}
+}
+
 func TestPromptError(t *testing.T) {
 	c := fakeServer(t, func(string, json.RawMessage) []string {
 		return []string{`{"id":"x","error":{"code":"agent_blocked","message":"agent is blocked"}}`}
