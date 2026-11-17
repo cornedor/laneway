@@ -814,9 +814,10 @@ func (m Model) lineWidth(i int) int {
 // nearly all of it for a fraction of the cost.
 //
 // It reports false for anything it cannot pad by appending blanks — a line
-// wider than the block (lipgloss wraps it) or one carrying a tab (lipgloss
-// expands it) — leaving those to the full renderer, so the two paths never
-// disagree.
+// wider than the block (lipgloss wraps it), one carrying a tab (lipgloss
+// expands it) or one that ends inside a style or hyperlink (lipgloss closes
+// it before the padding) — leaving those to the full renderer, so the two
+// paths never disagree.
 func padBlock(lines []string, w, h int) (string, bool) {
 	if w <= 0 || h <= 0 {
 		return "", false
@@ -828,7 +829,7 @@ func padBlock(lines []string, w, h int) (string, bool) {
 	total := 0
 	for i, line := range lines {
 		n, ok := textwidth.Pad(line, w)
-		if !ok {
+		if !ok || leavesStyleOpen(line) {
 			return "", false
 		}
 		pads[i] = n
@@ -851,4 +852,23 @@ func padBlock(lines []string, w, h int) (string, bool) {
 		b.WriteString(textwidth.Spaces(w))
 	}
 	return b.String(), true
+}
+
+// leavesStyleOpen reports whether line may end with a style or hyperlink still
+// on, which lipgloss closes before it pads. Only a line whose last SGR is a
+// full reset and whose last hyperlink is closed is sure not to; anything else
+// (an SGR that ends one attribute, another CSI last) counts as open.
+func leavesStyleOpen(line string) bool {
+	if i := strings.LastIndex(line, "\x1b]8;"); i >= 0 {
+		end := line[i:]
+		if !strings.HasPrefix(end, "\x1b]8;;\x1b\\") && !strings.HasPrefix(end, "\x1b]8;;\a") {
+			return true
+		}
+	}
+	i := strings.LastIndex(line, "\x1b[")
+	if i < 0 {
+		return false
+	}
+	end := line[i:]
+	return !strings.HasPrefix(end, "\x1b[m") && !strings.HasPrefix(end, "\x1b[0m")
 }
