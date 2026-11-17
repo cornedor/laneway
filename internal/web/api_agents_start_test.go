@@ -179,7 +179,7 @@ func TestStartStreamsSteps(t *testing.T) {
 	f.mu.Unlock()
 	// herdr refuses an argument with a newline: the prompt is pasted once
 	// the agent runs, {key} filled in.
-	if args != nil || text != "line one\nline two DEMO-5" {
+	if a, _ := args.([]any); len(a) != 0 || text != "line one\nline two DEMO-5" {
 		t.Errorf("args = %#v, prompt %q", args, text)
 	}
 	if create["branch"] != "issue/DEMO-5-new" {
@@ -224,7 +224,8 @@ func TestStartAnotherInPath(t *testing.T) {
 	f.mu.Lock()
 	tab, start := f.params["tab.create"], f.params["agent.start"]
 	f.mu.Unlock()
-	if tab["workspace_id"] != "w6" || tab["cwd"] != "/w/demo-5-b" || tab["label"] != "DEMO-5" || start["pane_id"] != "p3" || start["args"] != nil {
+	args, _ := start["args"].([]any)
+	if tab["workspace_id"] != "w6" || tab["cwd"] != "/w/demo-5-b" || tab["label"] != "DEMO-5" || start["pane_id"] != "p3" || len(args) != 0 {
 		t.Errorf("tab.create %v agent.start %v", tab, start)
 	}
 	if d, _ := res["Did"].([]any); len(d) != 0 || f.called("user.assign") {

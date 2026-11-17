@@ -448,7 +448,7 @@ func TestStartWorkSequence(t *testing.T) {
 	if !strings.Contains(order, "worktree.open,worktree.create,tab.rename,agent.start,agent.prompt") {
 		t.Errorf("calls = %s", order)
 	}
-	if start["args"] != nil || start["pane_id"] != "p2" || start["kind"] != "claude" || prompt["text"] != "Do DEMO-5 now" || prompt["target"] != "p2" {
+	if a, _ := start["args"].([]any); len(a) != 0 || start["pane_id"] != "p2" || start["kind"] != "claude" || prompt["text"] != "Do DEMO-5 now" || prompt["target"] != "p2" {
 		t.Errorf("agent.start = %v", start)
 	}
 	if fmt.Sprint(rename["label"]) != "DEMO-5" {
