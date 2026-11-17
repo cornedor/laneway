@@ -887,7 +887,7 @@ func (c *Client) toIssue(a apiIssue, files map[string]string, media map[string]A
 		iss.Labels = append(iss.Labels, safeterm.Line(l))
 	}
 	for _, at := range a.Fields.Attachment {
-		iss.Attachments = append(iss.Attachments, Attachment{ID: at.ID, Filename: safeterm.Line(at.Filename), MimeType: at.MimeType, Size: at.Size})
+		iss.Attachments = append(iss.Attachments, at.attachment())
 	}
 	iss.Description = resolveMedia(iss.Description, iss.Attachments, media)
 	iss.Links = issueLinks(a.Fields.Parent, a.Fields.IssueLinks, a.Fields.Subtasks)

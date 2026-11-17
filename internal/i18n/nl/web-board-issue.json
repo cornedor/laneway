@@ -818,5 +818,8 @@
   "mute": "dempen",
   "full screen": "volledig scherm",
   "Picture-in-picture (p)": "Beeld-in-beeld (p)",
-  "picture-in-picture": "beeld-in-beeld"
+  "picture-in-picture": "beeld-in-beeld",
+  "Show as list": "Als lijst tonen",
+  "Show as thumbnails": "Als miniaturen tonen",
+  "attachments as list or thumbnails": "bijlagen als lijst of miniaturen"
 }
