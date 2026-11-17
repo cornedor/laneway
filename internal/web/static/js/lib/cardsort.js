@@ -24,6 +24,9 @@ export const comparators = colIndexOf => ({
   reporter: text(c => c.Reporter),
   updated: (a, b) => time(b.Updated) - time(a.Updated) || 0,
   created: (a, b) => time(b.Created) - time(a.Created) || 0,
+  // newest first, the unresolved last
+  resolved: (a, b) => (time(a.Resolved) === time(b.Resolved) ? 0 : time(a.Resolved) === Infinity ? 1 : time(b.Resolved) === Infinity ? -1 : time(b.Resolved) - time(a.Resolved)),
+  resolution: text(c => c.Resolution),
   due: (a, b) => (time(a.Due) === time(b.Due) ? 0 : time(a.Due) < time(b.Due) ? -1 : 1),
   age: (a, b) => (ageFrom(a) === ageFrom(b) ? 0 : ageFrom(a) < ageFrom(b) ? -1 : 1), // stalest first
 });

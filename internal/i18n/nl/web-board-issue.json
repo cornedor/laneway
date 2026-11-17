@@ -553,7 +553,6 @@
   "Upload files": "Bestanden uploaden",
   "Value": "Waarde",
   "View": "Weergave",
-  "View: sprint, backlog, whole board, your views  (v, [ ])": "Weergave: sprint, backlog, heel bord, je weergaven  (v, [ ])",
   "Visible to %s": "Zichtbaar voor %s",
   "Vote / take back the vote": "Stemmen / stem intrekken",
   "Vote taken back": "Stem ingetrokken",
@@ -818,5 +817,8 @@
   "mute": "dempen",
   "full screen": "volledig scherm",
   "Picture-in-picture (p)": "Beeld-in-beeld (p)",
-  "picture-in-picture": "beeld-in-beeld"
+  "picture-in-picture": "beeld-in-beeld",
+  "View: sprint, backlog, whole board, all issues, your views  (v, [ ])": "Weergave: sprint, backlog, heel bord, alle issues, je eigen weergaven  (v, [ ])",
+  "the whole project": "het hele project",
+  "All issues is a list only": "Alle issues is alleen een lijst"
 }

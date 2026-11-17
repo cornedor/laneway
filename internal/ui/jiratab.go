@@ -224,6 +224,9 @@ const (
 	// jiraViewFilter is a starred Jira filter (or a service desk queue):
 	// its own search, any board.
 	jiraViewFilter
+	// jiraViewAll is every issue of the board's project, open and closed,
+	// from its mirror in the index (allissues.go).
+	jiraViewAll
 )
 
 // jiraView is one issue list of a board: a sprint, the kanban board, the
@@ -444,6 +447,10 @@ type jiraTabState struct {
 	// buildJiraLanes drops it.
 	rows    []string
 	rowsFor listCols
+	// listLines are the list's lines as last shown ("" for a row not drawn
+	// yet), listOrder its rows' order (jiraListOrder).
+	listLines []string
+	listOrder []int
 	// lineOf is each order entry's line in the list, which group headers
 	// (sorted by assignee or priority) push down.
 	lineOf []int
@@ -523,6 +530,9 @@ type jiraTabState struct {
 	// agentsView is the agents screen (agents_screen.go).
 	agentsView *agentsScreen
 	mrs        *mrScreen // mr_screen.go
+	// mirror is a read of the project whole under way (allissues.go), nil
+	// when none is.
+	mirror *mirrorProgress
 	// planSeq and chartsSeq outlive a close, so a reply for a view since
 	// closed never matches the one reopened.
 	planSeq, chartsSeq int
@@ -564,6 +574,8 @@ type jiraBoardMsg struct {
 	cards       []jira.Card
 	total       int
 	err         error
+	// note says what an offline answer of the all issues view left out.
+	note string
 }
 
 // jiraCardsMsg carries one view's cards, after a view switch or a move.
@@ -647,9 +659,10 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 	readMode := !t.modeRead
 	assignee, quickOn, quickBoard, local, localViews := t.assignee, t.quickOn, m.jiraBoardID(), m.opts.quick, append(slices.Clone(m.opts.views), m.savedJQLViews()...)
 	withSaved, withQuick, doneDays, remember := m.opts.savedFilters, m.opts.boardQuick, m.opts.kanbanDoneDays, m.opts.rememberFilters
+	ix := m.index
 	var cached tea.Cmd
 	if fromCache {
-		cached = jiraBoardFromCache(st, seq, project, boardID, view, configured, readMode, remember)
+		cached = jiraBoardFromCache(st, ix, seq, project, boardID, view, configured, readMode, remember)
 	}
 	return tea.Batch(cached, func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, c.Scaled(60*time.Second))
@@ -738,6 +751,9 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 				msg.views = append(msg.views, jiraView{kind: jiraViewBacklog, name: i18n.T("Backlog")})
 			}
 		}
+		if ix != nil {
+			msg.views = append(msg.views, allIssuesView())
+		}
 		msg.views = append(msg.views, localViews...)
 		for _, f := range saved {
 			msg.views = append(msg.views, jiraView{kind: jiraViewFilter, name: f.Name, jql: f.JQL})
@@ -766,7 +782,12 @@ func (m *Model) loadJiraBoard(project string, boardID int, view string, fromCach
 		msg.assignee, msg.quickOn = assignee, quickOn
 		msg.quick = withLocalQuick(msg.quick, local)
 		filter := jiraFilterJQL(assignee, msg.quick, quickOn)
-		msg.cards, msg.total, msg.err = fetchJiraView(ctx, c, board.ID, cfg, msg.views[msg.viewIdx], filter)
+		if v := msg.views[msg.viewIdx]; v.kind == jiraViewAll {
+			msg.cards, msg.note, msg.err = AllIssues(ctx, c, ix, project, filter)
+			msg.total = len(msg.cards)
+		} else {
+			msg.cards, msg.total, msg.err = fetchJiraView(ctx, c, board.ID, cfg, v, filter)
+		}
 		_ = st.SetMeta(jiraMetaPrefix+"project", project)
 		_ = st.SetMeta(jiraMetaPrefix+"board:"+project, strconv.Itoa(board.ID))
 		if msg.err == nil {
@@ -859,12 +880,18 @@ func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 	t.err = ""
 	seq, ctx, c, board, cfg, v, ix := t.seq, m.ctx, m.jiraClient, m.jiraBoardID(), t.cfg, t.views[idx], m.index
 	filter := jiraFilterJQL(t.assignee, t.quick, t.quickOn)
-	st := m.store
+	st, project := m.store, t.project
 	base := cacheOf(jiraBoardMsg{project: t.project, boards: t.boards, board: t.board, cfg: cfg, views: t.views,
 		viewIdx: idx, quick: t.quick, quickOn: t.quickOn, assignee: t.assignee, statusNames: t.statusNames}, filter)
 	var cached tea.Cmd
 	if fromCache {
 		cached = func() tea.Msg {
+			if v.kind == jiraViewAll {
+				if cards, ok := allIssuesCached(ix, project, filter); ok {
+					return jiraCardsMsg{seq: seq, cached: true, viewIdx: idx, cards: cards, total: len(cards)}
+				}
+				return nil
+			}
 			if c, ok := readJiraCache(st, board, v.name); ok && c.Filter == filter {
 				return jiraCardsMsg{seq: seq, cached: true, viewIdx: idx, cards: c.Cards, total: c.Total}
 			}
@@ -874,6 +901,13 @@ func (m *Model) loadJiraCards(idx int, fromCache bool) tea.Cmd {
 	return tea.Batch(cached, func() tea.Msg {
 		ctx, cancel := context.WithTimeout(ctx, c.Scaled(60*time.Second))
 		defer cancel()
+		if v.kind == jiraViewAll {
+			cards, note, err := AllIssues(ctx, c, ix, project, filter)
+			if err == nil {
+				saveJiraCache(st, board, v.name, base)
+			}
+			return jiraCardsMsg{seq: seq, viewIdx: idx, cards: cards, total: len(cards), err: err, note: note}
+		}
 		cards, total, err := fetchJiraView(ctx, c, board, cfg, v, filter)
 		if err == nil {
 			base.Cards, base.Total = cards, total
@@ -927,7 +961,15 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 	if msg.statusNames != nil {
 		t.statusNames = msg.statusNames
 	}
+	m.seedAllIssuesSort()
+	if v, ok := m.jiraCurrentView(); ok && v.kind == jiraViewAll {
+		vs := t.sorts[v.name]
+		t.sort, t.desc = vs.by, vs.desc
+	}
 	m.installJiraCards(msg.cards, msg.total, msg.err, keep)
+	if msg.note != "" {
+		m.status = msg.note
+	}
 	if msg.cached || msg.err != nil {
 		return m, nil
 	}
@@ -939,7 +981,7 @@ func (m Model) handleJiraBoard(msg jiraBoardMsg) (tea.Model, tea.Cmd) {
 		m.fail(warn)
 	}
 	t.fullAt, t.fullKey = time.Now(), m.jiraFetchKey(t.viewIdx)
-	return m, tea.Batch(m.runRules(msg.cards), m.startHome())
+	return m, tea.Batch(m.runRules(msg.cards), m.startHome(), m.startMirror())
 }
 
 func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
@@ -993,7 +1035,7 @@ func (m Model) handleJiraCards(msg jiraCardsMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.openTimeMachineAt(v.closed)
 	}
-	return m, m.runRules(msg.cards)
+	return m, tea.Batch(m.runRules(msg.cards), m.startMirror())
 }
 
 // setViewSort keeps sort as view i's.
@@ -2193,8 +2235,15 @@ func (m *Model) openJiraAssigneeFilter() tea.Cmd {
 	}
 	c, ctx, board, cfg, v, seq := m.jiraClient, m.ctx, m.jiraBoardID(), t.cfg, t.views[t.viewIdx], m.jiraPicker.fetchSeq
 	filter := jiraFilterJQL(jiraAssignee{}, t.quick, t.quickOn)
+	ix, project := m.index, t.project
 	return func() tea.Msg {
-		cards, _, err := fetchJiraView(ctx, c, board, cfg, v, filter)
+		var cards []jira.Card
+		var err error
+		if v.kind == jiraViewAll {
+			cards, _, err = AllIssues(ctx, c, ix, project, filter)
+		} else {
+			cards, _, err = fetchJiraView(ctx, c, board, cfg, v, filter)
+		}
 		if err != nil {
 			return nil
 		}
@@ -2498,10 +2547,15 @@ func (m *Model) renderJira() {
 				title, hint = i18n.T("The backlog is empty"), []headSeg{keySeg(dim(i18n.Tf("%s adds an issue", helpKey(m.keys.Create))), m.keys.Create)}
 			case jiraViewSprint:
 				title, hint = i18n.T("Nothing in this sprint yet"), []headSeg{keySeg(dim(i18n.Tf("%s plans it from the backlog", helpKey(m.keys.Plan))), m.keys.Plan)}
+			case jiraViewAll:
+				if t.mirror != nil {
+					title, hint = i18n.Tf("Reading every issue of %s…", t.project), nil
+				}
 			}
 		}
 		msg, t.empty = jiraEmptyState(title, w, h, hint...)
 	}
+	t.listLines = nil
 	if msg != "" {
 		t.view.SetContent(msg)
 		t.lanesOut = msg
@@ -2515,50 +2569,46 @@ func (m *Model) renderJira() {
 		t.lanesOut = m.renderJiraLanes(w, h)
 		return
 	}
-	cols := listCols{width: w}
-	for _, ci := range t.order {
-		c := t.cards[ci]
-		cols.key = max(cols.key, len(c.Key))
-		cols.status = max(cols.status, visualWidth(c.Status))
-		cols.who = max(cols.who, visualWidth(m.jiraListWho(c)))
-		cols.marks = max(cols.marks, visualWidth(m.jiraListMarks(c)))
+	// The columns' widths are measured over every row, as the rows are
+	// drawn: only when those are (cards, order or width changed), as a list
+	// of thousands would take its time over each cursor move.
+	cols := t.rowsFor
+	if t.rows == nil || len(t.rows) != len(t.order) || cols.width != w {
+		cols = listCols{width: w}
+		for _, ci := range t.order {
+			c := t.cards[ci]
+			cols.key = max(cols.key, len(c.Key))
+			cols.status = max(cols.status, visualWidth(c.Status))
+			cols.who = max(cols.who, visualWidth(m.jiraListWho(c)))
+			cols.marks = max(cols.marks, visualWidth(m.jiraListMarks(c)))
+		}
+		cols.status, cols.who = min(cols.status, 20), min(cols.who, 24)
 	}
-	cols.status, cols.who = min(cols.status, 20), min(cols.who, 24)
 	t.listHead, t.headAt, t.headCols = m.jiraListHeader(cols)
 	h-- // the header sits over the viewport's top line
+	// Rows are drawn as they come near the screen and kept (t.rows, "" for
+	// one not drawn yet) until the cards, their order or the widths change:
+	// a list of thousands draws a screenful, not every row, per change.
 	if t.rowsFor != cols || len(t.rows) != len(t.order) {
 		t.rows = make([]string, len(t.order))
-		for i, ci := range t.order {
-			t.rows[i] = m.jiraListRow(t.cards[ci], false, cols)
-			if i%2 == 1 { // zebra: every other row faintly shaded
-				t.rows[i] = shade(t.rows[i], w)
-			}
-		}
 		t.rowsFor = cols
 	}
-	var lines []string
+	order := t.jiraListOrder()
 	t.lineOf = t.lineOf[:0]
-	group := ""
-	for i, at := range t.jiraListOrder() {
-		ci := t.order[at]
-		if g, ok := jiraGroupOf(t.sort, t.cards[ci]); ok && (i == 0 || g != group) {
+	var heads map[int]string // group headers by the line they take
+	group, n := "", 0
+	for i, at := range order {
+		if g, ok := jiraGroupOf(t.sort, t.cards[t.order[at]]); ok && (i == 0 || g != group) {
 			group = g
-			lines = append(lines, m.jiraGroupHeader(g, i))
+			if heads == nil {
+				heads = map[int]string{}
+			}
+			heads[n] = m.jiraGroupHeader(g, i)
+			n++
 		}
-		t.lineOf = append(t.lineOf, len(lines))
-		row := t.rows[at]
-		switch c := t.cards[ci]; {
-		case t.drag.active && c.Key == t.drag.key: // being dragged: faint, where it would land
-			row = jiraGhostStyle.Render(ansi.Truncate("┊ "+c.Key+" "+c.Summary, w, "…"))
-		case at == t.idx:
-			row = m.jiraListRow(c, true, cols)
-		}
-		lines = append(lines, row)
+		t.lineOf = append(t.lineOf, n)
+		n++
 	}
-	// One line past the end, as the header covers one: the last row scrolls
-	// into sight.
-	lines = append(lines, "")
-	t.view.SetContentLinesWidth(lines, w)
 	top := t.view.YOffset()
 	r := 0
 	if t.idx < len(t.lineOf) {
@@ -2571,9 +2621,56 @@ func (m *Model) renderJira() {
 	switch {
 	case t.drag.active: // the pointer scrolls it
 	case head < top:
-		t.view.SetYOffset(head)
+		top = head
 	case r >= top+h:
-		t.view.SetYOffset(r - h + 1)
+		top = r - h + 1
+	}
+	// One line past the end, as the header covers one: the last row scrolls
+	// into sight.
+	t.listLines = make([]string, n+1)
+	for line, s := range heads {
+		t.listLines[line] = s
+	}
+	for i, at := range order {
+		c := t.cards[t.order[at]]
+		switch {
+		case t.drag.active && c.Key == t.drag.key: // being dragged: faint, where it would land
+			t.listLines[t.lineOf[i]] = jiraGhostStyle.Render(ansi.Truncate("┊ "+c.Key+" "+c.Summary, w, "…"))
+		case at == t.idx:
+			t.listLines[t.lineOf[i]] = m.jiraListRow(c, true, cols)
+		}
+	}
+	t.listOrder = order
+	m.fillJiraList(top)
+}
+
+// fillJiraList draws the list's rows within a screen of top that aren't
+// yet, and shows the list from top: after a change, or the wheel.
+func (m *Model) fillJiraList(top int) {
+	t := m.jiraTab
+	if t.listLines == nil { // not the list: an empty state, say
+		t.view.SetYOffset(top)
+		return
+	}
+	h, w := t.view.Height(), t.rowsFor.width
+	top = min(top, max(len(t.listLines)-h, 0))
+	from, to := top-h, top+2*h // a screen either side: the wheel's next steps
+	for i, at := range t.listOrder {
+		line := t.lineOf[i]
+		if line < from || line >= to || t.listLines[line] != "" {
+			continue
+		}
+		if t.rows[at] == "" {
+			t.rows[at] = m.jiraListRow(t.cards[t.order[at]], false, t.rowsFor)
+			if at%2 == 1 { // zebra: every other row faintly shaded
+				t.rows[at] = shade(t.rows[at], w)
+			}
+		}
+		t.listLines[line] = t.rows[at]
+	}
+	t.view.SetContentLinesWidth(t.listLines, w)
+	if top != t.view.YOffset() {
+		t.view.SetYOffset(top)
 	}
 }
 
@@ -2675,7 +2772,19 @@ func (m *Model) jiraListMarks(c jira.Card) string {
 	if a := jiraAgeMark(c, time.Now(), m.opts.staleDays); f.age && a != "" {
 		marks = append(marks, a)
 	}
+	if r := jiraResolutionMark(c); r != "" {
+		marks = append(marks, r)
+	}
 	return strings.Join(marks, " ")
+}
+
+// jiraResolutionMark names how a closed issue was resolved, when it says
+// more than its status: Won't Do, Duplicate.
+func jiraResolutionMark(c jira.Card) string {
+	if c.Resolution == "" || strings.EqualFold(c.Resolution, c.Status) || strings.EqualFold(c.Resolution, "done") {
+		return ""
+	}
+	return "✕ " + c.Resolution
 }
 
 func (m *Model) jiraListRow(c jira.Card, selected bool, cols listCols) string {
@@ -3957,9 +4066,9 @@ func (m Model) dragJiraList(y int) (tea.Model, tea.Cmd) {
 	}
 	switch line := y - jiraBodyTop; {
 	case line < 1: // over the column header too
-		t.view.ScrollUp(1)
+		m.fillJiraList(max(t.view.YOffset()-1, 0))
 	case line >= t.view.Height():
-		t.view.ScrollDown(1)
+		m.fillJiraList(t.view.YOffset() + 1)
 	}
 	slot := t.drag.slot
 	if h := m.hitJira(1, min(max(y, jiraBodyTop+1), jiraBodyTop+t.view.Height()-1)); h.line >= 0 {
@@ -4177,7 +4286,8 @@ func (m *Model) jiraFetchKey(idx int) string {
 func (m *Model) loadJiraDelta() tea.Cmd {
 	t := m.jiraTab
 	idx := t.viewIdx
-	if len(t.cards) == 0 || t.fullKey != m.jiraFetchKey(idx) || time.Since(t.fullAt) >= m.opts.fullRefresh || idx >= len(t.views) {
+	// The all issues view's whole load reads only what changed already.
+	if len(t.cards) == 0 || t.fullKey != m.jiraFetchKey(idx) || time.Since(t.fullAt) >= m.opts.fullRefresh || idx >= len(t.views) || m.inAllIssues() {
 		return m.loadJiraCards(idx, false)
 	}
 	t.seq++

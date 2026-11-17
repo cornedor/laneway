@@ -8,6 +8,7 @@ export const routes = [
   { path: '/home', name: 'home', title: T('Home'), key: 'h', bar: false, load: () => import('./home.js') },
   { path: '/board/:project?/:board?', name: 'board', title: T('Board'), key: 'b', load: () => import('./board.js') },
   { path: '/issue/:key', name: 'issue', title: T('Issue'), nav: false, bar: false, load: () => import('./issue_page.js') },
+  { path: '/issues/:project?/:board?', name: 'issues', title: T('All issues'), load: () => import('./issues.js') },
   { path: '/planning/:project?/:board?', name: 'planning', title: T('Planning'), key: 'p', load: () => import('./planning.js') },
   { path: '/reports/:kind?/:project?/:board?', name: 'reports', title: T('Reports'), key: 'r', load: () => import('./reports.js') },
   { path: '/roadmap/:project?', name: 'roadmap', title: T('Roadmap'), key: 'm', load: () => import('./roadmap.js') },

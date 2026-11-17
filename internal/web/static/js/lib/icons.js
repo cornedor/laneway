@@ -3,6 +3,7 @@
 // icon('star') → <svg class="ico">, icon('star', true) filled. To add one, copy the inner markup of
 // lucide-static's icons/<name>.svg into P.
 const P = {
+  'list-filter': '<path d="M2 5h20"/><path d="M6 12h12"/><path d="M9 19h6"/>',
   'align-center': '<path d="M21 5H3"/><path d="M17 12H7"/><path d="M19 19H5"/>',
   'align-left': '<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>',
   'align-right': '<path d="M21 5H3"/><path d="M21 12H9"/><path d="M21 19H7"/>',

@@ -10,6 +10,7 @@ import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
 import { check, setCheck, selBar } from '../lib/selbar.js';
 import { openFilterBuilder } from './board_filter.js';
+import { filterBox } from '../lib/filterbox.js';
 import { T, Tn } from '../lib/i18n.js';
 import { keyHint } from '../lib/keys.js';
 
@@ -54,13 +55,14 @@ export default function mount(el, { app, scope, toolbar, query }) {
     openFilterBuilder({ app, cards, env: env(), query: filterIn.value.trim(), apply: t => { filterIn.value = t; setFilter(t); } });
   }
   filterIn.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'Enter') { e.stopPropagation(); filterIn.blur(); } });
+  const filterEl = filterBox(filterIn, () => openBuilder());
   const groupSel = h('select.input.work-group', { title: T('Group by (v)'), onchange: () => { group = groupSel.value; prefs.set('work_group', group); buildRows(); } },
     ['status', 'project', 'none'].map(g => h('option', { value: g, selected: g === group }, g === 'none' ? T('No grouping') : g === 'status' ? T('By status') : T('By project'))));
   const doneBtn = h('button.btn.ghost', { title: T('Hide done (d)'), onclick: () => toggleDone() });
   function paintToolbar() {
     clear(toolbar).append(...kids([
       h('div.seg', [['issues', T('Issues'), '1'], ['day', T('Day'), '2'], ['week', T('Week'), '3']].map(([t, n, k]) => h('button.btn' + (tab === t ? '.on' : ''), { onclick: () => setTab(t), title: k }, n))),
-      tab === 'issues' && [filterIn, groupSel, doneBtn], h('span.spacer')]));
+      tab === 'issues' && [filterEl, groupSel, doneBtn], h('span.spacer')]));
     doneBtn.replaceChildren(hideDone ? T('Done hidden') : T('Hide done'), keyHint('d'));
     doneBtn.classList.toggle('on', hideDone);
   }

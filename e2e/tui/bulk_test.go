@@ -13,7 +13,9 @@ func TestBulkUndo(t *testing.T) {
 	s.wait("Edit 2 marked")
 	s.keys("3")
 	s.wait("Assign to me")
-	s.keys("Down", "Down", "Down", "Down", "Enter") // Sam Okafor
+	s.typ("Sam") // by name: the people the index has seen rank first
+	s.wait("▸   Sam Okafor")
+	s.keys("Enter")
 	s.wait("enter again assigns 2 issues")
 	s.keys("Enter")
 	sams := func(n int) func(string) bool {

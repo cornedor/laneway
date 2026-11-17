@@ -256,8 +256,13 @@ func (s *Server) issueJSON(iss *issue, full bool) map[string]any {
 	if labels == nil {
 		labels = []string{}
 	}
+	var resolution any
+	if !iss.resolved.IsZero() {
+		resolution = map[string]any{"id": "1", "name": "Done"}
+	}
 	fields := map[string]any{
-		"summary": iss.summary, "status": statusJSON(iss.status), "issuetype": typeJSON(iss.typ),
+		"resolution": resolution,
+		"summary":    iss.summary, "status": statusJSON(iss.status), "issuetype": typeJSON(iss.typ),
 		"priority": map[string]any{"id": strconv.Itoa(slices.Index(priorities, iss.priority) + 1), "name": iss.priority}, "assignee": userJSON(iss.assignee), "reporter": userJSON(&iss.reporter),
 		"labels": labels, "created": stamp(iss.created), "updated": stamp(iss.updated), "resolutiondate": stamp(iss.resolved),
 		"statuscategorychangedate": stamp(changed), "duedate": due, "description": docOr(iss.descDoc, iss.description), "parent": parent,

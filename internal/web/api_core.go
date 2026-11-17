@@ -159,7 +159,8 @@ func boardBundle(ctx context.Context, s *Server, r *http.Request) (any, error) {
 		return nil, err
 	}
 	names, _ := c.StatusNames(ctx)
-	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, lanes.Site(c.BaseURL()), id, cfg.Columns, names)}
+	out := map[string]any{"id": id, "config": cfg, "layouts": boardLayouts(s.UIConfig().LaneLayouts, lanes.Site(c.BaseURL()), id, cfg.Columns, names),
+		"allIssues": s.opt.Index != nil}
 	out["quickFilters"] = boardQuick(ctx, s, id)
 	if sp, err := c.Sprints(ctx, id); err == nil {
 		out["sprints"] = sp
@@ -270,6 +271,8 @@ func boardCards(ctx context.Context, s *Server, r *http.Request) (any, error) {
 	var cards []jira.Card
 	var total int
 	switch {
+	case Q(r, "allissues") != "":
+		return allIssuesCards(ctx, s, r)
 	case Q(r, "sprint") != "":
 		sp, e := strconv.Atoi(Q(r, "sprint"))
 		if e != nil {

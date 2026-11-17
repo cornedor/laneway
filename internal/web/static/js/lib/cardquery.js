@@ -1,7 +1,7 @@
 // The board's search language, the TUI's (internal/ui/jira_search.go), on loaded cards:
 //   login  "log in"  status:review,test  epic:  points>2  prio>=high  is:flagged  is:notes
-//   due<7d  age>3d  updated<1d  created<7d  reporter:ada  component:api  pr:open
-//   deploy:prod  sprint:4  "test type":e2e  -label:ui
+//   due<7d  age>3d  updated<1d  created<7d  resolved<7d  resolution:duplicate  reporter:ada
+//   component:api  pr:open  deploy:prod  sprint:4  "test type":e2e  -label:ui
 import { isZero } from './fmt.js';
 import { T } from './i18n.js';
 
@@ -10,6 +10,7 @@ const FIELDS = {
   epic: 'parent', parent: 'parent', label: 'label', labels: 'label', key: 'key', points: 'points', sp: 'points',
   is: 'is', has: 'is', due: 'due', age: 'age', updated: 'updated', pr: 'pr', deploy: 'deploy', sprint: 'sprint',
   created: 'created', reporter: 'reporter', component: 'component', components: 'component',
+  resolution: 'resolution', resolved: 'resolved',
 };
 const PRIO = { highest: 0, blocker: 0, critical: 0, high: 1, major: 1, low: 3, minor: 3, lowest: 4, trivial: 4 };
 const prioRank = p => { const v = PRIO[String(p).toLowerCase()]; return v == null ? 2 : v; };
@@ -94,6 +95,7 @@ function span(term, c, now) {
   else if (term.field === 'age' && c.InProgress && t(c.Since)) have = now - t(c.Since);
   else if (term.field === 'updated' && t(c.Updated)) have = now - t(c.Updated);
   else if (term.field === 'created' && t(c.Created)) have = now - t(c.Created);
+  else if (term.field === 'resolved' && t(c.Resolved)) have = now - t(c.Resolved);
   else return false;
   const want = spanMs(term.values[0]);
   return want != null && order(term.op, have, want);
@@ -114,6 +116,7 @@ const HAVE = {
   status: c => c.Status, assignee: c => c.Assignee, type: c => c.Type, priority: c => c.Priority,
   parent: c => c.ParentKey + ' ' + c.ParentSummary, label: c => c.Labels, key: c => c.Key, points: c => c.Points,
   pr: c => c.PR, deploy: c => c.Deploy, sprint: c => c.Sprint, reporter: c => c.Reporter, component: c => c.Components,
+  resolution: c => c.Resolution,
 };
 
 function matchTerm(term, c, env) {
@@ -123,7 +126,7 @@ function matchTerm(term, c, env) {
     return [c.Key, c.Summary, c.Assignee, c.ParentKey, c.ParentSummary].some(s => String(s || '').toLowerCase().includes(q));
   }
   if (term.field === 'is') return term.values.some(v => is(c, v, env));
-  if (['due', 'age', 'updated', 'created'].includes(term.field)) return span(term, c, env.now);
+  if (['due', 'age', 'updated', 'created', 'resolved'].includes(term.field)) return span(term, c, env.now);
   let have = '';
   if (HAVE[term.field]) have = HAVE[term.field](c);
   else if (term.field.startsWith('custom:')) have = extraOf(c)[term.field.slice(7)] || '';
@@ -147,7 +150,7 @@ export function compile(q, env = {}) {
 export const BUILDER_FIELDS = [
   ['status', T('Status')], ['assignee', T('Assignee')], ['type', T('Type')], ['prio', T('Priority')], ['points', T('Story points')],
   ['label', T('Label')], ['epic', T('Epic')], ['pr', T('Pull request')], ['deploy', T('Deployed to')], ['component', T('Component')],
-  ['reporter', T('Reporter')], ['is', T('Is: mine, overdue, flagged…')],
+  ['reporter', T('Reporter')], ['resolution', T('Resolution')], ['is', T('Is: mine, overdue, flagged…')],
 ];
 export function builderOps(field) {
   if (field === 'is') return [[':', T('is')]];
@@ -155,8 +158,15 @@ export function builderOps(field) {
   if (field === 'points') return [['>=', T('at least')], ['<=', T('at most')], ['=', T('exactly')], ['empty', T('is empty')], ['-empty', T('is not empty')]];
   return [[':', T('is')], ['-:', T('is not')], ['empty', T('is empty')]];
 }
-// Values of a field on the loaded cards: [{id, label, n}], most common first.
-export function builderValues(cards, field, env) {
+// Values of a field on the loaded cards: [{id, label, n}], most common first. With q (the board's query) the
+// counts are of the cards its terms on other fields leave (TUI facetCards): what picking a value finds, and a
+// value nothing would match isn't offered.
+export function builderValues(cards, field, env, q = '') {
+  const others = parse(q).filter(tm => tm.field !== FIELDS[field]);
+  if (others.length) {
+    const e = { ...env, now: env.now || Date.now() };
+    cards = cards.filter(c => others.every(tm => matchTerm(tm, c, e) !== tm.not));
+  }
   const n = new Map(), label = new Map();
   const add = (v, l) => { if (v) { n.set(v, (n.get(v) || 0) + 1); label.set(v, l || v); } };
   for (const c of cards) {
@@ -169,6 +179,7 @@ export function builderValues(cards, field, env) {
       case 'label': for (const l of (c.Labels || '').split(/\s+/)) add(l); break;
       case 'component': for (const l of (c.Components || '').split(SEP)) add(l); break;
       case 'reporter': add(c.Reporter); break;
+      case 'resolution': add(c.Resolution); break;
       case 'pr': add((c.PR || '').toLowerCase()); break;
       case 'deploy': add(c.Deploy); break;
       case 'epic': add(c.ParentKey, (c.ParentKey + ' ' + (c.ParentSummary || '')).trim()); break;

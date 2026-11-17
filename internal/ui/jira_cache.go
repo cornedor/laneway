@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
 )
@@ -81,7 +82,11 @@ func (c jiraCache) boardMsg(seq int) jiraBoardMsg {
 }
 
 // saveJiraCache stores c as board's view, and that view as the board's last.
+// The all issues view's cards stay out: the index holds them already.
 func saveJiraCache(st *store.Store, board int, view string, c jiraCache) {
+	if c.ViewIdx < len(c.Views) && c.Views[c.ViewIdx].Kind == jiraViewAll {
+		c.Cards, c.Total = nil, 0
+	}
 	if raw, err := json.Marshal(c); err == nil {
 		_ = st.SetMeta(jiraCacheKey(board, view), string(raw))
 	}
@@ -100,7 +105,7 @@ func readJiraCache(st *store.Store, board int, view string) (jiraCache, bool) {
 // jiraBoardFromCache delivers the stored copy of the board loadJiraBoard is
 // about to fetch, resolved the same way; nil-message when there is none, or
 // when it is filtered and filters aren't remembered (ui.remember_filters).
-func jiraBoardFromCache(st *store.Store, seq int, project string, board int, view string, configured []string, readMode, remember bool) tea.Cmd {
+func jiraBoardFromCache(st *store.Store, ix *index.Index, seq int, project string, board int, view string, configured []string, readMode, remember bool) tea.Cmd {
 	return func() tea.Msg {
 		project, board = resolveJiraBoard(st, project, board, configured)
 		if board == 0 {
@@ -114,6 +119,13 @@ func jiraBoardFromCache(st *store.Store, seq int, project string, board int, vie
 			return nil
 		}
 		msg := c.boardMsg(seq)
+		if msg.views[msg.viewIdx].kind == jiraViewAll {
+			cards, ok := allIssuesCached(ix, project, c.Filter)
+			if !ok {
+				return nil
+			}
+			msg.cards, msg.total = cards, len(cards)
+		}
 		if readMode {
 			msg.lanes = storedJiraMode(st)
 		}

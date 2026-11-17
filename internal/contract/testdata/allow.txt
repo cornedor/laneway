@@ -5,3 +5,13 @@
 # The recording account sees only the system dashboard, which has no owner;
 # Jira sends the owner of any other (expand=owner).
 GET /rest/api/3/dashboard/search 200 | values[].owner
+
+# Cards ask for resolution and resolutiondate (the all issues view) since
+# the recording was made; re-recording on corne-team verifies them.
+GET /rest/agile/1.0/board/{id}/backlog 200 | issues[].fields.resolution
+GET /rest/agile/1.0/board/{id}/backlog 200 | issues[].fields.resolutiondate
+GET /rest/agile/1.0/board/{id}/issue 200 | issues[].fields.resolution
+GET /rest/agile/1.0/board/{id}/issue 200 | issues[].fields.resolutiondate
+GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200 | issues[].fields.resolution
+GET /rest/agile/1.0/board/{id}/sprint/{id}/issue 200 | issues[].fields.resolutiondate
+POST /rest/api/3/search/jql 200 | issues[].fields.resolution

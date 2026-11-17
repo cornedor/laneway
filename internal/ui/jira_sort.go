@@ -22,11 +22,12 @@ const (
 	jiraSortUpdated
 	jiraSortDue
 	jiraSortCreated
+	jiraSortResolved
 	jiraSortCount
 )
 
 func (s jiraSort) String() string {
-	return [...]string{"rank", "priority", "points", "assignee", "epic", "key", "status", "updated", "due", "created"}[s]
+	return [...]string{"rank", "priority", "points", "assignee", "epic", "key", "status", "updated", "due", "created", "resolved"}[s]
 }
 
 // jiraPriorityRank orders priorities highest first; unknown ones sit with
@@ -164,6 +165,18 @@ func (s jiraSort) cmp() func(a, b jira.Card) int {
 		cmp = func(a, b jira.Card) int { return b.Updated.Compare(a.Updated) }
 	case jiraSortCreated: // newest first
 		cmp = func(a, b jira.Card) int { return b.Created.Compare(a.Created) }
+	case jiraSortResolved: // newest first, unresolved last
+		cmp = func(a, b jira.Card) int {
+			switch {
+			case a.Resolved.IsZero() && b.Resolved.IsZero():
+				return 0
+			case a.Resolved.IsZero():
+				return 1
+			case b.Resolved.IsZero():
+				return -1
+			}
+			return b.Resolved.Compare(a.Resolved)
+		}
 	case jiraSortDue: // soonest first, none last
 		cmp = func(a, b jira.Card) int {
 			switch {

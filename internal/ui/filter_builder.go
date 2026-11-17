@@ -24,7 +24,7 @@ import (
 var filterFields = []struct{ name, label string }{
 	{"status", i18n.N("Status")}, {"assignee", i18n.N("Assignee")}, {"type", i18n.N("Type")}, {"prio", i18n.N("Priority")},
 	{"points", i18n.N("Story points")}, {"label", i18n.N("Label")}, {"epic", i18n.N("Epic")}, {"pr", i18n.N("Pull request")}, {"deploy", i18n.N("Deployed to")},
-	{"component", i18n.N("Component")}, {"reporter", i18n.N("Reporter")},
+	{"component", i18n.N("Component")}, {"reporter", i18n.N("Reporter")}, {"resolution", i18n.N("Resolution")},
 	{"is", i18n.N("Is: mine, overdue, flagged…")},
 }
 
@@ -66,9 +66,12 @@ func filterOps(field string) []jiraPickerItem {
 func opNoValue(op string) bool { return op == "empty" || op == "-empty" }
 
 // filterValueItems are field's values on the loaded cards with their
-// counts, most common first (priorities by rank).
+// counts, most common first (priorities by rank). The counts are of the
+// cards the query's other terms leave, so each says what picking it finds,
+// and a value nothing would match isn't offered.
 func (m *Model) filterValueItems(field string) []jiraPickerItem {
-	counts, labels := filterValues(m.builderCards(), field, m.jiraQueryEnv())
+	env := m.jiraQueryEnv()
+	counts, labels := filterValues(facetCards(m.builderCards(), m.builderQuery(), field, env), field, env)
 	values := slices.Collect(maps.Keys(counts))
 	slices.SortFunc(values, func(x, y string) int {
 		if field == "prio" {
@@ -293,6 +296,8 @@ func filterValues(cards []jira.Card, field string, env jiraQueryEnv) (counts map
 			}
 		case "reporter":
 			add(c.Reporter, c.Reporter)
+		case "resolution":
+			add(c.Resolution, c.Resolution)
 		case "pr":
 			add(strings.ToLower(c.PR), strings.ToLower(c.PR))
 		case "deploy":
@@ -308,6 +313,16 @@ func filterValues(cards []jira.Card, field string, env jiraQueryEnv) (counts map
 		}
 	}
 	return counts, labels
+}
+
+// facetCards are the cards q's terms on fields other than field leave: a
+// term on field joins its like as one more value, so those don't narrow.
+func facetCards(cards []jira.Card, q, field string, env jiraQueryEnv) []jira.Card {
+	terms := slices.DeleteFunc(jiraParseQuery(q), func(t jiraTerm) bool { return t.field == jiraQueryFields[field] })
+	if len(terms) == 0 {
+		return cards
+	}
+	return slices.DeleteFunc(slices.Clone(cards), func(c jira.Card) bool { return !jiraCardMatches(c, terms, env) })
 }
 
 // addFilterTerm puts term in the / query: a ":" term on the same field

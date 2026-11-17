@@ -73,6 +73,8 @@ func jiraCardMatches(c jira.Card, terms []jiraTerm, env jiraQueryEnv) bool {
 //	due<7d age>3d      due within / after, in progress longer / shorter (h d w)
 //	updated<1d         changed within a day (updated>7d: not for a week)
 //	created<7d         made within a week
+//	resolved<7d        resolved within a week
+//	resolution:dup     how it was resolved
 //	reporter:ada       who reported it
 //	component:api      one of its components
 //	pr:open deploy:prod the Development field
@@ -95,6 +97,7 @@ var jiraQueryFields = map[string]string{
 	"label": "label", "labels": "label", "key": "key", "points": "points", "sp": "points", "is": "is", "has": "is",
 	"due": "due", "age": "age", "updated": "updated", "pr": "pr", "deploy": "deploy", "sprint": "sprint",
 	"created": "created", "reporter": "reporter", "component": "component", "components": "component",
+	"resolution": "resolution", "resolved": "resolved",
 }
 
 // jiraParseQuery splits q into terms. A word that doesn't parse as a field
@@ -196,7 +199,7 @@ func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 			}
 		}
 		return false
-	case "due", "age", "updated", "created":
+	case "due", "age", "updated", "created", "resolved":
 		return jiraMatchSpan(t, c, env.now)
 	}
 	var have string
@@ -227,6 +230,8 @@ func (t jiraTerm) match(c jira.Card, env jiraQueryEnv) bool {
 		have = c.Reporter
 	case "component":
 		have = c.Components
+	case "resolution":
+		have = c.Resolution
 	default:
 		if name, ok := strings.CutPrefix(t.field, "custom:"); ok {
 			have = jiraExtra(c)[name]
@@ -297,6 +302,8 @@ func jiraMatchSpan(t jiraTerm, c jira.Card, now time.Time) bool {
 		have = now.Sub(c.Updated)
 	case t.field == "created" && !c.Created.IsZero():
 		have = now.Sub(c.Created)
+	case t.field == "resolved" && !c.Resolved.IsZero():
+		have = now.Sub(c.Resolved)
 	default:
 		return false
 	}

@@ -49,6 +49,12 @@ CREATE TABLE IF NOT EXISTS user_syncs (
 	project TEXT PRIMARY KEY,
 	at      INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS project_syncs (
+	project  TEXT PRIMARY KEY,
+	at       INTEGER NOT NULL,
+	keys_at  INTEGER NOT NULL,
+	complete INTEGER NOT NULL
+);
 `
 	version = 2
 
@@ -99,7 +105,7 @@ func (ix *Index) migrate() error {
 		return err
 	}
 	if v != version {
-		for _, t := range []string{"issues", "users", "user_syncs"} {
+		for _, t := range []string{"issues", "users", "user_syncs", "project_syncs"} {
 			if _, err := ix.db.Exec("DROP TABLE IF EXISTS " + t); err != nil {
 				return err
 			}

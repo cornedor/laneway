@@ -30,6 +30,7 @@ import (
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/forge/gitlab"
 	"github.com/cornedor/laneway/internal/i18n"
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/rules"
 	"github.com/cornedor/laneway/internal/store"
@@ -87,6 +88,9 @@ type Options struct {
 	GitLabRepos map[string]string
 	// Timesheet is where time is logged; nil: the site's Jira worklogs.
 	Timesheet timesheet.Provider
+	// Index is the site's issue index (nil: none, as when hosted), which
+	// the all issues view reads from.
+	Index *index.Index
 }
 
 // Server is the HTTP handler: API under /api, assets everywhere else.

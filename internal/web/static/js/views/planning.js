@@ -7,6 +7,7 @@ import { rowPx, px14, onChange as onMetrics } from '../lib/metrics.js';
 import { isZero, shortDate } from '../lib/fmt.js';
 import { resolve, switcher, noBoard } from './plan_ctx.js';
 import { openFilterBuilder } from './board_filter.js';
+import { filterBox } from '../lib/filterbox.js';
 import * as cq from '../lib/cardquery.js';
 import * as pins from '../lib/pins.js';
 import { whoOf, passesWho, whoKey, whoLabel, pickWho as pickPeople } from '../lib/who.js';
@@ -118,7 +119,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   });
   const colsBtn = h('button.btn.ghost', { title: T('List columns'), onclick: () => pickCols() }, icon('columns-3'), T('Columns'));
   const splitBtn = h('button.btn.ghost.pl-split', { title: T('Keep a sprint in view beside the list (|)'), onclick: () => setSide(side == null ? defaultSide() : null) }, T('Split'), keyHint('|'));
-  toolbar.append(filterIn, chips, h('span.spacer'), colsBtn, splitBtn, h('button.btn.nw', { title: T('New sprint (N)'), onclick: () => newSprint() }, T('+ Sprint'), keyHint('N')));
+  toolbar.append(filterBox(filterIn, () => openBuilder()), chips, h('span.spacer'), colsBtn, splitBtn, h('button.btn.nw', { title: T('New sprint (N)'), onclick: () => newSprint() }, T('+ Sprint'), keyHint('N')));
 
   // ---- data
   const secOf = id => sections.find(s => s.id === id);

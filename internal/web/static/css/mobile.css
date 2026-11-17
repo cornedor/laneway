@@ -13,7 +13,7 @@
   /* lanes: one column per screen, swipe to snap between them */
   .bd-lanes { scroll-snap-type: x mandatory; scroll-padding-inline: var(--pad); overscroll-behavior-x: contain; }
   .bd-lanes .bd-lane { flex: 0 0 calc(100vw - var(--pad) * 4); min-width: 0; scroll-snap-align: center; scroll-snap-stop: always; }
-  .bd-filter { max-width: none; flex: 1; }
+  .bd-filter-box { max-width: none; flex: 1; }
   /* pickers and dialogs become bottom sheets */
   .overlay { align-items: flex-end; padding-top: 0; }
   .modal, .modal.wide, .modal.pick-modal { width: 100vw; max-width: none; max-height: 85vh; max-height: 85dvh; border-radius: 14px 14px 0 0; border-bottom: 0; padding-bottom: calc(var(--pad) * 1.5 + env(safe-area-inset-bottom)); animation: lw-sheet .18s ease-out; }

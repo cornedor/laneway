@@ -26,6 +26,7 @@ import (
 	"github.com/cornedor/laneway/internal/autostart"
 	"github.com/cornedor/laneway/internal/config"
 	"github.com/cornedor/laneway/internal/i18n"
+	"github.com/cornedor/laneway/internal/index"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/offline"
 	"github.com/cornedor/laneway/internal/store"
@@ -148,6 +149,11 @@ func serveWeb(parent context.Context, cfgPath, site, addr, cert, key, token stri
 		opt.Client = webClient(jc, uiCfg)
 		opt.Client.SetQueue(offline.To(opt.Store))
 		opt.Client.SetLayouts(opt.Store)
+		// An index of its own, gone with the rest, for the all issues view.
+		if opt.Index, err = index.Open(filepath.Join(dir, "index.db")); err != nil {
+			return end, bound, err
+		}
+		defer opt.Index.Close()
 	} else {
 		cfg, loaded, err := config.Load(cfgPath)
 		if err != nil && !errors.Is(err, config.ErrNoConfig) {
@@ -443,6 +449,13 @@ func webSite(cfg config.Config, site string, opt web.Options) (web.Options, erro
 	opt.Timesheet, _ = timesheetProvider(cfg)
 	opt.Client.SetQueue(offline.To(opt.Store))
 	opt.Client.SetLayouts(opt.Store)
+	// The index is a mirror, shared with the terminal app: without it the
+	// all issues view is left out.
+	if p, err := index.Path(site); err == nil {
+		if opt.Index, err = index.Open(p); err != nil {
+			fmt.Fprintln(os.Stderr, "laneway: index:", err)
+		}
+	}
 	return opt, nil
 }
 
