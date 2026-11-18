@@ -151,8 +151,10 @@ func HasBranch(repo, branch string) bool {
 	if IsJJ(repo) {
 		return slices.Contains(Branches(repo), branch)
 	}
-	_, err := git(context.Background(), repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
-	return err == nil
+	// Listed and compared rather than asked for by name: the branch can
+	// come from a request, and so never reaches git's command line.
+	out, _ := git(context.Background(), repo, "for-each-ref", "--format=%(refname)", "refs/heads/")
+	return slices.Contains(strings.Fields(out), "refs/heads/"+branch)
 }
 
 // DefaultBase is what new work starts from: the remote's default branch

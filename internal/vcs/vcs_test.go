@@ -122,6 +122,9 @@ func TestGitRepo(t *testing.T) {
 	if got := vcs.Branches(repo); !slices.Equal(got, []string{"issue/ABC-2-x", "main"}) {
 		t.Errorf("branches = %v", got)
 	}
+	if !vcs.HasBranch(repo, "issue/ABC-2-x") || vcs.HasBranch(repo, "issue/ABC-2") || vcs.HasBranch(repo, "nope") {
+		t.Error("has branch")
+	}
 	if got := vcs.DefaultBase(repo); got != "" {
 		t.Errorf("base without a remote = %q", got)
 	}
