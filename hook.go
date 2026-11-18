@@ -18,6 +18,7 @@ import (
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/ui"
+	"github.com/cornedor/laneway/internal/vcs"
 )
 
 var hookUsage = i18n.N(`usage: laneway hook install [-strict] [-force]
@@ -29,7 +30,15 @@ Installs two git hooks in the repository you are in:
                  keys Jira doesn't know.
   post-checkout  checking out an issue's branch while the issue is still to
                  do asks to move it in progress.
-An existing hook that isn't laneway's is kept unless -force.`)
+An existing hook that isn't laneway's is kept unless -force.
+
+jj runs no git hooks. In a jj repository install says so, and
+
+  laneway hook check [-fix] [-strict]
+
+does commit-msg's work for the changes of your branch (trunk to @) at
+once, before you push: it lists those whose description names no issue
+key, and -fix puts the bookmark's key in front of them.`)
 
 // hookMark tells laneway's hooks from others.
 const hookMark = "# laneway hook"
@@ -50,12 +59,19 @@ func hookCmd(args []string, out, errOut io.Writer) int {
 	site := fs.String("site", "", i18n.T("Jira site from the config's sites:"))
 	strict := fs.Bool("strict", false, i18n.T("commit-msg: refuse keys Jira doesn't know"))
 	force := fs.Bool("force", false, i18n.T("install: replace hooks that aren't laneway's"))
+	fix := fs.Bool("fix", false, i18n.T("check: put the bookmark's key in front of the changes without one"))
 	if err := fs.Parse(args[1:]); err != nil {
 		return 2
 	}
 	switch args[0] {
 	case "install":
+		if vcs.IsJJ(".") {
+			fmt.Fprintln(errOut, "laneway hook install:", i18n.T("jj runs no git hooks: run laneway hook check (-fix) before you push"))
+			return 1
+		}
 		return hookInstall(*strict, *force, *cfgPath, *site, out, errOut)
+	case "check":
+		return hookCheck(*fix, *strict, *cfgPath, *site, out, errOut)
 	case "commit-msg":
 		if fs.NArg() != 1 {
 			fmt.Fprintln(errOut, "laneway hook commit-msg:", i18n.T("the message file, as git passes it"))
@@ -222,6 +238,57 @@ func siteClient(cfgPath, site string) (*jira.Client, error) {
 		return nil, err
 	}
 	return jira.New(jira.Config{BaseURL: cfg.Jira.BaseURL, Email: cfg.Jira.Email, APIToken: cfg.Jira.APIToken, SignIn: cfg.Jira.Credentials(), Timeout: 10 * time.Second}), nil
+}
+
+// hookCheck is commit-msg for a jj branch's changes: those without an
+// issue key get the bookmark's with fix, else they are listed and it
+// fails. strict also refuses keys Jira doesn't know.
+func hookCheck(fix, strict bool, cfgPath, site string, out, errOut io.Writer) int {
+	if !vcs.IsJJ(".") {
+		fmt.Fprintln(errOut, "laneway hook check:", i18n.T("not in a jj repository: in git, laneway hook install checks every commit"))
+		return 1
+	}
+	ctx := context.Background()
+	changes, err := vcs.BranchChanges(ctx, ".")
+	if err != nil {
+		fmt.Fprintln(errOut, "laneway hook check:", err)
+		return 1
+	}
+	branchKey, code := ui.BranchIssue(), 0
+	var keys []string
+	for _, c := range changes {
+		if strings.TrimSpace(c.Description) == "" {
+			continue // jj won't push it before you describe it
+		}
+		if fix {
+			msg, err := keyedMessage(c.Description, branchKey)
+			if err == nil && msg != c.Description {
+				if err = vcs.Describe(ctx, ".", c.ID, msg); err == nil {
+					fmt.Fprintln(out, i18n.Tf("%s: added %s", c.ID, branchKey))
+					c.Description = msg
+				}
+			}
+			if err != nil {
+				fmt.Fprintln(errOut, "laneway:", c.ID+":", err)
+				code = 1
+				continue
+			}
+		}
+		k := messageKeys(c.Description)
+		if len(k) == 0 {
+			first, _, _ := strings.Cut(c.Description, "\n")
+			fmt.Fprintln(errOut, i18n.Tf("%s has no issue key: %s", c.ID, first))
+			code = 1
+		}
+		keys = append(keys, k...)
+	}
+	if strict && len(keys) > 0 {
+		if err := checkKeys(cfgPath, site, slices.Compact(slices.Sorted(slices.Values(keys)))); err != nil {
+			fmt.Fprintln(errOut, "laneway:", err)
+			return 1
+		}
+	}
+	return code
 }
 
 // hookPostCheckout offers to move the branch's issue in progress while it

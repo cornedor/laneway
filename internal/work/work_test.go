@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cornedor/laneway/internal/vcs/vcstest"
 )
 
 func TestValidBranch(t *testing.T) {
@@ -81,5 +83,31 @@ func TestCommits(t *testing.T) {
 	}
 	if strings.Join(rows, "\n") != "|commit: utf-8 names in paths\nABC-2|commit: Fix login ABC-2" {
 		t.Errorf("commits:\n%s", strings.Join(rows, "\n"))
+	}
+}
+
+// In jj the moments it recorded work on a change count, for the key its
+// description names or else its branch's bookmark; commits are the
+// visible changes, once.
+func TestGitJJ(t *testing.T) {
+	repo, _, jj := vcstest.JJRepo(t)
+	from := time.Now().Add(-time.Hour)
+	jj(repo, "new", "main", "-m", "wip")
+	jj(repo, "bookmark", "create", "issue/ABC-7-wip", "-r", "@")
+	jj(repo, "describe", "-m", "wip again")
+	jj(repo, "new", "-m", "ABC-8 other")
+	keys := map[string]int{}
+	for _, e := range Git([]string{repo}, from, time.Now().Add(time.Minute)) {
+		keys[e.Source+" "+e.Key]++
+	}
+	if keys["jj ABC-7"] < 2 || keys["jj ABC-8"] < 1 {
+		t.Errorf("events = %v", keys)
+	}
+	var subjects []string
+	for _, c := range Commits([]string{repo, repo}, from) {
+		subjects = append(subjects, c.What)
+	}
+	if strings.Join(subjects, ",") != "commit: init" {
+		t.Errorf("commits = %v", subjects)
 	}
 }

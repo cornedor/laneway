@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/cornedor/laneway/internal/cli"
+	"github.com/cornedor/laneway/internal/vcs"
 )
 
 // A → Open a pull request: in the issue's jira.repos checkout, pushes its
@@ -57,11 +58,11 @@ func (m *Model) openPullRequest(key string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
-		remote, err := runIn(ctx, repo, "git", "remote", "get-url", "origin")
+		remote, err := vcs.RemoteURL(ctx, repo)
 		if err != nil {
 			return pullRequestMsg{key: key, err: err}
 		}
-		if _, err := runIn(ctx, repo, "git", "push", "-u", "origin", branch); err != nil {
+		if _, err := vcs.Push(ctx, repo, branch); err != nil {
 			return pullRequestMsg{key: key, err: err}
 		}
 		var out string

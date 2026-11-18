@@ -39,6 +39,9 @@ refuses the commit; merges, reverts and fixups pass. `-strict` also
 refuses keys Jira doesn't know. Checking out an issue's branch while it's
 still to do asks `move ABC-12 (To Do) to In Progress? [y/N]`.
 
+jj runs no git hooks: there, `laneway hook check -fix` before you push puts
+the bookmark's key in front of your branch's changes that name no issue.
+
 ## Start work with an agent: `S`
 
 With [herdr](https://herdr.dev) running, `S` on an issue starts work: the
@@ -126,6 +129,10 @@ search `pr:open` finds the ones with an open one.
 
 Once it's merged, *Remove its worktree* in the same actions removes the
 checkout. Uncommitted changes keep it; the branch stays.
+
+In a [jj](https://jj-vcs.github.io/jj/) repository the worktree is a jj
+workspace and the branch a bookmark; [jj in the config
+reference](../reference/config.md#jj) has the details.
 
 ## Review a merge request
 

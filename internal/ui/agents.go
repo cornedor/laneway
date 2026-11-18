@@ -158,10 +158,14 @@ var herdrBin = "herdr"
 // multiplexer is the API client for ui.multiplexer's socket, else herdr's;
 // nil when nothing runs.
 func multiplexer(o options) *herdr.Client {
+	c := herdr.Default()
 	if o.muxSocket != "" {
-		return herdr.At(expandUserPath(o.muxSocket))
+		c = herdr.At(expandUserPath(o.muxSocket))
 	}
-	return herdr.Default()
+	if c != nil {
+		c.JJWorkspaces = o.muxJJ
+	}
+	return c
 }
 
 // muxBin is the multiplexer CLI: ui.multiplexer.command, else herdr.

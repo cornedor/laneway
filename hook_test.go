@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/vcs/vcstest"
 )
 
 func TestKeyedMessage(t *testing.T) {
@@ -103,5 +104,40 @@ func TestOfferStart(t *testing.T) {
 	offerStart(context.Background(), c, "ABC-12", &rw{Reader: strings.NewReader("\n")}, io.Discard)
 	if moved != "" {
 		t.Error("enter alone should leave it")
+	}
+}
+
+// jj runs no hooks: install says so, and check does commit-msg's work for
+// the branch's changes.
+func TestHookCheckJJ(t *testing.T) {
+	repo, _, jj := vcstest.JJRepo(t)
+	t.Chdir(repo)
+	var out, errOut strings.Builder
+	if code := hookCmd([]string{"install"}, &out, &errOut); code != 1 || !strings.Contains(errOut.String(), "jj runs no git hooks") {
+		t.Errorf("install = %d %q", code, errOut.String())
+	}
+	jj(repo, "new", "main", "-m", "fix the login")
+	if err := os.WriteFile("b", []byte("b"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	jj(repo, "bookmark", "create", "issue/ABC-1-login", "-r", "@")
+	jj(repo, "new", "-m", "ABC-2 also this")
+	if err := os.WriteFile("c", []byte("c"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	errOut.Reset()
+	if code := hookCmd([]string{"check"}, &out, &errOut); code != 1 || !strings.Contains(errOut.String(), "has no issue key: fix the login") || strings.Contains(errOut.String(), "also this") {
+		t.Errorf("check = %d %q", code, errOut.String())
+	}
+	errOut.Reset()
+	if code := hookCmd([]string{"check", "-fix"}, &out, &errOut); code != 0 || errOut.Len() > 0 {
+		t.Errorf("check -fix = %d %q", code, errOut.String())
+	}
+	if got := jj(repo, "log", "--no-graph", "-r", "issue/ABC-1-login", "-T", "description"); got != "ABC-1 fix the login" {
+		t.Errorf("fixed description %q", got)
+	}
+	if code := hookCmd([]string{"check"}, &out, &errOut); code != 0 {
+		t.Errorf("check after fix = %d %q", code, errOut.String())
 	}
 }

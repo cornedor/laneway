@@ -1,45 +1,25 @@
 package ui
 
 import (
+	"cmp"
 	"context"
 	"errors"
-	"github.com/cornedor/laneway/internal/i18n"
-	"os/exec"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/i18n"
+	"github.com/cornedor/laneway/internal/vcs"
 )
 
 // A → Remove its worktree, on a done issue: once its branch is merged, the
 // checkout goes (herdr's worktree.remove, the branch stays). Uncommitted
 // changes, or a branch not merged yet, keep it.
 
-// linkedWorktrees are repo's linked worktrees (not its main checkout) that
-// have a branch: path → branch.
+// linkedWorktrees are repo's other checkouts on a branch (not its main
+// one): git's linked worktrees, jj's workspaces. path → branch.
 func linkedWorktrees(repo string) map[string]string {
-	out, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
-	if err != nil {
-		return nil
-	}
-	wts := map[string]string{}
-	for i, block := range strings.Split(strings.TrimSpace(string(out)), "\n\n") {
-		if i == 0 {
-			continue // the main checkout
-		}
-		var p, b string
-		for _, l := range strings.Split(block, "\n") {
-			if v, ok := strings.CutPrefix(l, "worktree "); ok {
-				p = v
-			}
-			if v, ok := strings.CutPrefix(l, "branch refs/heads/"); ok {
-				b = v
-			}
-		}
-		if b != "" {
-			wts[p] = b
-		}
-	}
-	return wts
+	return vcs.Checkouts(repo)
 }
 
 // issueWorktree is the repo's linked worktree whose branch fits tmpl for
@@ -57,20 +37,40 @@ func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
 // worktreeGone reports why the worktree at path on branch must stay, ""
 // when it can go: it has uncommitted changes, or branch isn't in base.
 func worktreeGone(repo, path, branch, base string) string {
-	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
-	if err != nil {
-		return i18n.Tf("git status: %s", err.Error())
-	}
-	if len(strings.TrimSpace(string(out))) > 0 {
+	switch err := vcs.Kept(repo, path, branch, base); {
+	case err == nil:
+		return ""
+	case errors.Is(err, vcs.ErrUncommitted):
 		return i18n.T("it has uncommitted changes")
+	case errors.Is(err, vcs.ErrUnmerged):
+		return i18n.Tf("%s is not merged into %s", branch, cmp.Or(base, vcs.DefaultMerged(repo)))
+	default:
+		return err.Error()
 	}
-	if base == "" {
-		base = "HEAD"
+}
+
+// DropWorktree removes the checkout at path on branch: through the
+// multiplexer, or in a jj repo it doesn't do workspaces of, by forgetting
+// the workspace and closing the one open on it.
+func DropWorktree(ctx context.Context, c *herdr.Client, repo, path, branch string) error {
+	if !vcs.IsJJ(repo) || c.JJWorkspaces {
+		wt, err := c.OpenWorktree(ctx, repo, branch)
+		if err != nil {
+			return err
+		}
+		return c.RemoveWorktree(ctx, wt.Workspace)
 	}
-	if exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", branch, base).Run() != nil {
-		return i18n.Tf("%s is not merged into %s", branch, base)
+	if err := vcs.ForgetWorkspace(ctx, repo, path); err != nil {
+		return err
 	}
-	return ""
+	if wss, err := c.Workspaces(ctx); err == nil {
+		for _, ws := range wss {
+			if ws.Label == branch {
+				return c.CloseWorkspace(ctx, ws.ID)
+			}
+		}
+	}
+	return nil
 }
 
 // removeWorktree removes the done issue's worktree when nothing keeps it.
@@ -94,10 +94,6 @@ func (m *Model) removeWorktree(key string) tea.Cmd {
 		if why := worktreeGone(repo, path, branch, defaultBase(repo)); why != "" {
 			return errors.New(i18n.Tf("keeping %s: %s", homeShort(path), why))
 		}
-		wt, err := c.OpenWorktree(ctx, repo, branch)
-		if err != nil {
-			return err
-		}
-		return c.RemoveWorktree(ctx, wt.Workspace)
+		return DropWorktree(ctx, c, repo, path, branch)
 	})
 }

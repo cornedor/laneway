@@ -26,6 +26,11 @@ jobs:
       - name: tmux, for e2e/tui
         if: runner.os == 'Linux'
         run: command -v tmux || (sudo apt-get update && sudo apt-get install -y tmux)
+      - name: jj, for the jj repository tests
+        if: runner.os == 'Linux'
+        run: |
+          curl -fsSL https://github.com/jj-vcs/jj/releases/download/v0.46.0/jj-v0.46.0-x86_64-unknown-linux-musl.tar.gz | sudo tar xz -C /usr/local/bin ./jj
+          jj --version
       - run: go build ./...
       - run: go vet ./...
       - run: go test -race ./...

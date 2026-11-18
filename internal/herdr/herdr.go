@@ -72,7 +72,13 @@ func IsCode(err error, code string) bool {
 }
 
 // Client addresses one herdr server by its socket path.
-type Client struct{ path string }
+type Client struct {
+	path string
+	// JJWorkspaces: the multiplexer makes, finds and removes a jj repo's
+	// workspaces through its worktree calls itself (drover). herdr makes git
+	// worktrees there, so laneway makes jj's.
+	JJWorkspaces bool
+}
 
 // Default finds the socket the herdr CLI would use: HERDR_SOCKET_PATH, then
 // HERDR_SESSION's, then the default session's. Nil when there is none.
@@ -316,6 +322,44 @@ func (c *Client) CreateWorktree(ctx context.Context, repo, branch, base string) 
 	var res worktreeResult
 	err := c.call(ctx, "worktree.create", params, &res)
 	return res.worktree(), err
+}
+
+// OpenDir opens dir as a workspace labelled label, or finds the one open
+// with that label: for checkouts the multiplexer doesn't know, a jj
+// workspace laneway made. An open one without an agent gets a new tab to
+// start one in.
+func (c *Client) OpenDir(ctx context.Context, label, dir string) (Worktree, error) {
+	wss, err := c.Workspaces(ctx)
+	if err != nil {
+		return Worktree{}, err
+	}
+	for _, ws := range wss {
+		if ws.Label != label {
+			continue
+		}
+		wt := Worktree{Path: dir, Workspace: ws.ID, AlreadyOpen: true}
+		agents, err := c.Agents(ctx)
+		if err != nil {
+			return wt, err
+		}
+		for _, a := range agents {
+			if a.WorkspaceID == ws.ID && a.Agent != "" {
+				return wt, nil
+			}
+		}
+		wt.Tab, wt.Pane, err = c.NewTab(ctx, ws.ID, label, dir, nil)
+		return wt, err
+	}
+	var res worktreeResult
+	err = c.call(ctx, "workspace.create", map[string]any{"label": label, "cwd": dir}, &res)
+	wt := res.worktree()
+	wt.Path = dir
+	return wt, err
+}
+
+// CloseWorkspace closes the workspace and its tabs.
+func (c *Client) CloseWorkspace(ctx context.Context, workspace string) error {
+	return c.call(ctx, "workspace.close", map[string]any{"workspace_id": workspace}, nil)
 }
 
 // RemoveWorktree runs git worktree remove on the linked checkout open as
