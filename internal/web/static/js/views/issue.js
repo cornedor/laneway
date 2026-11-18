@@ -199,6 +199,15 @@ export function mountIssue(el, key, { app, full, card }) {
         s ? h('span.it-st.st-' + s, { title: T('agent %s', LABEL[s] || s) }, icon(ICON[s] || ICON.unknown)) : null, label);
     }));
   }
+  // hold keeps a place in the comments (the end, a linked comment) while they still change height: as
+  // content-visibility sizes the ones scrolled past and as their images load. Until you scroll yourself.
+  let held = null;
+  const release = () => { held = null; };
+  const sized = new ResizeObserver(() => { if (held && st.tab === 'comments') held(); else release(); });
+  sized.observe(box.list);
+  for (const ev of ['wheel', 'touchmove', 'pointerdown']) root.addEventListener(ev, release, { capture: true, passive: true });
+  window.addEventListener('keydown', release, true); // on window: before the key itself opens the comments and holds
+  function hold(place) { held = place; place(); }
   function setTab(t) {
     const was = st.tab;
     st.tab = t;
@@ -212,10 +221,7 @@ export function mountIssue(el, key, { app, full, card }) {
     if (t === 'history') loadHistory();
     if (t === 'comments' && st.focusId == null) focusComment(null);
     if (t === 'comments' && was !== 'comments' && !newest() && !wantComment) { // oldest first: the latest is at the end
-      // Again each frame while content-visibility sizes the comments it scrolls past.
-      let h = -1, n = 0;
-      const end = () => { if (st.tab !== 'comments' || (scroll.scrollHeight === h && n > 1) || ++n > 20) return; h = scroll.scrollHeight; scroll.scrollTop = h; requestAnimationFrame(end); };
-      end();
+      hold(() => { scroll.scrollTop = scroll.scrollHeight; });
     }
   }
   // The Terminal tab: shown (4, a click) or typing (ctrl+\, enter); 4 on it steps through several agents.
@@ -632,13 +638,10 @@ export function mountIssue(el, key, { app, full, card }) {
     setTab('comments');
     wantComment = null;
     focusComment(id, false);
-    // Again each frame while content-visibility sizes the comments it scrolls past.
-    let n = 0;
-    const center = () => {
-      const node = st.tab === 'comments' && st.focusId === id && ++n <= 20 && box.list.querySelector('[data-id="' + CSS.escape(id) + '"]');
-      if (node) { node.scrollIntoView({ block: 'center' }); requestAnimationFrame(center); }
-    };
-    center();
+    hold(() => {
+      const node = st.focusId === id && box.list.querySelector('[data-id="' + CSS.escape(id) + '"]');
+      if (node) node.scrollIntoView({ block: 'center' });
+    });
   }
   const commentEls = () => [...box.list.children].filter(n => n.dataset.id && !n.dataset.id.startsWith('tmp-'));
   function focusComment(id, scrollTo = true) {
@@ -983,7 +986,7 @@ export function mountIssue(el, key, { app, full, card }) {
   if (startTerm) openTerm(true);
 
   return () => {
-    dead = true; scope.dispose(); offChanged(); offSite(); clearTimeout(siteTimer); offFocus(); offTimer.forEach(f => f());
+    dead = true; sized.disconnect(); window.removeEventListener('keydown', release, true); scope.dispose(); offChanged(); offSite(); clearTimeout(siteTimer); offFocus(); offTimer.forEach(f => f());
     term.dispose(); el.classList.remove('term-on');
     for (const e of editors) e.dispose();
     if (offNotes) offNotes();
