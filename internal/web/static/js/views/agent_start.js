@@ -285,5 +285,7 @@ function form(app, key, f, { another, path, notice }) {
     ui.toast(T('%s: %s started in %s', key, r.Agent, home(r.Path)) + (did.length ? ' · ' + did.join(', ') : ''), { ms: 8000, action: show });
     if (r.Warn) ui.toast(key + ': ' + r.Warn, { kind: 'err', ms: 10000 });
     app.bus.emit('issue:changed', { key });
+    // The start status's move has a screen: taken as a move picked by hand, through its form when fields are missing.
+    if (r.Move) import('./fields.js').then(f => f.takeMove(app, key, r.Move)).catch(e => ui.errToast(e));
   }
 }

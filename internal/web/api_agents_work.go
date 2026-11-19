@@ -590,8 +590,11 @@ func (p *startPlan) run(ctx context.Context, report func(startStep)) (map[string
 	if p.another || !p.actions {
 		return out, nil
 	}
-	did, werr := startWrites(ctx, p.s, key, p.iss.Status, p.cfg.Assigns, step)
+	did, move, werr := startWrites(ctx, p.s, key, p.iss.Status, p.cfg.Assigns, step)
 	out["Did"] = did
+	if move != nil {
+		out["Move"] = move
+	}
 	if werr != nil {
 		out["Warn"] = werr.Error()
 	}
@@ -635,9 +638,13 @@ func startError(key, repo string, err error) error {
 	return fmt.Errorf("%s: %s: %w", key, i18n.T("start work"), err)
 }
 
+// startMove is a move start work leaves to the page: it has a screen, so it
+// goes as a move picked there does, through its form when fields are missing.
+type startMove struct{ ID, Name string }
+
 // startWrites assigns the issue to you and moves it to its start status, when
-// it isn't there already.
-func startWrites(ctx context.Context, s *Server, key, current string, assign bool, step func(name, state, text string)) ([]string, error) {
+// it isn't there already. A move with a screen is returned, not made.
+func startWrites(ctx context.Context, s *Server, key, current string, assign bool, step func(name, state, text string)) ([]string, *startMove, error) {
 	did := []string{}
 	c := s.Client()
 	if assign {
@@ -648,7 +655,7 @@ func startWrites(ctx context.Context, s *Server, key, current string, assign boo
 		}
 		if err != nil {
 			step("assign", "warn", i18n.Tf("Not assigned: %s", err.Error()))
-			return did, err
+			return did, nil, err
 		}
 		did = append(did, i18n.T("assigned to you"))
 		step("assign", "ok", i18n.T("Assigned to you"))
@@ -662,7 +669,8 @@ func startWrites(ctx context.Context, s *Server, key, current string, assign boo
 			case i < 0:
 				err = fmt.Errorf(i18n.T("no move to %s from here"), st)
 			case ts[i].HasScreen:
-				err = fmt.Errorf(i18n.T("the move to %s asks for fields: move it with s"), st)
+				step("move", "ok", i18n.Tf("The move to %s has a screen: it opens next", ts[i].ToName))
+				return did, &startMove{ID: ts[i].ID, Name: ts[i].ToName}, nil
 			default:
 				if err = c.DoTransition(ctx, key, ts[i].ID); err == nil {
 					did = append(did, i18n.Tf("moved to %s", ts[i].ToName))
@@ -672,10 +680,10 @@ func startWrites(ctx context.Context, s *Server, key, current string, assign boo
 		}
 		if err != nil {
 			step("move", "warn", i18n.Tf("Not moved: %s", err.Error()))
-			return did, err
+			return did, nil, err
 		}
 	}
-	return did, nil
+	return did, nil, nil
 }
 
 func issueBranchName(ctx context.Context, s *Server, r *http.Request) (any, error) {

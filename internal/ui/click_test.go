@@ -1111,8 +1111,10 @@ func TestStartWrites(t *testing.T) {
 	}
 	writes, screen = nil, true
 	m.opts.startAssigns = false
-	if msg = m.startWrites("ABC-1")().(startWritesMsg); msg.err == nil || len(writes) != 0 {
-		t.Errorf("a screen: writes %q, err %v", writes, msg.err)
+	// A move with a screen is left to the move form's own path.
+	msg = m.startWrites("ABC-1")().(startWritesMsg)
+	if msg.err != nil || msg.move != "In Progress" || len(writes) != 0 {
+		t.Errorf("a screen: writes %q, move %q, err %v", writes, msg.move, msg.err)
 	}
 	m.opts.startStatus = ""
 	if m.startWrites("ABC-1") != nil {

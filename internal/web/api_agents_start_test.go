@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -280,5 +281,30 @@ func TestStartConfiguredAgent(t *testing.T) {
 		if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/work", `{"Agent":"`+a+`"}`, nil); code != 400 {
 			t.Errorf("%s = %d", a, code)
 		}
+	}
+}
+
+// TestStartWritesScreen: a start status whose move has a screen is not made
+// and not refused: it is handed to the page, which opens the move's form.
+func TestStartWritesScreen(t *testing.T) {
+	posted := false
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/transitions") {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method == http.MethodPost {
+			posted = true
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_, _ = io.WriteString(w, `{"transitions":[{"id":"21","name":"Start","hasScreen":true,"to":{"id":"3","name":"In Progress"}}]}`)
+	}))
+	t.Cleanup(fake.Close)
+	cl := jira.New(jira.Config{BaseURL: fake.URL, Email: "d@example.com", APIToken: "x", Projects: []string{"DEMO"}})
+	s := New(context.Background(), Options{Client: cl, Site: "demo", UI: config.UIConfig{StartStatus: "in progress"}})
+	did, move, err := startWrites(context.Background(), s, "DEMO-1", "To Do", false, func(string, string, string) {})
+	if err != nil || len(did) != 0 || posted || move == nil || *move != (startMove{ID: "21", Name: "In Progress"}) {
+		t.Errorf("did %v, move %+v, posted %v, err %v", did, move, posted, err)
 	}
 }
