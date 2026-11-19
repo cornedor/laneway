@@ -209,7 +209,7 @@ ui:
 | `work_args` | | its arguments before the prompt; `{key}` is replaced |
 | `work_create` | | the command that makes a missing worktree (`{branch} {base} {key}`); unset: herdr |
 | `agent_view` | `fullscreen` | `panel` attaches an agent in the panel. Terminal |
-| `multiplexer` | herdr | another multiplexer speaking herdr's socket API and CLI: `command` (its CLI), `socket` (its API socket), `inside_env` (the variable it sets in its panes) |
+| `multiplexer` | herdr | another multiplexer speaking herdr's socket API and CLI: `command` (its CLI), `socket` (its API socket), `inside_env` (the variable it sets in its panes), `jj_workspaces: true` when its worktree calls make and remove jj workspaces itself ([drover](#jj)) |
 | `llm` | `claude -p` when on the PATH | the ask command: the question last, the issue on stdin (`llm`, `ollama run llama3`) |
 | `actions` | | your own commands on an issue, see [Actions](#actions) |
 
@@ -218,6 +218,29 @@ ui:
   work_args: [--append-system-prompt, "User is working on {key}"]
   work_create: [wt, switch, --create, "{branch}", --base, "{base}", --no-cd]
 ```
+
+#### jj
+
+A repository with a `.jj` (colocated with git or not) is read through jj:
+bookmarks are its branches, workspaces its worktrees, `trunk()`'s remote
+bookmark (`main@origin`) the base. The branch you're on is the bookmark on
+`@` or its nearest ancestor, trunk's not counting. Start work makes a jj
+workspace beside the repository (`../repo.issue-ABC-1-fix`) with a
+bookmark at the base when the branch is new, and opens it as a plain
+workspace; herdr's own worktrees are git's. `work_create` is a git command
+and isn't run there. A multiplexer that does jj workspaces itself takes over
+with `jj_workspaces`:
+
+```yaml
+ui:
+  multiplexer: {command: drover, jj_workspaces: true}
+```
+
+Removing a done issue's workspace keeps it while its working copy has
+changes or any change in it isn't in the base, a commit past the bookmark
+too. A pull request pushes the bookmark where it is
+(`jj git push -b`): move it onto your work first. Time proposals take
+jj's record of your edits per change instead of git's branch switches.
 
 ### Planning, roadmap and charts
 

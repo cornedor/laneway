@@ -17,6 +17,7 @@ import (
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/vcs"
 )
 
 // Start work (S in the Jira panel): open the issue's worktree as a herdr
@@ -239,11 +240,17 @@ func jiraWork(c *herdr.Client, repo, tmpl, branch, agent, key, typ, summary stri
 // ({branch}, {base} and {key} replaced) and opening what it made.
 func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string) func(context.Context) (herdr.Worktree, error) {
 	return func(ctx context.Context) (herdr.Worktree, error) {
+		if vcs.IsJJ(repo) && !c.JJWorkspaces {
+			wt, _, err := OpenJJWorkspace(ctx, c, repo, branch, base)
+			return wt, err
+		}
 		wt, err := c.OpenWorktree(ctx, repo, branch)
 		if !herdr.IsCode(err, "worktree_not_found") {
 			return wt, err
 		}
-		if len(create) == 0 {
+		if len(create) == 0 || vcs.IsJJ(repo) {
+			// A jj repo's workspace is the multiplexer's to make: create
+			// commands make git worktrees.
 			return c.CreateWorktree(ctx, repo, branch, base)
 		}
 		r := strings.NewReplacer("{branch}", branch, "{base}", cmp.Or(base, "HEAD"), "{key}", key)
@@ -258,6 +265,26 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 		}
 		return c.OpenWorktree(ctx, repo, branch)
 	}
+}
+
+// OpenJJWorkspace opens the jj workspace on branch, making it from base
+// when there is none, for a multiplexer that doesn't do jj workspaces: as
+// a plain workspace labelled branch. made reports laneway made it.
+func OpenJJWorkspace(ctx context.Context, c *herdr.Client, repo, branch, base string) (wt herdr.Worktree, made bool, err error) {
+	path := ""
+	for p, b := range vcs.Checkouts(repo) {
+		if b == branch {
+			path = p
+		}
+	}
+	if path == "" {
+		if path, err = vcs.AddWorkspace(ctx, repo, branch, base); err != nil {
+			return wt, false, err
+		}
+		made = true
+	}
+	wt, err = c.OpenDir(ctx, branch, path)
+	return wt, made, err
 }
 
 // agentInWorktree opens a worktree with open, labels its tab and starts the
@@ -334,12 +361,8 @@ func jiraAgentName(key string, now time.Time) string {
 // summary or none ("issue/ABC-1-old-title", "issue/ABC-1"), "" when there
 // is none.
 func issueBranch(repo, tmpl, key, typ string) string {
-	out, err := exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").Output()
-	if err != nil {
-		return ""
-	}
 	fits := branchPattern(tmpl, key, typ)
-	for _, b := range strings.Fields(string(out)) {
+	for _, b := range vcs.Branches(repo) {
 		if fits.MatchString(b) {
 			return b
 		}
@@ -375,14 +398,11 @@ func branchPattern(tmpl, key, typ string) *regexp.Regexp {
 	return regexp.MustCompile("^" + re.String() + "$")
 }
 
-// defaultBase is the remote's default branch (origin/main), so a new branch
-// doesn't start from whatever the main checkout has out.
+// defaultBase is the remote's default branch (origin/main, in jj
+// main@origin), so a new branch doesn't start from whatever the main
+// checkout has out.
 func defaultBase(repo string) string {
-	out, err := exec.Command("git", "-C", repo, "rev-parse", "--abbrev-ref", "origin/HEAD").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	return vcs.DefaultBase(repo)
 }
 
 // slugify makes a branch-name slug of a summary: lowercase ASCII words joined

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/timesheet"
+	"github.com/cornedor/laneway/internal/vcs"
 )
 
 // NoTicket names the keyless commits' group.
@@ -80,30 +81,19 @@ func Repos(paths map[string]string) []string {
 
 // Commits are your commits in repos since since, on every branch and
 // without merges, as standup entries; a commit in two repos (a fork) once.
-// A repo git can't read is left out.
+// A repo that can't be read is left out. A jj repo's are its visible
+// changes, not the versions rewriting them left behind.
 func Commits(repos []string, since time.Time) []jira.InboxEntry {
 	seen := map[string]bool{}
 	var out []jira.InboxEntry
 	for _, repo := range repos {
-		email, err := exec.Command("git", "-C", repo, "config", "user.email").Output()
-		if err != nil || strings.TrimSpace(string(email)) == "" {
-			continue
-		}
-		log, err := exec.Command("git", "-C", repo, "log", "--all", "--no-merges",
-			"--since="+strconv.FormatInt(since.Unix(), 10), "--author="+strings.TrimSpace(string(email)),
-			"--format=%H%x09%at%x09%s").Output()
-		if err != nil {
-			continue
-		}
-		for _, line := range strings.Split(strings.TrimSpace(string(log)), "\n") {
-			hash, rest, ok := strings.Cut(line, "\t")
-			at, subject, ok2 := strings.Cut(rest, "\t")
-			sec, err := strconv.ParseInt(at, 10, 64)
-			if !ok || !ok2 || err != nil || seen[hash] {
+		commits, _ := vcs.Commits(repo, since)
+		for _, c := range commits {
+			if seen[c.ID] {
 				continue
 			}
-			seen[hash] = true
-			out = append(out, jira.InboxEntry{Key: KeyRe.FindString(subject), When: time.Unix(sec, 0), What: "commit: " + subject})
+			seen[c.ID] = true
+			out = append(out, jira.InboxEntry{Key: KeyRe.FindString(c.Subject), When: c.At, What: "commit: " + c.Subject})
 		}
 	}
 	return out
@@ -216,7 +206,10 @@ func (p Proposal) SourcesText() string {
 }
 
 // Git is the events in repos between from and to: your commits (the key
-// their subject names) and HEAD's reflog (the key the branch then names).
+// their subject names) and HEAD's reflog (the key the branch then names);
+// in a jj repo, which has no reflog to speak of, the moments jj recorded
+// your work on a change (the key its description names, else its
+// bookmark).
 func Git(repos []string, from, to time.Time) []Event {
 	var out []Event
 	for _, c := range Commits(repos, from) {
@@ -225,6 +218,14 @@ func Git(repos []string, from, to time.Time) []Event {
 		}
 	}
 	for _, repo := range repos {
+		if vcs.IsJJ(repo) {
+			for _, s := range vcs.Snapshots(repo, from) {
+				if s.At.Before(to) {
+					out = append(out, Event{At: s.At, Key: cmp.Or(KeyRe.FindString(s.Subject), BranchKey(s.Bookmark)), Source: "jj"})
+				}
+			}
+			continue
+		}
 		log, err := exec.Command("git", "-C", repo, "log", "-g", "--reverse", "--format=%at%x09%gs",
 			"--since="+strconv.FormatInt(from.Unix(), 10), "HEAD").Output()
 		if err != nil {

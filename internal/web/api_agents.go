@@ -34,10 +34,15 @@ var herdrBin = "herdr"
 // muxClient is ui.multiplexer's API socket, else the running herdr server;
 // nil for none.
 func muxClient(s *Server) *herdr.Client {
-	if p := strings.TrimSpace(s.UIConfig().Multiplexer.Socket); p != "" {
-		return herdr.At(expandUserPath(p))
+	mux := s.UIConfig().Multiplexer
+	c := herdrClient()
+	if p := strings.TrimSpace(mux.Socket); p != "" {
+		c = herdr.At(expandUserPath(p))
 	}
-	return herdrClient()
+	if c != nil {
+		c.JJWorkspaces = mux.JJWorkspaces
+	}
+	return c
 }
 
 // muxBin is ui.multiplexer's CLI, else herdr.

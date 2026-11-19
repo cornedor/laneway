@@ -58,6 +58,7 @@ type options struct {
 	muxCommand      string              // multiplexer CLI; "" is herdrBin
 	muxSocket       string              // multiplexer API socket; "" finds herdr's
 	muxInsideEnv    string              // env var the multiplexer sets in its panes; "" is HERDR_ENV
+	muxJJ           bool                // the multiplexer makes and removes jj workspaces itself
 	workArgs        []string            // its arguments before the start prompt
 	workCreate      []string            // the command that makes a missing worktree, nil: herdr's
 	kanbanDoneDays  int                 // done work older than this leaves kanban boards
@@ -179,6 +180,7 @@ func optionsFrom(c config.UIConfig) (options, []string) {
 	o.muxCommand = strings.TrimSpace(c.Multiplexer.Command)
 	o.muxSocket = strings.TrimSpace(c.Multiplexer.Socket)
 	o.muxInsideEnv = strings.TrimSpace(c.Multiplexer.InsideEnv)
+	o.muxJJ = c.Multiplexer.JJWorkspaces
 	switch v := strings.ToLower(strings.TrimSpace(c.CardColors)); v {
 	case "":
 	case "ribbon", "off":

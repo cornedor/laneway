@@ -51,7 +51,7 @@ var commandFlags = map[string][]string{
 	"create": {"-config", "-site", "-format", "-project", "-type", "-summary", "-description"},
 	"move":   {"-config", "-site"},
 	"prompt": {"-config", "-site", "-format"},
-	"hook":   {"-config", "-site", "-strict", "-force"},
+	"hook":   {"-config", "-site", "-strict", "-force", "-fix"},
 	"rules":  {"-config", "-site", "-on", "-key", "-summary", "-type", "-status", "-from-status", "-assignee", "-priority", "-points", "-watch", "-by-me"},
 	"setup":  {"-config", "-site"},
 	"login":  {"-config", "-site", "-device"},
@@ -62,7 +62,7 @@ var commandFlags = map[string][]string{
 }
 
 var commandArgs = map[string][]string{
-	"hook":       {"install"},
+	"hook":       {"install", "check"},
 	"index":      {"clear"},
 	"rules":      {"list", "test", "watch"},
 	"token":      {"list", "create", "revoke", "revoke-all"},

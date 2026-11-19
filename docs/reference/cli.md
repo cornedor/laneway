@@ -77,6 +77,7 @@ it names the server's own page, which can.
 | `laneway prompt [-format TEMPLATE]` | the git branch's issue, its status, the timer and the inbox count: `ABC-12 · In review · ⏱ 1h 20m · ✉ 3`. Reads the state file only, never Jira; a Go template over `.Key .Status .TimerKey .Timer .Inbox` |
 | `laneway completion bash\|zsh\|fish` | a completion script: commands, flags, site names and, for `view` and `move`, the keys on the boards last loaded |
 | `laneway hook install [-strict] [-force]` | git hooks in this repository, see below |
+| `laneway hook check [-fix] [-strict]` | in a jj repository: the issue keys of your branch's changes, see below |
 | `laneway index [clear]` | what the local index holds; `clear` drops it |
 
 ```sh
@@ -109,6 +110,14 @@ set -g status-right '#(laneway prompt -format "{{.Key}} {{.Timer}}")'
 
 A hook that isn't laneway's is kept unless `-force`; the hooks do nothing
 where laneway isn't installed.
+
+[jj](https://jj-vcs.github.io/jj/) runs no git hooks, so in a jj repository
+`install` says so and installs nothing. `laneway hook check` does
+`commit-msg`'s work there, for the changes of your branch (trunk to `@`) at
+once, before you push: it lists those whose description names no issue and
+fails, `-fix` puts the bookmark's key in front of them (`jj describe`), and
+`-strict` refuses keys Jira doesn't know. Changes without a description are
+left alone; jj won't push them anyway.
 
 ## Rules
 

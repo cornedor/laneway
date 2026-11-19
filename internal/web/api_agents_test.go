@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -21,6 +22,8 @@ import (
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/vcs"
+	"github.com/cornedor/laneway/internal/vcs/vcstest"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -37,6 +40,8 @@ type fakeHerdr struct {
 	// notReady: agent.prompt says agent_not_ready this many times first.
 	notReady  int
 	createErr string // worktree.create fails with it
+	// workspaces are what workspace.list answers; workspace.create adds one.
+	workspaces []map[string]any
 }
 
 func newFakeHerdr(t *testing.T) (*fakeHerdr, *herdr.Client) {
@@ -110,6 +115,14 @@ func (f *fakeHerdr) serve(conn net.Conn) {
 			f.startFails--
 			errObj = map[string]any{"code": "pane_busy", "message": "the pane is busy"}
 		}
+	case "workspace.list":
+		result = map[string]any{"workspaces": f.workspaces}
+	case "workspace.create":
+		ws := map[string]any{"workspace_id": "w9", "label": req.Params["label"]}
+		f.workspaces = append(f.workspaces, ws)
+		result = map[string]any{"workspace": ws, "tab": map[string]any{"tab_id": "t9"}, "root_pane": map[string]any{"pane_id": "p9", "tab_id": "t9"}}
+	case "workspace.close":
+		f.workspaces = slices.DeleteFunc(f.workspaces, func(ws map[string]any) bool { return ws["workspace_id"] == req.Params["workspace_id"] })
 	case "tab.create":
 		result = map[string]any{"tab": map[string]any{"tab_id": "t3"}, "root_pane": map[string]any{"pane_id": "p3"}}
 	case "agent.prompt":
@@ -404,6 +417,9 @@ func TestBranchAndPullRequest(t *testing.T) {
 		return "", nil
 	}
 	defer func() { runIn = old }()
+	oldRun := vcs.Run
+	vcs.Run = runIn
+	defer func() { vcs.Run = oldRun }()
 	var pr map[string]string
 	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/pr", "", &pr); code != 200 || pr["URL"] != "https://gitlab.example.com/x/y/-/merge_requests/3" || pr["Branch"] != "issue/DEMO-5-old" {
 		t.Errorf("pr = %d %v calls %v", code, pr, calls)
@@ -497,10 +513,10 @@ func TestStartWorkErrorsSayHow(t *testing.T) {
 // The cwd's branch names the palette's first issue, only one that exists.
 func TestCwdBranchIssue(t *testing.T) {
 	ts := agentsServer(t, t.TempDir())
-	old := runIn
-	defer func() { runIn = old }()
+	old := cwdBranch
+	defer func() { cwdBranch = old }()
 	for branch, want := range map[string]string{"issue/demo-5-fix": "DEMO-5", "fix/utf-8": "", "DEMO-9999-gone": "", "": ""} {
-		runIn = func(context.Context, string, string, ...string) (string, error) { return branch, nil }
+		cwdBranch = func() string { return branch }
 		var b map[string]string
 		if workCall(t, "GET", ts.URL+"/api/branch", "", &b) != 200 || b["Key"] != want || want != "" && b["Summary"] == "" {
 			t.Errorf("%q: branch = %v, want %q", branch, b, want)
@@ -569,5 +585,62 @@ func TestRemoveWorktree(t *testing.T) {
 	var out map[string]string
 	if c := workCall(t, "DELETE", ts.URL+"/api/issues/DEMO-12/worktree", "", &out); c != 200 || out["Branch"] != "issue/DEMO-12-drop" || !f.called("worktree.remove") {
 		t.Errorf("clean = %d %v", c, out)
+	}
+}
+
+// In a jj repo laneway makes the workspace and opens it as a plain one
+// under herdr, and forgets it on remove; a multiplexer that does jj
+// workspaces itself (jj_workspaces) gets the worktree calls, and the git
+// create command isn't run.
+func TestStartWorkJJ(t *testing.T) {
+	repo, _, _ := vcstest.JJRepo(t)
+	f, c := newFakeHerdr(t)
+	old := herdrClient
+	herdrClient = func() *herdr.Client { return c }
+	defer func() { herdrClient = old }()
+	oldWait := startAgentWait
+	startAgentWait = time.Millisecond
+	defer func() { startAgentWait = oldWait }()
+
+	ts := agentsServerUI(t, repo, config.UIConfig{WorkCreate: []string{"false"}})
+	var res struct{ Path string }
+	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-12/work", `{"Agent":"claude"}`, &res); code != 200 {
+		t.Fatalf("start = %d %+v", code, res)
+	}
+	f.mu.Lock()
+	order, create := strings.Join(f.calls, ","), f.params["workspace.create"]
+	f.mu.Unlock()
+	if !strings.HasPrefix(filepath.Base(res.Path), "repo.issue-DEMO-12-") || create["cwd"] != res.Path {
+		t.Errorf("path %q, workspace.create %v", res.Path, create)
+	}
+	if strings.Contains(order, "worktree.") || !strings.Contains(order, "workspace.create,tab.rename,agent.start") {
+		t.Errorf("calls = %s", order)
+	}
+	branch, _ := create["label"].(string)
+	if wts := vcs.Checkouts(repo); wts[res.Path] != branch {
+		t.Errorf("checkouts = %v, label %q", wts, branch)
+	}
+
+	var out map[string]string
+	if code := workCall(t, "DELETE", ts.URL+"/api/issues/DEMO-12/worktree", "", &out); code != 200 || out["Branch"] != branch {
+		t.Fatalf("remove = %d %v", code, out)
+	}
+	if _, err := os.Stat(res.Path); !os.IsNotExist(err) || len(vcs.Checkouts(repo)) != 0 || !f.called("workspace.close") || f.called("worktree.remove") {
+		t.Errorf("after remove: %v %v", err, vcs.Checkouts(repo))
+	}
+
+	// drover: its worktree calls do jj.
+	f.mu.Lock()
+	f.calls, f.open = nil, false
+	f.mu.Unlock()
+	ts = agentsServerUI(t, repo, config.UIConfig{WorkCreate: []string{"false"}, Multiplexer: config.MultiplexerConfig{JJWorkspaces: true}})
+	if code := workCall(t, "POST", ts.URL+"/api/issues/DEMO-5/work", `{"Agent":"claude"}`, &res); code != 200 {
+		t.Fatalf("start under drover = %d", code)
+	}
+	f.mu.Lock()
+	order = strings.Join(f.calls, ",")
+	f.mu.Unlock()
+	if !strings.Contains(order, "worktree.open,worktree.create") || f.called("workspace.create") || len(vcs.Checkouts(repo)) != 0 {
+		t.Errorf("drover calls = %s, checkouts %v", order, vcs.Checkouts(repo))
 	}
 }

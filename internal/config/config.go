@@ -195,6 +195,10 @@ type MultiplexerConfig struct {
 	// InsideEnv is the environment variable it sets in its panes, telling
 	// laneway it runs inside it ("HERDR_ENV").
 	InsideEnv string `yaml:"inside_env"`
+	// JJWorkspaces says it makes, finds and removes jj workspaces itself
+	// (drover does). Without it laneway makes them in a jj repo and opens
+	// them as plain workspaces.
+	JJWorkspaces bool `yaml:"jj_workspaces,omitempty"`
 }
 
 // UIConfig tunes the app; every field is optional and "" / 0 keeps the

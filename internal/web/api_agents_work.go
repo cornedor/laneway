@@ -22,6 +22,8 @@ import (
 	"github.com/cornedor/laneway/internal/herdr"
 	"github.com/cornedor/laneway/internal/i18n"
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/ui"
+	"github.com/cornedor/laneway/internal/vcs"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -155,11 +157,7 @@ func removeWorktree(ctx context.Context, s *Server, r *http.Request) (any, error
 	if why := worktreeKept(repo, path, branch, defaultBase(repo)); why != "" {
 		return nil, badRequest(i18n.Tf("keeping %s: %s", path, why))
 	}
-	wt, err := c.OpenWorktree(ctx, repo, branch)
-	if err != nil {
-		return nil, err
-	}
-	if err := c.RemoveWorktree(ctx, wt.Workspace); err != nil {
+	if err := ui.DropWorktree(ctx, c, repo, path, branch); err != nil {
 		return nil, err
 	}
 	forgetWorktrees()
@@ -181,26 +179,26 @@ func issueWorktree(repo, tmpl, key, typ string) (path, branch string) {
 // worktreeKept is why the worktree at path on branch must stay, "" when it
 // can go: it has uncommitted changes, or branch is not in base.
 func worktreeKept(repo, path, branch, base string) string {
-	out, err := exec.Command("git", "-C", path, "status", "--porcelain").Output()
-	if err != nil {
-		return i18n.Tf("git status: %s", cli.Error(err))
-	}
-	if len(strings.TrimSpace(string(out))) > 0 {
+	switch err := vcs.Kept(repo, path, branch, base); {
+	case err == nil:
+		return ""
+	case errors.Is(err, vcs.ErrUncommitted):
 		return i18n.T("it has uncommitted changes")
+	case errors.Is(err, vcs.ErrUnmerged):
+		return i18n.Tf("%s is not merged into %s", branch, cmp.Or(base, vcs.DefaultMerged(repo)))
+	default:
+		return cli.Error(err)
 	}
-	if base == "" {
-		base = "HEAD"
-	}
-	if exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", branch, base).Run() != nil {
-		return i18n.Tf("%s is not merged into %s", branch, base)
-	}
-	return ""
 }
+
+// cwdBranch is the branch laneway web started in (jj: its bookmark); tests
+// swap it.
+var cwdBranch = func() string { return vcs.Branch(".") }
 
 // cwdBranchIssue is the issue of the git branch laneway web started in, as
 // the TUI's: first in the palette. It must exist: fix/utf-8 names none.
 func cwdBranchIssue(ctx context.Context, s *Server, r *http.Request) (any, error) {
-	branch, _ := runIn(ctx, "", "git", "branch", "--show-current")
+	branch := cwdBranch()
 	key := work.BranchKey(branch)
 	if key == "" {
 		return map[string]string{}, nil
@@ -292,21 +290,17 @@ func runningOn(ctx context.Context, c *herdr.Client, key string) []AgentOut {
 }
 
 func isRepo(repo string) bool {
-	return exec.Command("git", "-C", repo, "rev-parse", "--git-dir").Run() == nil
+	return vcs.IsRepo(repo)
 }
 
 func branchExists(repo, branch string) bool {
-	return repo != "" && branch != "" && exec.Command("git", "-C", repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch).Run() == nil
+	return vcs.HasBranch(repo, branch)
 }
 
 // keyBranches are repo's local branches that name key.
 func keyBranches(repo, key string) []string {
 	out := []string{}
-	b, err := exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").Output()
-	if err != nil {
-		return out
-	}
-	for _, br := range strings.Fields(string(b)) {
+	for _, br := range vcs.Branches(repo) {
 		if work.BranchKey(br) == key {
 			out = append(out, br)
 		}
@@ -728,11 +722,11 @@ func openPullRequest(ctx context.Context, s *Server, r *http.Request) (any, erro
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	remote, err := runIn(ctx, repo, "git", "remote", "get-url", "origin")
+	remote, err := vcs.RemoteURL(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := runIn(ctx, repo, "git", "push", "-u", "origin", branch); err != nil {
+	if _, err := vcs.Push(ctx, repo, branch); err != nil {
 		return nil, err
 	}
 	title, body := key+" "+iss.Summary, "Jira: "+s.Client().BrowseURL(key)
@@ -780,6 +774,18 @@ var safeArg = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9._/+@-]*$`)
 // says which, in words.
 func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string) func(context.Context) (wt herdr.Worktree, how string, err error) {
 	return func(ctx context.Context) (herdr.Worktree, string, error) {
+		if vcs.IsJJ(repo) && !c.JJWorkspaces {
+			wt, made, err := ui.OpenJJWorkspace(ctx, c, repo, branch, base)
+			switch {
+			case err != nil:
+				return wt, "", err
+			case made:
+				return wt, i18n.T("new jj workspace"), nil
+			case wt.AlreadyOpen:
+				return wt, i18n.T("already open in herdr"), nil
+			}
+			return wt, i18n.T("its jj workspace"), nil
+		}
 		wt, err := c.OpenWorktree(ctx, repo, branch)
 		switch {
 		case err == nil && wt.AlreadyOpen:
@@ -793,7 +799,9 @@ func worktreeIn(c *herdr.Client, repo, branch, base, key string, create []string
 		if !branchExists(repo, branch) {
 			how = i18n.Tf("new worktree, branch from %s", cmp.Or(base, i18n.T("herdr's default")))
 		}
-		if len(create) == 0 {
+		if len(create) == 0 || vcs.IsJJ(repo) {
+			// A jj repo's workspace is the multiplexer's to make: create
+			// commands make git worktrees.
 			wt, err := c.CreateWorktree(ctx, repo, branch, base)
 			return wt, how, err
 		}
@@ -876,43 +884,17 @@ func expandUserPath(p string) string {
 	return filepath.Join(home, p[2:])
 }
 
-// linkedWorktrees are repo's linked worktrees (not its main checkout) that
-// have a branch: path → branch.
+// linkedWorktrees are repo's other checkouts on a branch (not its main
+// one): git's linked worktrees, jj's workspaces. path → branch.
 func linkedWorktrees(repo string) map[string]string {
-	out, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
-	if err != nil {
-		return nil
-	}
-	wts := map[string]string{}
-	for i, block := range strings.Split(strings.TrimSpace(string(out)), "\n\n") {
-		if i == 0 {
-			continue
-		}
-		var p, b string
-		for _, l := range strings.Split(block, "\n") {
-			if v, ok := strings.CutPrefix(l, "worktree "); ok {
-				p = v
-			}
-			if v, ok := strings.CutPrefix(l, "branch refs/heads/"); ok {
-				b = v
-			}
-		}
-		if b != "" {
-			wts[p] = b
-		}
-	}
-	return wts
+	return vcs.Checkouts(repo)
 }
 
 // issueBranch is the repo's local branch that fits tmpl for the issue, any
 // summary or none, "" when there is none.
 func issueBranch(repo, tmpl, key, typ string) string {
-	out, err := exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").Output()
-	if err != nil {
-		return ""
-	}
 	fits := branchPattern(tmpl, key, typ)
-	for _, b := range strings.Fields(string(out)) {
+	for _, b := range vcs.Branches(repo) {
 		if fits.MatchString(b) {
 			return b
 		}
@@ -944,13 +926,10 @@ func branchPattern(tmpl, key, typ string) *regexp.Regexp {
 	return regexp.MustCompile("^" + re.String() + "$")
 }
 
-// defaultBase is the remote's default branch (origin/main).
+// defaultBase is the remote's default branch (origin/main, in jj
+// main@origin).
 func defaultBase(repo string) string {
-	out, err := exec.Command("git", "-C", repo, "rev-parse", "--abbrev-ref", "origin/HEAD").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	return vcs.DefaultBase(repo)
 }
 
 func branchName(tmpl, issueKey, typ, summary string) string {

@@ -1,24 +1,19 @@
 package ui
 
 import (
-	"os/exec"
-	"strings"
-
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/cornedor/laneway/internal/vcs"
 	"github.com/cornedor/laneway/internal/work"
 )
 
 // The issue of the git branch laneway starts in: opened on start, a ⎇ chip
 // in the header and first in the palette.
 
-// gitBranch is the working directory's git branch, "" outside a repo.
+// gitBranch is the working directory's git branch (jj: its bookmark), ""
+// outside a repo.
 var gitBranch = func() string {
-	out, err := exec.Command("git", "branch", "--show-current").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	return vcs.Branch(".")
 }
 
 // branchIssueMsg is the branch's issue found in Jira.

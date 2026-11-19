@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cornedor/laneway/internal/jira"
+	"github.com/cornedor/laneway/internal/vcs"
 )
 
 // TestOpenPullRequest: A's row pushes the issue's branch and opens a draft
@@ -33,6 +34,9 @@ func TestOpenPullRequest(t *testing.T) {
 		}
 		return "", nil
 	}
+	oldRun := vcs.Run
+	t.Cleanup(func() { vcs.Run = oldRun })
+	vcs.Run = runIn
 	m := jiraTabModel(t)
 	m.jiraRepos = map[string]string{"ABC": repo}
 	m.jiraIssue = &jira.Issue{Key: "ABC-1", Summary: "Fix login", Type: "Bug"}

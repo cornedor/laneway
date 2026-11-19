@@ -6,7 +6,6 @@ import (
 	"github.com/cornedor/laneway/internal/i18n"
 	"maps"
 	"os"
-	"os/exec"
 	pathpkg "path"
 	"slices"
 	"strconv"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/forge"
 	"github.com/cornedor/laneway/internal/herdr"
+	"github.com/cornedor/laneway/internal/vcs"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -106,11 +106,15 @@ func StartMRReview(ctx context.Context, c *herdr.Client, repos map[string]string
 			return "", "", false, errors.New("bad branch name " + strconv.Quote(b) + " from GitLab")
 		}
 	}
-	if out, err := exec.CommandContext(ctx, "git", "-C", repo, "fetch", "origin", mr.SourceBranch, mr.TargetBranch).CombinedOutput(); err != nil {
-		return "", "", false, errors.New("git fetch: " + strings.TrimSpace(string(out)))
+	if err := vcs.Fetch(ctx, repo, mr.SourceBranch, mr.TargetBranch); err != nil {
+		return "", "", false, err
 	}
 	name := "mr-" + strconv.Itoa(ref.Number) + "-" + strconv.FormatInt(time.Now().Unix(), 36)
-	wt := worktreeIn(c, repo, mr.SourceBranch, "origin/"+mr.SourceBranch, "", create)
+	base := "origin/" + mr.SourceBranch
+	if vcs.IsJJ(repo) {
+		base = mr.SourceBranch + "@origin"
+	}
+	wt := worktreeIn(c, repo, mr.SourceBranch, base, "", create)
 	args, prompt := workArgs(extra, prompt, label)
 	return agentInWorktree(ctx, c, wt, pathpkg.Base(ref.Repo)+"!"+strconv.Itoa(ref.Number), kind, name, args, prompt)
 }
@@ -133,11 +137,11 @@ func (m Model) handleMRReview(msg mrReviewMsg) (tea.Model, tea.Cmd) {
 // (group/project), "" when none is.
 func checkoutOf(project string, dirs []string) string {
 	for _, d := range dirs {
-		out, err := exec.Command("git", "-C", d, "remote", "get-url", "origin").Output()
+		url, err := vcs.RemoteURL(context.Background(), d)
 		if err != nil {
 			continue
 		}
-		if remoteIsProject(strings.TrimSpace(string(out)), project) {
+		if remoteIsProject(url, project) {
 			return d
 		}
 	}

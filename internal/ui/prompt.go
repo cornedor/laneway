@@ -12,6 +12,7 @@ import (
 
 	"github.com/cornedor/laneway/internal/jira"
 	"github.com/cornedor/laneway/internal/store"
+	"github.com/cornedor/laneway/internal/vcs"
 	"github.com/cornedor/laneway/internal/work"
 )
 
@@ -52,10 +53,14 @@ func BranchIssue() string {
 }
 
 // headBranch is the working directory's branch read from .git/HEAD, which
-// is quicker than running git; "" outside a repo or detached.
+// is quicker than running git; "" outside a repo or detached. jj keeps
+// git's HEAD detached, so in a jj repo it asks jj for the bookmark.
 var headBranch = func() string {
 	dir, err := os.Getwd()
 	for err == nil {
+		if fi, err := os.Stat(filepath.Join(dir, ".jj")); err == nil && fi.IsDir() {
+			return vcs.Branch(dir)
+		}
 		dotGit := filepath.Join(dir, ".git")
 		if fi, err := os.Stat(dotGit); err == nil {
 			if !fi.IsDir() { // a worktree: "gitdir: /repo/.git/worktrees/x"
