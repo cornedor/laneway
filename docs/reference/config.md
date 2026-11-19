@@ -202,7 +202,7 @@ ui:
 | Option | Default | |
 | --- | --- | --- |
 | `start_assigns` | `off` | start work also assigns the issue to you |
-| `start_status` | | and moves it there (`In Progress`), unless the move has a screen |
+| `start_status` | | and moves it there (`In Progress`); a move with a screen opens its form when fields are missing |
 | `branch_template` | `{key}-{summary}` | the copied branch name: `{key} {summary} {type} {project}` |
 | `work_branch_template` | `issue/{key}-{summary}` | start work's new branch; `branch_template` when that is set |
 | `work_agent` | `claude` | the herdr agent start work offers first |

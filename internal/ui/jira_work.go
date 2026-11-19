@@ -426,12 +426,14 @@ func slugify(s string) string {
 type startWritesMsg struct {
 	key string
 	did []string
-	err error
+	// move is the status whose move has a screen: the move form takes it.
+	move string
+	err  error
 }
 
 // startWrites assigns the started issue to you (ui.start_assigns) and
 // moves it to its startStatus, when it isn't so already. A move with a
-// screen of its own is left to the move form. nil with neither set.
+// screen of its own goes through the move form. nil with neither set.
 func (m *Model) startWrites(key string) tea.Cmd {
 	assign, status := m.opts.startAssigns, m.startStatus(key)
 	if !assign && status == "" {
@@ -441,7 +443,7 @@ func (m *Model) startWrites(key string) tea.Cmd {
 	if m.jiraIssue != nil && m.jiraIssue.Key == key {
 		cur = m.jiraIssue.Status
 	}
-	c, ctx, moveKey := m.jiraClient, m.ctx, helpKey(m.keys.JiraStatus)
+	c, ctx := m.jiraClient, m.ctx
 	return func() tea.Msg {
 		var did []string
 		if assign {
@@ -464,7 +466,7 @@ func (m *Model) startWrites(key string) tea.Cmd {
 			case i < 0:
 				return startWritesMsg{key: key, did: did, err: errors.New(i18n.Tf("no move to %s from here", status))}
 			case ts[i].HasScreen:
-				return startWritesMsg{key: key, did: did, err: errors.New(i18n.Tf("the move to %s asks for fields: %s moves it", status, moveKey))}
+				return startWritesMsg{key: key, did: did, move: ts[i].ToName}
 			}
 			if err := c.DoTransition(ctx, key, ts[i].ID); err != nil {
 				return startWritesMsg{key: key, did: did, err: err}
@@ -475,7 +477,9 @@ func (m *Model) startWrites(key string) tea.Cmd {
 	}
 }
 
-// handleStartWrites says what start work changed and reloads the issue.
+// handleStartWrites says what start work changed and reloads the issue. A
+// move with a screen goes on as any other move: made at once when its
+// required fields are filled, through its form otherwise.
 func (m Model) handleStartWrites(msg startWritesMsg) (tea.Model, tea.Cmd) {
 	if len(msg.did) > 0 {
 		m.status = msg.key + " " + strings.Join(msg.did, ", ")
@@ -483,9 +487,12 @@ func (m Model) handleStartWrites(msg startWritesMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		m.fail(msg.key + ": " + msg.err.Error())
 	}
-	board := m.refreshJiraAfterEdit()
+	cmds := []tea.Cmd{m.refreshJiraAfterEdit()}
 	if r := m.currentRef(); r != nil && r.jiraKey == msg.key {
-		return m, tea.Batch(m.loadCurrentRef(), board)
+		cmds = append(cmds, m.loadCurrentRef())
 	}
-	return m, board
+	if to := msg.move; to != "" {
+		cmds = append(cmds, m.prepareJiraMove(msg.key, to, jiraFromPanel, func(t jira.TransitionMeta) bool { return strings.EqualFold(t.ToName, to) }))
+	}
+	return m, tea.Batch(cmds...)
 }
