@@ -130,6 +130,31 @@ test('alt+i lists the attachments with who added them, and it stays', async ({ p
   await expect(files.locator('.thumb', { hasText: 'shot.png' })).toBeVisible();
 });
 
+// Pictures load after the comments are shown and make them taller: the end stays the end.
+test('the comments stay at the latest while their pictures load', async ({ page, app }) => {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600"><rect width="600" height="600" fill="teal"/></svg>';
+  await page.route('**/api/attachments/slow-*', async route => {
+    await new Promise(r => setTimeout(r, 800)); // past the frames it takes to size the comments
+    await route.fulfill({ contentType: 'image/svg+xml', body: svg });
+  });
+  for (const n of [1, 2, 3]) {
+    const res = await page.request.post(app.url + '/api/issues/DEMO-4/comments', { data: { Markdown: `Shot ${n}\n\n![shot](attachment:slow-${n})` } });
+    expect(res.ok()).toBeTruthy();
+  }
+  await page.reload();
+  const p = panel(page);
+  await expect(p.locator('.iss-key')).toHaveText('DEMO-4');
+  await p.locator('.tab', { hasText: 'Comments' }).click();
+  const last = p.locator('.cm img.md-img').last();
+  await expect.poll(() => last.evaluate(n => n.complete && n.naturalHeight)).toBeGreaterThan(0);
+  const fromEnd = () => p.locator('.iss-scroll').evaluate(n => n.scrollHeight - n.scrollTop - n.clientHeight);
+  await expect.poll(fromEnd).toBeLessThan(2);
+  // scrolling yourself lets go of it
+  await p.locator('.iss-scroll').hover();
+  await page.mouse.wheel(0, -400);
+  await expect.poll(fromEnd).toBeGreaterThan(100);
+});
+
 // laneway-server's change stream (the demo has none: this stands in for it): someone else's comment
 // shows in the open issue without a reload.
 test.describe('on laneway-server', () => {
