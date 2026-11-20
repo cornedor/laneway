@@ -262,12 +262,13 @@ func webAutostart(cfgPath, addr string) *web.Autostart {
 	if abs, err := filepath.Abs(exe); err == nil {
 		exe = abs
 	}
-	argv := []string{exe, "web", "-no-open", "-addr", addr}
+	argv := []string{exe}
 	if cfgPath != "" {
 		if abs, err := filepath.Abs(cfgPath); err == nil {
-			argv = append(argv, "-config", abs)
+			argv = append(argv, "-config", abs) // a global flag: before the command
 		}
 	}
+	argv = append(argv, "web", "-no-open", "-addr", addr)
 	return &web.Autostart{Sys: autostart.Default(), Argv: argv, Path: os.Getenv("PATH")}
 }
 
