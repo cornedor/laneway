@@ -146,11 +146,16 @@ func TestRunningWeb(t *testing.T) {
 	}
 }
 
-// TestWebAutostartArgv: the same address and an absolute -config.
+// TestWebAutostartArgv: the same address and an absolute -config, which is
+// a global flag: after web, the web command rejects it and the service
+// never starts.
 func TestWebAutostartArgv(t *testing.T) {
 	a := webAutostart("c.yaml", "127.0.0.1:9000")
-	if a == nil || len(a.Argv) != 7 || !filepath.IsAbs(a.Argv[0]) || strings.Join(a.Argv[1:5], " ") != "web -no-open -addr 127.0.0.1:9000" || !filepath.IsAbs(a.Argv[6]) {
+	if a == nil || len(a.Argv) != 7 || !filepath.IsAbs(a.Argv[0]) || a.Argv[1] != "-config" || !filepath.IsAbs(a.Argv[2]) || strings.Join(a.Argv[3:], " ") != "web -no-open -addr 127.0.0.1:9000" {
 		t.Errorf("argv = %+v", a)
+	}
+	if a := webAutostart("", "127.0.0.1:9000"); a == nil || strings.Join(a.Argv[1:], " ") != "web -no-open -addr 127.0.0.1:9000" {
+		t.Errorf("argv without -config = %+v", a)
 	}
 }
 
