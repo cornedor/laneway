@@ -17,6 +17,9 @@ weighs its points against what the last sprints got done (`10p of ~12p`,
 marked over when it is more). Move cards across, rank them, start and
 complete sprints. Changes show at once and are written behind.
 
+A future sprint leaves its done issues out, as Jira does; the backlog
+never lists them. `d` shows them, and laneway remembers it.
+
 === "Terminal"
 
     `P` on the board puts the backlog on the left and a sprint on the
@@ -36,6 +39,7 @@ complete sprints. Changes show at once and are written behind.
     | `C` twice | complete the active sprint; unfinished work moves to the next one |
     | `y` | copy the sprint as a markdown table |
     | `/`, `F` | filter both sides, filter builder |
+    | `d` | hide or show the future sprint's done issues (`done hidden` in the view line) |
     | `e` / `B` | quick edit the card / the marked ones |
     | `u` | undo the last move across |
 
@@ -60,6 +64,7 @@ complete sprints. Changes show at once and are written behind.
     | `C` | complete the active sprint; unfinished work moves on |
     | `y` | copy the section as a markdown table |
     | `f`, `F`, `A` | filter, filter builder, assignee filter |
+    | `d` | hide or show the planned sprints' done issues (the **Hide done** chip) |
     | `e` / `X` | quick edit the card / the selected ones |
 
 > **Tip:** tell laneway how many points each person takes on:

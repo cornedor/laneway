@@ -261,3 +261,32 @@ test.describe('on laneway-server', () => {
     await expect(head(page, 'Sprint 13')).toContainText('4 issues');
   });
 });
+
+// A planned sprint leaves its done issues out, as Jira does; the Hide done
+// chip says so, and d (or a click on it) shows them, remembered over a reload.
+test('a planned sprint hides its done issues until d', async ({ page }) => {
+  let done = '', name = '', n = 0;
+  await page.route('**/api/plan/*', async route => {
+    const res = await route.fetch();
+    const d = await res.json();
+    const sp = (d.Sprints || []).find(s => s.State === 'future' && (s.Cards || []).length > 1);
+    if (sp) { sp.Cards[0].Done = true; done = sp.Cards[0].Key; name = sp.Name; n = sp.Cards.length - 1; }
+    await route.fulfill({ response: res, json: d });
+  });
+  await page.reload();
+  await expect.poll(() => done).not.toBe('');
+  const chip = page.locator('.pl-chips .fchip', { hasText: 'Hide done' });
+  await expect(chip).toHaveClass(/\bon\b/);
+  await expect(head(page, name)).toContainText(`${n} of ${n + 1} issues`);
+  await expect(row(page, done)).toHaveCount(0);
+
+  await page.keyboard.press('d');
+  await expect(chip).not.toHaveClass(/\bon\b/);
+  await expect(head(page, name)).toContainText(`${n + 1} issues`);
+  await expect(row(page, done)).toBeVisible();
+  await page.reload();
+  await expect(row(page, done)).toBeVisible();
+
+  await chip.click();
+  await expect(row(page, done)).toHaveCount(0);
+});

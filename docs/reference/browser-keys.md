@@ -152,6 +152,7 @@ Fields have no key walk: click one to edit it.
 | `C` | complete it | |
 | `E` | name, goal and end in one form | `R`, `E` |
 | `f` `F` `A` | filter, builder, assignee | `/` `F` |
+| `d` | hide or show a planned sprint's done issues (hidden at first) | |
 | `O` | sort | |
 | `y` | copy the section as a markdown table | |
 | `R` | reload | |

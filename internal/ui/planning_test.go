@@ -521,3 +521,68 @@ func TestPlanFilterBuilder(t *testing.T) {
 		t.Errorf("points>2 sev: %v / %v", v, p.view(1))
 	}
 }
+
+// TestPlanHidesDoneInFutureSprint: a planned sprint leaves its done issues
+// out, as Jira does, and says so; d shows them and is remembered. The
+// active sprint keeps showing its done ones.
+func TestPlanHidesDoneInFutureSprint(t *testing.T) {
+	m := jiraTabModel(t)
+	m.jiraClient = jira.New(jira.Config{BaseURL: "http://127.0.0.1:1", Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.views = append(m.jiraTab.views, jiraView{kind: jiraViewSprint, name: "Sprint 2", sprint: 10})
+	open := func(m Model) Model {
+		out, _ := m.handleJiraKey(keyMsg(t, "P"))
+		m = out.(Model)
+		out, _ = m.handlePlan(planMsg{seq: m.jiraTab.plan.seq,
+			left: []jira.Card{{Key: "ABC-7", Summary: "Seven"}},
+			right: []jira.Card{
+				{Key: "ABC-1", Summary: "First", Points: "5"},
+				{Key: "ABC-4", Summary: "Fourth", Points: "3", Done: true},
+			}})
+		return out.(Model)
+	}
+	m = open(m)
+	p := m.jiraTab.plan
+	if p.sprints[p.target].name != "Sprint 2" {
+		t.Fatalf("planning should aim at the future sprint, got %s", p.sprints[p.target].name)
+	}
+	if v := p.view(1); len(v) != 1 || v[0].Key != "ABC-1" {
+		t.Fatalf("future sprint shows %v, want ABC-1 only", v)
+	}
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Sprint 2  1 of 2 cards · 5p", "done hidden"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("planning lacks %q:\n%s", want, view)
+		}
+	}
+	if _, cmd := m.handleJiraKey(keyMsg(t, "l")); cmd != nil {
+		t.Fatal("l should only switch side")
+	}
+	if _, cmd := m.handleJiraKey(keyMsg(t, "K")); cmd != nil {
+		t.Error("ranking with done issues hidden should wait")
+	}
+
+	out, _ := m.handleJiraKey(keyMsg(t, "d"))
+	m = out.(Model)
+	if v := p.view(1); len(v) != 2 {
+		t.Fatalf("d should show the done issues, got %v", v)
+	}
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Sprint 2  2 cards · 8p") || !strings.Contains(view, "done shown") {
+		t.Errorf("after D:\n%s", view)
+	}
+
+	// Closed and opened again: the choice holds.
+	out, _ = m.handleJiraKey(keyMsg(t, "esc"))
+	m = open(out.(Model))
+	if v := m.jiraTab.plan.view(1); len(v) != 2 {
+		t.Errorf("d should be remembered, got %v", v)
+	}
+
+	// The active sprint shows its done issues either way.
+	out, _ = m.handleJiraKey(keyMsg(t, "d")) // hide again
+	m = out.(Model)
+	p = m.jiraTab.plan
+	p.target = 0 // Sprint 1, active
+	if v := p.view(1); len(v) != 2 {
+		t.Errorf("the active sprint should keep its done issues, got %v", v)
+	}
+}

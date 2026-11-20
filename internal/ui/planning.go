@@ -52,6 +52,9 @@ type planState struct {
 	env     jiraQueryEnv
 	find    textinput.Model
 	finding bool
+	// showDone shows a future sprint's done issues, which it leaves out
+	// like Jira does until d; remembered in planShowDoneMeta.
+	showDone bool
 	// undo is the last move across, for u to take back.
 	undo *planUndo
 	// velocity is the points done a sprint, averaged over the last velN
@@ -73,18 +76,47 @@ type planUndo struct {
 	target int
 }
 
-// view is side's cards the filter lets through, all without one.
+// planShowDoneMeta remembers d: a future sprint's done issues shown.
+const planShowDoneMeta = "plan_show_done"
+
+// view is side's cards the filter lets through, all without one; a future
+// sprint's done ones only once d shows them.
 func (p *planState) view(side int) []jira.Card {
-	if p.filter == "" {
+	hide := p.hidesDone(side)
+	if p.filter == "" && !hide {
 		return p.sides[side]
 	}
 	var out []jira.Card
 	for _, c := range p.sides[side] {
-		if jiraCardMatches(c, p.terms, p.env) {
+		if (!hide || !c.Done) && (p.filter == "" || jiraCardMatches(c, p.terms, p.env)) {
 			out = append(out, c)
 		}
 	}
 	return out
+}
+
+// hidesDone is whether side leaves its done issues out: the sprint side
+// on a future sprint, until d shows them.
+func (p *planState) hidesDone(side int) bool {
+	return side == 1 && !p.showDone && !p.sprints[p.target].lanes
+}
+
+// narrowed is whether side shows fewer than all its cards, by the filter
+// or by done issues left out: ranking needs them all.
+func (p *planState) narrowed(side int) bool {
+	return p.filter != "" || p.hidesDone(side) && slices.ContainsFunc(p.sides[side], func(c jira.Card) bool { return c.Done })
+}
+
+// planRankWait is why side can't be ranked now, "" when it can.
+func (m *Model) planRankWait(side int) string {
+	p := m.jiraTab.plan
+	switch {
+	case p.filter != "":
+		return i18n.T("ranking needs every card: esc clears the filter")
+	case p.narrowed(side):
+		return i18n.Tf("ranking needs every card: %s shows the done ones", helpKey(m.keys.PlanDone))
+	}
+	return ""
 }
 
 // setFilter narrows both sides to q, the cursors back to the top.
@@ -141,6 +173,9 @@ func (m *Model) openPlanning() tea.Cmd {
 			p.target = i
 			break
 		}
+	}
+	if v, ok, _ := m.store.GetMeta(planShowDoneMeta); ok {
+		p.showDone, _ = strconv.ParseBool(v)
 	}
 	t.plan = p
 	return m.loadPlan()
@@ -354,6 +389,14 @@ func (m Model) handlePlanKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		p.finding = true
 	case key.Matches(msg, m.keys.FilterBuilder):
 		m.openFilterBuilder(true)
+	case key.Matches(msg, m.keys.PlanDone):
+		p.showDone = !p.showDone
+		p.idx[1], p.top[1] = 0, 0
+		_ = m.store.SetMeta(planShowDoneMeta, strconv.FormatBool(p.showDone))
+		m.status = i18n.T("future sprints hide their done issues")
+		if p.showDone {
+			m.status = i18n.T("future sprints show their done issues")
+		}
 	case key.Matches(msg, m.keys.QuickEdit):
 		if c, ok := p.planCard(); ok {
 			m.openQuickEditKey(c.Key)
@@ -696,8 +739,8 @@ func (m Model) handlePlanSprint(msg planSprintMsg) (tea.Model, tea.Cmd) {
 // before (up) or after (down) that neighbour.
 func (m *Model) planRank(d int) tea.Cmd {
 	p := m.jiraTab.plan
-	if p.filter != "" {
-		m.status = i18n.T("ranking needs every card: esc clears the filter")
+	if why := m.planRankWait(p.side); why != "" {
+		m.status = why
 		return nil
 	}
 	s, i := p.sides[p.side], p.idx[p.side]
@@ -739,7 +782,7 @@ func (m *Model) planRankTo(side int, key string, slot int) tea.Cmd {
 // slot.
 func (p *planState) dragOrder(side int, cards []jira.Card) []jira.Card {
 	d := p.drag
-	if !d.active || d.side != side || d.over != side || p.filter != "" {
+	if !d.active || d.side != side || d.over != side || p.narrowed(side) {
 		return cards
 	}
 	i := slices.IndexFunc(cards, func(c jira.Card) bool { return c.Key == d.key })
@@ -865,6 +908,8 @@ func (m *Model) renderPlanSide(side int, name string, width, height int) string 
 	}
 	if len(cards) == 0 && p.filter != "" && len(p.sides[side]) > 0 {
 		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(i18n.T("none match the filter · esc clears it"), width, "…")))
+	} else if len(cards) == 0 && len(p.sides[side]) > 0 {
+		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(i18n.Tf("only done issues · %s shows them", helpKey(m.keys.PlanDone)), width, "…")))
 	} else if len(cards) == 0 && p.sides[side] != nil {
 		hint := i18n.Tf("empty · %s or space on the other side moves cards here", helpKey(m.keys.MoveSprint))
 		lines = append(lines, "", refDimStyle.Render(ansi.Truncate(hint, width, "…")))

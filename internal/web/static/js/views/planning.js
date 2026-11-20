@@ -115,6 +115,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     if (b.dataset.qf) toggleQF(Number(b.dataset.qf));
     else if (b.dataset.act === 'mine') toggleMine();
     else if (b.dataset.act === 'who') pickWho();
+    else if (b.dataset.act === 'done') toggleDone();
     else clearFilters();
   });
   const colsBtn = h('button.btn.ghost', { title: T('List columns'), onclick: () => pickCols() }, icon('columns-3'), T('Columns'));
@@ -198,7 +199,12 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   const tmark = key => (app.timer ? app.timer.mark(key) : '');
   const filtering = () => !!match || who != null || mine || qf.size > 0;
   const visible = c => (!mine || c.AssigneeID === me) && passesWho(who, c) && (!match || match(c));
-  const shown = (s, p) => sortCards(filtering() ? s.cards.filter(visible) : s.cards, CMP, p.sort, p.dir);
+  // A planned sprint leaves its done issues out, as Jira does, until the Hide done chip (d) is off.
+  let showDone = !!app.prefs.get('planning.show_done', '');
+  const hidesDone = s => !showDone && !!s.sprint && s.sprint.State === 'future';
+  const hidden = s => hidesDone(s) && s.cards.some(c => c.Done);
+  const cardsOf = s => filtering() || hidden(s) ? s.cards.filter(c => !(hidesDone(s) && c.Done) && (!filtering() || visible(c))) : s.cards;
+  const shown = (s, p) => sortCards(cardsOf(s), CMP, p.sort, p.dir);
   const names = new Map();
   const qfs = () => (data && data.QuickFilters) || [];
   function renderChips() {
@@ -206,6 +212,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
       h('button.fchip' + (mine ? '.on' : ''), { dataset: { act: 'mine' }, title: T('Assigned to me') }, T('Mine')),
       h('button.fchip' + (who != null ? '.on' : ''), { dataset: { act: 'who' }, title: T('Assignee  (A)') }, h('kbd', 'A'), who == null ? T('Assignee') : whoLabel(who, id => names.get(id) || id)),
       ...qfs().slice(0, 9).map((q, i) => h('button.fchip' + (qf.has(q.ID) ? '.on' : ''), { dataset: { qf: q.ID }, title: q.JQL }, h('kbd', i + 1), q.Name)),
+      h('button.fchip' + (showDone ? '' : '.on'), { dataset: { act: 'done' }, title: T('Leave done issues out of planned sprints, as Jira does  (d)') }, h('kbd', 'd'), T('Hide done')),
     ];
     if (filtering()) kids.push(h('button.fchip.clear', { dataset: { act: 'clear' }, title: T('Clear filters  (0)') }, icon('x'), T('clear'), keyHint('0')));
     clear(chips).append(...kids);
@@ -218,6 +225,11 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   function toggleMine() {
     mine = !mine;
     if (mine) who = null;
+    renderChips(); relayout();
+  }
+  function toggleDone() {
+    showDone = !showDone;
+    app.prefs.set('planning.show_done', showDone ? 1 : '');
     renderChips(); relayout();
   }
   function toggleQF(id) {
@@ -333,14 +345,14 @@ export default async function mount(el, { app, params, scope, context, toolbar }
 
   function sigOf(r) {
     if (r.k === 'c') { const c = r.c; return [cols, c.Key, c.Summary, c.Status, c.Done, c.InProgress, c.Priority, c.Assignee, c.AvatarURL, c.Points, c.Flagged, c.ParentSummary, c.Labels, c.Reporter, c.Due, c.Updated, c.Created, c.Since, c.Extra, sel.has(c.Key), pinned.has(c.Key), cellCtx.hl(c.Key), tmark(c.Key)].join('|'); }
-    if (r.k === 'e') return 'e' + (filtering() ? 'f' : '');
+    if (r.k === 'e') return 'e' + (filtering() ? 'f' : hidden(r.s) ? 'd' : '');
     const s = r.s;
-    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, s.sprint && s.sprint.Mine && s.sprint.Mine.Capacity, folded.has(s.id), velAvg, velN, filter, whoKey(who), mine,
+    return ['h', s.id, s.name, s.sprint && s.sprint.State, s.sprint && s.sprint.Start, s.sprint && s.sprint.End, s.sprint && s.sprint.Goal, s.sprint && s.sprint.Mine && s.sprint.Mine.Capacity, folded.has(s.id), velAvg, velN, filter, whoKey(who), mine, showDone,
       s.cards.map(c => c.Key + c.Points + c.Assignee + c.Done).join(',')].join('|');
   }
 
   function rowNode(r) {
-    if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filtering() ? T('No matches') : r.s.sprint ? T('Drop issues here to plan them') : T('The backlog is empty'));
+    if (r.k === 'e') return h('div.pl-row.pl-empty', { style: { height: r.h + 'px' } }, filtering() ? T('No matches') : hidden(r.s) ? T('Only done issues: d shows them') : r.s.sprint ? T('Drop issues here to plan them') : T('The backlog is empty'));
     if (r.k === 'h') return headNode(r.s, r.h);
     const c = r.c, w = buildRow(cols);
     w.className = 'lrow ' + (c.Done ? 'done' : c.InProgress ? 'prog' : 'todo') + (c.Flagged ? ' flagged' : '');
@@ -350,7 +362,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   }
 
   function headNode(s, height) {
-    const sp = s.sprint, open = !folded.has(s.id), all = s.cards, cs = filtering() ? all.filter(visible) : all;
+    const sp = s.sprint, open = !folded.has(s.id), all = s.cards, cs = cardsOf(s);
     const sum = cs.reduce((a, c) => a + pts(c), 0), done = cs.reduce((a, c) => a + (c.Done ? pts(c) : 0), 0);
     const over = sp && velAvg > 0 && all.reduce((a, c) => a + pts(c), 0) > velAvg * 1.001;
     const dates = sp && !isZero(sp.Start) ? shortDate(sp.Start) + ' – ' + shortDate(sp.End) : '';
@@ -558,6 +570,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   // J/K: swap with the neighbour
   function rankStep(d) {
     const cc = curCard(); if (!cc || filtering()) return;
+    if (hidden(cc.s)) { app.ui.toast(T('Ranking needs every issue: d shows the done ones')); return; }
     const p = paneOf(cur) || left;
     if (sorted(p)) { app.ui.toast(T('Sorted by %s: J and K rank in the rank order, a click on the header brings it back', p.sort)); return; }
     const cs = cc.s.cards, j = cs.indexOf(cc.c) + d;
@@ -777,6 +790,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
   scope.bind('F', openBuilder, T('filter builder'), { ...G, bar: T('filter builder') });
   scope.bind('A', pickWho, T('filter by assignee'), G);
   scope.bind('0', clearFilters, T('clear filters'), G);
+  scope.bind('d', toggleDone, T("hide or show a planned sprint's done issues"), G);
   for (let i = 1; i <= 9; i++) scope.bind(String(i), () => { const q = qfs()[i - 1]; if (q) toggleQF(q.ID); }, i === 1 ? T('toggle quick filter 1-9') : '', { ...G, hidden: i > 1 });
   scope.bind('Escape', () => {
     if (document.activeElement === filterIn) { filterIn.value = ''; filterIn.blur(); setFilter(''); return; }

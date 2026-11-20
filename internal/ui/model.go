@@ -77,7 +77,7 @@ type keyMap struct {
 
 	// Planning's, the roadmap's and the timesheet's own keys.
 	PlanStart, PlanGoal, PlanRename     key.Binding
-	PlanNew, PlanComplete               key.Binding
+	PlanNew, PlanComplete, PlanDone     key.Binding
 	RankUp, RankDown                    key.Binding
 	RankTop, RankBottom                 key.Binding
 	NextComment, PrevComment            key.Binding
@@ -204,6 +204,7 @@ func defaultKeys() keyMap {
 		PlanRename:      bind(i18n.T("rename the sprint"), "R"),
 		PlanNew:         bind(i18n.T("new sprint"), "N"),
 		PlanComplete:    bind(i18n.T("complete the sprint (twice)"), "C"),
+		PlanDone:        bind(i18n.T("hide or show a future sprint's done issues"), "d"),
 		RankUp:          bind(i18n.T("rank up"), "K"),
 		RankDown:        bind(i18n.T("rank down"), "J"),
 		RankTop:         bind(i18n.T("rank to the top"), "alt+k"),

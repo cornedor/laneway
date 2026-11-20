@@ -26,7 +26,7 @@ func (k *keyMap) keyNames() map[string]*key.Binding {
 		"project": &k.Project, "board": &k.Board, "next_view": &k.NextView, "prev_view": &k.PrevView,
 		"toggle_mode": &k.ToggleMode, "sort": &k.Sort, "move_sprint": &k.MoveSprint,
 		"assignee_filter": &k.Assignee, "mine": &k.Mine, "clear_filters": &k.ClearFilters, "roadmap": &k.Roadmap, "palette": &k.Palette, "mark": &k.Mark, "mark_all": &k.MarkAll, "undo": &k.Undo, "bulk": &k.Bulk, "plan": &k.Plan, "charts": &k.Charts, "log_work": &k.LogWork, "description": &k.JiraDescription, "inbox": &k.Inbox, "issue_actions": &k.IssueActions, "site": &k.Site, "standup": &k.Standup, "history": &k.History, "development": &k.DevInfo, "pin": &k.Pin, "fold": &k.Fold, "unfold_all": &k.UnfoldAll, "next_band": &k.NextBand, "prev_band": &k.PrevBand, "jql": &k.JQL, "timer": &k.Timer, "timesheet": &k.Timesheet, "settings": &k.Settings, "filter_builder": &k.FilterBuilder, "panel_wider": &k.PanelWider, "panel_narrower": &k.PanelNarrower, "quick_edit": &k.QuickEdit, "my_work": &k.MyWork, "compact": &k.Compact, "empty_lanes": &k.EmptyLanes, "lane_layout": &k.LaneLayout, "arrange_lanes": &k.ArrangeLanes, "releases": &k.Releases, "repeat": &k.Repeat, "refine": &k.Refine, "notes": &k.Notes, "ask": &k.Ask, "time_machine": &k.TimeMachine, "closed_sprint": &k.ClosedSprint, "agent_back": &k.AgentBack, "agents": &k.Agents, "merge_requests": &k.MergeRequests, "home": &k.StartScreen,
-		"plan_start": &k.PlanStart, "plan_goal": &k.PlanGoal, "plan_rename": &k.PlanRename, "plan_new": &k.PlanNew, "plan_complete": &k.PlanComplete,
+		"plan_start": &k.PlanStart, "plan_goal": &k.PlanGoal, "plan_rename": &k.PlanRename, "plan_new": &k.PlanNew, "plan_complete": &k.PlanComplete, "plan_done": &k.PlanDone,
 		"rank_up": &k.RankUp, "rank_down": &k.RankDown, "rank_top": &k.RankTop, "rank_bottom": &k.RankBottom, "next_comment": &k.NextComment, "prev_comment": &k.PrevComment, "delete_comment": &k.DeleteComment, "standup_pause": &k.StandupPause, "standup_shuffle": &k.StandupShuffle, "standup_park": &k.StandupPark, "inbox_done": &k.InboxDone, "inbox_done_all": &k.InboxDoneAll, "inbox_unread": &k.InboxUnread, "inbox_snooze": &k.InboxSnooze, "agent_prompt": &k.AgentPrompt, "agent_stop": &k.AgentStop,
 		"roadmap_grip": &k.RoadmapGrip, "roadmap_fold": &k.RoadmapFold, "zoom_in": &k.ZoomIn, "zoom_out": &k.ZoomOut, "today": &k.Today,
 		"end_earlier": &k.EndEarlier, "end_later": &k.EndLater, "roadmap_issues": &k.RoadmapIssues, "roadmap_edit": &k.RoadmapEdit,
@@ -83,7 +83,7 @@ var keyScopes = []struct {
 	}},
 	{"planning", []string{
 		"up", "down", "left", "right", "top", "bottom", "page_up", "page_down", "quit", "plan", "next_view", "prev_view",
-		"mark", "move_sprint", "plan_start", "plan_goal", "plan_rename", "plan_new", "plan_complete", "rank_up", "rank_down",
+		"mark", "move_sprint", "plan_start", "plan_goal", "plan_rename", "plan_new", "plan_complete", "plan_done", "rank_up", "rank_down",
 		"search", "quick_edit", "bulk", "undo",
 		"refresh", "browser", "open", "toggle_panel", "help", "copy_key",
 	}},
