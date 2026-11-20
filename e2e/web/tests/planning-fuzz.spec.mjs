@@ -34,6 +34,8 @@ const view = page => page.evaluate(async () => {
   }
   return out;
 });
+// The planned sprints: they leave their done issues out, as Jira does (the Hide done chip, on at first).
+const plannedNames = page => page.evaluate(() => [...document.querySelectorAll('.pl-head')].filter(h => h.querySelector('.pill.cat-new')).map(h => h.querySelector('.pl-name').textContent));
 const doneKeys = page => page.evaluate(() => [...document.querySelectorAll('.lrow[data-key]')].filter(r => r.querySelector('.cat-done')).map(r => r.dataset.key));
 
 // slowJira: writes wait up to 600ms; each list in a /plan answer is the server's from up to LAG
@@ -86,7 +88,8 @@ async function slowJira(page, LAG) {
     still: async () => { await expect.poll(() => loading, { timeout: 20000 }).toBe(0); await sleep(150); },
     truth: async () => {
       const d = await (await page.request.get(url)).json();
-      return [...d.Sprints.map(s => ({ name: s.Name, keys: s.Cards.map(c => c.Key) })), { name: 'Backlog', keys: d.Backlog.Cards.map(c => c.Key) }];
+      const shows = (s, c) => s.State !== 'future' || !c.Done;
+      return [...d.Sprints.map(s => ({ name: s.Name, keys: s.Cards.filter(c => shows(s, c)).map(c => c.Key) })), { name: 'Backlog', keys: d.Backlog.Cards.map(c => c.Key) }];
     },
     // settled: no write on the way, and Jira's lists have caught up
     // settled: no write on the way for a while (a queued one may not have gone out yet), and Jira's
@@ -113,6 +116,7 @@ for (const [site, { flavour, lag: LAG, hold: HOLD }] of Object.entries(FLAVOURS)
       const where = new Map(); // issue → the section the moves put it in
       const adopt = v => { where.clear(); for (const s of v) for (const k of s.keys) where.set(k, s.name); };
       adopt(await view(page));
+      const planned = new Set(await plannedNames(page));
       let v = [];
       const fail = msg => { throw new Error(`${msg}\nseed ${seed}, steps:\n  ${log.join('\n  ')}\nview:\n  ${v.map(s => s.name + ': ' + s.keys.join(' ')).join('\n  ')}\nfailed requests:\n  ${jira.errs.join('\n  ')}`); };
       const check = async () => {
@@ -156,6 +160,8 @@ for (const [site, { flavour, lag: LAG, hold: HOLD }] of Object.entries(FLAVOURS)
         // A done issue moved to the backlog is on no list after, as in Jira: planning asks first and
         // takes it out. The bulk dialog doesn't ask, so it leaves those be.
         const fits = (ks, to) => to !== 'Backlog' || !ks.some(x => done.has(x));
+        // A done issue moved into a planned sprint is there, but hidden.
+        const hides = (x, to) => planned.has(to) && done.has(x);
         const moved = async (ks, to) => {
           const out = to === 'Backlog' ? ks.filter(x => done.has(x) && where.get(x) !== 'Backlog') : [];
           if (out.length) {
@@ -164,7 +170,7 @@ for (const [site, { flavour, lag: LAG, hold: HOLD }] of Object.entries(FLAVOURS)
             await dlg.getByRole('button', { name: 'Move' }).click();
             await expect(dlg).toHaveCount(0);
           }
-          for (const x of ks) out.includes(x) ? where.delete(x) : where.set(x, to);
+          for (const x of ks) out.includes(x) || hides(x, to) ? where.delete(x) : where.set(x, to);
         };
         const keys = v.flatMap(s => s.keys);
         const k = any(keys), from = where.get(k), at = names.indexOf(from);
@@ -200,7 +206,7 @@ for (const [site, { flavour, lag: LAG, hold: HOLD }] of Object.entries(FLAVOURS)
             if (ks.length > 1) await page.getByRole('dialog').getByRole('button', { name: 'Apply' }).click();
             await expect(page.getByRole('dialog')).toHaveCount(0);
             await page.keyboard.press('Escape'); // the marks
-            for (const x of ks) where.set(x, to);
+            for (const x of ks) hides(x, to) ? where.delete(x) : where.set(x, to);
           } else {
             await page.keyboard.press('m'); await pickSection(to);
             await moved(ks, to);

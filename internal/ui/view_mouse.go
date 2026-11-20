@@ -197,8 +197,8 @@ func (m Model) dragPlan(x, y int) (tea.Model, tea.Cmd) {
 	switch {
 	case d.over != d.side:
 		m.status = i18n.Tf("drop %s on %s", d.key, []string{i18n.T("the backlog"), p.sprints[p.target].name}[d.over])
-	case p.filter != "":
-		m.status = i18n.T("ranking needs every card: esc clears the filter")
+	case p.narrowed(d.side):
+		m.status = m.planRankWait(d.side)
 	default:
 		n := len(p.sides[d.side])
 		d.slot = min(max(p.top[d.side]+y-jiraBodyTop-2, 0), max(n-1, 0))
@@ -219,7 +219,7 @@ func (m Model) dropPlan() (tea.Model, tea.Cmd) {
 		return m, nil
 	case d.over == d.side:
 		m.status = ""
-		if p.filter != "" {
+		if p.narrowed(d.side) {
 			return m, nil
 		}
 		return m, m.planRankTo(d.side, d.key, d.slot)

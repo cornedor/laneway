@@ -427,6 +427,13 @@ func (m *Model) planSegs() []headSeg {
 	case p.filter != "":
 		segs = append(segs, plainSeg(dim(i18n.Tf("  /%s (esc clears)", p.filter))))
 	}
+	if !p.sprints[p.target].lanes { // a future sprint: its done issues hidden, d shows them
+		what := i18n.T("done hidden")
+		if p.showDone {
+			what = i18n.T("done shown")
+		}
+		segs = append(segs, plainSeg(dim("  ·  ")), keySeg(dim(what+" "+helpKey(k.PlanDone)), k.PlanDone))
+	}
 	if p.loading {
 		segs = append(segs, plainSeg(dim(i18n.T("  ·  loading…"))))
 	}

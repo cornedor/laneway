@@ -152,6 +152,7 @@ func (m *Model) helpSections() []struct {
 			row(k.PlanRename, i18n.T("rename the sprint")),
 			row(k.PlanNew, i18n.T("new sprint")),
 			row(k.PlanComplete, i18n.T("complete the active sprint (twice)")),
+			row(k.PlanDone, i18n.T("hide or show a future sprint's done issues")),
 			row(k.Search, i18n.T("filter both sides (esc clears)")),
 			row(k.FilterBuilder, i18n.T("filter builder: field, compare, value side by side → filter")),
 			row(k.QuickEdit, i18n.T("quick edit: status, priority, assignee, points…")),
