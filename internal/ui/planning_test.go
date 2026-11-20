@@ -586,3 +586,37 @@ func TestPlanHidesDoneInFutureSprint(t *testing.T) {
 		t.Errorf("the active sprint should keep its done issues, got %v", v)
 	}
 }
+
+// TestPlanMoveDoneIntoFutureSprint: a done card moved into a planned
+// sprint is there but hidden: the status says so, during and after the
+// write.
+func TestPlanMoveDoneIntoFutureSprint(t *testing.T) {
+	m := jiraTabModel(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	t.Cleanup(srv.Close)
+	m.jiraClient = jira.New(jira.Config{BaseURL: srv.URL, Email: "me@x.test", APIToken: "tok"})
+	m.jiraTab.views = append(m.jiraTab.views, jiraView{kind: jiraViewSprint, name: "Sprint 2", sprint: 10})
+	out, _ := m.handleJiraKey(keyMsg(t, "P"))
+	m = out.(Model)
+	out, _ = m.handlePlan(planMsg{seq: m.jiraTab.plan.seq,
+		left:  []jira.Card{{Key: "ABC-7", Summary: "Seven", Done: true}},
+		right: []jira.Card{{Key: "ABC-1", Summary: "First"}}})
+	m = out.(Model)
+	out, cmd := m.handleJiraKey(keyMsg(t, "space"))
+	m = out.(Model)
+	const want = "ABC-7 done: hidden in Sprint 2 · d shows it"
+	if !strings.Contains(m.status, want) {
+		t.Errorf("status = %q, want it to say %q", m.status, want)
+	}
+	msg := cmd().(planWroteMsg)
+	if msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	out, _ = m.handlePlanWrote(msg)
+	if m = out.(Model); !strings.Contains(m.status, want) {
+		t.Errorf("status after the write = %q", m.status)
+	}
+	if v := m.jiraTab.plan.view(1); len(v) != 1 {
+		t.Errorf("the done card should be hidden, sprint shows %v", v)
+	}
+}

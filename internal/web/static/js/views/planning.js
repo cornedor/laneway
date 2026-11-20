@@ -510,6 +510,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     const keys = order.map(c => c.Key);
     const crossing = keys.filter(k => from.get(k) !== to);
     const done = to.id ? [] : order.filter(c => c.Done && from.get(c.Key) !== to).map(c => c.Key);
+    const hiding = hidesDone(to) ? order.filter(c => c.Done && from.get(c.Key) !== to).map(c => c.Key) : [];
     if (done.length && !sure) {
       return app.ui.confirm({
         title: T('Move to the backlog?'), ok: T('Move'),
@@ -544,6 +545,7 @@ export default async function mount(el, { app, params, scope, context, toolbar }
     }
     touch([...new Set(order.map(c => from.get(c.Key).id)), to.id], true);
     put(keys, to, anchor, after);
+    if (hiding.length) app.ui.toast(Tn(hiding.length, '%s is done: hidden in %s · d shows it', '%s are done: hidden in %s · d shows them', hiding.join(', '), to.name));
     if (done.length) {
       for (const c of to.cards) if (done.includes(c.Key)) gone.set(c.Key, c);
       to.cards = to.cards.filter(c => !done.includes(c.Key));

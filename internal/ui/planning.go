@@ -470,11 +470,35 @@ func (m *Model) planMoveOf(take func(jira.Card) bool) tea.Cmd {
 	if to == 1 {
 		p.sides[1] = append(p.sides[1], moving...)
 		m.status = i18n.Tf("moving %s to %s…", what, sprint.name)
-		return planWrite(what+" → "+sprint.name, func() error { return client.MoveToSprint(ctx, sprint.sprint, keys...) })
+		done, note := m.planHiddenNote(moving), ""
+		if done != "" {
+			note = "  ·  " + done
+			m.status += note
+		}
+		return planWrite(what+" → "+sprint.name+note, func() error { return client.MoveToSprint(ctx, sprint.sprint, keys...) })
 	}
 	p.sides[0] = append(slices.Clone(moving), p.sides[0]...)
 	m.status = i18n.Tf("moving %s to the backlog…", what)
 	return planWrite(i18n.Tf("%s → backlog", what), func() error { return client.MoveToBacklog(ctx, keys...) })
+}
+
+// planHiddenNote says which of the cards just moved into the sprint side
+// it hides as done, "" for none.
+func (m *Model) planHiddenNote(moved []jira.Card) string {
+	p := m.jiraTab.plan
+	if !p.hidesDone(1) {
+		return ""
+	}
+	var done []string
+	for _, c := range moved {
+		if c.Done {
+			done = append(done, c.Key)
+		}
+	}
+	if len(done) == 0 {
+		return ""
+	}
+	return i18n.Tf("%s done: hidden in %s · %s shows it", strings.Join(done, ", "), p.sprints[p.target].name, helpKey(m.keys.PlanDone))
 }
 
 // planUndo takes the last move across back.
